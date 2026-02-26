@@ -18,7 +18,7 @@ namespace DysonNetwork.Pass.Realm;
 public class RealmController(
     AppDatabase db,
     RealmService rs,
-    FileService.FileServiceClient files,
+    DyFileService.DyFileServiceClient files,
     ActionLogService als,
     RelationshipService rels,
     AccountEventService accountEvents
@@ -237,7 +237,7 @@ public class RealmController(
         if (!realm.IsPublic)
         {
             if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-            if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
+            if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.DyNormal))
                 return StatusCode(403, "You must be a member to view this realm's members.");
         }
 
@@ -322,7 +322,7 @@ public class RealmController(
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
-        if (member.Role == RealmMemberRole.Owner)
+        if (member.Role == RealmMemberRole.DyOwner)
             return StatusCode(403, "Owner cannot leave their own realm.");
 
         member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
@@ -376,7 +376,7 @@ public class RealmController(
             {
                 new()
                 {
-                    Role = RealmMemberRole.Owner,
+                    Role = RealmMemberRole.DyOwner,
                     AccountId = currentUser.Id,
                     JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
@@ -385,14 +385,14 @@ public class RealmController(
 
         if (request.PictureId is not null)
         {
-            var pictureResult = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
+            var pictureResult = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
             if (pictureResult is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
             realm.Picture = SnCloudFileReferenceObject.FromProtoValue(pictureResult);
         }
 
         if (request.BackgroundId is not null)
         {
-            var backgroundResult = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
+            var backgroundResult = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
             if (backgroundResult is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
             realm.Background = SnCloudFileReferenceObject.FromProtoValue(backgroundResult);
         }
@@ -431,7 +431,7 @@ public class RealmController(
         var member = await db.RealmMembers
             .Where(m => m.AccountId == accountId && m.RealmId == realm.Id && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
-        if (member is null || member.Role < RealmMemberRole.Moderator)
+        if (member is null || member.Role < RealmMemberRole.DyModerator)
             return StatusCode(403, "You do not have permission to update this realm.");
 
         if (request.Slug is not null && request.Slug != realm.Slug)
@@ -452,7 +452,7 @@ public class RealmController(
 
         if (request.PictureId is not null)
         {
-            var pictureResult = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
+            var pictureResult = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
             if (pictureResult is null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
 
             realm.Picture = SnCloudFileReferenceObject.FromProtoValue(pictureResult);
@@ -460,7 +460,7 @@ public class RealmController(
 
         if (request.BackgroundId is not null)
         {
-            var backgroundResult = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
+            var backgroundResult = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
             if (backgroundResult is null) return BadRequest("Invalid background id, unable to find the file on cloud.");
 
             realm.Background = SnCloudFileReferenceObject.FromProtoValue(backgroundResult);
@@ -535,7 +535,7 @@ public class RealmController(
         {
             AccountId = currentUser.Id,
             RealmId = realm.Id,
-            Role = RealmMemberRole.Normal,
+            Role = RealmMemberRole.DyNormal,
             JoinedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
         };
 
@@ -572,7 +572,7 @@ public class RealmController(
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
-        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator, member.Role))
+        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.DyModerator, member.Role))
             return StatusCode(403, "You do not have permission to remove members from this realm.");
 
         member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
@@ -596,7 +596,7 @@ public class RealmController(
     [Authorize]
     public async Task<ActionResult<SnRealmMember>> UpdateMemberRole(string slug, Guid memberId, [FromBody] int newRole)
     {
-        if (newRole >= RealmMemberRole.Owner) return BadRequest("Unable to set realm member to owner or greater role.");
+        if (newRole >= RealmMemberRole.DyOwner) return BadRequest("Unable to set realm member to owner or greater role.");
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var realm = await db.Realms
@@ -609,7 +609,7 @@ public class RealmController(
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
-        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator, member.Role,
+        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.DyModerator, member.Role,
                 newRole))
             return StatusCode(403, "You do not have permission to update member roles in this realm.");
 
@@ -645,7 +645,7 @@ public class RealmController(
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 
-        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Owner))
+        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.DyOwner))
             return StatusCode(403, "Only the owner can delete this realm.");
 
         try

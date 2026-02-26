@@ -14,9 +14,9 @@ public class SnExperienceRecord : ModelBase
     public Guid AccountId { get; set; }
     public SnAccount Account { get; set; } = null!;
 
-    public Proto.ExperienceRecord ToProto()
+    public DyExperienceRecord ToProto()
     {
-        var proto = new Proto.ExperienceRecord
+        var proto = new DyExperienceRecord
         {
             Id = Id.ToString(),
             ReasonType = ReasonType,

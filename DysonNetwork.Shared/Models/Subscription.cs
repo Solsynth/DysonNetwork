@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Globalization;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
@@ -185,7 +186,7 @@ public class SnWalletGift : ModelBase
         }
     }
 
-     public Proto.Gift ToProtoValue() => new()
+     public DyGift ToProtoValue() => new()
      {
          Id = Id.ToString(),
          GifterId = GifterId.ToString(),
@@ -195,7 +196,7 @@ public class SnWalletGift : ModelBase
          SubscriptionIdentifier = SubscriptionIdentifier,
          BasePrice = BasePrice.ToString(CultureInfo.InvariantCulture),
          FinalPrice = FinalPrice.ToString(CultureInfo.InvariantCulture),
-         Status = (Proto.GiftStatus)Status,
+         Status = (DyGiftStatus)Status,
          RedeemedAt = RedeemedAt?.ToTimestamp(),
          RedeemerId = RedeemerId?.ToString(),
          SubscriptionId = SubscriptionId?.ToString(),
@@ -211,7 +212,7 @@ public class SnWalletGift : ModelBase
          UpdatedAt = UpdatedAt.ToTimestamp()
      };
 
-     public static SnWalletGift FromProtoValue(Proto.Gift proto) => new()
+     public static SnWalletGift FromProtoValue(DyGift proto) => new()
      {
          Id = Guid.Parse(proto.Id),
          GifterId = Guid.Parse(proto.GifterId),
@@ -405,9 +406,9 @@ public class SnWalletSubscription : ModelBase
         };
     }
 
-    public Proto.Subscription ToProtoValue()
+    public DySubscription ToProtoValue()
     {
-        var proto = new Proto.Subscription
+        var proto = new DySubscription
         {
             Id = Id.ToString(),
             BegunAt = BegunAt.ToTimestamp(),
@@ -415,7 +416,7 @@ public class SnWalletSubscription : ModelBase
             Identifier = Identifier,
             IsActive = IsActive,
             IsFreeTrial = IsFreeTrial,
-            Status = (Proto.SubscriptionStatus)Status,
+            Status = (DySubscriptionStatus)Status,
             PaymentMethod = PaymentMethod,
             PaymentDetails = PaymentDetails.ToProtoValue(),
             BasePrice = BasePrice.ToString(CultureInfo.InvariantCulture),
@@ -440,7 +441,7 @@ public class SnWalletSubscription : ModelBase
         return proto;
     }
 
-    public static SnWalletSubscription FromProtoValue(Proto.Subscription proto) => new()
+    public static SnWalletSubscription FromProtoValue(DySubscription proto) => new()
     {
         Id = Guid.Parse(proto.Id),
         BegunAt = proto.BegunAt.ToInstant(),
@@ -480,17 +481,13 @@ public class SnSubscriptionReferenceObject : ModelBase
     public Instant? RenewalAt { get; set; }
     public Guid AccountId { get; set; }
 
-    private string? _displayName;
-
     /// <summary>
     /// Gets the human-readable name of the subscription type if available (cached for performance).
     /// </summary>
     [NotMapped]
-    public string? DisplayName => _displayName ??= SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(Identifier, out var name)
-        ? name
-        : null;
+    public string? DisplayName => field ??= SubscriptionTypeData.SubscriptionHumanReadable.GetValueOrDefault(Identifier);
 
-    public Proto.SubscriptionReferenceObject ToProtoValue() => new()
+    public DySubscriptionReferenceObject ToProtoValue() => new()
     {
         Id = Id.ToString(),
         Identifier = Identifier,
@@ -499,7 +496,7 @@ public class SnSubscriptionReferenceObject : ModelBase
         IsActive = IsActive,
         IsAvailable = IsAvailable,
         IsFreeTrial = IsFreeTrial,
-        Status = (Proto.SubscriptionStatus)Status,
+        Status = (DySubscriptionStatus)Status,
         BasePrice = BasePrice.ToString(CultureInfo.InvariantCulture),
         FinalPrice = FinalPrice.ToString(CultureInfo.InvariantCulture),
         RenewalAt = RenewalAt?.ToTimestamp(),
@@ -509,7 +506,7 @@ public class SnSubscriptionReferenceObject : ModelBase
         UpdatedAt = UpdatedAt.ToTimestamp()
     };
 
-    public static SnSubscriptionReferenceObject FromProtoValue(Proto.SubscriptionReferenceObject proto) => new()
+    public static SnSubscriptionReferenceObject FromProtoValue(DySubscriptionReferenceObject proto) => new()
     {
         Id = Guid.Parse(proto.Id),
         Identifier = proto.Identifier,
@@ -533,9 +530,9 @@ public class SnPaymentDetails
     public string Currency { get; set; } = null!;
     public string? OrderId { get; set; }
 
-    public Proto.PaymentDetails ToProtoValue()
+    public DyPaymentDetails ToProtoValue()
     {
-        var proto = new Proto.PaymentDetails
+        var proto = new DyPaymentDetails
         {
             Currency = Currency
         };
@@ -548,7 +545,7 @@ public class SnPaymentDetails
         return proto;
     }
 
-    public static SnPaymentDetails FromProtoValue(Proto.PaymentDetails proto) => new()
+    public static SnPaymentDetails FromProtoValue(DyPaymentDetails proto) => new()
     {
         Currency = proto.Currency,
         OrderId = proto.OrderId,
@@ -602,7 +599,7 @@ public class SnWalletCoupon : ModelBase
     /// </summary>
     public int? MaxUsage { get; set; }
 
-    public Proto.Coupon ToProtoValue() => new()
+    public DyCoupon ToProtoValue() => new()
     {
         Id = Id.ToString(),
         Identifier = Identifier,
@@ -616,7 +613,7 @@ public class SnWalletCoupon : ModelBase
         UpdatedAt = UpdatedAt.ToTimestamp()
     };
 
-    public static SnWalletCoupon FromProtoValue(Proto.Coupon proto) => new()
+    public static SnWalletCoupon FromProtoValue(DyCoupon proto) => new()
     {
         Id = Guid.Parse(proto.Id),
         Identifier = proto.Identifier,

@@ -9,7 +9,7 @@ namespace DysonNetwork.Develop.Identity;
 
 public class BotAccountService(
     AppDatabase db,
-    BotAccountReceiverService.BotAccountReceiverServiceClient accountReceiver,
+    DyBotAccountReceiverService.DyBotAccountReceiverServiceClient accountReceiver,
     RemoteAccountService remoteAccounts
 )
 {
@@ -30,7 +30,7 @@ public class BotAccountService(
     public async Task<SnBotAccount> CreateBotAsync(
         SnDevProject project,
         string slug,
-        Account account,
+        DyAccount account,
         string? pictureId,
         string? backgroundId
     )
@@ -45,7 +45,7 @@ public class BotAccountService(
         try
         {
             var automatedId = Guid.NewGuid();
-            var createRequest = new CreateBotAccountRequest
+            var createRequest = new DyCreateBotAccountRequest
             {
                 AutomatedId = automatedId.ToString(),
                 Account = account,
@@ -90,7 +90,7 @@ public class BotAccountService(
 
     public async Task<SnBotAccount> UpdateBotAsync(
         SnBotAccount bot,
-        Account account,
+        DyAccount account,
         string? pictureId,
         string? backgroundId
     )
@@ -101,7 +101,7 @@ public class BotAccountService(
         try
         {
             // Update the bot account in the Pass service
-            var updateRequest = new UpdateBotAccountRequest
+            var updateRequest = new DyUpdateBotAccountRequest
             {
                 AutomatedId = bot.Id.ToString(),
                 Account = account,
@@ -134,7 +134,7 @@ public class BotAccountService(
         try
         {
             // Delete the bot account from the Pass service
-            var deleteRequest = new DeleteBotAccountRequest
+            var deleteRequest = new DyDeleteBotAccountRequest
             {
                 AutomatedId = bot.Id.ToString(),
                 Force = false

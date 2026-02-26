@@ -7,7 +7,7 @@ using DysonNetwork.Shared.Registry;
 namespace DysonNetwork.Zone.Publication;
 
 public class TemplateContextBuilder(
-    PostService.PostServiceClient postClient,
+    DyPostService.DyPostServiceClient postClient,
     RemotePublisherService publisherService,
     MarkdownConverter markdownConverter
 )
@@ -142,7 +142,7 @@ public class TemplateContextBuilder(
             {
                 try
                 {
-                    var request = new GetPostRequest { PublisherId = publisherId };
+                    var request = new DyGetPostRequest { PublisherId = publisherId };
                     if (Guid.TryParse(lookupSlug, out var id))
                         request.Id = id.ToString();
                     else

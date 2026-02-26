@@ -43,7 +43,7 @@ public class BundleController(AppDatabase db) : ControllerBase
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var query = db.Bundles
@@ -68,7 +68,7 @@ public class BundleController(AppDatabase db) : ControllerBase
     [Authorize]
     public async Task<ActionResult<SnFileBundle>> CreateBundle([FromBody] BundleRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         if (currentUser.PerkSubscription is null && !string.IsNullOrEmpty(request.Slug))
@@ -98,7 +98,7 @@ public class BundleController(AppDatabase db) : ControllerBase
     [Authorize]
     public async Task<ActionResult<SnFileBundle>> UpdateBundle([FromRoute] Guid id, [FromBody] BundleRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var bundle = await db.Bundles
@@ -133,7 +133,7 @@ public class BundleController(AppDatabase db) : ControllerBase
     [Authorize]
     public async Task<ActionResult> DeleteBundle([FromRoute] Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var bundle = await db.Bundles

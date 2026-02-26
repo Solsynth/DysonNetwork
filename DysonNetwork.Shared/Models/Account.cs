@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Proto;
 using MessagePack;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -37,9 +38,9 @@ public class SnAccount : ModelBase
 
     [NotMapped] public SnSubscriptionReferenceObject? PerkSubscription { get; set; }
 
-    public Proto.Account ToProtoValue()
+    public DyAccount ToProtoValue()
     {
-        var proto = new Proto.Account
+        var proto = new DyAccount
         {
             Id = Id.ToString(),
             Name = Name,
@@ -71,7 +72,7 @@ public class SnAccount : ModelBase
     }
 
 
-    public static SnAccount FromProtoValue(Proto.Account proto)
+    public static SnAccount FromProtoValue(DyAccount proto)
     {
         var account = new SnAccount
         {
@@ -155,9 +156,9 @@ public class UsernameColor
     public string? Direction { get; set; } // e.g. "to right"
     public List<string>? Colors { get; set; } // e.g. ["#ff0000", "#00ff00"]
 
-    public Proto.UsernameColor ToProtoValue()
+    public DyUsernameColor ToProtoValue()
     {
-        var proto = new Proto.UsernameColor
+        var proto = new DyUsernameColor
         {
             Type = Type,
             Value = Value,
@@ -171,7 +172,7 @@ public class UsernameColor
         return proto;
     }
 
-    public static UsernameColor FromProtoValue(Proto.UsernameColor proto)
+    public static UsernameColor FromProtoValue(DyUsernameColor proto)
     {
         return new UsernameColor
         {
@@ -224,9 +225,9 @@ public class SnAccountProfile : ModelBase, IIdentifiedResource
     public Guid AccountId { get; set; }
     [IgnoreMember] [JsonIgnore] public SnAccount Account { get; set; } = null!;
 
-    public Proto.AccountProfile ToProtoValue()
+    public DyAccountProfile ToProtoValue()
     {
-        var proto = new Proto.AccountProfile
+        var proto = new DyAccountProfile
         {
             Id = Id.ToString(),
             FirstName = FirstName ?? string.Empty,
@@ -261,7 +262,7 @@ public class SnAccountProfile : ModelBase, IIdentifiedResource
     }
 
 
-    public static SnAccountProfile FromProtoValue(Proto.AccountProfile proto)
+    public static SnAccountProfile FromProtoValue(DyAccountProfile proto)
     {
         var profile = new SnAccountProfile
         {
@@ -307,16 +308,16 @@ public class SnProfileLink
     public string Name { get; set; } = string.Empty;
     public string Url { get; set; } = string.Empty;
 
-    public Proto.ProfileLink ToProtoValue()
+    public DyProfileLink ToProtoValue()
     {
-        return new Proto.ProfileLink
+        return new DyProfileLink
         {
             Name = Name,
             Url = Url
         };
     }
 
-    public static SnProfileLink FromProtoValue(Proto.ProfileLink proto)
+    public static SnProfileLink FromProtoValue(DyProfileLink proto)
     {
         return new SnProfileLink
         {
@@ -338,17 +339,17 @@ public class SnAccountContact : ModelBase
     public Guid AccountId { get; set; }
     [IgnoreMember] [JsonIgnore] public SnAccount Account { get; set; } = null!;
 
-    public Proto.AccountContact ToProtoValue()
+    public DyAccountContact ToProtoValue()
     {
-        var proto = new Proto.AccountContact
+        var proto = new DyAccountContact
         {
             Id = Id.ToString(),
             Type = Type switch
             {
-                AccountContactType.Email => Shared.Proto.AccountContactType.Email,
-                AccountContactType.PhoneNumber => Shared.Proto.AccountContactType.PhoneNumber,
-                AccountContactType.Address => Shared.Proto.AccountContactType.Address,
-                _ => Shared.Proto.AccountContactType.Unspecified
+                AccountContactType.Email => DyAccountContactType.DyEmail,
+                AccountContactType.PhoneNumber => DyAccountContactType.DyPhoneNumber,
+                AccountContactType.Address => DyAccountContactType.DyAddress,
+                _ => DyAccountContactType.Unspecified
             },
             Content = Content,
             IsPrimary = IsPrimary,
@@ -361,7 +362,7 @@ public class SnAccountContact : ModelBase
         return proto;
     }
 
-    public static SnAccountContact FromProtoValue(Proto.AccountContact proto)
+    public static SnAccountContact FromProtoValue(DyAccountContact proto)
     {
         var contact = new SnAccountContact
         {
@@ -369,9 +370,9 @@ public class SnAccountContact : ModelBase
             AccountId = Guid.Parse(proto.AccountId),
             Type = proto.Type switch
             {
-                Shared.Proto.AccountContactType.Email => AccountContactType.Email,
-                Shared.Proto.AccountContactType.PhoneNumber => AccountContactType.PhoneNumber,
-                Shared.Proto.AccountContactType.Address => AccountContactType.Address,
+                DyAccountContactType.DyEmail => AccountContactType.Email,
+                DyAccountContactType.DyPhoneNumber => AccountContactType.PhoneNumber,
+                DyAccountContactType.DyAddress => AccountContactType.Address,
                 _ => AccountContactType.Email
             },
             Content = proto.Content,

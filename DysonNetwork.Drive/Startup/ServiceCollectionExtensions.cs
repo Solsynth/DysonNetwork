@@ -138,14 +138,14 @@ public static class ServiceCollectionExtensions
         private static async Task ProcessUploadedFileAsync(FileUploadedEvent evt, IServiceProvider serviceProvider,
             ILogger logger, CancellationToken cancellationToken)
         {
-            const string TempFileSuffix = "dypart";
-            var AnimatedImageTypes = new[] { "image/gif", "image/apng", "image/avif" };
-            var AnimatedImageExtensions = new[] { ".gif", ".apng", ".avif" };
+            const string tempFileSuffix = "dypart";
+            var animatedImageTypes = new[] { "image/gif", "image/apng", "image/avif" };
+            var animatedImageExtensions = new[] { ".gif", ".apng", ".avif" };
 
-            var fs = serviceProvider.GetRequiredService<DysonNetwork.Drive.Storage.FileService>();
+            var fs = serviceProvider.GetRequiredService<Storage.FileService>();
             var scopedDb = serviceProvider.GetRequiredService<AppDatabase>();
             var persistentTaskService = serviceProvider.GetRequiredService<PersistentTaskService>();
-            var ringService = serviceProvider.GetRequiredService<RingService.RingServiceClient>();
+            var ringService = serviceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
 
             var pool = await fs.GetPoolAsync(evt.RemoteId);
             if (pool is null) return;
@@ -209,8 +209,8 @@ public static class ServiceCollectionExtensions
                 switch ((evt.ContentType ?? "").Split('/')[0])
                 {
                     case "image":
-                        if (AnimatedImageTypes.Contains(evt.ContentType) ||
-                            AnimatedImageExtensions.Contains(fileExtension))
+                        if (animatedImageTypes.Contains(evt.ContentType) ||
+                            animatedImageExtensions.Contains(fileExtension))
                         {
                             logger.LogInformation("Skip optimize file {FileId} due to it is animated...", evt.FileId);
                             uploads.Add((evt.ProcessingFilePath, string.Empty, evt.ContentType ?? "image/unknown",
@@ -230,7 +230,7 @@ public static class ServiceCollectionExtensions
                                 imageToWrite = vipsImage.Colourspace(NetVips.Enums.Interpretation.Srgb);
                             }
 
-                            var webpPath = Path.Join(Path.GetTempPath(), $"{evt.FileId}.{TempFileSuffix}.webp");
+                            var webpPath = Path.Join(Path.GetTempPath(), $"{evt.FileId}.{tempFileSuffix}.webp");
                             imageToWrite.Autorot().WriteToFile(webpPath,
                                 new NetVips.VOption { { "lossless", true }, { "strip", true } });
                             uploads.Add((webpPath, string.Empty, newMimeType, true));
@@ -239,7 +239,7 @@ public static class ServiceCollectionExtensions
                             {
                                 var scale = 1024.0 / Math.Max(imageToWrite.Width, imageToWrite.Height);
                                 var compressedPath =
-                                    Path.Join(Path.GetTempPath(), $"{evt.FileId}.{TempFileSuffix}.compressed.webp");
+                                    Path.Join(Path.GetTempPath(), $"{evt.FileId}.{tempFileSuffix}.compressed.webp");
                                 using var compressedImage = imageToWrite.Resize(scale);
                                 compressedImage.Autorot().WriteToFile(compressedPath,
                                     new NetVips.VOption { { "Q", 80 }, { "strip", true } });
@@ -266,7 +266,7 @@ public static class ServiceCollectionExtensions
                         uploads.Add((evt.ProcessingFilePath, string.Empty, evt.ContentType ?? "video/unknown", false));
 
                         var thumbnailPath = Path.Join(Path.GetTempPath(),
-                            $"{evt.FileId}.{TempFileSuffix}.thumbnail.jpg");
+                            $"{evt.FileId}.{tempFileSuffix}.thumbnail.jpg");
                         try
                         {
                             await FFMpegCore.FFMpegArguments
@@ -386,7 +386,7 @@ public static class ServiceCollectionExtensions
                 {
                     try
                     {
-                        var pushNotification = new PushNotification
+                        var pushNotification = new DyPushNotification
                         {
                             Topic = "drive.tasks.upload",
                             Title = "File Processing Complete",
@@ -395,11 +395,11 @@ public static class ServiceCollectionExtensions
                             IsSavable = true
                         };
 
-                        await ringService.SendPushNotificationToUserAsync(new SendPushNotificationToUserRequest
+                        await ringService.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
                         {
                             UserId = uploadTask.AccountId.ToString(),
                             Notification = pushNotification
-                        });
+                        }, cancellationToken: cancellationToken);
                     }
                     catch (Exception ex)
                     {

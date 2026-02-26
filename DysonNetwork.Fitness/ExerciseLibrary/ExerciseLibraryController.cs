@@ -56,7 +56,7 @@ public class ExerciseLibraryController(AppDatabase db, ExerciseLibraryService ex
         [FromQuery] int skip = 0,
         [FromQuery] int take = 50)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var exercises = await exerciseService.GetExercisesByAccountAsync(accountId, skip, take);
@@ -70,7 +70,7 @@ public class ExerciseLibraryController(AppDatabase db, ExerciseLibraryService ex
     [Authorize]
     public async Task<ActionResult<SnExerciseLibrary>> CreateExercise([FromBody] CreateExerciseRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var exercise = new SnExerciseLibrary
@@ -95,7 +95,7 @@ public class ExerciseLibraryController(AppDatabase db, ExerciseLibraryService ex
     [Authorize]
     public async Task<ActionResult<SnExerciseLibrary>> UpdateExercise(Guid id, [FromBody] UpdateExerciseRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         
         var existing = await exerciseService.GetExerciseByIdAsync(id);
         if (existing is null) return NotFound();
@@ -126,7 +126,7 @@ public class ExerciseLibraryController(AppDatabase db, ExerciseLibraryService ex
     [Authorize]
     public async Task<IActionResult> DeleteExercise(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         
         var exercise = await exerciseService.GetExerciseByIdAsync(id);
         if (exercise is null) return NotFound();

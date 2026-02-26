@@ -16,7 +16,7 @@ public class PostController(
     PostService ps,
     PublisherService pub,
     RemoteAccountService remoteAccountsHelper,
-    AccountService.AccountServiceClient accounts,
+    DyAccountService.DyAccountServiceClient accounts,
     RemoteRealmService rs
 ) : ControllerBase
 {
@@ -24,7 +24,7 @@ public class PostController(
     public async Task<ActionResult<List<SnPost>>> ListFeaturedPosts()
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account;
+        var currentUser = currentUserValue as DyAccount;
 
         var posts = await ps.ListFeaturedPostsAsync(currentUser);
         return Ok(posts);
@@ -67,7 +67,7 @@ public class PostController(
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account;
+        var currentUser = currentUserValue as DyAccount;
 
         Instant? periodStart = periodStartTime.HasValue
             ? Instant.FromUnixTimeSeconds(periodStartTime.Value)
@@ -234,7 +234,7 @@ public class PostController(
     public async Task<ActionResult<SnPost>> GetPost(string publisherName, string slug)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account;
+        var currentUser = currentUserValue as DyAccount;
         List<Guid> userFriends = [];
         if (currentUser != null)
         {
@@ -271,7 +271,7 @@ public class PostController(
     public async Task<ActionResult<SnPost>> GetPost(Guid id)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account;
+        var currentUser = currentUserValue as DyAccount;
         List<Guid> userFriends = [];
         if (currentUser != null)
         {
@@ -349,7 +349,7 @@ public class PostController(
     public async Task<ActionResult<SnPost>> GetFeaturedReply(Guid id)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account;
+        var currentUser = currentUserValue as DyAccount;
         List<Guid> userFriends = [];
         if (currentUser != null)
         {
@@ -382,7 +382,7 @@ public class PostController(
     public async Task<ActionResult<List<SnPost>>> ListPinnedReplies(Guid id)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account;
+        var currentUser = currentUserValue as DyAccount;
         List<Guid> userFriends = [];
         if (currentUser != null)
         {
@@ -416,7 +416,7 @@ public class PostController(
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account;
+        var currentUser = currentUserValue as DyAccount;
 
         List<Guid> userFriends = [];
         if (currentUser != null)

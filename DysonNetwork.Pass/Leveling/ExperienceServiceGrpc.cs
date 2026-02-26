@@ -3,9 +3,9 @@ using Grpc.Core;
 
 namespace DysonNetwork.Pass.Leveling;
 
-public class ExperienceServiceGrpc(ExperienceService experienceService) : Shared.Proto.ExperienceService.ExperienceServiceBase
+public class ExperienceServiceGrpc(ExperienceService experienceService) : DyExperienceService.ExperienceServiceBase
 {
-    public override async Task<Shared.Proto.ExperienceRecord> AddRecord(AddExperienceRecordRequest request, ServerCallContext context)
+    public override async Task<DyExperienceRecord> AddRecord(AddExperienceRecordRequest request, ServerCallContext context)
     {
         var accountId = Guid.Parse(request.AccountId);
         var record = await experienceService.AddRecord(

@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Proto;
 using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Models;
@@ -19,9 +20,9 @@ public class SnApiKey : ModelBase
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Key { get; set; }
 
-    public Proto.ApiKey ToProtoValue()
+    public DyApiKey ToProtoValue()
     {
-        return new Proto.ApiKey
+        return new DyApiKey
         {
             Id = Id.ToString(),
             Label = Label,
@@ -33,7 +34,7 @@ public class SnApiKey : ModelBase
         };
     }
 
-    public static SnApiKey FromProtoValue(Proto.ApiKey proto)
+    public static SnApiKey FromProtoValue(DyApiKey proto)
     {
         return new SnApiKey
         {

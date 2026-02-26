@@ -7,7 +7,7 @@ using NodaTime;
 namespace DysonNetwork.Wallet.Payment;
 
 public class PaymentServiceGrpc(PaymentService paymentService)
-    : Shared.Proto.PaymentService.PaymentServiceBase
+    : DyPaymentService.DyPaymentServiceBase
 {
     public override async Task<Order> CreateOrder(
         CreateOrderRequest request,
@@ -48,7 +48,7 @@ public class PaymentServiceGrpc(PaymentService paymentService)
         return transaction.ToProtoValue();
     }
 
-    public override async Task<Shared.Proto.Transaction> CreateTransaction(
+    public override async Task<DyTransaction> CreateTransaction(
         CreateTransactionRequest request,
         ServerCallContext context
     )
@@ -64,7 +64,7 @@ public class PaymentServiceGrpc(PaymentService paymentService)
         return transaction.ToProtoValue();
     }
 
-    public override async Task<Shared.Proto.Order> CancelOrder(
+    public override async Task<DyOrder> CancelOrder(
         CancelOrderRequest request,
         ServerCallContext context
     )

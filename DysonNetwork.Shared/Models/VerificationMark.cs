@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Shared.Models;
 
@@ -14,20 +15,20 @@ public class SnVerificationMark
     [MaxLength(8192)] public string? Description { get; set; }
     [MaxLength(1024)] public string? VerifiedBy { get; set; }
 
-    public Proto.VerificationMark ToProtoValue()
+    public DyVerificationMark ToProtoValue()
     {
-        var proto = new Proto.VerificationMark
+        var proto = new DyVerificationMark
         {
             Type = Type switch
             {
-                VerificationMarkType.Official => Proto.VerificationMarkType.Official,
-                VerificationMarkType.Individual => Proto.VerificationMarkType.Individual,
-                VerificationMarkType.Organization => Proto.VerificationMarkType.Organization,
-                VerificationMarkType.Government => Proto.VerificationMarkType.Government,
-                VerificationMarkType.Creator => Proto.VerificationMarkType.Creator,
-                VerificationMarkType.Developer => Proto.VerificationMarkType.Developer,
-                VerificationMarkType.Parody => Proto.VerificationMarkType.Parody,
-                _ => Proto.VerificationMarkType.Unspecified
+                VerificationMarkType.Official => DyVerificationMarkType.DyOfficial,
+                VerificationMarkType.Individual => DyVerificationMarkType.DyIndividual,
+                VerificationMarkType.Organization => DyVerificationMarkType.DyOrganization,
+                VerificationMarkType.Government => DyVerificationMarkType.DyGovernment,
+                VerificationMarkType.Creator => DyVerificationMarkType.DyCreator,
+                VerificationMarkType.Developer => DyVerificationMarkType.DyDeveloper,
+                VerificationMarkType.Parody => DyVerificationMarkType.DyParody,
+                _ => DyVerificationMarkType.DyIndividual
             },
             Title = Title ?? string.Empty,
             Description = Description ?? string.Empty,
@@ -38,19 +39,19 @@ public class SnVerificationMark
     }
     
     
-    public static SnVerificationMark FromProtoValue(Proto.VerificationMark proto)
+    public static SnVerificationMark FromProtoValue(DyVerificationMark proto)
     {
         return new SnVerificationMark
         {
             Type = proto.Type switch
             {
-                Proto.VerificationMarkType.Official => VerificationMarkType.Official,
-                Proto.VerificationMarkType.Individual => VerificationMarkType.Individual,
-                Proto.VerificationMarkType.Organization => VerificationMarkType.Organization,
-                Proto.VerificationMarkType.Government => VerificationMarkType.Government,
-                Proto.VerificationMarkType.Creator => VerificationMarkType.Creator,
-                Proto.VerificationMarkType.Developer => VerificationMarkType.Developer,
-                Proto.VerificationMarkType.Parody => VerificationMarkType.Parody,
+                DyVerificationMarkType.DyOfficial => VerificationMarkType.Official,
+                DyVerificationMarkType.DyIndividual => VerificationMarkType.Individual,
+                DyVerificationMarkType.DyOrganization => VerificationMarkType.Organization,
+                DyVerificationMarkType.DyGovernment => VerificationMarkType.Government,
+                DyVerificationMarkType.DyCreator => VerificationMarkType.Creator,
+                DyVerificationMarkType.DyDeveloper => VerificationMarkType.Developer,
+                DyVerificationMarkType.DyParody => VerificationMarkType.Parody,
                 _ => VerificationMarkType.Individual
             },
             Title = proto.Title,

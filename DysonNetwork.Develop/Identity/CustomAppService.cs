@@ -8,7 +8,7 @@ namespace DysonNetwork.Develop.Identity;
 
 public class CustomAppService(
     AppDatabase db,
-    FileService.FileServiceClient files
+    DyFileService.DyFileServiceClient files
 )
 {
     public async Task<SnCustomApp?> CreateAppAsync(
@@ -36,12 +36,7 @@ public class CustomAppService(
 
         if (request.PictureId is not null)
         {
-            var picture = await files.GetFileAsync(
-                new GetFileRequest
-                {
-                    Id = request.PictureId
-                }
-            );
+            var picture = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
             if (picture is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
             app.Picture = SnCloudFileReferenceObject.FromProtoValue(picture);
@@ -50,7 +45,7 @@ public class CustomAppService(
         if (request.BackgroundId is not null)
         {
             var background = await files.GetFileAsync(
-                new GetFileRequest { Id = request.BackgroundId }
+                new DyGetFileRequest { Id = request.BackgroundId }
             );
             if (background is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
@@ -182,12 +177,7 @@ public class CustomAppService(
 
         if (request.PictureId is not null)
         {
-            var picture = await files.GetFileAsync(
-                new GetFileRequest
-                {
-                    Id = request.PictureId
-                }
-            );
+            var picture = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
             if (picture is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
             app.Picture = SnCloudFileReferenceObject.FromProtoValue(picture);
@@ -195,9 +185,7 @@ public class CustomAppService(
         }
         if (request.BackgroundId is not null)
         {
-            var background = await files.GetFileAsync(
-                new GetFileRequest { Id = request.BackgroundId }
-            );
+            var background = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
             if (background is null)
                 throw new InvalidOperationException("Invalid picture id, unable to find the file on cloud.");
             app.Background = SnCloudFileReferenceObject.FromProtoValue(background);
@@ -207,12 +195,12 @@ public class CustomAppService(
         db.Update(app);
         await db.SaveChangesAsync();
 
-        if (oldStatus == Shared.Models.CustomAppStatus.Production && app.Status != Shared.Models.CustomAppStatus.Production)
+        if (oldStatus == CustomAppStatus.Production && app.Status != CustomAppStatus.Production)
         {
             if (app.Picture is not null)
-                await files.UnsetFilePublicAsync(new UnsetFilePublicRequest { FileId = app.Picture.Id });
+                await files.UnsetFilePublicAsync(new DyUnsetFilePublicRequest { FileId = app.Picture.Id });
             if (app.Background is not null)
-                await files.UnsetFilePublicAsync(new UnsetFilePublicRequest { FileId = app.Background.Id });
+                await files.UnsetFilePublicAsync(new DyUnsetFilePublicRequest { FileId = app.Background.Id });
         }
 
         return app;

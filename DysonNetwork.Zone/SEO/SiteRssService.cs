@@ -7,7 +7,7 @@ using DysonNetwork.Zone.Publication;
 namespace DysonNetwork.Zone.SEO;
 
 public class SiteRssService(
-    PostService.PostServiceClient postClient,
+    DyPostService.DyPostServiceClient postClient,
     MarkdownConverter markdownConverter,
     TemplateRouteResolver routeResolver
 )

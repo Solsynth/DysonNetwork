@@ -165,16 +165,16 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
 
     public string ResourceIdentifier => $"post:{Id}";
 
-    public Post ToProtoValue()
+    public DyPost ToProtoValue()
     {
-        var proto = new Post
+        var proto = new DyPost
         {
             Id = Id.ToString(),
             Title = Title ?? string.Empty,
             Description = Description ?? string.Empty,
             Slug = Slug ?? string.Empty,
-            Visibility = (Proto.PostVisibility)((int)Visibility + 1),
-            Type = (Proto.PostType)((int)Type + 1),
+            Visibility = (DyPostVisibility)((int)Visibility + 1),
+            Type = (DyPostType)((int)Type + 1),
             ViewsUnique = ViewsUnique,
             ViewsTotal = ViewsTotal,
             Upvotes = Upvotes,
@@ -200,10 +200,10 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
         if (Content != null)
             proto.Content = Content;
 
-        proto.ContentType = (Proto.PostContentType)((int)ContentType + 1);
+        proto.ContentType = (DyPostContentType)((int)ContentType + 1);
 
         if (PinMode.HasValue)
-            proto.PinMode = (Proto.PostPinMode)((int)PinMode.Value + 1);
+            proto.PinMode = (DyPostPinMode)((int)PinMode.Value + 1);
 
         if (Metadata != null)
             proto.Meta = InfraObjectCoder.ConvertObjectToByteString(Metadata);
@@ -218,13 +218,13 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
             proto.FediverseUri = FediverseUri;
 
         if (FediverseType.HasValue)
-            proto.FediverseType = (Proto.FediverseContentType)((int)FediverseType.Value + 1);
+            proto.FediverseType = (DyFediverseContentType)((int)FediverseType.Value + 1);
 
         if (!string.IsNullOrEmpty(Language))
             proto.Language = Language;
 
         if (Mentions != null)
-            proto.Mentions.AddRange(Mentions.Select(m => new Proto.ContentMention
+            proto.Mentions.AddRange(Mentions.Select(m => new DyContentMention
             {
                 Username = m.Username,
                 Url = m.Url,
@@ -277,7 +277,7 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
         return proto;
     }
 
-    public static SnPost FromProtoValue(Post proto)
+    public static SnPost FromProtoValue(DyPost proto)
     {
         var post = new SnPost
         {
@@ -608,7 +608,7 @@ public class SnPostReaction : ModelBase
         {
             Id = Id.ToString(),
             Symbol = Symbol,
-            Attitude = (Proto.PostReactionAttitude)((int)Attitude + 1),
+            Attitude = (DyPostReactionAttitude)((int)Attitude + 1),
             PostId = PostId.ToString(),
             AccountId = AccountId?.ToString() ?? string.Empty,
             FediverseUri = FediverseUri ?? string.Empty,
@@ -665,7 +665,7 @@ public class SnPostAward : ModelBase
         {
             Id = Id.ToString(),
             Amount = (double)Amount,
-            Attitude = (Proto.PostReactionAttitude)((int)Attitude + 1),
+            Attitude = (DyPostReactionAttitude)((int)Attitude + 1),
             PostId = PostId.ToString(),
             AccountId = AccountId.ToString(),
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
@@ -688,12 +688,12 @@ public class PostEmbedView
     public double? AspectRatio { get; set; }
     public PostEmbedViewRenderer Renderer { get; set; } = PostEmbedViewRenderer.WebView;
 
-    public Proto.PostEmbedView ToProtoValue()
+    public DyPostEmbedView ToProtoValue()
     {
-        var proto = new Proto.PostEmbedView
+        var proto = new DyPostEmbedView
         {
             Uri = Uri,
-            Renderer = (Proto.PostEmbedViewRenderer)(int)Renderer,
+            Renderer = (DyPostEmbedViewRenderer)(int)Renderer,
         };
         if (AspectRatio.HasValue)
         {
@@ -703,7 +703,7 @@ public class PostEmbedView
         return proto;
     }
 
-    public static PostEmbedView FromProtoValue(Proto.PostEmbedView proto)
+    public static PostEmbedView FromProtoValue(DyPostEmbedView proto)
     {
         return new PostEmbedView
         {

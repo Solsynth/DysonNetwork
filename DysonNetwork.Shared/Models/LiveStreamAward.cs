@@ -48,7 +48,7 @@ public class SnLiveStreamAward : ModelBase
         {
             Id = Id.ToString(),
             Amount = (double)Amount,
-            Attitude = (Proto.LiveStreamAwardAttitude)((int)Attitude + 1),
+            Attitude = (DyLiveStreamAwardAttitude)((int)Attitude + 1),
             LiveStreamId = LiveStreamId.ToString(),
             AccountId = AccountId.ToString(),
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),

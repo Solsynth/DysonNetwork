@@ -3,10 +3,10 @@ using Grpc.Core;
 
 namespace DysonNetwork.Insight.Reader;
 
-public class WebReaderGrpcService(WebReaderService service) : Shared.Proto.WebReaderService.WebReaderServiceBase
+public class WebReaderGrpcService(WebReaderService service) : DyWebReaderService.DyWebReaderServiceBase
 {
-    public override async Task<ScrapeArticleResponse> ScrapeArticle(
-        ScrapeArticleRequest request,
+    public override async Task<DyScrapeArticleResponse> ScrapeArticle(
+        DyScrapeArticleRequest request,
         ServerCallContext context
     )
     {
@@ -14,11 +14,11 @@ public class WebReaderGrpcService(WebReaderService service) : Shared.Proto.WebRe
             throw new RpcException(new Status(StatusCode.InvalidArgument, "url is required"));
 
         var scrapedArticle = await service.ScrapeArticleAsync(request.Url, context.CancellationToken);
-        return new ScrapeArticleResponse { Article = scrapedArticle.ToProtoValue() };
+        return new DyScrapeArticleResponse { Article = scrapedArticle.ToProtoValue() };
     }
 
-    public override async Task<GetLinkPreviewResponse> GetLinkPreview(
-        GetLinkPreviewRequest request,
+    public override async Task<DyGetLinkPreviewResponse> GetLinkPreview(
+        DyGetLinkPreviewRequest request,
         ServerCallContext context
     )
     {
@@ -31,11 +31,11 @@ public class WebReaderGrpcService(WebReaderService service) : Shared.Proto.WebRe
             bypassCache: request.BypassCache
         );
 
-        return new GetLinkPreviewResponse { Preview = linkEmbed.ToProtoValue() };
+        return new DyGetLinkPreviewResponse { Preview = linkEmbed.ToProtoValue() };
     }
 
-    public override async Task<InvalidateLinkPreviewCacheResponse> InvalidateLinkPreviewCache(
-        InvalidateLinkPreviewCacheRequest request,
+    public override async Task<DyInvalidateLinkPreviewCacheResponse> InvalidateLinkPreviewCache(
+        DyInvalidateLinkPreviewCacheRequest request,
         ServerCallContext context
     )
     {
@@ -44,6 +44,6 @@ public class WebReaderGrpcService(WebReaderService service) : Shared.Proto.WebRe
 
         await service.InvalidateCacheForUrlAsync(request.Url);
 
-        return new InvalidateLinkPreviewCacheResponse { Success = true };
+        return new DyInvalidateLinkPreviewCacheResponse { Success = true };
     }
 }

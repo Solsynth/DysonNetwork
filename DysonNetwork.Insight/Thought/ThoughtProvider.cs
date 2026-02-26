@@ -29,9 +29,9 @@ public class ThoughtServiceModel
 
 public class ThoughtProvider
 {
-    private readonly PostService.PostServiceClient _postClient;
-    private readonly AccountService.AccountServiceClient _accountClient;
-    private readonly PublisherService.PublisherServiceClient _publisherClient;
+    private readonly DyPostService.DyPostServiceClient _postClient;
+    private readonly DyAccountService.DyAccountServiceClient _accountClient;
+    private readonly DyPublisherService.DyPublisherServiceClient _publisherClient;
     private readonly KernelFactory _kernelFactory;
     private readonly MiChanKernelProvider _miChanKernelProvider;
     private readonly IConfiguration _configuration;
@@ -49,9 +49,9 @@ public class ThoughtProvider
     public ThoughtProvider(
         KernelFactory kernelFactory,
         IConfiguration configuration,
-        PostService.PostServiceClient postServiceClient,
-        AccountService.AccountServiceClient accountServiceClient,
-        PublisherService.PublisherServiceClient publisherClient,
+        DyPostService.DyPostServiceClient postServiceClient,
+        DyAccountService.DyAccountServiceClient accountServiceClient,
+        DyPublisherService.DyPublisherServiceClient publisherClient,
         ILogger<ThoughtProvider> logger,
         AppDatabase db,
         MemoryService memoryService,

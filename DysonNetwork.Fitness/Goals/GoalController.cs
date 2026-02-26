@@ -18,7 +18,7 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
         [FromQuery] int skip = 0,
         [FromQuery] int take = 20)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var goals = await goalService.GetGoalsByAccountAsync(accountId, status, skip, take);
@@ -34,7 +34,7 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
     [HttpGet("stats")]
     public async Task<ActionResult<GoalStats>> GetGoalStats()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var activeCount = await goalService.GetActiveGoalsCountAsync(accountId);
@@ -46,7 +46,7 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<SnFitnessGoal>> GetGoal(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         
         var goal = await goalService.GetGoalByIdAsync(id);
         if (goal is null) return NotFound();
@@ -59,7 +59,7 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
     [HttpPost]
     public async Task<ActionResult<SnFitnessGoal>> CreateGoal([FromBody] CreateGoalRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var goal = new SnFitnessGoal
@@ -86,7 +86,7 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<SnFitnessGoal>> UpdateGoal(Guid id, [FromBody] UpdateGoalRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         
         var existing = await goalService.GetGoalByIdAsync(id);
         if (existing is null) return NotFound();
@@ -113,7 +113,7 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
     [HttpPatch("{id:guid}/progress")]
     public async Task<ActionResult<SnFitnessGoal>> UpdateProgress(Guid id, [FromBody] UpdateProgressRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         
         var goal = await goalService.GetGoalByIdAsync(id);
         if (goal is null) return NotFound();
@@ -126,7 +126,7 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
     [HttpPatch("{id:guid}/status")]
     public async Task<ActionResult<SnFitnessGoal>> UpdateStatus(Guid id, [FromBody] UpdateStatusRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         
         var goal = await goalService.GetGoalByIdAsync(id);
         if (goal is null) return NotFound();
@@ -142,7 +142,7 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteGoal(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         
         var goal = await goalService.GetGoalByIdAsync(id);
         if (goal is null) return NotFound();

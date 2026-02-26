@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using DysonNetwork.Shared.Proto;
 using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Models;
@@ -22,9 +23,9 @@ public class SnBotAccount : ModelBase
     /// </summary>
     [NotMapped] public SnDeveloper? Developer { get; set; }
 
-    public Proto.BotAccount ToProtoValue()
+    public DyBotAccount ToProtoValue()
     {
-        var proto = new Proto.BotAccount
+        var proto = new DyBotAccount
         {
             Slug = Slug,
             IsActive = IsActive,
@@ -36,7 +37,7 @@ public class SnBotAccount : ModelBase
         return proto;
     }
 
-    public static SnBotAccount FromProto(Proto.BotAccount proto)
+    public static SnBotAccount FromProto(DyBotAccount proto)
     {
         var botAccount = new SnBotAccount
         {

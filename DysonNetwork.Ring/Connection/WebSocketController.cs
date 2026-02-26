@@ -33,7 +33,7 @@ public class WebSocketController(
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
         if (
-            currentUserValue is not Account currentUser
+            currentUserValue is not DyAccount currentUser
             || currentSessionValue is not AuthSession currentSession
         )
         {

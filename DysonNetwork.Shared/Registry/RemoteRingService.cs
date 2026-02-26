@@ -2,7 +2,7 @@ using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Shared.Registry;
 
-public class RemoteRingService(RingService.RingServiceClient ring)
+public class RemoteRingService(DyRingService.DyRingServiceClient ring)
 {
     public async Task SendEmail(string toName, string toAddress, string subject, string body)
     {
@@ -40,7 +40,7 @@ public class RemoteRingService(RingService.RingServiceClient ring)
     public async Task PushWebSocketPacketToUsers(List<string> userIds, string type, byte[] data,
         string? errorMessage = null)
     {
-        var request = new PushWebSocketPacketToUsersRequest
+        var request = new DyPushWebSocketPacketToUsersRequest
         {
             Packet = new WebSocketPacket
             {
@@ -106,7 +106,7 @@ public class RemoteRingService(RingService.RingServiceClient ring)
         bool isSavable = false
     )
     {
-        var item = new PushNotification
+        var item = new DyPushNotification
         {
             Topic = topic,
             Title = title,
@@ -115,7 +115,7 @@ public class RemoteRingService(RingService.RingServiceClient ring)
             IsSavable = isSavable
         };
         if (subtitle != null) item.Subtitle = subtitle;
-        var request = new SendPushNotificationToUserRequest
+        var request = new DySendPushNotificationToUserRequest
         {
             UserId = userId,
             Notification = item
@@ -135,7 +135,7 @@ public class RemoteRingService(RingService.RingServiceClient ring)
     {
         var request = new SendPushNotificationToUsersRequest
         {
-            Notification = new PushNotification
+            Notification = new DyPushNotification
             {
                 Topic = topic,
                 Title = title,

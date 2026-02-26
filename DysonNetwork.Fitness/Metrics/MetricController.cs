@@ -18,7 +18,7 @@ public class MetricController(AppDatabase db, MetricService metricService) : Con
         [FromQuery] int skip = 0,
         [FromQuery] int take = 50)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var metrics = await metricService.GetMetricsByAccountAsync(accountId, type, skip, take);
@@ -31,7 +31,7 @@ public class MetricController(AppDatabase db, MetricService metricService) : Con
     [HttpGet("latest")]
     public async Task<ActionResult<Dictionary<FitnessMetricType, SnFitnessMetric>>> GetLatestMetrics()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var latestMetrics = await metricService.GetLatestMetricsByTypeAsync(accountId);
@@ -41,7 +41,7 @@ public class MetricController(AppDatabase db, MetricService metricService) : Con
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<SnFitnessMetric>> GetMetric(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         
         var metric = await metricService.GetMetricByIdAsync(id);
         if (metric is null) return NotFound();
@@ -54,7 +54,7 @@ public class MetricController(AppDatabase db, MetricService metricService) : Con
     [HttpPost]
     public async Task<ActionResult<SnFitnessMetric>> CreateMetric([FromBody] CreateMetricRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var metric = new SnFitnessMetric
@@ -77,7 +77,7 @@ public class MetricController(AppDatabase db, MetricService metricService) : Con
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<SnFitnessMetric>> UpdateMetric(Guid id, [FromBody] UpdateMetricRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         
         var existing = await metricService.GetMetricByIdAsync(id);
         if (existing is null) return NotFound();
@@ -100,7 +100,7 @@ public class MetricController(AppDatabase db, MetricService metricService) : Con
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteMetric(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         
         var metric = await metricService.GetMetricByIdAsync(id);
         if (metric is null) return NotFound();

@@ -3,7 +3,7 @@ using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Shared.Registry;
 
-public class RemotePublisherService(PublisherService.PublisherServiceClient publishers)
+public class RemotePublisherService(DyPublisherService.DyPublisherServiceClient publishers)
 {
     public async Task<SnPublisher> GetPublisher(string? name = null, string? id = null,
         CancellationToken cancellationToken = default)
@@ -100,11 +100,11 @@ public class RemotePublisherService(PublisherService.PublisherServiceClient publ
     {
         var protoRole = role switch
         {
-            Models.PublisherMemberRole.Owner => Proto.PublisherMemberRole.Owner,
-            Models.PublisherMemberRole.Manager => Proto.PublisherMemberRole.Manager,
-            Models.PublisherMemberRole.Editor => Proto.PublisherMemberRole.Editor,
-            Models.PublisherMemberRole.Viewer => Proto.PublisherMemberRole.Viewer,
-            _ => Proto.PublisherMemberRole.Unspecified
+            Models.PublisherMemberRole.DyOwner => Proto.PublisherMemberRole.DyOwner,
+            Models.PublisherMemberRole.DyManager => Proto.PublisherMemberRole.DyManager,
+            Models.PublisherMemberRole.DyEditor => Proto.PublisherMemberRole.DyEditor,
+            Models.PublisherMemberRole.DyViewer => Proto.PublisherMemberRole.DyViewer,
+            _ => Proto.PublisherMemberRole.DyUnspecified
         };
         return await IsPublisherMember(publisherId.ToString(), accountId.ToString(), protoRole, cancellationToken);
     }

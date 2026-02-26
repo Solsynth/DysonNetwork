@@ -44,14 +44,14 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
     [Authorize]
     public async Task<IActionResult> ListApps([FromRoute] string pubName, [FromRoute] Guid projectId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, Shared.Proto.PublisherMemberRole.Viewer))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyViewer))
             return StatusCode(403, "You must be a viewer of the developer to list custom apps");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -66,14 +66,14 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
     public async Task<IActionResult> GetApp([FromRoute] string pubName, [FromRoute] Guid projectId,
         [FromRoute] Guid appId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null) return NotFound();
         
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, Shared.Proto.PublisherMemberRole.Viewer))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyViewer))
             return StatusCode(403, "You must be a viewer of the developer to list custom apps");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -93,14 +93,14 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         [FromRoute] Guid projectId,
         [FromBody] CustomAppRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
             return StatusCode(403, "You must be an editor of the developer to create a custom app");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -137,14 +137,14 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         [FromBody] CustomAppRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
             return StatusCode(403, "You must be an editor of the developer to update a custom app");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -174,14 +174,14 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         [FromRoute] Guid appId
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
             return StatusCode(403, "You must be an editor of the developer to delete a custom app");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -206,14 +206,14 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         [FromRoute] Guid projectId,
         [FromRoute] Guid appId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
             return StatusCode(403, "You must be an editor of the developer to view app secrets");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -244,14 +244,14 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         [FromRoute] Guid appId,
         [FromBody] CreateSecretRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
             return StatusCode(403, "You must be an editor of the developer to create app secrets");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -303,14 +303,14 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         [FromRoute] Guid appId,
         [FromRoute] Guid secretId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
             return StatusCode(403, "You must be an editor of the developer to view app secrets");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -344,14 +344,14 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         [FromRoute] Guid appId,
         [FromRoute] Guid secretId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
             return StatusCode(403, "You must be an editor of the developer to delete app secrets");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -382,14 +382,14 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         [FromRoute] Guid secretId,
         [FromBody] CreateSecretRequest? request = null)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
             return StatusCode(403, "You must be an editor of the developer to rotate app secrets");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);

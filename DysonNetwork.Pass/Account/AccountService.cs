@@ -22,11 +22,11 @@ namespace DysonNetwork.Pass.Account;
 public class AccountService(
     AppDatabase db,
     MagicSpellService spells,
-    FileService.FileServiceClient files,
+    DyFileService.DyFileServiceClient files,
     AccountUsernameService uname,
     AffiliationSpellService ars,
     EmailService mailer,
-    RingService.RingServiceClient pusher,
+    DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
     ICacheService cache,
     ILogger<AccountService> logger,
@@ -225,13 +225,13 @@ public class AccountService(
 
         if (!string.IsNullOrEmpty(pictureId))
         {
-            var file = await files.GetFileAsync(new GetFileRequest { Id = pictureId });
+            var file = await files.GetFileAsync(new DyGetFileRequest { Id = pictureId });
             account.Profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         if (!string.IsNullOrEmpty(backgroundId))
         {
-            var file = await files.GetFileAsync(new GetFileRequest { Id = backgroundId });
+            var file = await files.GetFileAsync(new DyGetFileRequest { Id = backgroundId });
             account.Profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
@@ -430,10 +430,10 @@ public class AccountService(
                     throw new InvalidOperationException("A factor code has been sent and in active duration.");
 
                 await pusher.SendPushNotificationToUserAsync(
-                    new SendPushNotificationToUserRequest
+                    new DySendPushNotificationToUserRequest
                     {
                         UserId = account.Id.ToString(),
-                        Notification = new PushNotification
+                        Notification = new DyPushNotification
                         {
                             Topic = "auth.verification",
                             Title = localizer.Get("authCodeTitle", account.Language),
@@ -553,7 +553,7 @@ public class AccountService(
         if (session.ClientId.HasValue)
         {
             if (!await IsDeviceActive(session.ClientId.Value))
-                await pusher.UnsubscribePushNotificationsAsync(new UnsubscribePushNotificationsRequest()
+                await pusher.UnsubscribePushNotificationsAsync(new DyUnsubscribePushNotificationsRequest
                     { DeviceId = session.Client!.DeviceId }
                 );
         }
@@ -571,7 +571,7 @@ public class AccountService(
             throw new InvalidOperationException("Device not found.");
 
         await pusher.UnsubscribePushNotificationsAsync(
-            new UnsubscribePushNotificationsRequest { DeviceId = device.DeviceId }
+            new DyUnsubscribePushNotificationsRequest { DeviceId = device.DeviceId }
         );
 
         var sessions = await db.AuthSessions

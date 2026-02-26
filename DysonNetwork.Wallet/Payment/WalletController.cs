@@ -26,7 +26,7 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<SnWallet>> CreateWallet()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         try
         {
@@ -43,7 +43,7 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<SnWallet>> GetWallet()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var wallet = await ws.GetAccountWalletAsync(Guid.Parse(currentUser.Id));
         if (wallet is null) return NotFound("Wallet was not found, please create one first.");
@@ -67,7 +67,7 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<WalletStats>> GetWalletStats([FromQuery] int period = 30)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var wallet = await ws.GetAccountWalletAsync(Guid.Parse(currentUser.Id));
         if (wallet is null) return NotFound("Wallet was not found, please create one first.");
@@ -122,7 +122,7 @@ public class WalletController(
         [FromQuery] int offset = 0, [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountWallet =
             await db.Wallets.Where(w => w.AccountId == Guid.Parse(currentUser.Id)).FirstOrDefaultAsync();
@@ -180,7 +180,7 @@ public class WalletController(
         [FromQuery] int offset = 0, [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountWallet =
             await db.Wallets.Where(w => w.AccountId == Guid.Parse(currentUser.Id)).FirstOrDefaultAsync();
@@ -266,7 +266,7 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<SnWalletTransaction>> Transfer([FromBody] WalletTransferRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         if (Guid.Parse(currentUser.Id) == request.PayeeAccountId) return BadRequest("Cannot transfer to yourself.");
 
@@ -302,7 +302,7 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<SnWalletFund>> CreateFund([FromBody] CreateFundRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         try
         {
@@ -339,7 +339,7 @@ public class WalletController(
         [FromQuery] Shared.Models.FundStatus? status = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var currentUserId = Guid.Parse(currentUser.Id);
         var query = db.WalletFunds
@@ -397,7 +397,7 @@ public class WalletController(
     [Authorize]
     public async Task<ActionResult<SnWalletTransaction>> ReceiveFund(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         try
         {
@@ -422,7 +422,7 @@ public class WalletController(
         [FromQuery] DateTime? endDate = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         try
         {

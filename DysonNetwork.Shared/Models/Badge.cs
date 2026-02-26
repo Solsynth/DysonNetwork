@@ -37,9 +37,9 @@ public class SnAccountBadge : ModelBase
         };
     }
 
-    public AccountBadge ToProtoValue()
+    public DyAccountBadge ToProtoValue()
     {
-        var proto = new AccountBadge
+        var proto = new DyAccountBadge
         {
             Id = Id.ToString(),
             Type = Type,
@@ -56,7 +56,7 @@ public class SnAccountBadge : ModelBase
         return proto;
     }
     
-    public static SnAccountBadge FromProtoValue(AccountBadge proto)
+    public static SnAccountBadge FromProtoValue(DyAccountBadge proto)
     {
         var badge = new SnAccountBadge
         {
@@ -86,9 +86,9 @@ public class SnAccountBadgeRef : ModelBase
     public Instant? ExpiredAt { get; set; }
     public Guid AccountId { get; set; }
 
-    public BadgeReferenceObject ToProtoValue()
+    public DyBadgeReferenceObject ToProtoValue()
     {
-        var proto = new BadgeReferenceObject
+        var proto = new DyBadgeReferenceObject
         {
             Id = Id.ToString(),
             Type = Type,
@@ -104,7 +104,7 @@ public class SnAccountBadgeRef : ModelBase
     }
     
     
-    public static SnAccountBadgeRef FromProtoValue(BadgeReferenceObject proto)
+    public static SnAccountBadgeRef FromProtoValue(DyBadgeReferenceObject proto)
     {
         var badge = new SnAccountBadgeRef
         {

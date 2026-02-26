@@ -25,10 +25,10 @@ public partial class PostService(
     FlushBufferService flushBuffer,
     ICacheService cache,
     ILogger<PostService> logger,
-    FileService.FileServiceClient files,
+    DyFileService.DyFileServiceClient files,
     Publisher.PublisherService ps,
     RemoteWebReaderService reader,
-    AccountService.AccountServiceClient accounts,
+    DyAccountService.DyAccountServiceClient accounts,
     ActivityPubObjectFactory objFactory
 )
 {
@@ -367,9 +367,9 @@ public partial class PostService(
             }
 
             using var scope = factory.CreateScope();
-            var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+            var nty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
             var accountsClient =
-                scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
+                scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
 
             var sender = post.Publisher;
 
@@ -405,10 +405,10 @@ public partial class PostService(
                             continue;
 
                         await nty.SendPushNotificationToUserAsync(
-                            new SendPushNotificationToUserRequest
+                            new DySendPushNotificationToUserRequest
                             {
                                 UserId = member.Id,
-                                Notification = new PushNotification
+                                Notification = new DyPushNotification
                                 {
                                     Topic = "posts.mentions.new",
                                     Title = localizer.Get(
@@ -548,9 +548,9 @@ public partial class PostService(
                 var sender = post.Publisher;
                 using var scope = factory.CreateScope();
                 var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
-                var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+                var nty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
                 var notifyTargets =
-                    scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
+                    scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
                 try
                 {
                     var members = await pub.GetPublisherMembers(
@@ -564,10 +564,10 @@ public partial class PostService(
                         if (member is null)
                             continue;
                         await nty.SendPushNotificationToUserAsync(
-                            new SendPushNotificationToUserRequest
+                            new DySendPushNotificationToUserRequest
                             {
                                 UserId = member.Id,
-                                Notification = new PushNotification
+                                Notification = new DyPushNotification
                                 {
                                     Topic = "post.replies",
                                     Title = localizer.Get(
@@ -887,7 +887,7 @@ public partial class PostService(
 
     public async Task<SnPost> PinPostAsync(
         SnPost post,
-        Account currentUser,
+        DyAccount currentUser,
         Shared.Models.PostPinMode pinMode
     )
     {
@@ -905,7 +905,7 @@ public partial class PostService(
                 !await ps.IsMemberWithRole(
                     post.RepliedPost.PublisherId!.Value,
                     accountId,
-                    Shared.Models.PublisherMemberRole.Editor
+                    Shared.Models.PublisherMemberRole.DyEditor
                 )
             )
                 throw new InvalidOperationException(
@@ -921,7 +921,7 @@ public partial class PostService(
                 || !await ps.IsMemberWithRole(
                     post.PublisherId.Value,
                     accountId,
-                    Shared.Models.PublisherMemberRole.Editor
+                    Shared.Models.PublisherMemberRole.DyEditor
                 )
             )
                 throw new InvalidOperationException("Only editors can pin replies.");
@@ -935,7 +935,7 @@ public partial class PostService(
         return post;
     }
 
-    public async Task<SnPost> UnpinPostAsync(SnPost post, Account currentUser)
+    public async Task<SnPost> UnpinPostAsync(SnPost post, DyAccount currentUser)
     {
         var accountId = Guid.Parse(currentUser.Id);
         if (post.RepliedPostId != null)
@@ -947,7 +947,7 @@ public partial class PostService(
                 !await ps.IsMemberWithRole(
                     post.RepliedPost.PublisherId!.Value,
                     accountId,
-                    Shared.Models.PublisherMemberRole.Editor
+                    Shared.Models.PublisherMemberRole.DyEditor
                 )
             )
                 throw new InvalidOperationException(
@@ -961,7 +961,7 @@ public partial class PostService(
                 || !await ps.IsMemberWithRole(
                     post.PublisherId.Value,
                     accountId,
-                    Shared.Models.PublisherMemberRole.Editor
+                    Shared.Models.PublisherMemberRole.DyEditor
                 )
             )
                 throw new InvalidOperationException("Only editors can unpin posts.");
@@ -987,7 +987,7 @@ public partial class PostService(
     public async Task<bool> ModifyPostVotes(
         SnPost post,
         SnPostReaction reaction,
-        Account sender,
+        DyAccount sender,
         bool isRemoving,
         bool isSelfReact
     )
@@ -1127,9 +1127,9 @@ public partial class PostService(
         {
             using var scope = factory.CreateScope();
             var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
-            var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+            var nty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
             var accounts =
-                scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
+                scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
             try
             {
                 if (post.PublisherId == null)
@@ -1144,10 +1144,10 @@ public partial class PostService(
                         continue;
 
                     await nty.SendPushNotificationToUserAsync(
-                        new SendPushNotificationToUserRequest
+                        new DySendPushNotificationToUserRequest
                         {
                             UserId = member.Id,
-                            Notification = new PushNotification
+                            Notification = new DyPushNotification
                             {
                                 Topic = "posts.reactions.new",
                                 Title = localizer.Get(
@@ -1632,9 +1632,9 @@ public partial class PostService(
         {
             using var scope = factory.CreateScope();
             var pub = scope.ServiceProvider.GetRequiredService<Publisher.PublisherService>();
-            var nty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+            var nty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
             var accounts =
-                scope.ServiceProvider.GetRequiredService<AccountService.AccountServiceClient>();
+                scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
             var accountsHelper = scope.ServiceProvider.GetRequiredService<RemoteAccountService>();
             try
             {
@@ -1652,10 +1652,10 @@ public partial class PostService(
                         continue;
 
                     await nty.SendPushNotificationToUserAsync(
-                        new SendPushNotificationToUserRequest
+                        new DySendPushNotificationToUserRequest
                         {
                             UserId = member.Id,
-                            Notification = new PushNotification
+                            Notification = new DyPushNotification
                             {
                                 Topic = "posts.awards.new",
                                 Title = localizer.Get(

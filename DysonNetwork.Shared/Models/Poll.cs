@@ -107,7 +107,7 @@ public class SnPollQuestion : ModelBase
         var proto = new PollQuestion
         {
             Id = Id.ToString(),
-            Type = (Proto.PollQuestionType)((int)Type + 1),
+            Type = (DyPollQuestionType)((int)Type + 1),
             Title = Title,
             Order = Order,
             IsRequired = IsRequired,

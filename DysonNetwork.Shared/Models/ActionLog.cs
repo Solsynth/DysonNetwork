@@ -20,9 +20,9 @@ public class SnActionLog : ModelBase
     public SnAccount Account { get; set; } = null!;
     public Guid? SessionId { get; set; }
 
-    public ActionLog ToProtoValue()
+    public DyActionLog ToProtoValue()
     {
-        var protoLog = new ActionLog
+        var protoLog = new DyActionLog
         {
             Id = Id.ToString(),
             Action = Action,

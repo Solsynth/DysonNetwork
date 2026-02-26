@@ -25,7 +25,7 @@ public class SubscriptionGiftController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var query = await subscriptions.GetGiftsByGifterAsync(Guid.Parse(currentUser.Id));
         var totalCount = query.Count;
@@ -50,7 +50,7 @@ public class SubscriptionGiftController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var gifts = await subscriptions.GetGiftsByRecipientAsync(Guid.Parse(currentUser.Id));
         var totalCount = gifts.Count;
@@ -72,7 +72,7 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<SnWalletGift>> GetGift(Guid giftId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var currentUserId = Guid.Parse(currentUser.Id);
         var gift = await db.WalletGifts
@@ -95,7 +95,7 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<GiftCheckResponse>> CheckGiftCode(string giftCode)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var gift = await subscriptions.GetGiftByCodeAsync(giftCode);
         if (gift is null) return NotFound("Gift code not found.");
@@ -192,7 +192,7 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<SnWalletGift>> PurchaseGift([FromBody] PurchaseGiftRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         if (currentUser.Profile.Level < MinimumAccountLevel)
         {
@@ -246,7 +246,7 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<RedeemGiftResponse>> RedeemGift([FromBody] RedeemGiftRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         try
         {
@@ -277,7 +277,7 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<SnWalletGift>> SendGift(Guid giftId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         try
         {
@@ -297,7 +297,7 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<SnWalletGift>> CancelGift(Guid giftId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         try
         {
@@ -317,7 +317,7 @@ public class SubscriptionGiftController(
     [Authorize]
     public async Task<ActionResult<SnWalletOrder>> CreateGiftOrder(Guid giftId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         try
         {

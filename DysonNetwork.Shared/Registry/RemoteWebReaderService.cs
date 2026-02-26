@@ -1,7 +1,7 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Proto;
-using ProtoLinkEmbed = DysonNetwork.Shared.Proto.LinkEmbed;
+using ProtoLinkEmbed = DysonNetwork.DyLinkEmbed;
 using ModelsLinkEmbed = DysonNetwork.Shared.Models.Embed.LinkEmbed;
 
 namespace DysonNetwork.Shared.Registry;

@@ -11,7 +11,7 @@ public class AutocompletionController(AutocompletionService aus) : ControllerBas
     [HttpPost]
     public async Task<ActionResult<List<DysonNetwork.Shared.Models.Autocompletion>>> TextAutocomplete([FromBody] AutocompletionRequest request, Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var result = await aus.GetAutocompletion(request.Content, chatId: roomId, limit: 10);

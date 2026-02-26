@@ -7,7 +7,6 @@ using DysonNetwork.Shared.Registry;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using PostReactionAttitude = DysonNetwork.Shared.Proto.PostReactionAttitude;
 
 namespace DysonNetwork.Messager.Rewind;
 
@@ -15,10 +14,10 @@ public class MessagerRewindServiceGrpc(
     AppDatabase db,
     RemoteAccountService remoteAccounts,
     ChatRoomService crs
-) : RewindService.RewindServiceBase
+) : DyRewindService.DyRewindServiceBase
 {
-    public override async Task<RewindEvent> GetRewindEvent(
-        RequestRewindEvent request,
+    public override async Task<DyRewindEvent> GetRewindEvent(
+        DyRequestRewindEvent request,
         ServerCallContext context
     )
     {
@@ -163,7 +162,7 @@ public class MessagerRewindServiceGrpc(
             ["most_called_accounts"] = mostCalledAccounts,
         };
 
-        return new RewindEvent
+        return new DyRewindEvent
         {
             ServiceId = "messager",
             AccountId = request.AccountId,

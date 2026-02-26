@@ -56,9 +56,9 @@ public class LinkEmbed : EmbeddableBase
     /// </summary>
     public DateTime? PublishedDate { get; set; }
 
-    public Proto.LinkEmbed ToProtoValue()
+    public DyLinkEmbed ToProtoValue()
     {
-        var proto = new Proto.LinkEmbed
+        var proto = new DyLinkEmbed
         {
             Url = Url
         };
@@ -90,7 +90,7 @@ public class LinkEmbed : EmbeddableBase
         return proto;
     }
 
-    public static LinkEmbed FromProtoValue(Proto.LinkEmbed proto)
+    public static LinkEmbed FromProtoValue(DyLinkEmbed proto)
     {
         return new LinkEmbed
         {

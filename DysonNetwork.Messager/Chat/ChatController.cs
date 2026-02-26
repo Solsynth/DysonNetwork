@@ -21,10 +21,10 @@ public partial class ChatController(
     AppDatabase db,
     ChatService cs,
     ChatRoomService crs,
-    FileService.FileServiceClient files,
-    AccountService.AccountServiceClient accounts,
-    PaymentService.PaymentServiceClient paymentClient,
-    PollService.PollServiceClient pollClient
+    DyFileService.DyFileServiceClient files,
+    DyAccountService.DyAccountServiceClient accounts,
+    DyPaymentService.DyPaymentServiceClient paymentClient,
+    DyPollService.DyPollServiceClient pollClient
 ) : ControllerBase
 {
     public class MarkMessageReadRequest
@@ -47,7 +47,7 @@ public partial class ChatController(
     [Authorize]
     public async Task<ActionResult<Dictionary<Guid, ChatSummaryResponse>>> GetChatSummary()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
         var unreadMessages = await cs.CountUnreadMessageForUser(accountId);
@@ -71,7 +71,7 @@ public partial class ChatController(
     [Authorize]
     public async Task<ActionResult<int>> GetTotalUnreadCount()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
         var unreadMessages = await cs.CountUnreadMessageForUser(accountId);
@@ -97,7 +97,7 @@ public partial class ChatController(
     public async Task<ActionResult<List<SnChatMessage>>> ListMessages(Guid roomId, [FromQuery] int offset,
         [FromQuery] int take = 20)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         var currentUserId = currentUser is null ? (Guid?)null : Guid.Parse(currentUser.Id);
 
         var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
@@ -143,7 +143,7 @@ public partial class ChatController(
     [HttpGet("{roomId:guid}/messages/{messageId:guid}")]
     public async Task<ActionResult<SnChatMessage>> GetMessage(Guid roomId, Guid messageId)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         var currentUserId = currentUser is null ? (Guid?)null : Guid.Parse(currentUser.Id);
 
         var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
@@ -223,7 +223,7 @@ public partial class ChatController(
 
             if (mentionedNames.Count > 0)
             {
-                var queryRequest = new LookupAccountBatchRequest();
+                var queryRequest = new DyLookupAccountBatchRequest();
                 queryRequest.Names.AddRange(mentionedNames);
                 var queryResponse = (await accounts.LookupAccountBatchAsync(queryRequest)).Accounts;
                 var mentionedIds = queryResponse.Select(a => Guid.Parse(a.Id)).ToList();
@@ -249,7 +249,7 @@ public partial class ChatController(
     [AskPermission("chat.messages.create")]
     public async Task<ActionResult> SendMessage([FromBody] SendMessageRequest request, Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         request.Content = TextSanitizer.Sanitize(request.Content);
@@ -271,7 +271,7 @@ public partial class ChatController(
         {
             try
             {
-                var fundResponse = await paymentClient.GetWalletFundAsync(new GetWalletFundRequest
+                var fundResponse = await paymentClient.GetWalletFundAsync(new DyGetWalletFundRequest
                 {
                     FundId = request.FundId.Value.ToString()
                 });
@@ -295,7 +295,7 @@ public partial class ChatController(
         {
             try
             {
-                var pollResponse = await pollClient.GetPollAsync(new GetPollRequest { Id = request.PollId.Value.ToString() });
+                var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest { Id = request.PollId.Value.ToString() });
                 // Poll validation is handled by gRPC call
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
@@ -335,7 +335,7 @@ public partial class ChatController(
         // Add embed for poll if provided
         if (request.PollId.HasValue)
         {
-            var pollResponse = await pollClient.GetPollAsync(new GetPollRequest { Id = request.PollId.Value.ToString() });
+            var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest { Id = request.PollId.Value.ToString() });
             var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
             message.Meta ??= new Dictionary<string, object>();
             if (
@@ -351,7 +351,7 @@ public partial class ChatController(
             message.Content = request.Content;
         if (request.AttachmentsId is not null)
         {
-            var queryRequest = new GetFileBatchRequest();
+            var queryRequest = new DyGetFileBatchRequest();
             queryRequest.Ids.AddRange(request.AttachmentsId);
             var queryResponse = await files.GetFileBatchAsync(queryRequest);
             message.Attachments = queryResponse.Files
@@ -394,7 +394,7 @@ public partial class ChatController(
     [Authorize]
     public async Task<ActionResult> UpdateMessage([FromBody] SendMessageRequest request, Guid roomId, Guid messageId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         request.Content = TextSanitizer.Sanitize(request.Content);
@@ -428,7 +428,7 @@ public partial class ChatController(
         {
             try
             {
-                var fundResponse = await paymentClient.GetWalletFundAsync(new GetWalletFundRequest
+                var fundResponse = await paymentClient.GetWalletFundAsync(new DyGetWalletFundRequest
                 {
                     FundId = request.FundId.Value.ToString()
                 });
@@ -479,7 +479,7 @@ public partial class ChatController(
         {
             try
             {
-                var pollResponse = await pollClient.GetPollAsync(new GetPollRequest { Id = request.PollId.Value.ToString() });
+                var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest { Id = request.PollId.Value.ToString() });
                 var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
                 message.Meta ??= new Dictionary<string, object>();
                 if (
@@ -534,7 +534,7 @@ public partial class ChatController(
     [Authorize]
     public async Task<ActionResult> DeleteMessage(Guid roomId, Guid messageId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var message = await db.ChatMessages
             .Include(m => m.Sender)
@@ -582,7 +582,7 @@ public partial class ChatController(
         [FromBody] MessageReactionRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         if (!ReactionsAllowedDefault.Contains(request.Symbol))
             if (currentUser.PerkSubscription is null)
@@ -631,7 +631,7 @@ public partial class ChatController(
         string symbol
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -667,7 +667,7 @@ public partial class ChatController(
     [HttpPost("{roomId:guid}/sync")]
     public async Task<ActionResult<SyncResponse>> GetSyncData([FromBody] SyncRequest request, Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -686,7 +686,7 @@ public partial class ChatController(
     [Authorize]
     public async Task<ActionResult<GlobalSyncResponse>> GetGlobalSyncData([FromBody] SyncRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);

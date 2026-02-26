@@ -19,7 +19,7 @@ public class AuthController(
     AuthService auth,
     GeoService geo,
     ActionLogService als,
-    RingService.RingServiceClient pusher,
+    DyRingService.DyRingServiceClient pusher,
     IConfiguration configuration,
     ILocalizationService localizer,
     ILogger<AuthController> logger
@@ -230,9 +230,9 @@ public class AuthController(
 
         if (challenge.StepRemain == 0)
         {
-            await pusher.SendPushNotificationToUserAsync(new SendPushNotificationToUserRequest
+            await pusher.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
             {
-                Notification = new PushNotification
+                Notification = new DyPushNotification
                 {
                     Topic = "auth.login",
                     Title = localizer.Get("newLoginTitle", challenge.Account.Language),

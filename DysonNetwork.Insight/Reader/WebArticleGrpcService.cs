@@ -5,10 +5,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Insight.Reader;
 
-public class WebArticleGrpcService(AppDatabase db) : WebArticleService.WebArticleServiceBase
+public class WebArticleGrpcService(AppDatabase db) : DyWebArticleService.DyWebArticleServiceBase
 {
-    public override async Task<GetWebArticleResponse> GetWebArticle(
-        GetWebArticleRequest request,
+    public override async Task<DyGetWebArticleResponse> GetWebArticle(
+        DyGetWebArticleRequest request,
         ServerCallContext context
     )
     {
@@ -21,11 +21,11 @@ public class WebArticleGrpcService(AppDatabase db) : WebArticleService.WebArticl
 
         return article == null
             ? throw new RpcException(new Status(StatusCode.NotFound, "article not found"))
-            : new GetWebArticleResponse { Article = article.ToProtoValue() };
+            : new DyGetWebArticleResponse { Article = article.ToProtoValue() };
     }
 
-    public override async Task<GetWebArticleBatchResponse> GetWebArticleBatch(
-        GetWebArticleBatchRequest request,
+    public override async Task<DyGetWebArticleBatchResponse> GetWebArticleBatch(
+        DyGetWebArticleBatchRequest request,
         ServerCallContext context
     )
     {
@@ -35,20 +35,20 @@ public class WebArticleGrpcService(AppDatabase db) : WebArticleService.WebArticl
             .ToList();
 
         if (ids.Count == 0)
-            return new GetWebArticleBatchResponse();
+            return new DyGetWebArticleBatchResponse();
 
         var articles = await db.FeedArticles
             .Include(a => a.Feed)
             .Where(a => ids.Contains(a.Id))
             .ToListAsync();
 
-        var response = new GetWebArticleBatchResponse();
+        var response = new DyGetWebArticleBatchResponse();
         response.Articles.AddRange(articles.Select(a => a.ToProtoValue()));
         return response;
     }
 
-    public override async Task<ListWebArticlesResponse> ListWebArticles(
-        ListWebArticlesRequest request,
+    public override async Task<DyListWebArticlesResponse> ListWebArticles(
+        DyListWebArticlesRequest request,
         ServerCallContext context
     )
     {
@@ -61,7 +61,7 @@ public class WebArticleGrpcService(AppDatabase db) : WebArticleService.WebArticl
 
         var articles = await query.ToListAsync();
 
-        var response = new ListWebArticlesResponse
+        var response = new DyListWebArticlesResponse
         {
             TotalSize = articles.Count
         };
@@ -69,8 +69,8 @@ public class WebArticleGrpcService(AppDatabase db) : WebArticleService.WebArticl
         return response;
     }
 
-    public override async Task<GetRecentArticlesResponse> GetRecentArticles(
-        GetRecentArticlesRequest request,
+    public override async Task<DyGetRecentArticlesResponse> GetRecentArticles(
+        DyGetRecentArticlesRequest request,
         ServerCallContext context
     )
     {
@@ -83,7 +83,7 @@ public class WebArticleGrpcService(AppDatabase db) : WebArticleService.WebArticl
             .Take(limit)
             .ToListAsync();
 
-        var response = new GetRecentArticlesResponse();
+        var response = new DyGetRecentArticlesResponse();
         response.Articles.AddRange(articles.Select(a => a.ToProtoValue()));
         return response;
     }

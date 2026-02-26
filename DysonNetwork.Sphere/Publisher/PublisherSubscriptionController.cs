@@ -23,7 +23,7 @@ public class PublisherSubscriptionController(
     [Authorize]
     public async Task<ActionResult<SnPublisherSubscription>> CheckSubscriptionStatus(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         // Check if the publisher exists
         var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
@@ -41,7 +41,7 @@ public class PublisherSubscriptionController(
         string name,
         [FromBody] SubscribeRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         // Check if the publisher exists
         var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
@@ -68,7 +68,7 @@ public class PublisherSubscriptionController(
     [Authorize]
     public async Task<ActionResult> Unsubscribe(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         // Check if the publisher exists
         var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name == name);
@@ -94,7 +94,7 @@ public class PublisherSubscriptionController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var subscriptions = await db.PublisherSubscriptions
@@ -145,7 +145,7 @@ public class PublisherSubscriptionController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         // Get subscribed publisher IDs

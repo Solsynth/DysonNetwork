@@ -13,7 +13,7 @@ public class BillingController(AppDatabase db, ThoughtService thoughtService, IL
     [HttpGet("status")]
     public async Task<IActionResult> GetBillingStatus()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -24,7 +24,7 @@ public class BillingController(AppDatabase db, ThoughtService thoughtService, IL
     [HttpPost("retry")]
     public async Task<IActionResult> RetryBilling()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 

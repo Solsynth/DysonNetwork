@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Proto;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 
@@ -21,7 +22,7 @@ public class SnAccountRelationship : ModelBase
 
     public RelationshipStatus Status { get; set; } = RelationshipStatus.Pending;
     
-    public Proto.Relationship ToProtoValue() => new()
+    public DyRelationship ToProtoValue() => new()
     {
         AccountId = AccountId.ToString(),
         RelatedId = RelatedId.ToString(),

@@ -42,14 +42,14 @@ public class DevProjectController(DevProjectService ps, DeveloperService ds) : C
     [Authorize]
     public async Task<IActionResult> CreateProject([FromRoute] string pubName, [FromBody] DevProjectRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) 
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) 
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
             
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
             return StatusCode(403, "You must be an editor of the developer to create a project");
 
         if (string.IsNullOrWhiteSpace(request.Slug) || string.IsNullOrWhiteSpace(request.Name))
@@ -71,7 +71,7 @@ public class DevProjectController(DevProjectService ps, DeveloperService ds) : C
         [FromBody] DevProjectRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) 
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) 
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
@@ -79,7 +79,7 @@ public class DevProjectController(DevProjectService ps, DeveloperService ds) : C
         
         if (developer is null)
             return Forbid();
-        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, PublisherMemberRole.Manager))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyManager))
             return StatusCode(403, "You must be an manager of the developer to update a project");
 
         var project = await ps.UpdateProjectAsync(id, developer.Id, request);
@@ -93,14 +93,14 @@ public class DevProjectController(DevProjectService ps, DeveloperService ds) : C
     [Authorize]
     public async Task<IActionResult> DeleteProject([FromRoute] string pubName, [FromRoute] Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) 
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) 
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         var accountId = Guid.Parse(currentUser.Id);
         if (developer is null)
             return Forbid();
-        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, PublisherMemberRole.Manager))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyManager))
             return StatusCode(403, "You must be an manager of the developer to delete a project");
 
         var success = await ps.DeleteProjectAsync(id, developer.Id);

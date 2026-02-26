@@ -39,9 +39,9 @@ public class SnSocialCreditRecord : ModelBase
         return Delta * Math.Max(0, remainingRatio);
     }
 
-    public Proto.SocialCreditRecord ToProto()
+    public DySocialCreditRecord ToProto()
     {
-        var proto = new Proto.SocialCreditRecord
+        var proto = new DySocialCreditRecord
         {
             Id = Id.ToString(),
             ReasonType = ReasonType,

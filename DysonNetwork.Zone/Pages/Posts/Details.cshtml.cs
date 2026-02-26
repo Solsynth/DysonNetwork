@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 namespace DysonNetwork.Zone.Pages.Posts;
 
 public class DetailsModel(
-    PostService.PostServiceClient postClient,
+    DyPostService.DyPostServiceClient postClient,
     MarkdownConverter markdownConverter
 ) : PageModel
 {
@@ -24,7 +24,7 @@ public class DetailsModel(
         if (string.IsNullOrEmpty(Slug))
             return NotFound();
 
-        var request = new GetPostRequest { PublisherId = Site!.PublisherId.ToString() };
+        var request = new DyGetPostRequest { PublisherId = Site!.PublisherId.ToString() };
         if (Guid.TryParse(Slug, out var guid))
             request.Id = guid.ToString();
         else

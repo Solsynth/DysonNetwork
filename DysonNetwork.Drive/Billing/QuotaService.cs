@@ -9,7 +9,7 @@ namespace DysonNetwork.Drive.Billing;
 public class QuotaService(
     AppDatabase db,
     UsageService usage,
-    AccountService.AccountServiceClient accounts,
+    DyAccountService.DyAccountServiceClient accounts,
     ICacheService cache
 )
 {
@@ -38,7 +38,7 @@ public class QuotaService(
     {
         
 
-        var response = await accounts.GetAccountAsync(new GetAccountRequest { Id = accountId.ToString() });
+        var response = await accounts.GetAccountAsync(new DyGetAccountRequest { Id = accountId.ToString() });
         var perkSubscription = response.PerkSubscription;
 
         // The base quota is 1GiB, T1 is 5GiB, T2 is 10GiB, T3 is 15GiB

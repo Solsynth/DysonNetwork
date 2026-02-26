@@ -38,7 +38,7 @@ public class FileController(
         var file = await fs.GetFileAsync(fileId);
         if (file is null) return NotFound("File not found.");
 
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         var accessResult = await ValidateFileAccess(file, passcode, currentUser);
         if (accessResult is not null) return accessResult;
 
@@ -62,8 +62,11 @@ public class FileController(
         return (parts.First(), parts.Last());
     }
 
-    private async Task<ActionResult?> ValidateFileAccess(SnCloudFile file, string? passcode,
-        Account? currentUser = null)
+    private async Task<ActionResult?> ValidateFileAccess(
+        SnCloudFile file,
+        string? passcode,
+        DyAccount? currentUser = null
+    )
     {
         if (file.Bundle is not null && !file.Bundle.VerifyPasscode(passcode))
             return StatusCode(StatusCodes.Status403Forbidden, "The passcode is incorrect.");
@@ -76,7 +79,7 @@ public class FileController(
 
     private async Task<bool> CheckFilePermissionAsync(
         SnCloudFile file,
-        Account? currentUser,
+        DyAccount? currentUser,
         SnFilePermissionLevel requiredLevel
     )
     {
@@ -102,7 +105,8 @@ public class FileController(
                 case SnFilePermissionType.Anyone:
                 case SnFilePermissionType.Someone when currentUser != null && perm.SubjectId == currentUser.Id:
                     if (requiredLevel == SnFilePermissionLevel.Read ||
-                        (requiredLevel == SnFilePermissionLevel.Write && perm.Permission == SnFilePermissionLevel.Write))
+                        (requiredLevel == SnFilePermissionLevel.Write &&
+                         perm.Permission == SnFilePermissionLevel.Write))
                         return true;
                     break;
             }
@@ -111,7 +115,7 @@ public class FileController(
         return false;
     }
 
-    private async Task<bool> HasWritePermissionAsync(SnCloudFile file, Account? currentUser)
+    private async Task<bool> HasWritePermissionAsync(SnCloudFile file, DyAccount? currentUser)
     {
         if (currentUser?.IsSuperuser == true)
             return true;
@@ -141,7 +145,7 @@ public class FileController(
 
     private Task<ActionResult> ServeLocalFile(SnCloudFile file)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         var hasWritePermission = Task.Run(() => HasWritePermissionAsync(file, currentUser)).GetAwaiter().GetResult();
         var accessToken = GenerateLocalSignedToken(file.Id, currentUser?.Id, hasWritePermission);
 
@@ -266,7 +270,7 @@ public class FileController(
         if (pool is null)
             return StatusCode(StatusCodes.Status410Gone, "The pool of the file no longer exists or not accessible.");
 
-        if (!pool.PolicyConfig.AllowAnonymous && HttpContext.Items["CurrentUser"] is not Account)
+        if (!pool.PolicyConfig.AllowAnonymous && HttpContext.Items["CurrentUser"] is not DyAccount)
             return Unauthorized();
 
         var dest = pool.StorageConfig;
@@ -397,7 +401,7 @@ public class FileController(
         var file = await fs.GetFileAsync(id);
         if (file is null) return NotFound("File not found.");
 
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         var accessResult = await ValidateFileAccess(file, null, currentUser);
         if (accessResult is not null) return accessResult;
 
@@ -435,7 +439,7 @@ public class FileController(
 
     private async Task<ActionResult<SnCloudFile>> UpdateFileProperty(string fileId, Action<SnCloudFile> updateAction)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var file = await db.Files.FirstOrDefaultAsync(f => f.Id == fileId && f.AccountId == accountId);
@@ -460,7 +464,7 @@ public class FileController(
         [FromQuery] bool orderDesc = true
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var filesQuery = db.Files
@@ -504,7 +508,7 @@ public class FileController(
     [HttpPost("batches/delete")]
     public async Task<ActionResult> DeleteFileBatch([FromBody] FileBatchDeletionRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var userId = Guid.Parse(currentUser.Id);
 
         var count = await fs.DeleteAccountFileBatchAsync(userId, request.FileIds);
@@ -515,7 +519,7 @@ public class FileController(
     [HttpDelete("{id}")]
     public async Task<ActionResult<SnCloudFile>> DeleteFile(string id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var userId = Guid.Parse(currentUser.Id);
 
         var file = await db.Files
@@ -534,7 +538,7 @@ public class FileController(
     [HttpDelete("me/recycle")]
     public async Task<ActionResult> DeleteMyRecycledFiles()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var count = await fs.DeleteAccountRecycledFilesAsync(accountId);

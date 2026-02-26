@@ -15,7 +15,7 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, IL
     [HttpGet]
     public async Task<ActionResult<List<SnWorkout>>> ListWorkouts([FromQuery] int skip = 0, [FromQuery] int take = 20)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var workouts = await workoutService.GetWorkoutsByAccountAsync(accountId, skip, take);
@@ -28,7 +28,7 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, IL
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<SnWorkout>> GetWorkout(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         
         var workout = await workoutService.GetWorkoutByIdAsync(id);
         if (workout is null) return NotFound();
@@ -42,7 +42,7 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, IL
     [HttpPost]
     public async Task<ActionResult<SnWorkout>> CreateWorkout([FromBody] CreateWorkoutRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var workout = new SnWorkout
@@ -67,7 +67,7 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, IL
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<SnWorkout>> UpdateWorkout(Guid id, [FromBody] UpdateWorkoutRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         
         var existing = await workoutService.GetWorkoutByIdAsync(id);
         if (existing is null) return NotFound();
@@ -92,7 +92,7 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, IL
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteWorkout(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         
         var workout = await workoutService.GetWorkoutByIdAsync(id);
         if (workout is null) return NotFound();
@@ -105,7 +105,7 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, IL
     [HttpPost("{workoutId:guid}/exercises")]
     public async Task<ActionResult<SnWorkoutExercise>> AddExercise(Guid workoutId, [FromBody] CreateExerciseRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         
         var workout = await workoutService.GetWorkoutByIdAsync(workoutId);
         if (workout is null) return NotFound();
@@ -131,7 +131,7 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, IL
     [HttpPut("exercises/{exerciseId:guid}")]
     public async Task<ActionResult<SnWorkoutExercise>> UpdateExercise(Guid exerciseId, [FromBody] UpdateExerciseRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var exercise = await db.WorkoutExercises
             .Include(e => e.Workout)
@@ -158,7 +158,7 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, IL
     [HttpDelete("exercises/{exerciseId:guid}")]
     public async Task<IActionResult> RemoveExercise(Guid exerciseId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var exercise = await db.WorkoutExercises
             .Include(e => e.Workout)

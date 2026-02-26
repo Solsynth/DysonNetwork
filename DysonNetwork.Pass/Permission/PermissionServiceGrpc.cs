@@ -12,7 +12,7 @@ public class PermissionServiceGrpc(
     PermissionService psv,
     AppDatabase db,
     ILogger<PermissionServiceGrpc> logger
-) : DysonNetwork.Shared.Proto.PermissionService.PermissionServiceBase
+) : DysonNetwork.DyPermissionService.PermissionServiceBase
 {
     public override async Task<HasPermissionResponse> HasPermission(HasPermissionRequest request, ServerCallContext context)
     {

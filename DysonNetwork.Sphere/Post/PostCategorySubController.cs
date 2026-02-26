@@ -21,7 +21,7 @@ public class PostCategorySubController(AppDatabase db) : ControllerBase
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var pubQuery = db.PostCategorySubscriptions

@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using NodaTime.Serialization.Protobuf;
 using NodaTime;
@@ -40,9 +41,9 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
 
     [NotMapped] public string ResourceIdentifier => "developer.app:" + Id;
 
-    public Proto.CustomApp ToProto()
+    public DyCustomApp ToProto()
     {
-        return new Proto.CustomApp
+        return new DyCustomApp
         {
             Id = Id.ToString(),
             Slug = Slug,
@@ -50,22 +51,21 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
             Description = Description ?? string.Empty,
             Status = Status switch
             {
-                CustomAppStatus.Developing => Shared.Proto.CustomAppStatus.Developing,
-                CustomAppStatus.Staging => Shared.Proto.CustomAppStatus.Staging,
-                CustomAppStatus.Production => Shared.Proto.CustomAppStatus.Production,
-                CustomAppStatus.Suspended => Shared.Proto.CustomAppStatus.Suspended,
-                _ => Shared.Proto.CustomAppStatus.Unspecified
+                CustomAppStatus.Staging => DyCustomAppStatus.DyStaging,
+                CustomAppStatus.Production => DyCustomAppStatus.DyProduction,
+                CustomAppStatus.Suspended => DyCustomAppStatus.DySuspended,
+                _ => DyCustomAppStatus.DyDeveloping
             },
             Picture = Picture?.ToProtoValue(),
             Background = Background?.ToProtoValue(),
             Verification = Verification?.ToProtoValue(),
-            Links = Links is null ? null : new Proto.CustomAppLinks
+            Links = Links is null ? null : new DyCustomAppLinks
             {
                 HomePage = Links.HomePage ?? string.Empty,
                 PrivacyPolicy = Links.PrivacyPolicy ?? string.Empty,
                 TermsOfService = Links.TermsOfService ?? string.Empty
             },
-            OauthConfig = OauthConfig is null ? null : new Proto.CustomAppOauthConfig
+            OauthConfig = OauthConfig is null ? null : new DyCustomAppOauthConfig
             {
                 ClientUri = OauthConfig.ClientUri ?? string.Empty,
                 RedirectUris = { OauthConfig.RedirectUris ?? [] },
@@ -81,7 +81,7 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
         };
     }
 
-    public static SnCustomApp FromProtoValue(Proto.CustomApp p)
+    public static SnCustomApp FromProtoValue(DyCustomApp p)
     {
         var obj = new SnCustomApp
         {
@@ -91,10 +91,10 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
             Description = string.IsNullOrEmpty(p.Description) ? null : p.Description,
             Status = p.Status switch
             {
-                Shared.Proto.CustomAppStatus.Developing => CustomAppStatus.Developing,
-                Shared.Proto.CustomAppStatus.Staging => CustomAppStatus.Staging,
-                Shared.Proto.CustomAppStatus.Production => CustomAppStatus.Production,
-                Shared.Proto.CustomAppStatus.Suspended => CustomAppStatus.Suspended,
+                DyCustomAppStatus.DyDeveloping => CustomAppStatus.Developing,
+                DyCustomAppStatus.DyStaging => CustomAppStatus.Staging,
+                DyCustomAppStatus.DyProduction => CustomAppStatus.Production,
+                DyCustomAppStatus.DySuspended => CustomAppStatus.Suspended,
                 _ => CustomAppStatus.Developing
             },
             ProjectId = string.IsNullOrEmpty(p.ProjectId) ? Guid.Empty : Guid.Parse(p.ProjectId),
@@ -149,7 +149,7 @@ public class SnCustomAppSecret : ModelBase
     public SnCustomApp App { get; set; } = null!;
 
 
-    public static SnCustomAppSecret FromProtoValue(Proto.CustomAppSecret p)
+    public static SnCustomAppSecret FromProtoValue(DyCustomAppSecret p)
     {
         return new SnCustomAppSecret
         {
@@ -162,9 +162,9 @@ public class SnCustomAppSecret : ModelBase
         };
     }
 
-    public Proto.CustomAppSecret ToProto()
+    public DyCustomAppSecret ToProto()
     {
-        return new Proto.CustomAppSecret
+        return new DyCustomAppSecret
         {
             Id = Id.ToString(),
             Secret = Secret,

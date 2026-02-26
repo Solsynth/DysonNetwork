@@ -7,7 +7,7 @@ using SimpleMvcSitemap;
 namespace DysonNetwork.Zone.SEO;
 
 [ApiController]
-public class SitemapController(AppDatabase db, PostService.PostServiceClient postClient)
+public class SitemapController(AppDatabase db, DyPostService.DyPostServiceClient postClient)
     : ControllerBase
 {
     [HttpGet("sitemap.xml")]
@@ -56,7 +56,7 @@ public class SitemapController(AppDatabase db, PostService.PostServiceClient pos
                 PageToken = pageToken ?? string.Empty,
             };
 
-            request.Types_.Add(Shared.Proto.PostType.Article);
+            request.Types_.Add(DyPostType.Article);
 
             var response = await postClient.ListPostsAsync(request);
 

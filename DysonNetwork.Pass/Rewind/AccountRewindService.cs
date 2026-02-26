@@ -23,7 +23,7 @@ public class AccountRewindService(
         return char.ToUpper(str[0]) + str[1..].ToLower();
     }
 
-    private RewindService.RewindServiceClient CreateRewindServiceClient(string serviceId)
+    private DyRewindService.DyRewindServiceClient CreateRewindServiceClient(string serviceId)
     {
         var httpClient = httpClientFactory.CreateClient(
             $"{nameof(AccountRewindService)}+{CapitalizeFirstLetter(serviceId)}"
@@ -32,7 +32,7 @@ public class AccountRewindService(
         {
             HttpClient = httpClient,
         });
-        return new RewindService.RewindServiceClient(channel);
+        return new DyRewindService.DyRewindServiceClient(channel);
     }
 
     private async Task<SnRewindPoint> CreateRewindPoint(Guid accountId)

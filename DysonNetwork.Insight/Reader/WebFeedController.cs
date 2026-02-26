@@ -46,7 +46,7 @@ public class WebFeedController(WebFeedService webFeed, RemotePublisherService ps
     [Authorize]
     public async Task<IActionResult> CreateWebFeed([FromRoute] string pubName, [FromBody] WebFeedRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         if (string.IsNullOrWhiteSpace(request.Url) || string.IsNullOrWhiteSpace(request.Title))
             return BadRequest("Url and title are required");
@@ -55,7 +55,7 @@ public class WebFeedController(WebFeedService webFeed, RemotePublisherService ps
         if (publisher is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to create a web feed");
 
         var feed = await webFeed.CreateWebFeedAsync(publisher, request);
@@ -66,13 +66,13 @@ public class WebFeedController(WebFeedService webFeed, RemotePublisherService ps
     [Authorize]
     public async Task<IActionResult> UpdateFeed([FromRoute] string pubName, Guid id, [FromBody] WebFeedRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var publisher = await ps.GetPublisherByName(pubName);
         if (publisher is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to update a web feed");
 
         var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);
@@ -87,13 +87,13 @@ public class WebFeedController(WebFeedService webFeed, RemotePublisherService ps
     [Authorize]
     public async Task<IActionResult> DeleteFeed([FromRoute] string pubName, Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var publisher = await ps.GetPublisherByName(pubName);
         if (publisher is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to delete a web feed");
 
         var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);
@@ -110,13 +110,13 @@ public class WebFeedController(WebFeedService webFeed, RemotePublisherService ps
     [Authorize]
     public async Task<ActionResult> Scrap([FromRoute] string pubName, Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var publisher = await ps.GetPublisherByName(pubName);
         if (publisher is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to scrape a web feed");
 
         var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);
@@ -133,13 +133,13 @@ public class WebFeedController(WebFeedService webFeed, RemotePublisherService ps
     [Authorize]
     public async Task<ActionResult<WebFeedVerificationInitResult>> InitVerification([FromRoute] string pubName, Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var publisher = await ps.GetPublisherByName(pubName);
         if (publisher is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to verify a web feed");
 
         var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);
@@ -161,13 +161,13 @@ public class WebFeedController(WebFeedService webFeed, RemotePublisherService ps
     [Authorize]
     public async Task<ActionResult<WebFeedVerificationResult>> VerifyOwnership([FromRoute] string pubName, Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var publisher = await ps.GetPublisherByName(pubName);
         if (publisher is null) return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You must be an editor of the publisher to verify a web feed");
 
         var feed = await webFeed.GetFeedAsync(id, publisherId: publisher.Id);

@@ -128,7 +128,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     [Authorize]
     public async Task<ActionResult<SnPostCategorySubscription>> SubscribeCategory(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var category = await db.PostCategories.FirstOrDefaultAsync(c => c.Slug == slug);
@@ -159,7 +159,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     [Authorize]
     public async Task<IActionResult> UnsubscribeCategory(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var category = await db.PostCategories.FirstOrDefaultAsync(c => c.Slug == slug);
@@ -182,7 +182,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     [Authorize]
     public async Task<ActionResult<SnPostCategorySubscription>> GetCategorySubscription(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var category = await db.PostCategories.FirstOrDefaultAsync(c => c.Slug == slug);
@@ -202,7 +202,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     [Authorize]
     public async Task<ActionResult<SnPostCategorySubscription>> SubscribeTag(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Slug == slug);
@@ -235,7 +235,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     [Authorize]
     public async Task<IActionResult> UnsubscribeTag(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Slug == slug);
@@ -262,7 +262,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     [Authorize]
     public async Task<ActionResult<SnPostCategorySubscription>> GetTagSubscription(string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Slug == slug);

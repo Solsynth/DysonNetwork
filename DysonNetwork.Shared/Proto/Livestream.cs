@@ -26,7 +26,7 @@ namespace DysonNetwork.Shared.Proto {
           string.Concat(
             "ChBsaXZlc3RyZWFtLnByb3RvEgVwcm90bxofZ29vZ2xlL3Byb3RvYnVmL3Rp",
             "bWVzdGFtcC5wcm90bxoeZ29vZ2xlL3Byb3RvYnVmL3dyYXBwZXJzLnByb3Rv",
-            "GgpmaWxlLnByb3RvGg9wdWJsaXNoZXIucHJvdG8i+gkKDER5TGl2ZVN0cmVh",
+            "GgpmaWxlLnByb3RvGg9wdWJsaXNoZXIucHJvdG8i/AkKDER5TGl2ZVN0cmVh",
             "bRIOCgJpZBgBIAEoCVICaWQSFAoFdGl0bGUYAiABKAlSBXRpdGxlEiAKC2Rl",
             "c2NyaXB0aW9uGAMgASgJUgtkZXNjcmlwdGlvbhISCgRzbHVnGAQgASgJUgRz",
             "bHVnEisKBHR5cGUYBSABKA4yFy5wcm90by5EeUxpdmVTdHJlYW1UeXBlUgR0",
@@ -43,39 +43,39 @@ namespace DysonNetwork.Shared.Proto {
             "dGVkQXQSNQoIZW5kZWRfYXQYECABKAsyGi5nb29nbGUucHJvdG9idWYuVGlt",
             "ZXN0YW1wUgdlbmRlZEF0EiEKDHZpZXdlcl9jb3VudBgRIAEoBVILdmlld2Vy",
             "Q291bnQSKgoRcGVha192aWV3ZXJfY291bnQYEiABKAVSD3BlYWtWaWV3ZXJD",
-            "b3VudBIuCgl0aHVtYm5haWwYEyABKAsyEC5wcm90by5DbG91ZEZpbGVSCXRo",
-            "dW1ibmFpbBIaCghtZXRhZGF0YRgUIAEoDFIIbWV0YWRhdGESIQoMcHVibGlz",
-            "aGVyX2lkGBUgASgJUgtwdWJsaXNoZXJJZBIwCglwdWJsaXNoZXIYFiABKAsy",
-            "Ei5wcm90by5EeVB1Ymxpc2hlclIJcHVibGlzaGVyEjkKCmNyZWF0ZWRfYXQY",
-            "FyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wUgljcmVhdGVkQXQS",
-            "OQoKdXBkYXRlZF9hdBgYIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3Rh",
-            "bXBSCXVwZGF0ZWRBdBI5CgpkZWxldGVkX2F0GBkgASgLMhouZ29vZ2xlLnBy",
-            "b3RvYnVmLlRpbWVzdGFtcFIJZGVsZXRlZEF0EikKEGR1cmF0aW9uX3NlY29u",
-            "ZHMYGiABKANSD2R1cmF0aW9uU2Vjb25kcxI0ChZ0b3RhbF9kdXJhdGlvbl9z",
-            "ZWNvbmRzGBsgASgDUhR0b3RhbER1cmF0aW9uU2Vjb25kcxIqChF0b3RhbF9h",
-            "d2FyZF9zY29yZRgcIAEoAVIPdG90YWxBd2FyZFNjb3JlEjgKGGRpc3RyaWJ1",
-            "dGVkX2F3YXJkX2Ftb3VudBgdIAEoAVIWZGlzdHJpYnV0ZWRBd2FyZEFtb3Vu",
-            "dCLvAgoRRHlMaXZlU3RyZWFtQXdhcmQSDgoCaWQYASABKAlSAmlkEhYKBmFt",
-            "b3VudBgCIAEoAVIGYW1vdW50EjwKCGF0dGl0dWRlGAMgASgOMiAucHJvdG8u",
-            "RHlMaXZlU3RyZWFtQXdhcmRBdHRpdHVkZVIIYXR0aXR1ZGUSGAoHbWVzc2Fn",
-            "ZRgEIAEoCVIHbWVzc2FnZRIkCg5saXZlX3N0cmVhbV9pZBgFIAEoCVIMbGl2",
-            "ZVN0cmVhbUlkEh0KCmFjY291bnRfaWQYBiABKAlSCWFjY291bnRJZBIfCgtz",
-            "ZW5kZXJfbmFtZRgJIAEoCVIKc2VuZGVyTmFtZRI5CgpjcmVhdGVkX2F0GAcg",
-            "ASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIJY3JlYXRlZEF0EjkK",
-            "CnVwZGF0ZWRfYXQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1w",
-            "Ugl1cGRhdGVkQXQqWwoQRHlMaXZlU3RyZWFtVHlwZRIjCh9EWV9MSVZFX1NU",
-            "UkVBTV9UWVBFX1VOU1BFQ0lGSUVEEAASDgoKRFlfUkVHVUxBUhABEhIKDkRZ",
-            "X0lOVEVSQUNUSVZFEAIqcwoWRHlMaXZlU3RyZWFtVmlzaWJpbGl0eRIpCiVE",
-            "WV9MSVZFX1NUUkVBTV9WSVNJQklMSVRZX1VOU1BFQ0lGSUVEEAASDQoJRFlf",
-            "UFVCTElDEAESDwoLRFlfVU5MSVNURUQQAhIOCgpEWV9QUklWQVRFEAMqdgoS",
-            "RHlMaXZlU3RyZWFtU3RhdHVzEiUKIURZX0xJVkVfU1RSRUFNX1NUQVRVU19V",
-            "TlNQRUNJRklFRBAAEg4KCkRZX1BFTkRJTkcQARINCglEWV9BQ1RJVkUQAhIM",
-            "CghEWV9FTkRFRBADEgwKCERZX0VSUk9SEAQqsgEKGUR5TGl2ZVN0cmVhbUF3",
-            "YXJkQXR0aXR1ZGUSLQopRFlfTElWRV9TVFJFQU1fQVdBUkRfQVRUSVRVREVf",
-            "VU5TUEVDSUZJRUQQABIhCh1EWV9MSVZFX1NUUkVBTV9BV0FSRF9QT1NJVElW",
-            "RRABEiAKHERZX0xJVkVfU1RSRUFNX0FXQVJEX05FVVRSQUwQAhIhCh1EWV9M",
-            "SVZFX1NUUkVBTV9BV0FSRF9ORUdBVElWRRADQhyqAhlEeXNvbk5ldHdvcmsu",
-            "U2hhcmVkLlByb3RvYgZwcm90bzM="));
+            "b3VudBIwCgl0aHVtYm5haWwYEyABKAsyEi5wcm90by5EeUNsb3VkRmlsZVIJ",
+            "dGh1bWJuYWlsEhoKCG1ldGFkYXRhGBQgASgMUghtZXRhZGF0YRIhCgxwdWJs",
+            "aXNoZXJfaWQYFSABKAlSC3B1Ymxpc2hlcklkEjAKCXB1Ymxpc2hlchgWIAEo",
+            "CzISLnByb3RvLkR5UHVibGlzaGVyUglwdWJsaXNoZXISOQoKY3JlYXRlZF9h",
+            "dBgXIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBSCWNyZWF0ZWRB",
+            "dBI5Cgp1cGRhdGVkX2F0GBggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVz",
+            "dGFtcFIJdXBkYXRlZEF0EjkKCmRlbGV0ZWRfYXQYGSABKAsyGi5nb29nbGUu",
+            "cHJvdG9idWYuVGltZXN0YW1wUglkZWxldGVkQXQSKQoQZHVyYXRpb25fc2Vj",
+            "b25kcxgaIAEoA1IPZHVyYXRpb25TZWNvbmRzEjQKFnRvdGFsX2R1cmF0aW9u",
+            "X3NlY29uZHMYGyABKANSFHRvdGFsRHVyYXRpb25TZWNvbmRzEioKEXRvdGFs",
+            "X2F3YXJkX3Njb3JlGBwgASgBUg90b3RhbEF3YXJkU2NvcmUSOAoYZGlzdHJp",
+            "YnV0ZWRfYXdhcmRfYW1vdW50GB0gASgBUhZkaXN0cmlidXRlZEF3YXJkQW1v",
+            "dW50Iu8CChFEeUxpdmVTdHJlYW1Bd2FyZBIOCgJpZBgBIAEoCVICaWQSFgoG",
+            "YW1vdW50GAIgASgBUgZhbW91bnQSPAoIYXR0aXR1ZGUYAyABKA4yIC5wcm90",
+            "by5EeUxpdmVTdHJlYW1Bd2FyZEF0dGl0dWRlUghhdHRpdHVkZRIYCgdtZXNz",
+            "YWdlGAQgASgJUgdtZXNzYWdlEiQKDmxpdmVfc3RyZWFtX2lkGAUgASgJUgxs",
+            "aXZlU3RyZWFtSWQSHQoKYWNjb3VudF9pZBgGIAEoCVIJYWNjb3VudElkEh8K",
+            "C3NlbmRlcl9uYW1lGAkgASgJUgpzZW5kZXJOYW1lEjkKCmNyZWF0ZWRfYXQY",
+            "ByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wUgljcmVhdGVkQXQS",
+            "OQoKdXBkYXRlZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3Rh",
+            "bXBSCXVwZGF0ZWRBdCpbChBEeUxpdmVTdHJlYW1UeXBlEiMKH0RZX0xJVkVf",
+            "U1RSRUFNX1RZUEVfVU5TUEVDSUZJRUQQABIOCgpEWV9SRUdVTEFSEAESEgoO",
+            "RFlfSU5URVJBQ1RJVkUQAipzChZEeUxpdmVTdHJlYW1WaXNpYmlsaXR5EikK",
+            "JURZX0xJVkVfU1RSRUFNX1ZJU0lCSUxJVFlfVU5TUEVDSUZJRUQQABINCglE",
+            "WV9QVUJMSUMQARIPCgtEWV9VTkxJU1RFRBACEg4KCkRZX1BSSVZBVEUQAyp2",
+            "ChJEeUxpdmVTdHJlYW1TdGF0dXMSJQohRFlfTElWRV9TVFJFQU1fU1RBVFVT",
+            "X1VOU1BFQ0lGSUVEEAASDgoKRFlfUEVORElORxABEg0KCURZX0FDVElWRRAC",
+            "EgwKCERZX0VOREVEEAMSDAoIRFlfRVJST1IQBCqyAQoZRHlMaXZlU3RyZWFt",
+            "QXdhcmRBdHRpdHVkZRItCilEWV9MSVZFX1NUUkVBTV9BV0FSRF9BVFRJVFVE",
+            "RV9VTlNQRUNJRklFRBAAEiEKHURZX0xJVkVfU1RSRUFNX0FXQVJEX1BPU0lU",
+            "SVZFEAESIAocRFlfTElWRV9TVFJFQU1fQVdBUkRfTkVVVFJBTBACEiEKHURZ",
+            "X0xJVkVfU1RSRUFNX0FXQVJEX05FR0FUSVZFEANCHKoCGUR5c29uTmV0d29y",
+            "ay5TaGFyZWQuUHJvdG9iBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::DysonNetwork.Shared.Proto.FileReflection.Descriptor, global::DysonNetwork.Shared.Proto.PublisherReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyLiveStreamType), typeof(global::DysonNetwork.Shared.Proto.DyLiveStreamVisibility), typeof(global::DysonNetwork.Shared.Proto.DyLiveStreamStatus), typeof(global::DysonNetwork.Shared.Proto.DyLiveStreamAwardAttitude), }, null, new pbr::GeneratedClrTypeInfo[] {
@@ -409,10 +409,10 @@ namespace DysonNetwork.Shared.Proto {
 
     /// <summary>Field number for the "thumbnail" field.</summary>
     public const int ThumbnailFieldNumber = 19;
-    private global::DysonNetwork.Shared.Proto.CloudFile thumbnail_;
+    private global::DysonNetwork.Shared.Proto.DyCloudFile thumbnail_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::DysonNetwork.Shared.Proto.CloudFile Thumbnail {
+    public global::DysonNetwork.Shared.Proto.DyCloudFile Thumbnail {
       get { return thumbnail_; }
       set {
         thumbnail_ = value;
@@ -1053,7 +1053,7 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.thumbnail_ != null) {
         if (thumbnail_ == null) {
-          Thumbnail = new global::DysonNetwork.Shared.Proto.CloudFile();
+          Thumbnail = new global::DysonNetwork.Shared.Proto.DyCloudFile();
         }
         Thumbnail.MergeFrom(other.Thumbnail);
       }
@@ -1201,7 +1201,7 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 154: {
             if (thumbnail_ == null) {
-              Thumbnail = new global::DysonNetwork.Shared.Proto.CloudFile();
+              Thumbnail = new global::DysonNetwork.Shared.Proto.DyCloudFile();
             }
             input.ReadMessage(Thumbnail);
             break;
@@ -1360,7 +1360,7 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 154: {
             if (thumbnail_ == null) {
-              Thumbnail = new global::DysonNetwork.Shared.Proto.CloudFile();
+              Thumbnail = new global::DysonNetwork.Shared.Proto.DyCloudFile();
             }
             input.ReadMessage(Thumbnail);
             break;

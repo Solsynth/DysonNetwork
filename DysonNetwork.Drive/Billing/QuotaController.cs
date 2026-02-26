@@ -21,7 +21,7 @@ public class QuotaController(AppDatabase db, QuotaService quota) : ControllerBas
     [Authorize]
     public async Task<ActionResult<QuotaDetails>> GetQuota()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
         
         var (based, extra) = await quota.GetQuotaVerbose(accountId);
@@ -41,7 +41,7 @@ public class QuotaController(AppDatabase db, QuotaService quota) : ControllerBas
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var now = SystemClock.Instance.GetCurrentInstant();

@@ -26,7 +26,7 @@ public class RemotePermissionMiddleware(RequestDelegate next)
 
         if (attr != null)
         {
-            if (httpContext.Items["CurrentUser"] is not Account currentUser)
+            if (httpContext.Items["CurrentUser"] is not DyAccount currentUser)
             {
                 httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await httpContext.Response.WriteAsync("Unauthorized");

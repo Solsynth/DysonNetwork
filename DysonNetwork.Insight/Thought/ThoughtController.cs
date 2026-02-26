@@ -21,7 +21,7 @@ public class ThoughtController(
     ThoughtService service,
     MiChanConfig miChanConfig,
     IServiceProvider serviceProvider,
-    FileService.FileServiceClient files
+    DyFileService.DyFileServiceClient files
 ) : ControllerBase
 {
     public static readonly List<string> AvailableProposals = ["post_create"];
@@ -89,7 +89,7 @@ public class ThoughtController(
     [Experimental("SKEXP0110")]
     public async Task<ActionResult> Think([FromBody] StreamThinkingRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         if ((request.AttachedFiles is null || request.AttachedFiles.Count == 0) &&
@@ -110,7 +110,7 @@ public class ThoughtController(
 
     private async Task<ActionResult> ThinkWithSnChanAsync(
         StreamThinkingRequest request,
-        Account currentUser,
+        DyAccount currentUser,
         Guid accountId
     )
     {
@@ -324,7 +324,7 @@ public class ThoughtController(
 
     private async Task<ActionResult> ThinkWithMiChanAsync(
         StreamThinkingRequest request,
-        Account currentUser,
+        DyAccount currentUser,
         Guid accountId
     )
     {
@@ -351,7 +351,7 @@ public class ThoughtController(
         var sequence = await service.GetOrCreateSequenceAsync(accountId, request.SequenceId, topic);
         if (sequence == null) return Forbid();
 
-        var filesRetrieveRequest = new GetFileBatchRequest();
+        var filesRetrieveRequest = new DyGetFileBatchRequest();
         if (request.AttachedFiles is { Count: > 0 })
             filesRetrieveRequest.Ids.AddRange(request.AttachedFiles);
         var filesData = request.AttachedFiles is { Count: > 0 }
@@ -546,7 +546,7 @@ public class ThoughtController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var (totalCount, sequences) = await service.ListSequencesAsync(accountId, offset, take);
@@ -562,7 +562,7 @@ public class ThoughtController(
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult> UpdateSequenceSharing(Guid sequenceId, [FromBody] UpdateSharingRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var sequence = await service.GetSequenceAsync(sequenceId);
@@ -585,7 +585,7 @@ public class ThoughtController(
 
         if (!sequence.IsPublic)
         {
-            if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+            if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
             var accountId = Guid.Parse(currentUser.Id);
 
             if (sequence.AccountId != accountId)
@@ -606,7 +606,7 @@ public class ThoughtController(
         var sequence = await service.GetSequenceAsync(sequenceId);
         if (sequence == null) return NotFound();
 
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         if (sequence.AccountId != accountId)
@@ -626,7 +626,7 @@ public class ThoughtController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> MarkSequenceAsRead(Guid sequenceId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var sequence = await service.GetSequenceAsync(sequenceId);
@@ -648,7 +648,7 @@ public class ThoughtController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult> MemorizeSequence(Guid sequenceId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var sequence = await service.GetSequenceAsync(sequenceId);

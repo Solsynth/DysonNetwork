@@ -13,7 +13,7 @@ public class UsageController(UsageService usage, QuotaService quota, ICacheServi
     [Authorize]
     public async Task<ActionResult<TotalUsageDetails>> GetTotalUsage()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
         
         var cacheKey = $"file:usage:{accountId}";
@@ -38,7 +38,7 @@ public class UsageController(UsageService usage, QuotaService quota, ICacheServi
     [HttpGet("{poolId:guid}")]
     public async Task<ActionResult<UsageDetails>> GetPoolUsage(Guid poolId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
         
         var usageDetails = await usage.GetPoolUsage(poolId, accountId);

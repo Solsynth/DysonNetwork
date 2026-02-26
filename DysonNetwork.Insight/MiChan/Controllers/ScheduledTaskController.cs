@@ -3,9 +3,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
-using Account = DysonNetwork.Shared.Proto.Account;
 
 namespace DysonNetwork.Insight.MiChan.Controllers;
 
@@ -62,7 +62,7 @@ public class ScheduledTaskController(
         [FromQuery] string? status = null
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var tasks = await taskService.GetByAccountAsync(
@@ -98,7 +98,7 @@ public class ScheduledTaskController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<MiChanScheduledTask>> CreateTask([FromBody] CreateTaskRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var task = await taskService.CreateAsync(
@@ -119,7 +119,7 @@ public class ScheduledTaskController(
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ListTasksResponse>> GetTask(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var task = await taskService.GetAsync(id);
@@ -154,7 +154,7 @@ public class ScheduledTaskController(
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<MiChanScheduledTask>> UpdateTask(Guid id, [FromBody] UpdateTaskRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var task = await taskService.GetAsync(id);
@@ -185,7 +185,7 @@ public class ScheduledTaskController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult> CancelTask(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var task = await taskService.GetAsync(id);
@@ -207,7 +207,7 @@ public class ScheduledTaskController(
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult> DeleteTask(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var task = await taskService.GetAsync(id);

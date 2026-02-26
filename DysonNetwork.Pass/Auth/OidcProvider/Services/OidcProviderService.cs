@@ -20,7 +20,7 @@ namespace DysonNetwork.Pass.Auth.OidcProvider.Services;
 public class OidcProviderService(
     AppDatabase db,
     AuthService auth,
-    CustomAppService.CustomAppServiceClient customApps,
+    DyCustomAppService.DyCustomAppServiceClient customApps,
     ICacheService cache,
     IOptions<OidcProviderOptions> options,
     ILogger<OidcProviderService> logger
@@ -34,38 +34,34 @@ public class OidcProviderService(
     private const string CodeChallengeMethodS256 = "S256";
     private const string CodeChallengeMethodPlain = "PLAIN";
 
-    public async Task<CustomApp?> FindClientByIdAsync(Guid clientId)
+    public async Task<SnCustomApp?> FindClientByIdAsync(Guid clientId)
     {
         var cacheKey = $"{CacheKeyPrefixClientId}{clientId}";
-        var (found, cachedApp) = await cache.GetAsyncWithStatus<CustomApp>(cacheKey);
+        var (found, cachedApp) = await cache.GetAsyncWithStatus<SnCustomApp>(cacheKey);
         if (found && cachedApp != null)
         {
             return cachedApp;
         }
 
-        var resp = await customApps.GetCustomAppAsync(new GetCustomAppRequest { Id = clientId.ToString() });
-        if (resp.App != null)
-        {
-            await cache.SetAsync(cacheKey, resp.App, TimeSpan.FromMinutes(5));
-        }
-        return resp.App ?? null;
+        var resp = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest { Id = clientId.ToString() });
+        if (resp.App == null) return null;
+        var app = SnCustomApp.FromProtoValue(resp.App);
+        await cache.SetAsync(cacheKey, app, TimeSpan.FromMinutes(5));
+        return app;
     }
 
-    public async Task<CustomApp?> FindClientBySlugAsync(string slug)
+    public async Task<SnCustomApp?> FindClientBySlugAsync(string slug)
     {
         var cacheKey = $"{CacheKeyPrefixClientSlug}{slug}";
-        var (found, cachedApp) = await cache.GetAsyncWithStatus<CustomApp>(cacheKey);
+        var (found, cachedApp) = await cache.GetAsyncWithStatus<SnCustomApp>(cacheKey);
         if (found && cachedApp != null)
-        {
             return cachedApp;
-        }
 
-        var resp = await customApps.GetCustomAppAsync(new GetCustomAppRequest { Slug = slug });
-        if (resp.App != null)
-        {
-            await cache.SetAsync(cacheKey, resp.App, TimeSpan.FromMinutes(5));
-        }
-        return resp.App ?? null;
+        var resp = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest { Slug = slug });
+        if (resp.App == null) return null;
+        var app = SnCustomApp.FromProtoValue(resp.App);
+        await cache.SetAsync(cacheKey, app, TimeSpan.FromMinutes(5));
+        return app;
     }
 
     private async Task<SnAuthSession?> FindValidSessionAsync(Guid accountId, Guid clientId, bool withAccount = false)
@@ -92,7 +88,7 @@ public class OidcProviderService(
 
     public async Task<bool> ValidateClientCredentialsAsync(Guid clientId, string clientSecret)
     {
-        var resp = await customApps.CheckCustomAppSecretAsync(new CheckCustomAppSecretRequest
+        var resp = await customApps.CheckCustomAppSecretAsync(new DyCheckCustomAppSecretRequest
         {
             AppId = clientId.ToString(),
             Secret = clientSecret,
@@ -161,27 +157,19 @@ public class OidcProviderService(
             return false;
 
         var client = await FindClientByIdAsync(clientId);
-        if (client?.Status != Shared.Proto.CustomAppStatus.Production)
+        if (client?.Status != CustomAppStatus.Production)
             return true;
 
-        var redirectUris = client?.OauthConfig?.RedirectUris;
-        if (redirectUris == null || redirectUris.Count == 0)
+        var redirectUris = client.OauthConfig?.RedirectUris;
+        if (redirectUris == null || redirectUris.Length == 0)
             return false;
 
         // Check each allowed URI for a match
-        foreach (var allowedUri in redirectUris)
-        {
-            if (IsWildcardRedirectUriMatch(allowedUri, redirectUri))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return redirectUris.Any(allowedUri => IsWildcardRedirectUriMatch(allowedUri, redirectUri));
     }
 
     private string GenerateIdToken(
-        CustomApp client,
+        SnCustomApp client,
         SnAuthSession session,
         string? nonce = null,
         IEnumerable<string>? scopes = null
@@ -286,7 +274,8 @@ public class OidcProviderService(
         return (session, authCode.Nonce, authCode.Scopes);
     }
 
-    private async Task<(SnAuthSession session, string? nonce, List<string>? scopes)> HandleRefreshTokenFlowAsync(Guid sessionId)
+    private async Task<(SnAuthSession session, string? nonce, List<string>? scopes)> HandleRefreshTokenFlowAsync(
+        Guid sessionId)
     {
         var session = await FindSessionByIdAsync(sessionId) ??
                       throw new InvalidOperationException("Session not found");
@@ -345,7 +334,8 @@ public class OidcProviderService(
 
             if (authCode.ExternalUserInfo != null)
             {
-                var onboardingToken = GenerateOnboardingToken(client, authCode.ExternalUserInfo, authCode.Nonce, authCode.Scopes);
+                var onboardingToken =
+                    GenerateOnboardingToken(client, authCode.ExternalUserInfo, authCode.Nonce);
                 return new TokenResponse
                 {
                     OnboardingToken = onboardingToken,
@@ -380,8 +370,11 @@ public class OidcProviderService(
         throw new InvalidOperationException("Either authorization code or session ID must be provided");
     }
 
-    private string GenerateOnboardingToken(CustomApp client, ExternalUserInfo externalUserInfo, string? nonce,
-        List<string> scopes)
+    private string GenerateOnboardingToken(
+        SnCustomApp client,
+        ExternalUserInfo externalUserInfo,
+        string? nonce
+    )
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var clock = SystemClock.Instance;
@@ -432,7 +425,7 @@ public class OidcProviderService(
     }
 
     private string GenerateJwtToken(
-        CustomApp client,
+        SnCustomApp client,
         SnAuthSession session,
         Instant expiresAt,
         IEnumerable<string>? scopes = null
@@ -621,8 +614,10 @@ public class OidcProviderService(
 
             var isValid = authCode.CodeChallengeMethod?.ToUpperInvariant() switch
             {
-                CodeChallengeMethodS256 => VerifyCodeChallenge(codeVerifier, authCode.CodeChallenge, CodeChallengeMethodS256),
-                CodeChallengeMethodPlain => VerifyCodeChallenge(codeVerifier, authCode.CodeChallenge, CodeChallengeMethodPlain),
+                CodeChallengeMethodS256 => VerifyCodeChallenge(codeVerifier, authCode.CodeChallenge,
+                    CodeChallengeMethodS256),
+                CodeChallengeMethodPlain => VerifyCodeChallenge(codeVerifier, authCode.CodeChallenge,
+                    CodeChallengeMethodPlain),
                 _ => false // Unsupported code challenge method
             };
 

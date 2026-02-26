@@ -6,10 +6,10 @@ namespace DysonNetwork.Wallet.Payment;
 
 public class SubscriptionServiceGrpc(
     SubscriptionService subscriptionService,
-    AccountService.AccountServiceClient accounts
-) : Shared.Proto.SubscriptionService.SubscriptionServiceBase
+    DyAccountService.DyAccountServiceClient accounts
+) : DyDySubscriptionService.DySubscriptionServiceBase
 {
-    private readonly AccountService.AccountServiceClient _accounts = accounts;
+    private readonly DyAccountService.DyAccountServiceClient _accounts = accounts;
 
     public override async Task<Subscription> GetSubscription(
         GetSubscriptionRequest request,
@@ -62,7 +62,7 @@ public class SubscriptionServiceGrpc(
         ServerCallContext context
     )
     {
-        var account = await _accounts.GetAccountAsync(new GetAccountRequest { Id = request.AccountId });
+        var account = await _accounts.GetAccountAsync(new DyGetAccountRequest { Id = request.AccountId });
 
         if (account == null)
         {

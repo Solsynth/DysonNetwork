@@ -453,7 +453,7 @@ public class ActivityPubFollowController(
     private Guid? GetCurrentUser()
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUser);
-        if (currentUser is not Account user) return null;
+        if (currentUser is not DyAccount user) return null;
         return Guid.Parse(user.Id);
     }
 

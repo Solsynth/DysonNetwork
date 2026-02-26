@@ -45,17 +45,17 @@ public class SnAccountStatus : ModelBase
     public Guid AccountId { get; set; }
     public SnAccount Account { get; set; } = null!;
 
-    public AccountStatus ToProtoValue()
+    public DyAccountStatus ToProtoValue()
     {
-        var proto = new AccountStatus
+        var proto = new DyAccountStatus
         {
             Id = Id.ToString(),
             Attitude = Attitude switch
             {
-                StatusAttitude.Positive => Shared.Proto.StatusAttitude.Positive,
-                StatusAttitude.Negative => Shared.Proto.StatusAttitude.Negative,
-                StatusAttitude.Neutral => Shared.Proto.StatusAttitude.Neutral,
-                _ => Shared.Proto.StatusAttitude.Unspecified,
+                StatusAttitude.Positive => DyStatusAttitude.DyPositive,
+                StatusAttitude.Negative => DyStatusAttitude.DyNegative,
+                StatusAttitude.Neutral => DyStatusAttitude.DyNeutral,
+                _ => DyStatusAttitude.Unspecified,
             },
             IsOnline = IsOnline,
             IsCustomized = IsCustomized,
@@ -70,16 +70,15 @@ public class SnAccountStatus : ModelBase
         return proto;
     }
 
-    public static SnAccountStatus FromProtoValue(AccountStatus proto)
+    public static SnAccountStatus FromProtoValue(DyAccountStatus proto)
     {
         var status = new SnAccountStatus
         {
             Id = Guid.Parse(proto.Id),
             Attitude = proto.Attitude switch
             {
-                Shared.Proto.StatusAttitude.Positive => StatusAttitude.Positive,
-                Shared.Proto.StatusAttitude.Negative => StatusAttitude.Negative,
-                Shared.Proto.StatusAttitude.Neutral => StatusAttitude.Neutral,
+                DyStatusAttitude.DyPositive => StatusAttitude.Positive,
+                DyStatusAttitude.DyNegative => StatusAttitude.Negative,
                 _ => StatusAttitude.Neutral,
             },
             IsOnline = proto.IsOnline,

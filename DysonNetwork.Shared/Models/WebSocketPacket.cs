@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Shared.Models;
 
@@ -56,9 +57,9 @@ public class WebSocketPacket
         return System.Text.Encoding.UTF8.GetBytes(json);
     }
 
-    public Proto.WebSocketPacket ToProtoValue()
+    public DyWebSocketPacket ToProtoValue()
     {
-        return new Proto.WebSocketPacket
+        return new DyWebSocketPacket
         {
             Type = Type,
             Data = InfraObjectCoder.ConvertObjectToByteString(Data),
@@ -66,7 +67,7 @@ public class WebSocketPacket
         };
     }
 
-    public static WebSocketPacket FromProtoValue(Proto.WebSocketPacket packet)
+    public static WebSocketPacket FromProtoValue(DyWebSocketPacket packet)
     {
         return new WebSocketPacket
         {

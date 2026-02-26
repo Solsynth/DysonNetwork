@@ -17,7 +17,7 @@ namespace DysonNetwork.Wallet.Payment;
 public class PaymentService(
     AppDatabase db,
     WalletService wat,
-    RingService.RingServiceClient pusher,
+    DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
     Shared.EventBus.IEventBus eventBus,
     RemoteAccountService remoteAccounts
@@ -190,10 +190,10 @@ public class PaymentService(
             var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
 
             await pusher.SendPushNotificationToUserAsync(
-                new SendPushNotificationToUserRequest
+                new DySendPushNotificationToUserRequest
                 {
                     UserId = payerWallet.AccountId.ToString(),
-                    Notification = new PushNotification
+                    Notification = new DyPushNotification
                     {
                         Topic = "wallets.transactions",
                         Title = localizer.Get("transactionNewTitle", locale: locale),
@@ -225,10 +225,10 @@ public class PaymentService(
             var readableTransactionRemark = transaction.Remarks ?? $"#{readableTransactionId}";
 
             await pusher.SendPushNotificationToUserAsync(
-                new SendPushNotificationToUserRequest
+                new DySendPushNotificationToUserRequest
                 {
                     UserId = payeeWallet.AccountId.ToString(),
-                    Notification = new PushNotification
+                    Notification = new DyPushNotification
                     {
                         Topic = "wallets.transactions",
                         Title = localizer.Get("transactionNewTitle", locale: locale),
@@ -329,10 +329,10 @@ public class PaymentService(
             var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
 
             await pusher.SendPushNotificationToUserAsync(
-                new SendPushNotificationToUserRequest
+                new DySendPushNotificationToUserRequest
                 {
                     UserId = payerWallet.AccountId.ToString(),
-                    Notification = new PushNotification
+                    Notification = new DyPushNotification
                     {
                         Topic = "wallets.orders.paid",
                         Title = localizer.Get("orderPaidTitle", args: new { orderId = $"#{readableOrderId}" }),
@@ -358,10 +358,10 @@ public class PaymentService(
             var readableOrderRemark = order.Remarks ?? $"#{readableOrderId}";
 
             await pusher.SendPushNotificationToUserAsync(
-                new SendPushNotificationToUserRequest
+                new DySendPushNotificationToUserRequest
                 {
                     UserId = payeeWallet.AccountId.ToString(),
-                    Notification = new PushNotification
+                    Notification = new DyPushNotification
                     {
                         Topic = "wallets.orders.paid",
                         Title = localizer.Get("orderPaidTitle", locale: locale,

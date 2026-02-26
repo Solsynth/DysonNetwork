@@ -4,9 +4,9 @@ using Google.Protobuf.WellKnownTypes;
 
 namespace DysonNetwork.Shared.Registry;
 
-public class RemotePaymentService(DysonNetwork.Shared.Proto.PaymentService.PaymentServiceClient payment)
+public class RemotePaymentService(DysonNetwork.DyPaymentService.DyPaymentServiceClient payment)
 {
-    public async Task<DysonNetwork.Shared.Proto.Order> CreateOrder(
+    public async Task<DysonNetwork.DyOrder> CreateOrder(
         string currency,
         string amount,
         string? payeeWalletId = null,
@@ -17,7 +17,7 @@ public class RemotePaymentService(DysonNetwork.Shared.Proto.PaymentService.Payme
         string? remarks = null,
         bool reuseable = false)
     {
-        var request = new DysonNetwork.Shared.Proto.CreateOrderRequest
+        var request = new DysonNetwork.DyCreateOrderRequest
         {
             Currency = currency,
             Amount = amount,
@@ -46,13 +46,13 @@ public class RemotePaymentService(DysonNetwork.Shared.Proto.PaymentService.Payme
         return response;
     }
 
-    public async Task<DysonNetwork.Shared.Proto.Transaction> CreateTransaction(
+    public async Task<DysonNetwork.DyTransaction> CreateTransaction(
         string? payerWalletId,
         string? payeeWalletId,
         string currency,
         string amount,
         string? remarks = null,
-        DysonNetwork.Shared.Proto.TransactionType type = DysonNetwork.Shared.Proto.TransactionType.Unspecified)
+        DysonNetwork.DyTransactionType type = DysonNetwork.DyTransactionType.Unspecified)
     {
         var request = new DysonNetwork.Shared.Proto.CreateTransactionRequest
         {

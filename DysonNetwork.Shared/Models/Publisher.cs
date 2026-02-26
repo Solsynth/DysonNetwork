@@ -51,12 +51,12 @@ public class SnPublisher : ModelBase, IIdentifiedResource
 
     public string ResourceIdentifier => $"publisher:{Id}";
 
-    public static SnPublisher FromProtoValue(Publisher proto)
+    public static SnPublisher FromProtoValue(DyPublisher proto)
     {
         var publisher = new SnPublisher
         {
             Id = Guid.TryParse(proto.Id, out var id) ? id : Guid.NewGuid(),
-            Type = proto.Type == Shared.Proto.PublisherType.PubIndividual
+            Type = proto.Type == DyPublisherType.DyPubIndividual
                 ? PublisherType.Individual
                 : PublisherType.Organizational,
             Name = proto.Name,
@@ -93,14 +93,14 @@ public class SnPublisher : ModelBase, IIdentifiedResource
         return publisher;
     }
 
-    public Publisher ToProtoValue()
+    public DyPublisher ToProtoValue()
     {
-        var p = new Publisher
+        var p = new DyPublisher
         {
             Id = Id.ToString(),
             Type = Type == PublisherType.Individual
-                ? Proto.PublisherType.PubIndividual
-                : Proto.PublisherType.PubOrganizational,
+                ? DyPublisherType.DyPubIndividual
+                : DyPublisherType.DyPubOrganizational,
             Name = Name,
             Nick = Nick,
             Bio = Bio,
@@ -156,25 +156,25 @@ public class SnPublisherMember : ModelBase
     public Instant? JoinedAt { get; set; }
     
     
-    public PublisherMember ToProto()
+    public DyPublisherMember ToProto()
     {
-        return new PublisherMember
+        return new DyPublisherMember
         {
             PublisherId = PublisherId.ToString(),
             AccountId = AccountId.ToString(),
             Role = Role switch
             {
-                PublisherMemberRole.Owner => Proto.PublisherMemberRole.Owner,
-                PublisherMemberRole.Manager => Proto.PublisherMemberRole.Manager,
-                PublisherMemberRole.Editor => Proto.PublisherMemberRole.Editor,
-                PublisherMemberRole.Viewer => Proto.PublisherMemberRole.Viewer,
+                PublisherMemberRole.Owner => DyPublisherMemberRole.DyOwner,
+                PublisherMemberRole.Manager => DyPublisherMemberRole.DyManager,
+                PublisherMemberRole.Editor => DyPublisherMemberRole.DyEditor,
+                PublisherMemberRole.Viewer => DyPublisherMemberRole.DyViewer,
                 _ => throw new ArgumentOutOfRangeException(nameof(Role), Role, null)
             },
             JoinedAt = JoinedAt?.ToTimestamp()
         };
     }
 
-    public static SnPublisherMember FromProtoValue(PublisherMember proto)
+    public static SnPublisherMember FromProtoValue(DyPublisherMember proto)
     {
         return new SnPublisherMember
         {
@@ -182,9 +182,9 @@ public class SnPublisherMember : ModelBase
             AccountId = Guid.Parse(proto.AccountId),
             Role = proto.Role switch
             {
-                Proto.PublisherMemberRole.Owner => PublisherMemberRole.Owner,
-                Proto.PublisherMemberRole.Manager => PublisherMemberRole.Manager,
-                Proto.PublisherMemberRole.Editor => PublisherMemberRole.Editor,
+                DyPublisherMemberRole.DyOwner => PublisherMemberRole.Owner,
+                DyPublisherMemberRole.DyManager => PublisherMemberRole.Manager,
+                DyPublisherMemberRole.DyEditor => PublisherMemberRole.Editor,
                 _ => PublisherMemberRole.Viewer
             },
             JoinedAt = proto.JoinedAt?.ToInstant(),

@@ -3,13 +3,13 @@ using DysonNetwork.Shared.Models;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
-using PollQuestionType = DysonNetwork.Shared.Proto.PollQuestionType;
+using PollQuestionType = DysonNetwork.DyPollQuestionType;
 
 namespace DysonNetwork.Sphere.Poll;
 
-public class PollServiceGrpc(AppDatabase db, PollService ps) : Shared.Proto.PollService.PollServiceBase
+public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyPollServiceBase
 {
-    public override async Task<Shared.Proto.Poll> GetPoll(GetPollRequest request, ServerCallContext context)
+    public override async Task<DyPoll> GetPoll(GetPollRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.Id, out var id))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid poll id"));

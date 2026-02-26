@@ -23,7 +23,7 @@ public class MiChanAutonomousBehavior
     private readonly SolarNetworkApiClient _apiClient;
     private readonly MiChanKernelProvider _kernelProvider;
     private readonly IServiceProvider _serviceProvider;
-    private readonly AccountService.AccountServiceClient _accountClient;
+    private readonly DyAccountService.DyAccountServiceClient _accountClient;
     private readonly PostAnalysisService _postAnalysisService;
     private readonly MemoryService _memoryService;
     private readonly InteractiveHistoryService _interactiveHistoryService;
@@ -57,7 +57,7 @@ public class MiChanAutonomousBehavior
         SolarNetworkApiClient apiClient,
         MiChanKernelProvider kernelProvider,
         IServiceProvider serviceProvider,
-        AccountService.AccountServiceClient accountClient,
+        DyAccountService.DyAccountServiceClient accountClient,
         PostAnalysisService postAnalysisService,
         IConfiguration configGlobal,
         MemoryService memoryService,
@@ -199,7 +199,7 @@ public class MiChanAutonomousBehavior
                 return new List<string>();
             }
 
-            var request = new ListRelationshipSimpleRequest
+            var request = new DyListRelationshipSimpleRequest
             {
                 RelatedId = _config.BotAccountId
             };

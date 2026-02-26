@@ -11,7 +11,7 @@ namespace DysonNetwork.Pass.Realm;
 
 public class RealmService(
     AppDatabase db,
-    RingService.RingServiceClient pusher,
+    DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
     ICacheService cache
 )
@@ -47,10 +47,10 @@ public class RealmService(
         if (account == null) throw new InvalidOperationException("Account not found");
 
         await pusher.SendPushNotificationToUserAsync(
-            new SendPushNotificationToUserRequest
+            new DySendPushNotificationToUserRequest
             {
                 UserId = account.Id.ToString(),
-                Notification = new PushNotification
+                Notification = new DyPushNotification
                 {
                     Topic = "invites.realms",
                     Title = localizer.Get("realmInviteTitle", account.Language),

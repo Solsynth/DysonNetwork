@@ -9,9 +9,9 @@ public class ScrapedArticle
     public EmbedLinkEmbed LinkEmbed { get; set; } = null!;
     public string? Content { get; set; }
 
-    public Shared.Proto.ScrapedArticle ToProtoValue()
+    public DyScrapedArticle ToProtoValue()
     {
-        var proto = new Shared.Proto.ScrapedArticle
+        var proto = new DyScrapedArticle
         {
             LinkEmbed = LinkEmbed.ToProtoValue()
         };
@@ -22,7 +22,7 @@ public class ScrapedArticle
         return proto;
     }
 
-    public static ScrapedArticle FromProtoValue(Shared.Proto.ScrapedArticle proto)
+    public static ScrapedArticle FromProtoValue(DyScrapedArticle proto)
     {
         return new ScrapedArticle
         {

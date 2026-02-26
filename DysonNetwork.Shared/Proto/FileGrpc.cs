@@ -8,12 +8,9 @@
 using grpc = global::Grpc.Core;
 
 namespace DysonNetwork.Shared.Proto {
-  /// <summary>
-  /// Service for file operations
-  /// </summary>
-  public static partial class FileService
+  public static partial class DyFileService
   {
-    static readonly string __ServiceName = "proto.FileService";
+    static readonly string __ServiceName = "proto.DyFileService";
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static void __Helper_SerializeMessage(global::Google.Protobuf.IMessage message, grpc::SerializationContext context)
@@ -49,80 +46,80 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.GetFileRequest> __Marshaller_proto_GetFileRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.GetFileRequest.Parser));
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetFileRequest> __Marshaller_proto_DyGetFileRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetFileRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.CloudFile> __Marshaller_proto_CloudFile = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.CloudFile.Parser));
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyCloudFile> __Marshaller_proto_DyCloudFile = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyCloudFile.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.GetFileBatchRequest> __Marshaller_proto_GetFileBatchRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.GetFileBatchRequest.Parser));
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetFileBatchRequest> __Marshaller_proto_DyGetFileBatchRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetFileBatchRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.GetFileBatchResponse> __Marshaller_proto_GetFileBatchResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.GetFileBatchResponse.Parser));
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetFileBatchResponse> __Marshaller_proto_DyGetFileBatchResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetFileBatchResponse.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.UpdateFileRequest> __Marshaller_proto_UpdateFileRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.UpdateFileRequest.Parser));
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyUpdateFileRequest> __Marshaller_proto_DyUpdateFileRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyUpdateFileRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DeleteFileRequest> __Marshaller_proto_DeleteFileRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DeleteFileRequest.Parser));
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyDeleteFileRequest> __Marshaller_proto_DyDeleteFileRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyDeleteFileRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::Google.Protobuf.WellKnownTypes.Empty> __Marshaller_google_protobuf_Empty = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::Google.Protobuf.WellKnownTypes.Empty.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.PurgeCacheRequest> __Marshaller_proto_PurgeCacheRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.PurgeCacheRequest.Parser));
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyPurgeCacheRequest> __Marshaller_proto_DyPurgeCacheRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyPurgeCacheRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.SetFilePublicRequest> __Marshaller_proto_SetFilePublicRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.SetFilePublicRequest.Parser));
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DySetFilePublicRequest> __Marshaller_proto_DySetFilePublicRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DySetFilePublicRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.UnsetFilePublicRequest> __Marshaller_proto_UnsetFilePublicRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.UnsetFilePublicRequest.Parser));
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyUnsetFilePublicRequest> __Marshaller_proto_DyUnsetFilePublicRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyUnsetFilePublicRequest.Parser));
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.GetFileRequest, global::DysonNetwork.Shared.Proto.CloudFile> __Method_GetFile = new grpc::Method<global::DysonNetwork.Shared.Proto.GetFileRequest, global::DysonNetwork.Shared.Proto.CloudFile>(
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetFileRequest, global::DysonNetwork.Shared.Proto.DyCloudFile> __Method_GetFile = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetFileRequest, global::DysonNetwork.Shared.Proto.DyCloudFile>(
         grpc::MethodType.Unary,
         __ServiceName,
         "GetFile",
-        __Marshaller_proto_GetFileRequest,
-        __Marshaller_proto_CloudFile);
+        __Marshaller_proto_DyGetFileRequest,
+        __Marshaller_proto_DyCloudFile);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.GetFileBatchRequest, global::DysonNetwork.Shared.Proto.GetFileBatchResponse> __Method_GetFileBatch = new grpc::Method<global::DysonNetwork.Shared.Proto.GetFileBatchRequest, global::DysonNetwork.Shared.Proto.GetFileBatchResponse>(
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetFileBatchRequest, global::DysonNetwork.Shared.Proto.DyGetFileBatchResponse> __Method_GetFileBatch = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetFileBatchRequest, global::DysonNetwork.Shared.Proto.DyGetFileBatchResponse>(
         grpc::MethodType.Unary,
         __ServiceName,
         "GetFileBatch",
-        __Marshaller_proto_GetFileBatchRequest,
-        __Marshaller_proto_GetFileBatchResponse);
+        __Marshaller_proto_DyGetFileBatchRequest,
+        __Marshaller_proto_DyGetFileBatchResponse);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.UpdateFileRequest, global::DysonNetwork.Shared.Proto.CloudFile> __Method_UpdateFile = new grpc::Method<global::DysonNetwork.Shared.Proto.UpdateFileRequest, global::DysonNetwork.Shared.Proto.CloudFile>(
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateFileRequest, global::DysonNetwork.Shared.Proto.DyCloudFile> __Method_UpdateFile = new grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateFileRequest, global::DysonNetwork.Shared.Proto.DyCloudFile>(
         grpc::MethodType.Unary,
         __ServiceName,
         "UpdateFile",
-        __Marshaller_proto_UpdateFileRequest,
-        __Marshaller_proto_CloudFile);
+        __Marshaller_proto_DyUpdateFileRequest,
+        __Marshaller_proto_DyCloudFile);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DeleteFileRequest, global::Google.Protobuf.WellKnownTypes.Empty> __Method_DeleteFile = new grpc::Method<global::DysonNetwork.Shared.Proto.DeleteFileRequest, global::Google.Protobuf.WellKnownTypes.Empty>(
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyDeleteFileRequest, global::Google.Protobuf.WellKnownTypes.Empty> __Method_DeleteFile = new grpc::Method<global::DysonNetwork.Shared.Proto.DyDeleteFileRequest, global::Google.Protobuf.WellKnownTypes.Empty>(
         grpc::MethodType.Unary,
         __ServiceName,
         "DeleteFile",
-        __Marshaller_proto_DeleteFileRequest,
+        __Marshaller_proto_DyDeleteFileRequest,
         __Marshaller_google_protobuf_Empty);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.PurgeCacheRequest, global::Google.Protobuf.WellKnownTypes.Empty> __Method_PurgeCache = new grpc::Method<global::DysonNetwork.Shared.Proto.PurgeCacheRequest, global::Google.Protobuf.WellKnownTypes.Empty>(
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyPurgeCacheRequest, global::Google.Protobuf.WellKnownTypes.Empty> __Method_PurgeCache = new grpc::Method<global::DysonNetwork.Shared.Proto.DyPurgeCacheRequest, global::Google.Protobuf.WellKnownTypes.Empty>(
         grpc::MethodType.Unary,
         __ServiceName,
         "PurgeCache",
-        __Marshaller_proto_PurgeCacheRequest,
+        __Marshaller_proto_DyPurgeCacheRequest,
         __Marshaller_google_protobuf_Empty);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.SetFilePublicRequest, global::Google.Protobuf.WellKnownTypes.Empty> __Method_SetFilePublic = new grpc::Method<global::DysonNetwork.Shared.Proto.SetFilePublicRequest, global::Google.Protobuf.WellKnownTypes.Empty>(
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DySetFilePublicRequest, global::Google.Protobuf.WellKnownTypes.Empty> __Method_SetFilePublic = new grpc::Method<global::DysonNetwork.Shared.Proto.DySetFilePublicRequest, global::Google.Protobuf.WellKnownTypes.Empty>(
         grpc::MethodType.Unary,
         __ServiceName,
         "SetFilePublic",
-        __Marshaller_proto_SetFilePublicRequest,
+        __Marshaller_proto_DySetFilePublicRequest,
         __Marshaller_google_protobuf_Empty);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.UnsetFilePublicRequest, global::Google.Protobuf.WellKnownTypes.Empty> __Method_UnsetFilePublic = new grpc::Method<global::DysonNetwork.Shared.Proto.UnsetFilePublicRequest, global::Google.Protobuf.WellKnownTypes.Empty>(
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyUnsetFilePublicRequest, global::Google.Protobuf.WellKnownTypes.Empty> __Method_UnsetFilePublic = new grpc::Method<global::DysonNetwork.Shared.Proto.DyUnsetFilePublicRequest, global::Google.Protobuf.WellKnownTypes.Empty>(
         grpc::MethodType.Unary,
         __ServiceName,
         "UnsetFilePublic",
-        __Marshaller_proto_UnsetFilePublicRequest,
+        __Marshaller_proto_DyUnsetFilePublicRequest,
         __Marshaller_google_protobuf_Empty);
 
     /// <summary>Service descriptor</summary>
@@ -131,437 +128,233 @@ namespace DysonNetwork.Shared.Proto {
       get { return global::DysonNetwork.Shared.Proto.FileReflection.Descriptor.Services[0]; }
     }
 
-    /// <summary>Base class for server-side implementations of FileService</summary>
-    [grpc::BindServiceMethod(typeof(FileService), "BindService")]
-    public abstract partial class FileServiceBase
+    /// <summary>Base class for server-side implementations of DyFileService</summary>
+    [grpc::BindServiceMethod(typeof(DyFileService), "BindService")]
+    public abstract partial class DyFileServiceBase
     {
-      /// <summary>
-      /// Get file reference by ID
-      /// </summary>
-      /// <param name="request">The request received from the client.</param>
-      /// <param name="context">The context of the server-side call handler being invoked.</param>
-      /// <returns>The response to send back to the client (wrapped by a task).</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.CloudFile> GetFile(global::DysonNetwork.Shared.Proto.GetFileRequest request, grpc::ServerCallContext context)
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyCloudFile> GetFile(global::DysonNetwork.Shared.Proto.DyGetFileRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
 
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.GetFileBatchResponse> GetFileBatch(global::DysonNetwork.Shared.Proto.GetFileBatchRequest request, grpc::ServerCallContext context)
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyGetFileBatchResponse> GetFileBatch(global::DysonNetwork.Shared.Proto.DyGetFileBatchRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
 
-      /// <summary>
-      /// Update an existing file reference
-      /// </summary>
-      /// <param name="request">The request received from the client.</param>
-      /// <param name="context">The context of the server-side call handler being invoked.</param>
-      /// <returns>The response to send back to the client (wrapped by a task).</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.CloudFile> UpdateFile(global::DysonNetwork.Shared.Proto.UpdateFileRequest request, grpc::ServerCallContext context)
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyCloudFile> UpdateFile(global::DysonNetwork.Shared.Proto.DyUpdateFileRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
 
-      /// <summary>
-      /// Delete a file reference
-      /// </summary>
-      /// <param name="request">The request received from the client.</param>
-      /// <param name="context">The context of the server-side call handler being invoked.</param>
-      /// <returns>The response to send back to the client (wrapped by a task).</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::Google.Protobuf.WellKnownTypes.Empty> DeleteFile(global::DysonNetwork.Shared.Proto.DeleteFileRequest request, grpc::ServerCallContext context)
+      public virtual global::System.Threading.Tasks.Task<global::Google.Protobuf.WellKnownTypes.Empty> DeleteFile(global::DysonNetwork.Shared.Proto.DyDeleteFileRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
 
-      /// <summary>
-      /// Purge cache for a file
-      /// </summary>
-      /// <param name="request">The request received from the client.</param>
-      /// <param name="context">The context of the server-side call handler being invoked.</param>
-      /// <returns>The response to send back to the client (wrapped by a task).</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::Google.Protobuf.WellKnownTypes.Empty> PurgeCache(global::DysonNetwork.Shared.Proto.PurgeCacheRequest request, grpc::ServerCallContext context)
+      public virtual global::System.Threading.Tasks.Task<global::Google.Protobuf.WellKnownTypes.Empty> PurgeCache(global::DysonNetwork.Shared.Proto.DyPurgeCacheRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
 
-      /// <summary>
-      /// Set file as publicly readable (anyone read permission)
-      /// </summary>
-      /// <param name="request">The request received from the client.</param>
-      /// <param name="context">The context of the server-side call handler being invoked.</param>
-      /// <returns>The response to send back to the client (wrapped by a task).</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::Google.Protobuf.WellKnownTypes.Empty> SetFilePublic(global::DysonNetwork.Shared.Proto.SetFilePublicRequest request, grpc::ServerCallContext context)
+      public virtual global::System.Threading.Tasks.Task<global::Google.Protobuf.WellKnownTypes.Empty> SetFilePublic(global::DysonNetwork.Shared.Proto.DySetFilePublicRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
 
-      /// <summary>
-      /// Remove public read permission
-      /// </summary>
-      /// <param name="request">The request received from the client.</param>
-      /// <param name="context">The context of the server-side call handler being invoked.</param>
-      /// <returns>The response to send back to the client (wrapped by a task).</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::Google.Protobuf.WellKnownTypes.Empty> UnsetFilePublic(global::DysonNetwork.Shared.Proto.UnsetFilePublicRequest request, grpc::ServerCallContext context)
+      public virtual global::System.Threading.Tasks.Task<global::Google.Protobuf.WellKnownTypes.Empty> UnsetFilePublic(global::DysonNetwork.Shared.Proto.DyUnsetFilePublicRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
 
     }
 
-    /// <summary>Client for FileService</summary>
-    public partial class FileServiceClient : grpc::ClientBase<FileServiceClient>
+    /// <summary>Client for DyFileService</summary>
+    public partial class DyFileServiceClient : grpc::ClientBase<DyFileServiceClient>
     {
-      /// <summary>Creates a new client for FileService</summary>
+      /// <summary>Creates a new client for DyFileService</summary>
       /// <param name="channel">The channel to use to make remote calls.</param>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public FileServiceClient(grpc::ChannelBase channel) : base(channel)
+      public DyFileServiceClient(grpc::ChannelBase channel) : base(channel)
       {
       }
-      /// <summary>Creates a new client for FileService that uses a custom <c>CallInvoker</c>.</summary>
+      /// <summary>Creates a new client for DyFileService that uses a custom <c>CallInvoker</c>.</summary>
       /// <param name="callInvoker">The callInvoker to use to make remote calls.</param>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public FileServiceClient(grpc::CallInvoker callInvoker) : base(callInvoker)
+      public DyFileServiceClient(grpc::CallInvoker callInvoker) : base(callInvoker)
       {
       }
       /// <summary>Protected parameterless constructor to allow creation of test doubles.</summary>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      protected FileServiceClient() : base()
+      protected DyFileServiceClient() : base()
       {
       }
       /// <summary>Protected constructor to allow creation of configured clients.</summary>
       /// <param name="configuration">The client configuration.</param>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      protected FileServiceClient(ClientBaseConfiguration configuration) : base(configuration)
+      protected DyFileServiceClient(ClientBaseConfiguration configuration) : base(configuration)
       {
       }
 
-      /// <summary>
-      /// Get file reference by ID
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The response received from the server.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.CloudFile GetFile(global::DysonNetwork.Shared.Proto.GetFileRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual global::DysonNetwork.Shared.Proto.DyCloudFile GetFile(global::DysonNetwork.Shared.Proto.DyGetFileRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return GetFile(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
-      /// <summary>
-      /// Get file reference by ID
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The response received from the server.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.CloudFile GetFile(global::DysonNetwork.Shared.Proto.GetFileRequest request, grpc::CallOptions options)
+      public virtual global::DysonNetwork.Shared.Proto.DyCloudFile GetFile(global::DysonNetwork.Shared.Proto.DyGetFileRequest request, grpc::CallOptions options)
       {
         return CallInvoker.BlockingUnaryCall(__Method_GetFile, null, options, request);
       }
-      /// <summary>
-      /// Get file reference by ID
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The call object.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.CloudFile> GetFileAsync(global::DysonNetwork.Shared.Proto.GetFileRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyCloudFile> GetFileAsync(global::DysonNetwork.Shared.Proto.DyGetFileRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return GetFileAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
-      /// <summary>
-      /// Get file reference by ID
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The call object.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.CloudFile> GetFileAsync(global::DysonNetwork.Shared.Proto.GetFileRequest request, grpc::CallOptions options)
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyCloudFile> GetFileAsync(global::DysonNetwork.Shared.Proto.DyGetFileRequest request, grpc::CallOptions options)
       {
         return CallInvoker.AsyncUnaryCall(__Method_GetFile, null, options, request);
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.GetFileBatchResponse GetFileBatch(global::DysonNetwork.Shared.Proto.GetFileBatchRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual global::DysonNetwork.Shared.Proto.DyGetFileBatchResponse GetFileBatch(global::DysonNetwork.Shared.Proto.DyGetFileBatchRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return GetFileBatch(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.GetFileBatchResponse GetFileBatch(global::DysonNetwork.Shared.Proto.GetFileBatchRequest request, grpc::CallOptions options)
+      public virtual global::DysonNetwork.Shared.Proto.DyGetFileBatchResponse GetFileBatch(global::DysonNetwork.Shared.Proto.DyGetFileBatchRequest request, grpc::CallOptions options)
       {
         return CallInvoker.BlockingUnaryCall(__Method_GetFileBatch, null, options, request);
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.GetFileBatchResponse> GetFileBatchAsync(global::DysonNetwork.Shared.Proto.GetFileBatchRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetFileBatchResponse> GetFileBatchAsync(global::DysonNetwork.Shared.Proto.DyGetFileBatchRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return GetFileBatchAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.GetFileBatchResponse> GetFileBatchAsync(global::DysonNetwork.Shared.Proto.GetFileBatchRequest request, grpc::CallOptions options)
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetFileBatchResponse> GetFileBatchAsync(global::DysonNetwork.Shared.Proto.DyGetFileBatchRequest request, grpc::CallOptions options)
       {
         return CallInvoker.AsyncUnaryCall(__Method_GetFileBatch, null, options, request);
       }
-      /// <summary>
-      /// Update an existing file reference
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The response received from the server.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.CloudFile UpdateFile(global::DysonNetwork.Shared.Proto.UpdateFileRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual global::DysonNetwork.Shared.Proto.DyCloudFile UpdateFile(global::DysonNetwork.Shared.Proto.DyUpdateFileRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return UpdateFile(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
-      /// <summary>
-      /// Update an existing file reference
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The response received from the server.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.CloudFile UpdateFile(global::DysonNetwork.Shared.Proto.UpdateFileRequest request, grpc::CallOptions options)
+      public virtual global::DysonNetwork.Shared.Proto.DyCloudFile UpdateFile(global::DysonNetwork.Shared.Proto.DyUpdateFileRequest request, grpc::CallOptions options)
       {
         return CallInvoker.BlockingUnaryCall(__Method_UpdateFile, null, options, request);
       }
-      /// <summary>
-      /// Update an existing file reference
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The call object.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.CloudFile> UpdateFileAsync(global::DysonNetwork.Shared.Proto.UpdateFileRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyCloudFile> UpdateFileAsync(global::DysonNetwork.Shared.Proto.DyUpdateFileRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return UpdateFileAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
-      /// <summary>
-      /// Update an existing file reference
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The call object.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.CloudFile> UpdateFileAsync(global::DysonNetwork.Shared.Proto.UpdateFileRequest request, grpc::CallOptions options)
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyCloudFile> UpdateFileAsync(global::DysonNetwork.Shared.Proto.DyUpdateFileRequest request, grpc::CallOptions options)
       {
         return CallInvoker.AsyncUnaryCall(__Method_UpdateFile, null, options, request);
       }
-      /// <summary>
-      /// Delete a file reference
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The response received from the server.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::Google.Protobuf.WellKnownTypes.Empty DeleteFile(global::DysonNetwork.Shared.Proto.DeleteFileRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual global::Google.Protobuf.WellKnownTypes.Empty DeleteFile(global::DysonNetwork.Shared.Proto.DyDeleteFileRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return DeleteFile(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
-      /// <summary>
-      /// Delete a file reference
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The response received from the server.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::Google.Protobuf.WellKnownTypes.Empty DeleteFile(global::DysonNetwork.Shared.Proto.DeleteFileRequest request, grpc::CallOptions options)
+      public virtual global::Google.Protobuf.WellKnownTypes.Empty DeleteFile(global::DysonNetwork.Shared.Proto.DyDeleteFileRequest request, grpc::CallOptions options)
       {
         return CallInvoker.BlockingUnaryCall(__Method_DeleteFile, null, options, request);
       }
-      /// <summary>
-      /// Delete a file reference
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The call object.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> DeleteFileAsync(global::DysonNetwork.Shared.Proto.DeleteFileRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> DeleteFileAsync(global::DysonNetwork.Shared.Proto.DyDeleteFileRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return DeleteFileAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
-      /// <summary>
-      /// Delete a file reference
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The call object.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> DeleteFileAsync(global::DysonNetwork.Shared.Proto.DeleteFileRequest request, grpc::CallOptions options)
+      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> DeleteFileAsync(global::DysonNetwork.Shared.Proto.DyDeleteFileRequest request, grpc::CallOptions options)
       {
         return CallInvoker.AsyncUnaryCall(__Method_DeleteFile, null, options, request);
       }
-      /// <summary>
-      /// Purge cache for a file
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The response received from the server.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::Google.Protobuf.WellKnownTypes.Empty PurgeCache(global::DysonNetwork.Shared.Proto.PurgeCacheRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual global::Google.Protobuf.WellKnownTypes.Empty PurgeCache(global::DysonNetwork.Shared.Proto.DyPurgeCacheRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return PurgeCache(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
-      /// <summary>
-      /// Purge cache for a file
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The response received from the server.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::Google.Protobuf.WellKnownTypes.Empty PurgeCache(global::DysonNetwork.Shared.Proto.PurgeCacheRequest request, grpc::CallOptions options)
+      public virtual global::Google.Protobuf.WellKnownTypes.Empty PurgeCache(global::DysonNetwork.Shared.Proto.DyPurgeCacheRequest request, grpc::CallOptions options)
       {
         return CallInvoker.BlockingUnaryCall(__Method_PurgeCache, null, options, request);
       }
-      /// <summary>
-      /// Purge cache for a file
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The call object.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> PurgeCacheAsync(global::DysonNetwork.Shared.Proto.PurgeCacheRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> PurgeCacheAsync(global::DysonNetwork.Shared.Proto.DyPurgeCacheRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return PurgeCacheAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
-      /// <summary>
-      /// Purge cache for a file
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The call object.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> PurgeCacheAsync(global::DysonNetwork.Shared.Proto.PurgeCacheRequest request, grpc::CallOptions options)
+      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> PurgeCacheAsync(global::DysonNetwork.Shared.Proto.DyPurgeCacheRequest request, grpc::CallOptions options)
       {
         return CallInvoker.AsyncUnaryCall(__Method_PurgeCache, null, options, request);
       }
-      /// <summary>
-      /// Set file as publicly readable (anyone read permission)
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The response received from the server.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::Google.Protobuf.WellKnownTypes.Empty SetFilePublic(global::DysonNetwork.Shared.Proto.SetFilePublicRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual global::Google.Protobuf.WellKnownTypes.Empty SetFilePublic(global::DysonNetwork.Shared.Proto.DySetFilePublicRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return SetFilePublic(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
-      /// <summary>
-      /// Set file as publicly readable (anyone read permission)
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The response received from the server.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::Google.Protobuf.WellKnownTypes.Empty SetFilePublic(global::DysonNetwork.Shared.Proto.SetFilePublicRequest request, grpc::CallOptions options)
+      public virtual global::Google.Protobuf.WellKnownTypes.Empty SetFilePublic(global::DysonNetwork.Shared.Proto.DySetFilePublicRequest request, grpc::CallOptions options)
       {
         return CallInvoker.BlockingUnaryCall(__Method_SetFilePublic, null, options, request);
       }
-      /// <summary>
-      /// Set file as publicly readable (anyone read permission)
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The call object.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> SetFilePublicAsync(global::DysonNetwork.Shared.Proto.SetFilePublicRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> SetFilePublicAsync(global::DysonNetwork.Shared.Proto.DySetFilePublicRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return SetFilePublicAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
-      /// <summary>
-      /// Set file as publicly readable (anyone read permission)
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The call object.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> SetFilePublicAsync(global::DysonNetwork.Shared.Proto.SetFilePublicRequest request, grpc::CallOptions options)
+      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> SetFilePublicAsync(global::DysonNetwork.Shared.Proto.DySetFilePublicRequest request, grpc::CallOptions options)
       {
         return CallInvoker.AsyncUnaryCall(__Method_SetFilePublic, null, options, request);
       }
-      /// <summary>
-      /// Remove public read permission
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The response received from the server.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::Google.Protobuf.WellKnownTypes.Empty UnsetFilePublic(global::DysonNetwork.Shared.Proto.UnsetFilePublicRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual global::Google.Protobuf.WellKnownTypes.Empty UnsetFilePublic(global::DysonNetwork.Shared.Proto.DyUnsetFilePublicRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return UnsetFilePublic(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
-      /// <summary>
-      /// Remove public read permission
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The response received from the server.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::Google.Protobuf.WellKnownTypes.Empty UnsetFilePublic(global::DysonNetwork.Shared.Proto.UnsetFilePublicRequest request, grpc::CallOptions options)
+      public virtual global::Google.Protobuf.WellKnownTypes.Empty UnsetFilePublic(global::DysonNetwork.Shared.Proto.DyUnsetFilePublicRequest request, grpc::CallOptions options)
       {
         return CallInvoker.BlockingUnaryCall(__Method_UnsetFilePublic, null, options, request);
       }
-      /// <summary>
-      /// Remove public read permission
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The call object.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> UnsetFilePublicAsync(global::DysonNetwork.Shared.Proto.UnsetFilePublicRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> UnsetFilePublicAsync(global::DysonNetwork.Shared.Proto.DyUnsetFilePublicRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return UnsetFilePublicAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
-      /// <summary>
-      /// Remove public read permission
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The call object.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> UnsetFilePublicAsync(global::DysonNetwork.Shared.Proto.UnsetFilePublicRequest request, grpc::CallOptions options)
+      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> UnsetFilePublicAsync(global::DysonNetwork.Shared.Proto.DyUnsetFilePublicRequest request, grpc::CallOptions options)
       {
         return CallInvoker.AsyncUnaryCall(__Method_UnsetFilePublic, null, options, request);
       }
       /// <summary>Creates a new instance of client from given <c>ClientBaseConfiguration</c>.</summary>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      protected override FileServiceClient NewInstance(ClientBaseConfiguration configuration)
+      protected override DyFileServiceClient NewInstance(ClientBaseConfiguration configuration)
       {
-        return new FileServiceClient(configuration);
+        return new DyFileServiceClient(configuration);
       }
     }
 
     /// <summary>Creates service definition that can be registered with a server</summary>
     /// <param name="serviceImpl">An object implementing the server-side handling logic.</param>
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    public static grpc::ServerServiceDefinition BindService(FileServiceBase serviceImpl)
+    public static grpc::ServerServiceDefinition BindService(DyFileServiceBase serviceImpl)
     {
       return grpc::ServerServiceDefinition.CreateBuilder()
           .AddMethod(__Method_GetFile, serviceImpl.GetFile)
@@ -578,15 +371,15 @@ namespace DysonNetwork.Shared.Proto {
     /// <param name="serviceBinder">Service methods will be bound by calling <c>AddMethod</c> on this object.</param>
     /// <param name="serviceImpl">An object implementing the server-side handling logic.</param>
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    public static void BindService(grpc::ServiceBinderBase serviceBinder, FileServiceBase serviceImpl)
+    public static void BindService(grpc::ServiceBinderBase serviceBinder, DyFileServiceBase serviceImpl)
     {
-      serviceBinder.AddMethod(__Method_GetFile, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.GetFileRequest, global::DysonNetwork.Shared.Proto.CloudFile>(serviceImpl.GetFile));
-      serviceBinder.AddMethod(__Method_GetFileBatch, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.GetFileBatchRequest, global::DysonNetwork.Shared.Proto.GetFileBatchResponse>(serviceImpl.GetFileBatch));
-      serviceBinder.AddMethod(__Method_UpdateFile, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.UpdateFileRequest, global::DysonNetwork.Shared.Proto.CloudFile>(serviceImpl.UpdateFile));
-      serviceBinder.AddMethod(__Method_DeleteFile, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DeleteFileRequest, global::Google.Protobuf.WellKnownTypes.Empty>(serviceImpl.DeleteFile));
-      serviceBinder.AddMethod(__Method_PurgeCache, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.PurgeCacheRequest, global::Google.Protobuf.WellKnownTypes.Empty>(serviceImpl.PurgeCache));
-      serviceBinder.AddMethod(__Method_SetFilePublic, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.SetFilePublicRequest, global::Google.Protobuf.WellKnownTypes.Empty>(serviceImpl.SetFilePublic));
-      serviceBinder.AddMethod(__Method_UnsetFilePublic, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.UnsetFilePublicRequest, global::Google.Protobuf.WellKnownTypes.Empty>(serviceImpl.UnsetFilePublic));
+      serviceBinder.AddMethod(__Method_GetFile, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetFileRequest, global::DysonNetwork.Shared.Proto.DyCloudFile>(serviceImpl.GetFile));
+      serviceBinder.AddMethod(__Method_GetFileBatch, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetFileBatchRequest, global::DysonNetwork.Shared.Proto.DyGetFileBatchResponse>(serviceImpl.GetFileBatch));
+      serviceBinder.AddMethod(__Method_UpdateFile, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyUpdateFileRequest, global::DysonNetwork.Shared.Proto.DyCloudFile>(serviceImpl.UpdateFile));
+      serviceBinder.AddMethod(__Method_DeleteFile, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyDeleteFileRequest, global::Google.Protobuf.WellKnownTypes.Empty>(serviceImpl.DeleteFile));
+      serviceBinder.AddMethod(__Method_PurgeCache, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyPurgeCacheRequest, global::Google.Protobuf.WellKnownTypes.Empty>(serviceImpl.PurgeCache));
+      serviceBinder.AddMethod(__Method_SetFilePublic, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DySetFilePublicRequest, global::Google.Protobuf.WellKnownTypes.Empty>(serviceImpl.SetFilePublic));
+      serviceBinder.AddMethod(__Method_UnsetFilePublic, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyUnsetFilePublicRequest, global::Google.Protobuf.WellKnownTypes.Empty>(serviceImpl.UnsetFilePublic));
     }
 
   }

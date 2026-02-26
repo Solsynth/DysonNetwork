@@ -74,7 +74,7 @@ public class PublicationSiteService(
         }
 
         // Check if account is member of the publisher
-        var isMember = await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Editor);
+        var isMember = await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.DyEditor);
         if (!isMember)
             throw new UnauthorizedAccessException("Account is not a member of the publisher with sufficient role.");
 
@@ -86,7 +86,7 @@ public class PublicationSiteService(
     public async Task<SnPublicationSite> UpdateSite(SnPublicationSite site, Guid accountId)
     {
         // Check permission
-        var isMember = await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Editor);
+        var isMember = await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.DyEditor);
         if (!isMember)
             throw new UnauthorizedAccessException("Account is not a member of the publisher with sufficient role.");
 
@@ -102,7 +102,7 @@ public class PublicationSiteService(
         {
             // Check permission
             var isMember =
-                await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Owner);
+                await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.DyOwner);
             if (!isMember)
                 throw new UnauthorizedAccessException("Account is not an owner of the publisher.");
 
@@ -133,7 +133,7 @@ public class PublicationSiteService(
             throw new InvalidOperationException("Site not found.");
 
         // Check permission
-        var isMember = await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Editor);
+        var isMember = await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.DyEditor);
         if (!isMember)
             throw new UnauthorizedAccessException("Account is not a member of the publisher with sufficient role.");
 
@@ -150,7 +150,7 @@ public class PublicationSiteService(
             throw new InvalidOperationException("Site not found.");
 
         // Check permission
-        var isMember = await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Editor);
+        var isMember = await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.DyEditor);
         if (!isMember)
             throw new UnauthorizedAccessException("Account is not a member of the publisher with sufficient role.");
 
@@ -169,7 +169,7 @@ public class PublicationSiteService(
             {
                 // Check permission
                 var isMember =
-                    await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Editor);
+                    await publisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.DyEditor);
                 if (!isMember)
                     throw new UnauthorizedAccessException(
                         "Account is not a member of the publisher with sufficient role.");

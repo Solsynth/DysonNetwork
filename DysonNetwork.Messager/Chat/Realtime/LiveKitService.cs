@@ -7,7 +7,6 @@ namespace DysonNetwork.Messager.Chat.Realtime;
 
 public class LiveKitRealtimeService : IRealtimeService
 {
-    private readonly AppDatabase _db;
     private readonly ICacheService _cache;
 
     private readonly ILogger<LiveKitRealtimeService> _logger;
@@ -17,7 +16,6 @@ public class LiveKitRealtimeService : IRealtimeService
     public LiveKitRealtimeService(
         IConfiguration configuration,
         ILogger<LiveKitRealtimeService> logger,
-        AppDatabase db,
         ICacheService cache
     )
     {
@@ -33,7 +31,6 @@ public class LiveKitRealtimeService : IRealtimeService
         _roomService = new RoomServiceClient(host, apiKey, apiSecret);
         _accessToken = new AccessToken(apiKey, apiSecret);
 
-        _db = db;
         _cache = cache;
     }
 
@@ -92,7 +89,7 @@ public class LiveKitRealtimeService : IRealtimeService
         }
     }
 
-    public string GetUserToken(Account account, string sessionId, bool isAdmin = false, bool isTool = false)
+    public string GetUserToken(DyAccount account, string sessionId, bool isAdmin = false, bool isTool = false)
     {
         var identity = account.Name;
         if (isTool) identity += "_tool";

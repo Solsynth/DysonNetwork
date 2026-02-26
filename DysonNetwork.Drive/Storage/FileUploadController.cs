@@ -22,7 +22,7 @@ public class FileUploadController(
     IConfiguration configuration,
     FileService fileService,
     AppDatabase db,
-    PermissionService.PermissionServiceClient permission,
+    DyPermissionService.DyPermissionServiceClient permission,
     QuotaService quotaService,
     PersistentTaskService persistentTaskService,
     FileIndexService fileIndexService,
@@ -38,7 +38,7 @@ public class FileUploadController(
     [HttpPost("create")]
     public async Task<IActionResult> CreateUploadTask([FromBody] CreateUploadTaskRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var permissionCheck = await ValidateUserPermissions(currentUser);
@@ -111,11 +111,11 @@ public class FileUploadController(
         });
     }
 
-    private async Task<IActionResult?> ValidateUserPermissions(Account currentUser)
+    private async Task<IActionResult?> ValidateUserPermissions(DyAccount currentUser)
     {
         if (currentUser.IsSuperuser) return null;
 
-        var allowed = await permission.HasPermissionAsync(new HasPermissionRequest
+        var allowed = await permission.HasPermissionAsync(new DyHasPermissionRequest
             { Actor = currentUser.Id, Key = "files.create" });
 
         return allowed.HasPermission
@@ -123,7 +123,7 @@ public class FileUploadController(
             : new ObjectResult(ApiError.Unauthorized(forbidden: true)) { StatusCode = 403 };
     }
 
-    private Task<IActionResult?> ValidatePoolAccess(Account currentUser, FilePool pool, CreateUploadTaskRequest request)
+    private Task<IActionResult?> ValidatePoolAccess(DyAccount currentUser, FilePool pool, CreateUploadTaskRequest request)
     {
         if (pool.PolicyConfig.RequirePrivilege <= 0) return Task.FromResult<IActionResult?>(null);
 
@@ -189,7 +189,7 @@ public class FileUploadController(
         return null;
     }
 
-    private async Task<IActionResult?> ValidateQuota(Account currentUser, FilePool pool, long fileSize)
+    private async Task<IActionResult?> ValidateQuota(DyAccount currentUser, FilePool pool, long fileSize)
     {
         var (ok, billableUnit, quota) = await quotaService.IsFileAcceptable(
             Guid.Parse(currentUser.Id),
@@ -258,7 +258,7 @@ public class FileUploadController(
         if (persistentTask is null)
             return new ObjectResult(ApiError.NotFound("Upload task")) { StatusCode = 404 };
 
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         if (currentUser is null)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
@@ -404,7 +404,7 @@ public class FileUploadController(
         [FromQuery] int limit = 50
     )
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         if (currentUser is null)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
@@ -437,7 +437,7 @@ public class FileUploadController(
     [HttpGet("progress/{taskId}")]
     public async Task<IActionResult> GetUploadProgress(string taskId)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         if (currentUser is null)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
@@ -468,7 +468,7 @@ public class FileUploadController(
     [HttpGet("resume/{taskId}")]
     public async Task<IActionResult> ResumeUploadTask(string taskId)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         if (currentUser is null)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
@@ -504,7 +504,7 @@ public class FileUploadController(
     [HttpDelete("task/{taskId}")]
     public async Task<IActionResult> CancelUploadTask(string taskId)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         if (currentUser is null)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
@@ -529,7 +529,7 @@ public class FileUploadController(
     [HttpGet("stats")]
     public async Task<IActionResult> GetUploadStats()
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         if (currentUser is null)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
@@ -552,7 +552,7 @@ public class FileUploadController(
     [HttpDelete("tasks/cleanup")]
     public async Task<IActionResult> CleanupFailedTasks()
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         if (currentUser is null)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
@@ -565,7 +565,7 @@ public class FileUploadController(
     [HttpGet("tasks/recent")]
     public async Task<IActionResult> GetRecentTasks([FromQuery] int limit = 10)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         if (currentUser is null)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
@@ -588,7 +588,7 @@ public class FileUploadController(
     [HttpGet("tasks/{taskId}/details")]
     public async Task<IActionResult> GetTaskDetails(string taskId)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         if (currentUser is null)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 

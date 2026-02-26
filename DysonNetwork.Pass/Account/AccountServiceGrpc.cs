@@ -16,15 +16,17 @@ public class AccountServiceGrpc(
     AccountService accountService,
     ILogger<AccountServiceGrpc> logger
 )
-    : Shared.Proto.AccountService.AccountServiceBase
+    : DyAccountService.DyAccountServiceBase
 {
     private readonly AppDatabase _db = db ?? throw new ArgumentNullException(nameof(db));
-    private readonly AccountService _accountService = accountService ?? throw new ArgumentNullException(nameof(accountService));
+
+    private readonly AccountService _accountService =
+        accountService ?? throw new ArgumentNullException(nameof(accountService));
 
     private readonly ILogger<AccountServiceGrpc>
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-    public override async Task<Shared.Proto.Account> GetAccount(GetAccountRequest request, ServerCallContext context)
+    public override async Task<DyAccount> GetAccount(DyGetAccountRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.Id, out var accountId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
@@ -44,11 +46,11 @@ public class AccountServiceGrpc(
         return account.ToProtoValue();
     }
 
-    public override async Task<Shared.Proto.Account> GetBotAccount(GetBotAccountRequest request,
+    public override async Task<DyAccount> GetBotAccount(DyGetBotAccountRequest request,
         ServerCallContext context)
     {
         if (!Guid.TryParse(request.AutomatedId, out var automatedId))
-            throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Invalid automated ID format"));
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid automated ID format"));
 
         var account = await _db.Accounts
             .AsNoTracking()
@@ -56,7 +58,7 @@ public class AccountServiceGrpc(
             .FirstOrDefaultAsync(a => a.AutomatedId == automatedId);
 
         if (account == null)
-            throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound,
+            throw new RpcException(new Status(StatusCode.NotFound,
                 $"Account with automated ID {request.AutomatedId} not found"));
 
         // Populate PerkSubscription from Wallet service via gRPC
@@ -65,7 +67,7 @@ public class AccountServiceGrpc(
         return account.ToProtoValue();
     }
 
-    public override async Task<GetAccountBatchResponse> GetAccountBatch(GetAccountBatchRequest request,
+    public override async Task<DyGetAccountBatchResponse> GetAccountBatch(DyGetAccountBatchRequest request,
         ServerCallContext context)
     {
         var accountIds = request.Id
@@ -83,13 +85,13 @@ public class AccountServiceGrpc(
         // Populate PerkSubscriptions from Wallet service via gRPC
         await PopulatePerkSubscriptionsAsync(accounts);
 
-        var response = new GetAccountBatchResponse();
+        var response = new DyGetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
         return response;
     }
 
 
-    public override async Task<GetAccountBatchResponse> GetBotAccountBatch(GetBotAccountBatchRequest request,
+    public override async Task<DyGetAccountBatchResponse> GetBotAccountBatch(DyGetBotAccountBatchRequest request,
         ServerCallContext context)
     {
         var automatedIds = request.AutomatedId
@@ -107,19 +109,19 @@ public class AccountServiceGrpc(
         // Populate PerkSubscriptions from Wallet service via gRPC
         await PopulatePerkSubscriptionsAsync(accounts);
 
-        var response = new GetAccountBatchResponse();
+        var response = new DyGetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
         return response;
     }
 
-    public override async Task<AccountStatus> GetAccountStatus(GetAccountRequest request, ServerCallContext context)
+    public override async Task<DyAccountStatus> GetAccountStatus(DyGetAccountRequest request, ServerCallContext context)
     {
         var accountId = Guid.Parse(request.Id);
         var status = await accountEvents.GetStatus(accountId);
         return status.ToProtoValue();
     }
 
-    public override async Task<GetAccountStatusBatchResponse> GetAccountStatusBatch(GetAccountBatchRequest request,
+    public override async Task<DyGetAccountStatusBatchResponse> GetAccountStatusBatch(DyGetAccountBatchRequest request,
         ServerCallContext context)
     {
         var accountIds = request.Id
@@ -128,12 +130,12 @@ public class AccountServiceGrpc(
             .Select(id => id!.Value)
             .ToList();
         var statuses = await accountEvents.GetStatuses(accountIds);
-        var response = new GetAccountStatusBatchResponse();
+        var response = new DyGetAccountStatusBatchResponse();
         response.Statuses.AddRange(statuses.Select(s => s.Value.ToProtoValue()));
         return response;
     }
 
-    public override async Task<GetAccountBatchResponse> LookupAccountBatch(LookupAccountBatchRequest request,
+    public override async Task<DyGetAccountBatchResponse> LookupAccountBatch(DyLookupAccountBatchRequest request,
         ServerCallContext context)
     {
         var accountNames = request.Names.ToList();
@@ -146,12 +148,12 @@ public class AccountServiceGrpc(
         // Populate PerkSubscriptions from Wallet service via gRPC
         await PopulatePerkSubscriptionsAsync(accounts);
 
-        var response = new GetAccountBatchResponse();
+        var response = new DyGetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
         return response;
     }
 
-    public override async Task<GetAccountBatchResponse> SearchAccount(SearchAccountRequest request,
+    public override async Task<DyGetAccountBatchResponse> SearchAccount(DySearchAccountRequest request,
         ServerCallContext context)
     {
         var accounts = await _db.Accounts
@@ -163,12 +165,12 @@ public class AccountServiceGrpc(
         // Populate PerkSubscriptions from Wallet service via gRPC
         await PopulatePerkSubscriptionsAsync(accounts);
 
-        var response = new GetAccountBatchResponse();
+        var response = new DyGetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
         return response;
     }
 
-    public override async Task<ListAccountsResponse> ListAccounts(ListAccountsRequest request,
+    public override async Task<DyListAccountsResponse> ListAccounts(DyListAccountsRequest request,
         ServerCallContext context)
     {
         var query = _db.Accounts.AsNoTracking();
@@ -202,10 +204,10 @@ public class AccountServiceGrpc(
         // Populate PerkSubscriptions from Wallet service via gRPC
         await PopulatePerkSubscriptionsAsync(accounts);
 
-        var response = new ListAccountsResponse
+        var response = new DyListAccountsResponse
         {
             TotalSize = totalCount,
-            NextPageToken = (accounts.Count == request.PageSize)
+            NextPageToken = accounts.Count == request.PageSize
                 ? ((request.PageToken != null ? int.Parse(request.PageToken) : 0) + 1).ToString()
                 : ""
         };
@@ -214,67 +216,71 @@ public class AccountServiceGrpc(
         return response;
     }
 
-    public override async Task<ListRelationshipSimpleResponse> ListFriends(
-        ListRelationshipSimpleRequest request, ServerCallContext context)
+    public override async Task<DyListRelationshipSimpleResponse> ListFriends(
+        DyListRelationshipSimpleRequest request,
+        ServerCallContext context
+    )
     {
-        var resp = new ListRelationshipSimpleResponse();
+        var resp = new DyListRelationshipSimpleResponse();
         switch (request.RelationIdentifierCase)
         {
-            case ListRelationshipSimpleRequest.RelationIdentifierOneofCase.AccountId:
+            case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.AccountId:
                 var accountId = Guid.Parse(request.AccountId);
                 var relationship = await relationships.ListAccountFriends(accountId);
                 resp.AccountsId.AddRange(relationship.Select(x => x.ToString()));
                 return resp;
-            case ListRelationshipSimpleRequest.RelationIdentifierOneofCase.RelatedId:
+            case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.RelatedId:
                 var relatedId = Guid.Parse(request.RelatedId);
                 var relatedRelationship = await relationships.ListAccountFriends(relatedId, true);
                 resp.AccountsId.AddRange(relatedRelationship.Select(x => x.ToString()));
                 return resp;
-            case ListRelationshipSimpleRequest.RelationIdentifierOneofCase.None:
+            case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.None:
             default:
                 throw new RpcException(new Status(StatusCode.InvalidArgument,
                     $"The relationship identifier must be provided."));
         }
     }
 
-    public override async Task<ListRelationshipSimpleResponse> ListBlocked(
-        ListRelationshipSimpleRequest request, ServerCallContext context)
+    public override async Task<DyListRelationshipSimpleResponse> ListBlocked(
+        DyListRelationshipSimpleRequest request, ServerCallContext context)
     {
-        var resp = new ListRelationshipSimpleResponse();
+        var resp = new DyListRelationshipSimpleResponse();
         switch (request.RelationIdentifierCase)
         {
-            case ListRelationshipSimpleRequest.RelationIdentifierOneofCase.AccountId:
+            case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.AccountId:
                 var accountId = Guid.Parse(request.AccountId);
                 var relationship = await relationships.ListAccountBlocked(accountId);
                 resp.AccountsId.AddRange(relationship.Select(x => x.ToString()));
                 return resp;
-            case ListRelationshipSimpleRequest.RelationIdentifierOneofCase.RelatedId:
+            case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.RelatedId:
                 var relatedId = Guid.Parse(request.RelatedId);
                 var relatedRelationship = await relationships.ListAccountBlocked(relatedId, true);
                 resp.AccountsId.AddRange(relatedRelationship.Select(x => x.ToString()));
                 return resp;
-            case ListRelationshipSimpleRequest.RelationIdentifierOneofCase.None:
+            case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.None:
             default:
                 throw new RpcException(new Status(StatusCode.InvalidArgument,
                     $"The relationship identifier must be provided."));
         }
     }
 
-    public override async Task<GetRelationshipResponse> GetRelationship(GetRelationshipRequest request,
-        ServerCallContext context)
+    public override async Task<DyGetRelationshipResponse> GetRelationship(
+        DyGetRelationshipRequest request,
+        ServerCallContext context
+    )
     {
         var relationship = await relationships.GetRelationship(
             Guid.Parse(request.AccountId),
             Guid.Parse(request.RelatedId),
             status: (RelationshipStatus?)request.Status
         );
-        return new GetRelationshipResponse
+        return new DyGetRelationshipResponse
         {
             Relationship = relationship?.ToProtoValue()
         };
     }
 
-    public override async Task<BoolValue> HasRelationship(GetRelationshipRequest request, ServerCallContext context)
+    public override async Task<BoolValue> HasRelationship(DyGetRelationshipRequest request, ServerCallContext context)
     {
         bool hasRelationship;
         if (!request.HasStatus)
@@ -291,7 +297,7 @@ public class AccountServiceGrpc(
         return new BoolValue { Value = hasRelationship };
     }
 
-    public override async Task<GrantBadgeResponse> GrantBadge(GrantBadgeRequest request, ServerCallContext context)
+    public override async Task<DyGrantBadgeResponse> GrantBadge(DyGrantBadgeRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.AccountId, out var accountId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
@@ -305,17 +311,17 @@ public class AccountServiceGrpc(
 
         // Convert the proto badge to the domain model
         var badge = SnAccountBadge.FromProtoValue(request.Badge);
-        
+
         // Use the AccountService to grant the badge
         var grantedBadge = await _accountService.GrantBadge(account, badge);
 
-        return new GrantBadgeResponse
+        return new DyGrantBadgeResponse
         {
             Badge = grantedBadge.ToProtoValue()
         };
     }
 
-    public override async Task<GetBadgeResponse> GetBadge(GetBadgeRequest request, ServerCallContext context)
+    public override async Task<DyGetBadgeResponse> GetBadge(DyGetBadgeRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.AccountId, out var accountId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
@@ -328,15 +334,16 @@ public class AccountServiceGrpc(
             .FirstOrDefaultAsync();
 
         if (badge == null)
-            throw new RpcException(new Status(StatusCode.NotFound, $"Badge {request.BadgeId} not found for account {request.AccountId}"));
+            throw new RpcException(new Status(StatusCode.NotFound,
+                $"Badge {request.BadgeId} not found for account {request.AccountId}"));
 
-        return new GetBadgeResponse
+        return new DyGetBadgeResponse
         {
             Badge = badge.ToProtoValue()
         };
     }
 
-    public override async Task<UpdateBadgeResponse> UpdateBadge(UpdateBadgeRequest request, ServerCallContext context)
+    public override async Task<DyUpdateBadgeResponse> UpdateBadge(DyUpdateBadgeRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.AccountId, out var accountId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
@@ -349,11 +356,12 @@ public class AccountServiceGrpc(
             .FirstOrDefaultAsync();
 
         if (badge == null)
-            throw new RpcException(new Status(StatusCode.NotFound, $"Badge {request.BadgeId} not found for account {request.AccountId}"));
+            throw new RpcException(new Status(StatusCode.NotFound,
+                $"Badge {request.BadgeId} not found for account {request.AccountId}"));
 
         // Convert the proto badge to the domain model
         var updatedBadge = SnAccountBadge.FromProtoValue(request.Badge);
-        
+
         // Apply the updates based on the field mask
         if (request.UpdateMask != null && request.UpdateMask.Paths.Count > 0)
         {
@@ -397,7 +405,7 @@ public class AccountServiceGrpc(
         _db.Badges.Update(badge);
         await _db.SaveChangesAsync();
 
-        return new UpdateBadgeResponse
+        return new DyUpdateBadgeResponse
         {
             Badge = badge.ToProtoValue()
         };
@@ -418,7 +426,8 @@ public class AccountServiceGrpc(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to populate PerkSubscription for account {AccountId} in gRPC service", account.Id);
+            _logger.LogError(ex, "Failed to populate PerkSubscription for account {AccountId} in gRPC service",
+                account.Id);
         }
     }
 
@@ -433,10 +442,10 @@ public class AccountServiceGrpc(
         {
             var accountIds = accounts.Select(a => a.Id).ToList();
             var subscriptions = await remoteSubscription.GetPerkSubscriptions(accountIds);
-            
+
             var subscriptionDict = subscriptions
                 .ToDictionary(
-                    s => Guid.Parse(s.AccountId), 
+                    s => Guid.Parse(s.AccountId),
                     s => SnWalletSubscription.FromProtoValue(s).ToReference()
                 );
 
@@ -450,7 +459,8 @@ public class AccountServiceGrpc(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to populate PerkSubscriptions for {Count} accounts in gRPC service", accounts.Count);
+            _logger.LogError(ex, "Failed to populate PerkSubscriptions for {Count} accounts in gRPC service",
+                accounts.Count);
         }
     }
 }

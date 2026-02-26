@@ -27,14 +27,14 @@ public class PublicationSiteController(
     [Authorize]
     public async Task<ActionResult<List<SnPublicationSite>>> ListSitesForPublisher([FromRoute] string pubName)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
         var publisher = await publisherService.GetPublisherByName(pubName);
         if (publisher == null) return NotFound();
 
-        if (!await publisherService.IsMemberWithRole(publisher.Id, accountId, Models.PublisherMemberRole.Viewer))
+        if (!await publisherService.IsMemberWithRole(publisher.Id, accountId, Models.PublisherMemberRole.DyViewer))
             return Forbid();
 
         var sites = await publicationService.GetSitesByPublisherIds([publisher.Id]);
@@ -45,7 +45,7 @@ public class PublicationSiteController(
     [Authorize]
     public async Task<ActionResult<List<SnPublicationSite>>> ListOwnedSites()
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -62,7 +62,7 @@ public class PublicationSiteController(
     public async Task<ActionResult<SnPublicationSite>> CreateSite([FromRoute] string pubName,
         [FromBody] PublicationSiteRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -114,7 +114,7 @@ public class PublicationSiteController(
     public async Task<ActionResult<SnPublicationSite>> UpdateSite([FromRoute] string pubName, string slug,
         [FromBody] PublicationSiteRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -160,7 +160,7 @@ public class PublicationSiteController(
     [Authorize]
     public async Task<IActionResult> DeleteSite([FromRoute] string pubName, string slug)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -212,7 +212,7 @@ public class PublicationSiteController(
     public async Task<ActionResult<SnPublicationPage>> CreatePage([FromRoute] string pubName,
         [FromRoute] string siteSlug, [FromBody] PublicationPageRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -251,7 +251,7 @@ public class PublicationSiteController(
     [Authorize]
     public async Task<ActionResult<SnPublicationPage>> UpdatePage(Guid id, [FromBody] PublicationPageRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var page = await publicationService.GetPageById(id);
@@ -280,7 +280,7 @@ public class PublicationSiteController(
     [Authorize]
     public async Task<IActionResult> DeletePage(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);

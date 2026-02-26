@@ -88,9 +88,9 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
     /// Converts the CloudFile to a protobuf message
     /// </summary>
     /// <returns>The protobuf message representation of this object</returns>
-    public CloudFile ToProtoValue()
+    public DyCloudFile ToProtoValue()
     {
-        var proto = new CloudFile
+        var proto = new DyCloudFile
         {
             Id = Id,
             Name = Name,
@@ -115,7 +115,7 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
 
         if (Object != null)
         {
-            proto.Object = new Proto.FileObject
+            proto.Object = new DyFileObject
             {
                 Id = Object.Id,
                 Size = Object.Size,

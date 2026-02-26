@@ -43,7 +43,7 @@ public class ActivityController(TimelineService acts) : ControllerBase
         }
 
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        return currentUserValue is not Account currentUser
+        return currentUserValue is not DyAccount currentUser
             ? Ok(await acts.ListEventsForAnyone(take, cursorTimestamp, showFediverse))
             : Ok(await acts.ListEvents(take, cursorTimestamp, currentUser, filter, showFediverse));
     }

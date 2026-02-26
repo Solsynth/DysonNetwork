@@ -13,8 +13,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using NodaTime;
-using PaymentService = DysonNetwork.Shared.Proto.PaymentService;
-using TransactionType = DysonNetwork.Shared.Proto.TransactionType;
 
 #pragma warning disable SKEXP0050
 
@@ -23,7 +21,7 @@ namespace DysonNetwork.Insight.Thought;
 public class ThoughtService(
     AppDatabase db,
     ICacheService cache,
-    PaymentService.PaymentServiceClient paymentService,
+    DyPaymentService.DyPaymentServiceClient paymentService,
     ThoughtProvider thoughtProvider,
     MiChanKernelProvider miChanKernelProvider,
     SolarNetworkApiClient apiClient,
@@ -287,13 +285,13 @@ public class ThoughtService(
             {
                 var accountInfo = await accounts.GetAccount(accountId);
                 await paymentService.CreateTransactionWithAccountAsync(
-                    new CreateTransactionWithAccountRequest
+                    new DyCreateTransactionWithAccountRequest
                     {
                         PayerAccountId = accountId.ToString(),
                         Currency = WalletCurrency.SourcePoint,
                         Amount = cost.ToString(),
                         Remarks = localizer.Get("agentBillName", accountInfo.Language),
-                        Type = TransactionType.System,
+                        Type = DyTransactionType.System,
                     }
                 );
 
@@ -362,13 +360,13 @@ public class ThoughtService(
         {
             var accountInfo = await accounts.GetAccount(accountId);
             await paymentService.CreateTransactionWithAccountAsync(
-                new CreateTransactionWithAccountRequest
+                new DyCreateTransactionWithAccountRequest
                 {
                     PayerAccountId = accountId.ToString(),
                     Currency = WalletCurrency.SourcePoint,
                     Amount = cost.ToString(),
                     Remarks = localizer.Get("agentBillName", accountInfo.Language),
-                    Type = TransactionType.System,
+                    Type = DyTransactionType.System,
                 }
             );
 
@@ -573,7 +571,7 @@ public class ThoughtService(
 
     public async Task<ChatHistory> BuildSnChanChatHistoryAsync(
         SnThinkingSequence sequence,
-        Account currentUser,
+        DyAccount currentUser,
         string? userMessage,
         List<string>? attachedPosts,
         List<Dictionary<string, dynamic>>? attachedMessages,
@@ -752,7 +750,7 @@ public class ThoughtService(
     [Experimental("SKEXP0050")]
     public async Task<(ChatHistory chatHistory, bool useVisionKernel)> BuildMiChanChatHistoryAsync(
         SnThinkingSequence sequence,
-        Account currentUser,
+        DyAccount currentUser,
         string? userMessage,
         List<string>? attachedPosts,
         List<Dictionary<string, dynamic>>? attachedMessages,

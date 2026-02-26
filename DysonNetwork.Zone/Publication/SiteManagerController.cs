@@ -22,11 +22,11 @@ public class SiteManagerController(
         if (site == null)
             return NotFound("Site not found");
 
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
         var isMember =
-            await remotePublisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.Editor);
+            await remotePublisherService.IsMemberWithRole(site.PublisherId, accountId, PublisherMemberRole.DyEditor);
         return !isMember ? Forbid() : null;
     }
 

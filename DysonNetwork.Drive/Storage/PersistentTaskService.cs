@@ -16,7 +16,7 @@ public class PersistentTaskService(
     AppDatabase db,
     ICacheService cache,
     ILogger<PersistentTaskService> logger,
-    RingService.RingServiceClient ringService
+    DyRingService.DyRingServiceClient ringService
 )
 {
     private const string CacheKeyPrefix = "task:";
@@ -389,13 +389,13 @@ public class PersistentTaskService(
                 CreatedAt = task.CreatedAt.ToString()
             };
 
-            var packet = new WebSocketPacket
+            var packet = new DyWebSocketPacket
             {
                 Type = "task.created",
                 Data = InfraObjectCoder.ConvertObjectToByteString(data)
             };
 
-            await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
+            await ringService.PushWebSocketPacketAsync(new DyPushWebSocketPacketRequest
             {
                 UserId = task.AccountId.ToString(),
                 Packet = packet
@@ -421,13 +421,13 @@ public class PersistentTaskService(
                 LastActivity = task.LastActivity.ToString()
             };
 
-            var packet = new WebSocketPacket
+            var packet = new DyWebSocketPacket
             {
                 Type = "task.progress",
                 Data = InfraObjectCoder.ConvertObjectToByteString(data)
             };
 
-            await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
+            await ringService.PushWebSocketPacketAsync(new DyPushWebSocketPacketRequest
             {
                 UserId = task.AccountId.ToString(),
                 Packet = packet
@@ -453,13 +453,13 @@ public class PersistentTaskService(
             };
 
             // WebSocket notification
-            var wsPacket = new WebSocketPacket
+            var wsPacket = new DyWebSocketPacket
             {
                 Type = "task.completed",
                 Data = InfraObjectCoder.ConvertObjectToByteString(data)
             };
 
-            await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
+            await ringService.PushWebSocketPacketAsync(new DyPushWebSocketPacketRequest
             {
                 UserId = task.AccountId.ToString(),
                 Packet = wsPacket
@@ -485,20 +485,20 @@ public class PersistentTaskService(
             };
 
             // WebSocket notification
-            var wsPacket = new WebSocketPacket
+            var wsPacket = new DyWebSocketPacket
             {
                 Type = "task.failed",
                 Data = InfraObjectCoder.ConvertObjectToByteString(data)
             };
 
-            await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
+            await ringService.PushWebSocketPacketAsync(new DyPushWebSocketPacketRequest
             {
                 UserId = task.AccountId.ToString(),
                 Packet = wsPacket
             });
 
             // Push notification
-            var pushNotification = new PushNotification
+            var pushNotification = new DyPushNotification
             {
                 Topic = "drive.tasks",
                 Title = "Drive Task Failed",
@@ -507,7 +507,7 @@ public class PersistentTaskService(
                 IsSavable = true
             };
 
-            await ringService.SendPushNotificationToUserAsync(new SendPushNotificationToUserRequest
+            await ringService.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
             {
                 UserId = task.AccountId.ToString(),
                 Notification = pushNotification
@@ -953,13 +953,13 @@ public class PersistentTaskService(
             };
 
             // Send WebSocket notification
-            var wsPacket = new WebSocketPacket
+            var wsPacket = new DyWebSocketPacket
             {
                 Type = "upload.completed",
                 Data = InfraObjectCoder.ConvertObjectToByteString(completionData)
             };
 
-            await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
+            await ringService.PushWebSocketPacketAsync(new DyPushWebSocketPacketRequest
             {
                 UserId = task.AccountId.ToString(),
                 Packet = wsPacket
@@ -988,20 +988,20 @@ public class PersistentTaskService(
             };
 
             // Send WebSocket notification
-            var wsPacket = new WebSocketPacket
+            var wsPacket = new DyWebSocketPacket
             {
                 Type = "upload.failed",
                 Data = InfraObjectCoder.ConvertObjectToByteString(failureData)
             };
 
-            await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
+            await ringService.PushWebSocketPacketAsync(new DyPushWebSocketPacketRequest
             {
                 UserId = task.AccountId.ToString(),
                 Packet = wsPacket
             });
 
             // Send push notification
-            var pushNotification = new PushNotification
+            var pushNotification = new DyPushNotification
             {
                 Topic = "drive.tasks.upload",
                 Title = "Upload Failed",
@@ -1010,7 +1010,7 @@ public class PersistentTaskService(
                 IsSavable = true
             };
 
-            await ringService.SendPushNotificationToUserAsync(new SendPushNotificationToUserRequest
+            await ringService.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
             {
                 UserId = task.AccountId.ToString(),
                 Notification = pushNotification
@@ -1046,13 +1046,13 @@ public class PersistentTaskService(
                 LastActivity = task.LastActivity.ToString()
             };
 
-            var packet = new WebSocketPacket
+            var packet = new DyWebSocketPacket
             {
                 Type = "upload.progress",
                 Data = InfraObjectCoder.ConvertObjectToByteString(progressData)
             };
 
-            await ringService.PushWebSocketPacketAsync(new PushWebSocketPacketRequest
+            await ringService.PushWebSocketPacketAsync(new DyPushWebSocketPacketRequest
             {
                 UserId = task.AccountId.ToString(),
                 Packet = packet

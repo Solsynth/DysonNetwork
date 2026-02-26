@@ -17,7 +17,7 @@ public class AccountEventService(
     AppDatabase db,
     ICacheService cache,
     ILocalizationService localizer,
-    RingService.RingServiceClient pusher,
+    DyRingService.DyRingServiceClient pusher,
     Pass.Leveling.ExperienceService experienceService,
     RemotePaymentService payment,
     RemoteSubscriptionService subscriptions,
@@ -33,14 +33,14 @@ public class AccountEventService(
     private async Task<bool> GetAccountIsConnected(Guid userId)
     {
         var resp = await pusher.GetWebsocketConnectionStatusAsync(
-            new GetWebsocketConnectionStatusRequest { UserId = userId.ToString() }
+            new DyGetWebsocketConnectionStatusRequest { UserId = userId.ToString() }
         );
         return resp.IsConnected;
     }
 
     public async Task<Dictionary<string, bool>> GetAccountIsConnectedBatch(List<Guid> userIds)
     {
-        var req = new GetWebsocketConnectionStatusBatchRequest();
+        var req = new DyGetWebsocketConnectionStatusBatchRequest();
         req.UsersId.AddRange(userIds.Select(u => u.ToString()));
         var resp = await pusher.GetWebsocketConnectionStatusBatchAsync(
             req

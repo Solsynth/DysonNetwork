@@ -21,10 +21,10 @@ public class ChatRoomController(
     AppDatabase db,
     ChatRoomService crs,
     RemoteRealmService rs,
-    AccountService.AccountServiceClient accounts,
-    FileService.FileServiceClient files,
-    ActionLogService.ActionLogServiceClient als,
-    RingService.RingServiceClient pusher,
+    DyAccountService.DyAccountServiceClient accounts,
+    DyFileService.DyFileServiceClient files,
+    DyActionLogService.DyActionLogServiceClient als,
+    DyRingService.DyRingServiceClient pusher,
     RemoteAccountService remoteAccountsHelper,
     ILocalizationService localization
 ) : ControllerBase
@@ -44,7 +44,7 @@ public class ChatRoomController(
 
         chatRoom = await crs.LoadChatRealms(chatRoom);
 
-        if (HttpContext.Items["CurrentUser"] is Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is DyAccount currentUser)
             chatRoom = await crs.LoadDirectMessageMembers(chatRoom, Guid.Parse(currentUser.Id));
 
         return Ok(chatRoom);
@@ -54,7 +54,7 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult<List<SnChatRoom>>> ListJoinedChatRooms()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -80,17 +80,17 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult<SnChatRoom>> CreateDirectMessage([FromBody] DirectMessageRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var relatedUser = await accounts.GetAccountAsync(
-            new GetAccountRequest { Id = request.RelatedUserId.ToString() }
+            new DyGetAccountRequest { Id = request.RelatedUserId.ToString() }
         );
         if (relatedUser is null)
             return BadRequest("Related user was not found");
 
-        var hasBlocked = await accounts.HasRelationshipAsync(new GetRelationshipRequest()
+        var hasBlocked = await accounts.HasRelationshipAsync(new DyGetRelationshipRequest()
         {
             AccountId = currentUser.Id,
             RelatedId = request.RelatedUserId.ToString(),
@@ -134,7 +134,7 @@ public class ChatRoomController(
         db.ChatRooms.Add(dmRoom);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
             Action = "chatrooms.create",
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(dmRoom.Id.ToString()) } },
@@ -154,7 +154,7 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult<SnChatRoom>> GetDirectChatRoom(Guid accountId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var currentId = Guid.Parse(currentUser.Id);
 
@@ -185,7 +185,7 @@ public class ChatRoomController(
     [AskPermission("chat.create")]
     public async Task<ActionResult<SnChatRoom>> CreateChatRoom(ChatRoomRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         if (request.Name is null) return BadRequest("You cannot create a chat room without a name.");
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -219,7 +219,7 @@ public class ChatRoomController(
         {
             try
             {
-                var fileResponse = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
+                var fileResponse = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
                 if (fileResponse == null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
                 chatRoom.Picture = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
             }
@@ -233,7 +233,7 @@ public class ChatRoomController(
         {
             try
             {
-                var fileResponse = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
+                var fileResponse = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
                 if (fileResponse == null) return BadRequest("Invalid background id, unable to find the file on cloud.");
                 chatRoom.Background = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
             }
@@ -246,7 +246,7 @@ public class ChatRoomController(
         db.ChatRooms.Add(chatRoom);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
             Action = "chatrooms.create",
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) } },
@@ -262,7 +262,7 @@ public class ChatRoomController(
     [HttpPatch("{id:guid}")]
     public async Task<ActionResult<SnChatRoom>> UpdateChatRoom(Guid id, [FromBody] ChatRoomRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var chatRoom = await db.ChatRooms
@@ -292,7 +292,7 @@ public class ChatRoomController(
         {
             try
             {
-                var fileResponse = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
+                var fileResponse = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
                 if (fileResponse == null) return BadRequest("Invalid picture id, unable to find the file on cloud.");
 
                 chatRoom.Picture = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
@@ -307,7 +307,7 @@ public class ChatRoomController(
         {
             try
             {
-                var fileResponse = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
+                var fileResponse = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
                 if (fileResponse == null) return BadRequest("Invalid background id, unable to find the file on cloud.");
 
                 chatRoom.Background = SnCloudFileReferenceObject.FromProtoValue(fileResponse);
@@ -330,7 +330,7 @@ public class ChatRoomController(
         db.ChatRooms.Update(chatRoom);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
             Action = "chatrooms.update",
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) } },
@@ -345,7 +345,7 @@ public class ChatRoomController(
     [HttpDelete("{id:guid}")]
     public async Task<ActionResult> DeleteChatRoom(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var chatRoom = await db.ChatRooms
@@ -387,7 +387,7 @@ public class ChatRoomController(
             throw;
         }
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
             Action = "chatrooms.delete",
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) } },
@@ -403,7 +403,7 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult<SnChatMember>> GetRoomIdentity(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var member = await db.ChatMembers
@@ -420,7 +420,7 @@ public class ChatRoomController(
     [HttpGet("{roomId:guid}/members/online")]
     public async Task<ActionResult<int>> GetOnlineUsersCount(Guid roomId)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
 
         var room = await db.ChatRooms
             .FirstOrDefaultAsync(r => r.Id == roomId);
@@ -458,7 +458,7 @@ public class ChatRoomController(
         [FromQuery] bool withStatus = false
     )
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as Account;
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         Guid? accountId = currentUser is not null ? Guid.Parse(currentUser.Id) : null;
 
         var room = await db.ChatRooms
@@ -534,16 +534,16 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult<SnChatMember>> InviteMember(Guid roomId, [FromBody] ChatMemberRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         // Get related user account
         var relatedUser =
-            await accounts.GetAccountAsync(new GetAccountRequest { Id = request.RelatedUserId.ToString() });
+            await accounts.GetAccountAsync(new DyGetAccountRequest { Id = request.RelatedUserId.ToString() });
         if (relatedUser == null) return BadRequest("Related user was not found");
 
         // Check if the user has blocked the current user
-        var relationship = await accounts.GetRelationshipAsync(new GetRelationshipRequest
+        var relationship = await accounts.GetRelationshipAsync(new DyGetRelationshipRequest
         {
             AccountId = currentUser.Id,
             RelatedId = relatedUser.Id,
@@ -588,7 +588,7 @@ public class ChatRoomController(
             await db.SaveChangesAsync();
             await SendInviteNotify(existingMember, currentUser);
 
-            _ = als.CreateActionLogAsync(new CreateActionLogRequest
+            _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
             {
                 Action = "chatrooms.invite",
                 Meta =
@@ -617,7 +617,7 @@ public class ChatRoomController(
         newMember.ChatRoom = chatRoom;
         await SendInviteNotify(newMember, currentUser);
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
             Action = "chatrooms.invite",
             Meta =
@@ -637,7 +637,7 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult<List<SnChatMember>>> ListChatInvites()
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var members = await db.ChatMembers
@@ -662,7 +662,7 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult<SnChatRoom>> AcceptChatInvite(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var member = await db.ChatMembers
@@ -677,7 +677,7 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
             Action = ActionLogType.ChatroomJoin,
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) } },
@@ -693,7 +693,7 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult> DeclineChatInvite(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var member = await db.ChatMembers
@@ -722,7 +722,7 @@ public class ChatRoomController(
         [FromBody] ChatMemberNotifyRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var chatRoom = await db.ChatRooms
             .Where(r => r.Id == roomId)
@@ -757,7 +757,7 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult> TimeoutChatMember(Guid roomId, Guid memberId, [FromBody] ChatTimeoutRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -802,7 +802,7 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
             Action = "chatrooms.timeout",
             Meta =
@@ -822,7 +822,7 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult> RemoveChatMemberTimeout(Guid roomId, Guid memberId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var chatRoom = await db.ChatRooms
@@ -853,7 +853,7 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
             Action = "chatrooms.timeout.remove",
             Meta =
@@ -873,7 +873,7 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult> RemoveChatMember(Guid roomId, Guid memberId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var chatRoom = await db.ChatRooms
@@ -902,7 +902,7 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
             Action = "chatrooms.kick",
             Meta =
@@ -923,7 +923,7 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult<SnChatRoom>> JoinChatRoom(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var chatRoom = await db.ChatRooms
             .Where(r => r.Id == roomId)
@@ -958,7 +958,7 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
             Action = ActionLogType.ChatroomJoin,
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) } },
@@ -974,7 +974,7 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult> LeaveChat(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var chat = await db.ChatRooms.FirstOrDefaultAsync(c => c.Id == roomId);
@@ -994,7 +994,7 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         await crs.PurgeRoomMembersCache(roomId);
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
             Action = ActionLogType.ChatroomLeave,
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) } },
@@ -1006,9 +1006,9 @@ public class ChatRoomController(
         return NoContent();
     }
 
-    private async Task SendInviteNotify(SnChatMember member, Account sender)
+    private async Task SendInviteNotify(SnChatMember member, DyAccount sender)
     {
-        var account = await accounts.GetAccountAsync(new GetAccountRequest { Id = member.AccountId.ToString() });
+        var account = await accounts.GetAccountAsync(new DyGetAccountRequest { Id = member.AccountId.ToString() });
         var locale = account.Language;
         
         var title = localization.Get("chatInviteTitle", locale);
@@ -1018,10 +1018,10 @@ public class ChatRoomController(
 
 
         await pusher.SendPushNotificationToUserAsync(
-            new SendPushNotificationToUserRequest
+            new DySendPushNotificationToUserRequest
             {
                 UserId = account.Id,
-                Notification = new PushNotification
+                Notification = new DyPushNotification
                 {
                     Topic = "invites.chats",
                     Title = title,

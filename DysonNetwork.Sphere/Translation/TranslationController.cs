@@ -28,7 +28,7 @@ public class TranslationController(ITranslationProvider provider, ICacheService 
         [FromQuery(Name = "from")] string? sourceLanguage
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         if (currentUser.PerkSubscription is null)
             return StatusCode(403, "You need a subscription to use this feature.");
 

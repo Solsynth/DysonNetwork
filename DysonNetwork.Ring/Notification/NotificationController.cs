@@ -21,7 +21,7 @@ public class NotificationController(
     public async Task<ActionResult<int>> CountUnreadNotifications()
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        if (currentUserValue is not Account currentUser) return Unauthorized();
+        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var count = await db.Notifications
@@ -41,7 +41,7 @@ public class NotificationController(
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        if (currentUserValue is not Account currentUser) return Unauthorized();
+        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var totalCount = await db.Notifications
@@ -66,7 +66,7 @@ public class NotificationController(
     public async Task<ActionResult> MarkAllNotificationsViewed()
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        if (currentUserValue is not Account currentUser) return Unauthorized();
+        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         await nty.MarkAllNotificationsViewed(accountId);
@@ -88,7 +88,7 @@ public class NotificationController(
     {
         HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account;
+        var currentUser = currentUserValue as DyAccount;
         if (currentUser == null) return Unauthorized();
         var currentSession = currentSessionValue as AuthSession;
         if (currentSession == null) return Unauthorized();
@@ -110,7 +110,7 @@ public class NotificationController(
     {
         HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
-        var currentUser = currentUserValue as Account;
+        var currentUser = currentUserValue as DyAccount;
         if (currentUser == null) return Unauthorized();
         var currentSession = currentSessionValue as AuthSession;
         if (currentSession == null) return Unauthorized();

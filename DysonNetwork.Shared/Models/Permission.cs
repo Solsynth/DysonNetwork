@@ -39,16 +39,16 @@ public class SnPermissionNode : ModelBase, IDisposable
     public Guid? GroupId { get; set; } = null;
     [JsonIgnore] public SnPermissionGroup? Group { get; set; } = null;
 
-    public Proto.PermissionNode ToProtoValue()
+    public DyPermissionNode ToProtoValue()
     {
-        return new Proto.PermissionNode
+        return new DyPermissionNode
         {
             Id = Id.ToString(),
             Actor = Actor,
             Type = Type switch
             {
-                PermissionNodeActorType.Account => Proto.PermissionNodeActorType.Account,
-                PermissionNodeActorType.Group => Proto.PermissionNodeActorType.Group,
+                PermissionNodeActorType.Account => DyPermissionNodeActorType.Account,
+                PermissionNodeActorType.Group => DyPermissionNodeActorType.Group,
                 _ => throw new ArgumentOutOfRangeException()
             },
             Key = Key,
@@ -59,12 +59,12 @@ public class SnPermissionNode : ModelBase, IDisposable
         };
     }
 
-    public static PermissionNodeActorType ConvertProtoActorType(Proto.PermissionNodeActorType? val)
+    public static PermissionNodeActorType ConvertProtoActorType(DyPermissionNodeActorType? val)
     {
         return val switch
         {
-            Proto.PermissionNodeActorType.Account => PermissionNodeActorType.Account,
-            Proto.PermissionNodeActorType.Group => PermissionNodeActorType.Group,
+            DyPermissionNodeActorType.Account => PermissionNodeActorType.Account,
+            DyPermissionNodeActorType.Group => PermissionNodeActorType.Group,
             _ => PermissionNodeActorType.Account
         };
     }

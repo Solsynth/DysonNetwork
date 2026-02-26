@@ -12,8 +12,8 @@ namespace DysonNetwork.Develop.Identity;
 [Route("/api/developers")]
 public class DeveloperController(
     AppDatabase db,
-    PublisherService.PublisherServiceClient ps,
-    ActionLogService.ActionLogServiceClient als,
+    DyPublisherService.DyPublisherServiceClient ps,
+    DyActionLogService.DyActionLogServiceClient als,
     DeveloperService ds
 )
     : ControllerBase
@@ -50,9 +50,9 @@ public class DeveloperController(
     [Authorize]
     public async Task<ActionResult<List<SnDeveloper>>> ListJoinedDevelopers()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         
-        var pubResponse = await ps.ListPublishersAsync(new ListPublishersRequest { AccountId = currentUser.Id });
+        var pubResponse = await ps.ListPublishersAsync(new DyListPublishersRequest { AccountId = currentUser.Id });
         var pubIds = pubResponse.Publishers.Select(p => p.Id).Select(Guid.Parse).ToList();
 
         var developerQuery = db.Developers
@@ -72,13 +72,13 @@ public class DeveloperController(
     [AskPermission("developers.create")]
     public async Task<ActionResult<SnDeveloper>> EnrollDeveloperProgram(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         SnPublisher? pub;
         try
         {
-            var pubResponse = await ps.GetPublisherAsync(new GetPublisherRequest { Name = name });
+            var pubResponse = await ps.GetPublisherAsync(new DyGetPublisherRequest { Name = name });
             pub = SnPublisher.FromProtoValue(pubResponse.Publisher);
         } catch (RpcException ex)
         {
@@ -86,11 +86,11 @@ public class DeveloperController(
         }
 
         // Check if the user is an owner of the publisher
-        var permResponse = await ps.IsPublisherMemberAsync(new IsPublisherMemberRequest
+        var permResponse = await ps.IsPublisherMemberAsync(new DyIsPublisherMemberRequest
         {
             PublisherId = pub.Id.ToString(),
             AccountId = currentUser.Id,
-            Role = Shared.Proto.PublisherMemberRole.Owner
+            Role = DyPublisherMemberRole.DyOwner
         });
         if (!permResponse.Valid) return StatusCode(403, "You must be the owner of the publisher to join the developer program");
 
@@ -106,7 +106,7 @@ public class DeveloperController(
         db.Developers.Add(developer);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new CreateActionLogRequest
+        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
             Action = "developers.enroll",
             Meta = 

@@ -40,10 +40,10 @@ public class SnWalletOrder : ModelBase
     public Guid? TransactionId { get; set; }
     public SnWalletTransaction? Transaction { get; set; }
 
-    public Proto.Order ToProtoValue() => new()
+    public DyOrder ToProtoValue() => new()
     {
         Id = Id.ToString(),
-        Status = (Proto.OrderStatus)Status,
+        Status = (DyOrderStatus)Status,
         Currency = Currency,
         Remarks = Remarks,
         AppIdentifier = AppIdentifier,
@@ -58,7 +58,7 @@ public class SnWalletOrder : ModelBase
         Transaction = Transaction?.ToProtoValue(),
     };
 
-    public static SnWalletOrder FromProtoValue(Proto.Order proto) => new()
+    public static SnWalletOrder FromProtoValue(DyOrder proto) => new()
     {
         Id = Guid.Parse(proto.Id),
         Status = (OrderStatus)proto.Status,
@@ -101,18 +101,18 @@ public class SnWalletTransaction : ModelBase
     public Guid? PayeeWalletId { get; set; }
     public SnWallet? PayeeWallet { get; set; }
 
-    public Proto.Transaction ToProtoValue() => new()
+    public DyTransaction ToProtoValue() => new()
     {
         Id = Id.ToString(),
         Currency = Currency,
         Amount = Amount.ToString(CultureInfo.InvariantCulture),
         Remarks = Remarks,
-        Type = (Proto.TransactionType)Type,
+        Type = (DyTransactionType)Type,
         PayerWalletId = PayerWalletId?.ToString(),
         PayeeWalletId = PayeeWalletId?.ToString(),
     };
 
-    public static SnWalletTransaction FromProtoValue(Proto.Transaction proto) => new()
+    public static SnWalletTransaction FromProtoValue(DyTransaction proto) => new()
     {
         Id = Guid.Parse(proto.Id),
         Currency = proto.Currency,

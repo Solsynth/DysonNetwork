@@ -27,67 +27,68 @@ namespace DysonNetwork.Shared.Proto {
             "CgpmaWxlLnByb3RvEgVwcm90bxofZ29vZ2xlL3Byb3RvYnVmL3RpbWVzdGFt",
             "cC5wcm90bxobZ29vZ2xlL3Byb3RvYnVmL2VtcHR5LnByb3RvGiBnb29nbGUv",
             "cHJvdG9idWYvZmllbGRfbWFzay5wcm90bxoeZ29vZ2xlL3Byb3RvYnVmL2R1",
-            "cmF0aW9uLnByb3RvIsEECglDbG91ZEZpbGUSDgoCaWQYASABKAlSAmlkEhIK",
-            "BG5hbWUYAiABKAlSBG5hbWUSGwoJZmlsZV9tZXRhGAMgASgMUghmaWxlTWV0",
-            "YRIbCgl1c2VyX21ldGEYBCABKAxSCHVzZXJNZXRhEiwKD3NlbnNpdGl2ZV9t",
-            "YXJrcxgMIAEoDEgAUg5zZW5zaXRpdmVNYXJrc4gBARIbCgltaW1lX3R5cGUY",
-            "BSABKAlSCG1pbWVUeXBlEhIKBGhhc2gYBiABKAlSBGhhc2gSEgoEc2l6ZRgH",
-            "IAEoA1IEc2l6ZRInCg9oYXNfY29tcHJlc3Npb24YCCABKAhSDmhhc0NvbXBy",
-            "ZXNzaW9uEhAKA3VybBgJIAEoCVIDdXJsEiEKDGNvbnRlbnRfdHlwZRgKIAEo",
-            "CVILY29udGVudFR5cGUSOwoLdXBsb2FkZWRfYXQYCyABKAsyGi5nb29nbGUu",
-            "cHJvdG9idWYuVGltZXN0YW1wUgp1cGxvYWRlZEF0EhkKBXdpZHRoGA0gASgF",
-            "SAFSBXdpZHRoiAEBEhsKBmhlaWdodBgOIAEoBUgCUgZoZWlnaHSIAQESHwoI",
-            "Ymx1cmhhc2gYDyABKAlIA1IIYmx1cmhhc2iIAQESLgoGb2JqZWN0GBAgASgL",
-            "MhEucHJvdG8uRmlsZU9iamVjdEgEUgZvYmplY3SIAQFCEgoQX3NlbnNpdGl2",
-            "ZV9tYXJrc0IICgZfd2lkdGhCCQoHX2hlaWdodEILCglfYmx1cmhhc2hCCQoH",
-            "X29iamVjdCLDAQoKRmlsZU9iamVjdBIOCgJpZBgBIAEoCVICaWQSEgoEc2l6",
-            "ZRgCIAEoA1IEc2l6ZRISCgRtZXRhGAMgASgMUgRtZXRhEhsKCW1pbWVfdHlw",
-            "ZRgEIAEoCVIIbWltZVR5cGUSEgoEaGFzaBgFIAEoCVIEaGFzaBInCg9oYXNf",
-            "Y29tcHJlc3Npb24YBiABKAhSDmhhc0NvbXByZXNzaW9uEiMKDWhhc190aHVt",
-            "Ym5haWwYByABKAhSDGhhc1RodW1ibmFpbCIgCg5HZXRGaWxlUmVxdWVzdBIO",
-            "CgJpZBgBIAEoCVICaWQiJwoTR2V0RmlsZUJhdGNoUmVxdWVzdBIQCgNpZHMY",
-            "ASADKAlSA2lkcyI+ChRHZXRGaWxlQmF0Y2hSZXNwb25zZRImCgVmaWxlcxgB",
-            "IAMoCzIQLnByb3RvLkNsb3VkRmlsZVIFZmlsZXMidgoRVXBkYXRlRmlsZVJl",
-            "cXVlc3QSJAoEZmlsZRgBIAEoCzIQLnByb3RvLkNsb3VkRmlsZVIEZmlsZRI7",
-            "Cgt1cGRhdGVfbWFzaxgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5GaWVsZE1h",
-            "c2tSCnVwZGF0ZU1hc2sihgEKDEZpbGVNZXRhZGF0YRIXCgdmaWxlX2lkGAEg",
-            "ASgJUgZmaWxlSWQSGwoJZmlsZV9uYW1lGAIgASgJUghmaWxlTmFtZRIhCgxj",
-            "b250ZW50X3R5cGUYAyABKAlSC2NvbnRlbnRUeXBlEh0KCmFjY291bnRfaWQY",
-            "BCABKAlSCWFjY291bnRJZCKJAQoOVXBsb2FkTWV0YWRhdGESFwoHZmlsZV9p",
-            "ZBgBIAEoCVIGZmlsZUlkEiMKDXRhcmdldF9yZW1vdGUYAiABKAlSDHRhcmdl",
-            "dFJlbW90ZRIWCgZzdWZmaXgYAyABKAlSBnN1ZmZpeBIhCgxjb250ZW50X3R5",
-            "cGUYBCABKAlSC2NvbnRlbnRUeXBlIjkKEURlbGV0ZUZpbGVSZXF1ZXN0Eg4K",
-            "AmlkGAEgASgJUgJpZBIUCgVwdXJnZRgCIAEoCFIFcHVyZ2UiLAoRUHVyZ2VD",
-            "YWNoZVJlcXVlc3QSFwoHZmlsZV9pZBgBIAEoCVIGZmlsZUlkIi8KFFNldEZp",
-            "bGVQdWJsaWNSZXF1ZXN0EhcKB2ZpbGVfaWQYASABKAlSBmZpbGVJZCIxChZV",
-            "bnNldEZpbGVQdWJsaWNSZXF1ZXN0EhcKB2ZpbGVfaWQYASABKAlSBmZpbGVJ",
-            "ZDLUAwoLRmlsZVNlcnZpY2USMgoHR2V0RmlsZRIVLnByb3RvLkdldEZpbGVS",
-            "ZXF1ZXN0GhAucHJvdG8uQ2xvdWRGaWxlEkcKDEdldEZpbGVCYXRjaBIaLnBy",
-            "b3RvLkdldEZpbGVCYXRjaFJlcXVlc3QaGy5wcm90by5HZXRGaWxlQmF0Y2hS",
-            "ZXNwb25zZRI4CgpVcGRhdGVGaWxlEhgucHJvdG8uVXBkYXRlRmlsZVJlcXVl",
-            "c3QaEC5wcm90by5DbG91ZEZpbGUSPgoKRGVsZXRlRmlsZRIYLnByb3RvLkRl",
-            "bGV0ZUZpbGVSZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5Ej4KClB1",
-            "cmdlQ2FjaGUSGC5wcm90by5QdXJnZUNhY2hlUmVxdWVzdBoWLmdvb2dsZS5w",
-            "cm90b2J1Zi5FbXB0eRJECg1TZXRGaWxlUHVibGljEhsucHJvdG8uU2V0Rmls",
-            "ZVB1YmxpY1JlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHkSSAoPVW5z",
-            "ZXRGaWxlUHVibGljEh0ucHJvdG8uVW5zZXRGaWxlUHVibGljUmVxdWVzdBoW",
-            "Lmdvb2dsZS5wcm90b2J1Zi5FbXB0eUIcqgIZRHlzb25OZXR3b3JrLlNoYXJl",
-            "ZC5Qcm90b2IGcHJvdG8z"));
+            "cmF0aW9uLnByb3RvIsUECgtEeUNsb3VkRmlsZRIOCgJpZBgBIAEoCVICaWQS",
+            "EgoEbmFtZRgCIAEoCVIEbmFtZRIbCglmaWxlX21ldGEYAyABKAxSCGZpbGVN",
+            "ZXRhEhsKCXVzZXJfbWV0YRgEIAEoDFIIdXNlck1ldGESLAoPc2Vuc2l0aXZl",
+            "X21hcmtzGAwgASgMSABSDnNlbnNpdGl2ZU1hcmtziAEBEhsKCW1pbWVfdHlw",
+            "ZRgFIAEoCVIIbWltZVR5cGUSEgoEaGFzaBgGIAEoCVIEaGFzaBISCgRzaXpl",
+            "GAcgASgDUgRzaXplEicKD2hhc19jb21wcmVzc2lvbhgIIAEoCFIOaGFzQ29t",
+            "cHJlc3Npb24SEAoDdXJsGAkgASgJUgN1cmwSIQoMY29udGVudF90eXBlGAog",
+            "ASgJUgtjb250ZW50VHlwZRI7Cgt1cGxvYWRlZF9hdBgLIAEoCzIaLmdvb2ds",
+            "ZS5wcm90b2J1Zi5UaW1lc3RhbXBSCnVwbG9hZGVkQXQSGQoFd2lkdGgYDSAB",
+            "KAVIAVIFd2lkdGiIAQESGwoGaGVpZ2h0GA4gASgFSAJSBmhlaWdodIgBARIf",
+            "CghibHVyaGFzaBgPIAEoCUgDUghibHVyaGFzaIgBARIwCgZvYmplY3QYECAB",
+            "KAsyEy5wcm90by5EeUZpbGVPYmplY3RIBFIGb2JqZWN0iAEBQhIKEF9zZW5z",
+            "aXRpdmVfbWFya3NCCAoGX3dpZHRoQgkKB19oZWlnaHRCCwoJX2JsdXJoYXNo",
+            "QgkKB19vYmplY3QixQEKDER5RmlsZU9iamVjdBIOCgJpZBgBIAEoCVICaWQS",
+            "EgoEc2l6ZRgCIAEoA1IEc2l6ZRISCgRtZXRhGAMgASgMUgRtZXRhEhsKCW1p",
+            "bWVfdHlwZRgEIAEoCVIIbWltZVR5cGUSEgoEaGFzaBgFIAEoCVIEaGFzaBIn",
+            "Cg9oYXNfY29tcHJlc3Npb24YBiABKAhSDmhhc0NvbXByZXNzaW9uEiMKDWhh",
+            "c190aHVtYm5haWwYByABKAhSDGhhc1RodW1ibmFpbCIiChBEeUdldEZpbGVS",
+            "ZXF1ZXN0Eg4KAmlkGAEgASgJUgJpZCIpChVEeUdldEZpbGVCYXRjaFJlcXVl",
+            "c3QSEAoDaWRzGAEgAygJUgNpZHMiQgoWRHlHZXRGaWxlQmF0Y2hSZXNwb25z",
+            "ZRIoCgVmaWxlcxgBIAMoCzISLnByb3RvLkR5Q2xvdWRGaWxlUgVmaWxlcyJ6",
+            "ChNEeVVwZGF0ZUZpbGVSZXF1ZXN0EiYKBGZpbGUYASABKAsyEi5wcm90by5E",
+            "eUNsb3VkRmlsZVIEZmlsZRI7Cgt1cGRhdGVfbWFzaxgCIAEoCzIaLmdvb2ds",
+            "ZS5wcm90b2J1Zi5GaWVsZE1hc2tSCnVwZGF0ZU1hc2siiAEKDkR5RmlsZU1l",
+            "dGFkYXRhEhcKB2ZpbGVfaWQYASABKAlSBmZpbGVJZBIbCglmaWxlX25hbWUY",
+            "AiABKAlSCGZpbGVOYW1lEiEKDGNvbnRlbnRfdHlwZRgDIAEoCVILY29udGVu",
+            "dFR5cGUSHQoKYWNjb3VudF9pZBgEIAEoCVIJYWNjb3VudElkIosBChBEeVVw",
+            "bG9hZE1ldGFkYXRhEhcKB2ZpbGVfaWQYASABKAlSBmZpbGVJZBIjCg10YXJn",
+            "ZXRfcmVtb3RlGAIgASgJUgx0YXJnZXRSZW1vdGUSFgoGc3VmZml4GAMgASgJ",
+            "UgZzdWZmaXgSIQoMY29udGVudF90eXBlGAQgASgJUgtjb250ZW50VHlwZSI7",
+            "ChNEeURlbGV0ZUZpbGVSZXF1ZXN0Eg4KAmlkGAEgASgJUgJpZBIUCgVwdXJn",
+            "ZRgCIAEoCFIFcHVyZ2UiLgoTRHlQdXJnZUNhY2hlUmVxdWVzdBIXCgdmaWxl",
+            "X2lkGAEgASgJUgZmaWxlSWQiMQoWRHlTZXRGaWxlUHVibGljUmVxdWVzdBIX",
+            "CgdmaWxlX2lkGAEgASgJUgZmaWxlSWQiMwoYRHlVbnNldEZpbGVQdWJsaWNS",
+            "ZXF1ZXN0EhcKB2ZpbGVfaWQYASABKAlSBmZpbGVJZDLqAwoNRHlGaWxlU2Vy",
+            "dmljZRI2CgdHZXRGaWxlEhcucHJvdG8uRHlHZXRGaWxlUmVxdWVzdBoSLnBy",
+            "b3RvLkR5Q2xvdWRGaWxlEksKDEdldEZpbGVCYXRjaBIcLnByb3RvLkR5R2V0",
+            "RmlsZUJhdGNoUmVxdWVzdBodLnByb3RvLkR5R2V0RmlsZUJhdGNoUmVzcG9u",
+            "c2USPAoKVXBkYXRlRmlsZRIaLnByb3RvLkR5VXBkYXRlRmlsZVJlcXVlc3Qa",
+            "Ei5wcm90by5EeUNsb3VkRmlsZRJACgpEZWxldGVGaWxlEhoucHJvdG8uRHlE",
+            "ZWxldGVGaWxlUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJACgpQ",
+            "dXJnZUNhY2hlEhoucHJvdG8uRHlQdXJnZUNhY2hlUmVxdWVzdBoWLmdvb2ds",
+            "ZS5wcm90b2J1Zi5FbXB0eRJGCg1TZXRGaWxlUHVibGljEh0ucHJvdG8uRHlT",
+            "ZXRGaWxlUHVibGljUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJK",
+            "Cg9VbnNldEZpbGVQdWJsaWMSHy5wcm90by5EeVVuc2V0RmlsZVB1YmxpY1Jl",
+            "cXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHlCHKoCGUR5c29uTmV0d29y",
+            "ay5TaGFyZWQuUHJvdG9iBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.EmptyReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.FieldMaskReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.DurationReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.CloudFile), global::DysonNetwork.Shared.Proto.CloudFile.Parser, new[]{ "Id", "Name", "FileMeta", "UserMeta", "SensitiveMarks", "MimeType", "Hash", "Size", "HasCompression", "Url", "ContentType", "UploadedAt", "Width", "Height", "Blurhash", "Object" }, new[]{ "SensitiveMarks", "Width", "Height", "Blurhash", "Object" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.FileObject), global::DysonNetwork.Shared.Proto.FileObject.Parser, new[]{ "Id", "Size", "Meta", "MimeType", "Hash", "HasCompression", "HasThumbnail" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.GetFileRequest), global::DysonNetwork.Shared.Proto.GetFileRequest.Parser, new[]{ "Id" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.GetFileBatchRequest), global::DysonNetwork.Shared.Proto.GetFileBatchRequest.Parser, new[]{ "Ids" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.GetFileBatchResponse), global::DysonNetwork.Shared.Proto.GetFileBatchResponse.Parser, new[]{ "Files" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.UpdateFileRequest), global::DysonNetwork.Shared.Proto.UpdateFileRequest.Parser, new[]{ "File", "UpdateMask" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.FileMetadata), global::DysonNetwork.Shared.Proto.FileMetadata.Parser, new[]{ "FileId", "FileName", "ContentType", "AccountId" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.UploadMetadata), global::DysonNetwork.Shared.Proto.UploadMetadata.Parser, new[]{ "FileId", "TargetRemote", "Suffix", "ContentType" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DeleteFileRequest), global::DysonNetwork.Shared.Proto.DeleteFileRequest.Parser, new[]{ "Id", "Purge" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.PurgeCacheRequest), global::DysonNetwork.Shared.Proto.PurgeCacheRequest.Parser, new[]{ "FileId" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.SetFilePublicRequest), global::DysonNetwork.Shared.Proto.SetFilePublicRequest.Parser, new[]{ "FileId" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.UnsetFilePublicRequest), global::DysonNetwork.Shared.Proto.UnsetFilePublicRequest.Parser, new[]{ "FileId" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyCloudFile), global::DysonNetwork.Shared.Proto.DyCloudFile.Parser, new[]{ "Id", "Name", "FileMeta", "UserMeta", "SensitiveMarks", "MimeType", "Hash", "Size", "HasCompression", "Url", "ContentType", "UploadedAt", "Width", "Height", "Blurhash", "Object" }, new[]{ "SensitiveMarks", "Width", "Height", "Blurhash", "Object" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyFileObject), global::DysonNetwork.Shared.Proto.DyFileObject.Parser, new[]{ "Id", "Size", "Meta", "MimeType", "Hash", "HasCompression", "HasThumbnail" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetFileRequest), global::DysonNetwork.Shared.Proto.DyGetFileRequest.Parser, new[]{ "Id" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetFileBatchRequest), global::DysonNetwork.Shared.Proto.DyGetFileBatchRequest.Parser, new[]{ "Ids" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetFileBatchResponse), global::DysonNetwork.Shared.Proto.DyGetFileBatchResponse.Parser, new[]{ "Files" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyUpdateFileRequest), global::DysonNetwork.Shared.Proto.DyUpdateFileRequest.Parser, new[]{ "File", "UpdateMask" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyFileMetadata), global::DysonNetwork.Shared.Proto.DyFileMetadata.Parser, new[]{ "FileId", "FileName", "ContentType", "AccountId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyUploadMetadata), global::DysonNetwork.Shared.Proto.DyUploadMetadata.Parser, new[]{ "FileId", "TargetRemote", "Suffix", "ContentType" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyDeleteFileRequest), global::DysonNetwork.Shared.Proto.DyDeleteFileRequest.Parser, new[]{ "Id", "Purge" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyPurgeCacheRequest), global::DysonNetwork.Shared.Proto.DyPurgeCacheRequest.Parser, new[]{ "FileId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DySetFilePublicRequest), global::DysonNetwork.Shared.Proto.DySetFilePublicRequest.Parser, new[]{ "FileId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyUnsetFilePublicRequest), global::DysonNetwork.Shared.Proto.DyUnsetFilePublicRequest.Parser, new[]{ "FileId" }, null, null, null, null)
           }));
     }
     #endregion
@@ -99,17 +100,17 @@ namespace DysonNetwork.Shared.Proto {
   /// It contains metadata about the file that won't change, helping to reduce database load.
   /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class CloudFile : pb::IMessage<CloudFile>
+  public sealed partial class DyCloudFile : pb::IMessage<DyCloudFile>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<CloudFile> _parser = new pb::MessageParser<CloudFile>(() => new CloudFile());
+    private static readonly pb::MessageParser<DyCloudFile> _parser = new pb::MessageParser<DyCloudFile>(() => new DyCloudFile());
     private pb::UnknownFieldSet _unknownFields;
     private int _hasBits0;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<CloudFile> Parser { get { return _parser; } }
+    public static pb::MessageParser<DyCloudFile> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -125,7 +126,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public CloudFile() {
+    public DyCloudFile() {
       OnConstruction();
     }
 
@@ -133,7 +134,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public CloudFile(CloudFile other) : this() {
+    public DyCloudFile(DyCloudFile other) : this() {
       _hasBits0 = other._hasBits0;
       id_ = other.id_;
       name_ = other.name_;
@@ -156,16 +157,13 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public CloudFile Clone() {
-      return new CloudFile(this);
+    public DyCloudFile Clone() {
+      return new DyCloudFile(this);
     }
 
     /// <summary>Field number for the "id" field.</summary>
     public const int IdFieldNumber = 1;
     private string id_ = "";
-    /// <summary>
-    /// Unique identifier for the file
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Id {
@@ -178,9 +176,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "name" field.</summary>
     public const int NameFieldNumber = 2;
     private string name_ = "";
-    /// <summary>
-    /// Original name of the file
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Name {
@@ -193,10 +188,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "file_meta" field.</summary>
     public const int FileMetaFieldNumber = 3;
     private pb::ByteString fileMeta_ = pb::ByteString.Empty;
-    /// <summary>
-    /// The metadata uses JSON bytes to store to keep the data structure over gRPC
-    /// File metadata (e.g., dimensions, duration, etc.)
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pb::ByteString FileMeta {
@@ -209,9 +200,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "user_meta" field.</summary>
     public const int UserMetaFieldNumber = 4;
     private pb::ByteString userMeta_ = pb::ByteString.Empty;
-    /// <summary>
-    /// User-defined metadata
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pb::ByteString UserMeta {
@@ -250,9 +238,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "mime_type" field.</summary>
     public const int MimeTypeFieldNumber = 5;
     private string mimeType_ = "";
-    /// <summary>
-    /// MIME type of the file
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string MimeType {
@@ -265,9 +250,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "hash" field.</summary>
     public const int HashFieldNumber = 6;
     private string hash_ = "";
-    /// <summary>
-    /// File content hash (e.g., MD5, SHA-256)
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Hash {
@@ -280,9 +262,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "size" field.</summary>
     public const int SizeFieldNumber = 7;
     private long size_;
-    /// <summary>
-    /// File size in bytes
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public long Size {
@@ -295,9 +274,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "has_compression" field.</summary>
     public const int HasCompressionFieldNumber = 8;
     private bool hasCompression_;
-    /// <summary>
-    /// Indicates if the file is stored with compression
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool HasCompression {
@@ -310,9 +286,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "url" field.</summary>
     public const int UrlFieldNumber = 9;
     private string url_ = "";
-    /// <summary>
-    /// URL to access the file
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Url {
@@ -325,9 +298,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "content_type" field.</summary>
     public const int ContentTypeFieldNumber = 10;
     private string contentType_ = "";
-    /// <summary>
-    /// Content type of the file
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string ContentType {
@@ -340,9 +310,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "uploaded_at" field.</summary>
     public const int UploadedAtFieldNumber = 11;
     private global::Google.Protobuf.WellKnownTypes.Timestamp uploadedAt_;
-    /// <summary>
-    /// When the file was uploaded
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public global::Google.Protobuf.WellKnownTypes.Timestamp UploadedAt {
@@ -357,9 +324,6 @@ namespace DysonNetwork.Shared.Proto {
     private readonly static int WidthDefaultValue = 0;
 
     private int width_;
-    /// <summary>
-    /// Image/Video width (optional, for media files)
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public int Width {
@@ -387,9 +351,6 @@ namespace DysonNetwork.Shared.Proto {
     private readonly static int HeightDefaultValue = 0;
 
     private int height_;
-    /// <summary>
-    /// Image/Video height (optional, for media files)
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public int Height {
@@ -417,9 +378,6 @@ namespace DysonNetwork.Shared.Proto {
     private readonly static string BlurhashDefaultValue = "";
 
     private string blurhash_;
-    /// <summary>
-    /// Blurhash for placeholder (optional, for images)
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Blurhash {
@@ -443,13 +401,10 @@ namespace DysonNetwork.Shared.Proto {
 
     /// <summary>Field number for the "object" field.</summary>
     public const int ObjectFieldNumber = 16;
-    private global::DysonNetwork.Shared.Proto.FileObject object_;
-    /// <summary>
-    /// Nested file object containing additional metadata
-    /// </summary>
+    private global::DysonNetwork.Shared.Proto.DyFileObject object_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::DysonNetwork.Shared.Proto.FileObject Object {
+    public global::DysonNetwork.Shared.Proto.DyFileObject Object {
       get { return object_; }
       set {
         object_ = value;
@@ -459,12 +414,12 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as CloudFile);
+      return Equals(other as DyCloudFile);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(CloudFile other) {
+    public bool Equals(DyCloudFile other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -732,7 +687,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(CloudFile other) {
+    public void MergeFrom(DyCloudFile other) {
       if (other == null) {
         return;
       }
@@ -786,7 +741,7 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.object_ != null) {
         if (object_ == null) {
-          Object = new global::DysonNetwork.Shared.Proto.FileObject();
+          Object = new global::DysonNetwork.Shared.Proto.DyFileObject();
         }
         Object.MergeFrom(other.Object);
       }
@@ -874,7 +829,7 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 130: {
             if (object_ == null) {
-              Object = new global::DysonNetwork.Shared.Proto.FileObject();
+              Object = new global::DysonNetwork.Shared.Proto.DyFileObject();
             }
             input.ReadMessage(Object);
             break;
@@ -963,7 +918,7 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 130: {
             if (object_ == null) {
-              Object = new global::DysonNetwork.Shared.Proto.FileObject();
+              Object = new global::DysonNetwork.Shared.Proto.DyFileObject();
             }
             input.ReadMessage(Object);
             break;
@@ -975,21 +930,17 @@ namespace DysonNetwork.Shared.Proto {
 
   }
 
-  /// <summary>
-  /// FileObject represents the actual file data stored in cloud storage.
-  /// It contains metadata about the file content that may be shared across multiple references.
-  /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class FileObject : pb::IMessage<FileObject>
+  public sealed partial class DyFileObject : pb::IMessage<DyFileObject>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<FileObject> _parser = new pb::MessageParser<FileObject>(() => new FileObject());
+    private static readonly pb::MessageParser<DyFileObject> _parser = new pb::MessageParser<DyFileObject>(() => new DyFileObject());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<FileObject> Parser { get { return _parser; } }
+    public static pb::MessageParser<DyFileObject> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -1005,7 +956,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public FileObject() {
+    public DyFileObject() {
       OnConstruction();
     }
 
@@ -1013,7 +964,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public FileObject(FileObject other) : this() {
+    public DyFileObject(DyFileObject other) : this() {
       id_ = other.id_;
       size_ = other.size_;
       meta_ = other.meta_;
@@ -1026,16 +977,13 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public FileObject Clone() {
-      return new FileObject(this);
+    public DyFileObject Clone() {
+      return new DyFileObject(this);
     }
 
     /// <summary>Field number for the "id" field.</summary>
     public const int IdFieldNumber = 1;
     private string id_ = "";
-    /// <summary>
-    /// Unique identifier for the file object
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Id {
@@ -1048,9 +996,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "size" field.</summary>
     public const int SizeFieldNumber = 2;
     private long size_;
-    /// <summary>
-    /// File size in bytes
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public long Size {
@@ -1063,9 +1008,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "meta" field.</summary>
     public const int MetaFieldNumber = 3;
     private pb::ByteString meta_ = pb::ByteString.Empty;
-    /// <summary>
-    /// File metadata (e.g., dimensions, duration, etc.) stored as JSON bytes
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pb::ByteString Meta {
@@ -1078,9 +1020,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "mime_type" field.</summary>
     public const int MimeTypeFieldNumber = 4;
     private string mimeType_ = "";
-    /// <summary>
-    /// MIME type of the file
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string MimeType {
@@ -1093,9 +1032,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "hash" field.</summary>
     public const int HashFieldNumber = 5;
     private string hash_ = "";
-    /// <summary>
-    /// File content hash (e.g., MD5, SHA-256)
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Hash {
@@ -1108,9 +1044,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "has_compression" field.</summary>
     public const int HasCompressionFieldNumber = 6;
     private bool hasCompression_;
-    /// <summary>
-    /// Indicates if the file is stored with compression
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool HasCompression {
@@ -1123,9 +1056,6 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "has_thumbnail" field.</summary>
     public const int HasThumbnailFieldNumber = 7;
     private bool hasThumbnail_;
-    /// <summary>
-    /// Indicates if the file has a thumbnail
-    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool HasThumbnail {
@@ -1138,12 +1068,12 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as FileObject);
+      return Equals(other as DyFileObject);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(FileObject other) {
+    public bool Equals(DyFileObject other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -1294,7 +1224,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(FileObject other) {
+    public void MergeFrom(DyFileObject other) {
       if (other == null) {
         return;
       }
@@ -1420,20 +1350,17 @@ namespace DysonNetwork.Shared.Proto {
 
   }
 
-  /// <summary>
-  /// Request message for GetFile
-  /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class GetFileRequest : pb::IMessage<GetFileRequest>
+  public sealed partial class DyGetFileRequest : pb::IMessage<DyGetFileRequest>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<GetFileRequest> _parser = new pb::MessageParser<GetFileRequest>(() => new GetFileRequest());
+    private static readonly pb::MessageParser<DyGetFileRequest> _parser = new pb::MessageParser<DyGetFileRequest>(() => new DyGetFileRequest());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<GetFileRequest> Parser { get { return _parser; } }
+    public static pb::MessageParser<DyGetFileRequest> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -1449,7 +1376,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetFileRequest() {
+    public DyGetFileRequest() {
       OnConstruction();
     }
 
@@ -1457,15 +1384,15 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetFileRequest(GetFileRequest other) : this() {
+    public DyGetFileRequest(DyGetFileRequest other) : this() {
       id_ = other.id_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetFileRequest Clone() {
-      return new GetFileRequest(this);
+    public DyGetFileRequest Clone() {
+      return new DyGetFileRequest(this);
     }
 
     /// <summary>Field number for the "id" field.</summary>
@@ -1483,12 +1410,12 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as GetFileRequest);
+      return Equals(other as DyGetFileRequest);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(GetFileRequest other) {
+    public bool Equals(DyGetFileRequest other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -1561,7 +1488,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(GetFileRequest other) {
+    public void MergeFrom(DyGetFileRequest other) {
       if (other == null) {
         return;
       }
@@ -1622,16 +1549,16 @@ namespace DysonNetwork.Shared.Proto {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class GetFileBatchRequest : pb::IMessage<GetFileBatchRequest>
+  public sealed partial class DyGetFileBatchRequest : pb::IMessage<DyGetFileBatchRequest>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<GetFileBatchRequest> _parser = new pb::MessageParser<GetFileBatchRequest>(() => new GetFileBatchRequest());
+    private static readonly pb::MessageParser<DyGetFileBatchRequest> _parser = new pb::MessageParser<DyGetFileBatchRequest>(() => new DyGetFileBatchRequest());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<GetFileBatchRequest> Parser { get { return _parser; } }
+    public static pb::MessageParser<DyGetFileBatchRequest> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -1647,7 +1574,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetFileBatchRequest() {
+    public DyGetFileBatchRequest() {
       OnConstruction();
     }
 
@@ -1655,15 +1582,15 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetFileBatchRequest(GetFileBatchRequest other) : this() {
+    public DyGetFileBatchRequest(DyGetFileBatchRequest other) : this() {
       ids_ = other.ids_.Clone();
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetFileBatchRequest Clone() {
-      return new GetFileBatchRequest(this);
+    public DyGetFileBatchRequest Clone() {
+      return new DyGetFileBatchRequest(this);
     }
 
     /// <summary>Field number for the "ids" field.</summary>
@@ -1680,12 +1607,12 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as GetFileBatchRequest);
+      return Equals(other as DyGetFileBatchRequest);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(GetFileBatchRequest other) {
+    public bool Equals(DyGetFileBatchRequest other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -1750,7 +1677,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(GetFileBatchRequest other) {
+    public void MergeFrom(DyGetFileBatchRequest other) {
       if (other == null) {
         return;
       }
@@ -1809,16 +1736,16 @@ namespace DysonNetwork.Shared.Proto {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class GetFileBatchResponse : pb::IMessage<GetFileBatchResponse>
+  public sealed partial class DyGetFileBatchResponse : pb::IMessage<DyGetFileBatchResponse>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<GetFileBatchResponse> _parser = new pb::MessageParser<GetFileBatchResponse>(() => new GetFileBatchResponse());
+    private static readonly pb::MessageParser<DyGetFileBatchResponse> _parser = new pb::MessageParser<DyGetFileBatchResponse>(() => new DyGetFileBatchResponse());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<GetFileBatchResponse> Parser { get { return _parser; } }
+    public static pb::MessageParser<DyGetFileBatchResponse> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -1834,7 +1761,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetFileBatchResponse() {
+    public DyGetFileBatchResponse() {
       OnConstruction();
     }
 
@@ -1842,37 +1769,37 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetFileBatchResponse(GetFileBatchResponse other) : this() {
+    public DyGetFileBatchResponse(DyGetFileBatchResponse other) : this() {
       files_ = other.files_.Clone();
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetFileBatchResponse Clone() {
-      return new GetFileBatchResponse(this);
+    public DyGetFileBatchResponse Clone() {
+      return new DyGetFileBatchResponse(this);
     }
 
     /// <summary>Field number for the "files" field.</summary>
     public const int FilesFieldNumber = 1;
-    private static readonly pb::FieldCodec<global::DysonNetwork.Shared.Proto.CloudFile> _repeated_files_codec
-        = pb::FieldCodec.ForMessage(10, global::DysonNetwork.Shared.Proto.CloudFile.Parser);
-    private readonly pbc::RepeatedField<global::DysonNetwork.Shared.Proto.CloudFile> files_ = new pbc::RepeatedField<global::DysonNetwork.Shared.Proto.CloudFile>();
+    private static readonly pb::FieldCodec<global::DysonNetwork.Shared.Proto.DyCloudFile> _repeated_files_codec
+        = pb::FieldCodec.ForMessage(10, global::DysonNetwork.Shared.Proto.DyCloudFile.Parser);
+    private readonly pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyCloudFile> files_ = new pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyCloudFile>();
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public pbc::RepeatedField<global::DysonNetwork.Shared.Proto.CloudFile> Files {
+    public pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyCloudFile> Files {
       get { return files_; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as GetFileBatchResponse);
+      return Equals(other as DyGetFileBatchResponse);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(GetFileBatchResponse other) {
+    public bool Equals(DyGetFileBatchResponse other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -1937,7 +1864,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(GetFileBatchResponse other) {
+    public void MergeFrom(DyGetFileBatchResponse other) {
       if (other == null) {
         return;
       }
@@ -1995,20 +1922,17 @@ namespace DysonNetwork.Shared.Proto {
 
   }
 
-  /// <summary>
-  /// Request message for UpdateFile
-  /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class UpdateFileRequest : pb::IMessage<UpdateFileRequest>
+  public sealed partial class DyUpdateFileRequest : pb::IMessage<DyUpdateFileRequest>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<UpdateFileRequest> _parser = new pb::MessageParser<UpdateFileRequest>(() => new UpdateFileRequest());
+    private static readonly pb::MessageParser<DyUpdateFileRequest> _parser = new pb::MessageParser<DyUpdateFileRequest>(() => new DyUpdateFileRequest());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<UpdateFileRequest> Parser { get { return _parser; } }
+    public static pb::MessageParser<DyUpdateFileRequest> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -2024,7 +1948,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public UpdateFileRequest() {
+    public DyUpdateFileRequest() {
       OnConstruction();
     }
 
@@ -2032,7 +1956,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public UpdateFileRequest(UpdateFileRequest other) : this() {
+    public DyUpdateFileRequest(DyUpdateFileRequest other) : this() {
       file_ = other.file_ != null ? other.file_.Clone() : null;
       updateMask_ = other.updateMask_ != null ? other.updateMask_.Clone() : null;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
@@ -2040,16 +1964,16 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public UpdateFileRequest Clone() {
-      return new UpdateFileRequest(this);
+    public DyUpdateFileRequest Clone() {
+      return new DyUpdateFileRequest(this);
     }
 
     /// <summary>Field number for the "file" field.</summary>
     public const int FileFieldNumber = 1;
-    private global::DysonNetwork.Shared.Proto.CloudFile file_;
+    private global::DysonNetwork.Shared.Proto.DyCloudFile file_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::DysonNetwork.Shared.Proto.CloudFile File {
+    public global::DysonNetwork.Shared.Proto.DyCloudFile File {
       get { return file_; }
       set {
         file_ = value;
@@ -2071,12 +1995,12 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as UpdateFileRequest);
+      return Equals(other as DyUpdateFileRequest);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(UpdateFileRequest other) {
+    public bool Equals(DyUpdateFileRequest other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -2162,13 +2086,13 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(UpdateFileRequest other) {
+    public void MergeFrom(DyUpdateFileRequest other) {
       if (other == null) {
         return;
       }
       if (other.file_ != null) {
         if (file_ == null) {
-          File = new global::DysonNetwork.Shared.Proto.CloudFile();
+          File = new global::DysonNetwork.Shared.Proto.DyCloudFile();
         }
         File.MergeFrom(other.File);
       }
@@ -2199,7 +2123,7 @@ namespace DysonNetwork.Shared.Proto {
             break;
           case 10: {
             if (file_ == null) {
-              File = new global::DysonNetwork.Shared.Proto.CloudFile();
+              File = new global::DysonNetwork.Shared.Proto.DyCloudFile();
             }
             input.ReadMessage(File);
             break;
@@ -2232,7 +2156,7 @@ namespace DysonNetwork.Shared.Proto {
             break;
           case 10: {
             if (file_ == null) {
-              File = new global::DysonNetwork.Shared.Proto.CloudFile();
+              File = new global::DysonNetwork.Shared.Proto.DyCloudFile();
             }
             input.ReadMessage(File);
             break;
@@ -2252,16 +2176,16 @@ namespace DysonNetwork.Shared.Proto {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class FileMetadata : pb::IMessage<FileMetadata>
+  public sealed partial class DyFileMetadata : pb::IMessage<DyFileMetadata>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<FileMetadata> _parser = new pb::MessageParser<FileMetadata>(() => new FileMetadata());
+    private static readonly pb::MessageParser<DyFileMetadata> _parser = new pb::MessageParser<DyFileMetadata>(() => new DyFileMetadata());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<FileMetadata> Parser { get { return _parser; } }
+    public static pb::MessageParser<DyFileMetadata> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -2277,7 +2201,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public FileMetadata() {
+    public DyFileMetadata() {
       OnConstruction();
     }
 
@@ -2285,7 +2209,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public FileMetadata(FileMetadata other) : this() {
+    public DyFileMetadata(DyFileMetadata other) : this() {
       fileId_ = other.fileId_;
       fileName_ = other.fileName_;
       contentType_ = other.contentType_;
@@ -2295,8 +2219,8 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public FileMetadata Clone() {
-      return new FileMetadata(this);
+    public DyFileMetadata Clone() {
+      return new DyFileMetadata(this);
     }
 
     /// <summary>Field number for the "file_id" field.</summary>
@@ -2350,12 +2274,12 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as FileMetadata);
+      return Equals(other as DyFileMetadata);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(FileMetadata other) {
+    public bool Equals(DyFileMetadata other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -2467,7 +2391,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(FileMetadata other) {
+    public void MergeFrom(DyFileMetadata other) {
       if (other == null) {
         return;
       }
@@ -2561,16 +2485,16 @@ namespace DysonNetwork.Shared.Proto {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class UploadMetadata : pb::IMessage<UploadMetadata>
+  public sealed partial class DyUploadMetadata : pb::IMessage<DyUploadMetadata>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<UploadMetadata> _parser = new pb::MessageParser<UploadMetadata>(() => new UploadMetadata());
+    private static readonly pb::MessageParser<DyUploadMetadata> _parser = new pb::MessageParser<DyUploadMetadata>(() => new DyUploadMetadata());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<UploadMetadata> Parser { get { return _parser; } }
+    public static pb::MessageParser<DyUploadMetadata> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -2586,7 +2510,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public UploadMetadata() {
+    public DyUploadMetadata() {
       OnConstruction();
     }
 
@@ -2594,7 +2518,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public UploadMetadata(UploadMetadata other) : this() {
+    public DyUploadMetadata(DyUploadMetadata other) : this() {
       fileId_ = other.fileId_;
       targetRemote_ = other.targetRemote_;
       suffix_ = other.suffix_;
@@ -2604,8 +2528,8 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public UploadMetadata Clone() {
-      return new UploadMetadata(this);
+    public DyUploadMetadata Clone() {
+      return new DyUploadMetadata(this);
     }
 
     /// <summary>Field number for the "file_id" field.</summary>
@@ -2659,12 +2583,12 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as UploadMetadata);
+      return Equals(other as DyUploadMetadata);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(UploadMetadata other) {
+    public bool Equals(DyUploadMetadata other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -2776,7 +2700,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(UploadMetadata other) {
+    public void MergeFrom(DyUploadMetadata other) {
       if (other == null) {
         return;
       }
@@ -2870,16 +2794,16 @@ namespace DysonNetwork.Shared.Proto {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class DeleteFileRequest : pb::IMessage<DeleteFileRequest>
+  public sealed partial class DyDeleteFileRequest : pb::IMessage<DyDeleteFileRequest>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<DeleteFileRequest> _parser = new pb::MessageParser<DeleteFileRequest>(() => new DeleteFileRequest());
+    private static readonly pb::MessageParser<DyDeleteFileRequest> _parser = new pb::MessageParser<DyDeleteFileRequest>(() => new DyDeleteFileRequest());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<DeleteFileRequest> Parser { get { return _parser; } }
+    public static pb::MessageParser<DyDeleteFileRequest> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -2895,7 +2819,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public DeleteFileRequest() {
+    public DyDeleteFileRequest() {
       OnConstruction();
     }
 
@@ -2903,7 +2827,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public DeleteFileRequest(DeleteFileRequest other) : this() {
+    public DyDeleteFileRequest(DyDeleteFileRequest other) : this() {
       id_ = other.id_;
       purge_ = other.purge_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
@@ -2911,8 +2835,8 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public DeleteFileRequest Clone() {
-      return new DeleteFileRequest(this);
+    public DyDeleteFileRequest Clone() {
+      return new DyDeleteFileRequest(this);
     }
 
     /// <summary>Field number for the "id" field.</summary>
@@ -2942,12 +2866,12 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as DeleteFileRequest);
+      return Equals(other as DyDeleteFileRequest);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(DeleteFileRequest other) {
+    public bool Equals(DyDeleteFileRequest other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -3033,7 +2957,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(DeleteFileRequest other) {
+    public void MergeFrom(DyDeleteFileRequest other) {
       if (other == null) {
         return;
       }
@@ -3105,16 +3029,16 @@ namespace DysonNetwork.Shared.Proto {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class PurgeCacheRequest : pb::IMessage<PurgeCacheRequest>
+  public sealed partial class DyPurgeCacheRequest : pb::IMessage<DyPurgeCacheRequest>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<PurgeCacheRequest> _parser = new pb::MessageParser<PurgeCacheRequest>(() => new PurgeCacheRequest());
+    private static readonly pb::MessageParser<DyPurgeCacheRequest> _parser = new pb::MessageParser<DyPurgeCacheRequest>(() => new DyPurgeCacheRequest());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<PurgeCacheRequest> Parser { get { return _parser; } }
+    public static pb::MessageParser<DyPurgeCacheRequest> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -3130,7 +3054,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public PurgeCacheRequest() {
+    public DyPurgeCacheRequest() {
       OnConstruction();
     }
 
@@ -3138,15 +3062,15 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public PurgeCacheRequest(PurgeCacheRequest other) : this() {
+    public DyPurgeCacheRequest(DyPurgeCacheRequest other) : this() {
       fileId_ = other.fileId_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public PurgeCacheRequest Clone() {
-      return new PurgeCacheRequest(this);
+    public DyPurgeCacheRequest Clone() {
+      return new DyPurgeCacheRequest(this);
     }
 
     /// <summary>Field number for the "file_id" field.</summary>
@@ -3164,12 +3088,12 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as PurgeCacheRequest);
+      return Equals(other as DyPurgeCacheRequest);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(PurgeCacheRequest other) {
+    public bool Equals(DyPurgeCacheRequest other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -3242,7 +3166,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(PurgeCacheRequest other) {
+    public void MergeFrom(DyPurgeCacheRequest other) {
       if (other == null) {
         return;
       }
@@ -3303,16 +3227,16 @@ namespace DysonNetwork.Shared.Proto {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class SetFilePublicRequest : pb::IMessage<SetFilePublicRequest>
+  public sealed partial class DySetFilePublicRequest : pb::IMessage<DySetFilePublicRequest>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<SetFilePublicRequest> _parser = new pb::MessageParser<SetFilePublicRequest>(() => new SetFilePublicRequest());
+    private static readonly pb::MessageParser<DySetFilePublicRequest> _parser = new pb::MessageParser<DySetFilePublicRequest>(() => new DySetFilePublicRequest());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<SetFilePublicRequest> Parser { get { return _parser; } }
+    public static pb::MessageParser<DySetFilePublicRequest> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -3328,7 +3252,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public SetFilePublicRequest() {
+    public DySetFilePublicRequest() {
       OnConstruction();
     }
 
@@ -3336,15 +3260,15 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public SetFilePublicRequest(SetFilePublicRequest other) : this() {
+    public DySetFilePublicRequest(DySetFilePublicRequest other) : this() {
       fileId_ = other.fileId_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public SetFilePublicRequest Clone() {
-      return new SetFilePublicRequest(this);
+    public DySetFilePublicRequest Clone() {
+      return new DySetFilePublicRequest(this);
     }
 
     /// <summary>Field number for the "file_id" field.</summary>
@@ -3362,12 +3286,12 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as SetFilePublicRequest);
+      return Equals(other as DySetFilePublicRequest);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(SetFilePublicRequest other) {
+    public bool Equals(DySetFilePublicRequest other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -3440,7 +3364,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(SetFilePublicRequest other) {
+    public void MergeFrom(DySetFilePublicRequest other) {
       if (other == null) {
         return;
       }
@@ -3501,16 +3425,16 @@ namespace DysonNetwork.Shared.Proto {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class UnsetFilePublicRequest : pb::IMessage<UnsetFilePublicRequest>
+  public sealed partial class DyUnsetFilePublicRequest : pb::IMessage<DyUnsetFilePublicRequest>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<UnsetFilePublicRequest> _parser = new pb::MessageParser<UnsetFilePublicRequest>(() => new UnsetFilePublicRequest());
+    private static readonly pb::MessageParser<DyUnsetFilePublicRequest> _parser = new pb::MessageParser<DyUnsetFilePublicRequest>(() => new DyUnsetFilePublicRequest());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<UnsetFilePublicRequest> Parser { get { return _parser; } }
+    public static pb::MessageParser<DyUnsetFilePublicRequest> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -3526,7 +3450,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public UnsetFilePublicRequest() {
+    public DyUnsetFilePublicRequest() {
       OnConstruction();
     }
 
@@ -3534,15 +3458,15 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public UnsetFilePublicRequest(UnsetFilePublicRequest other) : this() {
+    public DyUnsetFilePublicRequest(DyUnsetFilePublicRequest other) : this() {
       fileId_ = other.fileId_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public UnsetFilePublicRequest Clone() {
-      return new UnsetFilePublicRequest(this);
+    public DyUnsetFilePublicRequest Clone() {
+      return new DyUnsetFilePublicRequest(this);
     }
 
     /// <summary>Field number for the "file_id" field.</summary>
@@ -3560,12 +3484,12 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as UnsetFilePublicRequest);
+      return Equals(other as DyUnsetFilePublicRequest);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(UnsetFilePublicRequest other) {
+    public bool Equals(DyUnsetFilePublicRequest other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -3638,7 +3562,7 @@ namespace DysonNetwork.Shared.Proto {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(UnsetFilePublicRequest other) {
+    public void MergeFrom(DyUnsetFilePublicRequest other) {
       if (other == null) {
         return;
       }

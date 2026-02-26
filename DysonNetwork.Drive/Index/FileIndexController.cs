@@ -35,7 +35,7 @@ public class FileIndexController(
         [FromQuery] bool orderDesc = true
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -137,7 +137,7 @@ public class FileIndexController(
         [FromQuery] bool orderDesc = true
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -204,7 +204,7 @@ public class FileIndexController(
         [FromQuery] bool orderDesc = true
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -268,7 +268,7 @@ public class FileIndexController(
     [HttpPost("move/{indexId}")]
     public async Task<IActionResult> MoveFile(Guid indexId, [FromBody] MoveFileRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -318,7 +318,7 @@ public class FileIndexController(
     [HttpDelete("remove/{indexId}")]
     public async Task<IActionResult> RemoveFileIndex(Guid indexId, [FromQuery] bool deleteFile = false)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -409,7 +409,7 @@ public class FileIndexController(
     [HttpDelete("clear-path")]
     public async Task<IActionResult> ClearPath([FromQuery] string path = "/", [FromQuery] bool deleteFiles = false)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -475,7 +475,7 @@ public class FileIndexController(
     [HttpPost("create")]
     public async Task<IActionResult> CreateFileIndex([FromBody] CreateFileIndexRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -533,7 +533,7 @@ public class FileIndexController(
     [HttpGet("search")]
     public async Task<IActionResult> SearchFiles([FromQuery] string query, [FromQuery] string? path = null)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
 
         var accountId = Guid.Parse(currentUser.Id);

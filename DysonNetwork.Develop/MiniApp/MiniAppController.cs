@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -34,14 +35,14 @@ public class MiniAppController(MiniAppService miniAppService, Identity.Developer
     [Authorize]
     public async Task<IActionResult> ListMiniApps([FromRoute] string pubName, [FromRoute] Guid projectId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null) return NotFound("Developer not found");
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, Shared.Proto.PublisherMemberRole.Viewer))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyViewer))
             return StatusCode(403, "You must be a viewer of the developer to list mini apps");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -56,14 +57,14 @@ public class MiniAppController(MiniAppService miniAppService, Identity.Developer
     public async Task<IActionResult> GetMiniApp([FromRoute] string pubName, [FromRoute] Guid projectId,
         [FromRoute] Guid miniAppId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null) return NotFound("Developer not found");
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, Shared.Proto.PublisherMemberRole.Viewer))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyViewer))
             return StatusCode(403, "You must be a viewer of the developer to view mini app details");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -83,14 +84,14 @@ public class MiniAppController(MiniAppService miniAppService, Identity.Developer
         [FromRoute] Guid projectId,
         [FromBody] CreateMiniAppRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
             return StatusCode(403, "You must be an editor of the developer to create a mini app");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -121,14 +122,14 @@ public class MiniAppController(MiniAppService miniAppService, Identity.Developer
         [FromBody] MiniAppRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
             return StatusCode(403, "You must be an editor of the developer to update a mini app");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
@@ -158,14 +159,14 @@ public class MiniAppController(MiniAppService miniAppService, Identity.Developer
         [FromRoute] Guid miniAppId
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Shared.Proto.Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var developer = await ds.GetDeveloperByName(pubName);
         if (developer is null)
             return NotFound("Developer not found");
 
-        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), Shared.Proto.PublisherMemberRole.Editor))
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
             return StatusCode(403, "You must be an editor of the developer to delete a mini app");
 
         var project = await projectService.GetProjectAsync(projectId, developer.Id);

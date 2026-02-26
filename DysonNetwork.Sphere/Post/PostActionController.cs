@@ -29,8 +29,8 @@ public class PostActionController(
     AppDatabase db,
     PostService ps,
     PublisherService pub,
-    AccountService.AccountServiceClient accounts,
-    ActionLogService.ActionLogServiceClient als,
+    DyAccountService.DyAccountServiceClient accounts,
+    DyActionLogService.DyActionLogServiceClient als,
     RemotePaymentService remotePayments,
     PollsService polls,
     RemoteRealmService rs,
@@ -79,7 +79,7 @@ public class PostActionController(
         request.Content = TextSanitizer.Sanitize(request.Content);
         if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
             return BadRequest("Content is required.");
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         if (!string.IsNullOrWhiteSpace(request.ThumbnailId) && request.Type != PostType.Article)
@@ -103,7 +103,7 @@ public class PostActionController(
             publisher = await pub.GetPublisherByName(pubName);
             if (publisher is null)
                 return BadRequest("Publisher was not found.");
-            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.DyEditor))
                 return StatusCode(403, "You need at least be an editor to post as this publisher.");
         }
 
@@ -137,7 +137,7 @@ public class PostActionController(
             {
                 try
                 {
-                    var relationship = await accounts.GetRelationshipAsync(new GetRelationshipRequest
+                    var relationship = await accounts.GetRelationshipAsync(new DyGetRelationshipRequest
                     {
                         AccountId = repliedPost.Publisher.AccountId.ToString(),
                         RelatedId = accountId.ToString(),
@@ -174,7 +174,7 @@ public class PostActionController(
                 !await rs.IsMemberWithRole(
                     realm.Id,
                     accountId,
-                    new List<int> { RealmMemberRole.Normal }
+                    new List<int> { RealmMemberRole.DyNormal }
                 )
             )
                 return StatusCode(403, "You are not a member of this realm.");
@@ -283,7 +283,7 @@ public class PostActionController(
         }
 
         _ = als.CreateActionLogAsync(
-            new CreateActionLogRequest
+            new DyCreateActionLogRequest
             {
                 Action = ActionLogType.PostCreate,
                 Meta =
@@ -333,7 +333,7 @@ public class PostActionController(
         [FromBody] PostReactionRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var friendsResponse = await accounts.ListFriendsAsync(
@@ -380,7 +380,7 @@ public class PostActionController(
             return NoContent();
 
         _ = als.CreateActionLogAsync(
-            new CreateActionLogRequest
+            new DyCreateActionLogRequest
             {
                 Action = ActionLogType.PostReact,
                 Meta =
@@ -437,7 +437,7 @@ public class PostActionController(
         [FromBody] PostAwardRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         if (request.Attitude == Shared.Models.PostReactionAttitude.Neutral)
             return BadRequest("You cannot create a neutral post award");
@@ -490,7 +490,7 @@ public class PostActionController(
     [Authorize]
     public async Task<ActionResult<SnPost>> PinPost(Guid id, [FromBody] PostPinRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var post = await db
@@ -503,7 +503,7 @@ public class PostActionController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (post.PublisherId == null ||
-            !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.Editor))
+            !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.DyEditor))
             return StatusCode(403, "You are not an editor of this publisher");
 
         if (request.Mode == Shared.Models.PostPinMode.RealmPage && post.RealmId != null)
@@ -512,7 +512,7 @@ public class PostActionController(
                 !await rs.IsMemberWithRole(
                     post.RealmId.Value,
                     accountId,
-                    new List<int> { RealmMemberRole.Moderator }
+                    new List<int> { RealmMemberRole.DyModerator }
                 )
             )
                 return StatusCode(403, "You are not a moderator of this realm");
@@ -528,7 +528,7 @@ public class PostActionController(
         }
 
         _ = als.CreateActionLogAsync(
-            new CreateActionLogRequest
+            new DyCreateActionLogRequest
             {
                 Action = ActionLogType.PostPin,
                 Meta =
@@ -555,7 +555,7 @@ public class PostActionController(
     [Authorize]
     public async Task<ActionResult<SnPost>> UnpinPost(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var post = await db
@@ -568,7 +568,7 @@ public class PostActionController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (post.PublisherId == null ||
-            !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.Editor))
+            !await pub.IsMemberWithRole(post.PublisherId.Value, accountId, PublisherMemberRole.DyEditor))
             return StatusCode(403, "You are not an editor of this publisher");
 
         if (post is { PinMode: Shared.Models.PostPinMode.RealmPage, RealmId: not null })
@@ -577,7 +577,7 @@ public class PostActionController(
                 !await rs.IsMemberWithRole(
                     post.RealmId.Value,
                     accountId,
-                    new List<int> { RealmMemberRole.Moderator }
+                    new List<int> { RealmMemberRole.DyModerator }
                 )
             )
                 return StatusCode(403, "You are not a moderator of this realm");
@@ -593,7 +593,7 @@ public class PostActionController(
         }
 
         _ = als.CreateActionLogAsync(
-            new CreateActionLogRequest
+            new DyCreateActionLogRequest
             {
                 Action = ActionLogType.PostUnpin,
                 Meta =
@@ -622,7 +622,7 @@ public class PostActionController(
         request.Content = TextSanitizer.Sanitize(request.Content);
         if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
             return BadRequest("Content is required.");
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         if (!string.IsNullOrWhiteSpace(request.ThumbnailId) && request.Type != PostType.Article)
@@ -642,7 +642,7 @@ public class PostActionController(
             return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(post.Publisher.Id, accountId, PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(post.Publisher.Id, accountId, PublisherMemberRole.DyEditor))
             return StatusCode(403, "You need at least be an editor to edit this publisher's post.");
 
         if (pubName is not null)
@@ -650,7 +650,7 @@ public class PostActionController(
             var publisher = await pub.GetPublisherByName(pubName);
             if (publisher is null)
                 return NotFound();
-            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.DyEditor))
                 return StatusCode(
                     403,
                     "You need at least be an editor to transfer this post to this publisher."
@@ -829,7 +829,7 @@ public class PostActionController(
                 !await rs.IsMemberWithRole(
                     realm.Id,
                     accountId,
-                    new List<int> { RealmMemberRole.Normal }
+                    new List<int> { RealmMemberRole.DyNormal }
                 )
             )
                 return StatusCode(403, "You are not a member of this realm.");
@@ -856,7 +856,7 @@ public class PostActionController(
         }
 
         _ = als.CreateActionLogAsync(
-            new CreateActionLogRequest
+            new DyCreateActionLogRequest
             {
                 Action = ActionLogType.PostUpdate,
                 Meta =
@@ -878,7 +878,7 @@ public class PostActionController(
     [HttpDelete("{id:guid}")]
     public async Task<ActionResult<SnPost>> DeletePost(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var post = await db
@@ -892,7 +892,7 @@ public class PostActionController(
             !await pub.IsMemberWithRole(
                 post.Publisher.Id,
                 Guid.Parse(currentUser.Id),
-                PublisherMemberRole.Editor
+                PublisherMemberRole.DyEditor
             )
         )
             return StatusCode(
@@ -903,7 +903,7 @@ public class PostActionController(
         await ps.DeletePostAsync(post);
 
         _ = als.CreateActionLogAsync(
-            new CreateActionLogRequest
+            new DyCreateActionLogRequest
             {
                 Action = ActionLogType.PostDelete,
                 Meta =

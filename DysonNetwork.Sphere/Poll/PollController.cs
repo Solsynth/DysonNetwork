@@ -29,7 +29,7 @@ public class PollController(
         if (poll is null) return NotFound("Poll not found");
         var pollWithAnswer = PollWithStats.FromPoll(poll);
 
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Ok(pollWithAnswer);
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Ok(pollWithAnswer);
 
         var accountId = Guid.Parse(currentUser.Id);
         var answer = await polls.GetPollAnswer(id, accountId);
@@ -49,7 +49,7 @@ public class PollController(
     [Authorize]
     public async Task<ActionResult<SnPollAnswer>> AnswerPoll(Guid id, [FromBody] PollAnswerRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
         try
         {
@@ -65,7 +65,7 @@ public class PollController(
     [Authorize]
     public async Task<IActionResult> DeletePollAnswer(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
         try
         {
@@ -85,14 +85,14 @@ public class PollController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var poll = await db.Polls
             .FirstOrDefaultAsync(p => p.Id == id);
         if (poll is null) return NotFound("Poll not found");
 
-        if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Shared.Models.PublisherMemberRole.Viewer))
+        if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Shared.Models.PublisherMemberRole.DyViewer))
             return StatusCode(403, "You need to be a viewer to view this poll's feedback.");
 
         var answerQuery = db.PollAnswers
@@ -134,7 +134,7 @@ public class PollController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         List<Guid> publishers;
@@ -203,12 +203,12 @@ public class PollController(
         [FromQuery(Name = "pub")] string pubName)
     {
         if (request.Questions is null) return BadRequest("Questions are required.");
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await pub.GetPublisherByName(pubName);
         if (publisher is null) return BadRequest("Publisher was not found.");
-        if (!await pub.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(publisher.Id, accountId, Shared.Models.PublisherMemberRole.DyEditor))
             return StatusCode(403, "You need at least be an editor to create polls as this publisher.");
 
         var poll = new SnPoll
@@ -239,7 +239,7 @@ public class PollController(
     [Authorize]
     public async Task<ActionResult<SnPoll>> UpdatePoll(Guid id, [FromBody] PollRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         // Start a transaction
@@ -254,7 +254,7 @@ public class PollController(
             if (poll == null) return NotFound("Poll not found");
 
             // Check if user is an editor of the publisher that owns the poll
-            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Shared.Models.PublisherMemberRole.Editor))
+            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Shared.Models.PublisherMemberRole.DyEditor))
                 return StatusCode(403, "You need to be at least an editor to update this poll.");
 
             // Update properties if they are provided in the request
@@ -303,7 +303,7 @@ public class PollController(
     [Authorize]
     public async Task<IActionResult> DeletePoll(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         // Start a transaction
@@ -318,7 +318,7 @@ public class PollController(
             if (poll == null) return NotFound("Poll not found");
 
             // Check if user is an editor of the publisher that owns the poll
-            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Shared.Models.PublisherMemberRole.Editor))
+            if (!await pub.IsMemberWithRole(poll.PublisherId, accountId, Shared.Models.PublisherMemberRole.DyEditor))
                 return StatusCode(403, "You need to be at least an editor to delete this poll.");
 
             // Delete all answers for this poll

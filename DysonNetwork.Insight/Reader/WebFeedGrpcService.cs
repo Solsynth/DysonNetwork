@@ -6,10 +6,10 @@ using Microsoft.EntityFrameworkCore;
 namespace DysonNetwork.Insight.Reader;
 
 public class WebFeedGrpcService(WebFeedService service, AppDatabase db)
-    : Shared.Proto.WebFeedService.WebFeedServiceBase
+    : DyWebFeedService.DyWebFeedServiceBase
 {
-    public override async Task<GetWebFeedResponse> GetWebFeed(
-        GetWebFeedRequest request,
+    public override async Task<DyGetWebFeedResponse> GetWebFeed(
+        DyGetWebFeedRequest request,
         ServerCallContext context
     )
     {
@@ -17,14 +17,14 @@ public class WebFeedGrpcService(WebFeedService service, AppDatabase db)
 
         switch (request.IdentifierCase)
         {
-            case GetWebFeedRequest.IdentifierOneofCase.Id:
+            case DyGetWebFeedRequest.IdentifierOneofCase.Id:
                 if (!string.IsNullOrWhiteSpace(request.Id) && Guid.TryParse(request.Id, out var id))
                     feed = await service.GetFeedAsync(id);
                 break;
-            case GetWebFeedRequest.IdentifierOneofCase.Url:
+            case DyGetWebFeedRequest.IdentifierOneofCase.Url:
                 feed = await db.Feeds.FirstOrDefaultAsync(f => f.Url == request.Url);
                 break;
-            case GetWebFeedRequest.IdentifierOneofCase.None:
+            case DyGetWebFeedRequest.IdentifierOneofCase.None:
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -32,11 +32,11 @@ public class WebFeedGrpcService(WebFeedService service, AppDatabase db)
 
         return feed == null
             ? throw new RpcException(new Status(StatusCode.NotFound, "feed not found"))
-            : new GetWebFeedResponse { Feed = feed.ToProtoValue() };
+            : new DyGetWebFeedResponse { Feed = feed.ToProtoValue() };
     }
 
-    public override async Task<ListWebFeedsResponse> ListWebFeeds(
-        ListWebFeedsRequest request,
+    public override async Task<DyListWebFeedsResponse> ListWebFeeds(
+        DyListWebFeedsRequest request,
         ServerCallContext context
     )
     {
@@ -45,7 +45,7 @@ public class WebFeedGrpcService(WebFeedService service, AppDatabase db)
 
         var feeds = await service.GetFeedsByPublisherAsync(publisherId);
 
-        var response = new ListWebFeedsResponse
+        var response = new DyListWebFeedsResponse
         {
             TotalSize = feeds.Count
         };

@@ -13,7 +13,7 @@ public class RingServiceGrpc(
     QueueService queueService,
     WebSocketService websocket,
     PushService pushService
-) : RingService.RingServiceBase
+) : DyRingService.DyRingServiceBase
 {
     public override async Task<Empty> SendEmail(SendEmailRequest request, ServerCallContext context)
     {
@@ -34,7 +34,7 @@ public class RingServiceGrpc(
         return Task.FromResult(new Empty());
     }
 
-    public override Task<Empty> PushWebSocketPacketToUsers(PushWebSocketPacketToUsersRequest request,
+    public override Task<Empty> PushWebSocketPacketToUsers(DyPushWebSocketPacketToUsersRequest request,
         ServerCallContext context)
     {
         var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
@@ -65,7 +65,7 @@ public class RingServiceGrpc(
         return Task.FromResult(new Empty());
     }
 
-    public override async Task<Empty> SendPushNotificationToUser(SendPushNotificationToUserRequest request,
+    public override async Task<Empty> SendPushNotificationToUser(DySendPushNotificationToUserRequest request,
         ServerCallContext context)
     {
         var notification = new SnNotification

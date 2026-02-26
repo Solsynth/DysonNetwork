@@ -3,7 +3,6 @@ using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime.Serialization.Protobuf;
-using ApiKey = DysonNetwork.Shared.Proto.ApiKey;
 using AuthService = DysonNetwork.Pass.Auth.AuthService;
 
 namespace DysonNetwork.Pass.Account;
@@ -11,13 +10,13 @@ namespace DysonNetwork.Pass.Account;
 public class BotAccountReceiverGrpc(
     AppDatabase db,
     AccountService accounts,
-    FileService.FileServiceClient files,
+    DyFileService.DyFileServiceClient files,
     AuthService authService
 )
-    : BotAccountReceiverService.BotAccountReceiverServiceBase
+    : DyBotAccountReceiverService.DyBotAccountReceiverServiceBase
 {
-    public override async Task<CreateBotAccountResponse> CreateBotAccount(
-        CreateBotAccountRequest request,
+    public override async Task<DyCreateBotAccountResponse> CreateBotAccount(
+        DyCreateBotAccountRequest request,
         ServerCallContext context
     )
     {
@@ -29,9 +28,9 @@ public class BotAccountReceiverGrpc(
             request.BackgroundId
         );
 
-        return new CreateBotAccountResponse
+        return new DyCreateBotAccountResponse
         {
-            Bot = new BotAccount
+            Bot = new DyBotAccount
             {
                 Account = account.ToProtoValue(),
                 AutomatedId = account.Id.ToString(),
@@ -42,8 +41,8 @@ public class BotAccountReceiverGrpc(
         };
     }
 
-    public override async Task<UpdateBotAccountResponse> UpdateBotAccount(
-        UpdateBotAccountRequest request,
+    public override async Task<DyUpdateBotAccountResponse> UpdateBotAccount(
+        DyUpdateBotAccountRequest request,
         ServerCallContext context
     )
     {
@@ -51,22 +50,22 @@ public class BotAccountReceiverGrpc(
 
         if (request.PictureId is not null)
         {
-            var file = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
+            var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
             account.Profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         if (request.BackgroundId is not null)
         {
-            var file = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
+            var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
             account.Profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         db.Accounts.Update(account);
         await db.SaveChangesAsync();
 
-        return new UpdateBotAccountResponse
+        return new DyUpdateBotAccountResponse
         {
-            Bot = new BotAccount
+            Bot = new DyBotAccount
             {
                 Account = account.ToProtoValue(),
                 AutomatedId = account.Id.ToString(),
@@ -77,8 +76,8 @@ public class BotAccountReceiverGrpc(
         };
     }
 
-    public override async Task<DeleteBotAccountResponse> DeleteBotAccount(
-        DeleteBotAccountRequest request,
+    public override async Task<DyDeleteBotAccountResponse> DeleteBotAccount(
+        DyDeleteBotAccountRequest request,
         ServerCallContext context
     )
     {
@@ -89,10 +88,10 @@ public class BotAccountReceiverGrpc(
 
         await accounts.DeleteAccount(account);
 
-        return new DeleteBotAccountResponse();
+        return new DyDeleteBotAccountResponse();
     }
 
-    public override async Task<ApiKey> GetApiKey(GetApiKeyRequest request, ServerCallContext context)
+    public override async Task<DyApiKey> GetApiKey(DyGetApiKeyRequest request, ServerCallContext context)
     {
         var keyId = Guid.Parse(request.Id);
         var key = await db.ApiKeys
@@ -105,7 +104,7 @@ public class BotAccountReceiverGrpc(
         return key.ToProtoValue();
     }
 
-    public override async Task<GetApiKeyBatchResponse> ListApiKey(ListApiKeyRequest request, ServerCallContext context)
+    public override async Task<DyGetApiKeyBatchResponse> ListApiKey(DyListApiKeyRequest request, ServerCallContext context)
     {
         var automatedId = Guid.Parse(request.AutomatedId);
         var account = await accounts.GetBotAccount(automatedId);
@@ -117,20 +116,20 @@ public class BotAccountReceiverGrpc(
             .Select(k => k.ToProtoValue())
             .ToListAsync();
 
-        var response = new GetApiKeyBatchResponse();
+        var response = new DyGetApiKeyBatchResponse();
         response.Data.AddRange(keys);
         return response;
     }
 
-    public override async Task<ApiKey> CreateApiKey(ApiKey request, ServerCallContext context)
+    public override async Task<DyApiKey> CreateApiKey(DyApiKey request, ServerCallContext context)
     {
         var accountId = Guid.Parse(request.AccountId);
         var account = await accounts.GetBotAccount(accountId);
         if (account == null)
-            throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound, "Account not found"));
+            throw new RpcException(new Status(StatusCode.NotFound, "Account not found"));
 
         if (string.IsNullOrWhiteSpace(request.Label))
-            throw new RpcException(new Grpc.Core.Status(StatusCode.InvalidArgument, "Label is required"));
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Label is required"));
 
         var key = await authService.CreateApiKey(account.Id, request.Label, null);
         key.Key = await authService.IssueApiKeyToken(key);
@@ -138,7 +137,7 @@ public class BotAccountReceiverGrpc(
         return key.ToProtoValue();
     }
 
-    public override async Task<ApiKey> UpdateApiKey(ApiKey request, ServerCallContext context)
+    public override async Task<DyApiKey> UpdateApiKey(DyApiKey request, ServerCallContext context)
     {
         var keyId = Guid.Parse(request.Id);
         var accountId = Guid.Parse(request.AccountId);
@@ -160,7 +159,7 @@ public class BotAccountReceiverGrpc(
         return key.ToProtoValue();
     }
 
-    public override async Task<ApiKey> RotateApiKey(GetApiKeyRequest request, ServerCallContext context)
+    public override async Task<DyApiKey> RotateApiKey(DyGetApiKeyRequest request, ServerCallContext context)
     {
         var keyId = Guid.Parse(request.Id);
         var key = await db.ApiKeys
@@ -176,7 +175,7 @@ public class BotAccountReceiverGrpc(
         return key.ToProtoValue();
     }
 
-    public override async Task<DeleteApiKeyResponse> DeleteApiKey(GetApiKeyRequest request, ServerCallContext context)
+    public override async Task<DyDeleteApiKeyResponse> DeleteApiKey(DyGetApiKeyRequest request, ServerCallContext context)
     {
         var keyId = Guid.Parse(request.Id);
         var key = await db.ApiKeys
@@ -184,10 +183,10 @@ public class BotAccountReceiverGrpc(
             .FirstOrDefaultAsync(k => k.Id == keyId);
             
         if (key == null)
-            throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound, "API key not found"));
+            throw new RpcException(new Status(StatusCode.NotFound, "API key not found"));
 
         await authService.RevokeApiKeyToken(key);
         
-        return new DeleteApiKeyResponse { Success = true };
+        return new DyDeleteApiKeyResponse { Success = true };
     }
 }

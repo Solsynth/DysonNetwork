@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
-using FileService = DysonNetwork.Shared.Proto.FileService;
+using FileService = DysonNetwork.DyFileService;
 
 namespace DysonNetwork.Sphere.Live;
 
@@ -21,9 +21,9 @@ public class LiveStreamController(
     LiveStreamService liveStreamService,
     LiveKitLivestreamService liveKitService,
     PublisherService pub,
-    FileService.FileServiceClient files,
+    DyFileService.DyFileServiceClient files,
     RemotePaymentService remotePayments,
-    ActionLogService.ActionLogServiceClient als,
+    DyActionLogService.DyActionLogServiceClient als,
     RemoteAccountService remoteAccounts
 )
     : ControllerBase
@@ -52,7 +52,7 @@ public class LiveStreamController(
         [FromQuery(Name = "pub")] string? pubName
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -72,14 +72,14 @@ public class LiveStreamController(
             publisher = await pub.GetPublisherByName(pubName);
             if (publisher is null)
                 return BadRequest("Publisher not found.");
-            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.DyEditor))
                 return StatusCode(403, "You need at least be an editor to create live streams for this publisher.");
         }
 
         SnCloudFileReferenceObject? thumbnail = null;
         if (request.ThumbnailId is not null)
         {
-            var file = await files.GetFileAsync(new GetFileRequest { Id = request.ThumbnailId });
+            var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.ThumbnailId });
             if (file is null)
                 return BadRequest("Thumbnail not found.");
             thumbnail = SnCloudFileReferenceObject.FromProtoValue(file);
@@ -136,11 +136,11 @@ public class LiveStreamController(
 
         // Check if current user is authorized to see sensitive data
         bool isAuthorized = false;
-        if (HttpContext.Items["CurrentUser"] is Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is DyAccount currentUser)
         {
             var accountId = Guid.Parse(currentUser.Id);
             isAuthorized = await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.Editor);
+                Shared.Models.PublisherMemberRole.DyEditor);
         }
 
         if (!isAuthorized)
@@ -168,13 +168,13 @@ public class LiveStreamController(
         string identity;
         string? name;
 
-        if (HttpContext.Items["CurrentUser"] is Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is DyAccount currentUser)
         {
             var accountId = Guid.Parse(currentUser.Id);
             var isEditor = await pub.IsMemberWithRole(
                 liveStream.PublisherId!.Value,
                 accountId,
-                PublisherMemberRole.Editor
+                PublisherMemberRole.DyEditor
             );
 
             if (isEditor && isStreamer)
@@ -218,14 +218,14 @@ public class LiveStreamController(
     [Authorize]
     public async Task<IActionResult> StartStreaming(Guid id, [FromBody] StartStreamingRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
             return NotFound(new { error = "LiveStream not found" });
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.DyEditor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to start the live stream.");
         }
@@ -270,7 +270,7 @@ public class LiveStreamController(
     [Authorize]
     public async Task<IActionResult> StartEgress(Guid id, [FromBody] StartEgressRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
@@ -279,7 +279,7 @@ public class LiveStreamController(
         }
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.DyEditor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to manage egress.");
         }
@@ -301,7 +301,7 @@ public class LiveStreamController(
     [Authorize]
     public async Task<IActionResult> StopEgress(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
@@ -311,7 +311,7 @@ public class LiveStreamController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.Editor))
+                Shared.Models.PublisherMemberRole.DyEditor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to manage egress.");
         }
@@ -325,7 +325,7 @@ public class LiveStreamController(
     [Authorize]
     public async Task<IActionResult> StartHlsEgress(Guid id, [FromBody] StartHlsEgressRequest? request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
@@ -335,7 +335,7 @@ public class LiveStreamController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.Editor))
+                Shared.Models.PublisherMemberRole.DyEditor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to manage HLS egress.");
         }
@@ -375,7 +375,7 @@ public class LiveStreamController(
     [Authorize]
     public async Task<IActionResult> StopHlsEgress(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
@@ -385,7 +385,7 @@ public class LiveStreamController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.Editor))
+                Shared.Models.PublisherMemberRole.DyEditor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to manage HLS egress.");
         }
@@ -399,7 +399,7 @@ public class LiveStreamController(
     [Authorize]
     public async Task<IActionResult> End(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
@@ -409,7 +409,7 @@ public class LiveStreamController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.Editor))
+                Shared.Models.PublisherMemberRole.DyEditor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to end the live stream.");
         }
@@ -423,7 +423,7 @@ public class LiveStreamController(
     [Authorize]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateLiveStreamRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
@@ -433,7 +433,7 @@ public class LiveStreamController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.Editor))
+                Shared.Models.PublisherMemberRole.DyEditor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to update the live stream.");
         }
@@ -475,7 +475,7 @@ public class LiveStreamController(
     [Authorize]
     public async Task<IActionResult> Delete(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
@@ -485,7 +485,7 @@ public class LiveStreamController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.Editor))
+                Shared.Models.PublisherMemberRole.DyEditor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to delete the live stream.");
         }
@@ -522,7 +522,7 @@ public class LiveStreamController(
     [Authorize]
     public async Task<IActionResult> UpdateThumbnail(Guid id, [FromBody] UpdateThumbnailRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
@@ -532,14 +532,14 @@ public class LiveStreamController(
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId,
-                Shared.Models.PublisherMemberRole.Editor))
+                Shared.Models.PublisherMemberRole.DyEditor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to update the thumbnail.");
         }
 
         if (request.ThumbnailId is not null)
         {
-            var file = await files.GetFileAsync(new GetFileRequest { Id = request.ThumbnailId });
+            var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.ThumbnailId });
             if (file is null)
                 return BadRequest("Thumbnail not found.");
 
@@ -587,7 +587,7 @@ public class LiveStreamController(
     [Authorize]
     public async Task<IActionResult> SendChatMessage(Guid id, [FromBody] SendChatMessageRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
@@ -635,14 +635,14 @@ public class LiveStreamController(
     [Authorize]
     public async Task<IActionResult> DeleteChatMessage(Guid id, Guid messageId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
             return NotFound(new { error = "LiveStream not found" });
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.DyEditor))
             return StatusCode(403, "You need to be an editor of this publisher to moderate chat.");
 
         var message = await db.LiveStreamChatMessages.FindAsync(messageId);
@@ -659,14 +659,14 @@ public class LiveStreamController(
     [Authorize]
     public async Task<IActionResult> TimeoutUser(Guid id, Guid messageId, [FromBody] TimeoutRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var liveStream = await liveStreamService.GetByIdAsync(id);
         if (liveStream == null)
             return NotFound(new { error = "LiveStream not found" });
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(liveStream.PublisherId!.Value, accountId, PublisherMemberRole.DyEditor))
         {
             return StatusCode(403, "You need to be an editor of this publisher to timeout users.");
         }
@@ -811,7 +811,7 @@ public class LiveStreamController(
         [FromBody] LiveStreamAwardRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var liveStream = await liveStreamService.GetByIdAsync(id);

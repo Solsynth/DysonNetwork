@@ -30,9 +30,9 @@ public class SnRealm : ModelBase, IIdentifiedResource
 
     public string ResourceIdentifier => $"realm:{Id}";
 
-    public Realm ToProtoValue()
+    public DyRealm ToProtoValue()
     {
-        return new Realm
+        return new DyRealm
         {
             Id = Id.ToString(),
             Name = Name,
@@ -47,7 +47,7 @@ public class SnRealm : ModelBase, IIdentifiedResource
         };
     }
 
-    public static SnRealm FromProtoValue(Realm proto)
+    public static SnRealm FromProtoValue(DyRealm proto)
     {
         return new SnRealm
         {
@@ -87,9 +87,9 @@ public class SnRealmMember : ModelBase
     public Instant? JoinedAt { get; set; }
     public Instant? LeaveAt { get; set; }
 
-    public Proto.RealmMember ToProtoValue()
+    public DyRealmMember ToProtoValue()
     {
-        var proto = new Proto.RealmMember
+        var proto = new DyRealmMember
         {
             AccountId = AccountId.ToString(),
             RealmId = RealmId.ToString(),
@@ -106,7 +106,7 @@ public class SnRealmMember : ModelBase
         return proto;
     }
 
-    public static SnRealmMember FromProtoValue(RealmMember proto)
+    public static SnRealmMember FromProtoValue(DyRealmMember proto)
     {
         var member = new SnRealmMember
         {

@@ -175,7 +175,7 @@ public class PublisherService(
     }
 
     public async Task<SnPublisher> CreateIndividualPublisher(
-        Account account,
+        DyAccount account,
         string? name,
         string? nick,
         string? bio,
@@ -201,7 +201,7 @@ public class PublisherService(
                 new()
                 {
                     AccountId = Guid.Parse(account.Id),
-                    Role = PublisherMemberRole.Owner,
+                    Role = PublisherMemberRole.DyOwner,
                     JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
             ]
@@ -215,7 +215,7 @@ public class PublisherService(
 
     public async Task<SnPublisher> CreateOrganizationPublisher(
         SnRealm realm,
-        Account account,
+        DyAccount account,
         string? name,
         string? nick,
         string? bio,
@@ -237,7 +237,7 @@ public class PublisherService(
                 new()
                 {
                     AccountId = Guid.Parse(account.Id),
-                    Role = PublisherMemberRole.Owner,
+                    Role = PublisherMemberRole.DyOwner,
                     JoinedAt = Instant.FromDateTimeUtc(DateTime.UtcNow)
                 }
             }
@@ -642,7 +642,7 @@ public class PublisherService(
             .Where(m => m.PublisherId == publisherId && m.AccountId == requesterAccountId)
             .FirstOrDefaultAsync();
 
-        if (member == null || member.Role < PublisherMemberRole.Manager)
+        if (member == null || member.Role < PublisherMemberRole.DyManager)
             throw new UnauthorizedAccessException(
                 "You need at least Manager role to enable fediverse for this publisher");
 
@@ -712,7 +712,7 @@ public class PublisherService(
             .Where(m => m.PublisherId == publisherId && m.AccountId == requesterAccountId)
             .FirstOrDefaultAsync();
 
-        if (member == null || member.Role < PublisherMemberRole.Manager)
+        if (member == null || member.Role < PublisherMemberRole.DyManager)
             throw new UnauthorizedAccessException(
                 "You need at least Manager role to disable fediverse for this publisher");
 

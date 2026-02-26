@@ -7,30 +7,30 @@ public class AuthServiceGrpc(
     TokenAuthService token,
     AuthService auth
 )
-    : Shared.Proto.AuthService.AuthServiceBase
+    : DyAuthService.DyAuthServiceBase
 {
-    public override async Task<AuthenticateResponse> Authenticate(
-        AuthenticateRequest request,
+    public override async Task<DyAuthenticateResponse> Authenticate(
+        DyAuthenticateRequest request,
         ServerCallContext context
     )
     {
         var (valid, session, message) = await token.AuthenticateTokenAsync(request.Token, request.IpAddress);
         if (!valid || session is null)
-            return new AuthenticateResponse { Valid = false, Message = message ?? "Authentication failed." };
+            return new DyAuthenticateResponse { Valid = false, Message = message ?? "Authentication failed." };
 
-        return new AuthenticateResponse { Valid = true, Session = session.ToProtoValue() };
+        return new DyAuthenticateResponse { Valid = true, Session = session.ToProtoValue() };
     }
 
-    public override async Task<ValidateResponse> ValidatePin(ValidatePinRequest request, ServerCallContext context)
+    public override async Task<DyValidateResponse> ValidatePin(DyValidatePinRequest request, ServerCallContext context)
     {
         var accountId = Guid.Parse(request.AccountId);
         var valid = await auth.ValidatePinCode(accountId, request.Pin);
-        return new ValidateResponse { Valid = valid };
+        return new DyValidateResponse { Valid = valid };
     }
     
-    public override async Task<ValidateResponse> ValidateCaptcha(ValidateCaptchaRequest request, ServerCallContext context)
+    public override async Task<DyValidateResponse> ValidateCaptcha(DyValidateCaptchaRequest request, ServerCallContext context)
     {
         var valid = await auth.ValidateCaptcha(request.Token);
-        return new ValidateResponse { Valid = valid };
+        return new DyValidateResponse { Valid = valid };
     }
 }

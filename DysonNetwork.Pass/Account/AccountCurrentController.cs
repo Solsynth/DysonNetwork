@@ -22,7 +22,7 @@ public class AccountCurrentController(
     AccountService accounts,
     AccountEventService events,
     AuthService auth,
-    FileService.FileServiceClient files,
+    DyFileService.DyFileServiceClient files,
     Credit.SocialCreditService creditService,
     RemoteSubscriptionService remoteSubscription
 ) : ControllerBase
@@ -135,13 +135,13 @@ public class AccountCurrentController(
 
         if (request.PictureId is not null)
         {
-            var file = await files.GetFileAsync(new GetFileRequest { Id = request.PictureId });
+            var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
             profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         if (request.BackgroundId is not null)
         {
-            var file = await files.GetFileAsync(new GetFileRequest { Id = request.BackgroundId });
+            var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
             profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
@@ -417,9 +417,9 @@ public class AccountCurrentController(
     }
 
     [HttpGet("actions")]
-    [ProducesResponseType<List<ActionLog>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<List<SnActionLog>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<List<ActionLog>>> GetActionLogs(
+    public async Task<ActionResult<List<SnActionLog>>> GetActionLogs(
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0
     )
@@ -928,7 +928,7 @@ public class AccountCurrentController(
     }
 
     [HttpGet("credits/history")]
-    public async Task<ActionResult<SocialCreditRecord>> GetCreditHistory(
+    public async Task<ActionResult<SnSocialCreditRecord>> GetCreditHistory(
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0
     )

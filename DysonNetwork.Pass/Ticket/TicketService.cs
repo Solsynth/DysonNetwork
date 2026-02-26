@@ -9,7 +9,7 @@ namespace DysonNetwork.Pass.Ticket;
 
 public class TicketService(
     AppDatabase db,
-    FileService.FileServiceClient files,
+    DyFileService.DyFileServiceClient files,
     AccountService accounts,
     ILogger<TicketService> logger
 )

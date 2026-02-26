@@ -7,12 +7,12 @@ namespace DysonNetwork.Develop.Identity;
 
 public class DeveloperService(
     AppDatabase db,
-    PublisherService.PublisherServiceClient ps,
+    DyPublisherService.DyPublisherServiceClient ps,
     ILogger<DeveloperService> logger)
 {
     public async Task<SnDeveloper> LoadDeveloperPublisher(SnDeveloper developer)
     {
-        var pubResponse = await ps.GetPublisherAsync(new GetPublisherRequest { Id = developer.PublisherId.ToString() });
+        var pubResponse = await ps.GetPublisherAsync(new DyGetPublisherRequest { Id = developer.PublisherId.ToString() });
         developer.Publisher = SnPublisher.FromProtoValue(pubResponse.Publisher);
         return developer;
     }
@@ -22,7 +22,7 @@ public class DeveloperService(
     {
         var enumerable = developers.ToList();
         var pubIds = enumerable.Select(d => d.PublisherId).ToList();
-        var pubRequest = new GetPublisherBatchRequest();
+        var pubRequest = new DyGetPublisherBatchRequest();
         pubIds.ForEach(x => pubRequest.Ids.Add(x.ToString()));
         var pubResponse = await ps.GetPublisherBatchAsync(pubRequest);
         var pubs = pubResponse.Publishers.ToDictionary(p => Guid.Parse(p.Id), SnPublisher.FromProtoValue);
@@ -38,7 +38,7 @@ public class DeveloperService(
     {
         try
         {
-            var pubResponse = await ps.GetPublisherAsync(new GetPublisherRequest { Name = name });
+            var pubResponse = await ps.GetPublisherAsync(new DyGetPublisherRequest { Name = name });
             var pubId = Guid.Parse(pubResponse.Publisher.Id);
 
             var developer = await db.Developers.FirstOrDefaultAsync(d => d.PublisherId == pubId);
@@ -56,11 +56,11 @@ public class DeveloperService(
         return await db.Developers.FirstOrDefaultAsync(d => d.Id == id);
     }
 
-    public async Task<bool> IsMemberWithRole(Guid pubId, Guid accountId, Shared.Proto.PublisherMemberRole role)
+    public async Task<bool> IsMemberWithRole(Guid pubId, Guid accountId, DyPublisherMemberRole role)
     {
         try
         {
-            var permResponse = await ps.IsPublisherMemberAsync(new IsPublisherMemberRequest
+            var permResponse = await ps.IsPublisherMemberAsync(new DyIsPublisherMemberRequest
             {
                 PublisherId = pubId.ToString(),
                 AccountId = accountId.ToString(),

@@ -7,7 +7,7 @@ using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 namespace DysonNetwork.Sphere.Publisher;
 
 public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
-    : Shared.Proto.PublisherService.PublisherServiceBase
+    : DyPublisherService.DyPublisherServiceBase
 {
     public override async Task<GetPublisherResponse> GetPublisher(
         GetPublisherRequest request,
@@ -106,10 +106,10 @@ public class PublisherServiceGrpc(PublisherService service, AppDatabase db)
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid account_id"));
         var requiredRole = request.Role switch
         {
-            Shared.Proto.PublisherMemberRole.Owner => PublisherMemberRole.Owner,
-            Shared.Proto.PublisherMemberRole.Manager => PublisherMemberRole.Manager,
-            Shared.Proto.PublisherMemberRole.Editor => PublisherMemberRole.Editor,
-            _ => PublisherMemberRole.Viewer
+            DyPublisherMemberRole.DyOwner => PublisherMemberRole.DyOwner,
+            DyPublisherMemberRole.DyManager => PublisherMemberRole.DyManager,
+            DyPublisherMemberRole.DyEditor => PublisherMemberRole.DyEditor,
+            _ => PublisherMemberRole.DyViewer
         };
         var valid = await service.IsMemberWithRole(pid, aid, requiredRole);
         return new IsPublisherMemberResponse { Valid = valid };

@@ -5,12 +5,12 @@ using DysonNetwork.Zone.Publication;
 // Add this using statement
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using NodaTime;
-using PostType = DysonNetwork.Shared.Proto.PostType;
+using PostType = DysonNetwork.DyPostType;
 
 namespace DysonNetwork.Zone.Pages;
 
 public class IndexModel(
-    PostService.PostServiceClient postClient,
+    DyPostService.DyPostServiceClient postClient,
     RemotePublisherService rps,
     RemoteAccountService ras,
     MarkdownConverter markdownConverter

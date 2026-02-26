@@ -7,7 +7,6 @@ using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using WebSocketPacket = DysonNetwork.Shared.Proto.WebSocketPacket;
 
 namespace DysonNetwork.Messager.Chat;
 
@@ -172,11 +171,11 @@ public partial class ChatService(
         IServiceScope scope
     )
     {
-        var scopedNty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+        var scopedNty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
 
-        var request = new PushWebSocketPacketToUsersRequest
+        var request = new DyPushWebSocketPacketToUsersRequest
         {
-            Packet = new WebSocketPacket
+            Packet = new DyWebSocketPacket
             {
                 Type = type,
                 Data = InfraObjectCoder.ConvertObjectToByteString(message),
@@ -258,7 +257,7 @@ public partial class ChatService(
     )
     {
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
-        var scopedNty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+        var scopedNty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
 
         var roomSubject = room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM" :
             room.Realm is not null ? $"{room.Name ?? "Unknown"}, {room.Realm.Name}" : room.Name ?? "Unknown";
@@ -289,7 +288,7 @@ public partial class ChatService(
 
         if (accountsToNotify.Count > 0)
         {
-            var ntyRequest = new SendPushNotificationToUsersRequest { Notification = notification };
+            var ntyRequest = new DySendPushNotificationToUsersRequest { Notification = notification };
             ntyRequest.UserIds.AddRange(accountsToNotify.Select(a => a.Id.ToString()));
             await scopedNty.SendPushNotificationToUsersAsync(ntyRequest);
         }
@@ -306,7 +305,7 @@ public partial class ChatService(
     {
         using var scope = scopeFactory.CreateScope();
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
-        var scopedNty = scope.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+        var scopedNty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
 
         var messageAuthor = await db.ChatMembers
             .Where(m => m.Id == message.SenderId && m.ChatRoomId == room.Id)
@@ -333,7 +332,7 @@ public partial class ChatService(
             room.Realm is not null ? $"{room.Name ?? "Unknown"}, {room.Realm.Name}" : room.Name ?? "Unknown";
 
         var symbol = message.Meta is not null && message.Meta.TryGetValue("symbol", out var s) ? s?.ToString() : null;
-        var notification = new PushNotification
+        var notification = new DyPushNotification
         {
             Topic = isAdded ? "messages.reaction.added" : "messages.reaction.removed",
             Title = $"{reactor.Nick ?? reactor.Account?.Nick} reacted to your message ({roomSubject})",
@@ -351,14 +350,14 @@ public partial class ChatService(
             Body = isAdded ? $"Reacted with {symbol}" : "Removed reaction"
         };
 
-        var ntyRequest = new SendPushNotificationToUsersRequest { Notification = notification };
+        var ntyRequest = new DySendPushNotificationToUsersRequest { Notification = notification };
         ntyRequest.UserIds.Add(messageAuthor.AccountId.ToString());
         await scopedNty.SendPushNotificationToUsersAsync(ntyRequest);
 
         logger.LogInformation("Sent reaction notification to message author {AuthorId}", messageAuthor.AccountId);
     }
 
-    private PushNotification BuildNotification(SnChatMessage message, SnChatMember sender, SnChatRoom room,
+    private DyPushNotification BuildNotification(SnChatMessage message, SnChatMember sender, SnChatRoom room,
         string roomSubject,
         string type)
     {
@@ -382,7 +381,7 @@ public partial class ChatService(
         if (!string.IsNullOrEmpty(room.Name))
             metaDict["room_name"] = room.Name;
 
-        var notification = new PushNotification
+        var notification = new DyPushNotification
         {
             Topic = "messages.new",
             Title = $"{sender.Nick ?? sender.Account.Nick} ({roomSubject})",
@@ -426,7 +425,7 @@ public partial class ChatService(
         }
     }
 
-    private static List<Account> FilterAccountsForNotification(
+    private static List<DyAccount> FilterAccountsForNotification(
         List<SnChatMember> members,
         SnChatMessage message,
         SnChatMember sender
@@ -434,7 +433,7 @@ public partial class ChatService(
     {
         var now = SystemClock.Instance.GetCurrentInstant();
 
-        var accountsToNotify = new List<Account>();
+        var accountsToNotify = new List<DyAccount>();
         foreach (var member in members.Where(member => member.Notify != ChatMemberNotify.None))
         {
             // Skip if mentioned but not in mentions-only mode or if break is active

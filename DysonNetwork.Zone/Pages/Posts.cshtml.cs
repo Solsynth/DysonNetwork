@@ -11,7 +11,7 @@ using PostType = DysonNetwork.Shared.Models.PostType;
 namespace DysonNetwork.Zone.Pages;
 
 public class PostsModel(
-    PostService.PostServiceClient postClient,
+    DyPostService.DyPostServiceClient postClient,
     RemotePublisherService rps,
     MarkdownConverter markdownConverter
 ) : PageModel
@@ -54,15 +54,15 @@ public class PostsModel(
             {
                 request.Types_.Add(type switch
                 {
-                    0 => DysonNetwork.Shared.Proto.PostType.Moment,
-                    1 => DysonNetwork.Shared.Proto.PostType.Article,
-                    _ => DysonNetwork.Shared.Proto.PostType.Unspecified,
+                    0 => DysonNetwork.DyPostType.Moment,
+                    1 => DysonNetwork.DyPostType.Article,
+                    _ => DysonNetwork.DyPostType.Unspecified,
                 });
             }
         }
         else
         {
-            request.Types_.Add(DysonNetwork.Shared.Proto.PostType.Article);
+            request.Types_.Add(DysonNetwork.DyPostType.Article);
         }
 
         var response = await postClient.ListPostsAsync(request);

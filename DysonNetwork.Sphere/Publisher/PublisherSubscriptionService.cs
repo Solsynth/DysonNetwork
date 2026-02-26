@@ -13,8 +13,8 @@ public class PublisherSubscriptionService(
     Post.PostService ps,
     ILocalizationService localizer,
     ICacheService cache,
-    RingService.RingServiceClient pusher,
-    AccountService.AccountServiceClient accounts
+    DyRingService.DyRingServiceClient pusher,
+    DyAccountService.DyAccountServiceClient accounts
 )
 {
     /// <summary>
@@ -114,7 +114,7 @@ public class PublisherSubscriptionService(
         {
             try
             {
-                var notification = new PushNotification
+                var notification = new DyPushNotification
                 {
                     Topic = "posts.new",
                     Title = localizer.Get("postSubscriptionTitle", locale: target.Key, args: new { publisher = post.Publisher!.Nick, title }),
@@ -181,7 +181,7 @@ public class PublisherSubscriptionService(
         {
             try
             {
-                var notification = new PushNotification
+                var notification = new DyPushNotification
                 {
                     Topic = "livestream.started",
                     Title = localizer.Get("liveStreamStartedTitle", locale: target.Key, args: new { publisher = publisherName }),

@@ -30,7 +30,7 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<ActionResult<List<CallParticipant>>> GetParticipants(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
@@ -76,7 +76,7 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<IActionResult> KickParticipant(Guid roomId, Guid targetAccountId, [FromBody] KickParticipantRequest? request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
@@ -148,7 +148,7 @@ public class RealtimeCallController(
 
     private async Task<IActionResult> _ToggleMuteParticipant(Guid roomId, Guid targetAccountId, bool mute)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
@@ -191,7 +191,7 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<ActionResult<SnRealtimeCall>> GetOngoingCall(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers
@@ -216,7 +216,7 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<ActionResult<JoinCallResponse>> JoinCall(Guid roomId, [FromQuery(Name = "tool")] bool isTool = false)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         // Check if the user is a member of the chat room
         var accountId = Guid.Parse(currentUser.Id);
@@ -294,7 +294,7 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<ActionResult<SnRealtimeCall>> StartCall(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -318,7 +318,7 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<ActionResult<SnRealtimeCall>> EndCall(Guid roomId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
         var member = await db.ChatMembers

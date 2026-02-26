@@ -8,7 +8,7 @@ using DysonNetwork.Zone.Publication;
 namespace DysonNetwork.Zone.SEO;
 
 public class SiteSitemapService(
-    PostService.PostServiceClient postClient,
+    DyPostService.DyPostServiceClient postClient,
     PublicationSiteManager siteManager,
     TemplateRouteResolver routeResolver
 )

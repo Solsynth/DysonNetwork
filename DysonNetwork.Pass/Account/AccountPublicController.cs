@@ -108,7 +108,6 @@ public class AccountPublicController(
                 var subscriptions = await remoteSubscription.GetPerkSubscriptions(accountIds);
                 
                 var subscriptionDict = subscriptions
-                    .Where(s => s != null)
                     .ToDictionary(
                         s => Guid.Parse(s.AccountId), 
                         s => SnWalletSubscription.FromProtoValue(s).ToReference()

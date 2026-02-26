@@ -383,10 +383,10 @@ UPLOAD_CACHE_DURATION_MINUTES=30
 ```csharp
 // In Program.cs or Startup.cs
 builder.Services.AddScoped<PersistentTaskService>();
-builder.Services.AddSingleton<RingService.RingServiceClient>(sp => {
+builder.Services.AddSingleton<DyRingService.DyRingServiceClient>(sp => {
     // Configure gRPC client for RingService
     var channel = GrpcChannel.ForAddress("https://ring-service:50051");
-    return new RingService.RingServiceClient(channel);
+    return new DyRingService.DyRingServiceClient(channel);
 });
 ```
 
@@ -755,7 +755,7 @@ public class PersistentTaskService(
     AppDatabase db,
     ICacheService cache,
     ILogger<PersistentTaskService> logger,
-    RingService.RingServiceClient ringService
+    DyRingService.DyRingServiceClient ringService
 )
 {
     // Create any type of task

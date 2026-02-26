@@ -10,7 +10,7 @@ namespace DysonNetwork.Zone.SEO;
 
 [ApiController]
 public class RssController(
-    PostService.PostServiceClient postClient,
+    DyPostService.DyPostServiceClient postClient,
     MarkdownConverter markdownConverter
 ) : ControllerBase
 {
@@ -35,7 +35,7 @@ public class RssController(
             PageSize = 20, // Get top 20 recent posts
         };
 
-        request.Types_.Add(Shared.Proto.PostType.Article);
+        request.Types_.Add(DyPostType.Article);
 
         var response = await postClient.ListPostsAsync(request);
 

@@ -45,18 +45,18 @@ public class SnAuthSession : ModelBase
     // Indicates the session is for an OIDC connection
     public Guid? AppId { get; set; }
 
-    public AuthSession ToProtoValue()
+    public DyAuthSession ToProtoValue()
     {
-        var proto = new AuthSession
+        var proto = new DyAuthSession
         {
             Id = Id.ToString(),
             LastGrantedAt = LastGrantedAt?.ToTimestamp(),
             Type = Type switch
             {
-                SessionType.Login => Proto.SessionType.Login,
-                SessionType.OAuth => Proto.SessionType.Oauth,
-                SessionType.Oidc => Proto.SessionType.Oidc,
-                _ => Proto.SessionType.ChallengeTypeUnspecified
+                SessionType.Login => DySessionType.DyLogin,
+                SessionType.OAuth => DySessionType.DyOauth,
+                SessionType.Oidc => DySessionType.DyOidc,
+                _ => DySessionType.DyChallengeTypeUnspecified
             },
             IpAddress = IpAddress,
             UserAgent = UserAgent,
@@ -114,7 +114,7 @@ public class SnAuthChallenge : ModelBase
         return this;
     }
 
-    public AuthChallenge ToProtoValue() => new()
+    public DyAuthChallenge ToProtoValue() => new()
     {
         Id = Id.ToString(),
         ExpiredAt = ExpiredAt?.ToTimestamp(),
@@ -143,10 +143,10 @@ public class SnAuthClient : ModelBase
     public Guid AccountId { get; set; }
     [JsonIgnore] public SnAccount Account { get; set; } = null!;
     
-    public Proto.AuthClient ToProtoValue() => new()
+    public DyAuthClient ToProtoValue() => new()
     {
         Id = Id.ToString(),
-        Platform = (Proto.ClientPlatform)Platform,
+        Platform = (DyClientPlatform)Platform,
         DeviceName = DeviceName,
         DeviceLabel = DeviceLabel,
         DeviceId = DeviceId,

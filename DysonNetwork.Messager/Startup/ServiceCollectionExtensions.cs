@@ -146,7 +146,7 @@ public static class ServiceCollectionExtensions
                         var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
                         var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
                         var chatRoomService = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
-                        var pusher = ctx.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+                        var pusher = ctx.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
 
                         logger.LogInformation("Account status updated: {AccountId}", evt.AccountId);
 
@@ -178,7 +178,7 @@ public static class ServiceCollectionExtensions
                                 }
                             };
 
-                            var request = new PushWebSocketPacketToUsersRequest
+                            var request = new DyPushWebSocketPacketToUsersRequest
                             {
                                 Packet = packet.ToProtoValue()
                             };
@@ -200,7 +200,7 @@ public static class ServiceCollectionExtensions
         {
             var cs = ctx.ServiceProvider.GetRequiredService<ChatService>();
             var crs = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
-            var pusher = ctx.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+            var pusher = ctx.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
 
             if (packet.Data == null)
             {
@@ -229,7 +229,7 @@ public static class ServiceCollectionExtensions
             EventContext ctx)
         {
             var crs = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
-            var pusher = ctx.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+            var pusher = ctx.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
 
             if (packet.Data == null)
             {
@@ -274,7 +274,7 @@ public static class ServiceCollectionExtensions
 
             if (subscribedMembers.Count > 0)
             {
-                var respRequest = new PushWebSocketPacketToUsersRequest { Packet = responsePacket.ToProtoValue() };
+                var respRequest = new DyPushWebSocketPacketToUsersRequest { Packet = responsePacket.ToProtoValue() };
                 respRequest.UserIds.AddRange(subscribedMembers);
                 await pusher.PushWebSocketPacketToUsersAsync(respRequest);
             }
@@ -284,7 +284,7 @@ public static class ServiceCollectionExtensions
             EventContext ctx)
         {
             var crs = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
-            var pusher = ctx.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+            var pusher = ctx.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
 
             if (packet.Data == null)
             {
@@ -313,7 +313,7 @@ public static class ServiceCollectionExtensions
             EventContext ctx)
         {
             var crs = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
-            var pusher = ctx.ServiceProvider.GetRequiredService<RingService.RingServiceClient>();
+            var pusher = ctx.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
 
             if (packet.Data == null)
             {
@@ -339,9 +339,9 @@ public static class ServiceCollectionExtensions
         }
 
         private static async Task SendErrorResponse(WebSocketPacketEvent evt, string message,
-            RingService.RingServiceClient pusher)
+            DyRingService.DyRingServiceClient pusher)
         {
-            await pusher.PushWebSocketPacketToDeviceAsync(new PushWebSocketPacketToDeviceRequest
+            await pusher.PushWebSocketPacketToDeviceAsync(new DyPushWebSocketPacketToDeviceRequest
             {
                 DeviceId = evt.DeviceId,
                 Packet = new WebSocketPacket

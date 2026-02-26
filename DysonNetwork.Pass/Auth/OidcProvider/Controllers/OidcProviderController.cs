@@ -84,7 +84,7 @@ public class OidcProviderController(
 
         // Validate redirect_uri if provided
         if (!string.IsNullOrEmpty(redirectUri) &&
-            !await oidcService.ValidateRedirectUriAsync(Guid.Parse(client.Id), redirectUri))
+            !await oidcService.ValidateRedirectUriAsync(client.Id, redirectUri))
         {
             return BadRequest(new ErrorResponse
             {
@@ -96,15 +96,13 @@ public class OidcProviderController(
         // Return client information
         var clientInfo = new ClientInfoResponse
         {
-            ClientId = Guid.Parse(client.Id),
-            Picture = client.Picture is not null ? SnCloudFileReferenceObject.FromProtoValue(client.Picture) : null,
-            Background = client.Background is not null
-                ? SnCloudFileReferenceObject.FromProtoValue(client.Background)
-                : null,
+            ClientId = client.Id,
+            Picture = client.Picture,
+            Background = client.Background,
             ClientName = client.Name,
-            HomeUri = client.Links.HomePage,
-            PolicyUri = client.Links.PrivacyPolicy,
-            TermsOfServiceUri = client.Links.TermsOfService,
+            HomeUri = client.Links?.HomePage,
+            PolicyUri = client.Links?.PrivacyPolicy,
+            TermsOfServiceUri = client.Links?.TermsOfService,
             ResponseTypes = responseType,
             Scopes = scope?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [],
             State = state,
@@ -159,7 +157,7 @@ public class OidcProviderController(
 
         // Validate redirect_uri if provided
         if (!string.IsNullOrEmpty(redirectUri) &&
-            !await oidcService.ValidateRedirectUriAsync(Guid.Parse(client!.Id), redirectUri))
+            !await oidcService.ValidateRedirectUriAsync(client!.Id, redirectUri))
         {
             return BadRequest(new ErrorResponse
             {
@@ -183,7 +181,7 @@ public class OidcProviderController(
         {
             // Generate authorization code and create session
             var authorizationCode = await oidcService.GenerateAuthorizationCodeAsync(
-                Guid.Parse(client.Id),
+                client.Id,
                 account.Id,
                 redirectUri,
                 scope?.Split(' ') ?? [],
@@ -228,13 +226,13 @@ public class OidcProviderController(
                 {
                     var client = await oidcService.FindClientBySlugAsync(request.ClientId);
                     if (client == null ||
-                        !await oidcService.ValidateClientCredentialsAsync(Guid.Parse(client.Id), request.ClientSecret))
+                        !await oidcService.ValidateClientCredentialsAsync(client.Id, request.ClientSecret))
                         return BadRequest(new ErrorResponse
                         { Error = "invalid_client", ErrorDescription = "Invalid client credentials" });
 
                     // Generate tokens
                     var tokenResponse = await oidcService.GenerateTokenResponseAsync(
-                        clientId: Guid.Parse(client.Id),
+                        clientId: client.Id,
                         authorizationCode: request.Code!,
                         redirectUri: request.RedirectUri,
                         codeVerifier: request.CodeVerifier

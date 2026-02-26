@@ -9,7 +9,7 @@ public static class ServiceInjectionHelper
     {
         public IServiceCollection AddRingService()
         {
-            services.AddGrpcClientWithSharedChannel<RingService.RingServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyRingService.DyRingServiceClient>(
                 "https://_grpc.ring",
                 "RingService");
             services.AddSingleton<RemoteRingService>();
@@ -31,7 +31,7 @@ public static class ServiceInjectionHelper
 
         public IServiceCollection AddAccountService()
         {
-            services.AddGrpcClientWithSharedChannel<AccountService.AccountServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(
                 "https://_grpc.pass",
                 "AccountService");
             services.AddSingleton<RemoteAccountService>();
@@ -39,10 +39,10 @@ public static class ServiceInjectionHelper
             services.AddGrpcClientWithSharedChannel<BotAccountReceiverService.BotAccountReceiverServiceClient>(
                 "https://_grpc.pass",
                 "BotAccountReceiverService");
-            services.AddGrpcClientWithSharedChannel<ActionLogService.ActionLogServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyActionLogService.DyActionLogServiceClient>(
                 "https://_grpc.pass",
                 "ActionLogService");
-            services.AddGrpcClientWithSharedChannel<PaymentService.PaymentServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyPaymentService.DyPaymentServiceClient>(
                 "https://_grpc.pass",
                 "PaymentService");
             services.AddGrpcClientWithSharedChannel<WalletService.WalletServiceClient>(
@@ -71,12 +71,12 @@ public static class ServiceInjectionHelper
                 "WalletService");
             services.AddSingleton<RemoteWalletService>();
 
-            services.AddGrpcClientWithSharedChannel<PaymentService.PaymentServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyPaymentService.DyPaymentServiceClient>(
                 "https://_grpc.wallet",
                 "PaymentService");
             services.AddSingleton<RemotePaymentService>();
 
-            services.AddGrpcClientWithSharedChannel<SubscriptionService.SubscriptionServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DySubscriptionService.DySubscriptionServiceClient>(
                 "https://_grpc.wallet",
                 "SubscriptionService");
             services.AddSingleton<RemoteSubscriptionService>();
@@ -86,7 +86,7 @@ public static class ServiceInjectionHelper
 
         public IServiceCollection AddDriveService()
         {
-            services.AddGrpcClientWithSharedChannel<FileService.FileServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyFileService.DyFileServiceClient>(
                 "https://_grpc.drive",
                 "FileService");
 
@@ -95,15 +95,15 @@ public static class ServiceInjectionHelper
 
         public IServiceCollection AddSphereService()
         {
-            services.AddGrpcClientWithSharedChannel<PostService.PostServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyPostService.DyPostServiceClient>(
                 "https://_grpc.sphere",
                 "PostService");
 
-            services.AddGrpcClientWithSharedChannel<PublisherService.PublisherServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyPublisherService.DyPublisherServiceClient>(
                 "https://_grpc.sphere",
                 "PublisherService");
 
-            services.AddGrpcClientWithSharedChannel<PollService.PollServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyPollService.DyPollServiceClient>(
                 "https://_grpc.sphere",
                 "PollService");
             services.AddSingleton<RemotePublisherService>();

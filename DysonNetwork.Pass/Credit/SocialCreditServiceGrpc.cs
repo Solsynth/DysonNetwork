@@ -5,7 +5,7 @@ using NodaTime.Serialization.Protobuf;
 namespace DysonNetwork.Pass.Credit;
 
 public class SocialCreditServiceGrpc(SocialCreditService creditService)
-    : Shared.Proto.SocialCreditService.SocialCreditServiceBase
+    : DySocialCreditService.DySocialCreditServiceBase
 {
     public override async Task<SocialCreditRecord> AddRecord(
         AddSocialCreditRecordRequest request,

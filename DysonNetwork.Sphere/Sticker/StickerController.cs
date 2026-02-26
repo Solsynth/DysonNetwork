@@ -15,12 +15,12 @@ public class StickerController(
     AppDatabase db,
     StickerService st,
     Publisher.PublisherService ps,
-    FileService.FileServiceClient files
+    DyFileService.DyFileServiceClient files
 ) : ControllerBase
 {
     private async Task<IActionResult> _CheckStickerPackPermissions(
         Guid packId,
-        Account currentUser,
+        DyAccount currentUser,
         Shared.Models.PublisherMemberRole requiredRole
     )
     {
@@ -87,7 +87,7 @@ public class StickerController(
     [Authorize]
     public async Task<ActionResult<List<StickerPackOwnership>>> ListStickerPacksOwned()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var ownershipsId = await db.StickerPackOwnerships
@@ -127,7 +127,7 @@ public class StickerController(
         [FromQuery(Name = "pub")] string publisherName
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         if (string.IsNullOrEmpty(request.Name))
             return BadRequest("Name is required");
@@ -150,7 +150,7 @@ public class StickerController(
 
         if (request.IconId is not null)
         {
-            var file = await files.GetFileAsync(new GetFileRequest { Id = request.IconId });
+            var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.IconId });
             if (file is null)
                 return BadRequest("Icon not found.");
 
@@ -166,7 +166,7 @@ public class StickerController(
     [HttpPatch("{id:guid}")]
     public async Task<ActionResult<StickerPack>> UpdateStickerPack(Guid id, [FromBody] StickerPackRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var pack = await db.StickerPacks
@@ -180,7 +180,7 @@ public class StickerController(
             .FirstOrDefaultAsync(m => m.AccountId == accountId && m.PublisherId == pack.PublisherId);
         if (member is null)
             return StatusCode(403, "You are not a member of this publisher");
-        if (member.Role < Shared.Models.PublisherMemberRole.Editor)
+        if (member.Role < Shared.Models.PublisherMemberRole.DyEditor)
             return StatusCode(403, "You need to be at least an editor to update sticker packs");
 
         if (request.Name is not null)
@@ -192,7 +192,7 @@ public class StickerController(
 
         if (request.IconId is not null)
         {
-            var file = await files.GetFileAsync(new GetFileRequest { Id = request.IconId });
+            var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.IconId });
             if (file is null)
                 return BadRequest("Icon not found.");
 
@@ -208,7 +208,7 @@ public class StickerController(
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteStickerPack(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var pack = await db.StickerPacks
@@ -222,7 +222,7 @@ public class StickerController(
             .FirstOrDefaultAsync(m => m.AccountId == accountId && m.PublisherId == pack.PublisherId);
         if (member is null)
             return StatusCode(403, "You are not a member of this publisher");
-        if (member.Role < Shared.Models.PublisherMemberRole.Editor)
+        if (member.Role < Shared.Models.PublisherMemberRole.DyEditor)
             return StatusCode(403, "You need to be an editor to delete sticker packs");
 
         await st.DeleteStickerPackAsync(pack);
@@ -300,11 +300,11 @@ public class StickerController(
     [HttpPatch("{packId:guid}/content/{id:guid}")]
     public async Task<IActionResult> UpdateSticker(Guid packId, Guid id, [FromBody] StickerRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var permissionCheck =
-            await _CheckStickerPackPermissions(packId, currentUser, Shared.Models.PublisherMemberRole.Editor);
+            await _CheckStickerPackPermissions(packId, currentUser, Shared.Models.PublisherMemberRole.DyEditor);
         if (permissionCheck is not OkResult)
             return permissionCheck;
 
@@ -322,7 +322,7 @@ public class StickerController(
         SnCloudFileReferenceObject? image = null;
         if (request.ImageId is not null)
         {
-            var file = await files.GetFileAsync(new GetFileRequest { Id = request.ImageId });
+            var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.ImageId });
             if (file is null)
                 return BadRequest("Image not found");
             sticker.Image = SnCloudFileReferenceObject.FromProtoValue(file);
@@ -335,11 +335,11 @@ public class StickerController(
     [HttpDelete("{packId:guid}/content/{id:guid}")]
     public async Task<IActionResult> DeleteSticker(Guid packId, Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var permissionCheck =
-            await _CheckStickerPackPermissions(packId, currentUser, Shared.Models.PublisherMemberRole.Editor);
+            await _CheckStickerPackPermissions(packId, currentUser, Shared.Models.PublisherMemberRole.DyEditor);
         if (permissionCheck is not OkResult)
             return permissionCheck;
 
@@ -361,7 +361,7 @@ public class StickerController(
     [AskPermission("stickers.create")]
     public async Task<IActionResult> CreateSticker(Guid packId, [FromBody] StickerRequest request)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         if (string.IsNullOrWhiteSpace(request.Slug))
@@ -370,7 +370,7 @@ public class StickerController(
             return BadRequest("Image is required.");
 
         var permissionCheck =
-            await _CheckStickerPackPermissions(packId, currentUser, Shared.Models.PublisherMemberRole.Editor);
+            await _CheckStickerPackPermissions(packId, currentUser, Shared.Models.PublisherMemberRole.DyEditor);
         if (permissionCheck is not OkResult)
             return permissionCheck;
 
@@ -384,7 +384,7 @@ public class StickerController(
         if (stickersCount >= MaxStickersPerPack)
             return BadRequest($"Sticker pack has reached maximum capacity of {MaxStickersPerPack} stickers.");
 
-        var file = await files.GetFileAsync(new GetFileRequest { Id = request.ImageId });
+        var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.ImageId });
         if (file is null)
             return BadRequest("Image not found.");
 
@@ -403,7 +403,7 @@ public class StickerController(
     [Authorize]
     public async Task<ActionResult<StickerPackOwnership>> GetStickerPackOwnership(Guid packId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -418,7 +418,7 @@ public class StickerController(
     [Authorize]
     public async Task<ActionResult<StickerPackOwnership>> AcquireStickerPack([FromRoute] Guid packId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var pack = await db.StickerPacks
@@ -446,7 +446,7 @@ public class StickerController(
     [Authorize]
     public async Task<IActionResult> ReleaseStickerPack([FromRoute] Guid packId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 

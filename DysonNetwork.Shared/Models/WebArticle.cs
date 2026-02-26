@@ -29,9 +29,9 @@ public class SnWebArticle : ModelBase
     public Guid FeedId { get; set; }
     public SnWebFeed Feed { get; set; } = null!;
 
-    public WebArticle ToProtoValue()
+    public DyWebArticle ToProtoValue()
     {
-        var proto = new WebArticle
+        var proto = new DyWebArticle
         {
             Id = Id.ToString(),
             Title = Title,
@@ -62,7 +62,7 @@ public class SnWebArticle : ModelBase
         return proto;
     }
 
-    public static SnWebArticle FromProtoValue(WebArticle proto)
+    public static SnWebArticle FromProtoValue(DyWebArticle proto)
     {
         return new SnWebArticle
         {
@@ -86,15 +86,15 @@ public class WebFeedConfig
 {
     public bool ScrapPage { get; set; }
 
-    public Proto.WebFeedConfig ToProtoValue()
+    public DyWebFeedConfig ToProtoValue()
     {
-        return new Proto.WebFeedConfig
+        return new DyWebFeedConfig
         {
             ScrapPage = ScrapPage
         };
     }
 
-    public static WebFeedConfig FromProtoValue(Proto.WebFeedConfig proto)
+    public static WebFeedConfig FromProtoValue(DyWebFeedConfig proto)
     {
         return new WebFeedConfig
         {
@@ -117,13 +117,13 @@ public class SnWebFeed : ModelBase
     [Column(TypeName = "jsonb")] public WebFeedConfig Config { get; set; } = new();
 
     public Guid PublisherId { get; set; }
-    [NotMapped] public SnPublisher Publisher { get; set; } = null!;
+    [NotMapped] public SnPublisher? Publisher { get; set; } = null!;
 
     [JsonIgnore] public List<SnWebArticle> Articles { get; set; } = new();
 
-    public WebFeed ToProtoValue()
+    public DyWebFeed ToProtoValue()
     {
-        var proto = new WebFeed
+        var proto = new DyWebFeed
         {
             Id = Id.ToString(),
             Url = Url,
@@ -152,7 +152,7 @@ public class SnWebFeed : ModelBase
         return proto;
     }
 
-    public static SnWebFeed FromProtoValue(WebFeed proto)
+    public static SnWebFeed FromProtoValue(DyWebFeed proto)
     {
         return new SnWebFeed
         {
@@ -177,13 +177,13 @@ public class SnWebFeedSubscription : ModelBase
     public Guid Id { get; set; } = Guid.NewGuid();
 
     public Guid FeedId { get; set; }
-    public SnWebFeed Feed { get; set; } = null!;
+    public SnWebFeed? Feed { get; set; } = null!;
     public Guid AccountId { get; set; }
     [NotMapped] public SnAccount Account { get; set; } = null!;
 
-    public WebFeedSubscription ToProtoValue()
+    public DyWebFeedSubscription ToProtoValue()
     {
-        var proto = new WebFeedSubscription
+        var proto = new DyWebFeedSubscription
         {
             Id = Id.ToString(),
             FeedId = FeedId.ToString(),
@@ -192,13 +192,12 @@ public class SnWebFeedSubscription : ModelBase
             UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset())
         };
 
-        if (Feed != null)
-            proto.Feed = Feed.ToProtoValue();
+        proto.Feed = Feed?.ToProtoValue();
 
         return proto;
     }
 
-    public static SnWebFeedSubscription FromProtoValue(WebFeedSubscription proto)
+    public static SnWebFeedSubscription FromProtoValue(DyWebFeedSubscription proto)
     {
         return new SnWebFeedSubscription
         {

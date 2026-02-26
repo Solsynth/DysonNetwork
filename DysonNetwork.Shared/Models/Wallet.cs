@@ -17,9 +17,9 @@ public class SnWallet : ModelBase
     public Guid AccountId { get; set; }
     [NotMapped] public SnAccount Account { get; set; } = null!;
 
-    public Proto.Wallet ToProtoValue()
+    public DyWallet ToProtoValue()
     {
-        var proto = new Proto.Wallet
+        var proto = new DyWallet
         {
             Id = Id.ToString(),
             AccountId = AccountId.ToString(),
@@ -33,7 +33,7 @@ public class SnWallet : ModelBase
         return proto;
     }
 
-    public static SnWallet FromProtoValue(Proto.Wallet proto) => new()
+    public static SnWallet FromProtoValue(DyWallet proto) => new()
     {
         Id = Guid.Parse(proto.Id),
         AccountId = Guid.Parse(proto.AccountId),
@@ -50,7 +50,7 @@ public class SnWalletPocket : ModelBase
     public Guid WalletId { get; set; }
     [IgnoreMember] [JsonIgnore] public SnWallet Wallet { get; set; } = null!;
 
-    public Proto.WalletPocket ToProtoValue() => new()
+    public DyWalletPocket ToProtoValue() => new()
     {
         Id = Id.ToString(),
         Currency = Currency,
@@ -58,7 +58,7 @@ public class SnWalletPocket : ModelBase
         WalletId = WalletId.ToString(),
     };
 
-    public static SnWalletPocket FromProtoValue(Proto.WalletPocket proto) => new()
+    public static SnWalletPocket FromProtoValue(DyWalletPocket proto) => new()
     {
         Id = Guid.Parse(proto.Id),
         Currency = proto.Currency,
@@ -104,29 +104,29 @@ public class SnWalletFund : ModelBase
     // Expiration
     public Instant ExpiredAt { get; set; }
 
-    public Proto.WalletFund ToProtoValue() => new()
+    public DyWalletFund ToProtoValue() => new()
     {
         Id = Id.ToString(),
         Currency = Currency,
         TotalAmount = TotalAmount.ToString(CultureInfo.InvariantCulture),
         RemainingAmount = RemainingAmount.ToString(CultureInfo.InvariantCulture),
-        SplitType = (Proto.FundSplitType)SplitType,
-        Status = (Proto.FundStatus)Status,
+        SplitType = (DyFundSplitType)SplitType,
+        Status = (DyFundStatus)Status,
         Message = Message,
         CreatorAccountId = CreatorAccountId.ToString(),
         ExpiredAt = ExpiredAt.ToTimestamp(),
     };
 
-    public Proto.WalletFund ToProtoValueWithRecipients()
+    public DyWalletFund ToProtoValueWithRecipients()
     {
-        var proto = new Proto.WalletFund
+        var proto = new DyWalletFund
         {
             Id = Id.ToString(),
             Currency = Currency,
             TotalAmount = TotalAmount.ToString(CultureInfo.InvariantCulture),
             RemainingAmount = RemainingAmount.ToString(CultureInfo.InvariantCulture),
-            SplitType = (Proto.FundSplitType)SplitType,
-            Status = (Proto.FundStatus)Status,
+            SplitType = (DyFundSplitType)SplitType,
+            Status = (DyFundStatus)Status,
             Message = Message,
             CreatorAccountId = CreatorAccountId.ToString(),
             ExpiredAt = ExpiredAt.ToTimestamp(),
@@ -140,7 +140,7 @@ public class SnWalletFund : ModelBase
         return proto;
     }
 
-    public static SnWalletFund FromProtoValue(Proto.WalletFund proto) => new()
+    public static SnWalletFund FromProtoValue(DyWalletFund proto) => new()
     {
         Id = Guid.Parse(proto.Id),
         Currency = proto.Currency,
@@ -169,7 +169,7 @@ public class SnWalletFundRecipient : ModelBase
     public bool IsReceived { get; set; } = false;
     public Instant? ReceivedAt { get; set; }
 
-    public Proto.WalletFundRecipient ToProtoValue() => new()
+    public DyWalletFundRecipient ToProtoValue() => new()
     {
         Id = Id.ToString(),
         FundId = FundId.ToString(),
@@ -179,7 +179,7 @@ public class SnWalletFundRecipient : ModelBase
         ReceivedAt = ReceivedAt?.ToTimestamp(),
     };
 
-    public static SnWalletFundRecipient FromProtoValue(Proto.WalletFundRecipient proto) => new()
+    public static SnWalletFundRecipient FromProtoValue(DyWalletFundRecipient proto) => new()
     {
         Id = Guid.Parse(proto.Id),
         FundId = Guid.Parse(proto.FundId),

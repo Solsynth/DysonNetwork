@@ -44,7 +44,7 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
     public int? Height { get; set; }
     [MaxLength(64)] public string? Blurhash { get; set; }
 
-    public static SnCloudFileReferenceObject FromProtoValue(Proto.CloudFile proto)
+    public static SnCloudFileReferenceObject FromProtoValue(DyCloudFile proto)
     {
         var fileMeta = proto.Object != null
             ? ConvertObjectToDictionary(proto.Object.Meta)
@@ -132,9 +132,9 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
     /// <summary>
     /// Converts the current object to its protobuf representation
     /// </summary>
-    public CloudFile ToProtoValue()
+    public DyCloudFile ToProtoValue()
     {
-        var proto = new CloudFile
+        var proto = new DyCloudFile
         {
             Id = Id,
             Name = Name,

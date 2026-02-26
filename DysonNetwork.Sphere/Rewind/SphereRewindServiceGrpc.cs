@@ -15,7 +15,7 @@ public class SphereRewindServiceGrpc(
     AppDatabase db,
     RemoteAccountService remoteAccounts,
     Publisher.PublisherService ps
-) : RewindService.RewindServiceBase
+) : DyRewindService.DyRewindServiceBase
 {
     public override async Task<RewindEvent> GetRewindEvent(
         RequestRewindEvent request,

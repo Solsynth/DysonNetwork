@@ -11,15 +11,15 @@ namespace DysonNetwork.Pass.Realm;
 
 public class RealmServiceGrpc(
     AppDatabase db,
-    RingService.RingServiceClient pusher,
+    DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
     ICacheService cache
 )
-    : Shared.Proto.RealmService.RealmServiceBase
+    : DyRealmService.RealmServiceBase
 {
     private const string CacheKeyPrefix = "account:realms:";
 
-    public override async Task<Shared.Proto.Realm> GetRealm(GetRealmRequest request, ServerCallContext context)
+    public override async Task<DyRealm> GetRealm(GetRealmRequest request, ServerCallContext context)
     {
         var realm = request.QueryCase switch
         {
@@ -119,10 +119,10 @@ public class RealmServiceGrpc(
         if (account == null) throw new RpcException(new Status(StatusCode.NotFound, "Account not found"));
 
         await pusher.SendPushNotificationToUserAsync(
-            new SendPushNotificationToUserRequest
+            new DySendPushNotificationToUserRequest
             {
                 UserId = account.Id.ToString(),
-                Notification = new PushNotification
+                Notification = new DyPushNotification
                 {
                     Topic = "invites.realms",
                     Title = localizer.Get("realmInviteTitle", account.Language),

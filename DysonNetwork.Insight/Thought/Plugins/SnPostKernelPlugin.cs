@@ -9,14 +9,14 @@ using NodaTime.Text;
 namespace DysonNetwork.Insight.Thought.Plugins;
 
 public class SnPostKernelPlugin(
-    PostService.PostServiceClient postClient,
-    PublisherService.PublisherServiceClient publisherClient
+    DyPostService.DyPostServiceClient postClient,
+    DyPublisherService.DyPublisherServiceClient publisherClient
 )
 {
     [KernelFunction("get_post")]
     public async Task<SnPost?> GetPost(string postId)
     {
-        var request = new GetPostRequest { Id = postId };
+        var request = new DyGetPostRequest { Id = postId };
         var response = await postClient.GetPostAsync(request);
         return response is null ? null : SnPost.FromProtoValue(response);
     }
@@ -25,7 +25,7 @@ public class SnPostKernelPlugin(
     [Description("Perform a full-text search in all Solar Network posts.")]
     public async Task<List<SnPost>> SearchPostsContent(string contentQuery, int pageSize = 10, int page = 1)
     {
-        var request = new SearchPostsRequest
+        var request = new DySearchPostsRequest
         {
             Query = contentQuery,
             PageSize = pageSize,
@@ -50,7 +50,7 @@ public class SnPostKernelPlugin(
         int page = 1
     )
     {
-        var request = new ListPostsRequest
+        var request = new DyListPostsRequest
         {
             OrderBy = orderBy,
             OrderDesc = orderDesc,
@@ -82,7 +82,7 @@ public class SnPostKernelPlugin(
         Instant? after = !string.IsNullOrWhiteSpace(afterTime)
             ? pattern.Parse(afterTime).TryGetValue(default, out var afterValue) ? afterValue : null
             : null;
-        var request = new ListPostsRequest
+        var request = new DyListPostsRequest
         {
             After = after?.ToTimestamp(),
             Before = before?.ToTimestamp(),
@@ -105,7 +105,7 @@ public class SnPostKernelPlugin(
         int page = 1
     )
     {
-        var request = new ListPostsRequest
+        var request = new DyListPostsRequest
         {
             PublisherId = pubId,
             PageSize = pageSize,
@@ -125,7 +125,7 @@ public class SnPostKernelPlugin(
         [Description("The name of publisher")] string name
     )
     {
-        var request = new GetPublisherRequest { Name = name };
+        var request = new DyGetPublisherRequest { Name = name };
         var result = await publisherClient.GetPublisherAsync(request);
         return result is not null ? SnPublisher.FromProtoValue(result.Publisher) : null;
     }
@@ -137,7 +137,7 @@ public class SnPostKernelPlugin(
         string id
     )
     {
-        var request = new GetPublisherRequest { Id = id };
+        var request = new DyGetPublisherRequest { Id = id };
         var result = await publisherClient.GetPublisherAsync(request);
         return result is not null ? SnPublisher.FromProtoValue(result.Publisher) : null;
     }

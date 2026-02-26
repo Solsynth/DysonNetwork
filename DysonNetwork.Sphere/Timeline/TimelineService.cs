@@ -13,7 +13,7 @@ public class TimelineService(
     Publisher.PublisherService pub,
     Post.PostService ps,
     RemoteRealmService rs,
-    AccountService.AccountServiceClient accounts
+    DyAccountService.DyAccountServiceClient accounts
 )
 {
     private static double CalculateHotRank(SnPost post, Instant now)
@@ -78,7 +78,7 @@ public class TimelineService(
     public async Task<List<SnTimelineEvent>> ListEvents(
         int take,
         Instant? cursor,
-        Account currentUser,
+        DyAccount currentUser,
         string? filter = null,
         bool showFediverse = false
     )
@@ -299,7 +299,7 @@ public class TimelineService(
 
     private async Task<List<SnPublisher>?> GetFilteredPublishers(
         string? filter,
-        Account currentUser,
+        DyAccount currentUser,
         List<Guid> userFriends
     )
     {

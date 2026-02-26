@@ -11,7 +11,7 @@ namespace DysonNetwork.Pass.Account;
 public class RelationshipService(
     AppDatabase db,
     ICacheService cache,
-    RingService.RingServiceClient pusher,
+    DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer
 )
 {
@@ -115,10 +115,10 @@ public class RelationshipService(
         db.AccountRelationships.Add(relationship);
         await db.SaveChangesAsync();
 
-        await pusher.SendPushNotificationToUserAsync(new SendPushNotificationToUserRequest
+        await pusher.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
         {
             UserId = target.Id.ToString(),
-            Notification = new PushNotification
+            Notification = new DyPushNotification
             {
                 Topic = "relationships.friends.request",
                 Title = localizer.Get("friendRequestTitle", locale: sender.Language, args: new { sender = sender.Nick }),

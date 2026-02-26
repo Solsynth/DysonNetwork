@@ -17,9 +17,9 @@ namespace DysonNetwork.Sphere.Publisher;
 public class PublisherController(
     AppDatabase db,
     PublisherService ps,
-    AccountService.AccountServiceClient accounts,
-    FileService.FileServiceClient files,
-    ActionLogService.ActionLogServiceClient als,
+    DyAccountService.DyAccountServiceClient accounts,
+    DyFileService.DyFileServiceClient files,
+    DyActionLogService.DyActionLogServiceClient als,
     RemoteRealmService remoteRealmService,
     IServiceScopeFactory factory
 ) : ControllerBase
@@ -28,7 +28,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<List<SnPublisher>>> ListManagedPublishers()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -45,7 +45,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<List<SnPublisherMember>>> ListInvites()
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -74,12 +74,12 @@ public class PublisherController(
         [FromBody] PublisherMemberRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var relatedUser = await accounts.GetAccountAsync(
-            new GetAccountRequest { Id = request.RelatedUserId.ToString() }
+            new DyGetAccountRequest { Id = request.RelatedUserId.ToString() }
         );
         if (relatedUser == null)
             return BadRequest("Related user was not found");
@@ -102,7 +102,7 @@ public class PublisherController(
         await db.SaveChangesAsync();
 
         _ = als.CreateActionLogAsync(
-            new CreateActionLogRequest
+            new DyCreateActionLogRequest
             {
                 Action = "publishers.members.invite",
                 Meta =
@@ -129,7 +129,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<SnPublisher>> AcceptMemberInvite(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -146,7 +146,7 @@ public class PublisherController(
         await db.SaveChangesAsync();
 
         _ = als.CreateActionLogAsync(
-            new CreateActionLogRequest
+            new DyCreateActionLogRequest
             {
                 Action = "publishers.members.join",
                 Meta =
@@ -175,7 +175,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult> DeclineMemberInvite(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -191,7 +191,7 @@ public class PublisherController(
         await db.SaveChangesAsync();
 
         _ = als.CreateActionLogAsync(
-            new CreateActionLogRequest
+            new DyCreateActionLogRequest
             {
                 Action = "publishers.members.decline",
                 Meta =
@@ -220,7 +220,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult> RemoveMember(string name, Guid memberId)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
@@ -238,7 +238,7 @@ public class PublisherController(
             !await ps.IsMemberWithRole(
                 publisher.Id,
                 accountId,
-                Shared.Models.PublisherMemberRole.Manager
+                Shared.Models.PublisherMemberRole.DyManager
             )
         )
             return StatusCode(
@@ -250,7 +250,7 @@ public class PublisherController(
         await db.SaveChangesAsync();
 
         _ = als.CreateActionLogAsync(
-            new CreateActionLogRequest
+            new DyCreateActionLogRequest
             {
                 Action = "publishers.members.kick",
                 Meta =
@@ -302,7 +302,7 @@ public class PublisherController(
     {
         if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Nick))
             return BadRequest("Name and Nick are required.");
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var takenName = request.Name ?? currentUser.Name;
@@ -320,7 +320,7 @@ public class PublisherController(
         if (request.PictureId is not null)
         {
             var queryResult = await files.GetFileAsync(
-                new GetFileRequest { Id = request.PictureId }
+                new DyGetFileRequest { Id = request.PictureId }
             );
             if (queryResult is null)
                 throw new InvalidOperationException(
@@ -333,7 +333,7 @@ public class PublisherController(
         if (request.BackgroundId is not null)
         {
             var queryResult = await files.GetFileAsync(
-                new GetFileRequest { Id = request.BackgroundId }
+                new DyGetFileRequest { Id = request.BackgroundId }
             );
             if (queryResult is null)
                 throw new InvalidOperationException(
@@ -353,7 +353,7 @@ public class PublisherController(
         );
 
         _ = als.CreateActionLogAsync(
-            new CreateActionLogRequest
+            new DyCreateActionLogRequest
             {
                 Action = "publishers.create",
                 Meta =
@@ -390,7 +390,7 @@ public class PublisherController(
     {
         if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Nick))
             return BadRequest("Name and Nick are required.");
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var realm = await remoteRealmService.GetRealmBySlug(realmSlug);
@@ -401,7 +401,7 @@ public class PublisherController(
         var isAdmin = await remoteRealmService.IsMemberWithRole(
             realm.Id,
             accountId,
-            [RealmMemberRole.Moderator]
+            [RealmMemberRole.DyModerator]
         );
         if (!isAdmin)
             return StatusCode(
@@ -419,7 +419,7 @@ public class PublisherController(
         if (request.PictureId is not null)
         {
             var queryResult = await files.GetFileAsync(
-                new GetFileRequest { Id = request.PictureId }
+                new DyGetFileRequest { Id = request.PictureId }
             );
             if (queryResult is null)
                 throw new InvalidOperationException(
@@ -432,7 +432,7 @@ public class PublisherController(
         if (request.BackgroundId is not null)
         {
             var queryResult = await files.GetFileAsync(
-                new GetFileRequest { Id = request.BackgroundId }
+                new DyGetFileRequest { Id = request.BackgroundId }
             );
             if (queryResult is null)
                 throw new InvalidOperationException(
@@ -453,7 +453,7 @@ public class PublisherController(
         );
 
         _ = als.CreateActionLogAsync(
-            new CreateActionLogRequest
+            new DyCreateActionLogRequest
             {
                 Action = "publishers.create",
                 Meta =
@@ -488,7 +488,7 @@ public class PublisherController(
         PublisherRequest request
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -502,7 +502,7 @@ public class PublisherController(
             .FirstOrDefaultAsync();
         if (member is null)
             return StatusCode(403, "You are not even a member of the targeted publisher.");
-        if (member.Role < Shared.Models.PublisherMemberRole.Manager)
+        if (member.Role < Shared.Models.PublisherMemberRole.DyManager)
             return StatusCode(
                 403,
                 "You need at least be the manager to update the publisher profile."
@@ -517,7 +517,7 @@ public class PublisherController(
         if (request.PictureId is not null)
         {
             var queryResult = await files.GetFileAsync(
-                new GetFileRequest { Id = request.PictureId }
+                new DyGetFileRequest { Id = request.PictureId }
             );
             if (queryResult is null)
                 throw new InvalidOperationException(
@@ -531,7 +531,7 @@ public class PublisherController(
         if (request.BackgroundId is not null)
         {
             var queryResult = await files.GetFileAsync(
-                new GetFileRequest { Id = request.BackgroundId }
+                new DyGetFileRequest { Id = request.BackgroundId }
             );
             if (queryResult is null)
                 throw new InvalidOperationException(
@@ -546,7 +546,7 @@ public class PublisherController(
         await db.SaveChangesAsync();
 
         _ = als.CreateActionLogAsync(
-            new CreateActionLogRequest
+            new DyCreateActionLogRequest
             {
                 Action = "publishers.update",
                 Meta =
@@ -616,7 +616,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<SnPublisher>> DeletePublisher(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -630,7 +630,7 @@ public class PublisherController(
             .FirstOrDefaultAsync();
         if (member is null)
             return StatusCode(403, "You are not even a member of the targeted publisher.");
-        if (member.Role < Shared.Models.PublisherMemberRole.Owner)
+        if (member.Role < Shared.Models.PublisherMemberRole.DyOwner)
             return StatusCode(403, "You need to be the owner to delete the publisher.");
 
         var publisherResourceId = $"publisher:{publisher.Id}";
@@ -639,7 +639,7 @@ public class PublisherController(
         await db.SaveChangesAsync();
 
         _ = als.CreateActionLogAsync(
-            new CreateActionLogRequest
+            new DyCreateActionLogRequest
             {
                 Action = "publishers.delete",
                 Meta =
@@ -694,7 +694,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<SnPublisherMember>> GetCurrentIdentity(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -745,7 +745,7 @@ public class PublisherController(
         ActionResult<PublisherService.PublisherRewardPreview>
     > GetPublisherExpectedReward(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -753,7 +753,7 @@ public class PublisherController(
         if (publisher is null)
             return NotFound();
 
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Viewer))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.DyViewer))
             return StatusCode(403, "You are not allowed to view stats data of this publisher.");
 
         var result = await ps.GetPublisherExpectedReward(publisher.Id);
@@ -827,7 +827,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<FediverseStatus>> GetFediverseStatus(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
@@ -842,7 +842,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<FediverseStatus>> EnableFediverse(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -851,7 +851,7 @@ public class PublisherController(
         if (publisher is null)
             return NotFound();
 
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.DyManager))
             return StatusCode(403, "You need at least be manager to enable fediverse for this publisher.");
 
         try
@@ -870,7 +870,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult> DisableFediverse(string name)
     {
-        if (HttpContext.Items["CurrentUser"] is not Account currentUser)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -879,7 +879,7 @@ public class PublisherController(
         if (publisher is null)
             return NotFound();
 
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.DyManager))
             return StatusCode(403, "You need at least be manager to disable fediverse for this publisher.");
 
         try

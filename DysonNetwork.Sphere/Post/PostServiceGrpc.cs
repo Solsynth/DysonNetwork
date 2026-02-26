@@ -3,24 +3,24 @@ using DysonNetwork.Shared.Models;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime.Serialization.Protobuf;
-using PostType = DysonNetwork.Shared.Proto.PostType;
+using PostType = DysonNetwork.DyPostType;
 
 namespace DysonNetwork.Sphere.Post;
 
-public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.PostService.PostServiceBase
+public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyPostServiceBase
 {
-    public override async Task<Shared.Proto.Post> GetPost(GetPostRequest request, ServerCallContext context)
+    public override async Task<DyPost> GetPost(DyGetPostRequest request, ServerCallContext context)
     {
         var postQuery = db.Posts.AsQueryable();
 
         switch (request.IdentifierCase)
         {
-            case GetPostRequest.IdentifierOneofCase.Id:
+            case DyGetPostRequest.IdentifierOneofCase.Id:
                 if (!Guid.TryParse(request.Id, out var id))
                     throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid post id"));
                 postQuery = postQuery.Where(p => p.Id == id);
                 break;
-            case GetPostRequest.IdentifierOneofCase.Slug:
+            case DyGetPostRequest.IdentifierOneofCase.Slug:
                 postQuery = postQuery.Where(p => p.Slug == request.Slug);
                 break;
             default:
@@ -187,11 +187,11 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : Shared.Proto.Post
         query = request.Pinned switch
         {
             // Pinned filtering
-            Shared.Proto.PostPinMode.RealmPage when !string.IsNullOrWhiteSpace(request.RealmId) => query.Where(p =>
+            DyPostPinMode.RealmPage when !string.IsNullOrWhiteSpace(request.RealmId) => query.Where(p =>
                 p.PinMode == Shared.Models.PostPinMode.RealmPage),
-            Shared.Proto.PostPinMode.PublisherPage when !string.IsNullOrWhiteSpace(request.PublisherId) =>
+            DyPostPinMode.PublisherPage when !string.IsNullOrWhiteSpace(request.PublisherId) =>
                 query.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage),
-            Shared.Proto.PostPinMode.ReplyPage => query.Where(p => p.PinMode == Shared.Models.PostPinMode.ReplyPage),
+            DyPostPinMode.ReplyPage => query.Where(p => p.PinMode == Shared.Models.PostPinMode.ReplyPage),
             _ => query
         };
 

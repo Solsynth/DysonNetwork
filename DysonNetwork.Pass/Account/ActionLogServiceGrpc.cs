@@ -6,35 +6,32 @@ using NodaTime;
 
 namespace DysonNetwork.Pass.Account;
 
-public class ActionLogServiceGrpc : Shared.Proto.ActionLogService.ActionLogServiceBase
+public class ActionLogServiceGrpc(
+    ActionLogService actionLogService,
+    AppDatabase db,
+    ILogger<ActionLogServiceGrpc> logger
+)
+    : DyActionLogService.DyActionLogServiceBase
 {
-    private readonly ActionLogService _actionLogService;
-    private readonly AppDatabase _db;
-    private readonly ILogger<ActionLogServiceGrpc> _logger;
+    private readonly ActionLogService _actionLogService =
+        actionLogService ?? throw new ArgumentNullException(nameof(actionLogService));
 
-    public ActionLogServiceGrpc(
-        ActionLogService actionLogService,
-        AppDatabase db,
-        ILogger<ActionLogServiceGrpc> logger)
-    {
-        _actionLogService = actionLogService ?? throw new ArgumentNullException(nameof(actionLogService));
-        _db = db ?? throw new ArgumentNullException(nameof(db));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    }
+    private readonly AppDatabase _db = db ?? throw new ArgumentNullException(nameof(db));
+    private readonly ILogger<ActionLogServiceGrpc> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-    public override async Task<CreateActionLogResponse> CreateActionLog(CreateActionLogRequest request,
+    public override async Task<DyCreateActionLogResponse> CreateActionLog(DyCreateActionLogRequest request,
         ServerCallContext context)
     {
         if (string.IsNullOrEmpty(request.AccountId) || !Guid.TryParse(request.AccountId, out var accountId))
         {
-            throw new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.InvalidArgument, "Invalid account ID"));
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID"));
         }
 
         try
         {
             var meta = request.Meta
-                ?.Select(x => new KeyValuePair<string, object>(x.Key, InfraObjectCoder.ConvertValueToObject(x.Value)))
-                .ToDictionary() ?? new Dictionary<string, object>();
+                ?.Select(x => new KeyValuePair<string, object?>(x.Key, InfraObjectCoder.ConvertValueToObject(x.Value)))
+                .ToDictionary() ?? new Dictionary<string, object?>();
 
             _actionLogService.CreateActionLog(
                 accountId,
@@ -43,21 +40,21 @@ public class ActionLogServiceGrpc : Shared.Proto.ActionLogService.ActionLogServi
             );
 
             await Task.CompletedTask;
-            return new CreateActionLogResponse();
+            return new DyCreateActionLogResponse();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating action log");
-            throw new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.Internal, "Failed to create action log"));
+            throw new RpcException(new Status(StatusCode.Internal, "Failed to create action log"));
         }
     }
 
-    public override async Task<ListActionLogsResponse> ListActionLogs(ListActionLogsRequest request,
+    public override async Task<DyListActionLogsResponse> ListActionLogs(DyListActionLogsRequest request,
         ServerCallContext context)
     {
         if (string.IsNullOrEmpty(request.AccountId) || !Guid.TryParse(request.AccountId, out var accountId))
         {
-            throw new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.InvalidArgument, "Invalid account ID"));
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID"));
         }
 
         try
@@ -91,7 +88,7 @@ public class ActionLogServiceGrpc : Shared.Proto.ActionLogService.ActionLogServi
                 logs.RemoveAt(logs.Count - 1);
             }
 
-            var response = new ListActionLogsResponse
+            var response = new DyListActionLogsResponse
             {
                 TotalSize = await query.CountAsync()
             };
@@ -110,7 +107,7 @@ public class ActionLogServiceGrpc : Shared.Proto.ActionLogService.ActionLogServi
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error listing action logs");
-            throw new RpcException(new Grpc.Core.Status(Grpc.Core.StatusCode.Internal, "Failed to list action logs"));
+            throw new RpcException(new Status(StatusCode.Internal, "Failed to list action logs"));
         }
     }
 }

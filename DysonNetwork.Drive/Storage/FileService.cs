@@ -91,7 +91,7 @@ public class FileService(
     }
 
     public async Task<SnCloudFile> ProcessNewFileAsync(
-        Account account,
+        DyAccount account,
         string fileId,
         string filePool,
         string? fileBundleId,

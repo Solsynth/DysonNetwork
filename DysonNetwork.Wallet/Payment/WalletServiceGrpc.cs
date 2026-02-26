@@ -3,9 +3,9 @@ using Grpc.Core;
 
 namespace DysonNetwork.Wallet.Payment;
 
-public class WalletServiceGrpc(WalletService walletService) : Shared.Proto.WalletService.WalletServiceBase
+public class WalletServiceGrpc(WalletService walletService) : DyWalletService.WalletServiceBase
 {
-    public override async Task<Shared.Proto.Wallet> GetWallet(GetWalletRequest request, ServerCallContext context)
+    public override async Task<DyWallet> GetWallet(GetWalletRequest request, ServerCallContext context)
     {
         var wallet = await walletService.GetAccountWalletAsync(Guid.Parse(request.AccountId));
         return wallet == null ? throw new RpcException(new Status(StatusCode.NotFound, "Wallet not found.")) : wallet.ToProtoValue();

@@ -23,8 +23,8 @@ namespace DysonNetwork.Wallet.Payment;
 public class SubscriptionService(
     AppDatabase db,
     PaymentService payment,
-    AccountService.AccountServiceClient accounts,
-    RingService.RingServiceClient pusher,
+    DyAccountService.DyAccountServiceClient accounts,
+    DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
     IConfiguration configuration,
     ICacheService cache,
@@ -32,7 +32,7 @@ public class SubscriptionService(
 )
 {
     public async Task<SnWalletSubscription> CreateSubscriptionAsync(
-        Account account,
+        DyAccount account,
         string identifier,
         string paymentMethod,
         SnPaymentDetails paymentDetails,
@@ -144,14 +144,14 @@ public class SubscriptionService(
             // Use GetAccount instead of LookupAccountByConnection since that method may not exist
             if (Guid.TryParse(order.AccountId, out var accountId))
             {
-                var accountProto = await accounts.GetAccountAsync(new GetAccountRequest { Id = accountId.ToString() });
+                var accountProto = await accounts.GetAccountAsync(new DyGetAccountRequest { Id = accountId.ToString() });
                 if (accountProto != null)
                     account = SnAccount.FromProtoValue(accountProto);
             }
         }
         else if (Guid.TryParse(order.AccountId, out var accountId))
         {
-            var accountProto = await accounts.GetAccountAsync(new GetAccountRequest { Id = accountId.ToString() });
+            var accountProto = await accounts.GetAccountAsync(new DyGetAccountRequest { Id = accountId.ToString() });
             if (accountProto != null)
                 account = SnAccount.FromProtoValue(accountProto);
         }
@@ -432,7 +432,7 @@ public class SubscriptionService(
             : "infinite";
 
         var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
-        var notification = new PushNotification
+        var notification = new DyPushNotification
         {
             Topic = "subscriptions.begun",
             Title = localizer.Get("subscriptionAppliedTitle", locale: locale,
@@ -446,7 +446,7 @@ public class SubscriptionService(
             IsSavable = true
         };
         await pusher.SendPushNotificationToUserAsync(
-            new SendPushNotificationToUserRequest
+            new DySendPushNotificationToUserRequest
             {
                 UserId = subscription.AccountId.ToString(),
                 Notification = notification
@@ -587,7 +587,7 @@ public class SubscriptionService(
     /// <param name="cycleDuration">The duration of the subscription once redeemed (default 30 days).</param>
     /// <returns>The created gift record.</returns>
     public async Task<SnWalletGift> PurchaseGiftAsync(
-        Account gifter,
+        DyAccount gifter,
         Guid? recipientId,
         string subscriptionIdentifier,
         string paymentMethod,
@@ -611,7 +611,7 @@ public class SubscriptionService(
         if (recipientId.HasValue)
         {
             var accountProto =
-                await accounts.GetAccountAsync(new GetAccountRequest { Id = recipientId.Value.ToString() });
+                await accounts.GetAccountAsync(new DyGetAccountRequest { Id = recipientId.Value.ToString() });
             if (accountProto != null)
                 recipient = accountProto;
             if (recipient is null)
@@ -680,7 +680,7 @@ public class SubscriptionService(
     /// <param name="giftCode">The unique redemption code.</param>
     /// <returns>A tuple containing the activated gift and the created subscription.</returns>
     public async Task<(SnWalletGift Gift, SnWalletSubscription Subscription)> RedeemGiftAsync(
-        Account redeemer,
+        DyAccount redeemer,
         string giftCode)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -928,7 +928,7 @@ public class SubscriptionService(
     }
 
     private async Task NotifyGiftClaimedByRecipient(SnWalletGift gift, SnWalletSubscription subscription, Guid gifterId,
-        Account redeemer)
+        DyAccount redeemer)
     {
         var humanReadableName =
             SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(subscription.Identifier, out var humanReadable)
@@ -936,7 +936,7 @@ public class SubscriptionService(
                 : subscription.Identifier;
 
         var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
-        var notification = new PushNotification
+        var notification = new DyPushNotification
         {
             Topic = "gifts.claimed",
             Title = localizer.Get("giftClaimedTitle", locale: locale),
@@ -952,7 +952,7 @@ public class SubscriptionService(
         };
 
         await pusher.SendPushNotificationToUserAsync(
-            new SendPushNotificationToUserRequest
+            new DySendPushNotificationToUserRequest
             {
                 UserId = gifterId.ToString(),
                 Notification = notification
