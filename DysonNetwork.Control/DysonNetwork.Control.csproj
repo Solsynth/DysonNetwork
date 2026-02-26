@@ -22,7 +22,6 @@
         <ProjectReference Include="..\DysonNetwork.Pass\DysonNetwork.Pass.csproj"/>
         <ProjectReference Include="..\DysonNetwork.Ring\DysonNetwork.Ring.csproj"/>
         <ProjectReference Include="..\DysonNetwork.Sphere\DysonNetwork.Sphere.csproj"/>
-        <ProjectReference Include="..\DysonNetwork.Gateway\DysonNetwork.Gateway.csproj"/>
         <ProjectReference Include="..\DysonNetwork.Insight\DysonNetwork.Insight.csproj"/>
         <ProjectReference Include="..\DysonNetwork.Zone\DysonNetwork.Zone.csproj"/>
         <ProjectReference Include="..\DysonNetwork.Messager\DysonNetwork.Messager.csproj"/>

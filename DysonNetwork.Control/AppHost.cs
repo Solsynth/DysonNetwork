@@ -85,13 +85,6 @@ for (var idx = 0; idx < services.Count; idx++)
 // Extra double-ended references
 ringService.WithReference(passService);
 
-var gateway = builder.AddProject<Projects.DysonNetwork_Gateway>("gateway")
-    .WithEnvironment("HTTP_PORTS", "5001")
-    .WithHttpEndpoint(port: 5001, targetPort: null, isProxied: false, name: "http");
-
-foreach (var service in services)
-    gateway.WithReference(service);
-
 builder.AddDockerComposeEnvironment("docker-compose");
 
 builder.Build().Run();
