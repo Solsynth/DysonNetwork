@@ -567,7 +567,15 @@ public class LiveStreamService(
             return;
         }
 
-        var streamerShare = totalPositiveAwards * 0.9m;
+        var amountToDistribute = totalPositiveAwards - liveStream.DistributedAwardAmount;
+        if (amountToDistribute <= 0)
+        {
+            logger.LogDebug("Awards already distributed for LiveStream {Id}. Distributed: {Distributed}, Total: {Total}",
+                liveStream.Id, liveStream.DistributedAwardAmount, totalPositiveAwards);
+            return;
+        }
+
+        var streamerShare = amountToDistribute * 0.9m;
 
         try
         {
@@ -582,9 +590,12 @@ public class LiveStreamService(
                 DysonNetwork.Shared.Proto.TransactionType.System
             );
 
+            liveStream.DistributedAwardAmount = totalPositiveAwards;
+            await db.SaveChangesAsync();
+
             logger.LogInformation(
-                "Distributed {Amount} points (90% of {Total}) to streamer {AccountId} for LiveStream {Id}",
-                streamerShare, totalPositiveAwards, streamerAccountId, liveStream.Id);
+                "Distributed {Amount} points (90% of {NewAmount}) to streamer {AccountId} for LiveStream {Id}. Total awards: {Total}, Previously distributed: {Previous}",
+                streamerShare, amountToDistribute, streamerAccountId, liveStream.Id, totalPositiveAwards, liveStream.DistributedAwardAmount - amountToDistribute);
         }
         catch (Exception ex)
         {

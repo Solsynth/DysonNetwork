@@ -117,6 +117,8 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
 
     public decimal TotalAwardScore { get; set; }
 
+    public decimal DistributedAwardAmount { get; set; }
+
     [Column(TypeName = "jsonb")]
     public SnCloudFileReferenceObject? Thumbnail { get; set; }
 
@@ -143,6 +145,7 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
             ViewerCount = ViewerCount,
             PeakViewerCount = PeakViewerCount,
             TotalAwardScore = (double)TotalAwardScore,
+            DistributedAwardAmount = (double)DistributedAwardAmount,
             PublisherId = PublisherId.ToString(),
             Publisher = Publisher?.ToProtoValue(),
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
@@ -206,6 +209,7 @@ public class SnLiveStream : ModelBase, IIdentifiedResource
             ViewerCount = proto.ViewerCount,
             PeakViewerCount = proto.PeakViewerCount,
             PublisherId = Guid.Parse(proto.PublisherId),
+            DistributedAwardAmount = (decimal)proto.DistributedAwardAmount,
             Publisher = proto.Publisher != null ? SnPublisher.FromProtoValue(proto.Publisher) : null,
             CreatedAt = Instant.FromDateTimeOffset(proto.CreatedAt.ToDateTimeOffset()),
             UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset()),

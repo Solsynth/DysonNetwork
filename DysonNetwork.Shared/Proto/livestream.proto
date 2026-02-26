@@ -66,6 +66,7 @@ message LiveStream {
   int64 duration_seconds = 26;
   int64 total_duration_seconds = 27;
   double total_award_score = 28;
+  double distributed_award_amount = 29;
 }
 
 message LiveStreamAward {
