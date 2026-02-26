@@ -1,3 +1,4 @@
+using System;
 using DysonNetwork.Insight.MiChan;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -378,4 +379,38 @@ public class MemoryService(
 
         return result;
     }
+
+    /// <summary>
+    /// Get random memories from the database to add variety and serendipity.
+    /// </summary>
+    public async Task<List<MiChanMemoryRecord>> GetRandomMemoriesAsync(
+        int limit = 5,
+        Guid? excludeAccountId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = database.MemoryRecords.AsQueryable();
+
+        query = query.Where(r => r.IsActive);
+
+        if (excludeAccountId.HasValue)
+        {
+            query = query.Where(r => r.AccountId != excludeAccountId.Value);
+        }
+
+        var count = await query.CountAsync(cancellationToken);
+        if (count == 0)
+            return [];
+
+        var skip = _random.Next(Math.Max(0, count - limit));
+        var records = await query
+            .OrderBy(r => r.Id)
+            .Skip(skip)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        logger.LogDebug("Retrieved {Count} random memories (total: {Total})", records.Count, count);
+        return records;
+    }
+
+    private static readonly Random _random = new();
 }

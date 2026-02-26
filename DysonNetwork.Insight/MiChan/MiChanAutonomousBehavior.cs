@@ -1157,26 +1157,15 @@ public class MiChanAutonomousBehavior
 
         _logger.LogInformation("Autonomous: Creating a post...");
 
-        var recentInteractions = await _memoryService.GetByFiltersAsync(
-            type: "autonomous",
-            take: 10,
-            orderBy: "createdAt",
-            descending: true);
-
-        var interests = recentInteractions
-            .SelectMany(m => m.Content.Split('\n'))
-            .Where(line => line.Contains("topics"))
-            .Select(line => line.Split(':').LastOrDefault()?.Trim() ?? "")
-            .Where(topic => !string.IsNullOrEmpty(topic))
-            .Distinct()
-            .Take(5)
-            .ToList();
-
-        // Retrieve relevant memories to spark ideas
-        var relevantMemories = await _memoryService.SearchAsync(
-            string.Join(" ", interests),
-            limit: 5,
-            minSimilarity: 0.5);
+        // Get random memories to spark ideas
+        Guid? botAccountId = null;
+        if (!string.IsNullOrEmpty(_config.BotAccountId))
+        {
+            botAccountId = Guid.Parse(_config.BotAccountId);
+        }
+        var randomMemories = await _memoryService.GetRandomMemoriesAsync(
+            limit: 10,
+            excludeAccountId: botAccountId);
 
         var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
         var mood = _config.AutonomousBehavior.PersonalityMood;
@@ -1185,10 +1174,9 @@ public class MiChanAutonomousBehavior
                       {personality}
 
                       当前心情: {mood}
-                      最近关注: {string.Join(", ", interests)}
 
-                      相关记忆:
-                      {string.Join("\n", relevantMemories.Take(3).Select(m => $"- {m.Content}"))}
+                      随机记忆:
+                      {string.Join("\n", randomMemories.Select(m => $"- {m.Content}"))}
 
                       创作一条社交媒体帖子。
                       分享想法、观察、问题或见解，体现你的个性。
