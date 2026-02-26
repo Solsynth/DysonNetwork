@@ -23,7 +23,7 @@ public class MiChanAutonomousBehavior
     private readonly SolarNetworkApiClient _apiClient;
     private readonly MiChanKernelProvider _kernelProvider;
     private readonly IServiceProvider _serviceProvider;
-    private readonly DyAccountService.DyAccountServiceClient _accountClient;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly PostAnalysisService _postAnalysisService;
     private readonly MemoryService _memoryService;
     private readonly InteractiveHistoryService _interactiveHistoryService;
@@ -57,7 +57,7 @@ public class MiChanAutonomousBehavior
         SolarNetworkApiClient apiClient,
         MiChanKernelProvider kernelProvider,
         IServiceProvider serviceProvider,
-        DyAccountService.DyAccountServiceClient accountClient,
+        IServiceScopeFactory scopeFactory,
         PostAnalysisService postAnalysisService,
         IConfiguration configGlobal,
         MemoryService memoryService,
@@ -69,7 +69,7 @@ public class MiChanAutonomousBehavior
         _apiClient = apiClient;
         _kernelProvider = kernelProvider;
         _serviceProvider = serviceProvider;
-        _accountClient = accountClient;
+        _scopeFactory = scopeFactory;
         _postAnalysisService = postAnalysisService;
         _configGlobal = configGlobal;
         _memoryService = memoryService;
@@ -199,12 +199,16 @@ public class MiChanAutonomousBehavior
                 return new List<string>();
             }
 
+            // Create scope to get gRPC client - avoids disposed IServiceProvider issue
+            using var scope = _scopeFactory.CreateScope();
+            var accountClient = scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
+
             var request = new DyListRelationshipSimpleRequest
             {
                 RelatedId = _config.BotAccountId
             };
 
-            var response = await _accountClient.ListBlockedAsync(request);
+            var response = await accountClient.ListBlockedAsync(request);
             _cachedBlockedUsers = response.AccountsId.ToList();
             _lastBlockedCacheTime = DateTime.UtcNow;
 

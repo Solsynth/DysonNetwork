@@ -64,7 +64,8 @@ public static class GrpcSharedChannelExtensions
         string serviceName
     ) where TClient : class
     {
-        services.AddGrpcClient<TClient>(options => { options.Address = new Uri(endpoint); }).ConfigureGrpcDefaults();
+        services.AddGrpcClient<TClient>(options => { options.Address = new Uri(endpoint); })
+            .ConfigureGrpcDefaults();
 
         return services;
     }
