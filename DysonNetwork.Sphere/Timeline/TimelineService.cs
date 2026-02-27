@@ -175,7 +175,10 @@ public class TimelineService(
         var now = SystemClock.Instance.GetCurrentInstant();
         var recent = now.Minus(Duration.FromDays(7));
 
-        var posts = await db.Posts.Where(p => p.PublishedAt > recent).ToListAsync();
+        var posts = await db
+            .Posts.Where(p => p.DraftedAt == null)
+            .Where(p => p.PublishedAt > recent)
+            .ToListAsync();
 
         var publisherIds = posts.Select(p => p.PublisherId).Distinct().ToList();
         var publishers = await db.Publishers.Where(p => publisherIds.Contains(p.Id)).ToListAsync();
@@ -220,6 +223,7 @@ public class TimelineService(
         var postsQuery = db
             .Posts.Include(p => p.Categories)
             .Include(p => p.Tags)
+            .Where(p => p.DraftedAt == null)
             .Where(p => p.Visibility == PostVisibility.Public)
             .Where(p => p.RepliedPostId == null)
             .Where(p => p.RealmId == null || publicRealmIds.Contains(p.RealmId.Value))
@@ -276,6 +280,7 @@ public class TimelineService(
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .Include(e => e.FeaturedRecords)
+            .Where(e => e.DraftedAt == null)
             .Where(e => e.RepliedPostId == null)
             .Where(p => cursor == null || p.PublishedAt < cursor)
             .OrderByDescending(p => p.PublishedAt)
@@ -341,4 +346,3 @@ public class TimelineService(
         return score + postCount;
     }
 }
-

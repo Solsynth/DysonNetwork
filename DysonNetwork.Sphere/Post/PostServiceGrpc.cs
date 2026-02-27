@@ -10,7 +10,7 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyP
 {
     public override async Task<DyPost> GetPost(DyGetPostRequest request, ServerCallContext context)
     {
-        var postQuery = db.Posts.AsQueryable();
+        var postQuery = db.Posts.Where(p => p.DraftedAt == null).AsQueryable();
 
         switch (request.IdentifierCase)
         {
@@ -64,6 +64,7 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyP
             .Include(p => p.ForwardedPost)
             .Include(p => p.FeaturedRecords)
             .Include(p => p.Awards)
+            .Where(p => p.DraftedAt == null)
             .Where(p => ids.Contains(p.Id))
             .FilterWithVisibility(null, [], [])
             .ToListAsync();
@@ -85,6 +86,7 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyP
             .Include(p => p.ForwardedPost)
             .Include(p => p.Awards)
             .Include(p => p.FeaturedRecords)
+            .Where(p => p.DraftedAt == null)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(request.Query))
@@ -139,6 +141,7 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyP
             .Include(p => p.ForwardedPost)
             .Include(p => p.Awards)
             .Include(p => p.FeaturedRecords)
+            .Where(p => p.DraftedAt == null)
             .AsQueryable();
 
         if (request.Shuffle)
