@@ -1,6 +1,6 @@
+using DysonNetwork.Messager.Chat.Realtime;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Messager.Chat.Realtime;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -33,41 +33,16 @@ public class RealtimeCallController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
-        var member = await db.ChatMembers
-            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
-            .FirstOrDefaultAsync();
-
-        if (member == null)
+        var member = await GetJoinedMemberAsync(roomId, accountId);
+        if (member is null)
             return StatusCode(403, "You need to be a member to view participants.");
 
-        var ongoingCall = await cs.GetCallOngoingAsync(roomId);
-        if (ongoingCall is null || string.IsNullOrEmpty(ongoingCall.SessionId))
-            return NotFound("There is no ongoing call in this room.");
+        var call = await EnsureRealtimeCallAsync(roomId, member);
+        if (string.IsNullOrWhiteSpace(call.SessionId))
+            return BadRequest("Call session is not properly configured.");
 
-        var chatRoomService = HttpContext.RequestServices.GetRequiredService<ChatRoomService>();
-        var participants = new List<CallParticipant>();
-
-        if (realtime is LiveKitRealtimeService livekitService)
-        {
-            var roomParticipants = await livekitService.SyncParticipantsAsync(ongoingCall.SessionId);
-            
-            foreach (var p in roomParticipants)
-            {
-                var participant = new CallParticipant
-                {
-                    Identity = p.Identity,
-                    Name = p.Name,
-                    AccountId = p.AccountId,
-                    JoinedAt = p.JoinedAt,
-                    TrackSid = p.TrackSid
-                };
-
-                if (p.AccountId.HasValue)
-                    participant.Profile = await chatRoomService.GetRoomMember(p.AccountId.Value, roomId);
-
-                participants.Add(participant);
-            }
-        }
+        var roomParticipants = await SyncProviderParticipantsAsync(call.SessionId);
+        var participants = await BuildParticipantsAsync(roomId, roomParticipants);
 
         return Ok(participants);
     }
@@ -79,39 +54,34 @@ public class RealtimeCallController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
-        var member = await db.ChatMembers
-            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
-            .FirstOrDefaultAsync();
-
-        if (member == null)
+        var member = await GetJoinedMemberAsync(roomId, accountId, includeRoom: true);
+        if (member is null)
             return StatusCode(403, "You need to be a member.");
 
-        var ongoingCall = await cs.GetCallOngoingAsync(roomId);
-        if (ongoingCall is null || string.IsNullOrEmpty(ongoingCall.SessionId))
-            return NotFound("There is no ongoing call in this room.");
-
-        var isAdmin = member.AccountId == ongoingCall.Room.AccountId || ongoingCall.Room.Type == ChatRoomType.DirectMessage;
+        var call = await EnsureRealtimeCallAsync(roomId, member);
+        var roomOwnerId = call.Room.AccountId ?? member.ChatRoom.AccountId;
+        var isAdmin = member.AccountId == roomOwnerId || call.Room.Type == ChatRoomType.DirectMessage;
         if (!isAdmin)
             return StatusCode(403, "Only room admin can kick participants.");
 
         var targetMember = await db.ChatMembers
             .Where(m => m.AccountId == targetAccountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
-
-        if (targetMember == null)
+        if (targetMember is null)
             return NotFound("Target member not found.");
 
-        if (targetMember.AccountId == ongoingCall.Room.AccountId)
+        if (targetMember.AccountId == roomOwnerId)
             return BadRequest("Cannot kick the room owner.");
 
-        if (realtime is LiveKitRealtimeService livekitService)
+        var participantRemoved = false;
+        if (realtime is LiveKitRealtimeService livekitService && !string.IsNullOrWhiteSpace(call.SessionId))
         {
-            var participants = await livekitService.GetRoomParticipantsAsync(ongoingCall.SessionId);
+            var participants = await livekitService.SyncParticipantsAsync(call.SessionId);
             var targetParticipant = participants.FirstOrDefault(p => p.AccountId == targetAccountId);
-
             if (targetParticipant != null)
             {
-                await livekitService.KickParticipantAsync(ongoingCall.SessionId, targetParticipant.Identity);
+                await livekitService.KickParticipantAsync(call.SessionId, targetParticipant.Identity);
+                participantRemoved = true;
             }
         }
 
@@ -129,6 +99,28 @@ public class RealtimeCallController(
             await db.SaveChangesAsync();
         }
 
+        if (participantRemoved)
+        {
+            var memberName = targetMember.Nick ?? targetMember.Account?.Nick ?? "Someone";
+            var operatorName = member.Nick ?? member.Account?.Nick ?? "Moderator";
+            await cs.SendSystemMessageAsync(
+                call.Room,
+                member,
+                "system.call.member.left",
+                $"{memberName} was removed from the call by {operatorName}.",
+                new Dictionary<string, object>
+                {
+                    ["event"] = "call_member_left",
+                    ["reason"] = "removed",
+                    ["call_id"] = call.Id,
+                    ["member_id"] = targetMember.Id,
+                    ["account_id"] = targetMember.AccountId,
+                    ["operator_member_id"] = member.Id,
+                    ["operator_account_id"] = member.AccountId
+                }
+            );
+        }
+
         return NoContent();
     }
 
@@ -136,55 +128,14 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<IActionResult> MuteParticipant(Guid roomId, Guid targetAccountId)
     {
-        return await _ToggleMuteParticipant(roomId, targetAccountId, true);
+        return await ToggleMuteParticipant(roomId, targetAccountId, true);
     }
 
     [HttpPost("{roomId:guid}/unmute/{targetAccountId:guid}")]
     [Authorize]
     public async Task<IActionResult> UnmuteParticipant(Guid roomId, Guid targetAccountId)
     {
-        return await _ToggleMuteParticipant(roomId, targetAccountId, false);
-    }
-
-    private async Task<IActionResult> _ToggleMuteParticipant(Guid roomId, Guid targetAccountId, bool mute)
-    {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-
-        var accountId = Guid.Parse(currentUser.Id);
-        var member = await db.ChatMembers
-            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
-            .FirstOrDefaultAsync();
-
-        if (member == null)
-            return StatusCode(403, "You need to be a member.");
-
-        var ongoingCall = await cs.GetCallOngoingAsync(roomId);
-        if (ongoingCall is null || string.IsNullOrEmpty(ongoingCall.SessionId))
-            return NotFound("There is no ongoing call in this room.");
-
-        var isAdmin = member.AccountId == ongoingCall.Room.AccountId || ongoingCall.Room.Type == ChatRoomType.DirectMessage;
-        if (!isAdmin)
-            return StatusCode(403, "Only room admin can mute participants.");
-
-        if (realtime is LiveKitRealtimeService livekitService)
-        {
-            var participants = await livekitService.GetRoomParticipantsAsync(ongoingCall.SessionId);
-            var targetParticipant = participants.FirstOrDefault(p => p.AccountId == targetAccountId);
-
-            if (targetParticipant == null)
-                return NotFound("Target participant not found in call.");
-
-            if (string.IsNullOrEmpty(targetParticipant.TrackSid))
-                return BadRequest("No track available to mute.");
-
-            await livekitService.MuteParticipantAsync(
-                ongoingCall.SessionId,
-                targetParticipant.Identity,
-                targetParticipant.TrackSid,
-                mute);
-        }
-
-        return NoContent();
+        return await ToggleMuteParticipant(roomId, targetAccountId, false);
     }
 
     [HttpGet("{roomId:guid}")]
@@ -194,22 +145,13 @@ public class RealtimeCallController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
-        var member = await db.ChatMembers
-            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
-            .FirstOrDefaultAsync();
-
-        if (member == null)
+        var member = await GetJoinedMemberAsync(roomId, accountId);
+        if (member is null)
             return StatusCode(403, "You need to be a member to view call status.");
 
-        var ongoingCall = await db.ChatRealtimeCall
-            .Where(c => c.RoomId == roomId)
-            .Where(c => c.EndedAt == null)
-            .Include(c => c.Room)
-            .Include(c => c.Sender)
-            .FirstOrDefaultAsync();
-        if (ongoingCall is null) return NotFound();
-        ongoingCall.Sender = await crs.LoadMemberAccount(ongoingCall.Sender);
-        return Ok(ongoingCall);
+        var call = await EnsureRealtimeCallAsync(roomId, member);
+        call.Sender = await crs.LoadMemberAccount(call.Sender);
+        return Ok(call);
     }
 
     [HttpGet("{roomId:guid}/join")]
@@ -218,76 +160,59 @@ public class RealtimeCallController(
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
-        // Check if the user is a member of the chat room
         var accountId = Guid.Parse(currentUser.Id);
-        var member = await db.ChatMembers
-            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
-            .FirstOrDefaultAsync();
+        var member = await GetJoinedMemberAsync(roomId, accountId, includeRoom: true);
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        if (member == null)
+        if (member is null)
             return StatusCode(403, "You need to be a member to join a call.");
         if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
             return StatusCode(403, "You has been timed out in this chat.");
 
-        // Get ongoing call
-        var ongoingCall = await cs.GetCallOngoingAsync(roomId);
-        if (ongoingCall is null)
-            return NotFound("There is no ongoing call in this room.");
-
-        // Check if session ID exists
-        if (string.IsNullOrEmpty(ongoingCall.SessionId))
+        var call = await EnsureRealtimeCallAsync(roomId, member);
+        if (string.IsNullOrWhiteSpace(call.SessionId))
             return BadRequest("Call session is not properly configured.");
 
-        var isAdmin = member.AccountId == ongoingCall.Room.AccountId || ongoingCall.Room.Type == ChatRoomType.DirectMessage;
-        var userToken = realtime.GetUserToken(currentUser, ongoingCall.SessionId, isAdmin, isTool);
+        var roomParticipants = await SyncProviderParticipantsAsync(call.SessionId);
+        var alreadyInCall = roomParticipants.Any(p => p.AccountId == accountId);
 
-        // Get LiveKit endpoint from configuration
+        var roomOwnerId = call.Room.AccountId ?? member.ChatRoom.AccountId;
+        var isAdmin = member.AccountId == roomOwnerId || call.Room.Type == ChatRoomType.DirectMessage;
+        var userToken = realtime.GetUserToken(currentUser, call.SessionId, isAdmin, isTool);
+
         var endpoint = _config.Endpoint ??
-                   throw new InvalidOperationException("LiveKit endpoint configuration is missing");
+                       throw new InvalidOperationException("LiveKit endpoint configuration is missing");
 
-        // Inject the ChatRoomService
-        var chatRoomService = HttpContext.RequestServices.GetRequiredService<ChatRoomService>();
+        var participants = await BuildParticipantsAsync(roomId, roomParticipants);
 
-        // Get current participants from the LiveKit service
-        var participants = new List<CallParticipant>();
-        if (realtime is LiveKitRealtimeService livekitService)
+        if (!alreadyInCall)
         {
-            var roomParticipants = await livekitService.SyncParticipantsAsync(ongoingCall.SessionId);
-            participants = [];
-            
-            foreach (var p in roomParticipants)
-            {
-                var participant = new CallParticipant
+            var memberName = member.Nick ?? member.Account?.Nick ?? "Someone";
+            await cs.SendSystemMessageAsync(
+                call.Room,
+                member,
+                "system.call.member.joined",
+                $"{memberName} joined the call.",
+                new Dictionary<string, object>
                 {
-                    Identity = p.Identity,
-                    Name = p.Name,
-                    AccountId = p.AccountId,
-                    JoinedAt = p.JoinedAt,
-                    TrackSid = p.TrackSid
-                };
-            
-                // Fetch the ChatMember profile if we have an account ID
-                if (p.AccountId.HasValue)
-                    participant.Profile = await chatRoomService.GetRoomMember(p.AccountId.Value, roomId);
-            
-                participants.Add(participant);
-            }
+                    ["event"] = "call_member_joined",
+                    ["call_id"] = call.Id,
+                    ["member_id"] = member.Id,
+                    ["account_id"] = member.AccountId
+                }
+            );
         }
 
-        // Create the response model
-        var response = new JoinCallResponse
+        return Ok(new JoinCallResponse
         {
             Provider = realtime.ProviderName,
             Endpoint = endpoint,
             Token = userToken,
-            CallId = ongoingCall.Id,
-            RoomName = ongoingCall.SessionId,
+            CallId = call.Id,
+            RoomName = call.SessionId,
             IsAdmin = isAdmin,
             Participants = participants
-        };
-
-        return Ok(response);
+        });
     }
 
     [HttpPost("{roomId:guid}")]
@@ -298,44 +223,230 @@ public class RealtimeCallController(
 
         var accountId = Guid.Parse(currentUser.Id);
         var now = SystemClock.Instance.GetCurrentInstant();
-        
-        var member = await db.ChatMembers
-            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
-            .Include(m => m.ChatRoom)
-            .FirstOrDefaultAsync();
-        if (member == null)
+
+        var member = await GetJoinedMemberAsync(roomId, accountId);
+        if (member is null)
             return StatusCode(403, "You need to be a member to start a call.");
         if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
             return StatusCode(403, "You has been timed out in this chat.");
 
-        var ongoingCall = await cs.GetCallOngoingAsync(roomId);
-        if (ongoingCall is not null) return StatusCode(423, "There is already an ongoing call inside the chatroom.");
-        var call = await cs.CreateCallAsync(member.ChatRoom, member);
+        // Backward compatible: this endpoint now only ensures the long-lived call record/session exists.
+        var call = await EnsureRealtimeCallAsync(roomId, member);
         return Ok(call);
     }
 
     [HttpDelete("{roomId:guid}")]
     [Authorize]
-    public async Task<ActionResult<SnRealtimeCall>> EndCall(Guid roomId)
+    public async Task<ActionResult> EndCall(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
-        var member = await db.ChatMembers
-            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
-            .FirstOrDefaultAsync();
-        if (member == null)
-            return StatusCode(403, "You need to be a member to end a call.");
+        var member = await GetJoinedMemberAsync(roomId, accountId, includeRoom: true);
+        if (member is null)
+            return StatusCode(403, "You need to be a member to leave a call.");
 
-        try
-        {
-            await cs.EndCallAsync(roomId, member);
+        var call = await EnsureRealtimeCallAsync(roomId, member);
+        if (string.IsNullOrWhiteSpace(call.SessionId))
             return NoContent();
-        }
-        catch (Exception exception)
+
+        var wasInCall = false;
+        if (realtime is LiveKitRealtimeService livekitService)
         {
-            return BadRequest(exception.Message);
+            var participants = await livekitService.SyncParticipantsAsync(call.SessionId);
+            var currentParticipant = participants.FirstOrDefault(p => p.AccountId == accountId);
+            if (currentParticipant != null)
+            {
+                await livekitService.KickParticipantAsync(call.SessionId, currentParticipant.Identity);
+                wasInCall = true;
+            }
         }
+
+        if (wasInCall)
+        {
+            var memberName = member.Nick ?? member.Account?.Nick ?? "Someone";
+            await cs.SendSystemMessageAsync(
+                call.Room,
+                member,
+                "system.call.member.left",
+                $"{memberName} left the call.",
+                new Dictionary<string, object>
+                {
+                    ["event"] = "call_member_left",
+                    ["reason"] = "left",
+                    ["call_id"] = call.Id,
+                    ["member_id"] = member.Id,
+                    ["account_id"] = member.AccountId
+                }
+            );
+        }
+
+        return NoContent();
+    }
+
+    private async Task<IActionResult> ToggleMuteParticipant(Guid roomId, Guid targetAccountId, bool mute)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var member = await GetJoinedMemberAsync(roomId, accountId, includeRoom: true);
+        if (member is null)
+            return StatusCode(403, "You need to be a member.");
+
+        var call = await EnsureRealtimeCallAsync(roomId, member);
+        if (string.IsNullOrWhiteSpace(call.SessionId))
+            return BadRequest("Call session is not properly configured.");
+
+        var roomOwnerId = call.Room.AccountId ?? member.ChatRoom.AccountId;
+        var isAdmin = member.AccountId == roomOwnerId || call.Room.Type == ChatRoomType.DirectMessage;
+        if (!isAdmin)
+            return StatusCode(403, "Only room admin can mute participants.");
+
+        if (realtime is LiveKitRealtimeService livekitService)
+        {
+            var participants = await livekitService.SyncParticipantsAsync(call.SessionId);
+            var targetParticipant = participants.FirstOrDefault(p => p.AccountId == targetAccountId);
+
+            if (targetParticipant == null)
+                return NotFound("Target participant not found in call.");
+
+            if (string.IsNullOrEmpty(targetParticipant.TrackSid))
+                return BadRequest("No track available to mute.");
+
+            await livekitService.MuteParticipantAsync(
+                call.SessionId,
+                targetParticipant.Identity,
+                targetParticipant.TrackSid,
+                mute
+            );
+        }
+
+        return NoContent();
+    }
+
+    private async Task<SnChatMember?> GetJoinedMemberAsync(Guid roomId, Guid accountId, bool includeRoom = false)
+    {
+        var query = db.ChatMembers
+            .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null);
+
+        if (includeRoom)
+            query = query.Include(m => m.ChatRoom);
+
+        var member = await query.FirstOrDefaultAsync();
+        if (member is null)
+            return null;
+
+        if (member.Account is null)
+            member = await crs.LoadMemberAccount(member);
+
+        return member;
+    }
+
+    private async Task<SnRealtimeCall> EnsureRealtimeCallAsync(Guid roomId, SnChatMember member)
+    {
+        var call = await db.ChatRealtimeCall
+            .Where(c => c.RoomId == roomId)
+            .Where(c => c.EndedAt == null)
+            .Include(c => c.Room)
+            .Include(c => c.Sender)
+            .OrderByDescending(c => c.CreatedAt)
+            .FirstOrDefaultAsync();
+
+        if (call is null)
+        {
+            var room = member.ChatRoom;
+            if (room is null)
+            {
+                room = await db.ChatRooms
+                    .Where(r => r.Id == roomId)
+                    .FirstAsync();
+            }
+
+            call = new SnRealtimeCall
+            {
+                RoomId = roomId,
+                SenderId = member.Id,
+                Room = room,
+                Sender = member,
+                ProviderName = realtime.ProviderName
+            };
+
+            db.ChatRealtimeCall.Add(call);
+            await db.SaveChangesAsync();
+        }
+
+        var sessionConfig = await realtime.CreateSessionAsync(roomId, new Dictionary<string, object>
+        {
+            ["room_id"] = roomId,
+            ["call_id"] = call.Id,
+            ["user_id"] = member.AccountId
+        });
+
+        var updated = false;
+
+        if (call.ProviderName != realtime.ProviderName)
+        {
+            call.ProviderName = realtime.ProviderName;
+            updated = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(sessionConfig.SessionId) && call.SessionId != sessionConfig.SessionId)
+        {
+            call.SessionId = sessionConfig.SessionId;
+            updated = true;
+        }
+
+        if (sessionConfig.Parameters.Count > 0)
+        {
+            call.UpstreamConfig = sessionConfig.Parameters;
+            updated = true;
+        }
+
+        if (updated)
+        {
+            db.ChatRealtimeCall.Update(call);
+            await db.SaveChangesAsync();
+        }
+
+        if (call.Room is null)
+            call.Room = member.ChatRoom ?? await db.ChatRooms.Where(r => r.Id == roomId).FirstAsync();
+        if (call.Sender is null)
+            call.Sender = member;
+
+        return call;
+    }
+
+    private async Task<List<ParticipantCacheItem>> SyncProviderParticipantsAsync(string sessionId)
+    {
+        if (realtime is LiveKitRealtimeService livekitService)
+            return await livekitService.SyncParticipantsAsync(sessionId);
+
+        return [];
+    }
+
+    private async Task<List<CallParticipant>> BuildParticipantsAsync(Guid roomId, List<ParticipantCacheItem> roomParticipants)
+    {
+        var chatRoomService = HttpContext.RequestServices.GetRequiredService<ChatRoomService>();
+        var participants = new List<CallParticipant>(roomParticipants.Count);
+
+        foreach (var p in roomParticipants)
+        {
+            var participant = new CallParticipant
+            {
+                Identity = p.Identity,
+                Name = p.Name,
+                AccountId = p.AccountId,
+                JoinedAt = p.JoinedAt,
+                TrackSid = p.TrackSid
+            };
+
+            if (p.AccountId.HasValue)
+                participant.Profile = await chatRoomService.GetRoomMember(p.AccountId.Value, roomId);
+
+            participants.Add(participant);
+        }
+
+        return participants;
     }
 }
 
@@ -371,7 +482,7 @@ public class JoinCallResponse
     /// Whether the user is the admin of the call
     /// </summary>
     public bool IsAdmin { get; set; }
-    
+
     /// <summary>
     /// Current participants in the call
     /// </summary>
@@ -387,22 +498,22 @@ public class CallParticipant
     /// The participant's identity (username)
     /// </summary>
     public string Identity { get; set; } = null!;
-    
+
     /// <summary>
     /// The participant's display name
     /// </summary>
     public string Name { get; set; } = null!;
-    
+
     /// <summary>
     /// The participant's account ID if available
     /// </summary>
     public Guid? AccountId { get; set; }
-    
+
     /// <summary>
     /// The participant's profile in the chat
     /// </summary>
     public SnChatMember? Profile { get; set; }
-    
+
     /// <summary>
     /// When the participant joined the call
     /// </summary>

@@ -38,16 +38,14 @@ public class LiveKitRealtimeService : IRealtimeService
 
     public async Task<RealtimeSessionConfig> CreateSessionAsync(Guid roomId, Dictionary<string, object> metadata)
     {
+        var roomName = $"Call_{roomId.ToString().Replace("-", "")}";
+
+        var roomMetadata = new Dictionary<string, string>();
+        foreach (var item in metadata)
+            roomMetadata[item.Key] = item.Value?.ToString() ?? string.Empty;
+
         try
         {
-            var roomName = $"Call_{roomId.ToString().Replace("-", "")}";
-
-            var roomMetadata = new Dictionary<string, string>();
-            foreach (var item in metadata)
-            {
-                roomMetadata[item.Key] = item.Value?.ToString() ?? string.Empty;
-            }
-
             var room = await _roomService.CreateRoom(new CreateRoomRequest
             {
                 Name = roomName,
@@ -68,6 +66,17 @@ public class LiveKitRealtimeService : IRealtimeService
         }
         catch (Exception ex)
         {
+            var message = ex.Message.ToLowerInvariant();
+            if (message.Contains("already") && message.Contains("exist"))
+            {
+                _logger.LogInformation("LiveKit room already exists for roomId: {RoomId}, reusing {RoomName}", roomId, roomName);
+                return new RealtimeSessionConfig
+                {
+                    SessionId = roomName,
+                    Parameters = new Dictionary<string, object>()
+                };
+            }
+
             _logger.LogError(ex, "Failed to create LiveKit room for roomId: {RoomId}", roomId);
             throw;
         }
