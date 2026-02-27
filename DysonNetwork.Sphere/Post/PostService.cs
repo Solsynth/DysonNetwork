@@ -660,6 +660,7 @@ public partial class PostService(
             throw new InvalidOperationException("Cannot edit a post to barely no content.");
 
         post.EditedAt = Instant.FromDateTimeUtc(DateTime.UtcNow);
+        var now = SystemClock.Instance.GetCurrentInstant();
 
         if (draftedAt is not null && publishedAt is not null)
             throw new InvalidOperationException("Cannot set both draftedAt and publishedAt.");
@@ -669,8 +670,14 @@ public partial class PostService(
             // User cannot set the published at to the past to prevent scam,
             // But we can just let the controller set the published at, because when no changes to
             // the published at will blocked the update operation
-            if (publishedAt.Value.ToDateTimeUtc() < DateTime.UtcNow)
-                throw new InvalidOperationException("Cannot set the published at to the past.");
+            if (publishedAt.Value < now)
+            {
+                if (post.DraftedAt is not null)
+                    publishedAt = now;
+                else
+                    throw new InvalidOperationException("Cannot set the published at to the past.");
+            }
+
             post.PublishedAt = publishedAt;
             post.DraftedAt = null;
         }
@@ -681,7 +688,6 @@ public partial class PostService(
             post.PublishedAt = null;
         }
 
-        var now = SystemClock.Instance.GetCurrentInstant();
         var entity = db.Entry(post);
         var previousDraftedAt = entity.Property(e => e.DraftedAt).OriginalValue;
         var previousPublishedAt = entity.Property(e => e.PublishedAt).OriginalValue;
