@@ -225,6 +225,130 @@ public partial class ChatService(
         return message;
     }
 
+    public async Task<SnChatMessage> SendSystemMessageAsync(
+        SnChatRoom room,
+        SnChatMember sender,
+        string type,
+        string? content = null,
+        Dictionary<string, object>? meta = null
+    )
+    {
+        var systemMessage = new SnChatMessage
+        {
+            Type = type,
+            ChatRoomId = room.Id,
+            SenderId = sender.Id,
+            Content = content,
+            Meta = meta ?? new Dictionary<string, object>(),
+            Nonce = Guid.NewGuid().ToString()
+        };
+
+        db.ChatMessages.Add(systemMessage);
+        await db.SaveChangesAsync();
+
+        systemMessage.Sender = sender;
+        systemMessage.ChatRoom = room;
+
+        _ = DeliverMessageAsync(
+            systemMessage,
+            sender,
+            room,
+            notify: false
+        );
+
+        return systemMessage;
+    }
+
+    public async Task<SnChatMessage> SendMemberJoinedSystemMessageAsync(SnChatRoom room, SnChatMember member)
+    {
+        if (member.Account is null)
+            member = await crs.LoadMemberAccount(member);
+
+        var displayName = member.Nick ?? member.Account?.Nick ?? "Someone";
+        return await SendSystemMessageAsync(
+            room,
+            member,
+            "system.member.joined",
+            $"{displayName} joined the chat.",
+            new Dictionary<string, object>
+            {
+                ["event"] = "member_joined",
+                ["member_id"] = member.Id,
+                ["account_id"] = member.AccountId
+            }
+        );
+    }
+
+    public async Task<SnChatMessage> SendMemberLeftSystemMessageAsync(
+        SnChatRoom room,
+        SnChatMember member,
+        SnChatMember? operatorMember = null
+    )
+    {
+        if (member.Account is null)
+            member = await crs.LoadMemberAccount(member);
+
+        var displayName = member.Nick ?? member.Account?.Nick ?? "Someone";
+
+        string content;
+        var meta = new Dictionary<string, object>
+        {
+            ["event"] = "member_left",
+            ["member_id"] = member.Id,
+            ["account_id"] = member.AccountId
+        };
+
+        if (operatorMember is not null && operatorMember.Id != member.Id)
+        {
+            if (operatorMember.Account is null)
+                operatorMember = await crs.LoadMemberAccount(operatorMember);
+
+            var operatorName = operatorMember.Nick ?? operatorMember.Account?.Nick ?? "Moderator";
+            content = $"{displayName} was removed from the chat by {operatorName}.";
+            meta["operator_member_id"] = operatorMember.Id;
+            meta["operator_account_id"] = operatorMember.AccountId;
+            meta["reason"] = "removed";
+        }
+        else
+        {
+            content = $"{displayName} left the chat.";
+            meta["reason"] = "left";
+        }
+
+        return await SendSystemMessageAsync(
+            room,
+            member,
+            "system.member.left",
+            content,
+            meta
+        );
+    }
+
+    public async Task<SnChatMessage> SendChatInfoUpdatedSystemMessageAsync(
+        SnChatRoom room,
+        SnChatMember operatorMember,
+        Dictionary<string, object> changes
+    )
+    {
+        if (operatorMember.Account is null)
+            operatorMember = await crs.LoadMemberAccount(operatorMember);
+
+        var operatorName = operatorMember.Nick ?? operatorMember.Account?.Nick ?? "Someone";
+        var changedKeys = string.Join(", ", changes.Keys.OrderBy(k => k));
+
+        return await SendSystemMessageAsync(
+            room,
+            operatorMember,
+            "system.chat.updated",
+            $"{operatorName} updated chat info ({changedKeys}).",
+            new Dictionary<string, object>
+            {
+                ["event"] = "chat_info_updated",
+                ["changes"] = changes
+            }
+        );
+    }
+
     private async Task DeliverMessageAsync(
         SnChatMessage message,
         SnChatMember sender,

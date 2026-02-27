@@ -20,6 +20,7 @@ namespace DysonNetwork.Messager.Chat;
 public class ChatRoomController(
     AppDatabase db,
     ChatRoomService crs,
+    ChatService cs,
     RemoteRealmService rs,
     DyAccountService.DyAccountServiceClient accounts,
     DyFileService.DyFileServiceClient files,
@@ -280,6 +281,14 @@ public class ChatRoomController(
         else if (chatRoom.AccountId != accountId)
             return StatusCode(403, "You need be the owner to update the chat.");
 
+        var previousName = chatRoom.Name;
+        var previousDescription = chatRoom.Description;
+        var previousIsCommunity = chatRoom.IsCommunity;
+        var previousIsPublic = chatRoom.IsPublic;
+        var previousRealmId = chatRoom.RealmId;
+        var previousPictureId = chatRoom.Picture?.Id;
+        var previousBackgroundId = chatRoom.Background?.Id;
+
         if (request.RealmId is not null)
         {
             if (!await rs.IsMemberWithRole(request.RealmId.Value, Guid.Parse(currentUser.Id),
@@ -329,6 +338,61 @@ public class ChatRoomController(
 
         db.ChatRooms.Update(chatRoom);
         await db.SaveChangesAsync();
+
+        var changes = new Dictionary<string, object>();
+        if (previousName != chatRoom.Name)
+            changes["name"] = new Dictionary<string, object?>
+            {
+                ["old"] = previousName,
+                ["new"] = chatRoom.Name
+            };
+        if (previousDescription != chatRoom.Description)
+            changes["description"] = new Dictionary<string, object?>
+            {
+                ["old"] = previousDescription,
+                ["new"] = chatRoom.Description
+            };
+        if (previousIsCommunity != chatRoom.IsCommunity)
+            changes["is_community"] = new Dictionary<string, object>
+            {
+                ["old"] = previousIsCommunity,
+                ["new"] = chatRoom.IsCommunity
+            };
+        if (previousIsPublic != chatRoom.IsPublic)
+            changes["is_public"] = new Dictionary<string, object>
+            {
+                ["old"] = previousIsPublic,
+                ["new"] = chatRoom.IsPublic
+            };
+        if (previousRealmId != chatRoom.RealmId)
+            changes["realm_id"] = new Dictionary<string, object?>
+            {
+                ["old"] = previousRealmId?.ToString(),
+                ["new"] = chatRoom.RealmId?.ToString()
+            };
+        if (previousPictureId != chatRoom.Picture?.Id)
+            changes["picture_id"] = new Dictionary<string, object?>
+            {
+                ["old"] = previousPictureId,
+                ["new"] = chatRoom.Picture?.Id
+            };
+        if (previousBackgroundId != chatRoom.Background?.Id)
+            changes["background_id"] = new Dictionary<string, object?>
+            {
+                ["old"] = previousBackgroundId,
+                ["new"] = chatRoom.Background?.Id
+            };
+
+        if (changes.Count > 0)
+        {
+            var operatorMember = await db.ChatMembers
+                .Where(m => m.ChatRoomId == chatRoom.Id && m.AccountId == accountId)
+                .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+                .FirstOrDefaultAsync();
+
+            if (operatorMember is not null)
+                await cs.SendChatInfoUpdatedSystemMessageAsync(chatRoom, operatorMember, changes);
+        }
 
         _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
@@ -677,6 +741,12 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
 
+        var memberRoom = await db.ChatRooms
+            .Where(r => r.Id == roomId)
+            .FirstOrDefaultAsync();
+        if (memberRoom is not null)
+            await cs.SendMemberJoinedSystemMessageAsync(memberRoom, member);
+
         _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
             Action = ActionLogType.ChatroomJoin,
@@ -898,9 +968,16 @@ public class ChatRoomController(
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
 
+        var operatorMember = await db.ChatMembers
+            .Where(m => m.ChatRoomId == roomId && m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null)
+            .FirstOrDefaultAsync();
+
         member.LeaveAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
+
+        if (operatorMember is not null)
+            await cs.SendMemberLeftSystemMessageAsync(chatRoom, member, operatorMember);
 
         _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
@@ -940,9 +1017,11 @@ public class ChatRoomController(
                 return BadRequest("You are already a member of this chat room.");
 
             existingMember.LeaveAt = null;
+            existingMember.JoinedAt = SystemClock.Instance.GetCurrentInstant();
             db.Update(existingMember);
             await db.SaveChangesAsync();
             _ = crs.PurgeRoomMembersCache(roomId);
+            await cs.SendMemberJoinedSystemMessageAsync(chatRoom, existingMember);
 
             return Ok(existingMember);
         }
@@ -957,6 +1036,7 @@ public class ChatRoomController(
         db.ChatMembers.Add(newMember);
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
+        await cs.SendMemberJoinedSystemMessageAsync(chatRoom, newMember);
 
         _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
@@ -993,6 +1073,7 @@ public class ChatRoomController(
         db.Update(member);
         await db.SaveChangesAsync();
         await crs.PurgeRoomMembersCache(roomId);
+        await cs.SendMemberLeftSystemMessageAsync(chat, member);
 
         _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
