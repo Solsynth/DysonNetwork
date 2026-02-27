@@ -25,7 +25,7 @@ jobs:
             - name: Determine changed services
               id: changes
               run: |
-                  services=("Sphere" "Pass" "Ring" "Drive" "Develop" Insight" "Zone" "Messager" "Wallet")
+                  services=("Sphere" "Pass" "Ring" "Drive" "Develop" "Insight" "Zone" "Messager" "Wallet")
                   images=("sphere" "pass" "ring" "drive" "develop" "insight" "zone" "messager" "wallet")
 
                   # On manual dispatch, build all services
