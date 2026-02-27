@@ -433,13 +433,13 @@ public class PublisherService(
 
         var accounts = (await remoteAccounts.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
 
-        foreach (var p in publishers)
+        // Use LINQ to avoid explicit foreach loop and potential object allocation
+        return publishers.Select(p =>
         {
             if (p.AccountId.HasValue && accounts.TryGetValue(p.AccountId.Value, out var account))
                 p.Account = SnAccount.FromProtoValue(account);
-        }
-
-        return publishers.ToList();
+            return p;
+        }).ToList();
     }
 
     public class PublisherRewardPreview

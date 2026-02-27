@@ -14,13 +14,19 @@ public class PublisherPublicController(AppDatabase db, RemoteAccountService acco
     {
         if (string.IsNullOrWhiteSpace(query))
             return Ok(new List<SnPublisher>());
+        
+        // Use PublisherService to load individual publisher accounts efficiently
         var publishers = await db.Publishers
             .Where(a => EF.Functions.ILike(a.Name, $"%{query}%") ||
                         EF.Functions.ILike(a.Nick, $"%{query}%") ||
                         (a.Bio != null && EF.Functions.ILike(a.Bio, $"%{query}%")))
             .Take(take)
             .ToListAsync();
-        return Ok(publishers);
+        
+        // Load individual publisher accounts in batch to avoid N+1 queries
+        var publishersWithAccounts = await ps.LoadIndividualPublisherAccounts(publishers);
+        
+        return Ok(publishersWithAccounts);
     }
 
     [HttpGet("{name}")]
