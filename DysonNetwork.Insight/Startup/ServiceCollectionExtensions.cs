@@ -123,9 +123,6 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<MemoryService>();
             services.AddSingleton<InteractiveHistoryService>();
             services.AddSingleton<PostAnalysisService>();
-            
-            // MiChanAutonomousBehavior needs gRPC client - inject via scope factory to avoid disposed IServiceProvider
-            services.AddSingleton<IServiceScopeFactory>();
             services.AddSingleton<MiChanAutonomousBehavior>();
             
             // Only start the hosted service when enabled
