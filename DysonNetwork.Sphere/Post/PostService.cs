@@ -1836,6 +1836,9 @@ public static class PostQueryExtensions
         var now = SystemClock.Instance.GetCurrentInstant();
         var publishersId = publishers.Select(e => e.Id).ToList();
 
+        if (isListing)
+            source = source.Where(e => e.DraftedAt == null);
+
         source = isListing switch
         {
             true when currentUser is not null => source.Where(e =>
