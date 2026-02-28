@@ -91,6 +91,7 @@ public class FileController(
             return true;
 
         var permissions = await db.FilePermissions
+            .AsNoTracking()
             .Where(p => p.FileId == file.Id)
             .ToListAsync();
 
@@ -124,6 +125,7 @@ public class FileController(
             return true;
 
         var permissions = await db.FilePermissions
+            .AsNoTracking()
             .Where(p => p.FileId == file.Id)
             .ToListAsync();
 
@@ -143,15 +145,15 @@ public class FileController(
         return false;
     }
 
-    private Task<ActionResult> ServeLocalFile(SnCloudFile file)
+    private async Task<ActionResult> ServeLocalFile(SnCloudFile file)
     {
         var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
-        var hasWritePermission = Task.Run(() => HasWritePermissionAsync(file, currentUser)).GetAwaiter().GetResult();
+        var hasWritePermission = await HasWritePermissionAsync(file, currentUser);
         var accessToken = GenerateLocalSignedToken(file.Id, currentUser?.Id, hasWritePermission);
 
         var gatewayUrl = configuration["GatewayUrl"];
         var accessUrl = $"{gatewayUrl}/drive/files/{file.Id}/access?token={accessToken}";
-        return Task.FromResult<ActionResult>(Redirect(accessUrl));
+        return Redirect(accessUrl);
     }
 
     [HttpGet("{id}/access")]
@@ -406,6 +408,7 @@ public class FileController(
         if (accessResult is not null) return accessResult;
 
         var references = await db.Files
+            .AsNoTracking()
             .Where(f => f.ObjectId == file.ObjectId && f.Id != file.Id)
             .ToListAsync();
         return Ok(references);
@@ -468,6 +471,7 @@ public class FileController(
         var accountId = Guid.Parse(currentUser.Id);
 
         var filesQuery = db.Files
+            .AsNoTracking()
             .Where(e => e.IsMarkedRecycle == recycled)
             .Where(e => e.AccountId == accountId)
             .Include(e => e.Object)

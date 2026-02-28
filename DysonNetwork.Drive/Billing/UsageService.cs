@@ -32,10 +32,11 @@ public class UsageService(AppDatabase db)
         var now = SystemClock.Instance.GetCurrentInstant();
         
         var replicaData = await db.FileReplicas
+            .AsNoTracking()
             .Where(r => r.Status == SnFileReplicaStatus.Available)
             .Where(r => r.PoolId.HasValue)
             .Join(
-                db.Files.Where(f => f.AccountId == accountId)
+                db.Files.AsNoTracking().Where(f => f.AccountId == accountId)
                     .Where(f => !f.IsMarkedRecycle)
                     .Where(f => !f.ExpiredAt.HasValue || f.ExpiredAt > now),
                 r => r.ObjectId,
@@ -43,7 +44,7 @@ public class UsageService(AppDatabase db)
                 (r, f) => new { r.PoolId, r.ObjectId }
             )
             .Join(
-                db.FileObjects,
+                db.FileObjects.AsNoTracking(),
                 x => x.ObjectId,
                 o => o.Id,
                 (x, o) => new { x.PoolId, o.Size }
@@ -85,7 +86,9 @@ public class UsageService(AppDatabase db)
 
     public async Task<UsageDetails?> GetPoolUsage(Guid poolId, Guid accountId)
     {
-        var pool = await db.Pools.FindAsync(poolId);
+        var pool = await db.Pools
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == poolId);
         if (pool == null)
         {
             return null;
@@ -94,10 +97,11 @@ public class UsageService(AppDatabase db)
         var now = SystemClock.Instance.GetCurrentInstant();
         
         var replicaData = await db.FileReplicas
+            .AsNoTracking()
             .Where(r => r.PoolId == poolId)
             .Where(r => r.Status == SnFileReplicaStatus.Available)
             .Join(
-                db.Files.Where(f => f.AccountId == accountId)
+                db.Files.AsNoTracking().Where(f => f.AccountId == accountId)
                     .Where(f => !f.IsMarkedRecycle)
                     .Where(f => !f.ExpiredAt.HasValue || f.ExpiredAt > now),
                 r => r.ObjectId,
@@ -111,6 +115,7 @@ public class UsageService(AppDatabase db)
         
         var objectIds = replicaData.Distinct().ToList();
         var usageBytes = await db.FileObjects
+            .AsNoTracking()
             .Where(o => objectIds.Contains(o.Id))
             .SumAsync(o => o.Size);
 
@@ -131,15 +136,15 @@ public class UsageService(AppDatabase db)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         
-        var billingData = await (from f in db.Files
+        var billingData = await (from f in db.Files.AsNoTracking()
             where f.AccountId == accountId
             where !f.IsMarkedRecycle
             where !f.ExpiredAt.HasValue || f.ExpiredAt > now
             from r in f.Object!.FileReplicas
             where r.Status == SnFileReplicaStatus.Available
             where r.PoolId.HasValue
-            join p in db.Pools on r.PoolId equals p.Id
-            join o in db.FileObjects on r.ObjectId equals o.Id
+            join p in db.Pools.AsNoTracking() on r.PoolId equals p.Id
+            join o in db.FileObjects.AsNoTracking() on r.ObjectId equals o.Id
             select new
             {
                 Size = o.Size,

@@ -38,6 +38,7 @@ public class FileService(
             return cachedFile;
 
         var file = await db.Files
+            .AsNoTracking()
             .Where(f => f.Id == fileId)
             .Include(f => f.Bundle)
             .Include(f => f.Object)
@@ -52,13 +53,21 @@ public class FileService(
 
     public async Task<List<SnCloudFile>> GetFilesAsync(List<string> fileIds)
     {
-        var cachedFiles = new Dictionary<string, SnCloudFile>();
+        var cachedFiles = new Dictionary<string, SnCloudFile>(StringComparer.Ordinal);
         var uncachedIds = new List<string>();
+        var uniqueFileIds = fileIds.Distinct(StringComparer.Ordinal).ToList();
 
-        foreach (var fileId in fileIds)
+        var cacheTasks = uniqueFileIds.ToDictionary(
+            fileId => fileId,
+            fileId => cache.GetAsync<SnCloudFile>(string.Concat(CacheKeyPrefix, fileId)),
+            StringComparer.Ordinal
+        );
+
+        await Task.WhenAll(cacheTasks.Values);
+
+        foreach (var (fileId, cachedTask) in cacheTasks)
         {
-            var cacheKey = string.Concat(CacheKeyPrefix, fileId);
-            var cachedFile = await cache.GetAsync<SnCloudFile>(cacheKey);
+            var cachedFile = cachedTask.Result;
 
             if (cachedFile != null)
                 cachedFiles[fileId] = cachedFile;
@@ -69,18 +78,22 @@ public class FileService(
         if (uncachedIds.Count > 0)
         {
             var dbFiles = await db.Files
+                .AsNoTracking()
                 .Where(f => uncachedIds.Contains(f.Id))
                 .Include(f => f.Bundle)
                 .Include(f => f.Object)
                 .ThenInclude(o => o.FileReplicas)
                 .ToListAsync();
 
+            var cacheSetTasks = new List<Task>(dbFiles.Count);
             foreach (var file in dbFiles)
             {
                 var cacheKey = string.Concat(CacheKeyPrefix, file.Id);
-                await cache.SetAsync(cacheKey, file, CacheDuration);
+                cacheSetTasks.Add(cache.SetAsync(cacheKey, file, CacheDuration));
                 cachedFiles[file.Id] = file;
             }
+
+            await Task.WhenAll(cacheSetTasks);
         }
 
         return fileIds
@@ -682,7 +695,9 @@ public class FileService(
         var cachedResult = await cache.GetAsync<FilePool?>(cacheKey);
         if (cachedResult != null) return cachedResult;
 
-        var pool = await db.Pools.FirstOrDefaultAsync(p => p.Id == destination);
+        var pool = await db.Pools
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == destination);
         if (pool != null)
             await cache.SetAsync(cacheKey, pool);
 

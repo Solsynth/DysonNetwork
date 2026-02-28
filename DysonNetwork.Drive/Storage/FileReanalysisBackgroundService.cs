@@ -6,12 +6,11 @@ public class FileReanalysisBackgroundService(IServiceProvider srv, ILogger<FileR
     {
         logger.LogInformation("File reanalysis background service started");
 
-        using var scope = srv.CreateScope();
-
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                using var scope = srv.CreateScope();
                 var reanalysisService = scope.ServiceProvider.GetRequiredService<FileReanalysisService>();
                 await reanalysisService.ProcessNextFileAsync();
             }
