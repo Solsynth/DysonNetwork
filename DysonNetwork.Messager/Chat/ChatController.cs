@@ -442,10 +442,12 @@ public partial class ChatController(
             return BadRequest(ex.Message);
         }
 
+        var voiceUrl = voice.GetPublicUrl(clip) ?? $"/api/chat/{roomId}/voice/{clip.Id}";
+
         var messageMeta = new Dictionary<string, object>
         {
             ["voice_clip_id"] = clip.Id,
-            ["voice_url"] = $"/api/chat/{roomId}/voice/{clip.Id}",
+            ["voice_url"] = voiceUrl,
             ["mime_type"] = clip.MimeType,
             ["size"] = clip.Size
         };

@@ -67,7 +67,7 @@ Returns created `SnChatMessage` with:
 
 - `type: "voice"`
 - `meta.voice_clip_id` (guid)
-- `meta.voice_url` (relative path to stream endpoint)
+- `meta.voice_url` (public absolute URL when `VoiceMessages:S3:PublicBaseUrl` is configured; otherwise relative API stream path)
 - `meta.mime_type` (audio mime)
 - `meta.size` (bytes)
 - optional `meta.duration_ms`
@@ -91,6 +91,8 @@ Use `meta.voice_url` from message:
 ```
 
 For private rooms, include auth header in the request used by your media player/downloader.
+
+If server config sets `VoiceMessages:S3:PublicBaseUrl`, `voice_url` can be a direct CDN/custom-domain URL instead of `/api/chat/...`.
 
 ## Message Example
 

@@ -9,6 +9,7 @@ namespace DysonNetwork.Messager.Chat.Voice;
 public class ChatVoiceS3Configuration
 {
     public string? ServiceUrl { get; set; }
+    public string? PublicBaseUrl { get; set; }
     public string Region { get; set; } = "us-east-1";
     public string AccessKey { get; set; } = string.Empty;
     public string SecretKey { get; set; } = string.Empty;
@@ -95,6 +96,13 @@ public class ChatVoiceService(
         return $"{prefix}/{roomId}/{clipId}{extension}";
     }
 
+    private static string BuildProxyUrl(string baseUrl, string key)
+    {
+        var baseUri = new Uri(baseUrl.EndsWith('/') ? baseUrl : $"{baseUrl}/");
+        var fullUri = new Uri(baseUri, key);
+        return fullUri.ToString();
+    }
+
     public int RetentionDays => Math.Max(1, _config.RetentionDays);
     public string CleanupCron => string.IsNullOrWhiteSpace(_config.CleanupCron) ? "0 15 * * * ?" : _config.CleanupCron;
 
@@ -162,6 +170,14 @@ public class ChatVoiceService(
         return await db.ChatVoiceClips
             .Where(v => v.Id == voiceId && v.ChatRoomId == roomId)
             .FirstOrDefaultAsync();
+    }
+
+    public string? GetPublicUrl(SnChatVoiceClip clip)
+    {
+        if (string.IsNullOrWhiteSpace(_config.S3.PublicBaseUrl))
+            return null;
+
+        return BuildProxyUrl(_config.S3.PublicBaseUrl, clip.StoragePath);
     }
 
     public async Task<VoiceClipReadResult?> OpenVoiceClipAsync(SnChatVoiceClip clip)
