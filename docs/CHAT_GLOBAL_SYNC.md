@@ -80,5 +80,4 @@ Example:
 - The sync includes all chat rooms where the user is a member (where `joined_at` is not null and `leave_at` is null)
 - Each message in the response already contains its `chat_room_id`, allowing the client to organize messages by room
 - The limit per room is 500 messages; if a room has more than 500 new messages, only the most recent 500 will be returned
-- For E2EE rooms (`encryption_mode != 0`), clients must send `X-Dyson-Client-Capabilities: chat-e2ee-v1`
 - E2EE messages are returned with encrypted payload fields (`is_encrypted`, `ciphertext`, `encryption_*`) and should be decrypted client-side

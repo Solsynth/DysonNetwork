@@ -29,7 +29,7 @@ public partial class ChatController(
     DyPollService.DyPollServiceClient pollClient
 ) : ControllerBase
 {
-    private const string E2eeCapabilityHeader = "X-Dyson-Client-Capabilities";
+    private const string E2eeCapabilityHeader = "X-Client-Ability";
     private const string E2eeCapabilityToken = "chat-e2ee-v1";
 
     private bool HasE2eeCapability()
@@ -86,25 +86,14 @@ public partial class ChatController(
         var unreadMessages = await cs.CountUnreadMessageForUser(accountId);
         var lastMessages = await cs.ListLastMessageForUser(accountId);
         var roomIds = unreadMessages.Keys.Union(lastMessages.Keys).ToList();
-        var roomModes = await db.ChatRooms
-            .Where(r => roomIds.Contains(r.Id))
-            .Select(r => new { r.Id, r.EncryptionMode })
-            .ToDictionaryAsync(r => r.Id, r => r.EncryptionMode);
-        var hasCapability = HasE2eeCapability();
 
         var result = roomIds
             .ToDictionary(
                 roomId => roomId,
                 roomId => new ChatSummaryResponse
                 {
-                    UnreadCount = !hasCapability &&
-                                 roomModes.GetValueOrDefault(roomId) != ChatRoomEncryptionMode.None
-                        ? 0
-                        : unreadMessages.GetValueOrDefault(roomId),
-                    LastMessage = !hasCapability &&
-                                 roomModes.GetValueOrDefault(roomId) != ChatRoomEncryptionMode.None
-                        ? null
-                        : lastMessages.GetValueOrDefault(roomId)
+                    UnreadCount = unreadMessages.GetValueOrDefault(roomId),
+                    LastMessage = lastMessages.GetValueOrDefault(roomId)
                 }
             );
 
@@ -174,8 +163,6 @@ public partial class ChatController(
 
         var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
         if (room is null) return NotFound();
-        var e2eeCapabilityError = EnsureE2eeCapabilityForRoom(room);
-        if (e2eeCapabilityError is not null) return e2eeCapabilityError;
 
         if (room.EncryptionMode != ChatRoomEncryptionMode.None)
         {
@@ -232,8 +219,6 @@ public partial class ChatController(
 
         var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
         if (room is null) return NotFound();
-        var e2eeCapabilityError = EnsureE2eeCapabilityForRoom(room);
-        if (e2eeCapabilityError is not null) return e2eeCapabilityError;
 
         if (room.EncryptionMode != ChatRoomEncryptionMode.None)
         {
@@ -356,16 +341,6 @@ public partial class ChatController(
             return StatusCode(403, "You need to be a member to send messages here.");
         if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
             return StatusCode(403, "You has been timed out in this chat.");
-        if (member.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None)
-        {
-            var capabilityError = EnsureE2eeCapabilityForRoom(member.ChatRoom);
-            if (capabilityError is not null) return capabilityError;
-            return Conflict(new
-            {
-                code = "chat.e2ee_voice_not_supported_v1",
-                error = "Voice endpoint is not supported for E2EE rooms in v1."
-            });
-        }
         var e2eeMode = member.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None;
         if (e2eeMode)
         {
@@ -539,6 +514,12 @@ public partial class ChatController(
             return StatusCode(403, "You need to be a member to send messages here.");
         if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
             return StatusCode(403, "You has been timed out in this chat.");
+        if (member.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None)
+            return Conflict(new
+            {
+                code = "chat.e2ee_voice_not_supported_v1",
+                error = "Voice endpoint is not supported for E2EE rooms in v1."
+            });
 
         if (request.RepliedMessageId.HasValue)
         {
@@ -976,8 +957,6 @@ public partial class ChatController(
 
         var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
         if (room is null) return NotFound();
-        var capabilityError = EnsureE2eeCapabilityForRoom(room);
-        if (capabilityError is not null) return capabilityError;
 
         var accountId = Guid.Parse(currentUser.Id);
         var isMember = await db.ChatMembers
@@ -1005,15 +984,6 @@ public partial class ChatController(
             .Where(m => m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null)
             .Select(m => m.ChatRoomId)
             .ToListAsync();
-        if (memberRoomIds.Count > 0 && !HasE2eeCapability())
-        {
-            var hasE2eeRoom = await db.ChatRooms
-                .Where(r => memberRoomIds.Contains(r.Id))
-                .AnyAsync(r => r.EncryptionMode != ChatRoomEncryptionMode.None);
-            if (hasE2eeRoom)
-                return E2eeError("chat.e2ee_required", "E2EE-capable client is required to sync encrypted rooms.");
-        }
-
         var messages = await db.ChatMessages
             .Where(m => memberRoomIds.Contains(m.ChatRoomId) && m.CreatedAt > lastSyncInstant)
             .OrderBy(m => m.CreatedAt)

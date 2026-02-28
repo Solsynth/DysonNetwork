@@ -24,9 +24,9 @@ Validation:
 
 ## Capability Requirement
 
-For E2EE rooms, client must include:
+For E2EE room message-write endpoints (`send`, `update`, `delete`), client must include:
 
-`X-Dyson-Client-Capabilities: chat-e2ee-v1`
+`X-Client-Ability: chat-e2ee-v1`
 
 If missing, endpoints return:
 
@@ -67,7 +67,7 @@ If missing, endpoints return:
 
 ### Read / Sync in E2EE rooms
 
-- Requires E2EE capability header.
+- No capability header is required.
 - Returns encrypted message fields unchanged.
 
 ## Notifications and Link Previews
