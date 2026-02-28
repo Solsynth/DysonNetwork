@@ -103,8 +103,10 @@ public class ChatVoiceService(
 
     private string BuildObjectKey(Guid roomId, Guid clipId, string extension)
     {
-        var prefix = _config.KeyPrefix.Trim('/');
-        return $"{prefix}/{roomId}/{clipId}{extension}";
+        var prefix = (_config.KeyPrefix ?? string.Empty).Trim('/');
+        return string.IsNullOrWhiteSpace(prefix)
+            ? $"{roomId}/{clipId}{extension}"
+            : $"{prefix}/{roomId}/{clipId}{extension}";
     }
 
     private static string BuildProxyUrl(string baseUrl, string key)
