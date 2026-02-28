@@ -14,6 +14,7 @@ using DysonNetwork.Pass.Affiliation;
 using DysonNetwork.Pass.Auth.OidcProvider.Options;
 using DysonNetwork.Pass.Auth.OidcProvider.Services;
 using DysonNetwork.Pass.Credit;
+using DysonNetwork.Pass.E2EE;
 using DysonNetwork.Pass.Handlers;
 using DysonNetwork.Pass.Leveling;
 using DysonNetwork.Pass.Mailer;
@@ -182,6 +183,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PassRewindService>();
         services.AddScoped<AccountRewindService>();
         services.AddScoped<TicketService>();
+        services.AddScoped<E2eeService>();
+        services.AddScoped<IE2eeModule>(sp => sp.GetRequiredService<E2eeService>());
+        services.AddScoped<IGroupE2eeModule>(sp => sp.GetRequiredService<E2eeService>());
 
         services.AddEventBus()
             .AddListener<WebSocketConnectedEvent>(async (evt, ctx) =>

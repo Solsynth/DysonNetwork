@@ -7,6 +7,7 @@ using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -16,9 +17,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Pass.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20260228130901_AddE2eeCoreModule")]
+    partial class AddE2eeCoreModule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1235,13 +1238,13 @@ namespace DysonNetwork.Pass.Migrations
                     b.HasIndex("SessionId")
                         .HasDatabaseName("ix_e2ee_envelopes_session_id");
 
+                    b.HasIndex("RecipientId", "ClientMessageId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_e2ee_envelopes_recipient_id_client_message_id")
+                        .HasFilter("client_message_id IS NOT NULL");
+
                     b.HasIndex("RecipientId", "DeliveryStatus", "Sequence")
                         .HasDatabaseName("ix_e2ee_envelopes_recipient_id_delivery_status_sequence");
-
-                    b.HasIndex("RecipientId", "SenderId", "ClientMessageId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_e2ee_envelopes_recipient_id_sender_id_client_message_id")
-                        .HasFilter("client_message_id IS NOT NULL");
 
                     b.ToTable("e2ee_envelopes", (string)null);
                 });

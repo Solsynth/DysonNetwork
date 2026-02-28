@@ -68,6 +68,10 @@ public class AppDatabase(
 
     public DbSet<SnTicket> Tickets { get; set; } = null!;
     public DbSet<SnTicketMessage> TicketMessages { get; set; } = null!;
+    public DbSet<SnE2eeKeyBundle> E2eeKeyBundles { get; set; } = null!;
+    public DbSet<SnE2eeOneTimePreKey> E2eeOneTimePreKeys { get; set; } = null!;
+    public DbSet<SnE2eeSession> E2eeSessions { get; set; } = null!;
+    public DbSet<SnE2eeEnvelope> E2eeEnvelopes { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -150,6 +154,39 @@ public class AppDatabase(
             .WithMany(p => p.Members)
             .HasForeignKey(pm => pm.RealmId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnE2eeKeyBundle>()
+            .HasIndex(k => k.AccountId)
+            .IsUnique();
+        modelBuilder.Entity<SnE2eeKeyBundle>()
+            .HasOne(k => k.Account)
+            .WithMany()
+            .HasForeignKey(k => k.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnE2eeOneTimePreKey>()
+            .HasOne(k => k.KeyBundle)
+            .WithMany(b => b.OneTimePreKeys)
+            .HasForeignKey(k => k.KeyBundleId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnE2eeOneTimePreKey>()
+            .HasIndex(k => new { k.KeyBundleId, k.KeyId })
+            .IsUnique();
+        modelBuilder.Entity<SnE2eeOneTimePreKey>()
+            .HasIndex(k => new { k.KeyBundleId, k.IsClaimed });
+
+        modelBuilder.Entity<SnE2eeSession>()
+            .HasIndex(s => new { s.AccountAId, s.AccountBId })
+            .IsUnique();
+
+        modelBuilder.Entity<SnE2eeEnvelope>()
+            .HasIndex(e => new { e.RecipientId, e.DeliveryStatus, e.Sequence });
+        modelBuilder.Entity<SnE2eeEnvelope>()
+            .HasIndex(e => new { e.RecipientId, e.SenderId, e.ClientMessageId })
+            .IsUnique()
+            .HasFilter("client_message_id IS NOT NULL");
+        modelBuilder.Entity<SnE2eeEnvelope>()
+            .HasIndex(e => e.SessionId);
 
         modelBuilder.ApplySoftDeleteFilters();
     }
@@ -234,4 +271,3 @@ public class AppDatabaseFactory : IDesignTimeDbContextFactory<AppDatabase>
         return new AppDatabase(optionsBuilder.Options, configuration);
     }
 }
-
