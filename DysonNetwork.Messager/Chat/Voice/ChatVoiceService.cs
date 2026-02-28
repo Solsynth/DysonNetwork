@@ -15,6 +15,9 @@ public class ChatVoiceS3Configuration
     public string SecretKey { get; set; } = string.Empty;
     public string Bucket { get; set; } = string.Empty;
     public bool ForcePathStyle { get; set; } = true;
+    public bool UseChunkEncoding { get; set; } = false;
+    public bool DisablePayloadSigning { get; set; } = true;
+    public bool DisableDefaultChecksumValidation { get; set; } = true;
 }
 
 public class ChatVoiceConfiguration
@@ -136,7 +139,10 @@ public class ChatVoiceService(
                 Key = objectKey,
                 InputStream = input,
                 AutoCloseStream = false,
-                ContentType = file.ContentType
+                ContentType = file.ContentType,
+                UseChunkEncoding = _config.S3.UseChunkEncoding,
+                DisablePayloadSigning = _config.S3.DisablePayloadSigning,
+                DisableDefaultChecksumValidation = _config.S3.DisableDefaultChecksumValidation
             });
         }
 
