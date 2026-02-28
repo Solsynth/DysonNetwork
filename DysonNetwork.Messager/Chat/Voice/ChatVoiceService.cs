@@ -1,7 +1,7 @@
-using Amazon.Runtime;
-using Amazon.S3;
-using Amazon.S3.Model;
 using DysonNetwork.Shared.Models;
+using Minio;
+using Minio.DataModel.Args;
+using Minio.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Messager.Chat.Voice;
@@ -9,15 +9,14 @@ namespace DysonNetwork.Messager.Chat.Voice;
 public class ChatVoiceS3Configuration
 {
     public string? ServiceUrl { get; set; }
+    public string? Endpoint { get; set; }
     public string? PublicBaseUrl { get; set; }
     public string Region { get; set; } = "us-east-1";
     public string AccessKey { get; set; } = string.Empty;
     public string SecretKey { get; set; } = string.Empty;
     public string Bucket { get; set; } = string.Empty;
     public bool ForcePathStyle { get; set; } = true;
-    public bool UseChunkEncoding { get; set; } = false;
-    public bool DisablePayloadSigning { get; set; } = true;
-    public bool DisableDefaultChecksumValidation { get; set; } = true;
+    public bool EnableSsl { get; set; } = true;
 }
 
 public class ChatVoiceConfiguration
@@ -56,7 +55,7 @@ public class ChatVoiceService(
     private readonly ChatVoiceConfiguration _config =
         configuration.GetSection("VoiceMessages").Get<ChatVoiceConfiguration>() ?? new ChatVoiceConfiguration();
 
-    private readonly Lazy<IAmazonS3> _s3 = new(() =>
+    private readonly Lazy<IMinioClient> _s3 = new(() =>
     {
         var s3Config = configuration.GetSection("VoiceMessages").Get<ChatVoiceConfiguration>()?.S3 ?? new ChatVoiceS3Configuration();
 
@@ -65,18 +64,27 @@ public class ChatVoiceService(
         if (string.IsNullOrWhiteSpace(s3Config.AccessKey) || string.IsNullOrWhiteSpace(s3Config.SecretKey))
             throw new InvalidOperationException("VoiceMessages:S3 credentials are required.");
 
-        var clientConfig = new AmazonS3Config
+        var endpoint = s3Config.Endpoint;
+        var useSsl = s3Config.EnableSsl;
+        if (string.IsNullOrWhiteSpace(endpoint))
         {
-            ForcePathStyle = s3Config.ForcePathStyle
-        };
+            if (string.IsNullOrWhiteSpace(s3Config.ServiceUrl))
+                throw new InvalidOperationException("VoiceMessages:S3:Endpoint or ServiceUrl is required.");
 
-        if (!string.IsNullOrWhiteSpace(s3Config.ServiceUrl))
-            clientConfig.ServiceURL = s3Config.ServiceUrl;
-        else
-            clientConfig.RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(s3Config.Region);
+            var uri = new Uri(s3Config.ServiceUrl);
+            endpoint = uri.Authority;
+            useSsl = uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase);
+        }
 
-        var credentials = new BasicAWSCredentials(s3Config.AccessKey, s3Config.SecretKey);
-        return new AmazonS3Client(credentials, clientConfig);
+        var client = new MinioClient()
+            .WithEndpoint(endpoint)
+            .WithRegion(s3Config.Region)
+            .WithCredentials(s3Config.AccessKey, s3Config.SecretKey);
+
+        if (useSsl)
+            client = client.WithSSL();
+
+        return client.Build();
     });
 
     private string GetBucket() => _config.S3.Bucket;
@@ -133,17 +141,13 @@ public class ChatVoiceService(
 
         await using (var input = file.OpenReadStream())
         {
-            await _s3.Value.PutObjectAsync(new PutObjectRequest
-            {
-                BucketName = GetBucket(),
-                Key = objectKey,
-                InputStream = input,
-                AutoCloseStream = false,
-                ContentType = file.ContentType,
-                UseChunkEncoding = _config.S3.UseChunkEncoding,
-                DisablePayloadSigning = _config.S3.DisablePayloadSigning,
-                DisableDefaultChecksumValidation = _config.S3.DisableDefaultChecksumValidation
-            });
+            await _s3.Value.PutObjectAsync(new PutObjectArgs()
+                .WithBucket(GetBucket())
+                .WithObject(objectKey)
+                .WithStreamData(input)
+                .WithObjectSize(input.Length)
+                .WithContentType(file.ContentType)
+            );
         }
 
         var clip = new SnChatVoiceClip
@@ -190,19 +194,22 @@ public class ChatVoiceService(
     {
         try
         {
-            var response = await _s3.Value.GetObjectAsync(new GetObjectRequest
-            {
-                BucketName = GetBucket(),
-                Key = clip.StoragePath
-            });
+            var memoryStream = new MemoryStream();
+            await _s3.Value.GetObjectAsync(new GetObjectArgs()
+                .WithBucket(GetBucket())
+                .WithObject(clip.StoragePath)
+                .WithCallbackStream(stream => stream.CopyTo(memoryStream))
+            );
+
+            memoryStream.Position = 0;
 
             return new VoiceClipReadResult
             {
-                Stream = response.ResponseStream,
-                ContentLength = response.Headers.ContentLength
+                Stream = memoryStream,
+                ContentLength = clip.Size > 0 ? clip.Size : null
             };
         }
-        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound || ex.ErrorCode == "NoSuchKey")
+        catch (ObjectNotFoundException)
         {
             logger.LogWarning("Voice object missing in storage. clipId={ClipId}, key={Key}", clip.Id, clip.StoragePath);
             return null;
@@ -213,13 +220,12 @@ public class ChatVoiceService(
     {
         try
         {
-            await _s3.Value.DeleteObjectAsync(new DeleteObjectRequest
-            {
-                BucketName = GetBucket(),
-                Key = key
-            });
+            await _s3.Value.RemoveObjectAsync(new RemoveObjectArgs()
+                .WithBucket(GetBucket())
+                .WithObject(key)
+            );
         }
-        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound || ex.ErrorCode == "NoSuchKey")
+        catch (ObjectNotFoundException)
         {
             // Already gone, ignore.
         }
