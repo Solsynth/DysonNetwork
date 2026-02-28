@@ -6,6 +6,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Messager.Poll;
 using DysonNetwork.Messager.Wallet;
+using DysonNetwork.Messager.Chat.Voice;
 using DysonNetwork.Shared.Models.Embed;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
@@ -21,6 +22,7 @@ public partial class ChatController(
     AppDatabase db,
     ChatService cs,
     ChatRoomService crs,
+    ChatVoiceService voice,
     DyFileService.DyFileServiceClient files,
     DyAccountService.DyAccountServiceClient accounts,
     DyPaymentService.DyPaymentServiceClient paymentClient,
@@ -89,6 +91,15 @@ public partial class ChatController(
         public Guid? PollId { get; set; }
         public List<string>? AttachmentsId { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
+        public Guid? RepliedMessageId { get; set; }
+        public Guid? ForwardedMessageId { get; set; }
+    }
+
+    public class SendVoiceMessageRequest
+    {
+        [Required] public IFormFile File { get; set; } = null!;
+        [MaxLength(36)] public string? Nonce { get; set; }
+        public int? DurationMs { get; set; }
         public Guid? RepliedMessageId { get; set; }
         public Guid? ForwardedMessageId { get; set; }
     }
@@ -388,6 +399,114 @@ public partial class ChatController(
         var result = await cs.SendMessageAsync(message, member, member.ChatRoom);
 
         return Ok(result);
+    }
+
+    [HttpPost("{roomId:guid}/messages/voice")]
+    [Authorize]
+    [AskPermission("chat.messages.create")]
+    public async Task<ActionResult<SnChatMessage>> SendVoiceMessage([FromForm] SendVoiceMessageRequest request, Guid roomId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var member = await crs.GetRoomMember(accountId, roomId);
+        if (member == null)
+            return StatusCode(403, "You need to be a member to send messages here.");
+        if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
+            return StatusCode(403, "You has been timed out in this chat.");
+
+        if (request.RepliedMessageId.HasValue)
+        {
+            var repliedMessage = await db.ChatMessages
+                .FirstOrDefaultAsync(m => m.Id == request.RepliedMessageId.Value && m.ChatRoomId == roomId);
+            if (repliedMessage == null)
+                return BadRequest("The message you're replying to does not exist.");
+        }
+
+        if (request.ForwardedMessageId.HasValue)
+        {
+            var forwardedMessage = await db.ChatMessages
+                .FirstOrDefaultAsync(m => m.Id == request.ForwardedMessageId.Value);
+            if (forwardedMessage == null)
+                return BadRequest("The message you're forwarding does not exist.");
+        }
+
+        SnChatVoiceClip clip;
+        try
+        {
+            clip = await voice.SaveVoiceClipAsync(roomId, member, request.File, request.DurationMs);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+
+        var messageMeta = new Dictionary<string, object>
+        {
+            ["voice_clip_id"] = clip.Id,
+            ["voice_url"] = $"/api/chat/{roomId}/voice/{clip.Id}",
+            ["mime_type"] = clip.MimeType,
+            ["size"] = clip.Size
+        };
+        if (clip.DurationMs.HasValue)
+            messageMeta["duration_ms"] = clip.DurationMs.Value;
+        if (!string.IsNullOrWhiteSpace(clip.OriginalFileName))
+            messageMeta["file_name"] = clip.OriginalFileName;
+
+        var message = new SnChatMessage
+        {
+            Type = "voice",
+            SenderId = member.Id,
+            ChatRoomId = roomId,
+            Nonce = request.Nonce ?? Guid.NewGuid().ToString(),
+            Meta = messageMeta,
+            RepliedMessageId = request.RepliedMessageId,
+            ForwardedMessageId = request.ForwardedMessageId
+        };
+
+        message.MembersMentioned = await ExtractMentionedUsersAsync(
+            null,
+            request.RepliedMessageId,
+            request.ForwardedMessageId,
+            roomId
+        );
+
+        var result = await cs.SendMessageAsync(message, member, member.ChatRoom);
+        return Ok(result);
+    }
+
+    [HttpGet("{roomId:guid}/voice/{voiceId:guid}")]
+    public async Task<ActionResult> GetVoiceMessage(Guid roomId, Guid voiceId)
+    {
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
+        var accountId = currentUser is null ? (Guid?)null : Guid.Parse(currentUser.Id);
+
+        var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
+        if (room is null) return NotFound();
+
+        if (!room.IsPublic)
+        {
+            if (accountId is null) return Unauthorized();
+
+            var member = await db.ChatMembers
+                .Where(m => m.AccountId == accountId.Value && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+                .FirstOrDefaultAsync();
+            if (member is null)
+                return StatusCode(403, "You are not a member of this chat room.");
+        }
+
+        var clip = await voice.GetVoiceClipAsync(roomId, voiceId);
+        if (clip is null) return NotFound();
+
+        var file = await voice.OpenVoiceClipAsync(clip);
+        if (file is null)
+            return NotFound();
+
+        if (file.ContentLength.HasValue)
+            Response.ContentLength = file.ContentLength.Value;
+
+        return File(file.Stream, clip.MimeType);
     }
 
     [HttpPatch("{roomId:guid}/messages/{messageId:guid}")]

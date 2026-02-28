@@ -529,6 +529,8 @@ public partial class ChatService(
                 return "Call ended";
             case "call.start":
                 return "Call begun";
+            case "voice":
+                return "Voice message";
             default:
                 var attachmentWord = message.Attachments.Count == 1 ? "attachment" : "attachments";
                 var body = !string.IsNullOrEmpty(message.Content)

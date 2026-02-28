@@ -22,7 +22,7 @@ builder.Services.AddInsightService();
 builder.Services.AddWalletService();
 
 builder.Services.AddAppBusinessServices(builder.Configuration);
-builder.Services.AddAppScheduledJobs();
+builder.Services.AddAppScheduledJobs(builder.Configuration);
 
 builder.AddSwaggerManifest(
     "DysonNetwork.Messager",

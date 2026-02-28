@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Messager.Chat;
+using DysonNetwork.Messager.Chat.Voice;
 using DysonNetwork.Messager.Chat.Realtime;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Models;
@@ -63,6 +64,7 @@ public static class ServiceCollectionExtensions
 
             services.AddScoped<ChatRoomService>();
             services.AddScoped<ChatService>();
+            services.AddScoped<ChatVoiceService>();
             services.AddScoped<IRealtimeService, LiveKitRealtimeService>();
 
             services.AddEventBus()

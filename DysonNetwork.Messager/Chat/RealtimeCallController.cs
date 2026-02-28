@@ -237,7 +237,7 @@ public class RealtimeCallController(
 
     [HttpDelete("{roomId:guid}")]
     [Authorize]
-    public async Task<ActionResult> EndCall(Guid roomId)
+    public async Task<ActionResult> LeaveCall(Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 

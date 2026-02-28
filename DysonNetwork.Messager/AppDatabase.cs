@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using DysonNetwork.Messager.Chat.Voice;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,7 @@ public class AppDatabase(
     public DbSet<SnChatMessage> ChatMessages { get; set; } = null!;
     public DbSet<SnRealtimeCall> ChatRealtimeCall { get; set; } = null!;
     public DbSet<SnChatReaction> ChatReactions { get; set; } = null!;
+    public DbSet<SnChatVoiceClip> ChatVoiceClips { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -65,6 +67,16 @@ public class AppDatabase(
             .HasOne(m => m.Sender)
             .WithMany()
             .HasForeignKey(m => m.SenderId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnChatVoiceClip>()
+            .HasOne(v => v.ChatRoom)
+            .WithMany()
+            .HasForeignKey(v => v.ChatRoomId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnChatVoiceClip>()
+            .HasOne(v => v.Sender)
+            .WithMany()
+            .HasForeignKey(v => v.SenderId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.ApplySoftDeleteFilters();

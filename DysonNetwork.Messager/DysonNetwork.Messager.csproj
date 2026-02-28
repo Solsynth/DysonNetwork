@@ -10,6 +10,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="AWSSDK.S3" Version="3.7.412.4" />
         <PackageReference Include="Grpc.AspNetCore.Server" Version="2.76.0" />
         <PackageReference Include="Livekit.Server.Sdk.Dotnet" Version="1.2.0" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.2" />

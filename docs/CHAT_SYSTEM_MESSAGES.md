@@ -185,3 +185,7 @@ No push notifications are sent for these system messages.
 - Do not treat system messages as editable user-authored content.
 - Use `meta.event` and `meta.reason` for icon/label variants.
 - For `system.chat.updated`, render details from `meta.changes`.
+
+## Related Documentation
+
+- [Chat Voice Messages API](./CHAT_VOICE_MESSAGES.md)
