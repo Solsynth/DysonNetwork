@@ -1,7 +1,9 @@
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Messager.Chat.Realtime;
+using DysonNetwork.Messager.Chat.Voice;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Registry;
@@ -15,6 +17,7 @@ public partial class ChatService(
     ChatRoomService crs,
     IServiceScopeFactory scopeFactory,
     IRealtimeService realtime,
+    ChatVoiceService voice,
     ILogger<ChatService> logger,
     RemoteWebReaderService webReader
 )
@@ -988,10 +991,10 @@ public partial class ChatService(
         string? clientMessageId = null
     )
     {
-        // Only allow deleting regular text messages
-        if (message.Type != "text")
+        // Allow deleting user-authored text and voice messages only
+        if (message.Type is not ("text" or "voice"))
         {
-            throw new InvalidOperationException("Only regular messages can be deleted.");
+            throw new InvalidOperationException("Only regular text/voice messages can be deleted.");
         }
 
         // Soft delete by setting DeletedAt timestamp
@@ -1000,6 +1003,11 @@ public partial class ChatService(
 
         db.Update(message);
         await db.SaveChangesAsync();
+
+        // Best effort cleanup for voice messages.
+        // Missing objects or storage failures should not break message deletion.
+        if (message.Type == "voice")
+            await CleanupVoiceAssetsForDeletedMessageAsync(message);
 
         // Create and store sync message for the deletion
         var syncMessage = new SnChatMessage
@@ -1040,6 +1048,66 @@ public partial class ChatService(
             syncMessage.ChatRoom,
             notify: false
         );
+    }
+
+    private async Task CleanupVoiceAssetsForDeletedMessageAsync(SnChatMessage message)
+    {
+        try
+        {
+            if (!TryGetMetaGuid(message.Meta, "voice_clip_id", out var clipId))
+                return;
+
+            var clip = await db.ChatVoiceClips
+                .Where(v => v.Id == clipId && v.ChatRoomId == message.ChatRoomId)
+                .FirstOrDefaultAsync();
+            if (clip is null)
+                return;
+
+            try
+            {
+                await voice.DeleteVoiceObjectByKeyAsync(clip.StoragePath);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed deleting voice object for clip {ClipId}", clip.Id);
+            }
+
+            db.ChatVoiceClips.Remove(clip);
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed voice asset cleanup for deleted message {MessageId}", message.Id);
+        }
+    }
+
+    private static bool TryGetMetaGuid(Dictionary<string, object>? meta, string key, out Guid value)
+    {
+        value = Guid.Empty;
+        if (meta is null || !meta.TryGetValue(key, out var raw) || raw is null)
+            return false;
+
+        if (raw is Guid guid)
+        {
+            value = guid;
+            return true;
+        }
+
+        if (raw is string s && Guid.TryParse(s, out var fromString))
+        {
+            value = fromString;
+            return true;
+        }
+
+        if (raw is JsonElement je &&
+            je.ValueKind == JsonValueKind.String &&
+            Guid.TryParse(je.GetString(), out var fromJson))
+        {
+            value = fromJson;
+            return true;
+        }
+
+        return false;
     }
 
     public async Task<SnChatReaction> AddReactionAsync(
