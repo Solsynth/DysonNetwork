@@ -19,6 +19,14 @@ public partial class ChatService(
     RemoteWebReaderService webReader
 )
 {
+    private static bool IsUserEncryptedMessage(SnChatMessage message)
+    {
+        if (!message.IsEncrypted) return false;
+        return message.Type is not ("messages.update" or "messages.delete" or "messages.update.links" or
+            WebSocketPacketType.MessageReactionAdded or WebSocketPacketType.MessageReactionRemoved) &&
+               !message.Type.StartsWith("system.");
+    }
+
     [GeneratedRegex(@"https?://(?!.*\.\w{1,6}(?:[#?]|$))[^\s]+", RegexOptions.IgnoreCase)]
     private static partial Regex GetLinkRegex();
 
@@ -219,8 +227,11 @@ public partial class ChatService(
         });
 
         // Process link preview in the background to avoid delaying message sending
-        var localMessageForPreview = message;
-        _ = Task.Run(async () => await CreateLinkPreviewBackgroundAsync(localMessageForPreview));
+        if (!message.IsEncrypted && message.Type == "text")
+        {
+            var localMessageForPreview = message;
+            _ = Task.Run(async () => await CreateLinkPreviewBackgroundAsync(localMessageForPreview));
+        }
 
         return message;
     }
@@ -345,6 +356,29 @@ public partial class ChatService(
             {
                 ["event"] = "chat_info_updated",
                 ["changes"] = changes
+            }
+        );
+    }
+
+    public async Task<SnChatMessage> SendE2eeRotateRequiredSystemMessageAsync(
+        SnChatRoom room,
+        SnChatMember sender,
+        Guid changedMemberId,
+        string reason
+    )
+    {
+        return await SendSystemMessageAsync(
+            room,
+            sender,
+            "system.e2ee.rotate_required",
+            "E2EE sender key rotation required.",
+            new Dictionary<string, object>
+            {
+                ["event"] = "e2ee_rotate_required",
+                ["room_id"] = room.Id,
+                ["changed_member_id"] = changedMemberId,
+                ["reason"] = reason,
+                ["rotation_hint_epoch"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             }
         );
     }
@@ -520,6 +554,9 @@ public partial class ChatService(
 
     private string BuildNotificationBody(SnChatMessage message, string type)
     {
+        if (IsUserEncryptedMessage(message))
+            return "Encrypted message";
+
         if (message.DeletedAt is not null)
             return "Deleted a message";
 
@@ -831,27 +868,54 @@ public partial class ChatService(
         string? content = null,
         Guid? repliedMessageId = null,
         Guid? forwardedMessageId = null,
-        List<string>? attachmentsId = null
+        List<string>? attachmentsId = null,
+        bool? isEncrypted = null,
+        byte[]? ciphertext = null,
+        byte[]? encryptionHeader = null,
+        byte[]? encryptionSignature = null,
+        string? encryptionScheme = null,
+        long? encryptionEpoch = null,
+        string? encryptionMessageType = null,
+        string? clientMessageId = null
     )
     {
         // Only allow editing regular text messages
         if (message.Type != "text")
             throw new InvalidOperationException("Only regular messages can be edited.");
 
+        var prevIsEncrypted = message.IsEncrypted;
         var isContentChanged = content is not null && content != message.Content;
         var isAttachmentsChanged = attachmentsId is not null;
+        var isCiphertextChanged = ciphertext is not null;
+        var isEncryptedFlagChanged = isEncrypted.HasValue && isEncrypted.Value != prevIsEncrypted;
 
         string? prevContent = null;
-        if (isContentChanged)
+        if (isContentChanged && !prevIsEncrypted)
             prevContent = message.Content;
 
         if (content is not null)
             message.Content = content;
+        if (isEncrypted.HasValue)
+            message.IsEncrypted = isEncrypted.Value;
+        if (ciphertext is not null)
+            message.Ciphertext = ciphertext;
+        if (encryptionHeader is not null)
+            message.EncryptionHeader = encryptionHeader;
+        if (encryptionSignature is not null)
+            message.EncryptionSignature = encryptionSignature;
+        if (encryptionScheme is not null)
+            message.EncryptionScheme = encryptionScheme;
+        if (encryptionEpoch.HasValue)
+            message.EncryptionEpoch = encryptionEpoch.Value;
+        if (encryptionMessageType is not null)
+            message.EncryptionMessageType = encryptionMessageType;
+        if (!string.IsNullOrWhiteSpace(clientMessageId))
+            message.ClientMessageId = clientMessageId;
 
         // Update do not override meta, replies to and forwarded to
 
         // Mark as edited if content or attachments changed
-        if (isContentChanged || isAttachmentsChanged)
+        if (isContentChanged || isAttachmentsChanged || isCiphertextChanged || isEncryptedFlagChanged)
             message.EditedAt = SystemClock.Instance.GetCurrentInstant();
 
 
@@ -865,6 +929,14 @@ public partial class ChatService(
             ChatRoomId = message.ChatRoomId,
             SenderId = message.SenderId,
             Content = message.Content,
+            IsEncrypted = message.IsEncrypted,
+            Ciphertext = message.Ciphertext,
+            EncryptionHeader = message.EncryptionHeader,
+            EncryptionSignature = message.EncryptionSignature,
+            EncryptionScheme = message.EncryptionScheme,
+            EncryptionEpoch = message.EncryptionEpoch,
+            EncryptionMessageType = message.EncryptionMessageType ?? "content.edit",
+            ClientMessageId = message.ClientMessageId,
             Attachments = message.Attachments,
             Nonce = Guid.NewGuid().ToString(),
             Meta = message.Meta != null
@@ -874,14 +946,14 @@ public partial class ChatService(
             UpdatedAt = message.UpdatedAt
         };
 
-        if (isContentChanged && prevContent is not null)
+        if (!message.IsEncrypted && isContentChanged && prevContent is not null)
             syncMessage.Meta["previous_content"] = prevContent;
 
         db.ChatMessages.Add(syncMessage);
         await db.SaveChangesAsync();
 
         // Process link preview in the background if content was updated
-        if (isContentChanged)
+        if (!message.IsEncrypted && isContentChanged)
             _ = Task.Run(async () => await CreateLinkPreviewBackgroundAsync(message));
 
         if (message.Sender.Account is null)
@@ -905,7 +977,16 @@ public partial class ChatService(
     /// Soft deletes a message and notifies other chat members
     /// </summary>
     /// <param name="message">The message to delete</param>
-    public async Task DeleteMessageAsync(SnChatMessage message)
+    public async Task DeleteMessageAsync(
+        SnChatMessage message,
+        byte[]? ciphertext = null,
+        byte[]? encryptionHeader = null,
+        byte[]? encryptionSignature = null,
+        string? encryptionScheme = null,
+        long? encryptionEpoch = null,
+        string? encryptionMessageType = null,
+        string? clientMessageId = null
+    )
     {
         // Only allow deleting regular text messages
         if (message.Type != "text")
@@ -926,6 +1007,14 @@ public partial class ChatService(
             Type = "messages.delete",
             ChatRoomId = message.ChatRoomId,
             SenderId = message.SenderId,
+            IsEncrypted = message.IsEncrypted,
+            Ciphertext = ciphertext ?? message.Ciphertext,
+            EncryptionHeader = encryptionHeader ?? message.EncryptionHeader,
+            EncryptionSignature = encryptionSignature ?? message.EncryptionSignature,
+            EncryptionScheme = encryptionScheme ?? message.EncryptionScheme,
+            EncryptionEpoch = encryptionEpoch ?? message.EncryptionEpoch,
+            EncryptionMessageType = encryptionMessageType ?? (message.IsEncrypted ? "content.delete" : null),
+            ClientMessageId = clientMessageId ?? message.ClientMessageId,
             Nonce = Guid.NewGuid().ToString(),
             Meta = new Dictionary<string, object>
             {

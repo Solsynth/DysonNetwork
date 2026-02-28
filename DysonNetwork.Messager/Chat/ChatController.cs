@@ -29,6 +29,37 @@ public partial class ChatController(
     DyPollService.DyPollServiceClient pollClient
 ) : ControllerBase
 {
+    private const string E2eeCapabilityHeader = "X-Dyson-Client-Capabilities";
+    private const string E2eeCapabilityToken = "chat-e2ee-v1";
+
+    private bool HasE2eeCapability()
+    {
+        if (!Request.Headers.TryGetValue(E2eeCapabilityHeader, out var header)) return false;
+        return header
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .SelectMany(v => v!.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            .Any(v => string.Equals(v, E2eeCapabilityToken, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private ActionResult E2eeError(string code, string message)
+    {
+        return Conflict(new { code, error = message });
+    }
+
+    private ActionResult? EnsureE2eeCapabilityForRoom(SnChatRoom room)
+    {
+        if (room.EncryptionMode == ChatRoomEncryptionMode.None) return null;
+        if (HasE2eeCapability()) return null;
+        return E2eeError("chat.e2ee_required", "This room requires E2EE-capable clients.");
+    }
+
+    private bool HasEncryptedPayload(SendMessageRequest request)
+    {
+        return request.Ciphertext is { Length: > 0 } &&
+               !string.IsNullOrWhiteSpace(request.EncryptionScheme) &&
+               !string.IsNullOrWhiteSpace(request.EncryptionMessageType);
+    }
+
     public class MarkMessageReadRequest
     {
         public Guid ChatRoomId { get; set; }
@@ -54,15 +85,26 @@ public partial class ChatController(
         var accountId = Guid.Parse(currentUser.Id);
         var unreadMessages = await cs.CountUnreadMessageForUser(accountId);
         var lastMessages = await cs.ListLastMessageForUser(accountId);
+        var roomIds = unreadMessages.Keys.Union(lastMessages.Keys).ToList();
+        var roomModes = await db.ChatRooms
+            .Where(r => roomIds.Contains(r.Id))
+            .Select(r => new { r.Id, r.EncryptionMode })
+            .ToDictionaryAsync(r => r.Id, r => r.EncryptionMode);
+        var hasCapability = HasE2eeCapability();
 
-        var result = unreadMessages.Keys
-            .Union(lastMessages.Keys)
+        var result = roomIds
             .ToDictionary(
                 roomId => roomId,
                 roomId => new ChatSummaryResponse
                 {
-                    UnreadCount = unreadMessages.GetValueOrDefault(roomId),
-                    LastMessage = lastMessages.GetValueOrDefault(roomId)
+                    UnreadCount = !hasCapability &&
+                                 roomModes.GetValueOrDefault(roomId) != ChatRoomEncryptionMode.None
+                        ? 0
+                        : unreadMessages.GetValueOrDefault(roomId),
+                    LastMessage = !hasCapability &&
+                                 roomModes.GetValueOrDefault(roomId) != ChatRoomEncryptionMode.None
+                        ? null
+                        : lastMessages.GetValueOrDefault(roomId)
                 }
             );
 
@@ -87,12 +129,31 @@ public partial class ChatController(
     {
         [MaxLength(4096)] public string? Content { get; set; }
         [MaxLength(36)] public string? Nonce { get; set; }
+        [MaxLength(128)] public string? ClientMessageId { get; set; }
         public Guid? FundId { get; set; }
         public Guid? PollId { get; set; }
         public List<string>? AttachmentsId { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
         public Guid? RepliedMessageId { get; set; }
         public Guid? ForwardedMessageId { get; set; }
+        public bool IsEncrypted { get; set; }
+        public byte[]? Ciphertext { get; set; }
+        public byte[]? EncryptionHeader { get; set; }
+        public byte[]? EncryptionSignature { get; set; }
+        [MaxLength(128)] public string? EncryptionScheme { get; set; }
+        public long? EncryptionEpoch { get; set; }
+        [MaxLength(128)] public string? EncryptionMessageType { get; set; }
+    }
+
+    public class DeleteMessageRequest
+    {
+        [MaxLength(128)] public string? ClientMessageId { get; set; }
+        public byte[]? Ciphertext { get; set; }
+        public byte[]? EncryptionHeader { get; set; }
+        public byte[]? EncryptionSignature { get; set; }
+        [MaxLength(128)] public string? EncryptionScheme { get; set; }
+        public long? EncryptionEpoch { get; set; }
+        [MaxLength(128)] public string? EncryptionMessageType { get; set; }
     }
 
     public class SendVoiceMessageRequest
@@ -113,8 +174,20 @@ public partial class ChatController(
 
         var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
         if (room is null) return NotFound();
+        var e2eeCapabilityError = EnsureE2eeCapabilityForRoom(room);
+        if (e2eeCapabilityError is not null) return e2eeCapabilityError;
 
-        if (!room.IsPublic)
+        if (room.EncryptionMode != ChatRoomEncryptionMode.None)
+        {
+            if (currentUser is null) return Unauthorized();
+            var accountId = Guid.Parse(currentUser.Id);
+            var member = await db.ChatMembers
+                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+                .FirstOrDefaultAsync();
+            if (member is null)
+                return StatusCode(403, "You are not a member of this chat room.");
+        }
+        else if (!room.IsPublic)
         {
             if (currentUser is null) return Unauthorized();
 
@@ -159,8 +232,20 @@ public partial class ChatController(
 
         var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
         if (room is null) return NotFound();
+        var e2eeCapabilityError = EnsureE2eeCapabilityForRoom(room);
+        if (e2eeCapabilityError is not null) return e2eeCapabilityError;
 
-        if (!room.IsPublic)
+        if (room.EncryptionMode != ChatRoomEncryptionMode.None)
+        {
+            if (currentUser is null) return Unauthorized();
+            var accountId = Guid.Parse(currentUser.Id);
+            var member = await db.ChatMembers
+                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+                .FirstOrDefaultAsync();
+            if (member == null)
+                return StatusCode(403, "You are not a member of this chat room.");
+        }
+        else if (!room.IsPublic)
         {
             if (currentUser is null) return Unauthorized();
 
@@ -264,11 +349,6 @@ public partial class ChatController(
         var accountId = Guid.Parse(currentUser.Id);
 
         request.Content = TextSanitizer.Sanitize(request.Content);
-        if (string.IsNullOrWhiteSpace(request.Content) &&
-            (request.AttachmentsId == null || request.AttachmentsId.Count == 0) &&
-            !request.FundId.HasValue &&
-            !request.PollId.HasValue)
-            return BadRequest("You cannot send an empty message.");
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var member = await crs.GetRoomMember(accountId, roomId);
@@ -276,9 +356,42 @@ public partial class ChatController(
             return StatusCode(403, "You need to be a member to send messages here.");
         if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
             return StatusCode(403, "You has been timed out in this chat.");
+        if (member.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None)
+        {
+            var capabilityError = EnsureE2eeCapabilityForRoom(member.ChatRoom);
+            if (capabilityError is not null) return capabilityError;
+            return Conflict(new
+            {
+                code = "chat.e2ee_voice_not_supported_v1",
+                error = "Voice endpoint is not supported for E2EE rooms in v1."
+            });
+        }
+        var e2eeMode = member.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None;
+        if (e2eeMode)
+        {
+            var capabilityError = EnsureE2eeCapabilityForRoom(member.ChatRoom);
+            if (capabilityError is not null) return capabilityError;
+            if (!request.IsEncrypted || !HasEncryptedPayload(request))
+                return E2eeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
+            if (!string.IsNullOrWhiteSpace(request.Content) ||
+                (request.AttachmentsId is { Count: > 0 }) ||
+                request.FundId.HasValue ||
+                request.PollId.HasValue ||
+                request.RepliedMessageId.HasValue ||
+                request.ForwardedMessageId.HasValue)
+                return E2eeError("chat.e2ee_plaintext_forbidden", "Plaintext fields are forbidden for E2EE rooms.");
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(request.Content) &&
+                (request.AttachmentsId == null || request.AttachmentsId.Count == 0) &&
+                !request.FundId.HasValue &&
+                !request.PollId.HasValue)
+                return BadRequest("You cannot send an empty message.");
+        }
 
         // Validate fund if provided
-        if (request.FundId.HasValue)
+        if (!e2eeMode && request.FundId.HasValue)
         {
             try
             {
@@ -302,7 +415,7 @@ public partial class ChatController(
         }
 
         // Validate poll if provided
-        if (request.PollId.HasValue)
+        if (!e2eeMode && request.PollId.HasValue)
         {
             try
             {
@@ -326,10 +439,18 @@ public partial class ChatController(
             ChatRoomId = roomId,
             Nonce = request.Nonce ?? Guid.NewGuid().ToString(),
             Meta = request.Meta ?? new Dictionary<string, object>(),
+            IsEncrypted = request.IsEncrypted,
+            Ciphertext = request.Ciphertext,
+            EncryptionHeader = request.EncryptionHeader,
+            EncryptionSignature = request.EncryptionSignature,
+            EncryptionScheme = request.EncryptionScheme,
+            EncryptionEpoch = request.EncryptionEpoch,
+            EncryptionMessageType = request.EncryptionMessageType ?? (request.IsEncrypted ? "content.new" : null),
+            ClientMessageId = request.ClientMessageId
         };
 
         // Add embed for fund if provided
-        if (request.FundId.HasValue)
+        if (!e2eeMode && request.FundId.HasValue)
         {
             var fundEmbed = new FundEmbed { Id = request.FundId.Value };
             message.Meta ??= new Dictionary<string, object>();
@@ -344,7 +465,7 @@ public partial class ChatController(
         }
 
         // Add embed for poll if provided
-        if (request.PollId.HasValue)
+        if (!e2eeMode && request.PollId.HasValue)
         {
             var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest { Id = request.PollId.Value.ToString() });
             var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
@@ -358,9 +479,9 @@ public partial class ChatController(
             embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
             message.Meta["embeds"] = embeds;
         }
-        if (request.Content is not null)
+        if (!e2eeMode && request.Content is not null)
             message.Content = request.Content;
-        if (request.AttachmentsId is not null)
+        if (!e2eeMode && request.AttachmentsId is not null)
         {
             var queryRequest = new DyGetFileBatchRequest();
             queryRequest.Ids.AddRange(request.AttachmentsId);
@@ -372,7 +493,7 @@ public partial class ChatController(
         }
 
         // Validate reply and forward message IDs exist
-        if (request.RepliedMessageId.HasValue)
+        if (!e2eeMode && request.RepliedMessageId.HasValue)
         {
             var repliedMessage = await db.ChatMessages
                 .FirstOrDefaultAsync(m => m.Id == request.RepliedMessageId.Value && m.ChatRoomId == roomId);
@@ -382,7 +503,7 @@ public partial class ChatController(
             message.RepliedMessageId = repliedMessage.Id;
         }
 
-        if (request.ForwardedMessageId.HasValue)
+        if (!e2eeMode && request.ForwardedMessageId.HasValue)
         {
             var forwardedMessage = await db.ChatMessages
                 .FirstOrDefaultAsync(m => m.Id == request.ForwardedMessageId.Value);
@@ -393,8 +514,11 @@ public partial class ChatController(
         }
 
         // Extract mentioned users
-        message.MembersMentioned = await ExtractMentionedUsersAsync(request.Content, request.RepliedMessageId,
-            request.ForwardedMessageId, roomId);
+        if (!e2eeMode)
+        {
+            message.MembersMentioned = await ExtractMentionedUsersAsync(request.Content, request.RepliedMessageId,
+                request.ForwardedMessageId, roomId);
+        }
 
         var result = await cs.SendMessageAsync(message, member, member.ChatRoom);
 
@@ -526,6 +650,12 @@ public partial class ChatController(
             .FirstOrDefaultAsync(m => m.Id == messageId && m.ChatRoomId == roomId);
 
         if (message == null) return NotFound();
+        var e2eeMode = message.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None;
+        if (e2eeMode)
+        {
+            var capabilityError = EnsureE2eeCapabilityForRoom(message.ChatRoom);
+            if (capabilityError is not null) return capabilityError;
+        }
 
         var now = SystemClock.Instance.GetCurrentInstant();
         if (message.Sender.AccountId != accountId)
@@ -533,19 +663,34 @@ public partial class ChatController(
         if (message.Sender.TimeoutUntil.HasValue && message.Sender.TimeoutUntil.Value > now)
             return StatusCode(403, "You has been timed out in this chat.");
 
-        if (string.IsNullOrWhiteSpace(request.Content) &&
-            (request.AttachmentsId == null || request.AttachmentsId.Count == 0) &&
-            !request.FundId.HasValue &&
-            !request.PollId.HasValue)
-            return BadRequest("You cannot send an empty message.");
+        if (e2eeMode)
+        {
+            if (!request.IsEncrypted || !HasEncryptedPayload(request))
+                return E2eeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
+            if (!string.IsNullOrWhiteSpace(request.Content) ||
+                (request.AttachmentsId is { Count: > 0 }) ||
+                request.FundId.HasValue ||
+                request.PollId.HasValue ||
+                request.RepliedMessageId.HasValue ||
+                request.ForwardedMessageId.HasValue)
+                return E2eeError("chat.e2ee_plaintext_forbidden", "Plaintext fields are forbidden for E2EE rooms.");
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(request.Content) &&
+                (request.AttachmentsId == null || request.AttachmentsId.Count == 0) &&
+                !request.FundId.HasValue &&
+                !request.PollId.HasValue)
+                return BadRequest("You cannot send an empty message.");
 
-        // Update mentions based on new content and references
-        var updatedMentions = await ExtractMentionedUsersAsync(request.Content, request.RepliedMessageId,
-            request.ForwardedMessageId, roomId, accountId);
-        message.MembersMentioned = updatedMentions;
+            // Update mentions based on new content and references
+            var updatedMentions = await ExtractMentionedUsersAsync(request.Content, request.RepliedMessageId,
+                request.ForwardedMessageId, roomId, accountId);
+            message.MembersMentioned = updatedMentions;
+        }
 
         // Handle fund embeds for update
-        if (request.FundId.HasValue)
+        if (!e2eeMode && request.FundId.HasValue)
         {
             try
             {
@@ -582,7 +727,7 @@ public partial class ChatController(
                 return BadRequest("Invalid fund ID.");
             }
         }
-        else
+        else if (!e2eeMode)
         {
             message.Meta ??= new Dictionary<string, object>();
             if (
@@ -596,7 +741,7 @@ public partial class ChatController(
         }
 
         // Handle poll embeds for update
-        if (request.PollId.HasValue)
+        if (!e2eeMode && request.PollId.HasValue)
         {
             try
             {
@@ -625,7 +770,7 @@ public partial class ChatController(
                 return BadRequest("Invalid poll ID.");
             }
         }
-        else
+        else if (!e2eeMode)
         {
             message.Meta ??= new Dictionary<string, object>();
             if (
@@ -638,6 +783,21 @@ public partial class ChatController(
             embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "poll");
         }
 
+        if (e2eeMode)
+        {
+            message.IsEncrypted = request.IsEncrypted;
+            message.Ciphertext = request.Ciphertext;
+            message.EncryptionHeader = request.EncryptionHeader;
+            message.EncryptionSignature = request.EncryptionSignature;
+            message.EncryptionScheme = request.EncryptionScheme;
+            message.EncryptionEpoch = request.EncryptionEpoch;
+            message.EncryptionMessageType = request.EncryptionMessageType ?? "content.edit";
+            message.ClientMessageId = request.ClientMessageId;
+            message.Content = null;
+            message.Attachments = [];
+            message.Meta ??= new Dictionary<string, object>();
+        }
+
         // Call service method to update the message
         await cs.UpdateMessageAsync(
             message,
@@ -645,7 +805,15 @@ public partial class ChatController(
             request.Content,
             request.RepliedMessageId,
             request.ForwardedMessageId,
-            request.AttachmentsId
+            request.AttachmentsId,
+            request.IsEncrypted,
+            request.Ciphertext,
+            request.EncryptionHeader,
+            request.EncryptionSignature,
+            request.EncryptionScheme,
+            request.EncryptionEpoch,
+            request.EncryptionMessageType,
+            request.ClientMessageId
         );
 
         return Ok(message);
@@ -653,7 +821,7 @@ public partial class ChatController(
 
     [HttpDelete("{roomId:guid}/messages/{messageId:guid}")]
     [Authorize]
-    public async Task<ActionResult> DeleteMessage(Guid roomId, Guid messageId)
+    public async Task<ActionResult> DeleteMessage(Guid roomId, Guid messageId, [FromBody] DeleteMessageRequest? request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
@@ -663,13 +831,28 @@ public partial class ChatController(
             .FirstOrDefaultAsync(m => m.Id == messageId && m.ChatRoomId == roomId);
 
         if (message == null) return NotFound();
+        var e2eeMode = message.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None;
+        if (e2eeMode)
+        {
+            var capabilityError = EnsureE2eeCapabilityForRoom(message.ChatRoom);
+            if (capabilityError is not null) return capabilityError;
+        }
 
         var accountId = Guid.Parse(currentUser.Id);
         if (message.Sender.AccountId != accountId)
             return StatusCode(403, "You can only delete your own messages.");
 
         // Call service method to delete the message
-        await cs.DeleteMessageAsync(message);
+        await cs.DeleteMessageAsync(
+            message,
+            request?.Ciphertext,
+            request?.EncryptionHeader,
+            request?.EncryptionSignature,
+            request?.EncryptionScheme,
+            request?.EncryptionEpoch,
+            request?.EncryptionMessageType,
+            request?.ClientMessageId
+        );
 
         return Ok();
     }
@@ -791,6 +974,11 @@ public partial class ChatController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
+        var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
+        if (room is null) return NotFound();
+        var capabilityError = EnsureE2eeCapabilityForRoom(room);
+        if (capabilityError is not null) return capabilityError;
+
         var accountId = Guid.Parse(currentUser.Id);
         var isMember = await db.ChatMembers
             .AnyAsync(m =>
@@ -817,6 +1005,14 @@ public partial class ChatController(
             .Where(m => m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null)
             .Select(m => m.ChatRoomId)
             .ToListAsync();
+        if (memberRoomIds.Count > 0 && !HasE2eeCapability())
+        {
+            var hasE2eeRoom = await db.ChatRooms
+                .Where(r => memberRoomIds.Contains(r.Id))
+                .AnyAsync(r => r.EncryptionMode != ChatRoomEncryptionMode.None);
+            if (hasE2eeRoom)
+                return E2eeError("chat.e2ee_required", "E2EE-capable client is required to sync encrypted rooms.");
+        }
 
         var messages = await db.ChatMessages
             .Where(m => memberRoomIds.Contains(m.ChatRoomId) && m.CreatedAt > lastSyncInstant)

@@ -290,3 +290,9 @@ Clients should still call `GET /api/e2ee/messages/pending` on reconnect to close
 - Validate signature/header/ciphertext formats on client before decrypt.
 - Use `clientMessageId` for at-least-once retry safety.
 - Use envelope `expiresAt` for stale message control.
+
+## Messager Integration Notes
+
+- Messager now supports E2EE room transport and timeline fan-out.
+- Pass APIs remain key/session/control bootstrap for clients.
+- Group key distribution should still use pairwise Pass endpoints (`sender-key/distribute`) while chat ciphertext fan-out happens through Messager room messages.

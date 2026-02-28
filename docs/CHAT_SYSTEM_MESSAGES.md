@@ -21,6 +21,7 @@ These messages are informational:
 | `system.member.joined` | A member joins chat | `"{name} joined the chat."` |
 | `system.member.left` | A member leaves chat or is removed | `"{name} left the chat."` / `"{name} was removed from the chat by {operator}."` |
 | `system.chat.updated` | Chat room info is updated | `"{operator} updated chat info ({fields})."` |
+| `system.e2ee.rotate_required` | Group E2EE membership changed | `"E2EE sender key rotation required."` |
 | `system.call.member.joined` | A member joins call | `"{name} joined the call."` |
 | `system.call.member.left` | A member leaves call or is removed | `"{name} left the call."` / `"{name} was removed from the call by {operator}."` |
 
@@ -57,6 +58,15 @@ Tracked fields:
 - `realm_id`
 - `picture_id`
 - `background_id`
+
+### E2EE Rotation Required
+
+Generated when group member set changes in E2EE sender-key rooms:
+
+- `POST /api/chat/{roomId}/members/me` (join/rejoin)
+- `POST /api/chat/invites/{roomId}/accept` (accept invite)
+- `DELETE /api/chat/{roomId}/members/me` (self leave)
+- `DELETE /api/chat/{roomId}/members/{memberId}` (remove member)
 
 ### Call Member Joined
 
@@ -128,6 +138,18 @@ Removed by moderator/owner:
     "name": { "old": "Old Name", "new": "New Name" },
     "is_public": { "old": false, "new": true }
   }
+}
+```
+
+### `system.e2ee.rotate_required` meta
+
+```json
+{
+  "event": "e2ee_rotate_required",
+  "room_id": "room-guid",
+  "changed_member_id": "account-guid",
+  "reason": "member_joined",
+  "rotation_hint_epoch": 1740758400000
 }
 ```
 

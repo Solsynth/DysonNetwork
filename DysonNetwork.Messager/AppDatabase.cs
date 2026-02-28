@@ -58,6 +58,11 @@ public class AppDatabase(
             .WithMany()
             .HasForeignKey(m => m.RepliedMessageId)
             .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SnChatMessage>()
+            .HasIndex(m => new { m.ChatRoomId, m.IsEncrypted, m.CreatedAt });
+        modelBuilder.Entity<SnChatMessage>()
+            .HasIndex(m => new { m.ChatRoomId, m.SenderId, m.ClientMessageId })
+            .HasFilter("client_message_id IS NOT NULL");
         modelBuilder.Entity<SnRealtimeCall>()
             .HasOne(m => m.Room)
             .WithMany()

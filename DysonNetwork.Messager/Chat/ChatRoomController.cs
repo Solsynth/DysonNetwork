@@ -75,6 +75,7 @@ public class ChatRoomController(
     public class DirectMessageRequest
     {
         [Required] public Guid RelatedUserId { get; set; }
+        public ChatRoomEncryptionMode? EncryptionMode { get; set; }
     }
 
     [HttpPost("direct")]
@@ -112,11 +113,20 @@ public class ChatRoomController(
             return BadRequest("You already have a DM with this user.");
 
         // Create new DM chat room
+        var encryptionMode = request.EncryptionMode ?? ChatRoomEncryptionMode.None;
+        if (!IsEncryptionModeValidForRoomType(ChatRoomType.DirectMessage, encryptionMode))
+            return Conflict(new
+            {
+                code = "chat.e2ee_mode_invalid_for_room",
+                error = "Invalid encryption mode for direct message room."
+            });
+
         var dmRoom = new SnChatRoom
         {
             Type = ChatRoomType.DirectMessage,
             IsPublic = false,
             AccountId = accountId,
+            EncryptionMode = encryptionMode,
             Members = new List<SnChatMember>
             {
                 new()
@@ -179,6 +189,18 @@ public class ChatRoomController(
         public Guid? RealmId { get; set; }
         public bool? IsCommunity { get; set; }
         public bool? IsPublic { get; set; }
+        public ChatRoomEncryptionMode? EncryptionMode { get; set; }
+        public Dictionary<string, object>? E2eePolicy { get; set; }
+    }
+
+    private static bool IsEncryptionModeValidForRoomType(ChatRoomType roomType, ChatRoomEncryptionMode mode)
+    {
+        return roomType switch
+        {
+            ChatRoomType.DirectMessage => mode is ChatRoomEncryptionMode.None or ChatRoomEncryptionMode.E2eeDm,
+            ChatRoomType.Group => mode is ChatRoomEncryptionMode.None or ChatRoomEncryptionMode.E2eeSenderKeyGroup,
+            _ => false
+        };
     }
 
     [HttpPost]
@@ -198,6 +220,8 @@ public class ChatRoomController(
             IsPublic = request.IsPublic ?? false,
             Type = ChatRoomType.Group,
             AccountId = accountId,
+            EncryptionMode = request.EncryptionMode ?? ChatRoomEncryptionMode.None,
+            E2eePolicy = request.E2eePolicy,
             Members = new List<SnChatMember>
             {
                 new()
@@ -207,6 +231,12 @@ public class ChatRoomController(
                 }
             }
         };
+        if (!IsEncryptionModeValidForRoomType(ChatRoomType.Group, chatRoom.EncryptionMode))
+            return Conflict(new
+            {
+                code = "chat.e2ee_mode_invalid_for_room",
+                error = "Invalid encryption mode for group room."
+            });
 
         if (request.RealmId is not null)
         {
@@ -288,6 +318,7 @@ public class ChatRoomController(
         var previousRealmId = chatRoom.RealmId;
         var previousPictureId = chatRoom.Picture?.Id;
         var previousBackgroundId = chatRoom.Background?.Id;
+        var previousEncryptionMode = chatRoom.EncryptionMode;
 
         if (request.RealmId is not null)
         {
@@ -335,6 +366,17 @@ public class ChatRoomController(
             chatRoom.IsCommunity = request.IsCommunity.Value;
         if (request.IsPublic is not null)
             chatRoom.IsPublic = request.IsPublic.Value;
+        if (request.EncryptionMode is not null)
+            chatRoom.EncryptionMode = request.EncryptionMode.Value;
+        if (request.E2eePolicy is not null)
+            chatRoom.E2eePolicy = request.E2eePolicy;
+
+        if (!IsEncryptionModeValidForRoomType(chatRoom.Type, chatRoom.EncryptionMode))
+            return Conflict(new
+            {
+                code = "chat.e2ee_mode_invalid_for_room",
+                error = "Invalid encryption mode for this room type."
+            });
 
         db.ChatRooms.Update(chatRoom);
         await db.SaveChangesAsync();
@@ -381,6 +423,12 @@ public class ChatRoomController(
             {
                 ["old"] = previousBackgroundId,
                 ["new"] = chatRoom.Background?.Id
+            };
+        if (previousEncryptionMode != chatRoom.EncryptionMode)
+            changes["encryption_mode"] = new Dictionary<string, object>
+            {
+                ["old"] = previousEncryptionMode.ToString(),
+                ["new"] = chatRoom.EncryptionMode.ToString()
             };
 
         if (changes.Count > 0)
@@ -745,7 +793,18 @@ public class ChatRoomController(
             .Where(r => r.Id == roomId)
             .FirstOrDefaultAsync();
         if (memberRoom is not null)
+        {
             await cs.SendMemberJoinedSystemMessageAsync(memberRoom, member);
+            if (memberRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeSenderKeyGroup)
+            {
+                await cs.SendE2eeRotateRequiredSystemMessageAsync(
+                    memberRoom,
+                    member,
+                    member.AccountId,
+                    "member_joined"
+                );
+            }
+        }
 
         _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
@@ -977,7 +1036,18 @@ public class ChatRoomController(
         _ = crs.PurgeRoomMembersCache(roomId);
 
         if (operatorMember is not null)
+        {
             await cs.SendMemberLeftSystemMessageAsync(chatRoom, member, operatorMember);
+            if (chatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeSenderKeyGroup)
+            {
+                await cs.SendE2eeRotateRequiredSystemMessageAsync(
+                    chatRoom,
+                    operatorMember,
+                    member.AccountId,
+                    "member_removed"
+                );
+            }
+        }
 
         _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
@@ -1022,6 +1092,15 @@ public class ChatRoomController(
             await db.SaveChangesAsync();
             _ = crs.PurgeRoomMembersCache(roomId);
             await cs.SendMemberJoinedSystemMessageAsync(chatRoom, existingMember);
+            if (chatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeSenderKeyGroup)
+            {
+                await cs.SendE2eeRotateRequiredSystemMessageAsync(
+                    chatRoom,
+                    existingMember,
+                    existingMember.AccountId,
+                    "member_joined"
+                );
+            }
 
             return Ok(existingMember);
         }
@@ -1037,6 +1116,15 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
         await cs.SendMemberJoinedSystemMessageAsync(chatRoom, newMember);
+        if (chatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeSenderKeyGroup)
+        {
+            await cs.SendE2eeRotateRequiredSystemMessageAsync(
+                chatRoom,
+                newMember,
+                newMember.AccountId,
+                "member_joined"
+            );
+        }
 
         _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {
@@ -1074,6 +1162,15 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         await crs.PurgeRoomMembersCache(roomId);
         await cs.SendMemberLeftSystemMessageAsync(chat, member);
+        if (chat.EncryptionMode == ChatRoomEncryptionMode.E2eeSenderKeyGroup)
+        {
+            await cs.SendE2eeRotateRequiredSystemMessageAsync(
+                chat,
+                member,
+                member.AccountId,
+                "member_left"
+            );
+        }
 
         _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
         {

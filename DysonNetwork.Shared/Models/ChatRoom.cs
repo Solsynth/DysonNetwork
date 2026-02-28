@@ -12,6 +12,13 @@ public enum ChatRoomType
     DirectMessage,
 }
 
+public enum ChatRoomEncryptionMode
+{
+    None = 0,
+    E2eeDm = 1,
+    E2eeSenderKeyGroup = 2,
+}
+
 public class SnChatRoom : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; }
@@ -24,6 +31,8 @@ public class SnChatRoom : ModelBase, IIdentifiedResource
     public ChatRoomType Type { get; set; }
     public bool IsCommunity { get; set; }
     public bool IsPublic { get; set; }
+    public ChatRoomEncryptionMode EncryptionMode { get; set; } = ChatRoomEncryptionMode.None;
+    [Column(TypeName = "jsonb")] public Dictionary<string, object>? E2eePolicy { get; set; }
 
     [Column(TypeName = "jsonb")]
     public SnCloudFileReferenceObject? Picture { get; set; }
