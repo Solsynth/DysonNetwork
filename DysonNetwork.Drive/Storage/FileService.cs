@@ -111,7 +111,11 @@ public class FileService(
         string filePath,
         string fileName,
         string? contentType,
-        string? encryptPassword,
+        string? encryptKey,
+        string? encryptionScheme,
+        string? encryptionHeader,
+        string? encryptionSignature,
+        long? encryptionEpoch,
         Instant? expiredAt
     )
     {
@@ -133,7 +137,17 @@ public class FileService(
         }
 
         var (processingPath, isTempFile) =
-            await ProcessEncryptionAsync(fileId, managedTempPath, encryptPassword, pool, fileObject);
+            await ProcessEncryptionAsync(
+                fileId,
+                managedTempPath,
+                encryptKey,
+                encryptionScheme,
+                encryptionHeader,
+                encryptionSignature,
+                encryptionEpoch,
+                pool,
+                fileObject
+            );
 
         fileObject.Hash = await HashFileAsync(processingPath);
 
@@ -236,24 +250,84 @@ public class FileService(
     private Task<(string processingPath, bool isTempFile)> ProcessEncryptionAsync(
         string fileId,
         string managedTempPath,
-        string? encryptPassword,
+        string? encryptKey,
+        string? encryptionScheme,
+        string? encryptionHeader,
+        string? encryptionSignature,
+        long? encryptionEpoch,
         FilePool pool,
         SnFileObject fileObject
     )
     {
-        if (string.IsNullOrWhiteSpace(encryptPassword))
+        if (string.IsNullOrWhiteSpace(encryptKey))
             return Task.FromResult((managedTempPath, true));
 
         if (!pool.PolicyConfig.AllowEncryption)
             throw new InvalidOperationException("Encryption is not allowed in this pool");
 
+        byte[] key;
+        try
+        {
+            key = Convert.FromBase64String(encryptKey);
+        }
+        catch
+        {
+            throw new InvalidOperationException("encryptKey must be valid base64.");
+        }
+
+        byte[]? parsedHeader = null;
+        if (!string.IsNullOrWhiteSpace(encryptionHeader))
+        {
+            try
+            {
+                parsedHeader = Convert.FromBase64String(encryptionHeader);
+            }
+            catch
+            {
+                throw new InvalidOperationException("encryptionHeader must be valid base64.");
+            }
+        }
+
+        byte[]? parsedSignature = null;
+        if (!string.IsNullOrWhiteSpace(encryptionSignature))
+        {
+            try
+            {
+                parsedSignature = Convert.FromBase64String(encryptionSignature);
+            }
+            catch
+            {
+                throw new InvalidOperationException("encryptionSignature must be valid base64.");
+            }
+        }
+
         var encryptedPath = Path.Combine(Path.GetTempPath(), $"{fileId}.encrypted");
-        FileEncryptor.EncryptFile(managedTempPath, encryptedPath, encryptPassword);
+        var encryptionMetadata = FileEncryptor.EncryptFileWithE2eeKey(
+            managedTempPath,
+            encryptedPath,
+            key,
+            encryptionScheme ?? "pass.e2ee.file.raw-key.v1",
+            encryptionEpoch,
+            parsedHeader,
+            parsedSignature
+        );
 
         File.Delete(managedTempPath);
 
         fileObject.MimeType = "application/octet-stream";
         fileObject.Size = new FileInfo(encryptedPath).Length;
+        fileObject.Meta ??= new Dictionary<string, object?>();
+        fileObject.Meta["e2ee"] = new Dictionary<string, object?>
+        {
+            ["scheme"] = encryptionMetadata.EncryptionScheme,
+            ["epoch"] = encryptionMetadata.EncryptionEpoch,
+            ["header"] = encryptionMetadata.EncryptionHeader is null
+                ? null
+                : Convert.ToBase64String(encryptionMetadata.EncryptionHeader),
+            ["signature"] = encryptionMetadata.EncryptionSignature is null
+                ? null
+                : Convert.ToBase64String(encryptionMetadata.EncryptionSignature)
+        };
 
         return Task.FromResult((encryptedPath, true));
     }

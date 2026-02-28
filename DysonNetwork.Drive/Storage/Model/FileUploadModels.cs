@@ -20,7 +20,11 @@ public class FileUploadParameters
     public int ChunksUploaded { get; set; }
     public Guid PoolId { get; set; }
     public Guid? BundleId { get; set; }
-    public string? EncryptPassword { get; set; }
+    public string? EncryptKey { get; set; }
+    public string? EncryptionScheme { get; set; }
+    public string? EncryptionHeader { get; set; }
+    public string? EncryptionSignature { get; set; }
+    public long? EncryptionEpoch { get; set; }
     public string Hash { get; set; } = string.Empty;
     public List<int> UploadedChunks { get; set; } = [];
     public string? Path { get; set; }
@@ -92,7 +96,11 @@ public class CreateUploadTaskRequest
     public string ContentType { get; set; } = null!;
     public Guid? PoolId { get; set; } = null!;
     public Guid? BundleId { get; set; }
-    public string? EncryptPassword { get; set; }
+    public string? EncryptKey { get; set; }
+    public string? EncryptionScheme { get; set; }
+    public string? EncryptionHeader { get; set; }
+    public string? EncryptionSignature { get; set; }
+    public long? EncryptionEpoch { get; set; }
     public Instant? ExpiredAt { get; set; }
     public long? ChunkSize { get; set; }
     public string? Path { get; set; }
@@ -117,7 +125,11 @@ internal class UploadTask
     public int ChunksCount { get; set; }
     public Guid PoolId { get; set; }
     public Guid? BundleId { get; set; }
-    public string? EncryptPassword { get; set; }
+    public string? EncryptKey { get; set; }
+    public string? EncryptionScheme { get; set; }
+    public string? EncryptionHeader { get; set; }
+    public string? EncryptionSignature { get; set; }
+    public long? EncryptionEpoch { get; set; }
     public Instant? ExpiredAt { get; set; }
     public string Hash { get; set; } = null!;
 }
@@ -269,14 +281,61 @@ public class PersistentUploadTask : PersistentTask
         }
     }
 
-    [MaxLength(256)]
-    public string? EncryptPassword
+    [MaxLength(2048)]
+    public string? EncryptKey
     {
-        get => TypedParameters.EncryptPassword;
+        get => TypedParameters.EncryptKey;
         set
         {
             var parameters = TypedParameters;
-            parameters.EncryptPassword = value;
+            parameters.EncryptKey = value;
+            TypedParameters = parameters;
+        }
+    }
+
+    [MaxLength(128)]
+    public string? EncryptionScheme
+    {
+        get => TypedParameters.EncryptionScheme;
+        set
+        {
+            var parameters = TypedParameters;
+            parameters.EncryptionScheme = value;
+            TypedParameters = parameters;
+        }
+    }
+
+    [MaxLength(4096)]
+    public string? EncryptionHeader
+    {
+        get => TypedParameters.EncryptionHeader;
+        set
+        {
+            var parameters = TypedParameters;
+            parameters.EncryptionHeader = value;
+            TypedParameters = parameters;
+        }
+    }
+
+    [MaxLength(4096)]
+    public string? EncryptionSignature
+    {
+        get => TypedParameters.EncryptionSignature;
+        set
+        {
+            var parameters = TypedParameters;
+            parameters.EncryptionSignature = value;
+            TypedParameters = parameters;
+        }
+    }
+
+    public long? EncryptionEpoch
+    {
+        get => TypedParameters.EncryptionEpoch;
+        set
+        {
+            var parameters = TypedParameters;
+            parameters.EncryptionEpoch = value;
             TypedParameters = parameters;
         }
     }

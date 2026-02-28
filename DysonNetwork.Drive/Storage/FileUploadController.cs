@@ -144,10 +144,26 @@ public class FileUploadController(
 
     private static IActionResult? ValidatePoolPolicy(PolicyConfig policy, CreateUploadTaskRequest request)
     {
-        if (!policy.AllowEncryption && !string.IsNullOrEmpty(request.EncryptPassword))
+        if (!policy.AllowEncryption && !string.IsNullOrEmpty(request.EncryptKey))
         {
             return new ObjectResult(ApiError.Unauthorized("File encryption is not allowed in this pool", true))
                 { StatusCode = 403 };
+        }
+
+        if (!string.IsNullOrEmpty(request.EncryptKey))
+        {
+            try
+            {
+                _ = Convert.FromBase64String(request.EncryptKey);
+            }
+            catch
+            {
+                return new ObjectResult(ApiError.Validation(new Dictionary<string, string[]>
+                    {
+                        { "encryptKey", new[] { "encryptKey must be a valid base64-encoded key." } }
+                    }))
+                    { StatusCode = 400 };
+            }
         }
 
         if (policy.AcceptTypes is { Count: > 0 })
@@ -285,7 +301,11 @@ public class FileUploadController(
                 mergedFilePath,
                 persistentTask.FileName,
                 persistentTask.ContentType,
-                persistentTask.EncryptPassword,
+                persistentTask.EncryptKey,
+                persistentTask.EncryptionScheme,
+                persistentTask.EncryptionHeader,
+                persistentTask.EncryptionSignature,
+                persistentTask.EncryptionEpoch,
                 persistentTask.ExpiredAt
             );
 

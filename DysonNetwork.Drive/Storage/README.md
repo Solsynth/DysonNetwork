@@ -101,7 +101,11 @@ Creates a new resumable upload task.
   "poolId": "uuid",
   "bundleId": "uuid",
   "chunkSize": "long",
-  "encryptPassword": "string",
+  "encryptKey": "base64-string",
+  "encryptionScheme": "pass.e2ee.file.raw-key.v1",
+  "encryptionHeader": "base64-string",
+  "encryptionSignature": "base64-string",
+  "encryptionEpoch": 1,
   "expiredAt": "datetime",
   "hash": "string"
 }
@@ -114,7 +118,11 @@ Creates a new resumable upload task.
 - `poolId`: Optional - Storage pool ID
 - `bundleId`: Optional - File bundle ID
 - `chunkSize`: Optional - Chunk size (default: 5MB)
-- `encryptPassword`: Optional - Encryption password
+- `encryptKey`: Optional - Base64-encoded E2EE file key (when provided, file is encrypted server-side using E2EE envelope format)
+- `encryptionScheme`: Optional - Encryption scheme label stored in file metadata
+- `encryptionHeader`: Optional - Base64-encoded E2EE header bytes
+- `encryptionSignature`: Optional - Base64-encoded E2EE signature bytes
+- `encryptionEpoch`: Optional - Sender-key epoch or key version hint
 - `expiredAt`: Optional - Expiration date
 - `hash`: Required - File hash for deduplication
 
