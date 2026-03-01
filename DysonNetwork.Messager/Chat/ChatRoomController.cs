@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Shared;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Localization;
@@ -9,7 +8,6 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.Localization;
 using NodaTime;
 using DysonNetwork.Shared.Models;
 
@@ -304,15 +302,27 @@ public class ChatRoomController(
             .FirstOrDefaultAsync();
         if (chatRoom is null) return NotFound();
 
+        // Authorization
         if (chatRoom.RealmId is not null)
         {
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a realm moderator to update the chat.");
+                return StatusCode(403, "You need at least be a realm moderator to update this chat.");
         }
-        else if (chatRoom.Type == ChatRoomType.DirectMessage && !await crs.IsChatMember(chatRoom.Id, accountId))
-            return StatusCode(403, "You need be part of the DM to update the chat.");
-        else if (chatRoom.AccountId != accountId)
-            return StatusCode(403, "You need be the owner to update the chat.");
+        else
+        {
+            // Non-realm chat: permissions depend on room type
+            switch (chatRoom.Type)
+            {
+                case ChatRoomType.DirectMessage:
+                    if (!await crs.IsChatMember(chatRoom.Id, accountId))
+                        return StatusCode(403, "You need be part of the DM to update this chat.");
+                    break;
+                case ChatRoomType.Group:
+                    if (chatRoom.AccountId != accountId)
+                        return StatusCode(403, "You need be the owner to update for this chat.");
+                    break;
+            }
+        }
 
         var previousName = chatRoom.Name;
         var previousDescription = chatRoom.Description;
@@ -460,7 +470,7 @@ public class ChatRoomController(
 
     [HttpPost("{id:guid}/e2ee/enable")]
     [Authorize]
-    public async Task<ActionResult<SnChatRoom>> EnableE2ee(Guid id, [FromBody] EnableE2eeRequest? request)
+    public async Task<ActionResult<SnChatRoom>> EnableE2Ee(Guid id, [FromBody] EnableE2eeRequest? request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
@@ -470,15 +480,27 @@ public class ChatRoomController(
             .FirstOrDefaultAsync();
         if (chatRoom is null) return NotFound();
 
+        // Authorization
         if (chatRoom.RealmId is not null)
         {
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
                 return StatusCode(403, "You need at least be a realm moderator to enable E2EE for this chat.");
         }
-        else if (chatRoom.Type == ChatRoomType.DirectMessage && !await crs.IsChatMember(chatRoom.Id, accountId))
-            return StatusCode(403, "You need be part of the DM to update the chat.");
-        else if (chatRoom.AccountId != accountId)
-            return StatusCode(403, "You need be the owner to update the chat.");
+        else
+        {
+            // Non-realm chat: permissions depend on room type
+            switch (chatRoom.Type)
+            {
+                case ChatRoomType.DirectMessage:
+                    if (!await crs.IsChatMember(chatRoom.Id, accountId))
+                        return StatusCode(403, "You need be part of the DM to enable E2EE for this chat.");
+                    break;
+                case ChatRoomType.Group:
+                    if (chatRoom.AccountId != accountId)
+                        return StatusCode(403, "You need be the owner to enable E2EE for this chat.");
+                    break;
+            }
+        }
 
         if (chatRoom.EncryptionMode != ChatRoomEncryptionMode.None)
             return Conflict(new
@@ -543,15 +565,26 @@ public class ChatRoomController(
             .FirstOrDefaultAsync();
         if (chatRoom is null) return NotFound();
 
+        // Authorization
         if (chatRoom.RealmId is not null)
         {
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a realm moderator to delete the chat.");
+                return StatusCode(403, "You need at least be a realm moderator to delete for this chat.");
         }
-        else if (chatRoom.Type == ChatRoomType.DirectMessage && !await crs.IsChatMember(chatRoom.Id, accountId))
-            return StatusCode(403, "You need be part of the DM to update the chat.");
-        else if (chatRoom.AccountId != accountId)
-            return StatusCode(403, "You need be the owner to update the chat.");
+        else
+        {
+            switch (chatRoom.Type)
+            {
+                case ChatRoomType.DirectMessage:
+                    if (!await crs.IsChatMember(chatRoom.Id, accountId))
+                        return StatusCode(403, "You need be part of the DM to delete this chat.");
+                    break;
+                case ChatRoomType.Group:
+                    if (chatRoom.AccountId != accountId)
+                        return StatusCode(403, "You need be the owner to delete for this chat.");
+                    break;
+            }
+        }
 
         await using var transaction = await db.Database.BeginTransactionAsync();
 
@@ -754,16 +787,28 @@ public class ChatRoomController(
         if (operatorMember is null)
             return StatusCode(403, "You need to be a part of chat to invite member to the chat.");
 
-        // Handle realm-owned chat rooms
+        // Authorization
         if (chatRoom.RealmId is not null)
         {
+            // Realm-owned chat: only moderators can enable E2EE
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a realm moderator to invite members to this chat.");
+                return StatusCode(403, "You need at least be a realm moderator to invite member for this chat.");
         }
-        else if (chatRoom.Type == ChatRoomType.DirectMessage && !await crs.IsChatMember(chatRoom.Id, accountId))
-            return StatusCode(403, "You need be part of the DM to invite member to the chat.");
-        else if (chatRoom.AccountId != accountId)
-            return StatusCode(403, "You need be the owner to invite member to this chat.");
+        else
+        {
+            // Non-realm chat: permissions depend on room type
+            switch (chatRoom.Type)
+            {
+                case ChatRoomType.DirectMessage:
+                    if (!await crs.IsChatMember(chatRoom.Id, accountId))
+                        return StatusCode(403, "You need be part of the DM to invite member to this chat.");
+                    break;
+                case ChatRoomType.Group:
+                    if (chatRoom.AccountId != accountId)
+                        return StatusCode(403, "You need be the owner to invite member for this chat.");
+                    break;
+            }
+        }
 
         if (chatRoom.Type == ChatRoomType.DirectMessage &&
             chatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeDm)
@@ -994,16 +1039,25 @@ public class ChatRoomController(
             .FirstOrDefaultAsync(m => m.AccountId == accountId && m.ChatRoomId == chatRoom.Id);
         if (operatorMember is null) return BadRequest("You have not joined this chat room.");
 
-        // Check if the chat room is owned by a realm
+        // Authorization
         if (chatRoom.RealmId is not null)
         {
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a realm moderator to timeout members.");
+                return StatusCode(403, "You need at least be a realm moderator to timeout member for this chat.");
         }
-        else if (chatRoom.Type == ChatRoomType.DirectMessage)
-            return BadRequest("You cannot timeout member in a direct message.");
-        else if (chatRoom.AccountId != accountId)
-            return StatusCode(403, "You need be the owner to timeout member in the chat.");
+        else
+        {
+            // Non-realm chat: permissions depend on room type
+            switch (chatRoom.Type)
+            {
+                case ChatRoomType.DirectMessage:
+                    return BadRequest("You cannot timeout member in DM");
+                case ChatRoomType.Group:
+                    if (chatRoom.AccountId != accountId)
+                        return StatusCode(403, "You need be the owner to timeout member in this chat.");
+                    break;
+            }
+        }
 
         // Find the target member
         var member = await db.ChatMembers
@@ -1051,16 +1105,27 @@ public class ChatRoomController(
             .FirstOrDefaultAsync();
         if (chatRoom is null) return NotFound();
 
-        // Check if the chat room is owned by a realm
+        // Authorization
         if (chatRoom.RealmId is not null)
         {
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a realm moderator to remove members.");
+                return StatusCode(403, "You need at least be a realm moderator to cancel timeout in this chat.");
         }
-        else if (chatRoom.Type == ChatRoomType.DirectMessage && !await crs.IsChatMember(chatRoom.Id, accountId))
-            return StatusCode(403, "You need be part of the DM to update the chat.");
-        else if (chatRoom.AccountId != accountId)
-            return StatusCode(403, "You need be the owner to update the chat.");
+        else
+        {
+            // Non-realm chat: permissions depend on room type
+            switch (chatRoom.Type)
+            {
+                case ChatRoomType.DirectMessage:
+                    if (!await crs.IsChatMember(chatRoom.Id, accountId))
+                        return StatusCode(403, "You need be part of the DM to cancel timeout in this chat.");
+                    break;
+                case ChatRoomType.Group:
+                    if (chatRoom.AccountId != accountId)
+                        return StatusCode(403, "You need be the owner to cancel timeout for this chat.");
+                    break;
+            }
+        }
 
         // Find the target member
         var member = await db.ChatMembers
@@ -1102,16 +1167,26 @@ public class ChatRoomController(
             .FirstOrDefaultAsync();
         if (chatRoom is null) return NotFound();
 
-        // Check if the chat room is owned by a realm
+        // Authorization
         if (chatRoom.RealmId is not null)
         {
             if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
-                return StatusCode(403, "You need at least be a realm moderator to remove members.");
+                return StatusCode(403, "You need at least be a realm moderator to remove member for this chat.");
         }
-        else if (chatRoom.Type == ChatRoomType.DirectMessage && !await crs.IsChatMember(chatRoom.Id, accountId))
-            return StatusCode(403, "You need be part of the DM to update the chat.");
-        else if (chatRoom.AccountId != accountId)
-            return StatusCode(403, "You need be the owner to update the chat.");
+        else
+        {
+            switch (chatRoom.Type)
+            {
+                case ChatRoomType.DirectMessage:
+                    if (!await crs.IsChatMember(chatRoom.Id, accountId))
+                        return StatusCode(403, "You need be part of the DM to remove member for this chat.");
+                    break;
+                case ChatRoomType.Group:
+                    if (chatRoom.AccountId != accountId)
+                        return StatusCode(403, "You need be the owner to remove member for this chat.");
+                    break;
+            }
+        }
 
         // Find the target member
         var member = await db.ChatMembers
