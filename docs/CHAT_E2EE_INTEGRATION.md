@@ -56,6 +56,7 @@ If missing, endpoints return:
 
 - Require encrypted payload.
 - Reject plaintext fields (`content`, server-side fund/poll embeds, plaintext references).
+- Reject obvious plaintext JSON in `ciphertext` with `chat.e2ee_ciphertext_invalid`.
 - Voice endpoint returns:
 
 ```json

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
+using System.Text;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
@@ -29,35 +30,46 @@ public partial class ChatController(
     DyPollService.DyPollServiceClient pollClient
 ) : ControllerBase
 {
-    private const string E2eeCapabilityHeader = "X-Client-Ability";
-    private const string E2eeCapabilityToken = "chat-e2ee-v1";
+    private const string E2EeCapabilityHeader = "X-Client-Ability";
+    private const string E2EeCapabilityToken = "chat-e2ee-v1";
 
-    private bool HasE2eeCapability()
+    private bool HasE2EeCapability()
     {
-        if (!Request.Headers.TryGetValue(E2eeCapabilityHeader, out var header)) return false;
+        if (!Request.Headers.TryGetValue(E2EeCapabilityHeader, out var header)) return false;
         return header
             .Where(v => !string.IsNullOrWhiteSpace(v))
             .SelectMany(v => v!.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
-            .Any(v => string.Equals(v, E2eeCapabilityToken, StringComparison.OrdinalIgnoreCase));
+            .Any(v => string.Equals(v, E2EeCapabilityToken, StringComparison.OrdinalIgnoreCase));
     }
 
-    private ActionResult E2eeError(string code, string message)
+    private ActionResult E2EeError(string code, string message)
     {
         return Conflict(new { code, error = message });
     }
 
-    private ActionResult? EnsureE2eeCapabilityForRoom(SnChatRoom room)
+    private ActionResult? EnsureE2EeCapabilityForRoom(SnChatRoom room)
     {
         if (room.EncryptionMode == ChatRoomEncryptionMode.None) return null;
-        if (HasE2eeCapability()) return null;
-        return E2eeError("chat.e2ee_required", "This room requires E2EE-capable clients.");
+        if (HasE2EeCapability()) return null;
+        return E2EeError("chat.e2ee_required", "This room requires E2EE-capable clients.");
     }
 
-    private bool HasEncryptedPayload(SendMessageRequest request)
+    private static bool HasEncryptedPayload(SendMessageRequest request)
     {
         return request.Ciphertext is { Length: > 0 } &&
                !string.IsNullOrWhiteSpace(request.EncryptionScheme) &&
                !string.IsNullOrWhiteSpace(request.EncryptionMessageType);
+    }
+
+    // Server cannot decrypt to verify crypto correctness, but we can block obvious plaintext JSON misuse.
+    private static bool LooksLikePlaintextJson(byte[]? payload)
+    {
+        if (payload is not { Length: > 1 }) return false;
+        var text = Encoding.UTF8.GetString(payload).Trim();
+        if (!(text.StartsWith("{") && text.EndsWith("}"))) return false;
+        return text.Contains("\"content\"", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("\"attachments_id\"", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("\"nonce\"", StringComparison.OrdinalIgnoreCase);
     }
 
     public class MarkMessageReadRequest
@@ -344,17 +356,19 @@ public partial class ChatController(
         var e2eeMode = member.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None;
         if (e2eeMode)
         {
-            var capabilityError = EnsureE2eeCapabilityForRoom(member.ChatRoom);
+            var capabilityError = EnsureE2EeCapabilityForRoom(member.ChatRoom);
             if (capabilityError is not null) return capabilityError;
             if (!request.IsEncrypted || !HasEncryptedPayload(request))
-                return E2eeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
+                return E2EeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
+            if (LooksLikePlaintextJson(request.Ciphertext))
+                return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (!string.IsNullOrWhiteSpace(request.Content) ||
                 (request.AttachmentsId is { Count: > 0 }) ||
                 request.FundId.HasValue ||
                 request.PollId.HasValue ||
                 request.RepliedMessageId.HasValue ||
                 request.ForwardedMessageId.HasValue)
-                return E2eeError("chat.e2ee_plaintext_forbidden", "Plaintext fields are forbidden for E2EE rooms.");
+                return E2EeError("chat.e2ee_plaintext_forbidden", "Plaintext fields are forbidden for E2EE rooms.");
         }
         else
         {
@@ -634,7 +648,7 @@ public partial class ChatController(
         var e2eeMode = message.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None;
         if (e2eeMode)
         {
-            var capabilityError = EnsureE2eeCapabilityForRoom(message.ChatRoom);
+            var capabilityError = EnsureE2EeCapabilityForRoom(message.ChatRoom);
             if (capabilityError is not null) return capabilityError;
         }
 
@@ -647,14 +661,16 @@ public partial class ChatController(
         if (e2eeMode)
         {
             if (!request.IsEncrypted || !HasEncryptedPayload(request))
-                return E2eeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
+                return E2EeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
+            if (LooksLikePlaintextJson(request.Ciphertext))
+                return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (!string.IsNullOrWhiteSpace(request.Content) ||
                 (request.AttachmentsId is { Count: > 0 }) ||
                 request.FundId.HasValue ||
                 request.PollId.HasValue ||
                 request.RepliedMessageId.HasValue ||
                 request.ForwardedMessageId.HasValue)
-                return E2eeError("chat.e2ee_plaintext_forbidden", "Plaintext fields are forbidden for E2EE rooms.");
+                return E2EeError("chat.e2ee_plaintext_forbidden", "Plaintext fields are forbidden for E2EE rooms.");
         }
         else
         {
@@ -815,8 +831,10 @@ public partial class ChatController(
         var e2eeMode = message.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None;
         if (e2eeMode)
         {
-            var capabilityError = EnsureE2eeCapabilityForRoom(message.ChatRoom);
+            var capabilityError = EnsureE2EeCapabilityForRoom(message.ChatRoom);
             if (capabilityError is not null) return capabilityError;
+            if (LooksLikePlaintextJson(request?.Ciphertext))
+                return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
         }
 
         var accountId = Guid.Parse(currentUser.Id);
