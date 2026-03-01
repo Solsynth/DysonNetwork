@@ -101,10 +101,20 @@ public class ChatRoomController(
         if (hasBlocked?.Value ?? false)
             return StatusCode(403, "You cannot create direct message with a user that blocked you.");
 
-        // Check if DM already exists between these users
+        // Check if DM already exists between these users in the same encryption mode.
+        // This allows one plaintext DM and one encrypted DM to coexist for the same pair.
+        var requestedMode = request.EncryptionMode ?? ChatRoomEncryptionMode.None;
+        if (!IsEncryptionModeValidForRoomType(ChatRoomType.DirectMessage, requestedMode))
+            return Conflict(new
+            {
+                code = "chat.e2ee_mode_invalid_for_room",
+                error = "Invalid encryption mode for direct message room."
+            });
+
         var existingDm = await db.ChatRooms
             .Include(c => c.Members)
             .Where(c => c.Type == ChatRoomType.DirectMessage && c.Members.Count == 2)
+            .Where(c => c.EncryptionMode == requestedMode)
             .Where(c => c.Members.Any(m => m.AccountId == Guid.Parse(currentUser.Id)))
             .Where(c => c.Members.Any(m => m.AccountId == request.RelatedUserId))
             .FirstOrDefaultAsync();
@@ -113,14 +123,7 @@ public class ChatRoomController(
             return BadRequest("You already have a DM with this user.");
 
         // Create new DM chat room
-        var encryptionMode = request.EncryptionMode ?? ChatRoomEncryptionMode.None;
-        if (!IsEncryptionModeValidForRoomType(ChatRoomType.DirectMessage, encryptionMode))
-            return Conflict(new
-            {
-                code = "chat.e2ee_mode_invalid_for_room",
-                error = "Invalid encryption mode for direct message room."
-            });
-
+        var encryptionMode = requestedMode;
         var dmRoom = new SnChatRoom
         {
             Type = ChatRoomType.DirectMessage,
@@ -197,7 +200,7 @@ public class ChatRoomController(
     {
         return roomType switch
         {
-            ChatRoomType.DirectMessage => mode is ChatRoomEncryptionMode.None or ChatRoomEncryptionMode.E2eeDm,
+            ChatRoomType.DirectMessage => mode is ChatRoomEncryptionMode.None or ChatRoomEncryptionMode.E2eeDm or ChatRoomEncryptionMode.E2eeSenderKeyGroup,
             ChatRoomType.Group => mode is ChatRoomEncryptionMode.None or ChatRoomEncryptionMode.E2eeSenderKeyGroup,
             _ => false
         };
@@ -318,7 +321,6 @@ public class ChatRoomController(
         var previousRealmId = chatRoom.RealmId;
         var previousPictureId = chatRoom.Picture?.Id;
         var previousBackgroundId = chatRoom.Background?.Id;
-        var previousEncryptionMode = chatRoom.EncryptionMode;
 
         if (request.RealmId is not null)
         {
@@ -367,7 +369,11 @@ public class ChatRoomController(
         if (request.IsPublic is not null)
             chatRoom.IsPublic = request.IsPublic.Value;
         if (request.EncryptionMode is not null)
-            chatRoom.EncryptionMode = request.EncryptionMode.Value;
+            return Conflict(new
+            {
+                code = "chat.e2ee_enable_endpoint_required",
+                error = "Use the dedicated E2EE enable endpoint to enable encryption. Encryption cannot be disabled."
+            });
         if (request.E2eePolicy is not null)
             chatRoom.E2eePolicy = request.E2eePolicy;
 
@@ -424,13 +430,6 @@ public class ChatRoomController(
                 ["old"] = previousBackgroundId,
                 ["new"] = chatRoom.Background?.Id
             };
-        if (previousEncryptionMode != chatRoom.EncryptionMode)
-            changes["encryption_mode"] = new Dictionary<string, object>
-            {
-                ["old"] = previousEncryptionMode.ToString(),
-                ["new"] = chatRoom.EncryptionMode.ToString()
-            };
-
         if (changes.Count > 0)
         {
             var operatorMember = await db.ChatMembers
@@ -446,6 +445,85 @@ public class ChatRoomController(
         {
             Action = "chatrooms.update",
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) } },
+            AccountId = currentUser.Id,
+            UserAgent = Request.Headers.UserAgent,
+            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+        });
+
+        return Ok(chatRoom);
+    }
+
+    public class EnableE2eeRequest
+    {
+        public ChatRoomEncryptionMode? EncryptionMode { get; set; }
+    }
+
+    [HttpPost("{id:guid}/e2ee/enable")]
+    [Authorize]
+    public async Task<ActionResult<SnChatRoom>> EnableE2ee(Guid id, [FromBody] EnableE2eeRequest? request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var chatRoom = await db.ChatRooms
+            .Where(e => e.Id == id)
+            .FirstOrDefaultAsync();
+        if (chatRoom is null) return NotFound();
+
+        if (chatRoom.RealmId is not null)
+        {
+            if (!await rs.IsMemberWithRole(chatRoom.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
+                return StatusCode(403, "You need at least be a realm moderator to enable E2EE for this chat.");
+        }
+        else if (chatRoom.Type == ChatRoomType.DirectMessage && !await crs.IsChatMember(chatRoom.Id, accountId))
+            return StatusCode(403, "You need be part of the DM to update the chat.");
+        else if (chatRoom.AccountId != accountId)
+            return StatusCode(403, "You need be the owner to update the chat.");
+
+        if (chatRoom.EncryptionMode != ChatRoomEncryptionMode.None)
+            return Conflict(new
+            {
+                code = "chat.e2ee_already_enabled",
+                error = "E2EE is already enabled for this room and cannot be disabled."
+            });
+
+        var requestedMode = request?.EncryptionMode;
+        var targetMode = requestedMode ?? (chatRoom.Type == ChatRoomType.DirectMessage
+            ? ChatRoomEncryptionMode.E2eeDm
+            : ChatRoomEncryptionMode.E2eeSenderKeyGroup);
+
+        if (targetMode == ChatRoomEncryptionMode.None)
+            return Conflict(new
+            {
+                code = "chat.e2ee_mode_invalid_for_room",
+                error = "Encryption mode cannot be None when enabling E2EE."
+            });
+        if (!IsEncryptionModeValidForRoomType(chatRoom.Type, targetMode))
+            return Conflict(new
+            {
+                code = "chat.e2ee_mode_invalid_for_room",
+                error = "Invalid encryption mode for this room type."
+            });
+
+        chatRoom.EncryptionMode = targetMode;
+        db.ChatRooms.Update(chatRoom);
+        await db.SaveChangesAsync();
+
+        var operatorMember = await db.ChatMembers
+            .Where(m => m.ChatRoomId == chatRoom.Id && m.AccountId == accountId)
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+            .FirstOrDefaultAsync();
+        if (operatorMember is not null)
+            await cs.SendE2eeEnabledSystemMessageAsync(chatRoom, operatorMember, targetMode);
+
+        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
+        {
+            Action = "chatrooms.e2ee.enable",
+            Meta =
+            {
+                { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) },
+                { "encryption_mode", Google.Protobuf.WellKnownTypes.Value.ForString(targetMode.ToString()) }
+            },
             AccountId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent,
             IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
@@ -686,6 +764,20 @@ public class ChatRoomController(
             return StatusCode(403, "You need be part of the DM to invite member to the chat.");
         else if (chatRoom.AccountId != accountId)
             return StatusCode(403, "You need be the owner to invite member to this chat.");
+
+        if (chatRoom.Type == ChatRoomType.DirectMessage &&
+            chatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeDm)
+        {
+            var joinedMemberCount = await db.ChatMembers
+                .Where(m => m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+                .CountAsync();
+            if (joinedMemberCount >= 2)
+                return Conflict(new
+                {
+                    code = "chat.e2ee_dm_member_limit",
+                    error = "E2EE DM rooms in pairwise mode only support two active members."
+                });
+        }
 
         var existingMember = await db.ChatMembers
             .Where(m => m.AccountId == request.RelatedUserId)

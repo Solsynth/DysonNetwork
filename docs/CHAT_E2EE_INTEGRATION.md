@@ -19,7 +19,7 @@ This document describes how chat E2EE works after integrating `DysonNetwork.Mess
 | `2` | `E2eeSenderKeyGroup` | Group rooms (sender key) |
 
 Validation:
-- DM room cannot use `E2eeSenderKeyGroup`.
+- DM room can use `E2eeDm` (pairwise) or `E2eeSenderKeyGroup` (sender key).
 - Group room cannot use `E2eeDm`.
 
 ## Capability Requirement
@@ -58,6 +58,19 @@ If missing, endpoints return:
 - Message cipher details are represented by client-provided `encryption_scheme` (for example `x3dh-dr-v1` for DM and `sender-key-v1` for group).
 
 ## Endpoint Behavior
+
+### Enabling E2EE
+
+- E2EE is enabled via dedicated endpoint: `POST /api/chat/{id}/e2ee/enable`.
+- `PATCH /api/chat/{id}` cannot change `encryption_mode`.
+- Enabling is one-way: once enabled, room encryption mode cannot be disabled.
+- Default mode when enabling:
+  - DM room: `E2eeDm`
+  - Group room: `E2eeSenderKeyGroup`
+
+DM-specific notes:
+- DM duplicate check is mode-aware, so one plaintext DM and one encrypted DM can coexist for the same user pair.
+- For DM rooms in `E2eeDm`, membership stays pairwise (max two active members). Use `E2eeSenderKeyGroup` if additional members are needed.
 
 ### Send / Update / Delete in E2EE rooms
 

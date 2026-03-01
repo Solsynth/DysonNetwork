@@ -386,6 +386,26 @@ public partial class ChatService(
         );
     }
 
+    public async Task<SnChatMessage> SendE2eeEnabledSystemMessageAsync(
+        SnChatRoom room,
+        SnChatMember sender,
+        ChatRoomEncryptionMode mode
+    )
+    {
+        return await SendSystemMessageAsync(
+            room,
+            sender,
+            "system.e2ee.enabled",
+            "This chat now uses E2EE.",
+            new Dictionary<string, object>
+            {
+                ["event"] = "e2ee_enabled",
+                ["room_id"] = room.Id,
+                ["mode"] = mode.ToString()
+            }
+        );
+    }
+
     private async Task DeliverMessageAsync(
         SnChatMessage message,
         SnChatMember sender,

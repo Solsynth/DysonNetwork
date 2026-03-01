@@ -21,6 +21,7 @@ These messages are informational:
 | `system.member.joined` | A member joins chat | `"{name} joined the chat."` |
 | `system.member.left` | A member leaves chat or is removed | `"{name} left the chat."` / `"{name} was removed from the chat by {operator}."` |
 | `system.chat.updated` | Chat room info is updated | `"{operator} updated chat info ({fields})."` |
+| `system.e2ee.enabled` | E2EE is enabled for the room | `"This chat now uses E2EE."` |
 | `system.e2ee.rotate_required` | Group E2EE membership changed | `"E2EE sender key rotation required."` |
 | `system.call.member.joined` | A member joins call | `"{name} joined the call."` |
 | `system.call.member.left` | A member leaves call or is removed | `"{name} left the call."` / `"{name} was removed from the call by {operator}."` |
@@ -67,6 +68,12 @@ Generated when group member set changes in E2EE sender-key rooms:
 - `POST /api/chat/invites/{roomId}/accept` (accept invite)
 - `DELETE /api/chat/{roomId}/members/me` (self leave)
 - `DELETE /api/chat/{roomId}/members/{memberId}` (remove member)
+
+### E2EE Enabled
+
+Generated when:
+
+- `POST /api/chat/{id}/e2ee/enable`
 
 ### Call Member Joined
 
@@ -150,6 +157,16 @@ Removed by moderator/owner:
   "changed_member_id": "account-guid",
   "reason": "member_joined",
   "rotation_hint_epoch": 1740758400000
+}
+```
+
+### `system.e2ee.enabled` meta
+
+```json
+{
+  "event": "e2ee_enabled",
+  "room_id": "room-guid",
+  "mode": "E2eeDm"
 }
 ```
 
