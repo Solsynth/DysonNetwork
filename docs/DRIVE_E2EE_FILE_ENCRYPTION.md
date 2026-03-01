@@ -8,6 +8,12 @@ Drive file encryption now uses E2EE key-based envelope encryption only.
 - Client provides a base64 E2EE key and optional envelope metadata.
 - Drive stores encrypted blob and metadata, but does not decrypt content.
 
+## Algorithm
+
+- Symmetric encryption: `AES-256-GCM` (`AesGcm`) with a 12-byte nonce and 16-byte tag.
+- Key input: raw 32-byte key provided by client as base64 (`encryptKey`).
+- KDF in current raw-key mode: `none`.
+
 ## Upload API Changes
 
 `POST /api/files/upload/create` request fields:

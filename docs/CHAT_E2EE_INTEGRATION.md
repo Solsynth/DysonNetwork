@@ -50,6 +50,13 @@ If missing, endpoints return:
 - `encryption_message_type` (`content.new` / `content.edit` / `content.delete`)
 - `client_message_id` (idempotency/retry)
 
+## Algorithm Notes
+
+- Chat message encryption is client-side only. Messager stores/transports opaque ciphertext and does not encrypt/decrypt message bodies.
+- Current key bootstrap identifier is `x25519` (published in Pass key bundles).
+- Current session bootstrap hint is `x3dh-v1`.
+- Message cipher details are represented by client-provided `encryption_scheme` (for example `x3dh-dr-v1` for DM and `sender-key-v1` for group).
+
 ## Endpoint Behavior
 
 ### Send / Update / Delete in E2EE rooms

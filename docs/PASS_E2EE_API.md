@@ -27,6 +27,13 @@ All endpoints require authenticated user context.
 - Envelope ordering is per-recipient `sequence` (monotonic increasing).
 - Realtime push packet type is `e2ee.envelope` via Ring websocket.
 
+## Algorithm Clarification
+
+- Pass is transport/bootstrap only. It does not perform message encryption or decryption.
+- `algorithm` in key bundle is currently expected as `x25519`.
+- Pairwise bootstrap hint currently uses `x3dh-v1`.
+- DM/group message cipher and ratchet details are client-defined and should be carried in payload metadata (for example chat `encryption_scheme`).
+
 ## Enums
 
 ### Envelope Type (`SnE2eeEnvelopeType`)
