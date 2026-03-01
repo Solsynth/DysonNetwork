@@ -87,6 +87,7 @@ public class SnChatMember : ModelBase
 {
     public Guid Id { get; set; }
     public Guid ChatRoomId { get; set; }
+    [JsonIgnore]
     public SnChatRoom ChatRoom { get; set; } = null!;
     public Guid AccountId { get; set; }
 
