@@ -11,6 +11,11 @@
 Server responsibility is transport, queueing, and delivery state tracking.  
 Server does **not** decrypt message ciphertext or hold private keys.
 
+## Versioning
+
+- `v1` endpoints are account-scoped and remain for backward compatibility.
+- `v2` endpoints are device-scoped and should be used by new clients for multi-device correctness.
+
 ## Base URL
 
 ```
@@ -264,12 +269,65 @@ Each item is still delivered as pairwise envelope (`type = SenderKeyDistribution
 }
 ```
 
+---
+
+### 9) Upload Bundle For Current Device (v2)
+
+**Endpoint:** `PUT /api/e2ee/devices/me/bundle`
+
+Uploads/rotates key bundle for the current authenticated device.
+
+---
+
+### 10) List Public Bundles By Device (v2)
+
+**Endpoint:** `GET /api/e2ee/keys/{accountId}/devices?consumeOneTimePreKey=true`
+
+Returns active device bundles for an account.
+
+---
+
+### 11) Send Device Fanout Envelopes (v2)
+
+**Endpoint:** `POST /api/e2ee/messages/fanout`
+
+Accepts one encrypted payload per recipient device and persists one envelope per target device.
+
+Server behavior:
+- Resolves recipient active devices.
+- Rejects request if any active device is missing ciphertext.
+- Rejects payloads targeting unknown/revoked devices.
+
+---
+
+### 12) Fetch Pending Envelopes For Device (v2)
+
+**Endpoint:** `GET /api/e2ee/envelopes/pending?device_id={deviceId}&take=100`
+
+Fetches only envelopes addressed to this device.
+
+---
+
+### 13) Ack Envelope For Device (v2)
+
+**Endpoint:** `POST /api/e2ee/envelopes/{envelopeId}/ack?device_id={deviceId}`
+
+Acknowledges one device-scoped envelope.
+
+---
+
+### 14) Revoke Device (v2)
+
+**Endpoint:** `POST /api/e2ee/devices/{deviceId}/revoke`
+
+Revoked devices are excluded from fanout resolution.
+
 ## Realtime Packet
 
 When recipient is connected, Pass pushes a websocket packet through Ring:
 
 - `type`: `e2ee.envelope`
-- `data`: serialized envelope payload (`id`, `senderId`, `recipientId`, `sessionId`, `type`, `groupId`, `clientMessageId`, `sequence`, `ciphertext`, `header`, `signature`, `meta`, `createdAt`)
+- `data`: serialized envelope payload (`id`, `senderId`, `senderDeviceId`, `recipientId`, `recipientAccountId`, `recipientDeviceId`, `sessionId`, `type`, `groupId`, `clientMessageId`, `sequence`, `ciphertext`, `header`, `signature`, `meta`, `legacyAccountScoped`, `createdAt`)
 
 Clients should still call `GET /api/e2ee/messages/pending` on reconnect to close delivery gaps.
 
@@ -282,6 +340,14 @@ Clients should still call `GET /api/e2ee/messages/pending` on reconnect to close
 5. Send ciphertext envelope: `POST /api/e2ee/messages`
 6. Receive via websocket `e2ee.envelope` and/or `GET /api/e2ee/messages/pending`
 7. Decrypt client-side and ack processed envelopes
+
+## Recommended Client Flow (v2 Multi-Device)
+
+1. Upload bundle for current device: `PUT /api/e2ee/devices/me/bundle`
+2. Fetch recipient device bundles: `GET /api/e2ee/keys/{peerId}/devices`
+3. Encrypt once per recipient device and send via `POST /api/e2ee/messages/fanout`
+4. Fetch with `GET /api/e2ee/envelopes/pending?device_id=...` and ack with device-scoped ack endpoint
+5. On device revoke/login changes, refresh recipient device list before sending
 
 ## Recommended Group Extension Flow (Sender Key)
 

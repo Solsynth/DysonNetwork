@@ -16,22 +16,56 @@ public class E2eeService(
 ) : IGroupE2eeModule
 {
     private const string PacketType = "e2ee.envelope";
+    private const string LegacyDeviceId = "legacy-account";
 
     public async Task<SnE2eeKeyBundle> UpsertKeyBundleAsync(Guid accountId, UpsertE2eeKeyBundleRequest request)
+        => await UpsertDeviceBundleAsync(accountId, LegacyDeviceId, "Legacy account-scoped bundle", request);
+
+    public async Task<SnE2eeKeyBundle> UpsertDeviceBundleAsync(
+        Guid accountId,
+        string deviceId,
+        string? deviceLabel,
+        UpsertE2eeKeyBundleRequest request
+    )
     {
+        if (string.IsNullOrWhiteSpace(deviceId))
+            throw new InvalidOperationException("deviceId cannot be empty.");
+
         var bundle = await db.E2eeKeyBundles
             .Include(b => b.OneTimePreKeys)
-            .FirstOrDefaultAsync(b => b.AccountId == accountId);
+            .FirstOrDefaultAsync(b => b.AccountId == accountId && b.DeviceId == deviceId);
         var now = SystemClock.Instance.GetCurrentInstant();
 
         if (bundle is null)
         {
             bundle = new SnE2eeKeyBundle
             {
-                AccountId = accountId
+                AccountId = accountId,
+                DeviceId = deviceId
             };
             db.E2eeKeyBundles.Add(bundle);
         }
+
+        var e2eeDevice = await db.E2eeDevices.FirstOrDefaultAsync(d =>
+            d.AccountId == accountId && d.DeviceId == deviceId);
+        if (e2eeDevice is null)
+        {
+            e2eeDevice = new SnE2eeDevice
+            {
+                AccountId = accountId,
+                DeviceId = deviceId,
+                DeviceLabel = deviceLabel
+            };
+            db.E2eeDevices.Add(e2eeDevice);
+        }
+        else
+        {
+            if (!string.IsNullOrWhiteSpace(deviceLabel))
+                e2eeDevice.DeviceLabel = deviceLabel;
+            e2eeDevice.IsRevoked = false;
+            e2eeDevice.RevokedAt = null;
+        }
+        e2eeDevice.LastBundleAt = now;
 
         bundle.Algorithm = request.Algorithm;
         bundle.IdentityKey = request.IdentityKey;
@@ -52,6 +86,8 @@ public class E2eeService(
                 .Select(k => new SnE2eeOneTimePreKey
                 {
                     KeyBundle = bundle,
+                    AccountId = accountId,
+                    DeviceId = deviceId,
                     KeyId = k.KeyId,
                     PublicKey = k.PublicKey
                 })
@@ -69,7 +105,9 @@ public class E2eeService(
     {
         var bundle = await db.E2eeKeyBundles
             .Include(b => b.OneTimePreKeys)
-            .FirstOrDefaultAsync(b => b.AccountId == accountId);
+            .Where(b => b.AccountId == accountId)
+            .OrderByDescending(b => b.UpdatedAt)
+            .FirstOrDefaultAsync();
         if (bundle is null)
             return null;
 
@@ -107,6 +145,70 @@ public class E2eeService(
         );
     }
 
+    public async Task<List<E2eeDevicePublicBundleResponse>> GetPublicDeviceBundlesAsync(
+        Guid accountId,
+        Guid requesterId,
+        bool consumeOneTimePreKey
+    )
+    {
+        var devices = await db.E2eeDevices
+            .Where(d => d.AccountId == accountId && !d.IsRevoked)
+            .ToListAsync();
+        if (devices.Count == 0)
+            return [];
+
+        var bundles = await db.E2eeKeyBundles
+            .Where(b => b.AccountId == accountId)
+            .ToListAsync();
+        var bundlesByDevice = bundles.ToDictionary(b => b.DeviceId, b => b);
+
+        var responses = new List<E2eeDevicePublicBundleResponse>();
+        foreach (var device in devices)
+        {
+            if (!bundlesByDevice.TryGetValue(device.DeviceId, out var bundle))
+                continue;
+
+            UpsertE2eeOneTimePreKey? claimedPreKey = null;
+            if (consumeOneTimePreKey)
+            {
+                await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+                var firstAvailable = await db.E2eeOneTimePreKeys
+                    .Where(k =>
+                        k.KeyBundleId == bundle.Id &&
+                        k.AccountId == accountId &&
+                        k.DeviceId == device.DeviceId &&
+                        !k.IsClaimed)
+                    .OrderBy(k => k.KeyId)
+                    .FirstOrDefaultAsync();
+                if (firstAvailable is not null)
+                {
+                    firstAvailable.IsClaimed = true;
+                    firstAvailable.ClaimedAt = SystemClock.Instance.GetCurrentInstant();
+                    firstAvailable.ClaimedByAccountId = requesterId;
+                    claimedPreKey = new UpsertE2eeOneTimePreKey(firstAvailable.KeyId, firstAvailable.PublicKey);
+                    await db.SaveChangesAsync();
+                }
+                await tx.CommitAsync();
+            }
+
+            responses.Add(new E2eeDevicePublicBundleResponse(
+                bundle.AccountId,
+                device.DeviceId,
+                device.DeviceLabel,
+                bundle.Algorithm,
+                bundle.IdentityKey,
+                bundle.SignedPreKeyId,
+                bundle.SignedPreKey,
+                bundle.SignedPreKeySignature,
+                bundle.SignedPreKeyExpiresAt?.ToDateTimeOffset(),
+                claimedPreKey,
+                bundle.Meta
+            ));
+        }
+
+        return responses;
+    }
+
     public async Task<SnE2eeSession> EnsureSessionAsync(Guid accountId, Guid peerId, EnsureE2eeSessionRequest request)
     {
         EnsurePairOrder(accountId, peerId, out var accountAId, out var accountBId);
@@ -142,7 +244,8 @@ public class E2eeService(
         {
             var existing = await db.E2eeEnvelopes.FirstOrDefaultAsync(e =>
                 e.SenderId == senderId &&
-                e.RecipientId == request.RecipientId &&
+                e.RecipientAccountId == request.RecipientId &&
+                e.RecipientDeviceId == null &&
                 e.ClientMessageId == request.ClientMessageId
             );
             if (existing is not null)
@@ -155,7 +258,7 @@ public class E2eeService(
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var nextSequence = await db.E2eeEnvelopes
-            .Where(m => m.RecipientId == request.RecipientId)
+            .Where(m => m.RecipientAccountId == request.RecipientId && m.RecipientDeviceId == null)
             .Select(m => (long?)m.Sequence)
             .MaxAsync() ?? 0;
         nextSequence += 1;
@@ -163,7 +266,10 @@ public class E2eeService(
         var envelope = new SnE2eeEnvelope
         {
             SenderId = senderId,
+            SenderDeviceId = LegacyDeviceId,
             RecipientId = request.RecipientId,
+            RecipientAccountId = request.RecipientId,
+            RecipientDeviceId = null,
             SessionId = request.SessionId,
             Type = request.Type,
             GroupId = request.GroupId,
@@ -173,6 +279,7 @@ public class E2eeService(
             Header = request.Header,
             Signature = request.Signature,
             ExpiresAt = request.ExpiresAt is null ? null : Instant.FromDateTimeOffset(request.ExpiresAt.Value),
+            LegacyAccountScoped = true,
             Meta = request.Meta,
             CreatedAt = now,
             UpdatedAt = now
@@ -193,11 +300,137 @@ public class E2eeService(
         return envelope;
     }
 
+    public async Task<List<SnE2eeEnvelope>> SendFanoutEnvelopesAsync(
+        Guid senderId,
+        string senderDeviceId,
+        SendE2eeFanoutRequest request
+    )
+    {
+        if (string.IsNullOrWhiteSpace(senderDeviceId))
+            throw new InvalidOperationException("senderDeviceId cannot be empty.");
+        if (request.Payloads.Count == 0)
+            throw new InvalidOperationException("payloads cannot be empty.");
+
+        var recipient = await accountService.GetAccount(request.RecipientAccountId);
+        if (recipient is null)
+            throw new KeyNotFoundException("Recipient not found.");
+
+        var activeDevices = await db.E2eeDevices
+            .Where(d => d.AccountId == request.RecipientAccountId && !d.IsRevoked)
+            .Select(d => d.DeviceId)
+            .ToListAsync();
+        if (activeDevices.Count == 0)
+            throw new InvalidOperationException("Recipient has no active E2EE devices.");
+
+        var payloadByDevice = request.Payloads.ToDictionary(p => p.RecipientDeviceId, p => p);
+        var missingDevices = activeDevices.Where(d => !payloadByDevice.ContainsKey(d)).ToList();
+        if (missingDevices.Count > 0)
+            throw new InvalidOperationException($"Missing ciphertext for recipient devices: {string.Join(", ", missingDevices)}");
+
+        var extraDevices = request.Payloads.Select(p => p.RecipientDeviceId).Where(d => !activeDevices.Contains(d)).Distinct()
+            .ToList();
+        if (extraDevices.Count > 0)
+            throw new InvalidOperationException($"Payload includes unknown/revoked devices: {string.Join(", ", extraDevices)}");
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var envelopes = new List<SnE2eeEnvelope>();
+
+        foreach (var payload in request.Payloads)
+        {
+            var envelope = await CreateEnvelopeForTargetAsync(
+                senderId,
+                senderDeviceId,
+                request.RecipientAccountId,
+                payload.RecipientDeviceId,
+                request.SessionId,
+                request.Type,
+                request.GroupId,
+                payload.ClientMessageId,
+                payload.Ciphertext,
+                payload.Header,
+                payload.Signature,
+                request.ExpiresAt,
+                payload.Meta,
+                legacyAccountScoped: false,
+                createdAt: now
+            );
+            envelopes.Add(envelope);
+        }
+
+        if (request.IncludeSenderCopy && request.RecipientAccountId != senderId)
+        {
+            var senderPayload = request.Payloads.FirstOrDefault(p => p.RecipientDeviceId == senderDeviceId);
+            if (senderPayload is not null)
+            {
+                var senderCopyMeta = senderPayload.Meta is null
+                    ? new Dictionary<string, object>()
+                    : new Dictionary<string, object>(senderPayload.Meta);
+                senderCopyMeta["sender_copy"] = true;
+                var senderCopy = await CreateEnvelopeForTargetAsync(
+                    senderId,
+                    senderDeviceId,
+                    senderId,
+                    senderDeviceId,
+                    request.SessionId,
+                    request.Type,
+                    request.GroupId,
+                    senderPayload.ClientMessageId is null ? null : $"{senderPayload.ClientMessageId}:self",
+                    senderPayload.Ciphertext,
+                    senderPayload.Header,
+                    senderPayload.Signature,
+                    request.ExpiresAt,
+                    senderCopyMeta,
+                    legacyAccountScoped: false,
+                    createdAt: now
+                );
+                envelopes.Add(senderCopy);
+            }
+        }
+
+        if (request.SessionId.HasValue)
+        {
+            var session = await db.E2eeSessions.FirstOrDefaultAsync(s => s.Id == request.SessionId.Value);
+            if (session is not null)
+                session.LastMessageAt = now;
+        }
+
+        await db.SaveChangesAsync();
+        foreach (var envelope in envelopes)
+            await TryDeliverEnvelopeAsync(envelope);
+
+        return envelopes;
+    }
+
     public async Task<List<SnE2eeEnvelope>> GetPendingEnvelopesAsync(Guid recipientId, int take)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var envelopes = await db.E2eeEnvelopes
-            .Where(e => e.RecipientId == recipientId)
+            .Where(e => e.RecipientAccountId == recipientId && e.RecipientDeviceId == null)
+            .Where(e => e.DeliveryStatus != SnE2eeEnvelopeStatus.Acknowledged)
+            .Where(e => e.ExpiresAt == null || e.ExpiresAt > now)
+            .OrderBy(e => e.Sequence)
+            .Take(take)
+            .ToListAsync();
+
+        var dirty = false;
+        foreach (var envelope in envelopes.Where(e => e.DeliveryStatus == SnE2eeEnvelopeStatus.Pending))
+        {
+            envelope.DeliveryStatus = SnE2eeEnvelopeStatus.Delivered;
+            envelope.DeliveredAt = now;
+            dirty = true;
+        }
+
+        if (dirty)
+            await db.SaveChangesAsync();
+
+        return envelopes;
+    }
+
+    public async Task<List<SnE2eeEnvelope>> GetPendingEnvelopesByDeviceAsync(Guid recipientId, string deviceId, int take)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var envelopes = await db.E2eeEnvelopes
+            .Where(e => e.RecipientAccountId == recipientId && e.RecipientDeviceId == deviceId)
             .Where(e => e.DeliveryStatus != SnE2eeEnvelopeStatus.Acknowledged)
             .Where(e => e.ExpiresAt == null || e.ExpiresAt > now)
             .OrderBy(e => e.Sequence)
@@ -221,7 +454,7 @@ public class E2eeService(
     public async Task<SnE2eeEnvelope?> AcknowledgeEnvelopeAsync(Guid recipientId, Guid envelopeId)
     {
         var envelope = await db.E2eeEnvelopes
-            .FirstOrDefaultAsync(e => e.Id == envelopeId && e.RecipientId == recipientId);
+            .FirstOrDefaultAsync(e => e.Id == envelopeId && e.RecipientAccountId == recipientId && e.RecipientDeviceId == null);
         if (envelope is null)
             return null;
 
@@ -229,6 +462,35 @@ public class E2eeService(
         envelope.AckedAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
         return envelope;
+    }
+
+    public async Task<SnE2eeEnvelope?> AcknowledgeEnvelopeByDeviceAsync(Guid recipientId, string deviceId, Guid envelopeId)
+    {
+        var envelope = await db.E2eeEnvelopes
+            .FirstOrDefaultAsync(e => e.Id == envelopeId && e.RecipientAccountId == recipientId && e.RecipientDeviceId == deviceId);
+        if (envelope is null)
+            return null;
+
+        envelope.DeliveryStatus = SnE2eeEnvelopeStatus.Acknowledged;
+        envelope.AckedAt = SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync();
+        return envelope;
+    }
+
+    public async Task<bool> RevokeDeviceAsync(Guid accountId, string deviceId)
+    {
+        var device = await db.E2eeDevices
+            .FirstOrDefaultAsync(d => d.AccountId == accountId && d.DeviceId == deviceId);
+        if (device is null)
+            return false;
+
+        if (device.IsRevoked)
+            return true;
+
+        device.IsRevoked = true;
+        device.RevokedAt = SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync();
+        return true;
     }
 
     public async Task<int> DistributeSenderKeyAsync(Guid senderId, DistributeSenderKeyRequest request)
@@ -263,33 +525,37 @@ public class E2eeService(
     {
         try
         {
-            var isConnected = await ringService.GetWebsocketConnectionStatus(
-                envelope.RecipientId.ToString(),
-                isUserId: true
-            );
+            var targetDeviceId = envelope.RecipientDeviceId;
+            var isConnected = targetDeviceId is null
+                ? await ringService.GetWebsocketConnectionStatus(envelope.RecipientAccountId.ToString(), isUserId: true)
+                : await ringService.GetWebsocketConnectionStatus(targetDeviceId, isUserId: false);
             if (!isConnected)
                 return;
 
-            await ringService.PushWebSocketPacket(
-                envelope.RecipientId.ToString(),
-                PacketType,
-                InfraObjectCoder.ConvertObjectToByteString(new
-                {
-                    envelope.Id,
-                    envelope.SenderId,
-                    envelope.RecipientId,
-                    envelope.SessionId,
-                    envelope.Type,
-                    envelope.GroupId,
-                    envelope.ClientMessageId,
-                    envelope.Sequence,
-                    envelope.Ciphertext,
-                    envelope.Header,
-                    envelope.Signature,
-                    envelope.Meta,
-                    envelope.CreatedAt
-                }).ToByteArray()
-            );
+            var payload = InfraObjectCoder.ConvertObjectToByteString(new
+            {
+                envelope.Id,
+                envelope.SenderId,
+                envelope.SenderDeviceId,
+                envelope.RecipientId,
+                envelope.RecipientAccountId,
+                envelope.RecipientDeviceId,
+                envelope.SessionId,
+                envelope.Type,
+                envelope.GroupId,
+                envelope.ClientMessageId,
+                envelope.Sequence,
+                envelope.Ciphertext,
+                envelope.Header,
+                envelope.Signature,
+                envelope.Meta,
+                envelope.LegacyAccountScoped,
+                envelope.CreatedAt
+            }).ToByteArray();
+            if (targetDeviceId is null)
+                await ringService.PushWebSocketPacket(envelope.RecipientAccountId.ToString(), PacketType, payload);
+            else
+                await ringService.PushWebSocketPacketToDevice(targetDeviceId, PacketType, payload);
 
             envelope.DeliveryStatus = SnE2eeEnvelopeStatus.Delivered;
             envelope.DeliveredAt = SystemClock.Instance.GetCurrentInstant();
@@ -297,9 +563,75 @@ public class E2eeService(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to push realtime E2EE envelope {EnvelopeId} to recipient {RecipientId}",
-                envelope.Id, envelope.RecipientId);
+            logger.LogWarning(ex,
+                "Failed to push realtime E2EE envelope {EnvelopeId} to recipient {RecipientId}/{RecipientDeviceId}",
+                envelope.Id, envelope.RecipientAccountId, envelope.RecipientDeviceId);
         }
+    }
+
+    private async Task<SnE2eeEnvelope> CreateEnvelopeForTargetAsync(
+        Guid senderId,
+        string senderDeviceId,
+        Guid recipientAccountId,
+        string recipientDeviceId,
+        Guid? sessionId,
+        SnE2eeEnvelopeType type,
+        string? groupId,
+        string? clientMessageId,
+        byte[] ciphertext,
+        byte[]? header,
+        byte[]? signature,
+        DateTimeOffset? expiresAt,
+        Dictionary<string, object>? meta,
+        bool legacyAccountScoped,
+        Instant createdAt
+    )
+    {
+        if (ciphertext.Length == 0)
+            throw new InvalidOperationException("Ciphertext cannot be empty.");
+
+        if (!string.IsNullOrWhiteSpace(clientMessageId))
+        {
+            var existing = await db.E2eeEnvelopes.FirstOrDefaultAsync(e =>
+                e.SenderId == senderId &&
+                e.SenderDeviceId == senderDeviceId &&
+                e.RecipientAccountId == recipientAccountId &&
+                e.RecipientDeviceId == recipientDeviceId &&
+                e.ClientMessageId == clientMessageId
+            );
+            if (existing is not null)
+                return existing;
+        }
+
+        var nextSequence = await db.E2eeEnvelopes
+            .Where(m => m.RecipientAccountId == recipientAccountId && m.RecipientDeviceId == recipientDeviceId)
+            .Select(m => (long?)m.Sequence)
+            .MaxAsync() ?? 0;
+        nextSequence += 1;
+
+        var envelope = new SnE2eeEnvelope
+        {
+            SenderId = senderId,
+            SenderDeviceId = senderDeviceId,
+            RecipientId = recipientAccountId,
+            RecipientAccountId = recipientAccountId,
+            RecipientDeviceId = recipientDeviceId,
+            SessionId = sessionId,
+            Type = type,
+            GroupId = groupId,
+            ClientMessageId = clientMessageId,
+            Sequence = nextSequence,
+            Ciphertext = ciphertext,
+            Header = header,
+            Signature = signature,
+            ExpiresAt = expiresAt is null ? null : Instant.FromDateTimeOffset(expiresAt.Value),
+            Meta = meta,
+            LegacyAccountScoped = legacyAccountScoped,
+            CreatedAt = createdAt,
+            UpdatedAt = createdAt
+        };
+        db.E2eeEnvelopes.Add(envelope);
+        return envelope;
     }
 
     private static void EnsurePairOrder(Guid left, Guid right, out Guid accountAId, out Guid accountBId)

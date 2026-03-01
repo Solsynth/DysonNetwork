@@ -26,6 +26,7 @@ public class SnE2eeKeyBundle : ModelBase
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid AccountId { get; set; }
     [JsonIgnore] public SnAccount Account { get; set; } = null!;
+    [MaxLength(512)] public string DeviceId { get; set; } = string.Empty;
 
     [MaxLength(32)] public string Algorithm { get; set; } = "x25519";
     public byte[] IdentityKey { get; set; } = [];
@@ -43,6 +44,8 @@ public class SnE2eeOneTimePreKey : ModelBase
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid KeyBundleId { get; set; }
     [JsonIgnore] public SnE2eeKeyBundle KeyBundle { get; set; } = null!;
+    public Guid AccountId { get; set; }
+    [MaxLength(512)] public string DeviceId { get; set; } = string.Empty;
 
     public int KeyId { get; set; }
     public byte[] PublicKey { get; set; } = [];
@@ -66,7 +69,10 @@ public class SnE2eeEnvelope : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid SenderId { get; set; }
+    [MaxLength(512)] public string? SenderDeviceId { get; set; }
     public Guid RecipientId { get; set; }
+    public Guid RecipientAccountId { get; set; }
+    [MaxLength(512)] public string? RecipientDeviceId { get; set; }
     public Guid? SessionId { get; set; }
     public SnE2eeEnvelopeType Type { get; set; } = SnE2eeEnvelopeType.PairwiseMessage;
     [MaxLength(256)] public string? GroupId { get; set; }
@@ -81,5 +87,18 @@ public class SnE2eeEnvelope : ModelBase
     public Instant? DeliveredAt { get; set; }
     public Instant? AckedAt { get; set; }
     public Instant? ExpiresAt { get; set; }
+    public bool LegacyAccountScoped { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
+}
+
+public class SnE2eeDevice : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid AccountId { get; set; }
+    [JsonIgnore] public SnAccount Account { get; set; } = null!;
+    [MaxLength(512)] public string DeviceId { get; set; } = string.Empty;
+    [MaxLength(1024)] public string? DeviceLabel { get; set; }
+    public bool IsRevoked { get; set; }
+    public Instant? RevokedAt { get; set; }
+    public Instant? LastBundleAt { get; set; }
 }

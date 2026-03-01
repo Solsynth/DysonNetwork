@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SnAuthSession = DysonNetwork.Shared.Models.SnAuthSession;
 
 namespace DysonNetwork.Pass.E2EE;
 
@@ -10,6 +11,8 @@ namespace DysonNetwork.Pass.E2EE;
 [Authorize]
 public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 {
+    private static string? ResolveDeviceId(SnAuthSession session) => session.Client?.DeviceId;
+
     public class UploadKeyBundleBody
     {
         [Required] [MaxLength(32)] public string Algorithm { get; set; } = "x25519";
@@ -20,6 +23,11 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         public DateTimeOffset? SignedPreKeyExpiresAt { get; set; }
         public List<OneTimePreKeyBody>? OneTimePreKeys { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
+    }
+
+    public class UploadDeviceBundleBody : UploadKeyBundleBody
+    {
+        [MaxLength(1024)] public string? DeviceLabel { get; set; }
     }
 
     public class OneTimePreKeyBody
@@ -45,6 +53,27 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         public byte[]? Header { get; set; }
         public byte[]? Signature { get; set; }
         public DateTimeOffset? ExpiresAt { get; set; }
+        public Dictionary<string, object>? Meta { get; set; }
+    }
+
+    public class FanoutEnvelopeBody
+    {
+        [Required] public Guid RecipientAccountId { get; set; }
+        public Guid? SessionId { get; set; }
+        public SnE2eeEnvelopeType Type { get; set; } = SnE2eeEnvelopeType.PairwiseMessage;
+        [MaxLength(256)] public string? GroupId { get; set; }
+        public DateTimeOffset? ExpiresAt { get; set; }
+        public bool IncludeSenderCopy { get; set; }
+        [Required] [MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
+    }
+
+    public class FanoutEnvelopeItemBody
+    {
+        [Required] [MaxLength(512)] public string RecipientDeviceId { get; set; } = null!;
+        [MaxLength(128)] public string? ClientMessageId { get; set; }
+        [Required] public byte[] Ciphertext { get; set; } = [];
+        public byte[]? Header { get; set; }
+        public byte[]? Signature { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
     }
 
@@ -85,6 +114,31 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         return Ok(bundle);
     }
 
+    [HttpPut("devices/me/bundle")]
+    public async Task<ActionResult<SnE2eeKeyBundle>> UploadDeviceBundle([FromBody] UploadDeviceBundleBody body)
+    {
+        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
+        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
+        if (currentUser is null || currentSession is null) return Unauthorized();
+
+        var deviceId = ResolveDeviceId(currentSession);
+        if (string.IsNullOrWhiteSpace(deviceId))
+            return BadRequest("Current session device id is missing.");
+
+        var bundle = await e2eeModule.UpsertDeviceBundleAsync(currentUser.Id, deviceId, body.DeviceLabel,
+            new UpsertE2eeKeyBundleRequest(
+                body.Algorithm,
+                body.IdentityKey,
+                body.SignedPreKeyId,
+                body.SignedPreKey,
+                body.SignedPreKeySignature,
+                body.SignedPreKeyExpiresAt,
+                body.OneTimePreKeys?.Select(x => new UpsertE2eeOneTimePreKey(x.KeyId, x.PublicKey)).ToList(),
+                body.Meta
+            ));
+        return Ok(bundle);
+    }
+
     [HttpGet("keys/me")]
     public async Task<ActionResult<E2eePublicKeyBundleResponse>> GetMyPublicBundle()
     {
@@ -108,6 +162,19 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         var bundle = await e2eeModule.GetPublicBundleAsync(accountId, currentUser.Id, consumeOneTimePreKey);
         if (bundle is null) return NotFound();
         return Ok(bundle);
+    }
+
+    [HttpGet("keys/{accountId:guid}/devices")]
+    public async Task<ActionResult<List<E2eeDevicePublicBundleResponse>>> GetPublicBundlesByDevice(
+        Guid accountId,
+        [FromQuery] bool consumeOneTimePreKey = true
+    )
+    {
+        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
+        if (currentUser is null) return Unauthorized();
+
+        var bundles = await e2eeModule.GetPublicDeviceBundlesAsync(accountId, currentUser.Id, consumeOneTimePreKey);
+        return Ok(bundles);
     }
 
     [HttpPost("sessions/{peerId:guid}")]
@@ -147,6 +214,38 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         return Ok(envelope);
     }
 
+    [HttpPost("messages/fanout")]
+    public async Task<ActionResult<List<SnE2eeEnvelope>>> SendFanout([FromBody] FanoutEnvelopeBody body)
+    {
+        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
+        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
+        if (currentUser is null || currentSession is null) return Unauthorized();
+
+        var senderDeviceId = ResolveDeviceId(currentSession);
+        if (string.IsNullOrWhiteSpace(senderDeviceId))
+            return BadRequest("Current session device id is missing.");
+
+        var envelopes = await e2eeModule.SendFanoutEnvelopesAsync(currentUser.Id, senderDeviceId,
+            new SendE2eeFanoutRequest(
+                body.RecipientAccountId,
+                body.SessionId,
+                body.Type,
+                body.GroupId,
+                body.ExpiresAt,
+                body.IncludeSenderCopy,
+                body.Payloads.Select(x => new DeviceCiphertextEnvelope(
+                    x.RecipientDeviceId,
+                    x.ClientMessageId,
+                    x.Ciphertext,
+                    x.Header,
+                    x.Signature,
+                    x.Meta
+                )).ToList()
+            ));
+
+        return Ok(envelopes);
+    }
+
     [HttpPost("groups/sender-key/distribute")]
     public async Task<ActionResult<object>> DistributeSenderKey([FromBody] DistributeSenderKeyBody body)
     {
@@ -179,6 +278,27 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         return Ok(messages);
     }
 
+    [HttpGet("envelopes/pending")]
+    public async Task<ActionResult<List<SnE2eeEnvelope>>> GetPendingByDevice(
+        [FromQuery(Name = "device_id")] string? deviceId,
+        [FromQuery] int take = 100
+    )
+    {
+        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
+        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
+        if (currentUser is null || currentSession is null) return Unauthorized();
+
+        var effectiveDeviceId = string.IsNullOrWhiteSpace(deviceId)
+            ? ResolveDeviceId(currentSession)
+            : deviceId;
+        if (string.IsNullOrWhiteSpace(effectiveDeviceId))
+            return BadRequest("device_id is required.");
+
+        take = Math.Clamp(take, 1, 500);
+        var envelopes = await e2eeModule.GetPendingEnvelopesByDeviceAsync(currentUser.Id, effectiveDeviceId, take);
+        return Ok(envelopes);
+    }
+
     [HttpPost("messages/{envelopeId:guid}/ack")]
     public async Task<ActionResult<SnE2eeEnvelope>> AckMessage(Guid envelopeId)
     {
@@ -188,5 +308,37 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         var message = await e2eeModule.AcknowledgeEnvelopeAsync(currentUser.Id, envelopeId);
         if (message is null) return NotFound();
         return Ok(message);
+    }
+
+    [HttpPost("envelopes/{envelopeId:guid}/ack")]
+    public async Task<ActionResult<SnE2eeEnvelope>> AckMessageByDevice(
+        Guid envelopeId,
+        [FromQuery(Name = "device_id")] string? deviceId
+    )
+    {
+        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
+        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
+        if (currentUser is null || currentSession is null) return Unauthorized();
+
+        var effectiveDeviceId = string.IsNullOrWhiteSpace(deviceId)
+            ? ResolveDeviceId(currentSession)
+            : deviceId;
+        if (string.IsNullOrWhiteSpace(effectiveDeviceId))
+            return BadRequest("device_id is required.");
+
+        var message = await e2eeModule.AcknowledgeEnvelopeByDeviceAsync(currentUser.Id, effectiveDeviceId, envelopeId);
+        if (message is null) return NotFound();
+        return Ok(message);
+    }
+
+    [HttpPost("devices/{deviceId}/revoke")]
+    public async Task<ActionResult> RevokeDevice(string deviceId)
+    {
+        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
+        if (currentUser is null) return Unauthorized();
+
+        var revoked = await e2eeModule.RevokeDeviceAsync(currentUser.Id, deviceId);
+        if (!revoked) return NotFound();
+        return NoContent();
     }
 }

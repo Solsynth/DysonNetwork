@@ -72,6 +72,7 @@ public class AppDatabase(
     public DbSet<SnE2eeOneTimePreKey> E2eeOneTimePreKeys { get; set; } = null!;
     public DbSet<SnE2eeSession> E2eeSessions { get; set; } = null!;
     public DbSet<SnE2eeEnvelope> E2eeEnvelopes { get; set; } = null!;
+    public DbSet<SnE2eeDevice> E2eeDevices { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -155,8 +156,17 @@ public class AppDatabase(
             .HasForeignKey(pm => pm.RealmId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        modelBuilder.Entity<SnE2eeDevice>()
+            .HasIndex(d => new { d.AccountId, d.DeviceId })
+            .IsUnique();
+        modelBuilder.Entity<SnE2eeDevice>()
+            .HasOne(d => d.Account)
+            .WithMany()
+            .HasForeignKey(d => d.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<SnE2eeKeyBundle>()
-            .HasIndex(k => k.AccountId)
+            .HasIndex(k => new { k.AccountId, k.DeviceId })
             .IsUnique();
         modelBuilder.Entity<SnE2eeKeyBundle>()
             .HasOne(k => k.Account)
@@ -174,15 +184,24 @@ public class AppDatabase(
             .IsUnique();
         modelBuilder.Entity<SnE2eeOneTimePreKey>()
             .HasIndex(k => new { k.KeyBundleId, k.IsClaimed });
+        modelBuilder.Entity<SnE2eeOneTimePreKey>()
+            .HasIndex(k => new { k.AccountId, k.DeviceId, k.IsClaimed });
 
         modelBuilder.Entity<SnE2eeSession>()
             .HasIndex(s => new { s.AccountAId, s.AccountBId })
             .IsUnique();
 
         modelBuilder.Entity<SnE2eeEnvelope>()
-            .HasIndex(e => new { e.RecipientId, e.DeliveryStatus, e.Sequence });
+            .HasIndex(e => new { e.RecipientAccountId, e.RecipientDeviceId, e.DeliveryStatus, e.Sequence });
         modelBuilder.Entity<SnE2eeEnvelope>()
-            .HasIndex(e => new { e.RecipientId, e.SenderId, e.ClientMessageId })
+            .HasIndex(e => new
+            {
+                e.RecipientAccountId,
+                e.RecipientDeviceId,
+                e.SenderId,
+                e.SenderDeviceId,
+                e.ClientMessageId
+            })
             .IsUnique()
             .HasFilter("client_message_id IS NOT NULL");
         modelBuilder.Entity<SnE2eeEnvelope>()
