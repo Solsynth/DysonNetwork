@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
@@ -16,7 +15,9 @@ public class AuthService(
     IHttpClientFactory httpClientFactory,
     IHttpContextAccessor httpContextAccessor,
     ICacheService cache,
-    GeoService geo
+    GeoService geo,
+    AuthTokenKeyProvider tokenKeyProvider,
+    ILogger<AuthService> logger
 )
 {
     private HttpContext HttpContext => httpContextAccessor.HttpContext!;
@@ -37,6 +38,7 @@ public class AuthService(
             .Where(f => f.EnabledAt != null)
             .ToListAsync();
         var maxSteps = enabledFactors.Count;
+        if (maxSteps == 0) return 0;
 
         // We'll accumulate a "risk score" based on various factors.
         // Then we can decide how many total steps are required for the challenge.
@@ -301,8 +303,7 @@ public class AuthService(
     /// <returns>True if session was found and revoked, false otherwise</returns>
     public async Task<bool> RevokeSessionAsync(Guid sessionId)
     {
-        var sessionsToRevokeIds = new HashSet<Guid>();
-        await CollectSessionsToRevoke(sessionId, sessionsToRevokeIds);
+        var sessionsToRevokeIds = await CollectSessionsToRevokeAsync(sessionId);
 
         if (sessionsToRevokeIds.Count == 0)
         {
@@ -310,27 +311,22 @@ public class AuthService(
         }
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        var accountIdsToClearCache = new HashSet<Guid>();
-
-        // Fetch all sessions to be revoked in one go
         var sessions = await db.AuthSessions
             .Where(s => sessionsToRevokeIds.Contains(s.Id))
+            .Select(s => new { s.Id, s.AccountId })
             .ToListAsync();
+        if (sessions.Count == 0) return false;
 
-        foreach (var session in sessions)
+        await db.AuthSessions
+            .Where(s => sessionsToRevokeIds.Contains(s.Id))
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.ExpiredAt, now));
+
+        foreach (var sessionIdToClear in sessions.Select(s => s.Id))
         {
-            session.ExpiredAt = now;
-            accountIdsToClearCache.Add(session.AccountId);
-
-            // Clear from cache immediately for each session
-            await cache.RemoveAsync($"{AuthCachePrefix}{session.Id}");
+            await cache.RemoveAsync($"{AuthCachePrefix}{sessionIdToClear}");
         }
 
-        db.AuthSessions.UpdateRange(sessions);
-        await db.SaveChangesAsync();
-
-        // Clear account-level cache groups
-        foreach (var accountId in accountIdsToClearCache)
+        foreach (var accountId in sessions.Select(s => s.AccountId).Distinct())
         {
             await cache.RemoveAsync($"{AuthCachePrefix}{accountId}");
         }
@@ -341,23 +337,25 @@ public class AuthService(
     /// <summary>
     /// Recursively collects all session IDs that need to be revoked, starting from a given session.
     /// </summary>
-    /// <param name="currentSessionId">The session ID to start collecting from.</param>
-    /// <param name="sessionsToRevoke">A HashSet to store the IDs of all sessions to be revoked.</param>
-    private async Task CollectSessionsToRevoke(Guid currentSessionId, HashSet<Guid> sessionsToRevoke)
+    /// <param name="rootSessionId">The root session ID to start collecting from.</param>
+    /// <returns>A set of session IDs including children.</returns>
+    private async Task<HashSet<Guid>> CollectSessionsToRevokeAsync(Guid rootSessionId)
     {
-        if (!sessionsToRevoke.Add(currentSessionId))
-            return; // Already processed this session
+        var collected = new HashSet<Guid>();
+        var frontier = new List<Guid> { rootSessionId };
 
-        // Find direct children
-        var childSessions = await db.AuthSessions
-            .Where(s => s.ParentSessionId == currentSessionId)
-            .Select(s => s.Id)
-            .ToListAsync();
-
-        foreach (var childId in childSessions)
+        while (frontier.Count > 0)
         {
-            await CollectSessionsToRevoke(childId, sessionsToRevoke);
+            var idsInBatch = frontier.Where(collected.Add).ToList();
+            if (idsInBatch.Count == 0) break;
+
+            frontier = await db.AuthSessions
+                .Where(s => s.ParentSessionId.HasValue && idsInBatch.Contains(s.ParentSessionId.Value))
+                .Select(s => s.Id)
+                .ToListAsync();
         }
+
+        return collected;
     }
 
     /// <summary>
@@ -369,41 +367,32 @@ public class AuthService(
     {
         var sessions = await db.AuthSessions
             .Where(s => s.AccountId == accountId && !s.ExpiredAt.HasValue)
+            .Select(s => s.Id)
             .ToListAsync();
 
-        if (!sessions.Any())
+        if (sessions.Count == 0)
         {
             return 0;
         }
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        foreach (var session in sessions)
-        {
-            session.ExpiredAt = now;
+        await db.AuthSessions
+            .Where(s => sessions.Contains(s.Id))
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.ExpiredAt, now));
 
-            // Clear individual session cache
-            var cacheKey = $"{AuthCachePrefix}{session.Id}";
-            await cache.RemoveAsync(cacheKey);
+        foreach (var sessionIdToClear in sessions)
+        {
+            await cache.RemoveAsync($"{AuthCachePrefix}{sessionIdToClear}");
         }
 
-        // Clear account-level cache
         await cache.RemoveAsync($"{AuthCachePrefix}{accountId}");
-
-        db.AuthSessions.UpdateRange(sessions);
-        await db.SaveChangesAsync();
 
         return sessions.Count;
     }
 
     public string CreateToken(SnAuthSession session)
     {
-        // Load the private key for signing
-        var privateKeyPem = File.ReadAllText(config["AuthToken:PrivateKeyPath"]!);
-        using var rsa = RSA.Create();
-        rsa.ImportFromPem(privateKeyPem);
-
-        // Create and return a single token
-        return CreateCompactToken(session.Id, rsa);
+        return tokenKeyProvider.CreateCompactToken(session.Id);
     }
 
     /// <summary>
@@ -417,65 +406,71 @@ public class AuthService(
     {
         if (challenge.StepRemain != 0)
             throw new ArgumentException("Challenge not yet completed.");
-
-        var device = await GetOrCreateDeviceAsync(
-            challenge.AccountId,
-            challenge.DeviceId,
-            challenge.DeviceName,
-            challenge.Platform
-        );
-
         var now = SystemClock.Instance.GetCurrentInstant();
-        var session = new SnAuthSession
+        if (challenge.ExpiredAt.HasValue && challenge.ExpiredAt < now)
+            throw new ArgumentException("Challenge has expired.");
+
+        var existingSession = await db.AuthSessions
+            .Where(s => s.ChallengeId == challenge.Id && s.AccountId == challenge.AccountId)
+            .FirstOrDefaultAsync();
+        if (existingSession is not null)
         {
-            LastGrantedAt = now,
-            ExpiredAt = now.Plus(Duration.FromDays(7)),
-            AccountId = challenge.AccountId,
-            IpAddress = challenge.IpAddress,
-            UserAgent = challenge.UserAgent,
-            Location = challenge.Location,
-            Scopes = challenge.Scopes,
-            Audiences = challenge.Audiences,
-            ChallengeId = challenge.Id,
-            ClientId = device.Id,
-        };
+            existingSession.LastGrantedAt = now;
+            db.Update(existingSession);
+            await db.SaveChangesAsync();
+            return CreateToken(existingSession);
+        }
 
-        db.AuthSessions.Add(session);
-        await db.SaveChangesAsync();
-
-        var tk = CreateToken(session);
-
-        // Set cookie using HttpContext
-        var cookieDomain = config["AuthToken:CookieDomain"]!;
-        HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, tk, new CookieOptions
+        await using var tx = await db.Database.BeginTransactionAsync();
+        try
         {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Lax,
-            Domain = cookieDomain,
-            // Effectively never expire client-side (20 years)
-            Expires = DateTime.UtcNow.AddYears(20)
-        });
+            var device = await GetOrCreateDeviceAsync(
+                challenge.AccountId,
+                challenge.DeviceId,
+                challenge.DeviceName,
+                challenge.Platform
+            );
 
-        return tk;
-    }
+            var session = new SnAuthSession
+            {
+                Type = SessionType.Login,
+                LastGrantedAt = now,
+                ExpiredAt = now.Plus(Duration.FromDays(7)),
+                AccountId = challenge.AccountId,
+                IpAddress = challenge.IpAddress,
+                UserAgent = challenge.UserAgent,
+                Location = challenge.Location,
+                Scopes = challenge.Scopes,
+                Audiences = challenge.Audiences,
+                ChallengeId = challenge.Id,
+                ClientId = device.Id,
+            };
 
-    private static string CreateCompactToken(Guid sessionId, RSA rsa)
-    {
-        // Create the payload: just the session ID
-        var payloadBytes = sessionId.ToByteArray();
+            challenge.ExpiredAt = now;
+            db.AuthSessions.Add(session);
+            db.AuthChallenges.Update(challenge);
+            await db.SaveChangesAsync();
 
-        // Base64Url encode the payload
-        var payloadBase64 = Base64UrlEncode(payloadBytes);
+            var tk = CreateToken(session);
+            var cookieDomain = config["AuthToken:CookieDomain"]!;
+            HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, tk, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Lax,
+                Domain = cookieDomain,
+                Expires = DateTime.UtcNow.AddYears(20)
+            });
 
-        // Sign the payload with RSA-SHA256
-        var signature = rsa.SignData(payloadBytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-
-        // Base64Url encode the signature
-        var signatureBase64 = Base64UrlEncode(signature);
-
-        // Combine payload and signature with a dot
-        return $"{payloadBase64}.{signatureBase64}";
+            await tx.CommitAsync();
+            return tk;
+        }
+        catch (Exception ex)
+        {
+            await tx.RollbackAsync();
+            logger.LogWarning(ex, "CreateSessionAndIssueToken failed for challenge {ChallengeId}", challenge.Id);
+            throw;
+        }
     }
 
     public async Task<bool> ValidateSudoMode(SnAuthSession session, string? pinCode)
@@ -554,14 +549,24 @@ public class AuthService(
     public async Task<SnApiKey> CreateApiKey(Guid accountId, string label, Instant? expiredAt = null,
         SnAuthSession? parentSession = null)
     {
+        var normalizedLabel = label.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedLabel))
+            throw new ArgumentException("Label is required.", nameof(label));
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (expiredAt.HasValue && expiredAt <= now)
+            throw new ArgumentException("ExpiredAt must be in the future.", nameof(expiredAt));
+
         var key = new SnApiKey
         {
             AccountId = accountId,
-            Label = label,
+            Label = normalizedLabel,
             Session = new SnAuthSession
             {
                 AccountId = accountId,
+                Type = SessionType.Login,
                 ExpiredAt = expiredAt,
+                LastGrantedAt = now,
                 ParentSessionId = parentSession?.Id
             },
         };
@@ -574,65 +579,77 @@ public class AuthService(
 
     public async Task<string> IssueApiKeyToken(SnApiKey key)
     {
-        key.Session.LastGrantedAt = SystemClock.Instance.GetCurrentInstant();
-        db.Update(key.Session);
-        await db.SaveChangesAsync();
-        var tk = CreateToken(key.Session);
-        return tk;
+        var sessionId = key.SessionId != Guid.Empty ? key.SessionId : key.Session?.Id ?? Guid.Empty;
+        if (sessionId == Guid.Empty)
+            throw new InvalidOperationException("API key session is not available.");
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var updatedRows = await db.AuthSessions
+            .Where(s => s.Id == sessionId)
+            .Where(s => !s.ExpiredAt.HasValue || s.ExpiredAt > now)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.LastGrantedAt, now));
+        if (updatedRows == 0)
+            throw new InvalidOperationException("API key session has expired or does not exist.");
+
+        if (key.Session is not null) key.Session.LastGrantedAt = now;
+        return tokenKeyProvider.CreateCompactToken(sessionId);
     }
 
     public async Task RevokeApiKeyToken(SnApiKey key)
     {
-        db.Remove(key);
-        db.Remove(key.Session);
+        var now = SystemClock.Instance.GetCurrentInstant();
+        await using var transaction = await db.Database.BeginTransactionAsync();
+
+        key.DeletedAt = now;
+        db.ApiKeys.Update(key);
         await db.SaveChangesAsync();
+
+        await RevokeSessionAsync(key.SessionId);
+        await transaction.CommitAsync();
     }
 
     public async Task<SnApiKey> RotateApiKeyToken(SnApiKey key)
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
         await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
-            var oldSessionId = key.SessionId;
+            var oldSession = await db.AuthSessions
+                .Where(s => s.Id == key.SessionId && s.AccountId == key.AccountId)
+                .FirstOrDefaultAsync();
+            if (oldSession is null)
+                throw new InvalidOperationException("API key session was not found.");
 
-            // Immediately expire old session and clear from cache
-            if (oldSessionId != Guid.Empty)
-            {
-                var oldSession = await db.AuthSessions.FirstOrDefaultAsync(s => s.Id == oldSessionId);
-                if (oldSession != null)
-                {
-                    oldSession.ExpiredAt = SystemClock.Instance.GetCurrentInstant();
-                    db.AuthSessions.Update(oldSession);
+            var originalExpiry = oldSession.ExpiredAt;
+            oldSession.ExpiredAt = now;
+            oldSession.LastGrantedAt = now;
+            db.AuthSessions.Update(oldSession);
 
-                    // Clear old session from cache
-                    var oldCacheKey = $"{AuthCachePrefix}{oldSessionId}";
-                    await cache.RemoveAsync(oldCacheKey);
-                }
-            }
-
-            // Create new session
             var newSession = new SnAuthSession
             {
                 AccountId = key.AccountId,
-                ExpiredAt = key.Session?.ExpiredAt
+                Type = oldSession.Type,
+                IpAddress = oldSession.IpAddress,
+                UserAgent = oldSession.UserAgent,
+                Location = oldSession.Location,
+                Audiences = oldSession.Audiences.ToList(),
+                Scopes = oldSession.Scopes.ToList(),
+                AppId = oldSession.AppId,
+                ClientId = oldSession.ClientId,
+                LastGrantedAt = now,
+                ParentSessionId = oldSession.ParentSessionId,
+                ExpiredAt = originalExpiry
             };
 
             db.AuthSessions.Add(newSession);
-            await db.SaveChangesAsync();
 
-            // Update ApiKey to point to new session
             key.SessionId = newSession.Id;
             key.Session = newSession;
             db.ApiKeys.Update(key);
             await db.SaveChangesAsync();
 
-            // Delete expired old session
-            if (oldSessionId != Guid.Empty)
-            {
-                await db.AuthSessions.Where(s => s.Id == oldSessionId).ExecuteDeleteAsync<SnAuthSession>();
-            }
-
-            // Clear account-level cache to ensure new API key is picked up
+            await cache.RemoveAsync($"{AuthCachePrefix}{oldSession.Id}");
+            await cache.RemoveAsync($"{AuthCachePrefix}{newSession.Id}");
             await cache.RemoveAsync($"{AuthCachePrefix}{key.AccountId}");
 
             await transaction.CommitAsync();
@@ -643,30 +660,6 @@ public class AuthService(
             await transaction.RollbackAsync();
             throw;
         }
-    }
-
-    // Helper methods for Base64Url encoding/decoding
-    private static string Base64UrlEncode(byte[] data)
-    {
-        return Convert.ToBase64String(data)
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
-    }
-
-    private static byte[] Base64UrlDecode(string base64Url)
-    {
-        var padded = base64Url
-            .Replace('-', '+')
-            .Replace('_', '/');
-
-        switch (padded.Length % 4)
-        {
-            case 2: padded += "=="; break;
-            case 3: padded += "="; break;
-        }
-
-        return Convert.FromBase64String(padded);
     }
 
     /// <summary>
@@ -686,24 +679,40 @@ public class AuthService(
         Instant? expiredAt = null
     )
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var parent = await db.AuthSessions
+            .AsNoTracking()
+            .Where(s => s.Id == parentSession.Id && s.AccountId == parentSession.AccountId)
+            .FirstOrDefaultAsync();
+        if (parent is null) throw new InvalidOperationException("Parent session not found.");
+        if (parent.ExpiredAt.HasValue && parent.ExpiredAt <= now)
+            throw new InvalidOperationException("Parent session is expired.");
+
         var device = await GetOrCreateDeviceAsync(parentSession.AccountId, deviceId, deviceName, platform);
 
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
         var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
         var geoLocation = ipAddress is not null ? geo.GetPointFromIp(ipAddress) : null;
 
-        var now = SystemClock.Instance.GetCurrentInstant();
+        var finalExpiredAt = expiredAt ?? parent.ExpiredAt;
+        if (finalExpiredAt.HasValue && finalExpiredAt <= now)
+            throw new InvalidOperationException("Requested expiration time is already in the past.");
+
         var session = new SnAuthSession
         {
+            Type = parent.Type,
             IpAddress = ipAddress,
             UserAgent = userAgent,
             Location = geoLocation,
             AccountId = parentSession.AccountId,
             CreatedAt = now,
             LastGrantedAt = now,
-            ExpiredAt = expiredAt,
-            ParentSessionId = parentSession.Id,
+            ExpiredAt = finalExpiredAt,
+            ParentSessionId = parent.Id,
             ClientId = device.Id,
+            Audiences = parent.Audiences.ToList(),
+            Scopes = parent.Scopes.ToList(),
+            AppId = parent.AppId,
         };
 
         db.AuthSessions.Add(session);

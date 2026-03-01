@@ -68,6 +68,7 @@ public class AuthController(
             .Where(e => e.StepRemain > 0)
             .Where(e => e.ExpiredAt != null && now < e.ExpiredAt)
             .Where(e => e.DeviceId == request.DeviceId)
+            .OrderByDescending(e => e.CreatedAt)
             .FirstOrDefaultAsync();
         if (existingChallenge is not null) return existingChallenge;
 
@@ -280,12 +281,12 @@ public class AuthController(
         switch (request.GrantType)
         {
             case "authorization_code":
-                var code = Guid.TryParse(request.Code, out var codeId) ? codeId : Guid.Empty;
-                if (code == Guid.Empty)
+                var challengeId = Guid.TryParse(request.Code, out var parsedChallengeId) ? parsedChallengeId : Guid.Empty;
+                if (challengeId == Guid.Empty)
                     return BadRequest("Invalid or missing authorization code.");
                 var challenge = await db.AuthChallenges
                     .Include(e => e.Account)
-                    .Where(e => e.Id == code)
+                    .Where(e => e.Id == challengeId)
                     .FirstOrDefaultAsync();
                 if (challenge is null)
                     return BadRequest("Authorization code not found or expired.");
@@ -333,26 +334,32 @@ public class AuthController(
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
             return Unauthorized();
 
-        var newSession = await auth.CreateSessionFromParentAsync(
-            currentSession,
-            request.DeviceId,
-            request.DeviceName,
-            request.Platform,
-            request.ExpiredAt
-        );
-
-        var tk = auth.CreateToken(newSession);
-
-        // Set cookie using HttpContext, similar to CreateSessionAndIssueToken
-        HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, tk, new CookieOptions
+        try
         {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Lax,
-            Domain = _cookieDomain,
-            Expires = request.ExpiredAt?.ToDateTimeOffset() ?? DateTime.UtcNow.AddYears(20)
-        });
+            var newSession = await auth.CreateSessionFromParentAsync(
+                currentSession,
+                request.DeviceId,
+                request.DeviceName,
+                request.Platform,
+                request.ExpiredAt
+            );
 
-        return Ok(new TokenExchangeResponse { Token = tk });
+            var tk = auth.CreateToken(newSession);
+
+            HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, tk, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Lax,
+                Domain = _cookieDomain,
+                Expires = request.ExpiredAt?.ToDateTimeOffset() ?? DateTime.UtcNow.AddYears(20)
+            });
+
+            return Ok(new TokenExchangeResponse { Token = tk });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 }

@@ -1,5 +1,5 @@
-using System.Security.Cryptography;
 using System.Text;
+using System.Security.Cryptography;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Registry;
@@ -10,11 +10,11 @@ namespace DysonNetwork.Pass.Auth;
 
 public class TokenAuthService(
     AppDatabase db,
-    IConfiguration config,
     ICacheService cache,
     ILogger<TokenAuthService> logger,
     OidcProvider.Services.OidcProviderService oidc,
-    RemoteSubscriptionService subscriptions
+    RemoteSubscriptionService subscriptions,
+    AuthTokenKeyProvider tokenKeyProvider
 )
 {
     /// <summary>
@@ -71,6 +71,7 @@ public class TokenAuthService(
                 if (session.ExpiredAt.HasValue && session.ExpiredAt < nowHit)
                 {
                     logger.LogWarning("AuthenticateTokenAsync: cached session expired (sessionId={SessionId})", sessionId);
+                    await cache.RemoveAsync(cacheKey);
                     return (false, null, "Session has been expired.");
                 }
                 logger.LogInformation(
@@ -167,16 +168,7 @@ public class TokenAuthService(
                     }
                 case 2:
                     {
-                        // Compact token
-                        var payloadBytes = Base64UrlDecode(parts[0]);
-                        sessionId = new Guid(payloadBytes);
-
-                        var publicKeyPem = File.ReadAllText(config["AuthToken:PublicKeyPath"]!);
-                        using var rsa = RSA.Create();
-                        rsa.ImportFromPem(publicKeyPem);
-
-                        var signature = Base64UrlDecode(parts[1]);
-                        return rsa.VerifyData(payloadBytes, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                        return tokenKeyProvider.TryValidateCompactToken(token, out sessionId);
                     }
                 default:
                     return false;
@@ -186,20 +178,5 @@ public class TokenAuthService(
         {
             return false;
         }
-    }
-
-    private static byte[] Base64UrlDecode(string base64Url)
-    {
-        var padded = base64Url
-            .Replace('-', '+')
-            .Replace('_', '/');
-
-        switch (padded.Length % 4)
-        {
-            case 2: padded += "=="; break;
-            case 3: padded += "="; break;
-        }
-
-        return Convert.FromBase64String(padded);
     }
 }

@@ -163,6 +163,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ActionLogService>();
         services.AddScoped<RelationshipService>();
         services.AddScoped<MagicSpellService>();
+        services.AddSingleton<AuthTokenKeyProvider>();
         services.AddScoped<AuthService>();
         services.AddScoped<TokenAuthService>();
         services.AddScoped<AccountUsernameService>();

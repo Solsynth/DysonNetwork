@@ -16,10 +16,13 @@ public class ApiKeyController(AppDatabase db, AuthService auth) : ControllerBase
     public async Task<IActionResult> GetKeys([FromQuery] int offset = 0, [FromQuery] int take = 20)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        offset = Math.Max(offset, 0);
+        take = Math.Clamp(take, 1, 100);
 
         var query = db.ApiKeys
             .Where(e => e.AccountId == currentUser.Id)
-            .AsQueryable();
+            .AsNoTracking()
+            .OrderByDescending(e => e.UpdatedAt);
 
         var totalCount = await query.CountAsync();
         Response.Headers["X-Total"] = totalCount.ToString();
@@ -38,6 +41,7 @@ public class ApiKeyController(AppDatabase db, AuthService auth) : ControllerBase
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var key = await db.ApiKeys
+            .AsNoTracking()
             .Where(e => e.AccountId == currentUser.Id)
             .Where(e => e.Id == id)
             .FirstOrDefaultAsync();
@@ -58,10 +62,19 @@ public class ApiKeyController(AppDatabase db, AuthService auth) : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Label))
             return BadRequest("Label is required");
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (request.ExpiredAt.HasValue && request.ExpiredAt <= SystemClock.Instance.GetCurrentInstant())
+            return BadRequest("ExpiredAt must be in the future.");
 
-        var key = await auth.CreateApiKey(currentUser.Id, request.Label, request.ExpiredAt);
-        key.Key = await auth.IssueApiKeyToken(key);
-        return Ok(key);
+        try
+        {
+            var key = await auth.CreateApiKey(currentUser.Id, request.Label, request.ExpiredAt);
+            key.Key = await auth.IssueApiKeyToken(key);
+            return Ok(key);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpPost("{id:guid}/rotate")]
@@ -72,9 +85,16 @@ public class ApiKeyController(AppDatabase db, AuthService auth) : ControllerBase
         
         var key = await auth.GetApiKey(id, currentUser.Id);
         if(key is null) return NotFound();
-        key = await auth.RotateApiKeyToken(key);
-        key.Key = await auth.IssueApiKeyToken(key);
-        return Ok(key);
+        try
+        {
+            key = await auth.RotateApiKeyToken(key);
+            key.Key = await auth.IssueApiKeyToken(key);
+            return Ok(key);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpDelete("{id:guid}")]
@@ -85,7 +105,14 @@ public class ApiKeyController(AppDatabase db, AuthService auth) : ControllerBase
         
         var key = await auth.GetApiKey(id, currentUser.Id);
         if(key is null) return NotFound();
-        await auth.RevokeApiKeyToken(key);
-        return NoContent();
+        try
+        {
+            await auth.RevokeApiKeyToken(key);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 }

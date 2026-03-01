@@ -30,7 +30,8 @@ public class AccountService(
     ILocalizationService localizer,
     ICacheService cache,
     ILogger<AccountService> logger,
-    Shared.EventBus.IEventBus eventBus
+    Shared.EventBus.IEventBus eventBus,
+    AuthService auth
 )
 {
     public const string AccountCachePrefix = "account:";
@@ -546,13 +547,14 @@ public class AccountService(
             .FirstOrDefaultAsync();
         if (session is null) throw new InvalidOperationException("Session was not found.");
 
-        // The current session should be included in the sessions' list
-        db.AuthSessions.Remove(session);
-        await db.SaveChangesAsync();
+        await auth.RevokeSessionAsync(session.Id);
 
         if (session.ClientId.HasValue)
         {
-            if (!await IsDeviceActive(session.ClientId.Value))
+            if (!await db.AuthSessions
+                    .Where(s => s.ClientId == session.ClientId.Value)
+                    .Where(s => !s.ExpiredAt.HasValue || s.ExpiredAt > SystemClock.Instance.GetCurrentInstant())
+                    .AnyAsync())
                 await pusher.UnsubscribePushNotificationsAsync(new DyUnsubscribePushNotificationsRequest
                     { DeviceId = session.Client!.DeviceId }
                 );
@@ -578,11 +580,12 @@ public class AccountService(
             .Where(s => s.ClientId == device.Id && s.AccountId == account.Id)
             .ToListAsync();
 
-        // The current session should be included in the sessions' list
         var now = SystemClock.Instance.GetCurrentInstant();
         await db.AuthSessions
             .Where(s => s.ClientId == device.Id)
-            .ExecuteUpdateAsync(p => p.SetProperty(s => s.DeletedAt, s => now));
+            .ExecuteUpdateAsync(p => p
+                .SetProperty(s => s.ExpiredAt, s => now)
+                .SetProperty(s => s.DeletedAt, s => now));
 
         db.AuthClients.Remove(device);
         await db.SaveChangesAsync();
