@@ -2,370 +2,94 @@
 
 ## Overview
 
-`DysonNetwork.Pass` now provides a reusable E2EE transport module for:
+`DysonNetwork.Pass` provides transport/state APIs for encrypted messaging.
 
-1. 1:1 encrypted messaging relay and offline queueing
-2. key bundle upload/discovery for pairwise session bootstrap
-3. optional sender-key distribution for group extension
+- Crypto operations are client-side only.
+- Server stores opaque ciphertext and metadata.
+- Realtime delivery uses Ring websocket push through `RemoteRingService`.
 
-Server responsibility is transport, queueing, and delivery state tracking.  
-Server does **not** decrypt message ciphertext or hold private keys.
+Base path: `/api/e2ee`
 
 ## Versioning
 
-- `v1` endpoints are account-scoped and remain for backward compatibility.
-- `v2` endpoints are device-scoped and should be used by new clients for multi-device correctness.
+- Legacy endpoints (`/api/e2ee/*`) remain for compatibility.
+- MLS v2 endpoints are under `/api/e2ee/mls/*` and are used by new encrypted chat writes.
 
-## Base URL
+## Envelope Types
 
-```
-/api/e2ee
-```
+`SnE2eeEnvelopeType`:
 
-## Authentication
+- `0`: `PairwiseMessage`
+- `1`: `SenderKeyDistribution` (legacy)
+- `2`: `SenderKeyMessage` (legacy)
+- `3`: `Control`
+- `4`: `MlsCommit`
+- `5`: `MlsWelcome`
+- `6`: `MlsApplication`
+- `7`: `MlsProposal`
 
-All endpoints require authenticated user context.
+## MLS Endpoints
 
-## Encoding Notes
+### Device key package lifecycle
 
-- Binary fields (`byte[]`) are JSON Base64 strings in requests/responses.
-- Envelope ordering is per-recipient `sequence` (monotonic increasing).
-- Realtime push packet type is `e2ee.envelope` via Ring websocket.
+- `PUT /api/e2ee/mls/devices/me/key-packages`
+- `GET /api/e2ee/mls/keys/{accountId}/devices`
 
-## Algorithm Clarification
+### Group/session control
 
-- Pass is transport/bootstrap only. It does not perform message encryption or decryption.
-- `algorithm` in key bundle is currently expected as `x25519`.
-- Pairwise bootstrap hint currently uses `x3dh-v1`.
-- DM/group message cipher and ratchet details are client-defined and should be carried in payload metadata (for example chat `encryption_scheme`).
+- `POST /api/e2ee/mls/groups/{roomId}/bootstrap`
+- `POST /api/e2ee/mls/groups/{roomId}/commit`
+- `POST /api/e2ee/mls/groups/{roomId}/welcome/fanout`
+- `POST /api/e2ee/mls/groups/{roomId}/reshare-required`
 
-## Enums
+### Envelope transport (device-scoped)
 
-### Envelope Type (`SnE2eeEnvelopeType`)
+- `POST /api/e2ee/mls/messages/fanout`
+  - Stored as `MlsApplication` fanout envelopes.
+  - Requires ciphertext for each active recipient device.
+- `GET /api/e2ee/mls/envelopes/pending?device_id=...`
+- `POST /api/e2ee/mls/envelopes/{id}/ack?device_id=...`
 
-| Value | Name | Meaning |
-|-------|------|---------|
-| `0` | `PairwiseMessage` | Normal 1:1 encrypted payload |
-| `1` | `SenderKeyDistribution` | Pairwise-encrypted sender-key control payload |
-| `2` | `SenderKeyMessage` | Sender-key encrypted group message payload |
-| `3` | `Control` | Reserved generic control payload |
+### Device security operation
 
-### Envelope Delivery Status (`SnE2eeEnvelopeStatus`)
+- `POST /api/e2ee/mls/devices/{deviceId}/revoke`
+  - Revoked device is excluded from fanout target resolution.
 
-| Value | Name | Meaning |
-|-------|------|---------|
-| `0` | `Pending` | Stored, not yet delivered |
-| `1` | `Delivered` | Delivered via websocket or pending fetch |
-| `2` | `Acknowledged` | Recipient acknowledged |
-| `3` | `Failed` | Reserved failure state |
+## Device-Scoped Fanout Rules
 
-## Endpoints
+On fanout send:
 
-### 1) Upload / Rotate Public Key Bundle
+1. Resolve recipient active devices.
+2. Require exactly one payload per active device.
+3. Reject missing payloads.
+4. Reject payloads for unknown/revoked devices.
+5. Persist one envelope per recipient device.
 
-**Endpoint:** `POST /api/e2ee/keys/upload`
+Optional sender-copy can be enabled for local consistency.
 
-Uploads or updates the current user key bundle and appends new one-time prekeys.
+## Pending/Ack Semantics
 
-**Request Body:**
+- Pending query is scoped by `(recipient_account_id, recipient_device_id)`.
+- `Pending -> Delivered` transition occurs on fetch/realtime delivery.
+- Ack is scoped per device envelope.
 
-```json
-{
-  "algorithm": "x25519",
-  "identityKey": "BASE64",
-  "signedPreKeyId": 1,
-  "signedPreKey": "BASE64",
-  "signedPreKeySignature": "BASE64",
-  "signedPreKeyExpiresAt": "2026-03-07T00:00:00Z",
-  "oneTimePreKeys": [
-    { "keyId": 101, "publicKey": "BASE64" },
-    { "keyId": 102, "publicKey": "BASE64" }
-  ],
-  "meta": {
-    "client": "ios",
-    "bundle_version": 1
-  }
-}
-```
+## MLS Metadata Conventions
 
-**Response:** `200 OK` with persisted bundle entity.
+Envelope/group metadata may include:
 
----
+- `mls_group_id`
+- `epoch`
+- `content_type`
+- `sender_leaf_index`
 
-### 2) Get My Public Bundle
+## Algorithm Notes
 
-**Endpoint:** `GET /api/e2ee/keys/me`
+Pass does not enforce cryptographic internals, but current platform defaults use:
 
-Returns your currently published bundle (public view).
+- scheme marker: `pass.e2ee.mls.v1`
+- default ciphersuite string: `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`
 
-**Response:** `200 OK` or `404 Not Found`
+Legacy markers retained for migration period:
 
----
-
-### 3) Fetch Another User Public Bundle
-
-**Endpoint:** `GET /api/e2ee/keys/{accountId}/bundle?consumeOneTimePreKey=true`
-
-If `consumeOneTimePreKey=true`, server claims one available prekey atomically and returns it.
-
-**Path Params:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `accountId` | uuid | Target account |
-
-**Query Params:**
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `consumeOneTimePreKey` | bool | `true` | Claim and return one available OPK |
-
-**Response Example:**
-
-```json
-{
-  "accountId": "11111111-1111-1111-1111-111111111111",
-  "algorithm": "x25519",
-  "identityKey": "BASE64",
-  "signedPreKeyId": 1,
-  "signedPreKey": "BASE64",
-  "signedPreKeySignature": "BASE64",
-  "signedPreKeyExpiresAt": "2026-03-07T00:00:00+00:00",
-  "oneTimePreKey": {
-    "keyId": 101,
-    "publicKey": "BASE64"
-  },
-  "meta": {
-    "bundle_version": 1
-  }
-}
-```
-
----
-
-### 4) Ensure Pairwise Session Record
-
-**Endpoint:** `POST /api/e2ee/sessions/{peerId}`
-
-Creates a server-side metadata record for pairwise session lifecycle tracking (no secrets stored).
-
-**Request Body:**
-
-```json
-{
-  "hint": "x3dh-v1",
-  "meta": {
-    "device": "iphone-17"
-  }
-}
-```
-
-**Response:** `200 OK` with `SnE2eeSession`.
-
----
-
-### 5) Send Encrypted Envelope
-
-**Endpoint:** `POST /api/e2ee/messages`
-
-Stores encrypted envelope, attempts realtime websocket push, otherwise remains queued.
-Idempotency key is `clientMessageId` scoped to `(recipientId, senderId)`.
-
-**Request Body:**
-
-```json
-{
-  "recipientId": "22222222-2222-2222-2222-222222222222",
-  "sessionId": "33333333-3333-3333-3333-333333333333",
-  "type": 0,
-  "groupId": null,
-  "clientMessageId": "msg-01JFXQWQ3K",
-  "ciphertext": "BASE64",
-  "header": "BASE64",
-  "signature": "BASE64",
-  "expiresAt": "2026-03-01T00:00:00Z",
-  "meta": {
-    "ratchet_step": 128
-  }
-}
-```
-
-**Response:** `200 OK` with `SnE2eeEnvelope`.
-
----
-
-### 6) Fetch Pending Envelopes
-
-**Endpoint:** `GET /api/e2ee/messages/pending?take=100`
-
-Returns non-acked envelopes for current user in sequence order.
-Pending envelopes become `Delivered` when returned.
-
-**Query Params:**
-
-| Parameter | Type | Default | Min | Max |
-|-----------|------|---------|-----|-----|
-| `take` | int | `100` | `1` | `500` |
-
-**Response:** `200 OK` with `SnE2eeEnvelope[]`.
-
----
-
-### 7) Acknowledge Envelope
-
-**Endpoint:** `POST /api/e2ee/messages/{envelopeId}/ack`
-
-Marks envelope as `Acknowledged`.
-
-**Path Params:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `envelopeId` | uuid | Envelope id |
-
-**Response:** `200 OK` or `404 Not Found`
-
----
-
-### 8) Sender Key Distribution (Group Extension)
-
-**Endpoint:** `POST /api/e2ee/groups/sender-key/distribute`
-
-Distributes sender key payloads to multiple recipients.  
-Each item is still delivered as pairwise envelope (`type = SenderKeyDistribution`).
-
-**Request Body:**
-
-```json
-{
-  "groupId": "room:engineering",
-  "expiresAt": "2026-03-01T00:00:00Z",
-  "items": [
-    {
-      "recipientId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-      "ciphertext": "BASE64",
-      "header": "BASE64",
-      "signature": "BASE64",
-      "clientMessageId": "skd-user-a-v1",
-      "meta": { "epoch": 1 }
-    },
-    {
-      "recipientId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-      "ciphertext": "BASE64",
-      "header": "BASE64",
-      "signature": "BASE64",
-      "clientMessageId": "skd-user-b-v1",
-      "meta": { "epoch": 1 }
-    }
-  ]
-}
-```
-
-**Response:**
-
-```json
-{
-  "sent": 2
-}
-```
-
----
-
-### 9) Upload Bundle For Current Device (v2)
-
-**Endpoint:** `PUT /api/e2ee/devices/me/bundle`
-
-Uploads/rotates key bundle for the current authenticated device.
-
----
-
-### 10) List Public Bundles By Device (v2)
-
-**Endpoint:** `GET /api/e2ee/keys/{accountId}/devices?consumeOneTimePreKey=true`
-
-Returns active device bundles for an account.
-
----
-
-### 11) Send Device Fanout Envelopes (v2)
-
-**Endpoint:** `POST /api/e2ee/messages/fanout`
-
-Accepts one encrypted payload per recipient device and persists one envelope per target device.
-
-Server behavior:
-- Resolves recipient active devices.
-- Rejects request if any active device is missing ciphertext.
-- Rejects payloads targeting unknown/revoked devices.
-
----
-
-### 12) Fetch Pending Envelopes For Device (v2)
-
-**Endpoint:** `GET /api/e2ee/envelopes/pending?device_id={deviceId}&take=100`
-
-Fetches only envelopes addressed to this device.
-
----
-
-### 13) Ack Envelope For Device (v2)
-
-**Endpoint:** `POST /api/e2ee/envelopes/{envelopeId}/ack?device_id={deviceId}`
-
-Acknowledges one device-scoped envelope.
-
----
-
-### 14) Revoke Device (v2)
-
-**Endpoint:** `POST /api/e2ee/devices/{deviceId}/revoke`
-
-Revoked devices are excluded from fanout resolution.
-
-## Realtime Packet
-
-When recipient is connected, Pass pushes a websocket packet through Ring:
-
-- `type`: `e2ee.envelope`
-- `data`: serialized envelope payload (`id`, `senderId`, `senderDeviceId`, `recipientId`, `recipientAccountId`, `recipientDeviceId`, `sessionId`, `type`, `groupId`, `clientMessageId`, `sequence`, `ciphertext`, `header`, `signature`, `meta`, `legacyAccountScoped`, `createdAt`)
-
-Clients should still call `GET /api/e2ee/messages/pending` on reconnect to close delivery gaps.
-
-## Recommended Client Flow (1:1)
-
-1. Publish key bundle: `POST /api/e2ee/keys/upload`
-2. Fetch peer bundle: `GET /api/e2ee/keys/{peerId}/bundle`
-3. Run X3DH (or equivalent) client-side and initialize double ratchet client-side
-4. Optionally create metadata session: `POST /api/e2ee/sessions/{peerId}`
-5. Send ciphertext envelope: `POST /api/e2ee/messages`
-6. Receive via websocket `e2ee.envelope` and/or `GET /api/e2ee/messages/pending`
-7. Decrypt client-side and ack processed envelopes
-
-## Recommended Client Flow (v2 Multi-Device)
-
-1. Upload bundle for current device: `PUT /api/e2ee/devices/me/bundle`
-2. Fetch recipient device bundles: `GET /api/e2ee/keys/{peerId}/devices`
-3. Encrypt once per recipient device and send via `POST /api/e2ee/messages/fanout`
-4. Fetch with `GET /api/e2ee/envelopes/pending?device_id=...` and ack with device-scoped ack endpoint
-5. On device revoke/login changes, refresh recipient device list before sending
-
-## Recommended Group Extension Flow (Sender Key)
-
-1. Keep pairwise stack as bootstrap channel
-2. Sender generates sender key material locally
-3. Distribute to each member via `POST /api/e2ee/groups/sender-key/distribute`
-4. Group messages use `type=SenderKeyMessage` envelopes
-5. On membership changes, rotate sender keys and redistribute
-
-## Security Notes
-
-- Do not upload private keys/session secrets to server.
-- Validate signature/header/ciphertext formats on client before decrypt.
-- Use `clientMessageId` for at-least-once retry safety.
-- Use envelope `expiresAt` for stale message control.
-
-## Messager Integration Notes
-
-- Messager now supports E2EE room transport and timeline fan-out.
-- Pass APIs remain key/session/control bootstrap for clients.
-- Group key distribution should still use pairwise Pass endpoints (`sender-key/distribute`) while chat ciphertext fan-out happens through Messager room messages.
+- `x25519` (bundle algorithm)
+- `x3dh-v1` (legacy session bootstrap hint)

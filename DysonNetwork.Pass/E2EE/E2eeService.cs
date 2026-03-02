@@ -209,6 +209,215 @@ public class E2eeService(
         return responses;
     }
 
+    public async Task<SnMlsKeyPackage> PublishMlsKeyPackageAsync(
+        Guid accountId,
+        string deviceId,
+        string? deviceLabel,
+        PublishMlsKeyPackageRequest request
+    )
+    {
+        if (request.KeyPackage.Length == 0)
+            throw new InvalidOperationException("MLS key package cannot be empty.");
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var e2eeDevice = await db.E2eeDevices.FirstOrDefaultAsync(d =>
+            d.AccountId == accountId && d.DeviceId == deviceId);
+        if (e2eeDevice is null)
+        {
+            e2eeDevice = new SnE2eeDevice
+            {
+                AccountId = accountId,
+                DeviceId = deviceId,
+                DeviceLabel = deviceLabel
+            };
+            db.E2eeDevices.Add(e2eeDevice);
+        }
+        else
+        {
+            if (!string.IsNullOrWhiteSpace(deviceLabel))
+                e2eeDevice.DeviceLabel = deviceLabel;
+            e2eeDevice.IsRevoked = false;
+            e2eeDevice.RevokedAt = null;
+        }
+        e2eeDevice.LastBundleAt = now;
+
+        var keyPackage = new SnMlsKeyPackage
+        {
+            AccountId = accountId,
+            DeviceId = deviceId,
+            DeviceLabel = deviceLabel,
+            KeyPackage = request.KeyPackage,
+            Ciphersuite = request.Ciphersuite,
+            Meta = request.Meta,
+            IsConsumed = false
+        };
+        db.MlsKeyPackages.Add(keyPackage);
+        await db.SaveChangesAsync();
+        return keyPackage;
+    }
+
+    public async Task<List<MlsDeviceKeyPackageResponse>> ListMlsDeviceKeyPackagesAsync(
+        Guid accountId,
+        Guid requesterId,
+        bool consume
+    )
+    {
+        var activeDevices = await db.E2eeDevices
+            .Where(d => d.AccountId == accountId && !d.IsRevoked)
+            .ToListAsync();
+        var responses = new List<MlsDeviceKeyPackageResponse>();
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var dirty = false;
+
+        foreach (var device in activeDevices)
+        {
+            var package = await db.MlsKeyPackages
+                .Where(k => k.AccountId == accountId && k.DeviceId == device.DeviceId && !k.IsConsumed)
+                .OrderBy(k => k.CreatedAt)
+                .FirstOrDefaultAsync();
+            if (package is null)
+            {
+                package = await db.MlsKeyPackages
+                    .Where(k => k.AccountId == accountId && k.DeviceId == device.DeviceId)
+                    .OrderByDescending(k => k.CreatedAt)
+                    .FirstOrDefaultAsync();
+            }
+            if (package is null) continue;
+
+            if (consume && !package.IsConsumed)
+            {
+                package.IsConsumed = true;
+                package.ConsumedAt = now;
+                package.ConsumedByAccountId = requesterId;
+                dirty = true;
+            }
+
+            responses.Add(new MlsDeviceKeyPackageResponse(
+                package.AccountId,
+                package.DeviceId,
+                device.DeviceLabel ?? package.DeviceLabel,
+                package.Ciphersuite,
+                package.KeyPackage,
+                package.Meta
+            ));
+        }
+
+        if (dirty)
+            await db.SaveChangesAsync();
+
+        return responses;
+    }
+
+    public async Task<SnMlsGroupState> BootstrapMlsGroupAsync(Guid accountId, BootstrapMlsGroupRequest request)
+    {
+        var existing = await db.MlsGroupStates
+            .FirstOrDefaultAsync(s => s.ChatRoomId == request.ChatRoomId);
+        if (existing is not null)
+        {
+            existing.MlsGroupId = request.MlsGroupId;
+            existing.Epoch = request.Epoch;
+            existing.StateVersion = request.StateVersion;
+            existing.Meta = request.Meta;
+            existing.LastCommitAt = SystemClock.Instance.GetCurrentInstant();
+            await db.SaveChangesAsync();
+            return existing;
+        }
+
+        var state = new SnMlsGroupState
+        {
+            ChatRoomId = request.ChatRoomId,
+            MlsGroupId = request.MlsGroupId,
+            Epoch = request.Epoch,
+            StateVersion = request.StateVersion,
+            LastCommitAt = SystemClock.Instance.GetCurrentInstant(),
+            Meta = request.Meta
+        };
+        db.MlsGroupStates.Add(state);
+        await db.SaveChangesAsync();
+        return state;
+    }
+
+    public async Task<SnMlsGroupState?> CommitMlsGroupAsync(Guid accountId, CommitMlsGroupRequest request)
+    {
+        var state = await db.MlsGroupStates
+            .FirstOrDefaultAsync(s => s.ChatRoomId == request.ChatRoomId && s.MlsGroupId == request.MlsGroupId);
+        if (state is null)
+            return null;
+
+        state.Epoch = Math.Max(state.Epoch, request.Epoch);
+        state.StateVersion += 1;
+        state.LastCommitAt = SystemClock.Instance.GetCurrentInstant();
+        state.Meta = request.Meta is null
+            ? state.Meta
+            : new Dictionary<string, object>(request.Meta)
+            {
+                ["reason"] = request.Reason
+            };
+        await db.SaveChangesAsync();
+        return state;
+    }
+
+    public async Task<List<SnE2eeEnvelope>> FanoutMlsWelcomeAsync(
+        Guid senderId,
+        string senderDeviceId,
+        FanoutMlsWelcomeRequest request
+    )
+    {
+        var payloads = request.Payloads
+            .Select(p => new DeviceCiphertextEnvelope(
+                p.RecipientDeviceId,
+                p.ClientMessageId,
+                p.Ciphertext,
+                p.Header,
+                p.Signature,
+                p.Meta is null
+                    ? new Dictionary<string, object> { ["mls_group_id"] = request.MlsGroupId }
+                    : new Dictionary<string, object>(p.Meta) { ["mls_group_id"] = request.MlsGroupId }
+            ))
+            .ToList();
+
+        return await SendFanoutEnvelopesAsync(senderId, senderDeviceId, new SendE2eeFanoutRequest(
+            request.RecipientAccountId,
+            null,
+            SnE2eeEnvelopeType.MlsWelcome,
+            request.MlsGroupId,
+            request.ExpiresAt,
+            IncludeSenderCopy: false,
+            payloads
+        ));
+    }
+
+    public async Task<SnMlsDeviceMembership> MarkMlsReshareRequiredAsync(
+        Guid accountId,
+        MarkMlsReshareRequiredRequest request
+    )
+    {
+        var membership = await db.MlsDeviceMemberships
+            .FirstOrDefaultAsync(m =>
+                m.ChatRoomId == request.ChatRoomId &&
+                m.AccountId == request.TargetAccountId &&
+                m.DeviceId == request.TargetDeviceId);
+        if (membership is null)
+        {
+            membership = new SnMlsDeviceMembership
+            {
+                ChatRoomId = request.ChatRoomId,
+                MlsGroupId = request.MlsGroupId,
+                AccountId = request.TargetAccountId,
+                DeviceId = request.TargetDeviceId,
+                JoinedEpoch = request.Epoch,
+                LastSeenEpoch = request.Epoch
+            };
+            db.MlsDeviceMemberships.Add(membership);
+        }
+
+        membership.MlsGroupId = request.MlsGroupId;
+        membership.LastReshareRequiredAt = SystemClock.Instance.GetCurrentInstant();
+        membership.LastSeenEpoch = request.Epoch;
+        await db.SaveChangesAsync();
+        return membership;
+    }
+
     public async Task<SnE2eeSession> EnsureSessionAsync(Guid accountId, Guid peerId, EnsureE2eeSessionRequest request)
     {
         EnsurePairOrder(accountId, peerId, out var accountAId, out var accountBId);

@@ -366,11 +366,19 @@ public static class ServiceCollectionExtensions
             }
 
             var e2eeMode = member.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None;
+            var mlsMode = member.ChatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeMls;
             if (e2eeMode)
             {
                 if (!requestData.IsEncrypted || !HasEncryptedPayload(requestData))
                 {
                     await SendErrorResponse(evt, "Encrypted payload is required for E2EE rooms.", pusher);
+                    return;
+                }
+
+                if (mlsMode && (!string.Equals(requestData.EncryptionScheme, "pass.e2ee.mls.v1", StringComparison.Ordinal) ||
+                                !requestData.EncryptionEpoch.HasValue))
+                {
+                    await SendErrorResponse(evt, "MLS rooms require scheme pass.e2ee.mls.v1 and encryption_epoch.", pusher);
                     return;
                 }
 

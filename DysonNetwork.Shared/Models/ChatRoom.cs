@@ -15,8 +15,11 @@ public enum ChatRoomType
 public enum ChatRoomEncryptionMode
 {
     None = 0,
+    [Obsolete("Legacy mode. Use E2eeMls for new encrypted rooms.")]
     E2eeDm = 1,
+    [Obsolete("Legacy mode. Use E2eeMls for new encrypted rooms.")]
     E2eeSenderKeyGroup = 2,
+    E2eeMls = 3,
 }
 
 public class SnChatRoom : ModelBase, IIdentifiedResource
@@ -32,6 +35,7 @@ public class SnChatRoom : ModelBase, IIdentifiedResource
     public bool IsCommunity { get; set; }
     public bool IsPublic { get; set; }
     public ChatRoomEncryptionMode EncryptionMode { get; set; } = ChatRoomEncryptionMode.None;
+    [MaxLength(256)] public string? MlsGroupId { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? E2eePolicy { get; set; }
 
     [Column(TypeName = "jsonb")]

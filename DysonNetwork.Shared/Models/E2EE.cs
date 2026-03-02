@@ -10,7 +10,11 @@ public enum SnE2eeEnvelopeType
     PairwiseMessage = 0,
     SenderKeyDistribution = 1,
     SenderKeyMessage = 2,
-    Control = 3
+    Control = 3,
+    MlsCommit = 4,
+    MlsWelcome = 5,
+    MlsApplication = 6,
+    MlsProposal = 7,
 }
 
 public enum SnE2eeEnvelopeStatus
@@ -101,4 +105,43 @@ public class SnE2eeDevice : ModelBase
     public bool IsRevoked { get; set; }
     public Instant? RevokedAt { get; set; }
     public Instant? LastBundleAt { get; set; }
+}
+
+public class SnMlsKeyPackage : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid AccountId { get; set; }
+    [JsonIgnore] public SnAccount Account { get; set; } = null!;
+    [MaxLength(512)] public string DeviceId { get; set; } = string.Empty;
+    [MaxLength(1024)] public string? DeviceLabel { get; set; }
+    public byte[] KeyPackage { get; set; } = [];
+    [MaxLength(128)] public string Ciphersuite { get; set; } = "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519";
+    public bool IsConsumed { get; set; }
+    public Instant? ConsumedAt { get; set; }
+    public Guid? ConsumedByAccountId { get; set; }
+    [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
+}
+
+public class SnMlsGroupState : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ChatRoomId { get; set; }
+    [MaxLength(256)] public string MlsGroupId { get; set; } = string.Empty;
+    public long Epoch { get; set; }
+    public long StateVersion { get; set; }
+    public Instant? LastCommitAt { get; set; }
+    [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
+}
+
+public class SnMlsDeviceMembership : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ChatRoomId { get; set; }
+    [MaxLength(256)] public string MlsGroupId { get; set; } = string.Empty;
+    public Guid AccountId { get; set; }
+    [MaxLength(512)] public string DeviceId { get; set; } = string.Empty;
+    public long JoinedEpoch { get; set; }
+    public long? LastSeenEpoch { get; set; }
+    public Instant? LastReshareRequiredAt { get; set; }
+    public Instant? LastReshareCompletedAt { get; set; }
 }

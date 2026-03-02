@@ -73,6 +73,9 @@ public class AppDatabase(
     public DbSet<SnE2eeSession> E2eeSessions { get; set; } = null!;
     public DbSet<SnE2eeEnvelope> E2eeEnvelopes { get; set; } = null!;
     public DbSet<SnE2eeDevice> E2eeDevices { get; set; } = null!;
+    public DbSet<SnMlsKeyPackage> MlsKeyPackages { get; set; } = null!;
+    public DbSet<SnMlsGroupState> MlsGroupStates { get; set; } = null!;
+    public DbSet<SnMlsDeviceMembership> MlsDeviceMemberships { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -206,6 +209,26 @@ public class AppDatabase(
             .HasFilter("client_message_id IS NOT NULL");
         modelBuilder.Entity<SnE2eeEnvelope>()
             .HasIndex(e => e.SessionId);
+
+        modelBuilder.Entity<SnMlsKeyPackage>()
+            .HasIndex(k => new { k.AccountId, k.DeviceId, k.IsConsumed });
+        modelBuilder.Entity<SnMlsKeyPackage>()
+            .HasOne(k => k.Account)
+            .WithMany()
+            .HasForeignKey(k => k.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnMlsGroupState>()
+            .HasIndex(s => s.ChatRoomId)
+            .IsUnique();
+        modelBuilder.Entity<SnMlsGroupState>()
+            .HasIndex(s => new { s.MlsGroupId, s.Epoch });
+
+        modelBuilder.Entity<SnMlsDeviceMembership>()
+            .HasIndex(m => new { m.ChatRoomId, m.AccountId, m.DeviceId })
+            .IsUnique();
+        modelBuilder.Entity<SnMlsDeviceMembership>()
+            .HasIndex(m => new { m.MlsGroupId, m.LastSeenEpoch });
 
         modelBuilder.ApplySoftDeleteFilters();
     }

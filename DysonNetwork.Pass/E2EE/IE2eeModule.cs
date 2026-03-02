@@ -29,6 +29,17 @@ public interface IE2eeModule
     Task<List<SnE2eeEnvelope>> GetPendingEnvelopesByDeviceAsync(Guid recipientId, string deviceId, int take);
     Task<SnE2eeEnvelope?> AcknowledgeEnvelopeByDeviceAsync(Guid recipientId, string deviceId, Guid envelopeId);
     Task<bool> RevokeDeviceAsync(Guid accountId, string deviceId);
+    Task<SnMlsKeyPackage> PublishMlsKeyPackageAsync(
+        Guid accountId,
+        string deviceId,
+        string? deviceLabel,
+        PublishMlsKeyPackageRequest request
+    );
+    Task<List<MlsDeviceKeyPackageResponse>> ListMlsDeviceKeyPackagesAsync(Guid accountId, Guid requesterId, bool consume);
+    Task<SnMlsGroupState> BootstrapMlsGroupAsync(Guid accountId, BootstrapMlsGroupRequest request);
+    Task<SnMlsGroupState?> CommitMlsGroupAsync(Guid accountId, CommitMlsGroupRequest request);
+    Task<List<SnE2eeEnvelope>> FanoutMlsWelcomeAsync(Guid senderId, string senderDeviceId, FanoutMlsWelcomeRequest request);
+    Task<SnMlsDeviceMembership> MarkMlsReshareRequiredAsync(Guid accountId, MarkMlsReshareRequiredRequest request);
 }
 
 public interface IGroupE2eeModule : IE2eeModule
@@ -125,4 +136,52 @@ public record SendE2eeFanoutRequest(
     DateTimeOffset? ExpiresAt,
     bool IncludeSenderCopy,
     List<DeviceCiphertextEnvelope> Payloads
+);
+
+public record PublishMlsKeyPackageRequest(
+    byte[] KeyPackage,
+    string Ciphersuite,
+    Dictionary<string, object>? Meta
+);
+
+public record MlsDeviceKeyPackageResponse(
+    Guid AccountId,
+    string DeviceId,
+    string? DeviceLabel,
+    string Ciphersuite,
+    byte[] KeyPackage,
+    Dictionary<string, object>? Meta
+);
+
+public record BootstrapMlsGroupRequest(
+    Guid ChatRoomId,
+    string MlsGroupId,
+    long Epoch,
+    long StateVersion,
+    Dictionary<string, object>? Meta
+);
+
+public record CommitMlsGroupRequest(
+    Guid ChatRoomId,
+    string MlsGroupId,
+    long Epoch,
+    string Reason,
+    Dictionary<string, object>? Meta
+);
+
+public record FanoutMlsWelcomeRequest(
+    Guid ChatRoomId,
+    string MlsGroupId,
+    Guid RecipientAccountId,
+    DateTimeOffset? ExpiresAt,
+    List<DeviceCiphertextEnvelope> Payloads
+);
+
+public record MarkMlsReshareRequiredRequest(
+    Guid ChatRoomId,
+    string MlsGroupId,
+    Guid TargetAccountId,
+    string TargetDeviceId,
+    long Epoch,
+    string Reason
 );

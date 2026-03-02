@@ -31,15 +31,17 @@ public partial class ChatController(
 ) : ControllerBase
 {
     private const string E2EeCapabilityHeader = "X-Client-Ability";
-    private const string E2EeCapabilityToken = "chat-e2ee-v1";
+    private const string LegacyE2EeCapabilityToken = "chat-e2ee-v1";
+    private const string MlsCapabilityToken = "chat-mls-v1";
+    private const string MlsEncryptionScheme = "pass.e2ee.mls.v1";
 
-    private bool HasE2EeCapability()
+    private bool HasClientCapability(string token)
     {
         if (!Request.Headers.TryGetValue(E2EeCapabilityHeader, out var header)) return false;
         return header
             .Where(v => !string.IsNullOrWhiteSpace(v))
             .SelectMany(v => v!.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
-            .Any(v => string.Equals(v, E2EeCapabilityToken, StringComparison.OrdinalIgnoreCase));
+            .Any(v => string.Equals(v, token, StringComparison.OrdinalIgnoreCase));
     }
 
     private ActionResult E2EeError(string code, string message)
@@ -50,8 +52,11 @@ public partial class ChatController(
     private ActionResult? EnsureE2EeCapabilityForRoom(SnChatRoom room)
     {
         if (room.EncryptionMode == ChatRoomEncryptionMode.None) return null;
-        if (HasE2EeCapability()) return null;
-        return E2EeError("chat.e2ee_required", "This room requires E2EE-capable clients.");
+        var token = room.EncryptionMode == ChatRoomEncryptionMode.E2eeMls
+            ? MlsCapabilityToken
+            : LegacyE2EeCapabilityToken;
+        if (HasClientCapability(token)) return null;
+        return E2EeError("chat.e2ee_required", $"This room requires capability '{token}'.");
     }
 
     private static bool HasEncryptedPayload(SendMessageRequest request)
@@ -59,6 +64,12 @@ public partial class ChatController(
         return request.Ciphertext is { Length: > 0 } &&
                !string.IsNullOrWhiteSpace(request.EncryptionScheme) &&
                !string.IsNullOrWhiteSpace(request.EncryptionMessageType);
+    }
+
+    private static bool IsMlsPayloadValid(SendMessageRequest request)
+    {
+        return string.Equals(request.EncryptionScheme, MlsEncryptionScheme, StringComparison.Ordinal) &&
+               request.EncryptionEpoch.HasValue;
     }
 
     // Server cannot decrypt to verify crypto correctness, but we can block obvious plaintext JSON misuse.
@@ -354,12 +365,15 @@ public partial class ChatController(
         if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
             return StatusCode(403, "You has been timed out in this chat.");
         var e2eeMode = member.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None;
+        var mlsMode = member.ChatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeMls;
         if (e2eeMode)
         {
             var capabilityError = EnsureE2EeCapabilityForRoom(member.ChatRoom);
             if (capabilityError is not null) return capabilityError;
             if (!request.IsEncrypted || !HasEncryptedPayload(request))
                 return E2EeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
+            if (mlsMode && !IsMlsPayloadValid(request))
+                return E2EeError("chat.mls_payload_required", "MLS rooms require scheme pass.e2ee.mls.v1 and encryption_epoch.");
             if (LooksLikePlaintextJson(request.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (!string.IsNullOrWhiteSpace(request.Content) ||
@@ -646,6 +660,7 @@ public partial class ChatController(
 
         if (message == null) return NotFound();
         var e2eeMode = message.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None;
+        var mlsMode = message.ChatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeMls;
         if (e2eeMode)
         {
             var capabilityError = EnsureE2EeCapabilityForRoom(message.ChatRoom);
@@ -662,6 +677,8 @@ public partial class ChatController(
         {
             if (!request.IsEncrypted || !HasEncryptedPayload(request))
                 return E2EeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
+            if (mlsMode && !IsMlsPayloadValid(request))
+                return E2EeError("chat.mls_payload_required", "MLS rooms require scheme pass.e2ee.mls.v1 and encryption_epoch.");
             if (LooksLikePlaintextJson(request.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (!string.IsNullOrWhiteSpace(request.Content) ||
@@ -829,10 +846,15 @@ public partial class ChatController(
 
         if (message == null) return NotFound();
         var e2eeMode = message.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None;
+        var mlsMode = message.ChatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeMls;
         if (e2eeMode)
         {
             var capabilityError = EnsureE2EeCapabilityForRoom(message.ChatRoom);
             if (capabilityError is not null) return capabilityError;
+            if (mlsMode && request is not null &&
+                (!string.Equals(request.EncryptionScheme, MlsEncryptionScheme, StringComparison.Ordinal) ||
+                 !request.EncryptionEpoch.HasValue))
+                return E2EeError("chat.mls_payload_required", "MLS rooms require scheme pass.e2ee.mls.v1 and encryption_epoch.");
             if (LooksLikePlaintextJson(request?.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
         }

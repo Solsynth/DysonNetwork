@@ -389,19 +389,74 @@ public partial class ChatService(
     public async Task<SnChatMessage> SendE2eeEnabledSystemMessageAsync(
         SnChatRoom room,
         SnChatMember sender,
-        ChatRoomEncryptionMode mode
+        ChatRoomEncryptionMode mode,
+        string? mlsGroupId = null
+    )
+    {
+        var content = mode == ChatRoomEncryptionMode.E2eeMls
+            ? "This chat now uses MLS."
+            : "This chat now uses E2EE.";
+        return await SendSystemMessageAsync(
+            room,
+            sender,
+            "system.e2ee.enabled",
+            content,
+            new Dictionary<string, object>
+            {
+                ["event"] = "e2ee_enabled",
+                ["room_id"] = room.Id,
+                ["mode"] = mode.ToString(),
+                ["mls_group_id"] = mlsGroupId
+            }
+        );
+    }
+
+    public async Task<SnChatMessage> SendMlsEpochChangedSystemMessageAsync(
+        SnChatRoom room,
+        SnChatMember sender,
+        long epoch,
+        string reason
     )
     {
         return await SendSystemMessageAsync(
             room,
             sender,
-            "system.e2ee.enabled",
-            "This chat now uses E2EE.",
+            "system.mls.epoch_changed",
+            "MLS epoch updated.",
             new Dictionary<string, object>
             {
-                ["event"] = "e2ee_enabled",
+                ["event"] = "mls_epoch_changed",
                 ["room_id"] = room.Id,
-                ["mode"] = mode.ToString()
+                ["mls_group_id"] = room.MlsGroupId,
+                ["epoch"] = epoch,
+                ["reason"] = reason
+            }
+        );
+    }
+
+    public async Task<SnChatMessage> SendMlsReshareRequiredSystemMessageAsync(
+        SnChatRoom room,
+        SnChatMember sender,
+        Guid targetAccountId,
+        string targetDeviceId,
+        long epoch,
+        string reason
+    )
+    {
+        return await SendSystemMessageAsync(
+            room,
+            sender,
+            "system.mls.reshare_required",
+            "MLS re-share required for a device.",
+            new Dictionary<string, object>
+            {
+                ["event"] = "mls_reshare_required",
+                ["room_id"] = room.Id,
+                ["mls_group_id"] = room.MlsGroupId,
+                ["target_account_id"] = targetAccountId,
+                ["target_device_id"] = targetDeviceId,
+                ["epoch"] = epoch,
+                ["reason"] = reason
             }
         );
     }

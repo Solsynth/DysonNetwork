@@ -1,111 +1,112 @@
-# Chat E2EE Integration (Messager + Pass)
+# Chat E2EE Integration (MLS-Only Writes)
 
-## Overview
+## Scope
 
-This document describes how chat E2EE works after integrating `DysonNetwork.Messager` with Pass E2EE key/bootstrap APIs.
+This document defines how `DysonNetwork.Messager` integrates with `DysonNetwork.Pass` for encrypted chat after MLS migration.
 
-- `Messager` is the encrypted message transport timeline (storage, websocket fan-out, sync).
-- `Pass` is key/session/control bootstrap (`/api/e2ee/*`).
-- Encryption/decryption remains client-side.
+- New encrypted writes are MLS-only.
+- Legacy encrypted history remains readable during migration.
+- Realtime delivery remains websocket through `RemoteRingService`-backed Ring push flows.
 
 ## Room Encryption Modes
 
 `SnChatRoom.encryption_mode`:
 
-| Value | Name | Applies To |
-|-------|------|------------|
-| `0` | `None` | Plaintext room |
-| `1` | `E2eeDm` | Direct message rooms |
-| `2` | `E2eeSenderKeyGroup` | Group rooms (sender key) |
+| Value | Name | Status |
+|---|---|---|
+| `0` | `None` | Active |
+| `1` | `E2eeDm` | Legacy (read compatibility only) |
+| `2` | `E2eeSenderKeyGroup` | Legacy (read compatibility only) |
+| `3` | `E2eeMls` | Active encrypted mode |
 
-Validation:
-- DM room can use `E2eeDm` (pairwise) or `E2eeSenderKeyGroup` (sender key).
-- Group room cannot use `E2eeDm`.
+`SnChatRoom.mls_group_id` stores MLS group binding for encrypted rooms.
 
-## Capability Requirement
+## Enable Flow
 
-For E2EE room message-write endpoints (`send`, `update`, `delete`), client must include:
+- Endpoint: `POST /api/chat/{id}/mls/enable`
+- One-way transition: `None -> E2eeMls`
+- Cannot disable back to `None`.
+- Legacy `POST /api/chat/{id}/e2ee/enable` is retired and returns conflict.
+- `PATCH /api/chat/{id}` cannot toggle encryption mode.
 
-`X-Client-Ability: chat-e2ee-v1`
+When enabled, server emits system message:
 
-If missing, endpoints return:
+- type: `system.e2ee.enabled`
+- content: `This chat now uses MLS.`
+- meta includes:
+  - `mode=E2eeMls`
+  - `mls_group_id`
+
+## Write Capability Gate
+
+For MLS room write endpoints only (`send`, `update`, `delete`), client must include:
+
+`X-Client-Ability: chat-mls-v1`
+
+Missing capability returns:
 
 ```json
 {
   "code": "chat.e2ee_required",
-  "error": "This room requires E2EE-capable clients."
+  "error": "This room requires capability 'chat-mls-v1'."
 }
 ```
 
-## Encrypted Message Fields
+Read/sync endpoints do not require this header.
 
-`SnChatMessage` now supports:
+## MLS Message Contract
 
-- `is_encrypted` (bool)
-- `ciphertext` (base64 bytes)
-- `encryption_header` (base64 bytes, optional)
-- `encryption_signature` (base64 bytes, optional)
-- `encryption_scheme` (string)
-- `encryption_epoch` (long, optional)
-- `encryption_message_type` (`content.new` / `content.edit` / `content.delete`)
-- `client_message_id` (idempotency/retry)
+For user content messages in MLS rooms:
+
+- `is_encrypted = true`
+- `encryption_scheme = pass.e2ee.mls.v1`
+- `encryption_epoch` required
+- `ciphertext` required
+- `encryption_message_type` required (`content.new`, `content.edit`, `content.delete`)
+
+Plaintext user fields are rejected in encrypted rooms:
+
+- `content`
+- attachment IDs
+- fund/poll embed inputs
+- plaintext reply/forward inputs
+
+Voice endpoint is not supported for encrypted rooms in v1:
+
+- `chat.e2ee_voice_not_supported_v1`
 
 ## Algorithm Notes
 
-- Chat message encryption is client-side only. Messager stores/transports opaque ciphertext and does not encrypt/decrypt message bodies.
-- Current key bootstrap identifier is `x25519` (published in Pass key bundles).
-- Current session bootstrap hint is `x3dh-v1`.
-- Message cipher details are represented by client-provided `encryption_scheme` (for example `x3dh-dr-v1` for DM and `sender-key-v1` for group).
+Server is transport/state only. Encryption is client-side.
 
-## Endpoint Behavior
+Current MLS profile in server defaults:
 
-### Enabling E2EE
+- `encryption_scheme`: `pass.e2ee.mls.v1`
+- default ciphersuite: `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`
 
-- E2EE is enabled via dedicated endpoint: `POST /api/chat/{id}/e2ee/enable`.
-- `PATCH /api/chat/{id}` cannot change `encryption_mode`.
-- Enabling is one-way: once enabled, room encryption mode cannot be disabled.
-- Default mode when enabling:
-  - DM room: `E2eeDm`
-  - Group room: `E2eeSenderKeyGroup`
+Legacy bootstrap markers remain documented for backward compatibility:
 
-DM-specific notes:
-- DM duplicate check is mode-aware, so one plaintext DM and one encrypted DM can coexist for the same user pair.
-- For DM rooms in `E2eeDm`, membership stays pairwise (max two active members). Use `E2eeSenderKeyGroup` if additional members are needed.
+- key bundle algorithm marker: `x25519`
+- legacy session hint: `x3dh-v1`
 
-### Send / Update / Delete in E2EE rooms
+## Membership Change Events
 
-- Require encrypted payload.
-- Reject plaintext fields (`content`, server-side fund/poll embeds, plaintext references).
-- Reject obvious plaintext JSON in `ciphertext` with `chat.e2ee_ciphertext_invalid`.
-- Voice endpoint returns:
+- Legacy sender-key rooms still use `system.e2ee.rotate_required`.
+- MLS rooms emit `system.mls.epoch_changed` on membership-change hooks (`member_joined`, `member_left`, `member_removed`) so clients can commit/rekey and continue MLS traffic.
+- Device-specific reshare workflows should emit/consume `system.mls.reshare_required`.
 
-```json
-{
-  "code": "chat.e2ee_voice_not_supported_v1",
-  "error": "Voice endpoint is not supported for E2EE rooms in v1."
-}
-```
-
-### Read / Sync in E2EE rooms
-
-- No capability header is required.
-- Returns encrypted message fields unchanged.
-
-## Notifications and Link Previews
+## Notification and Preview Policy
 
 For encrypted user messages:
-- Link preview scraping is skipped.
-- Push body is generic (`Encrypted message`).
 
-## Group Sender-Key Rotation Hook
+- Server does not run link preview extraction.
+- Push body is generic: `Encrypted message`.
 
-On group membership changes, Messager emits plaintext system control message:
+## Pass Integration Boundary
 
-- `type`: `system.e2ee.rotate_required`
-- `meta`:
-  - `room_id`
-  - `changed_member_id`
-  - `reason` (`member_joined` / `member_left` / `member_removed`)
-  - `rotation_hint_epoch`
+Messager does not bootstrap MLS keys/sessions directly. Clients must use Pass MLS endpoints (`/api/e2ee/mls/*`) for:
 
-Clients must rotate/distribute sender keys via Pass E2EE endpoints after receiving this event.
+- key package publication/discovery
+- commit/welcome fanout transport
+- per-device pending envelope fetch + ack
+- device revoke
