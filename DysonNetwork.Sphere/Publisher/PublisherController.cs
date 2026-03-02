@@ -274,6 +274,63 @@ public class PublisherController(
         return NoContent();
     }
 
+    [HttpPatch("{name}/members/{memberId:guid}/role")]
+    [Authorize]
+    public async Task<ActionResult<SnPublisherMember>> UpdateMemberRole(string name, Guid memberId, [FromBody] int newRole)
+    {
+        if (newRole >= (int)PublisherMemberRole.Owner) return BadRequest("Unable to set publisher member to owner or greater role.");
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var publisher = await db.Publishers
+            .Where(p => p.Name == name)
+            .FirstOrDefaultAsync();
+        if (publisher is null) return NotFound();
+
+        var member = await db.PublisherMembers
+            .Where(m => m.AccountId == memberId && m.PublisherId == publisher.Id && m.JoinedAt != null)
+            .FirstOrDefaultAsync();
+        if (member is null) return NotFound();
+
+        var requiredRole = Math.Max((int)PublisherMemberRole.Manager, Math.Max((int)member.Role, newRole));
+        if (!await ps.IsMemberWithRole(publisher.Id, Guid.Parse(currentUser.Id), (PublisherMemberRole)requiredRole))
+            return StatusCode(403, "You do not have permission to update member roles in this publisher.");
+
+        member.Role = (PublisherMemberRole)newRole;
+        db.PublisherMembers.Update(member);
+        await db.SaveChangesAsync();
+
+        _ = als.CreateActionLogAsync(
+            new DyCreateActionLogRequest
+            {
+                Action = "publishers.members.role_update",
+                Meta =
+                {
+                    {
+                        "publisher_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString())
+                    },
+                    {
+                        "account_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(memberId.ToString())
+                    },
+                    {
+                        "new_role",
+                        Google.Protobuf.WellKnownTypes.Value.ForNumber(newRole)
+                    },
+                    {
+                        "updater_id",
+                        Google.Protobuf.WellKnownTypes.Value.ForString(currentUser.Id)
+                    },
+                },
+                AccountId = currentUser.Id,
+                UserAgent = Request.Headers.UserAgent,
+                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+            }
+        );
+
+        return Ok(member);
+    }
+
     public class PublisherRequest
     {
         [RegularExpression(
@@ -817,7 +874,7 @@ public class PublisherController(
     [HttpPost("rewards/settle")]
     [Authorize]
     [AskPermission("publishers.reward.settle")]
-    public async Task<IActionResult> PerformLotteryDraw()
+    public async Task<IActionResult> SettlePublisherAward()
     {
         await ps.SettlePublisherRewards();
         return Ok();
