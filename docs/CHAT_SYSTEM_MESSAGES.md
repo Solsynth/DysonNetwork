@@ -1,28 +1,25 @@
 # Chat System Messages
 
-System messages are backend-generated `SnChatMessage` timeline events delivered as normal `messages.new` websocket packets.
+System messages are backend-generated `SnChatMessage` events delivered as normal `messages.new` websocket packets.
 
-## Core Types
+## Types
 
 | Type | Purpose |
 |---|---|
 | `system.member.joined` | Member joined room |
-| `system.member.left` | Member left or removed |
+| `system.member.left` | Member left/removed |
 | `system.chat.updated` | Room settings changed |
-| `system.e2ee.enabled` | Encryption enabled for room |
-| `system.e2ee.rotate_required` | Legacy sender-key rotate required |
-| `system.mls.epoch_changed` | MLS epoch advanced/needs commit sync |
-| `system.mls.reshare_required` | MLS state re-share required for a device |
-| `system.call.member.joined` | Realtime call participant joined |
-| `system.call.member.left` | Realtime call participant left/removed |
+| `system.e2ee.enabled` | Room switched to MLS encryption |
+| `system.mls.epoch_changed` | MLS epoch advanced/rekey required |
+| `system.mls.reshare_required` | MLS state re-share required for device |
+| `system.call.member.joined` | Call participant joined |
+| `system.call.member.left` | Call participant left/removed |
 
-## Encryption-Related Events
+`system.e2ee.rotate_required` is retired in hard-cut MLS mode.
+
+## Encryption Events
 
 ### `system.e2ee.enabled`
-
-Emitted by `POST /api/chat/{id}/mls/enable`.
-
-Example meta:
 
 ```json
 {
@@ -33,27 +30,7 @@ Example meta:
 }
 ```
 
-### `system.e2ee.rotate_required` (Legacy only)
-
-Only for legacy sender-key rooms (`E2eeSenderKeyGroup`).
-
-Example meta:
-
-```json
-{
-  "event": "e2ee_rotate_required",
-  "room_id": "room-guid",
-  "changed_member_id": "account-guid",
-  "reason": "member_joined",
-  "rotation_hint_epoch": 1740758400000
-}
-```
-
 ### `system.mls.epoch_changed`
-
-Used for MLS rooms (`E2eeMls`) when membership/commit flow requires clients to advance epoch state.
-
-Example meta:
 
 ```json
 {
@@ -67,10 +44,6 @@ Example meta:
 
 ### `system.mls.reshare_required`
 
-Used when a target device needs MLS state re-share.
-
-Example meta:
-
 ```json
 {
   "event": "mls_reshare_required",
@@ -82,9 +55,3 @@ Example meta:
   "reason": "new_device"
 }
 ```
-
-## Delivery and Notification
-
-- Delivered over normal room websocket message packets.
-- System messages are informational and not user-authored.
-- No extra push-notification side channel is required for these events.

@@ -1,112 +1,56 @@
-# Chat E2EE Integration (MLS-Only Writes)
+# Chat E2EE Integration (Hard-Cut MLS)
 
-## Scope
+## Policy
 
-This document defines how `DysonNetwork.Messager` integrates with `DysonNetwork.Pass` for encrypted chat after MLS migration.
+Encrypted chat is now MLS-only.
 
-- New encrypted writes are MLS-only.
-- Legacy encrypted history remains readable during migration.
-- Realtime delivery remains websocket through `RemoteRingService`-backed Ring push flows.
+- Supported room encryption modes:
+  - `None = 0`
+  - `E2eeMls = 3`
+- Legacy chat modes (`E2eeDm = 1`, `E2eeSenderKeyGroup = 2`) are retired.
+- Realtime transport remains websocket via Ring/`RemoteRingService`.
 
-## Room Encryption Modes
+## Enable Endpoint
 
-`SnChatRoom.encryption_mode`:
+- `POST /api/chat/{id}/mls/enable`
+- One-way only: `None -> E2eeMls`
+- Cannot disable encryption after enable.
+- Legacy `POST /api/chat/{id}/e2ee/enable` returns `410 Gone`.
 
-| Value | Name | Status |
-|---|---|---|
-| `0` | `None` | Active |
-| `1` | `E2eeDm` | Legacy (read compatibility only) |
-| `2` | `E2eeSenderKeyGroup` | Legacy (read compatibility only) |
-| `3` | `E2eeMls` | Active encrypted mode |
+## Write Capability
 
-`SnChatRoom.mls_group_id` stores MLS group binding for encrypted rooms.
-
-## Enable Flow
-
-- Endpoint: `POST /api/chat/{id}/mls/enable`
-- One-way transition: `None -> E2eeMls`
-- Cannot disable back to `None`.
-- Legacy `POST /api/chat/{id}/e2ee/enable` is retired and returns conflict.
-- `PATCH /api/chat/{id}` cannot toggle encryption mode.
-
-When enabled, server emits system message:
-
-- type: `system.e2ee.enabled`
-- content: `This chat now uses MLS.`
-- meta includes:
-  - `mode=E2eeMls`
-  - `mls_group_id`
-
-## Write Capability Gate
-
-For MLS room write endpoints only (`send`, `update`, `delete`), client must include:
+For MLS room write endpoints (`send`, `update`, `delete`), client must include:
 
 `X-Client-Ability: chat-mls-v1`
 
-Missing capability returns:
-
-```json
-{
-  "code": "chat.e2ee_required",
-  "error": "This room requires capability 'chat-mls-v1'."
-}
-```
-
-Read/sync endpoints do not require this header.
-
 ## MLS Message Contract
 
-For user content messages in MLS rooms:
+In MLS rooms, user content writes must include:
 
 - `is_encrypted = true`
 - `encryption_scheme = pass.e2ee.mls.v1`
-- `encryption_epoch` required
-- `ciphertext` required
-- `encryption_message_type` required (`content.new`, `content.edit`, `content.delete`)
+- `encryption_epoch` (required)
+- `ciphertext` (required)
+- `encryption_message_type` (`content.new` / `content.edit` / `content.delete`)
 
-Plaintext user fields are rejected in encrypted rooms:
+Plaintext content fields are rejected for encrypted rooms.
 
-- `content`
-- attachment IDs
-- fund/poll embed inputs
-- plaintext reply/forward inputs
+## Server-Side Behavior
 
-Voice endpoint is not supported for encrypted rooms in v1:
+- Server stores/transports opaque ciphertext only.
+- Link preview extraction is disabled for encrypted messages.
+- Push notification body is generic: `Encrypted message`.
+- Control events (`typing/read/reaction/system`) remain plaintext.
 
-- `chat.e2ee_voice_not_supported_v1`
+## System Events
+
+- `system.e2ee.enabled` emitted when MLS is enabled.
+- `system.mls.epoch_changed` emitted on membership-change operational hooks.
+- `system.mls.reshare_required` used for device re-share workflows.
 
 ## Algorithm Notes
 
-Server is transport/state only. Encryption is client-side.
+Crypto remains client-side. Server contract markers:
 
-Current MLS profile in server defaults:
-
-- `encryption_scheme`: `pass.e2ee.mls.v1`
-- default ciphersuite: `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`
-
-Legacy bootstrap markers remain documented for backward compatibility:
-
-- key bundle algorithm marker: `x25519`
-- legacy session hint: `x3dh-v1`
-
-## Membership Change Events
-
-- Legacy sender-key rooms still use `system.e2ee.rotate_required`.
-- MLS rooms emit `system.mls.epoch_changed` on membership-change hooks (`member_joined`, `member_left`, `member_removed`) so clients can commit/rekey and continue MLS traffic.
-- Device-specific reshare workflows should emit/consume `system.mls.reshare_required`.
-
-## Notification and Preview Policy
-
-For encrypted user messages:
-
-- Server does not run link preview extraction.
-- Push body is generic: `Encrypted message`.
-
-## Pass Integration Boundary
-
-Messager does not bootstrap MLS keys/sessions directly. Clients must use Pass MLS endpoints (`/api/e2ee/mls/*`) for:
-
-- key package publication/discovery
-- commit/welcome fanout transport
-- per-device pending envelope fetch + ack
-- device revoke
+- scheme: `pass.e2ee.mls.v1`
+- default ciphersuite policy: `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`

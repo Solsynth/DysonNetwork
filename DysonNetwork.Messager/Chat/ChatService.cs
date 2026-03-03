@@ -363,29 +363,6 @@ public partial class ChatService(
         );
     }
 
-    public async Task<SnChatMessage> SendE2eeRotateRequiredSystemMessageAsync(
-        SnChatRoom room,
-        SnChatMember sender,
-        Guid changedMemberId,
-        string reason
-    )
-    {
-        return await SendSystemMessageAsync(
-            room,
-            sender,
-            "system.e2ee.rotate_required",
-            "E2EE sender key rotation required.",
-            new Dictionary<string, object>
-            {
-                ["event"] = "e2ee_rotate_required",
-                ["room_id"] = room.Id,
-                ["changed_member_id"] = changedMemberId,
-                ["reason"] = reason,
-                ["rotation_hint_epoch"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-            }
-        );
-    }
-
     public async Task<SnChatMessage> SendE2eeEnabledSystemMessageAsync(
         SnChatRoom room,
         SnChatMember sender,

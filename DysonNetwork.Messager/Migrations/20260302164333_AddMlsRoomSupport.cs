@@ -18,6 +18,8 @@ namespace DysonNetwork.Messager.Migrations
                 nullable: true);
 
             migrationBuilder.Sql(
+                "UPDATE chat_rooms SET encryption_mode = 3 WHERE encryption_mode IN (1, 2);");
+            migrationBuilder.Sql(
                 "UPDATE chat_rooms SET mls_group_id = CONCAT('chat:', id::text) WHERE encryption_mode = 3 AND mls_group_id IS NULL;");
         }
 

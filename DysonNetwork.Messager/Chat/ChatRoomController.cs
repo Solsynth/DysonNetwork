@@ -205,8 +205,8 @@ public class ChatRoomController(
     {
         return roomType switch
         {
-            ChatRoomType.DirectMessage => mode is ChatRoomEncryptionMode.None or ChatRoomEncryptionMode.E2eeMls || (int)mode is 1 or 2,
-            ChatRoomType.Group => mode is ChatRoomEncryptionMode.None or ChatRoomEncryptionMode.E2eeMls || (int)mode == 2,
+            ChatRoomType.DirectMessage => mode is ChatRoomEncryptionMode.None or ChatRoomEncryptionMode.E2eeMls,
+            ChatRoomType.Group => mode is ChatRoomEncryptionMode.None or ChatRoomEncryptionMode.E2eeMls,
             _ => false
         };
     }
@@ -223,12 +223,6 @@ public class ChatRoomController(
         string reason
     )
     {
-        if ((int)room.EncryptionMode == 2)
-        {
-            await cs.SendE2eeRotateRequiredSystemMessageAsync(room, actor, changedMemberId, reason);
-            return;
-        }
-
         if (room.EncryptionMode == ChatRoomEncryptionMode.E2eeMls)
         {
             var epochHint = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -510,10 +504,10 @@ public class ChatRoomController(
     [Authorize]
     public async Task<ActionResult<SnChatRoom>> EnableE2Ee(Guid id, [FromBody] EnableE2eeRequest? request)
     {
-        return Conflict(new
+        return StatusCode(410, new
         {
-            code = "chat.mls_enable_endpoint_required",
-            error = "Use POST /api/chat/{id}/mls/enable. Legacy e2ee/enable is retired."
+            code = "chat.e2ee_legacy_endpoint_removed",
+            error = "Legacy e2ee/enable endpoint is removed. Use POST /api/chat/{id}/mls/enable."
         });
     }
 

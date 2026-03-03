@@ -31,7 +31,6 @@ public partial class ChatController(
 ) : ControllerBase
 {
     private const string E2EeCapabilityHeader = "X-Client-Ability";
-    private const string LegacyE2EeCapabilityToken = "chat-e2ee-v1";
     private const string MlsCapabilityToken = "chat-mls-v1";
     private const string MlsEncryptionScheme = "pass.e2ee.mls.v1";
 
@@ -52,9 +51,7 @@ public partial class ChatController(
     private ActionResult? EnsureE2EeCapabilityForRoom(SnChatRoom room)
     {
         if (room.EncryptionMode == ChatRoomEncryptionMode.None) return null;
-        var token = room.EncryptionMode == ChatRoomEncryptionMode.E2eeMls
-            ? MlsCapabilityToken
-            : LegacyE2EeCapabilityToken;
+        var token = MlsCapabilityToken;
         if (HasClientCapability(token)) return null;
         return E2EeError("chat.e2ee_required", $"This room requires capability '{token}'.");
     }

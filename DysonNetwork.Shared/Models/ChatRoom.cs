@@ -15,10 +15,6 @@ public enum ChatRoomType
 public enum ChatRoomEncryptionMode
 {
     None = 0,
-    [Obsolete("Legacy mode. Use E2eeMls for new encrypted rooms.")]
-    E2eeDm = 1,
-    [Obsolete("Legacy mode. Use E2eeMls for new encrypted rooms.")]
-    E2eeSenderKeyGroup = 2,
     E2eeMls = 3,
 }
 

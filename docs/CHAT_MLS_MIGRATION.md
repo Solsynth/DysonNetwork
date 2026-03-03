@@ -1,70 +1,36 @@
-# Chat MLS Migration Runbook
+# Chat MLS Hard-Cut Runbook
 
-## Goal
+## What hard-cut means
 
-Move encrypted chat writes from legacy (`E2eeDm`, `E2eeSenderKeyGroup`) to MLS (`E2eeMls`) for both DM and group rooms.
+- All encrypted chat rooms use `E2eeMls`.
+- Legacy chat encryption modes are converted and no longer used.
+- Old `/api/chat/{id}/e2ee/enable` endpoint is removed (`410`).
 
-## Migration Strategy
+## Migration SQL behavior
 
-1. Deploy schema + API support (Pass + Messager).
-2. Keep legacy read compatibility.
-3. Enable MLS room-by-room using `POST /api/chat/{id}/mls/enable`.
-4. Enforce MLS-only encrypted writes.
-5. Freeze legacy encrypted room creation.
-6. Retire legacy encrypted write paths after stability SLO is met.
+Messager migration performs:
 
-## Preconditions
+1. `encryption_mode IN (1,2) -> 3`
+2. backfill `mls_group_id = 'chat:' || id` where null
 
-- Clients support `chat-mls-v1` and include `X-Client-Ability` on write endpoints.
-- Clients publish MLS key packages per device.
-- Realtime path is healthy (`RemoteRingService`/Ring push).
+## Rollout Steps
 
-## Operational Checklist
+1. Deploy Pass MLS endpoints (`/api/e2ee/mls/*`).
+2. Deploy Messager hard-cut build.
+3. Run DB migrations.
+4. Verify rooms previously in mode 1/2 are now mode 3.
+5. Verify write requests require `X-Client-Ability: chat-mls-v1` in MLS rooms.
 
-### Phase 1: Server rollout
+## Validation Checklist
 
-- Deploy Pass with `/api/e2ee/mls/*` endpoints.
-- Deploy Messager with `POST /api/chat/{id}/mls/enable` endpoint.
-- Run DB migrations for Pass and Messager.
+- MLS send/update/delete succeed with ciphertext payloads.
+- Plaintext writes in encrypted rooms are rejected.
+- Membership changes emit `system.mls.epoch_changed`.
+- `system.e2ee.rotate_required` no longer appears.
 
-### Phase 2: Internal canary
+## Operational Metrics
 
-- Enable MLS for internal DM + group rooms.
-- Verify:
-  - send/update/delete in MLS rooms succeed with ciphertext payload
-  - sync/read return ciphertext untouched
-  - system message `system.e2ee.enabled` is emitted with `mls_group_id`
-  - membership changes emit `system.mls.epoch_changed`
-
-### Phase 3: Device behavior checks
-
-- Same account, two devices: both receive new MLS envelopes.
-- New device login: client surfaces `missing_welcome`/`missing_state` until re-share.
-- Device revoke: revoked device receives no new envelopes.
-
-### Phase 4: Legacy freeze
-
-- Block new room creation in legacy encrypted modes.
-- Keep old encrypted history readable.
-- Track legacy write traffic to zero.
-
-### Phase 5: Retirement
-
-- Disable legacy encrypted write APIs behind feature flag.
-- Keep migration window for historical read support.
-- Announce final retirement date to clients.
-
-## Monitoring Metrics
-
-- MLS envelope fanout failure rate
-- Per-device pending envelope backlog
-- Envelope ack latency
-- Decrypt failure reason distribution (`missing_state`, `missing_welcome`, `invalid_ciphertext`)
-- `system.mls.reshare_required` frequency
-- Capability-gate rejects (`chat.e2ee_required`)
-
-## Rollback Notes
-
-- Do not disable MLS for rooms already migrated (one-way enable).
-- In incident mode, pause new MLS room enables and keep rooms operational with existing ciphertext relay.
-- If needed, stop legacy-path retirement feature flag changes first before any schema rollback attempts.
+- MLS fanout failure rate
+- pending envelope backlog per device
+- envelope ack latency
+- decrypt failure reasons (`missing_state`, `missing_welcome`, `invalid_ciphertext`)
