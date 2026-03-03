@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authentication;
@@ -34,7 +35,7 @@ public class DysonTokenAuthHandler(
             {
                 session = await ValidateToken(
                     tokenInfo.Token,
-                    Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+                    Request.HttpContext.GetClientIpAddress()
                 );
             }
             catch (InvalidOperationException ex)

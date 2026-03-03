@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
@@ -116,7 +117,7 @@ public class DeveloperController(
             },
             AccountId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+            IpAddress = Request.GetClientIpAddress()
         });
 
         return Ok(await ds.LoadDeveloperPublisher(developer));

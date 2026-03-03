@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
 
@@ -26,8 +27,8 @@ public class ActionLogService(GeoService geo, FlushBufferService fbs)
             Action = action,
             Meta = meta,
             UserAgent = request.Headers.UserAgent,
-            IpAddress = request.HttpContext.Connection.RemoteIpAddress?.ToString(),
-            Location = geo.GetPointFromIp(request.HttpContext.Connection.RemoteIpAddress?.ToString())
+            IpAddress = request.GetClientIpAddress(),
+            Location = geo.GetPointFromIp(request.GetClientIpAddress())
         };
         
         if (request.HttpContext.Items["CurrentUser"] is SnAccount currentUser)

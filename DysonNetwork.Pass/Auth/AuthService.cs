@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
@@ -58,7 +59,7 @@ public class AuthService(
                 .Select(s => s.ChallengeId!.Value).ToList();
         var recentChallenges = await db.AuthChallenges.Where(c => recentChallengeIds.Contains(c.Id)).ToListAsync();
 
-        var ipAddress = request.HttpContext.Connection.RemoteIpAddress?.ToString();
+        var ipAddress = request.HttpContext.GetClientIpAddress();
         var userAgent = request.Headers.UserAgent.ToString();
 
         // 3) IP Address Risk Assessment
@@ -197,7 +198,7 @@ public class AuthService(
         SnAuthSession? parentSession = null
     )
     {
-        var ipAddr = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var ipAddr = HttpContext.GetClientIpAddress();
         var geoLocation = ipAddr is not null ? geo.GetPointFromIp(ipAddr) : null;
         var session = new SnAuthSession
         {
@@ -690,7 +691,7 @@ public class AuthService(
 
         var device = await GetOrCreateDeviceAsync(parentSession.AccountId, deviceId, deviceName, platform);
 
-        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var ipAddress = HttpContext.GetClientIpAddress();
         var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
         var geoLocation = ipAddress is not null ? geo.GetPointFromIp(ipAddress) : null;
 

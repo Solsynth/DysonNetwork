@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Proto;
@@ -299,7 +300,7 @@ public class PostActionController(
                 },
                 AccountId = currentUser.Id,
                 UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+                IpAddress = Request.GetClientIpAddress(),
             }
         );
 
@@ -397,7 +398,7 @@ public class PostActionController(
                 },
                 AccountId = currentUser.Id.ToString(),
                 UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+                IpAddress = Request.GetClientIpAddress(),
             }
         );
 
@@ -548,7 +549,7 @@ public class PostActionController(
                 },
                 AccountId = currentUser.Id.ToString(),
                 UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+                IpAddress = Request.GetClientIpAddress(),
             }
         );
 
@@ -609,7 +610,7 @@ public class PostActionController(
                 },
                 AccountId = currentUser.Id.ToString(),
                 UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+                IpAddress = Request.GetClientIpAddress(),
             }
         );
 
@@ -877,7 +878,7 @@ public class PostActionController(
                 },
                 AccountId = currentUser.Id.ToString(),
                 UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+                IpAddress = Request.GetClientIpAddress(),
             }
         );
 
@@ -924,7 +925,7 @@ public class PostActionController(
                 },
                 AccountId = currentUser.Id.ToString(),
                 UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+                IpAddress = Request.GetClientIpAddress(),
             }
         );
 
@@ -982,7 +983,7 @@ public class PostActionController(
                 },
                 AccountId = currentUser.Id.ToString(),
                 UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
+                IpAddress = Request.GetClientIpAddress(),
             }
         );
 

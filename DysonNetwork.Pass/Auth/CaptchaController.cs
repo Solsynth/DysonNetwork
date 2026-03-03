@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using DysonNetwork.Shared.Extensions;
 
 namespace DysonNetwork.Pass.Auth;
 
@@ -28,7 +29,7 @@ public class CaptchaController(
         if (string.IsNullOrWhiteSpace(request.Token))
         {
             logger.LogWarning("Captcha verification failed: empty token from {IpAddress}",
-                HttpContext.Connection.RemoteIpAddress?.ToString());
+                HttpContext.GetClientIpAddress());
             return BadRequest("Token is required");
         }
 
@@ -39,18 +40,18 @@ public class CaptchaController(
             if (!isValid)
             {
                 logger.LogWarning("Captcha verification failed: invalid token from {IpAddress}",
-                    HttpContext.Connection.RemoteIpAddress?.ToString());
+                    HttpContext.GetClientIpAddress());
                 return BadRequest("Invalid captcha token");
             }
 
             logger.LogInformation("Captcha verification successful from {IpAddress}",
-                HttpContext.Connection.RemoteIpAddress?.ToString());
+                HttpContext.GetClientIpAddress());
             return Ok();
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error during captcha verification from {IpAddress}",
-                HttpContext.Connection.RemoteIpAddress?.ToString());
+                HttpContext.GetClientIpAddress());
             return StatusCode(500, "Internal server error");
         }
     }

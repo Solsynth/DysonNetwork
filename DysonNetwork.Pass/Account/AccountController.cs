@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Pass.Affiliation;
 using DysonNetwork.Pass.Auth;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
@@ -108,7 +109,7 @@ public class AccountController(
                 [nameof(request.CaptchaToken)] = ["Invalid captcha token."]
             }, traceId: HttpContext.TraceIdentifier));
 
-        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var ip = HttpContext.GetClientIpAddress();
         if (ip is null) return BadRequest(ApiError.NotFound(request.Name, traceId: HttpContext.TraceIdentifier));
         var region = geo.GetFromIp(ip)?.Country.IsoCode ?? "us";
 

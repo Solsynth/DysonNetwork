@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
 using Microsoft.EntityFrameworkCore;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Localization;
@@ -55,7 +56,7 @@ public class AuthController(
                 $"Your account has been suspended. Reason: {punishment.Reason}. Expired at: {punishment.ExpiredAt?.ToString() ?? "never"}"
             );
 
-        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var ipAddress = HttpContext.GetClientIpAddress();
         var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
 
         request.DeviceName ??= userAgent;
@@ -107,7 +108,7 @@ public class AuthController(
 
         if (challenge is not null) return challenge;
         logger.LogWarning("GetChallenge: challenge not found (challengeId={ChallengeId}, ip={IpAddress})",
-            id, HttpContext.Connection.RemoteIpAddress?.ToString());
+            id, HttpContext.GetClientIpAddress());
         return NotFound("Auth challenge was not found.");
 
     }
@@ -223,7 +224,7 @@ public class AuthController(
             logger.LogWarning(
                 "DoChallenge: authentication failure (challengeId={ChallengeId}, factorId={FactorId}, accountId={AccountId}, failedAttempts={FailedAttempts}, factorType={FactorType}, ip={IpAddress}, uaLength={UaLength})",
                 challenge.Id, factor.Id, challenge.AccountId, challenge.FailedAttempts, factor.Type,
-                HttpContext.Connection.RemoteIpAddress?.ToString(),
+                HttpContext.GetClientIpAddress(),
                 HttpContext.Request.Headers.UserAgent.ToString().Length);
 
             return BadRequest("Invalid password.");

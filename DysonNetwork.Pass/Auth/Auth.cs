@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 using DysonNetwork.Pass.Handlers;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Extensions;
 using SystemClock = NodaTime.SystemClock;
 
 namespace DysonNetwork.Pass.Auth;
@@ -50,7 +51,7 @@ public class DysonTokenAuthHandler(
         try
         {
             // Get client IP address
-            var ipAddress = Context.Connection.RemoteIpAddress?.ToString();
+            var ipAddress = Context.GetClientIpAddress();
             
             var (valid, session, message) = await token.AuthenticateTokenAsync(tokenInfo.Token, ipAddress);
             if (!valid || session is null)

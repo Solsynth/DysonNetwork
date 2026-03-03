@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -159,7 +160,7 @@ public class ChatRoomController(
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(dmRoom.Id.ToString()) } },
             AccountId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+            IpAddress = Request.GetClientIpAddress()
         });
 
         var invitedMember = dmRoom.Members.First(m => m.AccountId == request.RelatedUserId);
@@ -316,7 +317,7 @@ public class ChatRoomController(
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) } },
             AccountId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+            IpAddress = Request.GetClientIpAddress()
         });
 
         return Ok(chatRoom);
@@ -489,7 +490,7 @@ public class ChatRoomController(
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) } },
             AccountId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+            IpAddress = Request.GetClientIpAddress()
         });
 
         return Ok(chatRoom);
@@ -588,7 +589,7 @@ public class ChatRoomController(
             },
             AccountId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+            IpAddress = Request.GetClientIpAddress()
         });
 
         return Ok(chatRoom);
@@ -656,7 +657,7 @@ public class ChatRoomController(
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) } },
             AccountId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+            IpAddress = Request.GetClientIpAddress()
         });
 
         return NoContent();
@@ -887,7 +888,7 @@ public class ChatRoomController(
                 },
                 AccountId = currentUser.Id,
                 UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+                IpAddress = Request.GetClientIpAddress()
             });
 
             return Ok(existingMember);
@@ -916,7 +917,7 @@ public class ChatRoomController(
             },
             AccountId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+            IpAddress = Request.GetClientIpAddress()
         });
 
         return Ok(newMember);
@@ -981,7 +982,7 @@ public class ChatRoomController(
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) } },
             AccountId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+            IpAddress = Request.GetClientIpAddress()
         });
 
         return Ok(member);
@@ -1119,7 +1120,7 @@ public class ChatRoomController(
             },
             AccountId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+            IpAddress = Request.GetClientIpAddress()
         });
 
         return NoContent();
@@ -1181,7 +1182,7 @@ public class ChatRoomController(
             },
             AccountId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+            IpAddress = Request.GetClientIpAddress()
         });
 
         return NoContent();
@@ -1250,7 +1251,7 @@ public class ChatRoomController(
             },
             AccountId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+            IpAddress = Request.GetClientIpAddress()
         });
 
         return NoContent();
@@ -1307,7 +1308,7 @@ public class ChatRoomController(
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) } },
             AccountId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+            IpAddress = Request.GetClientIpAddress()
         });
 
         return Ok(chatRoom);
@@ -1345,7 +1346,7 @@ public class ChatRoomController(
             Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) } },
             AccountId = currentUser.Id,
             UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString()
+            IpAddress = Request.GetClientIpAddress()
         });
 
         return NoContent();
