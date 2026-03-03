@@ -523,13 +523,22 @@ public static class ServiceCollectionExtensions
 
             if (requestData.AttachmentsId is not null)
             {
-                var queryRequest = new DyGetFileBatchRequest();
-                queryRequest.Ids.AddRange(requestData.AttachmentsId);
-                var queryResponse = await files.GetFileBatchAsync(queryRequest);
-                message.Attachments = queryResponse.Files
-                    .OrderBy(f => requestData.AttachmentsId.IndexOf(f.Id))
-                    .Select(SnCloudFileReferenceObject.FromProtoValue)
-                    .ToList();
+                if (e2eeMode)
+                {
+                    message.Meta ??= new Dictionary<string, object>();
+                    message.Meta["attachments_id"] = requestData.AttachmentsId.Distinct().ToList();
+                    message.Attachments = [];
+                }
+                else
+                {
+                    var queryRequest = new DyGetFileBatchRequest();
+                    queryRequest.Ids.AddRange(requestData.AttachmentsId);
+                    var queryResponse = await files.GetFileBatchAsync(queryRequest);
+                    message.Attachments = queryResponse.Files
+                        .OrderBy(f => requestData.AttachmentsId.IndexOf(f.Id))
+                        .Select(SnCloudFileReferenceObject.FromProtoValue)
+                        .ToList();
+                }
             }
 
             if (!e2eeMode && requestData.RepliedMessageId.HasValue)

@@ -499,13 +499,22 @@ public partial class ChatController(
             message.Content = request.Content;
         if (request.AttachmentsId is not null)
         {
-            var queryRequest = new DyGetFileBatchRequest();
-            queryRequest.Ids.AddRange(request.AttachmentsId);
-            var queryResponse = await files.GetFileBatchAsync(queryRequest);
-            message.Attachments = queryResponse.Files
-                .OrderBy(f => request.AttachmentsId.IndexOf(f.Id))
-                .Select(SnCloudFileReferenceObject.FromProtoValue)
-                .ToList();
+            if (e2eeMode)
+            {
+                message.Meta ??= new Dictionary<string, object>();
+                message.Meta["attachments_id"] = request.AttachmentsId.Distinct().ToList();
+                message.Attachments = [];
+            }
+            else
+            {
+                var queryRequest = new DyGetFileBatchRequest();
+                queryRequest.Ids.AddRange(request.AttachmentsId);
+                var queryResponse = await files.GetFileBatchAsync(queryRequest);
+                message.Attachments = queryResponse.Files
+                    .OrderBy(f => request.AttachmentsId.IndexOf(f.Id))
+                    .Select(SnCloudFileReferenceObject.FromProtoValue)
+                    .ToList();
+            }
         }
 
         // Validate reply and forward message IDs exist
@@ -811,13 +820,22 @@ public partial class ChatController(
 
         if (request.AttachmentsId is not null)
         {
-            var queryRequest = new DyGetFileBatchRequest();
-            queryRequest.Ids.AddRange(request.AttachmentsId);
-            var queryResponse = await files.GetFileBatchAsync(queryRequest);
-            message.Attachments = queryResponse.Files
-                .OrderBy(f => request.AttachmentsId.IndexOf(f.Id))
-                .Select(SnCloudFileReferenceObject.FromProtoValue)
-                .ToList();
+            if (e2eeMode)
+            {
+                message.Meta ??= new Dictionary<string, object>();
+                message.Meta["attachments_id"] = request.AttachmentsId.Distinct().ToList();
+                message.Attachments = [];
+            }
+            else
+            {
+                var queryRequest = new DyGetFileBatchRequest();
+                queryRequest.Ids.AddRange(request.AttachmentsId);
+                var queryResponse = await files.GetFileBatchAsync(queryRequest);
+                message.Attachments = queryResponse.Files
+                    .OrderBy(f => request.AttachmentsId.IndexOf(f.Id))
+                    .Select(SnCloudFileReferenceObject.FromProtoValue)
+                    .ToList();
+            }
         }
 
         if (e2eeMode)

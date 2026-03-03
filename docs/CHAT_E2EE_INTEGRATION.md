@@ -39,7 +39,8 @@ Compatibility note:
 Plaintext content fields are rejected for encrypted rooms.
 
 Attachment policy:
-- unencrypted file attachments are allowed in encrypted messages (attachment references stay plaintext metadata).
+- unencrypted file attachments are allowed in encrypted messages.
+- attachment references are carried via API `attachments_id` list and stored as plaintext metadata (`meta.attachments_id`).
 
 ## Server-Side Behavior
 
