@@ -72,6 +72,18 @@ public partial class ChatController(
                request.EncryptionEpoch.HasValue;
     }
 
+    private static string NormalizeEncryptionMessageType(string? messageType, string fallbackType)
+    {
+        if (string.IsNullOrWhiteSpace(messageType)) return fallbackType;
+        return messageType switch
+        {
+            "content.new" => "text",
+            "content.edit" => "messages.update",
+            "content.delete" => "messages.delete",
+            _ => messageType
+        };
+    }
+
     // Server cannot decrypt to verify crypto correctness, but we can block obvious plaintext JSON misuse.
     private static bool LooksLikePlaintextJson(byte[]? payload)
     {
@@ -448,7 +460,9 @@ public partial class ChatController(
             EncryptionSignature = request.EncryptionSignature,
             EncryptionScheme = request.EncryptionScheme,
             EncryptionEpoch = request.EncryptionEpoch,
-            EncryptionMessageType = request.EncryptionMessageType ?? (request.IsEncrypted ? "content.new" : null),
+            EncryptionMessageType = request.IsEncrypted
+                ? NormalizeEncryptionMessageType(request.EncryptionMessageType, "text")
+                : null,
             ClientMessageId = request.ClientMessageId
         };
 
@@ -805,7 +819,7 @@ public partial class ChatController(
             message.EncryptionSignature = request.EncryptionSignature;
             message.EncryptionScheme = request.EncryptionScheme;
             message.EncryptionEpoch = request.EncryptionEpoch;
-            message.EncryptionMessageType = request.EncryptionMessageType ?? "content.edit";
+            message.EncryptionMessageType = NormalizeEncryptionMessageType(request.EncryptionMessageType, "messages.update");
             message.ClientMessageId = request.ClientMessageId;
             message.Content = null;
             message.Attachments = [];
@@ -826,7 +840,7 @@ public partial class ChatController(
             request.EncryptionSignature,
             request.EncryptionScheme,
             request.EncryptionEpoch,
-            request.EncryptionMessageType,
+            NormalizeEncryptionMessageType(request.EncryptionMessageType, "messages.update"),
             request.ClientMessageId
         );
 
@@ -871,7 +885,7 @@ public partial class ChatController(
             request?.EncryptionSignature,
             request?.EncryptionScheme,
             request?.EncryptionEpoch,
-            request?.EncryptionMessageType,
+            request is null ? null : NormalizeEncryptionMessageType(request.EncryptionMessageType, "messages.delete"),
             request?.ClientMessageId
         );
 

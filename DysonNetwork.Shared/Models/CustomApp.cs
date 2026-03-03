@@ -38,7 +38,7 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
 
     [NotMapped]
     [JsonIgnore]
-    public SnDeveloper Developer => Project.Developer;
+    public SnDeveloper? Developer => Project?.Developer;
 
     [NotMapped] public string ResourceIdentifier => "developer.app:" + Id;
 

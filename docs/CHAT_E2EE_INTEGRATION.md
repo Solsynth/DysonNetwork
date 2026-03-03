@@ -31,7 +31,10 @@ In MLS rooms, user content writes must include:
 - `encryption_scheme = chat.mls.v1`
 - `encryption_epoch` (required)
 - `ciphertext` (required)
-- `encryption_message_type` (`content.new` / `content.edit` / `content.delete`)
+- `encryption_message_type` mirrors chat `type` semantics (`text`, `messages.update`, `messages.delete`)
+
+Compatibility note:
+- legacy values (`content.new`, `content.edit`, `content.delete`) are normalized server-side.
 
 Plaintext content fields are rejected for encrypted rooms.
 

@@ -258,6 +258,18 @@ public static class ServiceCollectionExtensions
                    || text.Contains("\"nonce\"", StringComparison.OrdinalIgnoreCase);
         }
 
+        private static string NormalizeEncryptionMessageType(string? messageType, string fallbackType)
+        {
+            if (string.IsNullOrWhiteSpace(messageType)) return fallbackType;
+            return messageType switch
+            {
+                "content.new" => "text",
+                "content.edit" => "messages.update",
+                "content.delete" => "messages.delete",
+                _ => messageType
+            };
+        }
+
         private static async Task<List<Guid>> ExtractMentionedUsersAsync(
             string? content,
             Guid? repliedMessageId,
@@ -470,8 +482,9 @@ public static class ServiceCollectionExtensions
                 EncryptionSignature = requestData.EncryptionSignature,
                 EncryptionScheme = requestData.EncryptionScheme,
                 EncryptionEpoch = requestData.EncryptionEpoch,
-                EncryptionMessageType = requestData.EncryptionMessageType ??
-                                        (requestData.IsEncrypted ? "content.new" : null),
+                EncryptionMessageType = requestData.IsEncrypted
+                    ? NormalizeEncryptionMessageType(requestData.EncryptionMessageType, "text")
+                    : null,
                 ClientMessageId = requestData.ClientMessageId
             };
 

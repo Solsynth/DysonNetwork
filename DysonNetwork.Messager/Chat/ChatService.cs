@@ -22,6 +22,18 @@ public partial class ChatService(
     RemoteWebReaderService webReader
 )
 {
+    private static string NormalizeEncryptionMessageType(string? messageType, string fallbackType)
+    {
+        if (string.IsNullOrWhiteSpace(messageType)) return fallbackType;
+        return messageType switch
+        {
+            "content.new" => "text",
+            "content.edit" => "messages.update",
+            "content.delete" => "messages.delete",
+            _ => messageType
+        };
+    }
+
     private static bool IsUserEncryptedMessage(SnChatMessage message)
     {
         if (!message.IsEncrypted) return false;
@@ -963,7 +975,7 @@ public partial class ChatService(
         if (encryptionEpoch.HasValue)
             message.EncryptionEpoch = encryptionEpoch.Value;
         if (encryptionMessageType is not null)
-            message.EncryptionMessageType = encryptionMessageType;
+            message.EncryptionMessageType = NormalizeEncryptionMessageType(encryptionMessageType, "messages.update");
         if (!string.IsNullOrWhiteSpace(clientMessageId))
             message.ClientMessageId = clientMessageId;
 
@@ -990,7 +1002,7 @@ public partial class ChatService(
             EncryptionSignature = message.EncryptionSignature,
             EncryptionScheme = message.EncryptionScheme,
             EncryptionEpoch = message.EncryptionEpoch,
-            EncryptionMessageType = message.EncryptionMessageType ?? "content.edit",
+            EncryptionMessageType = NormalizeEncryptionMessageType(message.EncryptionMessageType, "messages.update"),
             ClientMessageId = message.ClientMessageId,
             Attachments = message.Attachments,
             Nonce = Guid.NewGuid().ToString(),
@@ -1073,7 +1085,9 @@ public partial class ChatService(
             EncryptionSignature = encryptionSignature ?? message.EncryptionSignature,
             EncryptionScheme = encryptionScheme ?? message.EncryptionScheme,
             EncryptionEpoch = encryptionEpoch ?? message.EncryptionEpoch,
-            EncryptionMessageType = encryptionMessageType ?? (message.IsEncrypted ? "content.delete" : null),
+            EncryptionMessageType = message.IsEncrypted
+                ? NormalizeEncryptionMessageType(encryptionMessageType, "messages.delete")
+                : null,
             ClientMessageId = clientMessageId ?? message.ClientMessageId,
             Nonce = Guid.NewGuid().ToString(),
             Meta = new Dictionary<string, object>
