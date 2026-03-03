@@ -28,7 +28,7 @@ For MLS room write endpoints (`send`, `update`, `delete`), client must include:
 In MLS rooms, user content writes must include:
 
 - `is_encrypted = true`
-- `encryption_scheme = pass.e2ee.mls.v1`
+- `encryption_scheme = chat.mls.v1`
 - `encryption_epoch` (required)
 - `ciphertext` (required)
 - `encryption_message_type` (`content.new` / `content.edit` / `content.delete`)
@@ -52,5 +52,8 @@ Plaintext content fields are rejected for encrypted rooms.
 
 Crypto remains client-side. Server contract markers:
 
-- scheme: `pass.e2ee.mls.v1`
+- scheme: `chat.mls.v1`
 - default ciphersuite policy: `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`
+
+Compatibility note:
+- `pass.e2ee.mls.v1` is still accepted temporarily for older clients, but new clients should send `chat.mls.v1`.

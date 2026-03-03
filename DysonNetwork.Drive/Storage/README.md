@@ -102,7 +102,7 @@ Creates a new resumable upload task.
   "bundleId": "uuid",
   "chunkSize": "long",
   "encryptKey": "base64-string",
-  "encryptionScheme": "pass.e2ee.file.raw-key.v1",
+  "encryptionScheme": "file.aesgcm.v1",
   "encryptionHeader": "base64-string",
   "encryptionSignature": "base64-string",
   "encryptionEpoch": 1,

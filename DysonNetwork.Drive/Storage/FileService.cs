@@ -306,7 +306,7 @@ public class FileService(
             managedTempPath,
             encryptedPath,
             key,
-            encryptionScheme ?? "pass.e2ee.file.raw-key.v1",
+            encryptionScheme ?? "file.aesgcm.v1",
             encryptionEpoch,
             parsedHeader,
             parsedSignature

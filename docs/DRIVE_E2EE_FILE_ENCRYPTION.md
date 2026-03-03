@@ -7,6 +7,7 @@ Drive file encryption now uses E2EE key-based envelope encryption only.
 - Password-based upload encryption is removed from request contract.
 - Client provides a base64 E2EE key and optional envelope metadata.
 - Drive stores encrypted blob and metadata, but does not decrypt content.
+- Scheme naming now follows `<usecase>.<method>.<version>` (for example `file.aesgcm.v1`).
 
 ## Algorithm
 
@@ -25,7 +26,7 @@ Drive file encryption now uses E2EE key-based envelope encryption only.
   "contentType": "application/octet-stream",
   "hash": "sha256-or-other",
   "encryptKey": "BASE64_KEY",
-  "encryptionScheme": "pass.e2ee.file.raw-key.v1",
+  "encryptionScheme": "file.aesgcm.v1",
   "encryptionHeader": "BASE64_HEADER",
   "encryptionSignature": "BASE64_SIGNATURE",
   "encryptionEpoch": 1

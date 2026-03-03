@@ -6,7 +6,7 @@ namespace DysonNetwork.Drive.Storage;
 
 public sealed class FileE2eeEncryptionMetadata
 {
-    public string EncryptionScheme { get; init; } = "pass.e2ee.file.password.v1";
+    public string EncryptionScheme { get; init; } = "file.aesgcm.v1";
     public long? EncryptionEpoch { get; init; }
     public byte[]? EncryptionHeader { get; init; }
     public byte[]? EncryptionSignature { get; init; }
@@ -19,18 +19,18 @@ public static class FileEncryptor
 
     private sealed class FileE2eeEnvelopeHeader
     {
-        public string EncryptionScheme { get; set; } = "pass.e2ee.file.password.v1";
+        public string EncryptionScheme { get; set; } = "file.aesgcm.v1";
         public long? EncryptionEpoch { get; set; }
         public string? EncryptionHeader { get; set; }
         public string? EncryptionSignature { get; set; }
-        public string Kdf { get; set; } = "pbkdf2-sha256";
+        public string Kdf { get; set; } = "none";
     }
 
     public static FileE2eeEncryptionMetadata EncryptFileWithE2eeKey(
         string inputPath,
         string outputPath,
         byte[] key,
-        string encryptionScheme = "pass.e2ee.file.raw-key.v1",
+        string encryptionScheme = "file.aesgcm.v1",
         long? encryptionEpoch = null,
         byte[]? encryptionHeader = null,
         byte[]? encryptionSignature = null
@@ -168,7 +168,7 @@ public static class FileEncryptor
         aes.Decrypt(nonce, ciphertext, tag, decrypted);
 
         if (decrypted.Length < LegacyMagic.Length || LegacyMagic.Where((t, i) => decrypted[i] != t).Any())
-            throw new CryptographicException("Incorrect key/password or corrupted file.");
+            throw new CryptographicException("Incorrect key or corrupted file.");
 
         var plaintext = decrypted[LegacyMagic.Length..];
         File.WriteAllBytes(outputPath, plaintext);

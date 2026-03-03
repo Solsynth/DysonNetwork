@@ -12,6 +12,14 @@ namespace DysonNetwork.Pass.E2EE;
 public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 {
     private static string? ResolveDeviceId(SnAuthSession session) => session.Client?.DeviceId;
+    private ActionResult LegacyEndpointRemoved()
+    {
+        return StatusCode(410, new
+        {
+            code = "e2ee.legacy_endpoint_removed",
+            error = "Legacy E2EE endpoint removed. Use /api/e2ee/mls/* endpoints."
+        });
+    }
 
     public class UploadKeyBundleBody
     {
@@ -142,57 +150,19 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     [HttpPost("keys/upload")]
     public async Task<ActionResult<SnE2eeKeyBundle>> UploadKeyBundle([FromBody] UploadKeyBundleBody body)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
-
-        var bundle = await e2eeModule.UpsertKeyBundleAsync(currentUser.Id, new UpsertE2eeKeyBundleRequest(
-            body.Algorithm,
-            body.IdentityKey,
-            body.SignedPreKeyId,
-            body.SignedPreKey,
-            body.SignedPreKeySignature,
-            body.SignedPreKeyExpiresAt,
-            body.OneTimePreKeys?.Select(x => new UpsertE2eeOneTimePreKey(x.KeyId, x.PublicKey)).ToList(),
-            body.Meta
-        ));
-
-        return Ok(bundle);
+        return LegacyEndpointRemoved();
     }
 
     [HttpPut("devices/me/bundle")]
     public async Task<ActionResult<SnE2eeKeyBundle>> UploadDeviceBundle([FromBody] UploadDeviceBundleBody body)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
-        if (currentUser is null || currentSession is null) return Unauthorized();
-
-        var deviceId = ResolveDeviceId(currentSession);
-        if (string.IsNullOrWhiteSpace(deviceId))
-            return BadRequest("Current session device id is missing.");
-
-        var bundle = await e2eeModule.UpsertDeviceBundleAsync(currentUser.Id, deviceId, body.DeviceLabel,
-            new UpsertE2eeKeyBundleRequest(
-                body.Algorithm,
-                body.IdentityKey,
-                body.SignedPreKeyId,
-                body.SignedPreKey,
-                body.SignedPreKeySignature,
-                body.SignedPreKeyExpiresAt,
-                body.OneTimePreKeys?.Select(x => new UpsertE2eeOneTimePreKey(x.KeyId, x.PublicKey)).ToList(),
-                body.Meta
-            ));
-        return Ok(bundle);
+        return LegacyEndpointRemoved();
     }
 
     [HttpGet("keys/me")]
     public async Task<ActionResult<E2eePublicKeyBundleResponse>> GetMyPublicBundle()
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
-
-        var bundle = await e2eeModule.GetPublicBundleAsync(currentUser.Id, currentUser.Id, consumeOneTimePreKey: false);
-        if (bundle is null) return NotFound();
-        return Ok(bundle);
+        return LegacyEndpointRemoved();
     }
 
     [HttpGet("keys/{accountId:guid}/bundle")]
@@ -201,12 +171,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         [FromQuery] bool consumeOneTimePreKey = true
     )
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
-
-        var bundle = await e2eeModule.GetPublicBundleAsync(accountId, currentUser.Id, consumeOneTimePreKey);
-        if (bundle is null) return NotFound();
-        return Ok(bundle);
+        return LegacyEndpointRemoved();
     }
 
     [HttpGet("keys/{accountId:guid}/devices")]
@@ -215,112 +180,37 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         [FromQuery] bool consumeOneTimePreKey = true
     )
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
-
-        var bundles = await e2eeModule.GetPublicDeviceBundlesAsync(accountId, currentUser.Id, consumeOneTimePreKey);
-        return Ok(bundles);
+        return LegacyEndpointRemoved();
     }
 
     [HttpPost("sessions/{peerId:guid}")]
     public async Task<ActionResult<SnE2eeSession>> EnsureSession(Guid peerId, [FromBody] EnsureSessionBody body)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
-        if (peerId == currentUser.Id) return BadRequest("Cannot create session with yourself.");
-
-        var session = await e2eeModule.EnsureSessionAsync(
-            currentUser.Id,
-            peerId,
-            new EnsureE2eeSessionRequest(body.Hint, body.Meta)
-        );
-        return Ok(session);
+        return LegacyEndpointRemoved();
     }
 
     [HttpPost("messages")]
     public async Task<ActionResult<SnE2eeEnvelope>> SendEnvelope([FromBody] SendEnvelopeBody body)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
-        if (body.RecipientId == currentUser.Id) return BadRequest("Cannot send E2EE message to yourself.");
-
-        var envelope = await e2eeModule.SendEnvelopeAsync(currentUser.Id, new SendE2eeEnvelopeRequest(
-            body.RecipientId,
-            body.SessionId,
-            body.Type,
-            body.GroupId,
-            body.ClientMessageId,
-            body.Ciphertext,
-            body.Header,
-            body.Signature,
-            body.ExpiresAt,
-            body.Meta
-        ));
-        return Ok(envelope);
+        return LegacyEndpointRemoved();
     }
 
     [HttpPost("messages/fanout")]
     public async Task<ActionResult<List<SnE2eeEnvelope>>> SendFanout([FromBody] FanoutEnvelopeBody body)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
-        if (currentUser is null || currentSession is null) return Unauthorized();
-
-        var senderDeviceId = ResolveDeviceId(currentSession);
-        if (string.IsNullOrWhiteSpace(senderDeviceId))
-            return BadRequest("Current session device id is missing.");
-
-        var envelopes = await e2eeModule.SendFanoutEnvelopesAsync(currentUser.Id, senderDeviceId,
-            new SendE2eeFanoutRequest(
-                body.RecipientAccountId,
-                body.SessionId,
-                body.Type,
-                body.GroupId,
-                body.ExpiresAt,
-                body.IncludeSenderCopy,
-                body.Payloads.Select(x => new DeviceCiphertextEnvelope(
-                    x.RecipientDeviceId,
-                    x.ClientMessageId,
-                    x.Ciphertext,
-                    x.Header,
-                    x.Signature,
-                    x.Meta
-                )).ToList()
-            ));
-
-        return Ok(envelopes);
+        return LegacyEndpointRemoved();
     }
 
     [HttpPost("groups/sender-key/distribute")]
     public async Task<ActionResult<object>> DistributeSenderKey([FromBody] DistributeSenderKeyBody body)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
-
-        var sent = await e2eeModule.DistributeSenderKeyAsync(currentUser.Id, new DistributeSenderKeyRequest(
-            body.GroupId,
-            body.Items.Select(x => new SenderKeyDistributionItem(
-                x.RecipientId,
-                x.Ciphertext,
-                x.Header,
-                x.Signature,
-                x.ClientMessageId,
-                x.Meta
-            )).ToList(),
-            body.ExpiresAt
-        ));
-        return Ok(new { sent });
+        return LegacyEndpointRemoved();
     }
 
     [HttpGet("messages/pending")]
     public async Task<ActionResult<List<SnE2eeEnvelope>>> GetPendingMessages([FromQuery] int take = 100)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
-
-        take = Math.Clamp(take, 1, 500);
-        var messages = await e2eeModule.GetPendingEnvelopesAsync(currentUser.Id, take);
-        return Ok(messages);
+        return LegacyEndpointRemoved();
     }
 
     [HttpGet("envelopes/pending")]
@@ -329,30 +219,13 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         [FromQuery] int take = 100
     )
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
-        if (currentUser is null || currentSession is null) return Unauthorized();
-
-        var effectiveDeviceId = string.IsNullOrWhiteSpace(deviceId)
-            ? ResolveDeviceId(currentSession)
-            : deviceId;
-        if (string.IsNullOrWhiteSpace(effectiveDeviceId))
-            return BadRequest("device_id is required.");
-
-        take = Math.Clamp(take, 1, 500);
-        var envelopes = await e2eeModule.GetPendingEnvelopesByDeviceAsync(currentUser.Id, effectiveDeviceId, take);
-        return Ok(envelopes);
+        return LegacyEndpointRemoved();
     }
 
     [HttpPost("messages/{envelopeId:guid}/ack")]
     public async Task<ActionResult<SnE2eeEnvelope>> AckMessage(Guid envelopeId)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
-
-        var message = await e2eeModule.AcknowledgeEnvelopeAsync(currentUser.Id, envelopeId);
-        if (message is null) return NotFound();
-        return Ok(message);
+        return LegacyEndpointRemoved();
     }
 
     [HttpPost("envelopes/{envelopeId:guid}/ack")]
@@ -361,30 +234,13 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         [FromQuery(Name = "device_id")] string? deviceId
     )
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
-        if (currentUser is null || currentSession is null) return Unauthorized();
-
-        var effectiveDeviceId = string.IsNullOrWhiteSpace(deviceId)
-            ? ResolveDeviceId(currentSession)
-            : deviceId;
-        if (string.IsNullOrWhiteSpace(effectiveDeviceId))
-            return BadRequest("device_id is required.");
-
-        var message = await e2eeModule.AcknowledgeEnvelopeByDeviceAsync(currentUser.Id, effectiveDeviceId, envelopeId);
-        if (message is null) return NotFound();
-        return Ok(message);
+        return LegacyEndpointRemoved();
     }
 
     [HttpPost("devices/{deviceId}/revoke")]
     public async Task<ActionResult> RevokeDevice(string deviceId)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
-
-        var revoked = await e2eeModule.RevokeDeviceAsync(currentUser.Id, deviceId);
-        if (!revoked) return NotFound();
-        return NoContent();
+        return LegacyEndpointRemoved();
     }
 
     [HttpPut("mls/devices/me/key-packages")]
@@ -492,8 +348,33 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     [HttpPost("mls/messages/fanout")]
     public async Task<ActionResult<List<SnE2eeEnvelope>>> SendMlsFanout([FromBody] FanoutEnvelopeBody body)
     {
+        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
+        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
+        if (currentUser is null || currentSession is null) return Unauthorized();
+
+        var senderDeviceId = ResolveDeviceId(currentSession);
+        if (string.IsNullOrWhiteSpace(senderDeviceId))
+            return BadRequest("Current session device id is missing.");
+
         body.Type = SnE2eeEnvelopeType.MlsApplication;
-        return await SendFanout(body);
+        var envelopes = await e2eeModule.SendFanoutEnvelopesAsync(currentUser.Id, senderDeviceId,
+            new SendE2eeFanoutRequest(
+                body.RecipientAccountId,
+                body.SessionId,
+                body.Type,
+                body.GroupId,
+                body.ExpiresAt,
+                body.IncludeSenderCopy,
+                body.Payloads.Select(x => new DeviceCiphertextEnvelope(
+                    x.RecipientDeviceId,
+                    x.ClientMessageId,
+                    x.Ciphertext,
+                    x.Header,
+                    x.Signature,
+                    x.Meta
+                )).ToList()
+            ));
+        return Ok(envelopes);
     }
 
     [HttpGet("mls/envelopes/pending")]
@@ -502,7 +383,19 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         [FromQuery] int take = 100
     )
     {
-        return await GetPendingByDevice(deviceId, take);
+        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
+        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
+        if (currentUser is null || currentSession is null) return Unauthorized();
+
+        var effectiveDeviceId = string.IsNullOrWhiteSpace(deviceId)
+            ? ResolveDeviceId(currentSession)
+            : deviceId;
+        if (string.IsNullOrWhiteSpace(effectiveDeviceId))
+            return BadRequest("device_id is required.");
+
+        take = Math.Clamp(take, 1, 500);
+        var envelopes = await e2eeModule.GetPendingEnvelopesByDeviceAsync(currentUser.Id, effectiveDeviceId, take);
+        return Ok(envelopes);
     }
 
     [HttpPost("mls/envelopes/{envelopeId:guid}/ack")]
@@ -511,12 +404,29 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         [FromQuery(Name = "device_id")] string? deviceId
     )
     {
-        return await AckMessageByDevice(envelopeId, deviceId);
+        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
+        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
+        if (currentUser is null || currentSession is null) return Unauthorized();
+
+        var effectiveDeviceId = string.IsNullOrWhiteSpace(deviceId)
+            ? ResolveDeviceId(currentSession)
+            : deviceId;
+        if (string.IsNullOrWhiteSpace(effectiveDeviceId))
+            return BadRequest("device_id is required.");
+
+        var message = await e2eeModule.AcknowledgeEnvelopeByDeviceAsync(currentUser.Id, effectiveDeviceId, envelopeId);
+        if (message is null) return NotFound();
+        return Ok(message);
     }
 
     [HttpPost("mls/devices/{deviceId}/revoke")]
     public async Task<ActionResult> RevokeMlsDevice(string deviceId)
     {
-        return await RevokeDevice(deviceId);
+        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
+        if (currentUser is null) return Unauthorized();
+
+        var revoked = await e2eeModule.RevokeDeviceAsync(currentUser.Id, deviceId);
+        if (!revoked) return NotFound();
+        return NoContent();
     }
 }

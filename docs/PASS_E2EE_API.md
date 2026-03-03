@@ -8,6 +8,7 @@ For chat, MLS endpoints are authoritative:
 
 - base: `/api/e2ee/mls/*`
 - realtime delivery uses Ring websocket push via `RemoteRingService`
+- legacy `/api/e2ee/*` non-MLS routes return `410 Gone` with `e2ee.legacy_endpoint_removed`
 
 ## MLS Endpoints
 
@@ -51,5 +52,6 @@ On MLS fanout send, server:
 
 ## Contract Markers
 
-- chat encryption scheme marker: `pass.e2ee.mls.v1`
+- chat encryption scheme marker: `chat.mls.v1`
 - default ciphersuite policy: `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`
+- scheme identifiers follow `<usecase>.<method>.<version>`
