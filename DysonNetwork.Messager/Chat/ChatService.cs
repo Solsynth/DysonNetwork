@@ -1226,11 +1226,20 @@ public partial class ChatService(
 
         await HydrateMessageReactionsAsync([message], sender.AccountId);
 
-        message.Sender = sender;
+        if (message.Sender is null || message.Sender.Id != message.SenderId)
+        {
+            var originalSender = await db.ChatMembers
+                .Where(m => m.Id == message.SenderId)
+                .FirstOrDefaultAsync();
+            if (originalSender is not null)
+                message.Sender = await crs.LoadMemberAccount(originalSender);
+        }
         message.ChatRoom = room;
+        if (message.Sender is null)
+            return reaction;
         await DeliverMessageAsync(
             message,
-            sender,
+            message.Sender,
             room,
             type: WebSocketPacketType.MessageUpdate,
             notify: false
@@ -1305,11 +1314,20 @@ public partial class ChatService(
 
         await HydrateMessageReactionsAsync([message], sender.AccountId);
 
-        message.Sender = sender;
+        if (message.Sender is null || message.Sender.Id != message.SenderId)
+        {
+            var originalSender = await db.ChatMembers
+                .Where(m => m.Id == message.SenderId)
+                .FirstOrDefaultAsync();
+            if (originalSender is not null)
+                message.Sender = await crs.LoadMemberAccount(originalSender);
+        }
         message.ChatRoom = room;
+        if (message.Sender is null)
+            return;
         await DeliverMessageAsync(
             message,
-            sender,
+            message.Sender,
             room,
             type: WebSocketPacketType.MessageUpdate,
             notify: false
