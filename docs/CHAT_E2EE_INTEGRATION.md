@@ -38,6 +38,9 @@ Compatibility note:
 
 Plaintext content fields are rejected for encrypted rooms.
 
+Attachment policy:
+- unencrypted file attachments are allowed in encrypted messages (attachment references stay plaintext metadata).
+
 ## Server-Side Behavior
 
 - Server stores/transports opaque ciphertext only.

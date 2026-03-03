@@ -389,7 +389,6 @@ public partial class ChatController(
             if (LooksLikePlaintextJson(request.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (!string.IsNullOrWhiteSpace(request.Content) ||
-                (request.AttachmentsId is { Count: > 0 }) ||
                 request.FundId.HasValue ||
                 request.PollId.HasValue ||
                 request.RepliedMessageId.HasValue ||
@@ -498,7 +497,7 @@ public partial class ChatController(
         }
         if (!e2eeMode && request.Content is not null)
             message.Content = request.Content;
-        if (!e2eeMode && request.AttachmentsId is not null)
+        if (request.AttachmentsId is not null)
         {
             var queryRequest = new DyGetFileBatchRequest();
             queryRequest.Ids.AddRange(request.AttachmentsId);
@@ -696,7 +695,6 @@ public partial class ChatController(
             if (LooksLikePlaintextJson(request.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (!string.IsNullOrWhiteSpace(request.Content) ||
-                (request.AttachmentsId is { Count: > 0 }) ||
                 request.FundId.HasValue ||
                 request.PollId.HasValue ||
                 request.RepliedMessageId.HasValue ||
@@ -811,6 +809,17 @@ public partial class ChatController(
             embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "poll");
         }
 
+        if (request.AttachmentsId is not null)
+        {
+            var queryRequest = new DyGetFileBatchRequest();
+            queryRequest.Ids.AddRange(request.AttachmentsId);
+            var queryResponse = await files.GetFileBatchAsync(queryRequest);
+            message.Attachments = queryResponse.Files
+                .OrderBy(f => request.AttachmentsId.IndexOf(f.Id))
+                .Select(SnCloudFileReferenceObject.FromProtoValue)
+                .ToList();
+        }
+
         if (e2eeMode)
         {
             message.IsEncrypted = request.IsEncrypted;
@@ -822,7 +831,6 @@ public partial class ChatController(
             message.EncryptionMessageType = NormalizeEncryptionMessageType(request.EncryptionMessageType, "messages.update");
             message.ClientMessageId = request.ClientMessageId;
             message.Content = null;
-            message.Attachments = [];
             message.Meta ??= new Dictionary<string, object>();
         }
 

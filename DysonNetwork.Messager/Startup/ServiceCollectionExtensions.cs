@@ -402,7 +402,6 @@ public static class ServiceCollectionExtensions
                 }
 
                 if (!string.IsNullOrWhiteSpace(requestData.Content) ||
-                    (requestData.AttachmentsId is { Count: > 0 }) ||
                     requestData.FundId.HasValue ||
                     requestData.PollId.HasValue ||
                     requestData.RepliedMessageId.HasValue ||
@@ -522,7 +521,7 @@ public static class ServiceCollectionExtensions
             if (!e2eeMode && requestData.Content is not null)
                 message.Content = requestData.Content;
 
-            if (!e2eeMode && requestData.AttachmentsId is not null)
+            if (requestData.AttachmentsId is not null)
             {
                 var queryRequest = new DyGetFileBatchRequest();
                 queryRequest.Ids.AddRange(requestData.AttachmentsId);
