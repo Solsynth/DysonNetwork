@@ -20,7 +20,7 @@ public class PublisherController(
     PublisherService ps,
     DyAccountService.DyAccountServiceClient accounts,
     DyFileService.DyFileServiceClient files,
-    DyActionLogService.DyActionLogServiceClient als,
+    RemoteActionLogService als,
     RemoteRealmService remoteRealmService,
     IServiceScopeFactory factory
 ) : ControllerBase
@@ -102,25 +102,16 @@ public class PublisherController(
         db.PublisherMembers.Add(newMember);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "publishers.members.invite",
+            new Dictionary<string, object>
             {
-                Action = "publishers.members.invite",
-                Meta =
-                {
-                    {
-                        "publisher_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString())
-                    },
-                    {
-                        "account_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(relatedUser.Id.ToString())
-                    },
-                },
-                AccountId = currentUser.Id,
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "publisher_id", publisher.Id.ToString() },
+                { "account_id", relatedUser.Id.ToString() }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         return Ok(newMember);
@@ -146,27 +137,16 @@ public class PublisherController(
         db.Update(member);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "publishers.members.join",
+            new Dictionary<string, object>
             {
-                Action = "publishers.members.join",
-                Meta =
-                {
-                    {
-                        "publisher_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(
-                            member.PublisherId.ToString()
-                        )
-                    },
-                    {
-                        "account_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(member.AccountId.ToString())
-                    },
-                },
-                AccountId = currentUser.Id,
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "publisher_id", member.PublisherId.ToString() },
+                { "account_id", member.AccountId.ToString() }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         return Ok(member);
@@ -191,27 +171,16 @@ public class PublisherController(
         db.PublisherMembers.Remove(member);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "publishers.members.decline",
+            new Dictionary<string, object>
             {
-                Action = "publishers.members.decline",
-                Meta =
-                {
-                    {
-                        "publisher_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(
-                            member.PublisherId.ToString()
-                        )
-                    },
-                    {
-                        "account_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(member.AccountId.ToString())
-                    },
-                },
-                AccountId = currentUser.Id,
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "publisher_id", member.PublisherId.ToString() },
+                { "account_id", member.AccountId.ToString() }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         return NoContent();
@@ -250,26 +219,17 @@ public class PublisherController(
         db.PublisherMembers.Remove(member);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "publishers.members.kick",
+            new Dictionary<string, object>
             {
-                Action = "publishers.members.kick",
-                Meta =
-                {
-                    {
-                        "publisher_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString())
-                    },
-                    {
-                        "account_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(memberId.ToString())
-                    },
-                    { "kicked_by", Google.Protobuf.WellKnownTypes.Value.ForString(currentUser.Id) },
-                },
-                AccountId = currentUser.Id,
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "publisher_id", publisher.Id.ToString() },
+                { "account_id", memberId.ToString() },
+                { "kicked_by", currentUser.Id }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         return NoContent();
@@ -300,33 +260,18 @@ public class PublisherController(
         db.PublisherMembers.Update(member);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "publishers.members.role_update",
+            new Dictionary<string, object>
             {
-                Action = "publishers.members.role_update",
-                Meta =
-                {
-                    {
-                        "publisher_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString())
-                    },
-                    {
-                        "account_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(memberId.ToString())
-                    },
-                    {
-                        "new_role",
-                        Google.Protobuf.WellKnownTypes.Value.ForNumber(newRole)
-                    },
-                    {
-                        "updater_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(currentUser.Id)
-                    },
-                },
-                AccountId = currentUser.Id,
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "publisher_id", publisher.Id.ToString() },
+                { "account_id", memberId.ToString() },
+                { "new_role", newRole },
+                { "updater_id", currentUser.Id }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         return Ok(member);
@@ -410,29 +355,17 @@ public class PublisherController(
             background
         );
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "publishers.create",
+            new Dictionary<string, object>
             {
-                Action = "publishers.create",
-                Meta =
-                {
-                    {
-                        "publisher_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString())
-                    },
-                    {
-                        "publisher_name",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Name)
-                    },
-                    {
-                        "publisher_type",
-                        Google.Protobuf.WellKnownTypes.Value.ForString("Individual")
-                    },
-                },
-                AccountId = currentUser.Id,
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "publisher_id", publisher.Id.ToString() },
+                { "publisher_name", publisher.Name },
+                { "publisher_type", "Individual" }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         return Ok(publisher);
@@ -510,30 +443,18 @@ public class PublisherController(
             background
         );
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "publishers.create",
+            new Dictionary<string, object>
             {
-                Action = "publishers.create",
-                Meta =
-                {
-                    {
-                        "publisher_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString())
-                    },
-                    {
-                        "publisher_name",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Name)
-                    },
-                    {
-                        "publisher_type",
-                        Google.Protobuf.WellKnownTypes.Value.ForString("Organization")
-                    },
-                    { "realm_slug", Google.Protobuf.WellKnownTypes.Value.ForString(realm.Slug) },
-                },
-                AccountId = currentUser.Id,
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "publisher_id", publisher.Id.ToString() },
+                { "publisher_name", publisher.Name },
+                { "publisher_type", "Organization" },
+                { "realm_slug", realm.Slug }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         return Ok(publisher);
@@ -603,47 +524,20 @@ public class PublisherController(
         db.Update(publisher);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "publishers.update",
+            new Dictionary<string, object>
             {
-                Action = "publishers.update",
-                Meta =
-                {
-                    {
-                        "publisher_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString())
-                    },
-                    {
-                        "name_updated",
-                        Google.Protobuf.WellKnownTypes.Value.ForBool(
-                            !string.IsNullOrEmpty(request.Name)
-                        )
-                    },
-                    {
-                        "nick_updated",
-                        Google.Protobuf.WellKnownTypes.Value.ForBool(
-                            !string.IsNullOrEmpty(request.Nick)
-                        )
-                    },
-                    {
-                        "bio_updated",
-                        Google.Protobuf.WellKnownTypes.Value.ForBool(
-                            !string.IsNullOrEmpty(request.Bio)
-                        )
-                    },
-                    {
-                        "picture_updated",
-                        Google.Protobuf.WellKnownTypes.Value.ForBool(request.PictureId != null)
-                    },
-                    {
-                        "background_updated",
-                        Google.Protobuf.WellKnownTypes.Value.ForBool(request.BackgroundId != null)
-                    },
-                },
-                AccountId = currentUser.Id,
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "publisher_id", publisher.Id.ToString() },
+                { "name_updated", !string.IsNullOrEmpty(request.Name) },
+                { "nick_updated", !string.IsNullOrEmpty(request.Nick) },
+                { "bio_updated", !string.IsNullOrEmpty(request.Bio) },
+                { "picture_updated", request.PictureId != null },
+                { "background_updated", request.BackgroundId != null }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         // Send ActivityPub Update activity if actor exists
@@ -696,29 +590,17 @@ public class PublisherController(
         db.Publishers.Remove(publisher);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "publishers.delete",
+            new Dictionary<string, object>
             {
-                Action = "publishers.delete",
-                Meta =
-                {
-                    {
-                        "publisher_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Id.ToString())
-                    },
-                    {
-                        "publisher_name",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Name)
-                    },
-                    {
-                        "publisher_type",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(publisher.Type.ToString())
-                    },
-                },
-                AccountId = currentUser.Id,
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "publisher_id", publisher.Id.ToString() },
+                { "publisher_name", publisher.Name },
+                { "publisher_type", publisher.Type.ToString() }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         return NoContent();

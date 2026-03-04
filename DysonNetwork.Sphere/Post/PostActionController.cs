@@ -31,7 +31,7 @@ public class PostActionController(
     PostService ps,
     PublisherService pub,
     DyAccountService.DyAccountServiceClient accounts,
-    DyActionLogService.DyActionLogServiceClient als,
+    RemoteActionLogService als,
     RemotePaymentService remotePayments,
     PollsService polls,
     RemoteRealmService rs,
@@ -287,21 +287,15 @@ public class PostActionController(
             return BadRequest(err.Message);
         }
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            ActionLogType.PostCreate,
+            new Dictionary<string, object>
             {
-                Action = ActionLogType.PostCreate,
-                Meta =
-                {
-                    {
-                        "post_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(post.Id.ToString())
-                    },
-                },
-                AccountId = currentUser.Id,
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "post_id", post.Id.ToString() }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         post.Publisher = publisher;
@@ -384,22 +378,16 @@ public class PostActionController(
         if (isRemoving)
             return NoContent();
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            ActionLogType.PostReact,
+            new Dictionary<string, object>
             {
-                Action = ActionLogType.PostReact,
-                Meta =
-                {
-                    {
-                        "post_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(post.Id.ToString())
-                    },
-                    { "reaction", Google.Protobuf.WellKnownTypes.Value.ForString(request.Symbol) },
-                },
-                AccountId = currentUser.Id.ToString(),
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "post_id", post.Id.ToString() },
+                { "reaction", request.Symbol }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         return Ok(reaction);
@@ -532,25 +520,16 @@ public class PostActionController(
             return BadRequest(err.Message);
         }
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            ActionLogType.PostPin,
+            new Dictionary<string, object>
             {
-                Action = ActionLogType.PostPin,
-                Meta =
-                {
-                    {
-                        "post_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(post.Id.ToString())
-                    },
-                    {
-                        "mode",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(request.Mode.ToString())
-                    },
-                },
-                AccountId = currentUser.Id.ToString(),
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "post_id", post.Id.ToString() },
+                { "mode", request.Mode.ToString() }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         return Ok(post);
@@ -597,21 +576,15 @@ public class PostActionController(
             return BadRequest(err.Message);
         }
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            ActionLogType.PostUnpin,
+            new Dictionary<string, object>
             {
-                Action = ActionLogType.PostUnpin,
-                Meta =
-                {
-                    {
-                        "post_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(post.Id.ToString())
-                    },
-                },
-                AccountId = currentUser.Id.ToString(),
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "post_id", post.Id.ToString() }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         return Ok(post);
@@ -865,21 +838,15 @@ public class PostActionController(
             return BadRequest(err.Message);
         }
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            ActionLogType.PostUpdate,
+            new Dictionary<string, object>
             {
-                Action = ActionLogType.PostUpdate,
-                Meta =
-                {
-                    {
-                        "post_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(post.Id.ToString())
-                    },
-                },
-                AccountId = currentUser.Id.ToString(),
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "post_id", post.Id.ToString() }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         return Ok(post);
@@ -912,21 +879,15 @@ public class PostActionController(
 
         await ps.DeletePostAsync(post);
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            ActionLogType.PostDelete,
+            new Dictionary<string, object>
             {
-                Action = ActionLogType.PostDelete,
-                Meta =
-                {
-                    {
-                        "post_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(post.Id.ToString())
-                    },
-                },
-                AccountId = currentUser.Id.ToString(),
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "post_id", post.Id.ToString() }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         return NoContent();
@@ -969,22 +930,16 @@ public class PostActionController(
             return BadRequest(err.Message);
         }
 
-        _ = als.CreateActionLogAsync(
-            new DyCreateActionLogRequest
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            ActionLogType.PostUpdate,
+            new Dictionary<string, object>
             {
-                Action = ActionLogType.PostUpdate,
-                Meta =
-                {
-                    {
-                        "post_id",
-                        Google.Protobuf.WellKnownTypes.Value.ForString(post.Id.ToString())
-                    },
-                    { "operation", Google.Protobuf.WellKnownTypes.Value.ForString("publish") },
-                },
-                AccountId = currentUser.Id.ToString(),
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress(),
-            }
+                { "post_id", post.Id.ToString() },
+                { "operation", "publish" }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
         );
 
         return Ok(post);

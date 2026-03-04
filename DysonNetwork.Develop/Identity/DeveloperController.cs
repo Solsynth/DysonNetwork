@@ -2,6 +2,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,7 +15,7 @@ namespace DysonNetwork.Develop.Identity;
 public class DeveloperController(
     AppDatabase db,
     DyPublisherService.DyPublisherServiceClient ps,
-    DyActionLogService.DyActionLogServiceClient als,
+    RemoteActionLogService als,
     DeveloperService ds
 )
     : ControllerBase
@@ -107,18 +108,17 @@ public class DeveloperController(
         db.Developers.Add(developer);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
-        {
-            Action = "developers.enroll",
-            Meta = 
-            { 
-                { "publisher_id", Google.Protobuf.WellKnownTypes.Value.ForString(pub.Id.ToString()) },
-                { "publisher_name", Google.Protobuf.WellKnownTypes.Value.ForString(pub.Name) }
+        als.CreateActionLog(
+            accountId,
+            "developers.enroll",
+            new Dictionary<string, object>
+            {
+                { "publisher_id", pub.Id.ToString() },
+                { "publisher_name", pub.Name }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.GetClientIpAddress()
-        });
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
 
         return Ok(await ds.LoadDeveloperPublisher(developer));
     }

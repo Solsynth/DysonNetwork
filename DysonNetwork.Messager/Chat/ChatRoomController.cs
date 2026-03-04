@@ -23,7 +23,7 @@ public class ChatRoomController(
     RemoteRealmService rs,
     DyAccountService.DyAccountServiceClient accounts,
     DyFileService.DyFileServiceClient files,
-    DyActionLogService.DyActionLogServiceClient als,
+    RemoteActionLogService als,
     DyRingService.DyRingServiceClient pusher,
     RemoteAccountService remoteAccountsHelper,
     ILocalizationService localization
@@ -154,14 +154,13 @@ public class ChatRoomController(
         db.ChatRooms.Add(dmRoom);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
-        {
-            Action = "chatrooms.create",
-            Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(dmRoom.Id.ToString()) } },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.GetClientIpAddress()
-        });
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "chatrooms.create",
+            new Dictionary<string, object> { { "chatroom_id", dmRoom.Id.ToString() } },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
 
         var invitedMember = dmRoom.Members.First(m => m.AccountId == request.RelatedUserId);
         invitedMember.ChatRoom = dmRoom;
@@ -311,14 +310,13 @@ public class ChatRoomController(
         db.ChatRooms.Add(chatRoom);
         await db.SaveChangesAsync();
 
-        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
-        {
-            Action = "chatrooms.create",
-            Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) } },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.GetClientIpAddress()
-        });
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "chatrooms.create",
+            new Dictionary<string, object> { { "chatroom_id", chatRoom.Id.ToString() } },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
 
         return Ok(chatRoom);
     }
@@ -484,14 +482,13 @@ public class ChatRoomController(
                 await cs.SendChatInfoUpdatedSystemMessageAsync(chatRoom, operatorMember, changes);
         }
 
-        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
-        {
-            Action = "chatrooms.update",
-            Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) } },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.GetClientIpAddress()
-        });
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "chatrooms.update",
+            new Dictionary<string, object> { { "chatroom_id", chatRoom.Id.ToString() } },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
 
         return Ok(chatRoom);
     }
@@ -578,19 +575,18 @@ public class ChatRoomController(
         if (operatorMember is not null)
             await cs.SendE2eeEnabledSystemMessageAsync(chatRoom, operatorMember, chatRoom.EncryptionMode, chatRoom.MlsGroupId);
 
-        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
-        {
-            Action = "chatrooms.mls.enable",
-            Meta =
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "chatrooms.mls.enable",
+            new Dictionary<string, object>
             {
-                { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) },
-                { "encryption_mode", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.EncryptionMode.ToString()) },
-                { "mls_group_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.MlsGroupId) }
+                { "chatroom_id", chatRoom.Id.ToString() },
+                { "encryption_mode", chatRoom.EncryptionMode.ToString() },
+                { "mls_group_id", chatRoom.MlsGroupId }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.GetClientIpAddress()
-        });
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
 
         return Ok(chatRoom);
     }
@@ -651,14 +647,13 @@ public class ChatRoomController(
             throw;
         }
 
-        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
-        {
-            Action = "chatrooms.delete",
-            Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) } },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.GetClientIpAddress()
-        });
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "chatrooms.delete",
+            new Dictionary<string, object> { { "chatroom_id", chatRoom.Id.ToString() } },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
 
         return NoContent();
     }
@@ -878,18 +873,17 @@ public class ChatRoomController(
             await db.SaveChangesAsync();
             await SendInviteNotify(existingMember, currentUser);
 
-            _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
-            {
-                Action = "chatrooms.invite",
-                Meta =
+            als.CreateActionLog(
+                Guid.Parse(currentUser.Id),
+                "chatrooms.invite",
+                new Dictionary<string, object>
                 {
-                    { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) },
-                    { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(relatedUser.Id.ToString()) }
+                    { "chatroom_id", chatRoom.Id.ToString() },
+                    { "account_id", relatedUser.Id.ToString() }
                 },
-                AccountId = currentUser.Id,
-                UserAgent = Request.Headers.UserAgent,
-                IpAddress = Request.GetClientIpAddress()
-            });
+                userAgent: Request.Headers.UserAgent,
+                ipAddress: Request.GetClientIpAddress()
+            );
 
             return Ok(existingMember);
         }
@@ -907,18 +901,17 @@ public class ChatRoomController(
         newMember.ChatRoom = chatRoom;
         await SendInviteNotify(newMember, currentUser);
 
-        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
-        {
-            Action = "chatrooms.invite",
-            Meta =
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "chatrooms.invite",
+            new Dictionary<string, object>
             {
-                { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(chatRoom.Id.ToString()) },
-                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(relatedUser.Id.ToString()) }
+                { "chatroom_id", chatRoom.Id.ToString() },
+                { "account_id", relatedUser.Id.ToString() }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.GetClientIpAddress()
-        });
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
 
         return Ok(newMember);
     }
@@ -976,14 +969,13 @@ public class ChatRoomController(
             await EmitEncryptionMembershipChangedEventAsync(memberRoom, member, member.AccountId, "member_joined");
         }
 
-        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
-        {
-            Action = ActionLogType.ChatroomJoin,
-            Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) } },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.GetClientIpAddress()
-        });
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            ActionLogType.ChatroomJoin,
+            new Dictionary<string, object> { { "chatroom_id", roomId.ToString() } },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
 
         return Ok(member);
     }
@@ -1110,18 +1102,17 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
 
-        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
-        {
-            Action = "chatrooms.timeout",
-            Meta =
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "chatrooms.timeout",
+            new Dictionary<string, object>
             {
-                { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) },
-                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(memberId.ToString()) }
+                { "chatroom_id", roomId.ToString() },
+                { "account_id", memberId.ToString() }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.GetClientIpAddress()
-        });
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
 
         return NoContent();
     }
@@ -1172,18 +1163,17 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
 
-        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
-        {
-            Action = "chatrooms.timeout.remove",
-            Meta =
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "chatrooms.timeout.remove",
+            new Dictionary<string, object>
             {
-                { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) },
-                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(memberId.ToString()) }
+                { "chatroom_id", roomId.ToString() },
+                { "account_id", memberId.ToString() }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.GetClientIpAddress()
-        });
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
 
         return NoContent();
     }
@@ -1241,18 +1231,17 @@ public class ChatRoomController(
             await EmitEncryptionMembershipChangedEventAsync(chatRoom, operatorMember, member.AccountId, "member_removed");
         }
 
-        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
-        {
-            Action = "chatrooms.kick",
-            Meta =
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            "chatrooms.kick",
+            new Dictionary<string, object>
             {
-                { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) },
-                { "account_id", Google.Protobuf.WellKnownTypes.Value.ForString(memberId.ToString()) }
+                { "chatroom_id", roomId.ToString() },
+                { "account_id", memberId.ToString() }
             },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.GetClientIpAddress()
-        });
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
 
         return NoContent();
     }
@@ -1302,14 +1291,13 @@ public class ChatRoomController(
         await cs.SendMemberJoinedSystemMessageAsync(chatRoom, newMember);
         await EmitEncryptionMembershipChangedEventAsync(chatRoom, newMember, newMember.AccountId, "member_joined");
 
-        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
-        {
-            Action = ActionLogType.ChatroomJoin,
-            Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) } },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.GetClientIpAddress()
-        });
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            ActionLogType.ChatroomJoin,
+            new Dictionary<string, object> { { "chatroom_id", roomId.ToString() } },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
 
         return Ok(chatRoom);
     }
@@ -1340,14 +1328,13 @@ public class ChatRoomController(
         await cs.SendMemberLeftSystemMessageAsync(chat, member);
         await EmitEncryptionMembershipChangedEventAsync(chat, member, member.AccountId, "member_left");
 
-        _ = als.CreateActionLogAsync(new DyCreateActionLogRequest
-        {
-            Action = ActionLogType.ChatroomLeave,
-            Meta = { { "chatroom_id", Google.Protobuf.WellKnownTypes.Value.ForString(roomId.ToString()) } },
-            AccountId = currentUser.Id,
-            UserAgent = Request.Headers.UserAgent,
-            IpAddress = Request.GetClientIpAddress()
-        });
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            ActionLogType.ChatroomLeave,
+            new Dictionary<string, object> { { "chatroom_id", roomId.ToString() } },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
 
         return NoContent();
     }

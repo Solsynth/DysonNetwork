@@ -180,8 +180,8 @@ public class RealmController(
             "realms.members.join",
             new Dictionary<string, object>()
             {
-                { "realm_id", member.RealmId.ToString() },
-                { "account_id", member.AccountId.ToString() }
+                { "realm_id", Value.ForString(member.RealmId.ToString()) },
+                { "account_id", Value.ForString(member.AccountId.ToString()) }
             },
             Request
         );
@@ -332,9 +332,9 @@ public class RealmController(
             "realms.members.leave",
             new Dictionary<string, object>()
             {
-                { "realm_id", member.RealmId.ToString() },
-                { "account_id", member.AccountId.ToString() },
-                { "leaver_id", currentUser.Id }
+                { "realm_id", Value.ForString(member.RealmId.ToString()) },
+                { "account_id", Value.ForString(member.AccountId.ToString()) },
+                { "leaver_id", Value.ForString(currentUser.Id.ToString()) }
             },
             Request
         );
@@ -404,11 +404,11 @@ public class RealmController(
             "realms.create",
             new Dictionary<string, object>()
             {
-                { "realm_id", realm.Id.ToString() },
-                { "name", realm.Name },
-                { "slug", realm.Slug },
-                { "is_community", realm.IsCommunity },
-                { "is_public", realm.IsPublic }
+                { "realm_id", Value.ForString(realm.Id.ToString()) },
+                { "name", Value.ForString(realm.Name) },
+                { "slug", Value.ForString(realm.Slug) },
+                { "is_community", Value.ForBool(realm.IsCommunity) },
+                { "is_public", Value.ForBool(realm.IsPublic) }
             },
             Request
         );
@@ -474,14 +474,14 @@ public class RealmController(
             "realms.update",
             new Dictionary<string, object>()
             {
-                { "realm_id", realm.Id.ToString() },
-                { "name_updated", request.Name != null },
-                { "slug_updated", request.Slug != null },
-                { "description_updated", request.Description != null },
-                { "picture_updated", request.PictureId != null },
-                { "background_updated", request.BackgroundId != null },
-                { "is_community_updated", request.IsCommunity != null },
-                { "is_public_updated", request.IsPublic != null }
+                { "realm_id", Value.ForString(realm.Id.ToString()) },
+                { "name_updated", Value.ForBool(request.Name != null) },
+                { "slug_updated", Value.ForBool(request.Slug != null) },
+                { "description_updated", Value.ForBool(request.Description != null) },
+                { "picture_updated", Value.ForBool(request.PictureId != null) },
+                { "background_updated", Value.ForBool(request.BackgroundId != null) },
+                { "is_community_updated", Value.ForBool(request.IsCommunity != null) },
+                { "is_public_updated", Value.ForBool(request.IsPublic != null) }
             },
             Request
         );
@@ -521,9 +521,9 @@ public class RealmController(
                 "realms.members.join",
                 new Dictionary<string, object>()
                 {
-                    { "realm_id", existingMember.RealmId.ToString() },
-                    { "account_id", currentUser.Id },
-                    { "is_community", realm.IsCommunity }
+                    { "realm_id", Value.ForString(existingMember.RealmId.ToString()) },
+                    { "account_id", Value.ForString(currentUser.Id.ToString()) },
+                    { "is_community", Value.ForBool(realm.IsCommunity) }
                 },
                 Request
             );
@@ -546,9 +546,9 @@ public class RealmController(
             "realms.members.join",
             new Dictionary<string, object>()
             {
-                { "realm_id", realm.Id.ToString() },
-                { "account_id", currentUser.Id },
-                { "is_community", realm.IsCommunity }
+                { "realm_id", Value.ForString(realm.Id.ToString()) },
+                { "account_id", Value.ForString(currentUser.Id.ToString()) },
+                { "is_community", Value.ForBool(realm.IsCommunity) }
             },
             Request
         );
@@ -582,9 +582,9 @@ public class RealmController(
             "realms.members.kick",
             new Dictionary<string, object>()
             {
-                { "realm_id", realm.Id.ToString() },
-                { "account_id", memberId.ToString() },
-                { "kicker_id", currentUser.Id }
+                { "realm_id", Value.ForString(realm.Id.ToString()) },
+                { "account_id", Value.ForString(memberId.ToString()) },
+                { "kicker_id", Value.ForString(currentUser.Id.ToString()) }
             },
             Request
         );
@@ -621,10 +621,10 @@ public class RealmController(
             "realms.members.role_update",
             new Dictionary<string, object>()
             {
-                { "realm_id", realm.Id.ToString() },
-                { "account_id", memberId.ToString() },
-                { "new_role", newRole },
-                { "updater_id", currentUser.Id }
+                { "realm_id", Value.ForString(realm.Id.ToString()) },
+                { "account_id", Value.ForString(memberId.ToString()) },
+                { "new_role", Value.ForNumber(newRole) },
+                { "updater_id", Value.ForString(currentUser.Id.ToString()) }
             },
             Request
         );
@@ -670,9 +670,9 @@ public class RealmController(
             "realms.delete",
             new Dictionary<string, object>()
             {
-                { "realm_id", realm.Id.ToString() },
-                { "realm_name", realm.Name },
-                { "realm_slug", realm.Slug }
+                { "realm_id", Value.ForString(realm.Id.ToString()) },
+                { "realm_name", Value.ForString(realm.Name) },
+                { "realm_slug", Value.ForString(realm.Slug) }
             },
             Request
         );
