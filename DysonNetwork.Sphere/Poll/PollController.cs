@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -17,7 +18,8 @@ public class PollController(
     AppDatabase db,
     Poll.PollService polls,
     Publisher.PublisherService pub,
-    RemoteAccountService remoteAccountsHelper
+    RemoteAccountService remoteAccountsHelper,
+    RemoteActionLogService als
 ) : ControllerBase
 {
     [HttpGet("{id:guid}")]
@@ -53,7 +55,20 @@ public class PollController(
         var accountId = Guid.Parse(currentUser.Id);
         try
         {
-            return await polls.AnswerPoll(id, accountId, request.Answer);
+            var result = await polls.AnswerPoll(id, accountId, request.Answer);
+            
+            als.CreateActionLog(
+                accountId,
+                "polls.answer",
+                new Dictionary<string, object>
+                {
+                    { "poll_id", id.ToString() }
+                },
+                userAgent: Request.Headers.UserAgent,
+                ipAddress: Request.GetClientIpAddress()
+            );
+            
+            return result;
         }
         catch (Exception ex)
         {
@@ -70,6 +85,18 @@ public class PollController(
         try
         {
             await polls.UnAnswerPoll(id, accountId);
+            
+            als.CreateActionLog(
+                accountId,
+                "polls.answer.delete",
+                new Dictionary<string, object>
+                {
+                    { "poll_id", id.ToString() }
+                },
+                userAgent: Request.Headers.UserAgent,
+                ipAddress: Request.GetClientIpAddress()
+            );
+            
             return NoContent();
         }
         catch (Exception ex)
@@ -232,6 +259,20 @@ public class PollController(
 
         db.Polls.Add(poll);
         await db.SaveChangesAsync();
+
+        als.CreateActionLog(
+            accountId,
+            "polls.create",
+            new Dictionary<string, object>
+            {
+                { "poll_id", poll.Id.ToString() },
+                { "title", poll.Title },
+                { "publisher_id", publisher.Id.ToString() }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
+
         return Ok(poll);
     }
 
@@ -290,6 +331,18 @@ public class PollController(
             // Commit the transaction if all operations succeed
             await transaction.CommitAsync();
 
+            als.CreateActionLog(
+                accountId,
+                "polls.update",
+                new Dictionary<string, object>
+                {
+                    { "poll_id", poll.Id.ToString() },
+                    { "title", poll.Title }
+                },
+                userAgent: Request.Headers.UserAgent,
+                ipAddress: Request.GetClientIpAddress()
+            );
+
             return Ok(poll);
         }
         catch (Exception ex)
@@ -333,10 +386,28 @@ public class PollController(
             if (poll.Questions.Count != 0)
                 db.PollQuestions.RemoveRange(poll.Questions);
 
+            // Store poll details for logging before deletion
+            var pollId = poll.Id;
+            var pollTitle = poll.Title;
+            var publisherId = poll.PublisherId;
+
             // Finally, delete the poll itself
             db.Polls.Remove(poll);
 
             await db.SaveChangesAsync();
+
+            als.CreateActionLog(
+                accountId,
+                "polls.delete",
+                new Dictionary<string, object>
+                {
+                    { "poll_id", pollId.ToString() },
+                    { "title", pollTitle ?? "" },
+                    { "publisher_id", publisherId.ToString() }
+                },
+                userAgent: Request.Headers.UserAgent,
+                ipAddress: Request.GetClientIpAddress()
+            );
 
             // Commit the transaction if all operations succeed
             await transaction.CommitAsync();

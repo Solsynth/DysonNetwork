@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -22,7 +23,7 @@ public class LiveStreamController(
     PublisherService pub,
     DyFileService.DyFileServiceClient files,
     RemotePaymentService remotePayments,
-    DyActionLogService.DyActionLogServiceClient als,
+    RemoteActionLogService als,
     RemoteAccountService remoteAccounts
 )
     : ControllerBase
@@ -93,6 +94,19 @@ public class LiveStreamController(
             request.Visibility ?? Shared.Models.LiveStreamVisibility.Public,
             request.Metadata,
             thumbnail);
+
+        als.CreateActionLog(
+            accountId,
+            "livestreams.create",
+            new Dictionary<string, object>
+            {
+                { "livestream_id", liveStream.Id.ToString() },
+                { "title", liveStream.Title },
+                { "publisher_id", publisher.Id.ToString() }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
 
         return Ok(liveStream);
     }
@@ -457,6 +471,19 @@ public class LiveStreamController(
 
         await db.SaveChangesAsync();
 
+        als.CreateActionLog(
+            accountId,
+            "livestreams.update",
+            new Dictionary<string, object>
+            {
+                { "livestream_id", liveStream.Id.ToString() },
+                { "title", liveStream.Title ?? "" },
+                { "description", liveStream.Description ?? "" }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
+
         await liveKitService.BroadcastLivestreamUpdateAsync(
             liveStream.RoomName,
             "stream_updated",
@@ -490,6 +517,18 @@ public class LiveStreamController(
         }
 
         await liveStreamService.DeleteAsync(id);
+
+        als.CreateActionLog(
+            accountId,
+            "livestreams.delete",
+            new Dictionary<string, object>
+            {
+                { "livestream_id", liveStream.Id.ToString() },
+                { "title", liveStream.Title }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
 
         return Ok();
     }

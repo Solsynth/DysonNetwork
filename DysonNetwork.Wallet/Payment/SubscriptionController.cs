@@ -4,14 +4,16 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Wallet.Payment.PaymentHandlers;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 
 namespace DysonNetwork.Wallet.Payment;
 
 [ApiController]
 [Route("/api/subscriptions")]
-public class SubscriptionController(SubscriptionService subscriptions, AfdianPaymentHandler afdian, AppDatabase db)
+public class SubscriptionController(SubscriptionService subscriptions, AfdianPaymentHandler afdian, AppDatabase db, RemoteActionLogService als)
     : ControllerBase
 {
     [HttpGet]
@@ -106,6 +108,19 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
                 noop
             );
 
+            als.CreateActionLog(
+                Guid.Parse(currentUser.Id),
+                "subscriptions.create",
+                new Dictionary<string, object>
+                {
+                    { "subscription_identifier", request.Identifier },
+                    { "payment_method", request.PaymentMethod },
+                    { "is_free_trial", request.IsFreeTrial }
+                },
+                userAgent: Request.Headers.UserAgent,
+                ipAddress: Request.GetClientIpAddress()
+            );
+
             return subscription;
         }
         catch (ArgumentOutOfRangeException ex)
@@ -127,6 +142,18 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
         try
         {
             var subscription = await subscriptions.CancelSubscriptionAsync(Guid.Parse(currentUser.Id), identifier);
+
+            als.CreateActionLog(
+                Guid.Parse(currentUser.Id),
+                "subscriptions.cancel",
+                new Dictionary<string, object>
+                {
+                    { "subscription_identifier", identifier }
+                },
+                userAgent: Request.Headers.UserAgent,
+                ipAddress: Request.GetClientIpAddress()
+            );
+
             return subscription;
         }
         catch (InvalidOperationException ex)

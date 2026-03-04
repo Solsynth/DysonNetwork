@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -18,6 +19,7 @@ public class WalletController(
     WalletService ws,
     PaymentService payment,
     RemoteAccountService remoteAccounts,
+    RemoteActionLogService als,
     ICacheService cache,
     ILogger<WalletController> logger
 ) : ControllerBase
@@ -31,6 +33,18 @@ public class WalletController(
         try
         {
             var wallet = await ws.CreateWalletAsync(Guid.Parse(currentUser.Id));
+            
+            als.CreateActionLog(
+                Guid.Parse(currentUser.Id),
+                "wallets.create",
+                new Dictionary<string, object>
+                {
+                    { "wallet_id", wallet.Id.ToString() }
+                },
+                userAgent: Request.Headers.UserAgent,
+                ipAddress: Request.GetClientIpAddress()
+            );
+            
             return Ok(wallet);
         }
         catch (Exception err)

@@ -10,7 +10,7 @@ namespace DysonNetwork.Pass.Account;
 
 [ApiController]
 [Route("/api/relationships")]
-public class RelationshipController(AppDatabase db, RelationshipService rls) : ControllerBase
+public class RelationshipController(AppDatabase db, RelationshipService rls, ActionLogService als) : ControllerBase
 {
     [HttpGet]
     [Authorize]
@@ -75,6 +75,17 @@ public class RelationshipController(AppDatabase db, RelationshipService rls) : C
             var relationship = await rls.CreateRelationship(
                 currentUser, relatedUser, request.Status
             );
+
+            als.CreateActionLogFromRequest(
+                "relationships.create",
+                new Dictionary<string, object>
+                {
+                    { "related_account_id", relatedUser.Id.ToString() },
+                    { "status", request.Status.ToString() }
+                },
+                Request
+            );
+
             return relationship;
         }
         catch (InvalidOperationException err)
@@ -93,6 +104,17 @@ public class RelationshipController(AppDatabase db, RelationshipService rls) : C
         try
         {
             var relationship = await rls.UpdateRelationship(currentUser.Id, accountId, request.Status);
+
+            als.CreateActionLogFromRequest(
+                "relationships.update",
+                new Dictionary<string, object>
+                {
+                    { "related_account_id", accountId.ToString() },
+                    { "new_status", request.Status.ToString() }
+                },
+                Request
+            );
+
             return relationship;
         }
         catch (ArgumentException err)
@@ -114,6 +136,16 @@ public class RelationshipController(AppDatabase db, RelationshipService rls) : C
         try
         {
             var relationship = await rls.DeleteRelationship(currentUser.Id, accountId);
+
+            als.CreateActionLogFromRequest(
+                "relationships.delete",
+                new Dictionary<string, object>
+                {
+                    { "related_account_id", accountId.ToString() }
+                },
+                Request
+            );
+
             return Ok(relationship);
         }
         catch (ArgumentException err)

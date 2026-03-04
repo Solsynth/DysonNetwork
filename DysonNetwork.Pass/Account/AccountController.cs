@@ -21,7 +21,8 @@ public class AccountController(
     AccountService accounts,
     AccountEventService events,
     AffiliationSpellService ars,
-    GeoService geo
+    GeoService geo,
+    ActionLogService als
 ) : ControllerBase
 {
     public class AccountCreateRequest
@@ -123,6 +124,19 @@ public class AccountController(
                 request.Language,
                 region
             );
+            
+            als.CreateActionLogFromRequest(
+                "accounts.create",
+                new Dictionary<string, object>
+                {
+                    { "account_id", account.Id.ToString() },
+                    { "account_name", account.Name },
+                    { "region", region }
+                },
+                Request,
+                account
+            );
+            
             return Ok(account);
         }
         catch (Exception ex)
