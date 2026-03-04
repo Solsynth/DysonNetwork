@@ -42,6 +42,7 @@ public static class ServiceInjectionHelper
             services.AddGrpcClientWithSharedChannel<DyActionLogService.DyActionLogServiceClient>(
                 "https://_grpc.pass",
                 "DyActionLogService");
+            services.AddSingleton<RemoteActionLogService>();
             services.AddGrpcClientWithSharedChannel<DyPaymentService.DyPaymentServiceClient>(
                 "https://_grpc.pass",
                 "DyPaymentService");
