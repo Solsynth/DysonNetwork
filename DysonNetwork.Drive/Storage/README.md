@@ -101,11 +101,9 @@ Creates a new resumable upload task.
   "poolId": "uuid",
   "bundleId": "uuid",
   "chunkSize": "long",
-  "encryptKey": "base64-string",
   "encryptionScheme": "file.aesgcm.v1",
   "encryptionHeader": "base64-string",
   "encryptionSignature": "base64-string",
-  "encryptionEpoch": 1,
   "expiredAt": "datetime",
   "hash": "string"
 }
@@ -118,13 +116,15 @@ Creates a new resumable upload task.
 - `poolId`: Optional - Storage pool ID
 - `bundleId`: Optional - File bundle ID
 - `chunkSize`: Optional - Chunk size (default: 5MB)
-- `encryptKey`: Optional - Base64-encoded E2EE file key (when provided, file is encrypted server-side using E2EE envelope format)
-- `encryptionScheme`: Optional - Encryption scheme label stored in file metadata
-- `encryptionHeader`: Optional - Base64-encoded E2EE header bytes
-- `encryptionSignature`: Optional - Base64-encoded E2EE signature bytes
-- `encryptionEpoch`: Optional - Sender-key epoch or key version hint
+- `encryptionScheme`: Optional - Client-side encryption scheme label (for example `file.aesgcm.v1`)
+- `encryptionHeader`: Optional - Base64-encoded wrapped key / envelope header bytes
+- `encryptionSignature`: Optional - Base64-encoded signature bytes
 - `expiredAt`: Optional - Expiration date
 - `hash`: Required - File hash for deduplication
+
+Notes:
+- `encryptKey` is no longer accepted and returns validation error.
+- File encryption is client-side; server stores ciphertext as uploaded.
 
 **Response:**
 ```json
@@ -151,6 +151,18 @@ Uploads a specific chunk of the file.
 Completes the upload and processes the file.
 
 **Response:** CloudFile object with file metadata
+
+#### `GET /api/files/{id}/e2ee`
+Returns file E2EE metadata for authorized readers.
+
+**Response:**
+```json
+{
+  "scheme": "file.aesgcm.v1",
+  "header": "base64-string-or-null",
+  "signature": "base64-string-or-null"
+}
+```
 
 ### Task Information & Management
 
@@ -699,8 +711,8 @@ The upload system has been extended with a powerful generic task framework that 
 - **FileMove**: Move files between storage pools or bundles
 - **FileCompress**: Compress multiple files into archives
 - **FileDecompress**: Extract compressed archives
-- **FileEncrypt**: Encrypt files with passwords
-- **FileDecrypt**: Decrypt encrypted files
+- **FileEncrypt**: Encrypt files (client-side E2EE flow)
+- **FileDecrypt**: Decrypt files (client-side E2EE flow)
 
 #### Bulk Operations
 - **BulkOperation**: Custom bulk operations on multiple files

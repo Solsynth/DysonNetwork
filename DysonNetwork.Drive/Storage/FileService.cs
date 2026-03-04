@@ -111,11 +111,9 @@ public class FileService(
         string filePath,
         string fileName,
         string? contentType,
-        string? encryptKey,
         string? encryptionScheme,
         string? encryptionHeader,
         string? encryptionSignature,
-        long? encryptionEpoch,
         Instant? expiredAt
     )
     {
@@ -138,13 +136,10 @@ public class FileService(
 
         var (processingPath, isTempFile) =
             await ProcessEncryptionAsync(
-                fileId,
                 managedTempPath,
-                encryptKey,
                 encryptionScheme,
                 encryptionHeader,
                 encryptionSignature,
-                encryptionEpoch,
                 pool,
                 fileObject
             );
@@ -248,32 +243,27 @@ public class FileService(
     }
 
     private Task<(string processingPath, bool isTempFile)> ProcessEncryptionAsync(
-        string fileId,
         string managedTempPath,
-        string? encryptKey,
         string? encryptionScheme,
         string? encryptionHeader,
         string? encryptionSignature,
-        long? encryptionEpoch,
         FilePool pool,
         SnFileObject fileObject
     )
     {
-        if (string.IsNullOrWhiteSpace(encryptKey))
+        var hasE2eeMetadata = !string.IsNullOrWhiteSpace(encryptionScheme) ||
+                              !string.IsNullOrWhiteSpace(encryptionHeader) ||
+                              !string.IsNullOrWhiteSpace(encryptionSignature);
+        if (!hasE2eeMetadata)
             return Task.FromResult((managedTempPath, true));
 
         if (!pool.PolicyConfig.AllowEncryption)
             throw new InvalidOperationException("Encryption is not allowed in this pool");
 
-        byte[] key;
-        try
-        {
-            key = Convert.FromBase64String(encryptKey);
-        }
-        catch
-        {
-            throw new InvalidOperationException("encryptKey must be valid base64.");
-        }
+        if (string.IsNullOrWhiteSpace(encryptionScheme))
+            throw new InvalidOperationException("encryptionScheme is required when E2EE metadata is supplied.");
+        if (string.IsNullOrWhiteSpace(encryptionHeader))
+            throw new InvalidOperationException("encryptionHeader is required for E2EE uploads.");
 
         byte[]? parsedHeader = null;
         if (!string.IsNullOrWhiteSpace(encryptionHeader))
@@ -301,35 +291,23 @@ public class FileService(
             }
         }
 
-        var encryptedPath = Path.Combine(Path.GetTempPath(), $"{fileId}.encrypted");
-        var encryptionMetadata = FileEncryptor.EncryptFileWithE2eeKey(
-            managedTempPath,
-            encryptedPath,
-            key,
-            encryptionScheme ?? "file.aesgcm.v1",
-            encryptionEpoch,
-            parsedHeader,
-            parsedSignature
-        );
-
-        File.Delete(managedTempPath);
-
-        fileObject.MimeType = "application/octet-stream";
-        fileObject.Size = new FileInfo(encryptedPath).Length;
         fileObject.Meta ??= new Dictionary<string, object?>();
         fileObject.Meta["e2ee"] = new Dictionary<string, object?>
         {
-            ["scheme"] = encryptionMetadata.EncryptionScheme,
-            ["epoch"] = encryptionMetadata.EncryptionEpoch,
-            ["header"] = encryptionMetadata.EncryptionHeader is null
+            ["scheme"] = encryptionScheme,
+            ["header"] = parsedHeader is null
                 ? null
-                : Convert.ToBase64String(encryptionMetadata.EncryptionHeader),
-            ["signature"] = encryptionMetadata.EncryptionSignature is null
+                : Convert.ToBase64String(parsedHeader),
+            ["signature"] = parsedSignature is null
                 ? null
-                : Convert.ToBase64String(encryptionMetadata.EncryptionSignature)
+                : Convert.ToBase64String(parsedSignature)
         };
 
-        return Task.FromResult((encryptedPath, true));
+        // Upload bytes are already client-side encrypted for E2EE.
+        // Server only stores/relays ciphertext and opaque metadata.
+        fileObject.MimeType = "application/octet-stream";
+        fileObject.Size = new FileInfo(managedTempPath).Length;
+        return Task.FromResult((managedTempPath, true));
     }
 
     private async Task SaveFileToDatabaseAsync(SnCloudFile file, SnFileObject fileObject, Guid poolId)

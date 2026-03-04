@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NanoidDotNet;
 using NodaTime;
+using System.Text.RegularExpressions;
 using TaskStatus = DysonNetwork.Drive.Storage.Model.TaskStatus;
 
 namespace DysonNetwork.Drive.Storage;
@@ -30,6 +31,7 @@ public class FileUploadController(
 )
     : ControllerBase
 {
+    private static readonly Regex EncryptionSchemeRegex = new("^[a-z0-9-]+\\.[a-z0-9-]+\\.v[0-9]+$", RegexOptions.Compiled);
     private readonly string _tempPath =
         configuration.GetValue<string>("Storage:Uploads") ?? Path.Combine(Path.GetTempPath(), "multipart-uploads");
 
@@ -144,26 +146,76 @@ public class FileUploadController(
 
     private static IActionResult? ValidatePoolPolicy(PolicyConfig policy, CreateUploadTaskRequest request)
     {
-        if (!policy.AllowEncryption && !string.IsNullOrEmpty(request.EncryptKey))
+        var hasE2eeMetadata = !string.IsNullOrWhiteSpace(request.EncryptionScheme) ||
+                              !string.IsNullOrWhiteSpace(request.EncryptionHeader) ||
+                              !string.IsNullOrWhiteSpace(request.EncryptionSignature);
+
+        if (!policy.AllowEncryption && hasE2eeMetadata)
         {
             return new ObjectResult(ApiError.Unauthorized("File encryption is not allowed in this pool", true))
                 { StatusCode = 403 };
         }
 
-        if (!string.IsNullOrEmpty(request.EncryptKey))
+        if (!string.IsNullOrWhiteSpace(request.EncryptKey))
         {
-            try
-            {
-                _ = Convert.FromBase64String(request.EncryptKey);
-            }
+            return new ObjectResult(ApiError.Validation(new Dictionary<string, string[]>
+                {
+                    { "encryptKey", new[] { "encryptKey is no longer accepted. Encrypt client-side and send encryptionHeader instead." } }
+                }))
+                { StatusCode = 400 };
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.EncryptionHeader))
+        {
+            try { _ = Convert.FromBase64String(request.EncryptionHeader); }
             catch
             {
                 return new ObjectResult(ApiError.Validation(new Dictionary<string, string[]>
                     {
-                        { "encryptKey", new[] { "encryptKey must be a valid base64-encoded key." } }
+                        { "encryptionHeader", new[] { "encryptionHeader must be valid base64." } }
                     }))
                     { StatusCode = 400 };
             }
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.EncryptionSignature))
+        {
+            try { _ = Convert.FromBase64String(request.EncryptionSignature); }
+            catch
+            {
+                return new ObjectResult(ApiError.Validation(new Dictionary<string, string[]>
+                    {
+                        { "encryptionSignature", new[] { "encryptionSignature must be valid base64." } }
+                    }))
+                    { StatusCode = 400 };
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.EncryptionHeader) && string.IsNullOrWhiteSpace(request.EncryptionScheme))
+        {
+            return new ObjectResult(ApiError.Validation(new Dictionary<string, string[]>
+                {
+                    { "encryptionScheme", new[] { "encryptionScheme is required when encryptionHeader is provided." } }
+                }))
+                { StatusCode = 400 };
+        }
+        if (!string.IsNullOrWhiteSpace(request.EncryptionScheme) && string.IsNullOrWhiteSpace(request.EncryptionHeader))
+        {
+            return new ObjectResult(ApiError.Validation(new Dictionary<string, string[]>
+                {
+                    { "encryptionHeader", new[] { "encryptionHeader is required when encryptionScheme is provided." } }
+                }))
+                { StatusCode = 400 };
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.EncryptionScheme) &&
+            !EncryptionSchemeRegex.IsMatch(request.EncryptionScheme))
+        {
+            return new ObjectResult(ApiError.Validation(new Dictionary<string, string[]>
+                {
+                    { "encryptionScheme", new[] { "encryptionScheme must match <usecase>.<method>.v<version> (for example file.aesgcm.v1)." } }
+                }))
+                { StatusCode = 400 };
         }
 
         if (policy.AcceptTypes is { Count: > 0 })
@@ -301,11 +353,9 @@ public class FileUploadController(
                 mergedFilePath,
                 persistentTask.FileName,
                 persistentTask.ContentType,
-                persistentTask.EncryptKey,
                 persistentTask.EncryptionScheme,
                 persistentTask.EncryptionHeader,
                 persistentTask.EncryptionSignature,
-                persistentTask.EncryptionEpoch,
                 persistentTask.ExpiredAt
             );
 

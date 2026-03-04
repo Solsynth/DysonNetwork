@@ -54,6 +54,35 @@ public class FileController(
         return await ServeRemoteFile(file, fileExtension, download, original, thumbnail, overrideMimeType);
     }
 
+    [HttpGet("{id}/e2ee")]
+    public async Task<ActionResult> GetFileE2eeMetadata(string id, [FromQuery] string? passcode = null)
+    {
+        var (fileId, _) = ParseFileId(id);
+        var file = await fs.GetFileAsync(fileId);
+        if (file is null) return NotFound("File not found.");
+
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
+        var accessResult = await ValidateFileAccess(file, passcode, currentUser);
+        if (accessResult is not null) return accessResult;
+
+        if (file.Object?.Meta is null ||
+            !file.Object.Meta.TryGetValue("e2ee", out var e2eeRaw) ||
+            e2eeRaw is not Dictionary<string, object?> e2eeMeta)
+        {
+            return NotFound(new { code = "file.e2ee_not_found", error = "File does not contain E2EE metadata." });
+        }
+
+        e2eeMeta.TryGetValue("scheme", out var scheme);
+        e2eeMeta.TryGetValue("header", out var header);
+        e2eeMeta.TryGetValue("signature", out var signature);
+        return Ok(new
+        {
+            scheme = scheme?.ToString(),
+            header = header?.ToString(),
+            signature = signature?.ToString()
+        });
+    }
+
     private static (string fileId, string? extension) ParseFileId(string id)
     {
         if (!id.Contains('.')) return (id, null);
