@@ -1,5 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
-    <Sdk Name="Aspire.AppHost.Sdk" Version="13.1.0"/>
+<Project Sdk="Aspire.AppHost.Sdk/13.1.2">
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -11,20 +10,19 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Aspire.Hosting.AppHost" Version="13.1.0" />
-        <PackageReference Include="Aspire.Hosting.Docker" Version="13.0.0-preview.1.25560.3"/>
-        <PackageReference Include="Aspire.Hosting.Nats" Version="13.1.0"/>
-        <PackageReference Include="Aspire.Hosting.Redis" Version="13.1.0"/>
+        <PackageReference Include="Aspire.Hosting.Docker" Version="13.1.2-preview.1.26125.13" />
+        <PackageReference Include="Aspire.Hosting.Nats" Version="13.1.2" />
+        <PackageReference Include="Aspire.Hosting.Redis" Version="13.1.2" />
     </ItemGroup>
     <ItemGroup>
-        <ProjectReference Include="..\DysonNetwork.Develop\DysonNetwork.Develop.csproj"/>
-        <ProjectReference Include="..\DysonNetwork.Drive\DysonNetwork.Drive.csproj"/>
-        <ProjectReference Include="..\DysonNetwork.Pass\DysonNetwork.Pass.csproj"/>
-        <ProjectReference Include="..\DysonNetwork.Ring\DysonNetwork.Ring.csproj"/>
-        <ProjectReference Include="..\DysonNetwork.Sphere\DysonNetwork.Sphere.csproj"/>
-        <ProjectReference Include="..\DysonNetwork.Insight\DysonNetwork.Insight.csproj"/>
-        <ProjectReference Include="..\DysonNetwork.Zone\DysonNetwork.Zone.csproj"/>
-        <ProjectReference Include="..\DysonNetwork.Messager\DysonNetwork.Messager.csproj"/>
-        <ProjectReference Include="..\DysonNetwork.Wallet\DysonNetwork.Wallet.csproj"/>
+        <ProjectReference Include="..\DysonNetwork.Develop\DysonNetwork.Develop.csproj" />
+        <ProjectReference Include="..\DysonNetwork.Drive\DysonNetwork.Drive.csproj" />
+        <ProjectReference Include="..\DysonNetwork.Pass\DysonNetwork.Pass.csproj" />
+        <ProjectReference Include="..\DysonNetwork.Ring\DysonNetwork.Ring.csproj" />
+        <ProjectReference Include="..\DysonNetwork.Sphere\DysonNetwork.Sphere.csproj" />
+        <ProjectReference Include="..\DysonNetwork.Insight\DysonNetwork.Insight.csproj" />
+        <ProjectReference Include="..\DysonNetwork.Zone\DysonNetwork.Zone.csproj" />
+        <ProjectReference Include="..\DysonNetwork.Messager\DysonNetwork.Messager.csproj" />
+        <ProjectReference Include="..\DysonNetwork.Wallet\DysonNetwork.Wallet.csproj" />
     </ItemGroup>
 </Project>

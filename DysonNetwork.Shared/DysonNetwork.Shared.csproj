@@ -48,9 +48,9 @@
         <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.15.0" />
         <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
 
-        <PackageReference Include="Aspire.NATS.Net" Version="13.1.0" />
-        <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.1.0" />
-        <PackageReference Include="Aspire.StackExchange.Redis" Version="13.1.0" />
+        <PackageReference Include="Aspire.NATS.Net" Version="13.1.2" />
+        <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.1.2" />
+        <PackageReference Include="Aspire.StackExchange.Redis" Version="13.1.2" />
         
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" Version="10.0.0" />
