@@ -1,5 +1,7 @@
 # Drive E2EE File Encryption
 
+Client implementation guide: [DRIVE_E2EE_CLIENT_MIGRATION.md](/Users/littlesheep/Documents/Projects/DysonNetwork/docs/DRIVE_E2EE_CLIENT_MIGRATION.md)
+
 ## Overview
 
 Drive now treats file encryption as client-side only.

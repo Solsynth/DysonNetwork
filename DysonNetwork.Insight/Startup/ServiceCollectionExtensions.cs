@@ -85,7 +85,7 @@ public static class ServiceCollectionExtensions
             // Shared kernel factory for AI service creation
             services.AddSingleton<KernelFactory>();
             
-            services.AddSingleton<ThoughtProvider>();
+            services.AddScoped<ThoughtProvider>();
             services.AddScoped<ThoughtService>();
             services.AddScoped<Reader.WebFeedService>();
             services.AddScoped<Reader.WebReaderService>();
@@ -112,7 +112,7 @@ public static class ServiceCollectionExtensions
             // Plugins
             services.AddSingleton<PostPlugin>();
             services.AddSingleton<AccountPlugin>();
-            services.AddSingleton<MemoryPlugin>();
+            services.AddScoped<MemoryPlugin>();
             services.AddScoped<ScheduledTaskPlugin>();
             services.AddScoped<ConversationPlugin>();
             
@@ -120,10 +120,10 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ScheduledTaskService>();
             services.AddScoped<ScheduledTaskJob>();
             services.AddSingleton<EmbeddingService>();
-            services.AddSingleton<MemoryService>();
-            services.AddSingleton<InteractiveHistoryService>();
+            services.AddScoped<MemoryService>();
+            services.AddScoped<InteractiveHistoryService>();
             services.AddSingleton<PostAnalysisService>();
-            services.AddSingleton<MiChanAutonomousBehavior>();
+            services.AddScoped<MiChanAutonomousBehavior>();
             
             // Only start the hosted service when enabled
             if (miChanConfig.Enabled)

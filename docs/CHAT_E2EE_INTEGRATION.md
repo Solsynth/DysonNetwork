@@ -1,5 +1,7 @@
 # Chat E2EE Integration (Hard-Cut MLS)
 
+Client implementation guide: [CHAT_MLS_CLIENT_MIGRATION.md](/Users/littlesheep/Documents/Projects/DysonNetwork/docs/CHAT_MLS_CLIENT_MIGRATION.md)
+
 ## Policy
 
 Encrypted chat is now MLS-only.
