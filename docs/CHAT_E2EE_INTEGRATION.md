@@ -23,6 +23,8 @@ For MLS room write endpoints (`send`, `update`, `delete`), client must include:
 
 `X-Client-Ability: chat-mls-v1`
 
+Pass MLS control-plane endpoints (`/api/e2ee/mls/*`) also require the same ability token.
+
 ## MLS Message Contract
 
 In MLS rooms, user content writes must include:
@@ -32,9 +34,6 @@ In MLS rooms, user content writes must include:
 - `encryption_epoch` (required)
 - `ciphertext` (required)
 - `encryption_message_type` mirrors chat `type` semantics (`text`, `messages.update`, `messages.delete`)
-
-Compatibility note:
-- legacy values (`content.new`, `content.edit`, `content.delete`) are normalized server-side.
 
 Plaintext content fields are rejected for encrypted rooms.
 
@@ -63,4 +62,21 @@ Crypto remains client-side. Server contract markers:
 - default ciphersuite policy: `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`
 
 Compatibility note:
-- `pass.e2ee.mls.v1` is still accepted temporarily for older clients, but new clients should send `chat.mls.v1`.
+- `pass.e2ee.mls.v1` is no longer accepted in chat write paths.
+
+## Threat Model
+
+Protected:
+
+- encrypted message bodies and encrypted edit/delete payloads remain opaque to server storage and transport
+- MLS forward secrecy and epoch-based post-compromise recovery are preserved as client responsibilities
+
+Not protected:
+
+- room/member metadata, attachment ids, reactions/read receipts/typing/system events (plaintext controls in v1)
+- notification metadata and generic notification signaling
+
+Assumptions:
+
+- clients correctly manage MLS state and key storage per device
+- compromised devices require revoke + reshare to restore safety for future traffic

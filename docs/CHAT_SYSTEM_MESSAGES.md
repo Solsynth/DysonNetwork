@@ -55,3 +55,17 @@ System messages are backend-generated `SnChatMessage` events delivered as normal
   "reason": "new_device"
 }
 ```
+
+## Threat Model
+
+Protected:
+
+- system message sequencing and delivery are authenticated by normal account/session auth
+
+Not protected:
+
+- these events are plaintext control data and reveal operational metadata (membership/device/epoch changes)
+
+Assumptions:
+
+- clients treat these events as control hints and validate actual MLS decryptability locally

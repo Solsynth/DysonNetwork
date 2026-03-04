@@ -11,7 +11,33 @@ namespace DysonNetwork.Pass.E2EE;
 [Authorize]
 public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 {
+    private const string AbilityHeader = "X-Client-Ability";
+    private const string MlsAbilityToken = "chat-mls-v1";
     private static string? ResolveDeviceId(SnAuthSession session) => session.Client?.DeviceId;
+    private bool HasAbility(string token)
+    {
+        if (!Request.Headers.TryGetValue(AbilityHeader, out var rawValue)) return false;
+        foreach (var raw in rawValue)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) continue;
+            var tokens = raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (tokens.Any(x => string.Equals(x, token, StringComparison.Ordinal)))
+                return true;
+        }
+
+        return false;
+    }
+
+    private ActionResult? EnsureMlsAbility()
+    {
+        if (HasAbility(MlsAbilityToken)) return null;
+        return StatusCode(409, new
+        {
+            code = "e2ee.mls_ability_required",
+            error = $"Missing required ability header: {AbilityHeader}: {MlsAbilityToken}"
+        });
+    }
+
     private ActionResult LegacyEndpointRemoved()
     {
         return StatusCode(410, new
@@ -246,6 +272,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     [HttpPut("mls/devices/me/key-packages")]
     public async Task<ActionResult<SnMlsKeyPackage>> PublishMlsKeyPackage([FromBody] PublishMlsKeyPackageBody body)
     {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
         if (currentUser is null || currentSession is null) return Unauthorized();
@@ -265,6 +292,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         [FromQuery] bool consume = true
     )
     {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         if (currentUser is null) return Unauthorized();
 
@@ -275,6 +303,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     [HttpPost("mls/groups/{roomId:guid}/bootstrap")]
     public async Task<ActionResult<SnMlsGroupState>> BootstrapMlsGroup(Guid roomId, [FromBody] BootstrapMlsGroupBody body)
     {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         if (currentUser is null) return Unauthorized();
         if (roomId != body.ChatRoomId) return BadRequest("Room id mismatch.");
@@ -288,6 +317,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     [HttpPost("mls/groups/{roomId:guid}/commit")]
     public async Task<ActionResult<SnMlsGroupState>> CommitMlsGroup(Guid roomId, [FromBody] CommitMlsGroupBody body)
     {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         if (currentUser is null) return Unauthorized();
         if (roomId != body.ChatRoomId) return BadRequest("Room id mismatch.");
@@ -302,6 +332,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     [HttpPost("mls/groups/{roomId:guid}/welcome/fanout")]
     public async Task<ActionResult<List<SnE2eeEnvelope>>> FanoutMlsWelcome(Guid roomId, [FromBody] FanoutMlsWelcomeBody body)
     {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
         if (currentUser is null || currentSession is null) return Unauthorized();
@@ -335,6 +366,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         [FromBody] MarkMlsReshareRequiredBody body
     )
     {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         if (currentUser is null) return Unauthorized();
         if (roomId != body.ChatRoomId) return BadRequest("Room id mismatch.");
@@ -348,6 +380,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     [HttpPost("mls/messages/fanout")]
     public async Task<ActionResult<List<SnE2eeEnvelope>>> SendMlsFanout([FromBody] FanoutEnvelopeBody body)
     {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
         if (currentUser is null || currentSession is null) return Unauthorized();
@@ -383,6 +416,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         [FromQuery] int take = 100
     )
     {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
         if (currentUser is null || currentSession is null) return Unauthorized();
@@ -404,6 +438,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         [FromQuery(Name = "device_id")] string? deviceId
     )
     {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
         if (currentUser is null || currentSession is null) return Unauthorized();
@@ -422,6 +457,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     [HttpPost("mls/devices/{deviceId}/revoke")]
     public async Task<ActionResult> RevokeMlsDevice(string deviceId)
     {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         if (currentUser is null) return Unauthorized();
 

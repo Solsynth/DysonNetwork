@@ -33,7 +33,6 @@ public partial class ChatController(
     private const string E2EeCapabilityHeader = "X-Client-Ability";
     private const string MlsCapabilityToken = "chat-mls-v1";
     private const string MlsEncryptionScheme = "chat.mls.v1";
-    private const string LegacyMlsEncryptionScheme = "pass.e2ee.mls.v1";
 
     private bool HasClientCapability(string token)
     {
@@ -66,8 +65,7 @@ public partial class ChatController(
 
     private static bool IsMlsPayloadValid(SendMessageRequest request)
     {
-        var schemeOk = string.Equals(request.EncryptionScheme, MlsEncryptionScheme, StringComparison.Ordinal) ||
-                       string.Equals(request.EncryptionScheme, LegacyMlsEncryptionScheme, StringComparison.Ordinal);
+        var schemeOk = string.Equals(request.EncryptionScheme, MlsEncryptionScheme, StringComparison.Ordinal);
         return schemeOk &&
                request.EncryptionEpoch.HasValue;
     }

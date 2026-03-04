@@ -17,6 +17,9 @@ public class E2eeService(
 {
     private const string PacketType = "e2ee.envelope";
     private const string LegacyDeviceId = "legacy-account";
+    private const int MlsKeyPackageDailyLimitPerAccount = 10;
+    private const int MlsKeyPackageRetentionDays = 30;
+    private const int MaxFanoutPayloadsPerRequest = 1000;
 
     public async Task<SnE2eeKeyBundle> UpsertKeyBundleAsync(Guid accountId, UpsertE2eeKeyBundleRequest request)
         => await UpsertDeviceBundleAsync(accountId, LegacyDeviceId, "Legacy account-scoped bundle", request);
@@ -220,6 +223,15 @@ public class E2eeService(
             throw new InvalidOperationException("MLS key package cannot be empty.");
 
         var now = SystemClock.Instance.GetCurrentInstant();
+        await PurgeExpiredMlsKeyPackagesAsync(accountId, now);
+        var dayWindowStart = now - Duration.FromDays(1);
+        var uploadedInDay = await db.MlsKeyPackages
+            .Where(k => k.AccountId == accountId && k.CreatedAt >= dayWindowStart)
+            .CountAsync();
+        if (uploadedInDay >= MlsKeyPackageDailyLimitPerAccount)
+            throw new InvalidOperationException(
+                $"MLS key package daily upload limit exceeded. Max {MlsKeyPackageDailyLimitPerAccount} per 24h.");
+
         var e2eeDevice = await db.E2eeDevices.FirstOrDefaultAsync(d =>
             d.AccountId == accountId && d.DeviceId == deviceId);
         if (e2eeDevice is null)
@@ -262,11 +274,12 @@ public class E2eeService(
         bool consume
     )
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        await PurgeExpiredMlsKeyPackagesAsync(accountId, now);
         var activeDevices = await db.E2eeDevices
             .Where(d => d.AccountId == accountId && !d.IsRevoked)
             .ToListAsync();
         var responses = new List<MlsDeviceKeyPackageResponse>();
-        var now = SystemClock.Instance.GetCurrentInstant();
         var dirty = false;
 
         foreach (var device in activeDevices)
@@ -519,6 +532,9 @@ public class E2eeService(
             throw new InvalidOperationException("senderDeviceId cannot be empty.");
         if (request.Payloads.Count == 0)
             throw new InvalidOperationException("payloads cannot be empty.");
+        if (request.Payloads.Count > MaxFanoutPayloadsPerRequest)
+            throw new InvalidOperationException(
+                $"Too many payloads in one fanout request. Max allowed: {MaxFanoutPayloadsPerRequest}.");
 
         var recipient = await accountService.GetAccount(request.RecipientAccountId);
         if (recipient is null)
@@ -637,6 +653,12 @@ public class E2eeService(
 
     public async Task<List<SnE2eeEnvelope>> GetPendingEnvelopesByDeviceAsync(Guid recipientId, string deviceId, int take)
     {
+        var activeDevice = await db.E2eeDevices
+            .Where(d => d.AccountId == recipientId && d.DeviceId == deviceId && !d.IsRevoked)
+            .FirstOrDefaultAsync();
+        if (activeDevice is null)
+            return [];
+
         var now = SystemClock.Instance.GetCurrentInstant();
         var envelopes = await db.E2eeEnvelopes
             .Where(e => e.RecipientAccountId == recipientId && e.RecipientDeviceId == deviceId)
@@ -675,6 +697,12 @@ public class E2eeService(
 
     public async Task<SnE2eeEnvelope?> AcknowledgeEnvelopeByDeviceAsync(Guid recipientId, string deviceId, Guid envelopeId)
     {
+        var activeDevice = await db.E2eeDevices
+            .Where(d => d.AccountId == recipientId && d.DeviceId == deviceId && !d.IsRevoked)
+            .FirstOrDefaultAsync();
+        if (activeDevice is null)
+            return null;
+
         var envelope = await db.E2eeEnvelopes
             .FirstOrDefaultAsync(e => e.Id == envelopeId && e.RecipientAccountId == recipientId && e.RecipientDeviceId == deviceId);
         if (envelope is null)
@@ -697,9 +725,70 @@ public class E2eeService(
             return true;
 
         device.IsRevoked = true;
-        device.RevokedAt = SystemClock.Instance.GetCurrentInstant();
+        var now = SystemClock.Instance.GetCurrentInstant();
+        device.RevokedAt = now;
+
+        var pending = await db.E2eeEnvelopes
+            .Where(e =>
+                e.RecipientAccountId == accountId &&
+                e.RecipientDeviceId == deviceId &&
+                e.DeliveryStatus != SnE2eeEnvelopeStatus.Acknowledged)
+            .ToListAsync();
+        var purgedCount = pending.Count;
+        if (purgedCount > 0)
+            db.RemoveRange(pending);
+
+        var siblingDevices = await db.E2eeDevices
+            .Where(d => d.AccountId == accountId && !d.IsRevoked && d.DeviceId != deviceId)
+            .Select(d => d.DeviceId)
+            .ToListAsync();
+        var controlEnvelopes = new List<SnE2eeEnvelope>();
+        foreach (var targetDeviceId in siblingDevices)
+        {
+            var controlEnvelope = await CreateEnvelopeForTargetAsync(
+                accountId,
+                LegacyDeviceId,
+                accountId,
+                targetDeviceId,
+                null,
+                SnE2eeEnvelopeType.Control,
+                null,
+                $"mls-revoke-{deviceId}-{now.ToUnixTimeMilliseconds()}-{targetDeviceId}",
+                [1],
+                null,
+                null,
+                null,
+                new Dictionary<string, object>
+                {
+                    ["event"] = "mls_device_revoked",
+                    ["revoked_device_id"] = deviceId
+                },
+                legacyAccountScoped: false,
+                createdAt: now
+            );
+            controlEnvelopes.Add(controlEnvelope);
+        }
+
         await db.SaveChangesAsync();
+        foreach (var envelope in controlEnvelopes)
+            await TryDeliverEnvelopeAsync(envelope);
+        logger.LogInformation(
+            "Revoked device {DeviceId} for account {AccountId}. Purged pending envelopes: {PurgedCount}",
+            deviceId, accountId, purgedCount);
         return true;
+    }
+
+    private async Task PurgeExpiredMlsKeyPackagesAsync(Guid accountId, Instant now)
+    {
+        var cutoff = now - Duration.FromDays(MlsKeyPackageRetentionDays);
+        var expired = await db.MlsKeyPackages
+            .Where(k => k.AccountId == accountId && k.CreatedAt < cutoff)
+            .ToListAsync();
+        if (expired.Count == 0)
+            return;
+
+        db.RemoveRange(expired);
+        await db.SaveChangesAsync();
     }
 
     public async Task<int> DistributeSenderKeyAsync(Guid senderId, DistributeSenderKeyRequest request)

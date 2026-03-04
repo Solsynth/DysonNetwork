@@ -387,8 +387,7 @@ public static class ServiceCollectionExtensions
                     return;
                 }
 
-                if (mlsMode && (!(string.Equals(requestData.EncryptionScheme, "chat.mls.v1", StringComparison.Ordinal) ||
-                                  string.Equals(requestData.EncryptionScheme, "pass.e2ee.mls.v1", StringComparison.Ordinal)) ||
+                if (mlsMode && (!string.Equals(requestData.EncryptionScheme, "chat.mls.v1", StringComparison.Ordinal) ||
                                 !requestData.EncryptionEpoch.HasValue))
                 {
                     await SendErrorResponse(evt, "MLS rooms require scheme chat.mls.v1 and encryption_epoch.", pusher);
