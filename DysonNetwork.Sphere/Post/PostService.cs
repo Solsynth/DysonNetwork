@@ -140,13 +140,13 @@ public partial class PostService(
     private async Task BroadcastPostUpdateAsync(SnPost post, string eventType)
     {
         using var scope = serviceProvider.CreateScope();
-        var scopedRing = scope.ServiceProvider.GetRequiredService<RemoteRingService>();
+        var scopedWs = scope.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
         var scopedPost = scope.ServiceProvider.GetRequiredService<PostService>();
 
         try
         {
             // Get all connected users
-            var connectedUserIds = await scopedRing.GetAllConnectedUserIds();
+            var connectedUserIds = await scopedWs.GetAllConnectedUserIds();
             if (connectedUserIds.Count == 0)
                 return;
 
@@ -180,7 +180,7 @@ public partial class PostService(
             var postBytes = Encoding.UTF8.GetBytes(postData);
 
             // Push to all target users
-            await scopedRing.PushWebSocketPacketToUsers(targetUserIds, eventType, postBytes);
+            await scopedWs.PushWebSocketPacketToUsers(targetUserIds, eventType, postBytes);
         }
         catch (Exception ex)
         {
@@ -195,14 +195,14 @@ public partial class PostService(
     private async Task BroadcastReactionUpdateAsync(SnPostReaction reaction, string eventType)
     {
         using var scope = serviceProvider.CreateScope();
-        var scopedRing = scope.ServiceProvider.GetRequiredService<RemoteRingService>();
+        var scopedWs = scope.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
         var scopedPost = scope.ServiceProvider.GetRequiredService<PostService>();
         var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
 
         try
         {
             // Get all connected users
-            var onlineUsers = await scopedRing.GetAllConnectedUserIds();
+            var onlineUsers = await scopedWs.GetAllConnectedUserIds();
             if (onlineUsers.Count == 0)
                 return;
 
@@ -235,7 +235,7 @@ public partial class PostService(
             var reactionBytes = Encoding.UTF8.GetBytes(reactionData);
 
             // Push to all target users
-            await scopedRing.PushWebSocketPacketToUsers(targetUserIds, eventType, reactionBytes);
+            await scopedWs.PushWebSocketPacketToUsers(targetUserIds, eventType, reactionBytes);
         }
         catch (Exception ex)
         {

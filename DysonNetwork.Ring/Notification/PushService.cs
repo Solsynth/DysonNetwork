@@ -3,8 +3,10 @@ using CorePush.Firebase;
 using DysonNetwork.Ring.Connection;
 using DysonNetwork.Ring.Services;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using WebSocketPacket = DysonNetwork.Shared.Models.WebSocketPacket;
@@ -20,6 +22,7 @@ public class PushService
     private readonly ApnSender? _apns;
     private readonly FlushBufferService _fbs;
     private readonly string? _apnsTopic;
+    private readonly RemoteWebSocketService _ws;
 
     public PushService(
         IConfiguration config,
@@ -27,7 +30,8 @@ public class PushService
         QueueService queueService,
         FlushBufferService fbs,
         IHttpClientFactory httpFactory,
-        ILogger<PushService> logger
+        ILogger<PushService> logger,
+        RemoteWebSocketService ws
     )
     {
         var cfgSection = config.GetSection("Notifications:Push");
@@ -54,6 +58,7 @@ public class PushService
             _apnsTopic = cfgSection.GetValue<string>("Apple:BundleIdentifier");
         }
 
+        _ws = ws;
         _db = db;
         _fbs = fbs;
         _queueService = queueService;
@@ -151,11 +156,11 @@ public class PushService
     public async Task DeliverPushNotification(SnNotification notification,
         CancellationToken cancellationToken = default)
     {
-        WebSocketService.SendPacketToAccount(notification.AccountId, new WebSocketPacket()
-        {
-            Type = "notifications.new",
-            Data = notification,
-        });
+        await _ws.PushWebSocketPacket(
+            notification.AccountId.ToString(),
+            "notifications.new",
+            InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray()
+        );
 
         try
         {
@@ -257,11 +262,11 @@ public class PushService
             notification.AccountId = account;
 
             // WebSocket
-            WebSocketService.SendPacketToAccount(account, new WebSocketPacket
-            {
-                Type = "notifications.new",
-                Data = notification
-            });
+            await _ws.PushWebSocketPacket(
+                notification.AccountId.ToString(),
+                "notifications.new",
+                InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray()
+            );
 
             // Push notifications
             var subscriptions = await _db.PushSubscriptions
@@ -357,7 +362,7 @@ public class PushService
                         apnsPriority: notification.Priority,
                         apnPushType: ApnPushType.Alert
                     );
-                    
+
                     if (apnResult.StatusCode is 404 or 410)
                         _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
                     else if (apnResult.Error != null)

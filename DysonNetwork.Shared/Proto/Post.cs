@@ -211,7 +211,8 @@ namespace DysonNetwork.Shared.Proto {
             "Y2hQb3N0cxIbLnByb3RvLkR5U2VhcmNoUG9zdHNSZXF1ZXN0GhwucHJvdG8u",
             "RHlTZWFyY2hQb3N0c1Jlc3BvbnNlEkIKCUxpc3RQb3N0cxIZLnByb3RvLkR5",
             "TGlzdFBvc3RzUmVxdWVzdBoaLnByb3RvLkR5TGlzdFBvc3RzUmVzcG9uc2VC",
-            "HKoCGUR5c29uTmV0d29yay5TaGFyZWQuUHJvdG9iBnByb3RvMw=="));
+            "SlosZ2l0LnNvbHN5bnRoLmRldi9zb2xhcm5ldHdvcmsvZHlzb25wcm90by9n",
+            "ZW6qAhlEeXNvbk5ldHdvcmsuU2hhcmVkLlByb3RvYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::DysonNetwork.Shared.Proto.FileReflection.Descriptor, global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor, global::DysonNetwork.Shared.Proto.PublisherReflection.Descriptor, global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyPostType), typeof(global::DysonNetwork.Shared.Proto.DyPostVisibility), typeof(global::DysonNetwork.Shared.Proto.DyPostPinMode), typeof(global::DysonNetwork.Shared.Proto.DyContentSensitiveMark), typeof(global::DysonNetwork.Shared.Proto.DyPostReactionAttitude), typeof(global::DysonNetwork.Shared.Proto.DyPostEmbedViewRenderer), typeof(global::DysonNetwork.Shared.Proto.DyPostContentType), typeof(global::DysonNetwork.Shared.Proto.DyFediverseContentType), }, null, new pbr::GeneratedClrTypeInfo[] {

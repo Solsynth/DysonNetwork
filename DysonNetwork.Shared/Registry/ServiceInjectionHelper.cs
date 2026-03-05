@@ -7,6 +7,16 @@ public static class ServiceInjectionHelper
 {
     extension(IServiceCollection services)
     {
+        public IServiceCollection AddBladeService()
+        {
+            services.AddGrpcClientWithSharedChannel<WebSocketService.WebSocketServiceClient>(
+                "https://_grpc.ring",
+                "DyRingService");
+            services.AddSingleton<RemoteWebSocketService>();
+
+            return services;
+        }
+        
         public IServiceCollection AddRingService()
         {
             services.AddGrpcClientWithSharedChannel<DyRingService.DyRingServiceClient>(
@@ -16,7 +26,7 @@ public static class ServiceInjectionHelper
 
             return services;
         }
-
+        
         public IServiceCollection AddAuthService()
         {
             services.AddGrpcClientWithSharedChannel<DyAuthService.DyAuthServiceClient>(

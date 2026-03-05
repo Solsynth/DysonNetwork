@@ -74,8 +74,9 @@ namespace DysonNetwork.Shared.Proto {
             "QXdhcmRBdHRpdHVkZRItCilEWV9MSVZFX1NUUkVBTV9BV0FSRF9BVFRJVFVE",
             "RV9VTlNQRUNJRklFRBAAEiEKHURZX0xJVkVfU1RSRUFNX0FXQVJEX1BPU0lU",
             "SVZFEAESIAocRFlfTElWRV9TVFJFQU1fQVdBUkRfTkVVVFJBTBACEiEKHURZ",
-            "X0xJVkVfU1RSRUFNX0FXQVJEX05FR0FUSVZFEANCHKoCGUR5c29uTmV0d29y",
-            "ay5TaGFyZWQuUHJvdG9iBnByb3RvMw=="));
+            "X0xJVkVfU1RSRUFNX0FXQVJEX05FR0FUSVZFEANCSlosZ2l0LnNvbHN5bnRo",
+            "LmRldi9zb2xhcm5ldHdvcmsvZHlzb25wcm90by9nZW6qAhlEeXNvbk5ldHdv",
+            "cmsuU2hhcmVkLlByb3RvYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::DysonNetwork.Shared.Proto.FileReflection.Descriptor, global::DysonNetwork.Shared.Proto.PublisherReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyLiveStreamType), typeof(global::DysonNetwork.Shared.Proto.DyLiveStreamVisibility), typeof(global::DysonNetwork.Shared.Proto.DyLiveStreamStatus), typeof(global::DysonNetwork.Shared.Proto.DyLiveStreamAwardAttitude), }, null, new pbr::GeneratedClrTypeInfo[] {

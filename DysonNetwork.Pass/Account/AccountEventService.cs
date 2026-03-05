@@ -17,12 +17,11 @@ public class AccountEventService(
     AppDatabase db,
     ICacheService cache,
     ILocalizationService localizer,
-    DyRingService.DyRingServiceClient pusher,
-    Pass.Leveling.ExperienceService experienceService,
+    Leveling.ExperienceService experienceService,
     RemotePaymentService payment,
     RemoteSubscriptionService subscriptions,
-    INatsConnection nats,
-    DysonNetwork.Shared.EventBus.IEventBus eventBus
+    Shared.EventBus.IEventBus eventBus,
+    RemoteWebSocketService ws
 )
 {
     private static readonly Random Random = new();
@@ -32,20 +31,12 @@ public class AccountEventService(
 
     private async Task<bool> GetAccountIsConnected(Guid userId)
     {
-        var resp = await pusher.GetWebsocketConnectionStatusAsync(
-            new DyGetWebsocketConnectionStatusRequest { UserId = userId.ToString() }
-        );
-        return resp.IsConnected;
+        return await ws.GetWebsocketConnectionStatus(userId.ToString(), true);
     }
 
     public async Task<Dictionary<string, bool>> GetAccountIsConnectedBatch(List<Guid> userIds)
     {
-        var req = new DyGetWebsocketConnectionStatusBatchRequest();
-        req.UsersId.AddRange(userIds.Select(u => u.ToString()));
-        var resp = await pusher.GetWebsocketConnectionStatusBatchAsync(
-            req
-        );
-        return resp.IsConnected.ToDictionary();
+        return await ws.GetWebsocketConnectionStatusBatch(userIds.Select(x => x.ToString()).ToList());
     }
 
     public void PurgeStatusCache(Guid userId)
@@ -94,7 +85,8 @@ public class AccountEventService(
             if (status is not null)
             {
                 status.IsOnline = !status.IsInvisible && isOnline;
-                await cache.SetWithGroupsAsync(cacheKey, status, [$"{AccountService.AccountCachePrefix}{status.AccountId}"],
+                await cache.SetWithGroupsAsync(cacheKey, status,
+                    [$"{AccountService.AccountCachePrefix}{status.AccountId}"],
                     TimeSpan.FromMinutes(5));
             }
             else
@@ -351,7 +343,8 @@ public class AccountEventService(
         {
             // Skip random logic and tips generation for birthday
             checkInLevel = CheckInResultLevel.Special;
-            tips = [
+            tips =
+            [
                 new CheckInFortuneTip
                 {
                     IsPositive = true,
@@ -393,11 +386,11 @@ public class AccountEventService(
             var randomValue = Random.Next(100);
             checkInLevel = randomValue switch
             {
-                < 10 => CheckInResultLevel.Worst,    // 0-9: 10% chance
-                < 30 => CheckInResultLevel.Worse,    // 10-29: 20% chance
-                < 70 => CheckInResultLevel.Normal,   // 30-69: 40% chance
-                < 90 => CheckInResultLevel.Better,   // 70-89: 20% chance
-                _ => CheckInResultLevel.Best         // 90-99: 10% chance
+                < 10 => CheckInResultLevel.Worst, // 0-9: 10% chance
+                < 30 => CheckInResultLevel.Worse, // 10-29: 20% chance
+                < 70 => CheckInResultLevel.Normal, // 30-69: 40% chance
+                < 90 => CheckInResultLevel.Better, // 70-89: 20% chance
+                _ => CheckInResultLevel.Best // 90-99: 10% chance
             };
         }
 

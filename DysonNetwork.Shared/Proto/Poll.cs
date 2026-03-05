@@ -92,8 +92,9 @@ namespace DysonNetwork.Shared.Proto {
             "b3RvLkR5R2V0UG9sbFN0YXRzUmVxdWVzdBodLnByb3RvLkR5R2V0UG9sbFN0",
             "YXRzUmVzcG9uc2USYwoUR2V0UG9sbFF1ZXN0aW9uU3RhdHMSJC5wcm90by5E",
             "eUdldFBvbGxRdWVzdGlvblN0YXRzUmVxdWVzdBolLnByb3RvLkR5R2V0UG9s",
-            "bFF1ZXN0aW9uU3RhdHNSZXNwb25zZUIcqgIZRHlzb25OZXR3b3JrLlNoYXJl",
-            "ZC5Qcm90b2IGcHJvdG8z"));
+            "bFF1ZXN0aW9uU3RhdHNSZXNwb25zZUJKWixnaXQuc29sc3ludGguZGV2L3Nv",
+            "bGFybmV0d29yay9keXNvbnByb3RvL2dlbqoCGUR5c29uTmV0d29yay5TaGFy",
+            "ZWQuUHJvdG9iBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::DysonNetwork.Shared.Proto.PublisherReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyPollQuestionType), }, null, new pbr::GeneratedClrTypeInfo[] {

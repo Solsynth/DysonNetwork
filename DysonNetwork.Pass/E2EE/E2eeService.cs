@@ -8,11 +8,11 @@ using NodaTime;
 
 namespace DysonNetwork.Pass.E2EE;
 
-public class E2eeService(
+public class E2EeService(
     AppDatabase db,
     AccountService accountService,
-    RemoteRingService ringService,
-    ILogger<E2eeService> logger
+    RemoteWebSocketService ws,
+    ILogger<E2EeService> logger
 ) : IGroupE2eeModule
 {
     private const string PacketType = "e2ee.envelope";
@@ -825,8 +825,8 @@ public class E2eeService(
         {
             var targetDeviceId = envelope.RecipientDeviceId;
             var isConnected = targetDeviceId is null
-                ? await ringService.GetWebsocketConnectionStatus(envelope.RecipientAccountId.ToString(), isUserId: true)
-                : await ringService.GetWebsocketConnectionStatus(targetDeviceId, isUserId: false);
+                ? await ws.GetWebsocketConnectionStatus(envelope.RecipientAccountId.ToString(), isUserId: true)
+                : await ws.GetWebsocketConnectionStatus(targetDeviceId, isUserId: false);
             if (!isConnected)
                 return;
 
@@ -851,9 +851,9 @@ public class E2eeService(
                 envelope.CreatedAt
             }).ToByteArray();
             if (targetDeviceId is null)
-                await ringService.PushWebSocketPacket(envelope.RecipientAccountId.ToString(), PacketType, payload);
+                await ws.PushWebSocketPacket(envelope.RecipientAccountId.ToString(), PacketType, payload);
             else
-                await ringService.PushWebSocketPacketToDevice(targetDeviceId, PacketType, payload);
+                await ws.PushWebSocketPacketToDevice(targetDeviceId, PacketType, payload);
 
             envelope.DeliveryStatus = SnE2eeEnvelopeStatus.Delivered;
             envelope.DeliveredAt = SystemClock.Instance.GetCurrentInstant();

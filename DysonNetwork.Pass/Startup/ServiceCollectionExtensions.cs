@@ -184,9 +184,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PassRewindService>();
         services.AddScoped<AccountRewindService>();
         services.AddScoped<TicketService>();
-        services.AddScoped<E2eeService>();
-        services.AddScoped<IE2eeModule>(sp => sp.GetRequiredService<E2eeService>());
-        services.AddScoped<IGroupE2eeModule>(sp => sp.GetRequiredService<E2eeService>());
+        services.AddScoped<E2EeService>();
+        services.AddScoped<IE2eeModule>(sp => sp.GetRequiredService<E2EeService>());
+        services.AddScoped<IGroupE2eeModule>(sp => sp.GetRequiredService<E2EeService>());
 
         services.AddEventBus()
             .AddListener<WebSocketConnectedEvent>(async (evt, ctx) =>

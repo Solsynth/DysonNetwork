@@ -72,8 +72,9 @@ namespace DysonNetwork.Shared.Proto {
             "ZS5wcm90b2J1Zi5FbXB0eRJGCg1TZXRGaWxlUHVibGljEh0ucHJvdG8uRHlT",
             "ZXRGaWxlUHVibGljUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJK",
             "Cg9VbnNldEZpbGVQdWJsaWMSHy5wcm90by5EeVVuc2V0RmlsZVB1YmxpY1Jl",
-            "cXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHlCHKoCGUR5c29uTmV0d29y",
-            "ay5TaGFyZWQuUHJvdG9iBnByb3RvMw=="));
+            "cXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHlCSlosZ2l0LnNvbHN5bnRo",
+            "LmRldi9zb2xhcm5ldHdvcmsvZHlzb25wcm90by9nZW6qAhlEeXNvbk5ldHdv",
+            "cmsuU2hhcmVkLlByb3RvYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.EmptyReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.FieldMaskReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.DurationReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {

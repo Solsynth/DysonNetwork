@@ -2,6 +2,7 @@ using DysonNetwork.Drive.Storage.Model;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NanoidDotNet;
 using NodaTime;
@@ -16,7 +17,8 @@ public class PersistentTaskService(
     AppDatabase db,
     ICacheService cache,
     ILogger<PersistentTaskService> logger,
-    DyRingService.DyRingServiceClient ringService
+    RemoteWebSocketService ws,
+    RemoteRingService ring
 )
 {
     private const string CacheKeyPrefix = "task:";
@@ -395,11 +397,7 @@ public class PersistentTaskService(
                 Data = InfraObjectCoder.ConvertObjectToByteString(data)
             };
 
-            await ringService.PushWebSocketPacketAsync(new DyPushWebSocketPacketRequest
-            {
-                UserId = task.AccountId.ToString(),
-                Packet = packet
-            });
+            await ws.PushWebSocketPacket(task.AccountId.ToString(), packet.Type, packet.Data.ToByteArray());
         }
         catch (Exception ex)
         {
@@ -427,11 +425,7 @@ public class PersistentTaskService(
                 Data = InfraObjectCoder.ConvertObjectToByteString(data)
             };
 
-            await ringService.PushWebSocketPacketAsync(new DyPushWebSocketPacketRequest
-            {
-                UserId = task.AccountId.ToString(),
-                Packet = packet
-            });
+            await ws.PushWebSocketPacket(task.AccountId.ToString(), packet.Type, packet.Data.ToByteArray());
         }
         catch (Exception ex)
         {
@@ -453,17 +447,13 @@ public class PersistentTaskService(
             };
 
             // WebSocket notification
-            var wsPacket = new DyWebSocketPacket
+            var packet = new DyWebSocketPacket
             {
                 Type = "task.completed",
                 Data = InfraObjectCoder.ConvertObjectToByteString(data)
             };
 
-            await ringService.PushWebSocketPacketAsync(new DyPushWebSocketPacketRequest
-            {
-                UserId = task.AccountId.ToString(),
-                Packet = wsPacket
-            });
+            await ws.PushWebSocketPacket(task.AccountId.ToString(), packet.Type, packet.Data.ToByteArray());
         }
         catch (Exception ex)
         {
@@ -485,33 +475,22 @@ public class PersistentTaskService(
             };
 
             // WebSocket notification
-            var wsPacket = new DyWebSocketPacket
+            var packet = new DyWebSocketPacket
             {
                 Type = "task.failed",
                 Data = InfraObjectCoder.ConvertObjectToByteString(data)
             };
 
-            await ringService.PushWebSocketPacketAsync(new DyPushWebSocketPacketRequest
-            {
-                UserId = task.AccountId.ToString(),
-                Packet = wsPacket
-            });
+            await ws.PushWebSocketPacket(task.AccountId.ToString(), packet.Type, packet.Data.ToByteArray());
 
-            // Push notification
-            var pushNotification = new DyPushNotification
-            {
-                Topic = "drive.tasks",
-                Title = "Drive Task Failed",
-                Subtitle = task.Name,
-                Body = $"Your {task.Type.ToString().ToLower()} task has failed.",
-                IsSavable = true
-            };
-
-            await ringService.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
-            {
-                UserId = task.AccountId.ToString(),
-                Notification = pushNotification
-            });
+            await ring.SendPushNotificationToUser(
+                task.AccountId.ToString(),
+                "drive.tasks",
+                "Drive Task Failed",
+                task.Name,
+                $"Your {task.Type.ToString().ToLower()} task has failed.",
+                isSavable: true
+            );
         }
         catch (Exception ex)
         {
@@ -668,7 +647,8 @@ public class PersistentTaskService(
             return cachedTask;
 
         var baseTask = await db.Tasks
-            .FirstOrDefaultAsync(t => t.TaskId == taskId && t.Type == TaskType.FileUpload && t.Status == TaskStatus.InProgress);
+            .FirstOrDefaultAsync(t =>
+                t.TaskId == taskId && t.Type == TaskType.FileUpload && t.Status == TaskStatus.InProgress);
 
         if (baseTask is null)
             return null;
@@ -955,17 +935,13 @@ public class PersistentTaskService(
             };
 
             // Send WebSocket notification
-            var wsPacket = new DyWebSocketPacket
+            var packet = new DyWebSocketPacket
             {
                 Type = "upload.completed",
                 Data = InfraObjectCoder.ConvertObjectToByteString(completionData)
             };
 
-            await ringService.PushWebSocketPacketAsync(new DyPushWebSocketPacketRequest
-            {
-                UserId = task.AccountId.ToString(),
-                Packet = wsPacket
-            });
+            await ws.PushWebSocketPacket(task.AccountId.ToString(), packet.Type, packet.Data.ToByteArray());
         }
         catch (Exception ex)
         {
@@ -990,33 +966,23 @@ public class PersistentTaskService(
             };
 
             // Send WebSocket notification
-            var wsPacket = new DyWebSocketPacket
+            var packet = new DyWebSocketPacket
             {
                 Type = "upload.failed",
                 Data = InfraObjectCoder.ConvertObjectToByteString(failureData)
             };
 
-            await ringService.PushWebSocketPacketAsync(new DyPushWebSocketPacketRequest
-            {
-                UserId = task.AccountId.ToString(),
-                Packet = wsPacket
-            });
+            await ws.PushWebSocketPacket(task.AccountId.ToString(), packet.Type, packet.Data.ToByteArray());
 
             // Send push notification
-            var pushNotification = new DyPushNotification
-            {
-                Topic = "drive.tasks.upload",
-                Title = "Upload Failed",
-                Subtitle = task.FileName,
-                Body = $"Your file '{task.FileName}' upload has failed. You can try again.",
-                IsSavable = true
-            };
-
-            await ringService.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
-            {
-                UserId = task.AccountId.ToString(),
-                Notification = pushNotification
-            });
+            await ring.SendPushNotificationToUser(
+                task.AccountId.ToString(),
+                "drive.tasks.upload",
+                "Upload Failed",
+                task.FileName,
+                $"Your file '{task.FileName}' upload has failed. You can try again.",
+                isSavable: true
+            );
         }
         catch (Exception ex)
         {
@@ -1054,11 +1020,7 @@ public class PersistentTaskService(
                 Data = InfraObjectCoder.ConvertObjectToByteString(progressData)
             };
 
-            await ringService.PushWebSocketPacketAsync(new DyPushWebSocketPacketRequest
-            {
-                UserId = task.AccountId.ToString(),
-                Packet = packet
-            });
+            await ws.PushWebSocketPacket(task.AccountId.ToString(), packet.Type, packet.Data.ToByteArray());
         }
         catch (Exception ex)
         {

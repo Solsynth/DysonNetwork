@@ -11,7 +11,6 @@ namespace DysonNetwork.Ring.Services;
 
 public class RingServiceGrpc(
     QueueService queueService,
-    WebSocketService websocket,
     PushService pushService
 ) : DyRingService.DyRingServiceBase
 {
@@ -24,45 +23,6 @@ public class RingServiceGrpc(
             request.Email.Body
         );
         return new Empty();
-    }
-
-    public override Task<Empty> PushWebSocketPacket(DyPushWebSocketPacketRequest request, ServerCallContext context)
-    {
-        var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
-
-        WebSocketService.SendPacketToAccount(Guid.Parse(request.UserId), packet);
-        return Task.FromResult(new Empty());
-    }
-
-    public override Task<Empty> PushWebSocketPacketToUsers(DyPushWebSocketPacketToUsersRequest request,
-        ServerCallContext context)
-    {
-        var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
-
-        foreach (var accountId in request.UserIds)
-            WebSocketService.SendPacketToAccount(Guid.Parse(accountId), packet);
-
-        return Task.FromResult(new Empty());
-    }
-
-    public override Task<Empty> PushWebSocketPacketToDevice(DyPushWebSocketPacketToDeviceRequest request,
-        ServerCallContext context)
-    {
-        var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
-
-        websocket.SendPacketToDevice(request.DeviceId, packet);
-        return Task.FromResult(new Empty());
-    }
-
-    public override Task<Empty> PushWebSocketPacketToDevices(DyPushWebSocketPacketToDevicesRequest request,
-        ServerCallContext context)
-    {
-        var packet = Shared.Models.WebSocketPacket.FromProtoValue(request.Packet);
-
-        foreach (var deviceId in request.DeviceIds)
-            websocket.SendPacketToDevice(deviceId, packet);
-
-        return Task.FromResult(new Empty());
     }
 
     public override async Task<Empty> SendPushNotificationToUser(DySendPushNotificationToUserRequest request,
@@ -132,41 +92,5 @@ public class RingServiceGrpc(
     {
         await pushService.UnsubscribeDevice(request.DeviceId);
         return new Empty();
-    }
-
-    public override Task<DyGetWebsocketConnectionStatusResponse> GetWebsocketConnectionStatus(
-        DyGetWebsocketConnectionStatusRequest request, ServerCallContext context)
-    {
-        var isConnected = request.IdCase switch
-        {
-            DyGetWebsocketConnectionStatusRequest.IdOneofCase.DeviceId =>
-                WebSocketService.GetDeviceIsConnected(request.DeviceId),
-            DyGetWebsocketConnectionStatusRequest.IdOneofCase.UserId => WebSocketService.GetAccountIsConnected(
-                Guid.Parse(request.UserId)),
-            _ => false
-        };
-
-        return Task.FromResult(new DyGetWebsocketConnectionStatusResponse { IsConnected = isConnected });
-    }
-
-    public override Task<DyGetWebsocketConnectionStatusBatchResponse> GetWebsocketConnectionStatusBatch(
-        DyGetWebsocketConnectionStatusBatchRequest request, ServerCallContext context)
-    {
-        var resp = new DyGetWebsocketConnectionStatusBatchResponse();
-        foreach (var id in request.UsersId)
-        {
-            var gid = Guid.Parse(id);
-            resp.IsConnected[id] = WebSocketService.GetAccountIsConnected(gid);
-        }
-
-        return Task.FromResult(resp);
-    }
-
-    public override Task<DyGetAllConnectedUserIdsResponse> GetAllConnectedUserIds(Google.Protobuf.WellKnownTypes.Empty request, ServerCallContext context)
-    {
-        var userIds = WebSocketService.GetAllConnectedUserIds();
-        var response = new DyGetAllConnectedUserIdsResponse();
-        response.UserIds.AddRange(userIds.Select(id => id.ToString()));
-        return Task.FromResult(response);
     }
 }

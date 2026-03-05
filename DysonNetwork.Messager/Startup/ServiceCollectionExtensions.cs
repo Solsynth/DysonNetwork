@@ -13,6 +13,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
+using DysonNetwork.Shared.Registry;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -162,7 +163,7 @@ public static class ServiceCollectionExtensions
                         var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
                         var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
                         var chatRoomService = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
-                        var pusher = ctx.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
+                        var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
 
                         logger.LogInformation("Account status updated: {AccountId}", evt.AccountId);
 
@@ -194,13 +195,11 @@ public static class ServiceCollectionExtensions
                                 }
                             };
 
-                            var request = new DyPushWebSocketPacketToUsersRequest
-                            {
-                                Packet = packet.ToProtoValue()
-                            };
-                            request.UserIds.AddRange(subscribedUsers);
-
-                            await pusher.PushWebSocketPacketToUsersAsync(request);
+                            await ws.PushWebSocketPacketToUsers(
+                                subscribedUsers,
+                                packet.Type,
+                                InfraObjectCoder.ConvertObjectToByteString(packet.Data).ToByteArray()
+                            );
 
                             logger.LogInformation("Sent status update for room {roomId} to {count} subscribed users",
                                 roomId,
@@ -216,25 +215,25 @@ public static class ServiceCollectionExtensions
         {
             var cs = ctx.ServiceProvider.GetRequiredService<ChatService>();
             var crs = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
-            var pusher = ctx.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
+            var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
 
             if (packet.Data == null)
             {
-                await SendErrorResponse(evt, "Mark message as read requires you to provide the ChatRoomId", pusher);
+                await SendErrorResponse(evt, "Mark message as read requires you to provide the ChatRoomId", ws);
                 return;
             }
 
             var requestData = packet.GetData<ChatController.MarkMessageReadRequest>();
             if (requestData == null)
             {
-                await SendErrorResponse(evt, "Invalid request data", pusher);
+                await SendErrorResponse(evt, "Invalid request data", ws);
                 return;
             }
 
             var sender = await crs.GetRoomMember(evt.AccountId, requestData.ChatRoomId);
             if (sender == null)
             {
-                await SendErrorResponse(evt, "User is not a member of the chat room.", pusher);
+                await SendErrorResponse(evt, "User is not a member of the chat room.", ws);
                 return;
             }
 
@@ -345,19 +344,19 @@ public static class ServiceCollectionExtensions
             var accounts = ctx.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
             var paymentClient = ctx.ServiceProvider.GetRequiredService<DyPaymentService.DyPaymentServiceClient>();
             var pollClient = ctx.ServiceProvider.GetRequiredService<DyPollService.DyPollServiceClient>();
-            var pusher = ctx.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
+            var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
             var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
 
             if (packet.Data == null)
             {
-                await SendErrorResponse(evt, "messages.send requires request payload.", pusher);
+                await SendErrorResponse(evt, "messages.send requires request payload.", ws);
                 return;
             }
 
             var requestData = packet.GetData<SendMessageWsRequest>();
             if (requestData == null || requestData.ChatRoomId == Guid.Empty)
             {
-                await SendErrorResponse(evt, "messages.send requires a valid chat_room_id.", pusher);
+                await SendErrorResponse(evt, "messages.send requires a valid chat_room_id.", ws);
                 return;
             }
 
@@ -367,13 +366,13 @@ public static class ServiceCollectionExtensions
             var member = await crs.GetRoomMember(evt.AccountId, requestData.ChatRoomId);
             if (member == null)
             {
-                await SendErrorResponse(evt, "You need to be a member to send messages here.", pusher);
+                await SendErrorResponse(evt, "You need to be a member to send messages here.", ws);
                 return;
             }
 
             if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
             {
-                await SendErrorResponse(evt, "You has been timed out in this chat.", pusher);
+                await SendErrorResponse(evt, "You has been timed out in this chat.", ws);
                 return;
             }
 
@@ -383,20 +382,20 @@ public static class ServiceCollectionExtensions
             {
                 if (!requestData.IsEncrypted || !HasEncryptedPayload(requestData))
                 {
-                    await SendErrorResponse(evt, "Encrypted payload is required for E2EE rooms.", pusher);
+                    await SendErrorResponse(evt, "Encrypted payload is required for E2EE rooms.", ws);
                     return;
                 }
 
                 if (mlsMode && (!string.Equals(requestData.EncryptionScheme, "chat.mls.v1", StringComparison.Ordinal) ||
                                 !requestData.EncryptionEpoch.HasValue))
                 {
-                    await SendErrorResponse(evt, "MLS rooms require scheme chat.mls.v1 and encryption_epoch.", pusher);
+                    await SendErrorResponse(evt, "MLS rooms require scheme chat.mls.v1 and encryption_epoch.", ws);
                     return;
                 }
 
                 if (LooksLikePlaintextJson(requestData.Ciphertext))
                 {
-                    await SendErrorResponse(evt, "Ciphertext appears to be plaintext JSON.", pusher);
+                    await SendErrorResponse(evt, "Ciphertext appears to be plaintext JSON.", ws);
                     return;
                 }
 
@@ -406,7 +405,7 @@ public static class ServiceCollectionExtensions
                     requestData.RepliedMessageId.HasValue ||
                     requestData.ForwardedMessageId.HasValue)
                 {
-                    await SendErrorResponse(evt, "Plaintext fields are forbidden for E2EE rooms.", pusher);
+                    await SendErrorResponse(evt, "Plaintext fields are forbidden for E2EE rooms.", ws);
                     return;
                 }
             }
@@ -417,7 +416,7 @@ public static class ServiceCollectionExtensions
                     !requestData.FundId.HasValue &&
                     !requestData.PollId.HasValue)
                 {
-                    await SendErrorResponse(evt, "You cannot send an empty message.", pusher);
+                    await SendErrorResponse(evt, "You cannot send an empty message.", ws);
                     return;
                 }
             }
@@ -433,18 +432,18 @@ public static class ServiceCollectionExtensions
 
                     if (fundResponse.CreatorAccountId != member.AccountId.ToString())
                     {
-                        await SendErrorResponse(evt, "You can only share funds that you created.", pusher);
+                        await SendErrorResponse(evt, "You can only share funds that you created.", ws);
                         return;
                     }
                 }
                 catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
                 {
-                    await SendErrorResponse(evt, "The specified fund does not exist.", pusher);
+                    await SendErrorResponse(evt, "The specified fund does not exist.", ws);
                     return;
                 }
                 catch (RpcException ex) when (ex.StatusCode == StatusCode.InvalidArgument)
                 {
-                    await SendErrorResponse(evt, "Invalid fund ID.", pusher);
+                    await SendErrorResponse(evt, "Invalid fund ID.", ws);
                     return;
                 }
             }
@@ -453,16 +452,17 @@ public static class ServiceCollectionExtensions
             {
                 try
                 {
-                    _ = await pollClient.GetPollAsync(new DyGetPollRequest { Id = requestData.PollId.Value.ToString() });
+                    _ = await pollClient.GetPollAsync(new DyGetPollRequest
+                        { Id = requestData.PollId.Value.ToString() });
                 }
                 catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
                 {
-                    await SendErrorResponse(evt, "The specified poll does not exist.", pusher);
+                    await SendErrorResponse(evt, "The specified poll does not exist.", ws);
                     return;
                 }
                 catch (RpcException ex) when (ex.StatusCode == StatusCode.InvalidArgument)
                 {
-                    await SendErrorResponse(evt, "Invalid poll ID.", pusher);
+                    await SendErrorResponse(evt, "Invalid poll ID.", ws);
                     return;
                 }
             }
@@ -547,7 +547,7 @@ public static class ServiceCollectionExtensions
                         m.Id == requestData.RepliedMessageId.Value && m.ChatRoomId == requestData.ChatRoomId);
                 if (repliedMessage == null)
                 {
-                    await SendErrorResponse(evt, "The message you're replying to does not exist.", pusher);
+                    await SendErrorResponse(evt, "The message you're replying to does not exist.", ws);
                     return;
                 }
 
@@ -560,7 +560,7 @@ public static class ServiceCollectionExtensions
                     .FirstOrDefaultAsync(m => m.Id == requestData.ForwardedMessageId.Value);
                 if (forwardedMessage == null)
                 {
-                    await SendErrorResponse(evt, "The message you're forwarding does not exist.", pusher);
+                    await SendErrorResponse(evt, "The message you're forwarding does not exist.", ws);
                     return;
                 }
 
@@ -584,20 +584,16 @@ public static class ServiceCollectionExtensions
             {
                 var result = await cs.SendMessageAsync(message, member, member.ChatRoom);
 
-                await pusher.PushWebSocketPacketToDeviceAsync(new DyPushWebSocketPacketToDeviceRequest
-                {
-                    DeviceId = evt.DeviceId,
-                    Packet = new WebSocketPacket
-                    {
-                        Type = "messages.delivered",
-                        Data = result
-                    }.ToProtoValue()
-                });
+                await ws.PushWebSocketPacketToDevice(
+                    evt.DeviceId,
+                    "messages.delivered",
+                    InfraObjectCoder.ConvertObjectToByteString(result).ToByteArray()
+                );
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Failed to send websocket message for account {AccountId}", evt.AccountId);
-                await SendErrorResponse(evt, "Failed to send message.", pusher);
+                await SendErrorResponse(evt, "Failed to send message.", ws);
             }
         }
 
@@ -605,38 +601,27 @@ public static class ServiceCollectionExtensions
             EventContext ctx)
         {
             var crs = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
-            var pusher = ctx.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
+            var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
 
             if (packet.Data == null)
             {
-                await SendErrorResponse(evt, "messages.typing requires you to provide the ChatRoomId", pusher);
+                await SendErrorResponse(evt, "messages.typing requires you to provide the ChatRoomId", ws);
                 return;
             }
 
             var requestData = packet.GetData<Chat.ChatController.ChatRoomWsUniversalRequest>();
             if (requestData == null)
             {
-                await SendErrorResponse(evt, "Invalid request data", pusher);
+                await SendErrorResponse(evt, "Invalid request data", ws);
                 return;
             }
 
             var sender = await crs.GetRoomMember(evt.AccountId, requestData.ChatRoomId);
             if (sender == null)
             {
-                await SendErrorResponse(evt, "User is not a member of the chat room.", pusher);
+                await SendErrorResponse(evt, "User is not a member of the chat room.", ws);
                 return;
             }
-
-            var responsePacket = new WebSocketPacket
-            {
-                Type = "messages.typing",
-                Data = new
-                {
-                    room_id = sender.ChatRoomId,
-                    sender_id = sender.Id,
-                    sender
-                }
-            };
 
             // Broadcast typing indicator to subscribed room members only
             var subscribedMemberIds = await crs.GetSubscribedMembers(requestData.ChatRoomId);
@@ -650,9 +635,16 @@ public static class ServiceCollectionExtensions
 
             if (subscribedMembers.Count > 0)
             {
-                var respRequest = new DyPushWebSocketPacketToUsersRequest { Packet = responsePacket.ToProtoValue() };
-                respRequest.UserIds.AddRange(subscribedMembers);
-                await pusher.PushWebSocketPacketToUsersAsync(respRequest);
+                await ws.PushWebSocketPacketToUsers(
+                    subscribedMembers,
+                    "messages.typing",
+                    InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
+                    {
+                        ["room_id"] = sender.ChatRoomId,
+                        ["sender_id"] = sender.Id,
+                        ["sender"] = sender
+                    }).ToByteArray()
+                );
             }
         }
 
@@ -660,25 +652,25 @@ public static class ServiceCollectionExtensions
             EventContext ctx)
         {
             var crs = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
-            var pusher = ctx.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
+            var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
 
             if (packet.Data == null)
             {
-                await SendErrorResponse(evt, "messages.subscribe requires you to provide the ChatRoomId", pusher);
+                await SendErrorResponse(evt, "messages.subscribe requires you to provide the ChatRoomId", ws);
                 return;
             }
 
-            var requestData = packet.GetData<Chat.ChatController.ChatRoomWsUniversalRequest>();
+            var requestData = packet.GetData<ChatController.ChatRoomWsUniversalRequest>();
             if (requestData == null)
             {
-                await SendErrorResponse(evt, "Invalid request data", pusher);
+                await SendErrorResponse(evt, "Invalid request data", ws);
                 return;
             }
 
             var sender = await crs.GetRoomMember(evt.AccountId, requestData.ChatRoomId);
             if (sender == null)
             {
-                await SendErrorResponse(evt, "User is not a member of the chat room.", pusher);
+                await SendErrorResponse(evt, "User is not a member of the chat room.", ws);
                 return;
             }
 
@@ -689,43 +681,38 @@ public static class ServiceCollectionExtensions
             EventContext ctx)
         {
             var crs = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
-            var pusher = ctx.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
+            var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
 
             if (packet.Data == null)
             {
-                await SendErrorResponse(evt, "messages.unsubscribe requires you to provide the ChatRoomId", pusher);
+                await SendErrorResponse(evt, "messages.unsubscribe requires you to provide the ChatRoomId", ws);
                 return;
             }
 
-            var requestData = packet.GetData<Chat.ChatController.ChatRoomWsUniversalRequest>();
+            var requestData = packet.GetData<ChatController.ChatRoomWsUniversalRequest>();
             if (requestData == null)
             {
-                await SendErrorResponse(evt, "Invalid request data", pusher);
+                await SendErrorResponse(evt, "Invalid request data", ws);
                 return;
             }
 
             var sender = await crs.GetRoomMember(evt.AccountId, requestData.ChatRoomId);
             if (sender == null)
             {
-                await SendErrorResponse(evt, "User is not a member of the chat room.", pusher);
+                await SendErrorResponse(evt, "User is not a member of the chat room.", ws);
                 return;
             }
 
             await crs.UnsubscribeChatRoom(sender);
         }
 
-        private static async Task SendErrorResponse(WebSocketPacketEvent evt, string message,
-            DyRingService.DyRingServiceClient pusher)
+        private static async Task SendErrorResponse(
+            WebSocketPacketEvent evt,
+            string message,
+            RemoteWebSocketService ws
+        )
         {
-            await pusher.PushWebSocketPacketToDeviceAsync(new DyPushWebSocketPacketToDeviceRequest
-            {
-                DeviceId = evt.DeviceId,
-                Packet = new WebSocketPacket
-                {
-                    Type = "error",
-                    ErrorMessage = message
-                }.ToProtoValue()
-            });
+            await ws.PushWebSocketPacketToDevice(evt.DeviceId, "error", [], message);
         }
     }
 }

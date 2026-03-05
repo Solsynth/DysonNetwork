@@ -345,8 +345,9 @@ namespace DysonNetwork.Shared.Proto {
             "ZWF0ZUFjdGlvbkxvZxIfLnByb3RvLkR5Q3JlYXRlQWN0aW9uTG9nUmVxdWVz",
             "dBogLnByb3RvLkR5Q3JlYXRlQWN0aW9uTG9nUmVzcG9uc2UiABJTCg5MaXN0",
             "QWN0aW9uTG9ncxIeLnByb3RvLkR5TGlzdEFjdGlvbkxvZ3NSZXF1ZXN0Gh8u",
-            "cHJvdG8uRHlMaXN0QWN0aW9uTG9nc1Jlc3BvbnNlIgBCHKoCGUR5c29uTmV0",
-            "d29yay5TaGFyZWQuUHJvdG9iBnByb3RvMw=="));
+            "cHJvdG8uRHlMaXN0QWN0aW9uTG9nc1Jlc3BvbnNlIgBCSlosZ2l0LnNvbHN5",
+            "bnRoLmRldi9zb2xhcm5ldHdvcmsvZHlzb25wcm90by9nZW6qAhlEeXNvbk5l",
+            "dHdvcmsuU2hhcmVkLlByb3RvYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.FieldMaskReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.StructReflection.Descriptor, global::DysonNetwork.Shared.Proto.FileReflection.Descriptor, global::DysonNetwork.Shared.Proto.WalletReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyStatusAttitude), typeof(global::DysonNetwork.Shared.Proto.DyAccountContactType), typeof(global::DysonNetwork.Shared.Proto.DyAccountAuthFactorType), typeof(global::DysonNetwork.Shared.Proto.DyVerificationMarkType), }, null, new pbr::GeneratedClrTypeInfo[] {

@@ -194,7 +194,7 @@ public partial class ChatService(
         IServiceScope scope
     )
     {
-        var scopedNty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
+        var scopedWs = scope.ServiceProvider.GetRequiredService<WebSocketService.WebSocketServiceClient>();
 
         var request = new DyPushWebSocketPacketToUsersRequest
         {
@@ -206,7 +206,7 @@ public partial class ChatService(
         };
         request.UserIds.AddRange(members.Select(a => a.Account).Where(a => a is not null)
             .Select(a => a!.Id.ToString()));
-        await scopedNty.PushWebSocketPacketToUsersAsync(request);
+        await scopedWs.PushWebSocketPacketToUsersAsync(request);
 
         logger.LogInformation($"Delivered message to {request.UserIds.Count} accounts.");
     }
