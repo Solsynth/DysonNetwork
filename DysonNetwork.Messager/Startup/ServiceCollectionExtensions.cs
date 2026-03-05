@@ -153,7 +153,14 @@ public static class ServiceCollectionExtensions
                             case "messages.unsubscribe":
                                 await HandleMessageUnsubscribe(evt, packet, ctx);
                                 break;
+                            case "messages.test":
+                                await HandleMessageTest(evt, packet, ctx);
+                                break;
                         }
+                    },
+                    opts =>
+                    {
+                        opts.UseJetStream = false;
                     }
                 )
                 .AddListener<AccountStatusUpdatedEvent>(
@@ -704,6 +711,23 @@ public static class ServiceCollectionExtensions
             }
 
             await crs.UnsubscribeChatRoom(sender);
+        }
+
+        private static async Task HandleMessageTest(WebSocketPacketEvent evt, WebSocketPacket packet, EventContext ctx)
+        {
+            var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
+            var logger = ctx.ServiceProvider.GetRequiredService<ILogger<RemoteWebSocketService>>();
+
+            // Send back the original payload to the sender
+            var payload = packet.Data ?? new Dictionary<string, object>();
+            var payloadBytes = InfraObjectCoder.ConvertObjectToByteString(payload).ToByteArray();
+            logger.LogInformation("Received test message: {payload}", payloadBytes);
+            
+            await ws.PushWebSocketPacketToDevice(
+                evt.DeviceId,
+                "messages.test",
+                payloadBytes
+            );
         }
 
         private static async Task SendErrorResponse(

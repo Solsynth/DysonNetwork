@@ -32,7 +32,7 @@ public class EventListenerOptions
 
 public class EventBusBuilder : IEventBusBuilder
 {
-    private readonly List<EventSubscription> _subscriptions = new();
+    private readonly List<EventSubscription> _subscriptions = [];
 
     public EventBusBuilder(IServiceCollection services, string serviceName)
     {
