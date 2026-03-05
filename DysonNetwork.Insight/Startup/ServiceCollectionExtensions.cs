@@ -74,9 +74,6 @@ public static class ServiceCollectionExtensions
                 return new DysonNetwork.Shared.Localization.JsonLocalizationService(assembly, resourceNamespace);
             });
 
-            // Register Ring service for push notifications
-            services.AddRingService();
-
             return services;
         }
 

@@ -43,6 +43,8 @@ var walletService = builder.AddProject<Projects.DysonNetwork_Wallet>("wallet")
     .WithReference(passService)
     .WithReference(ringService);
 
+var bladeService = builder.AddExternalService("blade", "http://localhost:7001");
+
 passService.WithReference(developService).WithReference(driveService).WithReference(walletService);
 
 List<IResourceBuilder<ProjectResource>> services =
@@ -62,7 +64,7 @@ for (var idx = 0; idx < services.Count; idx++)
 {
     var service = services[idx];
 
-    service.WithReference(cache).WithReference(queue);
+    service.WithReference(cache).WithReference(queue).WithReference(bladeService);
 
     var grpcPort = 7002 + idx;
 

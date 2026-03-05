@@ -18,6 +18,7 @@ builder.Services.AddAppServices();
 builder.Services.AddAppAuthentication();
 builder.Services.AddDysonAuth();
 builder.Services.AddAccountService();
+builder.Services.AddBladeService();
 builder.Services.AddRingService();
 builder.Services.AddDriveService();
 builder.Services.AddInsightService();

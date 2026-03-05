@@ -10,8 +10,8 @@ public static class ServiceInjectionHelper
         public IServiceCollection AddBladeService()
         {
             services.AddGrpcClientWithSharedChannel<WebSocketService.WebSocketServiceClient>(
-                "https://_grpc.ring",
-                "DyRingService");
+                "http://blade",
+                "BladeWebSocket");
             services.AddSingleton<RemoteWebSocketService>();
 
             return services;

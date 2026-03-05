@@ -37,8 +37,6 @@ public static class ServiceCollectionExtensions
         });
         services.AddGrpcReflection();
 
-        services.AddRingService();
-
         services.AddControllers().AddJsonOptions(options =>
         {
             options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;

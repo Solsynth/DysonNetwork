@@ -53,8 +53,6 @@ public static class ServiceCollectionExtensions
         });
         services.AddGrpcReflection();
 
-        services.AddRingService();
-
         // Register OIDC services
         services.AddScoped<OidcService, GoogleOidcService>();
         services.AddScoped<OidcService, AppleOidcService>();
