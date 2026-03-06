@@ -43,10 +43,12 @@ services:
       HTTPS_PORTS: "7001"
       ConnectionStrings__queue: nats://nats:${QUEUE_PASSWORD}@queue:4222
       services__pass__http__0: http://pass:8080
+      services__padlock__http__0: http://padlock:8080
       OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: ring
       services__pass__grpc__0: https://pass:5001
+      services__padlock__grpc__0: https://padlock:5001
     expose:
       - "8080"
       - "7001"
@@ -64,9 +66,32 @@ services:
       ConnectionStrings__cache: cache:6379,password=${CACHE_PASSWORD}
       ConnectionStrings__queue: nats://nats:${QUEUE_PASSWORD}@queue:4222
       services__ring__http__0: http://ring:8080
+      services__padlock__http__0: http://padlock:8080
       OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: pass
+      services__ring__grpc__0: https://ring:5001
+      services__padlock__grpc__0: https://padlock:5001
+    expose:
+      - "8080"
+      - "7001"
+    networks:
+      - aspire
+  padlock:
+    image: ${PADLOCK_IMAGE}
+    environment:
+      OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES: "true"
+      OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES: "true"
+      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: in_memory
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      HTTP_PORTS: "8080"
+      HTTPS_PORTS: "7001"
+      ConnectionStrings__cache: cache:6379,password=${CACHE_PASSWORD}
+      ConnectionStrings__queue: nats://nats:${QUEUE_PASSWORD}@queue:4222
+      services__ring__http__0: http://ring:8080
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_SERVICE_NAME: padlock
       services__ring__grpc__0: https://ring:5001
     expose:
       - "8080"
@@ -85,11 +110,13 @@ services:
       ConnectionStrings__cache: cache:6379,password=${CACHE_PASSWORD}
       ConnectionStrings__queue: nats://nats:${QUEUE_PASSWORD}@queue:4222
       services__pass__http__0: http://pass:8080
+      services__padlock__http__0: http://padlock:8080
       services__ring__http__0: http://ring:8080
       OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: drive
       services__pass__grpc__0: https://pass:5001
+      services__padlock__grpc__0: https://padlock:5001
       services__ring__grpc__0: https://ring:5001
     expose:
       - "8080"
@@ -108,12 +135,14 @@ services:
       ConnectionStrings__cache: cache:6379,password=${CACHE_PASSWORD}
       ConnectionStrings__queue: nats://nats:${QUEUE_PASSWORD}@queue:4222
       services__pass__http__0: http://pass:8080
+      services__padlock__http__0: http://padlock:8080
       services__ring__http__0: http://ring:8080
       services__drive__http__0: http://drive:8080
       OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: sphere
       services__pass__grpc__0: https://pass:5001
+      services__padlock__grpc__0: https://padlock:5001
       services__drive__grpc__0: https://drive:5001
       services__ring__grpc__0: https://ring:5001
     expose:
@@ -132,11 +161,13 @@ services:
       HTTPS_PORTS: "7001"
       ConnectionStrings__cache: cache:6379,password=${CACHE_PASSWORD}
       services__pass__http__0: http://pass:8080
+      services__padlock__http__0: http://padlock:8080
       services__ring__http__0: http://ring:8080
       OTEL_EXPORTER_OTLP_ENDPOINT: http://docker-compose-dashboard:18889
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       OTEL_SERVICE_NAME: develop
       services__pass__grpc__0: https://pass:5001
+      services__padlock__grpc__0: https://padlock:5001
       services__ring__grpc__0: https://ring:5001
     expose:
       - "8080"
@@ -156,11 +187,11 @@ services:
       REVERSEPROXY__ROUTES__route1__TRANSFORMS__0__PathRemovePrefix: /ring
       REVERSEPROXY__ROUTES__route1__TRANSFORMS__1__PathPrefix: /api
       REVERSEPROXY__ROUTES__route2__MATCH__PATH: /.well-known/openid-configuration
-      REVERSEPROXY__ROUTES__route2__CLUSTERID: cluster_pass
+      REVERSEPROXY__ROUTES__route2__CLUSTERID: cluster_padlock
       REVERSEPROXY__ROUTES__route3__MATCH__PATH: /.well-known/jwks
-      REVERSEPROXY__ROUTES__route3__CLUSTERID: cluster_pass
+      REVERSEPROXY__ROUTES__route3__CLUSTERID: cluster_padlock
       REVERSEPROXY__ROUTES__route4__MATCH__PATH: /id/{**catch-all}
-      REVERSEPROXY__ROUTES__route4__CLUSTERID: cluster_pass
+      REVERSEPROXY__ROUTES__route4__CLUSTERID: cluster_padlock
       REVERSEPROXY__ROUTES__route4__TRANSFORMS__0__PathRemovePrefix: /id
       REVERSEPROXY__ROUTES__route4__TRANSFORMS__1__PathPrefix: /api
       REVERSEPROXY__ROUTES__route5__MATCH__PATH: /api/tus
@@ -173,17 +204,24 @@ services:
       REVERSEPROXY__ROUTES__route7__CLUSTERID: cluster_sphere
       REVERSEPROXY__ROUTES__route7__TRANSFORMS__0__PathRemovePrefix: /sphere
       REVERSEPROXY__ROUTES__route7__TRANSFORMS__1__PathPrefix: /api
-      REVERSEPROXY__ROUTES__route8__MATCH__PATH: /develop/{**catch-all}
-      REVERSEPROXY__ROUTES__route8__CLUSTERID: cluster_develop
-      REVERSEPROXY__ROUTES__route8__TRANSFORMS__0__PathRemovePrefix: /develop
+      REVERSEPROXY__ROUTES__route8__MATCH__PATH: /padlock/{**catch-all}
+      REVERSEPROXY__ROUTES__route8__CLUSTERID: cluster_padlock
+      REVERSEPROXY__ROUTES__route8__TRANSFORMS__0__PathRemovePrefix: /padlock
       REVERSEPROXY__ROUTES__route8__TRANSFORMS__1__PathPrefix: /api
+      REVERSEPROXY__ROUTES__route9__MATCH__PATH: /develop/{**catch-all}
+      REVERSEPROXY__ROUTES__route9__CLUSTERID: cluster_develop
+      REVERSEPROXY__ROUTES__route9__TRANSFORMS__0__PathRemovePrefix: /develop
+      REVERSEPROXY__ROUTES__route9__TRANSFORMS__1__PathPrefix: /api
       REVERSEPROXY__CLUSTERS__cluster_ring__DESTINATIONS__destination1__ADDRESS: http://_http.ring
       REVERSEPROXY__CLUSTERS__cluster_pass__DESTINATIONS__destination1__ADDRESS: http://_http.pass
+      REVERSEPROXY__CLUSTERS__cluster_padlock__DESTINATIONS__destination1__ADDRESS: http://_http.padlock
       REVERSEPROXY__CLUSTERS__cluster_drive__DESTINATIONS__destination1__ADDRESS: http://_http.drive
       REVERSEPROXY__CLUSTERS__cluster_sphere__DESTINATIONS__destination1__ADDRESS: http://_http.sphere
       REVERSEPROXY__CLUSTERS__cluster_develop__DESTINATIONS__destination1__ADDRESS: http://_http.develop
       services__pass__http__0: http://pass:8080
       services__pass__grpc__0: https://pass:5001
+      services__padlock__http__0: http://padlock:8080
+      services__padlock__grpc__0: https://padlock:5001
       services__drive__http__0: http://drive:8080
       services__drive__grpc__0: https://drive:5001
       services__sphere__http__0: http://sphere:8080

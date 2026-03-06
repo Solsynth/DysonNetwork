@@ -1,6 +1,7 @@
 using System.Globalization;
 using DysonNetwork.Padlock.Auth;
 using DysonNetwork.Padlock.Auth.OpenId;
+using DysonNetwork.Padlock.Account;
 using DysonNetwork.Padlock.Permission;
 using DysonNetwork.Padlock.Localization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -129,12 +130,14 @@ public static class ServiceCollectionExtensions
             return new DysonNetwork.Shared.Templating.DotLiquidTemplateService(assembly, resourceNamespace);
         });
         services.AddScoped<PermissionService>();
+        services.AddScoped<AccountService>();
         services.AddSingleton<AuthTokenKeyProvider>();
         services.AddScoped<AuthService>();
         services.AddScoped<TokenAuthService>();
 
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();
+        services.AddEventBus();
 
         return services;
     }

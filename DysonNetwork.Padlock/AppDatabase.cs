@@ -19,11 +19,8 @@ public class AppDatabase(
 
     public DbSet<SnAccount> Accounts { get; set; } = null!;
     public DbSet<SnAccountConnection> AccountConnections { get; set; } = null!;
-    public DbSet<SnAccountProfile> AccountProfiles { get; set; } = null!;
     public DbSet<SnAccountContact> AccountContacts { get; set; } = null!;
     public DbSet<SnAccountAuthFactor> AccountAuthFactors { get; set; } = null!;
-    public DbSet<SnAccountStatus> AccountStatuses { get; set; } = null!;
-    public DbSet<SnActionLog> ActionLogs { get; set; } = null!;
 
     public DbSet<SnAuthSession> AuthSessions { get; set; } = null!;
     public DbSet<SnAuthChallenge> AuthChallenges { get; set; } = null!;
@@ -75,6 +72,13 @@ public class AppDatabase(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Padlock keeps auth/security ownership; relationship graph lives in Pass.
+        modelBuilder.Ignore<SnAccountProfile>();
+        modelBuilder.Ignore<SnAccountRelationship>();
+        modelBuilder.Entity<SnAccount>().Ignore(a => a.Profile);
+        modelBuilder.Entity<SnAccount>().Ignore(a => a.IncomingRelationships);
+        modelBuilder.Entity<SnAccount>().Ignore(a => a.OutgoingRelationships);
 
         modelBuilder.Entity<SnPermissionGroupMember>()
             .HasKey(pg => new { pg.GroupId, pg.Actor });

@@ -12,6 +12,8 @@ builder.ConfigureAppKestrel(builder.Configuration);
 
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppAuthentication();
+builder.Services.AddBladeService();
+builder.Services.AddRingService();
 
 builder.Services.AddAppFlushHandlers();
 builder.Services.AddAppBusinessServices(builder.Configuration);
@@ -31,7 +33,8 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
-app.MapControllers();
+app.ConfigureAppMiddleware(builder.Configuration);
+app.ConfigureGrpcServices();
 
 app.UseSwaggerManifest("DysonNetwork.Padlock");
 

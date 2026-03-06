@@ -79,7 +79,6 @@ public class TokenAuthService(
                 .AsNoTracking()
                 .Include(e => e.Client)
                 .Include(e => e.Account)
-                .ThenInclude(e => e.Profile)
                 .FirstOrDefaultAsync(s => s.Id == sessionId);
 
             if (session is null)

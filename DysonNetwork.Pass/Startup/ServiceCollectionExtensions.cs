@@ -22,6 +22,7 @@ using DysonNetwork.Pass.Realm;
 using DysonNetwork.Pass.Rewind;
 using DysonNetwork.Pass.Safety;
 using DysonNetwork.Pass.Ticket;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
@@ -30,6 +31,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.Localization;
+using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Pass.Startup;
 
@@ -117,10 +119,12 @@ public static class ServiceCollectionExtensions
         services.AddAuthorization();
         services.AddAuthentication(options =>
             {
-                options.DefaultAuthenticateScheme = AuthConstants.SchemeName;
-                options.DefaultChallengeScheme = AuthConstants.SchemeName;
+                options.DefaultAuthenticateScheme = DysonNetwork.Shared.Auth.AuthConstants.SchemeName;
+                options.DefaultChallengeScheme = DysonNetwork.Shared.Auth.AuthConstants.SchemeName;
             })
-            .AddScheme<DysonTokenAuthOptions, DysonTokenAuthHandler>(AuthConstants.SchemeName, _ => { });
+            .AddScheme<DysonNetwork.Shared.Auth.DysonTokenAuthOptions, DysonNetwork.Shared.Auth.DysonTokenAuthHandler>(
+                DysonNetwork.Shared.Auth.AuthConstants.SchemeName,
+                _ => { });
 
         return services;
     }
@@ -246,6 +250,40 @@ public static class ServiceCollectionExtensions
                 }
 
                 logger.LogInformation("Handled status update for user {AccountId} on disconnect", evt.AccountId);
+            })
+            .AddListener<AccountIdentityUpsertedEvent>(async (evt, ctx) =>
+            {
+                var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
+                var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+
+                var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == evt.AccountId, ctx.CancellationToken);
+                if (account is null)
+                {
+                    account = new SnAccount
+                    {
+                        Id = evt.AccountId,
+                        Name = evt.Name,
+                        Nick = evt.Nick,
+                        Language = evt.Language,
+                        Region = evt.Region,
+                        ActivatedAt = evt.ActivatedAt,
+                        IsSuperuser = evt.IsSuperuser
+                    };
+                    db.Accounts.Add(account);
+                }
+                else
+                {
+                    account.Name = evt.Name;
+                    account.Nick = evt.Nick;
+                    account.Language = evt.Language;
+                    account.Region = evt.Region;
+                    account.ActivatedAt = evt.ActivatedAt;
+                    account.IsSuperuser = evt.IsSuperuser;
+                    db.Update(account);
+                }
+
+                await db.SaveChangesAsync(ctx.CancellationToken);
+                logger.LogInformation("Upserted account identity read model for {AccountId}", evt.AccountId);
             });
 
         return services;

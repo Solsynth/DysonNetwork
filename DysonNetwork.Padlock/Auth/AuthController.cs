@@ -6,7 +6,7 @@ using DysonNetwork.Shared.Models;
 namespace DysonNetwork.Padlock.Auth;
 
 [ApiController]
-[Route("api/v1/auth")]
+[Route("/api/auth")]
 public class AuthController(
     AuthService auth,
     AppDatabase db,
@@ -63,3 +63,9 @@ public class AuthController(
 public record LoginRequest(string? Identifier, string? Password, string? DeviceId);
 public record RefreshRequest(string RefreshToken);
 public record SudoRequest(string? PinCode);
+public class TokenExchangeResponse
+{
+    public string Token { get; set; } = string.Empty;
+    public string? CookieDomain { get; set; }
+    public bool? IsSecure { get; set; }
+}

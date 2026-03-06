@@ -30,7 +30,7 @@ public static class ServiceInjectionHelper
         public IServiceCollection AddAuthService()
         {
             services.AddGrpcClientWithSharedChannel<DyAuthService.DyAuthServiceClient>(
-                "https://_grpc.pass",
+                "https://_grpc.padlock",
                 "DyAuthService");
             services.AddGrpcClientWithSharedChannel<DyPermissionService.DyPermissionServiceClient>(
                 "https://_grpc.pass",

@@ -1,11 +1,7 @@
-using DysonNetwork.Pass.Account;
-using DysonNetwork.Pass.Credit;
-using DysonNetwork.Pass.Leveling;
-using DysonNetwork.Pass.Permission;
-using DysonNetwork.Pass.Realm;
+using DysonNetwork.Padlock.Auth;
 using DysonNetwork.Shared.Networking;
 
-namespace DysonNetwork.Pass.Startup;
+namespace DysonNetwork.Padlock.Startup;
 
 public static class ApplicationConfiguration
 {
@@ -20,7 +16,6 @@ public static class ApplicationConfiguration
         app.UseWebSockets();
         app.UseAuthentication();
         app.UseAuthorization();
-        app.UseMiddleware<LocalPermissionMiddleware>();
 
         app.MapControllers().RequireRateLimiting("fixed");
 
@@ -29,13 +24,7 @@ public static class ApplicationConfiguration
 
     public static WebApplication ConfigureGrpcServices(this WebApplication app)
     {
-        app.MapGrpcService<AccountServiceGrpc>();
-        app.MapGrpcService<ActionLogServiceGrpc>();
-        app.MapGrpcService<PermissionServiceGrpc>();
-        app.MapGrpcService<SocialCreditServiceGrpc>();
-        app.MapGrpcService<ExperienceServiceGrpc>();
-        app.MapGrpcService<BotAccountReceiverGrpc>();
-        app.MapGrpcService<RealmServiceGrpc>();
+        app.MapGrpcService<AuthServiceGrpc>();
         app.MapGrpcReflectionService();
 
         return app;

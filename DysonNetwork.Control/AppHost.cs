@@ -8,40 +8,50 @@ var cache = builder.AddRedis("Cache");
 var queue = builder.AddNats("Queue").WithJetStream();
 
 var ringService = builder.AddProject<Projects.DysonNetwork_Ring>("ring");
-var passService = builder.AddProject<Projects.DysonNetwork_Pass>("pass")
+var padlockService = builder.AddProject<Projects.DysonNetwork_Padlock>("padlock")
     .WithReference(ringService);
+var passService = builder.AddProject<Projects.DysonNetwork_Pass>("pass")
+    .WithReference(ringService)
+    .WithReference(padlockService);
 var driveService = builder.AddProject<Projects.DysonNetwork_Drive>("drive")
     .WithReference(passService)
-    .WithReference(ringService);
+    .WithReference(ringService)
+    .WithReference(padlockService);
 var sphereService = builder.AddProject<Projects.DysonNetwork_Sphere>("sphere")
     .WithReference(passService)
     .WithReference(ringService)
-    .WithReference(driveService);
+    .WithReference(driveService)
+    .WithReference(padlockService);
 var developService = builder.AddProject<Projects.DysonNetwork_Develop>("develop")
     .WithReference(passService)
     .WithReference(ringService)
-    .WithReference(sphereService);
+    .WithReference(sphereService)
+    .WithReference(padlockService);
 var insightService = builder.AddProject<Projects.DysonNetwork_Insight>("insight")
     .WithReference(passService)
     .WithReference(ringService)
     .WithReference(sphereService)
-    .WithReference(developService);
+    .WithReference(developService)
+    .WithReference(padlockService);
 var zoneService = builder.AddProject<Projects.DysonNetwork_Zone>("zone")
     .WithReference(passService)
     .WithReference(ringService)
     .WithReference(sphereService)
     .WithReference(developService)
-    .WithReference(insightService);
+    .WithReference(insightService)
+    .WithReference(padlockService);
 var messagerService = builder.AddProject<Projects.DysonNetwork_Messager>("messager")
     .WithReference(passService)
     .WithReference(ringService)
     .WithReference(sphereService)
     .WithReference(developService)
-    .WithReference(driveService);
+    .WithReference(driveService)
+    .WithReference(padlockService);
 
 var walletService = builder.AddProject<Projects.DysonNetwork_Wallet>("wallet")
     .WithReference(passService)
-    .WithReference(ringService);
+    .WithReference(ringService)
+    .WithReference(padlockService);
 
 var bladeService = builder.AddExternalService("blade", "http://localhost:7001");
 
@@ -50,6 +60,7 @@ passService.WithReference(developService).WithReference(driveService).WithRefere
 List<IResourceBuilder<ProjectResource>> services =
 [
     ringService,
+    padlockService,
     passService,
     driveService,
     sphereService,
