@@ -82,6 +82,7 @@ public class AppDatabase(
         base.OnModelCreating(modelBuilder);
 
         // Padlock keeps auth/security ownership; relationship graph lives in Pass.
+        modelBuilder.Ignore<SnAccountBadge>();
         modelBuilder.Ignore<SnAccountProfile>();
         modelBuilder.Ignore<SnAccountRelationship>();
         modelBuilder.Entity<SnAccount>().Ignore(a => a.Profile);

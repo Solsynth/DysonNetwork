@@ -13,7 +13,8 @@ namespace DysonNetwork.Padlock.Account;
 public class AccountController(
     AuthService auth,
     AccountService accounts,
-    GeoService geo
+    GeoService geo,
+    IConfiguration configuration
 ) : ControllerBase
 {
     public class AccountCreateRequest
@@ -69,14 +70,12 @@ public class AccountController(
     [HttpPost]
     public async Task<ActionResult<SnAccount>> CreateAccount([FromBody] AccountCreateRequest request)
     {
-        if (!await auth.ValidateCaptcha(request.CaptchaToken))
+        if (!await auth.ValidateCaptcha(request.CaptchaToken) && !configuration.GetValue<bool>("SkipCaptcha"))
             return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
-            {
-                [nameof(request.CaptchaToken)] = ["Invalid captcha token."]
-            }, traceId: HttpContext.TraceIdentifier));
+            { [nameof(request.CaptchaToken)] = ["Invalid captcha token."] }, traceId: HttpContext.TraceIdentifier));
 
         var ip = HttpContext.GetClientIpAddress();
-        var region = ip is null ? "us" : geo.GetFromIp(ip)?.Country.IsoCode ?? "us";
+        var region = geo.GetFromIp(ip)?.Country.IsoCode ?? "us";
 
         try
         {

@@ -15,6 +15,7 @@ using DysonNetwork.Padlock.E2EE;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
+using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Localization;
 
 namespace DysonNetwork.Padlock.Startup;
@@ -130,6 +131,8 @@ public static class ServiceCollectionExtensions
             var resourceNamespace = "DysonNetwork.Padlock.Resources.Templates";
             return new DysonNetwork.Shared.Templating.DotLiquidTemplateService(assembly, resourceNamespace);
         });
+        services.Configure<GeoOptions>(configuration.GetSection("GeoIP"));
+        services.AddScoped<GeoService>();
         services.AddScoped<PermissionService>();
         services.AddScoped<AccountService>();
         services.AddSingleton<AuthTokenKeyProvider>();

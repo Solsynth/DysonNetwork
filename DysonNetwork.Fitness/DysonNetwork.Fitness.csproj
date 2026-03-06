@@ -21,9 +21,9 @@
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" Version="10.0.0" />
         <PackageReference Include="EFCore.NamingConventions" Version="10.0.1" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.1" />
-        <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.1.0" />
-        <PackageReference Include="Aspire.StackExchange.Redis" Version="13.1.0" />
-        <PackageReference Include="Aspire.NATS.Net" Version="13.1.0" />
+        <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.1.2" />
+        <PackageReference Include="Aspire.StackExchange.Redis" Version="13.1.2" />
+        <PackageReference Include="Aspire.NATS.Net" Version="13.1.2" />
     </ItemGroup>
   
     <ItemGroup>

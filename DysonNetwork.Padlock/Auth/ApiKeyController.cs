@@ -8,7 +8,7 @@ using NodaTime;
 namespace DysonNetwork.Padlock.Auth;
 
 [ApiController]
-[Route("api/v1/auth/apikey")]
+[Route("/api/api-keys")]
 [Authorize]
 public class ApiKeyController(
     AuthService auth,
@@ -25,6 +25,7 @@ public class ApiKeyController(
         var keys = await db.ApiKeys
             .Where(k => k.AccountId == user.Id)
             .Where(k => k.DeletedAt == null)
+            .Include(snApiKey => snApiKey.Session)
             .ToListAsync(ct);
 
         return Ok(keys.Select(k => new { k.Id, k.Label, k.CreatedAt, k.Session.ExpiredAt }));
@@ -37,8 +38,11 @@ public class ApiKeyController(
         if (user is null) return Unauthorized();
 
         var session = HttpContext.Items["CurrentSession"] as SnAuthSession;
-        
-        var key = await auth.CreateApiKey(user.Id, request.Label, request.ExpiredAt.HasValue ? SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromSeconds(request.ExpiredAt.Value.Ticks)) : null, session);
+
+        var key = await auth.CreateApiKey(user.Id, request.Label,
+            request.ExpiredAt.HasValue
+                ? SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromSeconds(request.ExpiredAt.Value.Ticks))
+                : null, session);
         var token = await auth.IssueApiKeyToken(key);
 
         return Ok(new { key.Id, key.Label, token, key.CreatedAt, key.Session.ExpiredAt });

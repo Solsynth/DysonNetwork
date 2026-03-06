@@ -6,6 +6,7 @@ using DysonNetwork.Padlock;
 using DysonNetwork.Shared.Geometry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -15,9 +16,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Padlock.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20260306154941_MigrateE2eeLogic")]
+    partial class MigrateE2eeLogic
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -146,6 +149,67 @@ namespace DysonNetwork.Padlock.Migrations
                         .HasDatabaseName("ix_account_auth_factors_account_id");
 
                     b.ToTable("account_auth_factors", (string)null);
+                });
+
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnAccountBadge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Instant?>("ActivatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("activated_at");
+
+                    b.Property<string>("Caption")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("caption");
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Instant?>("ExpiredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expired_at");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("label");
+
+                    b.Property<Dictionary<string, object>>("Meta")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("meta");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("type");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_sn_account_badge");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_sn_account_badge_account_id");
+
+                    b.ToTable("sn_account_badge", (string)null);
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnAccountConnection", b =>
@@ -1258,6 +1322,18 @@ namespace DysonNetwork.Padlock.Migrations
                     b.Navigation("Account");
                 });
 
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnAccountBadge", b =>
+                {
+                    b.HasOne("DysonNetwork.Shared.Models.SnAccount", "Account")
+                        .WithMany("Badges")
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_sn_account_badge_accounts_account_id");
+
+                    b.Navigation("Account");
+                });
+
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnAccountConnection", b =>
                 {
                     b.HasOne("DysonNetwork.Shared.Models.SnAccount", "Account")
@@ -1426,6 +1502,8 @@ namespace DysonNetwork.Padlock.Migrations
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnAccount", b =>
                 {
                     b.Navigation("AuthFactors");
+
+                    b.Navigation("Badges");
 
                     b.Navigation("Challenges");
 

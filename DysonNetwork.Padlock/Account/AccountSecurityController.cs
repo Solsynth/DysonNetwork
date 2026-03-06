@@ -16,7 +16,7 @@ public class AccountSecurityController(
     AccountService accounts
 ) : ControllerBase
 {
-    [HttpGet]
+    [HttpGet("/api/auth/me/identity")]
     public async Task<ActionResult<SnAccount>> GetCurrentIdentity()
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();

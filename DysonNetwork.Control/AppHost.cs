@@ -60,7 +60,6 @@ passService.WithReference(developService).WithReference(driveService).WithRefere
 List<IResourceBuilder<ProjectResource>> services =
 [
     ringService,
-    padlockService,
     passService,
     driveService,
     sphereService,
@@ -68,7 +67,8 @@ List<IResourceBuilder<ProjectResource>> services =
     insightService,
     zoneService,
     messagerService,
-    walletService
+    walletService,
+    padlockService
 ];
 
 for (var idx = 0; idx < services.Count; idx++)
