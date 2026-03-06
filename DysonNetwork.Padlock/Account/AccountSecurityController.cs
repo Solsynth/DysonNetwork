@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace DysonNetwork.Padlock.Account;
 
 [Authorize]
+[RequireInteractiveSession]
 [ApiController]
 [Route("/api/accounts/me")]
 public class AccountSecurityController(

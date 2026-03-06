@@ -5,6 +5,8 @@ public static class AuthConstants
     public const string SchemeName = "DysonToken";
     public const string TokenQueryParamName = "tk";
     public const string CookieTokenName = "AuthToken";
+    public const string UserHeaderScheme = "Bearer";
+    public const string BotHeaderScheme = "Bot";
 }
 
 public enum TokenType

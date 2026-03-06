@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using DysonNetwork.Padlock.Auth;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Auth;
 
 namespace DysonNetwork.Padlock.Auth;
 
@@ -25,6 +26,7 @@ public class AuthController(
 
     [HttpPost("logout")]
     [Authorize]
+    [RequireInteractiveSession]
     public async Task<IActionResult> Logout(CancellationToken ct)
     {
         return Ok();
@@ -48,6 +50,7 @@ public class AuthController(
 
     [HttpPost("sudo")]
     [Authorize]
+    [RequireInteractiveSession]
     public async Task<IActionResult> EnableSudoMode([FromBody] SudoRequest request, CancellationToken ct)
     {
         var session = HttpContext.Items["CurrentSession"] as SnAuthSession;

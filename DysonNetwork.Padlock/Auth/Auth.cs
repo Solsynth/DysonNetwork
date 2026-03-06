@@ -37,7 +37,8 @@ public class DysonTokenAuthHandler(
     ILoggerFactory logger,
     UrlEncoder encoder,
     TokenAuthService token,
-    FlushBufferService fbs
+    FlushBufferService fbs,
+    IConfiguration config
 )
     : AuthenticationHandler<DysonTokenAuthOptions>(options, logger, encoder)
 {
@@ -52,9 +53,15 @@ public class DysonTokenAuthHandler(
         {
             var ipAddress = Context.GetClientIpAddress();
             
-            var (valid, session, message) = await token.AuthenticateTokenAsync(tokenInfo.Token, ipAddress);
+            var (valid, session, message, tokenUse) = await token.AuthenticateTokenAsync(tokenInfo.Token, ipAddress);
             if (!valid || session is null)
                 return AuthenticateResult.Fail(message ?? "Authentication failed.");
+
+            if (tokenInfo.Type == TokenType.ApiKey && tokenUse != "api_key")
+                return AuthenticateResult.Fail("Bot auth scheme requires API key token.");
+
+            if ((tokenInfo.Type == TokenType.AuthKey || tokenInfo.Type == TokenType.OidcKey) && tokenUse == "api_key")
+                return AuthenticateResult.Fail("API key token must use Bot auth scheme.");
 
             Context.Items["CurrentUser"] = session.Account;
             Context.Items["CurrentSession"] = session;
@@ -119,6 +126,19 @@ public class DysonTokenAuthHandler(
                 };
             }
 
+            if (authHeader.StartsWith("Bot ", StringComparison.OrdinalIgnoreCase))
+            {
+                return new TokenInfo
+                {
+                    Token = authHeader["Bot ".Length..].Trim(),
+                    Type = TokenType.ApiKey
+                };
+            }
+
+            var acceptLegacySchemes = config.GetValue("Auth:Headers:AcceptLegacySchemes", true);
+            if (!acceptLegacySchemes)
+                goto cookie_check;
+
             if (authHeader.StartsWith("AtField ", StringComparison.OrdinalIgnoreCase))
             {
                 return new TokenInfo
@@ -138,6 +158,7 @@ public class DysonTokenAuthHandler(
             }
         }
 
+    cookie_check:
         if (request.Cookies.TryGetValue(AuthConstants.CookieTokenName, out var cookieToken))
         {
             return new TokenInfo

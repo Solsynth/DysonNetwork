@@ -13,17 +13,20 @@ public class TokenAuthService(
     ICacheService cache,
     ILogger<TokenAuthService> logger,
     OidcProvider.Services.OidcProviderService oidc,
-    AuthTokenKeyProvider tokenKeyProvider
-)
+    AuthTokenKeyProvider tokenKeyProvider,
+    AuthJwtService authJwt,
+    IConfiguration config
+) 
 {
-    public async Task<(bool Valid, SnAuthSession? Session, string? Message)> AuthenticateTokenAsync(string token, string? ipAddress = null)
+    private static readonly DateTime LegacyDefaultCutoffUtc = DateTime.UtcNow.AddDays(14);
+    public async Task<(bool Valid, SnAuthSession? Session, string? Message, string? TokenUse)> AuthenticateTokenAsync(string token, string? ipAddress = null)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(token))
             {
                 logger.LogWarning("AuthenticateTokenAsync: no token provided");
-                return (false, null, "No token provided.");
+                return (false, null, "No token provided.", null);
             }
 
             if (!string.IsNullOrEmpty(ipAddress))
@@ -43,10 +46,10 @@ public class TokenAuthService(
             };
             logger.LogDebug("AuthenticateTokenAsync: token format detected: {Format} (fp={TokenFp})", format, tokenFp);
 
-            if (!ValidateToken(token, out var sessionId))
+            if (!ValidateToken(token, out var sessionId, out var tokenUse))
             {
                 logger.LogWarning("AuthenticateTokenAsync: token validation failed (format={Format}, fp={TokenFp})", format, tokenFp);
-                return (false, null, "Invalid token.");
+                return (false, null, "Invalid token.", null);
             }
 
             logger.LogDebug("AuthenticateTokenAsync: token validated, sessionId={SessionId} (fp={TokenFp})", sessionId, tokenFp);
@@ -61,7 +64,7 @@ public class TokenAuthService(
                 {
                     logger.LogWarning("AuthenticateTokenAsync: cached session expired (sessionId={SessionId})", sessionId);
                     await cache.RemoveAsync(cacheKey);
-                    return (false, null, "Session has been expired.");
+                    return (false, null, "Session has been expired.", null);
                 }
                 logger.LogInformation(
                     "AuthenticateTokenAsync: success via cache (sessionId={SessionId}, accountId={AccountId}, scopes={ScopeCount}, expiresAt={ExpiresAt})",
@@ -70,7 +73,7 @@ public class TokenAuthService(
                     session.Scopes.Count,
                     session.ExpiredAt
                 );
-                return (true, session, null);
+                return (true, session, null, tokenUse);
             }
 
             logger.LogDebug("AuthenticateTokenAsync: cache miss for {CacheKey}, loading from DB", cacheKey);
@@ -84,14 +87,14 @@ public class TokenAuthService(
             if (session is null)
             {
                 logger.LogWarning("AuthenticateTokenAsync: session not found (sessionId={SessionId})", sessionId);
-                return (false, null, "Session was not found.");
+                return (false, null, "Session was not found.", null);
             }
 
             var now = SystemClock.Instance.GetCurrentInstant();
             if (session.ExpiredAt.HasValue && session.ExpiredAt < now)
             {
                 logger.LogWarning("AuthenticateTokenAsync: session expired (sessionId={SessionId}, expiredAt={ExpiredAt}, now={Now})", sessionId, session.ExpiredAt, now);
-                return (false, null, "Session has been expired.");
+                return (false, null, "Session has been expired.", null);
             }
 
             logger.LogInformation(
@@ -121,18 +124,19 @@ public class TokenAuthService(
                 session.AccountId,
                 session.ClientId
             );
-            return (true, session, null);
+            return (true, session, null, tokenUse);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "AuthenticateTokenAsync: unexpected error");
-            return (false, null, "Authentication error.");
+            return (false, null, "Authentication error.", null);
         }
     }
 
-    public bool ValidateToken(string token, out Guid sessionId)
+    public bool ValidateToken(string token, out Guid sessionId, out string? tokenUse)
     {
         sessionId = Guid.Empty;
+        tokenUse = null;
 
         try
         {
@@ -142,14 +146,21 @@ public class TokenAuthService(
             {
                 case 3:
                     {
-                        var (isValid, jwtResult) = oidc.ValidateToken(token);
+                        var (isValid, jwtResult) = authJwt.ValidateJwt(token);
                         if (!isValid) return false;
                         var jti = jwtResult?.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
+                        tokenUse = jwtResult?.Claims.FirstOrDefault(c => c.Type == "token_use")?.Value ?? "user";
                         if (jti is null) return false;
                         return Guid.TryParse(jti, out sessionId);
                     }
                 case 2:
                     {
+                        var acceptUntil = config["Auth:LegacyTokens:AcceptUntil"];
+                        if (DateTime.TryParse(acceptUntil, out var cutoff) && DateTime.UtcNow > cutoff.ToUniversalTime())
+                            return false;
+                        if (string.IsNullOrWhiteSpace(acceptUntil) && DateTime.UtcNow > LegacyDefaultCutoffUtc)
+                            return false;
+                        tokenUse = "user";
                         return tokenKeyProvider.TryValidateCompactToken(token, out sessionId);
                     }
                 default:

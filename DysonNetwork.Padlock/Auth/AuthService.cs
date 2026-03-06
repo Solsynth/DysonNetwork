@@ -23,12 +23,14 @@ public class AuthService(
     IHttpContextAccessor httpContextAccessor,
     ICacheService cache,
     GeoService geo,
-    AuthTokenKeyProvider tokenKeyProvider,
+    AuthJwtService authJwt,
     ILogger<AuthService> logger
 )
 {
     private HttpContext HttpContext => httpContextAccessor.HttpContext!;
     public const string AuthCachePrefix = "auth:";
+    private const string RevokedJtiPrefix = "auth:revoked:jti:";
+    private const string AccountVersionPrefix = "auth:account_ver:";
 
     public async Task<int> DetectChallengeRisk(HttpRequest request, SnAccount account)
     {
@@ -230,10 +232,12 @@ public class AuthService(
 
         foreach (var sessionIdToClear in sessions.Select(s => s.Id))
         {
+            await MarkRevokedJtiAsync(sessionIdToClear.ToString(), now.Plus(Duration.FromDays(30)));
             await cache.RemoveAsync($"{AuthCachePrefix}{sessionIdToClear}");
         }
         foreach (var accountId in sessions.Select(s => s.AccountId).Distinct())
         {
+            await BumpAccountVersion(accountId);
             await cache.RemoveAsync($"{AuthCachePrefix}{accountId}");
         }
 
@@ -273,8 +277,10 @@ public class AuthService(
 
         foreach (var sessionIdToClear in sessions)
         {
+            await MarkRevokedJtiAsync(sessionIdToClear.ToString(), now.Plus(Duration.FromDays(30)));
             await cache.RemoveAsync($"{AuthCachePrefix}{sessionIdToClear}");
         }
+        await BumpAccountVersion(accountId);
         await cache.RemoveAsync($"{AuthCachePrefix}{accountId}");
 
         return sessions.Count;
@@ -282,7 +288,10 @@ public class AuthService(
 
     public string CreateToken(SnAuthSession session)
     {
-        return tokenKeyProvider.CreateCompactToken(session.Id);
+        var account = db.Accounts.FirstOrDefault(a => a.Id == session.AccountId)
+                      ?? throw new InvalidOperationException("Session account not found.");
+        var version = GetAccountVersion(session.AccountId).GetAwaiter().GetResult();
+        return authJwt.CreateUserToken(session, account, version);
     }
 
     public async Task<string> CreateSessionAndIssueToken(SnAuthChallenge challenge)
@@ -447,8 +456,10 @@ public class AuthService(
         if (updatedRows == 0)
             throw new InvalidOperationException("API key session has expired or does not exist.");
 
+        var session = key.Session ?? await db.AuthSessions.FirstAsync(s => s.Id == sessionId);
+        var accountVersion = await GetAccountVersion(key.AccountId);
         if (key.Session is not null) key.Session.LastGrantedAt = now;
-        return tokenKeyProvider.CreateCompactToken(sessionId);
+        return authJwt.CreateBotToken(key, session, accountVersion);
     }
 
     public async Task RevokeApiKeyToken(SnApiKey key)
@@ -460,6 +471,8 @@ public class AuthService(
         db.ApiKeys.Update(key);
         await db.SaveChangesAsync();
 
+        await MarkRevokedJtiAsync(key.SessionId.ToString(), now.Plus(Duration.FromDays(30)));
+        await BumpAccountVersion(key.AccountId);
         await RevokeSessionAsync(key.SessionId);
         await transaction.CommitAsync();
     }
@@ -480,6 +493,7 @@ public class AuthService(
             oldSession.ExpiredAt = now;
             oldSession.LastGrantedAt = now;
             db.AuthSessions.Update(oldSession);
+            await MarkRevokedJtiAsync(oldSession.Id.ToString(), now.Plus(Duration.FromDays(30)));
 
             var newSession = new SnAuthSession
             {
@@ -506,6 +520,7 @@ public class AuthService(
             await cache.RemoveAsync($"{AuthCachePrefix}{oldSession.Id}");
             await cache.RemoveAsync($"{AuthCachePrefix}{newSession.Id}");
             await cache.RemoveAsync($"{AuthCachePrefix}{key.AccountId}");
+            await BumpAccountVersion(key.AccountId);
 
             await transaction.CommitAsync();
             return key;
@@ -564,5 +579,27 @@ public class AuthService(
         db.AuthSessions.Add(session);
         await db.SaveChangesAsync();
         return session;
+    }
+
+    private async Task MarkRevokedJtiAsync(string jti, Instant? expiresAt = null)
+    {
+        var ttl = expiresAt.HasValue
+            ? expiresAt.Value.ToDateTimeUtc() - DateTime.UtcNow
+            : TimeSpan.FromDays(30);
+        if (ttl <= TimeSpan.Zero) ttl = TimeSpan.FromHours(1);
+        await cache.SetAsync($"{RevokedJtiPrefix}{jti}", true, ttl);
+    }
+
+    private async Task<int> GetAccountVersion(Guid accountId)
+    {
+        var (found, value) = await cache.GetAsyncWithStatus<int>($"{AccountVersionPrefix}{accountId}");
+        return found ? value : 0;
+    }
+
+    private async Task<int> BumpAccountVersion(Guid accountId)
+    {
+        var next = await GetAccountVersion(accountId) + 1;
+        await cache.SetAsync($"{AccountVersionPrefix}{accountId}", next, TimeSpan.FromDays(90));
+        return next;
     }
 }

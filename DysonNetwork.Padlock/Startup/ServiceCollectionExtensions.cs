@@ -132,6 +132,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PermissionService>();
         services.AddScoped<AccountService>();
         services.AddSingleton<AuthTokenKeyProvider>();
+        services.AddSingleton<AuthJwtService>();
         services.AddScoped<AuthService>();
         services.AddScoped<TokenAuthService>();
 

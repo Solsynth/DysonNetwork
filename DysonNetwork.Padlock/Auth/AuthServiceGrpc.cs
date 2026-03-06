@@ -14,7 +14,7 @@ public class AuthServiceGrpc(
         ServerCallContext context
     )
     {
-        var (valid, session, message) = await token.AuthenticateTokenAsync(request.Token, request.IpAddress);
+        var (valid, session, message, _) = await token.AuthenticateTokenAsync(request.Token, request.IpAddress);
         if (!valid || session is null)
             return new DyAuthenticateResponse { Valid = false, Message = message ?? "Authentication failed." };
 
