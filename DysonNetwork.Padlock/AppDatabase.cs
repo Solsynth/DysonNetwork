@@ -26,6 +26,14 @@ public class AppDatabase(
     public DbSet<SnAuthChallenge> AuthChallenges { get; set; } = null!;
     public DbSet<SnAuthClient> AuthClients { get; set; } = null!;
     public DbSet<SnApiKey> ApiKeys { get; set; } = null!;
+    public DbSet<SnE2eeKeyBundle> E2eeKeyBundles { get; set; } = null!;
+    public DbSet<SnE2eeOneTimePreKey> E2eeOneTimePreKeys { get; set; } = null!;
+    public DbSet<SnE2eeSession> E2eeSessions { get; set; } = null!;
+    public DbSet<SnE2eeEnvelope> E2eeEnvelopes { get; set; } = null!;
+    public DbSet<SnE2eeDevice> E2eeDevices { get; set; } = null!;
+    public DbSet<SnMlsKeyPackage> MlsKeyPackages { get; set; } = null!;
+    public DbSet<SnMlsGroupState> MlsGroupStates { get; set; } = null!;
+    public DbSet<SnMlsDeviceMembership> MlsDeviceMemberships { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -87,6 +95,77 @@ public class AppDatabase(
             .WithMany(g => g.Members)
             .HasForeignKey(pg => pg.GroupId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnE2eeDevice>()
+            .HasIndex(d => new { d.AccountId, d.DeviceId })
+            .IsUnique();
+        modelBuilder.Entity<SnE2eeDevice>()
+            .HasOne(d => d.Account)
+            .WithMany()
+            .HasForeignKey(d => d.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnE2eeKeyBundle>()
+            .HasIndex(k => new { k.AccountId, k.DeviceId })
+            .IsUnique();
+        modelBuilder.Entity<SnE2eeKeyBundle>()
+            .HasOne(k => k.Account)
+            .WithMany()
+            .HasForeignKey(k => k.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnE2eeOneTimePreKey>()
+            .HasOne(k => k.KeyBundle)
+            .WithMany(b => b.OneTimePreKeys)
+            .HasForeignKey(k => k.KeyBundleId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnE2eeOneTimePreKey>()
+            .HasIndex(k => new { k.KeyBundleId, k.KeyId })
+            .IsUnique();
+        modelBuilder.Entity<SnE2eeOneTimePreKey>()
+            .HasIndex(k => new { k.KeyBundleId, k.IsClaimed });
+        modelBuilder.Entity<SnE2eeOneTimePreKey>()
+            .HasIndex(k => new { k.AccountId, k.DeviceId, k.IsClaimed });
+
+        modelBuilder.Entity<SnE2eeSession>()
+            .HasIndex(s => new { s.AccountAId, s.AccountBId })
+            .IsUnique();
+
+        modelBuilder.Entity<SnE2eeEnvelope>()
+            .HasIndex(e => new { e.RecipientAccountId, e.RecipientDeviceId, e.DeliveryStatus, e.Sequence });
+        modelBuilder.Entity<SnE2eeEnvelope>()
+            .HasIndex(e => new
+            {
+                e.RecipientAccountId,
+                e.RecipientDeviceId,
+                e.SenderId,
+                e.SenderDeviceId,
+                e.ClientMessageId
+            })
+            .IsUnique()
+            .HasFilter("client_message_id IS NOT NULL");
+        modelBuilder.Entity<SnE2eeEnvelope>()
+            .HasIndex(e => e.SessionId);
+
+        modelBuilder.Entity<SnMlsKeyPackage>()
+            .HasIndex(k => new { k.AccountId, k.DeviceId, k.IsConsumed });
+        modelBuilder.Entity<SnMlsKeyPackage>()
+            .HasOne(k => k.Account)
+            .WithMany()
+            .HasForeignKey(k => k.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnMlsGroupState>()
+            .HasIndex(s => s.ChatRoomId)
+            .IsUnique();
+        modelBuilder.Entity<SnMlsGroupState>()
+            .HasIndex(s => new { s.MlsGroupId, s.Epoch });
+
+        modelBuilder.Entity<SnMlsDeviceMembership>()
+            .HasIndex(m => new { m.ChatRoomId, m.AccountId, m.DeviceId })
+            .IsUnique();
+        modelBuilder.Entity<SnMlsDeviceMembership>()
+            .HasIndex(m => new { m.MlsGroupId, m.LastSeenEpoch });
 
         modelBuilder.ApplySoftDeleteFilters();
     }

@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Padlock.Auth.OidcProvider.Options;
 using DysonNetwork.Padlock.Auth.OidcProvider.Services;
+using DysonNetwork.Padlock.E2EE;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
@@ -135,6 +136,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<AuthJwtService>();
         services.AddScoped<AuthService>();
         services.AddScoped<TokenAuthService>();
+        services.AddScoped<E2EeService>();
+        services.AddScoped<IE2eeModule>(sp => sp.GetRequiredService<E2EeService>());
+        services.AddScoped<IGroupE2eeModule>(sp => sp.GetRequiredService<E2EeService>());
 
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();
