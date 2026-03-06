@@ -25,6 +25,22 @@ public class AccountStatusUpdatedEvent : EventBase
     public Instant UpdatedAt { get; set; } = SystemClock.Instance.GetCurrentInstant();
 }
 
+public class AccountCreatedEvent : EventBase
+{
+    public static string Type => "accounts.created";
+    public override string EventType => Type;
+    public override string StreamName => "account_events";
+
+    public Guid AccountId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Nick { get; set; } = string.Empty;
+    public string Language { get; set; } = "en-US";
+    public string Region { get; set; } = "en";
+    public Instant? ActivatedAt { get; set; }
+    public bool IsSuperuser { get; set; }
+    public Instant CreatedAt { get; set; } = SystemClock.Instance.GetCurrentInstant();
+}
+
 public class AccountIdentityUpsertedEvent : EventBase
 {
     public static string Type => "account_identity_upserted";

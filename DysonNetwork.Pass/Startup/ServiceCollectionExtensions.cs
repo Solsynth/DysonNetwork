@@ -238,6 +238,45 @@ public static class ServiceCollectionExtensions
 
                 logger.LogInformation("Handled status update for user {AccountId} on disconnect", evt.AccountId);
             })
+            .AddListener<AccountCreatedEvent>(async (evt, ctx) =>
+            {
+                var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
+                var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+
+                var changed = false;
+                var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == evt.AccountId, ctx.CancellationToken);
+                if (account is null)
+                {
+                    account = new SnAccount
+                    {
+                        Id = evt.AccountId,
+                        Name = evt.Name,
+                        Nick = evt.Nick,
+                        Language = evt.Language,
+                        Region = evt.Region,
+                        ActivatedAt = evt.ActivatedAt,
+                        IsSuperuser = evt.IsSuperuser
+                    };
+                    db.Accounts.Add(account);
+                    changed = true;
+                }
+
+                var profileExists = await db.AccountProfiles
+                    .AnyAsync(p => p.AccountId == evt.AccountId, ctx.CancellationToken);
+                if (!profileExists)
+                {
+                    db.AccountProfiles.Add(new SnAccountProfile
+                    {
+                        AccountId = evt.AccountId
+                    });
+                    changed = true;
+                }
+
+                if (changed)
+                    await db.SaveChangesAsync(ctx.CancellationToken);
+
+                logger.LogInformation("Handled account created event for {AccountId}", evt.AccountId);
+            })
             .AddListener<AccountIdentityUpsertedEvent>(async (evt, ctx) =>
             {
                 var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();

@@ -88,6 +88,7 @@ public class AccountService(
 
         db.Accounts.Add(account);
         await db.SaveChangesAsync();
+        await PublishAccountCreated(account);
         await PublishIdentityUpserted(account);
         return account;
     }
@@ -304,6 +305,21 @@ public class AccountService(
             ActivatedAt = account.ActivatedAt,
             IsSuperuser = account.IsSuperuser,
             UpdatedAt = SystemClock.Instance.GetCurrentInstant()
+        });
+    }
+
+    private async Task PublishAccountCreated(SnAccount account)
+    {
+        await eventBus.PublishAsync(AccountCreatedEvent.Type, new AccountCreatedEvent
+        {
+            AccountId = account.Id,
+            Name = account.Name,
+            Nick = account.Nick,
+            Language = account.Language,
+            Region = account.Region,
+            ActivatedAt = account.ActivatedAt,
+            IsSuperuser = account.IsSuperuser,
+            CreatedAt = SystemClock.Instance.GetCurrentInstant()
         });
     }
 
