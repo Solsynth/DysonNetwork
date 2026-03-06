@@ -1,0 +1,6 @@
+@DysonNetwork.Padlock_HostAddress = http://localhost:5226
+
+GET {{DysonNetwork.Padlock_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
