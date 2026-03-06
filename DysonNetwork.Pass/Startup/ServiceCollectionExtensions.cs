@@ -14,7 +14,6 @@ using DysonNetwork.Pass.Affiliation;
 using DysonNetwork.Pass.Auth.OidcProvider.Options;
 using DysonNetwork.Pass.Auth.OidcProvider.Services;
 using DysonNetwork.Pass.Credit;
-using DysonNetwork.Pass.E2EE;
 using DysonNetwork.Pass.Handlers;
 using DysonNetwork.Pass.Leveling;
 using DysonNetwork.Pass.Mailer;
@@ -117,14 +116,6 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppAuthentication(this IServiceCollection services)
     {
         services.AddAuthorization();
-        services.AddAuthentication(options =>
-            {
-                options.DefaultAuthenticateScheme = DysonNetwork.Shared.Auth.AuthConstants.SchemeName;
-                options.DefaultChallengeScheme = DysonNetwork.Shared.Auth.AuthConstants.SchemeName;
-            })
-            .AddScheme<DysonNetwork.Shared.Auth.DysonTokenAuthOptions, DysonNetwork.Shared.Auth.DysonTokenAuthHandler>(
-                DysonNetwork.Shared.Auth.AuthConstants.SchemeName,
-                _ => { });
 
         return services;
     }
@@ -186,10 +177,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PassRewindService>();
         services.AddScoped<AccountRewindService>();
         services.AddScoped<TicketService>();
-        services.AddScoped<E2EeService>();
-        services.AddScoped<IE2eeModule>(sp => sp.GetRequiredService<E2EeService>());
-        services.AddScoped<IGroupE2eeModule>(sp => sp.GetRequiredService<E2EeService>());
-
         services.AddEventBus()
             .AddListener<WebSocketConnectedEvent>(async (evt, ctx) =>
             {

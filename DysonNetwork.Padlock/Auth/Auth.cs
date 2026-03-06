@@ -111,7 +111,7 @@ public class DysonTokenAuthHandler(
             };
         }
 
-        var authHeader = request.Headers.Authorization.ToString();
+        var authHeader = NormalizeAuthHeader(request.Headers.Authorization.ToString());
         if (!string.IsNullOrEmpty(authHeader))
         {
             if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
@@ -169,5 +169,19 @@ public class DysonTokenAuthHandler(
         }
 
         return null;
+    }
+
+    private static string NormalizeAuthHeader(string raw)
+    {
+        var value = raw?.Trim() ?? string.Empty;
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+
+        if (value.Length >= 2 && value[0] == '[' && value[^1] == ']')
+            value = value[1..^1].Trim();
+
+        if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
+            value = value[1..^1].Trim();
+
+        return value;
     }
 }

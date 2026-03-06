@@ -44,7 +44,16 @@ public class DysonTokenAuthHandler(
     {
         var tokenInfo = ExtractToken(Request, config);
         if (tokenInfo == null || string.IsNullOrEmpty(tokenInfo.Token))
+        {
+            Logger.LogWarning(
+                "Auth failed: no token extracted. path={Path} authHeaderPresent={AuthPresent} xForwardedAuthPresent={FwdPresent} xOriginalAuthPresent={OrigPresent}",
+                Request.Path,
+                Request.Headers.ContainsKey("Authorization"),
+                Request.Headers.ContainsKey("X-Forwarded-Authorization"),
+                Request.Headers.ContainsKey("X-Original-Authorization")
+            );
             return AuthenticateResult.Fail("No token was provided.");
+        }
 
         try
         {
@@ -79,7 +88,11 @@ public class DysonTokenAuthHandler(
             }
 
             if (!ShouldUseLegacyFallback(config))
+            {
+                Logger.LogWarning("Auth failed: local JWT validation failed and legacy fallback disabled. path={Path} reason={Reason}",
+                    Request.Path, failMessage ?? "unknown");
                 return AuthenticateResult.Fail(failMessage ?? "Token validation failed.");
+            }
 
             // Compatibility path for old compact/legacy tokens during grace window.
             DyAuthSession legacySession;
@@ -89,10 +102,13 @@ public class DysonTokenAuthHandler(
             }
             catch (InvalidOperationException ex)
             {
+                Logger.LogWarning("Auth failed via gRPC fallback. path={Path} reason={Reason}", Request.Path, ex.Message);
                 return AuthenticateResult.Fail(ex.Message);
             }
             catch (RpcException ex)
             {
+                Logger.LogWarning("Auth failed via gRPC fallback rpc. path={Path} code={Code} detail={Detail}",
+                    Request.Path, ex.Status.StatusCode, ex.Status.Detail);
                 return AuthenticateResult.Fail($"Remote error: {ex.Status.StatusCode} - {ex.Status.Detail}");
             }
 
@@ -100,6 +116,7 @@ public class DysonTokenAuthHandler(
         }
         catch (Exception ex)
         {
+            Logger.LogError(ex, "Authentication failed unexpectedly. path={Path}", Request.Path);
             return AuthenticateResult.Fail($"Authentication failed: {ex.Message}");
         }
     }
@@ -242,7 +259,7 @@ public class DysonTokenAuthHandler(
             return new TokenInfo { Token = queryToken.ToString(), Type = TokenType.AuthKey };
         }
 
-        var authHeader = request.Headers.Authorization.ToString();
+        var authHeader = NormalizeAuthHeader(ExtractRawAuthHeader(request));
         if (!string.IsNullOrEmpty(authHeader))
         {
             if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
@@ -263,5 +280,36 @@ public class DysonTokenAuthHandler(
             return new TokenInfo { Token = cookieToken, Type = TokenType.AuthKey };
 
         return null;
+    }
+
+    private static string ExtractRawAuthHeader(HttpRequest request)
+    {
+        // Standard header first.
+        var authHeader = request.Headers.Authorization.ToString();
+        if (!string.IsNullOrWhiteSpace(authHeader)) return authHeader;
+
+        // Common proxy-forwarded header variants.
+        authHeader = request.Headers["X-Forwarded-Authorization"].ToString();
+        if (!string.IsNullOrWhiteSpace(authHeader)) return authHeader;
+
+        authHeader = request.Headers["X-Original-Authorization"].ToString();
+        if (!string.IsNullOrWhiteSpace(authHeader)) return authHeader;
+
+        return string.Empty;
+    }
+
+    private static string NormalizeAuthHeader(string raw)
+    {
+        var value = raw?.Trim() ?? string.Empty;
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+
+        // Some clients/proxies serialize header lists as "[Bearer xxx]".
+        if (value.Length >= 2 && value[0] == '[' && value[^1] == ']')
+            value = value[1..^1].Trim();
+
+        if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
+            value = value[1..^1].Trim();
+
+        return value;
     }
 }

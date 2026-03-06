@@ -1,5 +1,6 @@
 using DysonNetwork.Pass;
 using DysonNetwork.Pass.Startup;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,10 @@ builder.ConfigureAppKestrel(builder.Configuration);
 
 // Add application services
 builder.Services.AddAppServices(builder.Configuration);
+builder.Services.AddDysonAuth();
 builder.Services.AddAppAuthentication();
 builder.Services.AddBladeService();
 builder.Services.AddRingService();
-builder.Services.AddAuthService();
 builder.Services.AddDriveService();
 builder.Services.AddDevelopService();
 builder.Services.AddWalletService();
