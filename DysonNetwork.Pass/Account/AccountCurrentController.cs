@@ -43,6 +43,11 @@ public class AccountCurrentController(
 
         if (account != null)
         {
+            if (account.Profile is null)
+            {
+                account.Profile = await accounts.GetOrCreateAccountProfileAsync(account.Id);
+            }
+
             // Populate PerkSubscription from Wallet service via gRPC
             try
             {
@@ -109,17 +114,7 @@ public class AccountCurrentController(
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
-        var profile = await db.AccountProfiles
-            .Where(p => p.Account.Id == userId)
-            .FirstOrDefaultAsync();
-        if (profile is null)
-            return BadRequest(new ApiError
-            {
-                Code = "NOT_FOUND",
-                Message = "Unable to get your account.",
-                Status = 400,
-                TraceId = HttpContext.TraceIdentifier
-            });
+        var profile = await accounts.GetOrCreateAccountProfileAsync(userId);
 
         if (request.FirstName is not null) profile.FirstName = request.FirstName;
         if (request.MiddleName is not null) profile.MiddleName = request.MiddleName;

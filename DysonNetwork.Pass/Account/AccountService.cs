@@ -87,6 +87,31 @@ public class AccountService(
         return profile?.Level;
     }
 
+    public async Task<SnAccountProfile> GetOrCreateAccountProfileAsync(Guid accountId)
+    {
+        var profile = await db.AccountProfiles
+            .FirstOrDefaultAsync(p => p.AccountId == accountId);
+        if (profile is not null) return profile;
+
+        profile = new SnAccountProfile
+        {
+            AccountId = accountId
+        };
+
+        db.AccountProfiles.Add(profile);
+        try
+        {
+            await db.SaveChangesAsync();
+            return profile;
+        }
+        catch (DbUpdateException)
+        {
+            // Handle rare concurrent create race by reloading.
+            profile = await db.AccountProfiles.FirstAsync(p => p.AccountId == accountId);
+            return profile;
+        }
+    }
+
     public async Task<bool> CheckAccountNameHasTaken(string name)
     {
         return await db.Accounts.AnyAsync(a => EF.Functions.ILike(a.Name, name));

@@ -11,6 +11,7 @@ namespace DysonNetwork.Pass.Account;
 [Route("/api/accounts")]
 public class AccountPublicController(
     AppDatabase db,
+    AccountService accountService,
     SocialCreditService socialCreditService,
     RemoteSubscriptionService remoteSubscription
 ) : ControllerBase
@@ -34,6 +35,7 @@ public class AccountPublicController(
         
         var account = await accountQuery.FirstOrDefaultAsync();
         if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
+        await EnsureProfileAsync(account);
 
         // Populate PerkSubscription from Wallet service via gRPC
         try
@@ -98,6 +100,10 @@ public class AccountPublicController(
                         EF.Functions.ILike(a.Nick, $"%{query}%"))
             .Take(take)
             .ToListAsync();
+        foreach (var account in accounts)
+        {
+            await EnsureProfileAsync(account);
+        }
 
         // Populate PerkSubscriptions from Wallet service via gRPC
         if (accounts.Count > 0)
@@ -129,5 +135,11 @@ public class AccountPublicController(
         }
 
         return accounts;
+    }
+
+    private async Task EnsureProfileAsync(SnAccount account)
+    {
+        if (account.Profile is not null) return;
+        account.Profile = await accountService.GetOrCreateAccountProfileAsync(account.Id);
     }
 }

@@ -269,6 +269,16 @@ public static class ServiceCollectionExtensions
                     db.Update(account);
                 }
 
+                var profileExists = await db.AccountProfiles
+                    .AnyAsync(p => p.AccountId == evt.AccountId, ctx.CancellationToken);
+                if (!profileExists)
+                {
+                    db.AccountProfiles.Add(new SnAccountProfile
+                    {
+                        AccountId = evt.AccountId
+                    });
+                }
+
                 await db.SaveChangesAsync(ctx.CancellationToken);
                 logger.LogInformation("Upserted account identity read model for {AccountId}", evt.AccountId);
             });
