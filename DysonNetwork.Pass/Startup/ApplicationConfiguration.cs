@@ -3,6 +3,7 @@ using DysonNetwork.Pass.Credit;
 using DysonNetwork.Pass.Leveling;
 using DysonNetwork.Pass.Permission;
 using DysonNetwork.Pass.Realm;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
 
 namespace DysonNetwork.Pass.Startup;
@@ -19,6 +20,7 @@ public static class ApplicationConfiguration
 
         app.UseWebSockets();
         app.UseAuthentication();
+        app.UseDyAuthModelProjection();
         app.UseAuthorization();
         app.UseMiddleware<LocalPermissionMiddleware>();
 
