@@ -201,7 +201,7 @@ public class MiChanAutonomousBehavior
 
             // Create scope to get gRPC client - avoids disposed IServiceProvider issue
             using var scope = _scopeFactory.CreateScope();
-            var accountClient = scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
+            var accountClient = scope.ServiceProvider.GetRequiredService<DyProfileService.DyProfileServiceClient>();
 
             var request = new DyListRelationshipSimpleRequest
             {

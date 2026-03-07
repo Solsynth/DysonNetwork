@@ -2,12 +2,8 @@ using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
-using DysonNetwork.Passport.Localization;
-using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Localization;
-using DysonNetwork.Shared.Models;
-using DysonNetwork.Shared.Registry;
 
 namespace DysonNetwork.Passport.Realm;
 
@@ -16,7 +12,7 @@ public class RealmServiceGrpc(
     DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
     ICacheService cache,
-    RemoteAccountService remoteAccounts
+    DyAccountService.DyAccountServiceClient accountGrpc
 )
     : DyRealmService.DyRealmServiceBase
 {
@@ -117,7 +113,7 @@ public class RealmServiceGrpc(
         DyAccount? account;
         try
         {
-            account = await remoteAccounts.GetAccount(Guid.Parse(member.AccountId));
+            account = await accountGrpc.GetAccountAsync(new DyGetAccountRequest { Id = member.AccountId });
         }
         catch
         {
@@ -164,7 +160,7 @@ public class RealmServiceGrpc(
         DyAccount? account = null;
         try
         {
-            account = await remoteAccounts.GetAccount(Guid.Parse(member.AccountId));
+            account = await accountGrpc.GetAccountAsync(new DyGetAccountRequest { Id = member.AccountId });
         }
         catch
         {
@@ -179,7 +175,10 @@ public class RealmServiceGrpc(
         ServerCallContext context)
     {
         var accountIds = request.Members.Select(m => Guid.Parse(m.AccountId)).ToList();
-        var accounts = (await remoteAccounts.GetAccountBatch(accountIds))
+        var accounts = (await accountGrpc.GetAccountBatchAsync(new DyGetAccountBatchRequest
+        {
+            Id = { accountIds.Select(x => x.ToString()) }
+        })).Accounts
             .ToDictionary(a => Guid.Parse(a.Id), a => a);
 
         var response = new DyLoadMemberAccountsResponse();

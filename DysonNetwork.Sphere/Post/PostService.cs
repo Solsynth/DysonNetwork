@@ -30,7 +30,7 @@ public partial class PostService(
     DyFileService.DyFileServiceClient files,
     PublisherService ps,
     RemoteWebReaderService reader,
-    DyAccountService.DyAccountServiceClient accounts,
+    DyProfileService.DyProfileServiceClient accounts,
     ActivityPubObjectFactory objFactory
 )
 {

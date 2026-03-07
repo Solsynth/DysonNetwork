@@ -74,6 +74,13 @@ public class SnAccount : ModelBase
 
     public static SnAccount FromProtoValue(DyAccount proto)
     {
+        SnAccountProfile? mappedProfile = null;
+        if (proto.Profile is not null &&
+            (!string.IsNullOrWhiteSpace(proto.Profile.Id) || !string.IsNullOrWhiteSpace(proto.Profile.AccountId)))
+        {
+            mappedProfile = SnAccountProfile.FromProtoValue(proto.Profile);
+        }
+
         var account = new SnAccount
         {
             Id = Guid.Parse(proto.Id),
@@ -89,7 +96,7 @@ public class SnAccount : ModelBase
             CreatedAt = proto.CreatedAt.ToInstant(),
             UpdatedAt = proto.UpdatedAt.ToInstant(),
             AutomatedId = proto.AutomatedId is not null ? Guid.Parse(proto.AutomatedId) : null,
-            Profile = SnAccountProfile.FromProtoValue(proto.Profile)
+            Profile = mappedProfile
         };
 
         foreach (var contactProto in proto.Contacts)
@@ -264,9 +271,15 @@ public class SnAccountProfile : ModelBase, IIdentifiedResource
 
     public static SnAccountProfile FromProtoValue(DyAccountProfile proto)
     {
+        if (proto is null)
+            return new SnAccountProfile();
+
+        var hasProfileId = Guid.TryParse(proto.Id, out var profileId);
+        var hasAccountId = Guid.TryParse(proto.AccountId, out var accountId);
+
         var profile = new SnAccountProfile
         {
-            Id = Guid.Parse(proto.Id),
+            Id = hasProfileId ? profileId : Guid.Empty,
             FirstName = proto.FirstName,
             LastName = proto.LastName,
             MiddleName = proto.MiddleName,
@@ -286,12 +299,12 @@ public class SnAccountProfile : ModelBase, IIdentifiedResource
             Background = proto.Background is null
                 ? null
                 : SnCloudFileReferenceObject.FromProtoValue(proto.Background),
-            AccountId = Guid.Parse(proto.AccountId),
+            AccountId = hasAccountId ? accountId : Guid.Empty,
             UsernameColor = proto.UsernameColor is not null
                 ? UsernameColor.FromProtoValue(proto.UsernameColor)
                 : null,
-            CreatedAt = proto.CreatedAt.ToInstant(),
-            UpdatedAt = proto.UpdatedAt.ToInstant()
+            CreatedAt = proto.CreatedAt?.ToInstant() ?? default,
+            UpdatedAt = proto.UpdatedAt?.ToInstant() ?? default
         };
 
         if (proto.Links.Count > 0)
@@ -467,7 +480,7 @@ public class SnAccountConnection : ModelBase
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(4096)] public string Provider { get; set; } = null!;
     [MaxLength(8192)] public string ProvidedIdentifier { get; set; } = null!;
-    [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; } = [];
+    [Column(TypeName = "jsonb")] public Dictionary<string, object?> Meta { get; set; } = [];
 
     [JsonIgnore] [MaxLength(4096)] public string? AccessToken { get; set; }
     [JsonIgnore] [MaxLength(4096)] public string? RefreshToken { get; set; }

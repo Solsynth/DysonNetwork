@@ -65,8 +65,17 @@ public class AppDatabase(
                     Key = "default",
                     Nodes = new List<string>
                         {
-                            "auth.login",
-                            "auth.logout"
+                            "posts.create",
+                            "posts.react",
+                            "publishers.create",
+                            "files.create",
+                            "chat.create",
+                            "chat.messages.create",
+                            "chat.realtime.create",
+                            "accounts.statuses.create",
+                            "accounts.statuses.update",
+                            "stickers.packs.create",
+                            "stickers.create"
                         }.Select(permission =>
                             PermissionService.NewPermissionNode("group:default", permission, true))
                         .ToList()

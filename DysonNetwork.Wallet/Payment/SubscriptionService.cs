@@ -23,7 +23,7 @@ namespace DysonNetwork.Wallet.Payment;
 public class SubscriptionService(
     AppDatabase db,
     PaymentService payment,
-    DyAccountService.DyAccountServiceClient accounts,
+    DyProfileService.DyProfileServiceClient accounts,
     DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
     IConfiguration configuration,

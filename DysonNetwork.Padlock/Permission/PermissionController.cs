@@ -4,10 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Models;
 using NodaTime;
 using System.Text.Json;
-using DysonNetwork.Passport.Permission;
 using DysonNetwork.Shared.Auth;
 
-namespace DysonNetwork.Passport;
+namespace DysonNetwork.Padlock.Permission;
 
 [ApiController]
 [Route("/api/permissions")]

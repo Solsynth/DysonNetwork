@@ -3,19 +3,19 @@ using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Shared.Registry;
 
-public class RemoteAccountService(DyAccountService.DyAccountServiceClient accounts)
+public class RemoteAccountService(DyProfileService.DyProfileServiceClient profiles)
 {
     public async Task<DyAccount> GetAccount(Guid id)
     {
         var request = new DyGetAccountRequest { Id = id.ToString() };
-        var response = await accounts.GetAccountAsync(request);
+        var response = await profiles.GetAccountAsync(request);
         return response;
     }
 
     public async Task<DyAccount> GetBotAccount(Guid automatedId)
     {
         var request = new DyGetBotAccountRequest { AutomatedId = automatedId.ToString() };
-        var response = await accounts.GetBotAccountAsync(request);
+        var response = await profiles.GetBotAccountAsync(request);
         return response;
     }
 
@@ -23,14 +23,14 @@ public class RemoteAccountService(DyAccountService.DyAccountServiceClient accoun
     {
         var request = new DyGetAccountBatchRequest();
         request.Id.AddRange(ids.Select(id => id.ToString()));
-        var response = await accounts.GetAccountBatchAsync(request);
+        var response = await profiles.GetAccountBatchAsync(request);
         return response.Accounts.ToList();
     }
 
     public async Task<List<DyAccount>> SearchAccounts(string query)
     {
         var request = new DySearchAccountRequest { Query = query };
-        var response = await accounts.SearchAccountAsync(request);
+        var response = await profiles.SearchAccountAsync(request);
         return response.Accounts.ToList();
     }
 
@@ -38,7 +38,7 @@ public class RemoteAccountService(DyAccountService.DyAccountServiceClient accoun
     {
         var request = new DyGetBotAccountBatchRequest();
         request.AutomatedId.AddRange(automatedIds.Select(id => id.ToString()));
-        var response = await accounts.GetBotAccountBatchAsync(request);
+        var response = await profiles.GetBotAccountBatchAsync(request);
         return response.Accounts.ToList();
     }
 
@@ -46,7 +46,7 @@ public class RemoteAccountService(DyAccountService.DyAccountServiceClient accoun
     {
         var request = new DyGetAccountBatchRequest();
         request.Id.AddRange(ids.Select(id => id.ToString()));
-        var response = await accounts.GetAccountStatusBatchAsync(request);
+        var response = await profiles.GetAccountStatusBatchAsync(request);
         return response.Statuses
             .Select(SnAccountStatus.FromProtoValue)
             .ToDictionary(s => s.AccountId, s => s);
@@ -59,7 +59,7 @@ public class RemoteAccountService(DyAccountService.DyAccountServiceClient accoun
             AccountId = accountId.ToString(),
             Badge = badge
         };
-        var response = await accounts.GrantBadgeAsync(request);
+        var response = await profiles.GrantBadgeAsync(request);
         return response.Badge;
     }
 
@@ -70,7 +70,7 @@ public class RemoteAccountService(DyAccountService.DyAccountServiceClient accoun
             AccountId = accountId.ToString(),
             BadgeId = badgeId.ToString()
         };
-        var response = await accounts.GetBadgeAsync(request);
+        var response = await profiles.GetBadgeAsync(request);
         return response.Badge;
     }
 
@@ -93,7 +93,7 @@ public class RemoteAccountService(DyAccountService.DyAccountServiceClient accoun
             request.UpdateMask = updateMask;
         }
 
-        var response = await accounts.UpdateBadgeAsync(request);
+        var response = await profiles.UpdateBadgeAsync(request);
         return response.Badge;
     }
 }

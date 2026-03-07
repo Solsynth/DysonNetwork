@@ -5,7 +5,6 @@ using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
-using DysonNetwork.Shared.Registry;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -24,7 +23,7 @@ public class AccountService(
     ICacheService cache,
     ILogger<AccountService> logger,
     Shared.EventBus.IEventBus eventBus,
-    RemoteAccountService remoteAccounts
+    DyAccountService.DyAccountServiceClient accounts
 )
 {
     public const string AccountCachePrefix = "account:";
@@ -50,7 +49,7 @@ public class AccountService(
 
         try
         {
-            var remote = await remoteAccounts.GetAccount(id);
+            var remote = await accounts.GetAccountAsync(new DyGetAccountRequest { Id = id.ToString() });
             var account = SnAccount.FromProtoValue(remote);
             account.Profile = await GetOrCreateAccountProfileAsync(id);
             await cache.SetWithGroupsAsync(cacheKey, account, [$"{AccountCachePrefix}{id}"], AccountCacheTtl);
@@ -64,7 +63,7 @@ public class AccountService(
 
     public async Task<SnAccount?> LookupAccount(string probe)
     {
-        var matches = await remoteAccounts.SearchAccounts(probe);
+        var matches = (await accounts.SearchAccountAsync(new DySearchAccountRequest { Query = probe })).Accounts;
         var matched = matches.FirstOrDefault(a =>
             string.Equals(a.Name, probe, StringComparison.OrdinalIgnoreCase));
         matched ??= matches.FirstOrDefault();
@@ -119,7 +118,7 @@ public class AccountService(
 
     public async Task<bool> CheckAccountNameHasTaken(string name)
     {
-        var matches = await remoteAccounts.SearchAccounts(name);
+        var matches = (await accounts.SearchAccountAsync(new DySearchAccountRequest { Query = name })).Accounts;
         return matches.Any(a => string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase));
     }
 

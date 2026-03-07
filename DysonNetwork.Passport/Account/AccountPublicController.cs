@@ -1,6 +1,7 @@
 using DysonNetwork.Passport.Credit;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +15,7 @@ public class AccountPublicController(
     AccountService accountService,
     SocialCreditService socialCreditService,
     RemoteSubscriptionService remoteSubscription,
-    RemoteAccountService remoteAccounts
+    DyAccountService.DyAccountServiceClient accountGrpc
 ) : ControllerBase
 {
     [HttpGet("{name}")]
@@ -29,7 +30,7 @@ public class AccountPublicController(
         }
         else
         {
-            var candidates = await remoteAccounts.SearchAccounts(name);
+            var candidates = (await accountGrpc.SearchAccountAsync(new DySearchAccountRequest { Query = name })).Accounts;
             var hit = candidates.FirstOrDefault(a => string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase));
             if (hit is not null)
                 account = SnAccount.FromProtoValue(hit);
@@ -91,7 +92,7 @@ public class AccountPublicController(
         if (string.IsNullOrWhiteSpace(query))
             return [];
         
-        var accounts = (await remoteAccounts.SearchAccounts(query))
+        var accounts = (await accountGrpc.SearchAccountAsync(new DySearchAccountRequest { Query = query })).Accounts
             .Take(take)
             .Select(SnAccount.FromProtoValue)
             .ToList();

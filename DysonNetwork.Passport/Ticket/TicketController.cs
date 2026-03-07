@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Passport.Account;
-using DysonNetwork.Passport.Permission;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,7 +13,7 @@ namespace DysonNetwork.Passport.Ticket;
 [Route("/api/tickets")]
 public class TicketController(
     TicketService ticketService,
-    PermissionService permissionService,
+    DyPermissionService.DyPermissionServiceClient permissionService,
     RemoteRingService ringService,
     ILocalizationService localizationService,
     AccountService accountService
@@ -71,8 +71,12 @@ public class TicketController(
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return (false, null);
         if (currentUser.IsSuperuser) return (true, currentUser);
-        var isAdmin = await permissionService.HasPermissionAsync(currentUser.Id.ToString(), "tickets.admin");
-        return (isAdmin, currentUser);
+        var resp = await permissionService.HasPermissionAsync(new DyHasPermissionRequest
+        {
+            Actor = currentUser.Id.ToString(),
+            Key = "tickets.admin"
+        });
+        return (resp.HasPermission, currentUser);
     }
 
     private async Task NotifyTicketStatusChangedAsync(SnTicket ticket, TicketStatus oldStatus, TicketStatus newStatus, SnAccount updater)

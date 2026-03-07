@@ -18,7 +18,7 @@ public class PostController(
     PostService ps,
     PublisherService pub,
     RemoteAccountService remoteAccountsHelper,
-    DyAccountService.DyAccountServiceClient accounts,
+    DyProfileService.DyProfileServiceClient accounts,
     RemoteRealmService rs
 ) : ControllerBase
 {

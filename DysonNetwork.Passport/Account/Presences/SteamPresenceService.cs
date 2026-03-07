@@ -1,5 +1,5 @@
 using DysonNetwork.Shared.Models;
-using Microsoft.EntityFrameworkCore;
+using DysonNetwork.Shared.Registry;
 using NodaTime;
 using SteamWebAPI2.Interfaces;
 using SteamWebAPI2.Utilities;
@@ -7,7 +7,7 @@ using SteamWebAPI2.Utilities;
 namespace DysonNetwork.Passport.Account.Presences;
 
 public class SteamPresenceService(
-    AppDatabase db,
+    RemoteAccountConnectionService connections,
     AccountEventService accountEventService,
     ILogger<SteamPresenceService> logger,
     IConfiguration configuration
@@ -19,11 +19,12 @@ public class SteamPresenceService(
     /// <inheritdoc />
     public async Task UpdatePresencesAsync(IEnumerable<Guid> userIds)
     {
-        var userIdList = userIds.ToList();
-        var steamConnections = await db.Set<SnAccountConnection>()
-            .Where(c => userIdList.Contains(c.AccountId) && c.Provider == "steam")
-            .Include(c => c.Account)
-            .ToListAsync();
+        var steamConnections = new List<SnAccountConnection>();
+        foreach (var userId in userIds)
+        {
+            var userConnections = await connections.ListConnectionsAsync(userId, "steam");
+            steamConnections.AddRange(userConnections);
+        }
 
         if (steamConnections.Count == 0)
             return;
@@ -62,12 +63,12 @@ public class SteamPresenceService(
             {
                 if (playerSummaryLookup.TryGetValue(connection.ProvidedIdentifier, out var playerSummaryData))
                 {
-                    await UpdateSteamPresenceFromDataAsync(connection.Account, playerSummaryData);
+                    await UpdateSteamPresenceFromDataAsync(connection.AccountId, playerSummaryData);
                 }
                 else
                 {
                     // No data for this user, remove any existing presence
-                    await RemoveSteamPresenceAsync(connection.Account.Id);
+                    await RemoveSteamPresenceAsync(connection.AccountId);
                 }
             }
         }
@@ -80,12 +81,12 @@ public class SteamPresenceService(
             {
                 try
                 {
-                    await UpdateSteamPresenceAsync(connection.Account, connection.ProvidedIdentifier);
+                    await UpdateSteamPresenceAsync(connection.AccountId, connection.ProvidedIdentifier);
                 }
                 catch (Exception individualEx)
                 {
-                    logger.LogError(individualEx, "Failed to update Steam presence for user {UserId}", connection.Account.Id);
-                    await RemoveSteamPresenceAsync(connection.Account.Id);
+                    logger.LogError(individualEx, "Failed to update Steam presence for user {UserId}", connection.AccountId);
+                    await RemoveSteamPresenceAsync(connection.AccountId);
                 }
             }
         }
@@ -94,17 +95,17 @@ public class SteamPresenceService(
     /// <summary>
     /// Updates the Steam presence activity for a specific user using pre-fetched player summary data
     /// </summary>
-    private async Task UpdateSteamPresenceFromDataAsync(SnAccount account, dynamic playerSummaryData)
+    private async Task UpdateSteamPresenceFromDataAsync(Guid accountId, dynamic playerSummaryData)
     {
         if (!string.IsNullOrEmpty(playerSummaryData.PlayingGameId) && !string.IsNullOrEmpty(playerSummaryData.PlayingGameName))
         {
             // User is playing a game
-            var presenceActivity = ParsePlayerSummaryToPresenceActivity(account.Id, playerSummaryData);
+            var presenceActivity = ParsePlayerSummaryToPresenceActivity(accountId, playerSummaryData);
 
             // Try to update existing activity first
             var updatedActivity = await accountEventService.UpdateActivityByManualId(
                 "steam",
-                account.Id,
+                accountId,
                 UpdateActivityWithPresenceData,
                 10
             );
@@ -130,14 +131,14 @@ public class SteamPresenceService(
         else
         {
             // User is not playing a game, remove any existing Steam presence
-            await RemoveSteamPresenceAsync(account.Id);
+            await RemoveSteamPresenceAsync(accountId);
         }
     }
 
     /// <summary>
     /// Updates the Steam presence activity for a specific user (fallback individual API call)
     /// </summary>
-    private async Task UpdateSteamPresenceAsync(SnAccount account, string steamId)
+    private async Task UpdateSteamPresenceAsync(Guid accountId, string steamId)
     {
         try
         {
@@ -145,7 +146,7 @@ public class SteamPresenceService(
             var apiKey = configuration["Oidc:Steam:ApiKey"];
             if (string.IsNullOrEmpty(apiKey))
             {
-                logger.LogWarning("Steam API key not configured, skipping presence update for user {UserId}", account.Id);
+                logger.LogWarning("Steam API key not configured, skipping presence update for user {UserId}", accountId);
                 return;
             }
 
@@ -160,12 +161,12 @@ public class SteamPresenceService(
             if (!string.IsNullOrEmpty(playerSummaryData.PlayingGameId) && !string.IsNullOrEmpty(playerSummaryData.PlayingGameName))
             {
                 // User is playing a game
-                var presenceActivity = ParsePlayerSummaryToPresenceActivity(account.Id, playerSummaryData);
+                var presenceActivity = ParsePlayerSummaryToPresenceActivity(accountId, playerSummaryData);
 
                 // Try to update existing activity first
                 var updatedActivity = await accountEventService.UpdateActivityByManualId(
                     "steam",
-                    account.Id,
+                    accountId,
                     UpdateActivityWithPresenceData,
                     10
                 );
@@ -191,15 +192,15 @@ public class SteamPresenceService(
             else
             {
                 // User is not playing a game, remove any existing Steam presence
-                await RemoveSteamPresenceAsync(account.Id);
+                await RemoveSteamPresenceAsync(accountId);
             }
         }
         catch (Exception ex)
         {
             // On error, remove the presence to avoid stale data
-            await RemoveSteamPresenceAsync(account.Id);
+            await RemoveSteamPresenceAsync(accountId);
 
-            logger.LogError(ex, "Failed to update Steam presence for user {UserId}", account.Id);
+            logger.LogError(ex, "Failed to update Steam presence for user {UserId}", accountId);
         }
     }
 

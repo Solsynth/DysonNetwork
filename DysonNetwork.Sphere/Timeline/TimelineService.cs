@@ -13,7 +13,7 @@ public class TimelineService(
     Publisher.PublisherService pub,
     Post.PostService ps,
     RemoteRealmService rs,
-    DyAccountService.DyAccountServiceClient accounts
+    DyProfileService.DyProfileServiceClient accounts
 )
 {
     private static double CalculateHotRank(SnPost post, Instant now)

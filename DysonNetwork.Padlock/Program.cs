@@ -15,6 +15,7 @@ builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppAuthentication();
 builder.Services.AddBladeService();
 builder.Services.AddRingService();
+builder.Services.AddDriveService();
 builder.Services.AddDevelopService();
 
 builder.Services.AddAppFlushHandlers();

@@ -21,7 +21,8 @@ public class AccountEventService(
     RemotePaymentService payment,
     RemoteSubscriptionService subscriptions,
     Shared.EventBus.IEventBus eventBus,
-    RemoteWebSocketService ws
+    RemoteWebSocketService ws,
+    RemoteAccountConnectionService accountConnections
 )
 {
     private static readonly Random Random = new();
@@ -704,10 +705,22 @@ public class AccountEventService(
     /// </summary>
     public async Task<List<Guid>> GetSpotifyConnectedUsersAsync()
     {
-        return await db.Set<SnAccountConnection>()
-            .Where(c => c.Provider == "spotify" && c.AccessToken != null && c.RefreshToken != null)
-            .Select(c => c.AccountId)
-            .Distinct()
+        var accountIds = await db.AccountProfiles
+            .AsNoTracking()
+            .Select(p => p.AccountId)
             .ToListAsync();
+
+        var connected = new List<Guid>();
+        foreach (var accountId in accountIds)
+        {
+            var connections = await accountConnections.ListConnectionsAsync(accountId, "spotify");
+            if (connections.Any(c => !string.IsNullOrWhiteSpace(c.AccessToken) &&
+                                     !string.IsNullOrWhiteSpace(c.RefreshToken)))
+            {
+                connected.Add(accountId);
+            }
+        }
+
+        return connected;
     }
 }

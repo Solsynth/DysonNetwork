@@ -1,12 +1,19 @@
+using DysonNetwork.Padlock.Auth.OpenId;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Padlock.Account;
 
-public class AccountServiceGrpc(AppDatabase db) : DyAccountService.DyAccountServiceBase
+public class AccountServiceGrpc(
+    AppDatabase db,
+    IEnumerable<OidcService> oidcServices,
+    ILogger<AccountServiceGrpc> logger
+) : DyAccountService.DyAccountServiceBase
 {
     public override async Task<DyAccount> GetAccount(DyGetAccountRequest request, ServerCallContext context)
     {
@@ -150,77 +157,6 @@ public class AccountServiceGrpc(AppDatabase db) : DyAccountService.DyAccountServ
         return response;
     }
 
-    public override async Task<DyAccountStatus> GetAccountStatus(DyGetAccountRequest request, ServerCallContext context)
-    {
-        if (!Guid.TryParse(request.Id, out var accountId))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
-
-        var account = await db.Accounts
-            .AsNoTracking()
-            .FirstOrDefaultAsync(a => a.Id == accountId, context.CancellationToken);
-        if (account is null)
-            throw new RpcException(new Status(StatusCode.NotFound, $"Account {request.Id} not found"));
-
-        return new DyAccountStatus
-        {
-            AccountId = account.Id.ToString(),
-            IsOnline = false
-        };
-    }
-
-    public override async Task<DyGetAccountStatusBatchResponse> GetAccountStatusBatch(
-        DyGetAccountBatchRequest request,
-        ServerCallContext context)
-    {
-        var accountIds = request.Id
-            .Select(id => Guid.TryParse(id, out var parsedId) ? parsedId : (Guid?)null)
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .ToList();
-
-        var accounts = await db.Accounts
-            .AsNoTracking()
-            .Where(a => accountIds.Contains(a.Id))
-            .Select(a => new { a.Id, a.UpdatedAt })
-            .ToListAsync(context.CancellationToken);
-
-        var response = new DyGetAccountStatusBatchResponse();
-        response.Statuses.AddRange(accounts.Select(a => new DyAccountStatus
-        {
-            AccountId = a.Id.ToString(),
-            IsOnline = false
-        }));
-        return response;
-    }
-
-    public override Task<DyListRelationshipSimpleResponse> ListFriends(
-        DyListRelationshipSimpleRequest request,
-        ServerCallContext context) => Task.FromResult(new DyListRelationshipSimpleResponse());
-
-    public override Task<DyListRelationshipSimpleResponse> ListBlocked(
-        DyListRelationshipSimpleRequest request,
-        ServerCallContext context) => Task.FromResult(new DyListRelationshipSimpleResponse());
-
-    public override Task<DyGetRelationshipResponse> GetRelationship(
-        DyGetRelationshipRequest request,
-        ServerCallContext context) => Task.FromResult(new DyGetRelationshipResponse());
-
-    public override Task<BoolValue> HasRelationship(
-        DyGetRelationshipRequest request,
-        ServerCallContext context) => Task.FromResult(new BoolValue { Value = false });
-
-    public override Task<DyAccountProfile> GetProfile(DyGetProfileRequest request, ServerCallContext context)
-        => Task.FromResult(new DyAccountProfile());
-
-    public override Task<DyGrantBadgeResponse> GrantBadge(DyGrantBadgeRequest request, ServerCallContext context)
-        => throw new RpcException(new Status(StatusCode.Unimplemented, "Badge ownership remains in Passport"));
-
-    public override Task<DyGetBadgeResponse> GetBadge(DyGetBadgeRequest request, ServerCallContext context)
-        => throw new RpcException(new Status(StatusCode.Unimplemented, "Badge ownership remains in Passport"));
-
-    public override Task<DyUpdateBadgeResponse> UpdateBadge(DyUpdateBadgeRequest request, ServerCallContext context)
-        => throw new RpcException(new Status(StatusCode.Unimplemented, "Badge ownership remains in Passport"));
-
     public override async Task<DyListContactsResponse> ListContacts(DyListContactsRequest request,
         ServerCallContext context)
     {
@@ -250,5 +186,191 @@ public class AccountServiceGrpc(AppDatabase db) : DyAccountService.DyAccountServ
         var response = new DyListContactsResponse();
         response.Contacts.AddRange(contacts.Select(c => c.ToProtoValue()));
         return response;
+    }
+
+    public override async Task<DyListContactsResponse> GetContactsByProvider(
+        DyGetContactsByProviderRequest request,
+        ServerCallContext context)
+    {
+        // This contract is retained for compatibility. Account contacts do not have a "provider" field.
+        // Return an empty list until the proto adds a provider-aware contact model.
+        await Task.CompletedTask;
+        return new DyListContactsResponse();
+    }
+
+    public override async Task<DyListContactsResponse> GetContactsByAccount(
+        DyGetContactsByAccountRequest request,
+        ServerCallContext context)
+    {
+        var list = await ListContacts(
+            new DyListContactsRequest
+            {
+                AccountId = request.AccountId,
+                Type = DyAccountContactType.Unspecified,
+                VerifiedOnly = false
+            },
+            context);
+
+        return list;
+    }
+
+    public override async Task<DyListAuthFactorsResponse> ListAuthFactors(
+        DyListAuthFactorsRequest request,
+        ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        var query = db.AccountAuthFactors
+            .AsNoTracking()
+            .Where(f => f.AccountId == accountId);
+
+        if (request.ActiveOnly)
+        {
+            var now = SystemClock.Instance.GetCurrentInstant();
+            query = query.Where(f => f.EnabledAt != null && (f.ExpiredAt == null || f.ExpiredAt > now));
+        }
+
+        var factors = await query.ToListAsync(context.CancellationToken);
+        var response = new DyListAuthFactorsResponse();
+        response.Factors.AddRange(factors.Select(ToProtoAuthFactor));
+        return response;
+    }
+
+    public override async Task<DyListConnectionsResponse> ListConnections(
+        DyListConnectionsRequest request,
+        ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        var query = db.AccountConnections
+            .AsNoTracking()
+            .Where(c => c.AccountId == accountId);
+
+        if (!string.IsNullOrWhiteSpace(request.Provider))
+            query = query.Where(c => c.Provider == request.Provider);
+
+        var connections = await query.ToListAsync(context.CancellationToken);
+        var response = new DyListConnectionsResponse();
+        response.Connections.AddRange(connections.Select(ToProtoConnection));
+        return response;
+    }
+
+    public override async Task<DyGetValidAccessTokenResponse> GetValidAccessToken(
+        DyGetValidAccessTokenRequest request,
+        ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.ConnectionId, out var connectionId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid connection ID format"));
+
+        var connection = await db.AccountConnections
+            .FirstOrDefaultAsync(c => c.Id == connectionId, context.CancellationToken);
+
+        if (connection is null)
+            throw new RpcException(new Status(StatusCode.NotFound, "Connection not found"));
+
+        var refreshToken = !string.IsNullOrWhiteSpace(request.RefreshToken)
+            ? request.RefreshToken
+            : connection.RefreshToken;
+
+        var currentAccessToken = !string.IsNullOrWhiteSpace(request.CurrentAccessToken)
+            ? request.CurrentAccessToken
+            : connection.AccessToken;
+
+        var accessToken = currentAccessToken;
+        var provider = oidcServices.FirstOrDefault(s =>
+            string.Equals(s.ProviderName, connection.Provider, StringComparison.OrdinalIgnoreCase));
+
+        if (provider is not null && !string.IsNullOrWhiteSpace(refreshToken))
+        {
+            try
+            {
+                var refreshed = await provider.GetValidAccessTokenAsync(refreshToken, currentAccessToken);
+                if (!string.IsNullOrWhiteSpace(refreshed))
+                {
+                    accessToken = refreshed;
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // Provider does not support refresh flow; fallback to existing token.
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex,
+                    "Failed to refresh access token for provider {Provider} and connection {ConnectionId}",
+                    connection.Provider,
+                    connection.Id);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(accessToken))
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, "No valid access token available"));
+
+        connection.AccessToken = accessToken;
+        connection.LastUsedAt = SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync(context.CancellationToken);
+
+        return new DyGetValidAccessTokenResponse
+        {
+            AccessToken = accessToken
+        };
+    }
+
+    private static DyAccountAuthFactor ToProtoAuthFactor(SnAccountAuthFactor factor)
+    {
+        var proto = new DyAccountAuthFactor
+        {
+            Id = factor.Id.ToString(),
+            Type = factor.Type switch
+            {
+                AccountAuthFactorType.Password => DyAccountAuthFactorType.DyPassword,
+                AccountAuthFactorType.EmailCode => DyAccountAuthFactorType.DyEmailCode,
+                AccountAuthFactorType.InAppCode => DyAccountAuthFactorType.DyInAppCode,
+                AccountAuthFactorType.TimedCode => DyAccountAuthFactorType.DyTimedCode,
+                AccountAuthFactorType.PinCode => DyAccountAuthFactorType.DyPinCode,
+                _ => DyAccountAuthFactorType.DyAuthFactorTypeUnspecified
+            },
+            Trustworthy = factor.Trustworthy,
+            EnabledAt = factor.EnabledAt?.ToTimestamp(),
+            ExpiredAt = factor.ExpiredAt?.ToTimestamp(),
+            AccountId = factor.AccountId.ToString(),
+            CreatedAt = factor.CreatedAt.ToTimestamp(),
+            UpdatedAt = factor.UpdatedAt.ToTimestamp()
+        };
+
+        if (factor.Config is not null)
+        {
+            proto.Config.Add(InfraObjectCoder.ConvertToValueMap(factor.Config));
+        }
+
+        if (factor.CreatedResponse is not null)
+        {
+            proto.CreatedResponse.Add(InfraObjectCoder.ConvertToValueMap(factor.CreatedResponse));
+        }
+
+        return proto;
+    }
+
+    private static DyAccountConnection ToProtoConnection(SnAccountConnection connection)
+    {
+        var proto = new DyAccountConnection
+        {
+            Id = connection.Id.ToString(),
+            Provider = connection.Provider,
+            ProvidedIdentifier = connection.ProvidedIdentifier,
+            AccessToken = connection.AccessToken,
+            RefreshToken = connection.RefreshToken,
+            LastUsedAt = connection.LastUsedAt?.ToTimestamp(),
+            AccountId = connection.AccountId.ToString(),
+            CreatedAt = connection.CreatedAt.ToTimestamp(),
+            UpdatedAt = connection.UpdatedAt.ToTimestamp()
+        };
+
+        if (connection.Meta is not null)
+            proto.Meta.Add(InfraObjectCoder.ConvertToValueMap(connection.Meta));
+
+        return proto;
     }
 }

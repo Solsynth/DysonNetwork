@@ -1,13 +1,12 @@
 using DysonNetwork.Shared.Models;
-using Microsoft.EntityFrameworkCore;
+using DysonNetwork.Shared.Registry;
 using NodaTime;
 using SpotifyAPI.Web;
 
 namespace DysonNetwork.Passport.Account.Presences;
 
 public class SpotifyPresenceService(
-    AppDatabase db,
-    Auth.OpenId.SpotifyOidcService spotifyService,
+    RemoteAccountConnectionService connections,
     AccountEventService accountEventService,
     ILogger<SpotifyPresenceService> logger
 ) : IPresenceService
@@ -18,39 +17,37 @@ public class SpotifyPresenceService(
     /// <inheritdoc />
     public async Task UpdatePresencesAsync(IEnumerable<Guid> userIds)
     {
-        var userIdList = userIds.ToList();
-        var userConnections = await db.Set<SnAccountConnection>()
-            .Where(c => userIdList.Contains(c.AccountId) && c.Provider == "spotify" && c.AccessToken != null && c.RefreshToken != null)
-            .Include(c => c.Account)
-            .ToListAsync();
-
-        foreach (var connection in userConnections)
-            await UpdateSpotifyPresenceAsync(connection.Account);
+        foreach (var userId in userIds)
+        {
+            var userConnections = await connections.ListConnectionsAsync(userId, "spotify");
+            foreach (var connection in userConnections.Where(c => c.RefreshToken != null))
+                await UpdateSpotifyPresenceAsync(userId, connection);
+        }
     }
 
     /// <summary>
     /// Updates the Spotify presence activity for a specific user
     /// </summary>
-    private async Task UpdateSpotifyPresenceAsync(SnAccount account)
+    private async Task UpdateSpotifyPresenceAsync(Guid accountId, SnAccountConnection connection)
     {
-        var connection = await db.Set<SnAccountConnection>()
-            .FirstOrDefaultAsync(c => c.AccountId == account.Id && c.Provider == "spotify");
-
-        if (connection?.RefreshToken == null)
+        if (connection.RefreshToken == null)
         {
             // No Spotify connection, remove any existing Spotify presence
-            await RemoveSpotifyPresenceAsync(account.Id);
+            await RemoveSpotifyPresenceAsync(accountId);
             return;
         }
 
         try
         {
             // Ensure we have a valid access token
-            var validToken = await spotifyService.GetValidAccessTokenAsync(connection.RefreshToken, connection.AccessToken);
+            var validToken = await connections.GetValidAccessTokenAsync(
+                connection.Id,
+                connection.RefreshToken,
+                connection.AccessToken);
             if (string.IsNullOrEmpty(validToken))
             {
                 // Couldn't get a valid token, remove presence
-                await RemoveSpotifyPresenceAsync(account.Id);
+                await RemoveSpotifyPresenceAsync(accountId);
                 return;
             }
 
@@ -62,16 +59,16 @@ public class SpotifyPresenceService(
             if (currentlyPlaying?.Item == null || !currentlyPlaying.IsPlaying)
             {
                 // Nothing playing or paused, remove the presence
-                await RemoveSpotifyPresenceAsync(account.Id);
+                await RemoveSpotifyPresenceAsync(accountId);
                 return;
             }
 
-            var presenceActivity = ParseCurrentlyPlayingToPresenceActivity(account.Id, currentlyPlaying);
+            var presenceActivity = ParseCurrentlyPlayingToPresenceActivity(accountId, currentlyPlaying);
 
             // Try to update existing activity first
             var updatedActivity = await accountEventService.UpdateActivityByManualId(
                 "spotify",
-                account.Id,
+                accountId,
                 UpdateActivityWithPresenceData,
                 5 
             );
@@ -97,10 +94,10 @@ public class SpotifyPresenceService(
         catch (Exception ex)
         {
             // On error, remove the presence to avoid stale data
-            await RemoveSpotifyPresenceAsync(account.Id);
+            await RemoveSpotifyPresenceAsync(accountId);
 
             // In a real implementation, you might want to log the error
-            logger.LogError(ex, "Failed to update Spotify presence for user {UserId}", account.Id);
+            logger.LogError(ex, "Failed to update Spotify presence for user {UserId}", accountId);
         }
     }
 

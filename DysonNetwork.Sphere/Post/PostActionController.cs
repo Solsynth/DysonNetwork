@@ -30,7 +30,7 @@ public class PostActionController(
     AppDatabase db,
     PostService ps,
     PublisherService pub,
-    DyAccountService.DyAccountServiceClient accounts,
+    DyProfileService.DyProfileServiceClient accounts,
     RemoteActionLogService als,
     RemotePaymentService remotePayments,
     PollsService polls,

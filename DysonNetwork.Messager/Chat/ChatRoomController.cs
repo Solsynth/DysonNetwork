@@ -21,7 +21,7 @@ public class ChatRoomController(
     ChatRoomService crs,
     ChatService cs,
     RemoteRealmService rs,
-    DyAccountService.DyAccountServiceClient accounts,
+    DyProfileService.DyProfileServiceClient accounts,
     DyFileService.DyFileServiceClient files,
     RemoteActionLogService als,
     DyRingService.DyRingServiceClient pusher,

@@ -1,5 +1,5 @@
 using DysonNetwork.Shared.Models;
-using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +12,7 @@ public class FriendsController(
     AppDatabase db,
     RelationshipService rels,
     AccountEventService events,
-    RemoteAccountService remoteAccounts
+    DyAccountService.DyAccountServiceClient accountGrpc
 ) : ControllerBase
 {
     public class FriendOverviewItem
@@ -31,7 +31,10 @@ public class FriendsController(
         var friendIds = await rels.ListAccountFriends(currentUser);
 
         // Fetch data in parallel using batch methods for better performance
-        var accountsTask = remoteAccounts.GetAccountBatch(friendIds);
+        var accountsTask = accountGrpc.GetAccountBatchAsync(new DyGetAccountBatchRequest
+        {
+            Id = { friendIds.Select(x => x.ToString()) }
+        }).ResponseAsync;
 
         var statusesTask = events.GetStatuses(friendIds);
         var activitiesTask = events.GetActiveActivitiesBatch(friendIds);
@@ -45,7 +48,7 @@ public class FriendsController(
         await profilesTask;
         var profiles = profilesTask.Result;
 
-        var accounts = accountsTask.Result
+        var accounts = accountsTask.Result.Accounts
             .Select(SnAccount.FromProtoValue)
             .Select(a =>
             {

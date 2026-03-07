@@ -19,7 +19,7 @@ namespace DysonNetwork.Passport.Account;
 public class AccountCurrentController(
     AppDatabase db,
     AccountService accounts,
-    PadlockAccountContactService padlockContacts,
+    RemoteAccountContactService remoteContacts,
     AccountEventService events,
     DyFileService.DyFileServiceClient files,
     Credit.SocialCreditService creditService,
@@ -60,7 +60,7 @@ public class AccountCurrentController(
                 Console.WriteLine($"Failed to populate PerkSubscription for account {account.Id}: {ex.Message}");
             }
 
-            account.Contacts = await padlockContacts.ListContactsAsync(account.Id);
+            account.Contacts = await remoteContacts.ListContactsAsync(account.Id);
         }
 
         return Ok(account);

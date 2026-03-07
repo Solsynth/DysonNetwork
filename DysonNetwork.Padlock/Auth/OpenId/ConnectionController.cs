@@ -10,7 +10,7 @@ using DysonNetwork.Shared.Models;
 namespace DysonNetwork.Padlock.Auth.OpenId;
 
 [ApiController]
-[Route("/api/accounts/me/connections")]
+[Route("/api/connections")]
 [Authorize]
 public class ConnectionController(
     AppDatabase db,

@@ -1,9 +1,6 @@
-using DysonNetwork.Passport.Localization;
-using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Localization;
 
@@ -14,7 +11,7 @@ public class RealmService(
     DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
     ICacheService cache,
-    RemoteAccountService remoteAccounts
+    DyAccountService.DyAccountServiceClient accountGrpc
 )
 {
     private const string CacheKeyPrefix = "account:realms:";
@@ -41,7 +38,7 @@ public class RealmService(
 
     public async Task SendInviteNotify(SnRealmMember member)
     {
-        var account = await remoteAccounts.GetAccount(member.AccountId);
+        var account = await accountGrpc.GetAccountAsync(new DyGetAccountRequest { Id = member.AccountId.ToString() });
         var modelAccount = SnAccount.FromProtoValue(account);
 
         if (modelAccount == null) throw new InvalidOperationException("Account not found");
@@ -78,7 +75,9 @@ public class RealmService(
     {
         try
         {
-            var account = SnAccount.FromProtoValue(await remoteAccounts.GetAccount(member.AccountId));
+            var account = SnAccount.FromProtoValue(
+                await accountGrpc.GetAccountAsync(new DyGetAccountRequest { Id = member.AccountId.ToString() })
+            );
             account.Profile = await db.AccountProfiles.FirstOrDefaultAsync(p => p.AccountId == member.AccountId);
             member.Account = account;
         }
@@ -93,8 +92,11 @@ public class RealmService(
     public async Task<List<SnRealmMember>> LoadMemberAccounts(ICollection<SnRealmMember> members)
     {
         var accountIds = members.Select(m => m.AccountId).ToList();
-        var accounts = await remoteAccounts.GetAccountBatch(accountIds);
-        var accountsDict = accounts
+        var accounts = await accountGrpc.GetAccountBatchAsync(new DyGetAccountBatchRequest
+        {
+            Id = { accountIds.Select(x => x.ToString()) }
+        });
+        var accountsDict = accounts.Accounts
             .Select(SnAccount.FromProtoValue)
             .ToDictionary(a => a.Id, a => a);
         var profiles = await db.AccountProfiles

@@ -1,12 +1,10 @@
 using System.Linq.Expressions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using DysonNetwork.Passport.Permission;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.EntityFrameworkCore.Query;
 using NodaTime;
 using Quartz;
 
@@ -28,7 +26,6 @@ public class AppDatabase(
     public DbSet<SnCheckInResult> AccountCheckInResults { get; set; } = null!;
     public DbSet<SnPresenceActivity> PresenceActivities { get; set; } = null!;
     public DbSet<SnAccountBadge> Badges { get; set; } = null!;
-    public DbSet<SnAbuseReport> AbuseReports { get; set; } = null!;
     
     public DbSet<SnRealm> Realms { get; set; } = null!;
     public DbSet<SnRealmMember> RealmMembers { get; set; } = null!;
@@ -61,38 +58,6 @@ public class AppDatabase(
                 .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
                 .UseNodaTime()
         ).UseSnakeCaseNamingConvention();
-
-        optionsBuilder.UseAsyncSeeding(async (context, _, cancellationToken) =>
-        {
-            var defaultPermissionGroup = await context.Set<SnPermissionGroup>()
-                .FirstOrDefaultAsync(g => g.Key == "default", cancellationToken);
-            if (defaultPermissionGroup is null)
-            {
-                context.Set<SnPermissionGroup>().Add(new SnPermissionGroup
-                {
-                    Key = "default",
-                    Nodes = new List<string>
-                        {
-                            "posts.create",
-                            "posts.react",
-                            "publishers.create",
-                            "files.create",
-                            "chat.create",
-                            "chat.messages.create",
-                            "chat.realtime.create",
-                            "accounts.statuses.create",
-                            "accounts.statuses.update",
-                            "stickers.packs.create",
-                            "stickers.create"
-                        }.Select(permission =>
-                            PermissionService.NewPermissionNode("group:default", permission, true))
-                        .ToList()
-                });
-                await context.SaveChangesAsync(cancellationToken);
-            }
-        });
-
-        optionsBuilder.UseSeeding((context, _) => { });
 
         base.OnConfiguring(optionsBuilder);
     }

@@ -32,11 +32,11 @@ public static class ServiceInjectionHelper
             services.AddGrpcClientWithSharedChannel<DyAuthService.DyAuthServiceClient>(
                 "https://_grpc.padlock",
                 "DyAuthService");
-            services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(
+            services.AddGrpcClientWithSharedChannel<DyProfileService.DyProfileServiceClient>(
                 "https://_grpc.passport",
-                "DyAccountService.AuthProfile");
+                "DyProfileService");
             services.AddGrpcClientWithSharedChannel<DyPermissionService.DyPermissionServiceClient>(
-                "https://_grpc.passport",
+                "https://_grpc.padlock",
                 "DyPermissionService");
 
             return services;
@@ -45,12 +45,17 @@ public static class ServiceInjectionHelper
         public IServiceCollection AddAccountService()
         {
             services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(
-                "https://_grpc.passport",
+                "https://_grpc.padlock",
                 "DyAccountService");
+            services.AddGrpcClientWithSharedChannel<DyProfileService.DyProfileServiceClient>(
+                "https://_grpc.passport",
+                "DyProfileService");
             services.AddSingleton<RemoteAccountService>();
+            services.AddScoped<RemoteAccountContactService>();
+            services.AddScoped<RemoteAccountConnectionService>();
 
             services.AddGrpcClientWithSharedChannel<DyBotAccountReceiverService.DyBotAccountReceiverServiceClient>(
-                "https://_grpc.passport",
+                "https://_grpc.padlock",
                 "DyBotAccountReceiverService");
             services.AddGrpcClientWithSharedChannel<DyActionLogService.DyActionLogServiceClient>(
                 "https://_grpc.padlock",

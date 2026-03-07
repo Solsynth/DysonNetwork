@@ -8,7 +8,6 @@ using DysonNetwork.Shared.Queue;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Localization;
 using NodaTime;
-using EmailResource = DysonNetwork.Passport.Localization.EmailResource;
 
 namespace DysonNetwork.Passport.Account;
 

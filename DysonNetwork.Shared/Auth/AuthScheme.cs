@@ -22,7 +22,7 @@ public class DysonTokenAuthHandler(
     ILoggerFactory logger,
     UrlEncoder encoder,
     DyAuthService.DyAuthServiceClient auth,
-    DyAccountService.DyAccountServiceClient accounts,
+    DyProfileService.DyProfileServiceClient profiles,
     ICacheService cache,
     IConfiguration config
 ) : AuthenticationHandler<DysonTokenAuthOptions>(options, logger, encoder)
@@ -250,6 +250,9 @@ public class DysonTokenAuthHandler(
 
     private async Task HydrateProfileAsync(DyAuthSession session, CancellationToken cancellationToken)
     {
+        if (!config.GetValue("Auth:ProfileHydration:Enabled", true))
+            return;
+
         if (session.Account is null || string.IsNullOrWhiteSpace(session.Account.Id))
             return;
 
@@ -263,7 +266,7 @@ public class DysonTokenAuthHandler(
 
         try
         {
-            var profile = await accounts.GetProfileAsync(
+            var profile = await profiles.GetProfileAsync(
                 new DyGetProfileRequest { AccountId = session.Account.Id },
                 cancellationToken: cancellationToken
             );

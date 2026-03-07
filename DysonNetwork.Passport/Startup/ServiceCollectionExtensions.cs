@@ -10,12 +10,9 @@ using DysonNetwork.Passport.Affiliation;
 using DysonNetwork.Passport.Credit;
 using DysonNetwork.Passport.Handlers;
 using DysonNetwork.Passport.Leveling;
-using DysonNetwork.Passport.Localization;
 using DysonNetwork.Passport.Mailer;
-using DysonNetwork.Passport.Permission;
 using DysonNetwork.Passport.Realm;
 using DysonNetwork.Passport.Rewind;
-using DysonNetwork.Passport.Safety;
 using DysonNetwork.Passport.Ticket;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
@@ -57,12 +54,7 @@ public static class ServiceCollectionExtensions
             options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
 
             options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
-        }).AddDataAnnotationsLocalization(options =>
-        {
-            options.DataAnnotationLocalizerProvider = (type, factory) =>
-                factory.Create(typeof(SharedResource));
         });
-        services.AddRazorPages();
 
         // Configure rate limiting
         services.AddRateLimiter(options =>
@@ -110,7 +102,7 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration)
     {
         services.AddScoped<RazorViewRenderer>();
-        services.AddSingleton<DysonNetwork.Shared.Localization.ILocalizationService, DysonNetwork.Shared.Localization.JsonLocalizationService>(sp =>
+        services.AddSingleton<ILocalizationService, DysonNetwork.Shared.Localization.JsonLocalizationService>(sp =>
         {
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
             var resourceNamespace = "DysonNetwork.Passport.Resources.Locales";
@@ -120,12 +112,11 @@ public static class ServiceCollectionExtensions
         {
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
             var resourceNamespace = "DysonNetwork.Passport.Resources.Templates";
-            return new DysonNetwork.Shared.Templating.DotLiquidTemplateService(assembly, resourceNamespace);
+            return new Shared.Templating.DotLiquidTemplateService(assembly, resourceNamespace);
         });
         services.Configure<GeoOptions>(configuration.GetSection("GeoIP"));
         services.AddScoped<GeoService>();
         services.AddScoped<EmailService>();
-        services.AddScoped<PermissionService>();
         services.AddScoped<ActionLogService>();
         services.AddScoped<AccountService>();
         services.AddScoped<AccountEventService>();
@@ -133,20 +124,22 @@ public static class ServiceCollectionExtensions
         services.AddScoped<RelationshipService>();
         services.AddScoped<MagicSpellService>();
         services.AddScoped<AccountUsernameService>();
-        services.AddScoped<SafetyService>();
         services.AddScoped<SocialCreditService>();
         services.AddScoped<ExperienceService>();
         services.AddScoped<RealmService>();
         services.AddScoped<AffiliationSpellService>();
         services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(
             "https://_grpc.padlock",
-            "DyAccountService.Padlock");
-        services.AddSingleton<RemoteAccountService>();
+            "DyAccountService");
+        services.AddGrpcClientWithSharedChannel<DyProfileService.DyProfileServiceClient>(
+            "https://_grpc.passport",
+            "DyProfileService");
+        services.AddScoped<RemoteAccountContactService>();
+        services.AddScoped<RemoteAccountConnectionService>();
         services.AddGrpcClientWithSharedChannel<DyActionLogService.DyActionLogServiceClient>(
             "https://_grpc.padlock",
-            "DyActionLogService.Padlock");
+            "DyActionLogService");
         services.AddSingleton<RemoteActionLogService>();
-        services.AddScoped<PadlockAccountContactService>();
 
         services.AddScoped<SpotifyPresenceService>();
         services.AddScoped<SteamPresenceService>();

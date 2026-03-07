@@ -1,11 +1,12 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using Microsoft.Extensions.Logging;
 
-namespace DysonNetwork.Passport.Account;
+namespace DysonNetwork.Shared.Registry;
 
-public class PadlockAccountContactService(
+public class RemoteAccountContactService(
     DyAccountService.DyAccountServiceClient accountGrpc,
-    ILogger<PadlockAccountContactService> logger
+    ILogger<RemoteAccountContactService> logger
 )
 {
     public async Task<List<SnAccountContact>> ListContactsAsync(Guid accountId, AccountContactType? type = null,
