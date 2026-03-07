@@ -160,6 +160,14 @@ public class AccountService(
                 Secret = secret,
                 EnabledAt = SystemClock.Instance.GetCurrentInstant(),
             }.HashSecret(),
+            AccountAuthFactorType.RecoveryCode => new SnAccountAuthFactor
+            {
+                Type = AccountAuthFactorType.RecoveryCode,
+                Trustworthy = 0,
+                AccountId = account.Id,
+                Secret = Guid.NewGuid().ToString("N"),
+                EnabledAt = SystemClock.Instance.GetCurrentInstant(),
+            },
             _ => null
         };
 

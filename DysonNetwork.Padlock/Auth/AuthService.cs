@@ -42,7 +42,8 @@ public class AuthService(
     public async Task<int> DetectChallengeRisk(HttpRequest request, SnAccount account)
     {
         var enabledFactors = await db.AccountAuthFactors
-            .Where(f => f.AccountId == account.Id && f.Type != AccountAuthFactorType.PinCode)
+            .Where(f => f.AccountId == account.Id)
+            .Where(f => f.Type != AccountAuthFactorType.PinCode && f.Type != AccountAuthFactorType.RecoveryCode)
             .Where(f => f.EnabledAt != null)
             .ToListAsync();
         var maxSteps = enabledFactors.Count;

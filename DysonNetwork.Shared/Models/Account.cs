@@ -459,6 +459,7 @@ public enum AccountAuthFactorType
     InAppCode,
     TimedCode,
     PinCode,
+    RecoveryCode,
 }
 
 public class SnAccountConnection : ModelBase

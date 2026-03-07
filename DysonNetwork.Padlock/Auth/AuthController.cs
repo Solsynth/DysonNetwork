@@ -104,7 +104,9 @@ public class AuthController(
             .FirstOrDefaultAsync();
         return challenge is null
             ? NotFound("Auth challenge was not found.")
-            : challenge.Account.AuthFactors.Where(e => e is { EnabledAt: not null, Trustworthy: >= 1 }).ToList();
+            : challenge.Account.AuthFactors
+                .Where(e => e is { EnabledAt: not null, Trustworthy: >= 1 } && e.Type != AccountAuthFactorType.RecoveryCode)
+                .ToList();
     }
 
     [HttpPost("challenge/{id:guid}/factors/{factorId:guid}")]

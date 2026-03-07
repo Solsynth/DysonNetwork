@@ -46,6 +46,12 @@ public class AccountSecurityController(
     public async Task<ActionResult<SnAccountAuthFactor>> CreateAuthFactor([FromBody] AuthFactorRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (request.Type != AccountAuthFactorType.RecoveryCode &&
+            !await accounts.CheckAuthFactorExists(currentUser, AccountAuthFactorType.RecoveryCode))
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                ["factor"] = ["Recovery code must be created before creating other auth factors."]
+            }, traceId: HttpContext.TraceIdentifier));
         if (await accounts.CheckAuthFactorExists(currentUser, request.Type))
             return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
             {
