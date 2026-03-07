@@ -1,4 +1,5 @@
 using DysonNetwork.Padlock.Auth;
+using DysonNetwork.Padlock.Account;
 using DysonNetwork.Shared.Networking;
 
 namespace DysonNetwork.Padlock.Startup;
@@ -25,6 +26,7 @@ public static class ApplicationConfiguration
     public static WebApplication ConfigureGrpcServices(this WebApplication app)
     {
         app.MapGrpcService<AuthServiceGrpc>();
+        app.MapGrpcService<AccountServiceGrpc>();
         app.MapGrpcReflectionService();
 
         return app;

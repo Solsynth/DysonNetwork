@@ -17,13 +17,13 @@ public class AccountPlugin(SolarNetworkApiClient apiClient, ILogger<AccountPlugi
             // Try to parse as Guid first (ID), otherwise treat as username
             if (Guid.TryParse(accountIdOrUsername, out _))
             {
-                var account = await apiClient.GetAsync<SnAccount>("pass", $"/accounts/{accountIdOrUsername}");
+                var account = await apiClient.GetAsync<SnAccount>("passport", $"/accounts/{accountIdOrUsername}");
                 return account;
             }
             else
             {
                 var accounts = await apiClient.GetAsync<List<SnAccount>>(
-                    "pass", 
+                    "passport", 
                     $"/accounts/search?q={Uri.EscapeDataString(accountIdOrUsername)}"
                 );
                 return accounts?.FirstOrDefault();
@@ -46,7 +46,7 @@ public class AccountPlugin(SolarNetworkApiClient apiClient, ILogger<AccountPlugi
         try
         {
             var accounts = await apiClient.GetAsync<List<SnAccount>>(
-                "pass", 
+                "passport", 
                 $"/accounts/search?q={Uri.EscapeDataString(query)}&take={limit}"
             );
             
@@ -67,7 +67,7 @@ public class AccountPlugin(SolarNetworkApiClient apiClient, ILogger<AccountPlugi
     {
         try
         {
-            await apiClient.PostAsync("pass", $"/accounts/{accountId}/follow", new { });
+            await apiClient.PostAsync("passport", $"/accounts/{accountId}/follow", new { });
             
             logger.LogInformation("Followed account {AccountId}", accountId);
             return new { success = true, message = "Account followed successfully" };
@@ -87,7 +87,7 @@ public class AccountPlugin(SolarNetworkApiClient apiClient, ILogger<AccountPlugi
     {
         try
         {
-            await apiClient.PostAsync("pass", $"/accounts/{accountId}/unfollow", new { });
+            await apiClient.PostAsync("passport", $"/accounts/{accountId}/unfollow", new { });
             
             logger.LogInformation("Unfollowed account {AccountId}", accountId);
             return new { success = true, message = "Account unfollowed successfully" };
@@ -109,7 +109,7 @@ public class AccountPlugin(SolarNetworkApiClient apiClient, ILogger<AccountPlugi
         try
         {
             var followers = await apiClient.GetAsync<List<SnAccount>>(
-                "pass", 
+                "passport", 
                 $"/accounts/{accountId}/followers?take={limit}"
             );
             
@@ -132,7 +132,7 @@ public class AccountPlugin(SolarNetworkApiClient apiClient, ILogger<AccountPlugi
         try
         {
             var following = await apiClient.GetAsync<List<SnAccount>>(
-                "pass", 
+                "passport", 
                 $"/accounts/{accountId}/following?take={limit}"
             );
             
@@ -151,7 +151,7 @@ public class AccountPlugin(SolarNetworkApiClient apiClient, ILogger<AccountPlugi
     {
         try
         {
-            var account = await apiClient.GetAsync<SnAccount>("pass", "/accounts/me");
+            var account = await apiClient.GetAsync<SnAccount>("passport", "/accounts/me");
             return account;
         }
         catch (Exception ex)

@@ -4,7 +4,7 @@ public static class PerkSubscriptionPrivilege
 {
     public static int GetPrivilegeFromIdentifier(string identifier)
     {
-        // Reference from the DysonNetwork.Pass
+        // Reference from the DysonNetwork.Passport
         return identifier switch
         {
             "solian.stellar.primary" => 1,

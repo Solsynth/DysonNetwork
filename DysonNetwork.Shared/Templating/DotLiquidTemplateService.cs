@@ -14,7 +14,7 @@ public class DotLiquidTemplateService : ITemplateService
     public DotLiquidTemplateService(Assembly? assembly = null, string? resourceNamespace = null)
     {
         _assembly = assembly ?? Assembly.GetEntryAssembly() ?? Assembly.GetCallingAssembly();
-        _resourceNamespace = resourceNamespace ?? "DysonNetwork.Pass.Resources.Templates";
+        _resourceNamespace = resourceNamespace ?? "DysonNetwork.Passport.Resources.Templates";
 
         DiscoverAvailableLocales();
         PreloadTemplates();

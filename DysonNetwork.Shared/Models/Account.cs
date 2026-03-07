@@ -24,7 +24,7 @@ public class SnAccount : ModelBase
     // The ID is the BotAccount ID in the DysonNetwork.Develop
     public Guid? AutomatedId { get; set; }
 
-    public SnAccountProfile Profile { get; set; } = null!;
+    public SnAccountProfile? Profile { get; set; }
     public List<SnAccountContact> Contacts { get; set; } = [];
     public List<SnAccountBadge> Badges { get; set; } = [];
 

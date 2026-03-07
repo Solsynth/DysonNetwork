@@ -15,7 +15,7 @@ public class JsonLocalizationService : ILocalizationService
     public JsonLocalizationService(Assembly? assembly = null, string? resourceNamespace = null)
     {
         _assembly = assembly ?? Assembly.GetEntryAssembly() ?? Assembly.GetCallingAssembly();
-        _resourceNamespace = resourceNamespace ?? "DysonNetwork.Pass.Resources.Locales";
+        _resourceNamespace = resourceNamespace ?? "DysonNetwork.Passport.Resources.Locales";
         DiscoverAvailableLocales();
     }
 

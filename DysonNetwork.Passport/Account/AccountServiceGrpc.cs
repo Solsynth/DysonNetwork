@@ -1,0 +1,506 @@
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
+using Google.Protobuf.WellKnownTypes;
+using Grpc.Core;
+using Microsoft.EntityFrameworkCore;
+using NodaTime;
+
+namespace DysonNetwork.Passport.Account;
+
+public class AccountServiceGrpc(
+    AppDatabase db,
+    AccountEventService accountEvents,
+    RelationshipService relationships,
+    RemoteSubscriptionService remoteSubscription,
+    PadlockAccountContactService padlockContacts,
+    AccountService accountService,
+    ILogger<AccountServiceGrpc> logger
+)
+    : DyAccountService.DyAccountServiceBase
+{
+    private readonly AppDatabase _db = db ?? throw new ArgumentNullException(nameof(db));
+
+    private readonly AccountService _accountService =
+        accountService ?? throw new ArgumentNullException(nameof(accountService));
+
+    private readonly ILogger<AccountServiceGrpc>
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+    public override async Task<DyAccount> GetAccount(DyGetAccountRequest request, ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.Id, out var accountId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        var account = await _db.Accounts
+            .AsNoTracking()
+            .Include(a => a.Profile)
+            .FirstOrDefaultAsync(a => a.Id == accountId);
+
+        if (account == null)
+            throw new RpcException(new Status(StatusCode.NotFound, $"Account {request.Id} not found"));
+
+        // Populate PerkSubscription from Wallet service via gRPC
+        await PopulatePerkSubscriptionAsync(account);
+        await padlockContacts.PopulateContactsAsync(account, cancellationToken: context.CancellationToken);
+
+        return account.ToProtoValue();
+    }
+
+    public override async Task<DyAccount> GetBotAccount(DyGetBotAccountRequest request,
+        ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AutomatedId, out var automatedId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid automated ID format"));
+
+        var account = await _db.Accounts
+            .AsNoTracking()
+            .Include(a => a.Profile)
+            .FirstOrDefaultAsync(a => a.AutomatedId == automatedId);
+
+        if (account == null)
+            throw new RpcException(new Status(StatusCode.NotFound,
+                $"Account with automated ID {request.AutomatedId} not found"));
+
+        // Populate PerkSubscription from Wallet service via gRPC
+        await PopulatePerkSubscriptionAsync(account);
+        await padlockContacts.PopulateContactsAsync(account, cancellationToken: context.CancellationToken);
+
+        return account.ToProtoValue();
+    }
+
+    public override async Task<DyGetAccountBatchResponse> GetAccountBatch(DyGetAccountBatchRequest request,
+        ServerCallContext context)
+    {
+        var accountIds = request.Id
+            .Select(id => Guid.TryParse(id, out var accountId) ? accountId : (Guid?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
+        var accounts = await _db.Accounts
+            .AsNoTracking()
+            .Where(a => accountIds.Contains(a.Id))
+            .Include(a => a.Profile)
+            .ToListAsync();
+
+        // Populate PerkSubscriptions from Wallet service via gRPC
+        await PopulatePerkSubscriptionsAsync(accounts);
+        await PopulateContactsAsync(accounts, context.CancellationToken);
+
+        var response = new DyGetAccountBatchResponse();
+        response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
+        return response;
+    }
+
+
+    public override async Task<DyGetAccountBatchResponse> GetBotAccountBatch(DyGetBotAccountBatchRequest request,
+        ServerCallContext context)
+    {
+        var automatedIds = request.AutomatedId
+            .Select(id => Guid.TryParse(id, out var automatedId) ? automatedId : (Guid?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
+        var accounts = await _db.Accounts
+            .AsNoTracking()
+            .Where(a => a.AutomatedId != null && automatedIds.Contains(a.AutomatedId.Value))
+            .Include(a => a.Profile)
+            .ToListAsync();
+
+        // Populate PerkSubscriptions from Wallet service via gRPC
+        await PopulatePerkSubscriptionsAsync(accounts);
+        await PopulateContactsAsync(accounts, context.CancellationToken);
+
+        var response = new DyGetAccountBatchResponse();
+        response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
+        return response;
+    }
+
+    public override async Task<DyAccountStatus> GetAccountStatus(DyGetAccountRequest request, ServerCallContext context)
+    {
+        var accountId = Guid.Parse(request.Id);
+        var status = await accountEvents.GetStatus(accountId);
+        return status.ToProtoValue();
+    }
+
+    public override async Task<DyGetAccountStatusBatchResponse> GetAccountStatusBatch(DyGetAccountBatchRequest request,
+        ServerCallContext context)
+    {
+        var accountIds = request.Id
+            .Select(id => Guid.TryParse(id, out var accountId) ? accountId : (Guid?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+        var statuses = await accountEvents.GetStatuses(accountIds);
+        var response = new DyGetAccountStatusBatchResponse();
+        response.Statuses.AddRange(statuses.Select(s => s.Value.ToProtoValue()));
+        return response;
+    }
+
+    public override async Task<DyGetAccountBatchResponse> LookupAccountBatch(DyLookupAccountBatchRequest request,
+        ServerCallContext context)
+    {
+        var accountNames = request.Names.ToList();
+        var accounts = await _db.Accounts
+            .AsNoTracking()
+            .Where(a => accountNames.Contains(a.Name))
+            .Include(a => a.Profile)
+            .ToListAsync();
+
+        // Populate PerkSubscriptions from Wallet service via gRPC
+        await PopulatePerkSubscriptionsAsync(accounts);
+        await PopulateContactsAsync(accounts, context.CancellationToken);
+
+        var response = new DyGetAccountBatchResponse();
+        response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
+        return response;
+    }
+
+    public override async Task<DyGetAccountBatchResponse> SearchAccount(DySearchAccountRequest request,
+        ServerCallContext context)
+    {
+        var accounts = await _db.Accounts
+            .AsNoTracking()
+            .Where(a => EF.Functions.ILike(a.Name, $"%{request.Query}%"))
+            .Include(a => a.Profile)
+            .ToListAsync();
+
+        // Populate PerkSubscriptions from Wallet service via gRPC
+        await PopulatePerkSubscriptionsAsync(accounts);
+        await PopulateContactsAsync(accounts, context.CancellationToken);
+
+        var response = new DyGetAccountBatchResponse();
+        response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
+        return response;
+    }
+
+    public override async Task<DyListAccountsResponse> ListAccounts(DyListAccountsRequest request,
+        ServerCallContext context)
+    {
+        var query = _db.Accounts.AsNoTracking();
+
+        // Apply filters if provided
+        if (!string.IsNullOrEmpty(request.Filter))
+        {
+            // Implement filtering logic based on request.Filter
+            // This is a simplified example
+            query = query.Where(a => a.Name.Contains(request.Filter) || a.Nick.Contains(request.Filter));
+        }
+
+        // Apply ordering
+        query = request.OrderBy switch
+        {
+            "name" => query.OrderBy(a => a.Name),
+            "name_desc" => query.OrderByDescending(a => a.Name),
+            _ => query.OrderBy(a => a.Id)
+        };
+
+        // Get total count for pagination
+        var totalCount = await query.CountAsync();
+
+        // Apply pagination
+        var accounts = await query
+            .Skip(request.PageSize * (request.PageToken != null ? int.Parse(request.PageToken) : 0))
+            .Take(request.PageSize)
+            .Include(a => a.Profile)
+            .ToListAsync();
+
+        // Populate PerkSubscriptions from Wallet service via gRPC
+        await PopulatePerkSubscriptionsAsync(accounts);
+        await PopulateContactsAsync(accounts, context.CancellationToken);
+
+        var response = new DyListAccountsResponse
+        {
+            TotalSize = totalCount,
+            NextPageToken = accounts.Count == request.PageSize
+                ? ((request.PageToken != null ? int.Parse(request.PageToken) : 0) + 1).ToString()
+                : ""
+        };
+
+        response.Accounts.AddRange(accounts.Select(x => x.ToProtoValue()));
+        return response;
+    }
+
+    public override async Task<DyListRelationshipSimpleResponse> ListFriends(
+        DyListRelationshipSimpleRequest request,
+        ServerCallContext context
+    )
+    {
+        var resp = new DyListRelationshipSimpleResponse();
+        switch (request.RelationIdentifierCase)
+        {
+            case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.AccountId:
+                var accountId = Guid.Parse(request.AccountId);
+                var relationship = await relationships.ListAccountFriends(accountId);
+                resp.AccountsId.AddRange(relationship.Select(x => x.ToString()));
+                return resp;
+            case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.RelatedId:
+                var relatedId = Guid.Parse(request.RelatedId);
+                var relatedRelationship = await relationships.ListAccountFriends(relatedId, true);
+                resp.AccountsId.AddRange(relatedRelationship.Select(x => x.ToString()));
+                return resp;
+            case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.None:
+            default:
+                throw new RpcException(new Status(StatusCode.InvalidArgument,
+                    $"The relationship identifier must be provided."));
+        }
+    }
+
+    public override async Task<DyListRelationshipSimpleResponse> ListBlocked(
+        DyListRelationshipSimpleRequest request, ServerCallContext context)
+    {
+        var resp = new DyListRelationshipSimpleResponse();
+        switch (request.RelationIdentifierCase)
+        {
+            case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.AccountId:
+                var accountId = Guid.Parse(request.AccountId);
+                var relationship = await relationships.ListAccountBlocked(accountId);
+                resp.AccountsId.AddRange(relationship.Select(x => x.ToString()));
+                return resp;
+            case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.RelatedId:
+                var relatedId = Guid.Parse(request.RelatedId);
+                var relatedRelationship = await relationships.ListAccountBlocked(relatedId, true);
+                resp.AccountsId.AddRange(relatedRelationship.Select(x => x.ToString()));
+                return resp;
+            case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.None:
+            default:
+                throw new RpcException(new Status(StatusCode.InvalidArgument,
+                    $"The relationship identifier must be provided."));
+        }
+    }
+
+    public override async Task<DyListContactsResponse> ListContacts(DyListContactsRequest request,
+        ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        AccountContactType? type = request.Type switch
+        {
+            DyAccountContactType.DyEmail => AccountContactType.Email,
+            DyAccountContactType.DyPhoneNumber => AccountContactType.PhoneNumber,
+            DyAccountContactType.DyAddress => AccountContactType.Address,
+            _ => null
+        };
+
+        var contacts = await padlockContacts.ListContactsAsync(
+            accountId,
+            type,
+            request.VerifiedOnly,
+            context.CancellationToken);
+
+        var response = new DyListContactsResponse();
+        response.Contacts.AddRange(contacts.Select(c => c.ToProtoValue()));
+        return response;
+    }
+
+    public override async Task<DyGetRelationshipResponse> GetRelationship(
+        DyGetRelationshipRequest request,
+        ServerCallContext context
+    )
+    {
+        var relationship = await relationships.GetRelationship(
+            Guid.Parse(request.AccountId),
+            Guid.Parse(request.RelatedId),
+            status: (RelationshipStatus?)request.Status
+        );
+        return new DyGetRelationshipResponse
+        {
+            Relationship = relationship?.ToProtoValue()
+        };
+    }
+
+    public override async Task<BoolValue> HasRelationship(DyGetRelationshipRequest request, ServerCallContext context)
+    {
+        bool hasRelationship;
+        if (!request.HasStatus)
+            hasRelationship = await relationships.HasExistingRelationship(
+                Guid.Parse(request.AccountId),
+                Guid.Parse(request.RelatedId)
+            );
+        else
+            hasRelationship = await relationships.HasRelationshipWithStatus(
+                Guid.Parse(request.AccountId),
+                Guid.Parse(request.RelatedId),
+                (Shared.Models.RelationshipStatus)request.Status
+            );
+        return new BoolValue { Value = hasRelationship };
+    }
+
+    public override async Task<DyGrantBadgeResponse> GrantBadge(DyGrantBadgeRequest request, ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        var account = await _db.Accounts
+            .Include(a => a.Profile)
+            .FirstOrDefaultAsync(a => a.Id == accountId);
+
+        if (account == null)
+            throw new RpcException(new Status(StatusCode.NotFound, $"Account {request.AccountId} not found"));
+
+        // Convert the proto badge to the domain model
+        var badge = SnAccountBadge.FromProtoValue(request.Badge);
+
+        // Use the AccountService to grant the badge
+        var grantedBadge = await _accountService.GrantBadge(account, badge);
+
+        return new DyGrantBadgeResponse
+        {
+            Badge = grantedBadge.ToProtoValue()
+        };
+    }
+
+    public override async Task<DyGetBadgeResponse> GetBadge(DyGetBadgeRequest request, ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        if (!Guid.TryParse(request.BadgeId, out var badgeId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid badge ID format"));
+
+        var badge = await _db.Badges
+            .Where(b => b.AccountId == accountId && b.Id == badgeId)
+            .FirstOrDefaultAsync();
+
+        if (badge == null)
+            throw new RpcException(new Status(StatusCode.NotFound,
+                $"Badge {request.BadgeId} not found for account {request.AccountId}"));
+
+        return new DyGetBadgeResponse
+        {
+            Badge = badge.ToProtoValue()
+        };
+    }
+
+    public override async Task<DyUpdateBadgeResponse> UpdateBadge(DyUpdateBadgeRequest request, ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        if (!Guid.TryParse(request.BadgeId, out var badgeId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid badge ID format"));
+
+        var badge = await _db.Badges
+            .Where(b => b.AccountId == accountId && b.Id == badgeId)
+            .FirstOrDefaultAsync();
+
+        if (badge == null)
+            throw new RpcException(new Status(StatusCode.NotFound,
+                $"Badge {request.BadgeId} not found for account {request.AccountId}"));
+
+        // Convert the proto badge to the domain model
+        var updatedBadge = SnAccountBadge.FromProtoValue(request.Badge);
+
+        // Apply the updates based on the field mask
+        if (request.UpdateMask != null && request.UpdateMask.Paths.Count > 0)
+        {
+            foreach (var path in request.UpdateMask.Paths)
+            {
+                switch (path.ToLower())
+                {
+                    case "type":
+                        badge.Type = updatedBadge.Type;
+                        break;
+                    case "label":
+                        badge.Label = updatedBadge.Label;
+                        break;
+                    case "caption":
+                        badge.Caption = updatedBadge.Caption;
+                        break;
+                    case "meta":
+                        badge.Meta = updatedBadge.Meta;
+                        break;
+                    case "activated_at":
+                        badge.ActivatedAt = updatedBadge.ActivatedAt;
+                        break;
+                    case "expired_at":
+                        badge.ExpiredAt = updatedBadge.ExpiredAt;
+                        break;
+                }
+            }
+        }
+        else
+        {
+            // If no field mask is provided, update all fields
+            badge.Type = updatedBadge.Type;
+            badge.Label = updatedBadge.Label;
+            badge.Caption = updatedBadge.Caption;
+            badge.Meta = updatedBadge.Meta;
+            badge.ActivatedAt = updatedBadge.ActivatedAt;
+            badge.ExpiredAt = updatedBadge.ExpiredAt;
+        }
+
+        badge.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
+        _db.Badges.Update(badge);
+        await _db.SaveChangesAsync();
+
+        return new DyUpdateBadgeResponse
+        {
+            Badge = badge.ToProtoValue()
+        };
+    }
+
+    /// <summary>
+    /// Populates the PerkSubscription property for a single account by calling the Wallet service via gRPC.
+    /// </summary>
+    private async Task PopulatePerkSubscriptionAsync(SnAccount account)
+    {
+        try
+        {
+            var subscription = await remoteSubscription.GetPerkSubscription(account.Id);
+            if (subscription is not null)
+            {
+                account.PerkSubscription = SnWalletSubscription.FromProtoValue(subscription).ToReference();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to populate PerkSubscription for account {AccountId} in gRPC service",
+                account.Id);
+        }
+    }
+
+    /// <summary>
+    /// Populates the PerkSubscription property for multiple accounts by calling the Wallet service via gRPC.
+    /// </summary>
+    private async Task PopulatePerkSubscriptionsAsync(List<SnAccount> accounts)
+    {
+        if (accounts.Count == 0) return;
+
+        try
+        {
+            var accountIds = accounts.Select(a => a.Id).ToList();
+            var subscriptions = await remoteSubscription.GetPerkSubscriptions(accountIds);
+
+            var subscriptionDict = subscriptions
+                .ToDictionary(
+                    s => Guid.Parse(s.AccountId),
+                    s => SnWalletSubscription.FromProtoValue(s).ToReference()
+                );
+
+            foreach (var account in accounts)
+            {
+                if (subscriptionDict.TryGetValue(account.Id, out var subscription))
+                {
+                    account.PerkSubscription = subscription;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to populate PerkSubscriptions for {Count} accounts in gRPC service",
+                accounts.Count);
+        }
+    }
+
+    private async Task PopulateContactsAsync(List<SnAccount> accounts, CancellationToken cancellationToken)
+    {
+        foreach (var account in accounts)
+        {
+            await padlockContacts.PopulateContactsAsync(account, cancellationToken: cancellationToken);
+        }
+    }
+}

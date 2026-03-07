@@ -10,7 +10,7 @@ var queue = builder.AddNats("Queue").WithJetStream();
 var ringService = builder.AddProject<Projects.DysonNetwork_Ring>("ring");
 var padlockService = builder.AddProject<Projects.DysonNetwork_Padlock>("padlock")
     .WithReference(ringService);
-var passService = builder.AddProject<Projects.DysonNetwork_Pass>("pass")
+var passService = builder.AddProject<Projects.DysonNetwork_Passport>("passport")
     .WithReference(ringService)
     .WithReference(padlockService);
 var driveService = builder.AddProject<Projects.DysonNetwork_Drive>("drive")

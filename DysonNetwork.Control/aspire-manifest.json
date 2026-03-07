@@ -76,7 +76,7 @@
         }
       }
     },
-    "pass": {
+    "passport": {
       "type": "project.v1",
       "path": "../DysonNetwork.Pass/DysonNetwork.Pass.csproj",
       "env": {
@@ -97,7 +97,7 @@
         "GRPC_PORT": "7003",
         "OTEL_EXPORTER_OTLP_ENDPOINT": "{docker-compose-dashboard.bindings.otlp-grpc.url}",
         "OTEL_EXPORTER_OTLP_PROTOCOL": "grpc",
-        "OTEL_SERVICE_NAME": "pass"
+        "OTEL_SERVICE_NAME": "passport"
       },
       "bindings": {
         "http": {
