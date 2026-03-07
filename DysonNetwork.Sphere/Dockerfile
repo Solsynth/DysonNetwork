@@ -2,8 +2,8 @@
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libkrb5-3 \
-        libgssapi-krb5-2 \
+    libkrb5-3 \
+    libgssapi-krb5-2 \
     && rm -rf /var/lib/apt/lists/*
 USER $APP_UID
 WORKDIR /app
@@ -17,7 +17,7 @@ WORKDIR /src
 
 # First copy only the solution and project files to restore packages
 COPY ["DysonNetwork.Sphere/DysonNetwork.Sphere.csproj", "DysonNetwork.Sphere/"]
-COPY ["DYsonNetwork.Passport/DysonNetwork.Passport.csproj", "DYsonNetwork.Passport/"]
+COPY ["DysonNetwork.Passport/DysonNetwork.Passport.csproj", "DysonNetwork.Passport/"]
 COPY ["DysonNetwork.Shared/DysonNetwork.Shared.csproj", "DysonNetwork.Shared/"]
 
 # Restore packages
@@ -28,7 +28,7 @@ COPY . .
 
 # Create necessary directories for localized resources
 RUN mkdir -p /src/DysonNetwork.Sphere/bin/Release/net10.0/zh-hans \
-    && mkdir -p /src/DYsonNetwork.Passport/bin/Release/net10.0/zh-hans
+    && mkdir -p /src/DysonNetwork.Passport/bin/Release/net10.0/zh-hans
 
 # Build the application
 WORKDIR "/src/DysonNetwork.Sphere"

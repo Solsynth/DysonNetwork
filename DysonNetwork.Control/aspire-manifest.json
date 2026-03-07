@@ -78,7 +78,7 @@
     },
     "passport": {
       "type": "project.v1",
-      "path": "../DYsonNetwork.Passport/DysonNetwork.Passport.csproj",
+      "path": "../DysonNetwork.Passport/DysonNetwork.Passport.csproj",
       "env": {
         "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES": "true",
         "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES": "true",
