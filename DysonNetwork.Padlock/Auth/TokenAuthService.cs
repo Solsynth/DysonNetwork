@@ -51,6 +51,8 @@ public class TokenAuthService(
                 logger.LogWarning("AuthenticateTokenAsync: token validation failed (format={Format}, fp={TokenFp})", format, tokenFp);
                 return (false, null, "Invalid token.", null);
             }
+            if (string.Equals(tokenUse, "refresh", StringComparison.Ordinal))
+                return (false, null, "Refresh token cannot be used for authentication.", tokenUse);
 
             logger.LogDebug("AuthenticateTokenAsync: token validated, sessionId={SessionId} (fp={TokenFp})", sessionId, tokenFp);
 

@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.TimeZones;
@@ -11,7 +12,7 @@ namespace DysonNetwork.Passport.Rewind;
 /// Although the pass uses the rewind service call internally, no need for grpc.
 /// But we created a service that produce the grpc type for consistency.
 /// </summary>
-public class PassRewindService(AppDatabase db)
+public class PassRewindService(AppDatabase db, RemoteActionLogService remoteActionLogs)
 {
     public async Task<DyRewindEvent> CreateRewindEvent(Guid accountId, int year)
     {
@@ -64,11 +65,11 @@ public class PassRewindService(AppDatabase db)
 
         var checkInCompleteness = checkInDates.Count / 365.0;
 
-        var actionDates = await db.ActionLogs
-            .Where(a => a.CreatedAt >= startDate && a.CreatedAt < endDate)
-            .Where(a => a.AccountId == accountId)
-            .Select(a => a.CreatedAt.ToDateTimeUtc().Date)
-            .ToListAsync();
+        var actionDates = (await remoteActionLogs.ListAllActionLogs(accountId, pageSize: 500))
+            .Select(log => log.CreatedAt.ToDateTime())
+            .Where(dt => dt >= startDate.ToDateTimeUtc() && dt < endDate.ToDateTimeUtc())
+            .Select(dt => dt.Date)
+            .ToList();
 
         var mostActiveDay = actionDates
             .GroupBy(d => d)

@@ -27,6 +27,13 @@ public class AuthService(
     ILogger<AuthService> logger
 )
 {
+    public sealed record TokenPair(
+        string AccessToken,
+        string RefreshToken,
+        Instant AccessTokenExpiresAt,
+        Instant RefreshTokenExpiresAt
+    );
+
     private HttpContext HttpContext => httpContextAccessor.HttpContext!;
     public const string AuthCachePrefix = "auth:";
     private const string RevokedJtiPrefix = "auth:revoked:jti:";
@@ -286,15 +293,53 @@ public class AuthService(
         return sessions.Count;
     }
 
+    private Duration GetAccessTokenLifetime()
+    {
+        var cfg = config["AuthToken:AccessTokenLifetime"];
+        if (TimeSpan.TryParse(cfg, out var parsed) && parsed > TimeSpan.Zero)
+            return Duration.FromTimeSpan(parsed);
+        return Duration.FromHours(1);
+    }
+
+    private Duration GetRefreshTokenLifetime()
+    {
+        var cfg = config["AuthToken:RefreshTokenLifetime"];
+        if (TimeSpan.TryParse(cfg, out var parsed) && parsed > TimeSpan.Zero)
+            return Duration.FromTimeSpan(parsed);
+        return Duration.FromDays(30);
+    }
+
+    private Instant ResolveAccessExpiry(SnAuthSession session, Instant now)
+    {
+        var target = now.Plus(GetAccessTokenLifetime());
+        if (session.ExpiredAt.HasValue && session.ExpiredAt.Value < target)
+            return session.ExpiredAt.Value;
+        return target;
+    }
+
     public string CreateToken(SnAuthSession session)
     {
         var account = db.Accounts.FirstOrDefault(a => a.Id == session.AccountId)
                       ?? throw new InvalidOperationException("Session account not found.");
         var version = GetAccountVersion(session.AccountId).GetAwaiter().GetResult();
-        return authJwt.CreateUserToken(session, account, version);
+        var now = SystemClock.Instance.GetCurrentInstant();
+        return authJwt.CreateUserToken(session, account, version, ResolveAccessExpiry(session, now));
     }
 
-    public async Task<string> CreateSessionAndIssueToken(SnAuthChallenge challenge)
+    public TokenPair CreateTokenPair(SnAuthSession session)
+    {
+        var account = db.Accounts.FirstOrDefault(a => a.Id == session.AccountId)
+                      ?? throw new InvalidOperationException("Session account not found.");
+        var version = GetAccountVersion(session.AccountId).GetAwaiter().GetResult();
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var accessExpiresAt = ResolveAccessExpiry(session, now);
+        var refreshExpiresAt = session.ExpiredAt ?? now.Plus(GetRefreshTokenLifetime());
+        var accessToken = authJwt.CreateUserToken(session, account, version, accessExpiresAt);
+        var refreshToken = authJwt.CreateRefreshToken(session, version, refreshExpiresAt);
+        return new TokenPair(accessToken, refreshToken, accessExpiresAt, refreshExpiresAt);
+    }
+
+    public async Task<TokenPair> CreateSessionAndIssueTokens(SnAuthChallenge challenge)
     {
         if (challenge.StepRemain != 0)
             throw new ArgumentException("Challenge not yet completed.");
@@ -310,7 +355,7 @@ public class AuthService(
             existingSession.LastGrantedAt = now;
             db.Update(existingSession);
             await db.SaveChangesAsync();
-            return CreateToken(existingSession);
+            return CreateTokenPair(existingSession);
         }
 
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -327,7 +372,7 @@ public class AuthService(
             {
                 Type = SessionType.Login,
                 LastGrantedAt = now,
-                ExpiredAt = now.Plus(Duration.FromDays(7)),
+                ExpiredAt = now.Plus(GetRefreshTokenLifetime()),
                 AccountId = challenge.AccountId,
                 IpAddress = challenge.IpAddress,
                 UserAgent = challenge.UserAgent,
@@ -343,19 +388,10 @@ public class AuthService(
             db.AuthChallenges.Update(challenge);
             await db.SaveChangesAsync();
 
-            var tk = CreateToken(session);
-            var cookieDomain = config["AuthToken:CookieDomain"]!;
-            HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, tk, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Lax,
-                Domain = cookieDomain,
-                Expires = DateTime.UtcNow.AddYears(20)
-            });
+            var pair = CreateTokenPair(session);
 
             await tx.CommitAsync();
-            return tk;
+            return pair;
         }
         catch (Exception ex)
         {
@@ -363,6 +399,55 @@ public class AuthService(
             logger.LogWarning(ex, "CreateSessionAndIssueToken failed for challenge {ChallengeId}", challenge.Id);
             throw;
         }
+    }
+
+    public async Task<TokenPair> RefreshSessionAndIssueTokens(string refreshToken)
+    {
+        var (isValid, jwt) = authJwt.ValidateJwt(refreshToken);
+        if (!isValid || jwt is null)
+            throw new ArgumentException("Invalid refresh token.");
+
+        var tokenUse = jwt.Claims.FirstOrDefault(c => c.Type == "token_use")?.Value;
+        if (!string.Equals(tokenUse, "refresh", StringComparison.Ordinal))
+            throw new ArgumentException("Invalid refresh token.");
+
+        var jti = jwt.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
+        if (string.IsNullOrWhiteSpace(jti))
+            throw new ArgumentException("Invalid refresh token.");
+        var (revoked, _) = await cache.GetAsyncWithStatus<bool>($"{RevokedJtiPrefix}{jti}");
+        if (revoked)
+            throw new ArgumentException("Refresh token has been revoked.");
+
+        var sessionIdText = jwt.Claims.FirstOrDefault(c => c.Type == "sid")?.Value ?? jti;
+        if (!Guid.TryParse(sessionIdText, out var sessionId))
+            throw new ArgumentException("Invalid refresh token.");
+
+        var accountIdText = jwt.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
+        if (!Guid.TryParse(accountIdText, out var accountId))
+            throw new ArgumentException("Invalid refresh token.");
+
+        var tokenVer = jwt.Claims.FirstOrDefault(c => c.Type == "ver")?.Value;
+        var currentVer = await GetAccountVersion(accountId);
+        if (int.TryParse(tokenVer, out var claimVer) && claimVer < currentVer)
+            throw new ArgumentException("Refresh token has been invalidated.");
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var session = await db.AuthSessions
+            .Include(s => s.Account)
+            .FirstOrDefaultAsync(s => s.Id == sessionId && s.AccountId == accountId);
+        if (session is null)
+            throw new ArgumentException("Session was not found.");
+        if (session.ExpiredAt.HasValue && session.ExpiredAt.Value <= now)
+            throw new ArgumentException("Session has been expired.");
+
+        session.LastGrantedAt = now;
+        session.ExpiredAt = now.Plus(GetRefreshTokenLifetime());
+        db.AuthSessions.Update(session);
+        await db.SaveChangesAsync();
+
+        await cache.RemoveAsync($"{AuthCachePrefix}{session.Id}");
+        await cache.RemoveAsync($"{AuthCachePrefix}{session.AccountId}");
+        return CreateTokenPair(session);
     }
 
     public async Task<bool> ValidateSudoMode(SnAuthSession session, string? pinCode)

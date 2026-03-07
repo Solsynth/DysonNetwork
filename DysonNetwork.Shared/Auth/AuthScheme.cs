@@ -65,6 +65,8 @@ public class DysonTokenAuthHandler(
                 var tokenUse = jwt.Claims.FirstOrDefault(c => c.Type == "token_use")?.Value;
                 if (string.IsNullOrWhiteSpace(tokenUse))
                     tokenUse = tokenInfo.Type == TokenType.ApiKey ? "api_key" : "user";
+                if (tokenUse == "refresh")
+                    return AuthenticateResult.Fail("Refresh token cannot be used as bearer token.");
 
                 if (tokenInfo.Type == TokenType.ApiKey && tokenUse != "api_key")
                     return AuthenticateResult.Fail("Bot auth scheme requires API key token.");

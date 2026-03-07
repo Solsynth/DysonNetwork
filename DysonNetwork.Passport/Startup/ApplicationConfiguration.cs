@@ -32,7 +32,6 @@ public static class ApplicationConfiguration
     public static WebApplication ConfigureGrpcServices(this WebApplication app)
     {
         app.MapGrpcService<AccountServiceGrpc>();
-        app.MapGrpcService<ActionLogServiceGrpc>();
         app.MapGrpcService<PermissionServiceGrpc>();
         app.MapGrpcService<SocialCreditServiceGrpc>();
         app.MapGrpcService<ExperienceServiceGrpc>();

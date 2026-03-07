@@ -53,7 +53,7 @@ public static class ServiceInjectionHelper
                 "https://_grpc.passport",
                 "DyBotAccountReceiverService");
             services.AddGrpcClientWithSharedChannel<DyActionLogService.DyActionLogServiceClient>(
-                "https://_grpc.passport",
+                "https://_grpc.padlock",
                 "DyActionLogService");
             services.AddSingleton<RemoteActionLogService>();
             services.AddGrpcClientWithSharedChannel<DyPaymentService.DyPaymentServiceClient>(

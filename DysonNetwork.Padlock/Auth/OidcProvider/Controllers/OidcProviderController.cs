@@ -8,7 +8,6 @@ using System.Text.Json.Serialization;
 using System.Web;
 using DysonNetwork.Padlock.Auth.OidcProvider.Options;
 using Microsoft.EntityFrameworkCore;
-using NodaTime;
 using DysonNetwork.Shared.Models;
 using Microsoft.IdentityModel.Tokens;
 
@@ -240,54 +239,36 @@ public class OidcProviderController(
 
                     return Ok(tokenResponse);
                 }
+            case "refresh_token" when request.ClientId == null || string.IsNullOrEmpty(request.ClientSecret):
+                return BadRequest(new ErrorResponse
+                { Error = "invalid_request", ErrorDescription = "Client credentials are required" });
             case "refresh_token" when string.IsNullOrEmpty(request.RefreshToken):
                 return BadRequest(new ErrorResponse
                 { Error = "invalid_request", ErrorDescription = "Refresh token is required" });
             case "refresh_token":
                 {
+                    var client = await oidcService.FindClientBySlugAsync(request.ClientId!);
+                    if (client == null ||
+                        !await oidcService.ValidateClientCredentialsAsync(client.Id, request.ClientSecret!))
+                        return BadRequest(new ErrorResponse
+                            { Error = "invalid_client", ErrorDescription = "Invalid client credentials" });
+
                     try
                     {
-                        // Decode the base64 refresh token to get the session ID
-                        var sessionIdBytes = Convert.FromBase64String(request.RefreshToken);
-                        var sessionId = new Guid(sessionIdBytes);
-
-                        // Find the session and related data
-                        var session = await oidcService.FindSessionByIdAsync(sessionId);
-                        var now = SystemClock.Instance.GetCurrentInstant();
-                        if (session?.AppId is null || session.ExpiredAt < now)
-                        {
-                            return BadRequest(new ErrorResponse
-                            {
-                                Error = "invalid_grant",
-                                ErrorDescription = "Invalid or expired refresh token"
-                            });
-                        }
-
-                        // Get the client
-                        var client = await oidcService.FindClientByIdAsync(session.AppId.Value);
-                        if (client == null)
-                        {
-                            return BadRequest(new ErrorResponse
-                            {
-                                Error = "invalid_client",
-                                ErrorDescription = "Client not found"
-                            });
-                        }
-
-                        // Generate new tokens
                         var tokenResponse = await oidcService.GenerateTokenResponseAsync(
-                            clientId: session.AppId!.Value,
-                            sessionId: session.Id
+                            clientId: client.Id,
+                            refreshToken: request.RefreshToken
                         );
 
                         return Ok(tokenResponse);
                     }
-                    catch (FormatException)
+                    catch (InvalidOperationException ex)
                     {
+                        logger.LogWarning(ex, "OIDC refresh token grant failed for client {ClientId}", request.ClientId);
                         return BadRequest(new ErrorResponse
                         {
                             Error = "invalid_grant",
-                            ErrorDescription = "Invalid refresh token format"
+                            ErrorDescription = "Invalid or expired refresh token"
                         });
                     }
                 }

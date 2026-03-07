@@ -34,10 +34,15 @@ public sealed class AuthJwtService(IConfiguration config)
     private string Audience => config.GetSection("Authentication:Schemes:Bearer:ValidAudiences").Get<string[]>()?.FirstOrDefault()
                                ?? "solar-network";
 
-    public string CreateUserToken(SnAuthSession session, SnAccount account, int accountVersion)
+    public string CreateUserToken(
+        SnAuthSession session,
+        SnAccount account,
+        int accountVersion,
+        Instant? expiresAtOverride = null
+    )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        var expiresAt = session.ExpiredAt ?? now.Plus(Duration.FromDays(7));
+        var expiresAt = expiresAtOverride ?? session.ExpiredAt ?? now.Plus(Duration.FromHours(1));
 
         var claims = new List<Claim>
         {
@@ -52,6 +57,23 @@ public sealed class AuthJwtService(IConfiguration config)
             new("region", account.Region),
         };
         claims.AddRange(session.Scopes.Select(scope => new Claim("scope", scope)));
+
+        return CreateJwt(claims, now, expiresAt);
+    }
+
+    public string CreateRefreshToken(SnAuthSession session, int accountVersion, Instant? expiresAtOverride = null)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var expiresAt = expiresAtOverride ?? session.ExpiredAt ?? now.Plus(Duration.FromDays(30));
+
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, session.AccountId.ToString()),
+            new(JwtRegisteredClaimNames.Jti, session.Id.ToString()),
+            new("sid", session.Id.ToString()),
+            new("token_use", "refresh"),
+            new("ver", accountVersion.ToString())
+        };
 
         return CreateJwt(claims, now, expiresAt);
     }

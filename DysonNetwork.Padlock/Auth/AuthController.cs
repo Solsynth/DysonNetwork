@@ -222,6 +222,9 @@ public class AuthController(
     public class TokenExchangeResponse
     {
         public string Token { get; set; } = string.Empty;
+        public string RefreshToken { get; set; } = string.Empty;
+        public long ExpiresIn { get; set; }
+        public long RefreshExpiresIn { get; set; }
     }
 
     public class NewSessionRequest
@@ -251,8 +254,74 @@ public class AuthController(
 
                 try
                 {
-                    var tk = await auth.CreateSessionAndIssueToken(challenge);
-                    return Ok(new TokenExchangeResponse { Token = tk });
+                    var pair = await auth.CreateSessionAndIssueTokens(challenge);
+
+                    HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, pair.AccessToken, new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = true,
+                        SameSite = SameSiteMode.Lax,
+                        Domain = _cookieDomain,
+                        Expires = pair.AccessTokenExpiresAt.ToDateTimeOffset()
+                    });
+                    HttpContext.Response.Cookies.Append(AuthConstants.RefreshCookieTokenName, pair.RefreshToken, new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = true,
+                        SameSite = SameSiteMode.Lax,
+                        Domain = _cookieDomain,
+                        Expires = pair.RefreshTokenExpiresAt.ToDateTimeOffset()
+                    });
+
+                    var now = SystemClock.Instance.GetCurrentInstant();
+                    return Ok(new TokenExchangeResponse
+                    {
+                        Token = pair.AccessToken,
+                        RefreshToken = pair.RefreshToken,
+                        ExpiresIn = (long)Math.Max(0, (pair.AccessTokenExpiresAt - now).TotalSeconds),
+                        RefreshExpiresIn = (long)Math.Max(0, (pair.RefreshTokenExpiresAt - now).TotalSeconds)
+                    });
+                }
+                catch (ArgumentException ex)
+                {
+                    return BadRequest(ex.Message);
+                }
+            case "refresh_token":
+                var submittedRefresh = request.RefreshToken;
+                if (string.IsNullOrWhiteSpace(submittedRefresh))
+                    Request.Cookies.TryGetValue(AuthConstants.RefreshCookieTokenName, out submittedRefresh);
+                if (string.IsNullOrWhiteSpace(submittedRefresh))
+                    return BadRequest("Missing refresh token.");
+
+                try
+                {
+                    var pair = await auth.RefreshSessionAndIssueTokens(submittedRefresh);
+
+                    HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, pair.AccessToken, new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = true,
+                        SameSite = SameSiteMode.Lax,
+                        Domain = _cookieDomain,
+                        Expires = pair.AccessTokenExpiresAt.ToDateTimeOffset()
+                    });
+                    HttpContext.Response.Cookies.Append(AuthConstants.RefreshCookieTokenName, pair.RefreshToken, new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = true,
+                        SameSite = SameSiteMode.Lax,
+                        Domain = _cookieDomain,
+                        Expires = pair.RefreshTokenExpiresAt.ToDateTimeOffset()
+                    });
+
+                    var now = SystemClock.Instance.GetCurrentInstant();
+                    return Ok(new TokenExchangeResponse
+                    {
+                        Token = pair.AccessToken,
+                        RefreshToken = pair.RefreshToken,
+                        ExpiresIn = (long)Math.Max(0, (pair.AccessTokenExpiresAt - now).TotalSeconds),
+                        RefreshExpiresIn = (long)Math.Max(0, (pair.RefreshTokenExpiresAt - now).TotalSeconds)
+                    });
                 }
                 catch (ArgumentException ex)
                 {
@@ -279,6 +348,13 @@ public class AuthController(
             await auth.RevokeSessionAsync(currentSession.Id);
 
         Response.Cookies.Delete(AuthConstants.CookieTokenName, new CookieOptions
+        {
+            Domain = _cookieDomain,
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax
+        });
+        Response.Cookies.Delete(AuthConstants.RefreshCookieTokenName, new CookieOptions
         {
             Domain = _cookieDomain,
             HttpOnly = true,

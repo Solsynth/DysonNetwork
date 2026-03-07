@@ -32,7 +32,6 @@ public class AppDatabase(
     public DbSet<SnCheckInResult> AccountCheckInResults { get; set; } = null!;
     public DbSet<SnPresenceActivity> PresenceActivities { get; set; } = null!;
     public DbSet<SnAccountBadge> Badges { get; set; } = null!;
-    public DbSet<SnActionLog> ActionLogs { get; set; } = null!;
     public DbSet<SnAbuseReport> AbuseReports { get; set; } = null!;
 
     public DbSet<SnAuthSession> AuthSessions { get; set; } = null!;

@@ -26,6 +26,7 @@ public class AppDatabase(
     public DbSet<SnAuthChallenge> AuthChallenges { get; set; } = null!;
     public DbSet<SnAuthClient> AuthClients { get; set; } = null!;
     public DbSet<SnApiKey> ApiKeys { get; set; } = null!;
+    public DbSet<SnActionLog> ActionLogs { get; set; } = null!;
     public DbSet<SnE2eeKeyBundle> E2eeKeyBundles { get; set; } = null!;
     public DbSet<SnE2eeOneTimePreKey> E2eeOneTimePreKeys { get; set; } = null!;
     public DbSet<SnE2eeSession> E2eeSessions { get; set; } = null!;

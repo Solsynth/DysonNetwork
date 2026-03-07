@@ -136,6 +136,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<GeoService>();
         services.AddScoped<PermissionService>();
         services.AddScoped<AccountService>();
+        services.AddScoped<ActionLogService>();
         services.AddSingleton<AuthTokenKeyProvider>();
         services.AddSingleton<AuthJwtService>();
         services.AddScoped<AuthService>();

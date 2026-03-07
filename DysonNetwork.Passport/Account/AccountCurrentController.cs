@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 using AuthService = DysonNetwork.Passport.Auth.AuthService;
 using SnAuthSession = DysonNetwork.Shared.Models.SnAuthSession;
 
@@ -24,7 +26,8 @@ public class AccountCurrentController(
     AuthService auth,
     DyFileService.DyFileServiceClient files,
     Credit.SocialCreditService creditService,
-    RemoteSubscriptionService remoteSubscription
+    RemoteSubscriptionService remoteSubscription,
+    RemoteActionLogService remoteActionLogs
 ) : ControllerBase
 {
     [HttpGet]
@@ -423,17 +426,38 @@ public class AccountCurrentController(
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        var query = db.ActionLogs
-            .Where(log => log.AccountId == currentUser.Id)
-            .OrderByDescending(log => log.CreatedAt);
+        var page = await remoteActionLogs.ListActionLogsPage(
+            currentUser.Id,
+            pageSize: Math.Max(1, take),
+            pageToken: Math.Max(0, offset).ToString(),
+            orderBy: "createdat desc");
 
-        var total = await query.CountAsync();
-        Response.Headers.Append("X-Total", total.ToString());
+        Response.Headers.Append("X-Total", page.TotalSize.ToString());
 
-        var logs = await query
-            .Skip(offset)
-            .Take(take)
-            .ToListAsync();
+        var logs = page.ActionLogs.Select(log =>
+        {
+            var meta = log.Meta
+                .Select(x => new KeyValuePair<string, object?>(x.Key, InfraObjectCoder.ConvertValueToObject(x.Value)))
+                .Where(x => x.Value is not null)
+                .ToDictionary(x => x.Key, x => x.Value!);
+
+            Guid? sessionId = null;
+            if (!string.IsNullOrWhiteSpace(log.SessionId) && Guid.TryParse(log.SessionId, out var parsedSessionId))
+                sessionId = parsedSessionId;
+
+            return new SnActionLog
+            {
+                Id = Guid.TryParse(log.Id, out var parsedId) ? parsedId : Guid.NewGuid(),
+                AccountId = currentUser.Id,
+                Action = log.Action,
+                Meta = meta,
+                UserAgent = string.IsNullOrWhiteSpace(log.UserAgent) ? null : log.UserAgent,
+                IpAddress = string.IsNullOrWhiteSpace(log.IpAddress) ? null : log.IpAddress,
+                SessionId = sessionId,
+                CreatedAt = log.CreatedAt.ToInstant(),
+                UpdatedAt = log.CreatedAt.ToInstant()
+            };
+        }).ToList();
 
         return Ok(logs);
     }

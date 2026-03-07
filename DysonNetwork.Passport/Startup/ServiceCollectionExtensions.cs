@@ -125,7 +125,6 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppFlushHandlers(this IServiceCollection services)
     {
         services.AddSingleton<FlushBufferService>();
-        services.AddScoped<ActionLogFlushHandler>();
         services.AddScoped<LastActiveFlushHandler>();
 
         return services;
@@ -155,7 +154,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AccountService>();
         services.AddScoped<AccountEventService>();
         services.AddScoped<NotableDaysService>();
-        services.AddScoped<ActionLogService>();
         services.AddScoped<RelationshipService>();
         services.AddScoped<MagicSpellService>();
         services.AddSingleton<AuthTokenKeyProvider>();
@@ -170,6 +168,10 @@ public static class ServiceCollectionExtensions
         services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(
             "https://_grpc.padlock",
             "DyAccountService.Padlock");
+        services.AddGrpcClientWithSharedChannel<DyActionLogService.DyActionLogServiceClient>(
+            "https://_grpc.padlock",
+            "DyActionLogService.Padlock");
+        services.AddSingleton<RemoteActionLogService>();
         services.AddScoped<PadlockAccountContactService>();
 
         services.AddScoped<SpotifyPresenceService>();

@@ -20,6 +20,7 @@ namespace DysonNetwork.Padlock.Auth.OidcProvider.Services;
 public class OidcProviderService(
     AppDatabase db,
     AuthService auth,
+    AuthJwtService authJwt,
     DyCustomAppService.DyCustomAppServiceClient customApps,
     ICacheService cache,
     IOptions<OidcProviderOptions> options,
@@ -31,6 +32,8 @@ public class OidcProviderService(
     private const string CacheKeyPrefixClientId = "auth:oidc-client:id:";
     private const string CacheKeyPrefixClientSlug = "auth:oidc-client:slug:";
     private const string CacheKeyPrefixAuthCode = "auth:oidc-code:";
+    private const string RevokedJtiPrefix = "auth:revoked:jti:";
+    private const string AccountVersionPrefix = "auth:account_ver:";
     private const string CodeChallengeMethodS256 = "S256";
     private const string CodeChallengeMethodPlain = "PLAIN";
 
@@ -268,9 +271,47 @@ public class OidcProviderService(
         return (session, authCode.Nonce, authCode.Scopes);
     }
 
-    private async Task<(SnAuthSession session, string? nonce, List<string>? scopes)> HandleRefreshTokenFlowAsync(
-        Guid sessionId)
+    private async Task<int> GetAccountVersionAsync(Guid accountId)
     {
+        var (found, value) = await cache.GetAsyncWithStatus<int>($"{AccountVersionPrefix}{accountId}");
+        return found ? value : 0;
+    }
+
+    private async Task<(SnAuthSession session, string? nonce, List<string>? scopes)> HandleRefreshTokenFlowAsync(
+        Guid clientId,
+        string refreshToken)
+    {
+        var (isValid, jwt) = authJwt.ValidateJwt(refreshToken);
+        if (!isValid || jwt is null)
+            throw new InvalidOperationException("Invalid refresh token");
+
+        var tokenUse = jwt.Claims.FirstOrDefault(c => c.Type == "token_use")?.Value;
+        if (!string.Equals(tokenUse, "refresh", StringComparison.Ordinal))
+            throw new InvalidOperationException("Invalid refresh token");
+
+        var jti = jwt.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
+        if (string.IsNullOrWhiteSpace(jti))
+            throw new InvalidOperationException("Invalid refresh token");
+        var (revoked, _) = await cache.GetAsyncWithStatus<bool>($"{RevokedJtiPrefix}{jti}");
+        if (revoked)
+            throw new InvalidOperationException("Refresh token has been revoked");
+
+        var sessionIdText = jwt.Claims.FirstOrDefault(c => c.Type == "sid")?.Value ?? jti;
+        if (!Guid.TryParse(sessionIdText, out var sessionId))
+            throw new InvalidOperationException("Invalid refresh token");
+
+        var accountIdText = jwt.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
+        if (!Guid.TryParse(accountIdText, out var accountId))
+            throw new InvalidOperationException("Invalid refresh token");
+
+        var claimVersionText = jwt.Claims.FirstOrDefault(c => c.Type == "ver")?.Value;
+        if (int.TryParse(claimVersionText, out var claimVersion))
+        {
+            var currentVersion = await GetAccountVersionAsync(accountId);
+            if (claimVersion < currentVersion)
+                throw new InvalidOperationException("Refresh token has been invalidated");
+        }
+
         var session = await FindSessionByIdAsync(sessionId) ??
                       throw new InvalidOperationException("Session not found");
 
@@ -278,6 +319,15 @@ public class OidcProviderService(
         var now = SystemClock.Instance.GetCurrentInstant();
         if (session.ExpiredAt.HasValue && session.ExpiredAt < now)
             throw new InvalidOperationException("Session has expired");
+        if (session.AppId != clientId || session.AccountId != accountId || session.Type != SessionType.OAuth)
+            throw new InvalidOperationException("Refresh token does not match client");
+
+        session.LastGrantedAt = now;
+        session.ExpiredAt = now.Plus(Duration.FromSeconds(_options.RefreshTokenLifetime.TotalSeconds));
+        db.AuthSessions.Update(session);
+        await db.SaveChangesAsync();
+        await cache.RemoveAsync($"auth:{session.Id}");
+        await cache.RemoveAsync($"auth:{session.AccountId}");
 
         return (session, null, null);
     }
@@ -287,7 +337,7 @@ public class OidcProviderService(
         string? authorizationCode = null,
         string? redirectUri = null,
         string? codeVerifier = null,
-        Guid? sessionId = null
+        string? refreshToken = null
     )
     {
         if (clientId == Guid.Empty) throw new ArgumentException("Client ID cannot be empty", nameof(clientId));
@@ -313,7 +363,12 @@ public class OidcProviderService(
                 // Generate tokens
                 var accessToken = GenerateJwtToken(client, session, expiresAt, scopes);
                 var idToken = GenerateIdToken(client, session, nonce, scopes);
-                var refreshToken = GenerateRefreshToken(session);
+                var sessionVersion = await GetAccountVersionAsync(session.AccountId);
+                var refreshTokenValue = authJwt.CreateRefreshToken(
+                    session,
+                    sessionVersion,
+                    session.ExpiredAt ?? now.Plus(Duration.FromSeconds(_options.RefreshTokenLifetime.TotalSeconds))
+                );
 
                 return new TokenResponse
                 {
@@ -321,7 +376,7 @@ public class OidcProviderService(
                     IdToken = idToken,
                     ExpiresIn = expiresIn,
                     TokenType = "Bearer",
-                    RefreshToken = refreshToken,
+                    RefreshToken = refreshTokenValue,
                     Scope = scopes != null ? string.Join(" ", scopes) : null
                 };
             }
@@ -340,23 +395,28 @@ public class OidcProviderService(
             throw new InvalidOperationException("Invalid authorization code state.");
         }
 
-        if (sessionId.HasValue)
+        if (!string.IsNullOrWhiteSpace(refreshToken))
         {
-            var (session, nonce, scopes) = await HandleRefreshTokenFlowAsync(sessionId.Value);
+            var (session, nonce, scopes) = await HandleRefreshTokenFlowAsync(clientId, refreshToken);
             var clock = SystemClock.Instance;
             var now = clock.GetCurrentInstant();
             var expiresIn = (int)_options.AccessTokenLifetime.TotalSeconds;
             var expiresAt = now.Plus(Duration.FromSeconds(expiresIn));
             var accessToken = GenerateJwtToken(client, session, expiresAt, scopes);
             var idToken = GenerateIdToken(client, session, nonce, scopes);
-            var refreshToken = GenerateRefreshToken(session);
+            var sessionVersion = await GetAccountVersionAsync(session.AccountId);
+            var refreshTokenValue = authJwt.CreateRefreshToken(
+                session,
+                sessionVersion,
+                session.ExpiredAt ?? now.Plus(Duration.FromSeconds(_options.RefreshTokenLifetime.TotalSeconds))
+            );
             return new TokenResponse
             {
                 AccessToken = accessToken,
                 IdToken = idToken,
                 ExpiresIn = expiresIn,
                 TokenType = "Bearer",
-                RefreshToken = refreshToken,
+                RefreshToken = refreshTokenValue,
                 Scope = scopes != null ? string.Join(" ", scopes) : null
             };
         }
@@ -498,11 +558,6 @@ public class OidcProviderService(
         return await db.AuthSessions
             .Include(s => s.Account)
             .FirstOrDefaultAsync(s => s.Id == sessionId);
-    }
-
-    private static string GenerateRefreshToken(SnAuthSession session)
-    {
-        return Convert.ToBase64String(session.Id.ToByteArray());
     }
 
     public async Task<string> GenerateAuthorizationCodeAsync(

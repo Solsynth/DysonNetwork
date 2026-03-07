@@ -18,15 +18,6 @@ public static class ScheduledJobsConfiguration
                 .WithIdentity("AppDatabaseRecyclingTrigger")
                 .WithCronSchedule("0 0 0 * * ?"));
 
-            q.AddJob<ActionLogFlushJob>(opts => opts.WithIdentity("ActionLogFlush"));
-            q.AddTrigger(opts => opts
-                .ForJob("ActionLogFlush")
-                .WithIdentity("ActionLogFlushTrigger")
-                .WithSimpleSchedule(o => o
-                    .WithIntervalInMinutes(5)
-                    .RepeatForever())
-            );
-
             q.AddJob<LastActiveFlushJob>(opts => opts.WithIdentity("LastActiveFlush"));
             q.AddTrigger(opts => opts
                 .ForJob("LastActiveFlush")
