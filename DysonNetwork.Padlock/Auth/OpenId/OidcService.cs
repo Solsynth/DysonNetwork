@@ -288,4 +288,3 @@ public class OidcCallbackData
     public string? State { get; set; }
     public string? RawData { get; set; }
     public Dictionary<string, string> QueryParameters { get; set; } = new();
-}

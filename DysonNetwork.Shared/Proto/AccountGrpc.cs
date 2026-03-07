@@ -9,7 +9,7 @@ using grpc = global::Grpc.Core;
 
 namespace DysonNetwork.Shared.Proto {
   /// <summary>
-  /// AccountService provides CRUD operations for user accounts and related entities
+  /// AccountService provides authentication-related operations for user accounts
   /// </summary>
   public static partial class DyAccountService
   {
@@ -69,33 +69,13 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListAccountsResponse> __Marshaller_proto_DyListAccountsResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListAccountsResponse.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyAccountStatus> __Marshaller_proto_DyAccountStatus = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyAccountStatus.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetAccountStatusBatchResponse> __Marshaller_proto_DyGetAccountStatusBatchResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetAccountStatusBatchResponse.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetProfileRequest> __Marshaller_proto_DyGetProfileRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetProfileRequest.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyAccountProfile> __Marshaller_proto_DyAccountProfile = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyAccountProfile.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListContactsRequest> __Marshaller_proto_DyListContactsRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListContactsRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListContactsResponse> __Marshaller_proto_DyListContactsResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListContactsResponse.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListBadgesRequest> __Marshaller_proto_DyListBadgesRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListBadgesRequest.Parser));
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetContactsByProviderRequest> __Marshaller_proto_DyGetContactsByProviderRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetContactsByProviderRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListBadgesResponse> __Marshaller_proto_DyListBadgesResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListBadgesResponse.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGrantBadgeRequest> __Marshaller_proto_DyGrantBadgeRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGrantBadgeRequest.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGrantBadgeResponse> __Marshaller_proto_DyGrantBadgeResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGrantBadgeResponse.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetBadgeRequest> __Marshaller_proto_DyGetBadgeRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetBadgeRequest.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetBadgeResponse> __Marshaller_proto_DyGetBadgeResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetBadgeResponse.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyUpdateBadgeRequest> __Marshaller_proto_DyUpdateBadgeRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyUpdateBadgeRequest.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyUpdateBadgeResponse> __Marshaller_proto_DyUpdateBadgeResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyUpdateBadgeResponse.Parser));
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetContactsByAccountRequest> __Marshaller_proto_DyGetContactsByAccountRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetContactsByAccountRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListAuthFactorsRequest> __Marshaller_proto_DyListAuthFactorsRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListAuthFactorsRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
@@ -105,15 +85,9 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListConnectionsResponse> __Marshaller_proto_DyListConnectionsResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListConnectionsResponse.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest> __Marshaller_proto_DyGetRelationshipRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest.Parser));
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest> __Marshaller_proto_DyGetValidAccessTokenRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetRelationshipResponse> __Marshaller_proto_DyGetRelationshipResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetRelationshipResponse.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::Google.Protobuf.WellKnownTypes.BoolValue> __Marshaller_google_protobuf_BoolValue = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::Google.Protobuf.WellKnownTypes.BoolValue.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest> __Marshaller_proto_DyListRelationshipSimpleRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> __Marshaller_proto_DyListRelationshipSimpleResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse.Parser));
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse> __Marshaller_proto_DyGetValidAccessTokenResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse.Parser));
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetAccountRequest, global::DysonNetwork.Shared.Proto.DyAccount> __Method_GetAccount = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetAccountRequest, global::DysonNetwork.Shared.Proto.DyAccount>(
@@ -172,30 +146,6 @@ namespace DysonNetwork.Shared.Proto {
         __Marshaller_proto_DyListAccountsResponse);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetAccountRequest, global::DysonNetwork.Shared.Proto.DyAccountStatus> __Method_GetAccountStatus = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetAccountRequest, global::DysonNetwork.Shared.Proto.DyAccountStatus>(
-        grpc::MethodType.Unary,
-        __ServiceName,
-        "GetAccountStatus",
-        __Marshaller_proto_DyGetAccountRequest,
-        __Marshaller_proto_DyAccountStatus);
-
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetAccountBatchRequest, global::DysonNetwork.Shared.Proto.DyGetAccountStatusBatchResponse> __Method_GetAccountStatusBatch = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetAccountBatchRequest, global::DysonNetwork.Shared.Proto.DyGetAccountStatusBatchResponse>(
-        grpc::MethodType.Unary,
-        __ServiceName,
-        "GetAccountStatusBatch",
-        __Marshaller_proto_DyGetAccountBatchRequest,
-        __Marshaller_proto_DyGetAccountStatusBatchResponse);
-
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetProfileRequest, global::DysonNetwork.Shared.Proto.DyAccountProfile> __Method_GetProfile = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetProfileRequest, global::DysonNetwork.Shared.Proto.DyAccountProfile>(
-        grpc::MethodType.Unary,
-        __ServiceName,
-        "GetProfile",
-        __Marshaller_proto_DyGetProfileRequest,
-        __Marshaller_proto_DyAccountProfile);
-
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyListContactsRequest, global::DysonNetwork.Shared.Proto.DyListContactsResponse> __Method_ListContacts = new grpc::Method<global::DysonNetwork.Shared.Proto.DyListContactsRequest, global::DysonNetwork.Shared.Proto.DyListContactsResponse>(
         grpc::MethodType.Unary,
         __ServiceName,
@@ -204,36 +154,20 @@ namespace DysonNetwork.Shared.Proto {
         __Marshaller_proto_DyListContactsResponse);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyListBadgesRequest, global::DysonNetwork.Shared.Proto.DyListBadgesResponse> __Method_ListBadges = new grpc::Method<global::DysonNetwork.Shared.Proto.DyListBadgesRequest, global::DysonNetwork.Shared.Proto.DyListBadgesResponse>(
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetContactsByProviderRequest, global::DysonNetwork.Shared.Proto.DyListContactsResponse> __Method_GetContactsByProvider = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetContactsByProviderRequest, global::DysonNetwork.Shared.Proto.DyListContactsResponse>(
         grpc::MethodType.Unary,
         __ServiceName,
-        "ListBadges",
-        __Marshaller_proto_DyListBadgesRequest,
-        __Marshaller_proto_DyListBadgesResponse);
+        "GetContactsByProvider",
+        __Marshaller_proto_DyGetContactsByProviderRequest,
+        __Marshaller_proto_DyListContactsResponse);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGrantBadgeRequest, global::DysonNetwork.Shared.Proto.DyGrantBadgeResponse> __Method_GrantBadge = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGrantBadgeRequest, global::DysonNetwork.Shared.Proto.DyGrantBadgeResponse>(
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetContactsByAccountRequest, global::DysonNetwork.Shared.Proto.DyListContactsResponse> __Method_GetContactsByAccount = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetContactsByAccountRequest, global::DysonNetwork.Shared.Proto.DyListContactsResponse>(
         grpc::MethodType.Unary,
         __ServiceName,
-        "GrantBadge",
-        __Marshaller_proto_DyGrantBadgeRequest,
-        __Marshaller_proto_DyGrantBadgeResponse);
-
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetBadgeRequest, global::DysonNetwork.Shared.Proto.DyGetBadgeResponse> __Method_GetBadge = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetBadgeRequest, global::DysonNetwork.Shared.Proto.DyGetBadgeResponse>(
-        grpc::MethodType.Unary,
-        __ServiceName,
-        "GetBadge",
-        __Marshaller_proto_DyGetBadgeRequest,
-        __Marshaller_proto_DyGetBadgeResponse);
-
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateBadgeRequest, global::DysonNetwork.Shared.Proto.DyUpdateBadgeResponse> __Method_UpdateBadge = new grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateBadgeRequest, global::DysonNetwork.Shared.Proto.DyUpdateBadgeResponse>(
-        grpc::MethodType.Unary,
-        __ServiceName,
-        "UpdateBadge",
-        __Marshaller_proto_DyUpdateBadgeRequest,
-        __Marshaller_proto_DyUpdateBadgeResponse);
+        "GetContactsByAccount",
+        __Marshaller_proto_DyGetContactsByAccountRequest,
+        __Marshaller_proto_DyListContactsResponse);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyListAuthFactorsRequest, global::DysonNetwork.Shared.Proto.DyListAuthFactorsResponse> __Method_ListAuthFactors = new grpc::Method<global::DysonNetwork.Shared.Proto.DyListAuthFactorsRequest, global::DysonNetwork.Shared.Proto.DyListAuthFactorsResponse>(
@@ -252,36 +186,12 @@ namespace DysonNetwork.Shared.Proto {
         __Marshaller_proto_DyListConnectionsResponse);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest, global::DysonNetwork.Shared.Proto.DyGetRelationshipResponse> __Method_GetRelationship = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest, global::DysonNetwork.Shared.Proto.DyGetRelationshipResponse>(
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest, global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse> __Method_GetValidAccessToken = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest, global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse>(
         grpc::MethodType.Unary,
         __ServiceName,
-        "GetRelationship",
-        __Marshaller_proto_DyGetRelationshipRequest,
-        __Marshaller_proto_DyGetRelationshipResponse);
-
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest, global::Google.Protobuf.WellKnownTypes.BoolValue> __Method_HasRelationship = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest, global::Google.Protobuf.WellKnownTypes.BoolValue>(
-        grpc::MethodType.Unary,
-        __ServiceName,
-        "HasRelationship",
-        __Marshaller_proto_DyGetRelationshipRequest,
-        __Marshaller_google_protobuf_BoolValue);
-
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> __Method_ListFriends = new grpc::Method<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse>(
-        grpc::MethodType.Unary,
-        __ServiceName,
-        "ListFriends",
-        __Marshaller_proto_DyListRelationshipSimpleRequest,
-        __Marshaller_proto_DyListRelationshipSimpleResponse);
-
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> __Method_ListBlocked = new grpc::Method<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse>(
-        grpc::MethodType.Unary,
-        __ServiceName,
-        "ListBlocked",
-        __Marshaller_proto_DyListRelationshipSimpleRequest,
-        __Marshaller_proto_DyListRelationshipSimpleResponse);
+        "GetValidAccessToken",
+        __Marshaller_proto_DyGetValidAccessTokenRequest,
+        __Marshaller_proto_DyGetValidAccessTokenResponse);
 
     /// <summary>Service descriptor</summary>
     public static global::Google.Protobuf.Reflection.ServiceDescriptor Descriptor
@@ -294,7 +204,7 @@ namespace DysonNetwork.Shared.Proto {
     public abstract partial class DyAccountServiceBase
     {
       /// <summary>
-      /// Account Operations
+      /// Account Operations (returns account without profile data)
       /// </summary>
       /// <param name="request">The request received from the client.</param>
       /// <param name="context">The context of the server-side call handler being invoked.</param>
@@ -341,30 +251,6 @@ namespace DysonNetwork.Shared.Proto {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
 
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyAccountStatus> GetAccountStatus(global::DysonNetwork.Shared.Proto.DyGetAccountRequest request, grpc::ServerCallContext context)
-      {
-        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
-      }
-
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyGetAccountStatusBatchResponse> GetAccountStatusBatch(global::DysonNetwork.Shared.Proto.DyGetAccountBatchRequest request, grpc::ServerCallContext context)
-      {
-        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
-      }
-
-      /// <summary>
-      /// Profile Operations
-      /// </summary>
-      /// <param name="request">The request received from the client.</param>
-      /// <param name="context">The context of the server-side call handler being invoked.</param>
-      /// <returns>The response to send back to the client (wrapped by a task).</returns>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyAccountProfile> GetProfile(global::DysonNetwork.Shared.Proto.DyGetProfileRequest request, grpc::ServerCallContext context)
-      {
-        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
-      }
-
       /// <summary>
       /// Contact Operations
       /// </summary>
@@ -377,32 +263,14 @@ namespace DysonNetwork.Shared.Proto {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
 
-      /// <summary>
-      /// Badge Operations
-      /// </summary>
-      /// <param name="request">The request received from the client.</param>
-      /// <param name="context">The context of the server-side call handler being invoked.</param>
-      /// <returns>The response to send back to the client (wrapped by a task).</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyListBadgesResponse> ListBadges(global::DysonNetwork.Shared.Proto.DyListBadgesRequest request, grpc::ServerCallContext context)
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyListContactsResponse> GetContactsByProvider(global::DysonNetwork.Shared.Proto.DyGetContactsByProviderRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
 
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyGrantBadgeResponse> GrantBadge(global::DysonNetwork.Shared.Proto.DyGrantBadgeRequest request, grpc::ServerCallContext context)
-      {
-        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
-      }
-
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyGetBadgeResponse> GetBadge(global::DysonNetwork.Shared.Proto.DyGetBadgeRequest request, grpc::ServerCallContext context)
-      {
-        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
-      }
-
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyUpdateBadgeResponse> UpdateBadge(global::DysonNetwork.Shared.Proto.DyUpdateBadgeRequest request, grpc::ServerCallContext context)
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyListContactsResponse> GetContactsByAccount(global::DysonNetwork.Shared.Proto.DyGetContactsByAccountRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
@@ -431,32 +299,8 @@ namespace DysonNetwork.Shared.Proto {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
 
-      /// <summary>
-      /// Relationship Operations
-      /// </summary>
-      /// <param name="request">The request received from the client.</param>
-      /// <param name="context">The context of the server-side call handler being invoked.</param>
-      /// <returns>The response to send back to the client (wrapped by a task).</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyGetRelationshipResponse> GetRelationship(global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest request, grpc::ServerCallContext context)
-      {
-        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
-      }
-
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::Google.Protobuf.WellKnownTypes.BoolValue> HasRelationship(global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest request, grpc::ServerCallContext context)
-      {
-        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
-      }
-
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> ListFriends(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::ServerCallContext context)
-      {
-        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
-      }
-
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> ListBlocked(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::ServerCallContext context)
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse> GetValidAccessToken(global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
@@ -491,7 +335,7 @@ namespace DysonNetwork.Shared.Proto {
       }
 
       /// <summary>
-      /// Account Operations
+      /// Account Operations (returns account without profile data)
       /// </summary>
       /// <param name="request">The request to send to the server.</param>
       /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
@@ -504,7 +348,7 @@ namespace DysonNetwork.Shared.Proto {
         return GetAccount(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
       /// <summary>
-      /// Account Operations
+      /// Account Operations (returns account without profile data)
       /// </summary>
       /// <param name="request">The request to send to the server.</param>
       /// <param name="options">The options for the call.</param>
@@ -515,7 +359,7 @@ namespace DysonNetwork.Shared.Proto {
         return CallInvoker.BlockingUnaryCall(__Method_GetAccount, null, options, request);
       }
       /// <summary>
-      /// Account Operations
+      /// Account Operations (returns account without profile data)
       /// </summary>
       /// <param name="request">The request to send to the server.</param>
       /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
@@ -528,7 +372,7 @@ namespace DysonNetwork.Shared.Proto {
         return GetAccountAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
       /// <summary>
-      /// Account Operations
+      /// Account Operations (returns account without profile data)
       /// </summary>
       /// <param name="request">The request to send to the server.</param>
       /// <param name="options">The options for the call.</param>
@@ -658,94 +502,6 @@ namespace DysonNetwork.Shared.Proto {
       {
         return CallInvoker.AsyncUnaryCall(__Method_ListAccounts, null, options, request);
       }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyAccountStatus GetAccountStatus(global::DysonNetwork.Shared.Proto.DyGetAccountRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return GetAccountStatus(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyAccountStatus GetAccountStatus(global::DysonNetwork.Shared.Proto.DyGetAccountRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.BlockingUnaryCall(__Method_GetAccountStatus, null, options, request);
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyAccountStatus> GetAccountStatusAsync(global::DysonNetwork.Shared.Proto.DyGetAccountRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return GetAccountStatusAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyAccountStatus> GetAccountStatusAsync(global::DysonNetwork.Shared.Proto.DyGetAccountRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.AsyncUnaryCall(__Method_GetAccountStatus, null, options, request);
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyGetAccountStatusBatchResponse GetAccountStatusBatch(global::DysonNetwork.Shared.Proto.DyGetAccountBatchRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return GetAccountStatusBatch(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyGetAccountStatusBatchResponse GetAccountStatusBatch(global::DysonNetwork.Shared.Proto.DyGetAccountBatchRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.BlockingUnaryCall(__Method_GetAccountStatusBatch, null, options, request);
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetAccountStatusBatchResponse> GetAccountStatusBatchAsync(global::DysonNetwork.Shared.Proto.DyGetAccountBatchRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return GetAccountStatusBatchAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetAccountStatusBatchResponse> GetAccountStatusBatchAsync(global::DysonNetwork.Shared.Proto.DyGetAccountBatchRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.AsyncUnaryCall(__Method_GetAccountStatusBatch, null, options, request);
-      }
-      /// <summary>
-      /// Profile Operations
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The response received from the server.</returns>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyAccountProfile GetProfile(global::DysonNetwork.Shared.Proto.DyGetProfileRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return GetProfile(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      /// <summary>
-      /// Profile Operations
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The response received from the server.</returns>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyAccountProfile GetProfile(global::DysonNetwork.Shared.Proto.DyGetProfileRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.BlockingUnaryCall(__Method_GetProfile, null, options, request);
-      }
-      /// <summary>
-      /// Profile Operations
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The call object.</returns>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyAccountProfile> GetProfileAsync(global::DysonNetwork.Shared.Proto.DyGetProfileRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return GetProfileAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      /// <summary>
-      /// Profile Operations
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The call object.</returns>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyAccountProfile> GetProfileAsync(global::DysonNetwork.Shared.Proto.DyGetProfileRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.AsyncUnaryCall(__Method_GetProfile, null, options, request);
-      }
       /// <summary>
       /// Contact Operations
       /// </summary>
@@ -794,113 +550,45 @@ namespace DysonNetwork.Shared.Proto {
       {
         return CallInvoker.AsyncUnaryCall(__Method_ListContacts, null, options, request);
       }
-      /// <summary>
-      /// Badge Operations
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The response received from the server.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyListBadgesResponse ListBadges(global::DysonNetwork.Shared.Proto.DyListBadgesRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual global::DysonNetwork.Shared.Proto.DyListContactsResponse GetContactsByProvider(global::DysonNetwork.Shared.Proto.DyGetContactsByProviderRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
-        return ListBadges(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      /// <summary>
-      /// Badge Operations
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The response received from the server.</returns>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyListBadgesResponse ListBadges(global::DysonNetwork.Shared.Proto.DyListBadgesRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.BlockingUnaryCall(__Method_ListBadges, null, options, request);
-      }
-      /// <summary>
-      /// Badge Operations
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The call object.</returns>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListBadgesResponse> ListBadgesAsync(global::DysonNetwork.Shared.Proto.DyListBadgesRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return ListBadgesAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      /// <summary>
-      /// Badge Operations
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The call object.</returns>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListBadgesResponse> ListBadgesAsync(global::DysonNetwork.Shared.Proto.DyListBadgesRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.AsyncUnaryCall(__Method_ListBadges, null, options, request);
+        return GetContactsByProvider(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyGrantBadgeResponse GrantBadge(global::DysonNetwork.Shared.Proto.DyGrantBadgeRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual global::DysonNetwork.Shared.Proto.DyListContactsResponse GetContactsByProvider(global::DysonNetwork.Shared.Proto.DyGetContactsByProviderRequest request, grpc::CallOptions options)
       {
-        return GrantBadge(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+        return CallInvoker.BlockingUnaryCall(__Method_GetContactsByProvider, null, options, request);
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyGrantBadgeResponse GrantBadge(global::DysonNetwork.Shared.Proto.DyGrantBadgeRequest request, grpc::CallOptions options)
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListContactsResponse> GetContactsByProviderAsync(global::DysonNetwork.Shared.Proto.DyGetContactsByProviderRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
-        return CallInvoker.BlockingUnaryCall(__Method_GrantBadge, null, options, request);
+        return GetContactsByProviderAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGrantBadgeResponse> GrantBadgeAsync(global::DysonNetwork.Shared.Proto.DyGrantBadgeRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListContactsResponse> GetContactsByProviderAsync(global::DysonNetwork.Shared.Proto.DyGetContactsByProviderRequest request, grpc::CallOptions options)
       {
-        return GrantBadgeAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+        return CallInvoker.AsyncUnaryCall(__Method_GetContactsByProvider, null, options, request);
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGrantBadgeResponse> GrantBadgeAsync(global::DysonNetwork.Shared.Proto.DyGrantBadgeRequest request, grpc::CallOptions options)
+      public virtual global::DysonNetwork.Shared.Proto.DyListContactsResponse GetContactsByAccount(global::DysonNetwork.Shared.Proto.DyGetContactsByAccountRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
-        return CallInvoker.AsyncUnaryCall(__Method_GrantBadge, null, options, request);
+        return GetContactsByAccount(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyGetBadgeResponse GetBadge(global::DysonNetwork.Shared.Proto.DyGetBadgeRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual global::DysonNetwork.Shared.Proto.DyListContactsResponse GetContactsByAccount(global::DysonNetwork.Shared.Proto.DyGetContactsByAccountRequest request, grpc::CallOptions options)
       {
-        return GetBadge(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+        return CallInvoker.BlockingUnaryCall(__Method_GetContactsByAccount, null, options, request);
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyGetBadgeResponse GetBadge(global::DysonNetwork.Shared.Proto.DyGetBadgeRequest request, grpc::CallOptions options)
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListContactsResponse> GetContactsByAccountAsync(global::DysonNetwork.Shared.Proto.DyGetContactsByAccountRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
-        return CallInvoker.BlockingUnaryCall(__Method_GetBadge, null, options, request);
+        return GetContactsByAccountAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetBadgeResponse> GetBadgeAsync(global::DysonNetwork.Shared.Proto.DyGetBadgeRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListContactsResponse> GetContactsByAccountAsync(global::DysonNetwork.Shared.Proto.DyGetContactsByAccountRequest request, grpc::CallOptions options)
       {
-        return GetBadgeAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetBadgeResponse> GetBadgeAsync(global::DysonNetwork.Shared.Proto.DyGetBadgeRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.AsyncUnaryCall(__Method_GetBadge, null, options, request);
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyUpdateBadgeResponse UpdateBadge(global::DysonNetwork.Shared.Proto.DyUpdateBadgeRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return UpdateBadge(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyUpdateBadgeResponse UpdateBadge(global::DysonNetwork.Shared.Proto.DyUpdateBadgeRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.BlockingUnaryCall(__Method_UpdateBadge, null, options, request);
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyUpdateBadgeResponse> UpdateBadgeAsync(global::DysonNetwork.Shared.Proto.DyUpdateBadgeRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return UpdateBadgeAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyUpdateBadgeResponse> UpdateBadgeAsync(global::DysonNetwork.Shared.Proto.DyUpdateBadgeRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.AsyncUnaryCall(__Method_UpdateBadge, null, options, request);
+        return CallInvoker.AsyncUnaryCall(__Method_GetContactsByAccount, null, options, request);
       }
       /// <summary>
       /// Authentication Factor Operations
@@ -998,113 +686,25 @@ namespace DysonNetwork.Shared.Proto {
       {
         return CallInvoker.AsyncUnaryCall(__Method_ListConnections, null, options, request);
       }
-      /// <summary>
-      /// Relationship Operations
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The response received from the server.</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyGetRelationshipResponse GetRelationship(global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse GetValidAccessToken(global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
-        return GetRelationship(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      /// <summary>
-      /// Relationship Operations
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The response received from the server.</returns>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyGetRelationshipResponse GetRelationship(global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.BlockingUnaryCall(__Method_GetRelationship, null, options, request);
-      }
-      /// <summary>
-      /// Relationship Operations
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
-      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
-      /// <param name="cancellationToken">An optional token for canceling the call.</param>
-      /// <returns>The call object.</returns>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetRelationshipResponse> GetRelationshipAsync(global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return GetRelationshipAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      /// <summary>
-      /// Relationship Operations
-      /// </summary>
-      /// <param name="request">The request to send to the server.</param>
-      /// <param name="options">The options for the call.</param>
-      /// <returns>The call object.</returns>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetRelationshipResponse> GetRelationshipAsync(global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.AsyncUnaryCall(__Method_GetRelationship, null, options, request);
+        return GetValidAccessToken(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::Google.Protobuf.WellKnownTypes.BoolValue HasRelationship(global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse GetValidAccessToken(global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest request, grpc::CallOptions options)
       {
-        return HasRelationship(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+        return CallInvoker.BlockingUnaryCall(__Method_GetValidAccessToken, null, options, request);
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::Google.Protobuf.WellKnownTypes.BoolValue HasRelationship(global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest request, grpc::CallOptions options)
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse> GetValidAccessTokenAsync(global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
-        return CallInvoker.BlockingUnaryCall(__Method_HasRelationship, null, options, request);
+        return GetValidAccessTokenAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.BoolValue> HasRelationshipAsync(global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse> GetValidAccessTokenAsync(global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest request, grpc::CallOptions options)
       {
-        return HasRelationshipAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.BoolValue> HasRelationshipAsync(global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.AsyncUnaryCall(__Method_HasRelationship, null, options, request);
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse ListFriends(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return ListFriends(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse ListFriends(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.BlockingUnaryCall(__Method_ListFriends, null, options, request);
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> ListFriendsAsync(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return ListFriendsAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> ListFriendsAsync(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.AsyncUnaryCall(__Method_ListFriends, null, options, request);
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse ListBlocked(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return ListBlocked(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse ListBlocked(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.BlockingUnaryCall(__Method_ListBlocked, null, options, request);
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> ListBlockedAsync(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return ListBlockedAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> ListBlockedAsync(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.AsyncUnaryCall(__Method_ListBlocked, null, options, request);
+        return CallInvoker.AsyncUnaryCall(__Method_GetValidAccessToken, null, options, request);
       }
       /// <summary>Creates a new instance of client from given <c>ClientBaseConfiguration</c>.</summary>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
@@ -1127,20 +727,12 @@ namespace DysonNetwork.Shared.Proto {
           .AddMethod(__Method_LookupAccountBatch, serviceImpl.LookupAccountBatch)
           .AddMethod(__Method_SearchAccount, serviceImpl.SearchAccount)
           .AddMethod(__Method_ListAccounts, serviceImpl.ListAccounts)
-          .AddMethod(__Method_GetAccountStatus, serviceImpl.GetAccountStatus)
-          .AddMethod(__Method_GetAccountStatusBatch, serviceImpl.GetAccountStatusBatch)
-          .AddMethod(__Method_GetProfile, serviceImpl.GetProfile)
           .AddMethod(__Method_ListContacts, serviceImpl.ListContacts)
-          .AddMethod(__Method_ListBadges, serviceImpl.ListBadges)
-          .AddMethod(__Method_GrantBadge, serviceImpl.GrantBadge)
-          .AddMethod(__Method_GetBadge, serviceImpl.GetBadge)
-          .AddMethod(__Method_UpdateBadge, serviceImpl.UpdateBadge)
+          .AddMethod(__Method_GetContactsByProvider, serviceImpl.GetContactsByProvider)
+          .AddMethod(__Method_GetContactsByAccount, serviceImpl.GetContactsByAccount)
           .AddMethod(__Method_ListAuthFactors, serviceImpl.ListAuthFactors)
           .AddMethod(__Method_ListConnections, serviceImpl.ListConnections)
-          .AddMethod(__Method_GetRelationship, serviceImpl.GetRelationship)
-          .AddMethod(__Method_HasRelationship, serviceImpl.HasRelationship)
-          .AddMethod(__Method_ListFriends, serviceImpl.ListFriends)
-          .AddMethod(__Method_ListBlocked, serviceImpl.ListBlocked).Build();
+          .AddMethod(__Method_GetValidAccessToken, serviceImpl.GetValidAccessToken).Build();
     }
 
     /// <summary>Register service method with a service binder with or without implementation. Useful when customizing the service binding logic.
@@ -1157,206 +749,12 @@ namespace DysonNetwork.Shared.Proto {
       serviceBinder.AddMethod(__Method_LookupAccountBatch, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyLookupAccountBatchRequest, global::DysonNetwork.Shared.Proto.DyGetAccountBatchResponse>(serviceImpl.LookupAccountBatch));
       serviceBinder.AddMethod(__Method_SearchAccount, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DySearchAccountRequest, global::DysonNetwork.Shared.Proto.DyGetAccountBatchResponse>(serviceImpl.SearchAccount));
       serviceBinder.AddMethod(__Method_ListAccounts, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListAccountsRequest, global::DysonNetwork.Shared.Proto.DyListAccountsResponse>(serviceImpl.ListAccounts));
-      serviceBinder.AddMethod(__Method_GetAccountStatus, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetAccountRequest, global::DysonNetwork.Shared.Proto.DyAccountStatus>(serviceImpl.GetAccountStatus));
-      serviceBinder.AddMethod(__Method_GetAccountStatusBatch, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetAccountBatchRequest, global::DysonNetwork.Shared.Proto.DyGetAccountStatusBatchResponse>(serviceImpl.GetAccountStatusBatch));
-      serviceBinder.AddMethod(__Method_GetProfile, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetProfileRequest, global::DysonNetwork.Shared.Proto.DyAccountProfile>(serviceImpl.GetProfile));
       serviceBinder.AddMethod(__Method_ListContacts, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListContactsRequest, global::DysonNetwork.Shared.Proto.DyListContactsResponse>(serviceImpl.ListContacts));
-      serviceBinder.AddMethod(__Method_ListBadges, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListBadgesRequest, global::DysonNetwork.Shared.Proto.DyListBadgesResponse>(serviceImpl.ListBadges));
-      serviceBinder.AddMethod(__Method_GrantBadge, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGrantBadgeRequest, global::DysonNetwork.Shared.Proto.DyGrantBadgeResponse>(serviceImpl.GrantBadge));
-      serviceBinder.AddMethod(__Method_GetBadge, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetBadgeRequest, global::DysonNetwork.Shared.Proto.DyGetBadgeResponse>(serviceImpl.GetBadge));
-      serviceBinder.AddMethod(__Method_UpdateBadge, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyUpdateBadgeRequest, global::DysonNetwork.Shared.Proto.DyUpdateBadgeResponse>(serviceImpl.UpdateBadge));
+      serviceBinder.AddMethod(__Method_GetContactsByProvider, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetContactsByProviderRequest, global::DysonNetwork.Shared.Proto.DyListContactsResponse>(serviceImpl.GetContactsByProvider));
+      serviceBinder.AddMethod(__Method_GetContactsByAccount, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetContactsByAccountRequest, global::DysonNetwork.Shared.Proto.DyListContactsResponse>(serviceImpl.GetContactsByAccount));
       serviceBinder.AddMethod(__Method_ListAuthFactors, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListAuthFactorsRequest, global::DysonNetwork.Shared.Proto.DyListAuthFactorsResponse>(serviceImpl.ListAuthFactors));
       serviceBinder.AddMethod(__Method_ListConnections, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListConnectionsRequest, global::DysonNetwork.Shared.Proto.DyListConnectionsResponse>(serviceImpl.ListConnections));
-      serviceBinder.AddMethod(__Method_GetRelationship, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest, global::DysonNetwork.Shared.Proto.DyGetRelationshipResponse>(serviceImpl.GetRelationship));
-      serviceBinder.AddMethod(__Method_HasRelationship, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest, global::Google.Protobuf.WellKnownTypes.BoolValue>(serviceImpl.HasRelationship));
-      serviceBinder.AddMethod(__Method_ListFriends, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse>(serviceImpl.ListFriends));
-      serviceBinder.AddMethod(__Method_ListBlocked, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse>(serviceImpl.ListBlocked));
-    }
-
-  }
-  /// <summary>
-  /// ActionLogService provides operations for action logs
-  /// </summary>
-  public static partial class DyActionLogService
-  {
-    static readonly string __ServiceName = "proto.DyActionLogService";
-
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static void __Helper_SerializeMessage(global::Google.Protobuf.IMessage message, grpc::SerializationContext context)
-    {
-      #if !GRPC_DISABLE_PROTOBUF_BUFFER_SERIALIZATION
-      if (message is global::Google.Protobuf.IBufferMessage)
-      {
-        context.SetPayloadLength(message.CalculateSize());
-        global::Google.Protobuf.MessageExtensions.WriteTo(message, context.GetBufferWriter());
-        context.Complete();
-        return;
-      }
-      #endif
-      context.Complete(global::Google.Protobuf.MessageExtensions.ToByteArray(message));
-    }
-
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static class __Helper_MessageCache<T>
-    {
-      public static readonly bool IsBufferMessage = global::System.Reflection.IntrospectionExtensions.GetTypeInfo(typeof(global::Google.Protobuf.IBufferMessage)).IsAssignableFrom(typeof(T));
-    }
-
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static T __Helper_DeserializeMessage<T>(grpc::DeserializationContext context, global::Google.Protobuf.MessageParser<T> parser) where T : global::Google.Protobuf.IMessage<T>
-    {
-      #if !GRPC_DISABLE_PROTOBUF_BUFFER_SERIALIZATION
-      if (__Helper_MessageCache<T>.IsBufferMessage)
-      {
-        return parser.ParseFrom(context.PayloadAsReadOnlySequence());
-      }
-      #endif
-      return parser.ParseFrom(context.PayloadAsNewBuffer());
-    }
-
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyCreateActionLogRequest> __Marshaller_proto_DyCreateActionLogRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyCreateActionLogRequest.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyCreateActionLogResponse> __Marshaller_proto_DyCreateActionLogResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyCreateActionLogResponse.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListActionLogsRequest> __Marshaller_proto_DyListActionLogsRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListActionLogsRequest.Parser));
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListActionLogsResponse> __Marshaller_proto_DyListActionLogsResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListActionLogsResponse.Parser));
-
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateActionLogRequest, global::DysonNetwork.Shared.Proto.DyCreateActionLogResponse> __Method_CreateActionLog = new grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateActionLogRequest, global::DysonNetwork.Shared.Proto.DyCreateActionLogResponse>(
-        grpc::MethodType.Unary,
-        __ServiceName,
-        "CreateActionLog",
-        __Marshaller_proto_DyCreateActionLogRequest,
-        __Marshaller_proto_DyCreateActionLogResponse);
-
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyListActionLogsRequest, global::DysonNetwork.Shared.Proto.DyListActionLogsResponse> __Method_ListActionLogs = new grpc::Method<global::DysonNetwork.Shared.Proto.DyListActionLogsRequest, global::DysonNetwork.Shared.Proto.DyListActionLogsResponse>(
-        grpc::MethodType.Unary,
-        __ServiceName,
-        "ListActionLogs",
-        __Marshaller_proto_DyListActionLogsRequest,
-        __Marshaller_proto_DyListActionLogsResponse);
-
-    /// <summary>Service descriptor</summary>
-    public static global::Google.Protobuf.Reflection.ServiceDescriptor Descriptor
-    {
-      get { return global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor.Services[1]; }
-    }
-
-    /// <summary>Base class for server-side implementations of DyActionLogService</summary>
-    [grpc::BindServiceMethod(typeof(DyActionLogService), "BindService")]
-    public abstract partial class DyActionLogServiceBase
-    {
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyCreateActionLogResponse> CreateActionLog(global::DysonNetwork.Shared.Proto.DyCreateActionLogRequest request, grpc::ServerCallContext context)
-      {
-        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
-      }
-
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyListActionLogsResponse> ListActionLogs(global::DysonNetwork.Shared.Proto.DyListActionLogsRequest request, grpc::ServerCallContext context)
-      {
-        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
-      }
-
-    }
-
-    /// <summary>Client for DyActionLogService</summary>
-    public partial class DyActionLogServiceClient : grpc::ClientBase<DyActionLogServiceClient>
-    {
-      /// <summary>Creates a new client for DyActionLogService</summary>
-      /// <param name="channel">The channel to use to make remote calls.</param>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public DyActionLogServiceClient(grpc::ChannelBase channel) : base(channel)
-      {
-      }
-      /// <summary>Creates a new client for DyActionLogService that uses a custom <c>CallInvoker</c>.</summary>
-      /// <param name="callInvoker">The callInvoker to use to make remote calls.</param>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public DyActionLogServiceClient(grpc::CallInvoker callInvoker) : base(callInvoker)
-      {
-      }
-      /// <summary>Protected parameterless constructor to allow creation of test doubles.</summary>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      protected DyActionLogServiceClient() : base()
-      {
-      }
-      /// <summary>Protected constructor to allow creation of configured clients.</summary>
-      /// <param name="configuration">The client configuration.</param>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      protected DyActionLogServiceClient(ClientBaseConfiguration configuration) : base(configuration)
-      {
-      }
-
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyCreateActionLogResponse CreateActionLog(global::DysonNetwork.Shared.Proto.DyCreateActionLogRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return CreateActionLog(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyCreateActionLogResponse CreateActionLog(global::DysonNetwork.Shared.Proto.DyCreateActionLogRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.BlockingUnaryCall(__Method_CreateActionLog, null, options, request);
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyCreateActionLogResponse> CreateActionLogAsync(global::DysonNetwork.Shared.Proto.DyCreateActionLogRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return CreateActionLogAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyCreateActionLogResponse> CreateActionLogAsync(global::DysonNetwork.Shared.Proto.DyCreateActionLogRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.AsyncUnaryCall(__Method_CreateActionLog, null, options, request);
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyListActionLogsResponse ListActionLogs(global::DysonNetwork.Shared.Proto.DyListActionLogsRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return ListActionLogs(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual global::DysonNetwork.Shared.Proto.DyListActionLogsResponse ListActionLogs(global::DysonNetwork.Shared.Proto.DyListActionLogsRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.BlockingUnaryCall(__Method_ListActionLogs, null, options, request);
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListActionLogsResponse> ListActionLogsAsync(global::DysonNetwork.Shared.Proto.DyListActionLogsRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
-      {
-        return ListActionLogsAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
-      }
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListActionLogsResponse> ListActionLogsAsync(global::DysonNetwork.Shared.Proto.DyListActionLogsRequest request, grpc::CallOptions options)
-      {
-        return CallInvoker.AsyncUnaryCall(__Method_ListActionLogs, null, options, request);
-      }
-      /// <summary>Creates a new instance of client from given <c>ClientBaseConfiguration</c>.</summary>
-      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-      protected override DyActionLogServiceClient NewInstance(ClientBaseConfiguration configuration)
-      {
-        return new DyActionLogServiceClient(configuration);
-      }
-    }
-
-    /// <summary>Creates service definition that can be registered with a server</summary>
-    /// <param name="serviceImpl">An object implementing the server-side handling logic.</param>
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    public static grpc::ServerServiceDefinition BindService(DyActionLogServiceBase serviceImpl)
-    {
-      return grpc::ServerServiceDefinition.CreateBuilder()
-          .AddMethod(__Method_CreateActionLog, serviceImpl.CreateActionLog)
-          .AddMethod(__Method_ListActionLogs, serviceImpl.ListActionLogs).Build();
-    }
-
-    /// <summary>Register service method with a service binder with or without implementation. Useful when customizing the service binding logic.
-    /// Note: this method is part of an experimental API that can change or be removed without any prior notice.</summary>
-    /// <param name="serviceBinder">Service methods will be bound by calling <c>AddMethod</c> on this object.</param>
-    /// <param name="serviceImpl">An object implementing the server-side handling logic.</param>
-    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
-    public static void BindService(grpc::ServiceBinderBase serviceBinder, DyActionLogServiceBase serviceImpl)
-    {
-      serviceBinder.AddMethod(__Method_CreateActionLog, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyCreateActionLogRequest, global::DysonNetwork.Shared.Proto.DyCreateActionLogResponse>(serviceImpl.CreateActionLog));
-      serviceBinder.AddMethod(__Method_ListActionLogs, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListActionLogsRequest, global::DysonNetwork.Shared.Proto.DyListActionLogsResponse>(serviceImpl.ListActionLogs));
+      serviceBinder.AddMethod(__Method_GetValidAccessToken, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest, global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse>(serviceImpl.GetValidAccessToken));
     }
 
   }
