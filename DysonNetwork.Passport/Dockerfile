@@ -2,8 +2,8 @@
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libkrb5-3 \
-        libgssapi-krb5-2 \
+    libkrb5-3 \
+    libgssapi-krb5-2 \
     && rm -rf /var/lib/apt/lists/*
 USER $APP_UID
 WORKDIR /app
@@ -15,14 +15,14 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy .csproj and restore as distinct layers
-COPY ["DysonNetwork.Pass/DysonNetwork.Passport.csproj", "DysonNetwork.Pass/"]
-RUN dotnet restore "DysonNetwork.Pass/DysonNetwork.Passport.csproj"
+COPY ["DysonNetwork.Passport/DysonNetwork.Passport.csproj", "DysonNetwork.Pass/"]
+RUN dotnet restore "DysonNetwork.Passport/DysonNetwork.Passport.csproj"
 
 # Copy everything else and build
 COPY . .
 
 # Build the application
-WORKDIR "/src/DysonNetwork.Pass"
+WORKDIR "/src/DysonNetwork.Passport"
 RUN dotnet build "DysonNetwork.Passport.csproj" -c Release -o /app/build \
     -p:TypeScriptCompileBlocked=true \
     -p:UseRazorBuildServer=false
@@ -39,4 +39,4 @@ RUN dotnet publish "DysonNetwork.Passport.csproj" -c Release -o /app/publish \
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "DysonNetwork.Pass.dll"]
+ENTRYPOINT ["dotnet", "DysonNetwork.Passport.dll"]
