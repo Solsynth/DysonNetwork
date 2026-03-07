@@ -25,8 +25,8 @@ jobs:
             - name: Determine changed services
               id: changes
               run: |
-                  services=("Sphere" "Pass" "Ring" "Drive" "Develop" "Insight" "Zone" "Messager" "Wallet")
-                  images=("sphere" "pass" "ring" "drive" "develop" "insight" "zone" "messager" "wallet")
+                  services=("Sphere" "Passport" "Padlock" "Ring" "Drive" "Develop" "Insight" "Zone" "Messager" "Wallet")
+                  images=("sphere" "passport" "padlock" "ring" "drive" "develop" "insight" "zone" "messager" "wallet")
 
                   # On manual dispatch, build all services
                   if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
