@@ -33,8 +33,6 @@ public class AppDatabase(
     public DbSet<SnSocialCreditRecord> SocialCreditRecords { get; set; } = null!;
     public DbSet<SnExperienceRecord> ExperienceRecords { get; set; } = null!;
 
-    public DbSet<SnLottery> Lotteries { get; set; } = null!;
-
     public DbSet<SnAffiliationSpell> AffiliationSpells { get; set; } = null!;
     public DbSet<SnAffiliationResult> AffiliationResults { get; set; } = null!;
     
@@ -66,6 +64,24 @@ public class AppDatabase(
     {
         base.OnModelCreating(modelBuilder);
 
+        // Auth/account/E2EE moved to Padlock; keep these entities out of Passport EF model.
+        modelBuilder.Ignore<SnAccount>();
+        modelBuilder.Ignore<SnAccountAuthFactor>();
+        modelBuilder.Ignore<SnAccountConnection>();
+        modelBuilder.Ignore<SnAccountContact>();
+        modelBuilder.Ignore<SnAuthChallenge>();
+        modelBuilder.Ignore<SnAuthClient>();
+        modelBuilder.Ignore<SnAuthSession>();
+        modelBuilder.Ignore<SnE2eeDevice>();
+        modelBuilder.Ignore<SnE2eeEnvelope>();
+        modelBuilder.Ignore<SnE2eeKeyBundle>();
+        modelBuilder.Ignore<SnE2eeOneTimePreKey>();
+        modelBuilder.Ignore<SnE2eeSession>();
+        modelBuilder.Ignore<SnMlsKeyPackage>();
+        modelBuilder.Ignore<SnMlsGroupState>();
+        modelBuilder.Ignore<SnMlsDeviceMembership>();
+        modelBuilder.Ignore<SnSubscriptionReferenceObject>();
+
         modelBuilder.Entity<SnPermissionGroupMember>()
             .HasKey(pg => new { pg.GroupId, pg.Actor });
         modelBuilder.Entity<SnPermissionGroupMember>()
@@ -76,14 +92,6 @@ public class AppDatabase(
 
         modelBuilder.Entity<SnAccountRelationship>()
             .HasKey(r => new { FromAccountId = r.AccountId, ToAccountId = r.RelatedId });
-        modelBuilder.Entity<SnAccountRelationship>()
-            .HasOne(r => r.Account)
-            .WithMany(a => a.OutgoingRelationships)
-            .HasForeignKey(r => r.AccountId);
-        modelBuilder.Entity<SnAccountRelationship>()
-            .HasOne(r => r.Related)
-            .WithMany(a => a.IncomingRelationships)
-            .HasForeignKey(r => r.RelatedId);
         
         modelBuilder.Entity<SnRealmMember>()
             .HasKey(pm => new { pm.RealmId, pm.AccountId });
@@ -93,76 +101,9 @@ public class AppDatabase(
             .HasForeignKey(pm => pm.RealmId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<SnE2eeDevice>()
-            .HasIndex(d => new { d.AccountId, d.DeviceId })
-            .IsUnique();
-        modelBuilder.Entity<SnE2eeDevice>()
-            .HasOne(d => d.Account)
-            .WithMany()
-            .HasForeignKey(d => d.AccountId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<SnE2eeKeyBundle>()
-            .HasIndex(k => new { k.AccountId, k.DeviceId })
-            .IsUnique();
-        modelBuilder.Entity<SnE2eeKeyBundle>()
-            .HasOne(k => k.Account)
-            .WithMany()
-            .HasForeignKey(k => k.AccountId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<SnE2eeOneTimePreKey>()
-            .HasOne(k => k.KeyBundle)
-            .WithMany(b => b.OneTimePreKeys)
-            .HasForeignKey(k => k.KeyBundleId)
-            .OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<SnE2eeOneTimePreKey>()
-            .HasIndex(k => new { k.KeyBundleId, k.KeyId })
-            .IsUnique();
-        modelBuilder.Entity<SnE2eeOneTimePreKey>()
-            .HasIndex(k => new { k.KeyBundleId, k.IsClaimed });
-        modelBuilder.Entity<SnE2eeOneTimePreKey>()
-            .HasIndex(k => new { k.AccountId, k.DeviceId, k.IsClaimed });
-
-        modelBuilder.Entity<SnE2eeSession>()
-            .HasIndex(s => new { s.AccountAId, s.AccountBId })
-            .IsUnique();
-
-        modelBuilder.Entity<SnE2eeEnvelope>()
-            .HasIndex(e => new { e.RecipientAccountId, e.RecipientDeviceId, e.DeliveryStatus, e.Sequence });
-        modelBuilder.Entity<SnE2eeEnvelope>()
-            .HasIndex(e => new
-            {
-                e.RecipientAccountId,
-                e.RecipientDeviceId,
-                e.SenderId,
-                e.SenderDeviceId,
-                e.ClientMessageId
-            })
-            .IsUnique()
-            .HasFilter("client_message_id IS NOT NULL");
-        modelBuilder.Entity<SnE2eeEnvelope>()
-            .HasIndex(e => e.SessionId);
-
-        modelBuilder.Entity<SnMlsKeyPackage>()
-            .HasIndex(k => new { k.AccountId, k.DeviceId, k.IsConsumed });
-        modelBuilder.Entity<SnMlsKeyPackage>()
-            .HasOne(k => k.Account)
-            .WithMany()
-            .HasForeignKey(k => k.AccountId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<SnMlsGroupState>()
-            .HasIndex(s => s.ChatRoomId)
-            .IsUnique();
-        modelBuilder.Entity<SnMlsGroupState>()
-            .HasIndex(s => new { s.MlsGroupId, s.Epoch });
-
-        modelBuilder.Entity<SnMlsDeviceMembership>()
-            .HasIndex(m => new { m.ChatRoomId, m.AccountId, m.DeviceId })
-            .IsUnique();
-        modelBuilder.Entity<SnMlsDeviceMembership>()
-            .HasIndex(m => new { m.MlsGroupId, m.LastSeenEpoch });
+        // Passport no longer owns auth/account rows; keep profile as an account-id keyed read model only.
+        modelBuilder.Entity<SnAccountProfile>()
+            .Ignore(p => p.Account);
 
         modelBuilder.ApplySoftDeleteFilters();
     }

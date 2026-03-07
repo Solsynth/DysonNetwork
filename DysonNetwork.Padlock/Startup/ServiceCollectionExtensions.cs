@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 using DysonNetwork.Padlock.Auth;
 using DysonNetwork.Padlock.Auth.OpenId;
 using DysonNetwork.Padlock.Account;
@@ -18,6 +19,7 @@ using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Queue;
+using DysonNetwork.Shared.Templating;
 
 namespace DysonNetwork.Padlock.Startup;
 
@@ -120,17 +122,17 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppBusinessServices(this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddSingleton<DysonNetwork.Shared.Localization.ILocalizationService, DysonNetwork.Shared.Localization.JsonLocalizationService>(sp =>
+        services.AddSingleton<ILocalizationService, JsonLocalizationService>(sp =>
         {
-            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            var assembly = Assembly.GetExecutingAssembly();
             var resourceNamespace = "DysonNetwork.Padlock.Resources.Locales";
             return new JsonLocalizationService(assembly, resourceNamespace);
         });
-        services.AddScoped<Shared.Templating.ITemplateService, Shared.Templating.DotLiquidTemplateService>(sp =>
+        services.AddScoped<ITemplateService, DotLiquidTemplateService>(sp =>
         {
-            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            var assembly = Assembly.GetExecutingAssembly();
             var resourceNamespace = "DysonNetwork.Padlock.Resources.Templates";
-            return new DysonNetwork.Shared.Templating.DotLiquidTemplateService(assembly, resourceNamespace);
+            return new DotLiquidTemplateService(assembly, resourceNamespace);
         });
         services.Configure<GeoOptions>(configuration.GetSection("GeoIP"));
         services.AddScoped<GeoService>();

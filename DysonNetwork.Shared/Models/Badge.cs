@@ -20,7 +20,7 @@ public class SnAccountBadge : ModelBase
     public Instant? ExpiredAt { get; set; }
 
     public Guid AccountId { get; set; }
-    [IgnoreMember] [JsonIgnore] public SnAccount Account { get; set; } = null!;
+    [NotMapped] [IgnoreMember] [JsonIgnore] public SnAccount Account { get; set; } = null!;
 
     public SnAccountBadgeRef ToReference()
     {

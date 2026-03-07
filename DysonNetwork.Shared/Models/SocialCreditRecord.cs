@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using DysonNetwork.Shared.Proto;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
@@ -21,7 +22,7 @@ public class SnSocialCreditRecord : ModelBase
     public Instant? ExpiredAt { get; set; }
     
     public Guid AccountId { get; set; }
-    public SnAccount Account { get; set; } = null!;
+    [NotMapped] public SnAccount Account { get; set; } = null!;
 
     public double GetEffectiveDelta(Instant now)
     {

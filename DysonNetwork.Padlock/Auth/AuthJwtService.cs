@@ -55,7 +55,12 @@ public sealed class AuthJwtService(IConfiguration config)
             new("name", account.Name),
             new("nick", account.Nick),
             new("region", account.Region),
+            new("perk_level", account.PerkLevel.ToString()),
         };
+        if (!string.IsNullOrWhiteSpace(account.PerkSubscription?.Identifier))
+            claims.Add(new Claim("perk_identifier", account.PerkSubscription.Identifier));
+        if (account.PerkSubscription is not null)
+            claims.Add(new Claim("perk_subscription_id", account.PerkSubscription.Id.ToString()));
         claims.AddRange(session.Scopes.Select(scope => new Claim("scope", scope)));
 
         return CreateJwt(claims, now, expiresAt);

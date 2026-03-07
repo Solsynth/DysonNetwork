@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using DysonNetwork.Shared.Proto;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
@@ -14,9 +15,9 @@ public enum RelationshipStatus : short
 public class SnAccountRelationship : ModelBase
 {
     public Guid AccountId { get; set; }
-    public SnAccount Account { get; set; } = null!;
+    [NotMapped] public SnAccount Account { get; set; } = null!;
     public Guid RelatedId { get; set; }
-    public SnAccount Related { get; set; } = null!;
+    [NotMapped] public SnAccount Related { get; set; } = null!;
 
     public Instant? ExpiredAt { get; set; }
 

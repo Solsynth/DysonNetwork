@@ -47,7 +47,6 @@ var messagerService = builder.AddProject<Projects.DysonNetwork_Messager>("messag
     .WithReference(developService)
     .WithReference(driveService)
     .WithReference(padlockService);
-
 var walletService = builder.AddProject<Projects.DysonNetwork_Wallet>("wallet")
     .WithReference(passService)
     .WithReference(ringService)
@@ -56,6 +55,8 @@ var walletService = builder.AddProject<Projects.DysonNetwork_Wallet>("wallet")
 var bladeService = builder.AddExternalService("blade", "http://localhost:7001");
 
 passService.WithReference(developService).WithReference(driveService).WithReference(walletService);
+padlockService.WithReference(driveService).WithReference(walletService);
+ringService.WithReference(padlockService);
 
 List<IResourceBuilder<ProjectResource>> services =
 [

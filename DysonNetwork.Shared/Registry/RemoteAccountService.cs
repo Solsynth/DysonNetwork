@@ -36,6 +36,9 @@ public class RemoteAccountService(DyProfileService.DyProfileServiceClient profil
 
     public async Task<List<DyAccount>> GetBotAccountBatch(List<Guid> automatedIds)
     {
+        if (automatedIds == null || automatedIds.Count == 0)
+            return [];
+
         var request = new DyGetBotAccountBatchRequest();
         request.AutomatedId.AddRange(automatedIds.Select(id => id.ToString()));
         var response = await profiles.GetBotAccountBatchAsync(request);

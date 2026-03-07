@@ -43,7 +43,7 @@ public class SnAccountStatus : ModelBase
     public bool IsAutomated { get; set; }
 
     public Guid AccountId { get; set; }
-    public SnAccount Account { get; set; } = null!;
+    [NotMapped] public SnAccount Account { get; set; } = null!;
 
     public DyAccountStatus ToProtoValue()
     {
@@ -116,7 +116,7 @@ public class SnCheckInResult : ModelBase
     public List<CheckInFortuneTip> Tips { get; set; } = new List<CheckInFortuneTip>();
 
     public Guid AccountId { get; set; }
-    public SnAccount Account { get; set; } = null!;
+    [NotMapped] public SnAccount Account { get; set; } = null!;
 
     public Instant? BackdatedFrom { get; set; }
 }
@@ -182,5 +182,5 @@ public class SnPresenceActivity : ModelBase
     public Instant LeaseExpiresAt { get; set; }
 
     public Guid AccountId { get; set; }
-    public SnAccount Account { get; set; } = null!;
+    [NotMapped] public SnAccount Account { get; set; } = null!;
 }

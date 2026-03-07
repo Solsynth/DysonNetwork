@@ -37,6 +37,7 @@ public class SnAccount : ModelBase
     [IgnoreMember] [JsonIgnore] public List<SnAccountRelationship> IncomingRelationships { get; set; } = [];
 
     [NotMapped] public SnSubscriptionReferenceObject? PerkSubscription { get; set; }
+    [NotMapped] public int PerkLevel { get; set; }
 
     public DyAccount ToProtoValue()
     {
@@ -50,6 +51,7 @@ public class SnAccount : ModelBase
             ActivatedAt = ActivatedAt?.ToTimestamp(),
             IsSuperuser = IsSuperuser,
             Profile = Profile?.ToProtoValue(),
+            PerkLevel = PerkLevel,
             PerkSubscription = PerkSubscription?.ToProtoValue(),
             CreatedAt = CreatedAt.ToDateTimeUtc() != default ? CreatedAt.ToTimestamp() : null,
             UpdatedAt = UpdatedAt.ToDateTimeUtc() != default ? UpdatedAt.ToTimestamp() : null,
@@ -90,6 +92,7 @@ public class SnAccount : ModelBase
             Region = proto.Region,
             ActivatedAt = proto.ActivatedAt?.ToInstant(),
             IsSuperuser = proto.IsSuperuser,
+            PerkLevel = proto.PerkLevel,
             PerkSubscription = proto.PerkSubscription is not null
                 ? SnSubscriptionReferenceObject.FromProtoValue(proto.PerkSubscription)
                 : null,

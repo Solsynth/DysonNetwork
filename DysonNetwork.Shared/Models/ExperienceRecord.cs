@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using DysonNetwork.Shared.Proto;
 using NodaTime.Serialization.Protobuf;
 
@@ -13,7 +14,7 @@ public class SnExperienceRecord : ModelBase
     public double BonusMultiplier { get; set; }
     
     public Guid AccountId { get; set; }
-    public SnAccount Account { get; set; } = null!;
+    [NotMapped]  public SnAccount Account { get; set; } = null!;
 
     public DyExperienceRecord ToProto()
     {

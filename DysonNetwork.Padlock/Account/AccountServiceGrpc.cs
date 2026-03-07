@@ -1,7 +1,9 @@
 using DysonNetwork.Padlock.Auth.OpenId;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -12,6 +14,7 @@ namespace DysonNetwork.Padlock.Account;
 public class AccountServiceGrpc(
     AppDatabase db,
     IEnumerable<OidcService> oidcServices,
+    RemoteSubscriptionService remoteSubscription,
     ILogger<AccountServiceGrpc> logger
 ) : DyAccountService.DyAccountServiceBase
 {
@@ -27,6 +30,7 @@ public class AccountServiceGrpc(
         if (account is null)
             throw new RpcException(new Status(StatusCode.NotFound, $"Account {request.Id} not found"));
 
+        await PopulatePerkSubscriptionAsync(account, context.CancellationToken);
         return account.ToProtoValue();
     }
 
@@ -43,6 +47,7 @@ public class AccountServiceGrpc(
             throw new RpcException(new Status(StatusCode.NotFound,
                 $"Account with automated ID {request.AutomatedId} not found"));
 
+        await PopulatePerkSubscriptionAsync(account, context.CancellationToken);
         return account.ToProtoValue();
     }
 
@@ -60,6 +65,7 @@ public class AccountServiceGrpc(
             .AsNoTracking()
             .Where(a => accountIds.Contains(a.Id))
             .ToListAsync(context.CancellationToken);
+        await PopulatePerkSubscriptionsAsync(accounts, context.CancellationToken);
 
         var response = new DyGetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
@@ -80,6 +86,7 @@ public class AccountServiceGrpc(
             .AsNoTracking()
             .Where(a => a.AutomatedId.HasValue && automatedIds.Contains(a.AutomatedId.Value))
             .ToListAsync(context.CancellationToken);
+        await PopulatePerkSubscriptionsAsync(accounts, context.CancellationToken);
 
         var response = new DyGetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
@@ -95,6 +102,7 @@ public class AccountServiceGrpc(
             .AsNoTracking()
             .Where(a => names.Contains(a.Name))
             .ToListAsync(context.CancellationToken);
+        await PopulatePerkSubscriptionsAsync(accounts, context.CancellationToken);
 
         var response = new DyGetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
@@ -114,6 +122,7 @@ public class AccountServiceGrpc(
             .Where(a => EF.Functions.ILike(a.Name, $"%{query}%") || EF.Functions.ILike(a.Nick, $"%{query}%"))
             .Take(100)
             .ToListAsync(context.CancellationToken);
+        await PopulatePerkSubscriptionsAsync(accounts, context.CancellationToken);
 
         var response = new DyGetAccountBatchResponse();
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
@@ -147,6 +156,7 @@ public class AccountServiceGrpc(
             .Skip(pageSize * page)
             .Take(pageSize)
             .ToListAsync(context.CancellationToken);
+        await PopulatePerkSubscriptionsAsync(accounts, context.CancellationToken);
 
         var response = new DyListAccountsResponse
         {
@@ -155,6 +165,68 @@ public class AccountServiceGrpc(
         };
         response.Accounts.AddRange(accounts.Select(a => a.ToProtoValue()));
         return response;
+    }
+
+    private async Task PopulatePerkSubscriptionAsync(SnAccount account, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var subscription = await remoteSubscription.GetPerkSubscription(account.Id);
+            if (subscription is null)
+            {
+                account.PerkSubscription = null;
+                account.PerkLevel = 0;
+                return;
+            }
+
+            var perk = SnWalletSubscription.FromProtoValue(subscription).ToReference();
+            account.PerkSubscription = perk;
+            account.PerkLevel = PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(perk.Identifier);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to populate perk subscription for account {AccountId}", account.Id);
+            account.PerkSubscription = null;
+            account.PerkLevel = 0;
+        }
+    }
+
+    private async Task PopulatePerkSubscriptionsAsync(List<SnAccount> accounts, CancellationToken cancellationToken)
+    {
+        if (accounts.Count == 0) return;
+
+        try
+        {
+            var subscriptions = await remoteSubscription.GetPerkSubscriptions(accounts.Select(a => a.Id).ToList());
+            var subscriptionMap = subscriptions
+                .ToDictionary(
+                    s => Guid.Parse(s.AccountId),
+                    s => SnWalletSubscription.FromProtoValue(s).ToReference()
+                );
+
+            foreach (var account in accounts)
+            {
+                if (subscriptionMap.TryGetValue(account.Id, out var perk))
+                {
+                    account.PerkSubscription = perk;
+                    account.PerkLevel = PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(perk.Identifier);
+                }
+                else
+                {
+                    account.PerkSubscription = null;
+                    account.PerkLevel = 0;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to populate perk subscriptions for {Count} accounts", accounts.Count);
+            foreach (var account in accounts)
+            {
+                account.PerkSubscription = null;
+                account.PerkLevel = 0;
+            }
+        }
     }
 
     public override async Task<DyListContactsResponse> ListContacts(DyListContactsRequest request,

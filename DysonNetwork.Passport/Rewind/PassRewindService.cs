@@ -94,18 +94,6 @@ public class PassRewindService(AppDatabase db, RemoteActionLogService remoteActi
             latestActiveTime = timesBefore6Am.Count != 0 ? timesBefore6Am.Max() : actionTimes.Max();
         }
 
-        var lotteriesQuery = db.Lotteries
-            .Where(l => l.CreatedAt >= startDate && l.CreatedAt < endDate)
-            .Where(l => l.AccountId == accountId)
-            .AsQueryable();
-        var lotteriesWins = await lotteriesQuery
-            .Where(l => l.MatchedRegionOneNumbers != null && l.MatchedRegionOneNumbers.Count > 0)
-            .CountAsync();
-        var lotteriesLosses = await lotteriesQuery
-            .Where(l => l.MatchedRegionOneNumbers == null || l.MatchedRegionOneNumbers.Count == 0)
-            .CountAsync();
-        var lotteriesWinRate = lotteriesWins / (double)(lotteriesWins + lotteriesLosses);
-
         var data = new Dictionary<string, object?>
         {
             ["max_check_in_streak"] = maxCheckInStreak,
@@ -115,9 +103,6 @@ public class PassRewindService(AppDatabase db, RemoteActionLogService remoteActi
             ["latest_active_time"] = latestActiveTime?.ToString(@"hh\:mm"),
             ["new_friends_count"] = newFriendsCount,
             ["new_blocked_count"] = newBlockedCount,
-            ["lotteries_wins"] = lotteriesWins,
-            ["lotteries_losses"] = lotteriesLosses,
-            ["lotteries_win_rate"] = lotteriesWinRate,
         };
 
         return new DyRewindEvent

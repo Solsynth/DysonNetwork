@@ -110,8 +110,13 @@ public class AccountService(
         }
         catch (DbUpdateException)
         {
-            // Handle rare concurrent create race by reloading.
-            profile = await db.AccountProfiles.FirstAsync(p => p.AccountId == accountId);
+            // Handle concurrent create race by reloading; if still missing, retry create once.
+            var existing = await db.AccountProfiles.FirstOrDefaultAsync(p => p.AccountId == accountId);
+            if (existing is not null) return existing;
+
+            profile = new SnAccountProfile { AccountId = accountId };
+            db.AccountProfiles.Add(profile);
+            await db.SaveChangesAsync();
             return profile;
         }
     }

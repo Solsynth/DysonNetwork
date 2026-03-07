@@ -1,5 +1,6 @@
 using DysonNetwork.Padlock.Auth;
 using DysonNetwork.Padlock.Account;
+using DysonNetwork.Padlock.Permission;
 using DysonNetwork.Shared.Networking;
 
 namespace DysonNetwork.Padlock.Startup;
@@ -29,6 +30,7 @@ public static class ApplicationConfiguration
         app.MapGrpcService<AccountServiceGrpc>();
         app.MapGrpcService<BotAccountReceiverGrpc>();
         app.MapGrpcService<ActionLogServiceGrpc>();
+        app.MapGrpcService<PermissionServiceGrpc>();
         app.MapGrpcReflectionService();
 
         return app;

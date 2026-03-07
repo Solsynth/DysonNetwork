@@ -36,7 +36,6 @@ public class TicketService(
             Type = type,
             Priority = priority,
             CreatorId = creatorId,
-            Creator = creator,
             Status = TicketStatus.Open,
             Messages =
             [
@@ -45,7 +44,6 @@ public class TicketService(
                     Content = content,
                     Files = fileDataParsed,
                     SenderId = creatorId,
-                    Sender = creator,
                 }
             ]
         };
@@ -56,21 +54,19 @@ public class TicketService(
 
         logger.LogInformation("Ticket created: {TicketId} by {CreatorId}", ticket.Id, creatorId);
 
+        await HydrateTicketAccountsAsync(ticket);
         return ticket;
     }
 
     public async Task<SnTicket?> GetTicketByIdAsync(Guid id)
     {
-        return await db.Tickets
+        var ticket = await db.Tickets
             .Where(t => t.Id == id)
-            .Include(t => t.Creator)
-            .ThenInclude(a => a.Profile)
-            .Include(t => t.Assignee)
-            .ThenInclude(a => a.Profile)
             .Include(t => t.Messages)
-            .ThenInclude(m => m.Sender)
-            .ThenInclude(a => a.Profile)
             .FirstOrDefaultAsync();
+        if (ticket is null) return null;
+        await HydrateTicketAccountsAsync(ticket);
+        return ticket;
     }
 
     public async Task<List<SnTicket>> GetTicketsAsync(
@@ -84,10 +80,7 @@ public class TicketService(
     )
     {
         var query = db.Tickets
-            .Include(t => t.Creator)
-            .ThenInclude(a => a.Profile)
-            .Include(t => t.Assignee)
-            .ThenInclude(a => a.Profile)
+            .Include(t => t.Messages)
             .AsQueryable();
 
         if (creatorId.HasValue)
@@ -105,12 +98,16 @@ public class TicketService(
         if (priority.HasValue)
             query = query.Where(t => t.Priority == priority.Value);
 
-        return await query
+        var tickets = await query
             .OrderByDescending(t => t.Priority)
             .ThenByDescending(t => t.CreatedAt)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
+
+        if (tickets.Count == 0) return tickets;
+        foreach (var ticket in tickets) await HydrateTicketAccountsAsync(ticket);
+        return tickets;
     }
 
     public async Task<SnTicketMessage> AddMessageAsync(
@@ -135,7 +132,6 @@ public class TicketService(
         {
             TicketId = ticketId,
             SenderId = senderId,
-            Sender = sender,
             Content = content,
             Files = fileDataParsed,
         };
@@ -145,6 +141,7 @@ public class TicketService(
 
         logger.LogInformation("Message added to ticket {TicketId} by {SenderId}", ticketId, senderId);
 
+        message.Sender = sender;
         return message;
     }
 
@@ -238,5 +235,22 @@ public class TicketService(
             query = query.Where(t => t.Status == status.Value);
 
         return await query.CountAsync();
+    }
+
+    private async Task HydrateTicketAccountsAsync(SnTicket ticket)
+    {
+        ticket.Creator = await accounts.GetAccount(ticket.CreatorId)
+            ?? throw new InvalidOperationException($"Creator {ticket.CreatorId} not found");
+
+        ticket.Assignee = ticket.AssigneeId.HasValue
+            ? await accounts.GetAccount(ticket.AssigneeId.Value)
+            : null;
+
+        if (ticket.Messages.Count == 0) return;
+        foreach (var message in ticket.Messages)
+        {
+            message.Sender = await accounts.GetAccount(message.SenderId)
+                ?? throw new InvalidOperationException($"Sender {message.SenderId} not found");
+        }
     }
 }

@@ -353,7 +353,7 @@ public class ConnectionController(
                 ClientPlatform.Web,
                 parentSession);
             
-            var token = auth.CreateToken(session);
+            var token = await auth.CreateToken(session);
             var redirectUrl = QueryHelpers.AddQueryString(redirectBaseUrl, "token", token);
             logger.LogInformation("OIDC login successful for user {UserId}. Redirecting to {RedirectUrl}", connection.AccountId, redirectUrl);
             return Redirect(redirectUrl);
@@ -378,7 +378,7 @@ public class ConnectionController(
         await db.SaveChangesAsync();
 
         var loginSession = await auth.CreateSessionForOidcAsync(account, clock.GetCurrentInstant());
-        var loginToken = auth.CreateToken(loginSession);
+        var loginToken = await auth.CreateToken(loginSession);
 
         var finalRedirectUrl = QueryHelpers.AddQueryString(redirectBaseUrl, "token", loginToken);
         logger.LogInformation("OIDC registration successful for new user {UserId}. Redirecting to {RedirectUrl}", account.Id, finalRedirectUrl);

@@ -113,7 +113,7 @@ public class OidcController(
                 parentSession
             );
             
-            var token = auth.CreateToken(session);
+            var token = await auth.CreateToken(session);
             return Ok(new TokenExchangeResponse { Token = token });
         }
         catch (SecurityTokenValidationException ex)

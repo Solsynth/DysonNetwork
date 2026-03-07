@@ -12,6 +12,20 @@ namespace DysonNetwork.Passport.Account;
 [Route("/api/relationships")]
 public class RelationshipController(AppDatabase db, RelationshipService rls, ActionLogService als, AccountService accounts) : ControllerBase
 {
+    private async Task HydrateRelationshipAsync(SnAccountRelationship relationship)
+    {
+        relationship.Account = await accounts.GetAccount(relationship.AccountId)
+            ?? throw new InvalidOperationException($"Account {relationship.AccountId} was not found.");
+        relationship.Related = await accounts.GetAccount(relationship.RelatedId)
+            ?? throw new InvalidOperationException($"Related account {relationship.RelatedId} was not found.");
+    }
+
+    private async Task HydrateRelationshipsAsync(IEnumerable<SnAccountRelationship> relationships)
+    {
+        foreach (var relationship in relationships)
+            await HydrateRelationshipAsync(relationship);
+    }
+
     [HttpGet]
     [Authorize]
     public async Task<ActionResult<List<SnAccountRelationship>>> ListRelationships([FromQuery] int offset = 0,
@@ -26,11 +40,10 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
             .Where(r => r.AccountId == accountId);
         var totalCount = await query.CountAsync();
         var relationships = await query
-            .Include(r => r.Related)
-            .ThenInclude(a => a.Profile)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
+        await HydrateRelationshipsAsync(relationships);
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
@@ -46,11 +59,8 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         var relationships = await db.AccountRelationships
             .Where(r => r.Status == RelationshipStatus.Pending)
             .Where(r => r.AccountId == currentUser.Id || r.RelatedId == currentUser.Id)
-            .Include(r => r.Related)
-            .ThenInclude(a => a.Profile)
-            .Include(r => r.Account)
-            .ThenInclude(a => a.Profile)
             .ToListAsync();
+        await HydrateRelationshipsAsync(relationships);
 
         return relationships;
     }
@@ -169,12 +179,10 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
             .Where(r => r.AccountId == currentUser.Id && r.RelatedId == accountId)
             .Where(r => r.ExpiredAt == null || r.ExpiredAt > now);
         var relationship = await queries
-            .Include(r => r.Related)
-            .Include(r => r.Related.Profile)
             .FirstOrDefaultAsync();
         if (relationship is null) return NotFound();
 
-        relationship.Account = currentUser;
+        await HydrateRelationshipAsync(relationship);
         return Ok(relationship);
     }
 
@@ -314,15 +322,17 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     {
         var relationships = await db.AccountRelationships
             .Where(r => r.AccountId == accountId)
-            .Include(r => r.Related)
-            .GroupBy(r => r.Status, r => r.Related)
-            .ToDictionaryAsync(r => r.Key, r => r);
+            .ToListAsync();
+        await HydrateRelationshipsAsync(relationships);
+        var grouped = relationships
+            .GroupBy(r => r.Status)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Related).ToList());
 
         return Ok(new InspectRelationshipResponse
         {
-            Friends = relationships.TryGetValue(RelationshipStatus.Friends, out var friends) ? friends.ToList() : [],
-            Blocked = relationships.TryGetValue(RelationshipStatus.Blocked, out var blocked) ? blocked.ToList() : [],
-            Pending = relationships.TryGetValue(RelationshipStatus.Pending, out var pending) ? pending.ToList() : []
+            Friends = grouped.TryGetValue(RelationshipStatus.Friends, out var friends) ? friends : [],
+            Blocked = grouped.TryGetValue(RelationshipStatus.Blocked, out var blocked) ? blocked : [],
+            Pending = grouped.TryGetValue(RelationshipStatus.Pending, out var pending) ? pending : []
         });
     }
 }

@@ -5,6 +5,8 @@ using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -23,6 +25,7 @@ public class AuthService(
     IHttpContextAccessor httpContextAccessor,
     ICacheService cache,
     GeoService geo,
+    RemoteSubscriptionService subscriptions,
     AuthJwtService authJwt,
     ILogger<AuthService> logger
 )
@@ -318,20 +321,22 @@ public class AuthService(
         return target;
     }
 
-    public string CreateToken(SnAuthSession session)
+    public async Task<string> CreateToken(SnAuthSession session)
     {
-        var account = db.Accounts.FirstOrDefault(a => a.Id == session.AccountId)
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == session.AccountId)
                       ?? throw new InvalidOperationException("Session account not found.");
-        var version = GetAccountVersion(session.AccountId).GetAwaiter().GetResult();
+        await HydratePerkAsync(account);
+        var version = await GetAccountVersion(session.AccountId);
         var now = SystemClock.Instance.GetCurrentInstant();
         return authJwt.CreateUserToken(session, account, version, ResolveAccessExpiry(session, now));
     }
 
-    public TokenPair CreateTokenPair(SnAuthSession session)
+    public async Task<TokenPair> CreateTokenPair(SnAuthSession session)
     {
-        var account = db.Accounts.FirstOrDefault(a => a.Id == session.AccountId)
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == session.AccountId)
                       ?? throw new InvalidOperationException("Session account not found.");
-        var version = GetAccountVersion(session.AccountId).GetAwaiter().GetResult();
+        await HydratePerkAsync(account);
+        var version = await GetAccountVersion(session.AccountId);
         var now = SystemClock.Instance.GetCurrentInstant();
         var accessExpiresAt = ResolveAccessExpiry(session, now);
         var refreshExpiresAt = session.ExpiredAt ?? now.Plus(GetRefreshTokenLifetime());
@@ -356,7 +361,7 @@ public class AuthService(
             existingSession.LastGrantedAt = now;
             db.Update(existingSession);
             await db.SaveChangesAsync();
-            return CreateTokenPair(existingSession);
+            return await CreateTokenPair(existingSession);
         }
 
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -389,7 +394,7 @@ public class AuthService(
             db.AuthChallenges.Update(challenge);
             await db.SaveChangesAsync();
 
-            var pair = CreateTokenPair(session);
+            var pair = await CreateTokenPair(session);
 
             await tx.CommitAsync();
             return pair;
@@ -448,7 +453,31 @@ public class AuthService(
 
         await cache.RemoveAsync($"{AuthCachePrefix}{session.Id}");
         await cache.RemoveAsync($"{AuthCachePrefix}{session.AccountId}");
-        return CreateTokenPair(session);
+        return await CreateTokenPair(session);
+    }
+
+    private async Task HydratePerkAsync(SnAccount account)
+    {
+        try
+        {
+            var subscription = await subscriptions.GetPerkSubscription(account.Id);
+            if (subscription is null)
+            {
+                account.PerkSubscription = null;
+                account.PerkLevel = 0;
+                return;
+            }
+
+            var perk = SnWalletSubscription.FromProtoValue(subscription).ToReference();
+            account.PerkSubscription = perk;
+            account.PerkLevel = PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(perk.Identifier);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to hydrate perk for account {AccountId}", account.Id);
+            account.PerkSubscription = null;
+            account.PerkLevel = 0;
+        }
     }
 
     public async Task<bool> ValidateSudoMode(SnAuthSession session, string? pinCode)

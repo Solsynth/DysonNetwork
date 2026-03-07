@@ -26,7 +26,7 @@ public class SnMagicSpell : ModelBase
     [Column(TypeName = "jsonb")] public Dictionary<string, object> Meta { get; set; } = new();
 
     public Guid? AccountId { get; set; }
-    public SnAccount? Account { get; set; }
+    [NotMapped] public SnAccount? Account { get; set; }
 }
 
 public enum AffiliationSpellType
@@ -50,7 +50,7 @@ public class SnAffiliationSpell : ModelBase
     public List<SnAffiliationResult> Results = [];
     
     public Guid? AccountId { get; set; }
-    public SnAccount? Account { get; set; }
+    [NotMapped] public SnAccount? Account { get; set; }
 }
 
 /// <summary>

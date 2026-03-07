@@ -15,8 +15,11 @@ public class AskPermissionAttribute(string key, DyPermissionNodeActorType type =
 
 public class RemotePermissionMiddleware(RequestDelegate next)
 {
-    public async Task InvokeAsync(HttpContext httpContext, DyPermissionService.DyPermissionServiceClient permissionService,
-        ILogger<RemotePermissionMiddleware> logger)
+    public async Task InvokeAsync(
+        HttpContext httpContext,
+        DyPermissionService.DyPermissionServiceClient permissionService,
+        ILogger<RemotePermissionMiddleware> logger
+    )
     {
         var endpoint = httpContext.GetEndpoint();
 

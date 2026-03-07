@@ -17,6 +17,7 @@ builder.Services.AddBladeService();
 builder.Services.AddRingService();
 builder.Services.AddDriveService();
 builder.Services.AddDevelopService();
+builder.Services.AddWalletService();
 
 builder.Services.AddAppFlushHandlers();
 builder.Services.AddAppBusinessServices(builder.Configuration);

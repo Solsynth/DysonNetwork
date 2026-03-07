@@ -385,7 +385,7 @@ public class AuthController(
                 request.ExpiredAt
             );
 
-            var tk = auth.CreateToken(newSession);
+            var tk = await auth.CreateToken(newSession);
 
             HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, tk, new CookieOptions
             {

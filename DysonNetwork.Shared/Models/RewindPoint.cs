@@ -19,5 +19,5 @@ public class SnRewindPoint : ModelBase
     [Column(TypeName = "jsonb")] public Dictionary<string, object?> Data { get; set; } = new();
     
     public Guid AccountId { get; set; }
-    public SnAccount Account { get; set; } = null!;
+    [NotMapped] public SnAccount Account { get; set; } = null!;
 }
