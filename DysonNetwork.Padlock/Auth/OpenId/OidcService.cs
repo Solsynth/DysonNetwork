@@ -188,6 +188,15 @@ public abstract class OidcService(
             Provider = ProviderName
         };
     }
+    
+    /// <summary>
+    /// Refreshes an access token using the refresh token
+    /// </summary>
+    public virtual async Task<OidcTokenResponse?> RefreshTokenAsync(string refreshToken)
+        => throw new InvalidOperationException();
+
+    public virtual async Task<string?> GetValidAccessTokenAsync(string refreshToken, string? currentAccessToken = null)
+        => throw new InvalidOperationException();
 
     public async Task<SnAuthSession> CreateSessionForUserAsync(
         OidcUserInfo userInfo,

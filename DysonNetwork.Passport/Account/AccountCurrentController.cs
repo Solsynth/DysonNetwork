@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
-using SnAuthSession = DysonNetwork.Shared.Models.SnAuthSession;
 
 namespace DysonNetwork.Passport.Account;
 
@@ -25,7 +24,8 @@ public class AccountCurrentController(
     DyFileService.DyFileServiceClient files,
     Credit.SocialCreditService creditService,
     RemoteSubscriptionService remoteSubscription,
-    RemoteActionLogService remoteActionLogs
+    RemoteActionLogService remoteActionLogs,
+    DyAuthService.DyAuthServiceClient auth
 ) : ControllerBase
 {
     [HttpGet]
@@ -345,24 +345,29 @@ public class AccountCurrentController(
         try
         {
             var needsCaptcha = await events.CheckInDailyDoAskCaptcha(currentUser);
-            return needsCaptcha switch
+            if (needsCaptcha)
             {
-                true when string.IsNullOrWhiteSpace(captchaToken) => StatusCode(423,
-                    new ApiError
-                    {
-                        Code = "CAPTCHA_REQUIRED",
-                        Message = "Captcha is required for this check-in.",
-                        Status = 423,
-                        TraceId = HttpContext.TraceIdentifier
-                    }
-                ),
-                true when !await auth.ValidateCaptcha(captchaToken) => BadRequest(ApiError.Validation(
-                    new Dictionary<string, string[]>
-                    {
-                        ["captchaToken"] = ["Invalid captcha token."]
-                    }, traceId: HttpContext.TraceIdentifier)),
-                _ => await events.CheckInDaily(currentUser, backdated)
-            };
+                if (string.IsNullOrWhiteSpace(captchaToken))
+                    return StatusCode(423,
+                        new ApiError
+                        {
+                            Code = "CAPTCHA_REQUIRED",
+                            Message = "Captcha is required for this check-in.",
+                            Status = 423,
+                            TraceId = HttpContext.TraceIdentifier
+                        }
+                    );
+                var captchaResp =
+                    await auth.ValidateCaptchaAsync(new DyValidateCaptchaRequest { Token = captchaToken });
+                if (!captchaResp.Valid)
+                    return BadRequest(ApiError.Validation(
+                        new Dictionary<string, string[]>
+                        {
+                            ["captchaToken"] = ["Invalid captcha token."]
+                        }, traceId: HttpContext.TraceIdentifier));
+            }
+
+            return await events.CheckInDaily(currentUser, backdated);
         }
         catch (InvalidOperationException ex)
         {

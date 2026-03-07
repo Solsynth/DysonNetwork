@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
 
@@ -9,6 +10,7 @@ namespace DysonNetwork.Passport.Account;
 [ApiController]
 [Route("/api/accounts")]
 public class AccountController(
+    DyAuthService.DyAuthServiceClient auth,
     AccountService accounts,
     AccountEventService events
 ) : ControllerBase
@@ -22,7 +24,9 @@ public class AccountController(
     [HttpPost("recovery/password")]
     public async Task<ActionResult> RequestResetPassword([FromBody] RecoveryPasswordRequest request)
     {
-        if (!await auth.ValidateCaptcha(request.CaptchaToken))
+        var captchaResp =
+            await auth.ValidateCaptchaAsync(new DyValidateCaptchaRequest { Token = request.CaptchaToken });
+        if (!captchaResp.Valid)
             return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
             {
                 [nameof(request.CaptchaToken)] = ["Invalid captcha token."]
