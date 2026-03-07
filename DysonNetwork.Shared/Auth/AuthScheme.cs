@@ -22,6 +22,7 @@ public class DysonTokenAuthHandler(
     ILoggerFactory logger,
     UrlEncoder encoder,
     DyAuthService.DyAuthServiceClient auth,
+    DyAccountService.DyAccountServiceClient accounts,
     ICacheService cache,
     IConfiguration config
 ) : AuthenticationHandler<DysonTokenAuthOptions>(options, logger, encoder)
@@ -29,6 +30,8 @@ public class DysonTokenAuthHandler(
     private static readonly DateTime LegacyDefaultCutoffUtc = DateTime.UtcNow.AddDays(14);
     private const string RevokedJtiPrefix = "auth:revoked:jti:";
     private const string AccountVersionPrefix = "auth:account_ver:";
+    private const string ProfileCachePrefix = "auth:profile:";
+    private static readonly TimeSpan ProfileCacheTtl = TimeSpan.FromMinutes(5);
 
     private readonly Lazy<RSA> _publicKey = new(() =>
     {
@@ -84,6 +87,7 @@ public class DysonTokenAuthHandler(
                     return AuthenticateResult.Fail("Token version is stale.");
 
                 var session = BuildSessionFromClaims(jwt, tokenUse ?? "user");
+                await HydrateProfileAsync(session, Context.RequestAborted);
                 return BuildAuthResult(tokenInfo.Type, session);
             }
 
@@ -112,6 +116,7 @@ public class DysonTokenAuthHandler(
                 return AuthenticateResult.Fail($"Remote error: {ex.Status.StatusCode} - {ex.Status.Detail}");
             }
 
+            await HydrateProfileAsync(legacySession, Context.RequestAborted);
             return BuildAuthResult(tokenInfo.Type, legacySession);
         }
         catch (Exception ex)
@@ -239,6 +244,41 @@ public class DysonTokenAuthHandler(
         if (!found) return true;
         if (!int.TryParse(tokenVer, out var tokenVersion)) tokenVersion = 0;
         return tokenVersion >= currentVersion;
+    }
+
+    private async Task HydrateProfileAsync(DyAuthSession session, CancellationToken cancellationToken)
+    {
+        if (session.Account is null || string.IsNullOrWhiteSpace(session.Account.Id))
+            return;
+
+        var cacheKey = $"{ProfileCachePrefix}{session.Account.Id}";
+        var cached = await cache.GetAsync<DyAccountProfile>(cacheKey);
+        if (cached is not null)
+        {
+            session.Account.Profile = cached;
+            return;
+        }
+
+        try
+        {
+            var profile = await accounts.GetProfileAsync(
+                new DyGetProfileRequest { AccountId = session.Account.Id },
+                cancellationToken: cancellationToken
+            );
+            session.Account.Profile = profile;
+            await cache.SetAsync(cacheKey, profile, ProfileCacheTtl);
+        }
+        catch (RpcException ex) when (ex.StatusCode is StatusCode.NotFound or StatusCode.Unimplemented)
+        {
+            Logger.LogWarning("Profile lookup unavailable for account {AccountId}: {StatusCode}",
+                session.Account.Id, ex.StatusCode);
+            session.Account.Profile ??= new DyAccountProfile();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to hydrate account profile for {AccountId}", session.Account.Id);
+            session.Account.Profile ??= new DyAccountProfile();
+        }
     }
 
     private static bool ShouldUseLegacyFallback(IConfiguration config)

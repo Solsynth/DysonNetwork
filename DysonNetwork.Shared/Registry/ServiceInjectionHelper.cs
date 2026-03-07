@@ -32,6 +32,9 @@ public static class ServiceInjectionHelper
             services.AddGrpcClientWithSharedChannel<DyAuthService.DyAuthServiceClient>(
                 "https://_grpc.padlock",
                 "DyAuthService");
+            services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(
+                "https://_grpc.passport",
+                "DyAccountService.AuthProfile");
             services.AddGrpcClientWithSharedChannel<DyPermissionService.DyPermissionServiceClient>(
                 "https://_grpc.passport",
                 "DyPermissionService");

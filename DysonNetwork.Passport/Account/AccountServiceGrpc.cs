@@ -296,6 +296,15 @@ public class AccountServiceGrpc(
         return response;
     }
 
+    public override async Task<DyAccountProfile> GetProfile(DyGetProfileRequest request, ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+
+        var profile = await _accountService.GetOrCreateAccountProfileAsync(accountId);
+        return profile.ToProtoValue();
+    }
+
     public override async Task<DyGetRelationshipResponse> GetRelationship(
         DyGetRelationshipRequest request,
         ServerCallContext context
