@@ -32,6 +32,7 @@ using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.Localization;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Proto;
+using Npgsql;
 
 namespace DysonNetwork.Passport.Startup;
 
@@ -246,7 +247,10 @@ public static class ServiceCollectionExtensions
             .AddListener<AccountCreatedEvent>(async (evt, ctx) =>
             {
                 var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
+                var spells = ctx.ServiceProvider.GetRequiredService<MagicSpellService>();
                 var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+                
+                logger.LogInformation("Handling account creation event for @{UserName}", evt.Name);
 
                 var changed = false;
                 var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == evt.AccountId, ctx.CancellationToken);
@@ -277,56 +281,86 @@ public static class ServiceCollectionExtensions
                     changed = true;
                 }
 
+                if (!string.IsNullOrWhiteSpace(evt.PrimaryEmail))
+                {
+                    var contact = await db.AccountContacts
+                        .FirstOrDefaultAsync(
+                            c => c.AccountId == evt.AccountId && c.Type == AccountContactType.Email &&
+                                 c.Content == evt.PrimaryEmail,
+                            ctx.CancellationToken);
+                    if (contact is null)
+                    {
+                        db.AccountContacts.Add(new SnAccountContact
+                        {
+                            AccountId = evt.AccountId,
+                            Type = AccountContactType.Email,
+                            Content = evt.PrimaryEmail!,
+                            IsPrimary = true,
+                            VerifiedAt = evt.PrimaryEmailVerifiedAt
+                        });
+                        changed = true;
+                    }
+                    else
+                    {
+                        var contactChanged = false;
+                        if (!contact.IsPrimary)
+                        {
+                            contact.IsPrimary = true;
+                            contactChanged = true;
+                        }
+                        if (evt.PrimaryEmailVerifiedAt is not null && contact.VerifiedAt is null)
+                        {
+                            contact.VerifiedAt = evt.PrimaryEmailVerifiedAt;
+                            contactChanged = true;
+                        }
+                        if (contactChanged)
+                        {
+                            db.AccountContacts.Update(contact);
+                            changed = true;
+                        }
+                    }
+                }
+
                 if (changed)
-                    await db.SaveChangesAsync(ctx.CancellationToken);
+                {
+                    try
+                    {
+                        await db.SaveChangesAsync(ctx.CancellationToken);
+                    }
+                    catch (DbUpdateException ex) when (IsUniqueViolation(ex, "pk_accounts"))
+                    {
+                        // Concurrent duplicate account creation event across instances; ignore and continue.
+                        db.ChangeTracker.Clear();
+                        account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == evt.AccountId, ctx.CancellationToken);
+                    }
+                }
+
+                if (account is not null && account.ActivatedAt is null && !string.IsNullOrWhiteSpace(evt.PrimaryEmail))
+                {
+                    var spell = await spells.CreateMagicSpell(
+                        account,
+                        MagicSpellType.AccountActivation,
+                        new Dictionary<string, object>
+                        {
+                            { "contact_method", evt.PrimaryEmail! }
+                        },
+                        preventRepeat: true
+                    );
+                    await spells.NotifyMagicSpell(spell, true);
+                }
 
                 logger.LogInformation("Handled account created event for {AccountId}", evt.AccountId);
-            })
-            .AddListener<AccountIdentityUpsertedEvent>(async (evt, ctx) =>
-            {
-                var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
-                var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
-
-                var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == evt.AccountId, ctx.CancellationToken);
-                if (account is null)
-                {
-                    account = new SnAccount
-                    {
-                        Id = evt.AccountId,
-                        Name = evt.Name,
-                        Nick = evt.Nick,
-                        Language = evt.Language,
-                        Region = evt.Region,
-                        ActivatedAt = evt.ActivatedAt,
-                        IsSuperuser = evt.IsSuperuser
-                    };
-                    db.Accounts.Add(account);
-                }
-                else
-                {
-                    account.Name = evt.Name;
-                    account.Nick = evt.Nick;
-                    account.Language = evt.Language;
-                    account.Region = evt.Region;
-                    account.ActivatedAt = evt.ActivatedAt;
-                    account.IsSuperuser = evt.IsSuperuser;
-                    db.Update(account);
-                }
-
-                var profileExists = await db.AccountProfiles
-                    .AnyAsync(p => p.AccountId == evt.AccountId, ctx.CancellationToken);
-                if (!profileExists)
-                {
-                    db.AccountProfiles.Add(new SnAccountProfile
-                    {
-                        AccountId = evt.AccountId
-                    });
-                }
-
-                await db.SaveChangesAsync(ctx.CancellationToken);
-                logger.LogInformation("Upserted account identity read model for {AccountId}", evt.AccountId);
             });
 
         return services;
+    }
+
+    private static bool IsUniqueViolation(DbUpdateException ex, string constraintName)
+    {
+        return ex.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: var constraint
+        } && string.Equals(constraint, constraintName, StringComparison.OrdinalIgnoreCase);
     }
 }

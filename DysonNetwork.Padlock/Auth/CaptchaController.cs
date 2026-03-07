@@ -5,11 +5,11 @@ using DysonNetwork.Padlock.Auth;
 namespace DysonNetwork.Padlock.Auth;
 
 [ApiController]
-[Route("api/v1/auth/captcha")]
+[Route("api/auth/captcha")]
 [AllowAnonymous]
 public class CaptchaController(
     AuthService auth,
-    ILogger<CaptchaController> logger
+    IConfiguration configuration
 ) : ControllerBase
 {
     [HttpPost("verify")]
@@ -23,6 +23,16 @@ public class CaptchaController(
             return BadRequest(new { error = "Invalid captcha" });
 
         return Ok(new { success = true });
+    }
+    
+    [HttpGet]
+    public IActionResult GetConfiguration()
+    {
+        return Ok(new
+        {
+            provider = configuration["Captcha:Provider"],
+            apiKey = configuration["Captcha:ApiKey"],
+        });
     }
 }
 

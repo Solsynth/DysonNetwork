@@ -10,3 +10,50 @@ http://localhost:3002 {
         header_up X-SiteName "regular"
     }
 }
+
+api.solian.app {
+    import logging
+    import bad_bots
+    import global_limit
+
+    encode zstd gzip
+
+    @pusher path_regexp pusher ^/pusher/(.*)
+    rewrite @pusher /ring/{re.pusher.1}
+
+    @id path_regexp id ^/id/(.*)
+    rewrite @id /passport/{re.id.1}
+
+    rewrite /sphere/activities /sphere/timeline
+
+    @messager path_regexp messager ^/sphere/chat/(.*)
+    rewrite @messager /messager/chat/{re.messager.1}
+
+    @wallet_apis {
+        path /pass/wallets*
+        path /pass/orders*
+        path /pass/subscriptions*
+        path /passport/wallets*
+        path /passport/orders*
+        path /passport/subscriptions*
+    }
+    handle @wallet_apis {
+        uri replace /pass /wallet
+        uri replace /passport /wallet
+        reverse_proxy localhost:5001
+    }
+
+    # Legacy auth compatibility: /pass/auth/* and /passport/auth/* -> /padlock/auth/*
+    @legacy_auth path_regexp legacy_auth ^/(pass|passport)/auth/(.*)
+    rewrite @legacy_auth /padlock/auth/{re.legacy_auth.2}
+
+    # Legacy Pass rename compatibility: /pass/* -> /passport/*
+    @legacy_pass path_regexp legacy_pass ^/pass/(.*)
+    rewrite @legacy_pass /passport/{re.legacy_pass.1}
+
+    # Compatibility for old long Padlock paths after AccountSecurityController route trim.
+    @legacy_padlock_me path_regexp legacy_padlock_me ^/padlock/accounts/me/(.*)
+    rewrite @legacy_padlock_me /padlock/{re.legacy_padlock_me.1}
+
+    reverse_proxy localhost:5001
+}

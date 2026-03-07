@@ -17,6 +17,7 @@ using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Localization;
+using DysonNetwork.Shared.Queue;
 
 namespace DysonNetwork.Padlock.Startup;
 
@@ -145,7 +146,21 @@ public static class ServiceCollectionExtensions
 
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();
-        services.AddEventBus();
+        services.AddEventBus()
+            .AddListener<AccountActivatedEvent>(async (evt, ctx) =>
+            {
+                var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+                var accounts = ctx.ServiceProvider.GetRequiredService<AccountService>();
+
+                var handled = await accounts.ActivateAccountAndGrantDefaultPermissions(evt.AccountId, evt.ActivatedAt);
+                if (!handled)
+                {
+                    logger.LogWarning("Received activation event for missing account {AccountId}", evt.AccountId);
+                    return;
+                }
+
+                logger.LogInformation("Applied activation event for account {AccountId}", evt.AccountId);
+            });
 
         return services;
     }

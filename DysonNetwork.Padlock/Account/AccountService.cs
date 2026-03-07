@@ -48,7 +48,7 @@ public class AccountService(
         string language = "en-US",
         string region = "en",
         bool isEmailVerified = false,
-        bool isActivated = true
+        bool isActivated = false
     )
     {
         if (await CheckAccountNameHasTaken(name))
@@ -89,7 +89,6 @@ public class AccountService(
         db.Accounts.Add(account);
         await db.SaveChangesAsync();
         await PublishAccountCreated(account);
-        await PublishIdentityUpserted(account);
         return account;
     }
 
@@ -293,23 +292,44 @@ public class AccountService(
         await db.SaveChangesAsync();
     }
 
-    private async Task PublishIdentityUpserted(SnAccount account)
+    public async Task<bool> ActivateAccountAndGrantDefaultPermissions(Guid accountId, Instant activatedAt)
     {
-        await eventBus.PublishAsync(AccountIdentityUpsertedEvent.Type, new AccountIdentityUpsertedEvent
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
+        if (account is null) return false;
+
+        if (account.ActivatedAt is null || account.ActivatedAt < activatedAt)
         {
-            AccountId = account.Id,
-            Name = account.Name,
-            Nick = account.Nick,
-            Language = account.Language,
-            Region = account.Region,
-            ActivatedAt = account.ActivatedAt,
-            IsSuperuser = account.IsSuperuser,
-            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-        });
+            account.ActivatedAt = activatedAt;
+            db.Accounts.Update(account);
+        }
+
+        var actor = accountId.ToString();
+        var defaultGroup = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Key == "default");
+        if (defaultGroup is not null)
+        {
+            var memberExists = await db.PermissionGroupMembers
+                .AnyAsync(m => m.GroupId == defaultGroup.Id && m.Actor == actor);
+            if (!memberExists)
+            {
+                db.PermissionGroupMembers.Add(new SnPermissionGroupMember
+                {
+                    GroupId = defaultGroup.Id,
+                    Actor = actor
+                });
+            }
+        }
+
+        await db.SaveChangesAsync();
+        return true;
     }
 
     private async Task PublishAccountCreated(SnAccount account)
     {
+        var primaryEmail = account.Contacts
+            .Where(c => c.Type == AccountContactType.Email)
+            .OrderByDescending(c => c.IsPrimary)
+            .FirstOrDefault();
+
         await eventBus.PublishAsync(AccountCreatedEvent.Type, new AccountCreatedEvent
         {
             AccountId = account.Id,
@@ -317,6 +337,8 @@ public class AccountService(
             Nick = account.Nick,
             Language = account.Language,
             Region = account.Region,
+            PrimaryEmail = primaryEmail?.Content,
+            PrimaryEmailVerifiedAt = primaryEmail?.VerifiedAt,
             ActivatedAt = account.ActivatedAt,
             IsSuperuser = account.IsSuperuser,
             CreatedAt = SystemClock.Instance.GetCurrentInstant()

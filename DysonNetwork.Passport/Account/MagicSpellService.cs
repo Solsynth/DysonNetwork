@@ -2,7 +2,9 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using DysonNetwork.Passport.Mailer;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Queue;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Localization;
 using NodaTime;
@@ -16,7 +18,8 @@ public class MagicSpellService(
     ILogger<MagicSpellService> logger,
     ILocalizationService localizer,
     EmailService email,
-    ICacheService cache
+    ICacheService cache,
+    IEventBus eventBus
 )
 {
     public async Task<SnMagicSpell> CreateMagicSpell(
@@ -149,6 +152,8 @@ public class MagicSpellService(
 
     public async Task ApplyMagicSpell(SnMagicSpell spell)
     {
+        AccountActivatedEvent? accountActivatedEvent = null;
+
         switch (spell.Type)
         {
             case MagicSpellType.AuthPasswordReset:
@@ -175,8 +180,14 @@ public class MagicSpellService(
                 account = await db.Accounts.FirstOrDefaultAsync(c => c.Id == spell.AccountId);
                 if (account is not null)
                 {
-                    account.ActivatedAt = SystemClock.Instance.GetCurrentInstant();
+                    var activatedAt = SystemClock.Instance.GetCurrentInstant();
+                    account.ActivatedAt = activatedAt;
                     db.Update(account);
+                    accountActivatedEvent = new AccountActivatedEvent
+                    {
+                        AccountId = account.Id,
+                        ActivatedAt = activatedAt
+                    };
                 }
 
                 var defaultGroup = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Key == "default");
@@ -207,6 +218,9 @@ public class MagicSpellService(
 
         db.Remove(spell);
         await db.SaveChangesAsync();
+
+        if (accountActivatedEvent is not null)
+            await eventBus.PublishAsync(AccountActivatedEvent.Type, accountActivatedEvent);
     }
 
     public async Task ApplyPasswordReset(SnMagicSpell spell, string newPassword)

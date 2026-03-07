@@ -10,7 +10,7 @@ namespace DysonNetwork.Padlock.Account;
 [Authorize]
 [RequireInteractiveSession]
 [ApiController]
-[Route("/api/accounts/me")]
+[Route("/api")]
 public class AccountSecurityController(
     AppDatabase db,
     AccountService accounts

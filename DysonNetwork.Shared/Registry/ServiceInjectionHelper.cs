@@ -33,7 +33,7 @@ public static class ServiceInjectionHelper
                 "https://_grpc.padlock",
                 "DyAuthService");
             services.AddGrpcClientWithSharedChannel<DyPermissionService.DyPermissionServiceClient>(
-                "https://_grpc.pass",
+                "https://_grpc.passport",
                 "DyPermissionService");
 
             return services;
@@ -42,34 +42,34 @@ public static class ServiceInjectionHelper
         public IServiceCollection AddAccountService()
         {
             services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(
-                "https://_grpc.pass",
+                "https://_grpc.passport",
                 "DyAccountService");
             services.AddSingleton<RemoteAccountService>();
 
             services.AddGrpcClientWithSharedChannel<DyBotAccountReceiverService.DyBotAccountReceiverServiceClient>(
-                "https://_grpc.pass",
+                "https://_grpc.passport",
                 "DyBotAccountReceiverService");
             services.AddGrpcClientWithSharedChannel<DyActionLogService.DyActionLogServiceClient>(
-                "https://_grpc.pass",
+                "https://_grpc.passport",
                 "DyActionLogService");
             services.AddSingleton<RemoteActionLogService>();
             services.AddGrpcClientWithSharedChannel<DyPaymentService.DyPaymentServiceClient>(
-                "https://_grpc.pass",
+                "https://_grpc.passport",
                 "DyPaymentService");
             services.AddGrpcClientWithSharedChannel<DyWalletService.DyWalletServiceClient>(
-                "https://_grpc.pass",
+                "https://_grpc.passport",
                 "DyWalletService");
             services.AddGrpcClientWithSharedChannel<DyRealmService.DyRealmServiceClient>(
-                "https://_grpc.pass",
+                "https://_grpc.passport",
                 "DyRealmService");
             services.AddSingleton<RemoteRealmService>();
 
             services.AddGrpcClientWithSharedChannel<DySocialCreditService.DySocialCreditServiceClient>(
-                "https://_grpc.pass",
+                "https://_grpc.passport",
                 "DySocialCreditService");
 
             services.AddGrpcClientWithSharedChannel<DyExperienceService.DyExperienceServiceClient>(
-                "https://_grpc.pass",
+                "https://_grpc.passport",
                 "DyExperienceService");
 
             return services;
