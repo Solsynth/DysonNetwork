@@ -43,23 +43,12 @@ public class AppDatabase(
     public DbSet<SnRealm> Realms { get; set; } = null!;
     public DbSet<SnRealmMember> RealmMembers { get; set; } = null!;
 
-    public DbSet<SnWallet> Wallets { get; set; } = null!;
-    public DbSet<SnWalletPocket> WalletPockets { get; set; } = null!;
-    public DbSet<SnWalletOrder> PaymentOrders { get; set; } = null!;
-    public DbSet<SnWalletTransaction> PaymentTransactions { get; set; } = null!;
-    public DbSet<SnWalletFund> WalletFunds { get; set; } = null!;
-    public DbSet<SnWalletFundRecipient> WalletFundRecipients { get; set; } = null!;
-    public DbSet<SnWalletSubscription> WalletSubscriptions { get; set; } = null!;
-    public DbSet<SnWalletGift> WalletGifts { get; set; } = null!;
-    public DbSet<SnWalletCoupon> WalletCoupons { get; set; } = null!;
-
     public DbSet<SnAccountPunishment> Punishments { get; set; } = null!;
 
     public DbSet<SnSocialCreditRecord> SocialCreditRecords { get; set; } = null!;
     public DbSet<SnExperienceRecord> ExperienceRecords { get; set; } = null!;
 
     public DbSet<SnLottery> Lotteries { get; set; } = null!;
-    public DbSet<SnLotteryRecord> LotteryRecords { get; set; } = null!;
 
     public DbSet<SnAffiliationSpell> AffiliationSpells { get; set; } = null!;
     public DbSet<SnAffiliationResult> AffiliationResults { get; set; } = null!;
@@ -68,14 +57,6 @@ public class AppDatabase(
 
     public DbSet<SnTicket> Tickets { get; set; } = null!;
     public DbSet<SnTicketMessage> TicketMessages { get; set; } = null!;
-    public DbSet<SnE2eeKeyBundle> E2eeKeyBundles { get; set; } = null!;
-    public DbSet<SnE2eeOneTimePreKey> E2eeOneTimePreKeys { get; set; } = null!;
-    public DbSet<SnE2eeSession> E2eeSessions { get; set; } = null!;
-    public DbSet<SnE2eeEnvelope> E2eeEnvelopes { get; set; } = null!;
-    public DbSet<SnE2eeDevice> E2eeDevices { get; set; } = null!;
-    public DbSet<SnMlsKeyPackage> MlsKeyPackages { get; set; } = null!;
-    public DbSet<SnMlsGroupState> MlsGroupStates { get; set; } = null!;
-    public DbSet<SnMlsDeviceMembership> MlsDeviceMemberships { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
