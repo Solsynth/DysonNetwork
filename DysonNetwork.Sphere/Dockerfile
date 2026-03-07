@@ -17,7 +17,7 @@ WORKDIR /src
 
 # First copy only the solution and project files to restore packages
 COPY ["DysonNetwork.Sphere/DysonNetwork.Sphere.csproj", "DysonNetwork.Sphere/"]
-COPY ["DysonNetwork.Pass/DysonNetwork.Pass.csproj", "DysonNetwork.Pass/"]
+COPY ["DysonNetwork.Pass/DysonNetwork.Passport.csproj", "DysonNetwork.Pass/"]
 COPY ["DysonNetwork.Shared/DysonNetwork.Shared.csproj", "DysonNetwork.Shared/"]
 
 # Restore packages
