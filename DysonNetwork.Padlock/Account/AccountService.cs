@@ -2,7 +2,9 @@ using DysonNetwork.Padlock.Auth.OpenId;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
+using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -11,7 +13,9 @@ namespace DysonNetwork.Padlock.Account;
 public class AccountService(
     AppDatabase db,
     ICacheService cache,
-    IEventBus eventBus
+    IEventBus eventBus,
+    DyFileService.DyFileServiceClient files,
+    ILogger<AccountService> logger
 )
 {
     private const string AuthFactorCachePrefix = "authfactor:";
@@ -375,5 +379,74 @@ public class AccountService(
         }
 
         return candidate;
+    }
+     public async Task<SnAccount> CreateBotAccount(
+        SnAccount account,
+        Guid automatedId,
+        string? pictureId,
+        string? backgroundId
+    )
+    {
+        var dupeAutomateCount = await db.Set<SnAccount>().Where(a => a.AutomatedId == automatedId).CountAsync();
+        if (dupeAutomateCount > 0)
+            throw new InvalidOperationException("Automated ID has already been used.");
+
+        var dupeNameCount = await db.Set<SnAccount>().Where(a => a.Name == account.Name).CountAsync();
+        if (dupeNameCount > 0)
+            throw new InvalidOperationException("Account name has already been taken.");
+
+        account.AutomatedId = automatedId;
+        account.ActivatedAt = SystemClock.Instance.GetCurrentInstant();
+        account.IsSuperuser = false;
+
+        if (!string.IsNullOrEmpty(pictureId))
+        {
+            var file = await files.GetFileAsync(new DyGetFileRequest { Id = pictureId });
+            account.Profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
+        }
+
+        if (!string.IsNullOrEmpty(backgroundId))
+        {
+            var file = await files.GetFileAsync(new DyGetFileRequest { Id = backgroundId });
+            account.Profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
+        }
+
+        var defaultGroup = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Key == "default");
+        if (defaultGroup is not null)
+        {
+            db.PermissionGroupMembers.Add(new SnPermissionGroupMember
+            {
+                Actor = account.Id.ToString(),
+                Group = defaultGroup
+            });
+        }
+
+        db.Set<SnAccount>().Add(account);
+        await db.SaveChangesAsync();
+
+        return account;
+    }
+
+    public async Task<SnAccount?> GetBotAccount(Guid automatedId)
+    {
+        return await db.Accounts.FirstOrDefaultAsync(a => a.AutomatedId == automatedId);
+    }
+
+    public async Task DeleteAccount(SnAccount account)
+    {
+        logger.LogWarning("Deleting account {AccountId}", account.Id);
+        var now = SystemClock.Instance.GetCurrentInstant();
+        await db.Set<SnAuthSession>()
+            .Where(s => s.AccountId == account.Id)
+            .ExecuteUpdateAsync(p => p.SetProperty(s => s.DeletedAt, now));
+
+        db.Set<SnAccount>().Remove(account);
+        await db.SaveChangesAsync();
+
+        await eventBus.PublishAsync(AccountDeletedEvent.Type, new AccountDeletedEvent
+        {
+            AccountId = account.Id,
+            DeletedAt = SystemClock.Instance.GetCurrentInstant()
+        });
     }
 }

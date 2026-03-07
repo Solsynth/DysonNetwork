@@ -1,12 +1,12 @@
+using System.Text.Json;
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
+using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
-using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Models;
-using Google.Protobuf.WellKnownTypes;
-using System.Text.Json;
 using NodaTime.Serialization.Protobuf;
 
-namespace DysonNetwork.Passport.Permission;
+namespace DysonNetwork.Padlock.Permission;
 
 public class PermissionServiceGrpc(
     PermissionService psv,

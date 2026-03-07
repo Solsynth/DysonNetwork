@@ -21,6 +21,8 @@ public class AppDatabase(
     public DbSet<SnAccountConnection> AccountConnections { get; set; } = null!;
     public DbSet<SnAccountContact> AccountContacts { get; set; } = null!;
     public DbSet<SnAccountAuthFactor> AccountAuthFactors { get; set; } = null!;
+    
+    public DbSet<SnAccountPunishment> Punishments { get; set; } = null!;
 
     public DbSet<SnAuthSession> AuthSessions { get; set; } = null!;
     public DbSet<SnAuthChallenge> AuthChallenges { get; set; } = null!;

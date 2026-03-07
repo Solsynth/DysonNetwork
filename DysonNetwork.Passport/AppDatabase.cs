@@ -22,27 +22,16 @@ public class AppDatabase(
     public DbSet<SnPermissionGroupMember> PermissionGroupMembers { get; set; } = null!;
 
     public DbSet<SnMagicSpell> MagicSpells { get; set; } = null!;
-    public DbSet<SnAccount> Accounts { get; set; } = null!;
-    public DbSet<SnAccountConnection> AccountConnections { get; set; } = null!;
     public DbSet<SnAccountProfile> AccountProfiles { get; set; } = null!;
-    public DbSet<SnAccountContact> AccountContacts { get; set; } = null!;
-    public DbSet<SnAccountAuthFactor> AccountAuthFactors { get; set; } = null!;
     public DbSet<SnAccountRelationship> AccountRelationships { get; set; } = null!;
     public DbSet<SnAccountStatus> AccountStatuses { get; set; } = null!;
     public DbSet<SnCheckInResult> AccountCheckInResults { get; set; } = null!;
     public DbSet<SnPresenceActivity> PresenceActivities { get; set; } = null!;
     public DbSet<SnAccountBadge> Badges { get; set; } = null!;
     public DbSet<SnAbuseReport> AbuseReports { get; set; } = null!;
-
-    public DbSet<SnAuthSession> AuthSessions { get; set; } = null!;
-    public DbSet<SnAuthChallenge> AuthChallenges { get; set; } = null!;
-    public DbSet<SnAuthClient> AuthClients { get; set; } = null!;
-    public DbSet<SnApiKey> ApiKeys { get; set; } = null!;
     
     public DbSet<SnRealm> Realms { get; set; } = null!;
     public DbSet<SnRealmMember> RealmMembers { get; set; } = null!;
-
-    public DbSet<SnAccountPunishment> Punishments { get; set; } = null!;
 
     public DbSet<SnSocialCreditRecord> SocialCreditRecords { get; set; } = null!;
     public DbSet<SnExperienceRecord> ExperienceRecords { get; set; } = null!;

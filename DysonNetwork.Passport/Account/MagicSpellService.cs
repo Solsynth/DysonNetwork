@@ -73,7 +73,7 @@ public class MagicSpellService(
             return;
         }
 
-        var contact = await db.AccountContacts
+        var contact = await db.Set<SnAccountContact>()
             .Where(c => c.Account.Id == spell.AccountId)
             .Where(c => c.Type == AccountContactType.Email)
             .Where(c => c.VerifiedAt != null || bypassVerify)
@@ -86,7 +86,7 @@ public class MagicSpellService(
 
         logger.LogInformation("Sending magic spell... {Link}", link);
 
-        var accountLanguage = await db.Accounts
+        var accountLanguage = await db.Set<SnAccount>()
             .Where(a => a.Id == spell.AccountId)
             .Select(a => a.Language)
             .FirstOrDefaultAsync();
@@ -161,14 +161,14 @@ public class MagicSpellService(
                     "For password reset spell, please use the ApplyPasswordReset method instead."
                 );
             case MagicSpellType.AccountRemoval:
-                var account = await db.Accounts.FirstOrDefaultAsync(c => c.Id == spell.AccountId);
+                var account = await db.Set<SnAccount>().FirstOrDefaultAsync(c => c.Id == spell.AccountId);
                 if (account is null) break;
-                db.Accounts.Remove(account);
+                db.Set<SnAccount>().Remove(account);
                 break;
             case MagicSpellType.AccountActivation:
                 var contactMethod = (spell.Meta["contact_method"] as JsonElement? ?? default).ToString();
                 var contact = await
-                    db.AccountContacts.FirstOrDefaultAsync(c =>
+                    db.Set<SnAccountContact>().FirstOrDefaultAsync(c =>
                         c.Content == contactMethod
                     );
                 if (contact is not null)
@@ -177,7 +177,7 @@ public class MagicSpellService(
                     db.Update(contact);
                 }
 
-                account = await db.Accounts.FirstOrDefaultAsync(c => c.Id == spell.AccountId);
+                account = await db.Set<SnAccount>().FirstOrDefaultAsync(c => c.Id == spell.AccountId);
                 if (account is not null)
                 {
                     var activatedAt = SystemClock.Instance.GetCurrentInstant();
@@ -203,7 +203,7 @@ public class MagicSpellService(
                 break;
             case MagicSpellType.ContactVerification:
                 var verifyContactMethod = (spell.Meta["contact_method"] as JsonElement? ?? default).ToString();
-                var verifyContact = await db.AccountContacts
+                var verifyContact = await db.Set<SnAccountContact>()
                     .FirstOrDefaultAsync(c => c.Content == verifyContactMethod);
                 if (verifyContact is not null)
                 {
@@ -228,13 +228,13 @@ public class MagicSpellService(
         if (spell.Type != MagicSpellType.AuthPasswordReset)
             throw new ArgumentException("This spell is not a password reset spell.");
 
-        var passwordFactor = await db.AccountAuthFactors
+        var passwordFactor = await db.Set<SnAccountAuthFactor>()
             .Include(f => f.Account)
             .Where(f => f.Type == AccountAuthFactorType.Password && f.Account.Id == spell.AccountId)
             .FirstOrDefaultAsync();
         if (passwordFactor is null)
         {
-            var account = await db.Accounts.FirstOrDefaultAsync(c => c.Id == spell.AccountId);
+            var account = await db.Set<SnAccount>().FirstOrDefaultAsync(c => c.Id == spell.AccountId);
             if (account is null) throw new InvalidOperationException("Both account and auth factor was not found.");
             passwordFactor = new SnAccountAuthFactor
             {
@@ -242,7 +242,7 @@ public class MagicSpellService(
                 Account = account,
                 Secret = newPassword
             }.HashSecret();
-            db.AccountAuthFactors.Add(passwordFactor);
+            db.Set<SnAccountAuthFactor>().Add(passwordFactor);
         }
         else
         {

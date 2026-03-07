@@ -41,14 +41,14 @@ public class LastActiveFlushHandler(IServiceProvider srp, ILogger<LastActiveFlus
         var now = SystemClock.Instance.GetCurrentInstant();
 
         var updatingSessions = sessionMap.Select(x => x.Key).ToList();
-        var sessionUpdates = await db.AuthSessions
+        var sessionUpdates = await db.Set<SnAuthSession>()
             .Where(s => updatingSessions.Contains(s.Id))
             .ExecuteUpdateAsync(s =>
                 s.SetProperty(x => x.LastGrantedAt, now)
             );
         logger.LogInformation("Updated {Count} auth sessions according to LastActiveInfo", sessionUpdates);
         var newExpiration = now.Plus(Duration.FromDays(7));
-        var keepAliveSessionUpdates = await db.AuthSessions
+        var keepAliveSessionUpdates = await db.Set<SnAuthSession>()
             .Where(s => updatingSessions.Contains(s.Id) && s.ExpiredAt != null)
             .ExecuteUpdateAsync(s =>
                 s.SetProperty(x => x.ExpiredAt, newExpiration)

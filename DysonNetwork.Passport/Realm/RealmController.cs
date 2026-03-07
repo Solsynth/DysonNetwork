@@ -16,6 +16,7 @@ namespace DysonNetwork.Passport.Realm;
 public class RealmController(
     AppDatabase db,
     RealmService rs,
+    AccountService accounts,
     DyFileService.DyFileServiceClient files,
     ActionLogService als,
     RelationshipService rels,
@@ -80,7 +81,7 @@ public class RealmController(
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         var accountId = currentUser.Id;
 
-        var relatedUser = await db.Accounts.Where(a => a.Id == request.RelatedUserId).FirstOrDefaultAsync();
+        var relatedUser = await accounts.GetAccount(request.RelatedUserId);
         if (relatedUser == null) return BadRequest("Related user was not found");
 
         var hasBlocked = await rels.HasRelationshipWithStatus(

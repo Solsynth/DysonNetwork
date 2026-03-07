@@ -1,12 +1,12 @@
 using System.Text.RegularExpressions;
-using Microsoft.EntityFrameworkCore;
+using DysonNetwork.Shared.Registry;
 
 namespace DysonNetwork.Passport.Account;
 
 /// <summary>
 /// Service for handling username generation and validation
 /// </summary>
-public class AccountUsernameService(AppDatabase db)
+public class AccountUsernameService(RemoteAccountService remoteAccounts)
 {
     private readonly Random _random = new();
 
@@ -83,7 +83,8 @@ public class AccountUsernameService(AppDatabase db)
     /// </summary>
     public async Task<bool> IsUsernameExistsAsync(string username)
     {
-        return await db.Accounts.AnyAsync(a => a.Name == username);
+        var candidates = await remoteAccounts.SearchAccounts(username);
+        return candidates.Any(a => string.Equals(a.Name, username, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +8,12 @@ namespace DysonNetwork.Passport.Account;
 
 [ApiController]
 [Route("/api/friends")]
-public class FriendsController(AppDatabase db, RelationshipService rels, AccountEventService events) : ControllerBase
+public class FriendsController(
+    AppDatabase db,
+    RelationshipService rels,
+    AccountEventService events,
+    RemoteAccountService remoteAccounts
+) : ControllerBase
 {
     public class FriendOverviewItem
     {
@@ -25,10 +31,7 @@ public class FriendsController(AppDatabase db, RelationshipService rels, Account
         var friendIds = await rels.ListAccountFriends(currentUser);
 
         // Fetch data in parallel using batch methods for better performance
-        var accountsTask = db.Accounts
-            .Where(a => friendIds.Contains(a.Id))
-            .Include(a => a.Profile)
-            .ToListAsync();
+        var accountsTask = remoteAccounts.GetAccountBatch(friendIds);
 
         var statusesTask = events.GetStatuses(friendIds);
         var activitiesTask = events.GetActiveActivitiesBatch(friendIds);
@@ -36,7 +39,21 @@ public class FriendsController(AppDatabase db, RelationshipService rels, Account
         // Wait for all data to be fetched
         await Task.WhenAll(accountsTask, statusesTask, activitiesTask);
 
-        var accounts = accountsTask.Result;
+        var profilesTask = db.AccountProfiles
+            .Where(p => friendIds.Contains(p.AccountId))
+            .ToDictionaryAsync(p => p.AccountId, p => p);
+        await profilesTask;
+        var profiles = profilesTask.Result;
+
+        var accounts = accountsTask.Result
+            .Select(SnAccount.FromProtoValue)
+            .Select(a =>
+            {
+                if (profiles.TryGetValue(a.Id, out var profile))
+                    a.Profile = profile;
+                return a;
+            })
+            .ToList();
         var statuses = statusesTask.Result;
         var activities = activitiesTask.Result;
 

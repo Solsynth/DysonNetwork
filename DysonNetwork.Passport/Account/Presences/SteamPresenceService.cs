@@ -20,7 +20,7 @@ public class SteamPresenceService(
     public async Task UpdatePresencesAsync(IEnumerable<Guid> userIds)
     {
         var userIdList = userIds.ToList();
-        var steamConnections = await db.AccountConnections
+        var steamConnections = await db.Set<SnAccountConnection>()
             .Where(c => userIdList.Contains(c.AccountId) && c.Provider == "steam")
             .Include(c => c.Account)
             .ToListAsync();

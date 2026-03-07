@@ -1,11 +1,11 @@
+using DysonNetwork.Padlock.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime.Serialization.Protobuf;
-using AuthService = DysonNetwork.Passport.Auth.AuthService;
 
-namespace DysonNetwork.Passport.Account;
+namespace DysonNetwork.Padlock.Account;
 
 public class BotAccountReceiverGrpc(
     AppDatabase db,
@@ -60,7 +60,7 @@ public class BotAccountReceiverGrpc(
             account.Profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
-        db.Accounts.Update(account);
+        db.Set<SnAccount>().Update(account);
         await db.SaveChangesAsync();
 
         return new DyUpdateBotAccountResponse
@@ -94,7 +94,7 @@ public class BotAccountReceiverGrpc(
     public override async Task<DyApiKey> GetApiKey(DyGetApiKeyRequest request, ServerCallContext context)
     {
         var keyId = Guid.Parse(request.Id);
-        var key = await db.ApiKeys
+        var key = await db.Set<SnApiKey>()
             .Include(k => k.Account)
             .FirstOrDefaultAsync(k => k.Id == keyId);
 
@@ -111,7 +111,7 @@ public class BotAccountReceiverGrpc(
         if (account == null)
             throw new RpcException(new Grpc.Core.Status(StatusCode.NotFound, "Account not found"));
 
-        var keys = await db.ApiKeys
+        var keys = await db.Set<SnApiKey>()
             .Where(k => k.AccountId == account.Id)
             .Select(k => k.ToProtoValue())
             .ToListAsync();
@@ -142,7 +142,7 @@ public class BotAccountReceiverGrpc(
         var keyId = Guid.Parse(request.Id);
         var accountId = Guid.Parse(request.AccountId);
         
-        var key = await db.ApiKeys
+        var key = await db.Set<SnApiKey>()
             .Include(k => k.Session)
             .Where(k => k.Id == keyId && k.AccountId == accountId)
             .FirstOrDefaultAsync();
@@ -153,7 +153,7 @@ public class BotAccountReceiverGrpc(
         // Only update the label if provided
         if (string.IsNullOrWhiteSpace(request.Label)) return key.ToProtoValue();
         key.Label = request.Label;
-        db.ApiKeys.Update(key);
+        db.Set<SnApiKey>().Update(key);
         await db.SaveChangesAsync();
 
         return key.ToProtoValue();
@@ -162,7 +162,7 @@ public class BotAccountReceiverGrpc(
     public override async Task<DyApiKey> RotateApiKey(DyGetApiKeyRequest request, ServerCallContext context)
     {
         var keyId = Guid.Parse(request.Id);
-        var key = await db.ApiKeys
+        var key = await db.Set<SnApiKey>()
             .Include(k => k.Session)
             .FirstOrDefaultAsync(k => k.Id == keyId);
             
@@ -178,7 +178,7 @@ public class BotAccountReceiverGrpc(
     public override async Task<DyDeleteApiKeyResponse> DeleteApiKey(DyGetApiKeyRequest request, ServerCallContext context)
     {
         var keyId = Guid.Parse(request.Id);
-        var key = await db.ApiKeys
+        var key = await db.Set<SnApiKey>()
             .Include(k => k.Session)
             .FirstOrDefaultAsync(k => k.Id == keyId);
             

@@ -1,4 +1,5 @@
 using DysonNetwork.Padlock;
+using DysonNetwork.Padlock.Permission;
 using DysonNetwork.Padlock.Startup;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
@@ -27,6 +28,7 @@ builder.AddSwaggerManifest(
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
+app.UseMiddleware<LocalPermissionMiddleware>();
 
 using (var scope = app.Services.CreateScope())
 {

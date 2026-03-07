@@ -11,7 +11,6 @@ namespace DysonNetwork.Insight.Reader;
 /// </summary>
 [ApiController]
 [Route("/api/scrap")]
-[EnableRateLimiting("fixed")]
 public class WebReaderController(WebReaderService reader, ILogger<WebReaderController> logger)
     : ControllerBase
 {

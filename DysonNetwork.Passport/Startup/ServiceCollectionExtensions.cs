@@ -7,10 +7,6 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Account.Presences;
 using DysonNetwork.Passport.Affiliation;
-using DysonNetwork.Passport.Auth;
-using DysonNetwork.Passport.Auth.OidcProvider.Options;
-using DysonNetwork.Passport.Auth.OidcProvider.Services;
-using DysonNetwork.Passport.Auth.OpenId;
 using DysonNetwork.Passport.Credit;
 using DysonNetwork.Passport.Handlers;
 using DysonNetwork.Passport.Leveling;
@@ -21,7 +17,6 @@ using DysonNetwork.Passport.Realm;
 using DysonNetwork.Passport.Rewind;
 using DysonNetwork.Passport.Safety;
 using DysonNetwork.Passport.Ticket;
-using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
@@ -32,7 +27,6 @@ using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.Localization;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Proto;
-using Npgsql;
 
 namespace DysonNetwork.Passport.Startup;
 
@@ -55,24 +49,6 @@ public static class ServiceCollectionExtensions
             options.MaxSendMessageSize = 16 * 1024 * 1024; // 16MB
         });
         services.AddGrpcReflection();
-
-        // Register OIDC services
-        services.AddScoped<OidcService, GoogleOidcService>();
-        services.AddScoped<OidcService, AppleOidcService>();
-        services.AddScoped<OidcService, GitHubOidcService>();
-        services.AddScoped<OidcService, MicrosoftOidcService>();
-        services.AddScoped<OidcService, DiscordOidcService>();
-        services.AddScoped<OidcService, AfdianOidcService>();
-        services.AddScoped<OidcService, SpotifyOidcService>();
-        services.AddScoped<OidcService, SteamOidcService>();
-        services.AddScoped<GoogleOidcService>();
-        services.AddScoped<AppleOidcService>();
-        services.AddScoped<GitHubOidcService>();
-        services.AddScoped<MicrosoftOidcService>();
-        services.AddScoped<DiscordOidcService>();
-        services.AddScoped<AfdianOidcService>();
-        services.AddScoped<SpotifyOidcService>();
-        services.AddScoped<SteamOidcService>();
 
         services.AddControllers().AddJsonOptions(options =>
         {
@@ -156,9 +132,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<NotableDaysService>();
         services.AddScoped<RelationshipService>();
         services.AddScoped<MagicSpellService>();
-        services.AddSingleton<AuthTokenKeyProvider>();
-        services.AddScoped<AuthService>();
-        services.AddScoped<TokenAuthService>();
         services.AddScoped<AccountUsernameService>();
         services.AddScoped<SafetyService>();
         services.AddScoped<SocialCreditService>();
@@ -168,6 +141,7 @@ public static class ServiceCollectionExtensions
         services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(
             "https://_grpc.padlock",
             "DyAccountService.Padlock");
+        services.AddSingleton<RemoteAccountService>();
         services.AddGrpcClientWithSharedChannel<DyActionLogService.DyActionLogServiceClient>(
             "https://_grpc.padlock",
             "DyActionLogService.Padlock");
@@ -178,9 +152,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SteamPresenceService>();
         services.AddScoped<IPresenceService, SpotifyPresenceService>();
         services.AddScoped<IPresenceService, SteamPresenceService>();
-
-        services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
-        services.AddScoped<OidcProviderService>();
 
         services.AddScoped<PassRewindService>();
         services.AddScoped<AccountRewindService>();
@@ -254,24 +225,6 @@ public static class ServiceCollectionExtensions
                 
                 logger.LogInformation("Handling account creation event for @{UserName}", evt.Name);
 
-                var changed = false;
-                var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == evt.AccountId, ctx.CancellationToken);
-                if (account is null)
-                {
-                    account = new SnAccount
-                    {
-                        Id = evt.AccountId,
-                        Name = evt.Name,
-                        Nick = evt.Nick,
-                        Language = evt.Language,
-                        Region = evt.Region,
-                        ActivatedAt = evt.ActivatedAt,
-                        IsSuperuser = evt.IsSuperuser
-                    };
-                    db.Accounts.Add(account);
-                    changed = true;
-                }
-
                 var profileExists = await db.AccountProfiles
                     .AnyAsync(p => p.AccountId == evt.AccountId, ctx.CancellationToken);
                 if (!profileExists)
@@ -280,67 +233,20 @@ public static class ServiceCollectionExtensions
                     {
                         AccountId = evt.AccountId
                     });
-                    changed = true;
+                    await db.SaveChangesAsync(ctx.CancellationToken);
                 }
 
-                if (!string.IsNullOrWhiteSpace(evt.PrimaryEmail))
-                {
-                    var contact = await db.AccountContacts
-                        .FirstOrDefaultAsync(
-                            c => c.AccountId == evt.AccountId && c.Type == AccountContactType.Email &&
-                                 c.Content == evt.PrimaryEmail,
-                            ctx.CancellationToken);
-                    if (contact is null)
-                    {
-                        db.AccountContacts.Add(new SnAccountContact
-                        {
-                            AccountId = evt.AccountId,
-                            Type = AccountContactType.Email,
-                            Content = evt.PrimaryEmail!,
-                            IsPrimary = true,
-                            VerifiedAt = evt.PrimaryEmailVerifiedAt
-                        });
-                        changed = true;
-                    }
-                    else
-                    {
-                        var contactChanged = false;
-                        if (!contact.IsPrimary)
-                        {
-                            contact.IsPrimary = true;
-                            contactChanged = true;
-                        }
-                        if (evt.PrimaryEmailVerifiedAt is not null && contact.VerifiedAt is null)
-                        {
-                            contact.VerifiedAt = evt.PrimaryEmailVerifiedAt;
-                            contactChanged = true;
-                        }
-                        if (contactChanged)
-                        {
-                            db.AccountContacts.Update(contact);
-                            changed = true;
-                        }
-                    }
-                }
-
-                if (changed)
-                {
-                    try
-                    {
-                        await db.SaveChangesAsync(ctx.CancellationToken);
-                    }
-                    catch (DbUpdateException ex) when (IsUniqueViolation(ex, "pk_accounts"))
-                    {
-                        // Concurrent duplicate account creation event across instances; ignore and continue.
-                        db.ChangeTracker.Clear();
-                        account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == evt.AccountId, ctx.CancellationToken);
-                    }
-                }
-
-                if (account is not null && account.ActivatedAt is null && !string.IsNullOrWhiteSpace(evt.PrimaryEmail))
+                if (evt.ActivatedAt is null && !string.IsNullOrWhiteSpace(evt.PrimaryEmail))
                 {
                     var spell = await spells.CreateMagicSpell(
-                        account,
+                        new SnAccount
+                        {
+                            Id = evt.AccountId,
+                            Name = evt.Name,
+                            Nick = evt.Nick,
+                            Language = evt.Language,
+                            Region = evt.Region
+                        },
                         MagicSpellType.AccountActivation,
                         new Dictionary<string, object>
                         {
@@ -355,14 +261,5 @@ public static class ServiceCollectionExtensions
             });
 
         return services;
-    }
-
-    private static bool IsUniqueViolation(DbUpdateException ex, string constraintName)
-    {
-        return ex.InnerException is PostgresException
-        {
-            SqlState: PostgresErrorCodes.UniqueViolation,
-            ConstraintName: var constraint
-        } && string.Equals(constraint, constraintName, StringComparison.OrdinalIgnoreCase);
     }
 }

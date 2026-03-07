@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
-using AuthService = DysonNetwork.Passport.Auth.AuthService;
 using SnAuthSession = DysonNetwork.Shared.Models.SnAuthSession;
 
 namespace DysonNetwork.Passport.Account;
@@ -23,7 +22,6 @@ public class AccountCurrentController(
     AccountService accounts,
     PadlockAccountContactService padlockContacts,
     AccountEventService events,
-    AuthService auth,
     DyFileService.DyFileServiceClient files,
     Credit.SocialCreditService creditService,
     RemoteSubscriptionService remoteSubscription,
@@ -38,11 +36,7 @@ public class AccountCurrentController(
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         var userId = currentUser.Id;
 
-        var account = await db.Accounts
-            .Include(e => e.Badges)
-            .Include(e => e.Profile)
-            .Where(e => e.Id == userId)
-            .FirstOrDefaultAsync();
+        var account = await accounts.GetAccount(userId);
 
         if (account != null)
         {
@@ -83,16 +77,8 @@ public class AccountCurrentController(
     public async Task<ActionResult<SnAccount>> UpdateBasicInfo([FromBody] BasicInfoRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
-        var account = await db.Accounts.FirstAsync(a => a.Id == currentUser.Id);
-
-        if (request.Nick is not null) account.Nick = request.Nick;
-        if (request.Language is not null) account.Language = request.Language;
-        if (request.Region is not null) account.Region = request.Region;
-
-        await db.SaveChangesAsync();
-        await accounts.PurgeAccountCache(currentUser);
-        return currentUser;
+        return StatusCode(StatusCodes.Status501NotImplemented,
+            "Basic account identity fields moved to Padlock. Use Padlock account endpoints.");
     }
 
     public class ProfileRequest
@@ -370,7 +356,7 @@ public class AccountCurrentController(
                         TraceId = HttpContext.TraceIdentifier
                     }
                 ),
-                true when !await auth.ValidateCaptcha(captchaToken!) => BadRequest(ApiError.Validation(
+                true when !await auth.ValidateCaptcha(captchaToken) => BadRequest(ApiError.Validation(
                     new Dictionary<string, string[]>
                     {
                         ["captchaToken"] = ["Invalid captcha token."]
@@ -467,350 +453,12 @@ public class AccountCurrentController(
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        var factors = await db.AccountAuthFactors
+        var factors = await db.Set<SnAccountAuthFactor>()
             .Include(f => f.Account)
             .Where(f => f.Account.Id == currentUser.Id)
             .ToListAsync();
 
         return Ok(factors);
-    }
-
-    public class AuthFactorRequest
-    {
-        public Shared.Models.AccountAuthFactorType Type { get; set; }
-        public string? Secret { get; set; }
-    }
-
-    [HttpPost("factors")]
-    [Authorize]
-    public async Task<ActionResult<SnAccountAuthFactor>> CreateAuthFactor([FromBody] AuthFactorRequest request)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        if (await accounts.CheckAuthFactorExists(currentUser, request.Type))
-            return BadRequest(new ApiError
-            {
-                Code = "ALREADY_EXISTS",
-                Message = $"Auth factor with type {request.Type} already exists.",
-                Status = 400,
-                TraceId = HttpContext.TraceIdentifier
-            });
-
-        var factor = await accounts.CreateAuthFactor(currentUser, request.Type, request.Secret);
-        return Ok(factor);
-    }
-
-    [HttpPost("factors/{id:guid}/enable")]
-    [Authorize]
-    public async Task<ActionResult<SnAccountAuthFactor>> EnableAuthFactor(Guid id, [FromBody] string? code)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
-        var factor = await db.AccountAuthFactors
-            .Where(f => f.AccountId == currentUser.Id && f.Id == id)
-            .FirstOrDefaultAsync();
-        if (factor is null) return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
-
-        try
-        {
-            factor = await accounts.EnableAuthFactor(factor, code);
-            return Ok(factor);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new ApiError
-            {
-                Code = "BAD_REQUEST",
-                Message = "Failed to enable auth factor.",
-                Detail = ex.Message,
-                Status = 400,
-                TraceId = HttpContext.TraceIdentifier
-            });
-        }
-    }
-
-    [HttpPost("factors/{id:guid}/disable")]
-    [Authorize]
-    public async Task<ActionResult<SnAccountAuthFactor>> DisableAuthFactor(Guid id)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
-        var factor = await db.AccountAuthFactors
-            .Where(f => f.AccountId == currentUser.Id && f.Id == id)
-            .FirstOrDefaultAsync();
-        if (factor is null) return NotFound();
-
-        try
-        {
-            factor = await accounts.DisableAuthFactor(factor);
-            return Ok(factor);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ex.Message);
-        }
-    }
-
-    [HttpDelete("factors/{id:guid}")]
-    [Authorize]
-    public async Task<ActionResult<SnAccountAuthFactor>> DeleteAuthFactor(Guid id)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
-        var factor = await db.AccountAuthFactors
-            .Where(f => f.AccountId == currentUser.Id && f.Id == id)
-            .FirstOrDefaultAsync();
-        if (factor is null) return NotFound();
-
-        try
-        {
-            await accounts.DeleteAuthFactor(factor);
-            return NoContent();
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ex.Message);
-        }
-    }
-
-    [HttpGet("devices")]
-    [Authorize]
-    public async Task<ActionResult<List<SnAuthClientWithSessions>>> GetDevices()
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
-
-        Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
-
-        var devices = await db.AuthClients
-            .Where(device => device.AccountId == currentUser.Id)
-            .ToListAsync();
-
-        var sessionDevices = devices.ConvertAll(SnAuthClientWithSessions.FromClient).ToList();
-        var clientIds = sessionDevices.Select(x => x.Id).ToList();
-
-        var authSessions = await db.AuthSessions
-            .Where(c => c.ClientId != null && clientIds.Contains(c.ClientId.Value))
-            .GroupBy(c => c.ClientId!.Value)
-            .ToDictionaryAsync(c => c.Key, c => c.ToList());
-        foreach (var dev in sessionDevices)
-            if (authSessions.TryGetValue(dev.Id, out var challenge))
-                dev.Sessions = challenge;
-
-        return Ok(sessionDevices);
-    }
-
-    [HttpGet("challenges")]
-    [Authorize]
-    public async Task<ActionResult<List<SnAuthChallenge>>> GetChallenges(
-        [FromQuery] int take = 20,
-        [FromQuery] int offset = 0
-    )
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
-        var query = db.AuthChallenges
-            .Where(challenge => challenge.AccountId == currentUser.Id)
-            .OrderByDescending(c => c.CreatedAt);
-
-        var total = await query.CountAsync();
-        Response.Headers.Append("X-Total", total.ToString());
-
-        var challenges = await query
-            .Skip(offset)
-            .Take(take)
-            .ToListAsync();
-        return Ok(challenges);
-    }
-
-    [HttpGet("sessions")]
-    [Authorize]
-    public async Task<ActionResult<List<SnAuthSession>>> GetSessions(
-        [FromQuery] int take = 20,
-        [FromQuery] int offset = 0
-    )
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
-
-        var query = db.AuthSessions
-            .OrderByDescending(x => x.LastGrantedAt)
-            .Include(session => session.Account)
-            .Where(session => session.Account.Id == currentUser.Id);
-
-        var total = await query.CountAsync();
-        Response.Headers.Append("X-Total", total.ToString());
-        Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
-
-        var sessions = await query
-            .Skip(offset)
-            .Take(take)
-            .ToListAsync();
-
-        return Ok(sessions);
-    }
-
-    [HttpDelete("sessions/{id:guid}")]
-    [Authorize]
-    public async Task<ActionResult<SnAuthSession>> DeleteSession(Guid id)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
-        try
-        {
-            await accounts.DeleteSession(currentUser, id);
-            return NoContent();
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ex.Message);
-        }
-    }
-
-    [HttpDelete("devices/{deviceId}")]
-    [Authorize]
-    public async Task<ActionResult<SnAuthSession>> DeleteDevice(string deviceId)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
-        try
-        {
-            await accounts.DeleteDevice(currentUser, deviceId);
-            return NoContent();
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ex.Message);
-        }
-    }
-
-    [HttpDelete("sessions/current")]
-    [Authorize]
-    public async Task<ActionResult<SnAuthSession>> DeleteCurrentSession()
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
-
-        try
-        {
-            await accounts.DeleteSession(currentUser, currentSession.Id);
-            return NoContent();
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ex.Message);
-        }
-    }
-
-    [HttpPatch("devices/{deviceId}/label")]
-    [Authorize]
-    public async Task<ActionResult<SnAuthSession>> UpdateDeviceLabel(string deviceId, [FromBody] string label)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
-        try
-        {
-            await accounts.UpdateDeviceName(currentUser, deviceId, label);
-            return NoContent();
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ex.Message);
-        }
-    }
-
-    [HttpPatch("devices/current/label")]
-    [Authorize]
-    public async Task<ActionResult<SnAuthSession>> UpdateCurrentDeviceLabel([FromBody] string label)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
-
-        var device = await db.AuthClients.FirstOrDefaultAsync(d => d.Id == currentSession.ClientId);
-        if (device is null) return NotFound();
-
-        try
-        {
-            await accounts.UpdateDeviceName(currentUser, device.DeviceId, label);
-            return NoContent();
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ex.Message);
-        }
-    }
-
-    [HttpGet("contacts")]
-    [Authorize]
-    public async Task<ActionResult<List<SnAccountContact>>> GetContacts()
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        var contacts = await padlockContacts.ListContactsAsync(currentUser.Id);
-        return Ok(contacts);
-    }
-
-    public class AccountContactRequest
-    {
-        [Required] public Shared.Models.AccountContactType Type { get; set; }
-        [Required] public string Content { get; set; } = null!;
-    }
-
-    [HttpPost("contacts")]
-    [Authorize]
-    public async Task<ActionResult<SnAccountContact>> CreateContact([FromBody] AccountContactRequest request)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        return ContactApiMovedToPadlock();
-    }
-
-    [HttpPost("contacts/{id:guid}/verify")]
-    [Authorize]
-    public async Task<ActionResult<SnAccountContact>> VerifyContact(Guid id)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        return ContactApiMovedToPadlock();
-    }
-
-    [HttpPost("contacts/{id:guid}/primary")]
-    [Authorize]
-    public async Task<ActionResult<SnAccountContact>> SetPrimaryContact(Guid id)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        return ContactApiMovedToPadlock();
-    }
-
-    [HttpPost("contacts/{id:guid}/public")]
-    [Authorize]
-    public async Task<ActionResult<SnAccountContact>> SetPublicContact(Guid id)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        return ContactApiMovedToPadlock();
-    }
-
-    [HttpDelete("contacts/{id:guid}/public")]
-    [Authorize]
-    public async Task<ActionResult<SnAccountContact>> UnsetPublicContact(Guid id)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        return ContactApiMovedToPadlock();
-    }
-
-    [HttpDelete("contacts/{id:guid}")]
-    [Authorize]
-    public async Task<ActionResult<SnAccountContact>> DeleteContact(Guid id)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        return ContactApiMovedToPadlock();
-    }
-
-    private ActionResult ContactApiMovedToPadlock()
-    {
-        return StatusCode(StatusCodes.Status410Gone, new ApiError
-        {
-            Code = "GONE",
-            Message = "Contacts are managed by Padlock. Use /padlock/accounts/me/contacts endpoints.",
-            Status = StatusCodes.Status410Gone,
-            TraceId = HttpContext.TraceIdentifier
-        });
     }
 
     [HttpGet("badges")]

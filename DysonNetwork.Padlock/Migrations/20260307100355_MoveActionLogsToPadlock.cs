@@ -11,9 +11,43 @@ namespace DysonNetwork.Padlock.Migrations
     /// <inheritdoc />
     public partial class MoveActionLogsToPadlock : Migration
     {
+        private static void EnsureAccountsPrimaryKey(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.Sql(
+                """
+                DO $$
+                BEGIN
+                    IF to_regclass('public.accounts') IS NULL THEN
+                        RAISE EXCEPTION 'Table public.accounts does not exist.';
+                    END IF;
+
+                    IF NOT EXISTS (
+                        SELECT 1
+                        FROM pg_constraint
+                        WHERE conrelid = 'public.accounts'::regclass
+                          AND contype = 'p'
+                    ) THEN
+                        IF EXISTS (
+                            SELECT id
+                            FROM public.accounts
+                            GROUP BY id
+                            HAVING COUNT(*) > 1
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot add primary key to public.accounts(id): duplicate ids exist.';
+                        END IF;
+
+                        ALTER TABLE public.accounts
+                            ADD CONSTRAINT pk_accounts PRIMARY KEY (id);
+                    END IF;
+                END $$;
+                """);
+        }
+
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            EnsureAccountsPrimaryKey(migrationBuilder);
+
             migrationBuilder.CreateTable(
                 name: "action_logs",
                 columns: table => new

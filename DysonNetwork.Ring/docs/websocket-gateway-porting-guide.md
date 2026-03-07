@@ -763,7 +763,7 @@ app.ConfigureForwardedHeaders();  // For proxies
 app.UseWebSockets();
 app.UseAuthentication();
 app.UseAuthorization();
-app.RequireRateLimiting("fixed");
+app;
 ```
 
 ---

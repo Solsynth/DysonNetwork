@@ -19,7 +19,7 @@ public class SpotifyPresenceService(
     public async Task UpdatePresencesAsync(IEnumerable<Guid> userIds)
     {
         var userIdList = userIds.ToList();
-        var userConnections = await db.AccountConnections
+        var userConnections = await db.Set<SnAccountConnection>()
             .Where(c => userIdList.Contains(c.AccountId) && c.Provider == "spotify" && c.AccessToken != null && c.RefreshToken != null)
             .Include(c => c.Account)
             .ToListAsync();
@@ -33,7 +33,7 @@ public class SpotifyPresenceService(
     /// </summary>
     private async Task UpdateSpotifyPresenceAsync(SnAccount account)
     {
-        var connection = await db.AccountConnections
+        var connection = await db.Set<SnAccountConnection>()
             .FirstOrDefaultAsync(c => c.AccountId == account.Id && c.Provider == "spotify");
 
         if (connection?.RefreshToken == null)

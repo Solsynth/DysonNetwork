@@ -19,7 +19,7 @@ public static class ApplicationConfiguration
         app.UseAuthorization();
         app.UseMiddleware<RemotePermissionMiddleware>();
 
-        app.MapControllers().RequireRateLimiting("fixed");
+        app.MapControllers();
 
         return app;
     }

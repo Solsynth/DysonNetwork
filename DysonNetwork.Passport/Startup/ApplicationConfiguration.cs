@@ -1,7 +1,6 @@
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Credit;
 using DysonNetwork.Passport.Leveling;
-using DysonNetwork.Passport.Permission;
 using DysonNetwork.Passport.Realm;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
@@ -22,9 +21,8 @@ public static class ApplicationConfiguration
         app.UseAuthentication();
         app.UseDyAuthModelProjection();
         app.UseAuthorization();
-        app.UseMiddleware<LocalPermissionMiddleware>();
 
-        app.MapControllers().RequireRateLimiting("fixed");
+        app.MapControllers();
 
         return app;
     }
@@ -32,10 +30,8 @@ public static class ApplicationConfiguration
     public static WebApplication ConfigureGrpcServices(this WebApplication app)
     {
         app.MapGrpcService<AccountServiceGrpc>();
-        app.MapGrpcService<PermissionServiceGrpc>();
         app.MapGrpcService<SocialCreditServiceGrpc>();
         app.MapGrpcService<ExperienceServiceGrpc>();
-        app.MapGrpcService<BotAccountReceiverGrpc>();
         app.MapGrpcService<RealmServiceGrpc>();
         app.MapGrpcReflectionService();
 

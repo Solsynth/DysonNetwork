@@ -18,7 +18,7 @@ public static class ApplicationConfiguration
         app.UseAuthentication();
         app.UseAuthorization();
 
-        app.MapControllers().RequireRateLimiting("fixed");
+        app.MapControllers();
 
         return app;
     }
@@ -27,6 +27,7 @@ public static class ApplicationConfiguration
     {
         app.MapGrpcService<AuthServiceGrpc>();
         app.MapGrpcService<AccountServiceGrpc>();
+        app.MapGrpcService<BotAccountReceiverGrpc>();
         app.MapGrpcService<ActionLogServiceGrpc>();
         app.MapGrpcReflectionService();
 

@@ -10,7 +10,7 @@ namespace DysonNetwork.Passport.Account;
 
 [ApiController]
 [Route("/api/relationships")]
-public class RelationshipController(AppDatabase db, RelationshipService rls, ActionLogService als) : ControllerBase
+public class RelationshipController(AppDatabase db, RelationshipService rls, ActionLogService als, AccountService accounts) : ControllerBase
 {
     [HttpGet]
     [Authorize]
@@ -67,7 +67,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        var relatedUser = await db.Accounts.FindAsync(accountId);
+        var relatedUser = await accounts.GetAccount(accountId);
         if (relatedUser is null) return NotFound("Account was not found.");
 
         try
@@ -184,7 +184,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        var relatedUser = await db.Accounts.FindAsync(accountId);
+        var relatedUser = await accounts.GetAccount(accountId);
         if (relatedUser is null) return NotFound("Account was not found.");
 
         var existing = await db.AccountRelationships.FirstOrDefaultAsync(r =>
@@ -266,7 +266,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        var relatedUser = await db.Accounts.FindAsync(accountId);
+        var relatedUser = await accounts.GetAccount(accountId);
         if (relatedUser is null) return NotFound("Account was not found.");
 
         try
@@ -286,7 +286,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        var relatedUser = await db.Accounts.FindAsync(accountId);
+        var relatedUser = await accounts.GetAccount(accountId);
         if (relatedUser is null) return NotFound("Account was not found.");
 
         try

@@ -15,7 +15,7 @@ public static class ApplicationConfiguration
         app.UseAuthentication();
         app.UseAuthorization();
 
-        app.MapControllers().RequireRateLimiting("fixed");
+        app.MapControllers();
 
         return app;
     }

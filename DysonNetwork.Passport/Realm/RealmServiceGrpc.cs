@@ -6,6 +6,8 @@ using DysonNetwork.Passport.Localization;
 using DysonNetwork.Shared;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Localization;
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Registry;
 
 namespace DysonNetwork.Passport.Realm;
 
@@ -13,7 +15,8 @@ public class RealmServiceGrpc(
     AppDatabase db,
     DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
-    ICacheService cache
+    ICacheService cache,
+    RemoteAccountService remoteAccounts
 )
     : DyRealmService.DyRealmServiceBase
 {
@@ -111,17 +114,22 @@ public class RealmServiceGrpc(
     public override async Task<Empty> SendInviteNotify(DySendInviteNotifyRequest request, ServerCallContext context)
     {
         var member = request.Member;
-        var account = await db.Accounts
-            .AsNoTracking()
-            .Include(a => a.Profile)
-            .FirstOrDefaultAsync(a => a.Id == Guid.Parse(member.AccountId));
+        DyAccount? account;
+        try
+        {
+            account = await remoteAccounts.GetAccount(Guid.Parse(member.AccountId));
+        }
+        catch
+        {
+            account = null;
+        }
 
         if (account == null) throw new RpcException(new Status(StatusCode.NotFound, "Account not found"));
 
         await pusher.SendPushNotificationToUserAsync(
             new DySendPushNotificationToUserRequest
             {
-                UserId = account.Id.ToString(),
+                UserId = account.Id,
                 Notification = new DyPushNotification
                 {
                     Topic = "invites.realms",
@@ -153,12 +161,17 @@ public class RealmServiceGrpc(
         ServerCallContext context)
     {
         var member = request.Member;
-        var account = await db.Accounts
-            .AsNoTracking()
-            .Include(a => a.Profile)
-            .FirstOrDefaultAsync(a => a.Id == Guid.Parse(member.AccountId));
+        DyAccount? account = null;
+        try
+        {
+            account = await remoteAccounts.GetAccount(Guid.Parse(member.AccountId));
+        }
+        catch
+        {
+            // ignored
+        }
 
-        var response = new DyRealmMember(member) { Account = account?.ToProtoValue() };
+        var response = new DyRealmMember(member) { Account = account };
         return response;
     }
 
@@ -166,11 +179,8 @@ public class RealmServiceGrpc(
         ServerCallContext context)
     {
         var accountIds = request.Members.Select(m => Guid.Parse(m.AccountId)).ToList();
-        var accounts = await db.Accounts
-            .AsNoTracking()
-            .Include(a => a.Profile)
-            .Where(a => accountIds.Contains(a.Id))
-            .ToDictionaryAsync(a => a.Id, a => a.ToProtoValue());
+        var accounts = (await remoteAccounts.GetAccountBatch(accountIds))
+            .ToDictionary(a => Guid.Parse(a.Id), a => a);
 
         var response = new DyLoadMemberAccountsResponse();
         foreach (var member in request.Members)

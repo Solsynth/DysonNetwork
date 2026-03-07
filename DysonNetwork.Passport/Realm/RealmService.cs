@@ -13,7 +13,8 @@ public class RealmService(
     AppDatabase db,
     DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
-    ICacheService cache
+    ICacheService cache,
+    RemoteAccountService remoteAccounts
 )
 {
     private const string CacheKeyPrefix = "account:realms:";
@@ -40,21 +41,20 @@ public class RealmService(
 
     public async Task SendInviteNotify(SnRealmMember member)
     {
-        var account = await db.Accounts
-            .Include(a => a.Profile)
-            .FirstOrDefaultAsync(a => a.Id == member.AccountId);
+        var account = await remoteAccounts.GetAccount(member.AccountId);
+        var modelAccount = SnAccount.FromProtoValue(account);
 
-        if (account == null) throw new InvalidOperationException("Account not found");
+        if (modelAccount == null) throw new InvalidOperationException("Account not found");
 
         await pusher.SendPushNotificationToUserAsync(
             new DySendPushNotificationToUserRequest
             {
-                UserId = account.Id.ToString(),
+                UserId = modelAccount.Id.ToString(),
                 Notification = new DyPushNotification
                 {
                     Topic = "invites.realms",
-                    Title = localizer.Get("realmInviteTitle", account.Language),
-                    Body = localizer.Get("realmInviteBody", locale: account.Language, args: new { realmName = member.Realm.Name }),
+                    Title = localizer.Get("realmInviteTitle", modelAccount.Language),
+                    Body = localizer.Get("realmInviteBody", locale: modelAccount.Language, args: new { realmName = member.Realm.Name }),
                     ActionUri = "/realms",
                     IsSavable = true
                 }
@@ -76,26 +76,39 @@ public class RealmService(
 
     public async Task<SnRealmMember> LoadMemberAccount(SnRealmMember member)
     {
-        var account = await db.Accounts
-            .Include(a => a.Profile)
-            .FirstOrDefaultAsync(a => a.Id == member.AccountId);
-        if (account != null)
+        try
+        {
+            var account = SnAccount.FromProtoValue(await remoteAccounts.GetAccount(member.AccountId));
+            account.Profile = await db.AccountProfiles.FirstOrDefaultAsync(p => p.AccountId == member.AccountId);
             member.Account = account;
+        }
+        catch
+        {
+            // Keep member without account payload if remote account no longer exists.
+        }
+
         return member;
     }
 
     public async Task<List<SnRealmMember>> LoadMemberAccounts(ICollection<SnRealmMember> members)
     {
         var accountIds = members.Select(m => m.AccountId).ToList();
-        var accountsDict = await db.Accounts
-            .Include(a => a.Profile)
-            .Where(a => accountIds.Contains(a.Id))
-            .ToDictionaryAsync(a => a.Id, a => a);
+        var accounts = await remoteAccounts.GetAccountBatch(accountIds);
+        var accountsDict = accounts
+            .Select(SnAccount.FromProtoValue)
+            .ToDictionary(a => a.Id, a => a);
+        var profiles = await db.AccountProfiles
+            .Where(p => accountIds.Contains(p.AccountId))
+            .ToDictionaryAsync(p => p.AccountId, p => p);
 
         return members.Select(m =>
         {
             if (accountsDict.TryGetValue(m.AccountId, out var account))
+            {
+                if (profiles.TryGetValue(m.AccountId, out var profile))
+                    account.Profile = profile;
                 m.Account = account;
+            }
             return m;
         }).ToList();
     }

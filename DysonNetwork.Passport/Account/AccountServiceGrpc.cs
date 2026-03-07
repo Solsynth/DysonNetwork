@@ -32,7 +32,7 @@ public class AccountServiceGrpc(
         if (!Guid.TryParse(request.Id, out var accountId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
 
-        var account = await _db.Accounts
+        var account = await _db.Set<SnAccount>()
             .AsNoTracking()
             .Include(a => a.Profile)
             .FirstOrDefaultAsync(a => a.Id == accountId);
@@ -53,7 +53,7 @@ public class AccountServiceGrpc(
         if (!Guid.TryParse(request.AutomatedId, out var automatedId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid automated ID format"));
 
-        var account = await _db.Accounts
+        var account = await _db.Set<SnAccount>()
             .AsNoTracking()
             .Include(a => a.Profile)
             .FirstOrDefaultAsync(a => a.AutomatedId == automatedId);
@@ -78,7 +78,7 @@ public class AccountServiceGrpc(
             .Select(id => id!.Value)
             .ToList();
 
-        var accounts = await _db.Accounts
+        var accounts = await _db.Set<SnAccount>()
             .AsNoTracking()
             .Where(a => accountIds.Contains(a.Id))
             .Include(a => a.Profile)
@@ -103,7 +103,7 @@ public class AccountServiceGrpc(
             .Select(id => id!.Value)
             .ToList();
 
-        var accounts = await _db.Accounts
+        var accounts = await _db.Set<SnAccount>()
             .AsNoTracking()
             .Where(a => a.AutomatedId != null && automatedIds.Contains(a.AutomatedId.Value))
             .Include(a => a.Profile)
@@ -143,7 +143,7 @@ public class AccountServiceGrpc(
         ServerCallContext context)
     {
         var accountNames = request.Names.ToList();
-        var accounts = await _db.Accounts
+        var accounts = await _db.Set<SnAccount>()
             .AsNoTracking()
             .Where(a => accountNames.Contains(a.Name))
             .Include(a => a.Profile)
@@ -161,7 +161,7 @@ public class AccountServiceGrpc(
     public override async Task<DyGetAccountBatchResponse> SearchAccount(DySearchAccountRequest request,
         ServerCallContext context)
     {
-        var accounts = await _db.Accounts
+        var accounts = await _db.Set<SnAccount>()
             .AsNoTracking()
             .Where(a => EF.Functions.ILike(a.Name, $"%{request.Query}%"))
             .Include(a => a.Profile)
@@ -179,7 +179,7 @@ public class AccountServiceGrpc(
     public override async Task<DyListAccountsResponse> ListAccounts(DyListAccountsRequest request,
         ServerCallContext context)
     {
-        var query = _db.Accounts.AsNoTracking();
+        var query = _db.Set<SnAccount>().AsNoTracking();
 
         // Apply filters if provided
         if (!string.IsNullOrEmpty(request.Filter))
@@ -343,7 +343,7 @@ public class AccountServiceGrpc(
         if (!Guid.TryParse(request.AccountId, out var accountId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
 
-        var account = await _db.Accounts
+        var account = await _db.Set<SnAccount>()
             .Include(a => a.Profile)
             .FirstOrDefaultAsync(a => a.Id == accountId);
 

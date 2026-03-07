@@ -13,7 +13,8 @@ public class AccountPublicController(
     AppDatabase db,
     AccountService accountService,
     SocialCreditService socialCreditService,
-    RemoteSubscriptionService remoteSubscription
+    RemoteSubscriptionService remoteSubscription,
+    RemoteAccountService remoteAccounts
 ) : ControllerBase
 {
     [HttpGet("{name}")]
@@ -21,20 +22,22 @@ public class AccountPublicController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<SnAccount?>> GetByName(string name)
     {
-        var accountQuery = db.Accounts
-            .Include(e => e.Badges)
-            .Include(e => e.Profile)
-            .AsQueryable();
-        
+        SnAccount? account = null;
         if (Guid.TryParse(name, out var guid))
-            accountQuery = accountQuery.Where(a => a.Id == guid);
+        {
+            account = await accountService.GetAccount(guid);
+        }
         else
-            accountQuery = accountQuery
-                .Where(a => EF.Functions.Like(a.Name, name));
-        
-        var account = await accountQuery.FirstOrDefaultAsync();
+        {
+            var candidates = await remoteAccounts.SearchAccounts(name);
+            var hit = candidates.FirstOrDefault(a => string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (hit is not null)
+                account = SnAccount.FromProtoValue(hit);
+        }
+
         if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
         await EnsureProfileAsync(account);
+        account.Badges = await db.Badges.Where(b => b.AccountId == account.Id).ToListAsync();
         account.Contacts = [];
 
         // Populate PerkSubscription from Wallet service via gRPC
@@ -60,13 +63,10 @@ public class AccountPublicController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<List<SnAccountBadge>>> GetBadgesByName(string name)
     {
-        var account = await db.Accounts
-            .Include(e => e.Badges)
-            .Where(a => a.Name == name)
-            .FirstOrDefaultAsync();
+        var account = await accountService.LookupAccount(name);
         return account is null
             ? NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier))
-            : account.Badges.ToList();
+            : await db.Badges.Where(b => b.AccountId == account.Id).ToListAsync();
     }
 
     [HttpGet("{name}/credits")]
@@ -74,10 +74,7 @@ public class AccountPublicController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<double>> GetSocialCredits(string name)
     {
-        var account = await db.Accounts
-            .Where(a => a.Name == name)
-            .Select(a => new { a.Id })
-            .FirstOrDefaultAsync();
+        var account = await accountService.LookupAccount(name);
 
         if (account is null)
         {
@@ -94,15 +91,15 @@ public class AccountPublicController(
         if (string.IsNullOrWhiteSpace(query))
             return [];
         
-        var accounts = await db.Accounts
-            .Include(e => e.Profile)
-            .Where(a => EF.Functions.ILike(a.Name, $"%{query}%") ||
-                        EF.Functions.ILike(a.Nick, $"%{query}%"))
+        var accounts = (await remoteAccounts.SearchAccounts(query))
             .Take(take)
-            .ToListAsync();
+            .Select(SnAccount.FromProtoValue)
+            .ToList();
+
         foreach (var account in accounts)
         {
             await EnsureProfileAsync(account);
+            account.Badges = await db.Badges.Where(b => b.AccountId == account.Id).ToListAsync();
             account.Contacts = [];
         }
 

@@ -11,7 +11,7 @@ namespace DysonNetwork.Passport.Account;
 /// </summary>
 [ApiController]
 [Route("/api/activities")]
-public class PresenceActivityController(AppDatabase db, AccountEventService service)
+public class PresenceActivityController(AppDatabase db, AccountEventService service, AccountService accounts)
     : ControllerBase
 {
     /// <summary>
@@ -58,8 +58,8 @@ public class PresenceActivityController(AppDatabase db, AccountEventService serv
     )
     {
         var account = Guid.TryParse(identifier, out var identifierGuid)
-            ? await db.Accounts.FirstOrDefaultAsync(a => a.Id == identifierGuid)
-            : await db.Accounts.FirstOrDefaultAsync(a => a.Name == identifier);
+            ? await accounts.GetAccount(identifierGuid)
+            : await accounts.LookupAccount(identifier);
         if (account is null)
             return NotFound();
 

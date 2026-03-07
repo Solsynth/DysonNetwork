@@ -1,10 +1,7 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Models;
 
-namespace DysonNetwork.Passport.Permission;
-
-using System;
-using Microsoft.Extensions.Logging;
-using Shared.Models;
+namespace DysonNetwork.Padlock.Permission;
 
 public class LocalPermissionMiddleware(RequestDelegate next, ILogger<LocalPermissionMiddleware> logger)
 {

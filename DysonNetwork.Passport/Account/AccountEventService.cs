@@ -704,7 +704,7 @@ public class AccountEventService(
     /// </summary>
     public async Task<List<Guid>> GetSpotifyConnectedUsersAsync()
     {
-        return await db.AccountConnections
+        return await db.Set<SnAccountConnection>()
             .Where(c => c.Provider == "spotify" && c.AccessToken != null && c.RefreshToken != null)
             .Select(c => c.AccountId)
             .Distinct()

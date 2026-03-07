@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NodaTime;
 using System.Text.Json;
@@ -54,6 +53,7 @@ public class PermissionService(
         PermissionNodeActorType type = PermissionNodeActorType.Account
     )
     {
+        // Input validation
         if (string.IsNullOrWhiteSpace(actor))
             throw new ArgumentException("Actor cannot be null or empty", nameof(actor));
         if (string.IsNullOrWhiteSpace(key))
@@ -80,7 +80,8 @@ public class PermissionService(
                 [GetPermissionGroupKey(actor)],
                 _options.CacheExpiration);
 
-            logger.LogDebug("Permission resolved for {Type}:{Actor}:{Key} = {Result}", type, actor, key, result != null);
+            logger.LogDebug("Permission resolved for {Type}:{Actor}:{Key} = {Result}", type, actor, key,
+                result != null);
             return result;
         }
         catch (Exception ex)
@@ -122,6 +123,7 @@ public class PermissionService(
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
+        // First try exact match (highest priority)
         var exactMatch = await db.PermissionNodes
             .Where(n => (n.GroupId == null && n.Actor == actor && n.Type == type) ||
                         (n.GroupId != null && groupsId.Contains(n.GroupId.Value)))
@@ -133,6 +135,7 @@ public class PermissionService(
         if (exactMatch != null)
             return exactMatch;
 
+        // If no exact match and wildcards are enabled, try wildcard matches
         if (!_options.EnableWildcardMatching)
             return null;
 
@@ -145,6 +148,7 @@ public class PermissionService(
             .Take(_options.MaxWildcardMatches)
             .ToListAsync();
 
+        // Find the best wildcard match
         SnPermissionNode? bestMatch = null;
         var bestMatchScore = -1;
 
@@ -170,17 +174,19 @@ public class PermissionService(
     private static int CalculatePatternMatchScore(string pattern, string target)
     {
         if (pattern == target)
-            return int.MaxValue;
+            return int.MaxValue; // Exact match
 
         if (!pattern.Contains('*'))
-            return -1;
+            return -1; // No wildcard, not a match
 
+        // Simple wildcard matching: * matches any sequence of characters
         var regexPattern = "^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*") + "$";
         var regex = new System.Text.RegularExpressions.Regex(regexPattern,
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
-        if (!regex.IsMatch(target)) return -1;
+        if (!regex.IsMatch(target)) return -1; // No match
 
+        // Score based on specificity (shorter patterns are less specific)
         var wildcardCount = pattern.Count(c => c == '*');
         var length = pattern.Length;
 
@@ -211,6 +217,7 @@ public class PermissionService(
         db.PermissionNodes.Add(node);
         await db.SaveChangesAsync();
 
+        // Invalidate related caches
         await InvalidatePermissionCacheAsync(actor, key);
 
         return node;
@@ -243,6 +250,7 @@ public class PermissionService(
         db.PermissionNodes.Add(node);
         await db.SaveChangesAsync();
 
+        // Invalidate related caches
         await InvalidatePermissionCacheAsync(actor, key);
         await cache.RemoveAsync(GetGroupsCacheKey(actor));
         await cache.RemoveGroupAsync(GetPermissionGroupKey(actor));
@@ -259,7 +267,24 @@ public class PermissionService(
         if (node is not null) db.PermissionNodes.Remove(node);
         await db.SaveChangesAsync();
 
+        // Invalidate cache
         await InvalidatePermissionCacheAsync(actor, key);
+    }
+
+    public async Task RemovePermissionNodeFromGroup<T>(SnPermissionGroup group, string actor, string key)
+    {
+        var node = await db.PermissionNodes
+            .Where(n => n.GroupId == group.Id)
+            .Where(n => n.Actor == actor && n.Key == key && n.Type == PermissionNodeActorType.Group)
+            .FirstOrDefaultAsync();
+        if (node is null) return;
+        db.PermissionNodes.Remove(node);
+        await db.SaveChangesAsync();
+
+        // Invalidate caches
+        await InvalidatePermissionCacheAsync(actor, key);
+        await cache.RemoveAsync(GetGroupsCacheKey(actor));
+        await cache.RemoveGroupAsync(GetPermissionGroupKey(actor));
     }
 
     private async Task InvalidatePermissionCacheAsync(string actor, string key)
@@ -289,6 +314,9 @@ public class PermissionService(
         };
     }
 
+    /// <summary>
+    /// Lists all effective permissions for an actor (including group permissions)
+    /// </summary>
     public async Task<List<SnPermissionNode>> ListEffectivePermissionsAsync(string actor)
     {
         if (string.IsNullOrWhiteSpace(actor))
@@ -317,6 +345,9 @@ public class PermissionService(
         }
     }
 
+    /// <summary>
+    /// Lists all direct permissions for an actor (excluding group permissions)
+    /// </summary>
     public async Task<List<SnPermissionNode>> ListDirectPermissionsAsync(string actor)
     {
         if (string.IsNullOrWhiteSpace(actor))
@@ -342,17 +373,25 @@ public class PermissionService(
         }
     }
 
+    /// <summary>
+    /// Validates a permission pattern for wildcard usage
+    /// </summary>
     public static bool IsValidPermissionPattern(string pattern)
     {
         if (string.IsNullOrWhiteSpace(pattern))
             return false;
 
+        // Basic validation: no consecutive wildcards, no leading/trailing wildcards in some cases
         if (pattern.Contains("**") || pattern.StartsWith("*") || pattern.EndsWith("*"))
             return false;
 
+        // Check for valid characters (alphanumeric, underscore, dash, dot, star)
         return pattern.All(c => char.IsLetterOrDigit(c) || c == '_' || c == '-' || c == '.' || c == '*' || c == ':');
     }
 
+    /// <summary>
+    /// Clears all cached permissions for an actor
+    /// </summary>
     public async Task ClearActorCacheAsync(string actor)
     {
         if (string.IsNullOrWhiteSpace(actor))

@@ -55,19 +55,11 @@ public class FileService(
     {
         var cachedFiles = new Dictionary<string, SnCloudFile>(StringComparer.Ordinal);
         var uncachedIds = new List<string>();
-        var uniqueFileIds = fileIds.Distinct(StringComparer.Ordinal).ToList();
 
-        var cacheTasks = uniqueFileIds.ToDictionary(
-            fileId => fileId,
-            fileId => cache.GetAsync<SnCloudFile>(string.Concat(CacheKeyPrefix, fileId)),
-            StringComparer.Ordinal
-        );
-
-        await Task.WhenAll(cacheTasks.Values);
-
-        foreach (var (fileId, cachedTask) in cacheTasks)
+        foreach (var fileId in fileIds.Distinct(StringComparer.Ordinal))
         {
-            var cachedFile = cachedTask.Result;
+            var cacheKey = string.Concat(CacheKeyPrefix, fileId);
+            var cachedFile = await cache.GetAsync<SnCloudFile>(cacheKey);
 
             if (cachedFile != null)
                 cachedFiles[fileId] = cachedFile;
@@ -85,15 +77,12 @@ public class FileService(
                 .ThenInclude(o => o.FileReplicas)
                 .ToListAsync();
 
-            var cacheSetTasks = new List<Task>(dbFiles.Count);
             foreach (var file in dbFiles)
             {
                 var cacheKey = string.Concat(CacheKeyPrefix, file.Id);
-                cacheSetTasks.Add(cache.SetAsync(cacheKey, file, CacheDuration));
+                await cache.SetAsync(cacheKey, file, CacheDuration);
                 cachedFiles[file.Id] = file;
             }
-
-            await Task.WhenAll(cacheSetTasks);
         }
 
         return fileIds

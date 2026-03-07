@@ -1,14 +1,7 @@
 using System.ComponentModel.DataAnnotations;
-using DysonNetwork.Passport.Affiliation;
-using DysonNetwork.Passport.Auth;
-using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Extensions;
-using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Passport.Account;
@@ -16,142 +9,10 @@ namespace DysonNetwork.Passport.Account;
 [ApiController]
 [Route("/api/accounts")]
 public class AccountController(
-    AppDatabase db,
-    AuthService auth,
     AccountService accounts,
-    AccountEventService events,
-    AffiliationSpellService ars,
-    GeoService geo,
-    ActionLogService als
+    AccountEventService events
 ) : ControllerBase
 {
-    public class AccountCreateRequest
-    {
-        [Required]
-        [MinLength(2)]
-        [MaxLength(256)]
-        [RegularExpression(@"^[A-Za-z0-9_-]+$",
-            ErrorMessage = "Name can only contain letters, numbers, underscores, and hyphens.")
-        ]
-        public string Name { get; set; } = string.Empty;
-
-        [Required] [MaxLength(256)] public string Nick { get; set; } = string.Empty;
-
-        [EmailAddress]
-        [RegularExpression(@"^[^+]+@[^@]+\.[^@]+$", ErrorMessage = "Email address cannot contain '+' symbol.")]
-        [Required]
-        [MaxLength(1024)]
-        public string Email { get; set; } = string.Empty;
-
-        [Required]
-        [MinLength(4)]
-        [MaxLength(128)]
-        public string Password { get; set; } = string.Empty;
-
-        [MaxLength(32)] public string Language { get; set; } = "en-us";
-
-        [Required] public string CaptchaToken { get; set; } = string.Empty;
-
-        public string? AffiliationSpell { get; set; }
-    }
-
-    public class AccountCreateValidateRequest
-    {
-        [MinLength(2)]
-        [MaxLength(256)]
-        [RegularExpression(@"^[A-Za-z0-9_-]+$",
-            ErrorMessage = "Name can only contain letters, numbers, underscores, and hyphens.")
-        ]
-        public string? Name { get; set; }
-
-        [EmailAddress]
-        [RegularExpression(@"^[^+]+@[^@]+\.[^@]+$", ErrorMessage = "Email address cannot contain '+' symbol.")]
-        [MaxLength(1024)]
-        public string? Email { get; set; }
-
-        public string? AffiliationSpell { get; set; }
-    }
-
-    [HttpPost("validate")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<string>> ValidateCreateAccountRequest(
-        [FromBody] AccountCreateValidateRequest request)
-    {
-        if (request.Name is not null)
-        {
-            if (await accounts.CheckAccountNameHasTaken(request.Name))
-                return BadRequest("Account name has already been taken.");
-        }
-
-        if (request.Email is not null)
-        {
-            if (await accounts.CheckEmailHasBeenUsed(request.Email))
-                return BadRequest("Email has already been used.");
-        }
-
-        if (request.AffiliationSpell is not null)
-        {
-            if (!await ars.CheckAffiliationSpellHasTaken(request.AffiliationSpell))
-                return BadRequest("No affiliation spell has been found.");
-        }
-
-        return Ok("Everything seems good.");
-    }
-
-    [HttpPost]
-    [ProducesResponseType<SnAccount>(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<SnAccount>> CreateAccount([FromBody] AccountCreateRequest request)
-    {
-        if (!await auth.ValidateCaptcha(request.CaptchaToken))
-            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
-            {
-                [nameof(request.CaptchaToken)] = ["Invalid captcha token."]
-            }, traceId: HttpContext.TraceIdentifier));
-
-        var ip = HttpContext.GetClientIpAddress();
-        if (ip is null) return BadRequest(ApiError.NotFound(request.Name, traceId: HttpContext.TraceIdentifier));
-        var region = geo.GetFromIp(ip)?.Country.IsoCode ?? "us";
-
-        try
-        {
-            var account = await accounts.CreateAccount(
-                request.Name,
-                request.Nick,
-                request.Email,
-                request.Password,
-                request.Language,
-                region
-            );
-            
-            als.CreateActionLogFromRequest(
-                "accounts.create",
-                new Dictionary<string, object>
-                {
-                    { "account_id", account.Id.ToString() },
-                    { "account_name", account.Name },
-                    { "region", region }
-                },
-                Request,
-                account
-            );
-            
-            return Ok(account);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new ApiError
-            {
-                Code = "BAD_REQUEST",
-                Message = "Failed to create account.",
-                Detail = ex.Message,
-                Status = 400,
-                TraceId = HttpContext.TraceIdentifier
-            });
-        }
-    }
-
     public class RecoveryPasswordRequest
     {
         [Required] public string Account { get; set; } = null!;
@@ -164,7 +25,7 @@ public class AccountController(
         if (!await auth.ValidateCaptcha(request.CaptchaToken))
             return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
             {
-                [nameof(request.CaptchaToken)] = new[] { "Invalid captcha token." }
+                [nameof(request.CaptchaToken)] = ["Invalid captcha token."]
             }, traceId: HttpContext.TraceIdentifier));
 
         var account = await accounts.LookupAccount(request.Account);
@@ -211,7 +72,7 @@ public class AccountController(
     [HttpGet("{name}/statuses")]
     public async Task<ActionResult<SnAccountStatus>> GetOtherStatus(string name)
     {
-        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name == name);
+        var account = await accounts.LookupAccount(name);
         if (account is null)
             return BadRequest(new ApiError
             {
@@ -248,7 +109,7 @@ public class AccountController(
                 [nameof(year)] = new[] { "Year must be a positive integer." }
             }, traceId: HttpContext.TraceIdentifier));
 
-        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name == name);
+        var account = await accounts.LookupAccount(name);
         if (account is null)
             return BadRequest(new ApiError
             {
