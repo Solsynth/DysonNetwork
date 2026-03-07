@@ -17,7 +17,7 @@ WORKDIR /src
 
 # First copy only the solution and project files to restore packages
 COPY ["DysonNetwork.Sphere/DysonNetwork.Sphere.csproj", "DysonNetwork.Sphere/"]
-COPY ["DysonNetwork.Pass/DysonNetwork.Passport.csproj", "DysonNetwork.Pass/"]
+COPY ["DYsonNetwork.Passport/DysonNetwork.Passport.csproj", "DYsonNetwork.Passport/"]
 COPY ["DysonNetwork.Shared/DysonNetwork.Shared.csproj", "DysonNetwork.Shared/"]
 
 # Restore packages
@@ -28,7 +28,7 @@ COPY . .
 
 # Create necessary directories for localized resources
 RUN mkdir -p /src/DysonNetwork.Sphere/bin/Release/net10.0/zh-hans \
-    && mkdir -p /src/DysonNetwork.Pass/bin/Release/net10.0/zh-hans
+    && mkdir -p /src/DYsonNetwork.Passport/bin/Release/net10.0/zh-hans
 
 # Build the application
 WORKDIR "/src/DysonNetwork.Sphere"
