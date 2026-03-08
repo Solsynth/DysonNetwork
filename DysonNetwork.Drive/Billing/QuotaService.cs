@@ -13,13 +13,22 @@ public class QuotaService(
     ICacheService cache
 )
 {
+    private static readonly TimeSpan BillableUsageCacheDuration = TimeSpan.FromSeconds(15);
+
     public async Task<(bool ok, long billable, long quota)> IsFileAcceptable(Guid accountId, double costMultiplier, long newFileSize)
     {
         // The billable unit is MiB
         var billableUnit = (long)Math.Ceiling(newFileSize / 1024.0 / 1024.0 * costMultiplier);
-        var totalBillableUsage = await usage.GetTotalBillableUsage(accountId);
+        var usageCacheKey = $"file:usage:billable:{accountId}";
+        var totalBillableUsage = await cache.GetAsync<long?>(usageCacheKey);
+        if (!totalBillableUsage.HasValue)
+        {
+            totalBillableUsage = await usage.GetTotalBillableUsage(accountId);
+            await cache.SetAsync(usageCacheKey, totalBillableUsage.Value, BillableUsageCacheDuration);
+        }
+
         var quota = await GetQuota(accountId);
-        return (totalBillableUsage + billableUnit <= quota, billableUnit, quota);
+        return (totalBillableUsage.Value + billableUnit <= quota, billableUnit, quota);
     }
 
     public async Task<long> GetQuota(Guid accountId)

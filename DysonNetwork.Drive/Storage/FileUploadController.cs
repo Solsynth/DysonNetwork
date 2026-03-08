@@ -36,6 +36,7 @@ public class FileUploadController(
         configuration.GetValue<string>("Storage:Uploads") ?? Path.Combine(Path.GetTempPath(), "multipart-uploads");
 
     private const long DefaultChunkSize = 1024 * 1024 * 5; // 5MB
+    private const long DirectUploadMaxSize = 1024 * 1024 * 20; // 20MB
 
     [HttpPost("create")]
     public async Task<IActionResult> CreateUploadTask([FromBody] CreateUploadTaskRequest request)
@@ -111,6 +112,130 @@ public class FileUploadController(
             ChunkSize = persistentTask.ChunkSize,
             ChunksCount = persistentTask.ChunksCount
         });
+    }
+
+    public class DirectUploadRequest
+    {
+        [Required] public IFormFile File { get; set; } = null!;
+        public Guid? PoolId { get; set; }
+        public Guid? BundleId { get; set; }
+        public string? ContentType { get; set; }
+        public string? EncryptionScheme { get; set; }
+        public string? EncryptionHeader { get; set; }
+        public string? EncryptionSignature { get; set; }
+        public DateTimeOffset? ExpiredAt { get; set; }
+        public string? Path { get; set; }
+    }
+
+    [HttpPost("direct")]
+    [RequestSizeLimit(DirectUploadMaxSize + 1024 * 1024)] // 21MB to be safe
+    [RequestFormLimits(MultipartBodyLengthLimit = DirectUploadMaxSize + 1024 * 1024)]
+    public async Task<IActionResult> DirectUpload([FromForm] DirectUploadRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return new ObjectResult(ApiError.Unauthorized()) { StatusCode = 401 };
+
+        if (request.File.Length <= 0)
+            return new ObjectResult(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                { "file", ["File is required"] }
+            })) { StatusCode = 400 };
+
+        if (request.File.Length > DirectUploadMaxSize)
+            return new ObjectResult(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                { "file", [$"File is too large for direct upload, max size is {DirectUploadMaxSize / 1024 / 1024}MB"] }
+            })) { StatusCode = 400 };
+
+        var permissionCheck = await ValidateUserPermissions(currentUser);
+        if (permissionCheck is not null) return permissionCheck;
+
+        request.PoolId ??= Guid.Parse(configuration["Storage:PreferredRemote"]!);
+
+        var pool = await fileService.GetPoolAsync(request.PoolId.Value);
+        if (pool is null)
+            return new ObjectResult(ApiError.NotFound("Pool")) { StatusCode = 404 };
+
+        var poolValidation = await ValidatePoolAccess(currentUser, pool, new CreateUploadTaskRequest
+        {
+            PoolId = request.PoolId,
+            BundleId = request.BundleId,
+            EncryptionScheme = request.EncryptionScheme,
+            EncryptionHeader = request.EncryptionHeader,
+            EncryptionSignature = request.EncryptionSignature,
+            ContentType = request.ContentType ?? request.File.ContentType ?? "application/octet-stream",
+            FileSize = request.File.Length,
+            FileName = request.File.FileName,
+            Hash = string.Empty,
+            Path = request.Path
+        });
+        if (poolValidation is not null) return poolValidation;
+
+        var policyValidation = ValidatePoolPolicy(pool.PolicyConfig, new CreateUploadTaskRequest
+        {
+            PoolId = request.PoolId,
+            BundleId = request.BundleId,
+            EncryptionScheme = request.EncryptionScheme,
+            EncryptionHeader = request.EncryptionHeader,
+            EncryptionSignature = request.EncryptionSignature,
+            ContentType = request.ContentType ?? request.File.ContentType ?? "application/octet-stream",
+            FileSize = request.File.Length,
+            FileName = request.File.FileName,
+            Hash = string.Empty,
+            Path = request.Path
+        });
+        if (policyValidation is not null) return policyValidation;
+
+        var quotaValidation = await ValidateQuota(currentUser, pool, request.File.Length);
+        if (quotaValidation is not null) return quotaValidation;
+
+        EnsureTempDirectoryExists();
+        var taskId = await Nanoid.GenerateAsync();
+        var tempFilePath = Path.Combine(_tempPath, $"{taskId}.direct");
+
+        try
+        {
+            await using (var fileStream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write))
+            {
+                await request.File.CopyToAsync(fileStream);
+            }
+
+            var fileId = await Nanoid.GenerateAsync();
+            var cloudFile = await fileService.ProcessNewFileAsync(
+                currentUser,
+                fileId,
+                request.PoolId.Value.ToString(),
+                request.BundleId?.ToString(),
+                tempFilePath,
+                request.File.FileName,
+                request.ContentType ?? request.File.ContentType,
+                request.EncryptionScheme,
+                request.EncryptionHeader,
+                request.EncryptionSignature,
+                request.ExpiredAt.HasValue ? Instant.FromDateTimeOffset(request.ExpiredAt.Value) : null
+            );
+
+            if (!string.IsNullOrEmpty(request.Path))
+            {
+                try
+                {
+                    var accountId = Guid.Parse(currentUser.Id);
+                    await fileIndexService.CreateAsync(request.Path, fileId, accountId);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to create file index for direct upload file {FileId} at path {Path}",
+                        fileId, request.Path);
+                }
+            }
+
+            return Ok(cloudFile);
+        }
+        finally
+        {
+            if (System.IO.File.Exists(tempFilePath))
+                System.IO.File.Delete(tempFilePath);
+        }
     }
 
     private async Task<IActionResult?> ValidateUserPermissions(DyAccount currentUser)

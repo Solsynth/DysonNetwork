@@ -185,7 +185,22 @@ public class FileService(
     )
     {
         var managedTempPath = Path.Combine(Path.GetTempPath(), fileId);
-        File.Copy(filePath, managedTempPath, true);
+
+        if (!string.Equals(filePath, managedTempPath, StringComparison.Ordinal))
+        {
+            if (File.Exists(managedTempPath))
+                File.Delete(managedTempPath);
+
+            try
+            {
+                File.Move(filePath, managedTempPath);
+            }
+            catch (IOException)
+            {
+                // Fallback for cross-device moves.
+                File.Copy(filePath, managedTempPath, true);
+            }
+        }
 
         var fileInfo = new FileInfo(managedTempPath);
         var fileSize = fileInfo.Length;
