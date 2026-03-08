@@ -220,6 +220,16 @@ public class AuthService(
                 json = await response.Content.ReadAsStringAsync();
                 result = JsonSerializer.Deserialize<CaptchaVerificationResponse>(json, options: jsonOpts);
                 return result?.Success == true;
+            case "hcaptcha":
+                content = new StringContent($"secret={apiSecret}&response={token}", System.Text.Encoding.UTF8,
+                    "application/x-www-form-urlencoded");
+                response = await client.PostAsync("https://hcaptcha.com/siteverify", content);
+                response.EnsureSuccessStatusCode();
+
+                json = await response.Content.ReadAsStringAsync();
+                result = JsonSerializer.Deserialize<CaptchaVerificationResponse>(json, options: jsonOpts);
+
+                return result?.Success == true;
             default:
                 throw new ArgumentException("The server misconfigured for the captcha.");
         }
