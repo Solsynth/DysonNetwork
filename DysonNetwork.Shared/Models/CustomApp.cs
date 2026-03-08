@@ -16,6 +16,12 @@ public enum CustomAppStatus
     Suspended
 }
 
+public enum CustomAppSecretType
+{
+    Oidc,
+    AppConnect
+}
+
 public class SnCustomApp : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -144,7 +150,14 @@ public class SnCustomAppSecret : ModelBase
     [MaxLength(1024)] public string Secret { get; set; } = null!;
     [MaxLength(4096)] public string? Description { get; set; } = null!;
     public Instant? ExpiredAt { get; set; }
-    public bool IsOidc { get; set; } = false; // Indicates if this secret is for OIDC/OAuth
+    [NotMapped]
+    public CustomAppSecretType Type
+    {
+        get => IsOidc ? CustomAppSecretType.Oidc : CustomAppSecretType.AppConnect;
+        set => IsOidc = value == CustomAppSecretType.Oidc;
+    }
+
+    public bool IsOidc { get; set; } = false;
 
     public Guid AppId { get; set; }
     public SnCustomApp App { get; set; } = null!;
@@ -158,7 +171,7 @@ public class SnCustomAppSecret : ModelBase
             Secret = p.Secret,
             Description = p.Description,
             ExpiredAt = p.ExpiredAt?.ToInstant(),
-            IsOidc = p.IsOidc,
+            Type = p.IsOidc ? CustomAppSecretType.Oidc : CustomAppSecretType.AppConnect,
             AppId = Guid.Parse(p.AppId),
         };
     }
@@ -171,7 +184,7 @@ public class SnCustomAppSecret : ModelBase
             Secret = Secret,
             Description = Description,
             ExpiredAt = ExpiredAt?.ToTimestamp(),
-            IsOidc = IsOidc,
+            IsOidc = Type == CustomAppSecretType.Oidc,
             AppId = Id.ToString(),
         };
     }

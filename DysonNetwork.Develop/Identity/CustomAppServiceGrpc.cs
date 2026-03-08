@@ -60,7 +60,13 @@ public class CustomAppServiceGrpc(AppDatabase db) : DyCustomAppService.DyCustomA
         }
 
         if (request.HasIsOidc)
-            q = q.Where(s => s.IsOidc == request.IsOidc);
+        {
+            var requestedType = request.IsOidc
+                ? CustomAppSecretType.Oidc
+                : CustomAppSecretType.AppConnect;
+            var isOidc = requestedType == CustomAppSecretType.Oidc;
+            q = q.Where(s => s.IsOidc == isOidc);
+        }
 
         var now = NodaTime.SystemClock.Instance.GetCurrentInstant();
         var exists = await q.AnyAsync(s => s.Secret == request.Secret && (s.ExpiredAt == null || s.ExpiredAt > now));

@@ -128,11 +128,85 @@ public class CustomAppService(
         existingSecret.Secret = GenerateRandomSecret();
         existingSecret.Description = secretUpdate.Description ?? existingSecret.Description;
         existingSecret.ExpiredAt = secretUpdate.ExpiredAt ?? existingSecret.ExpiredAt;
-        existingSecret.IsOidc = secretUpdate.IsOidc;
+        existingSecret.Type = secretUpdate.Type;
         existingSecret.UpdatedAt = NodaTime.SystemClock.Instance.GetCurrentInstant();
 
         await db.SaveChangesAsync();
         return existingSecret;
+    }
+
+    public async Task<SnCustomAppSecret?> ValidateAppConnectChallengeSignatureAsync(
+        Guid appId,
+        string challenge,
+        string signature,
+        Guid? secretId = null
+    )
+    {
+        if (string.IsNullOrWhiteSpace(challenge) || string.IsNullOrWhiteSpace(signature))
+            return null;
+        if (!TryDecodeSignature(signature, out var providedSignature))
+            return null;
+
+        var now = NodaTime.SystemClock.Instance.GetCurrentInstant();
+        var query = db.CustomAppSecrets
+            .Where(s =>
+                s.AppId == appId &&
+                !s.IsOidc &&
+                (s.ExpiredAt == null || s.ExpiredAt > now));
+
+        if (secretId.HasValue)
+            query = query.Where(s => s.Id == secretId.Value);
+
+        var candidateSecrets = await query.ToListAsync();
+        if (candidateSecrets.Count == 0) return null;
+
+        var challengeBytes = Encoding.UTF8.GetBytes(challenge);
+
+        foreach (var candidate in candidateSecrets)
+        {
+            var keyBytes = Encoding.UTF8.GetBytes(candidate.Secret);
+            var expectedSignature = HMACSHA256.HashData(keyBytes, challengeBytes);
+            if (CryptographicOperations.FixedTimeEquals(expectedSignature, providedSignature))
+                return candidate;
+        }
+
+        return null;
+    }
+
+    private static bool TryDecodeSignature(string signature, out byte[] bytes)
+    {
+        bytes = [];
+        if (string.IsNullOrWhiteSpace(signature))
+            return false;
+
+        // base64url -> base64
+        var normalized = signature.Replace('-', '+').Replace('_', '/');
+        var remainder = normalized.Length % 4;
+        if (remainder > 0)
+            normalized = normalized.PadRight(normalized.Length + (4 - remainder), '=');
+
+        try
+        {
+            bytes = Convert.FromBase64String(normalized);
+            if (bytes.Length > 0) return true;
+        }
+        catch (FormatException)
+        {
+            // fall through to hex decode
+        }
+
+        // hex fallback (supports optional 0x prefix)
+        var hex = signature.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? signature[2..] : signature;
+        if (hex.Length % 2 != 0) return false;
+        try
+        {
+            bytes = Convert.FromHexString(hex);
+            return bytes.Length > 0;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 
     private static string GenerateRandomSecret(int length = 64)

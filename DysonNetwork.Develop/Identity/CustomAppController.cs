@@ -27,7 +27,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
     public record CreateSecretRequest(
         [MaxLength(4096)] string? Description,
         TimeSpan? ExpiresIn = null,
-        bool IsOidc = false
+        CustomAppSecretType Type = CustomAppSecretType.AppConnect
     );
 
     public record SecretResponse(
@@ -35,9 +35,20 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         string? Secret,
         string? Description,
         Instant? ExpiresAt,
-        bool IsOidc,
+        CustomAppSecretType Type,
         Instant CreatedAt,
         Instant UpdatedAt
+    );
+
+    public record ValidateAppConnectChallengeRequest(
+        [MaxLength(8192)] string Challenge,
+        [MaxLength(8192)] string Signature,
+        string? SecretId = null
+    );
+
+    public record ValidateAppConnectChallengeResponse(
+        bool Valid,
+        string? SecretId
     );
 
     [HttpGet]
@@ -230,7 +241,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
             null,
             s.Description,
             s.ExpiredAt,
-            s.IsOidc,
+            s.Type,
             s.CreatedAt,
             s.UpdatedAt
         )));
@@ -272,7 +283,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
                     ? NodaTime.SystemClock.Instance.GetCurrentInstant()
                         .Plus(Duration.FromTimeSpan(request.ExpiresIn.Value))
                     : (NodaTime.Instant?)null,
-                IsOidc = request.IsOidc
+                Type = request.Type
             });
 
             return CreatedAtAction(
@@ -283,7 +294,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
                     secret.Secret,
                     secret.Description,
                     secret.ExpiredAt,
-                    secret.IsOidc,
+                    secret.Type,
                     secret.CreatedAt,
                     secret.UpdatedAt
                 )
@@ -330,7 +341,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
             null,
             secret.Description,
             secret.ExpiredAt,
-            secret.IsOidc,
+            secret.Type,
             secret.CreatedAt,
             secret.UpdatedAt
         ));
@@ -411,7 +422,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
                     ? NodaTime.SystemClock.Instance.GetCurrentInstant()
                         .Plus(Duration.FromTimeSpan(request.ExpiresIn.Value))
                     : (NodaTime.Instant?)null,
-                IsOidc = request?.IsOidc ?? false
+                Type = request?.Type ?? CustomAppSecretType.AppConnect
             });
 
             return Ok(new SecretResponse(
@@ -419,7 +430,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
                 secret.Secret,
                 secret.Description,
                 secret.ExpiredAt,
-                secret.IsOidc,
+                secret.Type,
                 secret.CreatedAt,
                 secret.UpdatedAt
             ));
@@ -428,5 +439,49 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         {
             return BadRequest(ex.Message);
         }
+    }
+
+    [HttpPost("{appId:guid}/app-connect/validate-challenge")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ValidateAppConnectChallenge(
+        [FromRoute] string pubName,
+        [FromRoute] Guid projectId,
+        [FromRoute] Guid appId,
+        [FromBody] ValidateAppConnectChallengeRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Challenge) || string.IsNullOrWhiteSpace(request.Signature))
+            return BadRequest("Challenge and signature are required.");
+
+        var developer = await ds.GetDeveloperByName(pubName);
+        if (developer is null)
+            return NotFound("Developer not found");
+
+        var project = await projectService.GetProjectAsync(projectId, developer.Id);
+        if (project is null)
+            return NotFound("Project not found");
+
+        var app = await customApps.GetAppAsync(appId, projectId);
+        if (app is null)
+            return NotFound("App not found");
+
+        Guid? secretId = null;
+        if (!string.IsNullOrWhiteSpace(request.SecretId))
+        {
+            if (!Guid.TryParse(request.SecretId, out var parsedSecretId))
+                return BadRequest("Invalid secret id.");
+            secretId = parsedSecretId;
+        }
+
+        var matchedSecret = await customApps.ValidateAppConnectChallengeSignatureAsync(
+            appId,
+            request.Challenge,
+            request.Signature,
+            secretId
+        );
+
+        return Ok(new ValidateAppConnectChallengeResponse(
+            matchedSecret is not null,
+            matchedSecret?.Id.ToString()
+        ));
     }
 }
