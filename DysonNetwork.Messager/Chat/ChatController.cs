@@ -388,9 +388,7 @@ public partial class ChatController(
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (!string.IsNullOrWhiteSpace(request.Content) ||
                 request.FundId.HasValue ||
-                request.PollId.HasValue ||
-                request.RepliedMessageId.HasValue ||
-                request.ForwardedMessageId.HasValue)
+                request.PollId.HasValue)
                 return E2EeError("chat.e2ee_plaintext_forbidden", "Plaintext fields are forbidden for E2EE rooms.");
         }
         else
@@ -515,8 +513,8 @@ public partial class ChatController(
             }
         }
 
-        // Validate reply and forward message IDs exist
-        if (!e2eeMode && request.RepliedMessageId.HasValue)
+        // Validate reply and forward message IDs exist (allowed in E2EE for plaintext metadata references)
+        if (request.RepliedMessageId.HasValue)
         {
             var repliedMessage = await db.ChatMessages
                 .FirstOrDefaultAsync(m => m.Id == request.RepliedMessageId.Value && m.ChatRoomId == roomId);
@@ -526,7 +524,7 @@ public partial class ChatController(
             message.RepliedMessageId = repliedMessage.Id;
         }
 
-        if (!e2eeMode && request.ForwardedMessageId.HasValue)
+        if (request.ForwardedMessageId.HasValue)
         {
             var forwardedMessage = await db.ChatMessages
                 .FirstOrDefaultAsync(m => m.Id == request.ForwardedMessageId.Value);
@@ -703,9 +701,7 @@ public partial class ChatController(
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (!string.IsNullOrWhiteSpace(request.Content) ||
                 request.FundId.HasValue ||
-                request.PollId.HasValue ||
-                request.RepliedMessageId.HasValue ||
-                request.ForwardedMessageId.HasValue)
+                request.PollId.HasValue)
                 return E2EeError("chat.e2ee_plaintext_forbidden", "Plaintext fields are forbidden for E2EE rooms.");
         }
         else

@@ -439,9 +439,7 @@ public static class ServiceCollectionExtensions
 
                 if (!string.IsNullOrWhiteSpace(requestData.Content) ||
                     requestData.FundId.HasValue ||
-                    requestData.PollId.HasValue ||
-                    requestData.RepliedMessageId.HasValue ||
-                    requestData.ForwardedMessageId.HasValue)
+                    requestData.PollId.HasValue)
                 {
                     await SendErrorResponse(evt, "Plaintext fields are forbidden for E2EE rooms.", ws);
                     return;
@@ -578,7 +576,7 @@ public static class ServiceCollectionExtensions
                 }
             }
 
-            if (!e2eeMode && requestData.RepliedMessageId.HasValue)
+            if (requestData.RepliedMessageId.HasValue)
             {
                 var repliedMessage = await db.ChatMessages
                     .FirstOrDefaultAsync(m =>
@@ -592,7 +590,7 @@ public static class ServiceCollectionExtensions
                 message.RepliedMessageId = repliedMessage.Id;
             }
 
-            if (!e2eeMode && requestData.ForwardedMessageId.HasValue)
+            if (requestData.ForwardedMessageId.HasValue)
             {
                 var forwardedMessage = await db.ChatMessages
                     .FirstOrDefaultAsync(m => m.Id == requestData.ForwardedMessageId.Value);
