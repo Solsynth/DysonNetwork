@@ -104,7 +104,7 @@ public class ThoughtController(
             // Route to appropriate bot
             "michan" => await ThinkWithMiChanAsync(request, currentUser, accountId),
             "snchan" => await ThinkWithSnChanAsync(request, currentUser, accountId),
-            _ => BadRequest($"Invalid bot. Available bots: {string.Join(", ", AvailableBots)}" )
+            _ => BadRequest($"Invalid bot. Available bots: {string.Join(", ", AvailableBots)}")
         };
     }
 
@@ -333,9 +333,7 @@ public class ThoughtController(
             return BadRequest("Service not found or configured.");
 
         if (serviceInfo.PerkLevel > 0 && !currentUser.IsSuperuser)
-            if (currentUser.PerkSubscription is null ||
-                PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(currentUser.PerkSubscription.Identifier) <
-                serviceInfo.PerkLevel)
+            if (currentUser.PerkLevel < serviceInfo.PerkLevel)
                 return StatusCode(403, "Not enough perk level");
 
         string? topic = null;

@@ -277,6 +277,9 @@ public class AccountServiceGrpc(
                     case "social_credits":
                         profile.SocialCredits = incoming.SocialCredits;
                         break;
+                    case "last_seen_at":
+                        profile.LastSeenAt = incoming.LastSeenAt;
+                        break;
                 }
             }
         }
@@ -467,6 +470,7 @@ public class AccountServiceGrpc(
         profile.Links = incoming.Links;
         profile.Experience = incoming.Experience;
         profile.SocialCredits = incoming.SocialCredits;
+        profile.LastSeenAt = incoming.LastSeenAt;
     }
 
     private async Task<List<SnAccount>> HydrateAccountsAsync(

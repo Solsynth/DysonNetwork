@@ -71,7 +71,7 @@ public class BundleController(AppDatabase db) : ControllerBase
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        if (currentUser.PerkSubscription is null && !string.IsNullOrEmpty(request.Slug))
+        if (currentUser.PerkLevel == 0 && !string.IsNullOrEmpty(request.Slug))
             return StatusCode(403, "You must have a subscription to create a bundle with a custom slug");
         if (string.IsNullOrEmpty(request.Slug))
             request.Slug = Guid.NewGuid().ToString("N")[..6];

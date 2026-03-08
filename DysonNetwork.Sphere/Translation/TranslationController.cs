@@ -29,7 +29,7 @@ public class TranslationController(ITranslationProvider provider, ICacheService 
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-        if (currentUser.PerkSubscription is null)
+        if (currentUser.PerkLevel == 0)
             return StatusCode(403, "You need a subscription to use this feature.");
 
         // Generate cache key

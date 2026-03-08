@@ -3,6 +3,7 @@ using System.Reflection;
 using DysonNetwork.Padlock.Auth;
 using DysonNetwork.Padlock.Auth.OpenId;
 using DysonNetwork.Padlock.Account;
+using DysonNetwork.Padlock.Handlers;
 using DysonNetwork.Padlock.Permission;
 using DysonNetwork.Padlock.Localization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -19,7 +20,9 @@ using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Queue;
+using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.Templating;
+using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Padlock.Startup;
 
@@ -115,6 +118,8 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppFlushHandlers(this IServiceCollection services)
     {
         services.AddSingleton<FlushBufferService>();
+        services.AddScoped<LastActiveFlushHandler>();
+        services.AddHostedService<LastActiveFlushBackgroundService>();
 
         return services;
     }
@@ -146,6 +151,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<E2EeService>();
         services.AddScoped<IE2eeModule>(sp => sp.GetRequiredService<E2EeService>());
         services.AddScoped<IGroupE2eeModule>(sp => sp.GetRequiredService<E2EeService>());
+        services.AddGrpcClientWithSharedChannel<DyProfileService.DyProfileServiceClient>(
+            "https://_grpc.passport",
+            "DyProfileService");
 
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();
