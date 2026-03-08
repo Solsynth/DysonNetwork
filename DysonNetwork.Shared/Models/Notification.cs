@@ -22,7 +22,8 @@ public class SnNotification : ModelBase
 public enum PushProvider
 {
     Apple,
-    Google
+    Google,
+    Sop
 }
 
 [Index(nameof(AccountId), nameof(DeviceId), nameof(DeletedAt), IsUnique = true)]

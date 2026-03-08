@@ -9,12 +9,15 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using System.Collections.Concurrent;
+using System.Threading.Channels;
 using WebSocketPacket = DysonNetwork.Shared.Models.WebSocketPacket;
 
 namespace DysonNetwork.Ring.Notification;
 
 public class PushService
 {
+    private static readonly ConcurrentDictionary<Guid, ConcurrentDictionary<Guid, Channel<SnNotification>>> SopStreams = new();
     private readonly AppDatabase _db;
     private readonly QueueService _queueService;
     private readonly ILogger<PushService> _logger;
@@ -116,6 +119,42 @@ public class PushService
         return subscription;
     }
 
+    public async Task<(string Token, SnNotificationPushSubscription Subscription)> RegisterSopToken(
+        string deviceId,
+        DyAccount account
+    )
+    {
+        var token = $"{Convert.ToHexString(Guid.NewGuid().ToByteArray()).ToLowerInvariant()}{Convert.ToHexString(Guid.NewGuid().ToByteArray()).ToLowerInvariant()}";
+        var subscription = await SubscribeDevice(deviceId, token, PushProvider.Sop, account);
+        return (token, subscription);
+    }
+
+    public async Task<SnNotificationPushSubscription?> GetSopSubscriptionByToken(string token)
+    {
+        return await _db.PushSubscriptions
+            .Where(s => s.Provider == PushProvider.Sop)
+            .Where(s => s.DeviceToken == token)
+            .FirstOrDefaultAsync();
+    }
+
+    public (Guid StreamId, ChannelReader<SnNotification> Reader) SubscribeSopStream(Guid accountId)
+    {
+        var accountStreams = SopStreams.GetOrAdd(accountId, _ => new ConcurrentDictionary<Guid, Channel<SnNotification>>());
+        var streamId = Guid.NewGuid();
+        var channel = Channel.CreateUnbounded<SnNotification>();
+        accountStreams[streamId] = channel;
+        return (streamId, channel.Reader);
+    }
+
+    public void UnsubscribeSopStream(Guid accountId, Guid streamId)
+    {
+        if (!SopStreams.TryGetValue(accountId, out var accountStreams)) return;
+        if (accountStreams.TryRemove(streamId, out var channel))
+            channel.Writer.TryComplete();
+        if (accountStreams.IsEmpty)
+            SopStreams.TryRemove(accountId, out _);
+    }
+
     public async Task SendNotification(DyAccount account,
         string topic,
         string? title = null,
@@ -156,6 +195,7 @@ public class PushService
     public async Task DeliverPushNotification(SnNotification notification,
         CancellationToken cancellationToken = default)
     {
+        BroadcastSopStream(notification);
         await _ws.PushWebSocketPacket(
             notification.AccountId.ToString(),
             "notifications.new",
@@ -260,6 +300,7 @@ public class PushService
         foreach (var account in accounts)
         {
             notification.AccountId = account;
+            BroadcastSopStream(notification);
 
             // WebSocket
             await _ws.PushWebSocketPacket(
@@ -370,6 +411,10 @@ public class PushService
 
                     break;
 
+                case PushProvider.Sop:
+                    // SOP delivers via Ring APIs (list + SSE stream), no provider push is needed here.
+                    break;
+
                 default:
                     throw new InvalidOperationException($"Push provider not supported: {subscription.Provider}");
             }
@@ -383,6 +428,13 @@ public class PushService
 
         _logger.LogInformation(
             $"Successfully pushed notification #{notification.Id} to device {subscription.DeviceId} provider {subscription.Provider}");
+    }
+
+    private static void BroadcastSopStream(SnNotification notification)
+    {
+        if (!SopStreams.TryGetValue(notification.AccountId, out var accountStreams)) return;
+        foreach (var stream in accountStreams.Values)
+            stream.Writer.TryWrite(notification);
     }
 
     public async Task SaveNotification(SnNotification notification)
