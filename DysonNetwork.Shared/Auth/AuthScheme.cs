@@ -48,7 +48,7 @@ public class DysonTokenAuthHandler(
         var tokenInfo = ExtractToken(Request, config);
         if (tokenInfo == null || string.IsNullOrEmpty(tokenInfo.Token))
         {
-            Logger.LogWarning(
+            Logger.LogDebug(
                 "Auth failed: no token extracted. path={Path} authHeaderPresent={AuthPresent} xForwardedAuthPresent={FwdPresent} xOriginalAuthPresent={OrigPresent}",
                 Request.Path,
                 Request.Headers.ContainsKey("Authorization"),
@@ -96,7 +96,7 @@ public class DysonTokenAuthHandler(
 
             if (!ShouldUseLegacyFallback(config))
             {
-                Logger.LogWarning("Auth failed: local JWT validation failed and legacy fallback disabled. path={Path} reason={Reason}",
+                Logger.LogInformation("Auth failed: local JWT validation failed and legacy fallback disabled. path={Path} reason={Reason}",
                     Request.Path, failMessage ?? "unknown");
                 return AuthenticateResult.Fail(failMessage ?? "Token validation failed.");
             }
@@ -109,12 +109,12 @@ public class DysonTokenAuthHandler(
             }
             catch (InvalidOperationException ex)
             {
-                Logger.LogWarning("Auth failed via gRPC fallback. path={Path} reason={Reason}", Request.Path, ex.Message);
+                Logger.LogInformation("Auth failed via gRPC fallback. path={Path} reason={Reason}", Request.Path, ex.Message);
                 return AuthenticateResult.Fail(ex.Message);
             }
             catch (RpcException ex)
             {
-                Logger.LogWarning("Auth failed via gRPC fallback rpc. path={Path} code={Code} detail={Detail}",
+                Logger.LogInformation("Auth failed via gRPC fallback rpc. path={Path} code={Code} detail={Detail}",
                     Request.Path, ex.Status.StatusCode, ex.Status.Detail);
                 return AuthenticateResult.Fail($"Remote error: {ex.Status.StatusCode} - {ex.Status.Detail}");
             }

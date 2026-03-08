@@ -25,7 +25,7 @@ public class TokenAuthService(
         {
             if (string.IsNullOrWhiteSpace(token))
             {
-                logger.LogWarning("AuthenticateTokenAsync: no token provided");
+                logger.LogDebug("AuthenticateTokenAsync: no token provided");
                 return (false, null, "No token provided.", null);
             }
 
@@ -48,7 +48,7 @@ public class TokenAuthService(
 
             if (!ValidateToken(token, out var sessionId, out var tokenUse))
             {
-                logger.LogWarning("AuthenticateTokenAsync: token validation failed (format={Format}, fp={TokenFp})", format, tokenFp);
+                logger.LogInformation("AuthenticateTokenAsync: token validation failed (format={Format}, fp={TokenFp})", format, tokenFp);
                 return (false, null, "Invalid token.", null);
             }
             if (string.Equals(tokenUse, "refresh", StringComparison.Ordinal))
@@ -64,7 +64,7 @@ public class TokenAuthService(
                 var nowHit = SystemClock.Instance.GetCurrentInstant();
                 if (session.ExpiredAt.HasValue && session.ExpiredAt < nowHit)
                 {
-                    logger.LogWarning("AuthenticateTokenAsync: cached session expired (sessionId={SessionId})", sessionId);
+                    logger.LogInformation("AuthenticateTokenAsync: cached session expired (sessionId={SessionId})", sessionId);
                     await cache.RemoveAsync(cacheKey);
                     return (false, null, "Session has been expired.", null);
                 }
@@ -88,14 +88,14 @@ public class TokenAuthService(
 
             if (session is null)
             {
-                logger.LogWarning("AuthenticateTokenAsync: session not found (sessionId={SessionId})", sessionId);
+                logger.LogInformation("AuthenticateTokenAsync: session not found (sessionId={SessionId})", sessionId);
                 return (false, null, "Session was not found.", null);
             }
 
             var now = SystemClock.Instance.GetCurrentInstant();
             if (session.ExpiredAt.HasValue && session.ExpiredAt < now)
             {
-                logger.LogWarning("AuthenticateTokenAsync: session expired (sessionId={SessionId}, expiredAt={ExpiredAt}, now={Now})", sessionId, session.ExpiredAt, now);
+                logger.LogInformation("AuthenticateTokenAsync: session expired (sessionId={SessionId}, expiredAt={ExpiredAt}, now={Now})", sessionId, session.ExpiredAt, now);
                 return (false, null, "Session has been expired.", null);
             }
 
