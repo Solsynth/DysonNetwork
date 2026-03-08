@@ -96,3 +96,7 @@ This keeps backward compatibility while allowing typed usage in service and REST
 - Database schema remains unchanged (`is_oidc` is still the stored field).
 - Model/API layer exposes typed `CustomAppSecretType`.
 - Existing OIDC integrations continue to work.
+
+## See also
+
+- `/Users/littlesheep/Documents/Projects/DysonNetwork/docs/auth/APP_CONNECT.md`
