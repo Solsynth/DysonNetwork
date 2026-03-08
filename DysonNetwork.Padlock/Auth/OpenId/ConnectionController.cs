@@ -142,9 +142,10 @@ public class ConnectionController(
         var callbackData = await ExtractCallbackData(Request);
         if (callbackData.State == null)
             return BadRequest("State parameter is missing.");
+        var stateToken = callbackData.State;
 
         // Get the state from the cache
-        var stateKey = $"{StateCachePrefix}{callbackData.State}";
+        var stateKey = $"{StateCachePrefix}{stateToken}";
 
         // Try to get the state as OidcState first (new format)
         var oidcState = await cache.GetAsync<OidcState>(stateKey);
@@ -155,12 +156,12 @@ public class ConnectionController(
             var stateValue = await cache.GetAsync<string>(stateKey);
             if (string.IsNullOrEmpty(stateValue) || !OidcState.TryParse(stateValue, out oidcState) || oidcState == null)
             {
-                logger.LogWarning("Invalid or expired OIDC state: {State}", callbackData.State);
+                logger.LogWarning("Invalid or expired OIDC state: {State}", stateToken);
                 return BadRequest("Invalid or expired state parameter");
             }
         }
         
-        logger.LogInformation("OIDC callback for provider {Provider} with state {State} and flow {FlowType}", provider, callbackData.State, oidcState.FlowType);
+        logger.LogInformation("OIDC callback for provider {Provider} with state {State} and flow {FlowType}", provider, stateToken, oidcState.FlowType);
 
         // Remove the state from cache to prevent replay attacks
         await cache.RemoveAsync(stateKey);
@@ -169,32 +170,41 @@ public class ConnectionController(
         if (oidcState is { FlowType: OidcFlowType.Connect, AccountId: not null })
         {
             // Connection flow
-            if (oidcState.DeviceId != null)
-            {
-                callbackData.State = oidcState.DeviceId;
-            }
-            
-            return await HandleManualConnection(provider, oidcService, callbackData, oidcState.AccountId.Value);
+            return await HandleManualConnection(
+                provider,
+                oidcService,
+                callbackData,
+                oidcState.AccountId.Value,
+                stateToken
+            );
         }
 
         if (oidcState.FlowType == OidcFlowType.Login)
         {
-            // Login/Registration flow
-            if (!string.IsNullOrEmpty(oidcState.DeviceId))
-                callbackData.State = oidcState.DeviceId;
-
             // Store return URL if provided
             if (string.IsNullOrEmpty(oidcState.ReturnUrl) || oidcState.ReturnUrl == "/")
             {
                 logger.LogInformation("No returnUrl provided in OIDC state, will use default.");
-                return await HandleLoginOrRegistration(provider, oidcService, callbackData);
+                return await HandleLoginOrRegistration(
+                    provider,
+                    oidcService,
+                    callbackData,
+                    oidcState.DeviceId,
+                    stateToken
+                );
             }
             
-            logger.LogInformation("Storing returnUrl {ReturnUrl} for state {State}", oidcState.ReturnUrl, callbackData.State);
-            var returnUrlKey = $"{ReturnUrlCachePrefix}{callbackData.State}";
+            logger.LogInformation("Storing returnUrl {ReturnUrl} for state {State}", oidcState.ReturnUrl, stateToken);
+            var returnUrlKey = $"{ReturnUrlCachePrefix}{stateToken}";
             await cache.SetAsync(returnUrlKey, oidcState.ReturnUrl, StateExpiration);
 
-            return await HandleLoginOrRegistration(provider, oidcService, callbackData);
+            return await HandleLoginOrRegistration(
+                provider,
+                oidcService,
+                callbackData,
+                oidcState.DeviceId,
+                stateToken
+            );
         }
 
         return BadRequest("Unsupported flow type");
@@ -204,7 +214,8 @@ public class ConnectionController(
         string provider,
         OidcService oidcService,
         OidcCallbackData callbackData,
-        Guid accountId
+        Guid accountId,
+        string stateToken
     )
     {
         provider = provider.ToLower();
@@ -224,9 +235,6 @@ public class ConnectionController(
         {
             return BadRequest($"{provider} did not return a valid user identifier.");
         }
-
-        // Extract device ID from the callback state if available
-        var deviceId = !string.IsNullOrEmpty(callbackData.State) ? callbackData.State : string.Empty;
 
         // Check if this provider account is already connected to any user
         var existingConnection = await db.AccountConnections
@@ -288,7 +296,7 @@ public class ConnectionController(
         }
 
         // Clean up and redirect
-        var returnUrlKey = $"{ReturnUrlCachePrefix}{callbackData.State}";
+        var returnUrlKey = $"{ReturnUrlCachePrefix}{stateToken}";
         var returnUrl = await cache.GetAsync<string>(returnUrlKey);
         await cache.RemoveAsync(returnUrlKey);
 
@@ -302,7 +310,9 @@ public class ConnectionController(
     private async Task<IActionResult> HandleLoginOrRegistration(
         string provider,
         OidcService oidcService,
-        OidcCallbackData callbackData
+        OidcCallbackData callbackData,
+        string? deviceId,
+        string stateToken
     )
     {
         OidcUserInfo userInfo;
@@ -322,7 +332,7 @@ public class ConnectionController(
         }
         
         // Retrieve and clean up the return URL
-        var returnUrlKey = $"{ReturnUrlCachePrefix}{callbackData.State}";
+        var returnUrlKey = $"{ReturnUrlCachePrefix}{stateToken}";
         var returnUrl = await cache.GetAsync<string>(returnUrlKey);
         await cache.RemoveAsync(returnUrlKey);
 
@@ -338,10 +348,6 @@ public class ConnectionController(
         if (connection != null)
         {
             // Login existing user
-            var deviceId = !string.IsNullOrEmpty(callbackData.State) ?
-                callbackData.State.Split('|').FirstOrDefault() :
-                string.Empty;
-
             if (HttpContext.Items["CurrentSession"] is not SnAuthSession parentSession) parentSession = null;
             
             var session = await oidcService.CreateSessionForUserAsync(
@@ -377,7 +383,16 @@ public class ConnectionController(
 
         await db.SaveChangesAsync();
 
-        var loginSession = await auth.CreateSessionForOidcAsync(account, clock.GetCurrentInstant());
+        if (HttpContext.Items["CurrentSession"] is not SnAuthSession registrationParentSession) registrationParentSession = null;
+
+        var loginSession = await oidcService.CreateSessionForUserAsync(
+            userInfo,
+            account,
+            HttpContext,
+            deviceId ?? string.Empty,
+            null,
+            ClientPlatform.Web,
+            registrationParentSession);
         var loginToken = await auth.CreateToken(loginSession);
 
         var finalRedirectUrl = QueryHelpers.AddQueryString(redirectBaseUrl, "token", loginToken);

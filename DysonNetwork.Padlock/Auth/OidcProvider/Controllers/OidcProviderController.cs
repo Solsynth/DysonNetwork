@@ -278,14 +278,51 @@ public class OidcProviderController(
     }
 
     [HttpGet("userinfo")]
-    [Authorize]
     public async Task<IActionResult> GetUserInfo()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
+        var bearer = Request.Headers.Authorization.ToString();
+        if (string.IsNullOrWhiteSpace(bearer) || !bearer.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            Response.Headers.WWWAuthenticate = "Bearer";
+            return Unauthorized();
+        }
+
+        var token = bearer["Bearer ".Length..].Trim();
+        var (isValid, jwt) = oidcService.ValidateToken(token);
+        if (!isValid || jwt is null)
+        {
+            Response.Headers.WWWAuthenticate = "Bearer error=\"invalid_token\"";
+            return Unauthorized();
+        }
+
+        var accountIdClaim = jwt.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
+        var sessionIdClaim = jwt.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
+        if (!Guid.TryParse(accountIdClaim, out var accountId) || !Guid.TryParse(sessionIdClaim, out var sessionId))
+        {
+            Response.Headers.WWWAuthenticate = "Bearer error=\"invalid_token\"";
+            return Unauthorized();
+        }
+
+        var currentSession = await oidcService.FindSessionByIdAsync(sessionId);
+        if (currentSession == null || currentSession.AccountId != accountId)
+        {
+            Response.Headers.WWWAuthenticate = "Bearer error=\"invalid_token\"";
+            return Unauthorized();
+        }
+
+        var currentUser = currentSession.Account;
+        if (currentUser == null)
+        {
+            Response.Headers.WWWAuthenticate = "Bearer error=\"invalid_token\"";
+            return Unauthorized();
+        }
 
         // Get requested scopes from the token
-        var scopes = currentSession.Scopes;
+        var scopes = jwt.Claims
+            .Where(c => c.Type == "scope")
+            .Select(c => c.Value)
+            .Distinct(StringComparer.Ordinal)
+            .ToHashSet(StringComparer.Ordinal);
 
         var userInfo = new Dictionary<string, object>
         {
