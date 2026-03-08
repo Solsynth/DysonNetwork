@@ -213,22 +213,10 @@ public static class ServiceCollectionExtensions
             })
             .AddListener<AccountCreatedEvent>(async (evt, ctx) =>
             {
-                var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
                 var spells = ctx.ServiceProvider.GetRequiredService<MagicSpellService>();
                 var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
                 
                 logger.LogInformation("Handling account creation event for @{UserName}", evt.Name);
-
-                var profileExists = await db.AccountProfiles
-                    .AnyAsync(p => p.AccountId == evt.AccountId, ctx.CancellationToken);
-                if (!profileExists)
-                {
-                    db.AccountProfiles.Add(new SnAccountProfile
-                    {
-                        AccountId = evt.AccountId
-                    });
-                    await db.SaveChangesAsync(ctx.CancellationToken);
-                }
 
                 if (evt.ActivatedAt is null && !string.IsNullOrWhiteSpace(evt.PrimaryEmail))
                 {

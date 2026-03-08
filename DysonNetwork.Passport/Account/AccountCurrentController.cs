@@ -453,19 +453,6 @@ public class AccountCurrentController(
         return Ok(logs);
     }
 
-    [HttpGet("factors")]
-    public async Task<ActionResult<List<SnAccountAuthFactor>>> GetAuthFactors()
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-
-        var factors = await db.Set<SnAccountAuthFactor>()
-            .Include(f => f.Account)
-            .Where(f => f.Account.Id == currentUser.Id)
-            .ToListAsync();
-
-        return Ok(factors);
-    }
-
     [HttpGet("badges")]
     [ProducesResponseType<List<SnAccountBadge>>(StatusCodes.Status200OK)]
     [Authorize]

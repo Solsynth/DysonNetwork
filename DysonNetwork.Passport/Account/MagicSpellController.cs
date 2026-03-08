@@ -40,8 +40,6 @@ public class MagicSpellController(AppDatabase db, MagicSpellService sp) : Contro
         var word = Uri.UnescapeDataString(spellWord);
         var spell = await db.MagicSpells
             .Where(x => x.Spell == word)
-            .Include(x => x.Account)
-            .ThenInclude(x => x.Profile)
             .FirstOrDefaultAsync();
         if (spell is null)
             return NotFound();
@@ -60,8 +58,6 @@ public class MagicSpellController(AppDatabase db, MagicSpellService sp) : Contro
         var word = Uri.UnescapeDataString(spellWord);
         var spell = await db.MagicSpells
             .Where(x => x.Spell == word)
-            .Include(x => x.Account)
-            .ThenInclude(x => x.Profile)
             .FirstOrDefaultAsync();
         if (spell is null)
             return NotFound();

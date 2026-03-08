@@ -36,9 +36,23 @@ public class AccountService(
 
     public async Task<List<SnAccount>> GetAllSuperusersAsync()
     {
-        return await db.Set<SnAccount>()
-            .Where(a => a.IsSuperuser)
+        var actorIds = await db.PermissionGroupMembers
+            .Include(m => m.Group)
+            .Where(m => m.Group.Key == "superuser" || m.Group.Key == "root")
+            .Select(m => m.Actor)
+            .Distinct()
             .ToListAsync();
+
+        var accountsList = new List<SnAccount>();
+        foreach (var actorId in actorIds)
+        {
+            if (!Guid.TryParse(actorId, out var accountId)) continue;
+            var account = await GetAccount(accountId);
+            if (account is not null)
+                accountsList.Add(account);
+        }
+
+        return accountsList;
     }
 
     public async Task<SnAccount?> GetAccount(Guid id)
@@ -76,11 +90,12 @@ public class AccountService(
 
     public async Task<SnAccount?> LookupAccountByConnection(string identifier, string provider)
     {
-        var connection = await db.Set<SnAccountConnection>()
-            .Where(c => c.ProvidedIdentifier == identifier && c.Provider == provider)
-            .Include(c => c.Account)
-            .FirstOrDefaultAsync();
-        return connection?.Account;
+        logger.LogWarning(
+            "LookupAccountByConnection in Passport is deprecated after Padlock split (provider={Provider}). Returning null.",
+            provider
+        );
+        await Task.CompletedTask;
+        return null;
     }
 
     public async Task<int?> GetAccountLevel(Guid accountId)
@@ -129,8 +144,21 @@ public class AccountService(
 
     public async Task<bool> CheckEmailHasBeenUsed(string email)
     {
-        return await db.Set<SnAccountContact>().AnyAsync(c =>
-            c.Type == AccountContactType.Email && EF.Functions.ILike(c.Content, email));
+        var candidates = (await accounts.SearchAccountAsync(new DySearchAccountRequest { Query = email })).Accounts;
+        foreach (var candidate in candidates)
+        {
+            if (!Guid.TryParse(candidate.Id, out var accountId)) continue;
+            var contacts = await accounts.ListContactsAsync(new DyListContactsRequest
+            {
+                AccountId = accountId.ToString(),
+                Type = DyAccountContactType.DyEmail,
+                VerifiedOnly = false
+            });
+            if (contacts.Contacts.Any(c => string.Equals(c.Content, email, StringComparison.OrdinalIgnoreCase)))
+                return true;
+        }
+
+        return false;
     }
 
     public async Task RequestAccountDeletion(SnAccount account)
