@@ -62,7 +62,8 @@ public class DysonTokenAuthHandler(
         {
             if (TryValidateJwtLocally(tokenInfo.Token, out var jwt, out var failMessage) && jwt != null)
             {
-                var tokenUse = jwt.Claims.FirstOrDefault(c => c.Type == "token_use")?.Value;
+                var tokenUse = jwt.Claims.FirstOrDefault(c => c.Type == "type")?.Value
+                               ?? jwt.Claims.FirstOrDefault(c => c.Type == "token_use")?.Value;
                 if (string.IsNullOrWhiteSpace(tokenUse))
                     tokenUse = tokenInfo.Type == TokenType.ApiKey ? "api_key" : "user";
                 if (tokenUse == "refresh")

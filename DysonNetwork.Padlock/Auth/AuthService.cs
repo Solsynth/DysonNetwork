@@ -423,7 +423,8 @@ public class AuthService(
         if (!isValid || jwt is null)
             throw new ArgumentException("Invalid refresh token.");
 
-        var tokenUse = jwt.Claims.FirstOrDefault(c => c.Type == "token_use")?.Value;
+        var tokenUse = jwt.Claims.FirstOrDefault(c => c.Type == AuthJwtService.ClaimType)?.Value
+                       ?? jwt.Claims.FirstOrDefault(c => c.Type == AuthJwtService.LegacyClaimTokenUse)?.Value;
         if (!string.Equals(tokenUse, "refresh", StringComparison.Ordinal))
             throw new ArgumentException("Invalid refresh token.");
 

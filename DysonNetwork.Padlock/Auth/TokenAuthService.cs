@@ -151,7 +151,9 @@ public class TokenAuthService(
                         var (isValid, jwtResult) = authJwt.ValidateJwt(token);
                         if (!isValid) return false;
                         var jti = jwtResult?.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
-                        tokenUse = jwtResult?.Claims.FirstOrDefault(c => c.Type == "token_use")?.Value ?? "user";
+                        tokenUse = jwtResult?.Claims.FirstOrDefault(c => c.Type == AuthJwtService.ClaimType)?.Value
+                                   ?? jwtResult?.Claims.FirstOrDefault(c => c.Type == AuthJwtService.LegacyClaimTokenUse)?.Value
+                                   ?? "user";
                         if (jti is null) return false;
                         return Guid.TryParse(jti, out sessionId);
                     }

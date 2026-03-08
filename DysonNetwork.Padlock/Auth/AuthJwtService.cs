@@ -9,6 +9,9 @@ namespace DysonNetwork.Padlock.Auth;
 
 public sealed class AuthJwtService(IConfiguration config)
 {
+    public const string ClaimType = "type";
+    public const string LegacyClaimTokenUse = "token_use";
+
     private readonly Lazy<RSA> _privateKey = new(() =>
     {
         var path = config["AuthToken:PrivateKeyPath"] ??
@@ -38,7 +41,11 @@ public sealed class AuthJwtService(IConfiguration config)
         SnAuthSession session,
         SnAccount account,
         int accountVersion,
-        Instant? expiresAtOverride = null
+        Instant? expiresAtOverride = null,
+        string? issuerOverride = null,
+        string? audienceOverride = null,
+        IEnumerable<string>? scopesOverride = null,
+        IEnumerable<Claim>? additionalClaims = null
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -49,7 +56,7 @@ public sealed class AuthJwtService(IConfiguration config)
             new(JwtRegisteredClaimNames.Sub, account.Id.ToString()),
             new(JwtRegisteredClaimNames.Jti, session.Id.ToString()),
             new("sid", session.Id.ToString()),
-            new("token_use", "user"),
+            new(ClaimType, "user"),
             new("ver", accountVersion.ToString()),
             new("is_superuser", account.IsSuperuser ? "1" : "0"),
             new("name", account.Name),
@@ -61,9 +68,11 @@ public sealed class AuthJwtService(IConfiguration config)
             claims.Add(new Claim("perk_identifier", account.PerkSubscription.Identifier));
         if (account.PerkSubscription is not null)
             claims.Add(new Claim("perk_subscription_id", account.PerkSubscription.Id.ToString()));
-        claims.AddRange(session.Scopes.Select(scope => new Claim("scope", scope)));
+        claims.AddRange((scopesOverride ?? session.Scopes).Distinct(StringComparer.Ordinal).Select(scope => new Claim("scope", scope)));
+        if (additionalClaims is not null)
+            claims.AddRange(additionalClaims);
 
-        return CreateJwt(claims, now, expiresAt);
+        return CreateJwt(claims, now, expiresAt, issuerOverride, audienceOverride);
     }
 
     public string CreateRefreshToken(SnAuthSession session, int accountVersion, Instant? expiresAtOverride = null)
@@ -76,7 +85,7 @@ public sealed class AuthJwtService(IConfiguration config)
             new(JwtRegisteredClaimNames.Sub, session.AccountId.ToString()),
             new(JwtRegisteredClaimNames.Jti, session.Id.ToString()),
             new("sid", session.Id.ToString()),
-            new("token_use", "refresh"),
+            new(ClaimType, "refresh"),
             new("ver", accountVersion.ToString())
         };
 
@@ -93,7 +102,7 @@ public sealed class AuthJwtService(IConfiguration config)
             new(JwtRegisteredClaimNames.Sub, key.AccountId.ToString()),
             new(JwtRegisteredClaimNames.Jti, session.Id.ToString()),
             new("sid", session.Id.ToString()),
-            new("token_use", "api_key"),
+            new(ClaimType, "api_key"),
             new("api_key_id", key.Id.ToString()),
             new("account_id", key.AccountId.ToString()),
             new("ver", accountVersion.ToString())
@@ -129,11 +138,19 @@ public sealed class AuthJwtService(IConfiguration config)
         }
     }
 
-    private string CreateJwt(IEnumerable<Claim> claims, Instant issuedAt, Instant expiresAt)
+    private string CreateJwt(
+        IEnumerable<Claim> claims,
+        Instant issuedAt,
+        Instant expiresAt,
+        string? issuerOverride = null,
+        string? audienceOverride = null
+    )
     {
+        var issuer = issuerOverride ?? Issuer;
+        var audience = audienceOverride ?? Audience;
         var token = new JwtSecurityToken(
-            issuer: Issuer,
-            audience: Audience,
+            issuer: issuer,
+            audience: audience,
             claims: claims,
             notBefore: issuedAt.ToDateTimeUtc(),
             expires: expiresAt.ToDateTimeUtc(),

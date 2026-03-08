@@ -285,7 +285,8 @@ public class OidcProviderService(
         if (!isValid || jwt is null)
             throw new InvalidOperationException("Invalid refresh token");
 
-        var tokenUse = jwt.Claims.FirstOrDefault(c => c.Type == "token_use")?.Value;
+        var tokenUse = jwt.Claims.FirstOrDefault(c => c.Type == AuthJwtService.ClaimType)?.Value
+                       ?? jwt.Claims.FirstOrDefault(c => c.Type == AuthJwtService.LegacyClaimTokenUse)?.Value;
         if (!string.Equals(tokenUse, "refresh", StringComparison.Ordinal))
             throw new InvalidOperationException("Invalid refresh token");
 
@@ -361,7 +362,7 @@ public class OidcProviderService(
                 var expiresAt = now.Plus(Duration.FromSeconds(expiresIn));
 
                 // Generate tokens
-                var accessToken = GenerateJwtToken(client, session, expiresAt, scopes);
+                var accessToken = await GenerateJwtToken(client, session, expiresAt, scopes);
                 var idToken = GenerateIdToken(client, session, nonce, scopes);
                 var sessionVersion = await GetAccountVersionAsync(session.AccountId);
                 var refreshTokenValue = authJwt.CreateRefreshToken(
@@ -402,7 +403,7 @@ public class OidcProviderService(
             var now = clock.GetCurrentInstant();
             var expiresIn = (int)_options.AccessTokenLifetime.TotalSeconds;
             var expiresAt = now.Plus(Duration.FromSeconds(expiresIn));
-            var accessToken = GenerateJwtToken(client, session, expiresAt, scopes);
+            var accessToken = await GenerateJwtToken(client, session, expiresAt, scopes);
             var idToken = GenerateIdToken(client, session, nonce, scopes);
             var sessionVersion = await GetAccountVersionAsync(session.AccountId);
             var refreshTokenValue = authJwt.CreateRefreshToken(
@@ -478,48 +479,27 @@ public class OidcProviderService(
         return tokenHandler.WriteToken(token);
     }
 
-    private string GenerateJwtToken(
+    private async Task<string> GenerateJwtToken(
         SnCustomApp client,
         SnAuthSession session,
         Instant expiresAt,
         IEnumerable<string>? scopes = null
     )
     {
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var clock = SystemClock.Instance;
-        var now = clock.GetCurrentInstant();
-
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity([
-                new Claim(JwtRegisteredClaimNames.Sub, session.AccountId.ToString()),
-                new Claim(JwtRegisteredClaimNames.Jti, session.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Iat, now.ToUnixTimeSeconds().ToString(),
-                    ClaimValueTypes.Integer64),
-                new Claim(JwtRegisteredClaimNames.Azp, client.Slug),
-            ]),
-            Expires = expiresAt.ToDateTimeUtc(),
-            Issuer = _options.IssuerUri,
-            Audience = client.Slug
-        };
-
-        // Try to use RSA signing if keys are available, fall back to HMAC
-        var rsaPrivateKey = _options.GetRsaPrivateKey();
-        tokenDescriptor.SigningCredentials = new SigningCredentials(
-            new RsaSecurityKey(rsaPrivateKey),
-            SecurityAlgorithms.RsaSha256
-        );
-
-        // Add scopes as claims if provided
+        var account = session.Account
+                      ?? throw new InvalidOperationException("Session account is required for OIDC access token.");
+        var sessionVersion = await GetAccountVersionAsync(session.AccountId);
         var effectiveScopes = scopes?.ToList() ?? client.OauthConfig!.AllowedScopes?.ToList() ?? [];
-        if (effectiveScopes.Count != 0)
-        {
-            tokenDescriptor.Subject.AddClaims(
-                effectiveScopes.Select(scope => new Claim("scope", scope)));
-        }
-
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
+        return authJwt.CreateUserToken(
+            session,
+            account,
+            sessionVersion,
+            expiresAt,
+            issuerOverride: _options.IssuerUri,
+            audienceOverride: client.Slug,
+            scopesOverride: effectiveScopes,
+            additionalClaims: [new Claim(JwtRegisteredClaimNames.Azp, client.Slug)]
+        );
     }
 
     public (bool isValid, JwtSecurityToken? token) ValidateToken(string token)
