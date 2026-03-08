@@ -1,9 +1,18 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using Grpc.Core;
+using Microsoft.Extensions.Logging;
 
 namespace DysonNetwork.Shared.Registry;
 
-public class RemoteAccountService(DyProfileService.DyProfileServiceClient profiles)
+public class RemoteAccountService(
+    DyProfileService.DyProfileServiceClient profiles,
+    ILogger<RemoteAccountService> logger
+)
 {
     public async Task<DyAccount> GetAccount(Guid id)
     {
@@ -47,12 +56,38 @@ public class RemoteAccountService(DyProfileService.DyProfileServiceClient profil
 
     public async Task<Dictionary<Guid, SnAccountStatus>> GetAccountStatusBatch(List<Guid> ids)
     {
+        if (ids == null || ids.Count == 0) return [];
+
         var request = new DyGetAccountBatchRequest();
         request.Id.AddRange(ids.Select(id => id.ToString()));
-        var response = await profiles.GetAccountStatusBatchAsync(request);
-        return response.Statuses
-            .Select(SnAccountStatus.FromProtoValue)
-            .ToDictionary(s => s.AccountId, s => s);
+        try
+        {
+            var response = await profiles.GetAccountStatusBatchAsync(request);
+            return response.Statuses
+                .Select(SnAccountStatus.FromProtoValue)
+                .ToDictionary(s => s.AccountId, s => s);
+        }
+        catch (RpcException ex) when (ex.StatusCode is StatusCode.Unavailable or StatusCode.DeadlineExceeded or StatusCode.Unimplemented)
+        {
+            logger.LogWarning(
+                ex,
+                "Profile service unavailable while getting account statuses, falling back to offline defaults for {Count} accounts.",
+                ids.Count
+            );
+
+            return ids.Distinct().ToDictionary(
+                id => id,
+                id => new SnAccountStatus
+                {
+                    AccountId = id,
+                    Attitude = StatusAttitude.Neutral,
+                    IsOnline = false,
+                    IsCustomized = false,
+                    IsInvisible = false,
+                    IsNotDisturb = false
+                }
+            );
+        }
     }
 
     public async Task<DyAccountBadge> GrantBadge(Guid accountId, DyAccountBadge badge)

@@ -128,6 +128,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ExperienceService>();
         services.AddScoped<RealmService>();
         services.AddScoped<AffiliationSpellService>();
+
+        services.AddScoped<SpotifyPresenceService>();
+        services.AddScoped<SteamPresenceService>();
+        services.AddScoped<IPresenceService, SpotifyPresenceService>();
+        services.AddScoped<IPresenceService, SteamPresenceService>();
+        
         services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(
             "https://_grpc.padlock",
             "DyAccountService");
@@ -140,11 +146,6 @@ public static class ServiceCollectionExtensions
             "https://_grpc.padlock",
             "DyActionLogService");
         services.AddSingleton<RemoteActionLogService>();
-
-        services.AddScoped<SpotifyPresenceService>();
-        services.AddScoped<SteamPresenceService>();
-        services.AddScoped<IPresenceService, SpotifyPresenceService>();
-        services.AddScoped<IPresenceService, SteamPresenceService>();
 
         services.AddScoped<PassRewindService>();
         services.AddScoped<AccountRewindService>();
