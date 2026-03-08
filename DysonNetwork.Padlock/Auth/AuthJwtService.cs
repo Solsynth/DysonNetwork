@@ -64,10 +64,6 @@ public sealed class AuthJwtService(IConfiguration config)
             new("region", account.Region),
             new("perk_level", account.PerkLevel.ToString()),
         };
-        if (!string.IsNullOrWhiteSpace(account.PerkSubscription?.Identifier))
-            claims.Add(new Claim("perk_identifier", account.PerkSubscription.Identifier));
-        if (account.PerkSubscription is not null)
-            claims.Add(new Claim("perk_subscription_id", account.PerkSubscription.Id.ToString()));
         claims.AddRange((scopesOverride ?? session.Scopes).Distinct(StringComparer.Ordinal).Select(scope => new Claim("scope", scope)));
         if (additionalClaims is not null)
             claims.AddRange(additionalClaims);

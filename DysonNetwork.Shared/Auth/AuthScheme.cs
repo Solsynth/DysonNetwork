@@ -163,8 +163,6 @@ public class DysonTokenAuthHandler(
         var nick = jwt.Claims.FirstOrDefault(c => c.Type == "nick")?.Value ?? string.Empty;
         var region = jwt.Claims.FirstOrDefault(c => c.Type == "region")?.Value ?? string.Empty;
         var isSuperuser = jwt.Claims.FirstOrDefault(c => c.Type == "is_superuser")?.Value == "1";
-        var perkIdentifier = jwt.Claims.FirstOrDefault(c => c.Type == "perk_identifier")?.Value;
-        var perkSubscriptionId = jwt.Claims.FirstOrDefault(c => c.Type == "perk_subscription_id")?.Value;
         var perkLevelRaw = jwt.Claims.FirstOrDefault(c => c.Type == "perk_level")?.Value;
         _ = int.TryParse(perkLevelRaw, out var perkLevel);
 
@@ -182,15 +180,6 @@ public class DysonTokenAuthHandler(
                 PerkLevel = perkLevel
             }
         };
-        if (!string.IsNullOrWhiteSpace(perkIdentifier))
-        {
-            proto.Account.PerkSubscription = new DySubscriptionReferenceObject
-            {
-                Identifier = perkIdentifier,
-                AccountId = accountId,
-                Id = perkSubscriptionId ?? string.Empty
-            };
-        }
         proto.Scopes.AddRange(jwt.Claims.Where(c => c.Type == "scope").Select(c => c.Value));
         if (tokenUse == "api_key") proto.Type = DySessionType.DyLogin;
 
