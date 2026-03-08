@@ -13,6 +13,8 @@ public class SnApiKey : ModelBase
 
     public Guid AccountId { get; set; }
     public SnAccount Account { get; set; } = null!;
+    // When present, this API key is scoped to a specific third-party custom app authorization.
+    public Guid? AppId { get; set; }
     public Guid SessionId { get; set; }
     public SnAuthSession Session { get; set; } = null!;
 

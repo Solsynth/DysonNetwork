@@ -28,6 +28,7 @@ public class AppDatabase(
     public DbSet<SnAuthChallenge> AuthChallenges { get; set; } = null!;
     public DbSet<SnAuthClient> AuthClients { get; set; } = null!;
     public DbSet<SnApiKey> ApiKeys { get; set; } = null!;
+    public DbSet<SnAuthorizedApp> AuthorizedApps { get; set; } = null!;
     public DbSet<SnActionLog> ActionLogs { get; set; } = null!;
     public DbSet<SnE2eeKeyBundle> E2eeKeyBundles { get; set; } = null!;
     public DbSet<SnE2eeOneTimePreKey> E2eeOneTimePreKeys { get; set; } = null!;
@@ -107,6 +108,16 @@ public class AppDatabase(
             .HasOne(pg => pg.Group)
             .WithMany(g => g.Members)
             .HasForeignKey(pg => pg.GroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnAuthorizedApp>()
+            .HasIndex(a => new { a.AccountId, a.AppId, a.Type })
+            .IsUnique()
+            .HasFilter("deleted_at IS NULL");
+        modelBuilder.Entity<SnAuthorizedApp>()
+            .HasOne(a => a.Account)
+            .WithMany()
+            .HasForeignKey(a => a.AccountId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnE2eeDevice>()

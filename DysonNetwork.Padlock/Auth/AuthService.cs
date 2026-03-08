@@ -552,11 +552,13 @@ public class AuthService(
         var key = new SnApiKey
         {
             AccountId = accountId,
+            AppId = parentSession?.AppId,
             Label = normalizedLabel,
             Session = new SnAuthSession
             {
                 AccountId = accountId,
-                Type = SessionType.Login,
+                Type = parentSession?.Type ?? SessionType.Login,
+                AppId = parentSession?.AppId,
                 ExpiredAt = expiredAt,
                 LastGrantedAt = now,
                 ParentSessionId = parentSession?.Id
@@ -640,6 +642,7 @@ public class AuthService(
             db.AuthSessions.Add(newSession);
             key.SessionId = newSession.Id;
             key.Session = newSession;
+            key.AppId = oldSession.AppId;
             db.ApiKeys.Update(key);
             await db.SaveChangesAsync();
 
@@ -656,6 +659,96 @@ public class AuthService(
             await transaction.RollbackAsync();
             throw;
         }
+    }
+
+    public async Task<SnAuthorizedApp> UpsertAuthorizedAppAsync(
+        Guid accountId,
+        Guid appId,
+        AuthorizedAppType type,
+        string? appSlug = null,
+        string? appName = null
+    )
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var existing = await db.AuthorizedApps
+            .FirstOrDefaultAsync(x =>
+                x.AccountId == accountId &&
+                x.AppId == appId &&
+                x.Type == type &&
+                x.DeletedAt == null);
+
+        if (existing is null)
+        {
+            var created = new SnAuthorizedApp
+            {
+                AccountId = accountId,
+                AppId = appId,
+                Type = type,
+                AppSlug = appSlug,
+                AppName = appName,
+                LastAuthorizedAt = now,
+                LastUsedAt = now
+            };
+            db.AuthorizedApps.Add(created);
+            await db.SaveChangesAsync();
+            return created;
+        }
+
+        existing.LastAuthorizedAt = now;
+        existing.LastUsedAt = now;
+        if (!string.IsNullOrWhiteSpace(appSlug)) existing.AppSlug = appSlug;
+        if (!string.IsNullOrWhiteSpace(appName)) existing.AppName = appName;
+        db.AuthorizedApps.Update(existing);
+        await db.SaveChangesAsync();
+        return existing;
+    }
+
+    public async Task<int> RevokeAuthorizedAppAccessAsync(
+        Guid accountId,
+        Guid appId,
+        AuthorizedAppType? type = null
+    )
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var appAuthsQuery = db.AuthorizedApps
+            .Where(x => x.AccountId == accountId && x.AppId == appId && x.DeletedAt == null);
+        if (type.HasValue)
+            appAuthsQuery = appAuthsQuery.Where(x => x.Type == type.Value);
+
+        var appAuths = await appAuthsQuery.ToListAsync();
+        if (appAuths.Count == 0) return 0;
+
+        foreach (var appAuth in appAuths)
+        {
+            appAuth.DeletedAt = now;
+            appAuth.LastUsedAt = now;
+        }
+        db.AuthorizedApps.UpdateRange(appAuths);
+        await db.SaveChangesAsync();
+
+        var sessions = await db.AuthSessions
+            .Where(s =>
+                s.AccountId == accountId &&
+                s.AppId == appId &&
+                (!s.ExpiredAt.HasValue || s.ExpiredAt > now))
+            .Select(s => s.Id)
+            .ToListAsync();
+
+        foreach (var sessionId in sessions)
+            await RevokeSessionAsync(sessionId);
+
+        var apiKeys = await db.ApiKeys
+            .Where(k =>
+                k.AccountId == accountId &&
+                k.AppId == appId &&
+                k.DeletedAt == null)
+            .Include(k => k.Session)
+            .ToListAsync();
+
+        foreach (var apiKey in apiKeys)
+            await RevokeApiKeyToken(apiKey);
+
+        return appAuths.Count;
     }
 
     public async Task<SnAuthSession> CreateSessionFromParentAsync(

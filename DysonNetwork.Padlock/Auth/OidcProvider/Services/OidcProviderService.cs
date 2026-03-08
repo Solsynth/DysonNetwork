@@ -356,6 +356,13 @@ public class OidcProviderService(
             if (authCode.AccountId.HasValue)
             {
                 var (session, nonce, scopes) = await HandleAuthorizationCodeFlowAsync(authCode, clientId);
+                await auth.UpsertAuthorizedAppAsync(
+                    session.AccountId,
+                    client.Id,
+                    AuthorizedAppType.Oidc,
+                    client.Slug,
+                    client.Name
+                );
                 var clock = SystemClock.Instance;
                 var now = clock.GetCurrentInstant();
                 var expiresIn = (int)_options.AccessTokenLifetime.TotalSeconds;
@@ -399,6 +406,13 @@ public class OidcProviderService(
         if (!string.IsNullOrWhiteSpace(refreshToken))
         {
             var (session, nonce, scopes) = await HandleRefreshTokenFlowAsync(clientId, refreshToken);
+            await auth.UpsertAuthorizedAppAsync(
+                session.AccountId,
+                client.Id,
+                AuthorizedAppType.Oidc,
+                client.Slug,
+                client.Name
+            );
             var clock = SystemClock.Instance;
             var now = clock.GetCurrentInstant();
             var expiresIn = (int)_options.AccessTokenLifetime.TotalSeconds;

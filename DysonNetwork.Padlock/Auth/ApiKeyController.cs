@@ -28,7 +28,7 @@ public class ApiKeyController(
             .Include(snApiKey => snApiKey.Session)
             .ToListAsync(ct);
 
-        return Ok(keys.Select(k => new { k.Id, k.Label, k.CreatedAt, k.Session.ExpiredAt }));
+        return Ok(keys.Select(k => new { k.Id, k.Label, k.AppId, k.CreatedAt, k.Session.ExpiredAt }));
     }
 
     [HttpPost("")]
@@ -45,7 +45,7 @@ public class ApiKeyController(
                 : null, session);
         var token = await auth.IssueApiKeyToken(key);
 
-        return Ok(new { key.Id, key.Label, token, key.CreatedAt, key.Session.ExpiredAt });
+        return Ok(new { key.Id, key.Label, key.AppId, token, key.CreatedAt, key.Session.ExpiredAt });
     }
 
     [HttpDelete("{id:guid}")]

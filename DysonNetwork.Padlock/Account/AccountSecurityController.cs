@@ -13,9 +13,20 @@ namespace DysonNetwork.Padlock.Account;
 [Route("/api")]
 public class AccountSecurityController(
     AppDatabase db,
-    AccountService accounts
+    AccountService accounts,
+    Auth.AuthService auth
 ) : ControllerBase
 {
+    public record AuthorizedAppResponse(
+        Guid Id,
+        Guid AppId,
+        AuthorizedAppType Type,
+        string? AppSlug,
+        string? AppName,
+        NodaTime.Instant LastAuthorizedAt,
+        NodaTime.Instant? LastUsedAt
+    );
+
     [HttpGet("/api/auth/me/identity")]
     public async Task<ActionResult<SnAccount>> GetCurrentIdentity()
     {
@@ -184,6 +195,43 @@ public class AccountSecurityController(
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
         await accounts.DeleteSession(currentUser, currentSession.Id);
+        return NoContent();
+    }
+
+    [HttpGet("authorized-apps")]
+    public async Task<ActionResult<List<AuthorizedAppResponse>>> GetAuthorizedApps([FromQuery] AuthorizedAppType? type)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var query = db.AuthorizedApps
+            .Where(x => x.AccountId == currentUser.Id)
+            .Where(x => x.DeletedAt == null);
+        if (type.HasValue)
+            query = query.Where(x => x.Type == type.Value);
+
+        var apps = await query
+            .OrderByDescending(x => x.LastUsedAt ?? x.LastAuthorizedAt)
+            .ToListAsync();
+
+        return Ok(apps.Select(x => new AuthorizedAppResponse(
+            x.Id,
+            x.AppId,
+            x.Type,
+            x.AppSlug,
+            x.AppName,
+            x.LastAuthorizedAt,
+            x.LastUsedAt
+        )));
+    }
+
+    [HttpDelete("authorized-apps/{appId:guid}")]
+    public async Task<ActionResult> DeauthorizeApp([FromRoute] Guid appId, [FromQuery] AuthorizedAppType? type)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var count = await auth.RevokeAuthorizedAppAccessAsync(currentUser.Id, appId, type);
+        if (count == 0) return NotFound("Authorized app was not found.");
+
         return NoContent();
     }
 
