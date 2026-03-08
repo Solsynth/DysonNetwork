@@ -31,4 +31,9 @@
       <Folder Include="Migrations\" />
     </ItemGroup>
 
+    <ItemGroup>
+        <EmbeddedResource Include="Resources\Locales\*.json" />
+        <EmbeddedResource Include="Resources\Templates\**\*.liquid" />
+    </ItemGroup>
+
 </Project>

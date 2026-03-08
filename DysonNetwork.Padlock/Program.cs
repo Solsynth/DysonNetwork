@@ -1,6 +1,7 @@
 using DysonNetwork.Padlock;
 using DysonNetwork.Padlock.Permission;
 using DysonNetwork.Padlock.Startup;
+using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
@@ -30,6 +31,7 @@ builder.AddSwaggerManifest(
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
+LocalizationServiceLocator.Service = app.Services.GetRequiredService<ILocalizationService>();
 app.UseMiddleware<LocalPermissionMiddleware>();
 
 using (var scope = app.Services.CreateScope())
