@@ -156,6 +156,11 @@ public static class ServiceCollectionExtensions
                             case "messages.test":
                                 await HandleMessageTest(evt, packet, ctx);
                                 break;
+                            default:
+                                logger.LogWarning("Unhandled websocket packet type: {Type}", packet.Type);
+                                var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
+                                await SendErrorResponse(evt, $"Unhandled websocket packet type: {packet.Type}", ws);
+                                break;
                         }
                     },
                     opts =>
