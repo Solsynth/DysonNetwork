@@ -700,16 +700,28 @@ public partial class ChatService(
 
     public async Task<int> CountUnreadMessage(Guid userId, Guid chatRoomId)
     {
-        var sender = await db.ChatMembers
+        var member = await db.ChatMembers
             .Where(m => m.AccountId == userId && m.ChatRoomId == chatRoomId && m.JoinedAt != null && m.LeaveAt == null)
-            .Select(m => new { m.LastReadAt })
+            .Select(m => new { m.Id, m.LastReadAt })
             .FirstOrDefaultAsync();
-        if (sender?.LastReadAt is null) return 0;
+        if (member is null) return 0;
 
-        return await db.ChatMessages
+        var latestOwnMessageAt = await db.ChatMessages
+            .Where(m => m.ChatRoomId == chatRoomId && m.SenderId == member.Id)
+            .MaxAsync(m => (Instant?)m.CreatedAt);
+
+        var anchor = member.LastReadAt;
+        if (latestOwnMessageAt is not null && (anchor is null || latestOwnMessageAt > anchor))
+            anchor = latestOwnMessageAt;
+
+        var query = db.ChatMessages
             .Where(m => m.ChatRoomId == chatRoomId)
-            .Where(m => m.CreatedAt > sender.LastReadAt)
-            .CountAsync();
+            .Where(m => m.SenderId != member.Id);
+
+        if (anchor is not null)
+            query = query.Where(m => m.CreatedAt > anchor.Value);
+
+        return await query.CountAsync();
     }
 
     public async Task<Dictionary<Guid, int>> CountUnreadMessageForUser(Guid userId)
@@ -717,19 +729,39 @@ public partial class ChatService(
         var members = await db.ChatMembers
             .Where(m => m.LeaveAt == null && m.JoinedAt != null)
             .Where(m => m.AccountId == userId)
-            .Select(m => new { m.ChatRoomId, m.LastReadAt })
+            .Select(m => new { m.Id, m.ChatRoomId, m.LastReadAt })
             .ToListAsync();
+        if (members.Count == 0) return new Dictionary<Guid, int>();
 
-        var lastReadAt = members.ToDictionary(m => m.ChatRoomId, m => m.LastReadAt);
-        var roomsId = lastReadAt.Keys.ToList();
-
-        return await db.ChatMessages
-            .Where(m => roomsId.Contains(m.ChatRoomId))
+        var memberIds = members.Select(m => m.Id).ToList();
+        var latestOwnMessageAt = await db.ChatMessages
+            .Where(m => memberIds.Contains(m.SenderId))
             .GroupBy(m => m.ChatRoomId)
-            .ToDictionaryAsync(
-                g => g.Key,
-                g => g.Count(m => lastReadAt[g.Key] == null || m.CreatedAt > lastReadAt[g.Key])
-            );
+            .Select(g => new { ChatRoomId = g.Key, LatestCreatedAt = g.Max(m => m.CreatedAt) })
+            .ToDictionaryAsync(m => m.ChatRoomId, m => (Instant?)m.LatestCreatedAt);
+
+        var result = new Dictionary<Guid, int>(members.Count);
+        foreach (var member in members)
+        {
+            var anchor = member.LastReadAt;
+            if (latestOwnMessageAt.TryGetValue(member.ChatRoomId, out var ownMessageCreatedAt) &&
+                ownMessageCreatedAt is not null &&
+                (anchor is null || ownMessageCreatedAt > anchor))
+            {
+                anchor = ownMessageCreatedAt;
+            }
+
+            var query = db.ChatMessages
+                .Where(m => m.ChatRoomId == member.ChatRoomId)
+                .Where(m => m.SenderId != member.Id);
+
+            if (anchor is not null)
+                query = query.Where(m => m.CreatedAt > anchor.Value);
+
+            result[member.ChatRoomId] = await query.CountAsync();
+        }
+
+        return result;
     }
 
     public async Task<Dictionary<Guid, SnChatMessage?>> ListLastMessageForUser(Guid userId)

@@ -228,6 +228,7 @@ public static class ServiceCollectionExtensions
             var cs = ctx.ServiceProvider.GetRequiredService<ChatService>();
             var crs = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
             var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
+            var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
 
             if (packet.Data == null)
             {
@@ -236,20 +237,45 @@ public static class ServiceCollectionExtensions
             }
 
             var requestData = packet.GetData<ChatController.MarkMessageReadRequest>();
-            if (requestData == null)
+            var chatRoomId = requestData?.ChatRoomId ?? Guid.Empty;
+            if (chatRoomId == Guid.Empty &&
+                packet.Data is JsonElement dataElement &&
+                dataElement.ValueKind == JsonValueKind.Object)
+            {
+                if (!TryGetGuidFromJson(dataElement, "chat_room_id", out chatRoomId))
+                    _ = TryGetGuidFromJson(dataElement, "chatRoomId", out chatRoomId);
+                if (chatRoomId == Guid.Empty)
+                    _ = TryGetGuidFromJson(dataElement, "room_id", out chatRoomId);
+            }
+
+            if (chatRoomId == Guid.Empty)
             {
                 await SendErrorResponse(evt, "Invalid request data", ws);
                 return;
             }
 
-            var sender = await crs.GetRoomMember(evt.AccountId, requestData.ChatRoomId);
+            var sender = await crs.GetRoomMember(evt.AccountId, chatRoomId);
             if (sender == null)
             {
                 await SendErrorResponse(evt, "User is not a member of the chat room.", ws);
                 return;
             }
 
-            await cs.ReadChatRoomAsync(requestData.ChatRoomId, evt.AccountId);
+            await cs.ReadChatRoomAsync(chatRoomId, evt.AccountId);
+            logger.LogDebug("Processed messages.read for account {AccountId} room {RoomId}", evt.AccountId, chatRoomId);
+        }
+
+        private static bool TryGetGuidFromJson(JsonElement obj, string propertyName, out Guid value)
+        {
+            value = Guid.Empty;
+            if (!obj.TryGetProperty(propertyName, out var property))
+                return false;
+
+            if (property.ValueKind == JsonValueKind.String &&
+                Guid.TryParse(property.GetString(), out value))
+                return true;
+
+            return false;
         }
 
         private static bool HasEncryptedPayload(ChatController.SendMessageRequest request)
