@@ -219,6 +219,11 @@ public partial class ChatService(
         db.ChatMessages.Add(message);
         await db.SaveChangesAsync();
 
+        // Sending a message implies read-through at least to this message for the sender.
+        await db.ChatMembers
+            .Where(m => m.Id == sender.Id && m.ChatRoomId == room.Id && m.JoinedAt != null && m.LeaveAt == null)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(m => m.LastReadAt, message.CreatedAt));
+
 
         // Copy the value to ensure the delivery is correct
         message.Sender = sender;
@@ -706,20 +711,12 @@ public partial class ChatService(
             .FirstOrDefaultAsync();
         if (member is null) return 0;
 
-        var latestOwnMessageAt = await db.ChatMessages
-            .Where(m => m.ChatRoomId == chatRoomId && m.SenderId == member.Id)
-            .MaxAsync(m => (Instant?)m.CreatedAt);
-
-        var anchor = member.LastReadAt;
-        if (latestOwnMessageAt is not null && (anchor is null || latestOwnMessageAt > anchor))
-            anchor = latestOwnMessageAt;
-
         var query = db.ChatMessages
             .Where(m => m.ChatRoomId == chatRoomId)
             .Where(m => m.SenderId != member.Id);
 
-        if (anchor is not null)
-            query = query.Where(m => m.CreatedAt > anchor.Value);
+        if (member.LastReadAt is not null)
+            query = query.Where(m => m.CreatedAt > member.LastReadAt.Value);
 
         return await query.CountAsync();
     }
@@ -733,33 +730,22 @@ public partial class ChatService(
             .ToListAsync();
         if (members.Count == 0) return new Dictionary<Guid, int>();
 
-        var memberIds = members.Select(m => m.Id).ToList();
-        var latestOwnMessageAt = await db.ChatMessages
-            .Where(m => memberIds.Contains(m.SenderId))
-            .GroupBy(m => m.ChatRoomId)
-            .Select(g => new { ChatRoomId = g.Key, LatestCreatedAt = g.Max(m => m.CreatedAt) })
-            .ToDictionaryAsync(m => m.ChatRoomId, m => (Instant?)m.LatestCreatedAt);
+        var counts = await (
+            from member in db.ChatMembers
+            join msg in db.ChatMessages on member.ChatRoomId equals msg.ChatRoomId
+            where member.AccountId == userId
+                  && member.LeaveAt == null
+                  && member.JoinedAt != null
+                  && msg.SenderId != member.Id
+                  && (member.LastReadAt == null || msg.CreatedAt > member.LastReadAt)
+            group msg by member.ChatRoomId
+            into grouped
+            select new { grouped.Key, Count = grouped.Count() }
+        ).ToDictionaryAsync(x => x.Key, x => x.Count);
 
         var result = new Dictionary<Guid, int>(members.Count);
         foreach (var member in members)
-        {
-            var anchor = member.LastReadAt;
-            if (latestOwnMessageAt.TryGetValue(member.ChatRoomId, out var ownMessageCreatedAt) &&
-                ownMessageCreatedAt is not null &&
-                (anchor is null || ownMessageCreatedAt > anchor))
-            {
-                anchor = ownMessageCreatedAt;
-            }
-
-            var query = db.ChatMessages
-                .Where(m => m.ChatRoomId == member.ChatRoomId)
-                .Where(m => m.SenderId != member.Id);
-
-            if (anchor is not null)
-                query = query.Where(m => m.CreatedAt > anchor.Value);
-
-            result[member.ChatRoomId] = await query.CountAsync();
-        }
+            result[member.ChatRoomId] = counts.GetValueOrDefault(member.ChatRoomId, 0);
 
         return result;
     }
@@ -947,6 +933,7 @@ public partial class ChatService(
         }
 
         await HydrateMessageReactionsAsync(syncMessages, accountId);
+        await EnrichReactionSyncMessagesAsync(syncMessages, accountId);
 
         var latestTimestamp = syncMessages.Count > 0
             ? syncMessages.Last().CreatedAt
@@ -1236,7 +1223,15 @@ public partial class ChatService(
             Meta = new Dictionary<string, object>
             {
                 ["message_id"] = message.Id,
-                ["symbol"] = reaction.Symbol
+                ["symbol"] = reaction.Symbol,
+                ["reaction"] = new Dictionary<string, object>
+                {
+                    ["id"] = reaction.Id,
+                    ["symbol"] = reaction.Symbol,
+                    ["attitude"] = reaction.Attitude,
+                    ["message_id"] = reaction.MessageId,
+                    ["sender_id"] = reaction.SenderId
+                }
             },
         };
 
@@ -1409,6 +1404,70 @@ public partial class ChatService(
                 ? reactionMadeMap.GetValueOrDefault(message.Id, [])
                 : null;
         }
+    }
+
+    public async Task EnrichReactionSyncMessagesAsync(List<SnChatMessage> messages, Guid? accountId = null)
+    {
+        if (messages.Count == 0)
+            return;
+
+        var reactionSyncMessages = messages
+            .Where(m => m.Type is WebSocketPacketType.MessageReactionAdded or WebSocketPacketType.MessageReactionRemoved)
+            .ToList();
+        if (reactionSyncMessages.Count == 0)
+            return;
+
+        var targetMessageIds = reactionSyncMessages
+            .Select(m => TryGetMetaGuidValue(m.Meta, "message_id"))
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+        if (targetMessageIds.Count == 0)
+            return;
+
+        var targetMessages = await db.ChatMessages
+            .Where(m => targetMessageIds.Contains(m.Id))
+            .Include(m => m.Sender)
+            .ToListAsync();
+        if (targetMessages.Count == 0)
+            return;
+
+        var targetSenders = targetMessages
+            .Select(m => m.Sender)
+            .DistinctBy(s => s.Id)
+            .ToList();
+        targetSenders = await crs.LoadMemberAccounts(targetSenders);
+
+        foreach (var target in targetMessages)
+        {
+            var sender = targetSenders.FirstOrDefault(s => s.Id == target.SenderId);
+            if (sender is not null)
+                target.Sender = sender;
+        }
+
+        await HydrateMessageReactionsAsync(targetMessages, accountId);
+        var targetMap = targetMessages.ToDictionary(m => m.Id);
+
+        foreach (var syncMessage in reactionSyncMessages)
+        {
+            var targetId = TryGetMetaGuidValue(syncMessage.Meta, "message_id");
+            if (!targetId.HasValue || !targetMap.TryGetValue(targetId.Value, out var target))
+                continue;
+
+            syncMessage.Meta ??= new Dictionary<string, object>();
+            syncMessage.Meta["reactions_count"] = target.ReactionsCount;
+            if (accountId.HasValue)
+                syncMessage.Meta["reactions_made"] = target.ReactionsMade ?? new Dictionary<string, bool>();
+            syncMessage.Meta["message"] = target;
+        }
+    }
+
+    private static Guid? TryGetMetaGuidValue(Dictionary<string, object>? meta, string key)
+    {
+        if (!TryGetMetaGuid(meta, key, out var value))
+            return null;
+        return value;
     }
 }
 
