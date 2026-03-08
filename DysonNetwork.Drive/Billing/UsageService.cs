@@ -136,7 +136,7 @@ public class UsageService(AppDatabase db)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
 
-        var totalCostBytes = await (from f in db.Files.AsNoTracking()
+        var billingData = await (from f in db.Files.AsNoTracking()
             where f.AccountId == accountId
             where !f.IsMarkedRecycle
             where !f.ExpiredAt.HasValue || f.ExpiredAt > now
@@ -145,10 +145,14 @@ public class UsageService(AppDatabase db)
             where r.PoolId.HasValue
             join p in db.Pools.AsNoTracking() on r.PoolId equals p.Id
             join o in db.FileObjects.AsNoTracking() on r.ObjectId equals o.Id
-            select (double?)o.Size * (p.BillingConfig.CostMultiplier ?? 1.0))
-            .SumAsync() ?? 0;
+            select new
+            {
+                Size = o.Size,
+                Multiplier = p.BillingConfig.CostMultiplier ?? 1.0
+            }).ToListAsync();
 
-        var totalCostMib = totalCostBytes / 1024.0 / 1024.0;
-        return (long)Math.Ceiling(totalCostMib);
+        var totalCost = billingData.Sum(x => x.Size * x.Multiplier) / 1024.0 / 1024.0;
+
+        return (long)Math.Ceiling(totalCost);
     }
 }
