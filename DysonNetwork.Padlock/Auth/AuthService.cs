@@ -467,6 +467,11 @@ public class AuthService(
         return await CreateTokenPair(session);
     }
 
+    public async Task PopulatePerkAsync(SnAccount account)
+    {
+        await HydratePerkAsync(account);
+    }
+
     private async Task HydratePerkAsync(SnAccount account)
     {
         try

@@ -89,7 +89,7 @@ public class DysonTokenAuthHandler(
                 if (!await ValidateAccountVersion(accountId, tokenVer))
                     return AuthenticateResult.Fail("Token version is stale.");
 
-                var session = BuildSessionFromClaims(jwt, tokenUse ?? "user");
+                var session = BuildSessionFromClaims(jwt, tokenUse);
                 await HydrateProfileAsync(session, Context.RequestAborted);
                 return BuildAuthResult(tokenInfo.Type, session);
             }
