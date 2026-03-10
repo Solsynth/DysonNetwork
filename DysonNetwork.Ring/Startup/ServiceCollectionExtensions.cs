@@ -1,13 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.RateLimiting;
-using DysonNetwork.Ring.Connection;
 using DysonNetwork.Ring.Email;
 using DysonNetwork.Ring.Notification;
 using DysonNetwork.Ring.Services;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.EventBus;
-using Microsoft.AspNetCore.RateLimiting;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 
@@ -63,7 +60,6 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddAppBusinessServices(this IServiceCollection services)
     {
-        services.AddSingleton<WebSocketService>();
         services.AddScoped<EmailService>();
         services.AddScoped<PushService>();
         

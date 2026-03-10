@@ -54,16 +54,6 @@ public class AccountEventService(
         cache.RemoveAsync(cacheKey);
     }
 
-    private async Task BroadcastStatusUpdate(SnAccountStatus status)
-    {
-        await eventBus.PublishAsync(AccountStatusUpdatedEvent.Type, new AccountStatusUpdatedEvent
-        {
-            AccountId = status.AccountId,
-            Status = status,
-            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-        });
-    }
-
     public async Task<SnAccountStatus> GetStatus(Guid userId)
     {
         var cacheKey = $"{StatusCacheKey}{userId}";
@@ -196,8 +186,6 @@ public class AccountEventService(
         db.AccountStatuses.Add(status);
         await db.SaveChangesAsync();
 
-        await BroadcastStatusUpdate(status);
-
         return status;
     }
 
@@ -207,7 +195,6 @@ public class AccountEventService(
         db.Update(status);
         await db.SaveChangesAsync();
         PurgeStatusCache(user.Id);
-        await BroadcastStatusUpdate(status);
     }
 
     private const int FortuneTipCount = 14; // This will be the max index for each type (positive/negative)

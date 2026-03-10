@@ -1,4 +1,3 @@
-using System;
 using DysonNetwork.Shared.EventBus;
 using NodaTime;
 
@@ -17,6 +16,7 @@ public class WebSocketPacketEvent : EventBase
     public byte[] PacketBytes { get; set; } = null!;
 }
 
+[Obsolete]
 public class WebSocketConnectedEvent : EventBase
 {
     public static string Type => "websocket_connected";
@@ -29,6 +29,7 @@ public class WebSocketConnectedEvent : EventBase
     public bool IsOffline { get; set; } = false;
 }
 
+[Obsolete]
 public class WebSocketDisconnectedEvent : EventBase
 {
     public static string Type => "websocket_disconnected";

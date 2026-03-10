@@ -167,57 +167,6 @@ public static class ServiceCollectionExtensions
                     {
                         opts.UseJetStream = false;
                     }
-                )
-                .AddListener<AccountStatusUpdatedEvent>(
-                    AccountStatusUpdatedEvent.Type,
-                    async (evt, ctx) =>
-                    {
-                        var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
-                        var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
-                        var chatRoomService = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
-                        var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
-
-                        logger.LogInformation("Account status updated: {AccountId}", evt.AccountId);
-
-                        // Get user's joined chat rooms
-                        var userRooms = await db.ChatMembers
-                            .Where(m => m.AccountId == evt.AccountId && m.JoinedAt != null && m.LeaveAt == null)
-                            .Select(m => m.ChatRoomId)
-                            .ToListAsync(ctx.CancellationToken);
-
-                        // Send WebSocket packet to subscribed users per room
-                        foreach (var roomId in userRooms)
-                        {
-                            var members = await chatRoomService.ListRoomMembers(roomId);
-                            var subscribedMemberIds = await chatRoomService.GetSubscribedMembers(roomId);
-                            var subscribedUsers = members
-                                .Where(m => subscribedMemberIds.Contains(m.Id))
-                                .Select(m => m.AccountId.ToString())
-                                .ToList();
-
-                            if (subscribedUsers.Count == 0) continue;
-
-                            var packet = new WebSocketPacket
-                            {
-                                Type = "accounts.status.update",
-                                Data = new Dictionary<string, object>
-                                {
-                                    ["status"] = evt.Status,
-                                    ["chat_room_id"] = roomId
-                                }
-                            };
-
-                            await ws.PushWebSocketPacketToUsers(
-                                subscribedUsers,
-                                packet.Type,
-                                InfraObjectCoder.ConvertObjectToByteString(packet.Data).ToByteArray()
-                            );
-
-                            logger.LogInformation("Sent status update for room {roomId} to {count} subscribed users",
-                                roomId,
-                                subscribedUsers.Count);
-                        }
-                    }
                 );
 
             return services;

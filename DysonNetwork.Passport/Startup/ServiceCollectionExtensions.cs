@@ -151,66 +151,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AccountRewindService>();
         services.AddScoped<TicketService>();
         services.AddEventBus()
-            .AddListener<WebSocketConnectedEvent>(async (evt, ctx) =>
-            {
-                var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
-                var accountEventService = ctx.ServiceProvider.GetRequiredService<AccountEventService>();
-                var cache = ctx.ServiceProvider.GetRequiredService<ICacheService>();
-                var nats = ctx.ServiceProvider.GetRequiredService<NATS.Client.Core.INatsConnection>();
-
-                logger.LogInformation("Received WebSocket connected event for user {AccountId}, device {DeviceId}",
-                    evt.AccountId, evt.DeviceId);
-
-                var previous = await cache.GetAsync<SnAccountStatus>($"account:status:prev:{evt.AccountId}");
-                var status = await accountEventService.GetStatus(evt.AccountId);
-
-                if (previous != null && !BroadcastEventHandler.StatusesEqual(previous, status))
-                {
-                    await nats.PublishAsync(
-                        AccountStatusUpdatedEvent.Type,
-                        System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new AccountStatusUpdatedEvent
-                        {
-                            AccountId = evt.AccountId,
-                            Status = status,
-                            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-                        }, InfraObjectCoder.SerializerOptionsWithoutIgnore)),
-                        cancellationToken: ctx.CancellationToken
-                    );
-                }
-
-                logger.LogInformation("Handled status update for user {AccountId} on connect", evt.AccountId);
-            })
-            .AddListener<WebSocketDisconnectedEvent>(async (evt, ctx) =>
-            {
-                var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
-                var accountEventService = ctx.ServiceProvider.GetRequiredService<AccountEventService>();
-                var cache = ctx.ServiceProvider.GetRequiredService<ICacheService>();
-                var nats = ctx.ServiceProvider.GetRequiredService<NATS.Client.Core.INatsConnection>();
-
-                logger.LogInformation(
-                    "Received WebSocket disconnected event for user {AccountId}, device {DeviceId}, IsOffline: {IsOffline}",
-                    evt.AccountId, evt.DeviceId, evt.IsOffline
-                );
-
-                var previous = await cache.GetAsync<SnAccountStatus>($"account:status:prev:{evt.AccountId}");
-                var status = await accountEventService.GetStatus(evt.AccountId);
-
-                if (previous != null && !BroadcastEventHandler.StatusesEqual(previous, status))
-                {
-                    await nats.PublishAsync(
-                        AccountStatusUpdatedEvent.Type,
-                        System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new AccountStatusUpdatedEvent
-                        {
-                            AccountId = evt.AccountId,
-                            Status = status,
-                            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-                        }, InfraObjectCoder.SerializerOptionsWithoutIgnore)),
-                        cancellationToken: ctx.CancellationToken
-                    );
-                }
-
-                logger.LogInformation("Handled status update for user {AccountId} on disconnect", evt.AccountId);
-            })
             .AddListener<AccountCreatedEvent>(async (evt, ctx) =>
             {
                 var spells = ctx.ServiceProvider.GetRequiredService<MagicSpellService>();

@@ -1,9 +1,7 @@
-using DysonNetwork.Ring.Connection;
 using DysonNetwork.Ring.Notification;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using Google.Protobuf.Collections;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 
