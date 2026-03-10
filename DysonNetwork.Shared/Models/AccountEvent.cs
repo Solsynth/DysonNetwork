@@ -72,9 +72,16 @@ public class SnAccountStatus : ModelBase
             IsInvisible = Type == StatusType.Invisible,
             IsNotDisturb = Type == StatusType.DoNotDisturb,
             Label = Label ?? string.Empty,
+            Type = (DyAccountStatusType)Type,
+            Symbol = Symbol ?? string.Empty,
             Meta = InfraObjectCoder.ConvertObjectToByteString(Meta),
             ClearedAt = ClearedAt?.ToTimestamp(),
             AccountId = AccountId.ToString(),
+            AppIdentifier = AppIdentifier ?? string.Empty,
+            IsAutomated = IsAutomated,
+            CreatedAt = CreatedAt.ToTimestamp(),
+            UpdatedAt = UpdatedAt.ToTimestamp(),
+            DeletedAt = DeletedAt?.ToTimestamp(),
         };
 
         return proto;
@@ -93,15 +100,23 @@ public class SnAccountStatus : ModelBase
             },
             IsOnline = proto.IsOnline,
             IsCustomized = proto.IsCustomized,
-            Type = proto.IsInvisible
-                ? StatusType.Invisible
-                : proto.IsNotDisturb
-                    ? StatusType.DoNotDisturb
-                    : StatusType.Default,
+            Type = proto.Type != DyAccountStatusType.Default
+                ? Enum.IsDefined(typeof(StatusType), (int)proto.Type) ? (StatusType)proto.Type : StatusType.Default
+                : proto.IsInvisible
+                    ? StatusType.Invisible
+                    : proto.IsNotDisturb
+                        ? StatusType.DoNotDisturb
+                        : StatusType.Default,
             Label = proto.Label,
+            Symbol = string.IsNullOrWhiteSpace(proto.Symbol) ? null : proto.Symbol,
             Meta = InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object>>(proto.Meta),
             ClearedAt = proto.ClearedAt?.ToInstant(),
             AccountId = Guid.Parse(proto.AccountId),
+            AppIdentifier = string.IsNullOrWhiteSpace(proto.AppIdentifier) ? null : proto.AppIdentifier,
+            IsAutomated = proto.IsAutomated,
+            CreatedAt = proto.CreatedAt?.ToInstant() ?? default,
+            UpdatedAt = proto.UpdatedAt?.ToInstant() ?? default,
+            DeletedAt = proto.DeletedAt?.ToInstant(),
         };
 
         return status;

@@ -27,134 +27,145 @@ namespace DysonNetwork.Shared.Proto {
             "Cg1wcm9maWxlLnByb3RvEgVwcm90bxofZ29vZ2xlL3Byb3RvYnVmL3RpbWVz",
             "dGFtcC5wcm90bxoeZ29vZ2xlL3Byb3RvYnVmL3dyYXBwZXJzLnByb3RvGiBn",
             "b29nbGUvcHJvdG9idWYvZmllbGRfbWFzay5wcm90bxocZ29vZ2xlL3Byb3Rv",
-            "YnVmL3N0cnVjdC5wcm90bxoNYWNjb3VudC5wcm90byKDAwoPRHlBY2NvdW50",
+            "YnVmL3N0cnVjdC5wcm90bxoNYWNjb3VudC5wcm90byLfBQoPRHlBY2NvdW50",
             "U3RhdHVzEg4KAmlkGAEgASgJUgJpZBIzCghhdHRpdHVkZRgCIAEoDjIXLnBy",
             "b3RvLkR5U3RhdHVzQXR0aXR1ZGVSCGF0dGl0dWRlEhsKCWlzX29ubGluZRgD",
             "IAEoCFIIaXNPbmxpbmUSIwoNaXNfY3VzdG9taXplZBgEIAEoCFIMaXNDdXN0",
             "b21pemVkEiEKDGlzX2ludmlzaWJsZRgFIAEoCFILaXNJbnZpc2libGUSJAoO",
-            "aXNfbm90X2Rpc3R1cmIYBiABKAhSDGlzTm90RGlzdHVyYhIyCgVsYWJlbBgH",
-            "IAEoCzIcLmdvb2dsZS5wcm90b2J1Zi5TdHJpbmdWYWx1ZVIFbGFiZWwSOQoK",
-            "Y2xlYXJlZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBS",
-            "CWNsZWFyZWRBdBIdCgphY2NvdW50X2lkGAkgASgJUglhY2NvdW50SWQSEgoE",
-            "bWV0YRgKIAEoDFIEbWV0YSKtAgoORHlMZXZlbGluZ0luZm8SIwoNY3VycmVu",
-            "dF9sZXZlbBgBIAEoBVIMY3VycmVudExldmVsEi0KEmN1cnJlbnRfZXhwZXJp",
-            "ZW5jZRgCIAEoBVIRY3VycmVudEV4cGVyaWVuY2USMgoVbmV4dF9sZXZlbF9l",
-            "eHBlcmllbmNlGAMgASgFUhNuZXh0TGV2ZWxFeHBlcmllbmNlEjoKGXByZXZp",
-            "b3VzX2xldmVsX2V4cGVyaWVuY2UYBCABKAVSF3ByZXZpb3VzTGV2ZWxFeHBl",
-            "cmllbmNlEiUKDmxldmVsX3Byb2dyZXNzGAUgASgBUg1sZXZlbFByb2dyZXNz",
-            "EjAKFGV4cGVyaWVuY2VfcGVyX2xldmVsGAYgAygFUhJleHBlcmllbmNlUGVy",
-            "TGV2ZWwigwQKC0R5QWN0aW9uTG9nEg4KAmlkGAEgASgJUgJpZBIWCgZhY3Rp",
-            "b24YAiABKAlSBmFjdGlvbhIwCgRtZXRhGAMgAygLMhwucHJvdG8uRHlBY3Rp",
-            "b25Mb2cuTWV0YUVudHJ5UgRtZXRhEjsKCnVzZXJfYWdlbnQYBCABKAsyHC5n",
-            "b29nbGUucHJvdG9idWYuU3RyaW5nVmFsdWVSCXVzZXJBZ2VudBI7CgppcF9h",
-            "ZGRyZXNzGAUgASgLMhwuZ29vZ2xlLnByb3RvYnVmLlN0cmluZ1ZhbHVlUglp",
-            "cEFkZHJlc3MSOAoIbG9jYXRpb24YBiABKAsyHC5nb29nbGUucHJvdG9idWYu",
-            "U3RyaW5nVmFsdWVSCGxvY2F0aW9uEh0KCmFjY291bnRfaWQYByABKAlSCWFj",
-            "Y291bnRJZBI7CgpzZXNzaW9uX2lkGAggASgLMhwuZ29vZ2xlLnByb3RvYnVm",
-            "LlN0cmluZ1ZhbHVlUglzZXNzaW9uSWQSOQoKY3JlYXRlZF9hdBgJIAEoCzIa",
-            "Lmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBSCWNyZWF0ZWRBdBpPCglNZXRh",
-            "RW50cnkSEAoDa2V5GAEgASgJUgNrZXkSLAoFdmFsdWUYAiABKAsyFi5nb29n",
-            "bGUucHJvdG9idWYuVmFsdWVSBXZhbHVlOgI4ASJVCh9EeUdldEFjY291bnRT",
-            "dGF0dXNCYXRjaFJlc3BvbnNlEjIKCHN0YXR1c2VzGAEgAygLMhYucHJvdG8u",
-            "RHlBY2NvdW50U3RhdHVzUghzdGF0dXNlcyLSAwoYRHlDcmVhdGVBY3Rpb25M",
-            "b2dSZXF1ZXN0EhYKBmFjdGlvbhgBIAEoCVIGYWN0aW9uEj0KBG1ldGEYAiAD",
-            "KAsyKS5wcm90by5EeUNyZWF0ZUFjdGlvbkxvZ1JlcXVlc3QuTWV0YUVudHJ5",
-            "UgRtZXRhEjsKCnVzZXJfYWdlbnQYAyABKAsyHC5nb29nbGUucHJvdG9idWYu",
-            "U3RyaW5nVmFsdWVSCXVzZXJBZ2VudBI7CgppcF9hZGRyZXNzGAQgASgLMhwu",
-            "Z29vZ2xlLnByb3RvYnVmLlN0cmluZ1ZhbHVlUglpcEFkZHJlc3MSOAoIbG9j",
-            "YXRpb24YBSABKAsyHC5nb29nbGUucHJvdG9idWYuU3RyaW5nVmFsdWVSCGxv",
-            "Y2F0aW9uEh0KCmFjY291bnRfaWQYBiABKAlSCWFjY291bnRJZBI7CgpzZXNz",
-            "aW9uX2lkGAcgASgLMhwuZ29vZ2xlLnByb3RvYnVmLlN0cmluZ1ZhbHVlUglz",
-            "ZXNzaW9uSWQaTwoJTWV0YUVudHJ5EhAKA2tleRgBIAEoCVIDa2V5EiwKBXZh",
-            "bHVlGAIgASgLMhYuZ29vZ2xlLnByb3RvYnVmLlZhbHVlUgV2YWx1ZToCOAEi",
-            "TgoZRHlDcmVhdGVBY3Rpb25Mb2dSZXNwb25zZRIxCgphY3Rpb25fbG9nGAEg",
-            "ASgLMhIucHJvdG8uRHlBY3Rpb25Mb2dSCWFjdGlvbkxvZyKnAQoXRHlMaXN0",
-            "QWN0aW9uTG9nc1JlcXVlc3QSHQoKYWNjb3VudF9pZBgBIAEoCVIJYWNjb3Vu",
-            "dElkEhYKBmFjdGlvbhgCIAEoCVIGYWN0aW9uEhsKCXBhZ2Vfc2l6ZRgDIAEo",
-            "BVIIcGFnZVNpemUSHQoKcGFnZV90b2tlbhgEIAEoCVIJcGFnZVRva2VuEhkK",
-            "CG9yZGVyX2J5GAUgASgJUgdvcmRlckJ5IpYBChhEeUxpc3RBY3Rpb25Mb2dz",
-            "UmVzcG9uc2USMwoLYWN0aW9uX2xvZ3MYASADKAsyEi5wcm90by5EeUFjdGlv",
-            "bkxvZ1IKYWN0aW9uTG9ncxImCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAlSDW5l",
-            "eHRQYWdlVG9rZW4SHQoKdG90YWxfc2l6ZRgDIAEoBVIJdG90YWxTaXplIjQK",
-            "E0R5R2V0UHJvZmlsZVJlcXVlc3QSHQoKYWNjb3VudF9pZBgBIAEoCVIJYWNj",
-            "b3VudElkIqcBChZEeVVwZGF0ZVByb2ZpbGVSZXF1ZXN0Eh0KCmFjY291bnRf",
-            "aWQYASABKAlSCWFjY291bnRJZBIxCgdwcm9maWxlGAIgASgLMhcucHJvdG8u",
-            "RHlBY2NvdW50UHJvZmlsZVIHcHJvZmlsZRI7Cgt1cGRhdGVfbWFzaxgDIAEo",
-            "CzIaLmdvb2dsZS5wcm90b2J1Zi5GaWVsZE1hc2tSCnVwZGF0ZU1hc2siaQoT",
-            "RHlMaXN0QmFkZ2VzUmVxdWVzdBIdCgphY2NvdW50X2lkGAEgASgJUglhY2Nv",
-            "dW50SWQSEgoEdHlwZRgCIAEoCVIEdHlwZRIfCgthY3RpdmVfb25seRgDIAEo",
-            "CFIKYWN0aXZlT25seSJFChREeUxpc3RCYWRnZXNSZXNwb25zZRItCgZiYWRn",
-            "ZXMYASADKAsyFS5wcm90by5EeUFjY291bnRCYWRnZVIGYmFkZ2VzImEKE0R5",
-            "R3JhbnRCYWRnZVJlcXVlc3QSHQoKYWNjb3VudF9pZBgBIAEoCVIJYWNjb3Vu",
-            "dElkEisKBWJhZGdlGAIgASgLMhUucHJvdG8uRHlBY2NvdW50QmFkZ2VSBWJh",
-            "ZGdlIkMKFER5R3JhbnRCYWRnZVJlc3BvbnNlEisKBWJhZGdlGAEgASgLMhUu",
-            "cHJvdG8uRHlBY2NvdW50QmFkZ2VSBWJhZGdlIk0KEUR5R2V0QmFkZ2VSZXF1",
-            "ZXN0Eh0KCmFjY291bnRfaWQYASABKAlSCWFjY291bnRJZBIZCghiYWRnZV9p",
-            "ZBgCIAEoCVIHYmFkZ2VJZCJBChJEeUdldEJhZGdlUmVzcG9uc2USKwoFYmFk",
-            "Z2UYASABKAsyFS5wcm90by5EeUFjY291bnRCYWRnZVIFYmFkZ2UiugEKFER5",
-            "VXBkYXRlQmFkZ2VSZXF1ZXN0Eh0KCmFjY291bnRfaWQYASABKAlSCWFjY291",
-            "bnRJZBIZCghiYWRnZV9pZBgCIAEoCVIHYmFkZ2VJZBIrCgViYWRnZRgDIAEo",
-            "CzIVLnByb3RvLkR5QWNjb3VudEJhZGdlUgViYWRnZRI7Cgt1cGRhdGVfbWFz",
-            "axgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5GaWVsZE1hc2tSCnVwZGF0ZU1h",
-            "c2siRAoVRHlVcGRhdGVCYWRnZVJlc3BvbnNlEisKBWJhZGdlGAEgASgLMhUu",
-            "cHJvdG8uRHlBY2NvdW50QmFkZ2VSBWJhZGdlIoABChhEeUdldFJlbGF0aW9u",
-            "c2hpcFJlcXVlc3QSHQoKYWNjb3VudF9pZBgBIAEoCVIJYWNjb3VudElkEh0K",
-            "CnJlbGF0ZWRfaWQYAiABKAlSCXJlbGF0ZWRJZBIbCgZzdGF0dXMYAyABKAVI",
-            "AFIGc3RhdHVziAEBQgkKB19zdGF0dXMibAoZRHlHZXRSZWxhdGlvbnNoaXBS",
-            "ZXNwb25zZRI+CgxyZWxhdGlvbnNoaXAYASABKAsyFS5wcm90by5EeVJlbGF0",
-            "aW9uc2hpcEgAUgxyZWxhdGlvbnNoaXCIAQFCDwoNX3JlbGF0aW9uc2hpcCJ6",
-            "Ch9EeUxpc3RSZWxhdGlvbnNoaXBTaW1wbGVSZXF1ZXN0Eh8KCmFjY291bnRf",
-            "aWQYASABKAlIAFIJYWNjb3VudElkEh8KCnJlbGF0ZWRfaWQYAiABKAlIAFIJ",
-            "cmVsYXRlZElkQhUKE3JlbGF0aW9uX2lkZW50aWZpZXIiQwogRHlMaXN0UmVs",
-            "YXRpb25zaGlwU2ltcGxlUmVzcG9uc2USHwoLYWNjb3VudHNfaWQYASADKAlS",
-            "CmFjY291bnRzSWQqaAoQRHlTdGF0dXNBdHRpdHVkZRIiCh5EWV9TVEFUVVNf",
-            "QVRUSVRVREVfVU5TUEVDSUZJRUQQABIPCgtEWV9QT1NJVElWRRABEg8KC0RZ",
-            "X05FR0FUSVZFEAISDgoKRFlfTkVVVFJBTBADMpgMChBEeVByb2ZpbGVTZXJ2",
-            "aWNlEjwKCkdldEFjY291bnQSGi5wcm90by5EeUdldEFjY291bnRSZXF1ZXN0",
-            "GhAucHJvdG8uRHlBY2NvdW50IgASQgoNR2V0Qm90QWNjb3VudBIdLnByb3Rv",
-            "LkR5R2V0Qm90QWNjb3VudFJlcXVlc3QaEC5wcm90by5EeUFjY291bnQiABJW",
-            "Cg9HZXRBY2NvdW50QmF0Y2gSHy5wcm90by5EeUdldEFjY291bnRCYXRjaFJl",
-            "cXVlc3QaIC5wcm90by5EeUdldEFjY291bnRCYXRjaFJlc3BvbnNlIgASXAoS",
-            "R2V0Qm90QWNjb3VudEJhdGNoEiIucHJvdG8uRHlHZXRCb3RBY2NvdW50QmF0",
-            "Y2hSZXF1ZXN0GiAucHJvdG8uRHlHZXRBY2NvdW50QmF0Y2hSZXNwb25zZSIA",
-            "ElwKEkxvb2t1cEFjY291bnRCYXRjaBIiLnByb3RvLkR5TG9va3VwQWNjb3Vu",
-            "dEJhdGNoUmVxdWVzdBogLnByb3RvLkR5R2V0QWNjb3VudEJhdGNoUmVzcG9u",
-            "c2UiABJSCg1TZWFyY2hBY2NvdW50Eh0ucHJvdG8uRHlTZWFyY2hBY2NvdW50",
-            "UmVxdWVzdBogLnByb3RvLkR5R2V0QWNjb3VudEJhdGNoUmVzcG9uc2UiABJN",
-            "CgxMaXN0QWNjb3VudHMSHC5wcm90by5EeUxpc3RBY2NvdW50c1JlcXVlc3Qa",
-            "HS5wcm90by5EeUxpc3RBY2NvdW50c1Jlc3BvbnNlIgASSAoQR2V0QWNjb3Vu",
-            "dFN0YXR1cxIaLnByb3RvLkR5R2V0QWNjb3VudFJlcXVlc3QaFi5wcm90by5E",
-            "eUFjY291bnRTdGF0dXMiABJiChVHZXRBY2NvdW50U3RhdHVzQmF0Y2gSHy5w",
-            "cm90by5EeUdldEFjY291bnRCYXRjaFJlcXVlc3QaJi5wcm90by5EeUdldEFj",
-            "Y291bnRTdGF0dXNCYXRjaFJlc3BvbnNlIgASQwoKR2V0UHJvZmlsZRIaLnBy",
-            "b3RvLkR5R2V0UHJvZmlsZVJlcXVlc3QaFy5wcm90by5EeUFjY291bnRQcm9m",
-            "aWxlIgASSQoNVXBkYXRlUHJvZmlsZRIdLnByb3RvLkR5VXBkYXRlUHJvZmls",
-            "ZVJlcXVlc3QaFy5wcm90by5EeUFjY291bnRQcm9maWxlIgASRwoKTGlzdEJh",
-            "ZGdlcxIaLnByb3RvLkR5TGlzdEJhZGdlc1JlcXVlc3QaGy5wcm90by5EeUxp",
-            "c3RCYWRnZXNSZXNwb25zZSIAEkcKCkdyYW50QmFkZ2USGi5wcm90by5EeUdy",
-            "YW50QmFkZ2VSZXF1ZXN0GhsucHJvdG8uRHlHcmFudEJhZGdlUmVzcG9uc2Ui",
-            "ABJBCghHZXRCYWRnZRIYLnByb3RvLkR5R2V0QmFkZ2VSZXF1ZXN0GhkucHJv",
-            "dG8uRHlHZXRCYWRnZVJlc3BvbnNlIgASSgoLVXBkYXRlQmFkZ2USGy5wcm90",
-            "by5EeVVwZGF0ZUJhZGdlUmVxdWVzdBocLnByb3RvLkR5VXBkYXRlQmFkZ2VS",
-            "ZXNwb25zZSIAElYKD0dldFJlbGF0aW9uc2hpcBIfLnByb3RvLkR5R2V0UmVs",
-            "YXRpb25zaGlwUmVxdWVzdBogLnByb3RvLkR5R2V0UmVsYXRpb25zaGlwUmVz",
-            "cG9uc2UiABJQCg9IYXNSZWxhdGlvbnNoaXASHy5wcm90by5EeUdldFJlbGF0",
-            "aW9uc2hpcFJlcXVlc3QaGi5nb29nbGUucHJvdG9idWYuQm9vbFZhbHVlIgAS",
-            "YAoLTGlzdEZyaWVuZHMSJi5wcm90by5EeUxpc3RSZWxhdGlvbnNoaXBTaW1w",
-            "bGVSZXF1ZXN0GicucHJvdG8uRHlMaXN0UmVsYXRpb25zaGlwU2ltcGxlUmVz",
-            "cG9uc2UiABJgCgtMaXN0QmxvY2tlZBImLnByb3RvLkR5TGlzdFJlbGF0aW9u",
-            "c2hpcFNpbXBsZVJlcXVlc3QaJy5wcm90by5EeUxpc3RSZWxhdGlvbnNoaXBT",
-            "aW1wbGVSZXNwb25zZSIAMsEBChJEeUFjdGlvbkxvZ1NlcnZpY2USVgoPQ3Jl",
-            "YXRlQWN0aW9uTG9nEh8ucHJvdG8uRHlDcmVhdGVBY3Rpb25Mb2dSZXF1ZXN0",
-            "GiAucHJvdG8uRHlDcmVhdGVBY3Rpb25Mb2dSZXNwb25zZSIAElMKDkxpc3RB",
-            "Y3Rpb25Mb2dzEh4ucHJvdG8uRHlMaXN0QWN0aW9uTG9nc1JlcXVlc3QaHy5w",
-            "cm90by5EeUxpc3RBY3Rpb25Mb2dzUmVzcG9uc2UiAEI9Wh9naXQuc29sc3lu",
-            "dGguZGV2L3Nvc3lzL3NwZWMvZ2VuqgIZRHlzb25OZXR3b3JrLlNoYXJlZC5Q",
-            "cm90b2IGcHJvdG8z"));
+            "aXNfbm90X2Rpc3R1cmIYBiABKAhSDGlzTm90RGlzdHVyYhIZCgVsYWJlbBgH",
+            "IAEoCUgAUgVsYWJlbIgBARI5CgpjbGVhcmVkX2F0GAggASgLMhouZ29vZ2xl",
+            "LnByb3RvYnVmLlRpbWVzdGFtcFIJY2xlYXJlZEF0Eh0KCmFjY291bnRfaWQY",
+            "CSABKAlSCWFjY291bnRJZBISCgRtZXRhGAogASgMUgRtZXRhEi4KBHR5cGUY",
+            "CyABKA4yGi5wcm90by5EeUFjY291bnRTdGF0dXNUeXBlUgR0eXBlEhsKBnN5",
+            "bWJvbBgMIAEoCUgBUgZzeW1ib2yIAQESKgoOYXBwX2lkZW50aWZpZXIYDSAB",
+            "KAlIAlINYXBwSWRlbnRpZmllcogBARIhCgxpc19hdXRvbWF0ZWQYDiABKAhS",
+            "C2lzQXV0b21hdGVkEjkKCmNyZWF0ZWRfYXQYDyABKAsyGi5nb29nbGUucHJv",
+            "dG9idWYuVGltZXN0YW1wUgljcmVhdGVkQXQSOQoKdXBkYXRlZF9hdBgQIAEo",
+            "CzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBSCXVwZGF0ZWRBdBI5Cgpk",
+            "ZWxldGVkX2F0GBEgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIJ",
+            "ZGVsZXRlZEF0QggKBl9sYWJlbEIJCgdfc3ltYm9sQhEKD19hcHBfaWRlbnRp",
+            "ZmllciKtAgoORHlMZXZlbGluZ0luZm8SIwoNY3VycmVudF9sZXZlbBgBIAEo",
+            "BVIMY3VycmVudExldmVsEi0KEmN1cnJlbnRfZXhwZXJpZW5jZRgCIAEoBVIR",
+            "Y3VycmVudEV4cGVyaWVuY2USMgoVbmV4dF9sZXZlbF9leHBlcmllbmNlGAMg",
+            "ASgFUhNuZXh0TGV2ZWxFeHBlcmllbmNlEjoKGXByZXZpb3VzX2xldmVsX2V4",
+            "cGVyaWVuY2UYBCABKAVSF3ByZXZpb3VzTGV2ZWxFeHBlcmllbmNlEiUKDmxl",
+            "dmVsX3Byb2dyZXNzGAUgASgBUg1sZXZlbFByb2dyZXNzEjAKFGV4cGVyaWVu",
+            "Y2VfcGVyX2xldmVsGAYgAygFUhJleHBlcmllbmNlUGVyTGV2ZWwigwQKC0R5",
+            "QWN0aW9uTG9nEg4KAmlkGAEgASgJUgJpZBIWCgZhY3Rpb24YAiABKAlSBmFj",
+            "dGlvbhIwCgRtZXRhGAMgAygLMhwucHJvdG8uRHlBY3Rpb25Mb2cuTWV0YUVu",
+            "dHJ5UgRtZXRhEjsKCnVzZXJfYWdlbnQYBCABKAsyHC5nb29nbGUucHJvdG9i",
+            "dWYuU3RyaW5nVmFsdWVSCXVzZXJBZ2VudBI7CgppcF9hZGRyZXNzGAUgASgL",
+            "MhwuZ29vZ2xlLnByb3RvYnVmLlN0cmluZ1ZhbHVlUglpcEFkZHJlc3MSOAoI",
+            "bG9jYXRpb24YBiABKAsyHC5nb29nbGUucHJvdG9idWYuU3RyaW5nVmFsdWVS",
+            "CGxvY2F0aW9uEh0KCmFjY291bnRfaWQYByABKAlSCWFjY291bnRJZBI7Cgpz",
+            "ZXNzaW9uX2lkGAggASgLMhwuZ29vZ2xlLnByb3RvYnVmLlN0cmluZ1ZhbHVl",
+            "UglzZXNzaW9uSWQSOQoKY3JlYXRlZF9hdBgJIAEoCzIaLmdvb2dsZS5wcm90",
+            "b2J1Zi5UaW1lc3RhbXBSCWNyZWF0ZWRBdBpPCglNZXRhRW50cnkSEAoDa2V5",
+            "GAEgASgJUgNrZXkSLAoFdmFsdWUYAiABKAsyFi5nb29nbGUucHJvdG9idWYu",
+            "VmFsdWVSBXZhbHVlOgI4ASJVCh9EeUdldEFjY291bnRTdGF0dXNCYXRjaFJl",
+            "c3BvbnNlEjIKCHN0YXR1c2VzGAEgAygLMhYucHJvdG8uRHlBY2NvdW50U3Rh",
+            "dHVzUghzdGF0dXNlcyLSAwoYRHlDcmVhdGVBY3Rpb25Mb2dSZXF1ZXN0EhYK",
+            "BmFjdGlvbhgBIAEoCVIGYWN0aW9uEj0KBG1ldGEYAiADKAsyKS5wcm90by5E",
+            "eUNyZWF0ZUFjdGlvbkxvZ1JlcXVlc3QuTWV0YUVudHJ5UgRtZXRhEjsKCnVz",
+            "ZXJfYWdlbnQYAyABKAsyHC5nb29nbGUucHJvdG9idWYuU3RyaW5nVmFsdWVS",
+            "CXVzZXJBZ2VudBI7CgppcF9hZGRyZXNzGAQgASgLMhwuZ29vZ2xlLnByb3Rv",
+            "YnVmLlN0cmluZ1ZhbHVlUglpcEFkZHJlc3MSOAoIbG9jYXRpb24YBSABKAsy",
+            "HC5nb29nbGUucHJvdG9idWYuU3RyaW5nVmFsdWVSCGxvY2F0aW9uEh0KCmFj",
+            "Y291bnRfaWQYBiABKAlSCWFjY291bnRJZBI7CgpzZXNzaW9uX2lkGAcgASgL",
+            "MhwuZ29vZ2xlLnByb3RvYnVmLlN0cmluZ1ZhbHVlUglzZXNzaW9uSWQaTwoJ",
+            "TWV0YUVudHJ5EhAKA2tleRgBIAEoCVIDa2V5EiwKBXZhbHVlGAIgASgLMhYu",
+            "Z29vZ2xlLnByb3RvYnVmLlZhbHVlUgV2YWx1ZToCOAEiTgoZRHlDcmVhdGVB",
+            "Y3Rpb25Mb2dSZXNwb25zZRIxCgphY3Rpb25fbG9nGAEgASgLMhIucHJvdG8u",
+            "RHlBY3Rpb25Mb2dSCWFjdGlvbkxvZyKnAQoXRHlMaXN0QWN0aW9uTG9nc1Jl",
+            "cXVlc3QSHQoKYWNjb3VudF9pZBgBIAEoCVIJYWNjb3VudElkEhYKBmFjdGlv",
+            "bhgCIAEoCVIGYWN0aW9uEhsKCXBhZ2Vfc2l6ZRgDIAEoBVIIcGFnZVNpemUS",
+            "HQoKcGFnZV90b2tlbhgEIAEoCVIJcGFnZVRva2VuEhkKCG9yZGVyX2J5GAUg",
+            "ASgJUgdvcmRlckJ5IpYBChhEeUxpc3RBY3Rpb25Mb2dzUmVzcG9uc2USMwoL",
+            "YWN0aW9uX2xvZ3MYASADKAsyEi5wcm90by5EeUFjdGlvbkxvZ1IKYWN0aW9u",
+            "TG9ncxImCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAlSDW5leHRQYWdlVG9rZW4S",
+            "HQoKdG90YWxfc2l6ZRgDIAEoBVIJdG90YWxTaXplIjQKE0R5R2V0UHJvZmls",
+            "ZVJlcXVlc3QSHQoKYWNjb3VudF9pZBgBIAEoCVIJYWNjb3VudElkIqcBChZE",
+            "eVVwZGF0ZVByb2ZpbGVSZXF1ZXN0Eh0KCmFjY291bnRfaWQYASABKAlSCWFj",
+            "Y291bnRJZBIxCgdwcm9maWxlGAIgASgLMhcucHJvdG8uRHlBY2NvdW50UHJv",
+            "ZmlsZVIHcHJvZmlsZRI7Cgt1cGRhdGVfbWFzaxgDIAEoCzIaLmdvb2dsZS5w",
+            "cm90b2J1Zi5GaWVsZE1hc2tSCnVwZGF0ZU1hc2siaQoTRHlMaXN0QmFkZ2Vz",
+            "UmVxdWVzdBIdCgphY2NvdW50X2lkGAEgASgJUglhY2NvdW50SWQSEgoEdHlw",
+            "ZRgCIAEoCVIEdHlwZRIfCgthY3RpdmVfb25seRgDIAEoCFIKYWN0aXZlT25s",
+            "eSJFChREeUxpc3RCYWRnZXNSZXNwb25zZRItCgZiYWRnZXMYASADKAsyFS5w",
+            "cm90by5EeUFjY291bnRCYWRnZVIGYmFkZ2VzImEKE0R5R3JhbnRCYWRnZVJl",
+            "cXVlc3QSHQoKYWNjb3VudF9pZBgBIAEoCVIJYWNjb3VudElkEisKBWJhZGdl",
+            "GAIgASgLMhUucHJvdG8uRHlBY2NvdW50QmFkZ2VSBWJhZGdlIkMKFER5R3Jh",
+            "bnRCYWRnZVJlc3BvbnNlEisKBWJhZGdlGAEgASgLMhUucHJvdG8uRHlBY2Nv",
+            "dW50QmFkZ2VSBWJhZGdlIk0KEUR5R2V0QmFkZ2VSZXF1ZXN0Eh0KCmFjY291",
+            "bnRfaWQYASABKAlSCWFjY291bnRJZBIZCghiYWRnZV9pZBgCIAEoCVIHYmFk",
+            "Z2VJZCJBChJEeUdldEJhZGdlUmVzcG9uc2USKwoFYmFkZ2UYASABKAsyFS5w",
+            "cm90by5EeUFjY291bnRCYWRnZVIFYmFkZ2UiugEKFER5VXBkYXRlQmFkZ2VS",
+            "ZXF1ZXN0Eh0KCmFjY291bnRfaWQYASABKAlSCWFjY291bnRJZBIZCghiYWRn",
+            "ZV9pZBgCIAEoCVIHYmFkZ2VJZBIrCgViYWRnZRgDIAEoCzIVLnByb3RvLkR5",
+            "QWNjb3VudEJhZGdlUgViYWRnZRI7Cgt1cGRhdGVfbWFzaxgEIAEoCzIaLmdv",
+            "b2dsZS5wcm90b2J1Zi5GaWVsZE1hc2tSCnVwZGF0ZU1hc2siRAoVRHlVcGRh",
+            "dGVCYWRnZVJlc3BvbnNlEisKBWJhZGdlGAEgASgLMhUucHJvdG8uRHlBY2Nv",
+            "dW50QmFkZ2VSBWJhZGdlIoABChhEeUdldFJlbGF0aW9uc2hpcFJlcXVlc3QS",
+            "HQoKYWNjb3VudF9pZBgBIAEoCVIJYWNjb3VudElkEh0KCnJlbGF0ZWRfaWQY",
+            "AiABKAlSCXJlbGF0ZWRJZBIbCgZzdGF0dXMYAyABKAVIAFIGc3RhdHVziAEB",
+            "QgkKB19zdGF0dXMibAoZRHlHZXRSZWxhdGlvbnNoaXBSZXNwb25zZRI+Cgxy",
+            "ZWxhdGlvbnNoaXAYASABKAsyFS5wcm90by5EeVJlbGF0aW9uc2hpcEgAUgxy",
+            "ZWxhdGlvbnNoaXCIAQFCDwoNX3JlbGF0aW9uc2hpcCJ6Ch9EeUxpc3RSZWxh",
+            "dGlvbnNoaXBTaW1wbGVSZXF1ZXN0Eh8KCmFjY291bnRfaWQYASABKAlIAFIJ",
+            "YWNjb3VudElkEh8KCnJlbGF0ZWRfaWQYAiABKAlIAFIJcmVsYXRlZElkQhUK",
+            "E3JlbGF0aW9uX2lkZW50aWZpZXIiQwogRHlMaXN0UmVsYXRpb25zaGlwU2lt",
+            "cGxlUmVzcG9uc2USHwoLYWNjb3VudHNfaWQYASADKAlSCmFjY291bnRzSWQq",
+            "aAoQRHlTdGF0dXNBdHRpdHVkZRIiCh5EWV9TVEFUVVNfQVRUSVRVREVfVU5T",
+            "UEVDSUZJRUQQABIPCgtEWV9QT1NJVElWRRABEg8KC0RZX05FR0FUSVZFEAIS",
+            "DgoKRFlfTkVVVFJBTBADKqsBChNEeUFjY291bnRTdGF0dXNUeXBlEiIKHkRZ",
+            "X0FDQ09VTlRfU1RBVFVTX1RZUEVfREVGQVVMVBAAEh8KG0RZX0FDQ09VTlRf",
+            "U1RBVFVTX1RZUEVfQlVTWRABEikKJURZX0FDQ09VTlRfU1RBVFVTX1RZUEVf",
+            "RE9fTk9UX0RJU1RVUkIQAhIkCiBEWV9BQ0NPVU5UX1NUQVRVU19UWVBFX0lO",
+            "VklTSUJMRRADMpgMChBEeVByb2ZpbGVTZXJ2aWNlEjwKCkdldEFjY291bnQS",
+            "Gi5wcm90by5EeUdldEFjY291bnRSZXF1ZXN0GhAucHJvdG8uRHlBY2NvdW50",
+            "IgASQgoNR2V0Qm90QWNjb3VudBIdLnByb3RvLkR5R2V0Qm90QWNjb3VudFJl",
+            "cXVlc3QaEC5wcm90by5EeUFjY291bnQiABJWCg9HZXRBY2NvdW50QmF0Y2gS",
+            "Hy5wcm90by5EeUdldEFjY291bnRCYXRjaFJlcXVlc3QaIC5wcm90by5EeUdl",
+            "dEFjY291bnRCYXRjaFJlc3BvbnNlIgASXAoSR2V0Qm90QWNjb3VudEJhdGNo",
+            "EiIucHJvdG8uRHlHZXRCb3RBY2NvdW50QmF0Y2hSZXF1ZXN0GiAucHJvdG8u",
+            "RHlHZXRBY2NvdW50QmF0Y2hSZXNwb25zZSIAElwKEkxvb2t1cEFjY291bnRC",
+            "YXRjaBIiLnByb3RvLkR5TG9va3VwQWNjb3VudEJhdGNoUmVxdWVzdBogLnBy",
+            "b3RvLkR5R2V0QWNjb3VudEJhdGNoUmVzcG9uc2UiABJSCg1TZWFyY2hBY2Nv",
+            "dW50Eh0ucHJvdG8uRHlTZWFyY2hBY2NvdW50UmVxdWVzdBogLnByb3RvLkR5",
+            "R2V0QWNjb3VudEJhdGNoUmVzcG9uc2UiABJNCgxMaXN0QWNjb3VudHMSHC5w",
+            "cm90by5EeUxpc3RBY2NvdW50c1JlcXVlc3QaHS5wcm90by5EeUxpc3RBY2Nv",
+            "dW50c1Jlc3BvbnNlIgASSAoQR2V0QWNjb3VudFN0YXR1cxIaLnByb3RvLkR5",
+            "R2V0QWNjb3VudFJlcXVlc3QaFi5wcm90by5EeUFjY291bnRTdGF0dXMiABJi",
+            "ChVHZXRBY2NvdW50U3RhdHVzQmF0Y2gSHy5wcm90by5EeUdldEFjY291bnRC",
+            "YXRjaFJlcXVlc3QaJi5wcm90by5EeUdldEFjY291bnRTdGF0dXNCYXRjaFJl",
+            "c3BvbnNlIgASQwoKR2V0UHJvZmlsZRIaLnByb3RvLkR5R2V0UHJvZmlsZVJl",
+            "cXVlc3QaFy5wcm90by5EeUFjY291bnRQcm9maWxlIgASSQoNVXBkYXRlUHJv",
+            "ZmlsZRIdLnByb3RvLkR5VXBkYXRlUHJvZmlsZVJlcXVlc3QaFy5wcm90by5E",
+            "eUFjY291bnRQcm9maWxlIgASRwoKTGlzdEJhZGdlcxIaLnByb3RvLkR5TGlz",
+            "dEJhZGdlc1JlcXVlc3QaGy5wcm90by5EeUxpc3RCYWRnZXNSZXNwb25zZSIA",
+            "EkcKCkdyYW50QmFkZ2USGi5wcm90by5EeUdyYW50QmFkZ2VSZXF1ZXN0Ghsu",
+            "cHJvdG8uRHlHcmFudEJhZGdlUmVzcG9uc2UiABJBCghHZXRCYWRnZRIYLnBy",
+            "b3RvLkR5R2V0QmFkZ2VSZXF1ZXN0GhkucHJvdG8uRHlHZXRCYWRnZVJlc3Bv",
+            "bnNlIgASSgoLVXBkYXRlQmFkZ2USGy5wcm90by5EeVVwZGF0ZUJhZGdlUmVx",
+            "dWVzdBocLnByb3RvLkR5VXBkYXRlQmFkZ2VSZXNwb25zZSIAElYKD0dldFJl",
+            "bGF0aW9uc2hpcBIfLnByb3RvLkR5R2V0UmVsYXRpb25zaGlwUmVxdWVzdBog",
+            "LnByb3RvLkR5R2V0UmVsYXRpb25zaGlwUmVzcG9uc2UiABJQCg9IYXNSZWxh",
+            "dGlvbnNoaXASHy5wcm90by5EeUdldFJlbGF0aW9uc2hpcFJlcXVlc3QaGi5n",
+            "b29nbGUucHJvdG9idWYuQm9vbFZhbHVlIgASYAoLTGlzdEZyaWVuZHMSJi5w",
+            "cm90by5EeUxpc3RSZWxhdGlvbnNoaXBTaW1wbGVSZXF1ZXN0GicucHJvdG8u",
+            "RHlMaXN0UmVsYXRpb25zaGlwU2ltcGxlUmVzcG9uc2UiABJgCgtMaXN0Qmxv",
+            "Y2tlZBImLnByb3RvLkR5TGlzdFJlbGF0aW9uc2hpcFNpbXBsZVJlcXVlc3Qa",
+            "Jy5wcm90by5EeUxpc3RSZWxhdGlvbnNoaXBTaW1wbGVSZXNwb25zZSIAMsEB",
+            "ChJEeUFjdGlvbkxvZ1NlcnZpY2USVgoPQ3JlYXRlQWN0aW9uTG9nEh8ucHJv",
+            "dG8uRHlDcmVhdGVBY3Rpb25Mb2dSZXF1ZXN0GiAucHJvdG8uRHlDcmVhdGVB",
+            "Y3Rpb25Mb2dSZXNwb25zZSIAElMKDkxpc3RBY3Rpb25Mb2dzEh4ucHJvdG8u",
+            "RHlMaXN0QWN0aW9uTG9nc1JlcXVlc3QaHy5wcm90by5EeUxpc3RBY3Rpb25M",
+            "b2dzUmVzcG9uc2UiAEI9Wh9naXQuc29sc3ludGguZGV2L3Nvc3lzL3NwZWMv",
+            "Z2VuqgIZRHlzb25OZXR3b3JrLlNoYXJlZC5Qcm90b2IGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.FieldMaskReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.StructReflection.Descriptor, global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor, },
-          new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyStatusAttitude), }, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyAccountStatus), global::DysonNetwork.Shared.Proto.DyAccountStatus.Parser, new[]{ "Id", "Attitude", "IsOnline", "IsCustomized", "IsInvisible", "IsNotDisturb", "Label", "ClearedAt", "AccountId", "Meta" }, null, null, null, null),
+          new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyStatusAttitude), typeof(global::DysonNetwork.Shared.Proto.DyAccountStatusType), }, null, new pbr::GeneratedClrTypeInfo[] {
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyAccountStatus), global::DysonNetwork.Shared.Proto.DyAccountStatus.Parser, new[]{ "Id", "Attitude", "IsOnline", "IsCustomized", "IsInvisible", "IsNotDisturb", "Label", "ClearedAt", "AccountId", "Meta", "Type", "Symbol", "AppIdentifier", "IsAutomated", "CreatedAt", "UpdatedAt", "DeletedAt" }, new[]{ "Label", "Symbol", "AppIdentifier" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyLevelingInfo), global::DysonNetwork.Shared.Proto.DyLevelingInfo.Parser, new[]{ "CurrentLevel", "CurrentExperience", "NextLevelExperience", "PreviousLevelExperience", "LevelProgress", "ExperiencePerLevel" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyActionLog), global::DysonNetwork.Shared.Proto.DyActionLog.Parser, new[]{ "Id", "Action", "Meta", "UserAgent", "IpAddress", "Location", "AccountId", "SessionId", "CreatedAt" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, }),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetAccountStatusBatchResponse), global::DysonNetwork.Shared.Proto.DyGetAccountStatusBatchResponse.Parser, new[]{ "Statuses" }, null, null, null, null),
@@ -182,9 +193,6 @@ namespace DysonNetwork.Shared.Proto {
 
   }
   #region Enums
-  /// <summary>
-  /// Enum for status attitude
-  /// </summary>
   public enum DyStatusAttitude {
     [pbr::OriginalName("DY_STATUS_ATTITUDE_UNSPECIFIED")] Unspecified = 0,
     [pbr::OriginalName("DY_POSITIVE")] DyPositive = 1,
@@ -192,12 +200,16 @@ namespace DysonNetwork.Shared.Proto {
     [pbr::OriginalName("DY_NEUTRAL")] DyNeutral = 3,
   }
 
+  public enum DyAccountStatusType {
+    [pbr::OriginalName("DY_ACCOUNT_STATUS_TYPE_DEFAULT")] Default = 0,
+    [pbr::OriginalName("DY_ACCOUNT_STATUS_TYPE_BUSY")] Busy = 1,
+    [pbr::OriginalName("DY_ACCOUNT_STATUS_TYPE_DO_NOT_DISTURB")] DoNotDisturb = 2,
+    [pbr::OriginalName("DY_ACCOUNT_STATUS_TYPE_INVISIBLE")] Invisible = 3,
+  }
+
   #endregion
 
   #region Messages
-  /// <summary>
-  /// AccountStatus represents the status of an account
-  /// </summary>
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class DyAccountStatus : pb::IMessage<DyAccountStatus>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
@@ -239,10 +251,17 @@ namespace DysonNetwork.Shared.Proto {
       isCustomized_ = other.isCustomized_;
       isInvisible_ = other.isInvisible_;
       isNotDisturb_ = other.isNotDisturb_;
-      Label = other.Label;
+      label_ = other.label_;
       clearedAt_ = other.clearedAt_ != null ? other.clearedAt_.Clone() : null;
       accountId_ = other.accountId_;
       meta_ = other.meta_;
+      type_ = other.type_;
+      symbol_ = other.symbol_;
+      appIdentifier_ = other.appIdentifier_;
+      isAutomated_ = other.isAutomated_;
+      createdAt_ = other.createdAt_ != null ? other.createdAt_.Clone() : null;
+      updatedAt_ = other.updatedAt_ != null ? other.updatedAt_.Clone() : null;
+      deletedAt_ = other.deletedAt_ != null ? other.deletedAt_.Clone() : null;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -303,6 +322,9 @@ namespace DysonNetwork.Shared.Proto {
     /// <summary>Field number for the "is_invisible" field.</summary>
     public const int IsInvisibleFieldNumber = 5;
     private bool isInvisible_;
+    /// <summary>
+    /// Legacy compatibility fields. Keep them for older consumers.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool IsInvisible {
@@ -326,17 +348,29 @@ namespace DysonNetwork.Shared.Proto {
 
     /// <summary>Field number for the "label" field.</summary>
     public const int LabelFieldNumber = 7;
-    private static readonly pb::FieldCodec<string> _single_label_codec = pb::FieldCodec.ForClassWrapper<string>(58);
+    private readonly static string LabelDefaultValue = "";
+
     private string label_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Label {
-      get { return label_; }
+      get { return label_ ?? LabelDefaultValue; }
       set {
-        label_ = value;
+        label_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
-
+    /// <summary>Gets whether the "label" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasLabel {
+      get { return label_ != null; }
+    }
+    /// <summary>Clears the value of the "label" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearLabel() {
+      label_ = null;
+    }
 
     /// <summary>Field number for the "cleared_at" field.</summary>
     public const int ClearedAtFieldNumber = 8;
@@ -374,6 +408,121 @@ namespace DysonNetwork.Shared.Proto {
       }
     }
 
+    /// <summary>Field number for the "type" field.</summary>
+    public const int TypeFieldNumber = 11;
+    private global::DysonNetwork.Shared.Proto.DyAccountStatusType type_ = global::DysonNetwork.Shared.Proto.DyAccountStatusType.Default;
+    /// <summary>
+    /// New fields
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::DysonNetwork.Shared.Proto.DyAccountStatusType Type {
+      get { return type_; }
+      set {
+        type_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "symbol" field.</summary>
+    public const int SymbolFieldNumber = 12;
+    private readonly static string SymbolDefaultValue = "";
+
+    private string symbol_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Symbol {
+      get { return symbol_ ?? SymbolDefaultValue; }
+      set {
+        symbol_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+    /// <summary>Gets whether the "symbol" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasSymbol {
+      get { return symbol_ != null; }
+    }
+    /// <summary>Clears the value of the "symbol" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearSymbol() {
+      symbol_ = null;
+    }
+
+    /// <summary>Field number for the "app_identifier" field.</summary>
+    public const int AppIdentifierFieldNumber = 13;
+    private readonly static string AppIdentifierDefaultValue = "";
+
+    private string appIdentifier_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string AppIdentifier {
+      get { return appIdentifier_ ?? AppIdentifierDefaultValue; }
+      set {
+        appIdentifier_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+    /// <summary>Gets whether the "app_identifier" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasAppIdentifier {
+      get { return appIdentifier_ != null; }
+    }
+    /// <summary>Clears the value of the "app_identifier" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearAppIdentifier() {
+      appIdentifier_ = null;
+    }
+
+    /// <summary>Field number for the "is_automated" field.</summary>
+    public const int IsAutomatedFieldNumber = 14;
+    private bool isAutomated_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool IsAutomated {
+      get { return isAutomated_; }
+      set {
+        isAutomated_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "created_at" field.</summary>
+    public const int CreatedAtFieldNumber = 15;
+    private global::Google.Protobuf.WellKnownTypes.Timestamp createdAt_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Google.Protobuf.WellKnownTypes.Timestamp CreatedAt {
+      get { return createdAt_; }
+      set {
+        createdAt_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "updated_at" field.</summary>
+    public const int UpdatedAtFieldNumber = 16;
+    private global::Google.Protobuf.WellKnownTypes.Timestamp updatedAt_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Google.Protobuf.WellKnownTypes.Timestamp UpdatedAt {
+      get { return updatedAt_; }
+      set {
+        updatedAt_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "deleted_at" field.</summary>
+    public const int DeletedAtFieldNumber = 17;
+    private global::Google.Protobuf.WellKnownTypes.Timestamp deletedAt_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Google.Protobuf.WellKnownTypes.Timestamp DeletedAt {
+      get { return deletedAt_; }
+      set {
+        deletedAt_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -399,6 +548,13 @@ namespace DysonNetwork.Shared.Proto {
       if (!object.Equals(ClearedAt, other.ClearedAt)) return false;
       if (AccountId != other.AccountId) return false;
       if (Meta != other.Meta) return false;
+      if (Type != other.Type) return false;
+      if (Symbol != other.Symbol) return false;
+      if (AppIdentifier != other.AppIdentifier) return false;
+      if (IsAutomated != other.IsAutomated) return false;
+      if (!object.Equals(CreatedAt, other.CreatedAt)) return false;
+      if (!object.Equals(UpdatedAt, other.UpdatedAt)) return false;
+      if (!object.Equals(DeletedAt, other.DeletedAt)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -412,10 +568,17 @@ namespace DysonNetwork.Shared.Proto {
       if (IsCustomized != false) hash ^= IsCustomized.GetHashCode();
       if (IsInvisible != false) hash ^= IsInvisible.GetHashCode();
       if (IsNotDisturb != false) hash ^= IsNotDisturb.GetHashCode();
-      if (label_ != null) hash ^= Label.GetHashCode();
+      if (HasLabel) hash ^= Label.GetHashCode();
       if (clearedAt_ != null) hash ^= ClearedAt.GetHashCode();
       if (AccountId.Length != 0) hash ^= AccountId.GetHashCode();
       if (Meta.Length != 0) hash ^= Meta.GetHashCode();
+      if (Type != global::DysonNetwork.Shared.Proto.DyAccountStatusType.Default) hash ^= Type.GetHashCode();
+      if (HasSymbol) hash ^= Symbol.GetHashCode();
+      if (HasAppIdentifier) hash ^= AppIdentifier.GetHashCode();
+      if (IsAutomated != false) hash ^= IsAutomated.GetHashCode();
+      if (createdAt_ != null) hash ^= CreatedAt.GetHashCode();
+      if (updatedAt_ != null) hash ^= UpdatedAt.GetHashCode();
+      if (deletedAt_ != null) hash ^= DeletedAt.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -458,8 +621,9 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(48);
         output.WriteBool(IsNotDisturb);
       }
-      if (label_ != null) {
-        _single_label_codec.WriteTagAndValue(output, Label);
+      if (HasLabel) {
+        output.WriteRawTag(58);
+        output.WriteString(Label);
       }
       if (clearedAt_ != null) {
         output.WriteRawTag(66);
@@ -472,6 +636,34 @@ namespace DysonNetwork.Shared.Proto {
       if (Meta.Length != 0) {
         output.WriteRawTag(82);
         output.WriteBytes(Meta);
+      }
+      if (Type != global::DysonNetwork.Shared.Proto.DyAccountStatusType.Default) {
+        output.WriteRawTag(88);
+        output.WriteEnum((int) Type);
+      }
+      if (HasSymbol) {
+        output.WriteRawTag(98);
+        output.WriteString(Symbol);
+      }
+      if (HasAppIdentifier) {
+        output.WriteRawTag(106);
+        output.WriteString(AppIdentifier);
+      }
+      if (IsAutomated != false) {
+        output.WriteRawTag(112);
+        output.WriteBool(IsAutomated);
+      }
+      if (createdAt_ != null) {
+        output.WriteRawTag(122);
+        output.WriteMessage(CreatedAt);
+      }
+      if (updatedAt_ != null) {
+        output.WriteRawTag(130, 1);
+        output.WriteMessage(UpdatedAt);
+      }
+      if (deletedAt_ != null) {
+        output.WriteRawTag(138, 1);
+        output.WriteMessage(DeletedAt);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -507,8 +699,9 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(48);
         output.WriteBool(IsNotDisturb);
       }
-      if (label_ != null) {
-        _single_label_codec.WriteTagAndValue(ref output, Label);
+      if (HasLabel) {
+        output.WriteRawTag(58);
+        output.WriteString(Label);
       }
       if (clearedAt_ != null) {
         output.WriteRawTag(66);
@@ -521,6 +714,34 @@ namespace DysonNetwork.Shared.Proto {
       if (Meta.Length != 0) {
         output.WriteRawTag(82);
         output.WriteBytes(Meta);
+      }
+      if (Type != global::DysonNetwork.Shared.Proto.DyAccountStatusType.Default) {
+        output.WriteRawTag(88);
+        output.WriteEnum((int) Type);
+      }
+      if (HasSymbol) {
+        output.WriteRawTag(98);
+        output.WriteString(Symbol);
+      }
+      if (HasAppIdentifier) {
+        output.WriteRawTag(106);
+        output.WriteString(AppIdentifier);
+      }
+      if (IsAutomated != false) {
+        output.WriteRawTag(112);
+        output.WriteBool(IsAutomated);
+      }
+      if (createdAt_ != null) {
+        output.WriteRawTag(122);
+        output.WriteMessage(CreatedAt);
+      }
+      if (updatedAt_ != null) {
+        output.WriteRawTag(130, 1);
+        output.WriteMessage(UpdatedAt);
+      }
+      if (deletedAt_ != null) {
+        output.WriteRawTag(138, 1);
+        output.WriteMessage(DeletedAt);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -550,8 +771,8 @@ namespace DysonNetwork.Shared.Proto {
       if (IsNotDisturb != false) {
         size += 1 + 1;
       }
-      if (label_ != null) {
-        size += _single_label_codec.CalculateSizeWithTag(Label);
+      if (HasLabel) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Label);
       }
       if (clearedAt_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(ClearedAt);
@@ -561,6 +782,27 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (Meta.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeBytesSize(Meta);
+      }
+      if (Type != global::DysonNetwork.Shared.Proto.DyAccountStatusType.Default) {
+        size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) Type);
+      }
+      if (HasSymbol) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Symbol);
+      }
+      if (HasAppIdentifier) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(AppIdentifier);
+      }
+      if (IsAutomated != false) {
+        size += 1 + 1;
+      }
+      if (createdAt_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(CreatedAt);
+      }
+      if (updatedAt_ != null) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(UpdatedAt);
+      }
+      if (deletedAt_ != null) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(DeletedAt);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -592,10 +834,8 @@ namespace DysonNetwork.Shared.Proto {
       if (other.IsNotDisturb != false) {
         IsNotDisturb = other.IsNotDisturb;
       }
-      if (other.label_ != null) {
-        if (label_ == null || other.Label != "") {
-          Label = other.Label;
-        }
+      if (other.HasLabel) {
+        Label = other.Label;
       }
       if (other.clearedAt_ != null) {
         if (clearedAt_ == null) {
@@ -608,6 +848,36 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.Meta.Length != 0) {
         Meta = other.Meta;
+      }
+      if (other.Type != global::DysonNetwork.Shared.Proto.DyAccountStatusType.Default) {
+        Type = other.Type;
+      }
+      if (other.HasSymbol) {
+        Symbol = other.Symbol;
+      }
+      if (other.HasAppIdentifier) {
+        AppIdentifier = other.AppIdentifier;
+      }
+      if (other.IsAutomated != false) {
+        IsAutomated = other.IsAutomated;
+      }
+      if (other.createdAt_ != null) {
+        if (createdAt_ == null) {
+          CreatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+        }
+        CreatedAt.MergeFrom(other.CreatedAt);
+      }
+      if (other.updatedAt_ != null) {
+        if (updatedAt_ == null) {
+          UpdatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+        }
+        UpdatedAt.MergeFrom(other.UpdatedAt);
+      }
+      if (other.deletedAt_ != null) {
+        if (deletedAt_ == null) {
+          DeletedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+        }
+        DeletedAt.MergeFrom(other.DeletedAt);
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -653,10 +923,7 @@ namespace DysonNetwork.Shared.Proto {
             break;
           }
           case 58: {
-            string value = _single_label_codec.Read(input);
-            if (label_ == null || value != "") {
-              Label = value;
-            }
+            Label = input.ReadString();
             break;
           }
           case 66: {
@@ -672,6 +939,43 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 82: {
             Meta = input.ReadBytes();
+            break;
+          }
+          case 88: {
+            Type = (global::DysonNetwork.Shared.Proto.DyAccountStatusType) input.ReadEnum();
+            break;
+          }
+          case 98: {
+            Symbol = input.ReadString();
+            break;
+          }
+          case 106: {
+            AppIdentifier = input.ReadString();
+            break;
+          }
+          case 112: {
+            IsAutomated = input.ReadBool();
+            break;
+          }
+          case 122: {
+            if (createdAt_ == null) {
+              CreatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(CreatedAt);
+            break;
+          }
+          case 130: {
+            if (updatedAt_ == null) {
+              UpdatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(UpdatedAt);
+            break;
+          }
+          case 138: {
+            if (deletedAt_ == null) {
+              DeletedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(DeletedAt);
             break;
           }
         }
@@ -718,10 +1022,7 @@ namespace DysonNetwork.Shared.Proto {
             break;
           }
           case 58: {
-            string value = _single_label_codec.Read(ref input);
-            if (label_ == null || value != "") {
-              Label = value;
-            }
+            Label = input.ReadString();
             break;
           }
           case 66: {
@@ -737,6 +1038,43 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 82: {
             Meta = input.ReadBytes();
+            break;
+          }
+          case 88: {
+            Type = (global::DysonNetwork.Shared.Proto.DyAccountStatusType) input.ReadEnum();
+            break;
+          }
+          case 98: {
+            Symbol = input.ReadString();
+            break;
+          }
+          case 106: {
+            AppIdentifier = input.ReadString();
+            break;
+          }
+          case 112: {
+            IsAutomated = input.ReadBool();
+            break;
+          }
+          case 122: {
+            if (createdAt_ == null) {
+              CreatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(CreatedAt);
+            break;
+          }
+          case 130: {
+            if (updatedAt_ == null) {
+              UpdatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(UpdatedAt);
+            break;
+          }
+          case 138: {
+            if (deletedAt_ == null) {
+              DeletedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(DeletedAt);
             break;
           }
         }
