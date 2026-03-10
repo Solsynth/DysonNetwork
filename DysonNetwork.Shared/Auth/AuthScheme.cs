@@ -5,6 +5,7 @@ using System.Text.Encodings.Web;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Proto;
+using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
@@ -32,6 +33,7 @@ public class DysonTokenAuthHandler(
     private const string AccountVersionPrefix = "auth:account_ver:";
     private const string ProfileCachePrefix = "auth:profile:";
     private static readonly TimeSpan ProfileCacheTtl = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan LastSeenTouchThrottle = TimeSpan.FromMinutes(1);
 
     private readonly Lazy<RSA> _publicKey = new(() =>
     {
@@ -91,6 +93,7 @@ public class DysonTokenAuthHandler(
 
                 var session = BuildSessionFromClaims(jwt, tokenUse);
                 await HydrateProfileAsync(session, Context.RequestAborted);
+                await TouchProfileLastSeenAsync(session, Context.RequestAborted);
                 return BuildAuthResult(tokenInfo.Type, session);
             }
 
@@ -120,6 +123,7 @@ public class DysonTokenAuthHandler(
             }
 
             await HydrateProfileAsync(legacySession, Context.RequestAborted);
+            await TouchProfileLastSeenAsync(legacySession, Context.RequestAborted);
             return BuildAuthResult(tokenInfo.Type, legacySession);
         }
         catch (Exception ex)
@@ -287,6 +291,47 @@ public class DysonTokenAuthHandler(
         {
             Logger.LogWarning(ex, "Failed to hydrate account profile for {AccountId}", session.Account.Id);
             session.Account.Profile ??= new DyAccountProfile();
+        }
+    }
+
+    private async Task TouchProfileLastSeenAsync(DyAuthSession session, CancellationToken cancellationToken)
+    {
+        if (session.Account is null || string.IsNullOrWhiteSpace(session.Account.Id))
+            return;
+
+        var throttleKey = $"auth:last_seen_touch:{session.Account.Id}";
+        var (alreadyTouched, _) = await cache.GetAsyncWithStatus<bool>(throttleKey);
+        if (alreadyTouched)
+            return;
+
+        try
+        {
+            var now = DateTime.UtcNow;
+            await profiles.UpdateProfileAsync(
+                new DyUpdateProfileRequest
+                {
+                    AccountId = session.Account.Id,
+                    Profile = new DyAccountProfile
+                    {
+                        LastSeenAt = Timestamp.FromDateTime(now)
+                    },
+                    UpdateMask = new FieldMask
+                    {
+                        Paths = { "last_seen_at" }
+                    }
+                },
+                cancellationToken: cancellationToken
+            );
+            await cache.SetAsync(throttleKey, true, LastSeenTouchThrottle);
+        }
+        catch (RpcException ex) when (ex.StatusCode is StatusCode.NotFound or StatusCode.Unimplemented)
+        {
+            Logger.LogDebug("Profile last_seen touch unavailable for account {AccountId}: {StatusCode}",
+                session.Account.Id, ex.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Failed to touch profile last_seen_at for account {AccountId}", session.Account.Id);
         }
     }
 
