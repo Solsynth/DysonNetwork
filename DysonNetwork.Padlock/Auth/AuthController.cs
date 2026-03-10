@@ -225,7 +225,7 @@ public class AuthController(
     {
         [Required] [MaxLength(512)] public string DeviceId { get; set; } = null!;
         [MaxLength(1024)] public string? DeviceName { get; set; }
-        [Required] public Shared.Models.ClientPlatform Platform { get; set; }
+        [Required] public ClientPlatform Platform { get; set; }
         public Instant? ExpiredAt { get; set; }
     }
 

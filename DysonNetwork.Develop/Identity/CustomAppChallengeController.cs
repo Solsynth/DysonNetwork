@@ -22,23 +22,14 @@ public class CustomAppChallengeController(
     [HttpPost("{appId:guid}/validate")]
     [AllowAnonymous]
     public async Task<IActionResult> ValidateAppConnectChallenge(
-        [FromRoute] string pubName,
-        [FromRoute] Guid projectId,
         [FromRoute] Guid appId,
-        [FromBody] ValidateAppConnectChallengeRequest request)
+        [FromBody] ValidateAppConnectChallengeRequest request
+    )
     {
         if (string.IsNullOrWhiteSpace(request.Challenge) || string.IsNullOrWhiteSpace(request.Signature))
             return BadRequest("Challenge and signature are required.");
 
-        var developer = await ds.GetDeveloperByName(pubName);
-        if (developer is null)
-            return NotFound("Developer not found");
-
-        var project = await projectService.GetProjectAsync(projectId, developer.Id);
-        if (project is null)
-            return NotFound("Project not found");
-
-        var app = await customApps.GetAppAsync(appId, projectId);
+        var app = await customApps.GetAppAsync(appId);
         if (app is null)
             return NotFound("App not found");
 
