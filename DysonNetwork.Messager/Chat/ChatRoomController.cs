@@ -677,9 +677,10 @@ public class ChatRoomController(
     }
 
     [HttpGet("{roomId:guid}/members/online")]
-    public async Task<ActionResult<int>> GetOnlineUsersCount(Guid roomId)
+    public async Task<ActionResult<OnlineMembersResponse>> GetOnlineUsersCount(Guid roomId)
     {
         var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
+        Guid? currentUserId = currentUser is not null ? Guid.Parse(currentUser.Id) : null;
 
         var room = await db.ChatRooms
             .FirstOrDefaultAsync(r => r.Id == roomId);
@@ -689,7 +690,7 @@ public class ChatRoomController(
         {
             if (currentUser is null) return Unauthorized();
             var member = await db.ChatMembers
-                .Where(m => m.ChatRoomId == roomId && m.AccountId == Guid.Parse(currentUser.Id) && m.JoinedAt != null &&
+                .Where(m => m.ChatRoomId == roomId && m.AccountId == currentUserId && m.JoinedAt != null &&
                             m.LeaveAt == null)
                 .FirstOrDefaultAsync();
             if (member is null)
@@ -704,9 +705,49 @@ public class ChatRoomController(
 
         var memberStatuses = await remoteAccountsHelper.GetAccountStatusBatch(members);
 
-        var onlineCount = memberStatuses.Count(s => s.Value.IsOnline);
+        var onlineMemberIds = memberStatuses
+            .Where(s => s.Value.IsOnline)
+            .Select(s => s.Key)
+            .ToList();
+        var response = new OnlineMembersResponse
+        {
+            OnlineCount = onlineMemberIds.Count
+        };
 
-        return Ok(onlineCount);
+        if (room.Type == ChatRoomType.DirectMessage)
+        {
+            if (currentUserId is null) return Unauthorized();
+
+            var relatedMemberId = members.FirstOrDefault(id => id != currentUserId.Value);
+            if (relatedMemberId != Guid.Empty &&
+                memberStatuses.TryGetValue(relatedMemberId, out var relatedStatus))
+            {
+                response.DirectMessageStatus = relatedStatus;
+            }
+
+            return Ok(response);
+        }
+
+        if (onlineMemberIds.Count == 0) return Ok(response);
+
+        var onlineAccounts = await remoteAccountsHelper.GetAccountBatch(onlineMemberIds);
+        response.OnlineAccounts = onlineAccounts
+            .Select(SnAccount.FromProtoValue)
+            .ToList();
+        response.OnlineUserNames = response.OnlineAccounts
+            .Select(a => a.Nick)
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .ToList()!;
+
+        return Ok(response);
+    }
+
+    public class OnlineMembersResponse
+    {
+        public int OnlineCount { get; set; }
+        public SnAccountStatus? DirectMessageStatus { get; set; }
+        public List<string> OnlineUserNames { get; set; } = [];
+        public List<SnAccount> OnlineAccounts { get; set; } = [];
     }
 
     [HttpGet("{roomId:guid}/members")]
