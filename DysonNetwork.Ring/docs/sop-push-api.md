@@ -23,7 +23,7 @@ Unlike Apple/Google push providers, SOP does not require the client to provide a
 Registers/updates an SOP subscription for the current authenticated session and returns a server-generated SOP token.
 
 - **Method:** `POST`
-- **Path:** `/api/notifications/subscription/sop`
+- **Path:** `/api/notifications/sop/subscription`
 - **Auth:** Bearer auth (normal Dyson auth)
 
 #### Response Example
@@ -126,12 +126,32 @@ es.onerror = (err) => {
 ## Integration Flow
 
 1. Authenticate user with normal Dyson auth.
-2. Call `POST /api/notifications/subscription/sop` to get SOP token.
+2. Call `POST /api/notifications/sop/subscription` to get SOP token.
 3. Call `GET /api/notifications/sop` for initial list (without marking viewed).
 4. Open `GET /api/notifications/sop/stream` via SSE to receive new notifications.
 
 ## Notes
 
 - Existing endpoint `PUT /api/notifications/subscription` does not accept `PushProvider.Sop`.
-- Use `/api/notifications/subscription/sop` for SOP registration.
+- Use `/api/notifications/sop/subscription` for SOP registration.
 - SOP tokens are currently persisted in push subscription storage and are treated as bearer credentials for SOP APIs.
+
+## Push Device Management
+
+The regular notification controller exposes account-scoped push subscription management for all providers.
+
+### List Registered Push Devices
+
+- **Method:** `GET`
+- **Path:** `/api/notifications/subscription`
+- **Auth:** Bearer auth
+
+Returns all registered push subscriptions for the current account, including SOP subscriptions.
+
+### Unregister by Subscription ID
+
+- **Method:** `DELETE`
+- **Path:** `/api/notifications/subscription/{subscription_id}`
+- **Auth:** Bearer auth
+
+Deletes the specified subscription if it belongs to the current account.
