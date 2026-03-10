@@ -127,6 +127,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SocialCreditService>();
         services.AddScoped<ExperienceService>();
         services.AddScoped<RealmService>();
+        services.AddScoped<RealmQuotaService>();
         services.AddScoped<AffiliationSpellService>();
 
         services.AddScoped<SpotifyPresenceService>();

@@ -205,6 +205,7 @@ public static class ServiceCollectionExtensions
             services.Configure<ActivityPubDeliveryOptions>(configuration.GetSection("ActivityPubDelivery"));
             services.AddScoped<GeoService>();
             services.AddScoped<PublisherService>();
+            services.AddScoped<PublisherQuotaService>();
             services.AddScoped<PublisherSubscriptionService>();
             services.AddScoped<TimelineService>();
             services.AddScoped<PostService>();

@@ -16,6 +16,7 @@ namespace DysonNetwork.Passport.Realm;
 public class RealmController(
     AppDatabase db,
     RealmService rs,
+    RealmQuotaService quotaService,
     AccountService accounts,
     DyFileService.DyFileServiceClient files,
     ActionLogService als,
@@ -23,6 +24,19 @@ public class RealmController(
     AccountEventService accountEvents
 ) : Controller
 {
+    [HttpGet("quota")]
+    [Authorize]
+    public async Task<ActionResult<ResourceQuotaResponse<RealmQuotaRecord>>> GetQuota()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var account = await accounts.GetAccount(currentUser.Id);
+        if (account is null) return Unauthorized();
+        if (account.PerkLevel == 0 && currentUser.PerkLevel > 0) account.PerkLevel = currentUser.PerkLevel;
+
+        return Ok(await quotaService.GetQuotaAsync(account));
+    }
+
     [HttpGet("{slug}")]
     public async Task<ActionResult<SnRealm>> GetRealm(string slug)
     {
@@ -359,6 +373,14 @@ public class RealmController(
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         if (string.IsNullOrWhiteSpace(request.Name)) return BadRequest("You cannot create a realm without a name.");
         if (string.IsNullOrWhiteSpace(request.Slug)) return BadRequest("You cannot create a realm without a slug.");
+
+        var account = await accounts.GetAccount(currentUser.Id);
+        if (account is null) return Unauthorized();
+        if (account.PerkLevel == 0 && currentUser.PerkLevel > 0) account.PerkLevel = currentUser.PerkLevel;
+
+        var quota = await quotaService.GetQuotaAsync(account);
+        if (quota.Used >= quota.Total)
+            return StatusCode(403, $"Realm quota exceeded ({quota.Used}/{quota.Total}).");
 
         var slugExists = await db.Realms.AnyAsync(r => r.Slug == request.Slug);
         if (slugExists) return BadRequest("Realm with this slug already exists.");

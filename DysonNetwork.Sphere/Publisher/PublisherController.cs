@@ -18,13 +18,26 @@ namespace DysonNetwork.Sphere.Publisher;
 public class PublisherController(
     AppDatabase db,
     PublisherService ps,
+    PublisherQuotaService quotaService,
     DyAccountService.DyAccountServiceClient accounts,
     DyFileService.DyFileServiceClient files,
     RemoteActionLogService als,
     RemoteRealmService remoteRealmService,
-    IServiceScopeFactory factory
+    IServiceScopeFactory factory,
+    RemoteAccountService remoteAccounts
 ) : ControllerBase
 {
+    [HttpGet("quota")]
+    [Authorize]
+    public async Task<ActionResult<ResourceQuotaResponse<PublisherQuotaRecord>>> GetQuota()
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var account = SnAccount.FromProtoValue(await remoteAccounts.GetAccount(Guid.Parse(currentUser.Id)));
+        return Ok(await quotaService.GetQuotaAsync(account));
+    }
+
     [HttpGet]
     [Authorize]
     public async Task<ActionResult<List<SnPublisher>>> ListManagedPublishers()
@@ -308,6 +321,13 @@ public class PublisherController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
+        var hydratedAccount = SnAccount.FromProtoValue(
+            await remoteAccounts.GetAccount(Guid.Parse(currentUser.Id))
+        );
+        var quota = await quotaService.GetQuotaAsync(hydratedAccount);
+        if (quota.Used >= quota.Total)
+            return StatusCode(403, $"Publisher quota exceeded ({quota.Used}/{quota.Total}).");
+
         var takenName = request.Name ?? currentUser.Name;
         var duplicateNameCount = await db.Publishers.Where(p => p.Name == takenName).CountAsync();
         if (duplicateNameCount > 0)
@@ -383,6 +403,13 @@ public class PublisherController(
             return BadRequest("Name and Nick are required.");
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
+
+        var hydratedAccount = SnAccount.FromProtoValue(
+            await remoteAccounts.GetAccount(Guid.Parse(currentUser.Id))
+        );
+        var quota = await quotaService.GetQuotaAsync(hydratedAccount);
+        if (quota.Used >= quota.Total)
+            return StatusCode(403, $"Publisher quota exceeded ({quota.Used}/{quota.Total}).");
 
         var realm = await remoteRealmService.GetRealmBySlug(realmSlug);
         if (realm == null)

@@ -16,6 +16,7 @@ namespace DysonNetwork.Develop.Identity;
 [Authorize]
 public class BotAccountController(
     BotAccountService botService,
+    DeveloperQuotaService quotaService,
     DeveloperService ds,
     DevProjectService projectService,
     ILogger<BotAccountController> logger,
@@ -148,6 +149,13 @@ public class BotAccountController(
         var project = await projectService.GetProjectAsync(projectId, developer.Id);
         if (project is null)
             return NotFound("Project not found or you don't have access");
+
+        var hydratedAccount = SnAccount.FromProtoValue(
+            await remoteAccounts.GetAccount(Guid.Parse(currentUser.Id))
+        );
+        var quota = await quotaService.GetQuotaAsync(hydratedAccount);
+        if (quota.Used >= quota.Total)
+            return StatusCode(403, $"Bot quota exceeded ({quota.Used}/{quota.Total}).");
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var accountId = Guid.NewGuid();
