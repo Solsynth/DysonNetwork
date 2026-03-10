@@ -15,6 +15,16 @@ public class PublicationSiteController(
     RemotePublisherService publisherService
 ) : ControllerBase
 {
+    [HttpGet("quota")]
+    [Authorize]
+    public async Task<ActionResult<PublicationSiteQuotaResponse>> GetQuota()
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        return Ok(await publicationService.GetQuotaAsync(Guid.Parse(currentUser.Id)));
+    }
+
     [HttpGet("{pubName}/{slug}")]
     public async Task<ActionResult<SnPublicationSite>> GetSite(string pubName, string slug)
     {

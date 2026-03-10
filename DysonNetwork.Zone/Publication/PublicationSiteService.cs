@@ -14,6 +14,50 @@ public class PublicationSiteService(
     RemotePublisherService remotePublishers
 )
 {
+    public async Task<PublicationSiteQuotaResponse> GetQuotaAsync(Guid accountId)
+    {
+        var account = await remoteAccounts.GetAccount(accountId);
+        var perkLevel = account.PerkSubscription is not null
+            ? PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(account.PerkSubscription.Identifier)
+            : 0;
+
+        var sites = await db.PublicationSites
+            .Where(s => s.AccountId == accountId)
+            .OrderBy(s => s.CreatedAt)
+            .ToListAsync();
+
+        var isUnlimited = account.IsSuperuser;
+        var total = isUnlimited
+            ? int.MaxValue
+            : perkLevel switch
+            {
+                1 => 2,
+                2 => 3,
+                3 => 5,
+                _ => 1
+            };
+
+        return new PublicationSiteQuotaResponse
+        {
+            Total = total,
+            Used = sites.Count,
+            Remaining = isUnlimited ? int.MaxValue : Math.Max(0, total - sites.Count),
+            Level = account.Profile?.Level ?? 0,
+            PerkLevel = perkLevel,
+            IsUnlimited = isUnlimited,
+            Records = sites
+                .Select(site => new PublicationSiteQuotaRecord
+                {
+                    Id = site.Id,
+                    Slug = site.Slug,
+                    Name = site.Name,
+                    PublisherId = site.PublisherId,
+                    Mode = site.Mode
+                })
+                .ToList()
+        };
+    }
+
     public async Task<SnPublicationSite?> GetSiteById(Guid id)
     {
         return await db.PublicationSites
@@ -51,25 +95,10 @@ public class PublicationSiteService(
             .AnyAsync(s => EF.Functions.ILike(s.Slug, site.Slug));
         if (existingSlugSite) throw new InvalidOperationException("Site with the slug already exists.");
 
-        var account = await remoteAccounts.GetAccount(accountId);
-        if (!account.IsSuperuser)
+        var quota = await GetQuotaAsync(accountId);
+        if (!quota.IsUnlimited)
         {
-            var perk = account.PerkSubscription;
-            var perkLevel = perk is not null
-                ? PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(perk.Identifier)
-                : 0;
-
-            var maxSite = perkLevel switch
-            {
-                1 => 2,
-                2 => 3,
-                3 => 5,
-                _ => 1
-            };
-
-            // Check if account has reached the maximum number of sites
-            var existingSitesCount = await db.PublicationSites.CountAsync(s => s.AccountId == accountId);
-            if (existingSitesCount >= maxSite)
+            if (quota.Used >= quota.Total)
                 throw new InvalidOperationException("Account has reached the maximum number of sites allowed.");
         }
 
