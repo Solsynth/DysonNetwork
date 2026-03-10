@@ -221,14 +221,6 @@ public class AuthController(
         public string? Code { get; set; }
     }
 
-    public class TokenExchangeResponse
-    {
-        public string Token { get; set; } = string.Empty;
-        public string RefreshToken { get; set; } = string.Empty;
-        public long ExpiresIn { get; set; }
-        public long RefreshExpiresIn { get; set; }
-    }
-
     public class NewSessionRequest
     {
         [Required] [MaxLength(512)] public string DeviceId { get; set; } = null!;
@@ -367,7 +359,7 @@ public class AuthController(
     }
 
     [HttpPost("login/session")]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+    [Authorize]
     [RequireInteractiveSession]
     public async Task<ActionResult<TokenExchangeResponse>> LoginFromSession([FromBody] NewSessionRequest request)
     {
@@ -385,18 +377,33 @@ public class AuthController(
                 request.ExpiredAt
             );
 
-            var tk = await auth.CreateToken(newSession);
+            var pair = await auth.CreateTokenPair(newSession);
+            var now = SystemClock.Instance.GetCurrentInstant();
 
-            HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, tk, new CookieOptions
+            HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, pair.AccessToken, new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.Lax,
                 Domain = _cookieDomain,
-                Expires = request.ExpiredAt?.ToDateTimeOffset() ?? DateTime.UtcNow.AddYears(20)
+                Expires = pair.AccessTokenExpiresAt.ToDateTimeOffset()
+            });
+            HttpContext.Response.Cookies.Append(AuthConstants.RefreshCookieTokenName, pair.RefreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Lax,
+                Domain = _cookieDomain,
+                Expires = pair.RefreshTokenExpiresAt.ToDateTimeOffset()
             });
 
-            return Ok(new TokenExchangeResponse { Token = tk });
+            return Ok(new TokenExchangeResponse
+            {
+                Token = pair.AccessToken,
+                RefreshToken = pair.RefreshToken,
+                ExpiresIn = (long)Math.Max(0, (pair.AccessTokenExpiresAt - now).TotalSeconds),
+                RefreshExpiresIn = (long)Math.Max(0, (pair.RefreshTokenExpiresAt - now).TotalSeconds)
+            });
         }
         catch (InvalidOperationException ex)
         {
@@ -447,4 +454,7 @@ public record SudoRequest(string? PinCode);
 public class TokenExchangeResponse
 {
     public string Token { get; set; } = string.Empty;
+    public string RefreshToken { get; set; } = string.Empty;
+    public long ExpiresIn { get; set; }
+    public long RefreshExpiresIn { get; set; }
 }
