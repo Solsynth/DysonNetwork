@@ -82,7 +82,8 @@ public class NotificationController(
     [HttpPut("subscription")]
     [Authorize]
     public async Task<ActionResult<SnNotificationPushSubscription>> SubscribeToPushNotification(
-        [FromBody] PushNotificationSubscribeRequest request
+        [FromBody] PushNotificationSubscribeRequest request,
+        [FromQuery] bool force = false
     )
     {
         HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
@@ -90,9 +91,17 @@ public class NotificationController(
         if (currentUserValue is not DyAccount currentUser || currentSessionValue is not DyAuthSession currentSession)
             return Unauthorized();
         if (request.Provider == PushProvider.Sop)
-            return BadRequest("Use /api/notifications/subscription/sop to register SOP provider.");
+            return BadRequest("Use /api/notifications/sop/subscription to register SOP provider.");
         if (string.IsNullOrWhiteSpace(request.DeviceToken))
             return BadRequest("DeviceToken is required.");
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!force)
+        {
+            var activeSubscription = await nty.GetCurrentDeviceActiveSubscription(accountId, currentSession.ClientId);
+            if (activeSubscription?.Provider == PushProvider.Sop)
+                return Ok(activeSubscription);
+        }
 
         var result =
             await nty.SubscribeDevice(
@@ -119,6 +128,20 @@ public class NotificationController(
             .ToListAsync();
 
         return Ok(subscriptions);
+    }
+
+    [HttpGet("subscription/current")]
+    [Authorize]
+    public async Task<ActionResult<SnNotificationPushSubscription?>> GetCurrentDeviceActiveSubscription()
+    {
+        HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        if (currentUserValue is not DyAccount currentUser || currentSessionValue is not DyAuthSession currentSession)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var subscription = await nty.GetCurrentDeviceActiveSubscription(accountId, currentSession.ClientId);
+        return Ok(subscription);
     }
 
     [HttpDelete("subscription/{subscriptionId:guid}")]

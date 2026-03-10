@@ -135,6 +135,25 @@ public class PushService
             .FirstOrDefaultAsync();
     }
 
+    public async Task<List<SnNotificationPushSubscription>> GetCurrentDeviceSubscriptions(Guid accountId, string deviceId)
+    {
+        var sopDeviceId = $"{deviceId}:sop";
+        return await _db.PushSubscriptions
+            .Where(s => s.AccountId == accountId)
+            .Where(s => s.DeviceId == deviceId || s.DeviceId == sopDeviceId)
+            .OrderByDescending(s => s.UpdatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<SnNotificationPushSubscription?> GetCurrentDeviceActiveSubscription(Guid accountId, string deviceId)
+    {
+        var subscriptions = await GetCurrentDeviceSubscriptions(accountId, deviceId);
+        return subscriptions
+            .OrderByDescending(s => s.Provider == PushProvider.Sop)
+            .ThenByDescending(s => s.UpdatedAt)
+            .FirstOrDefault();
+    }
+
     public (Guid StreamId, ChannelReader<SnNotification> Reader) SubscribeSopStream(Guid accountId)
     {
         var accountStreams = SopStreams.GetOrAdd(accountId, _ => new ConcurrentDictionary<Guid, Channel<SnNotification>>());

@@ -148,6 +148,19 @@ The regular notification controller exposes account-scoped push subscription man
 
 Returns all registered push subscriptions for the current account, including SOP subscriptions.
 
+### Get Current Device Active Subscription
+
+- **Method:** `GET`
+- **Path:** `/api/notifications/subscription/current`
+- **Auth:** Bearer auth
+
+Returns the effective active subscription for the current client device.
+
+Selection rule:
+
+- SOP on this device has priority over APNS/FCM or other providers.
+- If SOP is not registered on this device, the most recently updated subscription for the current device is returned.
+
 ### Unregister by Subscription ID
 
 - **Method:** `DELETE`
@@ -155,3 +168,17 @@ Returns all registered push subscriptions for the current account, including SOP
 - **Auth:** Bearer auth
 
 Deletes the specified subscription if it belongs to the current account.
+
+### Register Non-SOP Push Subscription
+
+- **Method:** `PUT`
+- **Path:** `/api/notifications/subscription`
+- **Auth:** Bearer auth
+- **Query:**
+  - `force` (default `false`)
+
+Behavior when SOP is already registered on the current device:
+
+- if `force=false`, the registration becomes a no-op and still returns `200 OK`
+- the response body is the current active SOP subscription
+- if `force=true`, the non-SOP registration proceeds normally
