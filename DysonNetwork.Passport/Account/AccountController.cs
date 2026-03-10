@@ -64,10 +64,10 @@ public class AccountController(
     public class StatusRequest
     {
         public StatusAttitude Attitude { get; set; }
-        public bool IsInvisible { get; set; }
-        public bool IsNotDisturb { get; set; }
+        public StatusType Type { get; set; } = StatusType.Default;
         public bool IsAutomated { get; set; } = false;
         [MaxLength(1024)] public string? Label { get; set; }
+        [MaxLength(128)] public string? Symbol { get; set; }
         [MaxLength(4096)] public string? AppIdentifier { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
         public Instant? ClearedAt { get; set; }
@@ -87,7 +87,8 @@ public class AccountController(
                 TraceId = HttpContext.TraceIdentifier
             });
         var status = await events.GetStatus(account.Id);
-        status.IsInvisible = false; // Keep the invisible field not available for other users
+        if (status.Type == StatusType.Invisible)
+            status.Type = StatusType.Default;
         return Ok(status);
     }
 

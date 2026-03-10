@@ -189,10 +189,10 @@ public class AccountCurrentController(
             return BadRequest("Automated status cannot be updated.");
 
         status.Attitude = request.Attitude;
-        status.IsInvisible = request.IsInvisible;
-        status.IsNotDisturb = request.IsNotDisturb;
+        status.Type = request.Type;
         status.IsAutomated = request.IsAutomated;
         status.Label = request.Label;
+        status.Symbol = request.Symbol;
         status.AppIdentifier = request.AppIdentifier;
         status.Meta = request.Meta;
         status.ClearedAt = request.ClearedAt;
@@ -222,12 +222,16 @@ public class AccountCurrentController(
                 if (existingStatus.IsAutomated && request.AppIdentifier == existingStatus.AppIdentifier)
                 {
                     existingStatus.Attitude = request.Attitude;
-                    existingStatus.IsInvisible = request.IsInvisible;
-                    existingStatus.IsNotDisturb = request.IsNotDisturb;
+                    existingStatus.Type = request.Type;
+                    existingStatus.IsAutomated = request.IsAutomated;
                     existingStatus.Meta = request.Meta;
                     existingStatus.Label = request.Label;
+                    existingStatus.Symbol = request.Symbol;
+                    existingStatus.AppIdentifier = request.AppIdentifier;
+                    existingStatus.ClearedAt = request.ClearedAt;
                     db.Update(existingStatus);
                     await db.SaveChangesAsync();
+                    events.PurgeStatusCache(currentUser.Id);
                     return Ok(existingStatus);
                 }
                 else
@@ -244,10 +248,10 @@ public class AccountCurrentController(
         {
             AccountId = currentUser.Id,
             Attitude = request.Attitude,
-            IsInvisible = request.IsInvisible,
-            IsNotDisturb = request.IsNotDisturb,
+            Type = request.Type,
             IsAutomated = request.IsAutomated,
             Label = request.Label,
+            Symbol = request.Symbol,
             Meta = request.Meta,
             AppIdentifier = request.AppIdentifier,
             ClearedAt = request.ClearedAt

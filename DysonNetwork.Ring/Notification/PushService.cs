@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using System.Collections.Concurrent;
 using System.Threading.Channels;
-using WebSocketPacket = DysonNetwork.Shared.Models.WebSocketPacket;
 
 namespace DysonNetwork.Ring.Notification;
 

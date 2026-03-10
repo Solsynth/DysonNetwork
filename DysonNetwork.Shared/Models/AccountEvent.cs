@@ -14,6 +14,14 @@ public enum StatusAttitude
     Neutral,
 }
 
+public enum StatusType
+{
+    Default,
+    Busy,
+    DoNotDisturb,
+    Invisible,
+}
+
 public class SnAccountStatus : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -24,11 +32,13 @@ public class SnAccountStatus : ModelBase
 
     [NotMapped]
     public bool IsCustomized { get; set; } = true;
-    public bool IsInvisible { get; set; }
-    public bool IsNotDisturb { get; set; }
+    public StatusType Type { get; set; } = StatusType.Default;
 
     [MaxLength(1024)]
     public string? Label { get; set; }
+
+    [MaxLength(128)]
+    public string? Symbol { get; set; }
 
     [Column(TypeName = "jsonb")]
     public Dictionary<string, object>? Meta { get; set; }
@@ -59,8 +69,8 @@ public class SnAccountStatus : ModelBase
             },
             IsOnline = IsOnline,
             IsCustomized = IsCustomized,
-            IsInvisible = IsInvisible,
-            IsNotDisturb = IsNotDisturb,
+            IsInvisible = Type == StatusType.Invisible,
+            IsNotDisturb = Type == StatusType.DoNotDisturb,
             Label = Label ?? string.Empty,
             Meta = InfraObjectCoder.ConvertObjectToByteString(Meta),
             ClearedAt = ClearedAt?.ToTimestamp(),
@@ -83,8 +93,11 @@ public class SnAccountStatus : ModelBase
             },
             IsOnline = proto.IsOnline,
             IsCustomized = proto.IsCustomized,
-            IsInvisible = proto.IsInvisible,
-            IsNotDisturb = proto.IsNotDisturb,
+            Type = proto.IsInvisible
+                ? StatusType.Invisible
+                : proto.IsNotDisturb
+                    ? StatusType.DoNotDisturb
+                    : StatusType.Default,
             Label = proto.Label,
             Meta = InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object>>(proto.Meta),
             ClearedAt = proto.ClearedAt?.ToInstant(),

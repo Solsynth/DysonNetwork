@@ -83,8 +83,7 @@ public class RemoteAccountService(
                     Attitude = StatusAttitude.Neutral,
                     IsOnline = false,
                     IsCustomized = false,
-                    IsInvisible = false,
-                    IsNotDisturb = false
+                    Type = StatusType.Default
                 }
             );
         }

@@ -10,7 +10,7 @@ public static class BroadcastEventHandler
                a.IsOnline == b.IsOnline &&
                a.IsCustomized == b.IsCustomized &&
                a.Label == b.Label &&
-               a.IsInvisible == b.IsInvisible &&
-               a.IsNotDisturb == b.IsNotDisturb;
+               a.Symbol == b.Symbol &&
+               a.Type == b.Type;
     }
 }

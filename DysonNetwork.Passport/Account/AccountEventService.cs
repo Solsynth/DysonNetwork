@@ -1,13 +1,9 @@
 using System.Globalization;
 using DysonNetwork.Shared.Cache;
-using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
-using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Localization;
-using NATS.Client.Core;
 using NodaTime;
 using NodaTime.Extensions;
 
@@ -20,7 +16,6 @@ public class AccountEventService(
     Leveling.ExperienceService experienceService,
     RemotePaymentService payment,
     RemoteSubscriptionService subscriptions,
-    Shared.EventBus.IEventBus eventBus,
     RemoteWebSocketService ws,
     RemoteAccountConnectionService accountConnections
 )
@@ -54,6 +49,8 @@ public class AccountEventService(
         cache.RemoveAsync(cacheKey);
     }
 
+    private static bool IsInvisibleStatus(SnAccountStatus status) => status.Type == StatusType.Invisible;
+
     public async Task<SnAccountStatus> GetStatus(Guid userId)
     {
         var cacheKey = $"{StatusCacheKey}{userId}";
@@ -61,7 +58,7 @@ public class AccountEventService(
         SnAccountStatus? status;
         if (cachedStatus is not null)
         {
-            cachedStatus!.IsOnline = !cachedStatus.IsInvisible && await GetAccountIsConnected(userId);
+            cachedStatus!.IsOnline = !IsInvisibleStatus(cachedStatus) && await GetAccountIsConnected(userId);
             status = cachedStatus;
         }
         else
@@ -75,7 +72,7 @@ public class AccountEventService(
             var isOnline = await GetAccountIsConnected(userId);
             if (status is not null)
             {
-                status.IsOnline = !status.IsInvisible && isOnline;
+                status.IsOnline = !IsInvisibleStatus(status) && isOnline;
                 await cache.SetWithGroupsAsync(cacheKey, status,
                     [$"{AccountService.AccountCachePrefix}{status.AccountId}"],
                     TimeSpan.FromMinutes(5));
@@ -123,7 +120,7 @@ public class AccountEventService(
             var cachedStatus = await cache.GetAsync<SnAccountStatus>(cacheKey);
             if (cachedStatus != null)
             {
-                cachedStatus.IsOnline = !cachedStatus.IsInvisible && await GetAccountIsConnected(userId);
+                cachedStatus.IsOnline = !IsInvisibleStatus(cachedStatus) && await GetAccountIsConnected(userId);
                 results[userId] = cachedStatus;
             }
             else
@@ -147,7 +144,7 @@ public class AccountEventService(
             foreach (var status in statusesFromDb)
             {
                 var isOnline = await GetAccountIsConnected(status.AccountId);
-                status.IsOnline = !status.IsInvisible && isOnline;
+                status.IsOnline = !IsInvisibleStatus(status) && isOnline;
                 results[status.AccountId] = status;
                 var cacheKey = $"{StatusCacheKey}{status.AccountId}";
                 await cache.SetAsync(cacheKey, status, TimeSpan.FromMinutes(5));
@@ -441,9 +438,9 @@ public class AccountEventService(
             {
                 Id = x.Id,
                 Attitude = x.Attitude,
-                IsInvisible = !replaceInvisible && x.IsInvisible,
-                IsNotDisturb = x.IsNotDisturb,
+                Type = replaceInvisible && x.Type == StatusType.Invisible ? StatusType.Default : x.Type,
                 Label = x.Label,
+                Symbol = x.Symbol,
                 ClearedAt = x.ClearedAt,
                 AccountId = x.AccountId,
                 CreatedAt = x.CreatedAt
