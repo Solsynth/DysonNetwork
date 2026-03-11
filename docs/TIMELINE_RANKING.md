@@ -102,3 +102,82 @@ Example timeline event payload shape:
 - `debugRank` is intended for debugging and tuning, not long-term client product logic
 - the current weights are implementation defaults and may be tuned later
 - ranking is intentionally explainable and deterministic in this version; it does not rely on embeddings or LLM inference
+
+## Signed-In Ranking Formula
+
+For a signed-in user, the current final rank is:
+
+\[
+R_{\text{final}}(p,u)=R_{\text{base}}(p)+R_{\text{personal}}(p,u)+R_{\text{publisher}}(p)-R_{\text{diversity}}(p)
+\]
+
+Base rank:
+
+\[
+R_{\text{base}}(p)=\frac{S_{\text{perf}}(p)+5}{\left(1+H(p)\right)^{1.2}}
+\]
+
+\[
+S_{\text{perf}}(p)=1.4\,S_{\text{reaction}}(p)+0.8\,C_{\text{thread}}(p)+0.1\,A(p)+B_{\text{article}}(p)
+\]
+
+\[
+B_{\text{article}}(p)=
+\begin{cases}
+1.5, & \text{if } p \text{ is an article} \\
+0, & \text{otherwise}
+\end{cases}
+\]
+
+\[
+S_{\text{reaction}}(p)=2N_{+}(p)+1N_{0}(p)-2N_{-}(p)
+\]
+
+\[
+H(p)=\frac{\text{age in minutes of }p}{60}
+\]
+
+Personalization bonus:
+
+\[
+R_{\text{personal}}(p,u)=
+0.8\sum_{t\in T(p)} I_u^{\text{tag}}(t)
++0.75\sum_{c\in C(p)} I_u^{\text{cat}}(c)
++\min\left(2,\;0.35\,I_u^{\text{pub}}(P(p))\right)
++1.25\,M_{\text{tag-sub}}(p,u)
++1.5\,M_{\text{cat-sub}}(p,u)
+\]
+
+Interest decay:
+
+\[
+I_u^{k}(x)=I_{u,\text{stored}}^{k}(x)\cdot e^{-d(x)/30}
+\]
+
+Publisher bonus:
+
+\[
+R_{\text{publisher}}(p)=
+\begin{cases}
+\min(3,\;0.05\,L_{\text{social}}(P(p))), & \text{if publisher has an account profile} \\
+0, & \text{for organization publishers or no linked account}
+\end{cases}
+\]
+
+Diversity penalty:
+
+\[
+R_{\text{diversity}}(p)=1.35\cdot N_{\text{same-publisher-before}}(p)
+\]
+
+Where:
+
+- \(T(p)\): tags on post \(p\)
+- \(C(p)\): categories on post \(p\)
+- \(P(p)\): publisher of post \(p\)
+- \(A(p)\): awarded score of post \(p\)
+- \(C_{\text{thread}}(p)\): thread replies count of post \(p\)
+- \(d(x)\): days since the user's last interaction for that interest entry
+- \(M_{\text{tag-sub}}(p,u)\): count of matched tag subscriptions
+- \(M_{\text{cat-sub}}(p,u)\): count of matched category subscriptions
+- \(N_{\text{same-publisher-before}}(p)\): number of already-selected posts from the same publisher earlier in the diversification pass
