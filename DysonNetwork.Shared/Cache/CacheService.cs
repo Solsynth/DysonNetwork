@@ -14,9 +14,11 @@ public class CacheServiceRedis(
 {
     private const string GlobalKeyPrefix = "dyson:";
     private const string GroupKeyPrefix = GlobalKeyPrefix + "cg:";
+    private const string KeyGroupPrefix = GlobalKeyPrefix + "cgk:";
     private const string LockKeyPrefix = GlobalKeyPrefix + "lock:";
 
     private static string Normalize(string key) => $"{GlobalKeyPrefix}{key}";
+    private static string GetKeyGroupIndex(string normalizedKey) => $"{KeyGroupPrefix}{normalizedKey}";
 
     // -----------------------------------------------------
     // BASIC OPERATIONS
@@ -62,16 +64,14 @@ public class CacheServiceRedis(
     {
         key = Normalize(key);
 
-        // Remove key from all groups
         var db = redis.GetDatabase();
-
-        var groupPattern = $"{GroupKeyPrefix}*";
-        var server = redis.GetServers().First();
-
-        var groups = server.Keys(pattern: groupPattern);
-        foreach (var group in groups)
+        var keyGroupIndex = GetKeyGroupIndex(key);
+        var groups = await db.SetMembersAsync(keyGroupIndex);
+        if (groups.Length > 0)
         {
-            await db.SetRemoveAsync(group, key);
+            var removeTasks = groups.Select(group => db.SetRemoveAsync(group.ToString(), key));
+            await Task.WhenAll(removeTasks);
+            await db.KeyDeleteAsync(keyGroupIndex);
         }
 
         await cache.RemoveAsync(key);
@@ -87,7 +87,9 @@ public class CacheServiceRedis(
         key = Normalize(key);
         var db = redis.GetDatabase();
         var groupKey = $"{GroupKeyPrefix}{group}";
+        var keyGroupIndex = GetKeyGroupIndex(key);
         await db.SetAddAsync(groupKey, key);
+        await db.SetAddAsync(keyGroupIndex, groupKey);
     }
 
     public async Task RemoveGroupAsync(string group)
@@ -100,7 +102,10 @@ public class CacheServiceRedis(
         if (keys.Length > 0)
         {
             foreach (var key in keys)
+            {
                 await cache.RemoveAsync(key.ToString());
+                await db.SetRemoveAsync(GetKeyGroupIndex(key.ToString()), groupKey.ToString());
+            }
         }
 
         await db.KeyDeleteAsync(groupKey);

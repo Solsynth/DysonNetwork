@@ -15,12 +15,14 @@ public class TimelineService(
     Post.PostService ps,
     RemoteRealmService rs,
     DyProfileService.DyProfileServiceClient accounts,
-    RemoteAccountService remoteAccounts
+    RemoteAccountService remoteAccounts,
+    DysonNetwork.Shared.Cache.ICacheService cache
 )
 {
     private const double ArticleTypeBoost = 1.5d;
     private const double PublisherRepeatPenalty = 1.35d;
-    private const int DiscoveryCandidatePostTake = 256;
+    private const int DiscoveryCandidatePostTake = 96;
+    private static readonly TimeSpan DiscoveryProfileCacheTtl = TimeSpan.FromMinutes(3);
     private static readonly Duration DiscoveryLookback = Duration.FromDays(45);
 
     private static double CalculateBaseRank(SnPost post, Instant now)
@@ -124,11 +126,12 @@ public class TimelineService(
             .Take(take * 5);
 
         // Get, process and rank posts
-        var posts = await GetAndProcessPosts(postsQuery, currentUser, trackViews: true);
+        var posts = await GetAndProcessPosts(postsQuery, currentUser, trackViews: false);
 
         await LoadPostsRealmsAsync(posts, rs);
 
         posts = await RankPosts(posts, take, currentUser, mode);
+        await TrackPostViewsAsync(posts, currentUser);
 
         var interleaved = new List<SnTimelineEvent>();
         var random = new Random();
@@ -351,6 +354,11 @@ public class TimelineService(
     public async Task<SnDiscoveryProfile> GetDiscoveryProfile(DyAccount currentUser)
     {
         var accountId = Guid.Parse(currentUser.Id);
+        var cacheKey = $"timeline:discovery-profile:{accountId}";
+        var cachedProfile = await cache.GetAsync<SnDiscoveryProfile>(cacheKey);
+        if (cachedProfile is not null)
+            return cachedProfile;
+
         var friendsResponse = await accounts.ListFriendsAsync(
             new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
         );
@@ -358,12 +366,14 @@ public class TimelineService(
         var userPublishers = await pub.GetUserPublishers(accountId);
         var userRealms = await rs.GetUserRealms(accountId);
 
-        return await GetDiscoveryProfile(
+        var profile = await GetDiscoveryProfile(
             currentUser,
             userFriends,
             userPublishers.Select(x => x.Id).ToList(),
             userRealms
         );
+        await cache.SetAsync(cacheKey, profile, DiscoveryProfileCacheTtl);
+        return profile;
     }
 
     private async Task<SnDiscoveryProfile> GetDiscoveryProfile(
@@ -395,7 +405,7 @@ public class TimelineService(
             .Where(x => x.Kind == PostInterestKind.Publisher)
             .ToDictionary(x => x.ReferenceId, x => GetDecayedInterestScore(x, now));
 
-        var publicRealms = await rs.GetPublicRealms("date", 100);
+        var publicRealms = await rs.GetPublicRealms("date", 40);
         var visibleRealmIds = publicRealms.Select(x => x.Id).Concat(userRealms).Distinct().ToList();
         var candidatePosts = await GetDiscoveryCandidatePosts(now, visibleRealmIds);
 
@@ -458,6 +468,7 @@ public class TimelineService(
             preference.CreatedAt = now;
 
         await db.SaveChangesAsync();
+        await cache.RemoveAsync($"timeline:discovery-profile:{accountId}");
         return preference;
     }
 
@@ -477,6 +488,7 @@ public class TimelineService(
 
         db.DiscoveryPreferences.Remove(preference);
         await db.SaveChangesAsync();
+        await cache.RemoveAsync($"timeline:discovery-profile:{accountId}");
         return true;
     }
 
@@ -484,6 +496,7 @@ public class TimelineService(
     {
         var recent = now - DiscoveryLookback;
         return await db.Posts
+            .AsNoTracking()
             .Include(p => p.Tags)
             .Include(p => p.Categories)
             .Where(p => p.DraftedAt == null)
@@ -522,12 +535,15 @@ public class TimelineService(
             .ToList();
 
         var tags = await db.PostTags
+            .AsNoTracking()
             .Where(x => tagIds.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, x => x.Name ?? x.Slug);
         var categories = await db.PostCategories
+            .AsNoTracking()
             .Where(x => categoryIds.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, x => x.Name ?? x.Slug);
         var publishers = await db.Publishers
+            .AsNoTracking()
             .Where(x => publisherIds.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, x => x.Nick);
 
@@ -1060,6 +1076,12 @@ public class TimelineService(
         }
 
         return posts;
+    }
+
+    private async Task TrackPostViewsAsync(IEnumerable<SnPost> posts, DyAccount currentUser)
+    {
+        foreach (var post in posts)
+            await ps.IncreaseViewCount(post.Id, currentUser.Id.ToString());
     }
 
     private IQueryable<SnPost> BuildPostsQuery(
