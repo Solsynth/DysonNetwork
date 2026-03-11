@@ -19,7 +19,7 @@ public class TimelineService(
     private static double CalculateHotRank(SnPost post, Instant now)
     {
         var performanceScore =
-            post.Upvotes - post.Downvotes + post.RepliesCount + (int)post.AwardedScore / 10;
+            post.Upvotes - post.Downvotes + post.ThreadRepliesCount + (int)post.AwardedScore / 10;
         var postTime = post.PublishedAt ?? post.CreatedAt;
         var timeScore = (now - postTime).TotalMinutes;
         // Add 1 to score to prevent negative results for posts with more downvotes than upvotes

@@ -974,6 +974,7 @@ namespace DysonNetwork.Shared.Proto {
       awardedScore_ = other.awardedScore_;
       reactionsCount_ = other.reactionsCount_.Clone();
       repliesCount_ = other.repliesCount_;
+      threadRepliesCount_ = other.threadRepliesCount_;
       reactionsMade_ = other.reactionsMade_.Clone();
       repliedGone_ = other.repliedGone_;
       forwardedGone_ = other.forwardedGone_;
@@ -1303,6 +1304,18 @@ namespace DysonNetwork.Shared.Proto {
       get { return repliesCount_; }
       set {
         repliesCount_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "thread_replies_count" field.</summary>
+    public const int ThreadRepliesCountFieldNumber = 49;
+    private int threadRepliesCount_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int ThreadRepliesCount {
+      get { return threadRepliesCount_; }
+      set {
+        threadRepliesCount_ = value;
       }
     }
 
@@ -1771,6 +1784,7 @@ namespace DysonNetwork.Shared.Proto {
       if (!pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.Equals(AwardedScore, other.AwardedScore)) return false;
       if (!ReactionsCount.Equals(other.ReactionsCount)) return false;
       if (RepliesCount != other.RepliesCount) return false;
+      if (ThreadRepliesCount != other.ThreadRepliesCount) return false;
       if (!ReactionsMade.Equals(other.ReactionsMade)) return false;
       if (RepliedGone != other.RepliedGone) return false;
       if (ForwardedGone != other.ForwardedGone) return false;
@@ -1825,6 +1839,7 @@ namespace DysonNetwork.Shared.Proto {
       if (AwardedScore != 0D) hash ^= pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.GetHashCode(AwardedScore);
       hash ^= ReactionsCount.GetHashCode();
       if (RepliesCount != 0) hash ^= RepliesCount.GetHashCode();
+      if (ThreadRepliesCount != 0) hash ^= ThreadRepliesCount.GetHashCode();
       hash ^= ReactionsMade.GetHashCode();
       if (RepliedGone != false) hash ^= RepliedGone.GetHashCode();
       if (ForwardedGone != false) hash ^= ForwardedGone.GetHashCode();
@@ -1946,6 +1961,10 @@ namespace DysonNetwork.Shared.Proto {
       if (RepliesCount != 0) {
         output.WriteRawTag(160, 1);
         output.WriteInt32(RepliesCount);
+      }
+      if (ThreadRepliesCount != 0) {
+        output.WriteRawTag(136, 3);
+        output.WriteInt32(ThreadRepliesCount);
       }
       reactionsMade_.WriteTo(output, _map_reactionsMade_codec);
       if (RepliedGone != false) {
@@ -2270,6 +2289,9 @@ namespace DysonNetwork.Shared.Proto {
       if (RepliesCount != 0) {
         size += 2 + pb::CodedOutputStream.ComputeInt32Size(RepliesCount);
       }
+      if (ThreadRepliesCount != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeInt32Size(ThreadRepliesCount);
+      }
       size += reactionsMade_.CalculateSize(_map_reactionsMade_codec);
       if (RepliedGone != false) {
         size += 2 + 1;
@@ -2413,6 +2435,9 @@ namespace DysonNetwork.Shared.Proto {
       reactionsCount_.MergeFrom(other.reactionsCount_);
       if (other.RepliesCount != 0) {
         RepliesCount = other.RepliesCount;
+      }
+      if (other.ThreadRepliesCount != 0) {
+        ThreadRepliesCount = other.ThreadRepliesCount;
       }
       reactionsMade_.MergeFrom(other.reactionsMade_);
       if (other.RepliedGone != false) {
@@ -2606,6 +2631,10 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 160: {
             RepliesCount = input.ReadInt32();
+            break;
+          }
+          case 392: {
+            ThreadRepliesCount = input.ReadInt32();
             break;
           }
           case 170: {
@@ -2843,6 +2872,10 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 160: {
             RepliesCount = input.ReadInt32();
+            break;
+          }
+          case 392: {
+            ThreadRepliesCount = input.ReadInt32();
             break;
           }
           case 170: {

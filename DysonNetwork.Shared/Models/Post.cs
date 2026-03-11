@@ -124,6 +124,9 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
     public decimal AwardedScore { get; set; }
 
     public int RepliesCount { get; set; }
+    
+    [NotMapped]
+    public int ThreadRepliesCount { get; set; }
 
     [NotMapped]
     public Dictionary<string, int> ReactionsCount { get; set; } = new();
@@ -186,6 +189,7 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
             AwardedScore = (double)AwardedScore,
             ReactionsCount = { ReactionsCount },
             RepliesCount = RepliesCount,
+            ThreadRepliesCount = ThreadRepliesCount,
             ReactionsMade = { ReactionsMade ?? new Dictionary<string, bool>() },
             RepliedGone = RepliedGone,
             ForwardedGone = ForwardedGone,
@@ -236,6 +240,7 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
             }));
 
         proto.RepliesCount = RepliesCount;
+        proto.ThreadRepliesCount = ThreadRepliesCount;
         proto.BoostCount = BoostCount;
 
         if (ActorId.HasValue)
@@ -298,6 +303,7 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
             AwardedScore = (decimal)proto.AwardedScore,
             ReactionsCount = proto.ReactionsCount.ToDictionary(kv => kv.Key, kv => kv.Value),
             RepliesCount = proto.RepliesCount,
+            ThreadRepliesCount = proto.ThreadRepliesCount,
             ReactionsMade = proto.ReactionsMade.ToDictionary(kv => kv.Key, kv => kv.Value),
             RepliedGone = proto.RepliedGone,
             ForwardedGone = proto.ForwardedGone,
@@ -352,6 +358,7 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
             }).ToList();
 
         post.RepliesCount = proto.RepliesCount;
+        post.ThreadRepliesCount = proto.ThreadRepliesCount;
         post.BoostCount = proto.BoostCount;
 
         if (!string.IsNullOrEmpty(proto.ActorId))

@@ -15,6 +15,7 @@ using DysonNetwork.Sphere.Publisher;
 using Markdig;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using Npgsql;
 using PostContentType = DysonNetwork.Shared.Models.PostContentType;
 
 namespace DysonNetwork.Sphere.Post;
@@ -34,6 +35,12 @@ public partial class PostService(
     ActivityPubObjectFactory objFactory
 )
 {
+    private sealed class ThreadReplyCountResult
+    {
+        public Guid AncestorId { get; set; }
+        public int Count { get; set; }
+    }
+
     private static List<SnPost> TruncatePostContent(List<SnPost> input)
     {
         const int maxLength = 256;
@@ -1476,6 +1483,7 @@ public partial class PostService(
             ? await GetPostReactionMadeMapBatch(postsId, Guid.Parse(currentUser.Id))
             : new Dictionary<Guid, Dictionary<string, bool>>();
         var repliesCountMap = await GetPostRepliesCountBatch(postsId);
+        var threadRepliesCountMap = await GetPostThreadRepliesCountBatch(postsId);
 
         // Load user friends if the current user exists
         List<SnPublisher> publishers = [];
@@ -1501,6 +1509,7 @@ public partial class PostService(
 
             // Set reply count
             post.RepliesCount = repliesCountMap.GetValueOrDefault(post.Id, 0);
+            post.ThreadRepliesCount = threadRepliesCountMap.GetValueOrDefault(post.Id, 0);
 
             // Check visibility for replied post
             if (post.RepliedPost != null)
@@ -1587,6 +1596,37 @@ public partial class PostService(
             .Posts.Where(p => p.RepliedPostId != null && postIds.Contains(p.RepliedPostId.Value))
             .GroupBy(p => p.RepliedPostId!.Value)
             .ToDictionaryAsync(g => g.Key, g => g.Count());
+    }
+
+    private async Task<Dictionary<Guid, int>> GetPostThreadRepliesCountBatch(List<Guid> postIds)
+    {
+        if (postIds.Count == 0)
+            return [];
+
+        var postIdsParameter = new NpgsqlParameter<Guid[]>("postIds", postIds.ToArray());
+
+        var results = await db.Database
+            .SqlQueryRaw<ThreadReplyCountResult>(
+                """
+                WITH RECURSIVE reply_tree AS (
+                    SELECT replied_post_id AS ancestor_id, id AS descendant_id
+                    FROM posts
+                    WHERE replied_post_id = ANY (@postIds) AND deleted_at IS NULL
+                    UNION ALL
+                    SELECT reply_tree.ancestor_id, posts.id AS descendant_id
+                    FROM posts
+                    INNER JOIN reply_tree ON posts.replied_post_id = reply_tree.descendant_id
+                    WHERE posts.deleted_at IS NULL
+                )
+                SELECT ancestor_id AS "AncestorId", COUNT(*)::int AS "Count"
+                FROM reply_tree
+                GROUP BY ancestor_id
+                """,
+                postIdsParameter
+            )
+            .ToListAsync();
+
+        return results.ToDictionary(x => x.AncestorId, x => x.Count);
     }
 
     public async Task<List<SnPost>> LoadPostInfo(
