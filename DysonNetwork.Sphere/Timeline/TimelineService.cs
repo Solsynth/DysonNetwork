@@ -16,16 +16,13 @@ public class TimelineService(
     DyProfileService.DyProfileServiceClient accounts
 )
 {
-    private static double CalculateHotRank(SnPost post, Instant now)
+    private static double CalculateBaseRank(SnPost post, Instant now)
     {
         var performanceScore =
-            post.Upvotes - post.Downvotes + post.ThreadRepliesCount + (int)post.AwardedScore / 10;
+            post.ReactionScore * 1.4 + post.ThreadRepliesCount * 0.8 + (double)post.AwardedScore / 10d;
         var postTime = post.PublishedAt ?? post.CreatedAt;
         var timeScore = (now - postTime).TotalMinutes;
-        // Add 1 to score to prevent negative results for posts with more downvotes than upvotes
-        // Time dominates ranking, performance adjusts within similar timeframes.
         var performanceWeight = performanceScore + 5;
-        // Normalize time influence since average post interval ~60 minutes
         var normalizedTime = timeScore / 60.0;
         return performanceWeight / Math.Pow(normalizedTime + 1.0, 1.2);
     }
@@ -50,7 +47,7 @@ public class TimelineService(
 
         var posts = await GetAndProcessPosts(postsQuery);
         await LoadPostsRealmsAsync(posts, rs);
-        posts = RankPosts(posts, take);
+        posts = await RankPosts(posts, take);
 
         var interleaved = new List<SnTimelineEvent>();
         var random = new Random();
@@ -118,7 +115,7 @@ public class TimelineService(
 
         await LoadPostsRealmsAsync(posts, rs);
 
-        posts = RankPosts(posts, take);
+        posts = await RankPosts(posts, take, currentUser);
 
         var interleaved = new List<SnTimelineEvent>();
         var random = new Random();
@@ -158,16 +155,90 @@ public class TimelineService(
         return await pick();
     }
 
-    private static List<SnPost> RankPosts(List<SnPost> posts, int take)
+    private async Task<List<SnPost>> RankPosts(
+        List<SnPost> posts,
+        int take,
+        DyAccount? currentUser = null
+    )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
+        var personalizationBonus = currentUser is null
+            ? new Dictionary<Guid, double>()
+            : await GetPersonalizationBonusMap(posts, Guid.Parse(currentUser.Id), now);
+
         return posts
-            .Select(p => new { Post = p, Rank = CalculateHotRank(p, now) })
+            .Select(p => new
+            {
+                Post = p,
+                Rank = CalculateBaseRank(p, now) + personalizationBonus.GetValueOrDefault(p.Id, 0d),
+            })
             .OrderByDescending(x => x.Rank)
             .Select(x => x.Post)
             .Take(take)
             .ToList();
-        // return posts.Take(take).ToList();
+    }
+
+    private async Task<Dictionary<Guid, double>> GetPersonalizationBonusMap(
+        List<SnPost> posts,
+        Guid accountId,
+        Instant now
+    )
+    {
+        if (posts.Count == 0)
+            return [];
+
+        var tagIds = posts.SelectMany(p => p.Tags.Select(x => x.Id)).Distinct().ToList();
+        var categoryIds = posts.SelectMany(p => p.Categories.Select(x => x.Id)).Distinct().ToList();
+        var publisherIds = posts.Where(p => p.PublisherId.HasValue).Select(p => p.PublisherId!.Value).Distinct().ToList();
+
+        var interestProfiles = await db.PostInterestProfiles.Where(p => p.AccountId == accountId)
+            .Where(p =>
+                (p.Kind == PostInterestKind.Tag && tagIds.Contains(p.ReferenceId))
+                || (p.Kind == PostInterestKind.Category && categoryIds.Contains(p.ReferenceId))
+                || (p.Kind == PostInterestKind.Publisher && publisherIds.Contains(p.ReferenceId))
+            )
+            .ToListAsync();
+
+        var subscriptions = await db.PostCategorySubscriptions.Where(p => p.AccountId == accountId)
+            .Where(p =>
+                (p.TagId.HasValue && tagIds.Contains(p.TagId.Value))
+                || (p.CategoryId.HasValue && categoryIds.Contains(p.CategoryId.Value))
+            )
+            .ToListAsync();
+
+        var tagInterest = interestProfiles.Where(x => x.Kind == PostInterestKind.Tag)
+            .ToDictionary(x => x.ReferenceId, x => GetDecayedInterestScore(x, now));
+        var categoryInterest = interestProfiles.Where(x => x.Kind == PostInterestKind.Category)
+            .ToDictionary(x => x.ReferenceId, x => GetDecayedInterestScore(x, now));
+        var publisherInterest = interestProfiles.Where(x => x.Kind == PostInterestKind.Publisher)
+            .ToDictionary(x => x.ReferenceId, x => GetDecayedInterestScore(x, now));
+        var subscribedTagIds = subscriptions.Where(x => x.TagId.HasValue).Select(x => x.TagId!.Value).ToHashSet();
+        var subscribedCategoryIds = subscriptions.Where(x => x.CategoryId.HasValue).Select(x => x.CategoryId!.Value).ToHashSet();
+
+        return posts.ToDictionary(
+            post => post.Id,
+            post =>
+            {
+                var bonus = 0d;
+                bonus += post.Tags.Sum(tag => tagInterest.GetValueOrDefault(tag.Id, 0d) * 1.15d);
+                bonus += post.Categories.Sum(category => categoryInterest.GetValueOrDefault(category.Id, 0d));
+                if (post.PublisherId.HasValue)
+                    bonus += publisherInterest.GetValueOrDefault(post.PublisherId.Value, 0d) * 1.25d;
+                bonus += post.Tags.Count(tag => subscribedTagIds.Contains(tag.Id)) * 2d;
+                bonus += post.Categories.Count(category => subscribedCategoryIds.Contains(category.Id)) * 2.5d;
+                return bonus;
+            }
+        );
+    }
+
+    private static double GetDecayedInterestScore(SnPostInterestProfile profile, Instant now)
+    {
+        if (!profile.LastInteractedAt.HasValue)
+            return profile.Score;
+
+        var ageDays = Math.Max(0, (now - profile.LastInteractedAt.Value).TotalDays);
+        var decay = Math.Exp(-ageDays / 30d);
+        return profile.Score * decay;
     }
 
     private async Task<List<SnPublisher>> GetPopularPublishers(int take)

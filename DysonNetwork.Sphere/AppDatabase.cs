@@ -26,6 +26,7 @@ public class AppDatabase(
     public DbSet<SnPostCollection> PostCollections { get; set; } = null!;
     public DbSet<SnPostFeaturedRecord> PostFeaturedRecords { get; set; } = null!;
     public DbSet<SnPostCategorySubscription> PostCategorySubscriptions { get; set; } = null!;
+    public DbSet<SnPostInterestProfile> PostInterestProfiles { get; set; } = null!;
 
     public DbSet<SnPoll> Polls { get; set; } = null!;
     public DbSet<SnPollQuestion> PollQuestions { get; set; } = null!;
@@ -184,4 +185,3 @@ public class AppDatabaseFactory : IDesignTimeDbContextFactory<AppDatabase>
         return new AppDatabase(optionsBuilder.Options, configuration);
     }
 }
-

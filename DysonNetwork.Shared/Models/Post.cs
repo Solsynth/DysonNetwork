@@ -124,6 +124,9 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
     public decimal AwardedScore { get; set; }
 
     public int RepliesCount { get; set; }
+
+    [JsonIgnore]
+    public int ReactionScore { get; set; }
     
     [NotMapped]
     public int ThreadRepliesCount { get; set; }

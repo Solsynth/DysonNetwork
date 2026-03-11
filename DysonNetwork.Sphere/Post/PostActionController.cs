@@ -279,7 +279,8 @@ public class PostActionController(
                 post,
                 attachments: request.Attachments,
                 tags: request.Tags,
-                categories: request.Categories
+                categories: request.Categories,
+                actor: currentUser
             );
         }
         catch (InvalidOperationException err)

@@ -27,6 +27,15 @@ public static class ScheduledJobsConfiguration
                     .WithIntervalInMinutes(1)
                     .RepeatForever())
             );
+
+            q.AddJob<PostInterestFlushJob>(opts => opts.WithIdentity("PostInterestFlush"));
+            q.AddTrigger(opts => opts
+                .ForJob("PostInterestFlush")
+                .WithIdentity("PostInterestFlushTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(1)
+                    .RepeatForever())
+            );
             
             q.AddJob<PublisherSettlementJob>(opts => opts.WithIdentity("PublisherSettlement"));
             q.AddTrigger(opts => opts

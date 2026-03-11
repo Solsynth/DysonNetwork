@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.ComponentModel.DataAnnotations.Schema;
 using AngleSharp.Html.Parser;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
@@ -37,8 +38,351 @@ public partial class PostService(
 {
     private sealed class ThreadReplyCountResult
     {
+        [Column("ancestor_id")]
         public Guid AncestorId { get; set; }
+
+        [Column("count")]
         public int Count { get; set; }
+    }
+
+    private const int PositiveReactionWeight = 2;
+    private const int NeutralReactionWeight = 1;
+    private const int NegativeReactionWeight = -2;
+    private const double PositiveInterestScore = 2.0;
+    private const double NeutralInterestScore = 1.0;
+    private const double NegativeInterestScore = -2.0;
+    private const double ReplyInterestScore = 1.5;
+    private const double ViewInterestScore = 0.2;
+    private const string PublisherDefaultTagsMetaKey = "default_post_tags";
+    private const string PublisherDefaultCategoriesMetaKey = "default_post_categories";
+    private const string PostAutoTaggingMetaKey = "auto_tagging";
+
+    private static int GetReactionWeight(PostReactionAttitude attitude) =>
+        attitude switch
+        {
+            PostReactionAttitude.Positive => PositiveReactionWeight,
+            PostReactionAttitude.Neutral => NeutralReactionWeight,
+            PostReactionAttitude.Negative => NegativeReactionWeight,
+            _ => 0,
+        };
+
+    private static double ClampInterestScore(double score) => Math.Clamp(score, -100d, 100d);
+
+    private static string NormalizeTopicSlug(string value) =>
+        value.Trim().ToLowerInvariant();
+
+    private static List<string> NormalizeTopicSlugs(IEnumerable<string> values) =>
+        values.Where(e => !string.IsNullOrWhiteSpace(e))
+            .Select(NormalizeTopicSlug)
+            .Distinct()
+            .ToList();
+
+    private static string NormalizeTopicText(string? value) =>
+        Regex.Replace(value?.ToLowerInvariant() ?? string.Empty, @"[\s\-_\.]+", " ").Trim();
+
+    private static List<string> ExtractStringList(object? value)
+    {
+        return value switch
+        {
+            null => [],
+            List<string> items => NormalizeTopicSlugs(items),
+            string[] items => NormalizeTopicSlugs(items),
+            IEnumerable<object> items => NormalizeTopicSlugs(items.Select(x => x?.ToString() ?? string.Empty)),
+            JsonElement { ValueKind: JsonValueKind.Array } element => NormalizeTopicSlugs(
+                element.EnumerateArray()
+                    .Where(x => x.ValueKind == JsonValueKind.String)
+                    .Select(x => x.GetString() ?? string.Empty)
+            ),
+            JsonElement { ValueKind: JsonValueKind.String } element => NormalizeTopicSlugs(
+                [element.GetString() ?? string.Empty]
+            ),
+            _ => [],
+        };
+    }
+
+    private static List<string> GetPublisherTopicDefaults(SnPublisher? publisher, string key) =>
+        publisher?.Meta is not null && publisher.Meta.TryGetValue(key, out var value)
+            ? ExtractStringList(value)
+            : [];
+
+    private async Task<SnPublisher?> GetPublisherForPostAsync(SnPost post)
+    {
+        if (post.Publisher is not null)
+            return post.Publisher;
+        if (!post.PublisherId.HasValue)
+            return null;
+
+        return await db.Publishers.FirstOrDefaultAsync(p => p.Id == post.PublisherId.Value);
+    }
+
+    private async Task<List<SnPostTag>> ResolveTagsAsync(IEnumerable<string> slugs)
+    {
+        var normalizedSlugs = NormalizeTopicSlugs(slugs);
+        if (normalizedSlugs.Count == 0)
+            return [];
+
+        var existingTags = await db.PostTags.Where(e => normalizedSlugs.Contains(e.Slug)).ToListAsync();
+        var existingSlugs = existingTags.Select(t => t.Slug).ToHashSet();
+        var missingSlugs = normalizedSlugs.Where(slug => !existingSlugs.Contains(slug)).ToList();
+
+        var newTags = missingSlugs.Select(slug => new SnPostTag { Slug = slug }).ToList();
+        if (newTags.Count > 0)
+        {
+            await db.PostTags.AddRangeAsync(newTags);
+            await db.SaveChangesAsync();
+        }
+
+        return existingTags.Concat(newTags).ToList();
+    }
+
+    private async Task<List<SnPostCategory>> ResolveCategoriesAsync(IEnumerable<string> slugs)
+    {
+        var normalizedSlugs = NormalizeTopicSlugs(slugs);
+        if (normalizedSlugs.Count == 0)
+            return [];
+
+        return await db.PostCategories.Where(e => normalizedSlugs.Contains(e.Slug)).ToListAsync();
+    }
+
+    private static string BuildInferenceText(SnPost post)
+    {
+        return string.Join(
+            '\n',
+            new[] { post.Title, post.Description, post.Content }.Where(x => !string.IsNullOrWhiteSpace(x))
+        );
+    }
+
+    private async Task<List<string>> InferMatchingTopicSlugsAsync(
+        string source,
+        bool categories,
+        int take = 5
+    )
+    {
+        var normalizedSource = NormalizeTopicText(source);
+        if (string.IsNullOrWhiteSpace(normalizedSource))
+            return [];
+
+        if (categories)
+        {
+            var candidates = await db.PostCategories.Select(x => new { x.Slug, x.Name }).ToListAsync();
+            return candidates
+                .Where(x =>
+                    normalizedSource.Contains(NormalizeTopicText(x.Slug))
+                    || (!string.IsNullOrWhiteSpace(x.Name)
+                        && normalizedSource.Contains(NormalizeTopicText(x.Name)))
+                )
+                .Select(x => x.Slug)
+                .Distinct()
+                .Take(take)
+                .ToList();
+        }
+
+        var tagCandidates = await db.PostTags.Select(x => new { x.Slug, x.Name }).ToListAsync();
+        return tagCandidates
+            .Where(x =>
+                normalizedSource.Contains(NormalizeTopicText(x.Slug))
+                || (!string.IsNullOrWhiteSpace(x.Name)
+                    && normalizedSource.Contains(NormalizeTopicText(x.Name)))
+            )
+            .Select(x => x.Slug)
+            .Distinct()
+            .Take(take)
+            .ToList();
+    }
+
+    private async Task<List<string>> GetDerivedPublisherTopicSlugsAsync(
+        Guid publisherId,
+        bool categories,
+        int take = 3
+    )
+    {
+        var posts = await db.Posts.Where(p => p.PublisherId == publisherId && p.DraftedAt == null)
+            .Where(p => p.PublishedAt != null)
+            .Include(p => p.Tags)
+            .Include(p => p.Categories)
+            .OrderByDescending(p => p.PublishedAt)
+            .Take(40)
+            .ToListAsync();
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var scores = new Dictionary<string, double>();
+        foreach (var post in posts)
+        {
+            var topicItems = categories ? post.Categories.Select(x => x.Slug) : post.Tags.Select(x => x.Slug);
+            var topicSlugs = NormalizeTopicSlugs(topicItems);
+            if (topicSlugs.Count == 0)
+                continue;
+
+            var ageDays = Math.Max(0, (now - (post.PublishedAt ?? post.CreatedAt)).TotalDays);
+            var recencyWeight = Math.Exp(-ageDays / 30d);
+            var engagementWeight =
+                1d + Math.Max(0, post.ReactionScore) / 4d + Math.Max(0, post.RepliesCount) / 2d + (double)post.AwardedScore / 20d;
+            var score = Math.Max(0.25d, recencyWeight * engagementWeight);
+
+            foreach (var slug in topicSlugs)
+                scores[slug] = scores.GetValueOrDefault(slug, 0d) + score;
+        }
+
+        return scores.OrderByDescending(x => x.Value).Select(x => x.Key).Take(take).ToList();
+    }
+
+    private async Task ApplyAutomaticTopicsAsync(
+        SnPost post,
+        List<string>? tags,
+        List<string>? categories
+    )
+    {
+        var sources = new List<string>();
+        var publisher = await GetPublisherForPostAsync(post);
+        var inferenceText = BuildInferenceText(post);
+
+        if (tags is null && post.Tags.Count == 0)
+        {
+            var tagSlugs = await InferMatchingTopicSlugsAsync(inferenceText, categories: false);
+            if (tagSlugs.Count > 0)
+                sources.Add("content-tags");
+
+            if (publisher is not null && tagSlugs.Count < 2)
+            {
+                var defaultTags = GetPublisherTopicDefaults(publisher, PublisherDefaultTagsMetaKey);
+                if (defaultTags.Count > 0)
+                    sources.Add("publisher-default-tags");
+                tagSlugs = tagSlugs.Concat(defaultTags).Distinct().ToList();
+            }
+
+            if (post.PublisherId.HasValue && tagSlugs.Count < 2)
+            {
+                var derivedTags = await GetDerivedPublisherTopicSlugsAsync(
+                    post.PublisherId.Value,
+                    categories: false
+                );
+                if (derivedTags.Count > 0)
+                    sources.Add("publisher-derived-tags");
+                tagSlugs = tagSlugs.Concat(derivedTags).Distinct().ToList();
+            }
+
+            post.Tags = await ResolveTagsAsync(tagSlugs);
+        }
+
+        if (categories is null && post.Categories.Count == 0)
+        {
+            var categorySlugs = await InferMatchingTopicSlugsAsync(inferenceText, categories: true);
+            if (categorySlugs.Count > 0)
+                sources.Add("content-categories");
+
+            if (publisher is not null && categorySlugs.Count < 2)
+            {
+                var defaultCategories = GetPublisherTopicDefaults(
+                    publisher,
+                    PublisherDefaultCategoriesMetaKey
+                );
+                if (defaultCategories.Count > 0)
+                    sources.Add("publisher-default-categories");
+                categorySlugs = categorySlugs.Concat(defaultCategories).Distinct().ToList();
+            }
+
+            if (post.PublisherId.HasValue && categorySlugs.Count < 2)
+            {
+                var derivedCategories = await GetDerivedPublisherTopicSlugsAsync(
+                    post.PublisherId.Value,
+                    categories: true
+                );
+                if (derivedCategories.Count > 0)
+                    sources.Add("publisher-derived-categories");
+                categorySlugs = categorySlugs.Concat(derivedCategories).Distinct().ToList();
+            }
+
+            post.Categories = await ResolveCategoriesAsync(categorySlugs);
+        }
+
+        if (sources.Count == 0)
+            return;
+
+        post.Metadata ??= new Dictionary<string, object>();
+        post.Metadata[PostAutoTaggingMetaKey] = new Dictionary<string, object>
+        {
+            ["tags"] = post.Tags.Select(x => x.Slug).ToList(),
+            ["categories"] = post.Categories.Select(x => x.Slug).ToList(),
+            ["sources"] = sources.Distinct().ToList(),
+            ["applied_at"] = DateTime.UtcNow.ToString("O"),
+        };
+    }
+
+    public async Task ApplyInterestSignalsAsync(IReadOnlyList<PostInterestSignal> signals)
+    {
+        if (signals.Count == 0)
+            return;
+
+        var aggregatedSignals = signals.GroupBy(x => new { x.AccountId, x.PostId })
+            .Select(g => new
+            {
+                g.Key.AccountId,
+                g.Key.PostId,
+                ScoreDelta = g.Sum(x => x.ScoreDelta),
+                InteractionCount = g.Count(),
+                LastInteractedAt = g.Max(x => x.OccurredAt),
+                SignalType = g.OrderByDescending(x => x.OccurredAt).First().SignalType,
+            })
+            .ToList();
+
+        var postIds = aggregatedSignals.Select(x => x.PostId).Distinct().ToList();
+        var posts = await db.Posts.Where(p => postIds.Contains(p.Id))
+            .Include(p => p.Tags)
+            .Include(p => p.Categories)
+            .ToDictionaryAsync(p => p.Id);
+
+        var accountIds = aggregatedSignals.Select(x => x.AccountId).Distinct().ToList();
+        var tagIds = posts.Values.SelectMany(p => p.Tags.Select(x => x.Id)).Distinct().ToList();
+        var categoryIds = posts.Values.SelectMany(p => p.Categories.Select(x => x.Id)).Distinct().ToList();
+        var publisherIds = posts.Values.Where(p => p.PublisherId.HasValue).Select(p => p.PublisherId!.Value).Distinct().ToList();
+
+        var existingProfiles = await db.PostInterestProfiles.Where(p => accountIds.Contains(p.AccountId))
+            .Where(p =>
+                (p.Kind == PostInterestKind.Tag && tagIds.Contains(p.ReferenceId))
+                || (p.Kind == PostInterestKind.Category && categoryIds.Contains(p.ReferenceId))
+                || (p.Kind == PostInterestKind.Publisher && publisherIds.Contains(p.ReferenceId))
+            )
+            .ToListAsync();
+
+        var profileMap = existingProfiles.ToDictionary(
+            x => (x.AccountId, x.Kind, x.ReferenceId),
+            x => x
+        );
+
+        foreach (var signal in aggregatedSignals)
+        {
+            if (!posts.TryGetValue(signal.PostId, out var post))
+                continue;
+
+            var targets = new List<(PostInterestKind Kind, Guid ReferenceId)>();
+            targets.AddRange(post.Tags.Select(x => (PostInterestKind.Tag, x.Id)));
+            targets.AddRange(post.Categories.Select(x => (PostInterestKind.Category, x.Id)));
+            if (post.PublisherId.HasValue)
+                targets.Add((PostInterestKind.Publisher, post.PublisherId.Value));
+
+            foreach (var target in targets.Distinct())
+            {
+                var key = (signal.AccountId, target.Kind, target.ReferenceId);
+                if (!profileMap.TryGetValue(key, out var profile))
+                {
+                    profile = new SnPostInterestProfile
+                    {
+                        AccountId = signal.AccountId,
+                        Kind = target.Kind,
+                        ReferenceId = target.ReferenceId,
+                    };
+                    profileMap[key] = profile;
+                    db.PostInterestProfiles.Add(profile);
+                }
+
+                profile.Score = ClampInterestScore(profile.Score + signal.ScoreDelta);
+                profile.InteractionCount += signal.InteractionCount;
+                profile.LastInteractedAt = signal.LastInteractedAt;
+                profile.LastSignalType = signal.SignalType;
+            }
+        }
+
+        await db.SaveChangesAsync();
     }
 
     private static List<SnPost> TruncatePostContent(List<SnPost> input)
@@ -471,7 +815,8 @@ public partial class PostService(
         SnPost post,
         List<string>? attachments = null,
         List<string>? tags = null,
-        List<string>? categories = null
+        List<string>? categories = null,
+        DyAccount? actor = null
     )
     {
         if (post.Empty)
@@ -510,33 +855,18 @@ public partial class PostService(
         }
 
         if (tags is not null)
-        {
-            var existingTags = await db.PostTags.Where(e => tags.Contains(e.Slug)).ToListAsync();
-
-            // Determine missing slugs
-            var existingSlugs = existingTags.Select(t => t.Slug).ToHashSet();
-            var missingSlugs = tags.Where(slug => !existingSlugs.Contains(slug)).ToList();
-
-            var newTags = missingSlugs.Select(slug => new SnPostTag { Slug = slug }).ToList();
-            if (newTags.Count > 0)
-            {
-                await db.PostTags.AddRangeAsync(newTags);
-                await db.SaveChangesAsync();
-            }
-
-            post.Tags = existingTags.Concat(newTags).ToList();
-        }
+            post.Tags = await ResolveTagsAsync(tags);
 
         if (categories is not null)
         {
-            post.Categories = await db
-                .PostCategories.Where(e => categories.Contains(e.Slug))
-                .ToListAsync();
-            if (post.Categories.Count != categories.Distinct().Count())
+            post.Categories = await ResolveCategoriesAsync(categories);
+            if (post.Categories.Count != NormalizeTopicSlugs(categories).Count)
                 throw new InvalidOperationException(
                     "Categories contains one or more categories that wasn't exists."
                 );
         }
+
+        await ApplyAutomaticTopicsAsync(post, tags, categories);
 
         db.Posts.Add(post);
         await db.SaveChangesAsync();
@@ -610,6 +940,20 @@ public partial class PostService(
                     );
                 }
             });
+        }
+
+        if (isPublishedNow && post.RepliedPostId.HasValue && actor is not null)
+        {
+            flushBuffer.Enqueue(
+                new PostInterestSignal
+                {
+                    AccountId = Guid.Parse(actor.Id),
+                    PostId = post.RepliedPostId.Value,
+                    ScoreDelta = ReplyInterestScore,
+                    SignalType = "reply",
+                    OccurredAt = Instant.FromDateTimeUtc(DateTime.UtcNow),
+                }
+            );
         }
 
         if (isPublishedNow)
@@ -719,33 +1063,18 @@ public partial class PostService(
         }
 
         if (tags is not null)
-        {
-            var existingTags = await db.PostTags.Where(e => tags.Contains(e.Slug)).ToListAsync();
-
-            // Determine missing slugs
-            var existingSlugs = existingTags.Select(t => t.Slug).ToHashSet();
-            var missingSlugs = tags.Where(slug => !existingSlugs.Contains(slug)).ToList();
-
-            var newTags = missingSlugs.Select(slug => new SnPostTag { Slug = slug }).ToList();
-            if (newTags.Count > 0)
-            {
-                await db.PostTags.AddRangeAsync(newTags);
-                await db.SaveChangesAsync();
-            }
-
-            post.Tags = existingTags.Concat(newTags).ToList();
-        }
+            post.Tags = await ResolveTagsAsync(tags);
 
         if (categories is not null)
         {
-            post.Categories = await db
-                .PostCategories.Where(e => categories.Contains(e.Slug))
-                .ToListAsync();
-            if (post.Categories.Count != categories.Distinct().Count())
+            post.Categories = await ResolveCategoriesAsync(categories);
+            if (post.Categories.Count != NormalizeTopicSlugs(categories).Count)
                 throw new InvalidOperationException(
                     "Categories contains one or more categories that wasn't exists."
                 );
         }
+
+        await ApplyAutomaticTopicsAsync(post, tags, categories);
 
         db.Update(post);
         await db.SaveChangesAsync();
@@ -1122,12 +1451,19 @@ public partial class PostService(
         bool isSelfReact
     )
     {
-        var isExistingReaction =
+        var hasMatchingReaction =
             reaction.AccountId.HasValue
-            && await db.Set<SnPostReaction>()
-                .AnyAsync(r => r.PostId == post.Id && r.AccountId == reaction.AccountId.Value);
+            && await db.Set<SnPostReaction>().AnyAsync(r =>
+                r.PostId == post.Id
+                && r.Symbol == reaction.Symbol
+                && r.AccountId == reaction.AccountId.Value
+            );
 
         if (isRemoving)
+        {
+            if (!hasMatchingReaction)
+                return true;
+
             await db
                 .PostReactions.Where(r =>
                     r.PostId == post.Id
@@ -1136,36 +1472,30 @@ public partial class PostService(
                     && r.AccountId == reaction.AccountId.Value
                 )
                 .ExecuteDeleteAsync();
-        else
+        }
+        else if (!hasMatchingReaction)
+        {
             db.PostReactions.Add(reaction);
-
-        if (isExistingReaction)
-        {
-            if (!isRemoving)
-                await db.SaveChangesAsync();
-            return isRemoving;
         }
 
-        if (isSelfReact)
-        {
-            await db.SaveChangesAsync();
-            return isRemoving;
-        }
+        if (!hasMatchingReaction && isRemoving)
+            return true;
 
-        switch (reaction.Attitude)
+        if (!isSelfReact && hasMatchingReaction == isRemoving)
         {
-            case PostReactionAttitude.Positive:
-                if (isRemoving)
-                    post.Upvotes--;
-                else
-                    post.Upvotes++;
-                break;
-            case PostReactionAttitude.Negative:
-                if (isRemoving)
-                    post.Downvotes--;
-                else
-                    post.Downvotes++;
-                break;
+            var weight = GetReactionWeight(reaction.Attitude);
+            var reactionDelta = isRemoving ? -weight : weight;
+            post.ReactionScore += reactionDelta;
+
+            switch (reaction.Attitude)
+            {
+                case PostReactionAttitude.Positive:
+                    post.Upvotes += isRemoving ? -1 : 1;
+                    break;
+                case PostReactionAttitude.Negative:
+                    post.Downvotes += isRemoving ? -1 : 1;
+                    break;
+            }
         }
 
         await db.SaveChangesAsync();
@@ -1180,6 +1510,23 @@ public partial class PostService(
 
         if (isSelfReact)
             return isRemoving;
+
+        if (reaction.AccountId.HasValue && hasMatchingReaction == isRemoving)
+        {
+            var interestDelta = isRemoving
+                ? -GetReactionWeight(reaction.Attitude)
+                : GetReactionWeight(reaction.Attitude);
+            flushBuffer.Enqueue(
+                new PostInterestSignal
+                {
+                    AccountId = reaction.AccountId.Value,
+                    PostId = post.Id,
+                    ScoreDelta = interestDelta,
+                    SignalType = $"reaction:{reaction.Attitude.ToString().ToLowerInvariant()}",
+                    OccurredAt = Instant.FromDateTimeUtc(DateTime.UtcNow),
+                }
+            );
+        }
 
         // Send ActivityPub Like/Undo activities if post's publisher has actor
         if (post.PublisherId.HasValue)
@@ -1391,6 +1738,27 @@ public partial class PostService(
                 ViewedAt = Instant.FromDateTimeUtc(DateTime.UtcNow),
             }
         );
+
+        if (!string.IsNullOrEmpty(viewerId) && Guid.TryParse(viewerId, out var accountId))
+        {
+            var interestCacheKey =
+                $"post:interest:view:{postId}:{viewerId}:{DateTime.UtcNow:yyyyMMdd}";
+            var (interestFound, _) = await cache.GetAsyncWithStatus<bool>(interestCacheKey);
+            if (!interestFound)
+            {
+                await cache.SetAsync(interestCacheKey, true, TimeSpan.FromDays(1));
+                flushBuffer.Enqueue(
+                    new PostInterestSignal
+                    {
+                        AccountId = accountId,
+                        PostId = postId,
+                        ScoreDelta = ViewInterestScore,
+                        SignalType = "view",
+                        OccurredAt = Instant.FromDateTimeUtc(DateTime.UtcNow),
+                    }
+                );
+            }
+        }
     }
 
     private async Task<List<SnPost>> LoadPubsAndActors(List<SnPost> posts)
@@ -1618,7 +1986,7 @@ public partial class PostService(
                     INNER JOIN reply_tree ON posts.replied_post_id = reply_tree.descendant_id
                     WHERE posts.deleted_at IS NULL
                 )
-                SELECT ancestor_id AS "AncestorId", COUNT(*)::int AS "Count"
+                SELECT ancestor_id, COUNT(*)::int AS count
                 FROM reply_tree
                 GROUP BY ancestor_id
                 """,

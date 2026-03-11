@@ -307,6 +307,8 @@ public class PublisherController(
 
         public string? PictureId { get; set; }
         public string? BackgroundId { get; set; }
+        public List<string>? DefaultPostTags { get; set; }
+        public List<string>? DefaultPostCategories { get; set; }
     }
 
     [HttpPost("individual")]
@@ -546,6 +548,25 @@ public class PublisherController(
             var background = SnCloudFileReferenceObject.FromProtoValue(queryResult);
 
             publisher.Background = background;
+        }
+
+        if (request.DefaultPostTags is not null || request.DefaultPostCategories is not null)
+        {
+            publisher.Meta ??= new Dictionary<string, object>();
+
+            if (request.DefaultPostTags is not null)
+                publisher.Meta["default_post_tags"] = request.DefaultPostTags
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim().ToLowerInvariant())
+                    .Distinct()
+                    .ToList();
+
+            if (request.DefaultPostCategories is not null)
+                publisher.Meta["default_post_categories"] = request.DefaultPostCategories
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim().ToLowerInvariant())
+                    .Distinct()
+                    .ToList();
         }
 
         db.Update(publisher);
