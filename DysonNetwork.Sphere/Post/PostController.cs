@@ -22,6 +22,25 @@ public class PostController(
     RemoteRealmService rs
 ) : ControllerBase
 {
+    public class ThreadedReplyNode
+    {
+        public required SnPost Post { get; set; }
+        public List<ThreadedReplyNode> Replies { get; set; } = [];
+    }
+
+    private static ThreadedReplyNode BuildThreadedReplyNode(
+        SnPost post,
+        Dictionary<Guid, List<SnPost>> repliesByParent
+    )
+    {
+        var replies = repliesByParent.GetValueOrDefault(post.Id, []);
+        return new ThreadedReplyNode
+        {
+            Post = post,
+            Replies = replies.Select(reply => BuildThreadedReplyNode(reply, repliesByParent)).ToList(),
+        };
+    }
+
     [HttpGet("featured")]
     public async Task<ActionResult<List<SnPost>>> ListFeaturedPosts()
     {
@@ -515,5 +534,99 @@ public class PostController(
         Response.Headers["X-Total"] = totalCount.ToString();
 
         return Ok(posts);
+    }
+
+    [HttpGet("{id:guid}/replies/threaded")]
+    public async Task<ActionResult<List<ThreadedReplyNode>>> ListThreadedReplies(
+        Guid id,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var currentUser = currentUserValue as DyAccount;
+
+        List<Guid> userFriends = [];
+        if (currentUser != null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(
+                new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
+            );
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        }
+
+        var userPublishers = currentUser is null
+            ? []
+            : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+
+        var parent = await db.Posts.Where(e => e.Id == id).FirstOrDefaultAsync();
+        if (parent is null)
+            return NotFound();
+
+        var totalCount = await db
+            .Posts.Where(e => e.RepliedPostId == parent.Id)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
+            .CountAsync();
+
+        var rootReplies = await db
+            .Posts.Where(e => e.RepliedPostId == id)
+            .Include(e => e.ForwardedPost)
+            .Include(e => e.Categories)
+            .Include(e => e.Tags)
+            .Include(e => e.FeaturedRecords)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
+            .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        rootReplies = await ps.LoadPostInfo(rootReplies, currentUser, true);
+
+        Response.Headers["X-Total"] = totalCount.ToString();
+
+        if (rootReplies.Count == 0)
+            return Ok(new List<ThreadedReplyNode>());
+
+        var repliesByParent = new Dictionary<Guid, List<SnPost>>();
+        var visited = rootReplies.Select(e => e.Id).ToHashSet();
+        var frontier = rootReplies.Select(e => e.Id).ToList();
+
+        while (frontier.Count > 0)
+        {
+            var children = await db
+                .Posts.Where(e => e.RepliedPostId != null && frontier.Contains(e.RepliedPostId.Value))
+                .Include(e => e.ForwardedPost)
+                .Include(e => e.Categories)
+                .Include(e => e.Tags)
+                .Include(e => e.FeaturedRecords)
+                .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
+                .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
+                .ToListAsync();
+
+            children = children.Where(e => visited.Add(e.Id)).ToList();
+            if (children.Count == 0)
+                break;
+
+            children = await ps.LoadPostInfo(children, currentUser, true);
+
+            foreach (var child in children)
+            {
+                if (child.RepliedPostId is not { } parentId)
+                    continue;
+
+                if (!repliesByParent.TryGetValue(parentId, out var siblings))
+                {
+                    siblings = [];
+                    repliesByParent[parentId] = siblings;
+                }
+
+                siblings.Add(child);
+            }
+
+            frontier = children.Select(e => e.Id).ToList();
+        }
+
+        var tree = rootReplies.Select(root => BuildThreadedReplyNode(root, repliesByParent)).ToList();
+        return Ok(tree);
     }
 }
