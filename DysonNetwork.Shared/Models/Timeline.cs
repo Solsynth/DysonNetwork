@@ -9,6 +9,21 @@ public interface ITimelineEvent
     public SnTimelineEvent ToActivity();
 }
 
+public enum SnTimelineMode
+{
+    Personalized,
+    Top,
+    Latest,
+}
+
+[NotMapped]
+public class SnTimelinePage
+{
+    public List<SnTimelineEvent> Items { get; set; } = [];
+    public string? NextCursor { get; set; }
+    public string Mode { get; set; } = "personalized";
+}
+
 [NotMapped]
 public class SnTimelineEvent : ModelBase
 {
@@ -38,4 +53,3 @@ public class SnTimelineEvent : ModelBase
         };
     }
 }
-

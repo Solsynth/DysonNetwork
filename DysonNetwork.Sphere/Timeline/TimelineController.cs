@@ -22,11 +22,12 @@ public class ActivityController(TimelineService acts) : ControllerBase
     /// Besides, when users are logged in, it will also mix the other kinds of data and who're plying to them.
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<List<SnTimelineEvent>>> ListEvents(
+    public async Task<ActionResult<SnTimelinePage>> ListEvents(
         [FromQuery] string? cursor,
         [FromQuery] string? filter,
         [FromQuery] int take = 20,
-        [FromQuery] bool showFediverse = false
+        [FromQuery] bool showFediverse = false,
+        [FromQuery] string? mode = null
     )
     {
         Instant? cursorTimestamp = null;
@@ -42,9 +43,27 @@ public class ActivityController(TimelineService acts) : ControllerBase
             }
         }
 
+        var timelineMode = ParseTimelineMode(mode);
+        if (timelineMode == null)
+            return BadRequest("Invalid mode. Expected personalized, top, or latest.");
+
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         return currentUserValue is not DyAccount currentUser
-            ? Ok(await acts.ListEventsForAnyone(take, cursorTimestamp, showFediverse))
-            : Ok(await acts.ListEvents(take, cursorTimestamp, currentUser, filter, showFediverse));
+            ? Ok(await acts.ListEventsForAnyone(take, cursorTimestamp, timelineMode.Value, showFediverse))
+            : Ok(await acts.ListEvents(take, cursorTimestamp, currentUser, timelineMode.Value, filter, showFediverse));
+    }
+
+    private static SnTimelineMode? ParseTimelineMode(string? mode)
+    {
+        if (string.IsNullOrWhiteSpace(mode))
+            return SnTimelineMode.Personalized;
+
+        return mode.Trim().ToLowerInvariant() switch
+        {
+            "personalized" => SnTimelineMode.Personalized,
+            "top" => SnTimelineMode.Top,
+            "latest" => SnTimelineMode.Latest,
+            _ => null,
+        };
     }
 }

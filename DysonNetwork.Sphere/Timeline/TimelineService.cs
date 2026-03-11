@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Text;
 using PostVisibility = DysonNetwork.Shared.Models.PostVisibility;
 
 namespace DysonNetwork.Sphere.Timeline;
@@ -34,9 +35,10 @@ public class TimelineService(
         return performanceWeight / Math.Pow(normalizedTime + 1.0, 1.2);
     }
 
-    public async Task<List<SnTimelineEvent>> ListEventsForAnyone(
+    public async Task<SnTimelinePage> ListEventsForAnyone(
         int take,
         Instant? cursor,
+        SnTimelineMode mode,
         bool showFediverse = false
     )
     {
@@ -54,7 +56,7 @@ public class TimelineService(
 
         var posts = await GetAndProcessPosts(postsQuery);
         await LoadPostsRealmsAsync(posts, rs);
-        posts = await RankPosts(posts, take);
+        posts = await RankPosts(posts, take, null, mode);
 
         var interleaved = new List<SnTimelineEvent>();
         var random = new Random();
@@ -76,13 +78,14 @@ public class TimelineService(
         if (activities.Count == 0)
             activities.Add(SnTimelineEvent.Empty());
 
-        return activities;
+        return BuildTimelinePage(activities, posts, mode);
     }
 
-    public async Task<List<SnTimelineEvent>> ListEvents(
+    public async Task<SnTimelinePage> ListEvents(
         int take,
         Instant? cursor,
         DyAccount currentUser,
+        SnTimelineMode mode,
         string? filter = null,
         bool showFediverse = false
     )
@@ -122,7 +125,7 @@ public class TimelineService(
 
         await LoadPostsRealmsAsync(posts, rs);
 
-        posts = await RankPosts(posts, take, currentUser);
+        posts = await RankPosts(posts, take, currentUser, mode);
 
         var interleaved = new List<SnTimelineEvent>();
         var random = new Random();
@@ -143,7 +146,7 @@ public class TimelineService(
         if (activities.Count == 0)
             activities.Add(SnTimelineEvent.Empty());
 
-        return activities;
+        return BuildTimelinePage(activities, posts, mode);
     }
 
     private async Task<SnTimelineEvent?> MaybeGetDiscoveryActivity()
@@ -165,11 +168,15 @@ public class TimelineService(
     private async Task<List<SnPost>> RankPosts(
         List<SnPost> posts,
         int take,
-        DyAccount? currentUser = null
+        DyAccount? currentUser = null,
+        SnTimelineMode mode = SnTimelineMode.Personalized
     )
     {
+        if (mode == SnTimelineMode.Latest)
+            return SortLatestPosts(posts, take);
+
         var now = SystemClock.Instance.GetCurrentInstant();
-        var personalizationBonus = currentUser is null
+        var personalizationBonus = mode != SnTimelineMode.Personalized || currentUser is null
             ? new Dictionary<Guid, double>()
             : await GetPersonalizationBonusMap(posts, Guid.Parse(currentUser.Id), now);
         var publisherLevelBonus = await GetPublisherLevelBonusMap(posts);
@@ -320,6 +327,50 @@ public class TimelineService(
         }
 
         return selected;
+    }
+
+    private static List<SnPost> SortLatestPosts(
+        IEnumerable<SnPost> posts,
+        int take
+    )
+    {
+        return posts
+            .OrderByDescending(GetPostTimelineInstant)
+            .Take(take)
+            .Select(post =>
+            {
+                post.DebugRank = 0d;
+                return post;
+            })
+            .ToList();
+    }
+
+    private static SnTimelinePage BuildTimelinePage(
+        List<SnTimelineEvent> activities,
+        IReadOnlyList<SnPost> posts,
+        SnTimelineMode mode
+    )
+    {
+        return new SnTimelinePage
+        {
+            Items = activities,
+            NextCursor = GetNextCursor(posts),
+            Mode = mode.ToString().ToLowerInvariant(),
+        };
+    }
+
+    private static string? GetNextCursor(IReadOnlyList<SnPost> posts)
+    {
+        if (posts.Count == 0)
+            return null;
+
+        var oldestPostTime = posts.Min(GetPostTimelineInstant);
+        return InstantPattern.ExtendedIso.Format(oldestPostTime);
+    }
+
+    private static Instant GetPostTimelineInstant(SnPost post)
+    {
+        return post.PublishedAt ?? post.CreatedAt;
     }
 
     private sealed class RankedPostCandidate

@@ -180,6 +180,13 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
 
     public DyPost ToProtoValue()
     {
+        return ToProtoValue(new HashSet<Guid>(), includeLinkedPosts: true);
+    }
+
+    private DyPost ToProtoValue(HashSet<Guid> visitedPostIds, bool includeLinkedPosts)
+    {
+        visitedPostIds.Add(Id);
+
         var proto = new DyPost
         {
             Id = Id.ToString(),
@@ -255,18 +262,26 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
         if (RepliedPostId.HasValue)
         {
             proto.RepliedPostId = RepliedPostId.Value.ToString();
-            if (RepliedPost != null)
+            if (includeLinkedPosts && RepliedPost != null)
             {
-                proto.RepliedPost = RepliedPost.ToProtoValue();
+                var includeNestedLinkedPosts = !visitedPostIds.Contains(RepliedPost.Id);
+                proto.RepliedPost = RepliedPost.ToProtoValue(
+                    visitedPostIds,
+                    includeNestedLinkedPosts
+                );
             }
         }
 
         if (ForwardedPostId.HasValue)
         {
             proto.ForwardedPostId = ForwardedPostId.Value.ToString();
-            if (ForwardedPost != null)
+            if (includeLinkedPosts && ForwardedPost != null)
             {
-                proto.ForwardedPost = ForwardedPost.ToProtoValue();
+                var includeNestedLinkedPosts = !visitedPostIds.Contains(ForwardedPost.Id);
+                proto.ForwardedPost = ForwardedPost.ToProtoValue(
+                    visitedPostIds,
+                    includeNestedLinkedPosts
+                );
             }
         }
 

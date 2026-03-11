@@ -13,6 +13,12 @@ Timeline ranking is built in layers:
 
 Anonymous users only receive the base score, publisher bonus, and diversification.
 
+The timeline can now be tuned per request with a `mode` query parameter:
+
+- `personalized`: signed-in default, uses the full ranking pipeline
+- `top`: disables user-interest personalization and keeps engagement-based ranking
+- `latest`: returns posts in reverse chronological order
+
 ## Base Score
 
 The base score is calculated from:
@@ -78,7 +84,8 @@ For debugging, timeline post payloads now include:
 This field is:
 
 - only meaningful in timeline responses
-- the final score after personalization, publisher bonus, and diversification penalty
+- the final score after personalization, publisher bonus, and diversification penalty for `personalized` and `top`
+- `0` for `latest`, because chronological mode does not use score-based ranking
 - not persisted in the database
 
 Example timeline event payload shape:
@@ -97,6 +104,37 @@ Example timeline event payload shape:
 }
 ```
 
+## Timeline API Shape
+
+`GET /api/timeline` now returns a page object instead of a bare array:
+
+```json
+{
+  "items": [
+    {
+      "id": "event-id",
+      "type": "posts.new",
+      "data": {
+        "id": "post-id",
+        "debugRank": 6.8421
+      }
+    }
+  ],
+  "nextCursor": "2026-03-11T08:32:10Z",
+  "mode": "personalized"
+}
+```
+
+Query parameters:
+
+- `cursor`: ISO-8601 timestamp returned by the previous response
+- `take`: requested page size
+- `filter`: existing publisher filter
+- `showFediverse`: existing fediverse toggle
+- `mode`: `personalized`, `top`, or `latest`
+
+`nextCursor` is now issued by the server. It is derived from the oldest post actually returned in the current page, which avoids the client-side cursor drift caused by mixed timeline event types.
+
 ## Notes
 
 - `debugRank` is intended for debugging and tuning, not long-term client product logic
@@ -105,7 +143,7 @@ Example timeline event payload shape:
 
 ## Signed-In Ranking Formula
 
-For a signed-in user, the current final rank is:
+For a signed-in user in `personalized` mode, the current final rank is:
 
 \[
 R_{\text{final}}(p,u)=R_{\text{base}}(p)+R_{\text{personal}}(p,u)+R_{\text{publisher}}(p)-R_{\text{diversity}}(p)
@@ -181,3 +219,19 @@ Where:
 - \(M_{\text{tag-sub}}(p,u)\): count of matched tag subscriptions
 - \(M_{\text{cat-sub}}(p,u)\): count of matched category subscriptions
 - \(N_{\text{same-publisher-before}}(p)\): number of already-selected posts from the same publisher earlier in the diversification pass
+
+## Other Modes
+
+For signed-in or anonymous users in `top` mode:
+
+\[
+R_{\text{top}}(p)=R_{\text{base}}(p)+R_{\text{publisher}}(p)-R_{\text{diversity}}(p)
+\]
+
+For `latest` mode, the timeline does not rank by score. It sorts by:
+
+\[
+T(p)=\text{publishedAt}(p)\ \text{or}\ \text{createdAt}(p)
+\]
+
+and returns posts in descending order of \(T(p)\).
