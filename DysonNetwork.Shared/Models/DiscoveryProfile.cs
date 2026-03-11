@@ -61,6 +61,9 @@ public class SnPublisherDiscoveryRef
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Nick { get; set; } = string.Empty;
+    public string? Bio { get; set; }
+    public SnCloudFileReferenceObject? Picture { get; set; }
+    public SnCloudFileReferenceObject? Background { get; set; }
 }
 
 [NotMapped]
@@ -69,6 +72,16 @@ public class SnAccountDiscoveryRef
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Nick { get; set; } = string.Empty;
+    public string? Bio { get; set; }
+    public string? FirstName { get; set; }
+    public string? MiddleName { get; set; }
+    public string? LastName { get; set; }
+    public string? Pronouns { get; set; }
+    public string? Location { get; set; }
+    public SnVerificationMark? Verification { get; set; }
+    public SnAccountBadgeRef? ActiveBadge { get; set; }
+    public SnCloudFileReferenceObject? Picture { get; set; }
+    public SnCloudFileReferenceObject? Background { get; set; }
 }
 
 [NotMapped]
@@ -77,6 +90,9 @@ public class SnRealmDiscoveryRef
     public Guid Id { get; set; }
     public string Slug { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public SnCloudFileReferenceObject? Picture { get; set; }
+    public SnCloudFileReferenceObject? Background { get; set; }
 }
 
 [NotMapped]

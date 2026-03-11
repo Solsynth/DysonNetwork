@@ -197,28 +197,31 @@ public class TimelineService(
         var options = new List<Func<SnTimelineEvent?>>();
         if (profile.SuggestedPublishers.Count > 0)
         {
+            var pickedPublisher = PickDiscoverySuggestion(profile.SuggestedPublishers);
             options.Add(() => new PersonalizedTimelineDiscoveryEvent(
                 "publisher",
                 "Suggested publisher",
-                [profile.SuggestedPublishers[0]]
+                [pickedPublisher]
             ).ToActivity());
         }
 
         if (profile.SuggestedAccounts.Count > 0)
         {
+            var pickedAccount = PickDiscoverySuggestion(profile.SuggestedAccounts);
             options.Add(() => new PersonalizedTimelineDiscoveryEvent(
                 "account",
                 "People you may know",
-                [profile.SuggestedAccounts[0]]
+                [pickedAccount]
             ).ToActivity());
         }
 
         if (profile.SuggestedRealms.Count > 0)
         {
+            var pickedRealm = PickDiscoverySuggestion(profile.SuggestedRealms);
             options.Add(() => new PersonalizedTimelineDiscoveryEvent(
                 "realm",
                 "Suggested realm",
-                [profile.SuggestedRealms[0]]
+                [pickedRealm]
             ).ToActivity());
         }
 
@@ -701,6 +704,9 @@ public class TimelineService(
                         Id = publisher.Id,
                         Name = publisher.Name,
                         Nick = publisher.Nick,
+                        Bio = publisher.Bio,
+                        Picture = publisher.Picture,
+                        Background = publisher.Background,
                     },
                 };
             })
@@ -726,22 +732,38 @@ public class TimelineService(
         if (candidatePublishers.Count == 0)
             return [];
 
+        var accountMap = (await remoteAccounts.GetAccountBatch(
+            candidatePublishers.Select(x => x.AccountId!.Value).Distinct().ToList()
+        )).ToDictionary(x => Guid.Parse(x.Id), SnAccount.FromProtoValue);
+
         return candidatePublishers
+            .Where(x => x.AccountId.HasValue && accountMap.ContainsKey(x.AccountId.Value))
             .Select(x =>
             {
                 var sourceSuggestion = publisherSuggestions.First(y => y.ReferenceId == x.Id);
+                var account = accountMap[x.AccountId!.Value];
                 return new SnDiscoverySuggestion
                 {
                     Kind = DiscoveryTargetKind.Account,
                     ReferenceId = x.AccountId!.Value,
-                    Label = x.Nick,
+                    Label = account.Nick,
                     Score = sourceSuggestion.Score,
                     Reasons = sourceSuggestion.Reasons,
                     Data = new SnAccountDiscoveryRef
                     {
-                        Id = x.AccountId.Value,
-                        Name = x.Name,
-                        Nick = x.Nick,
+                        Id = account.Id,
+                        Name = account.Name,
+                        Nick = account.Nick,
+                        Bio = account.Profile?.Bio,
+                        FirstName = account.Profile?.FirstName,
+                        MiddleName = account.Profile?.MiddleName,
+                        LastName = account.Profile?.LastName,
+                        Pronouns = account.Profile?.Pronouns,
+                        Location = account.Profile?.Location,
+                        Verification = account.Profile?.Verification,
+                        ActiveBadge = account.Profile?.ActiveBadge,
+                        Picture = account.Profile?.Picture,
+                        Background = account.Profile?.Background,
                     },
                 };
             })
@@ -789,6 +811,9 @@ public class TimelineService(
                     Id = publicRealmMap[x.ReferenceId].Id,
                     Slug = publicRealmMap[x.ReferenceId].Slug,
                     Name = publicRealmMap[x.ReferenceId].Name,
+                    Description = publicRealmMap[x.ReferenceId].Description,
+                    Picture = publicRealmMap[x.ReferenceId].Picture,
+                    Background = publicRealmMap[x.ReferenceId].Background,
                 },
             })
             .ToList();
@@ -836,6 +861,9 @@ public class TimelineService(
                             Id = publisher.Id,
                             Name = publisher.Name,
                             Nick = publisher.Nick,
+                            Bio = publisher.Bio,
+                            Picture = publisher.Picture,
+                            Background = publisher.Background,
                         },
                     },
                 DiscoveryTargetKind.Account when accountMap.TryGetValue(preference.ReferenceId, out var account)
@@ -850,6 +878,16 @@ public class TimelineService(
                             Id = account.Id,
                             Name = account.Name,
                             Nick = account.Nick,
+                            Bio = account.Profile?.Bio,
+                            FirstName = account.Profile?.FirstName,
+                            MiddleName = account.Profile?.MiddleName,
+                            LastName = account.Profile?.LastName,
+                            Pronouns = account.Profile?.Pronouns,
+                            Location = account.Profile?.Location,
+                            Verification = account.Profile?.Verification,
+                            ActiveBadge = account.Profile?.ActiveBadge,
+                            Picture = account.Profile?.Picture,
+                            Background = account.Profile?.Background,
                         },
                     },
                 DiscoveryTargetKind.Realm when publicRealmMap.TryGetValue(preference.ReferenceId, out var realm)
@@ -864,6 +902,9 @@ public class TimelineService(
                             Id = realm.Id,
                             Slug = realm.Slug,
                             Name = realm.Name,
+                            Description = realm.Description,
+                            Picture = realm.Picture,
+                            Background = realm.Background,
                         },
                     },
                 _ => null,
@@ -902,6 +943,14 @@ public class TimelineService(
             .Distinct()
             .Take(3)
             .ToList();
+    }
+
+    private static SnDiscoverySuggestion PickDiscoverySuggestion(
+        IReadOnlyList<SnDiscoverySuggestion> suggestions
+    )
+    {
+        var candidateCount = Math.Min(3, suggestions.Count);
+        return suggestions[Random.Shared.Next(candidateCount)];
     }
 
     private static List<SnPost> DiversifyRankedPosts(
