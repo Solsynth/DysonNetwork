@@ -132,6 +132,9 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
     public int ThreadRepliesCount { get; set; }
 
     [NotMapped]
+    public double DebugRank { get; set; }
+
+    [NotMapped]
     public Dictionary<string, int> ReactionsCount { get; set; } = new();
 
     [NotMapped]

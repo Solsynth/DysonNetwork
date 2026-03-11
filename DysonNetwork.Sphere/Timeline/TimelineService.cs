@@ -13,13 +13,20 @@ public class TimelineService(
     Publisher.PublisherService pub,
     Post.PostService ps,
     RemoteRealmService rs,
-    DyProfileService.DyProfileServiceClient accounts
+    DyProfileService.DyProfileServiceClient accounts,
+    RemoteAccountService remoteAccounts
 )
 {
+    private const double ArticleTypeBoost = 1.5d;
+    private const double PublisherRepeatPenalty = 1.35d;
+
     private static double CalculateBaseRank(SnPost post, Instant now)
     {
         var performanceScore =
             post.ReactionScore * 1.4 + post.ThreadRepliesCount * 0.8 + (double)post.AwardedScore / 10d;
+        if (post.Type == PostType.Article)
+            performanceScore += ArticleTypeBoost;
+
         var postTime = post.PublishedAt ?? post.CreatedAt;
         var timeScore = (now - postTime).TotalMinutes;
         var performanceWeight = performanceScore + 5;
@@ -165,17 +172,19 @@ public class TimelineService(
         var personalizationBonus = currentUser is null
             ? new Dictionary<Guid, double>()
             : await GetPersonalizationBonusMap(posts, Guid.Parse(currentUser.Id), now);
-
-        return posts
-            .Select(p => new
+        var publisherLevelBonus = await GetPublisherLevelBonusMap(posts);
+        var rankedCandidates = posts
+            .Select(p => new RankedPostCandidate
             {
                 Post = p,
-                Rank = CalculateBaseRank(p, now) + personalizationBonus.GetValueOrDefault(p.Id, 0d),
+                Rank = CalculateBaseRank(p, now)
+                    + personalizationBonus.GetValueOrDefault(p.Id, 0d)
+                    + publisherLevelBonus.GetValueOrDefault(p.Id, 0d),
             })
             .OrderByDescending(x => x.Rank)
-            .Select(x => x.Post)
-            .Take(take)
             .ToList();
+
+        return DiversifyRankedPosts(rankedCandidates, take);
     }
 
     private async Task<Dictionary<Guid, double>> GetPersonalizationBonusMap(
@@ -220,12 +229,12 @@ public class TimelineService(
             post =>
             {
                 var bonus = 0d;
-                bonus += post.Tags.Sum(tag => tagInterest.GetValueOrDefault(tag.Id, 0d) * 1.15d);
-                bonus += post.Categories.Sum(category => categoryInterest.GetValueOrDefault(category.Id, 0d));
+                bonus += post.Tags.Sum(tag => tagInterest.GetValueOrDefault(tag.Id, 0d) * 0.8d);
+                bonus += post.Categories.Sum(category => categoryInterest.GetValueOrDefault(category.Id, 0d) * 0.75d);
                 if (post.PublisherId.HasValue)
-                    bonus += publisherInterest.GetValueOrDefault(post.PublisherId.Value, 0d) * 1.25d;
-                bonus += post.Tags.Count(tag => subscribedTagIds.Contains(tag.Id)) * 2d;
-                bonus += post.Categories.Count(category => subscribedCategoryIds.Contains(category.Id)) * 2.5d;
+                    bonus += Math.Min(2d, publisherInterest.GetValueOrDefault(post.PublisherId.Value, 0d) * 0.35d);
+                bonus += post.Tags.Count(tag => subscribedTagIds.Contains(tag.Id)) * 1.25d;
+                bonus += post.Categories.Count(category => subscribedCategoryIds.Contains(category.Id)) * 1.5d;
                 return bonus;
             }
         );
@@ -239,6 +248,84 @@ public class TimelineService(
         var ageDays = Math.Max(0, (now - profile.LastInteractedAt.Value).TotalDays);
         var decay = Math.Exp(-ageDays / 30d);
         return profile.Score * decay;
+    }
+
+    private async Task<Dictionary<Guid, double>> GetPublisherLevelBonusMap(List<SnPost> posts)
+    {
+        var publisherAccounts = posts
+            .Where(p => p.Publisher?.AccountId.HasValue == true)
+            .Select(p => p.Publisher!.AccountId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (publisherAccounts.Count == 0)
+            return [];
+
+        var accountsBatch = await remoteAccounts.GetAccountBatch(publisherAccounts);
+        var socialLevelByAccountId = accountsBatch
+            .Where(a => Guid.TryParse(a.Id, out _) && a.Profile is not null)
+            .ToDictionary(
+                a => Guid.Parse(a.Id),
+                a => a.Profile?.SocialCreditsLevel ?? 0
+            );
+
+        return posts.ToDictionary(
+            p => p.Id,
+            p =>
+            {
+                var accountId = p.Publisher?.AccountId;
+                if (!accountId.HasValue)
+                    return 0d;
+
+                var socialLevel = socialLevelByAccountId.GetValueOrDefault(accountId.Value, 0);
+                return Math.Min(3d, socialLevel * 0.05d);
+            }
+        );
+    }
+
+    private static List<SnPost> DiversifyRankedPosts(
+        IReadOnlyList<RankedPostCandidate> candidates,
+        int take
+    )
+    {
+        var selected = new List<SnPost>();
+        var remaining = candidates.ToList();
+        var publisherCounts = new Dictionary<Guid, int>();
+
+        while (selected.Count < take && remaining.Count > 0)
+        {
+            var next = remaining
+                .Select(candidate =>
+                {
+                    var penalty = 0d;
+                    if (candidate.Post.PublisherId.HasValue)
+                        penalty = publisherCounts.GetValueOrDefault(candidate.Post.PublisherId.Value, 0)
+                            * PublisherRepeatPenalty;
+                    return new
+                    {
+                        Candidate = candidate,
+                        FinalRank = candidate.Rank - penalty,
+                    };
+                })
+                .OrderByDescending(x => x.FinalRank)
+                .First();
+
+            next.Candidate.Post.DebugRank = next.FinalRank;
+            selected.Add(next.Candidate.Post);
+            remaining.Remove(next.Candidate);
+
+            if (next.Candidate.Post.PublisherId.HasValue)
+                publisherCounts[next.Candidate.Post.PublisherId.Value] =
+                    publisherCounts.GetValueOrDefault(next.Candidate.Post.PublisherId.Value, 0) + 1;
+        }
+
+        return selected;
+    }
+
+    private sealed class RankedPostCandidate
+    {
+        public required SnPost Post { get; init; }
+        public required double Rank { get; init; }
     }
 
     private async Task<List<SnPublisher>> GetPopularPublishers(int take)
