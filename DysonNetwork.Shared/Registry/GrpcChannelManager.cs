@@ -42,6 +42,8 @@ public class GrpcChannelManager : IDisposable
 
 public static class GrpcSharedChannelExtensions
 {
+    private const int DefaultGrpcMessageSize = 100 * 1024 * 1024;
+
     public static IServiceCollection AddSharedGrpcChannels(this IServiceCollection services)
     {
         services.AddSingleton<GrpcChannelManager>();
@@ -65,6 +67,11 @@ public static class GrpcSharedChannelExtensions
     ) where TClient : class
     {
         services.AddGrpcClient<TClient>(options => { options.Address = new Uri(endpoint); })
+            .ConfigureChannel(options =>
+            {
+                options.MaxReceiveMessageSize = DefaultGrpcMessageSize;
+                options.MaxSendMessageSize = DefaultGrpcMessageSize;
+            })
             .ConfigureGrpcDefaults();
 
         return services;

@@ -41,6 +41,8 @@ public static class ServiceCollectionExtensions
         services.AddGrpc(options =>
         {
             options.EnableDetailedErrors = true;
+            options.MaxReceiveMessageSize = 100 * 1024 * 1024;
+            options.MaxSendMessageSize = 100 * 1024 * 1024;
         });
         services.AddGrpcReflection();
 

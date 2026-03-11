@@ -47,7 +47,12 @@ public static class ServiceCollectionExtensions
                 });
             services.AddRazorPages();
 
-            services.AddGrpc(options => { options.EnableDetailedErrors = true; });
+            services.AddGrpc(options =>
+            {
+                options.EnableDetailedErrors = true;
+                options.MaxReceiveMessageSize = 100 * 1024 * 1024;
+                options.MaxSendMessageSize = 100 * 1024 * 1024;
+            });
             services.AddGrpcReflection();
 
             services.Configure<RequestLocalizationOptions>(options =>
