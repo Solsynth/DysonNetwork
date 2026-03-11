@@ -21,8 +21,11 @@ public class TimelineService(
 {
     private const double ArticleTypeBoost = 1.5d;
     private const double PublisherRepeatPenalty = 1.35d;
-    private const int DiscoveryCandidatePostTake = 96;
+    private const int DiscoveryCandidatePostTake = 48;
+    private const int TimelineCandidateMultiplier = 2;
     private static readonly TimeSpan DiscoveryProfileCacheTtl = TimeSpan.FromMinutes(3);
+    private static readonly TimeSpan FriendIdsCacheTtl = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan UserRealmsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly Duration DiscoveryLookback = Duration.FromDays(45);
 
     private static double CalculateBaseRank(SnPost post, Instant now)
@@ -54,7 +57,7 @@ public class TimelineService(
 
         var postsQuery = BuildPostsQuery(cursor, null, publicRealmIds)
             .FilterWithVisibility(null, [], [], isListing: true)
-            .Take(take * 5);
+            .Take(take * TimelineCandidateMultiplier);
         if (!showFediverse)
             postsQuery = postsQuery.Where(p => p.FediverseUri == null);
 
@@ -97,18 +100,16 @@ public class TimelineService(
         var activities = new List<SnTimelineEvent>();
 
         // Get user's friends and publishers
-        var friendsResponse = await accounts.ListFriendsAsync(
-            new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
-        );
-        var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
-        var userPublishers = await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+        var accountId = Guid.Parse(currentUser.Id);
+        var userFriends = await GetCachedFriendIds(accountId, currentUser.Id);
+        var userPublishers = await pub.GetUserPublishers(accountId);
         var userPublisherIds = userPublishers.Select(x => x.Id).ToList();
 
         // Get publishers based on filter
         var filteredPublishers = await GetFilteredPublishers(filter, currentUser, userFriends);
         var filteredPublishersId = filteredPublishers?.Select(e => e.Id).ToList();
 
-        var userRealms = await rs.GetUserRealms(Guid.Parse(currentUser.Id));
+        var userRealms = await GetCachedUserRealms(accountId);
 
         // Build and execute the post query
         var postsQuery = BuildPostsQuery(cursor, filteredPublishersId, userRealms);
@@ -123,7 +124,7 @@ public class TimelineService(
                 filter is null ? userPublishers : [],
                 isListing: true
             )
-            .Take(take * 5);
+            .Take(take * TimelineCandidateMultiplier);
 
         // Get, process and rank posts
         var posts = await GetAndProcessPosts(postsQuery, currentUser, trackViews: false);
@@ -134,11 +135,12 @@ public class TimelineService(
         await TrackPostViewsAsync(posts, currentUser);
 
         var interleaved = new List<SnTimelineEvent>();
-        var random = new Random();
         SnTimelineEvent? personalizedDiscovery = null;
-        foreach (var post in posts)
+        var discoveryInsertIndex = cursor == null && posts.Count >= 4 ? Math.Min(4, posts.Count) : -1;
+        for (var i = 0; i < posts.Count; i++)
         {
-            if (random.NextDouble() < 0.15)
+            var post = posts[i];
+            if (i == discoveryInsertIndex)
             {
                 personalizedDiscovery ??= await MaybeGetDiscoveryActivity(
                     currentUser,
@@ -359,12 +361,9 @@ public class TimelineService(
         if (cachedProfile is not null)
             return cachedProfile;
 
-        var friendsResponse = await accounts.ListFriendsAsync(
-            new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
-        );
-        var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        var userFriends = await GetCachedFriendIds(accountId, currentUser.Id);
         var userPublishers = await pub.GetUserPublishers(accountId);
-        var userRealms = await rs.GetUserRealms(accountId);
+        var userRealms = await GetCachedUserRealms(accountId);
 
         var profile = await GetDiscoveryProfile(
             currentUser,
@@ -665,7 +664,7 @@ public class TimelineService(
                     .Take(3)
                     .Sum();
                 score += publisherInterest.GetValueOrDefault(group.Key, 0d) * 0.4d;
-                return new RankedDiscoveryTarget<Guid>(group.Key, score, posts);
+                return new RankedDiscoveryTarget<Guid>(group.Key, score, BuildReasonLabels(posts));
             })
             .Where(x => x.Score > 0.2d)
             .Where(x => !userPublisherIds.Contains(x.ReferenceId))
@@ -680,9 +679,9 @@ public class TimelineService(
 
         var publisherIds = publisherCandidates.Select(x => x.ReferenceId).ToList();
         var publishers = await db.Publishers
+            .AsNoTracking()
             .Where(x => publisherIds.Contains(x.Id))
             .ToListAsync();
-        publishers = await pub.LoadIndividualPublisherAccounts(publishers);
         var publisherMap = publishers.ToDictionary(x => x.Id);
 
         return publisherCandidates
@@ -696,8 +695,13 @@ public class TimelineService(
                     ReferenceId = publisher.Id,
                     Label = publisher.Nick,
                     Score = x.Score,
-                    Reasons = BuildReasonLabels(x.Posts),
-                    Data = publisher,
+                    Reasons = x.Reasons,
+                    Data = new SnPublisherDiscoveryRef
+                    {
+                        Id = publisher.Id,
+                        Name = publisher.Name,
+                        Nick = publisher.Nick,
+                    },
                 };
             })
             .ToList();
@@ -722,24 +726,23 @@ public class TimelineService(
         if (candidatePublishers.Count == 0)
             return [];
 
-        var accountMap = (await remoteAccounts.GetAccountBatch(
-            candidatePublishers.Select(x => x.AccountId!.Value).Distinct().ToList()
-        )).ToDictionary(x => Guid.Parse(x.Id), SnAccount.FromProtoValue);
-
         return candidatePublishers
-            .Where(x => x.AccountId.HasValue && accountMap.ContainsKey(x.AccountId.Value))
             .Select(x =>
             {
-                var account = accountMap[x.AccountId!.Value];
                 var sourceSuggestion = publisherSuggestions.First(y => y.ReferenceId == x.Id);
                 return new SnDiscoverySuggestion
                 {
                     Kind = DiscoveryTargetKind.Account,
-                    ReferenceId = account.Id,
-                    Label = account.Nick,
+                    ReferenceId = x.AccountId!.Value,
+                    Label = x.Nick,
                     Score = sourceSuggestion.Score,
                     Reasons = sourceSuggestion.Reasons,
-                    Data = account,
+                    Data = new SnAccountDiscoveryRef
+                    {
+                        Id = x.AccountId.Value,
+                        Name = x.Name,
+                        Nick = x.Nick,
+                    },
                 };
             })
             .OrderByDescending(x => x.Score)
@@ -767,7 +770,7 @@ public class TimelineService(
                     .OrderByDescending(x => x)
                     .Take(3)
                     .Sum();
-                return new RankedDiscoveryTarget<Guid>(group.Key, score, posts);
+                return new RankedDiscoveryTarget<Guid>(group.Key, score, BuildReasonLabels(posts));
             })
             .Where(x => x.Score > 0.2d)
             .Where(x => !userRealms.Contains(x.ReferenceId))
@@ -780,8 +783,13 @@ public class TimelineService(
                 ReferenceId = x.ReferenceId,
                 Label = publicRealmMap[x.ReferenceId].Name,
                 Score = x.Score,
-                Reasons = BuildReasonLabels(x.Posts),
-                Data = publicRealmMap[x.ReferenceId],
+                Reasons = x.Reasons,
+                Data = new SnRealmDiscoveryRef
+                {
+                    Id = publicRealmMap[x.ReferenceId].Id,
+                    Slug = publicRealmMap[x.ReferenceId].Slug,
+                    Name = publicRealmMap[x.ReferenceId].Name,
+                },
             })
             .ToList();
 
@@ -805,6 +813,7 @@ public class TimelineService(
             .ToList();
 
         var publisherMap = await db.Publishers
+            .AsNoTracking()
             .Where(x => publisherIds.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, x => x);
         var accountMap = accountIds.Count == 0
@@ -822,7 +831,12 @@ public class TimelineService(
                         ReferenceId = preference.ReferenceId,
                         Label = publisher.Nick,
                         Reasons = preference.Reason is null ? [] : [preference.Reason],
-                        Data = publisher,
+                        Data = new SnPublisherDiscoveryRef
+                        {
+                            Id = publisher.Id,
+                            Name = publisher.Name,
+                            Nick = publisher.Nick,
+                        },
                     },
                 DiscoveryTargetKind.Account when accountMap.TryGetValue(preference.ReferenceId, out var account)
                     => new SnDiscoverySuggestion
@@ -831,7 +845,12 @@ public class TimelineService(
                         ReferenceId = preference.ReferenceId,
                         Label = account.Nick,
                         Reasons = preference.Reason is null ? [] : [preference.Reason],
-                        Data = account,
+                        Data = new SnAccountDiscoveryRef
+                        {
+                            Id = account.Id,
+                            Name = account.Name,
+                            Nick = account.Nick,
+                        },
                     },
                 DiscoveryTargetKind.Realm when publicRealmMap.TryGetValue(preference.ReferenceId, out var realm)
                     => new SnDiscoverySuggestion
@@ -840,7 +859,12 @@ public class TimelineService(
                         ReferenceId = preference.ReferenceId,
                         Label = realm.Name,
                         Reasons = preference.Reason is null ? [] : [preference.Reason],
-                        Data = realm,
+                        Data = new SnRealmDiscoveryRef
+                        {
+                            Id = realm.Id,
+                            Slug = realm.Slug,
+                            Name = realm.Name,
+                        },
                     },
                 _ => null,
             })
@@ -969,7 +993,7 @@ public class TimelineService(
         public required double Rank { get; init; }
     }
 
-    private sealed record RankedDiscoveryTarget<T>(T ReferenceId, double Score, List<SnPost> Posts)
+    private sealed record RankedDiscoveryTarget<T>(T ReferenceId, double Score, List<string> Reasons)
         where T : notnull;
 
     private sealed class DiscoverySuggestionContext
@@ -1084,6 +1108,33 @@ public class TimelineService(
             await ps.IncreaseViewCount(post.Id, currentUser.Id.ToString());
     }
 
+    private async Task<List<Guid>> GetCachedFriendIds(Guid accountId, string accountIdString)
+    {
+        var cacheKey = $"timeline:friends:{accountId}";
+        var cached = await cache.GetAsync<List<Guid>>(cacheKey);
+        if (cached is not null)
+            return cached;
+
+        var friendsResponse = await accounts.ListFriendsAsync(
+            new DyListRelationshipSimpleRequest { RelatedId = accountIdString }
+        );
+        var friendIds = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        await cache.SetAsync(cacheKey, friendIds, FriendIdsCacheTtl);
+        return friendIds;
+    }
+
+    private async Task<List<Guid>> GetCachedUserRealms(Guid accountId)
+    {
+        var cacheKey = $"timeline:realms:{accountId}";
+        var cached = await cache.GetAsync<List<Guid>>(cacheKey);
+        if (cached is not null)
+            return cached;
+
+        var realmIds = await rs.GetUserRealms(accountId);
+        await cache.SetAsync(cacheKey, realmIds, UserRealmsCacheTtl);
+        return realmIds;
+    }
+
     private IQueryable<SnPost> BuildPostsQuery(
         Instant? cursor,
         List<Guid>? filteredPublishersId = null,
@@ -1100,6 +1151,7 @@ public class TimelineService(
             .Where(e => e.RepliedPostId == null)
             .Where(p => cursor == null || p.PublishedAt < cursor)
             .OrderByDescending(p => p.PublishedAt)
+            .AsNoTracking()
             .AsQueryable();
 
         if (filteredPublishersId != null && filteredPublishersId.Count != 0)

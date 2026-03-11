@@ -56,6 +56,30 @@ public class SnDiscoverySuggestion
 }
 
 [NotMapped]
+public class SnPublisherDiscoveryRef
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Nick { get; set; } = string.Empty;
+}
+
+[NotMapped]
+public class SnAccountDiscoveryRef
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Nick { get; set; } = string.Empty;
+}
+
+[NotMapped]
+public class SnRealmDiscoveryRef
+{
+    public Guid Id { get; set; }
+    public string Slug { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+}
+
+[NotMapped]
 public class SnDiscoveryProfile
 {
     public Instant GeneratedAt { get; set; }
