@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using System.Net;
 
 namespace DysonNetwork.Ring.Notification;
 
@@ -94,6 +95,8 @@ public class NotificationController(
             return BadRequest("Use /api/notifications/sop/subscription to register SOP provider.");
         if (string.IsNullOrWhiteSpace(request.DeviceToken))
             return BadRequest("DeviceToken is required.");
+        if (request.Provider == PushProvider.UnifiedPush && !IsValidUnifiedPushEndpoint(request.DeviceToken))
+            return BadRequest("For UnifiedPush, DeviceToken must be a valid absolute HTTP(S) endpoint URL.");
 
         var accountId = Guid.Parse(currentUser.Id);
         if (!force)
@@ -112,6 +115,19 @@ public class NotificationController(
             );
 
         return Ok(result);
+    }
+
+    private static bool IsValidUnifiedPushEndpoint(string endpoint)
+    {
+        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri))
+            return false;
+        if (uri.Scheme is not ("http" or "https"))
+            return false;
+
+        if (IPAddress.TryParse(uri.Host, out var ipAddress))
+            return !IPAddress.IsLoopback(ipAddress);
+
+        return !string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase);
     }
 
     [HttpGet("subscription")]

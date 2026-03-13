@@ -23,7 +23,8 @@ public enum PushProvider
 {
     Apple,
     Google,
-    Sop
+    Sop,
+    UnifiedPush
 }
 
 [Index(nameof(AccountId), nameof(DeviceId), nameof(DeletedAt), IsUnique = true)]

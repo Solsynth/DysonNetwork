@@ -8,6 +8,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using System.Net;
 using System.Collections.Concurrent;
 using System.Threading.Channels;
 
@@ -23,6 +24,7 @@ public class PushService
     private readonly ApnSender? _apns;
     private readonly FlushBufferService _fbs;
     private readonly string? _apnsTopic;
+    private readonly HttpClient _httpClient;
     private readonly RemoteWebSocketService _ws;
 
     public PushService(
@@ -59,6 +61,7 @@ public class PushService
             _apnsTopic = cfgSection.GetValue<string>("Apple:BundleIdentifier");
         }
 
+        _httpClient = httpFactory.CreateClient();
         _ws = ws;
         _db = db;
         _fbs = fbs;
@@ -430,6 +433,24 @@ public class PushService
 
                 case PushProvider.Sop:
                     // SOP delivers via Ring APIs (list + SSE stream), no provider push is needed here.
+                    break;
+
+                case PushProvider.UnifiedPush:
+                    using (var request = new HttpRequestMessage(HttpMethod.Post, subscription.DeviceToken))
+                    {
+                        // Without storing Web Push encryption metadata yet, send a wake-up ping so the client can sync.
+                        request.Content = new ByteArrayContent([]);
+                        request.Headers.TryAddWithoutValidation("TTL", "60");
+                        request.Headers.TryAddWithoutValidation("Urgency", notification.Priority >= 5 ? "high" : "normal");
+
+                        var unifiedPushResult = await _httpClient.SendAsync(request);
+                        if (unifiedPushResult.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone)
+                            _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
+                        else if (!unifiedPushResult.IsSuccessStatusCode)
+                            throw new Exception(
+                                $"Notification push failed ({(int)unifiedPushResult.StatusCode}) {unifiedPushResult.ReasonPhrase}"
+                            );
+                    }
                     break;
 
                 default:
