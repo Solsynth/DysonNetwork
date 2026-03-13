@@ -993,7 +993,7 @@ public class TimelineService(
             .Select(x =>
             {
                 var sourceSuggestion = publisherSuggestions.First(y => y.ReferenceId == x.Id);
-                var account = accountMap[x.AccountId!.Value];
+                var account = PrepareDiscoveryAccount(accountMap[x.AccountId!.Value]);
                 return new SnDiscoverySuggestion
                 {
                     Kind = DiscoveryTargetKind.Account,
@@ -1001,22 +1001,7 @@ public class TimelineService(
                     Label = account.Nick,
                     Score = sourceSuggestion.Score,
                     Reasons = sourceSuggestion.Reasons,
-                    Data = new SnAccountDiscoveryRef
-                    {
-                        Id = account.Id,
-                        Name = account.Name,
-                        Nick = account.Nick,
-                        Bio = account.Profile?.Bio,
-                        FirstName = account.Profile?.FirstName,
-                        MiddleName = account.Profile?.MiddleName,
-                        LastName = account.Profile?.LastName,
-                        Pronouns = account.Profile?.Pronouns,
-                        Location = account.Profile?.Location,
-                        Verification = account.Profile?.Verification,
-                        ActiveBadge = account.Profile?.ActiveBadge,
-                        Picture = account.Profile?.Picture,
-                        Background = account.Profile?.Background,
-                    },
+                    Data = account,
                 };
             })
             .OrderByDescending(x => x.Score)
@@ -1125,22 +1110,7 @@ public class TimelineService(
                         ReferenceId = preference.ReferenceId,
                         Label = account.Nick,
                         Reasons = preference.Reason is null ? [] : [preference.Reason],
-                        Data = new SnAccountDiscoveryRef
-                        {
-                            Id = account.Id,
-                            Name = account.Name,
-                            Nick = account.Nick,
-                            Bio = account.Profile?.Bio,
-                            FirstName = account.Profile?.FirstName,
-                            MiddleName = account.Profile?.MiddleName,
-                            LastName = account.Profile?.LastName,
-                            Pronouns = account.Profile?.Pronouns,
-                            Location = account.Profile?.Location,
-                            Verification = account.Profile?.Verification,
-                            ActiveBadge = account.Profile?.ActiveBadge,
-                            Picture = account.Profile?.Picture,
-                            Background = account.Profile?.Background,
-                        },
+                        Data = PrepareDiscoveryAccount(account),
                     },
                 DiscoveryTargetKind.Realm when publicRealmMap.TryGetValue(preference.ReferenceId, out var realm)
                     => new SnDiscoverySuggestion
@@ -1164,6 +1134,19 @@ public class TimelineService(
             .Where(x => x != null)
             .Cast<SnDiscoverySuggestion>()
             .ToList();
+    }
+
+    private static SnAccount PrepareDiscoveryAccount(SnAccount account)
+    {
+        account.Profile ??= new SnAccountProfile
+        {
+            AccountId = account.Id,
+            Links = [],
+        };
+        account.Contacts ??= [];
+        account.Badges ??= [];
+        account.Profile.Links ??= [];
+        return account;
     }
 
     private static double CalculateDiscoveryPostScore(

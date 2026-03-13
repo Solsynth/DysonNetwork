@@ -455,6 +455,76 @@ public partial class ChatService(
         );
     }
 
+    public async Task<SnChatMessage> SendMemberTimedOutSystemMessageAsync(
+        SnChatRoom room,
+        SnChatMember operatorMember,
+        SnChatMember targetMember,
+        string? reason,
+        Instant timeoutUntil
+    )
+    {
+        if (operatorMember.Account is null)
+            operatorMember = await crs.LoadMemberAccount(operatorMember);
+        if (targetMember.Account is null)
+            targetMember = await crs.LoadMemberAccount(targetMember);
+
+        var operatorName = operatorMember.Nick ?? operatorMember.Account?.Nick ?? "Moderator";
+        var targetName = targetMember.Nick ?? targetMember.Account?.Nick ?? "Someone";
+
+        var content = string.IsNullOrEmpty(reason)
+            ? $"{targetName} was timed out by {operatorName}."
+            : $"{targetName} was timed out by {operatorName}: {reason}.";
+
+        return await SendSystemMessageAsync(
+            room,
+            operatorMember,
+            "system.member.timed_out",
+            content,
+            new Dictionary<string, object>
+            {
+                ["event"] = "member_timed_out",
+                ["target_member_id"] = targetMember.Id,
+                ["target_account_id"] = targetMember.AccountId,
+                ["operator_member_id"] = operatorMember.Id,
+                ["operator_account_id"] = operatorMember.AccountId,
+                ["reason"] = reason ?? "",
+                ["timeout_until"] = timeoutUntil.ToUnixTimeMilliseconds()
+            }
+        );
+    }
+
+    public async Task<SnChatMessage> SendMemberTimeoutRemovedSystemMessageAsync(
+        SnChatRoom room,
+        SnChatMember operatorMember,
+        SnChatMember targetMember
+    )
+    {
+        if (operatorMember.Account is null)
+            operatorMember = crs.LoadMemberAccount(operatorMember).Result;
+        if (targetMember.Account is null)
+            targetMember = crs.LoadMemberAccount(targetMember).Result;
+
+        var operatorName = operatorMember.Nick ?? operatorMember.Account?.Nick ?? "Moderator";
+        var targetName = targetMember.Nick ?? targetMember.Account?.Nick ?? "Someone";
+
+        var content = $"{targetName}'s timeout was removed by {operatorName}.";
+
+        return await SendSystemMessageAsync(
+            room,
+            operatorMember,
+            "system.member.timeout_removed",
+            content,
+            new Dictionary<string, object>
+            {
+                ["event"] = "member_timeout_removed",
+                ["target_member_id"] = targetMember.Id,
+                ["target_account_id"] = targetMember.AccountId,
+                ["operator_member_id"] = operatorMember.Id,
+                ["operator_account_id"] = operatorMember.AccountId
+            }
+        );
+    }
+
     private async Task DeliverMessageAsync(
         SnChatMessage message,
         SnChatMember sender,

@@ -1143,6 +1143,8 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
 
+        await cs.SendMemberTimedOutSystemMessageAsync(chatRoom, operatorMember, member, request.Reason, request.TimeoutUntil);
+
         als.CreateActionLog(
             Guid.Parse(currentUser.Id),
             "chatrooms.timeout",
@@ -1203,6 +1205,13 @@ public class ChatRoomController(
         db.Update(member);
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
+
+        var operatorMember = await db.ChatMembers
+            .Where(m => m.ChatRoomId == roomId && m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null)
+            .FirstOrDefaultAsync();
+
+        if (operatorMember is not null)
+            await cs.SendMemberTimeoutRemovedSystemMessageAsync(chatRoom, operatorMember, member);
 
         als.CreateActionLog(
             Guid.Parse(currentUser.Id),
