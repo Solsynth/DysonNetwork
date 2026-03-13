@@ -26,6 +26,19 @@ public class PushService
     private readonly string? _apnsTopic;
     private readonly HttpClient _httpClient;
     private readonly RemoteWebSocketService _ws;
+    private static readonly HashSet<string> InvalidFcmErrors = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "InvalidRegistration",
+        "NotRegistered",
+        "registration-token-not-registered",
+        "UNREGISTERED"
+    };
+    private static readonly HashSet<string> InvalidApnsErrors = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "BadDeviceToken",
+        "DeviceTokenNotForTopic",
+        "Unregistered"
+    };
 
     public PushService(
         IConfiguration config,
@@ -408,7 +421,7 @@ public class PushService
                         }
                     });
 
-                    if (fcmResult.StatusCode is 404 or 410)
+                    if (fcmResult.StatusCode is 404 or 410 || IsInvalidFcmTokenError(fcmResult.Error))
                         _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
                     else if (fcmResult.Error != null)
                         throw new Exception($"Notification pushed failed ({fcmResult.StatusCode}) {fcmResult.Error}");
@@ -447,7 +460,7 @@ public class PushService
                         apnPushType: ApnPushType.Alert
                     );
 
-                    if (apnResult.StatusCode is 404 or 410)
+                    if (apnResult.StatusCode is 404 or 410 || IsInvalidApnsTokenError(apnResult.Error))
                         _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
                     else if (apnResult.Error != null)
                         throw new Exception($"Notification pushed failed ({apnResult.StatusCode}) {apnResult.Error}");
@@ -497,6 +510,12 @@ public class PushService
         foreach (var stream in accountStreams.Values)
             stream.Writer.TryWrite(notification);
     }
+
+    private static bool IsInvalidFcmTokenError(string? error) =>
+        !string.IsNullOrWhiteSpace(error) && InvalidFcmErrors.Contains(error);
+
+    private static bool IsInvalidApnsTokenError(string? error) =>
+        !string.IsNullOrWhiteSpace(error) && InvalidApnsErrors.Contains(error);
 
     public async Task SaveNotification(SnNotification notification)
     {
