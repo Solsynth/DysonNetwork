@@ -21,6 +21,8 @@ public class TimelineService(
 {
     private const double ArticleTypeBoost = 1.5d;
     private const double PublisherRepeatPenalty = 1.35d;
+    private const double ExplicitPositiveFeedbackScore = 4d;
+    private const double ExplicitNegativeFeedbackScore = -4d;
     private const int DiscoveryCandidatePostTake = 48;
     private const int TimelineCandidateMultiplier = 2;
     private const int RecentServedPostLimit = 100;
@@ -499,6 +501,201 @@ public class TimelineService(
         await db.SaveChangesAsync();
         await cache.RemoveAsync($"timeline:discovery-profile:{accountId}");
         return true;
+    }
+
+    public async Task<RecommendationFeedbackResult?> ApplyRecommendationFeedbackAsync(
+        DyAccount currentUser,
+        string kind,
+        Guid referenceId,
+        RecommendationFeedbackValue feedback,
+        string? reason = null,
+        bool suppress = false
+    )
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var accountId = Guid.Parse(currentUser.Id);
+        var baseScore = feedback == RecommendationFeedbackValue.Positive
+            ? ExplicitPositiveFeedbackScore
+            : ExplicitNegativeFeedbackScore;
+
+        List<(PostInterestKind Kind, Guid ReferenceId, double ScoreDelta)> adjustments;
+        switch (kind.Trim().ToLowerInvariant())
+        {
+            case "post":
+            {
+                adjustments = await BuildPostFeedbackAdjustmentsAsync(referenceId, baseScore);
+                if (adjustments.Count == 0)
+                    return null;
+                break;
+            }
+            case "publisher":
+                adjustments = [(PostInterestKind.Publisher, referenceId, baseScore)];
+                break;
+            case "tag":
+                adjustments = [(PostInterestKind.Tag, referenceId, baseScore)];
+                break;
+            case "category":
+                adjustments = [(PostInterestKind.Category, referenceId, baseScore)];
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(kind), kind, null);
+        }
+
+        var updatedProfiles = await ApplyInterestProfileAdjustmentsAsync(
+            accountId,
+            adjustments,
+            $"feedback:{kind.Trim().ToLowerInvariant()}:{feedback.ToString().ToLowerInvariant()}",
+            now
+        );
+
+        SnDiscoveryPreference? preference = null;
+        if (suppress &&
+            feedback == RecommendationFeedbackValue.Negative &&
+            kind.Trim().Equals("publisher", StringComparison.OrdinalIgnoreCase))
+        {
+            preference = await MarkDiscoveryPreferenceAsync(
+                currentUser,
+                DiscoveryTargetKind.Publisher,
+                referenceId,
+                reason
+            );
+        }
+
+        return new RecommendationFeedbackResult
+        {
+            UpdatedProfiles = updatedProfiles,
+            Preference = preference,
+        };
+    }
+
+    public async Task<SnPostInterestProfile> AdjustRecommendationWeightAsync(
+        DyAccount currentUser,
+        PostInterestKind kind,
+        Guid referenceId,
+        double scoreDelta,
+        int interactionCount = 1,
+        string? signalType = null
+    )
+    {
+        var accountId = Guid.Parse(currentUser.Id);
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var profiles = await ApplyInterestProfileAdjustmentsAsync(
+            accountId,
+            [(kind, referenceId, scoreDelta)],
+            signalType ?? $"manual:{kind.ToString().ToLowerInvariant()}",
+            now,
+            interactionCount
+        );
+        return profiles[0];
+    }
+
+    private async Task<List<(PostInterestKind Kind, Guid ReferenceId, double ScoreDelta)>>
+        BuildPostFeedbackAdjustmentsAsync(Guid postId, double baseScore)
+    {
+        var post = await db.Posts
+            .AsNoTracking()
+            .Include(p => p.Tags)
+            .Include(p => p.Categories)
+            .FirstOrDefaultAsync(p => p.Id == postId);
+        if (post == null)
+            return [];
+
+        var adjustments = new List<(PostInterestKind Kind, Guid ReferenceId, double ScoreDelta)>();
+
+        if (post.PublisherId.HasValue)
+            adjustments.Add((PostInterestKind.Publisher, post.PublisherId.Value, baseScore));
+
+        var tags = post.Tags.Select(x => x.Id).Distinct().ToList();
+        if (tags.Count > 0)
+        {
+            var tagScore = baseScore * 0.75d / tags.Count;
+            adjustments.AddRange(tags.Select(tagId => (PostInterestKind.Tag, tagId, tagScore)));
+        }
+
+        var categories = post.Categories.Select(x => x.Id).Distinct().ToList();
+        if (categories.Count > 0)
+        {
+            var categoryScore = baseScore / categories.Count;
+            adjustments.AddRange(categories.Select(categoryId => (PostInterestKind.Category, categoryId, categoryScore)));
+        }
+
+        return adjustments;
+    }
+
+    private async Task<List<SnPostInterestProfile>> ApplyInterestProfileAdjustmentsAsync(
+        Guid accountId,
+        IEnumerable<(PostInterestKind Kind, Guid ReferenceId, double ScoreDelta)> adjustments,
+        string signalType,
+        Instant occurredAt,
+        int interactionCount = 1
+    )
+    {
+        var aggregatedAdjustments = adjustments
+            .GroupBy(x => (x.Kind, x.ReferenceId))
+            .Select(g => new
+            {
+                g.Key.Kind,
+                g.Key.ReferenceId,
+                ScoreDelta = g.Sum(x => x.ScoreDelta),
+            })
+            .ToList();
+
+        if (aggregatedAdjustments.Count == 0)
+            return [];
+
+        var tagIds = aggregatedAdjustments
+            .Where(x => x.Kind == PostInterestKind.Tag)
+            .Select(x => x.ReferenceId)
+            .ToList();
+        var categoryIds = aggregatedAdjustments
+            .Where(x => x.Kind == PostInterestKind.Category)
+            .Select(x => x.ReferenceId)
+            .ToList();
+        var publisherIds = aggregatedAdjustments
+            .Where(x => x.Kind == PostInterestKind.Publisher)
+            .Select(x => x.ReferenceId)
+            .ToList();
+
+        var existingProfiles = await db.PostInterestProfiles
+            .Where(p => p.AccountId == accountId)
+            .Where(p =>
+                (p.Kind == PostInterestKind.Tag && tagIds.Contains(p.ReferenceId))
+                || (p.Kind == PostInterestKind.Category && categoryIds.Contains(p.ReferenceId))
+                || (p.Kind == PostInterestKind.Publisher && publisherIds.Contains(p.ReferenceId))
+            )
+            .ToListAsync();
+
+        var profileMap = existingProfiles.ToDictionary(
+            x => (x.Kind, x.ReferenceId),
+            x => x
+        );
+
+        foreach (var adjustment in aggregatedAdjustments)
+        {
+            if (!profileMap.TryGetValue((adjustment.Kind, adjustment.ReferenceId), out var profile))
+            {
+                profile = new SnPostInterestProfile
+                {
+                    AccountId = accountId,
+                    Kind = adjustment.Kind,
+                    ReferenceId = adjustment.ReferenceId,
+                };
+                db.PostInterestProfiles.Add(profile);
+                profileMap[(adjustment.Kind, adjustment.ReferenceId)] = profile;
+            }
+
+            profile.Score = Math.Clamp(profile.Score + adjustment.ScoreDelta, -100d, 100d);
+            profile.InteractionCount += Math.Max(1, interactionCount);
+            profile.LastInteractedAt = occurredAt;
+            profile.LastSignalType = signalType;
+        }
+
+        await db.SaveChangesAsync();
+        await cache.RemoveAsync($"timeline:discovery-profile:{accountId}");
+
+        return aggregatedAdjustments
+            .Select(x => profileMap[(x.Kind, x.ReferenceId)])
+            .ToList();
     }
 
     private async Task<List<SnPost>> GetDiscoveryCandidatePosts(Instant now, List<Guid> visibleRealmIds)

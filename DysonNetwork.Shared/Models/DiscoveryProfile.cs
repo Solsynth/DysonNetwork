@@ -117,3 +117,49 @@ public class DiscoveryPreferenceRequest
     [MaxLength(256)]
     public string? Reason { get; set; }
 }
+
+public enum RecommendationFeedbackValue
+{
+    Positive,
+    Negative,
+}
+
+[NotMapped]
+public class RecommendationFeedbackRequest
+{
+    [MaxLength(32)]
+    public string Kind { get; set; } = string.Empty;
+
+    public Guid ReferenceId { get; set; }
+
+    [MaxLength(16)]
+    public string Feedback { get; set; } = string.Empty;
+
+    [MaxLength(256)]
+    public string? Reason { get; set; }
+
+    public bool Suppress { get; set; }
+}
+
+[NotMapped]
+public class RecommendationWeightChangeRequest
+{
+    [MaxLength(32)]
+    public string Kind { get; set; } = string.Empty;
+
+    public Guid ReferenceId { get; set; }
+
+    public double ScoreDelta { get; set; }
+
+    public int InteractionCount { get; set; } = 1;
+
+    [MaxLength(64)]
+    public string? SignalType { get; set; }
+}
+
+[NotMapped]
+public class RecommendationFeedbackResult
+{
+    public List<SnPostInterestProfile> UpdatedProfiles { get; set; } = [];
+    public SnDiscoveryPreference? Preference { get; set; }
+}

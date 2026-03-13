@@ -61,6 +61,58 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
         return removed ? Ok() : NotFound();
     }
 
+    [HttpPost("feedback")]
+    public async Task<ActionResult<RecommendationFeedbackResult>> LeaveFeedback(
+        [FromBody] RecommendationFeedbackRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var feedback = ParseFeedback(request.Feedback);
+        if (feedback == null)
+            return BadRequest("Invalid feedback. Expected positive or negative.");
+
+        if (!IsFeedbackKindSupported(request.Kind))
+            return BadRequest("Invalid kind. Expected post, publisher, tag, or category.");
+
+        var result = await timeline.ApplyRecommendationFeedbackAsync(
+            currentUser,
+            request.Kind,
+            request.ReferenceId,
+            feedback.Value,
+            request.Reason,
+            request.Suppress
+        );
+        if (result == null)
+            return NotFound("Referenced content was not found.");
+
+        return Ok(result);
+    }
+
+    [HttpPut("weights")]
+    public async Task<ActionResult<SnPostInterestProfile>> AdjustWeight(
+        [FromBody] RecommendationWeightChangeRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var kind = ParseInterestKind(request.Kind);
+        if (kind == null)
+            return BadRequest("Invalid kind. Expected publisher, tag, or category.");
+
+        var profile = await timeline.AdjustRecommendationWeightAsync(
+            currentUser,
+            kind.Value,
+            request.ReferenceId,
+            request.ScoreDelta,
+            request.InteractionCount,
+            request.SignalType
+        );
+        return Ok(profile);
+    }
+
     private static DiscoveryTargetKind? ParseKind(string? kind)
     {
         if (string.IsNullOrWhiteSpace(kind))
@@ -71,6 +123,41 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
             "publisher" => DiscoveryTargetKind.Publisher,
             "realm" => DiscoveryTargetKind.Realm,
             "account" => DiscoveryTargetKind.Account,
+            _ => null,
+        };
+    }
+
+    private static bool IsFeedbackKindSupported(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+            return false;
+
+        return kind.Trim().ToLowerInvariant() is "post" or "publisher" or "tag" or "category";
+    }
+
+    private static RecommendationFeedbackValue? ParseFeedback(string? feedback)
+    {
+        if (string.IsNullOrWhiteSpace(feedback))
+            return null;
+
+        return feedback.Trim().ToLowerInvariant() switch
+        {
+            "positive" or "good" or "like" => RecommendationFeedbackValue.Positive,
+            "negative" or "bad" or "dislike" => RecommendationFeedbackValue.Negative,
+            _ => null,
+        };
+    }
+
+    private static PostInterestKind? ParseInterestKind(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+            return null;
+
+        return kind.Trim().ToLowerInvariant() switch
+        {
+            "publisher" => PostInterestKind.Publisher,
+            "tag" => PostInterestKind.Tag,
+            "category" => PostInterestKind.Category,
             _ => null,
         };
     }
