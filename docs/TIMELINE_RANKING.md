@@ -9,7 +9,8 @@ Timeline ranking is built in layers:
 1. base post score
 2. personalized interest bonus for signed-in users
 3. publisher social-credit bonus for individual publishers
-4. a diversification pass to avoid one publisher filling the whole feed
+4. an optional aggressive personalized cutoff to drop low-rank candidates
+5. a diversification pass to avoid one publisher filling the whole feed
 
 Anonymous users only receive the base score, publisher bonus, and diversification.
 
@@ -18,6 +19,11 @@ The timeline can now be tuned per request with a `mode` query parameter:
 - `personalized`: signed-in default, uses the full ranking pipeline
 - `top`: disables user-interest personalization and keeps engagement-based ranking
 - `latest`: returns posts in reverse chronological order
+
+For personalized mode, the timeline also accepts an `aggressive` query parameter:
+
+- `true` (default): filters out weak personalized candidates before diversification
+- `false`: keeps low-rank candidates in the pool
 
 ## Base Score
 
@@ -48,6 +54,7 @@ Interest signals currently include:
 - reactions
 - authored replies
 - post views, rate-limited per account/post/day
+- explicit recommendation feedback and manual weight adjustments via API
 
 Interest is tracked against:
 
@@ -59,11 +66,67 @@ The personalized bonus is decayed over time so old interests matter less than re
 
 Explicit tag/category subscriptions also add a bonus.
 
+## Personalized Feedback And Weight Updates
+
+The ranking model can be updated directly through discovery endpoints. These update the same
+`post_interest_profiles` entries used by personalized ranking.
+
+Available endpoints:
+
+- `POST /api/timeline/discovery/feedback`
+- `PUT /api/timeline/discovery/weights`
+- `POST /api/timeline/discovery/uninterested`
+- `DELETE /api/timeline/discovery/uninterested`
+
+`POST /api/timeline/discovery/feedback` accepts:
+
+- `kind`: `post`, `publisher`, `tag`, or `category`
+- `reference_id`: the target resource ID
+- `feedback`: `positive` or `negative` (`good` / `bad` aliases also work)
+- `reason`: optional free text
+- `suppress`: optional boolean, currently used to suppress negatively rated publishers from discovery suggestions
+
+Behavior:
+
+- post feedback fans out into publisher, tag, and category interest updates derived from that post
+- publisher/tag/category feedback updates that specific interest entry directly
+- negative publisher feedback with `suppress=true` also writes a discovery preference suppression entry
+
+`PUT /api/timeline/discovery/weights` accepts:
+
+- `kind`: `publisher`, `tag`, or `category`
+- `reference_id`: the target resource ID
+- `score_delta`: numeric adjustment applied to the stored interest score
+- `interaction_count`: optional count increment, default `1`
+- `signal_type`: optional label for auditing/debugging
+
+These endpoints are intended for explicit user actions such as:
+
+- "show more like this"
+- "show less like this"
+- "mute this publisher"
+- tuning recommendation weights from settings or experiments
+
 ## Publisher Bonus
 
 For individual publishers, the timeline reads the account profile via batched gRPC account fetch and uses `socialCreditsLevel` as a small ranking bonus.
 
 Organization publishers do not receive this bonus because they do not have an account-level social-credit profile.
+
+## Aggressive Personalized Filtering
+
+In personalized mode, ranking can optionally filter out weak candidates before the diversification pass.
+
+When `aggressive=true`, the service:
+
+- computes the normal personalized rank for every candidate
+- calculates a cutoff using the higher of:
+  - a fixed floor of `0.35`
+  - `18%` of the strongest candidate's rank
+- removes posts below that cutoff
+- falls back to the top few ranked posts if the cutoff would leave too few results
+
+This is designed to reduce obviously low-affinity posts that the current interest model already scores poorly.
 
 ## Diversity Pass
 
@@ -132,6 +195,7 @@ Query parameters:
 - `filter`: existing publisher filter
 - `showFediverse`: existing fediverse toggle
 - `mode`: `personalized`, `top`, or `latest`
+- `aggressive`: personalized-only low-rank filtering toggle, defaults to `true`
 
 `nextCursor` is now issued by the server. It is derived from the oldest post actually returned in the current page, which avoids the client-side cursor drift caused by mixed timeline event types.
 
@@ -148,6 +212,19 @@ For a signed-in user in `personalized` mode, the current final rank is:
 \[
 R_{\text{final}}(p,u)=R_{\text{base}}(p)+R_{\text{personal}}(p,u)+R_{\text{publisher}}(p)-R_{\text{diversity}}(p)
 \]
+
+When `aggressive=true`, the candidate set is filtered before diversification:
+
+\[
+\text{keep}(p)=
+\begin{cases}
+\text{true}, & \text{if } R_{\text{pre-diversity}}(p)\ge \max(0.35,\;0.18\cdot R_{\max}) \\
+\text{false}, & \text{otherwise}
+\end{cases}
+\]
+
+Where \(R_{\text{pre-diversity}}(p)=R_{\text{base}}(p)+R_{\text{personal}}(p,u)+R_{\text{publisher}}(p)\) and
+\(R_{\max}\) is the strongest candidate score in the current pool.
 
 Base rank:
 
