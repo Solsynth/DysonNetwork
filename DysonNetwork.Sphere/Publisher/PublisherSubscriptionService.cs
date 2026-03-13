@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Live;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Localization;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Publisher;
 
@@ -17,6 +18,13 @@ public class PublisherSubscriptionService(
     DyAccountService.DyAccountServiceClient accounts
 )
 {
+    public class SubscriptionReadStatus
+    {
+        public SnPublisherSubscription Subscription { get; set; } = null!;
+        public Instant? LatestContentAt { get; set; }
+        public bool HasNewContent { get; set; }
+    }
+
     /// <summary>
     /// Checks if a subscription exists between the account and publisher
     /// </summary>
@@ -226,6 +234,98 @@ public class PublisherSubscriptionService(
         return await db.PublisherSubscriptions
             .Where(p => p.PublisherId == publisherId)
             .ToListAsync();
+    }
+
+    public async Task<Dictionary<Guid, Instant?>> GetLatestContentAtForPublishersAsync(
+        IEnumerable<Guid> publisherIds
+    )
+    {
+        var ids = publisherIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return [];
+
+        var latestPosts = await db.Posts
+            .Where(p =>
+                p.PublisherId.HasValue &&
+                ids.Contains(p.PublisherId.Value) &&
+                p.RepliedPostId == null &&
+                p.Visibility == Shared.Models.PostVisibility.Public
+            )
+            .GroupBy(p => p.PublisherId!.Value)
+            .Select(g => new
+            {
+                PublisherId = g.Key,
+                LatestContentAt = g.Max(p => p.PublishedAt ?? p.CreatedAt)
+            })
+            .ToListAsync();
+
+        var latestLiveStreams = await db.LiveStreams
+            .Where(ls =>
+                ls.PublisherId.HasValue &&
+                ids.Contains(ls.PublisherId.Value) &&
+                ls.Visibility == Shared.Models.LiveStreamVisibility.Public &&
+                ls.StartedAt != null
+            )
+            .GroupBy(ls => ls.PublisherId!.Value)
+            .Select(g => new
+            {
+                PublisherId = g.Key,
+                LatestContentAt = g.Max(ls => ls.StartedAt ?? ls.CreatedAt)
+            })
+            .ToListAsync();
+
+        var latestContentAt = ids.ToDictionary(id => id, _ => (Instant?)null);
+
+        foreach (var item in latestPosts)
+            latestContentAt[item.PublisherId] = item.LatestContentAt;
+
+        foreach (var item in latestLiveStreams)
+        {
+            if (!latestContentAt.TryGetValue(item.PublisherId, out var current) ||
+                current == null ||
+                item.LatestContentAt > current)
+            {
+                latestContentAt[item.PublisherId] = item.LatestContentAt;
+            }
+        }
+
+        return latestContentAt;
+    }
+
+    public async Task<SubscriptionReadStatus?> GetSubscriptionReadStatusAsync(
+        Guid accountId,
+        Guid publisherId
+    )
+    {
+        var subscription = await GetSubscriptionAsync(accountId, publisherId);
+        if (subscription is null)
+            return null;
+
+        var latestContentAt = (await GetLatestContentAtForPublishersAsync([publisherId]))[publisherId];
+
+        return new SubscriptionReadStatus
+        {
+            Subscription = subscription,
+            LatestContentAt = latestContentAt,
+            HasNewContent = latestContentAt != null &&
+                            (subscription.LastReadAt == null || latestContentAt > subscription.LastReadAt)
+        };
+    }
+
+    public async Task<SnPublisherSubscription?> UpdateLastReadAtAsync(
+        Guid accountId,
+        Guid publisherId,
+        Instant? lastReadAt = null
+    )
+    {
+        var subscription = await GetSubscriptionAsync(accountId, publisherId);
+        if (subscription is null)
+            return null;
+
+        subscription.LastReadAt = lastReadAt ?? SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync();
+
+        return subscription;
     }
 
     /// <summary>

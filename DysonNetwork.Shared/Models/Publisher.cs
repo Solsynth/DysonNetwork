@@ -201,6 +201,7 @@ public class SnPublisherSubscription : ModelBase
     public Guid PublisherId { get; set; }
     public SnPublisher Publisher { get; set; } = null!;
     public Guid AccountId { get; set; }
+    public Instant? LastReadAt { get; set; }
 }
 
 public class SnPublisherFeature : ModelBase

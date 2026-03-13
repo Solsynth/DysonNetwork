@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.Publisher;
 
@@ -19,6 +20,11 @@ public class PublisherSubscriptionController(
     {
     }
 
+    public class UpdateSubscriptionReadStateRequest
+    {
+        public Instant? LastReadAt { get; set; }
+    }
+
     [HttpGet("{name}/subscription")]
     [Authorize]
     public async Task<ActionResult<SnPublisherSubscription>> CheckSubscriptionStatus(string name)
@@ -33,6 +39,24 @@ public class PublisherSubscriptionController(
         var subscription = await subs.GetSubscriptionAsync(Guid.Parse(currentUser.Id), publisher.Id);
         if (subscription is null) return NotFound("Subscription not found");
         return subscription;
+    }
+
+    [HttpGet("{name}/subscription/read-status")]
+    [Authorize]
+    public async Task<ActionResult<PublisherSubscriptionService.SubscriptionReadStatus>>
+        GetSubscriptionReadStatus(string name)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        if (publisher == null)
+            return NotFound("Publisher not found");
+
+        var status = await subs.GetSubscriptionReadStatusAsync(Guid.Parse(currentUser.Id), publisher.Id);
+        if (status is null)
+            return NotFound("Subscription not found");
+
+        return Ok(status);
     }
 
     [HttpPost("{name}/subscribe")]
@@ -117,10 +141,16 @@ public class PublisherSubscriptionController(
             .Distinct()
             .ToListAsync();
 
+        var latestContentAt = await subs.GetLatestContentAtForPublishersAsync(publisherIds);
+
         var result = subscriptions.Select(ps => new SubscriptionWithLiveStatus
         {
             Subscription = ps,
-            IsLive = livePublisherIds.Contains(ps.PublisherId)
+            IsLive = livePublisherIds.Contains(ps.PublisherId),
+            LatestContentAt = latestContentAt.GetValueOrDefault(ps.PublisherId),
+            HasNewContent = latestContentAt.TryGetValue(ps.PublisherId, out var publisherLatestContentAt) &&
+                            publisherLatestContentAt != null &&
+                            (ps.LastReadAt == null || publisherLatestContentAt > ps.LastReadAt)
         }).ToList();
 
         Response.Headers["X-Total"] = totalCount.ToString();
@@ -132,6 +162,34 @@ public class PublisherSubscriptionController(
     {
         public SnPublisherSubscription Subscription { get; set; } = null!;
         public bool IsLive { get; set; }
+        public Instant? LatestContentAt { get; set; }
+        public bool HasNewContent { get; set; }
+    }
+
+    [HttpPut("{name}/subscription/read-status")]
+    [Authorize]
+    public async Task<ActionResult<PublisherSubscriptionService.SubscriptionReadStatus>>
+        UpdateSubscriptionReadStatus(string name, [FromBody] UpdateSubscriptionReadStateRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        if (publisher == null)
+            return NotFound("Publisher not found");
+
+        var subscription = await subs.UpdateLastReadAtAsync(
+            Guid.Parse(currentUser.Id),
+            publisher.Id,
+            request.LastReadAt
+        );
+        if (subscription is null)
+            return NotFound("Subscription not found");
+
+        var status = await subs.GetSubscriptionReadStatusAsync(Guid.Parse(currentUser.Id), publisher.Id);
+        if (status is null)
+            return NotFound("Subscription not found");
+
+        return Ok(status);
     }
 
     /// <summary>
