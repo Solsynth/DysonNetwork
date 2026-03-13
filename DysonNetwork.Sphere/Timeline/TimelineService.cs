@@ -23,6 +23,8 @@ public class TimelineService(
     private const double PublisherRepeatPenalty = 1.35d;
     private const double ExplicitPositiveFeedbackScore = 4d;
     private const double ExplicitNegativeFeedbackScore = -4d;
+    private const double PersonalizedLowRankThresholdFloor = 0.35d;
+    private const double PersonalizedLowRankThresholdRatio = 0.18d;
     private const int DiscoveryCandidatePostTake = 48;
     private const int TimelineCandidateMultiplier = 2;
     private const int RecentServedPostLimit = 100;
@@ -98,7 +100,8 @@ public class TimelineService(
         DyAccount currentUser,
         SnTimelineMode mode,
         string? filter = null,
-        bool showFediverse = false
+        bool showFediverse = false,
+        bool aggressive = true
     )
     {
         var activities = new List<SnTimelineEvent>();
@@ -135,7 +138,7 @@ public class TimelineService(
 
         await LoadPostsRealmsAsync(posts, rs);
 
-        posts = await RankPosts(posts, take, currentUser, mode);
+        posts = await RankPosts(posts, take, currentUser, mode, aggressive);
         await RememberServedPostsAsync(posts, accountId);
         await TrackPostViewsAsync(posts, currentUser);
 
@@ -240,7 +243,8 @@ public class TimelineService(
         List<SnPost> posts,
         int take,
         DyAccount? currentUser = null,
-        SnTimelineMode mode = SnTimelineMode.Personalized
+        SnTimelineMode mode = SnTimelineMode.Personalized,
+        bool aggressive = true
     )
     {
         if (mode == SnTimelineMode.Latest)
@@ -266,7 +270,36 @@ public class TimelineService(
             .OrderByDescending(x => x.Rank)
             .ToList();
 
+        if (mode == SnTimelineMode.Personalized && currentUser is not null && aggressive)
+            rankedCandidates = FilterLowRankPersonalizedCandidates(rankedCandidates, take);
+
         return DiversifyRankedPosts(rankedCandidates, take);
+    }
+
+    private static List<RankedPostCandidate> FilterLowRankPersonalizedCandidates(
+        List<RankedPostCandidate> rankedCandidates,
+        int take
+    )
+    {
+        if (rankedCandidates.Count <= take)
+            return rankedCandidates;
+
+        var strongestRank = rankedCandidates[0].Rank;
+        var cutoff = Math.Max(
+            PersonalizedLowRankThresholdFloor,
+            strongestRank * PersonalizedLowRankThresholdRatio
+        );
+
+        var filteredCandidates = rankedCandidates
+            .Where(x => x.Rank >= cutoff)
+            .ToList();
+
+        if (filteredCandidates.Count >= Math.Min(take, 3))
+            return filteredCandidates;
+
+        return rankedCandidates
+            .Take(Math.Min(rankedCandidates.Count, Math.Max(take, 3)))
+            .ToList();
     }
 
     private async Task<Dictionary<Guid, double>> GetPersonalizationBonusMap(

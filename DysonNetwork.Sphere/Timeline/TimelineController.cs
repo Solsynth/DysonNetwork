@@ -27,7 +27,8 @@ public class ActivityController(TimelineService acts) : ControllerBase
         [FromQuery] string? filter,
         [FromQuery] int take = 20,
         [FromQuery] bool showFediverse = false,
-        [FromQuery] string? mode = null
+        [FromQuery] string? mode = null,
+        [FromQuery] bool aggressive = true
     )
     {
         Instant? cursorTimestamp = null;
@@ -50,7 +51,15 @@ public class ActivityController(TimelineService acts) : ControllerBase
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         return currentUserValue is not DyAccount currentUser
             ? Ok(await acts.ListEventsForAnyone(take, cursorTimestamp, timelineMode.Value, showFediverse))
-            : Ok(await acts.ListEvents(take, cursorTimestamp, currentUser, timelineMode.Value, filter, showFediverse));
+            : Ok(await acts.ListEvents(
+                take,
+                cursorTimestamp,
+                currentUser,
+                timelineMode.Value,
+                filter,
+                showFediverse,
+                aggressive
+            ));
     }
 
     private static SnTimelineMode? ParseTimelineMode(string? mode)
