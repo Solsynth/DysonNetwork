@@ -21,6 +21,29 @@ namespace DysonNetwork.Ring.Migrations
                 nullable: false,
                 defaultValue: true);
 
+            migrationBuilder.Sql("""
+                WITH ranked_subscriptions AS (
+                    SELECT
+                        id,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY account_id, device_id
+                            ORDER BY updated_at DESC, created_at DESC, id DESC
+                        ) AS row_number
+                    FROM push_subscriptions
+                    WHERE deleted_at IS NULL
+                )
+                UPDATE push_subscriptions AS subscriptions
+                SET is_activated = ranked_subscriptions.row_number = 1
+                FROM ranked_subscriptions
+                WHERE subscriptions.id = ranked_subscriptions.id;
+                """);
+
+            migrationBuilder.Sql("""
+                UPDATE push_subscriptions
+                SET is_activated = false
+                WHERE deleted_at IS NOT NULL;
+                """);
+
             migrationBuilder.CreateIndex(
                 name: "ix_push_subscriptions_account_id_device_id",
                 table: "push_subscriptions",
