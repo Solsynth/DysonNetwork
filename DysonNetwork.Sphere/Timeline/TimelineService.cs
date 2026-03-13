@@ -22,7 +22,7 @@ public class TimelineService(
     private const double ArticleTypeBoost = 1.5d;
     private const double PublisherRepeatPenalty = 1.35d;
     private const double ExplicitPositiveFeedbackScore = 4d;
-    private const double ExplicitNegativeFeedbackScore = -4d;
+    private const double ExplicitNegativeFeedbackScore = -30d;
     private const double PersonalizedLowRankThresholdFloor = 0.35d;
     private const double PersonalizedLowRankThresholdRatio = 0.18d;
     private const int DiscoveryCandidatePostTake = 48;
@@ -347,7 +347,12 @@ public class TimelineService(
                 bonus += post.Tags.Sum(tag => tagInterest.GetValueOrDefault(tag.Id, 0d) * 0.8d);
                 bonus += post.Categories.Sum(category => categoryInterest.GetValueOrDefault(category.Id, 0d) * 0.75d);
                 if (post.PublisherId.HasValue)
-                    bonus += Math.Min(2d, publisherInterest.GetValueOrDefault(post.PublisherId.Value, 0d) * 0.35d);
+                {
+                    var publisherScore = publisherInterest.GetValueOrDefault(post.PublisherId.Value, 0d);
+                    bonus += publisherScore >= 0d
+                        ? Math.Min(2d, publisherScore * 0.2d)
+                        : Math.Max(-6d, publisherScore * 0.5d);
+                }
                 bonus += post.Tags.Count(tag => subscribedTagIds.Contains(tag.Id)) * 1.25d;
                 bonus += post.Categories.Count(category => subscribedCategoryIds.Contains(category.Id)) * 1.5d;
                 return bonus;

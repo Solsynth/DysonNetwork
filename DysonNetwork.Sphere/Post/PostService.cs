@@ -53,6 +53,8 @@ public partial class PostService(
     private const double NegativeInterestScore = -2.0;
     private const double ReplyInterestScore = 1.5;
     private const double ViewInterestScore = 0.2;
+    private const double PublisherViewInterestMultiplier = 0.15;
+    private const double PublisherReplyInterestMultiplier = 0.75;
     private const string PublisherDefaultTagsMetaKey = "default_post_tags";
     private const string PublisherDefaultCategoriesMetaKey = "default_post_categories";
     private const string PostAutoTaggingMetaKey = "auto_tagging";
@@ -67,6 +69,24 @@ public partial class PostService(
         };
 
     private static double ClampInterestScore(double score) => Math.Clamp(score, -100d, 100d);
+
+    private static double AdjustInterestDeltaForTarget(
+        double scoreDelta,
+        string signalType,
+        PostInterestKind kind
+    )
+    {
+        if (kind != PostInterestKind.Publisher)
+            return scoreDelta;
+
+        if (signalType.Equals("view", StringComparison.OrdinalIgnoreCase))
+            return scoreDelta * PublisherViewInterestMultiplier;
+
+        if (signalType.Equals("reply", StringComparison.OrdinalIgnoreCase))
+            return scoreDelta * PublisherReplyInterestMultiplier;
+
+        return scoreDelta;
+    }
 
     private static string NormalizeTopicSlug(string value) =>
         value.Trim().ToLowerInvariant();
@@ -375,7 +395,12 @@ public partial class PostService(
                     db.PostInterestProfiles.Add(profile);
                 }
 
-                profile.Score = ClampInterestScore(profile.Score + signal.ScoreDelta);
+                var adjustedDelta = AdjustInterestDeltaForTarget(
+                    signal.ScoreDelta,
+                    signal.SignalType,
+                    target.Kind
+                );
+                profile.Score = ClampInterestScore(profile.Score + adjustedDelta);
                 profile.InteractionCount += signal.InteractionCount;
                 profile.LastInteractedAt = signal.LastInteractedAt;
                 profile.LastSignalType = signal.SignalType;
