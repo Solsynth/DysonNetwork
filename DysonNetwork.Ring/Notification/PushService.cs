@@ -80,16 +80,31 @@ public class PushService
         string deviceId,
         string deviceToken,
         PushProvider provider,
-        DyAccount account
+        DyAccount account,
+        bool isActivated = true
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var accountId = Guid.Parse(account.Id);
 
-        // Check for existing subscription with the same device ID or token
+        if (isActivated)
+        {
+            await _db.PushSubscriptions
+                .Where(s => s.AccountId == accountId)
+                .Where(s => s.DeviceId == deviceId)
+                .Where(s => s.DeletedAt == null)
+                .Where(s => s.IsActivated)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(sub => sub.IsActivated, false)
+                    .SetProperty(sub => sub.UpdatedAt, now)
+                );
+        }
+
+        // Reuse an existing subscription for the same device/provider pair.
         var existingSubscription = await _db.PushSubscriptions
             .Where(s => s.AccountId == accountId)
-            .Where(s => s.DeviceId == deviceId || s.DeviceToken == deviceToken)
+            .Where(s => s.DeviceId == deviceId)
+            .Where(s => s.Provider == provider)
             .FirstOrDefaultAsync();
 
         if (existingSubscription != null)
@@ -97,6 +112,8 @@ public class PushService
             existingSubscription.DeviceId = deviceId;
             existingSubscription.DeviceToken = deviceToken;
             existingSubscription.Provider = provider;
+            existingSubscription.IsActivated = isActivated;
+            existingSubscription.LastUsedAt = now;
             existingSubscription.UpdatedAt = now;
 
             _db.Update(existingSubscription);
@@ -109,9 +126,11 @@ public class PushService
             DeviceId = deviceId,
             DeviceToken = deviceToken,
             Provider = provider,
+            IsActivated = isActivated,
             AccountId = accountId,
             CreatedAt = now,
-            UpdatedAt = now
+            UpdatedAt = now,
+            LastUsedAt = now
         };
 
         _db.PushSubscriptions.Add(subscription);
@@ -135,6 +154,7 @@ public class PushService
         return await _db.PushSubscriptions
             .Where(s => s.Provider == PushProvider.Sop)
             .Where(s => s.DeviceToken == token)
+            .Where(s => s.IsActivated)
             .FirstOrDefaultAsync();
     }
 
@@ -152,6 +172,7 @@ public class PushService
     {
         var subscriptions = await GetCurrentDeviceSubscriptions(accountId, deviceId);
         return subscriptions
+            .Where(s => s.IsActivated)
             .OrderByDescending(s => s.Provider == PushProvider.Sop)
             .ThenByDescending(s => s.UpdatedAt)
             .FirstOrDefault();
@@ -233,6 +254,7 @@ public class PushService
             // Get all push subscriptions for the account
             var subscriptions = await _db.PushSubscriptions
                 .Where(s => s.AccountId == notification.AccountId)
+                .Where(s => s.IsActivated)
                 .ToListAsync(cancellationToken);
 
             if (subscriptions.Count == 0)
@@ -332,6 +354,7 @@ public class PushService
             // Push notifications
             var subscriptions = await _db.PushSubscriptions
                 .Where(s => s.AccountId == account)
+                .Where(s => s.IsActivated)
                 .ToListAsync();
 
             if (subscriptions.Count > 0)

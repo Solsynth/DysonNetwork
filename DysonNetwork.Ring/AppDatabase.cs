@@ -34,6 +34,11 @@ public class AppDatabase(
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.Entity<SnNotificationPushSubscription>()
+            .HasIndex(s => new { s.AccountId, s.DeviceId })
+            .HasFilter("deleted_at IS NULL AND is_activated")
+            .IsUnique();
+
         modelBuilder.ApplySoftDeleteFilters();
     }
 

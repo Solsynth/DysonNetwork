@@ -27,7 +27,7 @@ public enum PushProvider
     UnifiedPush
 }
 
-[Index(nameof(AccountId), nameof(DeviceId), nameof(DeletedAt), IsUnique = true)]
+[Index(nameof(AccountId), nameof(DeviceId), nameof(Provider), nameof(DeletedAt), IsUnique = true)]
 public class SnNotificationPushSubscription : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -35,6 +35,7 @@ public class SnNotificationPushSubscription : ModelBase
     [MaxLength(8192)] public string DeviceId { get; set; } = null!;
     [MaxLength(8192)] public string DeviceToken { get; set; } = null!;
     public PushProvider Provider { get; set; }
+    public bool IsActivated { get; set; } = true;
     
     public int CountDelivered { get; set; }
     public Instant? LastUsedAt { get; set; }

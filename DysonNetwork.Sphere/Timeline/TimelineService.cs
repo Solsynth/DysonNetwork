@@ -958,14 +958,24 @@ public class TimelineService(
     )
     {
         var currentUserId = Guid.Parse(currentUser.Id);
-        var candidatePublishers = publisherSuggestions
-            .Select(x => x.Data as SnPublisher)
-            .Where(x => x is { AccountId: not null, Type: PublisherType.Individual })
-            .Select(x => x!)
+        var publisherIds = publisherSuggestions
+            .Where(x => x.Kind == DiscoveryTargetKind.Publisher)
+            .Select(x => x.ReferenceId)
+            .Distinct()
+            .ToList();
+
+        if (publisherIds.Count == 0)
+            return [];
+
+        var candidatePublishers = await db.Publishers
+            .AsNoTracking()
+            .Where(x => publisherIds.Contains(x.Id))
+            .Where(x => x.AccountId.HasValue && x.Type == PublisherType.Individual)
             .Where(x => x.AccountId != currentUserId)
             .Where(x => !userFriends.Contains(x.AccountId!.Value))
             .Where(x => !hiddenAccountIds.Contains(x.AccountId!.Value))
-            .ToList();
+            .ToListAsync();
+
         if (candidatePublishers.Count == 0)
             return [];
 
