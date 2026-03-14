@@ -4,6 +4,8 @@
 
 The Chat Message Reactions API allows users to add, remove, and sync message reactions in chat rooms. Reactions are synced to all room members in real-time via WebSocket.
 
+Reaction totals are persisted on each chat message in `chat_messages.reactions_count` as a JSONB object whose keys are reaction symbols and whose values are counts.
+
 When using with the gateway, the `/api/chat` will be `/messager/chat `as the base path.
 
 ## Reaction Types
@@ -132,12 +134,17 @@ Example payload:
   "nonce": "abc123xyz",
   "meta": {
     "message_id": "660e8400-e29b-41d4-a716-446655440001",
+    "symbol": "heart",
     "reaction": {
       "id": "550e8400-e29b-41d4-a716-446655440000",
       "symbol": "heart",
       "attitude": 0,
       "message_id": "660e8400-e29b-41d4-a716-446655440001",
       "sender_id": "770e8400-e29b-41d4-a716-446655440002"
+    },
+    "reactions_count": {
+      "heart": 3,
+      "thumb_up": 1
     }
   },
   "created_at": "2024-02-02T10:00:00Z",
@@ -161,12 +168,22 @@ Example payload:
   "nonce": "abc123xyz",
   "meta": {
     "message_id": "660e8400-e29b-41d4-a716-446655440001",
-    "symbol": "heart"
+    "symbol": "heart",
+    "reactions_count": {
+      "thumb_up": 1
+    }
   },
   "created_at": "2024-02-02T10:00:00Z",
   "updated_at": "2024-02-02T10:00:00Z"
 }
 ```
+
+## Persistence Model
+
+- `chat_reactions` remains the source of truth for individual user reactions.
+- `chat_messages.reactions_count` is a JSONB summary cache stored on the message row itself.
+- Reaction add/remove operations update both the reaction row set and the message summary in the same write flow.
+- Existing messages are backfilled by migration `20260314145001_AddChatMessageReactionsCount`.
 
 ## Message Reactions Data
 
@@ -194,6 +211,8 @@ Example message with reactions:
 }
 ```
 
+`reactions_count` is read directly from the message record. `reactions_made` is still hydrated per requesting user from `chat_reactions`.
+
 ## Sync Integration
 
 Reaction changes are also stored as sync messages in the chat room. When syncing messages using the `/api/chat/sync` global sync endpoint, reaction changes will be included as special message types:
@@ -201,4 +220,10 @@ Reaction changes are also stored as sync messages in the chat room. When syncing
 - `messages.reaction.added` - Reaction was added
 - `messages.reaction.removed` - Reaction was removed
 
-These sync messages can be processed to update the local reactions count.
+The sync message metadata now already includes the updated `reactions_count` snapshot, so clients do not need a second enrichment pass to compute totals.
+
+Recommended client behavior:
+
+- Use the sync message `meta.message_id` to locate the target message.
+- Replace the local `reactions_count` with `meta.reactions_count`.
+- Apply user-specific toggles from the current user context or refreshed message payloads as needed.
