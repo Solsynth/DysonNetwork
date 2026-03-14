@@ -18,20 +18,6 @@ public class SubscriptionCatalogService(
         var options = _configuration.GetSection("Payment:SubscriptionCatalog").Get<SubscriptionCatalogSeedOptions>();
         if (options is null) return;
 
-        var existingSettings = await _db.WalletSubscriptionCatalogSettings.FirstOrDefaultAsync(cancellationToken);
-        if (existingSettings is null)
-        {
-            _db.WalletSubscriptionCatalogSettings.Add(new SnWalletSubscriptionCatalogSettings
-            {
-                GiftPolicyDefaults = options.Settings.GiftPolicyDefaults.Clone()
-            });
-        }
-        else if (!GiftPoliciesEqual(existingSettings.GiftPolicyDefaults, options.Settings.GiftPolicyDefaults))
-        {
-            existingSettings.GiftPolicyDefaults = options.Settings.GiftPolicyDefaults.Clone();
-            _db.WalletSubscriptionCatalogSettings.Update(existingSettings);
-        }
-
         var identifiers = options.Definitions.Select(x => x.Identifier).ToList();
         var existingDefinitions = await _db.WalletSubscriptionDefinitions
             .Where(x => identifiers.Contains(x.Identifier))
@@ -71,6 +57,7 @@ public class SubscriptionCatalogService(
             MinimumAccountLevel = definition.MinimumAccountLevel,
             ExperienceMultiplier = definition.ExperienceMultiplier,
             GoldenPointReward = definition.GoldenPointReward,
+            DisplayConfig = definition.DisplayConfig?.Clone(),
             PaymentPolicy = ClonePaymentPolicy(definition.PaymentPolicy),
             GiftPolicy = definition.GiftPolicy is null ? null : definition.GiftPolicy.Clone(),
             ProviderMappings = CloneProviderMappings(definition.ProviderMappings)
@@ -92,6 +79,12 @@ public class SubscriptionCatalogService(
         changed |= SetIfDifferent(existingDefinition.MinimumAccountLevel, definition.MinimumAccountLevel, value => existingDefinition.MinimumAccountLevel = value);
         changed |= SetIfDifferent(existingDefinition.ExperienceMultiplier, definition.ExperienceMultiplier, value => existingDefinition.ExperienceMultiplier = value);
         changed |= SetIfDifferent(existingDefinition.GoldenPointReward, definition.GoldenPointReward, value => existingDefinition.GoldenPointReward = value);
+
+        if (!DisplayConfigsEqual(existingDefinition.DisplayConfig, definition.DisplayConfig))
+        {
+            existingDefinition.DisplayConfig = definition.DisplayConfig?.Clone();
+            changed = true;
+        }
 
         if (!PaymentPoliciesEqual(existingDefinition.PaymentPolicy, definition.PaymentPolicy))
         {
@@ -145,6 +138,16 @@ public class SubscriptionCatalogService(
                left.AllowedMethods.SequenceEqual(right.AllowedMethods, StringComparer.OrdinalIgnoreCase);
     }
 
+    private static bool DisplayConfigsEqual(SubscriptionDisplayConfig? left, SubscriptionDisplayConfig? right)
+    {
+        if (left is null && right is null) return true;
+        if (left is null || right is null) return false;
+
+        return string.Equals(left.Color, right.Color, StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(left.BackgroundColor, right.BackgroundColor, StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(left.BadgeText, right.BadgeText, StringComparison.Ordinal);
+    }
+
     private static bool GiftPoliciesEqual(SubscriptionGiftPolicy? left, SubscriptionGiftPolicy? right)
     {
         if (left is null && right is null) return true;
@@ -187,6 +190,14 @@ public class SubscriptionCatalogService(
     public Task<SnWalletSubscriptionDefinition?> GetDefinitionAsync(string identifier, CancellationToken cancellationToken = default)
     {
         return _db.WalletSubscriptionDefinitions.FirstOrDefaultAsync(x => x.Identifier == identifier, cancellationToken);
+    }
+
+    public Task<List<SnWalletSubscriptionDefinition>> ListDefinitionsAsync(CancellationToken cancellationToken = default)
+    {
+        return _db.WalletSubscriptionDefinitions
+            .OrderBy(x => x.PerkLevel)
+            .ThenBy(x => x.DisplayName)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<SnWalletSubscriptionDefinition?> ResolveDefinitionAsync(
@@ -242,8 +253,8 @@ public class SubscriptionCatalogService(
         CancellationToken cancellationToken = default
     )
     {
-        var settings = await _db.WalletSubscriptionCatalogSettings.FirstOrDefaultAsync(cancellationToken);
-        var defaults = settings?.GiftPolicyDefaults.Clone() ?? new SubscriptionGiftPolicy();
+        var options = _configuration.GetSection("Payment:SubscriptionCatalog").Get<SubscriptionCatalogSeedOptions>();
+        var defaults = options?.Settings?.GiftPolicyDefaults.Clone() ?? new SubscriptionGiftPolicy();
         return defaults.Merge(definition.GiftPolicy);
     }
 }

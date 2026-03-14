@@ -18,6 +18,7 @@ public class SnWalletSubscriptionDefinition : ModelBase
     public int? MinimumAccountLevel { get; set; }
     public decimal? ExperienceMultiplier { get; set; }
     public int? GoldenPointReward { get; set; }
+    [Column(TypeName = "jsonb")] public SubscriptionDisplayConfig? DisplayConfig { get; set; }
 
     [Column(TypeName = "jsonb")] public SubscriptionPaymentPolicy PaymentPolicy { get; set; } = new();
     [Column(TypeName = "jsonb")] public SubscriptionGiftPolicy? GiftPolicy { get; set; }
@@ -42,19 +43,26 @@ public class SnWalletSubscriptionDefinition : ModelBase
     }
 }
 
-public class SnWalletSubscriptionCatalogSettings : ModelBase
-{
-    public Guid Id { get; set; } = Guid.NewGuid();
-
-    [Column(TypeName = "jsonb")] public SubscriptionGiftPolicy GiftPolicyDefaults { get; set; } = new();
-}
-
 public class SubscriptionPaymentPolicy
 {
     public bool AllowInternalWallet { get; set; } = true;
     public bool AllowExternal { get; set; } = true;
     public bool AllowInternalWalletRenewal { get; set; } = false;
     public List<string> AllowedMethods { get; set; } = [];
+}
+
+public class SubscriptionDisplayConfig
+{
+    [MaxLength(64)] public string? Color { get; set; }
+    [MaxLength(64)] public string? BackgroundColor { get; set; }
+    [MaxLength(256)] public string? BadgeText { get; set; }
+
+    public SubscriptionDisplayConfig Clone() => new()
+    {
+        Color = Color,
+        BackgroundColor = BackgroundColor,
+        BadgeText = BadgeText
+    };
 }
 
 public class SubscriptionGiftPolicy
@@ -120,6 +128,7 @@ public class SubscriptionCatalogSeedDefinition
     public int? MinimumAccountLevel { get; set; }
     public decimal? ExperienceMultiplier { get; set; }
     public int? GoldenPointReward { get; set; }
+    public SubscriptionDisplayConfig? DisplayConfig { get; set; }
     public SubscriptionPaymentPolicy PaymentPolicy { get; set; } = new();
     public SubscriptionGiftPolicy? GiftPolicy { get; set; }
     public Dictionary<string, List<string>> ProviderMappings { get; set; } = new();

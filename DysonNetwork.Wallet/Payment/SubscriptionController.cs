@@ -17,6 +17,7 @@ namespace DysonNetwork.Wallet.Payment;
 [Route("/api/subscriptions")]
 public class SubscriptionController(
     SubscriptionService subscriptions,
+    SubscriptionCatalogService catalog,
     AfdianPaymentHandler afdian,
     AppleStorePaymentHandler appleStore,
     PaddlePaymentHandler paddle,
@@ -25,6 +26,41 @@ public class SubscriptionController(
 )
     : ControllerBase
 {
+    public class SubscriptionCatalogItem
+    {
+        public string Identifier { get; set; } = null!;
+        public string? GroupIdentifier { get; set; }
+        public string DisplayName { get; set; } = null!;
+        public string Currency { get; set; } = null!;
+        public decimal BasePrice { get; set; }
+        public int PerkLevel { get; set; }
+        public int? MinimumAccountLevel { get; set; }
+        public decimal? ExperienceMultiplier { get; set; }
+        public int? GoldenPointReward { get; set; }
+        public SubscriptionDisplayConfig? DisplayConfig { get; set; }
+        public List<string> AllowedPaymentMethods { get; set; } = [];
+    }
+
+    [HttpGet("catalog")]
+    public async Task<ActionResult<List<SubscriptionCatalogItem>>> ListCatalog()
+    {
+        var definitions = await catalog.ListDefinitionsAsync(HttpContext.RequestAborted);
+        return Ok(definitions.Select(def => new SubscriptionCatalogItem
+        {
+            Identifier = def.Identifier,
+            GroupIdentifier = def.GroupIdentifier,
+            DisplayName = def.DisplayName,
+            Currency = def.Currency,
+            BasePrice = def.BasePrice,
+            PerkLevel = def.PerkLevel,
+            MinimumAccountLevel = def.MinimumAccountLevel,
+            ExperienceMultiplier = def.ExperienceMultiplier,
+            GoldenPointReward = def.GoldenPointReward,
+            DisplayConfig = def.DisplayConfig?.Clone(),
+            AllowedPaymentMethods = def.PaymentPolicy.AllowedMethods.ToList()
+        }).ToList());
+    }
+
     [HttpGet]
     [Authorize]
     public async Task<ActionResult<List<SnWalletSubscription>>> ListSubscriptions(
