@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using NodaTime;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Localization;
 
@@ -18,7 +19,39 @@ public class RealmService(
 
     public async Task<SnRealm?> GetBySlug(string slug)
     {
-        return await db.Realms.FirstOrDefaultAsync(r => r.Slug == slug);
+        var realm = await db.Realms.FirstOrDefaultAsync(r => r.Slug == slug);
+        if (realm is null) return null;
+
+        await RefreshBoostState(realm);
+        return realm;
+    }
+
+    public async Task RefreshBoostState(SnRealm realm, CancellationToken cancellationToken = default)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var cutoff = RealmBoostPolicy.GetActiveCutoff(now);
+        var activeBoostPoints = await db.RealmBoostContributions
+            .Where(c => c.RealmId == realm.Id && c.CreatedAt >= cutoff)
+            .Select(c => (decimal?)c.Amount)
+            .SumAsync(cancellationToken) ?? 0m;
+
+        realm.BoostPoints = activeBoostPoints;
+    }
+
+    public async Task RefreshBoostStates(ICollection<SnRealm> realms, CancellationToken cancellationToken = default)
+    {
+        if (realms.Count == 0) return;
+
+        var realmIds = realms.Select(r => r.Id).Distinct().ToList();
+        var cutoff = RealmBoostPolicy.GetActiveCutoff(SystemClock.Instance.GetCurrentInstant());
+        var boostPoints = await db.RealmBoostContributions
+            .Where(c => realmIds.Contains(c.RealmId) && c.CreatedAt >= cutoff)
+            .GroupBy(c => c.RealmId)
+            .Select(g => new { realm_id = g.Key, amount = g.Sum(x => x.Amount) })
+            .ToDictionaryAsync(x => x.realm_id, x => x.amount, cancellationToken);
+
+        foreach (var realm in realms)
+            realm.BoostPoints = boostPoints.GetValueOrDefault(realm.Id, 0m);
     }
 
     public async Task<SnRealmMember?> GetActiveMember(Guid realmId, Guid accountId)

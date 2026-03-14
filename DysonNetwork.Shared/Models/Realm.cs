@@ -80,9 +80,13 @@ public class SnRealm : ModelBase, IIdentifiedResource
 
 public static class RealmBoostPolicy
 {
+    public const decimal SharePoints = 100m;
     public const decimal Level1Points = 1000m;
     public const decimal Level2Points = 5000m;
     public const decimal Level3Points = 15000m;
+    public const int ExpirationDays = 30;
+
+    public static Instant GetActiveCutoff(Instant now) => now - Duration.FromDays(ExpirationDays);
 
     public static int GetBoostLevel(decimal boostPoints) => boostPoints switch
     {
@@ -232,7 +236,10 @@ public class SnRealmBoostContribution : ModelBase
     public Guid TransactionId { get; set; }
 
     [NotMapped]
-    public decimal Shares => Amount / 100m;
+    public decimal Shares => Amount / RealmBoostPolicy.SharePoints;
+
+    [NotMapped]
+    public Instant ExpiresAt => CreatedAt + Duration.FromDays(RealmBoostPolicy.ExpirationDays);
 }
 
 public class SnRealmExperienceRecord : ModelBase

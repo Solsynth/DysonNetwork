@@ -6,7 +6,7 @@ namespace DysonNetwork.Passport.Realm;
 
 [ApiController]
 [Route("api/realms/public")]
-public class RealmPublicController(AppDatabase db) : ControllerBase
+public class RealmPublicController(AppDatabase db, RealmService rs) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<SnRealm>>> ListCommunityRealms(
@@ -32,6 +32,7 @@ public class RealmPublicController(AppDatabase db) : ControllerBase
             .Take(take)
             .Skip(offset)
             .ToListAsync();
+        await rs.RefreshBoostStates(realms);
         return Ok(realms);
     }
 }

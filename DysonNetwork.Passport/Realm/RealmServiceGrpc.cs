@@ -12,7 +12,8 @@ public class RealmServiceGrpc(
     DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
     ICacheService cache,
-    DyAccountService.DyAccountServiceClient accountGrpc
+    DyAccountService.DyAccountServiceClient accountGrpc,
+    RealmService realmService
 )
     : DyRealmService.DyRealmServiceBase
 {
@@ -29,9 +30,11 @@ public class RealmServiceGrpc(
             _ => throw new RpcException(new Status(StatusCode.InvalidArgument, "Must provide either id or slug"))
         };
 
-        return realm == null
-            ? throw new RpcException(new Status(StatusCode.NotFound, "Realm not found"))
-            : realm.ToProtoValue();
+        if (realm == null)
+            throw new RpcException(new Status(StatusCode.NotFound, "Realm not found"));
+
+        await realmService.RefreshBoostState(realm, context.CancellationToken);
+        return realm.ToProtoValue();
     }
 
     public override async Task<DyGetRealmBatchResponse> GetRealmBatch(DyGetRealmBatchRequest request,
@@ -39,6 +42,7 @@ public class RealmServiceGrpc(
     {
         var ids = request.Ids.Select(Guid.Parse).ToList();
         var realms = await db.Realms.Where(r => ids.Contains(r.Id)).ToListAsync();
+        await realmService.RefreshBoostStates(realms, context.CancellationToken);
         var response = new DyGetRealmBatchResponse();
         response.Realms.AddRange(realms.Select(r => r.ToProtoValue()));
         return response;
@@ -87,6 +91,7 @@ public class RealmServiceGrpc(
         };
 
         var realms = await realmsQuery.Take(request.Take).ToListAsync();
+        await realmService.RefreshBoostStates(realms, context.CancellationToken);
 
         var response = new DyGetPublicRealmsResponse();
         response.Realms.AddRange(realms.Select(r => r.ToProtoValue()));
@@ -102,6 +107,7 @@ public class RealmServiceGrpc(
                         EF.Functions.Like(r.Name, $"{request.Query}%"))
             .Take(request.Limit)
             .ToListAsync();
+        await realmService.RefreshBoostStates(realms, context.CancellationToken);
         var response = new DyGetPublicRealmsResponse();
         response.Realms.AddRange(realms.Select(r => r.ToProtoValue()));
         return response;

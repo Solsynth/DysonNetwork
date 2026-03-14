@@ -44,9 +44,7 @@ public class RealmController(
     [HttpGet("{slug}")]
     public async Task<ActionResult<SnRealm>> GetRealm(string slug)
     {
-        var realm = await db.Realms
-            .Where(e => e.Slug == slug)
-            .FirstOrDefaultAsync();
+        var realm = await rs.GetBySlug(slug);
         if (realm is null) return NotFound();
 
         return Ok(realm);
@@ -141,9 +139,7 @@ public class RealmController(
         if (hasBlocked)
             return StatusCode(403, "You cannot invite a user that blocked you.");
 
-        var realm = await db.Realms
-            .Where(p => p.Slug == slug)
-            .FirstOrDefaultAsync();
+        var realm = await rs.GetBySlug(slug);
         if (realm is null) return NotFound();
         if (request.Role > RealmMemberRole.Normal && realm.BoostLevel < 2)
             return StatusCode(403, "Realm boost level 2 is required to invite promoted members.");
@@ -523,7 +519,7 @@ public class RealmController(
         if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
             return StatusCode(403, "You must be a member to boost this realm.");
 
-        var amountPoints = request.Shares * 100m;
+        var amountPoints = request.Shares * RealmBoostPolicy.SharePoints;
         var order = await payments.CreateOrder(
             currency: "points",
             amount: amountPoints.ToString(CultureInfo.InvariantCulture),
@@ -558,7 +554,8 @@ public class RealmController(
         {
             boost_points = realm.BoostPoints,
             boost_level = realm.BoostLevel,
-            label_cap = RealmBoostPolicy.GetLabelCap(realm.BoostLevel)
+            label_cap = RealmBoostPolicy.GetLabelCap(realm.BoostLevel),
+            expires_after_days = RealmBoostPolicy.ExpirationDays
         });
     }
 
@@ -570,13 +567,15 @@ public class RealmController(
 
         var leaderboard = await db.RealmBoostContributions
             .Where(c => c.RealmId == realm.Id)
+            .Where(c => c.CreatedAt >= RealmBoostPolicy.GetActiveCutoff(SystemClock.Instance.GetCurrentInstant()))
             .GroupBy(c => c.AccountId)
             .Select(g => new
             {
                 account_id = g.Key,
                 amount_points = g.Sum(x => x.Amount),
-                shares = g.Sum(x => x.Amount) / 100m,
-                boosts = g.Count()
+                shares = g.Sum(x => x.Amount) / RealmBoostPolicy.SharePoints,
+                boosts = g.Count(),
+                last_boosted_at = g.Max(x => x.CreatedAt)
             })
             .OrderByDescending(x => x.amount_points)
             .Take(take)
@@ -592,7 +591,8 @@ public class RealmController(
             account = accountDict.GetValueOrDefault(row.account_id),
             row.amount_points,
             row.shares,
-            row.boosts
+            row.boosts,
+            row.last_boosted_at
         }));
     }
 
@@ -917,9 +917,7 @@ public class RealmController(
         if (newRole >= RealmMemberRole.Owner) return BadRequest("Unable to set realm member to owner or greater role.");
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        var realm = await db.Realms
-            .Where(r => r.Slug == slug)
-            .FirstOrDefaultAsync();
+        var realm = await rs.GetBySlug(slug);
         if (realm is null) return NotFound();
         if (newRole > RealmMemberRole.Normal && realm.BoostLevel < 2)
             return StatusCode(403, "Realm boost level 2 is required to promote members.");

@@ -208,7 +208,6 @@ public static class ServiceCollectionExtensions
                     if (realm is null) return;
 
                     var amount = decimal.Parse(boostEvt.Meta.AmountPoints, CultureInfo.InvariantCulture);
-                    realm.BoostPoints += amount;
                     db.RealmBoostContributions.Add(new SnRealmBoostContribution
                     {
                         RealmId = boostEvt.Meta.RealmId,
@@ -218,6 +217,12 @@ public static class ServiceCollectionExtensions
                         OrderId = boostEvt.OrderId,
                         TransactionId = Guid.Empty
                     });
+
+                    var cutoff = RealmBoostPolicy.GetActiveCutoff(SystemClock.Instance.GetCurrentInstant());
+                    realm.BoostPoints = (await db.RealmBoostContributions
+                        .Where(c => c.RealmId == boostEvt.Meta.RealmId && c.CreatedAt >= cutoff)
+                        .Select(c => (decimal?)c.Amount)
+                        .SumAsync(ctx.CancellationToken) ?? 0m) + amount;
                     await db.SaveChangesAsync(ctx.CancellationToken);
                 },
                 opts =>
