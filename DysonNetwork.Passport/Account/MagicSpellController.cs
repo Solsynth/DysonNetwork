@@ -1,9 +1,9 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Grpc.Core;
 
 namespace DysonNetwork.Passport.Account;
 
@@ -19,8 +19,7 @@ public class MagicSpellController(
     [Authorize]
     public async Task<ActionResult> ResendActivationMagicSpell()
     {
-        var currentUser = await GetCurrentUserAsync();
-        if (currentUser is null) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var spell = await db.MagicSpells.FirstOrDefaultAsync(s =>
             s.Type == MagicSpellType.AccountActivation && s.AccountId == currentUser.Id);
@@ -50,6 +49,23 @@ public class MagicSpellController(
             .FirstOrDefaultAsync();
         if (spell is null)
             return NotFound();
+
+        if (spell.AccountId.HasValue)
+        {
+            try
+            {
+                var account = await accountGrpc.GetAccountAsync(new DyGetAccountRequest
+                {
+                    Id = spell.AccountId.Value.ToString()
+                });
+                spell.Account = SnAccount.FromProtoValue(account);
+            }
+            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+            {
+                spell.Account = null;
+            }
+        }
+
         return Ok(spell);
     }
 
@@ -81,27 +97,5 @@ public class MagicSpellController(
         }
 
         return Ok();
-    }
-
-    private async Task<SnAccount?> GetCurrentUserAsync()
-    {
-        if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
-            return currentUser;
-
-        var accountId = User.Claims
-            .FirstOrDefault(c => c.Type == "user_id")?
-            .Value;
-        if (string.IsNullOrWhiteSpace(accountId))
-            return null;
-
-        try
-        {
-            var remote = await accountGrpc.GetAccountAsync(new DyGetAccountRequest { Id = accountId });
-            return SnAccount.FromProtoValue(remote);
-        }
-        catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
-        {
-            return null;
-        }
     }
 }
