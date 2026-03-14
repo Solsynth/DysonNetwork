@@ -1,6 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
 using DysonNetwork.Shared.Cache;
-using Microsoft.IdentityModel.Tokens;
 
 namespace DysonNetwork.Padlock.Auth.OpenId;
 
@@ -29,6 +27,7 @@ public class GoogleOidcService(
             throw new InvalidOperationException("Authorization endpoint not found in discovery document");
         }
 
+        // Generate PKCE code verifier and challenge for enhanced security
         var codeVerifier = GenerateCodeVerifier();
         var codeChallenge = GenerateCodeChallenge(codeVerifier);
 
@@ -41,9 +40,11 @@ public class GoogleOidcService(
             nonce
         );
 
+        // Add PKCE parameters
         queryParams["code_challenge"] = codeChallenge;
         queryParams["code_challenge_method"] = "S256";
 
+        // Store code verifier in cache for later token exchange
         var codeVerifierKey = $"pkce:{state}";
         await cache.SetAsync(codeVerifierKey, codeVerifier, TimeSpan.FromMinutes(15));
 
@@ -54,8 +55,9 @@ public class GoogleOidcService(
     public override async Task<OidcUserInfo> ProcessCallbackAsync(OidcCallbackData callbackData)
     {
         var state = callbackData.State ?? "";
-        callbackData.State = state;
+        callbackData.State = state; // Keep the original state if needed
 
+        // Retrieve PKCE code verifier from cache
         var codeVerifierKey = $"pkce:{state}";
         var (found, codeVerifier) = await cache.GetAsyncWithStatus<string>(codeVerifierKey);
         if (!found || string.IsNullOrEmpty(codeVerifier))
@@ -63,18 +65,23 @@ public class GoogleOidcService(
             throw new InvalidOperationException("PKCE code verifier not found or expired");
         }
 
+        // Remove the code verifier from cache to prevent replay attacks
         await cache.RemoveAsync(codeVerifierKey);
 
+        // Exchange the code for tokens using PKCE
         var tokenResponse = await ExchangeCodeForTokensAsync(callbackData.Code, codeVerifier);
         if (tokenResponse == null)
         {
             throw new InvalidOperationException("Failed to exchange code for tokens");
         }
 
+        // Use the strategy pattern to retrieve user info
         var discoveryDocument = await GetDiscoveryDocumentAsync();
         var config = GetProviderConfig();
         var strategy = new IdTokenValidationStrategy(_httpClientFactory);
 
         return await strategy.GetUserInfoAsync(tokenResponse, discoveryDocument, config.ClientId, ProviderName);
     }
+
+
 }

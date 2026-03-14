@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DysonNetwork.Shared.Cache;
 
 namespace DysonNetwork.Padlock.Auth.OpenId;
@@ -7,41 +8,91 @@ public class AfdianOidcService(
     IHttpClientFactory httpClientFactory,
     AppDatabase db,
     AuthService auth,
-    ICacheService cache
+    ICacheService cache,
+    ILogger<AfdianOidcService> logger
 )
     : OidcService(configuration, httpClientFactory, db, auth, cache)
 {
-    public override string ProviderName => "afdian";
-    protected override string DiscoveryEndpoint => "https://openapi.afdian.net/.well-known/openid-configuration";
+    public override string ProviderName => "Afdian";
+    protected override string DiscoveryEndpoint => ""; // Afdian doesn't have a standard OIDC discovery endpoint
     protected override string ConfigSectionName => "Afdian";
 
-    public override async Task<string> GetAuthorizationUrlAsync(string state, string nonce)
+    public override Task<string> GetAuthorizationUrlAsync(string state, string nonce)
+    {
+        return Task.FromResult(GetAuthorizationUrl(state, nonce));
+    }
+
+    public override string GetAuthorizationUrl(string state, string nonce)
     {
         var config = GetProviderConfig();
-        var discoveryDocument = await GetDiscoveryDocumentAsync();
-
-        if (discoveryDocument?.AuthorizationEndpoint == null)
-            throw new InvalidOperationException("Authorization endpoint not found");
-
-        var queryParams = BuildAuthorizationParameters(
-            config.ClientId,
-            config.RedirectUri,
-            "openid email",
-            "code",
-            state,
-            nonce
-        );
+        var queryParams = new Dictionary<string, string>
+        {
+            { "client_id", config.ClientId },
+            { "redirect_uri", config.RedirectUri },
+            { "response_type", "code" },
+            { "scope", "basic" },
+            { "state", state },
+        };
 
         var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
-        return $"{discoveryDocument.AuthorizationEndpoint}?{queryString}";
+        return $"https://afdian.com/oauth2/authorize?{queryString}";
+    }
+
+    protected override Task<OidcDiscoveryDocument?> GetDiscoveryDocumentAsync()
+    {
+        return Task.FromResult(new OidcDiscoveryDocument
+        {
+            AuthorizationEndpoint = "https://afdian.com/oauth2/authorize",
+            TokenEndpoint = "https://afdian.com/api/oauth2/access_token",
+            UserinfoEndpoint = null,
+            JwksUri = null
+        })!;
     }
 
     public override async Task<OidcUserInfo> ProcessCallbackAsync(OidcCallbackData callbackData)
     {
-        var tokenResponse = await ExchangeCodeForTokensAsync(callbackData.Code);
-        if (tokenResponse?.IdToken == null)
-            throw new InvalidOperationException("Failed to get ID token");
+        try
+        {
+            var config = GetProviderConfig();
+            var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                { "client_id", config.ClientId },
+                { "client_secret", config.ClientSecret },
+                { "grant_type", "authorization_code" },
+                { "code", callbackData.Code },
+                { "redirect_uri", config.RedirectUri },
+            });
 
-        return new OidcUserInfo { Provider = ProviderName };
+            var client = HttpClientFactory.CreateClient();
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/api/oauth2/access_token");
+            request.Content = content;
+            
+            var response = await client.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            
+            var json = await response.Content.ReadAsStringAsync();
+            logger.LogInformation("Trying get userinfo from afdian, response: {Response}", json);
+            var afdianResponse = JsonDocument.Parse(json).RootElement;
+
+            var user = afdianResponse.TryGetProperty("data", out var dataElement) ? dataElement : default;
+            var userId = user.TryGetProperty("user_id", out var userIdElement) ? userIdElement.GetString() ?? "" : "";
+            var avatar = user.TryGetProperty("avatar", out var avatarElement) ? avatarElement.GetString() : null;
+
+            return new OidcUserInfo
+            {
+                UserId = userId,
+                DisplayName = (user.TryGetProperty("name", out var nameElement)
+                    ? nameElement.GetString()
+                    : null) ?? "",
+                ProfilePictureUrl = avatar,
+                Provider = ProviderName
+            };
+        }
+        catch (Exception ex)
+        {
+            // Due to afidan's API isn't compliant with OAuth2, we want more logs from it to investigate.
+            logger.LogError(ex, "Failed to get user info from Afdian");
+            throw;
+        }
     }
 }
