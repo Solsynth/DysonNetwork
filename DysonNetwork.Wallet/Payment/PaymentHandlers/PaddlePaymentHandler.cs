@@ -15,7 +15,8 @@ public class PaddlePaymentHandler(
     IConfiguration configuration
 )
 {
-    private const string BaseApiUrl = "https://api.paddle.com";
+    private const string LiveBaseApiUrl = "https://api.paddle.com";
+    private const string SandboxBaseApiUrl = "https://sandbox-api.paddle.com";
 
     private readonly IHttpClientFactory _httpClientFactory =
         httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
@@ -44,7 +45,7 @@ public class PaddlePaymentHandler(
             throw new InvalidOperationException("Payment:Auth:Paddle:ApiKey is not configured.");
 
         var client = _httpClientFactory.CreateClient();
-        using var request = new HttpRequestMessage(HttpMethod.Get, $"{BaseApiUrl}/transactions/{transactionId}");
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"{GetBaseApiUrl(apiKey)}/transactions/{transactionId}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         request.Headers.Add("Accept", "application/json");
 
@@ -182,6 +183,28 @@ public class PaddlePaymentHandler(
             Encoding.UTF8.GetBytes(computedHash),
             Encoding.UTF8.GetBytes(h1.ToLowerInvariant())
         );
+    }
+
+    private string GetBaseApiUrl(string apiKey)
+    {
+        var configuredEnvironment = _configuration["Payment:Auth:Paddle:Environment"];
+        if (!string.IsNullOrWhiteSpace(configuredEnvironment))
+        {
+            return configuredEnvironment.Trim().ToLowerInvariant() switch
+            {
+                "sandbox" => SandboxBaseApiUrl,
+                "live" => LiveBaseApiUrl,
+                "production" => LiveBaseApiUrl,
+                _ => throw new InvalidOperationException(
+                    "Payment:Auth:Paddle:Environment must be 'sandbox', 'live', or 'production'."
+                )
+            };
+        }
+
+        if (apiKey.Contains("_sdbx_", StringComparison.OrdinalIgnoreCase))
+            return SandboxBaseApiUrl;
+
+        return LiveBaseApiUrl;
     }
 }
 
