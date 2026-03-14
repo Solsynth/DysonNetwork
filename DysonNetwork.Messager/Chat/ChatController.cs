@@ -1075,7 +1075,6 @@ public partial class ChatController(
                 message.Sender = sender;
         }
         await cs.HydrateMessageReactionsAsync(messages, accountId);
-        await cs.EnrichReactionSyncMessagesAsync(messages, accountId);
 
         var latestTimestamp = messages.Count > 0
             ? messages.Last().CreatedAt

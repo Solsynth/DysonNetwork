@@ -1015,7 +1015,6 @@ public partial class ChatService(
             }
         }
         await HydrateMessageReactionsAsync(syncMessages, accountId);
-        await EnrichReactionSyncMessagesAsync(syncMessages, accountId);
 
         var latestTimestamp = syncMessages.Count > 0
             ? syncMessages.Last().CreatedAt
@@ -1313,7 +1312,8 @@ public partial class ChatService(
                     ["attitude"] = reaction.Attitude,
                     ["message_id"] = reaction.MessageId,
                     ["sender_id"] = reaction.SenderId
-                }
+                },
+                ["reactions_count"] = new Dictionary<string, int>(message.ReactionsCount)
             },
         };
 
@@ -1394,7 +1394,8 @@ public partial class ChatService(
             Meta = new Dictionary<string, object>
             {
                 ["message_id"] = message.Id,
-                ["symbol"] = symbol
+                ["symbol"] = symbol,
+                ["reactions_count"] = new Dictionary<string, int>(message.ReactionsCount)
             },
         };
 
@@ -1452,14 +1453,6 @@ public partial class ChatService(
 
         var messageIds = messages.Select(m => m.Id).Distinct().ToList();
 
-        var reactionMaps = await db.ChatReactions
-            .Where(r => messageIds.Contains(r.MessageId))
-            .GroupBy(r => r.MessageId)
-            .ToDictionaryAsync(
-                g => g.Key,
-                g => g.GroupBy(r => r.Symbol).ToDictionary(sg => sg.Key, sg => sg.Count())
-            );
-
         Dictionary<Guid, Dictionary<string, bool>> reactionMadeMap = new();
         if (accountId.HasValue)
         {
@@ -1478,78 +1471,12 @@ public partial class ChatService(
 
         foreach (var message in messages)
         {
-            message.ReactionsCount = reactionMaps.TryGetValue(message.Id, out var reactionsCount)
-                ? reactionsCount
-                : new Dictionary<string, int>();
+            message.ReactionsCount ??= new Dictionary<string, int>();
 
             message.ReactionsMade = accountId.HasValue
                 ? reactionMadeMap.GetValueOrDefault(message.Id, [])
                 : null;
         }
-    }
-
-    public async Task EnrichReactionSyncMessagesAsync(List<SnChatMessage> messages, Guid? accountId = null)
-    {
-        if (messages.Count == 0)
-            return;
-
-        var reactionSyncMessages = messages
-            .Where(m => m.Type is WebSocketPacketType.MessageReactionAdded or WebSocketPacketType.MessageReactionRemoved)
-            .ToList();
-        if (reactionSyncMessages.Count == 0)
-            return;
-
-        var targetMessageIds = reactionSyncMessages
-            .Select(m => TryGetMetaGuidValue(m.Meta, "message_id"))
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .Distinct()
-            .ToList();
-        if (targetMessageIds.Count == 0)
-            return;
-
-        var targetMessages = await db.ChatMessages
-            .Where(m => targetMessageIds.Contains(m.Id))
-            .Include(m => m.Sender)
-            .ToListAsync();
-        if (targetMessages.Count == 0)
-            return;
-
-        var targetSenders = targetMessages
-            .Select(m => m.Sender)
-            .DistinctBy(s => s.Id)
-            .ToList();
-        targetSenders = await crs.LoadMemberAccounts(targetSenders);
-
-        foreach (var target in targetMessages)
-        {
-            var sender = targetSenders.FirstOrDefault(s => s.Id == target.SenderId);
-            if (sender is not null)
-                target.Sender = sender;
-        }
-
-        await HydrateMessageReactionsAsync(targetMessages, accountId);
-        var targetMap = targetMessages.ToDictionary(m => m.Id);
-
-        foreach (var syncMessage in reactionSyncMessages)
-        {
-            var targetId = TryGetMetaGuidValue(syncMessage.Meta, "message_id");
-            if (!targetId.HasValue || !targetMap.TryGetValue(targetId.Value, out var target))
-                continue;
-
-            syncMessage.Meta ??= new Dictionary<string, object>();
-            syncMessage.Meta["reactions_count"] = target.ReactionsCount;
-            if (accountId.HasValue)
-                syncMessage.Meta["reactions_made"] = target.ReactionsMade ?? new Dictionary<string, bool>();
-            syncMessage.Meta["message"] = target;
-        }
-    }
-
-    private static Guid? TryGetMetaGuidValue(Dictionary<string, object>? meta, string key)
-    {
-        if (!TryGetMetaGuid(meta, key, out var value))
-            return null;
-        return value;
     }
 
 }

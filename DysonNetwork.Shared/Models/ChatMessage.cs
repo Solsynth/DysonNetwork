@@ -26,7 +26,7 @@ public class SnChatMessage : ModelBase, IIdentifiedResource
     
     [Column(TypeName = "jsonb")] public List<SnCloudFileReferenceObject> Attachments { get; set; } = []; 
 
-    [NotMapped]
+    [Column(TypeName = "jsonb")]
     public Dictionary<string, int> ReactionsCount { get; set; } = new();
 
     [NotMapped]
@@ -70,6 +70,7 @@ public class SnChatMessage : ModelBase, IIdentifiedResource
             Nonce = Nonce,
             EditedAt = EditedAt,
             Attachments = Attachments,
+            ReactionsCount = new Dictionary<string, int>(ReactionsCount),
             RepliedMessageId = RepliedMessageId,
             ForwardedMessageId = ForwardedMessageId,
             SenderId = SenderId,
