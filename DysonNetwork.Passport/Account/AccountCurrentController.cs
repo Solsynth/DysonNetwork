@@ -52,6 +52,12 @@ public class AccountCurrentController(
                 if (subscription is not null)
                 {
                     account.PerkSubscription = SnWalletSubscription.FromProtoValue(subscription).ToReference();
+                    account.PerkLevel = account.PerkSubscription.PerkLevel;
+                }
+                else
+                {
+                    account.PerkSubscription = null;
+                    account.PerkLevel = 0;
                 }
             }
             catch (Exception ex)

@@ -611,13 +611,13 @@ public class SubscriptionService(
 
         // If not in cache, get from database
         var now = SystemClock.Instance.GetCurrentInstant();
-        var subscription = await db.WalletSubscriptions
-            .Where(s => s.AccountId == accountId && s.PerkLevel > 0)
+        var candidates = await db.WalletSubscriptions
+            .Where(s => s.AccountId == accountId)
             .Where(s => s.Status == Shared.Models.SubscriptionStatus.Active)
             .Where(s => s.EndedAt == null || s.EndedAt > now)
-            .OrderByDescending(s => s.PerkLevel)
-            .ThenByDescending(s => s.BegunAt)
-            .FirstOrDefaultAsync();
+            .OrderByDescending(s => s.BegunAt)
+            .ToListAsync();
+        var subscription = await SelectEffectivePerkSubscriptionAsync(candidates, now);
         if (subscription is { IsAvailable: false }) subscription = null;
 
         // Cache the result if found (with 5 minutes expiry)
@@ -656,23 +656,22 @@ public class SubscriptionService(
         var now = SystemClock.Instance.GetCurrentInstant();
         var subscriptions = await db.WalletSubscriptions
             .Where(s => missingAccountIds.Contains(s.AccountId))
-            .Where(s => s.PerkLevel > 0)
             .Where(s => s.Status == Shared.Models.SubscriptionStatus.Active)
             .Where(s => s.EndedAt == null || s.EndedAt > now)
-            .OrderByDescending(s => s.PerkLevel)
-            .ThenByDescending(s => s.BegunAt)
+            .OrderByDescending(s => s.BegunAt)
             .ToListAsync();
 
-        // Group by account and select latest available subscription
-        var groupedSubscriptions = subscriptions
-            .Where(s => s.IsAvailable)
-            .GroupBy(s => s.AccountId)
-            .ToDictionary(g => g.Key, g => g.First());
+        var groupedSubscriptions = new Dictionary<Guid, SnWalletSubscription?>();
+        foreach (var group in subscriptions.GroupBy(s => s.AccountId))
+        {
+            groupedSubscriptions[group.Key] = await SelectEffectivePerkSubscriptionAsync(group.ToList(), now);
+        }
 
         // Update results and batch cache operations
         var cacheSetTasks = new List<Task>();
         foreach (var kvp in groupedSubscriptions)
         {
+            if (kvp.Value is null) continue;
             result[kvp.Key] = kvp.Value;
             var cacheKey = $"{SubscriptionPerkCacheKeyPrefix}{kvp.Key}";
             cacheSetTasks.Add(cache.SetAsync(cacheKey, kvp.Value, TimeSpan.FromMinutes(30)));
@@ -681,6 +680,43 @@ public class SubscriptionService(
         await Task.WhenAll(cacheSetTasks);
 
         return result;
+    }
+
+    private async Task<SnWalletSubscription?> SelectEffectivePerkSubscriptionAsync(
+        List<SnWalletSubscription> candidates,
+        Instant now
+    )
+    {
+        if (candidates.Count == 0) return null;
+
+        var changed = false;
+        foreach (var subscription in candidates)
+        {
+            if (!subscription.IsAvailableAt(now)) continue;
+
+            if (subscription.PerkLevel <= 0 || string.IsNullOrWhiteSpace(subscription.DisplayName))
+            {
+                var definition = await catalog.GetDefinitionAsync(subscription.Identifier);
+                if (definition is not null)
+                {
+                    subscription.GroupIdentifier ??= definition.GroupIdentifier;
+                    subscription.DisplayName ??= definition.DisplayName;
+                    if (subscription.PerkLevel <= 0)
+                        subscription.PerkLevel = definition.PerkLevel;
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed)
+            await db.SaveChangesAsync();
+
+        return candidates
+            .Where(s => s.IsAvailableAt(now))
+            .Where(s => s.PerkLevel > 0)
+            .OrderByDescending(s => s.PerkLevel)
+            .ThenByDescending(s => s.BegunAt)
+            .FirstOrDefault();
     }
 
     /// <summary>

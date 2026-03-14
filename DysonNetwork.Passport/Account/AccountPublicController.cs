@@ -48,6 +48,12 @@ public class AccountPublicController(
             if (subscription is not null)
             {
                 account.PerkSubscription = SnWalletSubscription.FromProtoValue(subscription).ToReference();
+                account.PerkLevel = account.PerkSubscription.PerkLevel;
+            }
+            else
+            {
+                account.PerkSubscription = null;
+                account.PerkLevel = 0;
             }
         }
         catch (Exception ex)
@@ -123,6 +129,12 @@ public class AccountPublicController(
                     if (subscriptionDict.TryGetValue(account.Id, out var subscription))
                     {
                         account.PerkSubscription = subscription;
+                        account.PerkLevel = subscription.PerkLevel;
+                    }
+                    else
+                    {
+                        account.PerkSubscription = null;
+                        account.PerkLevel = 0;
                     }
                 }
             }
