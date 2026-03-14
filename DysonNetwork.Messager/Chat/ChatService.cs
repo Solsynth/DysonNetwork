@@ -548,11 +548,14 @@ public partial class ChatService(
         bool notify = true
     )
     {
-        message.Sender = sender;
-        message.ChatRoom = room;
-
         using var scope = scopeFactory.CreateScope();
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
+
+        if (room.RealmId != null && NeedsRealmIdentityOverlay(sender))
+            sender = await scopedCrs.LoadMemberAccount(sender);
+
+        message.Sender = sender;
+        message.ChatRoom = room;
 
         var members = await scopedCrs.ListRoomMembers(room.Id);
 
@@ -577,7 +580,7 @@ public partial class ChatService(
         var roomSubject = room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM" :
             room.Realm is not null ? $"{room.Name ?? "Unknown"}, {room.Realm.Name}" : room.Name ?? "Unknown";
 
-        if (sender.Account is null)
+        if (sender.Account is null || (room.RealmId != null && NeedsRealmIdentityOverlay(sender)))
             sender = await scopedCrs.LoadMemberAccount(sender);
         if (sender.Account is null)
             throw new InvalidOperationException(
@@ -1250,6 +1253,16 @@ public partial class ChatService(
         }
 
         return false;
+    }
+
+    private static bool NeedsRealmIdentityOverlay(SnChatMember sender)
+    {
+        return string.IsNullOrWhiteSpace(sender.RealmNick)
+               && string.IsNullOrWhiteSpace(sender.RealmBio)
+               && sender.RealmExperience is null
+               && sender.RealmLevel is null
+               && sender.RealmLevelingProgress is null
+               && sender.RealmLabel is null;
     }
 
     public async Task<SnChatReaction> AddReactionAsync(
