@@ -530,4 +530,20 @@ public class AccountService(
             DeletedAt = SystemClock.Instance.GetCurrentInstant()
         });
     }
+
+    public async Task<SnAccount> UpdateBasicInfo(SnAccount account, string? nick, string? language, string? region)
+    {
+        var dbAccount = await db.Accounts.FirstOrDefaultAsync(a => a.Id == account.Id);
+        if (dbAccount is null)
+            throw new InvalidOperationException("Account not found.");
+
+        if (nick is not null) dbAccount.Nick = nick;
+        if (language is not null) dbAccount.Language = language;
+        if (region is not null) dbAccount.Region = region;
+
+        db.Update(dbAccount);
+        await db.SaveChangesAsync();
+
+        return dbAccount;
+    }
 }

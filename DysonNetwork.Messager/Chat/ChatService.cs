@@ -1006,6 +1006,7 @@ public partial class ChatService(
                 .ToList();
 
             senders = await crs.LoadMemberAccounts(senders);
+            senders = await crs.HydrateRealmIdentity(senders, roomId);
 
             foreach (var message in syncMessages)
             {

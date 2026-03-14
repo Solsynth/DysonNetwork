@@ -233,6 +233,7 @@ public partial class ChatController(
 
         var members = messages.Select(m => m.Sender).DistinctBy(x => x.Id).ToList();
         members = await crs.LoadMemberAccounts(members);
+        members = await crs.HydrateRealmIdentity(members, roomId);
 
         foreach (var message in messages)
             message.Sender = members.First(x => x.Id == message.SenderId);
@@ -1067,6 +1068,19 @@ public partial class ChatController(
 
         var senders = messages.Select(m => m.Sender).DistinctBy(s => s.Id).ToList();
         senders = await crs.LoadMemberAccounts(senders);
+        foreach (var group in messages.GroupBy(m => m.ChatRoomId))
+        {
+            var groupSenders = senders
+                .Where(s => group.Any(m => m.SenderId == s.Id))
+                .ToList();
+            var hydratedSenders = await crs.HydrateRealmIdentity(groupSenders, group.Key);
+            foreach (var hydratedSender in hydratedSenders)
+            {
+                var index = senders.FindIndex(s => s.Id == hydratedSender.Id);
+                if (index >= 0)
+                    senders[index] = hydratedSender;
+            }
+        }
 
         foreach (var message in messages)
         {

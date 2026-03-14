@@ -72,20 +72,6 @@ public class AccountCurrentController(
         return Ok(account);
     }
 
-    public class BasicInfoRequest
-    {
-        [MaxLength(256)] public string? Nick { get; set; }
-        [MaxLength(32)] public string? Language { get; set; }
-        [MaxLength(32)] public string? Region { get; set; }
-    }
-
-    [HttpPatch]
-    public async Task<ActionResult<SnAccount>> UpdateBasicInfo([FromBody] BasicInfoRequest request)
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        return StatusCode(StatusCodes.Status501NotImplemented,
-            "Basic account identity fields moved to Padlock. Use Padlock account endpoints.");
-    }
 
     public class ProfileRequest
     {

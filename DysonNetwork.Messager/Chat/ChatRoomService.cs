@@ -234,6 +234,50 @@ public class ChatRoomService(
         return hydratedMembers;
     }
 
+    public async Task<List<SnChatMember>> HydrateRealmIdentity(ICollection<SnChatMember> members, Guid chatRoomId)
+    {
+        var hydratedMembers = members.ToList();
+        if (hydratedMembers.Count == 0)
+            return hydratedMembers;
+
+        var roomRealmId = await db.ChatRooms
+            .Where(r => r.Id == chatRoomId)
+            .Where(r => r.RealmId != null)
+            .Select(r => r.RealmId)
+            .FirstOrDefaultAsync();
+        if (!roomRealmId.HasValue)
+            return hydratedMembers;
+
+        var placeholders = hydratedMembers
+            .Select(m => new SnRealmMember
+            {
+                RealmId = roomRealmId.Value,
+                AccountId = m.AccountId
+            })
+            .DistinctBy(m => m.AccountId)
+            .ToList();
+        var realmMembers = await remoteRealms.LoadMemberAccounts(placeholders);
+        var realmMap = realmMembers
+            .GroupBy(m => m.AccountId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        foreach (var member in hydratedMembers)
+        {
+            if (!realmMap.TryGetValue(member.AccountId, out var realmMember)) continue;
+
+            member.RealmNick = realmMember.Nick;
+            member.RealmBio = realmMember.Bio;
+            member.RealmExperience = realmMember.Experience;
+            member.RealmLevel = realmMember.Level;
+            member.RealmLevelingProgress = realmMember.LevelingProgress;
+            member.RealmLabel = realmMember.Label;
+            if (!string.IsNullOrWhiteSpace(realmMember.Nick))
+                member.Nick = realmMember.Nick;
+        }
+
+        return hydratedMembers;
+    }
+
     private async Task ApplyRealmIdentity(ICollection<SnChatMember> members)
     {
         var memberList = members.ToList();
