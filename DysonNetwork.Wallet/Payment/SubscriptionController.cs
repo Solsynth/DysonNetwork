@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using System.Security.Cryptography;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using DysonNetwork.Wallet.Payment.PaymentHandlers;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
@@ -16,6 +18,7 @@ namespace DysonNetwork.Wallet.Payment;
 public class SubscriptionController(
     SubscriptionService subscriptions,
     AfdianPaymentHandler afdian,
+    AppleStorePaymentHandler appleStore,
     PaddlePaymentHandler paddle,
     AppDatabase db,
     RemoteActionLogService als
@@ -190,6 +193,11 @@ public class SubscriptionController(
         [Required] public string OrderId { get; set; } = null!;
     }
 
+    public class RestoreApplePurchaseRequest
+    {
+        [Required] public string SignedTransactionInfo { get; set; } = null!;
+    }
+
     public class CreatePaddleCheckoutRequest
     {
         public string? ProviderReferenceId { get; set; }
@@ -221,6 +229,29 @@ public class SubscriptionController(
         if (order is null) return NotFound($"Transaction with ID {request.OrderId} was not found.");
 
         var subscription = await subscriptions.CreateSubscriptionFromOrder(order);
+        return Ok(subscription);
+    }
+
+    [HttpPost("order/restore/apple")]
+    [Authorize]
+    public async Task<IActionResult> RestorePurchaseFromAppleStore([FromBody] RestoreApplePurchaseRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        AppleAppStoreTransaction transaction;
+        try
+        {
+            transaction = appleStore.ParseSignedTransaction(request.SignedTransactionInfo);
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or ArgumentException or CryptographicException)
+        {
+            return BadRequest(ex.Message);
+        }
+
+        if (!string.Equals(transaction.AccountId, currentUser.Id, StringComparison.OrdinalIgnoreCase))
+            return BadRequest("Apple transaction account token does not match the current user.");
+
+        var subscription = await subscriptions.CreateSubscriptionFromOrder(transaction);
         return Ok(subscription);
     }
 
@@ -287,6 +318,17 @@ public class SubscriptionController(
     public async Task<IActionResult> PaddleWebhook()
     {
         var response = await paddle.HandleWebhook(Request, async transaction =>
+        {
+            await subscriptions.CreateSubscriptionFromOrder(transaction);
+        }, HttpContext.RequestAborted);
+
+        return response.IsSuccess ? Ok() : Unauthorized();
+    }
+
+    [HttpPost("order/handle/apple")]
+    public async Task<IActionResult> AppleStoreWebhook()
+    {
+        var response = await appleStore.HandleWebhook(Request, async transaction =>
         {
             await subscriptions.CreateSubscriptionFromOrder(transaction);
         }, HttpContext.RequestAborted);

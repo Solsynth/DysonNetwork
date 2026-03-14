@@ -275,6 +275,11 @@ public abstract class SubscriptionPaymentMethod
     public const string Paddle = "paddle";
 
     /// <summary>
+    /// Apple App Store auto-renewable subscriptions.
+    /// </summary>
+    public const string AppleStore = "apple_store";
+
+    /// <summary>
     /// Internal gift redemption marker.
     /// </summary>
     public const string Gift = "gift";
