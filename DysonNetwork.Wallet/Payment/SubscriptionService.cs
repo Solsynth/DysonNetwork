@@ -122,13 +122,20 @@ public class SubscriptionService(
         var subscriptionIdentifier = order.SubscriptionId;
         switch (provider)
         {
-            case "afdian":
+            case SubscriptionPaymentMethod.Afdian:
                 // Get the Afdian section first, then bind it to a dictionary
                 var afdianPlans = cfgSection.GetSection("Afdian").Get<Dictionary<string, string>>();
                 logger.LogInformation("Afdian plans configuration: {Plans}", JsonSerializer.Serialize(afdianPlans));
                 if (afdianPlans != null && afdianPlans.TryGetValue(subscriptionIdentifier, out var planName))
                     subscriptionIdentifier = planName;
                 currency = "cny";
+                break;
+            case SubscriptionPaymentMethod.Paddle:
+                var paddlePlans = cfgSection.GetSection("Paddle").Get<Dictionary<string, string>>();
+                logger.LogInformation("Paddle plans configuration: {Plans}", JsonSerializer.Serialize(paddlePlans));
+                if (paddlePlans != null && paddlePlans.TryGetValue(subscriptionIdentifier, out var paddlePlanName))
+                    subscriptionIdentifier = paddlePlanName;
+                currency = "usd";
                 break;
         }
 
@@ -158,6 +165,8 @@ public class SubscriptionService(
 
         if (account is null)
             throw new InvalidOperationException($"Account was not found with identifier {order.AccountId}");
+        if (string.IsNullOrWhiteSpace(order.SubscriptionId))
+            throw new InvalidOperationException("Subscription identifier was missing from the payment payload.");
 
         var cycleDuration = order.Duration;
 

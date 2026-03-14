@@ -268,6 +268,11 @@ public abstract class SubscriptionPaymentMethod
     /// aka. China patreon
     /// </summary>
     public const string Afdian = "afdian";
+
+    /// <summary>
+    /// paddle.com
+    /// </summary>
+    public const string Paddle = "paddle";
 }
 
 public enum SubscriptionStatus

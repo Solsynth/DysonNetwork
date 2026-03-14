@@ -103,6 +103,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PaymentService>();
         services.AddScoped<SubscriptionService>();
         services.AddScoped<AfdianPaymentHandler>();
+        services.AddScoped<PaddlePaymentHandler>();
         services.AddScoped<LotteryService>();
 
         services.AddEventBus()

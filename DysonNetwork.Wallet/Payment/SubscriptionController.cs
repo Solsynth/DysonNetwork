@@ -13,7 +13,13 @@ namespace DysonNetwork.Wallet.Payment;
 
 [ApiController]
 [Route("/api/subscriptions")]
-public class SubscriptionController(SubscriptionService subscriptions, AfdianPaymentHandler afdian, AppDatabase db, RemoteActionLogService als)
+public class SubscriptionController(
+    SubscriptionService subscriptions,
+    AfdianPaymentHandler afdian,
+    PaddlePaymentHandler paddle,
+    AppDatabase db,
+    RemoteActionLogService als
+)
     : ControllerBase
 {
     [HttpGet]
@@ -195,6 +201,17 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
         return Ok(subscription);
     }
 
+    [HttpPost("order/restore/paddle")]
+    [Authorize]
+    public async Task<IActionResult> RestorePurchaseFromPaddle([FromBody] RestorePurchaseRequest request)
+    {
+        var order = await paddle.GetTransactionAsync(request.OrderId, HttpContext.RequestAborted);
+        if (order is null) return NotFound($"Transaction with ID {request.OrderId} was not found.");
+
+        var subscription = await subscriptions.CreateSubscriptionFromOrder(order);
+        return Ok(subscription);
+    }
+
     [HttpPost("order/handle/afdian")]
     public async Task<ActionResult<WebhookResponse>> AfdianWebhook()
     {
@@ -205,5 +222,16 @@ public class SubscriptionController(SubscriptionService subscriptions, AfdianPay
         });
 
         return Ok(response);
+    }
+
+    [HttpPost("order/handle/paddle")]
+    public async Task<IActionResult> PaddleWebhook()
+    {
+        var response = await paddle.HandleWebhook(Request, async transaction =>
+        {
+            await subscriptions.CreateSubscriptionFromOrder(transaction);
+        }, HttpContext.RequestAborted);
+
+        return response.IsSuccess ? Ok() : Unauthorized();
     }
 }
