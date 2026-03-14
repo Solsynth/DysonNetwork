@@ -289,6 +289,7 @@ public class RealmController(
 
         // The query should include the unjoined ones, to show the invites.
         var query = db.RealmMembers
+            .Include(m => m.Label)
             .Where(m => m.RealmId == realm.Id)
             .Where(m => m.LeaveAt == null);
 
