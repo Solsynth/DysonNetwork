@@ -854,26 +854,16 @@ public partial class ChatService(
                 m => m
             );
 
-        var messageSenders = messages
-            .Select(m => m.Value!.Sender)
-            .DistinctBy(x => x.Id)
-            .ToList();
-        messageSenders = await crs.LoadMemberAccounts(messageSenders);
-        messageSenders = messageSenders.Where(x => x.Account is not null).ToList();
+        var hydratedMessages = messages.Values.OfType<SnChatMessage>().ToList();
+        await HydrateMessageSendersAsync(hydratedMessages);
 
-        // Get keys of messages to remove (where sender is not found)
         var messagesToRemove = messages
-            .Where(m => messageSenders.All(s => s.Id != m.Value!.SenderId))
+            .Where(m => m.Value?.Sender?.Account is null)
             .Select(m => m.Key)
             .ToList();
 
-        // Remove messages with no sender
         foreach (var key in messagesToRemove)
             messages.Remove(key);
-
-        // Update remaining messages with their senders
-        foreach (var message in messages)
-            message.Value!.Sender = messageSenders.First(x => x.Id == message.Value.SenderId);
 
         await HydrateMessageReactionsAsync(messages.Values.OfType<SnChatMessage>().ToList(), userId);
 
@@ -996,29 +986,11 @@ public partial class ChatService(
             .Include(m => m.Sender)
             .ToListAsync();
 
-        // Load member accounts for messages that need them
-        if (syncMessages.Count > 0)
-        {
-            var senders = syncMessages
-                .Select(m => m.Sender)
-                .DistinctBy(s => s.Id)
-                .ToList();
-
-            senders = await crs.LoadMemberAccounts(senders);
-
-            // Update sender information
-            foreach (var message in syncMessages)
-            {
-                var sender = senders.FirstOrDefault(s => s.Id == message.SenderId);
-                if (sender != null)
-                {
-                    message.Sender = sender;
-                }
-            }
-        }
+        await HydrateMessageSendersAsync(syncMessages);
 
         await HydrateMessageReactionsAsync(syncMessages, accountId);
         await EnrichReactionSyncMessagesAsync(syncMessages, accountId);
+        await HydrateMessageSendersAsync(syncMessages);
 
         var latestTimestamp = syncMessages.Count > 0
             ? syncMessages.Last().CreatedAt
@@ -1553,6 +1525,50 @@ public partial class ChatService(
         if (!TryGetMetaGuid(meta, key, out var value))
             return null;
         return value;
+    }
+
+    public async Task HydrateMessageSendersAsync(List<SnChatMessage> messages)
+    {
+        if (messages.Count == 0)
+            return;
+
+        var allMessages = new Dictionary<Guid, SnChatMessage>();
+
+        void AddMessage(SnChatMessage? message)
+        {
+            if (message is null) return;
+            allMessages[message.Id] = message;
+
+            if (message.RepliedMessage is not null)
+                allMessages[message.RepliedMessage.Id] = message.RepliedMessage;
+            if (message.ForwardedMessage is not null)
+                allMessages[message.ForwardedMessage.Id] = message.ForwardedMessage;
+            if (message.Meta?.TryGetValue("message", out var nestedMessage) == true && nestedMessage is SnChatMessage nested)
+                allMessages[nested.Id] = nested;
+        }
+
+        foreach (var message in messages)
+            AddMessage(message);
+
+        var senders = allMessages.Values
+            .Where(m => m.Sender is not null)
+            .Select(m => m.Sender)
+            .DistinctBy(s => s.Id)
+            .ToList();
+        if (senders.Count == 0)
+            return;
+
+        senders = await crs.LoadMemberAccounts(senders);
+        var senderMap = senders
+            .Where(s => s.Account is not null)
+            .GroupBy(s => s.Id)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        foreach (var message in allMessages.Values)
+        {
+            if (senderMap.TryGetValue(message.SenderId, out var sender))
+                message.Sender = sender;
+        }
     }
 }
 

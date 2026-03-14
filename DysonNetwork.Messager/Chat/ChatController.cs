@@ -1065,20 +1065,10 @@ public partial class ChatController(
             .Include(m => m.Sender)
             .ToListAsync();
 
-        var senders = messages.Select(m => m.Sender).DistinctBy(s => s.Id).ToList();
-        senders = await crs.LoadMemberAccounts(senders);
-
-        foreach (var message in messages)
-        {
-            var sender = senders.FirstOrDefault(s => s.Id == message.SenderId);
-            if (sender != null)
-            {
-                message.Sender = sender;
-            }
-        }
-
+        await cs.HydrateMessageSendersAsync(messages);
         await cs.HydrateMessageReactionsAsync(messages, accountId);
         await cs.EnrichReactionSyncMessagesAsync(messages, accountId);
+        await cs.HydrateMessageSendersAsync(messages);
 
         var latestTimestamp = messages.Count > 0
             ? messages.Last().CreatedAt
