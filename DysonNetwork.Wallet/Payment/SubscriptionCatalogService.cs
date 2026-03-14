@@ -95,6 +95,31 @@ public class SubscriptionCatalogService(
             mapped.Any(id => string.Equals(id, externalId, StringComparison.OrdinalIgnoreCase)));
     }
 
+    public async Task<string?> GetProviderReferenceAsync(
+        string identifier,
+        string provider,
+        string? preferredReference = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var definition = await GetDefinitionAsync(identifier, cancellationToken);
+        if (definition is null) return null;
+        if (!definition.ProviderMappings.TryGetValue(provider, out var mapped) || mapped.Count == 0)
+            return null;
+
+        if (!string.IsNullOrWhiteSpace(preferredReference))
+            return mapped.FirstOrDefault(x => string.Equals(x, preferredReference, StringComparison.OrdinalIgnoreCase));
+
+        if (string.Equals(provider, SubscriptionPaymentMethod.Paddle, StringComparison.OrdinalIgnoreCase))
+        {
+            var preferredPrice = mapped.FirstOrDefault(x => x.StartsWith("pri_", StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(preferredPrice))
+                return preferredPrice;
+        }
+
+        return mapped[0];
+    }
+
     public async Task<List<string>> GetGroupIdentifiersAsync(string? groupIdentifier, string fallbackIdentifier, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(groupIdentifier))

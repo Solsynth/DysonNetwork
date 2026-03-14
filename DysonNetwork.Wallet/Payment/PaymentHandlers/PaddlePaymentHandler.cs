@@ -32,6 +32,67 @@ public class PaddlePaymentHandler(
         PropertyNameCaseInsensitive = true
     };
 
+    public async Task<PaddleCheckoutSession> CreateCheckoutAsync(
+        string priceId,
+        Dictionary<string, object> customData,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (string.IsNullOrWhiteSpace(priceId))
+            throw new ArgumentException("Paddle price id is required.", nameof(priceId));
+
+        var apiKey = _configuration["Payment:Auth:Paddle:ApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException("Payment:Auth:Paddle:ApiKey is not configured.");
+
+        var payload = new PaddleCreateTransactionRequest
+        {
+            CollectionMode = "automatic",
+            Items = [new PaddleCreateTransactionItem { PriceId = priceId, Quantity = 1 }],
+            CustomData = customData.ToDictionary(
+                kv => kv.Key,
+                kv => JsonSerializer.SerializeToElement(kv.Value, JsonOptions)
+            )
+        };
+
+        var client = _httpClientFactory.CreateClient();
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"{GetBaseApiUrl(apiKey)}/transactions?include=checkout"
+        );
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        request.Headers.Add("Accept", "application/json");
+        request.Content = new StringContent(
+            JsonSerializer.Serialize(payload, JsonOptions),
+            Encoding.UTF8,
+            "application/json"
+        );
+
+        var response = await client.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogError(
+                "Failed to create Paddle checkout for price {PriceId}: {StatusCode} {Body}",
+                priceId,
+                response.StatusCode,
+                body
+            );
+            throw new InvalidOperationException("Unable to create Paddle checkout transaction.");
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var result = await JsonSerializer.DeserializeAsync<PaddleEntityResponse<PaddleTransaction>>(stream, JsonOptions, cancellationToken);
+        if (result?.Data?.Checkout?.Url is null)
+            throw new InvalidOperationException("Paddle checkout URL was not returned by the transaction API.");
+
+        return new PaddleCheckoutSession
+        {
+            TransactionId = result.Data.Id,
+            CheckoutUrl = result.Data.Checkout.Url
+        };
+    }
+
     public async Task<PaddleTransaction?> GetTransactionAsync(string transactionId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(transactionId))
@@ -242,6 +303,8 @@ public class PaddleTransaction : ISubscriptionOrder
 
     [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; set; }
 
+    [JsonPropertyName("checkout")] public PaddleCheckoutInfo? Checkout { get; set; }
+
     [JsonIgnore]
     public string SubscriptionId
     {
@@ -306,6 +369,34 @@ public class PaddleTransaction : ISubscriptionOrder
 public class PaddleTransactionItem
 {
     [JsonPropertyName("price")] public PaddlePrice? Price { get; set; }
+}
+
+public class PaddleCheckoutInfo
+{
+    [JsonPropertyName("url")] public string? Url { get; set; }
+}
+
+public class PaddleCreateTransactionRequest
+{
+    [JsonPropertyName("items")] public List<PaddleCreateTransactionItem> Items { get; set; } = [];
+
+    [JsonPropertyName("collection_mode")] public string CollectionMode { get; set; } = "automatic";
+
+    [JsonPropertyName("custom_data")] public Dictionary<string, JsonElement> CustomData { get; set; } = new();
+}
+
+public class PaddleCreateTransactionItem
+{
+    [JsonPropertyName("price_id")] public string PriceId { get; set; } = null!;
+
+    [JsonPropertyName("quantity")] public int Quantity { get; set; }
+}
+
+public class PaddleCheckoutSession
+{
+    public string TransactionId { get; set; } = null!;
+
+    public string CheckoutUrl { get; set; } = null!;
 }
 
 public class PaddlePrice

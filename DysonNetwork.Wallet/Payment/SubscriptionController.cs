@@ -190,6 +190,18 @@ public class SubscriptionController(
         [Required] public string OrderId { get; set; } = null!;
     }
 
+    public class CreatePaddleCheckoutRequest
+    {
+        public string? ProviderReferenceId { get; set; }
+    }
+
+    public class PaddleCheckoutResponse
+    {
+        public string TransactionId { get; set; } = null!;
+        public string CheckoutUrl { get; set; } = null!;
+        public string ProviderReferenceId { get; set; } = null!;
+    }
+
     [HttpPost("order/restore/afdian")]
     [Authorize]
     public async Task<IActionResult> RestorePurchaseFromAfdian([FromBody] RestorePurchaseRequest request)
@@ -210,6 +222,53 @@ public class SubscriptionController(
 
         var subscription = await subscriptions.CreateSubscriptionFromOrder(order);
         return Ok(subscription);
+    }
+
+    [HttpPost("{identifier}/checkout/paddle")]
+    [Authorize]
+    public async Task<ActionResult<PaddleCheckoutResponse>> CreatePaddleCheckout(
+        string identifier,
+        [FromBody] CreatePaddleCheckoutRequest? request = null
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        try
+        {
+            var (definition, providerReference) = await subscriptions.PreparePaddleCheckoutAsync(
+                currentUser,
+                identifier,
+                request?.ProviderReferenceId,
+                HttpContext.RequestAborted
+            );
+
+            var session = await paddle.CreateCheckoutAsync(
+                providerReference,
+                new Dictionary<string, object>
+                {
+                    ["account_id"] = currentUser.Id,
+                    ["subscription_identifier"] = definition.Identifier,
+                    ["price_id"] = providerReference,
+                    ["group_identifier"] = definition.GroupIdentifier ?? string.Empty
+                },
+                HttpContext.RequestAborted
+            );
+
+            return Ok(new PaddleCheckoutResponse
+            {
+                TransactionId = session.TransactionId,
+                CheckoutUrl = session.CheckoutUrl,
+                ProviderReferenceId = providerReference
+            });
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpPost("order/handle/afdian")]

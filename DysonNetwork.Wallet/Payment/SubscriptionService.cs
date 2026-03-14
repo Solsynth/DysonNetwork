@@ -157,6 +157,39 @@ public class SubscriptionService(
         );
     }
 
+    public async Task<(SnWalletSubscriptionDefinition Definition, string ProviderReference)> PreparePaddleCheckoutAsync(
+        DyAccount account,
+        string identifier,
+        string? providerReference = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var definition = await catalog.GetDefinitionAsync(identifier, cancellationToken);
+        if (definition is null)
+            throw new ArgumentOutOfRangeException(nameof(identifier), $"Subscription {identifier} was not found.");
+        if (!definition.IsPaymentMethodAllowed(SubscriptionPaymentMethod.Paddle))
+            throw new InvalidOperationException($"Payment method {SubscriptionPaymentMethod.Paddle} is not allowed for subscription {identifier}.");
+        if (definition.MinimumAccountLevel.HasValue && account.Profile.Level < definition.MinimumAccountLevel.Value)
+            throw new InvalidOperationException(
+                $"Account level must be at least {definition.MinimumAccountLevel.Value} to purchase {identifier}."
+            );
+
+        var resolvedReference = await catalog.GetProviderReferenceAsync(
+            identifier,
+            SubscriptionPaymentMethod.Paddle,
+            providerReference,
+            cancellationToken
+        );
+        if (string.IsNullOrWhiteSpace(resolvedReference))
+            throw new InvalidOperationException("No Paddle price mapping was configured for this subscription.");
+        if (!resolvedReference.StartsWith("pri_", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"Configured Paddle reference {resolvedReference} is not a price id. Checkout requires a Paddle price."
+            );
+
+        return (definition, resolvedReference);
+    }
+
     /// <summary>
     /// Cancel the renewal of the current activated subscription.
     /// </summary>
