@@ -20,6 +20,7 @@ public class TimelineService(
 )
 {
     private const double ArticleTypeBoost = 1.5d;
+    private const double RealmBoostLevelRankBonus = 0.6d;
     private const double PublisherRepeatPenalty = 1.35d;
     private const double ExplicitPositiveFeedbackScore = 4d;
     private const double ExplicitNegativeFeedbackScore = -30d;
@@ -40,6 +41,8 @@ public class TimelineService(
             post.ReactionScore * 1.4 + post.ThreadRepliesCount * 0.8 + (double)post.AwardedScore / 10d;
         if (post.Type == PostType.Article)
             performanceScore += ArticleTypeBoost;
+        if (post.Realm is not null && post.Realm.BoostLevel > 0)
+            performanceScore += post.Realm.BoostLevel * RealmBoostLevelRankBonus;
 
         var postTime = post.PublishedAt ?? post.CreatedAt;
         var timeScore = (now - postTime).TotalMinutes;
@@ -1029,6 +1032,7 @@ public class TimelineService(
                     .OrderByDescending(x => x)
                     .Take(3)
                     .Sum();
+                score += publicRealmMap[group.Key].BoostLevel * RealmBoostLevelRankBonus;
                 return new RankedDiscoveryTarget<Guid>(group.Key, score, BuildReasonLabels(posts));
             })
             .Where(x => x.Score > 0.2d)
@@ -1043,15 +1047,7 @@ public class TimelineService(
                 Label = publicRealmMap[x.ReferenceId].Name,
                 Score = x.Score,
                 Reasons = x.Reasons,
-                Data = new SnRealmDiscoveryRef
-                {
-                    Id = publicRealmMap[x.ReferenceId].Id,
-                    Slug = publicRealmMap[x.ReferenceId].Slug,
-                    Name = publicRealmMap[x.ReferenceId].Name,
-                    Description = publicRealmMap[x.ReferenceId].Description,
-                    Picture = publicRealmMap[x.ReferenceId].Picture,
-                    Background = publicRealmMap[x.ReferenceId].Background,
-                },
+                Data = PrepareDiscoveryRealm(publicRealmMap[x.ReferenceId]),
             })
             .ToList();
 
@@ -1119,15 +1115,7 @@ public class TimelineService(
                         ReferenceId = preference.ReferenceId,
                         Label = realm.Name,
                         Reasons = preference.Reason is null ? [] : [preference.Reason],
-                        Data = new SnRealmDiscoveryRef
-                        {
-                            Id = realm.Id,
-                            Slug = realm.Slug,
-                            Name = realm.Name,
-                            Description = realm.Description,
-                            Picture = realm.Picture,
-                            Background = realm.Background,
-                        },
+                        Data = PrepareDiscoveryRealm(realm),
                     },
                 _ => null,
             })
@@ -1147,6 +1135,14 @@ public class TimelineService(
         account.Badges ??= [];
         account.Profile.Links ??= [];
         return account;
+    }
+
+    private static SnRealm PrepareDiscoveryRealm(SnRealm realm)
+    {
+        realm.Slug ??= string.Empty;
+        realm.Name ??= string.Empty;
+        realm.Description ??= string.Empty;
+        return realm;
     }
 
     private static double CalculateDiscoveryPostScore(
