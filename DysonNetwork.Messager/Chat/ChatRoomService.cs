@@ -203,11 +203,14 @@ public class ChatRoomService(
                 RealmId = roomRealmIds[m.ChatRoomId],
                 AccountId = m.AccountId
             })
+            .DistinctBy(m => (m.RealmId, m.AccountId))
             .ToList();
         if (placeholders.Count == 0) return;
 
         var realmMembers = await remoteRealms.LoadMemberAccounts(placeholders);
-        var realmMap = realmMembers.ToDictionary(m => (m.RealmId, m.AccountId), m => m);
+        var realmMap = realmMembers
+            .GroupBy(m => (m.RealmId, m.AccountId))
+            .ToDictionary(g => g.Key, g => g.First());
 
         foreach (var member in memberList)
         {
