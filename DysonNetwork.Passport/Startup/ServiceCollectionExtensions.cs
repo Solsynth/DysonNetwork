@@ -101,8 +101,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppBusinessServices(this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddScoped<RazorViewRenderer>();
-        services.AddSingleton<ILocalizationService, DysonNetwork.Shared.Localization.JsonLocalizationService>(sp =>
+        services.AddSingleton<ILocalizationService, JsonLocalizationService>(sp =>
         {
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
             var resourceNamespace = "DysonNetwork.Passport.Resources.Locales";

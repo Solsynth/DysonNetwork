@@ -14,6 +14,7 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Padlock.Auth.OidcProvider.Options;
 using DysonNetwork.Padlock.Auth.OidcProvider.Services;
 using DysonNetwork.Padlock.E2EE;
+using DysonNetwork.Padlock.Mailer;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
@@ -141,6 +142,7 @@ public static class ServiceCollectionExtensions
         });
         services.Configure<GeoOptions>(configuration.GetSection("GeoIP"));
         services.AddScoped<GeoService>();
+        services.AddScoped<EmailService>();
         services.AddScoped<PermissionService>();
         services.AddScoped<AccountService>();
         services.AddScoped<ActionLogService>();

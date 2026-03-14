@@ -1,7 +1,7 @@
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Templating;
 
-namespace DysonNetwork.Passport.Mailer;
+namespace DysonNetwork.Padlock.Mailer;
 
 public class EmailService(
     DyRingService.DyRingServiceClient pusher,

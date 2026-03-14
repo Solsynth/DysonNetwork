@@ -1,6 +1,8 @@
 using DysonNetwork.Padlock.Auth.OpenId;
+using DysonNetwork.Padlock.Mailer;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.EventBus;
+using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
@@ -15,6 +17,9 @@ public class AccountService(
     ICacheService cache,
     IEventBus eventBus,
     DyFileService.DyFileServiceClient files,
+    DyRingService.DyRingServiceClient ring,
+    EmailService mailer,
+    ILocalizationService localizer,
     ILogger<AccountService> logger
 )
 {
@@ -214,10 +219,86 @@ public class AccountService(
         await db.SaveChangesAsync();
     }
 
+    
+    private async Task _SetFactorCode(SnAccountAuthFactor factor, string code, TimeSpan expires)
+    {
+        await cache.SetAsync(
+            $"{AuthFactorCachePrefix}{factor.Id}:code",
+            code,
+            expires
+        );
+    }
+    
+    private async Task<string?> _GetFactorCode(SnAccountAuthFactor factor)
+    {
+        return await cache.GetAsync<string?>(
+            $"{AuthFactorCachePrefix}{factor.Id}:code"
+        );
+    }
+
     public async Task SendFactorCode(SnAccount account, SnAccountAuthFactor factor)
     {
         var code = Random.Shared.Next(100000, 999999).ToString();
-        await cache.SetAsync($"{AuthFactorCachePrefix}{factor.Id}:code", code, TimeSpan.FromMinutes(10));
+        
+         switch (factor.Type)
+        {
+            case Shared.Models.AccountAuthFactorType.InAppCode:
+                if (await _GetFactorCode(factor) is not null)
+                    throw new InvalidOperationException("A factor code has been sent and in active duration.");
+
+                await ring.SendPushNotificationToUserAsync(
+                    new DySendPushNotificationToUserRequest
+                    {
+                        UserId = account.Id.ToString(),
+                        Notification = new DyPushNotification
+                        {
+                            Topic = "auth.verification",
+                            Title = localizer.Get("authCodeTitle", account.Language),
+                            Body = localizer.Get("authCodeBody", locale: account.Language, args: new { code }),
+                            IsSavable = false
+                        }
+                    }
+                );
+                await _SetFactorCode(factor, code, TimeSpan.FromMinutes(5));
+                break;
+            case AccountAuthFactorType.EmailCode:
+                if (await _GetFactorCode(factor) is not null)
+                    throw new InvalidOperationException("A factor code has been sent and in active duration.");
+
+                var contact = await db.AccountContacts
+                    .Where(c => c.Type == Shared.Models.AccountContactType.Email)
+                    .Where(c => c.VerifiedAt != null)
+                    .Where(c => c.IsPrimary)
+                    .Where(c => c.AccountId == account.Id)
+                    .Include(c => c.Account)
+                    .FirstOrDefaultAsync();
+                if (contact is null)
+                {
+                    logger.LogWarning(
+                        "Unable to send factor code to #{FactorId} with, due to no contact method was found...",
+                        factor.Id
+                    );
+                    return;
+                }
+
+                await mailer
+                    .SendTemplatedEmailAsync(
+                        account.Nick,
+                        contact.Content,
+                        localizer.Get("codeEmailTitle", account.Language),
+                        "FactorCode",
+                        new { name = account.Name, code },
+                        account.Language
+                    );
+
+                await _SetFactorCode(factor, code, TimeSpan.FromMinutes(30));
+                break;
+            case Shared.Models.AccountAuthFactorType.Password:
+            case Shared.Models.AccountAuthFactorType.TimedCode:
+            default:
+                // No need to send, such as password etc...
+                return;
+        }
     }
 
     public async Task<bool> VerifyFactorCode(SnAccountAuthFactor factor, string code)
