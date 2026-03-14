@@ -148,9 +148,11 @@ public class SnRealmMember : ModelBase
             LeaveAt = LeaveAt?.ToTimestamp(),
             LabelId = LabelId?.ToString() ?? string.Empty
         };
-        
-        proto.Realm = Realm.ToProtoValue();
-        
+        if (Realm != null)
+        {
+            proto.Realm = Realm.ToProtoValue();
+        }
+
         if (Account != null)
         {
             proto.Account = Account.ToProtoValue();
