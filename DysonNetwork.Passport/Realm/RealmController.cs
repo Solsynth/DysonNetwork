@@ -564,10 +564,11 @@ public class RealmController(
     {
         var realm = await rs.GetBySlug(slug);
         if (realm is null) return NotFound();
+        var cutoff = RealmBoostPolicy.GetActiveCutoff(SystemClock.Instance.GetCurrentInstant());
 
         var leaderboard = await db.RealmBoostContributions
             .Where(c => c.RealmId == realm.Id)
-            .Where(c => c.CreatedAt >= RealmBoostPolicy.GetActiveCutoff(SystemClock.Instance.GetCurrentInstant()))
+            .Where(c => c.CreatedAt >= cutoff)
             .GroupBy(c => c.AccountId)
             .Select(g => new
             {

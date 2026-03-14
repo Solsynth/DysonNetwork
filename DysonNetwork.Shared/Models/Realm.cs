@@ -146,9 +146,12 @@ public class SnRealmMember : ModelBase
             LevelingProgress = LevelingProgress,
             JoinedAt = JoinedAt?.ToTimestamp(),
             LeaveAt = LeaveAt?.ToTimestamp(),
-            Realm = Realm.ToProtoValue(),
             LabelId = LabelId?.ToString() ?? string.Empty
         };
+        if (Realm != null)
+        {
+            proto.Realm = Realm.ToProtoValue();
+        }
         if (Account != null)
         {
             proto.Account = Account.ToProtoValue();
