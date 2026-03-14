@@ -169,7 +169,42 @@ public class ChatRoomService(
 
     public async Task<SnChatMember> HydrateRealmIdentity(SnChatMember member)
     {
-        await ApplyRealmIdentity([member]);
+        await HydrateRealmIdentity(member, member.ChatRoomId);
+        return member;
+    }
+
+    public async Task<SnChatMember> HydrateRealmIdentity(SnChatMember member, Guid chatRoomId)
+    {
+        var roomRealmId = await db.ChatRooms
+            .Where(r => r.Id == chatRoomId)
+            .Where(r => r.RealmId != null)
+            .Select(r => r.RealmId)
+            .FirstOrDefaultAsync();
+        if (!roomRealmId.HasValue)
+            return member;
+
+        var realmMembers = await remoteRealms.LoadMemberAccounts(
+            [
+                new SnRealmMember
+                {
+                    RealmId = roomRealmId.Value,
+                    AccountId = member.AccountId
+                }
+            ]
+        );
+        var realmMember = realmMembers.FirstOrDefault();
+        if (realmMember is null)
+            return member;
+
+        member.RealmNick = realmMember.Nick;
+        member.RealmBio = realmMember.Bio;
+        member.RealmExperience = realmMember.Experience;
+        member.RealmLevel = realmMember.Level;
+        member.RealmLevelingProgress = realmMember.LevelingProgress;
+        member.RealmLabel = realmMember.Label;
+        if (!string.IsNullOrWhiteSpace(realmMember.Nick))
+            member.Nick = realmMember.Nick;
+
         return member;
     }
 

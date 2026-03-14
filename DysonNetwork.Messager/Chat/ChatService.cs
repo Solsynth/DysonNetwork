@@ -552,7 +552,7 @@ public partial class ChatService(
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
 
         if (room.RealmId != null)
-            sender = await scopedCrs.HydrateRealmIdentity(sender);
+            sender = await scopedCrs.HydrateRealmIdentity(sender, room.Id);
 
         message.Sender = sender;
         message.ChatRoom = room;
@@ -583,7 +583,7 @@ public partial class ChatService(
         if (sender.Account is null)
             sender = await scopedCrs.LoadMemberAccount(sender);
         else if (room.RealmId != null)
-            sender = await scopedCrs.HydrateRealmIdentity(sender);
+            sender = await scopedCrs.HydrateRealmIdentity(sender, room.Id);
         if (sender.Account is null)
             throw new InvalidOperationException(
                 "Sender account is null, this should never happen. Sender id: " +
@@ -1250,7 +1250,7 @@ public partial class ChatService(
     private static bool TryGetMetaGuid(Dictionary<string, object>? meta, string key, out Guid value)
     {
         value = Guid.Empty;
-        if (meta is null || !meta.TryGetValue(key, out var raw) || raw is null)
+        if (meta is null || !meta.TryGetValue(key, out var raw))
             return false;
 
         if (raw is Guid guid)
@@ -1335,7 +1335,7 @@ public partial class ChatService(
 
         await HydrateMessageReactionsAsync([message], sender.AccountId);
 
-        if (message.Sender is null || message.Sender.Id != message.SenderId)
+        if (message.Sender.Id != message.SenderId)
         {
             var originalSender = await db.ChatMembers
                 .Where(m => m.Id == message.SenderId)
@@ -1344,8 +1344,6 @@ public partial class ChatService(
                 message.Sender = await crs.LoadMemberAccount(originalSender);
         }
         message.ChatRoom = room;
-        if (message.Sender is null)
-            return reaction;
         await DeliverMessageAsync(
             message,
             message.Sender,
@@ -1366,8 +1364,9 @@ public partial class ChatService(
         SnChatMember sender
     )
     {
+        var sd = sender;
         var reaction = await db.ChatReactions
-            .Where(r => r.MessageId == message.Id && r.SenderId == sender.Id && r.Symbol == symbol)
+            .Where(r => r.MessageId == message.Id && r.SenderId == sd.Id && r.Symbol == symbol)
             .FirstOrDefaultAsync();
 
         if (reaction is null)
@@ -1408,13 +1407,6 @@ public partial class ChatService(
         syncMessage.Sender = sender;
         syncMessage.ChatRoom = room;
 
-        // Ensure both sender and chat room are not null before delivering
-        if (syncMessage.Sender == null || syncMessage.ChatRoom == null)
-        {
-            logger.LogWarning("Cannot deliver reaction removal message: sender or chat room is null for message {MessageId}", message.Id);
-            return;
-        }
-
         await DeliverMessageAsync(
             syncMessage,
             syncMessage.Sender,
@@ -1424,7 +1416,7 @@ public partial class ChatService(
 
         await HydrateMessageReactionsAsync([message], sender.AccountId);
 
-        if (message.Sender is null || message.Sender.Id != message.SenderId)
+        if (message.Sender.Id != message.SenderId)
         {
             var originalSender = await db.ChatMembers
                 .Where(m => m.Id == message.SenderId)
@@ -1471,8 +1463,6 @@ public partial class ChatService(
 
         foreach (var message in messages)
         {
-            message.ReactionsCount ??= new Dictionary<string, int>();
-
             message.ReactionsMade = accountId.HasValue
                 ? reactionMadeMap.GetValueOrDefault(message.Id, [])
                 : null;
