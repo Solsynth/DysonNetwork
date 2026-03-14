@@ -131,7 +131,13 @@ public class RealmService(
 
     public async Task<SnRealmMember> LoadMemberAccount(SnRealmMember member)
     {
-        if (member.JoinedAt == null && member.LeaveAt == null && member.Role == 0)
+        if (member.JoinedAt != null && member.LeaveAt == null)
+        {
+            var actualMember = await GetActiveMember(member.RealmId, member.AccountId);
+            if (actualMember is not null)
+                member = actualMember;
+        }
+        else if (member.JoinedAt == null && member.LeaveAt == null && member.Role == 0)
         {
             var actualMember = await GetActiveMember(member.RealmId, member.AccountId);
             if (actualMember is not null)
