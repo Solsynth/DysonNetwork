@@ -551,8 +551,8 @@ public partial class ChatService(
         using var scope = scopeFactory.CreateScope();
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
 
-        if (room.RealmId != null && NeedsRealmIdentityOverlay(sender))
-            sender = await scopedCrs.LoadMemberAccount(sender);
+        if (room.RealmId != null)
+            sender = await scopedCrs.HydrateRealmIdentity(sender);
 
         message.Sender = sender;
         message.ChatRoom = room;
@@ -580,8 +580,10 @@ public partial class ChatService(
         var roomSubject = room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM" :
             room.Realm is not null ? $"{room.Name ?? "Unknown"}, {room.Realm.Name}" : room.Name ?? "Unknown";
 
-        if (sender.Account is null || (room.RealmId != null && NeedsRealmIdentityOverlay(sender)))
+        if (sender.Account is null)
             sender = await scopedCrs.LoadMemberAccount(sender);
+        else if (room.RealmId != null)
+            sender = await scopedCrs.HydrateRealmIdentity(sender);
         if (sender.Account is null)
             throw new InvalidOperationException(
                 "Sender account is null, this should never happen. Sender id: " +
@@ -857,16 +859,23 @@ public partial class ChatService(
                 m => m
             );
 
-        var hydratedMessages = messages.Values.OfType<SnChatMessage>().ToList();
-        await HydrateMessageSendersAsync(hydratedMessages);
+        var messageSenders = messages
+            .Select(m => m.Value!.Sender)
+            .DistinctBy(x => x.Id)
+            .ToList();
+        messageSenders = await crs.LoadMemberAccounts(messageSenders);
+        messageSenders = messageSenders.Where(x => x.Account is not null).ToList();
 
         var messagesToRemove = messages
-            .Where(m => m.Value?.Sender?.Account is null)
+            .Where(m => messageSenders.All(s => s.Id != m.Value!.SenderId))
             .Select(m => m.Key)
             .ToList();
 
         foreach (var key in messagesToRemove)
             messages.Remove(key);
+
+        foreach (var message in messages)
+            message.Value!.Sender = messageSenders.First(x => x.Id == message.Value.SenderId);
 
         await HydrateMessageReactionsAsync(messages.Values.OfType<SnChatMessage>().ToList(), userId);
 
@@ -989,11 +998,24 @@ public partial class ChatService(
             .Include(m => m.Sender)
             .ToListAsync();
 
-        await HydrateMessageSendersAsync(syncMessages);
+        if (syncMessages.Count > 0)
+        {
+            var senders = syncMessages
+                .Select(m => m.Sender)
+                .DistinctBy(s => s.Id)
+                .ToList();
 
+            senders = await crs.LoadMemberAccounts(senders);
+
+            foreach (var message in syncMessages)
+            {
+                var sender = senders.FirstOrDefault(s => s.Id == message.SenderId);
+                if (sender != null)
+                    message.Sender = sender;
+            }
+        }
         await HydrateMessageReactionsAsync(syncMessages, accountId);
         await EnrichReactionSyncMessagesAsync(syncMessages, accountId);
-        await HydrateMessageSendersAsync(syncMessages);
 
         var latestTimestamp = syncMessages.Count > 0
             ? syncMessages.Last().CreatedAt
@@ -1253,16 +1275,6 @@ public partial class ChatService(
         }
 
         return false;
-    }
-
-    private static bool NeedsRealmIdentityOverlay(SnChatMember sender)
-    {
-        return string.IsNullOrWhiteSpace(sender.RealmNick)
-               && string.IsNullOrWhiteSpace(sender.RealmBio)
-               && sender.RealmExperience is null
-               && sender.RealmLevel is null
-               && sender.RealmLevelingProgress is null
-               && sender.RealmLabel is null;
     }
 
     public async Task<SnChatReaction> AddReactionAsync(
@@ -1540,49 +1552,6 @@ public partial class ChatService(
         return value;
     }
 
-    public async Task HydrateMessageSendersAsync(List<SnChatMessage> messages)
-    {
-        if (messages.Count == 0)
-            return;
-
-        var allMessages = new Dictionary<Guid, SnChatMessage>();
-
-        void AddMessage(SnChatMessage? message)
-        {
-            if (message is null) return;
-            allMessages[message.Id] = message;
-
-            if (message.RepliedMessage is not null)
-                allMessages[message.RepliedMessage.Id] = message.RepliedMessage;
-            if (message.ForwardedMessage is not null)
-                allMessages[message.ForwardedMessage.Id] = message.ForwardedMessage;
-            if (message.Meta?.TryGetValue("message", out var nestedMessage) == true && nestedMessage is SnChatMessage nested)
-                allMessages[nested.Id] = nested;
-        }
-
-        foreach (var message in messages)
-            AddMessage(message);
-
-        var senders = allMessages.Values
-            .Where(m => m.Sender is not null)
-            .Select(m => m.Sender)
-            .DistinctBy(s => s.Id)
-            .ToList();
-        if (senders.Count == 0)
-            return;
-
-        senders = await crs.LoadMemberAccounts(senders);
-        var senderMap = senders
-            .Where(s => s.Account is not null)
-            .GroupBy(s => s.Id)
-            .ToDictionary(g => g.Key, g => g.First());
-
-        foreach (var message in allMessages.Values)
-        {
-            if (senderMap.TryGetValue(message.SenderId, out var sender))
-                message.Sender = sender;
-        }
-    }
 }
 
 public class SyncResponse

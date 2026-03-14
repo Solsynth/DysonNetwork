@@ -167,6 +167,12 @@ public class ChatRoomService(
         return member;
     }
 
+    public async Task<SnChatMember> HydrateRealmIdentity(SnChatMember member)
+    {
+        await ApplyRealmIdentity([member]);
+        return member;
+    }
+
     public async Task<List<SnChatMember>> LoadMemberAccounts(ICollection<SnChatMember> members)
     {
         var accountIds = members.Select(m => m.AccountId).ToList();
@@ -184,6 +190,13 @@ public class ChatRoomService(
 
         await ApplyRealmIdentity(loadedMembers);
         return loadedMembers;
+    }
+
+    public async Task<List<SnChatMember>> HydrateRealmIdentity(ICollection<SnChatMember> members)
+    {
+        var hydratedMembers = members.ToList();
+        await ApplyRealmIdentity(hydratedMembers);
+        return hydratedMembers;
     }
 
     private async Task ApplyRealmIdentity(ICollection<SnChatMember> members)
