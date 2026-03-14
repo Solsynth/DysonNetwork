@@ -228,7 +228,11 @@ public class SnRealmBoostContribution : ModelBase
     public Guid AccountId { get; set; }
     [MaxLength(128)] public string Currency { get; set; } = "points";
     public decimal Amount { get; set; }
+    public Guid OrderId { get; set; }
     public Guid TransactionId { get; set; }
+
+    [NotMapped]
+    public decimal Shares => Amount / 100m;
 }
 
 public class SnRealmExperienceRecord : ModelBase

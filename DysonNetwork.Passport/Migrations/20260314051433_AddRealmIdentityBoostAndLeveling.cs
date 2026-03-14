@@ -55,6 +55,7 @@ namespace DysonNetwork.Passport.Migrations
                     account_id = table.Column<Guid>(type: "uuid", nullable: false),
                     currency = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     amount = table.Column<decimal>(type: "numeric", nullable: false),
+                    order_id = table.Column<Guid>(type: "uuid", nullable: false),
                     transaction_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),

@@ -16,7 +16,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Passport.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20260313183207_AddRealmIdentityBoostAndLeveling")]
+    [Migration("20260314051433_AddRealmIdentityBoostAndLeveling")]
     partial class AddRealmIdentityBoostAndLeveling
     {
         /// <inheritdoc />
@@ -865,6 +865,10 @@ namespace DysonNetwork.Passport.Migrations
                     b.Property<Instant?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("order_id");
 
                     b.Property<Guid>("RealmId")
                         .HasColumnType("uuid")

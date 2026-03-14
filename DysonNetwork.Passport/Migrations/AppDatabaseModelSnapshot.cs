@@ -863,6 +863,10 @@ namespace DysonNetwork.Passport.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("order_id");
+
                     b.Property<Guid>("RealmId")
                         .HasColumnType("uuid")
                         .HasColumnName("realm_id");

@@ -183,6 +183,50 @@ public static class ServiceCollectionExtensions
 
                 logger.LogInformation("Handled account created event for {AccountId}", evt.AccountId);
             })
+            .AddListener<PaymentOrderEvent>(
+                PaymentOrderEventBase.Type,
+                async (evt, ctx) =>
+                {
+                    if (evt.ProductIdentifier != "realms.boost") return;
+
+                    var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+                    var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
+
+                    var boostEvt = JsonSerializer.Deserialize<PaymentOrderRealmBoostEvent>(
+                        JsonSerializer.Serialize(evt, InfraObjectCoder.SerializerOptions),
+                        InfraObjectCoder.SerializerOptions
+                    );
+                    if (boostEvt?.Meta == null) return;
+
+                    if (await db.RealmBoostContributions.AnyAsync(c => c.OrderId == boostEvt.OrderId, ctx.CancellationToken))
+                    {
+                        logger.LogDebug("Skipping duplicate realm boost order {OrderId}", boostEvt.OrderId);
+                        return;
+                    }
+
+                    var realm = await db.Realms.FirstOrDefaultAsync(r => r.Id == boostEvt.Meta.RealmId, ctx.CancellationToken);
+                    if (realm is null) return;
+
+                    var amount = decimal.Parse(boostEvt.Meta.AmountPoints, CultureInfo.InvariantCulture);
+                    realm.BoostPoints += amount;
+                    db.RealmBoostContributions.Add(new SnRealmBoostContribution
+                    {
+                        RealmId = boostEvt.Meta.RealmId,
+                        AccountId = boostEvt.Meta.AccountId,
+                        Currency = "points",
+                        Amount = amount,
+                        OrderId = boostEvt.OrderId,
+                        TransactionId = Guid.Empty
+                    });
+                    await db.SaveChangesAsync(ctx.CancellationToken);
+                },
+                opts =>
+                {
+                    opts.UseJetStream = true;
+                    opts.StreamName = "payment_events";
+                    opts.ConsumerName = "passport_realm_boost_orders";
+                    opts.MaxRetries = 3;
+                })
             .AddListener<RealmActivityEvent>(
                 RealmActivityEvent.SubjectPrefix + ">",
                 async (evt, ctx) =>

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Passport.Account;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -106,7 +107,14 @@ public class RealmController(
 
     public class RealmBoostRequest
     {
-        [Range(typeof(decimal), "0.001", "1000000")] public decimal Amount { get; set; }
+        [Range(1, 1000000)] public int Shares { get; set; }
+    }
+
+    public class RealmBoostResponse
+    {
+        public Guid OrderId { get; set; }
+        public int Shares { get; set; }
+        public decimal AmountPoints { get; set; }
     }
 
     public class RealmLabelAssignmentRequest
@@ -507,7 +515,7 @@ public class RealmController(
 
     [HttpPost("{slug}/boosts")]
     [Authorize]
-    public async Task<ActionResult<SnRealm>> BoostRealm(string slug, [FromBody] RealmBoostRequest request)
+    public async Task<ActionResult<RealmBoostResponse>> BoostRealm(string slug, [FromBody] RealmBoostRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         var realm = await rs.GetBySlug(slug);
@@ -515,27 +523,29 @@ public class RealmController(
         if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
             return StatusCode(403, "You must be a member to boost this realm.");
 
-        var tx = await payments.CreateTransactionWithAccount(
-            payerAccountId: currentUser.Id.ToString(),
-            payeeAccountId: null,
+        var amountPoints = request.Shares * 100m;
+        var order = await payments.CreateOrder(
             currency: "points",
-            amount: request.Amount.ToString(CultureInfo.InvariantCulture),
-            remarks: $"Realm boost:{realm.Id}",
-            type: DyTransactionType.System
+            amount: amountPoints.ToString(CultureInfo.InvariantCulture),
+            productIdentifier: "realms.boost",
+            remarks: $"Boost realm {realm.Name}",
+            meta: InfraObjectCoder.ConvertObjectToByteString(
+                new Dictionary<string, object?>
+                {
+                    ["realm_id"] = realm.Id,
+                    ["account_id"] = currentUser.Id,
+                    ["shares"] = request.Shares,
+                    ["amount_points"] = amountPoints.ToString(CultureInfo.InvariantCulture)
+                }
+            ).ToByteArray()
         );
 
-        realm.BoostPoints += request.Amount;
-        db.RealmBoostContributions.Add(new SnRealmBoostContribution
+        return Ok(new RealmBoostResponse
         {
-            RealmId = realm.Id,
-            AccountId = currentUser.Id,
-            Amount = request.Amount,
-            Currency = "points",
-            TransactionId = Guid.Parse(tx.Id)
+            OrderId = Guid.Parse(order.Id),
+            Shares = request.Shares,
+            AmountPoints = amountPoints
         });
-        await db.SaveChangesAsync();
-
-        return Ok(realm);
     }
 
     [HttpGet("{slug}/boosts")]
@@ -550,6 +560,40 @@ public class RealmController(
             boost_level = realm.BoostLevel,
             label_cap = RealmBoostPolicy.GetLabelCap(realm.BoostLevel)
         });
+    }
+
+    [HttpGet("{slug}/boosts/leaderboard")]
+    public async Task<ActionResult<object>> GetBoostLeaderboard(string slug, [FromQuery] int take = 20)
+    {
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+
+        var leaderboard = await db.RealmBoostContributions
+            .Where(c => c.RealmId == realm.Id)
+            .GroupBy(c => c.AccountId)
+            .Select(g => new
+            {
+                account_id = g.Key,
+                amount_points = g.Sum(x => x.Amount),
+                shares = g.Sum(x => x.Amount) / 100m,
+                boosts = g.Count()
+            })
+            .OrderByDescending(x => x.amount_points)
+            .Take(take)
+            .ToListAsync();
+
+        var accountDict = new Dictionary<Guid, SnAccount?>();
+        foreach (var row in leaderboard)
+            accountDict[row.account_id] = await accounts.GetAccount(row.account_id);
+
+        return Ok(leaderboard.Select(row => new
+        {
+            row.account_id,
+            account = accountDict.GetValueOrDefault(row.account_id),
+            row.amount_points,
+            row.shares,
+            row.boosts
+        }));
     }
 
     [HttpGet("{slug}/members/{memberId:guid}/experience")]
