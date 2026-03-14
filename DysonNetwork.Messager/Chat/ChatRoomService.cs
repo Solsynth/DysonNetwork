@@ -163,6 +163,7 @@ public class ChatRoomService(
     {
         var account = await remoteAccounts.GetAccount(member.AccountId);
         member.Account = SnAccount.FromProtoValue(account);
+        await ApplyRealmIdentity([member]);
         return member;
     }
 
@@ -171,7 +172,7 @@ public class ChatRoomService(
         var accountIds = members.Select(m => m.AccountId).ToList();
         var accounts = (await remoteAccounts.GetAccountBatch(accountIds)).ToDictionary(a => Guid.Parse(a.Id), a => a);
 
-        return
+        List<SnChatMember> loadedMembers =
         [
             .. members.Select(m =>
             {
@@ -180,6 +181,48 @@ public class ChatRoomService(
                 return m;
             })
         ];
+
+        await ApplyRealmIdentity(loadedMembers);
+        return loadedMembers;
+    }
+
+    private async Task ApplyRealmIdentity(ICollection<SnChatMember> members)
+    {
+        var memberList = members.ToList();
+        if (memberList.Count == 0) return;
+
+        var roomIds = memberList.Select(m => m.ChatRoomId).Distinct().ToList();
+        var roomRealmIds = await db.ChatRooms
+            .Where(r => roomIds.Contains(r.Id) && r.RealmId != null)
+            .ToDictionaryAsync(r => r.Id, r => r.RealmId!.Value);
+
+        var placeholders = memberList
+            .Where(m => roomRealmIds.ContainsKey(m.ChatRoomId))
+            .Select(m => new SnRealmMember
+            {
+                RealmId = roomRealmIds[m.ChatRoomId],
+                AccountId = m.AccountId
+            })
+            .ToList();
+        if (placeholders.Count == 0) return;
+
+        var realmMembers = await remoteRealms.LoadMemberAccounts(placeholders);
+        var realmMap = realmMembers.ToDictionary(m => (m.RealmId, m.AccountId), m => m);
+
+        foreach (var member in memberList)
+        {
+            if (!roomRealmIds.TryGetValue(member.ChatRoomId, out var realmId)) continue;
+            if (!realmMap.TryGetValue((realmId, member.AccountId), out var realmMember)) continue;
+
+            member.RealmNick = realmMember.Nick;
+            member.RealmBio = realmMember.Bio;
+            member.RealmExperience = realmMember.Experience;
+            member.RealmLevel = realmMember.Level;
+            member.RealmLevelingProgress = realmMember.LevelingProgress;
+            member.RealmLabel = realmMember.Label;
+            if (!string.IsNullOrWhiteSpace(realmMember.Nick))
+                member.Nick = realmMember.Nick;
+        }
     }
 
     private const string ChatRoomSubscribeKeyPrefix = "chatroom:subscribe:";

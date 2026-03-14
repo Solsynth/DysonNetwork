@@ -29,6 +29,9 @@ public class AppDatabase(
     
     public DbSet<SnRealm> Realms { get; set; } = null!;
     public DbSet<SnRealmMember> RealmMembers { get; set; } = null!;
+    public DbSet<SnRealmLabel> RealmLabels { get; set; } = null!;
+    public DbSet<SnRealmBoostContribution> RealmBoostContributions { get; set; } = null!;
+    public DbSet<SnRealmExperienceRecord> RealmExperienceRecords { get; set; } = null!;
 
     public DbSet<SnSocialCreditRecord> SocialCreditRecords { get; set; } = null!;
     public DbSet<SnExperienceRecord> ExperienceRecords { get; set; } = null!;
@@ -99,6 +102,16 @@ public class AppDatabase(
             .HasOne(pm => pm.Realm)
             .WithMany(p => p.Members)
             .HasForeignKey(pm => pm.RealmId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnRealmMember>()
+            .HasOne(pm => pm.Label)
+            .WithMany()
+            .HasForeignKey(pm => pm.LabelId)
+            .OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<SnRealmLabel>()
+            .HasOne(l => l.Realm)
+            .WithMany(r => r.Labels)
+            .HasForeignKey(l => l.RealmId)
             .OnDelete(DeleteBehavior.Cascade);
 
         // Passport no longer owns auth/account rows; keep profile as an account-id keyed read model only.

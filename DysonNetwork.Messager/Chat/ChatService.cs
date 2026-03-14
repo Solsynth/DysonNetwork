@@ -7,6 +7,8 @@ using DysonNetwork.Messager.Chat.Voice;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.EventBus;
+using DysonNetwork.Shared.Queue;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -19,7 +21,8 @@ public partial class ChatService(
     IRealtimeService realtime,
     ChatVoiceService voice,
     ILogger<ChatService> logger,
-    RemoteWebReaderService webReader
+    RemoteWebReaderService webReader,
+    IEventBus eventBus
 )
 {
     private static string NormalizeEncryptionMessageType(string? messageType, string fallbackType)
@@ -223,6 +226,18 @@ public partial class ChatService(
         await db.ChatMembers
             .Where(m => m.Id == sender.Id && m.ChatRoomId == room.Id && m.JoinedAt != null && m.LeaveAt == null)
             .ExecuteUpdateAsync(setters => setters.SetProperty(m => m.LastReadAt, message.CreatedAt));
+
+        if (room.RealmId.HasValue && sender.AccountId != Guid.Empty && !message.Type.StartsWith("system."))
+        {
+            await eventBus.PublishAsync(new RealmActivityEvent
+            {
+                RealmId = room.RealmId.Value,
+                AccountId = sender.AccountId,
+                ActivityType = "chat_message",
+                ReferenceId = $"{room.Id}:{message.Id}",
+                Delta = 2
+            });
+        }
 
 
         // Copy the value to ensure the delivery is correct

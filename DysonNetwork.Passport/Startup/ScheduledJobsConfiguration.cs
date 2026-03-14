@@ -2,6 +2,7 @@ using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Account.Presences;
 using DysonNetwork.Passport.Credit;
 using DysonNetwork.Passport.Handlers;
+using DysonNetwork.Passport.Realm;
 using Quartz;
 
 namespace DysonNetwork.Passport.Startup;
@@ -34,6 +35,12 @@ public static class ScheduledJobsConfiguration
                 .WithSimpleSchedule(o => o
                     .WithIntervalInMinutes(60)
                     .RepeatForever()));
+
+            q.AddJob<RealmTenureLevelingJob>(opts => opts.WithIdentity("RealmTenureLeveling"));
+            q.AddTrigger(opts => opts
+                .ForJob("RealmTenureLeveling")
+                .WithIdentity("RealmTenureLevelingTrigger")
+                .WithCronSchedule("0 0 1 * * ?"));
 
             // Presence update jobs for different user stages
             q.AddJob<PresenceUpdateJob>(opts => opts.WithIdentity("ActivePresenceUpdate"));

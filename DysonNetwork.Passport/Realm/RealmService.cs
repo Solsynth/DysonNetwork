@@ -16,6 +16,31 @@ public class RealmService(
 {
     private const string CacheKeyPrefix = "account:realms:";
 
+    public async Task<SnRealm?> GetBySlug(string slug)
+    {
+        return await db.Realms.FirstOrDefaultAsync(r => r.Slug == slug);
+    }
+
+    public async Task<SnRealmMember?> GetActiveMember(Guid realmId, Guid accountId)
+    {
+        return await db.RealmMembers
+            .Include(m => m.Label)
+            .Include(m => m.Realm)
+            .Where(m => m.RealmId == realmId && m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null)
+            .FirstOrDefaultAsync();
+    }
+
+    public void EnsureBoostUnlocked(SnRealm realm, int requiredLevel, string message)
+    {
+        if (realm.BoostLevel < requiredLevel)
+            throw new InvalidOperationException(message);
+    }
+
+    public async Task<int> GetRealmLabelCount(Guid realmId)
+    {
+        return await db.RealmLabels.Where(l => l.RealmId == realmId).CountAsync();
+    }
+
     public async Task<List<Guid>> GetUserRealms(Guid accountId)
     {
         var cacheKey = $"{CacheKeyPrefix}{accountId}";
@@ -73,6 +98,13 @@ public class RealmService(
 
     public async Task<SnRealmMember> LoadMemberAccount(SnRealmMember member)
     {
+        if (member.JoinedAt == null && member.LeaveAt == null && member.Role == 0)
+        {
+            var actualMember = await GetActiveMember(member.RealmId, member.AccountId);
+            if (actualMember is not null)
+                member = actualMember;
+        }
+
         try
         {
             var account = SnAccount.FromProtoValue(
@@ -91,7 +123,21 @@ public class RealmService(
 
     public async Task<List<SnRealmMember>> LoadMemberAccounts(ICollection<SnRealmMember> members)
     {
-        var accountIds = members.Select(m => m.AccountId).ToList();
+        var incomingMembers = members.ToList();
+        if (incomingMembers.Count == 0) return [];
+
+        var groupedRealmIds = incomingMembers.Select(m => m.RealmId).Distinct().ToList();
+        var accountIds = incomingMembers.Select(m => m.AccountId).Distinct().ToList();
+
+        var dbMembers = await db.RealmMembers
+            .Include(m => m.Label)
+            .Include(m => m.Realm)
+            .Where(m => groupedRealmIds.Contains(m.RealmId))
+            .Where(m => accountIds.Contains(m.AccountId))
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+            .ToListAsync();
+        var dbMemberMap = dbMembers.ToDictionary(m => (m.RealmId, m.AccountId), m => m);
+
         var accounts = await accountGrpc.GetAccountBatchAsync(new DyGetAccountBatchRequest
         {
             Id = { accountIds.Select(x => x.ToString()) }
@@ -103,8 +149,12 @@ public class RealmService(
             .Where(p => accountIds.Contains(p.AccountId))
             .ToDictionaryAsync(p => p.AccountId, p => p);
 
-        return members.Select(m =>
+        return incomingMembers.Select(m =>
         {
+            if (dbMemberMap.TryGetValue((m.RealmId, m.AccountId), out var dbMember))
+            {
+                m = dbMember;
+            }
             if (accountsDict.TryGetValue(m.AccountId, out var account))
             {
                 if (profiles.TryGetValue(m.AccountId, out var profile))

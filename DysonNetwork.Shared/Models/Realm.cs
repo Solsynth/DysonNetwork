@@ -25,8 +25,13 @@ public class SnRealm : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public SnVerificationMark? Verification { get; set; }
 
     [IgnoreMember] [JsonIgnore] public List<SnRealmMember> Members { get; set; } = new List<SnRealmMember>();
+    [IgnoreMember] [JsonIgnore] public List<SnRealmLabel> Labels { get; set; } = new List<SnRealmLabel>();
 
     public Guid AccountId { get; set; }
+    public decimal BoostPoints { get; set; }
+
+    [NotMapped]
+    public int BoostLevel => RealmBoostPolicy.GetBoostLevel(BoostPoints);
 
     public string ResourceIdentifier => $"realm:{Id}";
 
@@ -43,7 +48,9 @@ public class SnRealm : ModelBase, IIdentifiedResource
             Verification = Verification?.ToProtoValue(),
             IsCommunity = IsCommunity,
             AccountId = AccountId.ToString(),
-            IsPublic = IsPublic
+            IsPublic = IsPublic,
+            BoostPoints = BoostPoints.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            BoostLevel = BoostLevel
         };
     }
 
@@ -64,8 +71,34 @@ public class SnRealm : ModelBase, IIdentifiedResource
             IsCommunity = proto.IsCommunity,
             IsPublic = proto.IsPublic,
             AccountId = Guid.Parse(proto.AccountId),
+            BoostPoints = string.IsNullOrWhiteSpace(proto.BoostPoints)
+                ? 0
+                : decimal.Parse(proto.BoostPoints, System.Globalization.CultureInfo.InvariantCulture),
         };
     }
+}
+
+public static class RealmBoostPolicy
+{
+    public const decimal Level1Points = 1000m;
+    public const decimal Level2Points = 5000m;
+    public const decimal Level3Points = 15000m;
+
+    public static int GetBoostLevel(decimal boostPoints) => boostPoints switch
+    {
+        >= Level3Points => 3,
+        >= Level2Points => 2,
+        >= Level1Points => 1,
+        _ => 0
+    };
+
+    public static int GetLabelCap(int boostLevel) => boostLevel switch
+    {
+        >= 3 => 200,
+        >= 2 => 50,
+        >= 1 => 10,
+        _ => 0
+    };
 }
 
 public abstract class RealmMemberRole
@@ -82,6 +115,14 @@ public class SnRealmMember : ModelBase
     public Guid AccountId { get; set; }
     [NotMapped] public SnAccount? Account { get; set; }
     [NotMapped] public SnAccountStatus? Status { get; set; }
+    [MaxLength(1024)] public string? Nick { get; set; }
+    [MaxLength(4096)] public string? Bio { get; set; }
+    public Guid? LabelId { get; set; }
+    public SnRealmLabel? Label { get; set; }
+    public int Experience { get; set; }
+
+    [NotMapped] public int Level => Leveling.GetLevelFromExp(Experience);
+    [NotMapped] public double LevelingProgress => Leveling.GetProgressToNextLevel(Experience);
 
     public int Role { get; set; } = RealmMemberRole.Normal;
     public Instant? JoinedAt { get; set; }
@@ -94,13 +135,26 @@ public class SnRealmMember : ModelBase
             AccountId = AccountId.ToString(),
             RealmId = RealmId.ToString(),
             Role = Role,
+            Nick = Nick ?? string.Empty,
+            Bio = Bio ?? string.Empty,
+            Experience = Experience,
+            Level = Level,
+            LevelingProgress = LevelingProgress,
             JoinedAt = JoinedAt?.ToTimestamp(),
             LeaveAt = LeaveAt?.ToTimestamp(),
-            Realm = Realm.ToProtoValue()
+            Realm = Realm.ToProtoValue(),
+            LabelId = LabelId?.ToString() ?? string.Empty
         };
         if (Account != null)
         {
             proto.Account = Account.ToProtoValue();
+        }
+        if (Label != null)
+        {
+            proto.LabelName = Label.Name;
+            proto.LabelDescription = Label.Description ?? string.Empty;
+            proto.LabelColor = Label.Color ?? string.Empty;
+            proto.LabelIcon = Label.Icon ?? string.Empty;
         }
 
         return proto;
@@ -113,8 +167,12 @@ public class SnRealmMember : ModelBase
             AccountId = Guid.Parse(proto.AccountId),
             RealmId = Guid.Parse(proto.RealmId),
             Role = proto.Role,
+            Nick = string.IsNullOrWhiteSpace(proto.Nick) ? null : proto.Nick,
+            Bio = string.IsNullOrWhiteSpace(proto.Bio) ? null : proto.Bio,
+            Experience = proto.Experience,
             JoinedAt = proto.JoinedAt?.ToInstant(),
             LeaveAt = proto.LeaveAt?.ToInstant(),
+            LabelId = Guid.TryParse(proto.LabelId, out var labelId) ? labelId : null,
             Realm = proto.Realm != null
                 ? SnRealm.FromProtoValue(proto.Realm)
                 : new SnRealm() // Provide default or handle null
@@ -123,7 +181,62 @@ public class SnRealmMember : ModelBase
         {
             member.Account = SnAccount.FromProtoValue(proto.Account);
         }
+        if (!string.IsNullOrWhiteSpace(proto.LabelName))
+        {
+            member.Label = new SnRealmLabel
+            {
+                Id = member.LabelId ?? Guid.Empty,
+                RealmId = member.RealmId,
+                Name = proto.LabelName,
+                Description = string.IsNullOrWhiteSpace(proto.LabelDescription) ? null : proto.LabelDescription,
+                Color = string.IsNullOrWhiteSpace(proto.LabelColor) ? null : proto.LabelColor,
+                Icon = string.IsNullOrWhiteSpace(proto.LabelIcon) ? null : proto.LabelIcon,
+            };
+        }
 
         return member;
     }
+}
+
+public class SnRealmLabel : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid RealmId { get; set; }
+    [JsonIgnore] public SnRealm Realm { get; set; } = null!;
+    [MaxLength(1024)] public string Name { get; set; } = string.Empty;
+    [MaxLength(4096)] public string? Description { get; set; }
+    [MaxLength(64)] public string? Color { get; set; }
+    [MaxLength(256)] public string? Icon { get; set; }
+    public Guid CreatedByAccountId { get; set; }
+
+    public object ToDisplayPayload() => new
+    {
+        id = Id,
+        realm_id = RealmId,
+        name = Name,
+        description = Description,
+        color = Color,
+        icon = Icon,
+        created_by_account_id = CreatedByAccountId,
+    };
+}
+
+public class SnRealmBoostContribution : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid RealmId { get; set; }
+    public Guid AccountId { get; set; }
+    [MaxLength(128)] public string Currency { get; set; } = "points";
+    public decimal Amount { get; set; }
+    public Guid TransactionId { get; set; }
+}
+
+public class SnRealmExperienceRecord : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid RealmId { get; set; }
+    public Guid AccountId { get; set; }
+    [MaxLength(1024)] public string ReasonType { get; set; } = string.Empty;
+    [MaxLength(1024)] public string Reason { get; set; } = string.Empty;
+    public int Delta { get; set; }
 }

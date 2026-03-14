@@ -27,7 +27,7 @@ namespace DysonNetwork.Shared.Proto {
             "CgtyZWFsbS5wcm90bxIFcHJvdG8aH2dvb2dsZS9wcm90b2J1Zi90aW1lc3Rh",
             "bXAucHJvdG8aHmdvb2dsZS9wcm90b2J1Zi93cmFwcGVycy5wcm90bxobZ29v",
             "Z2xlL3Byb3RvYnVmL2VtcHR5LnByb3RvGg1hY2NvdW50LnByb3RvGgpmaWxl",
-            "LnByb3RvIp4DCgdEeVJlYWxtEg4KAmlkGAEgASgJUgJpZBISCgRuYW1lGAIg",
+            "LnByb3RvIuIDCgdEeVJlYWxtEg4KAmlkGAEgASgJUgJpZBISCgRuYW1lGAIg",
             "ASgJUgRuYW1lEhIKBHNsdWcYAyABKAlSBHNsdWcSIQoMaXNfY29tbXVuaXR5",
             "GAQgASgIUgtpc0NvbW11bml0eRIbCglpc19wdWJsaWMYBSABKAhSCGlzUHVi",
             "bGljEiAKC2Rlc2NyaXB0aW9uGAYgASgJUgtkZXNjcmlwdGlvbhIxCgdwaWN0",
@@ -35,61 +35,70 @@ namespace DysonNetwork.Shared.Proto {
             "CgpiYWNrZ3JvdW5kGAggASgLMhIucHJvdG8uRHlDbG91ZEZpbGVIAVIKYmFj",
             "a2dyb3VuZIgBARJCCgx2ZXJpZmljYXRpb24YCSABKAsyGS5wcm90by5EeVZl",
             "cmlmaWNhdGlvbk1hcmtIAlIMdmVyaWZpY2F0aW9uiAEBEh0KCmFjY291bnRf",
-            "aWQYCiABKAlSCWFjY291bnRJZEIKCghfcGljdHVyZUINCgtfYmFja2dyb3Vu",
-            "ZEIPCg1fdmVyaWZpY2F0aW9uIuQCCg1EeVJlYWxtTWVtYmVyEh0KCmFjY291",
-            "bnRfaWQYASABKAlSCWFjY291bnRJZBIZCghyZWFsbV9pZBgCIAEoCVIHcmVh",
-            "bG1JZBISCgRyb2xlGAMgASgFUgRyb2xlEjwKCWpvaW5lZF9hdBgEIAEoCzIa",
-            "Lmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIAFIIam9pbmVkQXSIAQESOgoI",
-            "bGVhdmVfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSAFS",
-            "B2xlYXZlQXSIAQESLwoHYWNjb3VudBgGIAEoCzIQLnByb3RvLkR5QWNjb3Vu",
-            "dEgCUgdhY2NvdW50iAEBEikKBXJlYWxtGAcgASgLMg4ucHJvdG8uRHlSZWFs",
-            "bUgDUgVyZWFsbYgBAUIMCgpfam9pbmVkX2F0QgsKCV9sZWF2ZV9hdEIKCghf",
-            "YWNjb3VudEIICgZfcmVhbG0iRAoRRHlHZXRSZWFsbVJlcXVlc3QSEAoCaWQY",
-            "ASABKAlIAFICaWQSFAoEc2x1ZxgCIAEoCUgAUgRzbHVnQgcKBXF1ZXJ5IjcK",
-            "FkR5R2V0VXNlclJlYWxtc1JlcXVlc3QSHQoKYWNjb3VudF9pZBgBIAEoCVIJ",
-            "YWNjb3VudElkIioKFkR5R2V0UmVhbG1CYXRjaFJlcXVlc3QSEAoDaWRzGAEg",
-            "AygJUgNpZHMiQQoXRHlHZXRSZWFsbUJhdGNoUmVzcG9uc2USJgoGcmVhbG1z",
-            "GAEgAygLMg4ucHJvdG8uRHlSZWFsbVIGcmVhbG1zIjYKF0R5R2V0VXNlclJl",
-            "YWxtc1Jlc3BvbnNlEhsKCXJlYWxtX2lkcxgBIAMoCVIIcmVhbG1JZHMifgoY",
-            "RHlHZXRQdWJsaWNSZWFsbXNSZXF1ZXN0Eh4KCG9yZGVyX2J5GAEgASgJSABS",
-            "B29yZGVyQnmIAQESEgoEdGFrZRgCIAEoBVIEdGFrZRIhCgxpc19jb21tdW5p",
-            "dHkYAyABKAhSC2lzQ29tbXVuaXR5QgsKCV9vcmRlcl9ieSJDChlEeUdldFB1",
-            "YmxpY1JlYWxtc1Jlc3BvbnNlEiYKBnJlYWxtcxgBIAMoCzIOLnByb3RvLkR5",
-            "UmVhbG1SBnJlYWxtcyJDChVEeVNlYXJjaFJlYWxtc1JlcXVlc3QSFAoFcXVl",
-            "cnkYASABKAlSBXF1ZXJ5EhQKBWxpbWl0GAIgASgFUgVsaW1pdCJJChlEeVNl",
-            "bmRJbnZpdGVOb3RpZnlSZXF1ZXN0EiwKBm1lbWJlchgBIAEoCzIULnByb3Rv",
-            "LkR5UmVhbG1NZW1iZXJSBm1lbWJlciJ8ChlEeUlzTWVtYmVyV2l0aFJvbGVS",
-            "ZXF1ZXN0EhkKCHJlYWxtX2lkGAEgASgJUgdyZWFsbUlkEh0KCmFjY291bnRf",
-            "aWQYAiABKAlSCWFjY291bnRJZBIlCg5yZXF1aXJlZF9yb2xlcxgDIAMoBVIN",
-            "cmVxdWlyZWRSb2xlcyJKChpEeUxvYWRNZW1iZXJBY2NvdW50UmVxdWVzdBIs",
-            "CgZtZW1iZXIYASABKAsyFC5wcm90by5EeVJlYWxtTWVtYmVyUgZtZW1iZXIi",
-            "TQobRHlMb2FkTWVtYmVyQWNjb3VudHNSZXF1ZXN0Ei4KB21lbWJlcnMYASAD",
-            "KAsyFC5wcm90by5EeVJlYWxtTWVtYmVyUgdtZW1iZXJzIk4KHER5TG9hZE1l",
-            "bWJlckFjY291bnRzUmVzcG9uc2USLgoHbWVtYmVycxgBIAMoCzIULnByb3Rv",
-            "LkR5UmVhbG1NZW1iZXJSB21lbWJlcnMy6wUKDkR5UmVhbG1TZXJ2aWNlEjYK",
-            "CEdldFJlYWxtEhgucHJvdG8uRHlHZXRSZWFsbVJlcXVlc3QaDi5wcm90by5E",
-            "eVJlYWxtIgASUAoNR2V0UmVhbG1CYXRjaBIdLnByb3RvLkR5R2V0UmVhbG1C",
-            "YXRjaFJlcXVlc3QaHi5wcm90by5EeUdldFJlYWxtQmF0Y2hSZXNwb25zZSIA",
-            "ElAKDUdldFVzZXJSZWFsbXMSHS5wcm90by5EeUdldFVzZXJSZWFsbXNSZXF1",
-            "ZXN0Gh4ucHJvdG8uRHlHZXRVc2VyUmVhbG1zUmVzcG9uc2UiABJWCg9HZXRQ",
-            "dWJsaWNSZWFsbXMSHy5wcm90by5EeUdldFB1YmxpY1JlYWxtc1JlcXVlc3Qa",
-            "IC5wcm90by5EeUdldFB1YmxpY1JlYWxtc1Jlc3BvbnNlIgASUAoMU2VhcmNo",
-            "UmVhbG1zEhwucHJvdG8uRHlTZWFyY2hSZWFsbXNSZXF1ZXN0GiAucHJvdG8u",
-            "RHlHZXRQdWJsaWNSZWFsbXNSZXNwb25zZSIAEk4KEFNlbmRJbnZpdGVOb3Rp",
-            "ZnkSIC5wcm90by5EeVNlbmRJbnZpdGVOb3RpZnlSZXF1ZXN0GhYuZ29vZ2xl",
-            "LnByb3RvYnVmLkVtcHR5IgASUgoQSXNNZW1iZXJXaXRoUm9sZRIgLnByb3Rv",
-            "LkR5SXNNZW1iZXJXaXRoUm9sZVJlcXVlc3QaGi5nb29nbGUucHJvdG9idWYu",
-            "Qm9vbFZhbHVlIgASTgoRTG9hZE1lbWJlckFjY291bnQSIS5wcm90by5EeUxv",
-            "YWRNZW1iZXJBY2NvdW50UmVxdWVzdBoULnByb3RvLkR5UmVhbG1NZW1iZXIi",
-            "ABJfChJMb2FkTWVtYmVyQWNjb3VudHMSIi5wcm90by5EeUxvYWRNZW1iZXJB",
-            "Y2NvdW50c1JlcXVlc3QaIy5wcm90by5EeUxvYWRNZW1iZXJBY2NvdW50c1Jl",
-            "c3BvbnNlIgBCPVofZ2l0LnNvbHN5bnRoLmRldi9zb3N5cy9zcGVjL2dlbqoC",
-            "GUR5c29uTmV0d29yay5TaGFyZWQuUHJvdG9iBnByb3RvMw=="));
+            "aWQYCiABKAlSCWFjY291bnRJZBIhCgxib29zdF9wb2ludHMYCyABKAlSC2Jv",
+            "b3N0UG9pbnRzEh8KC2Jvb3N0X2xldmVsGAwgASgFUgpib29zdExldmVsQgoK",
+            "CF9waWN0dXJlQg0KC19iYWNrZ3JvdW5kQg8KDV92ZXJpZmljYXRpb24ilAUK",
+            "DUR5UmVhbG1NZW1iZXISHQoKYWNjb3VudF9pZBgBIAEoCVIJYWNjb3VudElk",
+            "EhkKCHJlYWxtX2lkGAIgASgJUgdyZWFsbUlkEhIKBHJvbGUYAyABKAVSBHJv",
+            "bGUSPAoJam9pbmVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVz",
+            "dGFtcEgAUghqb2luZWRBdIgBARI6CghsZWF2ZV9hdBgFIAEoCzIaLmdvb2ds",
+            "ZS5wcm90b2J1Zi5UaW1lc3RhbXBIAVIHbGVhdmVBdIgBARIvCgdhY2NvdW50",
+            "GAYgASgLMhAucHJvdG8uRHlBY2NvdW50SAJSB2FjY291bnSIAQESKQoFcmVh",
+            "bG0YByABKAsyDi5wcm90by5EeVJlYWxtSANSBXJlYWxtiAEBEhIKBG5pY2sY",
+            "CCABKAlSBG5pY2sSEAoDYmlvGAkgASgJUgNiaW8SGQoIbGFiZWxfaWQYCiAB",
+            "KAlSB2xhYmVsSWQSHgoKZXhwZXJpZW5jZRgLIAEoBVIKZXhwZXJpZW5jZRIU",
+            "CgVsZXZlbBgMIAEoBVIFbGV2ZWwSKwoRbGV2ZWxpbmdfcHJvZ3Jlc3MYDSAB",
+            "KAFSEGxldmVsaW5nUHJvZ3Jlc3MSHQoKbGFiZWxfbmFtZRgOIAEoCVIJbGFi",
+            "ZWxOYW1lEisKEWxhYmVsX2Rlc2NyaXB0aW9uGA8gASgJUhBsYWJlbERlc2Ny",
+            "aXB0aW9uEh8KC2xhYmVsX2NvbG9yGBAgASgJUgpsYWJlbENvbG9yEh0KCmxh",
+            "YmVsX2ljb24YESABKAlSCWxhYmVsSWNvbkIMCgpfam9pbmVkX2F0QgsKCV9s",
+            "ZWF2ZV9hdEIKCghfYWNjb3VudEIICgZfcmVhbG0iRAoRRHlHZXRSZWFsbVJl",
+            "cXVlc3QSEAoCaWQYASABKAlIAFICaWQSFAoEc2x1ZxgCIAEoCUgAUgRzbHVn",
+            "QgcKBXF1ZXJ5IjcKFkR5R2V0VXNlclJlYWxtc1JlcXVlc3QSHQoKYWNjb3Vu",
+            "dF9pZBgBIAEoCVIJYWNjb3VudElkIioKFkR5R2V0UmVhbG1CYXRjaFJlcXVl",
+            "c3QSEAoDaWRzGAEgAygJUgNpZHMiQQoXRHlHZXRSZWFsbUJhdGNoUmVzcG9u",
+            "c2USJgoGcmVhbG1zGAEgAygLMg4ucHJvdG8uRHlSZWFsbVIGcmVhbG1zIjYK",
+            "F0R5R2V0VXNlclJlYWxtc1Jlc3BvbnNlEhsKCXJlYWxtX2lkcxgBIAMoCVII",
+            "cmVhbG1JZHMifgoYRHlHZXRQdWJsaWNSZWFsbXNSZXF1ZXN0Eh4KCG9yZGVy",
+            "X2J5GAEgASgJSABSB29yZGVyQnmIAQESEgoEdGFrZRgCIAEoBVIEdGFrZRIh",
+            "Cgxpc19jb21tdW5pdHkYAyABKAhSC2lzQ29tbXVuaXR5QgsKCV9vcmRlcl9i",
+            "eSJDChlEeUdldFB1YmxpY1JlYWxtc1Jlc3BvbnNlEiYKBnJlYWxtcxgBIAMo",
+            "CzIOLnByb3RvLkR5UmVhbG1SBnJlYWxtcyJDChVEeVNlYXJjaFJlYWxtc1Jl",
+            "cXVlc3QSFAoFcXVlcnkYASABKAlSBXF1ZXJ5EhQKBWxpbWl0GAIgASgFUgVs",
+            "aW1pdCJJChlEeVNlbmRJbnZpdGVOb3RpZnlSZXF1ZXN0EiwKBm1lbWJlchgB",
+            "IAEoCzIULnByb3RvLkR5UmVhbG1NZW1iZXJSBm1lbWJlciJ8ChlEeUlzTWVt",
+            "YmVyV2l0aFJvbGVSZXF1ZXN0EhkKCHJlYWxtX2lkGAEgASgJUgdyZWFsbUlk",
+            "Eh0KCmFjY291bnRfaWQYAiABKAlSCWFjY291bnRJZBIlCg5yZXF1aXJlZF9y",
+            "b2xlcxgDIAMoBVINcmVxdWlyZWRSb2xlcyJKChpEeUxvYWRNZW1iZXJBY2Nv",
+            "dW50UmVxdWVzdBIsCgZtZW1iZXIYASABKAsyFC5wcm90by5EeVJlYWxtTWVt",
+            "YmVyUgZtZW1iZXIiTQobRHlMb2FkTWVtYmVyQWNjb3VudHNSZXF1ZXN0Ei4K",
+            "B21lbWJlcnMYASADKAsyFC5wcm90by5EeVJlYWxtTWVtYmVyUgdtZW1iZXJz",
+            "Ik4KHER5TG9hZE1lbWJlckFjY291bnRzUmVzcG9uc2USLgoHbWVtYmVycxgB",
+            "IAMoCzIULnByb3RvLkR5UmVhbG1NZW1iZXJSB21lbWJlcnMy6wUKDkR5UmVh",
+            "bG1TZXJ2aWNlEjYKCEdldFJlYWxtEhgucHJvdG8uRHlHZXRSZWFsbVJlcXVl",
+            "c3QaDi5wcm90by5EeVJlYWxtIgASUAoNR2V0UmVhbG1CYXRjaBIdLnByb3Rv",
+            "LkR5R2V0UmVhbG1CYXRjaFJlcXVlc3QaHi5wcm90by5EeUdldFJlYWxtQmF0",
+            "Y2hSZXNwb25zZSIAElAKDUdldFVzZXJSZWFsbXMSHS5wcm90by5EeUdldFVz",
+            "ZXJSZWFsbXNSZXF1ZXN0Gh4ucHJvdG8uRHlHZXRVc2VyUmVhbG1zUmVzcG9u",
+            "c2UiABJWCg9HZXRQdWJsaWNSZWFsbXMSHy5wcm90by5EeUdldFB1YmxpY1Jl",
+            "YWxtc1JlcXVlc3QaIC5wcm90by5EeUdldFB1YmxpY1JlYWxtc1Jlc3BvbnNl",
+            "IgASUAoMU2VhcmNoUmVhbG1zEhwucHJvdG8uRHlTZWFyY2hSZWFsbXNSZXF1",
+            "ZXN0GiAucHJvdG8uRHlHZXRQdWJsaWNSZWFsbXNSZXNwb25zZSIAEk4KEFNl",
+            "bmRJbnZpdGVOb3RpZnkSIC5wcm90by5EeVNlbmRJbnZpdGVOb3RpZnlSZXF1",
+            "ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5IgASUgoQSXNNZW1iZXJXaXRo",
+            "Um9sZRIgLnByb3RvLkR5SXNNZW1iZXJXaXRoUm9sZVJlcXVlc3QaGi5nb29n",
+            "bGUucHJvdG9idWYuQm9vbFZhbHVlIgASTgoRTG9hZE1lbWJlckFjY291bnQS",
+            "IS5wcm90by5EeUxvYWRNZW1iZXJBY2NvdW50UmVxdWVzdBoULnByb3RvLkR5",
+            "UmVhbG1NZW1iZXIiABJfChJMb2FkTWVtYmVyQWNjb3VudHMSIi5wcm90by5E",
+            "eUxvYWRNZW1iZXJBY2NvdW50c1JlcXVlc3QaIy5wcm90by5EeUxvYWRNZW1i",
+            "ZXJBY2NvdW50c1Jlc3BvbnNlIgBCPVofZ2l0LnNvbHN5bnRoLmRldi9zb3N5",
+            "cy9zcGVjL2dlbqoCGUR5c29uTmV0d29yay5TaGFyZWQuUHJvdG9iBnByb3Rv",
+            "Mw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.EmptyReflection.Descriptor, global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor, global::DysonNetwork.Shared.Proto.FileReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyRealm), global::DysonNetwork.Shared.Proto.DyRealm.Parser, new[]{ "Id", "Name", "Slug", "IsCommunity", "IsPublic", "Description", "Picture", "Background", "Verification", "AccountId" }, new[]{ "Picture", "Background", "Verification" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyRealmMember), global::DysonNetwork.Shared.Proto.DyRealmMember.Parser, new[]{ "AccountId", "RealmId", "Role", "JoinedAt", "LeaveAt", "Account", "Realm" }, new[]{ "JoinedAt", "LeaveAt", "Account", "Realm" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyRealm), global::DysonNetwork.Shared.Proto.DyRealm.Parser, new[]{ "Id", "Name", "Slug", "IsCommunity", "IsPublic", "Description", "Picture", "Background", "Verification", "AccountId", "BoostPoints", "BoostLevel" }, new[]{ "Picture", "Background", "Verification" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyRealmMember), global::DysonNetwork.Shared.Proto.DyRealmMember.Parser, new[]{ "AccountId", "RealmId", "Role", "JoinedAt", "LeaveAt", "Account", "Realm", "Nick", "Bio", "LabelId", "Experience", "Level", "LevelingProgress", "LabelName", "LabelDescription", "LabelColor", "LabelIcon" }, new[]{ "JoinedAt", "LeaveAt", "Account", "Realm" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetRealmRequest), global::DysonNetwork.Shared.Proto.DyGetRealmRequest.Parser, new[]{ "Id", "Slug" }, new[]{ "Query" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetUserRealmsRequest), global::DysonNetwork.Shared.Proto.DyGetUserRealmsRequest.Parser, new[]{ "AccountId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetRealmBatchRequest), global::DysonNetwork.Shared.Proto.DyGetRealmBatchRequest.Parser, new[]{ "Ids" }, null, null, null, null),
@@ -154,6 +163,8 @@ namespace DysonNetwork.Shared.Proto {
       background_ = other.background_ != null ? other.background_.Clone() : null;
       verification_ = other.verification_ != null ? other.verification_.Clone() : null;
       accountId_ = other.accountId_;
+      boostPoints_ = other.boostPoints_;
+      boostLevel_ = other.boostLevel_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -283,6 +294,30 @@ namespace DysonNetwork.Shared.Proto {
       }
     }
 
+    /// <summary>Field number for the "boost_points" field.</summary>
+    public const int BoostPointsFieldNumber = 11;
+    private string boostPoints_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string BoostPoints {
+      get { return boostPoints_; }
+      set {
+        boostPoints_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "boost_level" field.</summary>
+    public const int BoostLevelFieldNumber = 12;
+    private int boostLevel_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int BoostLevel {
+      get { return boostLevel_; }
+      set {
+        boostLevel_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -308,6 +343,8 @@ namespace DysonNetwork.Shared.Proto {
       if (!object.Equals(Background, other.Background)) return false;
       if (!object.Equals(Verification, other.Verification)) return false;
       if (AccountId != other.AccountId) return false;
+      if (BoostPoints != other.BoostPoints) return false;
+      if (BoostLevel != other.BoostLevel) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -325,6 +362,8 @@ namespace DysonNetwork.Shared.Proto {
       if (background_ != null) hash ^= Background.GetHashCode();
       if (verification_ != null) hash ^= Verification.GetHashCode();
       if (AccountId.Length != 0) hash ^= AccountId.GetHashCode();
+      if (BoostPoints.Length != 0) hash ^= BoostPoints.GetHashCode();
+      if (BoostLevel != 0) hash ^= BoostLevel.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -383,6 +422,14 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(82);
         output.WriteString(AccountId);
       }
+      if (BoostPoints.Length != 0) {
+        output.WriteRawTag(90);
+        output.WriteString(BoostPoints);
+      }
+      if (BoostLevel != 0) {
+        output.WriteRawTag(96);
+        output.WriteInt32(BoostLevel);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -433,6 +480,14 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(82);
         output.WriteString(AccountId);
       }
+      if (BoostPoints.Length != 0) {
+        output.WriteRawTag(90);
+        output.WriteString(BoostPoints);
+      }
+      if (BoostLevel != 0) {
+        output.WriteRawTag(96);
+        output.WriteInt32(BoostLevel);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -472,6 +527,12 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (AccountId.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(AccountId);
+      }
+      if (BoostPoints.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(BoostPoints);
+      }
+      if (BoostLevel != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(BoostLevel);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -523,6 +584,12 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.AccountId.Length != 0) {
         AccountId = other.AccountId;
+      }
+      if (other.BoostPoints.Length != 0) {
+        BoostPoints = other.BoostPoints;
+      }
+      if (other.BoostLevel != 0) {
+        BoostLevel = other.BoostLevel;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -590,6 +657,14 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 82: {
             AccountId = input.ReadString();
+            break;
+          }
+          case 90: {
+            BoostPoints = input.ReadString();
+            break;
+          }
+          case 96: {
+            BoostLevel = input.ReadInt32();
             break;
           }
         }
@@ -660,6 +735,14 @@ namespace DysonNetwork.Shared.Proto {
             AccountId = input.ReadString();
             break;
           }
+          case 90: {
+            BoostPoints = input.ReadString();
+            break;
+          }
+          case 96: {
+            BoostLevel = input.ReadInt32();
+            break;
+          }
         }
       }
     }
@@ -709,6 +792,16 @@ namespace DysonNetwork.Shared.Proto {
       leaveAt_ = other.leaveAt_ != null ? other.leaveAt_.Clone() : null;
       account_ = other.account_ != null ? other.account_.Clone() : null;
       realm_ = other.realm_ != null ? other.realm_.Clone() : null;
+      nick_ = other.nick_;
+      bio_ = other.bio_;
+      labelId_ = other.labelId_;
+      experience_ = other.experience_;
+      level_ = other.level_;
+      levelingProgress_ = other.levelingProgress_;
+      labelName_ = other.labelName_;
+      labelDescription_ = other.labelDescription_;
+      labelColor_ = other.labelColor_;
+      labelIcon_ = other.labelIcon_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -802,6 +895,126 @@ namespace DysonNetwork.Shared.Proto {
       }
     }
 
+    /// <summary>Field number for the "nick" field.</summary>
+    public const int NickFieldNumber = 8;
+    private string nick_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Nick {
+      get { return nick_; }
+      set {
+        nick_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "bio" field.</summary>
+    public const int BioFieldNumber = 9;
+    private string bio_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Bio {
+      get { return bio_; }
+      set {
+        bio_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "label_id" field.</summary>
+    public const int LabelIdFieldNumber = 10;
+    private string labelId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string LabelId {
+      get { return labelId_; }
+      set {
+        labelId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "experience" field.</summary>
+    public const int ExperienceFieldNumber = 11;
+    private int experience_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int Experience {
+      get { return experience_; }
+      set {
+        experience_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "level" field.</summary>
+    public const int LevelFieldNumber = 12;
+    private int level_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int Level {
+      get { return level_; }
+      set {
+        level_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "leveling_progress" field.</summary>
+    public const int LevelingProgressFieldNumber = 13;
+    private double levelingProgress_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public double LevelingProgress {
+      get { return levelingProgress_; }
+      set {
+        levelingProgress_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "label_name" field.</summary>
+    public const int LabelNameFieldNumber = 14;
+    private string labelName_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string LabelName {
+      get { return labelName_; }
+      set {
+        labelName_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "label_description" field.</summary>
+    public const int LabelDescriptionFieldNumber = 15;
+    private string labelDescription_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string LabelDescription {
+      get { return labelDescription_; }
+      set {
+        labelDescription_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "label_color" field.</summary>
+    public const int LabelColorFieldNumber = 16;
+    private string labelColor_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string LabelColor {
+      get { return labelColor_; }
+      set {
+        labelColor_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "label_icon" field.</summary>
+    public const int LabelIconFieldNumber = 17;
+    private string labelIcon_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string LabelIcon {
+      get { return labelIcon_; }
+      set {
+        labelIcon_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -824,6 +1037,16 @@ namespace DysonNetwork.Shared.Proto {
       if (!object.Equals(LeaveAt, other.LeaveAt)) return false;
       if (!object.Equals(Account, other.Account)) return false;
       if (!object.Equals(Realm, other.Realm)) return false;
+      if (Nick != other.Nick) return false;
+      if (Bio != other.Bio) return false;
+      if (LabelId != other.LabelId) return false;
+      if (Experience != other.Experience) return false;
+      if (Level != other.Level) return false;
+      if (!pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.Equals(LevelingProgress, other.LevelingProgress)) return false;
+      if (LabelName != other.LabelName) return false;
+      if (LabelDescription != other.LabelDescription) return false;
+      if (LabelColor != other.LabelColor) return false;
+      if (LabelIcon != other.LabelIcon) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -838,6 +1061,16 @@ namespace DysonNetwork.Shared.Proto {
       if (leaveAt_ != null) hash ^= LeaveAt.GetHashCode();
       if (account_ != null) hash ^= Account.GetHashCode();
       if (realm_ != null) hash ^= Realm.GetHashCode();
+      if (Nick.Length != 0) hash ^= Nick.GetHashCode();
+      if (Bio.Length != 0) hash ^= Bio.GetHashCode();
+      if (LabelId.Length != 0) hash ^= LabelId.GetHashCode();
+      if (Experience != 0) hash ^= Experience.GetHashCode();
+      if (Level != 0) hash ^= Level.GetHashCode();
+      if (LevelingProgress != 0D) hash ^= pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.GetHashCode(LevelingProgress);
+      if (LabelName.Length != 0) hash ^= LabelName.GetHashCode();
+      if (LabelDescription.Length != 0) hash ^= LabelDescription.GetHashCode();
+      if (LabelColor.Length != 0) hash ^= LabelColor.GetHashCode();
+      if (LabelIcon.Length != 0) hash ^= LabelIcon.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -884,6 +1117,46 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(58);
         output.WriteMessage(Realm);
       }
+      if (Nick.Length != 0) {
+        output.WriteRawTag(66);
+        output.WriteString(Nick);
+      }
+      if (Bio.Length != 0) {
+        output.WriteRawTag(74);
+        output.WriteString(Bio);
+      }
+      if (LabelId.Length != 0) {
+        output.WriteRawTag(82);
+        output.WriteString(LabelId);
+      }
+      if (Experience != 0) {
+        output.WriteRawTag(88);
+        output.WriteInt32(Experience);
+      }
+      if (Level != 0) {
+        output.WriteRawTag(96);
+        output.WriteInt32(Level);
+      }
+      if (LevelingProgress != 0D) {
+        output.WriteRawTag(105);
+        output.WriteDouble(LevelingProgress);
+      }
+      if (LabelName.Length != 0) {
+        output.WriteRawTag(114);
+        output.WriteString(LabelName);
+      }
+      if (LabelDescription.Length != 0) {
+        output.WriteRawTag(122);
+        output.WriteString(LabelDescription);
+      }
+      if (LabelColor.Length != 0) {
+        output.WriteRawTag(130, 1);
+        output.WriteString(LabelColor);
+      }
+      if (LabelIcon.Length != 0) {
+        output.WriteRawTag(138, 1);
+        output.WriteString(LabelIcon);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -922,6 +1195,46 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(58);
         output.WriteMessage(Realm);
       }
+      if (Nick.Length != 0) {
+        output.WriteRawTag(66);
+        output.WriteString(Nick);
+      }
+      if (Bio.Length != 0) {
+        output.WriteRawTag(74);
+        output.WriteString(Bio);
+      }
+      if (LabelId.Length != 0) {
+        output.WriteRawTag(82);
+        output.WriteString(LabelId);
+      }
+      if (Experience != 0) {
+        output.WriteRawTag(88);
+        output.WriteInt32(Experience);
+      }
+      if (Level != 0) {
+        output.WriteRawTag(96);
+        output.WriteInt32(Level);
+      }
+      if (LevelingProgress != 0D) {
+        output.WriteRawTag(105);
+        output.WriteDouble(LevelingProgress);
+      }
+      if (LabelName.Length != 0) {
+        output.WriteRawTag(114);
+        output.WriteString(LabelName);
+      }
+      if (LabelDescription.Length != 0) {
+        output.WriteRawTag(122);
+        output.WriteString(LabelDescription);
+      }
+      if (LabelColor.Length != 0) {
+        output.WriteRawTag(130, 1);
+        output.WriteString(LabelColor);
+      }
+      if (LabelIcon.Length != 0) {
+        output.WriteRawTag(138, 1);
+        output.WriteString(LabelIcon);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -952,6 +1265,36 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (realm_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(Realm);
+      }
+      if (Nick.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Nick);
+      }
+      if (Bio.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Bio);
+      }
+      if (LabelId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(LabelId);
+      }
+      if (Experience != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Experience);
+      }
+      if (Level != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Level);
+      }
+      if (LevelingProgress != 0D) {
+        size += 1 + 8;
+      }
+      if (LabelName.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(LabelName);
+      }
+      if (LabelDescription.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(LabelDescription);
+      }
+      if (LabelColor.Length != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(LabelColor);
+      }
+      if (LabelIcon.Length != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(LabelIcon);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -997,6 +1340,36 @@ namespace DysonNetwork.Shared.Proto {
           Realm = new global::DysonNetwork.Shared.Proto.DyRealm();
         }
         Realm.MergeFrom(other.Realm);
+      }
+      if (other.Nick.Length != 0) {
+        Nick = other.Nick;
+      }
+      if (other.Bio.Length != 0) {
+        Bio = other.Bio;
+      }
+      if (other.LabelId.Length != 0) {
+        LabelId = other.LabelId;
+      }
+      if (other.Experience != 0) {
+        Experience = other.Experience;
+      }
+      if (other.Level != 0) {
+        Level = other.Level;
+      }
+      if (other.LevelingProgress != 0D) {
+        LevelingProgress = other.LevelingProgress;
+      }
+      if (other.LabelName.Length != 0) {
+        LabelName = other.LabelName;
+      }
+      if (other.LabelDescription.Length != 0) {
+        LabelDescription = other.LabelDescription;
+      }
+      if (other.LabelColor.Length != 0) {
+        LabelColor = other.LabelColor;
+      }
+      if (other.LabelIcon.Length != 0) {
+        LabelIcon = other.LabelIcon;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1057,6 +1430,46 @@ namespace DysonNetwork.Shared.Proto {
             input.ReadMessage(Realm);
             break;
           }
+          case 66: {
+            Nick = input.ReadString();
+            break;
+          }
+          case 74: {
+            Bio = input.ReadString();
+            break;
+          }
+          case 82: {
+            LabelId = input.ReadString();
+            break;
+          }
+          case 88: {
+            Experience = input.ReadInt32();
+            break;
+          }
+          case 96: {
+            Level = input.ReadInt32();
+            break;
+          }
+          case 105: {
+            LevelingProgress = input.ReadDouble();
+            break;
+          }
+          case 114: {
+            LabelName = input.ReadString();
+            break;
+          }
+          case 122: {
+            LabelDescription = input.ReadString();
+            break;
+          }
+          case 130: {
+            LabelColor = input.ReadString();
+            break;
+          }
+          case 138: {
+            LabelIcon = input.ReadString();
+            break;
+          }
         }
       }
     #endif
@@ -1114,6 +1527,46 @@ namespace DysonNetwork.Shared.Proto {
               Realm = new global::DysonNetwork.Shared.Proto.DyRealm();
             }
             input.ReadMessage(Realm);
+            break;
+          }
+          case 66: {
+            Nick = input.ReadString();
+            break;
+          }
+          case 74: {
+            Bio = input.ReadString();
+            break;
+          }
+          case 82: {
+            LabelId = input.ReadString();
+            break;
+          }
+          case 88: {
+            Experience = input.ReadInt32();
+            break;
+          }
+          case 96: {
+            Level = input.ReadInt32();
+            break;
+          }
+          case 105: {
+            LevelingProgress = input.ReadDouble();
+            break;
+          }
+          case 114: {
+            LabelName = input.ReadString();
+            break;
+          }
+          case 122: {
+            LabelDescription = input.ReadString();
+            break;
+          }
+          case 130: {
+            LabelColor = input.ReadString();
+            break;
+          }
+          case 138: {
+            LabelIcon = input.ReadString();
             break;
           }
         }

@@ -2,11 +2,13 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using System.Globalization;
 using ActionLogService = DysonNetwork.Passport.Account.ActionLogService;
 
 namespace DysonNetwork.Passport.Realm;
@@ -21,7 +23,8 @@ public class RealmController(
     DyFileService.DyFileServiceClient files,
     ActionLogService als,
     RelationshipService rels,
-    AccountEventService accountEvents
+    AccountEventService accountEvents,
+    RemotePaymentService payments
 ) : Controller
 {
     [HttpGet("quota")]
@@ -87,6 +90,30 @@ public class RealmController(
         [Required] public int Role { get; set; }
     }
 
+    public class RealmMemberProfileRequest
+    {
+        [MaxLength(1024)] public string? Nick { get; set; }
+        [MaxLength(4096)] public string? Bio { get; set; }
+    }
+
+    public class RealmLabelRequest
+    {
+        [Required, MaxLength(1024)] public string Name { get; set; } = string.Empty;
+        [MaxLength(4096)] public string? Description { get; set; }
+        [MaxLength(64)] public string? Color { get; set; }
+        [MaxLength(256)] public string? Icon { get; set; }
+    }
+
+    public class RealmBoostRequest
+    {
+        [Range(typeof(decimal), "0.001", "1000000")] public decimal Amount { get; set; }
+    }
+
+    public class RealmLabelAssignmentRequest
+    {
+        public Guid? LabelId { get; set; }
+    }
+
     [HttpPost("invites/{slug}")]
     [Authorize]
     public async Task<ActionResult<SnRealmMember>> InviteMember(string slug,
@@ -110,6 +137,8 @@ public class RealmController(
             .Where(p => p.Slug == slug)
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
+        if (request.Role > RealmMemberRole.Normal && realm.BoostLevel < 2)
+            return StatusCode(403, "Realm boost level 2 is required to invite promoted members.");
 
         if (!await rs.IsMemberWithRole(realm.Id, accountId, request.Role))
             return StatusCode(403, "You cannot invite member has higher permission than yours.");
@@ -262,7 +291,8 @@ public class RealmController(
         if (withStatus)
         {
             var members = await query
-                .OrderBy(m => m.JoinedAt)
+                .OrderByDescending(m => m.Experience)
+                .ThenBy(m => m.JoinedAt)
                 .ToListAsync();
 
             var memberStatuses = await accountEvents.GetStatuses(
@@ -276,6 +306,8 @@ public class RealmController(
                     return m;
                 })
                 .OrderByDescending(m => m.Status?.IsOnline ?? false)
+                .ThenByDescending(m => m.Level)
+                .ThenByDescending(m => m.Experience)
                 .ToList();
 
             var total = members.Count;
@@ -293,7 +325,8 @@ public class RealmController(
             Response.Headers["X-Total"] = total.ToString();
 
             var members = await query
-                .OrderBy(m => m.CreatedAt)
+                .OrderByDescending(m => m.Experience)
+                .ThenBy(m => m.CreatedAt)
                 .Skip(offset)
                 .Take(take)
                 .ToListAsync();
@@ -319,6 +352,226 @@ public class RealmController(
 
         if (member is null) return NotFound();
         return Ok(await rs.LoadMemberAccount(member));
+    }
+
+    [HttpPatch("{slug}/members/me/profile")]
+    [Authorize]
+    public async Task<ActionResult<SnRealmMember>> UpdateCurrentIdentity(string slug, [FromBody] RealmMemberProfileRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+
+        if (realm.BoostLevel < 1)
+            return StatusCode(403, "Realm boost level 1 is required to customize realm profile.");
+
+        var member = await rs.GetActiveMember(realm.Id, currentUser.Id);
+        if (member is null) return NotFound();
+
+        member.Nick = request.Nick;
+        member.Bio = request.Bio;
+        await db.SaveChangesAsync();
+
+        return Ok(await rs.LoadMemberAccount(member));
+    }
+
+    [HttpGet("{slug}/labels")]
+    public async Task<ActionResult<List<SnRealmLabel>>> ListLabels(string slug)
+    {
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+
+        if (!realm.IsPublic)
+        {
+            if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+            if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
+                return StatusCode(403, "You must be a member to view this realm.");
+        }
+
+        var labels = await db.RealmLabels
+            .Where(l => l.RealmId == realm.Id)
+            .OrderBy(l => l.Name)
+            .ToListAsync();
+
+        return Ok(labels);
+    }
+
+    [HttpPost("{slug}/labels")]
+    [Authorize]
+    public async Task<ActionResult<SnRealmLabel>> CreateLabel(string slug, [FromBody] RealmLabelRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator))
+            return StatusCode(403, "You do not have permission to manage labels.");
+        if (realm.BoostLevel < 1)
+            return StatusCode(403, "Realm boost level 1 is required to manage labels.");
+
+        var labelCap = RealmBoostPolicy.GetLabelCap(realm.BoostLevel);
+        var labelCount = await rs.GetRealmLabelCount(realm.Id);
+        if (labelCount >= labelCap)
+            return BadRequest("Realm label limit reached for current boost level.");
+
+        var label = new SnRealmLabel
+        {
+            RealmId = realm.Id,
+            Name = request.Name,
+            Description = request.Description,
+            Color = request.Color,
+            Icon = request.Icon,
+            CreatedByAccountId = currentUser.Id
+        };
+        db.RealmLabels.Add(label);
+        await db.SaveChangesAsync();
+        return Ok(label);
+    }
+
+    [HttpPatch("{slug}/labels/{labelId:guid}")]
+    [Authorize]
+    public async Task<ActionResult<SnRealmLabel>> UpdateLabel(string slug, Guid labelId, [FromBody] RealmLabelRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator))
+            return StatusCode(403, "You do not have permission to manage labels.");
+        if (realm.BoostLevel < 1)
+            return StatusCode(403, "Realm boost level 1 is required to manage labels.");
+
+        var label = await db.RealmLabels.FirstOrDefaultAsync(l => l.Id == labelId && l.RealmId == realm.Id);
+        if (label is null) return NotFound();
+
+        label.Name = request.Name;
+        label.Description = request.Description;
+        label.Color = request.Color;
+        label.Icon = request.Icon;
+        await db.SaveChangesAsync();
+
+        return Ok(label);
+    }
+
+    [HttpDelete("{slug}/labels/{labelId:guid}")]
+    [Authorize]
+    public async Task<ActionResult> DeleteLabel(string slug, Guid labelId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator))
+            return StatusCode(403, "You do not have permission to manage labels.");
+        if (realm.BoostLevel < 1)
+            return StatusCode(403, "Realm boost level 1 is required to manage labels.");
+
+        var label = await db.RealmLabels.FirstOrDefaultAsync(l => l.Id == labelId && l.RealmId == realm.Id);
+        if (label is null) return NotFound();
+
+        await db.RealmMembers
+            .Where(m => m.RealmId == realm.Id && m.LabelId == label.Id)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(m => m.LabelId, m => (Guid?)null));
+        db.RealmLabels.Remove(label);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpPatch("{slug}/members/{memberId:guid}/label")]
+    [Authorize]
+    public async Task<ActionResult<SnRealmMember>> UpdateMemberLabel(string slug, Guid memberId, [FromBody] RealmLabelAssignmentRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Moderator))
+            return StatusCode(403, "You do not have permission to manage labels.");
+        if (realm.BoostLevel < 1)
+            return StatusCode(403, "Realm boost level 1 is required to manage labels.");
+
+        var member = await rs.GetActiveMember(realm.Id, memberId);
+        if (member is null) return NotFound();
+
+        if (request.LabelId.HasValue)
+        {
+            var label = await db.RealmLabels.FirstOrDefaultAsync(l => l.Id == request.LabelId.Value && l.RealmId == realm.Id);
+            if (label is null) return BadRequest("Label does not belong to this realm.");
+            member.LabelId = label.Id;
+        }
+        else
+        {
+            member.LabelId = null;
+        }
+
+        await db.SaveChangesAsync();
+        return Ok(await rs.LoadMemberAccount(member));
+    }
+
+    [HttpPost("{slug}/boosts")]
+    [Authorize]
+    public async Task<ActionResult<SnRealm>> BoostRealm(string slug, [FromBody] RealmBoostRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+        if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
+            return StatusCode(403, "You must be a member to boost this realm.");
+
+        var tx = await payments.CreateTransactionWithAccount(
+            payerAccountId: currentUser.Id.ToString(),
+            payeeAccountId: null,
+            currency: "points",
+            amount: request.Amount.ToString(CultureInfo.InvariantCulture),
+            remarks: $"Realm boost:{realm.Id}",
+            type: DyTransactionType.System
+        );
+
+        realm.BoostPoints += request.Amount;
+        db.RealmBoostContributions.Add(new SnRealmBoostContribution
+        {
+            RealmId = realm.Id,
+            AccountId = currentUser.Id,
+            Amount = request.Amount,
+            Currency = "points",
+            TransactionId = Guid.Parse(tx.Id)
+        });
+        await db.SaveChangesAsync();
+
+        return Ok(realm);
+    }
+
+    [HttpGet("{slug}/boosts")]
+    public async Task<ActionResult<object>> GetBoostStatus(string slug)
+    {
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+
+        return Ok(new
+        {
+            boost_points = realm.BoostPoints,
+            boost_level = realm.BoostLevel,
+            label_cap = RealmBoostPolicy.GetLabelCap(realm.BoostLevel)
+        });
+    }
+
+    [HttpGet("{slug}/members/{memberId:guid}/experience")]
+    public async Task<ActionResult<List<SnRealmExperienceRecord>>> GetMemberExperience(string slug, Guid memberId, [FromQuery] int take = 50)
+    {
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+
+        if (!realm.IsPublic)
+        {
+            if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+            if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
+                return StatusCode(403, "You must be a member to view this realm.");
+        }
+
+        var records = await db.RealmExperienceRecords
+            .Where(r => r.RealmId == realm.Id && r.AccountId == memberId)
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(take)
+            .ToListAsync();
+
+        return Ok(records);
     }
 
     [HttpDelete("{slug}/members/me")]
@@ -624,6 +877,8 @@ public class RealmController(
             .Where(r => r.Slug == slug)
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
+        if (newRole > RealmMemberRole.Normal && realm.BoostLevel < 2)
+            return StatusCode(403, "Realm boost level 2 is required to promote members.");
 
         var member = await db.RealmMembers
             .Where(m => m.AccountId == memberId && m.RealmId == realm.Id && m.JoinedAt != null && m.LeaveAt == null)

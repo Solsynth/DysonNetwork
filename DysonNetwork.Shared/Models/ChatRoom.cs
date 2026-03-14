@@ -94,6 +94,12 @@ public class SnChatMember : ModelBase
     [NotMapped] public SnAccountStatus? Status { get; set; }
 
     [MaxLength(1024)] public string? Nick { get; set; }
+    [NotMapped] public string? RealmNick { get; set; }
+    [NotMapped] public string? RealmBio { get; set; }
+    [NotMapped] public int? RealmExperience { get; set; }
+    [NotMapped] public int? RealmLevel { get; set; }
+    [NotMapped] public double? RealmLevelingProgress { get; set; }
+    [NotMapped] public SnRealmLabel? RealmLabel { get; set; }
 
     public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
     public Instant? LastReadAt { get; set; }
@@ -136,6 +142,12 @@ public class ChatMemberTransmissionObject : ModelBase
 
     [MaxLength(1024)]
     public string? Nick { get; set; }
+    public string? RealmNick { get; set; }
+    public string? RealmBio { get; set; }
+    public int? RealmExperience { get; set; }
+    public int? RealmLevel { get; set; }
+    public double? RealmLevelingProgress { get; set; }
+    public SnRealmLabel? RealmLabel { get; set; }
 
     public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
     public Instant? JoinedAt { get; set; }
@@ -158,6 +170,12 @@ public class ChatMemberTransmissionObject : ModelBase
             AccountId = member.AccountId,
             Account = member.Account!,
             Nick = member.Nick,
+            RealmNick = member.RealmNick,
+            RealmBio = member.RealmBio,
+            RealmExperience = member.RealmExperience,
+            RealmLevel = member.RealmLevel,
+            RealmLevelingProgress = member.RealmLevelingProgress,
+            RealmLabel = member.RealmLabel,
             Notify = member.Notify,
             JoinedAt = member.JoinedAt,
             LeaveAt = member.LeaveAt,

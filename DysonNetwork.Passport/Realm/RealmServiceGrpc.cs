@@ -157,6 +157,17 @@ public class RealmServiceGrpc(
         ServerCallContext context)
     {
         var member = request.Member;
+        if (!string.IsNullOrWhiteSpace(member.RealmId) && !string.IsNullOrWhiteSpace(member.AccountId))
+        {
+            var found = await db.RealmMembers
+                .Include(m => m.Label)
+                .Include(m => m.Realm)
+                .Where(m => m.RealmId == Guid.Parse(member.RealmId) && m.AccountId == Guid.Parse(member.AccountId))
+                .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+                .FirstOrDefaultAsync();
+            if (found is not null)
+                member = found.ToProtoValue();
+        }
         DyAccount? account = null;
         try
         {
@@ -174,7 +185,21 @@ public class RealmServiceGrpc(
     public override async Task<DyLoadMemberAccountsResponse> LoadMemberAccounts(DyLoadMemberAccountsRequest request,
         ServerCallContext context)
     {
-        var accountIds = request.Members.Select(m => Guid.Parse(m.AccountId)).ToList();
+        var queriedMembers = request.Members.ToList();
+        var realmIds = queriedMembers
+            .Where(m => Guid.TryParse(m.RealmId, out _))
+            .Select(m => Guid.Parse(m.RealmId))
+            .Distinct()
+            .ToList();
+        var accountIds = queriedMembers.Select(m => Guid.Parse(m.AccountId)).Distinct().ToList();
+
+        var actualMembers = await db.RealmMembers
+            .Include(m => m.Label)
+            .Include(m => m.Realm)
+            .Where(m => realmIds.Contains(m.RealmId) && accountIds.Contains(m.AccountId))
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+            .ToDictionaryAsync(m => (m.RealmId, m.AccountId), m => m, context.CancellationToken);
+
         var accounts = (await accountGrpc.GetAccountBatchAsync(new DyGetAccountBatchRequest
         {
             Id = { accountIds.Select(x => x.ToString()) }
@@ -182,10 +207,12 @@ public class RealmServiceGrpc(
             .ToDictionary(a => Guid.Parse(a.Id), a => a);
 
         var response = new DyLoadMemberAccountsResponse();
-        foreach (var member in request.Members)
+        foreach (var requestedMember in queriedMembers)
         {
-            var updatedMember = new DyRealmMember(member);
-            if (accounts.TryGetValue(Guid.Parse(member.AccountId), out var account))
+            var updatedMember = actualMembers.TryGetValue((Guid.Parse(requestedMember.RealmId), Guid.Parse(requestedMember.AccountId)), out var actualMember)
+                ? actualMember.ToProtoValue()
+                : new DyRealmMember(requestedMember);
+            if (accounts.TryGetValue(Guid.Parse(requestedMember.AccountId), out var account))
             {
                 updatedMember.Account = account;
             }

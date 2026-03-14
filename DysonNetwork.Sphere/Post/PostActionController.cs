@@ -3,9 +3,11 @@ using System.Globalization;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Extensions;
+using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Wallet;
@@ -36,7 +38,8 @@ public class PostActionController(
     PollsService polls,
     RemoteRealmService rs,
     LiveStreamService liveStreams,
-    ILogger<PostActionController> logger
+    ILogger<PostActionController> logger,
+    IEventBus eventBus
 ) : ControllerBase
 {
     public class PostRequest
@@ -300,6 +303,19 @@ public class PostActionController(
         );
 
         post.Publisher = publisher;
+
+        if (post.RealmId.HasValue && post.DraftedAt is null && post.PublishedAt is not null &&
+            post.PublishedAt.Value <= SystemClock.Instance.GetCurrentInstant())
+        {
+            await eventBus.PublishAsync(new RealmActivityEvent
+            {
+                RealmId = post.RealmId.Value,
+                AccountId = Guid.Parse(currentUser.Id),
+                ActivityType = "post_created",
+                ReferenceId = post.Id.ToString(),
+                Delta = 20
+            });
+        }
 
         return post;
     }

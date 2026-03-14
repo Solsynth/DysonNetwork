@@ -128,6 +128,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ExperienceService>();
         services.AddScoped<RealmService>();
         services.AddScoped<RealmQuotaService>();
+        services.AddScoped<RealmExperienceService>();
         services.AddScoped<AffiliationSpellService>();
 
         services.AddScoped<SpotifyPresenceService>();
@@ -181,7 +182,38 @@ public static class ServiceCollectionExtensions
                 }
 
                 logger.LogInformation("Handled account created event for {AccountId}", evt.AccountId);
-            });
+            })
+            .AddListener<RealmActivityEvent>(
+                RealmActivityEvent.SubjectPrefix + ">",
+                async (evt, ctx) =>
+                {
+                    var experience = ctx.ServiceProvider.GetRequiredService<RealmExperienceService>();
+                    var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+
+                    var cooldown = evt.ActivityType == "chat_message"
+                        ? NodaTime.Duration.FromMinutes(1)
+                        : (NodaTime.Duration?)null;
+
+                    var record = await experience.AddRecord(
+                        evt.RealmId,
+                        evt.AccountId,
+                        $"realm.activity.{evt.ActivityType}",
+                        evt.ReferenceId,
+                        evt.Delta,
+                        cooldown,
+                        ctx.CancellationToken
+                    );
+
+                    if (record is not null)
+                        logger.LogDebug("Recorded realm activity XP {ActivityType} for {RealmId}/{AccountId}", evt.ActivityType, evt.RealmId, evt.AccountId);
+                },
+                opts =>
+                {
+                    opts.UseJetStream = true;
+                    opts.StreamName = "realm_activity_events";
+                    opts.ConsumerName = "passport_realm_activity_xp";
+                    opts.MaxRetries = 3;
+                });
 
         return services;
     }
