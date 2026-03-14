@@ -1,19 +1,26 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Grpc.Core;
 
 namespace DysonNetwork.Passport.Account;
 
 [ApiController]
 [Route("/api/spells")]
-public class MagicSpellController(AppDatabase db, MagicSpellService sp) : ControllerBase
+public class MagicSpellController(
+    AppDatabase db,
+    MagicSpellService sp,
+    DyAccountService.DyAccountServiceClient accountGrpc
+) : ControllerBase
 {
     [HttpPost("activation/resend")]
     [Authorize]
     public async Task<ActionResult> ResendActivationMagicSpell()
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        var currentUser = await GetCurrentUserAsync();
+        if (currentUser is null) return Unauthorized();
 
         var spell = await db.MagicSpells.FirstOrDefaultAsync(s =>
             s.Type == MagicSpellType.AccountActivation && s.AccountId == currentUser.Id);
@@ -74,5 +81,27 @@ public class MagicSpellController(AppDatabase db, MagicSpellService sp) : Contro
         }
 
         return Ok();
+    }
+
+    private async Task<SnAccount?> GetCurrentUserAsync()
+    {
+        if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
+            return currentUser;
+
+        var accountId = User.Claims
+            .FirstOrDefault(c => c.Type == "user_id")?
+            .Value;
+        if (string.IsNullOrWhiteSpace(accountId))
+            return null;
+
+        try
+        {
+            var remote = await accountGrpc.GetAccountAsync(new DyGetAccountRequest { Id = accountId });
+            return SnAccount.FromProtoValue(remote);
+        }
+        catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+        {
+            return null;
+        }
     }
 }
