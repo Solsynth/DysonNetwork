@@ -25,6 +25,7 @@ public class ConnectionController(
     private const string StateCachePrefix = "oidc-state:";
     private const string ReturnUrlCachePrefix = "oidc-returning:";
     private static readonly TimeSpan StateExpiration = TimeSpan.FromMinutes(15);
+    private readonly string _cookieDomain = configuration["AuthToken:CookieDomain"]!;
 
     [HttpGet]
     public async Task<ActionResult<List<SnAccountConnection>>> GetConnections()
@@ -358,9 +359,10 @@ public class ConnectionController(
                 null,
                 ClientPlatform.Web,
                 parentSession);
-            
-            var token = await auth.CreateToken(session);
-            var redirectUrl = QueryHelpers.AddQueryString(redirectBaseUrl, "token", token);
+
+            var pair = await auth.CreateTokenPair(session);
+            AppendAuthCookies(pair);
+            var redirectUrl = BuildLoginRedirectUrl(redirectBaseUrl, pair);
             logger.LogInformation("OIDC login successful for user {UserId}. Redirecting to {RedirectUrl}", connection.AccountId, redirectUrl);
             return Redirect(redirectUrl);
         }
@@ -393,11 +395,50 @@ public class ConnectionController(
             null,
             ClientPlatform.Web,
             registrationParentSession);
-        var loginToken = await auth.CreateToken(loginSession);
+        var pair = await auth.CreateTokenPair(loginSession);
+        AppendAuthCookies(pair);
 
-        var finalRedirectUrl = QueryHelpers.AddQueryString(redirectBaseUrl, "token", loginToken);
+        var finalRedirectUrl = BuildLoginRedirectUrl(redirectBaseUrl, pair);
         logger.LogInformation("OIDC registration successful for new user {UserId}. Redirecting to {RedirectUrl}", account.Id, finalRedirectUrl);
         return Redirect(finalRedirectUrl);
+    }
+
+    private string BuildLoginRedirectUrl(string redirectBaseUrl, TokenPair pair)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var redirectUrl = QueryHelpers.AddQueryString(redirectBaseUrl, "token", pair.AccessToken);
+        redirectUrl = QueryHelpers.AddQueryString(redirectUrl, "refreshToken", pair.RefreshToken);
+        redirectUrl = QueryHelpers.AddQueryString(
+            redirectUrl,
+            "expiresIn",
+            ((long)Math.Max(0, (pair.AccessTokenExpiresAt - now).TotalSeconds)).ToString()
+        );
+        redirectUrl = QueryHelpers.AddQueryString(
+            redirectUrl,
+            "refreshExpiresIn",
+            ((long)Math.Max(0, (pair.RefreshTokenExpiresAt - now).TotalSeconds)).ToString()
+        );
+        return redirectUrl;
+    }
+
+    private void AppendAuthCookies(TokenPair pair)
+    {
+        Response.Cookies.Append(AuthConstants.CookieTokenName, pair.AccessToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Domain = _cookieDomain,
+            Expires = pair.AccessTokenExpiresAt.ToDateTimeOffset()
+        });
+        Response.Cookies.Append(AuthConstants.RefreshCookieTokenName, pair.RefreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Domain = _cookieDomain,
+            Expires = pair.RefreshTokenExpiresAt.ToDateTimeOffset()
+        });
     }
 
     private static async Task<OidcCallbackData> ExtractCallbackData(HttpRequest request)

@@ -17,12 +17,14 @@ public class OidcController(
     AccountService accounts,
     AuthService auth,
     ICacheService cache,
+    IConfiguration configuration,
     ILogger<OidcController> logger
 )
     : ControllerBase
 {
     private const string StateCachePrefix = "oidc-state:";
     private static readonly TimeSpan StateExpiration = TimeSpan.FromMinutes(15);
+    private readonly string _cookieDomain = configuration["AuthToken:CookieDomain"]!;
 
     [HttpGet("{provider}")]
     public async Task<ActionResult> OidcLogin(
@@ -112,9 +114,18 @@ public class OidcController(
                 ClientPlatform.Ios,
                 parentSession
             );
-            
-            var token = await auth.CreateToken(session);
-            return Ok(new TokenExchangeResponse { Token = token });
+
+            var pair = await auth.CreateTokenPair(session);
+            AppendAuthCookies(pair);
+
+            var now = SystemClock.Instance.GetCurrentInstant();
+            return Ok(new TokenExchangeResponse
+            {
+                Token = pair.AccessToken,
+                RefreshToken = pair.RefreshToken,
+                ExpiresIn = (long)Math.Max(0, (pair.AccessTokenExpiresAt - now).TotalSeconds),
+                RefreshExpiresIn = (long)Math.Max(0, (pair.RefreshTokenExpiresAt - now).TotalSeconds)
+            });
         }
         catch (SecurityTokenValidationException ex)
         {
@@ -208,5 +219,25 @@ public class OidcController(
         await db.SaveChangesAsync();
 
         return newAccount;
+    }
+
+    private void AppendAuthCookies(TokenPair pair)
+    {
+        Response.Cookies.Append(AuthConstants.CookieTokenName, pair.AccessToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Domain = _cookieDomain,
+            Expires = pair.AccessTokenExpiresAt.ToDateTimeOffset()
+        });
+        Response.Cookies.Append(AuthConstants.RefreshCookieTokenName, pair.RefreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Domain = _cookieDomain,
+            Expires = pair.RefreshTokenExpiresAt.ToDateTimeOffset()
+        });
     }
 }
