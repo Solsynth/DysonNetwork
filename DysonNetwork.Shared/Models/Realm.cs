@@ -158,10 +158,7 @@ public class SnRealmMember : ModelBase
         }
         if (Label != null)
         {
-            proto.LabelName = Label.Name;
-            proto.LabelDescription = Label.Description ?? string.Empty;
-            proto.LabelColor = Label.Color ?? string.Empty;
-            proto.LabelIcon = Label.Icon ?? string.Empty;
+            proto.Label = Label.ToProtoValue();
         }
 
         return proto;
@@ -188,17 +185,9 @@ public class SnRealmMember : ModelBase
         {
             member.Account = SnAccount.FromProtoValue(proto.Account);
         }
-        if (!string.IsNullOrWhiteSpace(proto.LabelName))
+        if (proto.Label != null)
         {
-            member.Label = new SnRealmLabel
-            {
-                Id = member.LabelId ?? Guid.Empty,
-                RealmId = member.RealmId,
-                Name = proto.LabelName,
-                Description = string.IsNullOrWhiteSpace(proto.LabelDescription) ? null : proto.LabelDescription,
-                Color = string.IsNullOrWhiteSpace(proto.LabelColor) ? null : proto.LabelColor,
-                Icon = string.IsNullOrWhiteSpace(proto.LabelIcon) ? null : proto.LabelIcon,
-            };
+            member.Label = SnRealmLabel.FromProtoValue(proto.Label, member.RealmId, member.LabelId);
         }
 
         return member;
@@ -215,6 +204,30 @@ public class SnRealmLabel : ModelBase
     [MaxLength(64)] public string? Color { get; set; }
     [MaxLength(256)] public string? Icon { get; set; }
     public Guid CreatedByAccountId { get; set; }
+
+    public DyRealmLabel ToProtoValue()
+    {
+        return new DyRealmLabel
+        {
+            Name = Name,
+            Description = Description ?? string.Empty,
+            Color = Color ?? string.Empty,
+            Icon = Icon ?? string.Empty
+        };
+    }
+
+    public static SnRealmLabel FromProtoValue(DyRealmLabel proto, Guid realmId, Guid? id = null)
+    {
+        return new SnRealmLabel
+        {
+            Id = id ?? Guid.NewGuid(),
+            RealmId = realmId,
+            Name = proto.Name,
+            Description = string.IsNullOrWhiteSpace(proto.Description) ? null : proto.Description,
+            Color = string.IsNullOrWhiteSpace(proto.Color) ? null : proto.Color,
+            Icon = string.IsNullOrWhiteSpace(proto.Icon) ? null : proto.Icon,
+        };
+    }
 
     public object ToDisplayPayload() => new
     {

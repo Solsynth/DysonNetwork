@@ -37,7 +37,7 @@ namespace DysonNetwork.Shared.Proto {
             "cmlmaWNhdGlvbk1hcmtIAlIMdmVyaWZpY2F0aW9uiAEBEh0KCmFjY291bnRf",
             "aWQYCiABKAlSCWFjY291bnRJZBIhCgxib29zdF9wb2ludHMYCyABKAlSC2Jv",
             "b3N0UG9pbnRzEh8KC2Jvb3N0X2xldmVsGAwgASgFUgpib29zdExldmVsQgoK",
-            "CF9waWN0dXJlQg0KC19iYWNrZ3JvdW5kQg8KDV92ZXJpZmljYXRpb24ilAUK",
+            "CF9waWN0dXJlQg0KC19iYWNrZ3JvdW5kQg8KDV92ZXJpZmljYXRpb24iswQK",
             "DUR5UmVhbG1NZW1iZXISHQoKYWNjb3VudF9pZBgBIAEoCVIJYWNjb3VudElk",
             "EhkKCHJlYWxtX2lkGAIgASgJUgdyZWFsbUlkEhIKBHJvbGUYAyABKAVSBHJv",
             "bGUSPAoJam9pbmVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVz",
@@ -48,57 +48,58 @@ namespace DysonNetwork.Shared.Proto {
             "CCABKAlSBG5pY2sSEAoDYmlvGAkgASgJUgNiaW8SGQoIbGFiZWxfaWQYCiAB",
             "KAlSB2xhYmVsSWQSHgoKZXhwZXJpZW5jZRgLIAEoBVIKZXhwZXJpZW5jZRIU",
             "CgVsZXZlbBgMIAEoBVIFbGV2ZWwSKwoRbGV2ZWxpbmdfcHJvZ3Jlc3MYDSAB",
-            "KAFSEGxldmVsaW5nUHJvZ3Jlc3MSHQoKbGFiZWxfbmFtZRgOIAEoCVIJbGFi",
-            "ZWxOYW1lEisKEWxhYmVsX2Rlc2NyaXB0aW9uGA8gASgJUhBsYWJlbERlc2Ny",
-            "aXB0aW9uEh8KC2xhYmVsX2NvbG9yGBAgASgJUgpsYWJlbENvbG9yEh0KCmxh",
-            "YmVsX2ljb24YESABKAlSCWxhYmVsSWNvbkIMCgpfam9pbmVkX2F0QgsKCV9s",
-            "ZWF2ZV9hdEIKCghfYWNjb3VudEIICgZfcmVhbG0iRAoRRHlHZXRSZWFsbVJl",
-            "cXVlc3QSEAoCaWQYASABKAlIAFICaWQSFAoEc2x1ZxgCIAEoCUgAUgRzbHVn",
-            "QgcKBXF1ZXJ5IjcKFkR5R2V0VXNlclJlYWxtc1JlcXVlc3QSHQoKYWNjb3Vu",
-            "dF9pZBgBIAEoCVIJYWNjb3VudElkIioKFkR5R2V0UmVhbG1CYXRjaFJlcXVl",
-            "c3QSEAoDaWRzGAEgAygJUgNpZHMiQQoXRHlHZXRSZWFsbUJhdGNoUmVzcG9u",
-            "c2USJgoGcmVhbG1zGAEgAygLMg4ucHJvdG8uRHlSZWFsbVIGcmVhbG1zIjYK",
-            "F0R5R2V0VXNlclJlYWxtc1Jlc3BvbnNlEhsKCXJlYWxtX2lkcxgBIAMoCVII",
-            "cmVhbG1JZHMifgoYRHlHZXRQdWJsaWNSZWFsbXNSZXF1ZXN0Eh4KCG9yZGVy",
-            "X2J5GAEgASgJSABSB29yZGVyQnmIAQESEgoEdGFrZRgCIAEoBVIEdGFrZRIh",
-            "Cgxpc19jb21tdW5pdHkYAyABKAhSC2lzQ29tbXVuaXR5QgsKCV9vcmRlcl9i",
-            "eSJDChlEeUdldFB1YmxpY1JlYWxtc1Jlc3BvbnNlEiYKBnJlYWxtcxgBIAMo",
-            "CzIOLnByb3RvLkR5UmVhbG1SBnJlYWxtcyJDChVEeVNlYXJjaFJlYWxtc1Jl",
-            "cXVlc3QSFAoFcXVlcnkYASABKAlSBXF1ZXJ5EhQKBWxpbWl0GAIgASgFUgVs",
-            "aW1pdCJJChlEeVNlbmRJbnZpdGVOb3RpZnlSZXF1ZXN0EiwKBm1lbWJlchgB",
-            "IAEoCzIULnByb3RvLkR5UmVhbG1NZW1iZXJSBm1lbWJlciJ8ChlEeUlzTWVt",
-            "YmVyV2l0aFJvbGVSZXF1ZXN0EhkKCHJlYWxtX2lkGAEgASgJUgdyZWFsbUlk",
-            "Eh0KCmFjY291bnRfaWQYAiABKAlSCWFjY291bnRJZBIlCg5yZXF1aXJlZF9y",
-            "b2xlcxgDIAMoBVINcmVxdWlyZWRSb2xlcyJKChpEeUxvYWRNZW1iZXJBY2Nv",
-            "dW50UmVxdWVzdBIsCgZtZW1iZXIYASABKAsyFC5wcm90by5EeVJlYWxtTWVt",
-            "YmVyUgZtZW1iZXIiTQobRHlMb2FkTWVtYmVyQWNjb3VudHNSZXF1ZXN0Ei4K",
-            "B21lbWJlcnMYASADKAsyFC5wcm90by5EeVJlYWxtTWVtYmVyUgdtZW1iZXJz",
-            "Ik4KHER5TG9hZE1lbWJlckFjY291bnRzUmVzcG9uc2USLgoHbWVtYmVycxgB",
-            "IAMoCzIULnByb3RvLkR5UmVhbG1NZW1iZXJSB21lbWJlcnMy6wUKDkR5UmVh",
-            "bG1TZXJ2aWNlEjYKCEdldFJlYWxtEhgucHJvdG8uRHlHZXRSZWFsbVJlcXVl",
-            "c3QaDi5wcm90by5EeVJlYWxtIgASUAoNR2V0UmVhbG1CYXRjaBIdLnByb3Rv",
-            "LkR5R2V0UmVhbG1CYXRjaFJlcXVlc3QaHi5wcm90by5EeUdldFJlYWxtQmF0",
-            "Y2hSZXNwb25zZSIAElAKDUdldFVzZXJSZWFsbXMSHS5wcm90by5EeUdldFVz",
-            "ZXJSZWFsbXNSZXF1ZXN0Gh4ucHJvdG8uRHlHZXRVc2VyUmVhbG1zUmVzcG9u",
-            "c2UiABJWCg9HZXRQdWJsaWNSZWFsbXMSHy5wcm90by5EeUdldFB1YmxpY1Jl",
-            "YWxtc1JlcXVlc3QaIC5wcm90by5EeUdldFB1YmxpY1JlYWxtc1Jlc3BvbnNl",
-            "IgASUAoMU2VhcmNoUmVhbG1zEhwucHJvdG8uRHlTZWFyY2hSZWFsbXNSZXF1",
-            "ZXN0GiAucHJvdG8uRHlHZXRQdWJsaWNSZWFsbXNSZXNwb25zZSIAEk4KEFNl",
-            "bmRJbnZpdGVOb3RpZnkSIC5wcm90by5EeVNlbmRJbnZpdGVOb3RpZnlSZXF1",
-            "ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5IgASUgoQSXNNZW1iZXJXaXRo",
-            "Um9sZRIgLnByb3RvLkR5SXNNZW1iZXJXaXRoUm9sZVJlcXVlc3QaGi5nb29n",
-            "bGUucHJvdG9idWYuQm9vbFZhbHVlIgASTgoRTG9hZE1lbWJlckFjY291bnQS",
-            "IS5wcm90by5EeUxvYWRNZW1iZXJBY2NvdW50UmVxdWVzdBoULnByb3RvLkR5",
-            "UmVhbG1NZW1iZXIiABJfChJMb2FkTWVtYmVyQWNjb3VudHMSIi5wcm90by5E",
-            "eUxvYWRNZW1iZXJBY2NvdW50c1JlcXVlc3QaIy5wcm90by5EeUxvYWRNZW1i",
-            "ZXJBY2NvdW50c1Jlc3BvbnNlIgBCPVofZ2l0LnNvbHN5bnRoLmRldi9zb3N5",
-            "cy9zcGVjL2dlbqoCGUR5c29uTmV0d29yay5TaGFyZWQuUHJvdG9iBnByb3Rv",
-            "Mw=="));
+            "KAFSEGxldmVsaW5nUHJvZ3Jlc3MSKQoFbGFiZWwYDiABKAsyEy5wcm90by5E",
+            "eVJlYWxtTGFiZWxSBWxhYmVsQgwKCl9qb2luZWRfYXRCCwoJX2xlYXZlX2F0",
+            "QgoKCF9hY2NvdW50QggKBl9yZWFsbSJuCgxEeVJlYWxtTGFiZWwSEgoEbmFt",
+            "ZRgBIAEoCVIEbmFtZRIgCgtkZXNjcmlwdGlvbhgCIAEoCVILZGVzY3JpcHRp",
+            "b24SFAoFY29sb3IYAyABKAlSBWNvbG9yEhIKBGljb24YBCABKAlSBGljb24i",
+            "RAoRRHlHZXRSZWFsbVJlcXVlc3QSEAoCaWQYASABKAlIAFICaWQSFAoEc2x1",
+            "ZxgCIAEoCUgAUgRzbHVnQgcKBXF1ZXJ5IjcKFkR5R2V0VXNlclJlYWxtc1Jl",
+            "cXVlc3QSHQoKYWNjb3VudF9pZBgBIAEoCVIJYWNjb3VudElkIioKFkR5R2V0",
+            "UmVhbG1CYXRjaFJlcXVlc3QSEAoDaWRzGAEgAygJUgNpZHMiQQoXRHlHZXRS",
+            "ZWFsbUJhdGNoUmVzcG9uc2USJgoGcmVhbG1zGAEgAygLMg4ucHJvdG8uRHlS",
+            "ZWFsbVIGcmVhbG1zIjYKF0R5R2V0VXNlclJlYWxtc1Jlc3BvbnNlEhsKCXJl",
+            "YWxtX2lkcxgBIAMoCVIIcmVhbG1JZHMifgoYRHlHZXRQdWJsaWNSZWFsbXNS",
+            "ZXF1ZXN0Eh4KCG9yZGVyX2J5GAEgASgJSABSB29yZGVyQnmIAQESEgoEdGFr",
+            "ZRgCIAEoBVIEdGFrZRIhCgxpc19jb21tdW5pdHkYAyABKAhSC2lzQ29tbXVu",
+            "aXR5QgsKCV9vcmRlcl9ieSJDChlEeUdldFB1YmxpY1JlYWxtc1Jlc3BvbnNl",
+            "EiYKBnJlYWxtcxgBIAMoCzIOLnByb3RvLkR5UmVhbG1SBnJlYWxtcyJDChVE",
+            "eVNlYXJjaFJlYWxtc1JlcXVlc3QSFAoFcXVlcnkYASABKAlSBXF1ZXJ5EhQK",
+            "BWxpbWl0GAIgASgFUgVsaW1pdCJJChlEeVNlbmRJbnZpdGVOb3RpZnlSZXF1",
+            "ZXN0EiwKBm1lbWJlchgBIAEoCzIULnByb3RvLkR5UmVhbG1NZW1iZXJSBm1l",
+            "bWJlciJ8ChlEeUlzTWVtYmVyV2l0aFJvbGVSZXF1ZXN0EhkKCHJlYWxtX2lk",
+            "GAEgASgJUgdyZWFsbUlkEh0KCmFjY291bnRfaWQYAiABKAlSCWFjY291bnRJ",
+            "ZBIlCg5yZXF1aXJlZF9yb2xlcxgDIAMoBVINcmVxdWlyZWRSb2xlcyJKChpE",
+            "eUxvYWRNZW1iZXJBY2NvdW50UmVxdWVzdBIsCgZtZW1iZXIYASABKAsyFC5w",
+            "cm90by5EeVJlYWxtTWVtYmVyUgZtZW1iZXIiTQobRHlMb2FkTWVtYmVyQWNj",
+            "b3VudHNSZXF1ZXN0Ei4KB21lbWJlcnMYASADKAsyFC5wcm90by5EeVJlYWxt",
+            "TWVtYmVyUgdtZW1iZXJzIk4KHER5TG9hZE1lbWJlckFjY291bnRzUmVzcG9u",
+            "c2USLgoHbWVtYmVycxgBIAMoCzIULnByb3RvLkR5UmVhbG1NZW1iZXJSB21l",
+            "bWJlcnMy6wUKDkR5UmVhbG1TZXJ2aWNlEjYKCEdldFJlYWxtEhgucHJvdG8u",
+            "RHlHZXRSZWFsbVJlcXVlc3QaDi5wcm90by5EeVJlYWxtIgASUAoNR2V0UmVh",
+            "bG1CYXRjaBIdLnByb3RvLkR5R2V0UmVhbG1CYXRjaFJlcXVlc3QaHi5wcm90",
+            "by5EeUdldFJlYWxtQmF0Y2hSZXNwb25zZSIAElAKDUdldFVzZXJSZWFsbXMS",
+            "HS5wcm90by5EeUdldFVzZXJSZWFsbXNSZXF1ZXN0Gh4ucHJvdG8uRHlHZXRV",
+            "c2VyUmVhbG1zUmVzcG9uc2UiABJWCg9HZXRQdWJsaWNSZWFsbXMSHy5wcm90",
+            "by5EeUdldFB1YmxpY1JlYWxtc1JlcXVlc3QaIC5wcm90by5EeUdldFB1Ymxp",
+            "Y1JlYWxtc1Jlc3BvbnNlIgASUAoMU2VhcmNoUmVhbG1zEhwucHJvdG8uRHlT",
+            "ZWFyY2hSZWFsbXNSZXF1ZXN0GiAucHJvdG8uRHlHZXRQdWJsaWNSZWFsbXNS",
+            "ZXNwb25zZSIAEk4KEFNlbmRJbnZpdGVOb3RpZnkSIC5wcm90by5EeVNlbmRJ",
+            "bnZpdGVOb3RpZnlSZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5IgAS",
+            "UgoQSXNNZW1iZXJXaXRoUm9sZRIgLnByb3RvLkR5SXNNZW1iZXJXaXRoUm9s",
+            "ZVJlcXVlc3QaGi5nb29nbGUucHJvdG9idWYuQm9vbFZhbHVlIgASTgoRTG9h",
+            "ZE1lbWJlckFjY291bnQSIS5wcm90by5EeUxvYWRNZW1iZXJBY2NvdW50UmVx",
+            "dWVzdBoULnByb3RvLkR5UmVhbG1NZW1iZXIiABJfChJMb2FkTWVtYmVyQWNj",
+            "b3VudHMSIi5wcm90by5EeUxvYWRNZW1iZXJBY2NvdW50c1JlcXVlc3QaIy5w",
+            "cm90by5EeUxvYWRNZW1iZXJBY2NvdW50c1Jlc3BvbnNlIgBCPVofZ2l0LnNv",
+            "bHN5bnRoLmRldi9zb3N5cy9zcGVjL2dlbqoCGUR5c29uTmV0d29yay5TaGFy",
+            "ZWQuUHJvdG9iBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.EmptyReflection.Descriptor, global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor, global::DysonNetwork.Shared.Proto.FileReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyRealm), global::DysonNetwork.Shared.Proto.DyRealm.Parser, new[]{ "Id", "Name", "Slug", "IsCommunity", "IsPublic", "Description", "Picture", "Background", "Verification", "AccountId", "BoostPoints", "BoostLevel" }, new[]{ "Picture", "Background", "Verification" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyRealmMember), global::DysonNetwork.Shared.Proto.DyRealmMember.Parser, new[]{ "AccountId", "RealmId", "Role", "JoinedAt", "LeaveAt", "Account", "Realm", "Nick", "Bio", "LabelId", "Experience", "Level", "LevelingProgress", "LabelName", "LabelDescription", "LabelColor", "LabelIcon" }, new[]{ "JoinedAt", "LeaveAt", "Account", "Realm" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyRealmMember), global::DysonNetwork.Shared.Proto.DyRealmMember.Parser, new[]{ "AccountId", "RealmId", "Role", "JoinedAt", "LeaveAt", "Account", "Realm", "Nick", "Bio", "LabelId", "Experience", "Level", "LevelingProgress", "Label" }, new[]{ "JoinedAt", "LeaveAt", "Account", "Realm" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyRealmLabel), global::DysonNetwork.Shared.Proto.DyRealmLabel.Parser, new[]{ "Name", "Description", "Color", "Icon" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetRealmRequest), global::DysonNetwork.Shared.Proto.DyGetRealmRequest.Parser, new[]{ "Id", "Slug" }, new[]{ "Query" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetUserRealmsRequest), global::DysonNetwork.Shared.Proto.DyGetUserRealmsRequest.Parser, new[]{ "AccountId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetRealmBatchRequest), global::DysonNetwork.Shared.Proto.DyGetRealmBatchRequest.Parser, new[]{ "Ids" }, null, null, null, null),
@@ -798,10 +799,7 @@ namespace DysonNetwork.Shared.Proto {
       experience_ = other.experience_;
       level_ = other.level_;
       levelingProgress_ = other.levelingProgress_;
-      labelName_ = other.labelName_;
-      labelDescription_ = other.labelDescription_;
-      labelColor_ = other.labelColor_;
-      labelIcon_ = other.labelIcon_;
+      label_ = other.label_ != null ? other.label_.Clone() : null;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -967,51 +965,15 @@ namespace DysonNetwork.Shared.Proto {
       }
     }
 
-    /// <summary>Field number for the "label_name" field.</summary>
-    public const int LabelNameFieldNumber = 14;
-    private string labelName_ = "";
+    /// <summary>Field number for the "label" field.</summary>
+    public const int LabelFieldNumber = 14;
+    private global::DysonNetwork.Shared.Proto.DyRealmLabel label_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string LabelName {
-      get { return labelName_; }
+    public global::DysonNetwork.Shared.Proto.DyRealmLabel Label {
+      get { return label_; }
       set {
-        labelName_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "label_description" field.</summary>
-    public const int LabelDescriptionFieldNumber = 15;
-    private string labelDescription_ = "";
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string LabelDescription {
-      get { return labelDescription_; }
-      set {
-        labelDescription_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "label_color" field.</summary>
-    public const int LabelColorFieldNumber = 16;
-    private string labelColor_ = "";
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string LabelColor {
-      get { return labelColor_; }
-      set {
-        labelColor_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "label_icon" field.</summary>
-    public const int LabelIconFieldNumber = 17;
-    private string labelIcon_ = "";
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string LabelIcon {
-      get { return labelIcon_; }
-      set {
-        labelIcon_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        label_ = value;
       }
     }
 
@@ -1043,10 +1005,7 @@ namespace DysonNetwork.Shared.Proto {
       if (Experience != other.Experience) return false;
       if (Level != other.Level) return false;
       if (!pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.Equals(LevelingProgress, other.LevelingProgress)) return false;
-      if (LabelName != other.LabelName) return false;
-      if (LabelDescription != other.LabelDescription) return false;
-      if (LabelColor != other.LabelColor) return false;
-      if (LabelIcon != other.LabelIcon) return false;
+      if (!object.Equals(Label, other.Label)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -1067,10 +1026,7 @@ namespace DysonNetwork.Shared.Proto {
       if (Experience != 0) hash ^= Experience.GetHashCode();
       if (Level != 0) hash ^= Level.GetHashCode();
       if (LevelingProgress != 0D) hash ^= pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.GetHashCode(LevelingProgress);
-      if (LabelName.Length != 0) hash ^= LabelName.GetHashCode();
-      if (LabelDescription.Length != 0) hash ^= LabelDescription.GetHashCode();
-      if (LabelColor.Length != 0) hash ^= LabelColor.GetHashCode();
-      if (LabelIcon.Length != 0) hash ^= LabelIcon.GetHashCode();
+      if (label_ != null) hash ^= Label.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -1141,21 +1097,9 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(105);
         output.WriteDouble(LevelingProgress);
       }
-      if (LabelName.Length != 0) {
+      if (label_ != null) {
         output.WriteRawTag(114);
-        output.WriteString(LabelName);
-      }
-      if (LabelDescription.Length != 0) {
-        output.WriteRawTag(122);
-        output.WriteString(LabelDescription);
-      }
-      if (LabelColor.Length != 0) {
-        output.WriteRawTag(130, 1);
-        output.WriteString(LabelColor);
-      }
-      if (LabelIcon.Length != 0) {
-        output.WriteRawTag(138, 1);
-        output.WriteString(LabelIcon);
+        output.WriteMessage(Label);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -1219,21 +1163,9 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(105);
         output.WriteDouble(LevelingProgress);
       }
-      if (LabelName.Length != 0) {
+      if (label_ != null) {
         output.WriteRawTag(114);
-        output.WriteString(LabelName);
-      }
-      if (LabelDescription.Length != 0) {
-        output.WriteRawTag(122);
-        output.WriteString(LabelDescription);
-      }
-      if (LabelColor.Length != 0) {
-        output.WriteRawTag(130, 1);
-        output.WriteString(LabelColor);
-      }
-      if (LabelIcon.Length != 0) {
-        output.WriteRawTag(138, 1);
-        output.WriteString(LabelIcon);
+        output.WriteMessage(Label);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -1284,17 +1216,8 @@ namespace DysonNetwork.Shared.Proto {
       if (LevelingProgress != 0D) {
         size += 1 + 8;
       }
-      if (LabelName.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(LabelName);
-      }
-      if (LabelDescription.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(LabelDescription);
-      }
-      if (LabelColor.Length != 0) {
-        size += 2 + pb::CodedOutputStream.ComputeStringSize(LabelColor);
-      }
-      if (LabelIcon.Length != 0) {
-        size += 2 + pb::CodedOutputStream.ComputeStringSize(LabelIcon);
+      if (label_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Label);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -1359,17 +1282,11 @@ namespace DysonNetwork.Shared.Proto {
       if (other.LevelingProgress != 0D) {
         LevelingProgress = other.LevelingProgress;
       }
-      if (other.LabelName.Length != 0) {
-        LabelName = other.LabelName;
-      }
-      if (other.LabelDescription.Length != 0) {
-        LabelDescription = other.LabelDescription;
-      }
-      if (other.LabelColor.Length != 0) {
-        LabelColor = other.LabelColor;
-      }
-      if (other.LabelIcon.Length != 0) {
-        LabelIcon = other.LabelIcon;
+      if (other.label_ != null) {
+        if (label_ == null) {
+          Label = new global::DysonNetwork.Shared.Proto.DyRealmLabel();
+        }
+        Label.MergeFrom(other.Label);
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -1455,19 +1372,10 @@ namespace DysonNetwork.Shared.Proto {
             break;
           }
           case 114: {
-            LabelName = input.ReadString();
-            break;
-          }
-          case 122: {
-            LabelDescription = input.ReadString();
-            break;
-          }
-          case 130: {
-            LabelColor = input.ReadString();
-            break;
-          }
-          case 138: {
-            LabelIcon = input.ReadString();
+            if (label_ == null) {
+              Label = new global::DysonNetwork.Shared.Proto.DyRealmLabel();
+            }
+            input.ReadMessage(Label);
             break;
           }
         }
@@ -1554,19 +1462,319 @@ namespace DysonNetwork.Shared.Proto {
             break;
           }
           case 114: {
-            LabelName = input.ReadString();
+            if (label_ == null) {
+              Label = new global::DysonNetwork.Shared.Proto.DyRealmLabel();
+            }
+            input.ReadMessage(Label);
             break;
           }
-          case 122: {
-            LabelDescription = input.ReadString();
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DyRealmLabel : pb::IMessage<DyRealmLabel>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DyRealmLabel> _parser = new pb::MessageParser<DyRealmLabel>(() => new DyRealmLabel());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DyRealmLabel> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[2]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyRealmLabel() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyRealmLabel(DyRealmLabel other) : this() {
+      name_ = other.name_;
+      description_ = other.description_;
+      color_ = other.color_;
+      icon_ = other.icon_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyRealmLabel Clone() {
+      return new DyRealmLabel(this);
+    }
+
+    /// <summary>Field number for the "name" field.</summary>
+    public const int NameFieldNumber = 1;
+    private string name_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Name {
+      get { return name_; }
+      set {
+        name_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "description" field.</summary>
+    public const int DescriptionFieldNumber = 2;
+    private string description_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Description {
+      get { return description_; }
+      set {
+        description_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "color" field.</summary>
+    public const int ColorFieldNumber = 3;
+    private string color_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Color {
+      get { return color_; }
+      set {
+        color_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "icon" field.</summary>
+    public const int IconFieldNumber = 4;
+    private string icon_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Icon {
+      get { return icon_; }
+      set {
+        icon_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DyRealmLabel);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DyRealmLabel other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (Name != other.Name) return false;
+      if (Description != other.Description) return false;
+      if (Color != other.Color) return false;
+      if (Icon != other.Icon) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (Name.Length != 0) hash ^= Name.GetHashCode();
+      if (Description.Length != 0) hash ^= Description.GetHashCode();
+      if (Color.Length != 0) hash ^= Color.GetHashCode();
+      if (Icon.Length != 0) hash ^= Icon.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (Name.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(Name);
+      }
+      if (Description.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Description);
+      }
+      if (Color.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(Color);
+      }
+      if (Icon.Length != 0) {
+        output.WriteRawTag(34);
+        output.WriteString(Icon);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (Name.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(Name);
+      }
+      if (Description.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Description);
+      }
+      if (Color.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(Color);
+      }
+      if (Icon.Length != 0) {
+        output.WriteRawTag(34);
+        output.WriteString(Icon);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (Name.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Name);
+      }
+      if (Description.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Description);
+      }
+      if (Color.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Color);
+      }
+      if (Icon.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Icon);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DyRealmLabel other) {
+      if (other == null) {
+        return;
+      }
+      if (other.Name.Length != 0) {
+        Name = other.Name;
+      }
+      if (other.Description.Length != 0) {
+        Description = other.Description;
+      }
+      if (other.Color.Length != 0) {
+        Color = other.Color;
+      }
+      if (other.Icon.Length != 0) {
+        Icon = other.Icon;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            Name = input.ReadString();
             break;
           }
-          case 130: {
-            LabelColor = input.ReadString();
+          case 18: {
+            Description = input.ReadString();
             break;
           }
-          case 138: {
-            LabelIcon = input.ReadString();
+          case 26: {
+            Color = input.ReadString();
+            break;
+          }
+          case 34: {
+            Icon = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            Name = input.ReadString();
+            break;
+          }
+          case 18: {
+            Description = input.ReadString();
+            break;
+          }
+          case 26: {
+            Color = input.ReadString();
+            break;
+          }
+          case 34: {
+            Icon = input.ReadString();
             break;
           }
         }
@@ -1591,7 +1799,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[2]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[3]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -1887,7 +2095,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[3]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[4]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2085,7 +2293,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[4]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[5]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2272,7 +2480,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[5]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[6]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2459,7 +2667,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[6]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[7]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2646,7 +2854,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[7]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[8]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -2932,7 +3140,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[8]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[9]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -3119,7 +3327,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[9]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[10]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -3354,7 +3562,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[10]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[11]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -3561,7 +3769,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[11]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[12]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -3824,7 +4032,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[12]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[13]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -4031,7 +4239,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[13]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[14]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -4218,7 +4426,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[14]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[15]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

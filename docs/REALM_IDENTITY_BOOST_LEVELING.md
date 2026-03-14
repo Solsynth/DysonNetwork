@@ -218,6 +218,13 @@ Passport listens to realm activity events and awards XP through `RealmExperience
 - `boost_points`
 - `boost_level`
 
+`DyRealmLabel` now carries:
+
+- `name`
+- `description`
+- `color`
+- `icon`
+
 `DyRealmMember` now carries:
 
 - `nick`
@@ -226,12 +233,11 @@ Passport listens to realm activity events and awards XP through `RealmExperience
 - `experience`
 - `level`
 - `leveling_progress`
-- `label_name`
-- `label_description`
-- `label_color`
-- `label_icon`
+- `label`
 
 The existing `LoadMemberAccount` and `LoadMemberAccounts` RPCs are reused for member overlay hydration.
+
+The label payload is now sent as a dedicated nested `DyRealmLabel` message instead of flattened label fields on `DyRealmMember`.
 
 ## Database Additions
 
@@ -245,7 +251,7 @@ The Passport migration adds:
 
 Migration:
 
-- `20260313183207_AddRealmIdentityBoostAndLeveling`
+- `20260314051433_AddRealmIdentityBoostAndLeveling`
 
 ## Client Expectations
 
@@ -258,3 +264,10 @@ Recommended precedence for linked chats:
 3. account `nick`
 
 Realm bio, label, and level should only be shown when present on the linked-chat member payload.
+
+Chat endpoints that already surface the overlay include member and sender payloads returned through:
+
+- `ChatController`
+- `ChatRoomController`
+- `ChatRoomService.LoadMemberAccount(...)`
+- `ChatRoomService.LoadMemberAccounts(...)`
