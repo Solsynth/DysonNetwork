@@ -39,6 +39,7 @@ public class SubscriptionController(
         public int? GoldenPointReward { get; set; }
         public SubscriptionDisplayConfig? DisplayConfig { get; set; }
         public List<string> AllowedPaymentMethods { get; set; } = [];
+        public Dictionary<string, List<string>> ProviderMappings { get; set; } = [];
     }
 
     [HttpGet("catalog")]
@@ -57,7 +58,12 @@ public class SubscriptionController(
             ExperienceMultiplier = def.ExperienceMultiplier,
             GoldenPointReward = def.GoldenPointReward,
             DisplayConfig = def.DisplayConfig?.Clone(),
-            AllowedPaymentMethods = def.PaymentPolicy.AllowedMethods.ToList()
+            AllowedPaymentMethods = def.PaymentPolicy.AllowedMethods.ToList(),
+            ProviderMappings = def.ProviderMappings.ToDictionary(
+                kv => kv.Key,
+                kv => kv.Value.ToList(),
+                StringComparer.OrdinalIgnoreCase
+            )
         }).ToList());
     }
 
