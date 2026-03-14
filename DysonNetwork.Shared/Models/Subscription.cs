@@ -273,6 +273,11 @@ public abstract class SubscriptionPaymentMethod
     /// paddle.com
     /// </summary>
     public const string Paddle = "paddle";
+
+    /// <summary>
+    /// Internal gift redemption marker.
+    /// </summary>
+    public const string Gift = "gift";
 }
 
 public enum SubscriptionStatus
@@ -312,6 +317,10 @@ public class SnWalletSubscription : ModelBase
     /// </summary>
     [MaxLength(4096)]
     public string Identifier { get; set; } = null!;
+
+    [MaxLength(4096)] public string? GroupIdentifier { get; set; }
+    [MaxLength(4096)] public string? DisplayName { get; set; }
+    public int PerkLevel { get; set; }
 
     /// <summary>
     /// The field is used to override the activation status of the membership.
@@ -398,6 +407,9 @@ public class SnWalletSubscription : ModelBase
         {
             Id = Id,
             Identifier = Identifier,
+            GroupIdentifier = GroupIdentifier,
+            DisplayName = DisplayName,
+            PerkLevel = PerkLevel,
             BegunAt = BegunAt,
             EndedAt = EndedAt,
             IsActive = IsActive,
@@ -419,6 +431,9 @@ public class SnWalletSubscription : ModelBase
             BegunAt = BegunAt.ToTimestamp(),
             EndedAt = EndedAt?.ToTimestamp(),
             Identifier = Identifier,
+            GroupIdentifier = GroupIdentifier ?? string.Empty,
+            DisplayName = DisplayName ?? string.Empty,
+            PerkLevel = PerkLevel,
             IsActive = IsActive,
             IsFreeTrial = IsFreeTrial,
             Status = (DySubscriptionStatus)Status,
@@ -452,6 +467,9 @@ public class SnWalletSubscription : ModelBase
         BegunAt = proto.BegunAt.ToInstant(),
         EndedAt = proto.EndedAt?.ToInstant(),
         Identifier = proto.Identifier,
+        GroupIdentifier = string.IsNullOrWhiteSpace(proto.GroupIdentifier) ? null : proto.GroupIdentifier,
+        DisplayName = string.IsNullOrWhiteSpace(proto.DisplayName) ? null : proto.DisplayName,
+        PerkLevel = proto.PerkLevel,
         IsActive = proto.IsActive,
         IsFreeTrial = proto.IsFreeTrial,
         Status = (SubscriptionStatus)proto.Status,
@@ -475,6 +493,9 @@ public class SnSubscriptionReferenceObject : ModelBase
 {
     public Guid Id { get; set; }
     public string Identifier { get; set; } = null!;
+    public string? GroupIdentifier { get; set; }
+    public string? DisplayName { get; set; }
+    public int PerkLevel { get; set; }
     public Instant BegunAt { get; set; }
     public Instant? EndedAt { get; set; }
     public bool IsActive { get; set; }
@@ -489,13 +510,13 @@ public class SnSubscriptionReferenceObject : ModelBase
     /// <summary>
     /// Gets the human-readable name of the subscription type if available (cached for performance).
     /// </summary>
-    [NotMapped]
-    public string? DisplayName => field ??= SubscriptionTypeData.SubscriptionHumanReadable.GetValueOrDefault(Identifier);
-
     public DySubscriptionReferenceObject ToProtoValue() => new()
     {
         Id = Id.ToString(),
         Identifier = Identifier,
+        GroupIdentifier = GroupIdentifier ?? string.Empty,
+        DisplayName = DisplayName ?? string.Empty,
+        PerkLevel = PerkLevel,
         BegunAt = BegunAt.ToTimestamp(),
         EndedAt = EndedAt?.ToTimestamp(),
         IsActive = IsActive,
@@ -506,7 +527,6 @@ public class SnSubscriptionReferenceObject : ModelBase
         FinalPrice = FinalPrice.ToString(CultureInfo.InvariantCulture),
         RenewalAt = RenewalAt?.ToTimestamp(),
         AccountId = AccountId.ToString(),
-        DisplayName = DisplayName,
         CreatedAt = CreatedAt.ToTimestamp(),
         UpdatedAt = UpdatedAt.ToTimestamp()
     };
@@ -515,6 +535,9 @@ public class SnSubscriptionReferenceObject : ModelBase
     {
         Id = Guid.Parse(proto.Id),
         Identifier = proto.Identifier,
+        GroupIdentifier = string.IsNullOrWhiteSpace(proto.GroupIdentifier) ? null : proto.GroupIdentifier,
+        DisplayName = string.IsNullOrWhiteSpace(proto.DisplayName) ? null : proto.DisplayName,
+        PerkLevel = proto.PerkLevel,
         BegunAt = proto.BegunAt.ToInstant(),
         EndedAt = proto.EndedAt?.ToInstant(),
         IsActive = proto.IsActive,

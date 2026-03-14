@@ -23,10 +23,10 @@ namespace DysonNetwork.Wallet.Payment;
 public class SubscriptionService(
     AppDatabase db,
     PaymentService payment,
+    SubscriptionCatalogService catalog,
     DyProfileService.DyProfileServiceClient accounts,
     DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
-    IConfiguration configuration,
     ICacheService cache,
     ILogger<SubscriptionService> logger
 )
@@ -43,27 +43,21 @@ public class SubscriptionService(
         bool noop = false
     )
     {
-        var subscriptionInfo = SubscriptionTypeData
-            .SubscriptionDict.TryGetValue(identifier, out var template)
-            ? template
-            : null;
-        if (subscriptionInfo is null)
+        var definition = await catalog.GetDefinitionAsync(identifier);
+        if (definition is null)
             throw new ArgumentOutOfRangeException(nameof(identifier), $@"Subscription {identifier} was not found.");
-
-        var subscriptionsInGroup = subscriptionInfo.GroupIdentifier is not null
-            ? SubscriptionTypeData.SubscriptionDict
-                .Where(s => s.Value.GroupIdentifier == subscriptionInfo.GroupIdentifier)
-                .Select(s => s.Value.Identifier)
-                .ToArray()
-            : [identifier];
+        if (!definition.IsPaymentMethodAllowed(paymentMethod))
+            throw new InvalidOperationException($"Payment method {paymentMethod} is not allowed for subscription {identifier}.");
+        if (definition.MinimumAccountLevel.HasValue && account.Profile.Level < definition.MinimumAccountLevel.Value)
+            throw new InvalidOperationException(
+                $"Account level must be at least {definition.MinimumAccountLevel.Value} to purchase {identifier}."
+            );
 
         cycleDuration ??= Duration.FromDays(30);
 
         var accountId = Guid.Parse(account.Id);
-        var existingSubscription = await GetSubscriptionAsync(accountId, subscriptionsInGroup);
-        if (existingSubscription is not null && !noop)
-            throw new InvalidOperationException($"Active subscription with identifier {identifier} already exists.");
-        if (existingSubscription is not null)
+        var existingSubscription = await GetSubscriptionAsync(accountId, identifier);
+        if (existingSubscription is not null && noop)
             return existingSubscription;
 
         // Batch database queries for coupon and free trial check
@@ -95,15 +89,20 @@ public class SubscriptionService(
             BegunAt = now,
             EndedAt = now.Plus(cycleDuration.Value),
             Identifier = identifier,
+            GroupIdentifier = definition.GroupIdentifier,
+            DisplayName = definition.DisplayName,
+            PerkLevel = definition.PerkLevel,
             IsActive = true,
             IsFreeTrial = isFreeTrial,
             Status = Shared.Models.SubscriptionStatus.Unpaid,
             PaymentMethod = paymentMethod,
             PaymentDetails = paymentDetails,
-            BasePrice = subscriptionInfo.BasePrice,
+            BasePrice = definition.BasePrice,
             CouponId = couponData?.Id,
             Coupon = couponData,
-            RenewalAt = (isFreeTrial || !isAutoRenewal) ? null : now.Plus(cycleDuration.Value),
+            RenewalAt = (isFreeTrial || !isAutoRenewal || !definition.PaymentPolicy.AllowInternalWalletRenewal)
+                ? null
+                : now.Plus(cycleDuration.Value),
             AccountId = accountId,
         };
 
@@ -115,35 +114,14 @@ public class SubscriptionService(
 
     public async Task<SnWalletSubscription> CreateSubscriptionFromOrder(ISubscriptionOrder order)
     {
-        var cfgSection = configuration.GetSection("Payment:Subscriptions");
         var provider = order.Provider;
+        if (string.IsNullOrWhiteSpace(order.SubscriptionId))
+            throw new InvalidOperationException("Subscription identifier was missing from the payment payload.");
 
-        var currency = "irl";
-        var subscriptionIdentifier = order.SubscriptionId;
-        switch (provider)
-        {
-            case SubscriptionPaymentMethod.Afdian:
-                // Get the Afdian section first, then bind it to a dictionary
-                var afdianPlans = cfgSection.GetSection("Afdian").Get<Dictionary<string, string>>();
-                logger.LogInformation("Afdian plans configuration: {Plans}", JsonSerializer.Serialize(afdianPlans));
-                if (afdianPlans != null && afdianPlans.TryGetValue(subscriptionIdentifier, out var planName))
-                    subscriptionIdentifier = planName;
-                currency = "cny";
-                break;
-            case SubscriptionPaymentMethod.Paddle:
-                var paddlePlans = cfgSection.GetSection("Paddle").Get<Dictionary<string, string>>();
-                logger.LogInformation("Paddle plans configuration: {Plans}", JsonSerializer.Serialize(paddlePlans));
-                if (paddlePlans != null && paddlePlans.TryGetValue(subscriptionIdentifier, out var paddlePlanName))
-                    subscriptionIdentifier = paddlePlanName;
-                currency = "usd";
-                break;
-        }
-
-        var subscriptionTemplate = SubscriptionTypeData
-            .SubscriptionDict.GetValueOrDefault(subscriptionIdentifier);
-        if (subscriptionTemplate is null)
-            throw new ArgumentOutOfRangeException(nameof(subscriptionIdentifier),
-                $"Subscription {subscriptionIdentifier} was not found.");
+        var definition = await ResolveDefinitionForOrderAsync(order);
+        if (definition is null)
+            throw new ArgumentOutOfRangeException(nameof(order.SubscriptionId),
+                $"Subscription mapping {order.SubscriptionId} was not found for provider {provider}.");
 
         SnAccount? account = null;
         if (!string.IsNullOrEmpty(provider))
@@ -165,58 +143,18 @@ public class SubscriptionService(
 
         if (account is null)
             throw new InvalidOperationException($"Account was not found with identifier {order.AccountId}");
-        if (string.IsNullOrWhiteSpace(order.SubscriptionId))
-            throw new InvalidOperationException("Subscription identifier was missing from the payment payload.");
-
-        var cycleDuration = order.Duration;
-
-        var existingSubscription = await GetSubscriptionAsync(account.Id, subscriptionIdentifier);
-        if (existingSubscription is not null && existingSubscription.PaymentMethod != provider)
-            throw new InvalidOperationException(
-                $"Active subscription with identifier {subscriptionIdentifier} already exists.");
-        if (existingSubscription?.PaymentDetails.OrderId == order.Id)
-            return existingSubscription;
-        if (existingSubscription is not null)
-        {
-            // Same provider, but different order, renew the subscription
-            existingSubscription.PaymentDetails.OrderId = order.Id;
-            existingSubscription.EndedAt = order.BegunAt.Plus(cycleDuration);
-            existingSubscription.RenewalAt = order.BegunAt.Plus(cycleDuration);
-            existingSubscription.Status = SubscriptionStatus.Active;
-
-            db.Update(existingSubscription);
-            await db.SaveChangesAsync();
-
-            return existingSubscription;
-        }
-
-        var subscription = new SnWalletSubscription
-        {
-            BegunAt = order.BegunAt,
-            EndedAt = order.BegunAt.Plus(cycleDuration),
-            IsActive = true,
-            Status = SubscriptionStatus.Active,
-            Identifier = subscriptionIdentifier,
-            PaymentMethod = provider,
-            PaymentDetails = new SnPaymentDetails
+        return await ApplyPaidSubscriptionAsync(
+            account.Id,
+            definition,
+            provider,
+            new SnPaymentDetails
             {
-                Currency = currency,
+                Currency = definition.Currency,
                 OrderId = order.Id,
             },
-            BasePrice = subscriptionTemplate.BasePrice,
-            RenewalAt = order.BegunAt.Plus(cycleDuration),
-            AccountId = account.Id,
-        };
-
-        db.WalletSubscriptions.Add(subscription);
-        await db.SaveChangesAsync();
-
-        await NotifySubscriptionBegun(subscription);
-
-        await HandleSponsorCurrencyUpdateAsync(subscription);
-        await HandleSponsorBadgeSubscriptionAsync(subscription);
-
-        return subscription;
+            order.BegunAt,
+            order.Duration
+        );
     }
 
     /// <summary>
@@ -268,16 +206,12 @@ public class SubscriptionService(
             .OrderByDescending(s => s.BegunAt)
             .FirstOrDefaultAsync();
         if (subscription is null) throw new InvalidOperationException("No matching subscription found.");
-
-        var subscriptionInfo = SubscriptionTypeData.SubscriptionDict
-            .TryGetValue(subscription.Identifier, out var template)
-            ? template
-            : null;
-        if (subscriptionInfo is null) throw new InvalidOperationException("No matching subscription found.");
+        var definition = await catalog.GetDefinitionAsync(subscription.Identifier);
+        if (definition is null) throw new InvalidOperationException("No matching subscription found.");
 
         return await payment.CreateOrderAsync(
             null,
-            subscriptionInfo.Currency,
+            definition.Currency,
             subscription.FinalPrice,
             appIdentifier: "internal",
             productIdentifier: identifier,
@@ -304,16 +238,12 @@ public class SubscriptionService(
             .Include(g => g.Coupon)
             .FirstOrDefaultAsync();
         if (gift is null) throw new InvalidOperationException("No matching gift found.");
-
-        var subscriptionInfo = SubscriptionTypeData.SubscriptionDict
-            .TryGetValue(gift.SubscriptionIdentifier, out var template)
-            ? template
-            : null;
-        if (subscriptionInfo is null) throw new InvalidOperationException("No matching subscription found.");
+        var definition = await catalog.GetDefinitionAsync(gift.SubscriptionIdentifier);
+        if (definition is null) throw new InvalidOperationException("No matching subscription found.");
 
         return await payment.CreateOrderAsync(
             null,
-            subscriptionInfo.Currency,
+            definition.Currency,
             gift.FinalPrice,
             appIdentifier: "gift",
             productIdentifier: gift.SubscriptionIdentifier,
@@ -341,26 +271,25 @@ public class SubscriptionService(
             .FirstOrDefaultAsync();
         if (subscription is null)
             throw new InvalidOperationException("Invalid order.");
+        var definition = await catalog.GetDefinitionAsync(subscription.Identifier)
+                         ?? throw new InvalidOperationException("Invalid order.");
+        var cycleDuration = subscription.EndedAt.HasValue
+            ? subscription.EndedAt.Value - subscription.BegunAt
+            : Duration.FromDays(30);
 
-        if (subscription.Status == Shared.Models.SubscriptionStatus.Expired)
-        {
-            // Calculate original cycle duration and extend from the current ended date
-            Duration originalCycle = subscription.EndedAt.Value - subscription.BegunAt;
-
-            subscription.RenewalAt = subscription.RenewalAt.HasValue
-                ? subscription.RenewalAt.Value.Plus(originalCycle)
-                : subscription.EndedAt.Value.Plus(originalCycle);
-            subscription.EndedAt = subscription.EndedAt.Value.Plus(originalCycle);
-        }
-
-        subscription.Status = Shared.Models.SubscriptionStatus.Active;
-
-        db.Update(subscription);
-        await db.SaveChangesAsync();
-
-        await NotifySubscriptionBegun(subscription);
-
-        return subscription;
+        return await ApplyPaidSubscriptionAsync(
+            subscription.AccountId,
+            definition,
+            subscription.PaymentMethod,
+            new SnPaymentDetails
+            {
+                Currency = definition.Currency,
+                OrderId = order.Id.ToString()
+            },
+            SystemClock.Instance.GetCurrentInstant(),
+            cycleDuration,
+            placeholderSubscription: subscription
+        );
     }
 
     public async Task<SnWalletGift> HandleGiftOrder(SnWalletOrder order)
@@ -430,12 +359,152 @@ public class SubscriptionService(
         return expiredSubscriptions.Count;
     }
 
+    private async Task<SnWalletSubscriptionDefinition?> ResolveDefinitionForOrderAsync(ISubscriptionOrder order)
+    {
+        var direct = await catalog.GetDefinitionAsync(order.SubscriptionId);
+        if (direct is not null) return direct;
+
+        return await catalog.ResolveDefinitionAsync(order.Provider, order.SubscriptionId);
+    }
+
+    private async Task EnforceGiftPurchaseLimitAsync(
+        Guid gifterId,
+        string subscriptionIdentifier,
+        SubscriptionGiftPolicy giftPolicy,
+        Instant now
+    )
+    {
+        if (!giftPolicy.RollingPurchaseLimit.HasValue || giftPolicy.RollingPurchaseLimit <= 0)
+            return;
+
+        var windowStart = now.Minus(Duration.FromDays(giftPolicy.RollingWindowDays ?? 30));
+        var currentCount = await db.WalletGifts
+            .Where(g => g.GifterId == gifterId)
+            .Where(g => g.SubscriptionIdentifier == subscriptionIdentifier)
+            .Where(g => g.CreatedAt >= windowStart)
+            .CountAsync();
+
+        if (currentCount >= giftPolicy.RollingPurchaseLimit.Value)
+            throw new InvalidOperationException("Gift purchase limit reached for this subscription.");
+    }
+
+    private async Task<SnWalletSubscription> ApplyPaidSubscriptionAsync(
+        Guid accountId,
+        SnWalletSubscriptionDefinition definition,
+        string paymentMethod,
+        SnPaymentDetails paymentDetails,
+        Instant effectiveFrom,
+        Duration cycleDuration,
+        SnWalletSubscription? placeholderSubscription = null,
+        Guid? couponId = null,
+        SnWalletCoupon? coupon = null
+    )
+    {
+        var groupIdentifiers = await catalog.GetGroupIdentifiersAsync(definition.GroupIdentifier, definition.Identifier);
+        var activeOrQueued = await db.WalletSubscriptions
+            .Where(s => s.AccountId == accountId)
+            .Where(s => s.IsActive)
+            .Where(s => s.Status == SubscriptionStatus.Active)
+            .Where(s => groupIdentifiers.Contains(s.Identifier))
+            .Where(s => placeholderSubscription == null || s.Id != placeholderSubscription.Id)
+            .OrderBy(s => s.BegunAt)
+            .ToListAsync();
+
+        var sameIdentifierTail = activeOrQueued
+            .Where(s => s.Identifier == definition.Identifier)
+            .OrderByDescending(s => s.EndedAt ?? s.BegunAt)
+            .FirstOrDefault();
+
+        if (sameIdentifierTail?.PaymentDetails.OrderId == paymentDetails.OrderId)
+            return sameIdentifierTail;
+
+        if (sameIdentifierTail is not null)
+        {
+            var extensionBase = sameIdentifierTail.EndedAt.HasValue && sameIdentifierTail.EndedAt.Value > effectiveFrom
+                ? sameIdentifierTail.EndedAt.Value
+                : effectiveFrom;
+
+            sameIdentifierTail.EndedAt = extensionBase.Plus(cycleDuration);
+            sameIdentifierTail.PaymentMethod = paymentMethod;
+            sameIdentifierTail.PaymentDetails = paymentDetails;
+            sameIdentifierTail.CouponId = couponId ?? sameIdentifierTail.CouponId;
+            sameIdentifierTail.Coupon = coupon ?? sameIdentifierTail.Coupon;
+            sameIdentifierTail.BasePrice = definition.BasePrice;
+            sameIdentifierTail.GroupIdentifier = definition.GroupIdentifier;
+            sameIdentifierTail.DisplayName = definition.DisplayName;
+            sameIdentifierTail.PerkLevel = definition.PerkLevel;
+            sameIdentifierTail.Status = SubscriptionStatus.Active;
+            sameIdentifierTail.RenewalAt = definition.PaymentPolicy.AllowInternalWalletRenewal
+                ? sameIdentifierTail.EndedAt
+                : null;
+
+            if (placeholderSubscription is not null && placeholderSubscription.Id != sameIdentifierTail.Id)
+            {
+                placeholderSubscription.IsActive = false;
+                placeholderSubscription.Status = SubscriptionStatus.Cancelled;
+                db.WalletSubscriptions.Update(placeholderSubscription);
+            }
+
+            db.WalletSubscriptions.Update(sameIdentifierTail);
+            await db.SaveChangesAsync();
+            await InvalidateSubscriptionCaches(accountId, definition.Identifier);
+            return sameIdentifierTail;
+        }
+
+        var groupTail = activeOrQueued
+            .OrderByDescending(s => s.EndedAt ?? s.BegunAt)
+            .FirstOrDefault();
+        var begunAt = groupTail?.EndedAt is { } endedAt && endedAt > effectiveFrom
+            ? endedAt
+            : effectiveFrom;
+
+        var subscription = placeholderSubscription ?? new SnWalletSubscription();
+        subscription.BegunAt = begunAt;
+        subscription.EndedAt = begunAt.Plus(cycleDuration);
+        subscription.Identifier = definition.Identifier;
+        subscription.GroupIdentifier = definition.GroupIdentifier;
+        subscription.DisplayName = definition.DisplayName;
+        subscription.PerkLevel = definition.PerkLevel;
+        subscription.IsActive = true;
+        subscription.IsFreeTrial = false;
+        subscription.Status = SubscriptionStatus.Active;
+        subscription.PaymentMethod = paymentMethod;
+        subscription.PaymentDetails = paymentDetails;
+        subscription.BasePrice = definition.BasePrice;
+        subscription.CouponId = couponId;
+        subscription.Coupon = coupon;
+        subscription.RenewalAt = definition.PaymentPolicy.AllowInternalWalletRenewal
+            ? subscription.EndedAt
+            : null;
+        subscription.AccountId = accountId;
+
+        if (placeholderSubscription is null)
+            db.WalletSubscriptions.Add(subscription);
+        else
+            db.WalletSubscriptions.Update(subscription);
+
+        await db.SaveChangesAsync();
+        await InvalidateSubscriptionCaches(accountId, definition.Identifier);
+
+        if (begunAt <= SystemClock.Instance.GetCurrentInstant())
+        {
+            await NotifySubscriptionBegun(subscription);
+            await HandleSponsorCurrencyUpdateAsync(subscription);
+            await HandleSponsorBadgeSubscriptionAsync(subscription);
+        }
+
+        return subscription;
+    }
+
+    private async Task InvalidateSubscriptionCaches(Guid accountId, string identifier)
+    {
+        await cache.RemoveAsync($"{SubscriptionCacheKeyPrefix}{accountId}:{identifier}");
+        await cache.RemoveAsync($"{SubscriptionPerkCacheKeyPrefix}{accountId}");
+    }
+
     private async Task NotifySubscriptionBegun(SnWalletSubscription subscription)
     {
-        var humanReadableName =
-            SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(subscription.Identifier, out var humanReadable)
-                ? humanReadable
-                : subscription.Identifier;
+        var humanReadableName = subscription.DisplayName ?? subscription.Identifier;
         var duration = subscription.EndedAt is not null
             ? subscription.EndedAt.Value.Minus(subscription.BegunAt).Days.ToString()
             : "infinite";
@@ -496,9 +565,6 @@ public class SubscriptionService(
 
     private const string SubscriptionPerkCacheKeyPrefix = "subscription:perk:";
 
-    private static readonly List<string> PerkIdentifiers =
-        [SubscriptionType.Stellar, SubscriptionType.Nova, SubscriptionType.Supernova];
-
     public async Task<SnWalletSubscription?> GetPerkSubscriptionAsync(Guid accountId)
     {
         var cacheKey = $"{SubscriptionPerkCacheKeyPrefix}{accountId}";
@@ -513,10 +579,11 @@ public class SubscriptionService(
         // If not in cache, get from database
         var now = SystemClock.Instance.GetCurrentInstant();
         var subscription = await db.WalletSubscriptions
-            .Where(s => s.AccountId == accountId && PerkIdentifiers.Contains(s.Identifier))
+            .Where(s => s.AccountId == accountId && s.PerkLevel > 0)
             .Where(s => s.Status == Shared.Models.SubscriptionStatus.Active)
             .Where(s => s.EndedAt == null || s.EndedAt > now)
-            .OrderByDescending(s => s.BegunAt)
+            .OrderByDescending(s => s.PerkLevel)
+            .ThenByDescending(s => s.BegunAt)
             .FirstOrDefaultAsync();
         if (subscription is { IsAvailable: false }) subscription = null;
 
@@ -556,10 +623,11 @@ public class SubscriptionService(
         var now = SystemClock.Instance.GetCurrentInstant();
         var subscriptions = await db.WalletSubscriptions
             .Where(s => missingAccountIds.Contains(s.AccountId))
-            .Where(s => PerkIdentifiers.Contains(s.Identifier))
+            .Where(s => s.PerkLevel > 0)
             .Where(s => s.Status == Shared.Models.SubscriptionStatus.Active)
             .Where(s => s.EndedAt == null || s.EndedAt > now)
-            .OrderByDescending(s => s.BegunAt)
+            .OrderByDescending(s => s.PerkLevel)
+            .ThenByDescending(s => s.BegunAt)
             .ToListAsync();
 
         // Group by account and select latest available subscription
@@ -607,11 +675,25 @@ public class SubscriptionService(
         Duration? cycleDuration = null)
     {
         // Validate subscription exists
-        var subscriptionInfo = SubscriptionTypeData
-            .SubscriptionDict.GetValueOrDefault(subscriptionIdentifier);
-        if (subscriptionInfo is null)
+        var definition = await catalog.GetDefinitionAsync(subscriptionIdentifier);
+        if (definition is null)
             throw new ArgumentOutOfRangeException(nameof(subscriptionIdentifier),
                 $@"Subscription {subscriptionIdentifier} was not found.");
+        if (!definition.IsPaymentMethodAllowed(paymentMethod))
+            throw new InvalidOperationException(
+                $"Payment method {paymentMethod} is not allowed for gift purchase of {subscriptionIdentifier}."
+            );
+        var giftPolicy = await catalog.GetGiftPolicyAsync(definition);
+        if (!giftPolicy.AllowPurchase)
+            throw new InvalidOperationException("Gift purchase is disabled for this subscription.");
+        if (giftPolicy.MinimumAccountLevel.HasValue && gifter.Profile.Level < giftPolicy.MinimumAccountLevel.Value)
+        {
+            var canBypass = giftPolicy.AllowPerkSubscriptionBypass && gifter.PerkLevel > 0;
+            if (!canBypass)
+                throw new InvalidOperationException(
+                    $"Account level must be at least {giftPolicy.MinimumAccountLevel.Value} to purchase this gift."
+                );
+        }
 
         // Check if recipient account exists (if specified)
         DyAccount? recipient = null;
@@ -636,10 +718,11 @@ public class SubscriptionService(
             throw new InvalidOperationException($"Coupon {coupon} was not found.");
 
         // Set defaults
-        giftDuration ??= Duration.FromDays(30); // Gift expires in 30 days
-        cycleDuration ??= Duration.FromDays(30); // Subscription lasts 30 days once redeemed
+        giftDuration ??= Duration.FromDays(giftPolicy.GiftDurationDays ?? 30);
+        cycleDuration ??= Duration.FromDays(giftPolicy.SubscriptionDurationDays ?? 30);
 
         var now = SystemClock.Instance.GetCurrentInstant();
+        await EnforceGiftPurchaseLimitAsync(Guid.Parse(gifter.Id), subscriptionIdentifier, giftPolicy, now);
 
         // Generate unique gift code
         var giftCode = await GenerateUniqueGiftCodeAsync();
@@ -647,7 +730,7 @@ public class SubscriptionService(
         // Calculate final price (with potential coupon discount)
         var tempSubscription = new SnWalletSubscription
         {
-            BasePrice = subscriptionInfo.BasePrice,
+            BasePrice = definition.BasePrice,
             CouponId = couponData?.Id,
             Coupon = couponData,
             BegunAt = now // Need for price calculation
@@ -662,7 +745,7 @@ public class SubscriptionService(
             GiftCode = giftCode,
             Message = message,
             SubscriptionIdentifier = subscriptionIdentifier,
-            BasePrice = subscriptionInfo.BasePrice,
+            BasePrice = definition.BasePrice,
             FinalPrice = finalPrice,
             Status = DysonNetwork.Shared.Models.GiftStatus.Created,
             ExpiresAt = now.Plus(giftDuration.Value),
@@ -714,118 +797,35 @@ public class SubscriptionService(
         if (!gift.IsOpenGift && gift.RecipientId != redeemerId)
             throw new InvalidOperationException("This gift is not intended for you.");
 
-        // Check if redeemer already has this subscription type
-        var subscriptionInfo = SubscriptionTypeData
-            .SubscriptionDict.TryGetValue(gift.SubscriptionIdentifier, out var template)
-            ? template
-            : null;
-        if (subscriptionInfo is null)
+        var definition = await catalog.GetDefinitionAsync(gift.SubscriptionIdentifier);
+        if (definition is null)
             throw new InvalidOperationException("Invalid gift subscription type.");
-
-        var sameTypeSubscription = await GetSubscriptionAsync(redeemerId, gift.SubscriptionIdentifier);
-        if (sameTypeSubscription is not null)
-        {
-            // Extend existing subscription
-            var subscriptionDuration = Duration.FromDays(28);
-            if (sameTypeSubscription.EndedAt.HasValue && sameTypeSubscription.EndedAt.Value > now)
+        var giftPolicy = await catalog.GetGiftPolicyAsync(definition);
+        var cycleDuration = Duration.FromDays(giftPolicy.SubscriptionDurationDays ?? 30);
+        var subscription = await ApplyPaidSubscriptionAsync(
+            redeemerId,
+            definition,
+            SubscriptionPaymentMethod.Gift,
+            new SnPaymentDetails
             {
-                sameTypeSubscription.EndedAt = sameTypeSubscription.EndedAt.Value.Plus(subscriptionDuration);
-            }
-            else
-            {
-                sameTypeSubscription.EndedAt = now.Plus(subscriptionDuration);
-            }
-
-            if (sameTypeSubscription.RenewalAt.HasValue)
-            {
-                sameTypeSubscription.RenewalAt = sameTypeSubscription.RenewalAt.Value.Plus(subscriptionDuration);
-            }
-
-            // Update gift status and link
-            gift.Status = Shared.Models.GiftStatus.Redeemed;
-            gift.RedeemedAt = now;
-            gift.RedeemerId = redeemerId;
-            gift.SubscriptionId = sameTypeSubscription.Id;
-            gift.UpdatedAt = now;
-
-            await using var transaction = await db.Database.BeginTransactionAsync();
-            try
-            {
-                db.WalletSubscriptions.Update(sameTypeSubscription);
-                db.WalletGifts.Update(gift);
-                await db.SaveChangesAsync();
-                await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
-
-            if (gift.GifterId == redeemerId) return (gift, sameTypeSubscription);
-            await NotifyGiftClaimedByRecipient(gift, sameTypeSubscription, gift.GifterId, redeemer);
-
-            return (gift, sameTypeSubscription);
-        }
-
-        var subscriptionsInGroup = subscriptionInfo.GroupIdentifier is not null
-            ? SubscriptionTypeData.SubscriptionDict
-                .Where(s => s.Value.GroupIdentifier == subscriptionInfo.GroupIdentifier)
-                .Select(s => s.Value.Identifier)
-                .ToArray()
-            : [gift.SubscriptionIdentifier];
-
-        var existingSubscription = await GetSubscriptionAsync(redeemerId, subscriptionsInGroup);
-        if (existingSubscription is not null)
-            throw new InvalidOperationException("You already have an active subscription of this type.");
-
-        // We do not check account level requirement, since it is a gift
-
-        // Create the subscription from the gift
-        var cycleDuration = Duration.FromDays(28);
-        var subscription = new SnWalletSubscription
-        {
-            BegunAt = now,
-            EndedAt = now.Plus(cycleDuration),
-            Identifier = gift.SubscriptionIdentifier,
-            IsActive = true,
-            IsFreeTrial = false,
-            Status = Shared.Models.SubscriptionStatus.Active,
-            PaymentMethod = "gift", // Special payment method indicating gift redemption
-            PaymentDetails = new Shared.Models.SnPaymentDetails
-            {
-                Currency = "gift",
+                Currency = definition.Currency,
                 OrderId = gift.Id.ToString()
             },
-            BasePrice = gift.BasePrice,
-            CouponId = gift.CouponId,
-            Coupon = gift.Coupon,
-            RenewalAt = now.Plus(cycleDuration),
-            AccountId = redeemerId,
-        };
+            now,
+            cycleDuration,
+            couponId: gift.CouponId,
+            coupon: gift.Coupon
+        );
 
         // Update the gift status
         gift.Status = DysonNetwork.Shared.Models.GiftStatus.Redeemed;
         gift.RedeemedAt = now;
         gift.RedeemerId = redeemerId;
-        gift.Subscription = subscription;
+        gift.SubscriptionId = subscription.Id;
         gift.UpdatedAt = now;
 
-        // Save both gift and subscription
-        using var createTransaction = await db.Database.BeginTransactionAsync();
-        try
-        {
-            db.WalletSubscriptions.Add(subscription);
-            db.WalletGifts.Update(gift);
-            await db.SaveChangesAsync();
-
-            await createTransaction.CommitAsync();
-        }
-        catch
-        {
-            await createTransaction.RollbackAsync();
-            throw;
-        }
+        db.WalletGifts.Update(gift);
+        await db.SaveChangesAsync();
 
         // Send notification to gifter if different from redeemer
         if (gift.GifterId == redeemerId) return (gift, subscription);
@@ -937,10 +937,7 @@ public class SubscriptionService(
     private async Task NotifyGiftClaimedByRecipient(SnWalletGift gift, SnWalletSubscription subscription, Guid gifterId,
         DyAccount redeemer)
     {
-        var humanReadableName =
-            SubscriptionTypeData.SubscriptionHumanReadable.TryGetValue(subscription.Identifier, out var humanReadable)
-                ? humanReadable
-                : subscription.Identifier;
+        var humanReadableName = subscription.DisplayName ?? subscription.Identifier;
 
         var locale = System.Globalization.CultureInfo.CurrentUICulture.Name;
         var notification = new DyPushNotification
@@ -969,7 +966,10 @@ public class SubscriptionService(
 
     private async Task HandleSponsorCurrencyUpdateAsync(SnWalletSubscription subscription)
     {
-        var amount = PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(subscription.Identifier) * 10;
+        var amount = subscription.PerkLevel > 0
+            ? subscription.PerkLevel * 10
+            : (await catalog.GetDefinitionAsync(subscription.Identifier))?.GoldenPointReward ?? 0;
+        if (amount <= 0) return;
 
         try
         {
@@ -1009,7 +1009,7 @@ public class SubscriptionService(
                 .OrderByDescending(b => b.ActivatedAt)
                 .ToList();
 
-            var newLevel = PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(subscription.Identifier);
+            var newLevel = subscription.PerkLevel;
             if (sponsorBadges.Count > 0)
             {
                 // Increment the level from the existing badge

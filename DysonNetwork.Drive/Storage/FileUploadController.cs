@@ -256,7 +256,7 @@ public class FileUploadController(
 
         var privilege = currentUser.PerkSubscription is null
             ? 0
-            : PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(currentUser.PerkSubscription.Identifier);
+            : currentUser.PerkSubscription.PerkLevel;
 
         if (privilege < pool.PolicyConfig.RequirePrivilege)
         {

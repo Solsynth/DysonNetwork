@@ -486,7 +486,7 @@ public class AuthService(
 
             var perk = SnWalletSubscription.FromProtoValue(subscription).ToReference();
             account.PerkSubscription = perk;
-            account.PerkLevel = PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(perk.Identifier);
+            account.PerkLevel = perk.PerkLevel;
         }
         catch (Exception ex)
         {

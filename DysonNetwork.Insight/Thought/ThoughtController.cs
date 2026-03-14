@@ -122,9 +122,7 @@ public class ThoughtController(
             return BadRequest("Sorry, SN-chan currently does not support requests with files attached.");
 
         if (serviceInfo.PerkLevel > 0 && !currentUser.IsSuperuser)
-            if (currentUser.PerkSubscription is null ||
-                PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(currentUser.PerkSubscription.Identifier) <
-                serviceInfo.PerkLevel)
+            if (currentUser.PerkLevel < serviceInfo.PerkLevel)
                 return StatusCode(403, "Not enough perk level");
 
         var kernel = service.GetSnChanKernel();

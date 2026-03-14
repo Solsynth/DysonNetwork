@@ -2,6 +2,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Wallet;
+using DysonNetwork.Wallet.Payment;
 using DysonNetwork.Wallet.Startup;
 using Microsoft.EntityFrameworkCore;
 
@@ -38,6 +39,8 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
     await db.Database.MigrateAsync();
+    var subscriptionCatalog = scope.ServiceProvider.GetRequiredService<SubscriptionCatalogService>();
+    await subscriptionCatalog.EnsureSeededAsync();
 }
 
 // Configure application middleware pipeline

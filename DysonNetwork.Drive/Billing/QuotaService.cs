@@ -45,7 +45,7 @@ public class QuotaService(
         var basedQuota = 1L;
         if (perkSubscription != null)
         {
-            var privilege = PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(perkSubscription.Identifier);
+            var privilege = perkSubscription.PerkLevel;
             basedQuota = privilege switch
             {
                 1 => 5L,

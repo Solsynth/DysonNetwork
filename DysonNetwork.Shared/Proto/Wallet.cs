@@ -1880,6 +1880,9 @@ namespace DysonNetwork.Shared.Proto {
       begunAt_ = other.begunAt_ != null ? other.begunAt_.Clone() : null;
       endedAt_ = other.endedAt_ != null ? other.endedAt_.Clone() : null;
       identifier_ = other.identifier_;
+      groupIdentifier_ = other.groupIdentifier_;
+      displayName_ = other.displayName_;
+      perkLevel_ = other.perkLevel_;
       isActive_ = other.isActive_;
       isFreeTrial_ = other.isFreeTrial_;
       status_ = other.status_;
@@ -1948,6 +1951,42 @@ namespace DysonNetwork.Shared.Proto {
       get { return identifier_; }
       set {
         identifier_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "group_identifier" field.</summary>
+    public const int GroupIdentifierFieldNumber = 19;
+    private string groupIdentifier_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string GroupIdentifier {
+      get { return groupIdentifier_; }
+      set {
+        groupIdentifier_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "display_name" field.</summary>
+    public const int DisplayNameFieldNumber = 20;
+    private string displayName_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string DisplayName {
+      get { return displayName_; }
+      set {
+        displayName_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "perk_level" field.</summary>
+    public const int PerkLevelFieldNumber = 21;
+    private int perkLevel_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int PerkLevel {
+      get { return perkLevel_; }
+      set {
+        perkLevel_ = value;
       }
     }
 
@@ -2152,6 +2191,9 @@ namespace DysonNetwork.Shared.Proto {
       if (!object.Equals(BegunAt, other.BegunAt)) return false;
       if (!object.Equals(EndedAt, other.EndedAt)) return false;
       if (Identifier != other.Identifier) return false;
+      if (GroupIdentifier != other.GroupIdentifier) return false;
+      if (DisplayName != other.DisplayName) return false;
+      if (PerkLevel != other.PerkLevel) return false;
       if (IsActive != other.IsActive) return false;
       if (IsFreeTrial != other.IsFreeTrial) return false;
       if (Status != other.Status) return false;
@@ -2177,6 +2219,9 @@ namespace DysonNetwork.Shared.Proto {
       if (begunAt_ != null) hash ^= BegunAt.GetHashCode();
       if (endedAt_ != null) hash ^= EndedAt.GetHashCode();
       if (Identifier.Length != 0) hash ^= Identifier.GetHashCode();
+      if (GroupIdentifier.Length != 0) hash ^= GroupIdentifier.GetHashCode();
+      if (DisplayName.Length != 0) hash ^= DisplayName.GetHashCode();
+      if (PerkLevel != 0) hash ^= PerkLevel.GetHashCode();
       if (IsActive != false) hash ^= IsActive.GetHashCode();
       if (IsFreeTrial != false) hash ^= IsFreeTrial.GetHashCode();
       if (Status != global::DysonNetwork.Shared.Proto.DySubscriptionStatus.Unspecified) hash ^= Status.GetHashCode();
@@ -2224,6 +2269,18 @@ namespace DysonNetwork.Shared.Proto {
       if (Identifier.Length != 0) {
         output.WriteRawTag(34);
         output.WriteString(Identifier);
+      }
+      if (GroupIdentifier.Length != 0) {
+        output.WriteRawTag(154, 1);
+        output.WriteString(GroupIdentifier);
+      }
+      if (DisplayName.Length != 0) {
+        output.WriteRawTag(162, 1);
+        output.WriteString(DisplayName);
+      }
+      if (PerkLevel != 0) {
+        output.WriteRawTag(168, 1);
+        output.WriteInt32(PerkLevel);
       }
       if (IsActive != false) {
         output.WriteRawTag(40);
@@ -2307,6 +2364,18 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(34);
         output.WriteString(Identifier);
       }
+      if (GroupIdentifier.Length != 0) {
+        output.WriteRawTag(154, 1);
+        output.WriteString(GroupIdentifier);
+      }
+      if (DisplayName.Length != 0) {
+        output.WriteRawTag(162, 1);
+        output.WriteString(DisplayName);
+      }
+      if (PerkLevel != 0) {
+        output.WriteRawTag(168, 1);
+        output.WriteInt32(PerkLevel);
+      }
       if (IsActive != false) {
         output.WriteRawTag(40);
         output.WriteBool(IsActive);
@@ -2385,6 +2454,15 @@ namespace DysonNetwork.Shared.Proto {
       if (Identifier.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Identifier);
       }
+      if (GroupIdentifier.Length != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(GroupIdentifier);
+      }
+      if (DisplayName.Length != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(DisplayName);
+      }
+      if (PerkLevel != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeInt32Size(PerkLevel);
+      }
       if (IsActive != false) {
         size += 1 + 1;
       }
@@ -2456,6 +2534,15 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.Identifier.Length != 0) {
         Identifier = other.Identifier;
+      }
+      if (other.GroupIdentifier.Length != 0) {
+        GroupIdentifier = other.GroupIdentifier;
+      }
+      if (other.DisplayName.Length != 0) {
+        DisplayName = other.DisplayName;
+      }
+      if (other.PerkLevel != 0) {
+        PerkLevel = other.PerkLevel;
       }
       if (other.IsActive != false) {
         IsActive = other.IsActive;
@@ -2553,6 +2640,18 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 34: {
             Identifier = input.ReadString();
+            break;
+          }
+          case 154: {
+            GroupIdentifier = input.ReadString();
+            break;
+          }
+          case 162: {
+            DisplayName = input.ReadString();
+            break;
+          }
+          case 168: {
+            PerkLevel = input.ReadInt32();
             break;
           }
           case 40: {
@@ -2665,6 +2764,18 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 34: {
             Identifier = input.ReadString();
+            break;
+          }
+          case 154: {
+            GroupIdentifier = input.ReadString();
+            break;
+          }
+          case 162: {
+            DisplayName = input.ReadString();
+            break;
+          }
+          case 168: {
+            PerkLevel = input.ReadInt32();
             break;
           }
           case 40: {
@@ -2782,6 +2893,8 @@ namespace DysonNetwork.Shared.Proto {
     public DySubscriptionReferenceObject(DySubscriptionReferenceObject other) : this() {
       id_ = other.id_;
       identifier_ = other.identifier_;
+      groupIdentifier_ = other.groupIdentifier_;
+      perkLevel_ = other.perkLevel_;
       begunAt_ = other.begunAt_ != null ? other.begunAt_.Clone() : null;
       endedAt_ = other.endedAt_ != null ? other.endedAt_.Clone() : null;
       isActive_ = other.isActive_;
@@ -2825,6 +2938,30 @@ namespace DysonNetwork.Shared.Proto {
       get { return identifier_; }
       set {
         identifier_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "group_identifier" field.</summary>
+    public const int GroupIdentifierFieldNumber = 16;
+    private string groupIdentifier_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string GroupIdentifier {
+      get { return groupIdentifier_; }
+      set {
+        groupIdentifier_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "perk_level" field.</summary>
+    public const int PerkLevelFieldNumber = 17;
+    private int perkLevel_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int PerkLevel {
+      get { return perkLevel_; }
+      set {
+        perkLevel_ = value;
       }
     }
 
@@ -3015,6 +3152,8 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (Id != other.Id) return false;
       if (Identifier != other.Identifier) return false;
+      if (GroupIdentifier != other.GroupIdentifier) return false;
+      if (PerkLevel != other.PerkLevel) return false;
       if (!object.Equals(BegunAt, other.BegunAt)) return false;
       if (!object.Equals(EndedAt, other.EndedAt)) return false;
       if (IsActive != other.IsActive) return false;
@@ -3037,6 +3176,8 @@ namespace DysonNetwork.Shared.Proto {
       int hash = 1;
       if (Id.Length != 0) hash ^= Id.GetHashCode();
       if (Identifier.Length != 0) hash ^= Identifier.GetHashCode();
+      if (GroupIdentifier.Length != 0) hash ^= GroupIdentifier.GetHashCode();
+      if (PerkLevel != 0) hash ^= PerkLevel.GetHashCode();
       if (begunAt_ != null) hash ^= BegunAt.GetHashCode();
       if (endedAt_ != null) hash ^= EndedAt.GetHashCode();
       if (IsActive != false) hash ^= IsActive.GetHashCode();
@@ -3075,6 +3216,14 @@ namespace DysonNetwork.Shared.Proto {
       if (Identifier.Length != 0) {
         output.WriteRawTag(18);
         output.WriteString(Identifier);
+      }
+      if (GroupIdentifier.Length != 0) {
+        output.WriteRawTag(130, 1);
+        output.WriteString(GroupIdentifier);
+      }
+      if (PerkLevel != 0) {
+        output.WriteRawTag(136, 1);
+        output.WriteInt32(PerkLevel);
       }
       if (begunAt_ != null) {
         output.WriteRawTag(26);
@@ -3146,6 +3295,14 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(18);
         output.WriteString(Identifier);
       }
+      if (GroupIdentifier.Length != 0) {
+        output.WriteRawTag(130, 1);
+        output.WriteString(GroupIdentifier);
+      }
+      if (PerkLevel != 0) {
+        output.WriteRawTag(136, 1);
+        output.WriteInt32(PerkLevel);
+      }
       if (begunAt_ != null) {
         output.WriteRawTag(26);
         output.WriteMessage(BegunAt);
@@ -3214,6 +3371,12 @@ namespace DysonNetwork.Shared.Proto {
       if (Identifier.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Identifier);
       }
+      if (GroupIdentifier.Length != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(GroupIdentifier);
+      }
+      if (PerkLevel != 0) {
+        size += 2 + pb::CodedOutputStream.ComputeInt32Size(PerkLevel);
+      }
       if (begunAt_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(BegunAt);
       }
@@ -3270,6 +3433,12 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.Identifier.Length != 0) {
         Identifier = other.Identifier;
+      }
+      if (other.GroupIdentifier.Length != 0) {
+        GroupIdentifier = other.GroupIdentifier;
+      }
+      if (other.PerkLevel != 0) {
+        PerkLevel = other.PerkLevel;
       }
       if (other.begunAt_ != null) {
         if (begunAt_ == null) {
@@ -3350,6 +3519,14 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 18: {
             Identifier = input.ReadString();
+            break;
+          }
+          case 130: {
+            GroupIdentifier = input.ReadString();
+            break;
+          }
+          case 136: {
+            PerkLevel = input.ReadInt32();
             break;
           }
           case 26: {
@@ -3444,6 +3621,14 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 18: {
             Identifier = input.ReadString();
+            break;
+          }
+          case 130: {
+            GroupIdentifier = input.ReadString();
+            break;
+          }
+          case 136: {
+            PerkLevel = input.ReadInt32();
             break;
           }
           case 26: {

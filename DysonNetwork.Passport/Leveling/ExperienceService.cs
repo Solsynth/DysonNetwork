@@ -19,11 +19,11 @@ public class ExperienceService(AppDatabase db, RemoteSubscriptionService subscri
         var perkSubscription = await subscriptions.GetPerkSubscription(accountId);
         if (perkSubscription is not null)
         {
-            record.BonusMultiplier = perkSubscription.Identifier switch
+            record.BonusMultiplier = perkSubscription.PerkLevel switch
             {
-                SubscriptionType.Stellar => 1.5,
-                SubscriptionType.Nova => 2,
-                SubscriptionType.Supernova => 2.5,
+                1 => 1.5,
+                2 => 2,
+                3 => 2.5,
                 _ => 1
             };
             if (record.Delta >= 0)

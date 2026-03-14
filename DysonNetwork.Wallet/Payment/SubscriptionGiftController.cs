@@ -124,32 +124,7 @@ public class SubscriptionGiftController(
         }
         else
         {
-            // Check if user already has this subscription type
-            var subscriptionInfo = SubscriptionTypeData
-                .SubscriptionDict.TryGetValue(gift.SubscriptionIdentifier, out var template)
-                ? template
-                : null;
-
-            if (subscriptionInfo != null)
-            {
-                var subscriptionsInGroup = subscriptionInfo.GroupIdentifier is not null
-                    ? SubscriptionTypeData.SubscriptionDict
-                        .Where(s => s.Value.GroupIdentifier == subscriptionInfo.GroupIdentifier)
-                        .Select(s => s.Value.Identifier)
-                        .ToArray()
-                    : [gift.SubscriptionIdentifier];
-
-                var existingSubscription =
-                    await subscriptions.GetSubscriptionAsync(Guid.Parse(currentUser.Id), subscriptionsInGroup);
-                if (existingSubscription is not null)
-                {
-                    error = "You already have an active subscription of this type.";
-                }
-                else
-                {
-                    canRedeem = true;
-                }
-            }
+            canRedeem = true;
         }
 
         return new GiftCheckResponse
@@ -183,8 +158,6 @@ public class SubscriptionGiftController(
         public int? SubscriptionDurationDays { get; set; } = 30; // Subscription lasts 30 days when redeemed
     }
 
-    const int MinimumAccountLevel = 60;
-
     /// <summary>
     /// Purchases a gift subscription.
     /// </summary>
@@ -193,12 +166,6 @@ public class SubscriptionGiftController(
     public async Task<ActionResult<SnWalletGift>> PurchaseGift([FromBody] PurchaseGiftRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-
-        if (currentUser.Profile.Level < MinimumAccountLevel)
-        {
-            if (currentUser.PerkSubscription is null)
-                return StatusCode(403, "Account level must be at least 60 or a member of the Stellar Program to purchase a gift.");
-        }
 
         Duration? giftDuration = null;
         if (request.GiftDurationDays.HasValue)

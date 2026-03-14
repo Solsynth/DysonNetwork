@@ -101,6 +101,7 @@ public static class ServiceCollectionExtensions
         // Register Wallet services
         services.AddScoped<WalletService>();
         services.AddScoped<PaymentService>();
+        services.AddScoped<SubscriptionCatalogService>();
         services.AddScoped<SubscriptionService>();
         services.AddScoped<AfdianPaymentHandler>();
         services.AddScoped<PaddlePaymentHandler>();
@@ -125,10 +126,7 @@ public static class ServiceCollectionExtensions
                         return;
 
                     // Handle subscription orders
-                    if (
-                        evt.ProductIdentifier.StartsWith(SubscriptionType.StellarProgram) &&
-                        evt.Meta.TryGetValue("gift_id", out _)
-                    )
+                    if (evt.Meta.TryGetValue("gift_id", out _))
                     {
                         logger.LogInformation("Handling gift order: {OrderId}", evt.OrderId);
 
@@ -146,7 +144,7 @@ public static class ServiceCollectionExtensions
 
                         logger.LogInformation("Gift for order {OrderId} handled successfully.", evt.OrderId);
                     }
-                    else if (evt.ProductIdentifier.StartsWith(SubscriptionType.StellarProgram))
+                    else if (evt.Meta.TryGetValue("subscription_id", out _))
                     {
                         logger.LogInformation("Handling stellar program order: {OrderId}", evt.OrderId);
 

@@ -18,7 +18,7 @@ public class PublicationSiteService(
     {
         var account = await remoteAccounts.GetAccount(accountId);
         var perkLevel = account.PerkSubscription is not null
-            ? PerkSubscriptionPrivilege.GetPrivilegeFromIdentifier(account.PerkSubscription.Identifier)
+            ? account.PerkSubscription.PerkLevel
             : 0;
 
         var sites = await db.PublicationSites
