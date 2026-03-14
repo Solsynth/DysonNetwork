@@ -48,6 +48,9 @@ public partial class ChatService(
     [GeneratedRegex(@"https?://(?!.*\.\w{1,6}(?:[#?]|$))[^\s]+", RegexOptions.IgnoreCase)]
     private static partial Regex GetLinkRegex();
 
+    [GeneratedRegex(@"(?<!\w)@(?:u/)?everyone\b", RegexOptions.IgnoreCase)]
+    private static partial Regex GetEveryoneMentionRegex();
+
     /// <summary>
     /// Process link previews for a message in the background
     /// This method is designed to be called from a background task
@@ -757,12 +760,15 @@ public partial class ChatService(
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
+        var everyoneMentioned = !message.IsEncrypted
+                                && !string.IsNullOrWhiteSpace(message.Content)
+                                && GetEveryoneMentionRegex().IsMatch(message.Content);
 
         var accountsToNotify = new List<DyAccount>();
         foreach (var member in members.Where(member => member.Notify != ChatMemberNotify.None))
         {
             // Skip if mentioned but not in mentions-only mode or if break is active
-            if (message.MembersMentioned is null || !message.MembersMentioned.Contains(member.AccountId))
+            if (!everyoneMentioned && (message.MembersMentioned is null || !message.MembersMentioned.Contains(member.AccountId)))
             {
                 if (member.BreakUntil is not null && member.BreakUntil > now) continue;
                 if (member.Notify == ChatMemberNotify.Mentions) continue;
