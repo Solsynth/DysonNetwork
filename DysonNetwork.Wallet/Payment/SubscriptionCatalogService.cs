@@ -13,6 +13,23 @@ public class SubscriptionCatalogService(
     private readonly IConfiguration _configuration = configuration;
     private readonly ILogger<SubscriptionCatalogService> _logger = logger;
 
+    private static List<string>? GetProviderMappings(
+        Dictionary<string, List<string>> mappings,
+        string provider
+    )
+    {
+        if (mappings.TryGetValue(provider, out var directMatch))
+            return directMatch;
+
+        foreach (var kv in mappings)
+        {
+            if (string.Equals(kv.Key, provider, StringComparison.OrdinalIgnoreCase))
+                return kv.Value;
+        }
+
+        return null;
+    }
+
     public async Task EnsureSeededAsync(CancellationToken cancellationToken = default)
     {
         var options = _configuration.GetSection("Payment:SubscriptionCatalog").Get<SubscriptionCatalogSeedOptions>();
@@ -233,7 +250,7 @@ public class SubscriptionCatalogService(
     {
         var definitions = await _db.WalletSubscriptionDefinitions.ToListAsync(cancellationToken);
         return definitions.FirstOrDefault(def =>
-            def.ProviderMappings.TryGetValue(provider, out var mapped) &&
+            GetProviderMappings(def.ProviderMappings, provider) is { } mapped &&
             mapped.Any(id => string.Equals(id, externalId, StringComparison.OrdinalIgnoreCase)));
     }
 
@@ -246,7 +263,8 @@ public class SubscriptionCatalogService(
     {
         var definition = await GetDefinitionAsync(identifier, cancellationToken);
         if (definition is null) return null;
-        if (!definition.ProviderMappings.TryGetValue(provider, out var mapped) || mapped.Count == 0)
+        var mapped = GetProviderMappings(definition.ProviderMappings, provider);
+        if (mapped is null || mapped.Count == 0)
             return null;
 
         if (!string.IsNullOrWhiteSpace(preferredReference))
