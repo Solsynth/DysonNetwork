@@ -74,34 +74,52 @@ public class PollService(AppDatabase db, ICacheService cache)
         foreach (var question in questions)
         {
             var questionId = question.Id.ToString();
-            if (question.IsRequired && !answer.ContainsKey(questionId))
+            if (question.IsRequired && (!answer.TryGetValue(questionId, out var answerValue) || !HasAnsweredValue(question, answerValue)))
                 throw new Exception($"Missing required field: {question.Title}");
-            if (!answer.ContainsKey(questionId))
+            if (!answer.TryGetValue(questionId, out answerValue) || answerValue.ValueKind == JsonValueKind.Null)
                 continue;
             switch (question.Type)
             {
-                case PollQuestionType.Rating when answer[questionId].ValueKind != JsonValueKind.Number:
+                case PollQuestionType.Rating when answerValue.ValueKind != JsonValueKind.Number:
                     throw new Exception($"Answer for question {question.Title} expected to be a number");
-                case PollQuestionType.FreeText when answer[questionId].ValueKind != JsonValueKind.String:
+                case PollQuestionType.FreeText when answerValue.ValueKind != JsonValueKind.String:
                     throw new Exception($"Answer for question {question.Title} expected to be a string");
                 case PollQuestionType.SingleChoice when question.Options is not null:
-                    if (answer[questionId].ValueKind != JsonValueKind.String)
+                    if (answerValue.ValueKind != JsonValueKind.String)
                         throw new Exception($"Answer for question {question.Title} expected to be a string");
-                    if (question.Options.All(e => e.Id.ToString() != answer[questionId].GetString()))
+                    if (question.Options.All(e => e.Id.ToString() != answerValue.GetString()))
                         throw new Exception($"Answer for question {question.Title} is invalid");
                     break;
                 case PollQuestionType.MultipleChoice when question.Options is not null:
-                    if (answer[questionId].ValueKind != JsonValueKind.Array)
+                    if (answerValue.ValueKind != JsonValueKind.Array)
                         throw new Exception($"Answer for question {question.Title} expected to be an array");
-                    if (answer[questionId].EnumerateArray().Any(option =>
+                    if (answerValue.EnumerateArray().Any(option =>
                             question.Options.All(e => e.Id.ToString() != option.GetString())))
                         throw new Exception($"Answer for question {question.Title} is invalid");
                     break;
-                case PollQuestionType.YesNo when answer[questionId].ValueKind != JsonValueKind.True &&
-                                                 answer[questionId].ValueKind != JsonValueKind.False:
+                case PollQuestionType.YesNo when answerValue.ValueKind != JsonValueKind.True &&
+                                                 answerValue.ValueKind != JsonValueKind.False:
                     throw new Exception($"Answer for question {question.Title} expected to be a boolean");
             }
         }
+    }
+
+    private static bool HasAnsweredValue(SnPollQuestion question, JsonElement answerValue)
+    {
+        return question.Type switch
+        {
+            PollQuestionType.SingleChoice => answerValue.ValueKind == JsonValueKind.String &&
+                                             !string.IsNullOrWhiteSpace(answerValue.GetString()),
+            PollQuestionType.MultipleChoice => answerValue.ValueKind == JsonValueKind.Array &&
+                                               answerValue.EnumerateArray().Any(),
+            PollQuestionType.FreeText => answerValue.ValueKind == JsonValueKind.String &&
+                                         !string.IsNullOrWhiteSpace(answerValue.GetString()),
+            PollQuestionType.YesNo => answerValue.ValueKind == JsonValueKind.True ||
+                                      answerValue.ValueKind == JsonValueKind.False,
+            PollQuestionType.Rating => answerValue.ValueKind == JsonValueKind.Number,
+            _ => answerValue.ValueKind != JsonValueKind.Null &&
+                 answerValue.ValueKind != JsonValueKind.Undefined
+        };
     }
 
     public async Task<SnPollAnswer> AnswerPoll(Guid pollId, Guid accountId, Dictionary<string, JsonElement> answer)

@@ -212,11 +212,19 @@ public class PollController(
         public int Order { get; set; } = 0;
         public bool IsRequired { get; set; }
 
+        private static Guid EnsureId(Guid id) => id == Guid.Empty ? Guid.NewGuid() : id;
+
         public SnPollQuestion ToQuestion() => new()
         {
-            Id = Id,
+            Id = EnsureId(Id),
             Type = Type,
-            Options = Options,
+            Options = Options?.Select(option => new SnPollOption
+            {
+                Id = EnsureId(option.Id),
+                Label = option.Label,
+                Description = option.Description,
+                Order = option.Order
+            }).ToList(),
             Title = Title,
             Description = Description,
             Order = Order,
@@ -305,28 +313,46 @@ public class PollController(
             if (request.IsAnonymous.HasValue) poll.IsAnonymous = request.IsAnonymous.Value;
 
             db.Update(poll);
-            await db.SaveChangesAsync();
 
             // Update questions if provided
             if (request.Questions != null)
             {
-                await db.PollQuestions
-                    .Where(p => p.PollId == poll.Id)
-                    .ExecuteDeleteAsync();
-                var newQuestions = request.Questions
+                var incomingQuestions = request.Questions
                     .Select(q => q.ToQuestion())
-                    .Select(q =>
-                    {
-                        q.PollId = poll.Id;
-                        return q;
-                    })
                     .ToList();
-                db.PollQuestions.AddRange(newQuestions);
-                await db.SaveChangesAsync();
-                poll.Questions = newQuestions;
+                var incomingQuestionIds = incomingQuestions
+                    .Select(q => q.Id)
+                    .ToHashSet();
+
+                var existingQuestions = poll.Questions
+                    .ToDictionary(q => q.Id);
+
+                foreach (var existingQuestion in poll.Questions.Where(q => !incomingQuestionIds.Contains(q.Id)).ToList())
+                    db.PollQuestions.Remove(existingQuestion);
+
+                foreach (var incomingQuestion in incomingQuestions)
+                {
+                    incomingQuestion.PollId = poll.Id;
+
+                    if (existingQuestions.TryGetValue(incomingQuestion.Id, out var existingQuestion))
+                    {
+                        existingQuestion.Type = incomingQuestion.Type;
+                        existingQuestion.Options = incomingQuestion.Options;
+                        existingQuestion.Title = incomingQuestion.Title;
+                        existingQuestion.Description = incomingQuestion.Description;
+                        existingQuestion.Order = incomingQuestion.Order;
+                        existingQuestion.IsRequired = incomingQuestion.IsRequired;
+                    }
+                    else
+                    {
+                        poll.Questions.Add(incomingQuestion);
+                    }
+                }
             }
 
             polls.ValidatePoll(poll);
+
+            await db.SaveChangesAsync();
 
             // Commit the transaction if all operations succeed
             await transaction.CommitAsync();
