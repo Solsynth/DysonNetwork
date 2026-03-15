@@ -69,6 +69,25 @@ public class ThoughtServiceTests
     }
 
     [Fact]
+    public void MiChanCompactionChunkPrefix_LimitsSingleSummarizationBatch()
+    {
+        var service = CreateService();
+        var thoughts = Enumerable.Range(0, 20)
+            .Select(index => CreateTextThought(
+                index % 2 == 0 ? ThinkingThoughtRole.User : ThinkingThoughtRole.Assistant,
+                "michan",
+                new string((char)('a' + (index % 20)), 7000)))
+            .ToList();
+
+        var chunk = service.SelectCompactionChunkPrefixForTests(thoughts);
+        var fullPrefix = service.SelectCompactionPrefixForTests(thoughts);
+
+        Assert.NotEmpty(chunk);
+        Assert.True(chunk.Count < fullPrefix.Count);
+        Assert.Equal(fullPrefix[0].Id, chunk[0].Id);
+    }
+
+    [Fact]
     public void MiChanCompaction_UsesLatestSummaryAndPreservesRecentToolThoughts()
     {
         var service = CreateService();
@@ -109,6 +128,24 @@ public class ThoughtServiceTests
 
         Assert.True(hasMore);
         Assert.Equal([covered.Id, second.Id], page.Select(t => t.Id).ToList());
+    }
+
+    [Fact]
+    public void ClampMiChanThoughtWindowForTests_KeepsRecentTailWithinBudget()
+    {
+        var service = CreateService();
+        var thoughts = Enumerable.Range(0, 20)
+            .Select(index => CreateTextThought(
+                index % 2 == 0 ? ThinkingThoughtRole.User : ThinkingThoughtRole.Assistant,
+                "michan",
+                new string((char)('a' + (index % 20)), 5000)))
+            .ToList();
+
+        var clamped = service.ClampMiChanThoughtWindowForTests(thoughts, tokenBudget: 12000);
+
+        Assert.NotEmpty(clamped);
+        Assert.True(clamped.Count < thoughts.Count);
+        Assert.Equal(thoughts[^1].Id, clamped[^1].Id);
     }
 
     private static ThoughtService CreateService()

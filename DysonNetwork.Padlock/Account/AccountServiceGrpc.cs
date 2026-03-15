@@ -138,7 +138,8 @@ public class AccountServiceGrpc(
         if (!string.IsNullOrWhiteSpace(request.Filter))
         {
             var filter = request.Filter.Trim();
-            query = query.Where(a => EF.Functions.ILike(a.Name, $"%{filter}%") || EF.Functions.ILike(a.Nick, $"%{filter}%"));
+            query = query.Where(a =>
+                EF.Functions.ILike(a.Name, $"%{filter}%") || EF.Functions.ILike(a.Nick, $"%{filter}%"));
         }
 
         query = request.OrderBy switch
@@ -351,7 +352,8 @@ public class AccountServiceGrpc(
 
     public override async Task<DyAccount> GetAccountByConnection(
         DyGetAccountByConnectionRequest request,
-        ServerCallContext context)
+        ServerCallContext context
+    )
     {
         if (string.IsNullOrWhiteSpace(request.Provider))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Provider is required"));

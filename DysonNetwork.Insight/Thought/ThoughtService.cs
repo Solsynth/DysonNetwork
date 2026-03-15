@@ -45,6 +45,8 @@ public class ThoughtService(
     private const int MiChanCompactionThresholdTokens = 12000;
     private const int MiChanRecentHistoryTokenBudget = 4000;
     private const int MiChanMinRecentThoughts = 8;
+    private const int MiChanCompactionChunkTokenBudget = 8000;
+    private const int MiChanMaxThoughtWindowTokens = 10000;
 
     public sealed record MiChanSequenceResolutionResult(
         SnThinkingSequence? Sequence,
@@ -1352,31 +1354,34 @@ public class ThoughtService(
     {
         var (latestSummaryThought, rawThoughts, uncoveredThoughts) = ProjectMiChanHistoryWindowInternal(orderedThoughts);
         var latestSummaryText = GetThoughtText(latestSummaryThought);
+        var originalCoveredThoughtId = GetCoveredThoughtId(latestSummaryThought);
+        Guid? coveredThroughThoughtId = originalCoveredThoughtId;
 
-        if (ShouldCompactMiChanHistory(uncoveredThoughts))
+        while (ShouldCompactMiChanHistory(uncoveredThoughts))
         {
-            var compactPrefix = SelectCompactionPrefix(uncoveredThoughts);
+            var compactPrefix = SelectCompactionChunkPrefix(uncoveredThoughts);
             if (compactPrefix.Count > 0)
             {
                 var compactedSummary = await GenerateMiChanCompactionSummaryAsync(accountId, latestSummaryText, compactPrefix);
                 if (!string.IsNullOrWhiteSpace(compactedSummary))
                 {
-                    latestSummaryThought = await SaveMiChanCompactionThoughtAsync(
-                        sequence,
-                        compactedSummary,
-                        compactPrefix[^1].Id
-                    );
                     latestSummaryText = compactedSummary;
-                    var projection = ProjectMiChanHistoryWindowInternal(
-                        rawThoughts
-                            .Concat([latestSummaryThought])
-                            .OrderBy(thought => thought.CreatedAt)
-                            .ThenBy(thought => thought.Id)
-                            .ToList()
-                    );
-                    uncoveredThoughts = projection.uncoveredThoughts;
+                    coveredThroughThoughtId = compactPrefix[^1].Id;
+                    uncoveredThoughts = uncoveredThoughts.Skip(compactPrefix.Count).ToList();
+                    continue;
                 }
             }
+
+            break;
+        }
+
+        uncoveredThoughts = ClampMiChanThoughtWindow(uncoveredThoughts, MiChanMaxThoughtWindowTokens);
+
+        if (!string.IsNullOrWhiteSpace(latestSummaryText) &&
+            coveredThroughThoughtId.HasValue &&
+            coveredThroughThoughtId != originalCoveredThoughtId)
+        {
+            await SaveMiChanCompactionThoughtAsync(sequence, latestSummaryText, coveredThroughThoughtId.Value);
         }
 
         return (latestSummaryText, uncoveredThoughts);
@@ -1397,6 +1402,16 @@ public class ThoughtService(
     internal List<SnThinkingThought> SelectCompactionPrefixForTests(List<SnThinkingThought> thoughts)
     {
         return SelectCompactionPrefix(thoughts);
+    }
+
+    internal List<SnThinkingThought> SelectCompactionChunkPrefixForTests(List<SnThinkingThought> thoughts)
+    {
+        return SelectCompactionChunkPrefix(thoughts);
+    }
+
+    internal List<SnThinkingThought> ClampMiChanThoughtWindowForTests(List<SnThinkingThought> thoughts, int tokenBudget)
+    {
+        return ClampMiChanThoughtWindow(thoughts, tokenBudget);
     }
 
     private (SnThinkingThought? latestSummaryThought, List<SnThinkingThought> rawThoughts, List<SnThinkingThought> uncoveredThoughts)
@@ -1517,6 +1532,32 @@ public class ThoughtService(
         return compactCount > 0 ? thoughts.Take(compactCount).ToList() : [];
     }
 
+    private List<SnThinkingThought> SelectCompactionChunkPrefix(List<SnThinkingThought> thoughts)
+    {
+        var compactableThoughts = SelectCompactionPrefix(thoughts);
+        if (compactableThoughts.Count == 0)
+        {
+            return [];
+        }
+
+        var chunk = new List<SnThinkingThought>();
+        var chunkTokens = 0;
+
+        foreach (var thought in compactableThoughts)
+        {
+            var tokens = EstimateThoughtTokensForPrompt(thought);
+            if (chunk.Count > 0 && chunkTokens + tokens > MiChanCompactionChunkTokenBudget)
+            {
+                break;
+            }
+
+            chunk.Add(thought);
+            chunkTokens += tokens;
+        }
+
+        return chunk.Count > 0 ? chunk : [compactableThoughts[0]];
+    }
+
     private async Task<string?> GenerateMiChanCompactionSummaryAsync(
         Guid accountId,
         string? previousSummary,
@@ -1578,6 +1619,32 @@ public class ThoughtService(
         return tokenCounter.CountTokens(SerializeThoughtForPrompt(thought), thought.ModelName);
     }
 
+    private List<SnThinkingThought> ClampMiChanThoughtWindow(List<SnThinkingThought> thoughts, int tokenBudget)
+    {
+        if (thoughts.Count <= MiChanMinRecentThoughts)
+        {
+            return thoughts;
+        }
+
+        var keptThoughts = new List<SnThinkingThought>();
+        var totalTokens = 0;
+
+        for (var i = thoughts.Count - 1; i >= 0; i--)
+        {
+            var tokens = EstimateThoughtTokensForPrompt(thoughts[i]);
+            if (keptThoughts.Count >= MiChanMinRecentThoughts &&
+                totalTokens + tokens > tokenBudget)
+            {
+                break;
+            }
+
+            keptThoughts.Insert(0, thoughts[i]);
+            totalTokens += tokens;
+        }
+
+        return keptThoughts;
+    }
+
     private string SerializeThoughtForPrompt(SnThinkingThought thought)
     {
         var builder = new StringBuilder();
@@ -1608,19 +1675,13 @@ public class ThoughtService(
 
     private int FindCoveredThoughtIndex(List<SnThinkingThought> rawThoughts, SnThinkingThought? summaryThought)
     {
-        if (summaryThought == null)
+        var coveredThoughtId = GetCoveredThoughtId(summaryThought);
+        if (!coveredThoughtId.HasValue)
         {
             return -1;
         }
 
-        var textPart = summaryThought.Parts.FirstOrDefault(part => part.Type == ThinkingMessagePartType.Text);
-        if (!TryGetMetadataString(textPart?.Metadata, MiChanCoveredThroughThoughtIdMetadataKey, out var thoughtIdText) ||
-            !Guid.TryParse(thoughtIdText, out var thoughtId))
-        {
-            return -1;
-        }
-
-        return rawThoughts.FindIndex(thought => thought.Id == thoughtId);
+        return rawThoughts.FindIndex(thought => thought.Id == coveredThoughtId.Value);
     }
 
     private string? GetThoughtText(SnThinkingThought? thought)
@@ -1629,6 +1690,23 @@ public class ThoughtService(
             .Where(part => part.Type == ThinkingMessagePartType.Text)
             .Select(part => part.Text)
             .FirstOrDefault(text => !string.IsNullOrWhiteSpace(text));
+    }
+
+    private Guid? GetCoveredThoughtId(SnThinkingThought? summaryThought)
+    {
+        if (summaryThought == null)
+        {
+            return null;
+        }
+
+        var textPart = summaryThought.Parts.FirstOrDefault(part => part.Type == ThinkingMessagePartType.Text);
+        if (!TryGetMetadataString(textPart?.Metadata, MiChanCoveredThroughThoughtIdMetadataKey, out var thoughtIdText) ||
+            !Guid.TryParse(thoughtIdText, out var thoughtId))
+        {
+            return null;
+        }
+
+        return thoughtId;
     }
 
     private bool TryGetMetadataString(
