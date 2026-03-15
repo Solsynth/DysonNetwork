@@ -42,29 +42,42 @@ public class SubscriptionController(
         public Dictionary<string, List<string>> ProviderMappings { get; set; } = [];
     }
 
+    public class SubscriptionGroupCatalogItem
+    {
+        public string GroupIdentifier { get; set; } = null!;
+        public string DisplayName { get; set; } = null!;
+        public int MaxPerkLevel { get; set; }
+        public SubscriptionDisplayConfig? DisplayConfig { get; set; }
+        public List<SubscriptionCatalogItem> Items { get; set; } = [];
+    }
+
+    public class SubscriptionGroupStateItem
+    {
+        public SnSubscriptionReferenceObject Subscription { get; set; } = null!;
+        public SubscriptionCatalogItem? Definition { get; set; }
+    }
+
+    public class SubscriptionGroupStateResponse
+    {
+        public string GroupIdentifier { get; set; } = null!;
+        public SubscriptionGroupCatalogItem Catalog { get; set; } = null!;
+        public SubscriptionGroupStateItem? Current { get; set; }
+        public SubscriptionGroupStateItem? Next { get; set; }
+        public List<SubscriptionGroupStateItem> Subscriptions { get; set; } = [];
+    }
+
     [HttpGet("catalog")]
     public async Task<ActionResult<List<SubscriptionCatalogItem>>> ListCatalog()
     {
         var definitions = await catalog.ListDefinitionsAsync(HttpContext.RequestAborted);
-        return Ok(definitions.Select(def => new SubscriptionCatalogItem
-        {
-            Identifier = def.Identifier,
-            GroupIdentifier = def.GroupIdentifier,
-            DisplayName = def.DisplayName,
-            Currency = def.Currency,
-            BasePrice = def.BasePrice,
-            PerkLevel = def.PerkLevel,
-            MinimumAccountLevel = def.MinimumAccountLevel,
-            ExperienceMultiplier = def.ExperienceMultiplier,
-            GoldenPointReward = def.GoldenPointReward,
-            DisplayConfig = def.DisplayConfig?.Clone(),
-            AllowedPaymentMethods = def.PaymentPolicy.AllowedMethods.ToList(),
-            ProviderMappings = def.ProviderMappings.ToDictionary(
-                kv => kv.Key,
-                kv => kv.Value.ToList(),
-                StringComparer.OrdinalIgnoreCase
-            )
-        }).ToList());
+        return Ok(definitions.Select(MapCatalogItem).ToList());
+    }
+
+    [HttpGet("groups")]
+    public async Task<ActionResult<List<SubscriptionGroupCatalogItem>>> ListCatalogGroups()
+    {
+        var groups = await catalog.ListDefinitionGroupsAsync(HttpContext.RequestAborted);
+        return Ok(groups.Select(MapCatalogGroup).ToList());
     }
 
     [HttpGet]
@@ -95,18 +108,56 @@ public class SubscriptionController(
 
     [HttpGet("fuzzy/{prefix}")]
     [Authorize]
-    public async Task<ActionResult<SnWalletSubscription>> GetSubscriptionFuzzy(string prefix)
+    public async Task<ActionResult<SubscriptionGroupStateResponse>> GetSubscriptionFuzzy(string prefix)
+    {
+        return await GetSubscriptionGroup(prefix);
+    }
+
+    [HttpGet("groups/{groupIdentifier}")]
+    [Authorize]
+    public async Task<ActionResult<SubscriptionGroupStateResponse>> GetSubscriptionGroup(string groupIdentifier)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
-        var subscription = await db.WalletSubscriptions
-            .Where(s => s.AccountId == Guid.Parse(currentUser.Id) && s.IsActive)
-            .Where(s => EF.Functions.ILike(s.Identifier, prefix + "%"))
-            .OrderByDescending(s => s.BegunAt)
-            .FirstOrDefaultAsync();
-        if (subscription is null || !subscription.IsAvailable) return NotFound();
+        var definitions = await catalog.ListDefinitionsByGroupAsync(groupIdentifier, HttpContext.RequestAborted);
+        if (definitions.Count == 0) return NotFound($"Subscription group {groupIdentifier} was not found.");
 
-        return Ok(subscription);
+        var accountId = Guid.Parse(currentUser.Id);
+        var identifiers = definitions.Select(x => x.Identifier).ToList();
+        var definitionMap = definitions.ToDictionary(x => x.Identifier, StringComparer.OrdinalIgnoreCase);
+        var subscriptionsInGroup = await db.WalletSubscriptions
+            .Where(s => s.AccountId == accountId)
+            .Where(s => identifiers.Contains(s.Identifier))
+            .Include(s => s.Coupon)
+            .OrderBy(s => s.BegunAt)
+            .ToListAsync();
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var current = subscriptionsInGroup
+            .Where(s => s.IsAvailableAt(now))
+            .OrderByDescending(s => s.PerkLevel)
+            .ThenByDescending(s => s.BegunAt)
+            .FirstOrDefault();
+        var next = subscriptionsInGroup
+            .Where(s => s.IsActive)
+            .Where(s => s.Status == SubscriptionStatus.Active)
+            .Where(s => s.BegunAt > now)
+            .OrderBy(s => s.BegunAt)
+            .FirstOrDefault();
+
+        return Ok(new SubscriptionGroupStateResponse
+        {
+            GroupIdentifier = string.IsNullOrWhiteSpace(definitions[0].GroupIdentifier)
+                ? definitions[0].Identifier
+                : definitions[0].GroupIdentifier!,
+            Catalog = MapCatalogGroup(definitions),
+            Current = current is null ? null : MapGroupStateItem(current, definitionMap),
+            Next = next is null ? null : MapGroupStateItem(next, definitionMap),
+            Subscriptions = subscriptionsInGroup
+                .OrderByDescending(s => s.BegunAt)
+                .Select(s => MapGroupStateItem(s, definitionMap))
+                .ToList()
+        });
     }
 
     [HttpGet("{identifier}")]
@@ -119,6 +170,72 @@ public class SubscriptionController(
         if (subscription is null) return NotFound($"Subscription with identifier {identifier} was not found.");
 
         return subscription;
+    }
+
+    private static SubscriptionCatalogItem MapCatalogItem(SnWalletSubscriptionDefinition def)
+    {
+        return new SubscriptionCatalogItem
+        {
+            Identifier = def.Identifier,
+            GroupIdentifier = def.GroupIdentifier,
+            DisplayName = def.DisplayName,
+            Currency = def.Currency,
+            BasePrice = def.BasePrice,
+            PerkLevel = def.PerkLevel,
+            MinimumAccountLevel = def.MinimumAccountLevel,
+            ExperienceMultiplier = def.ExperienceMultiplier,
+            GoldenPointReward = def.GoldenPointReward,
+            DisplayConfig = def.DisplayConfig?.Clone(),
+            AllowedPaymentMethods = def.PaymentPolicy.AllowedMethods.ToList(),
+            ProviderMappings = def.ProviderMappings.ToDictionary(
+                kv => kv.Key,
+                kv => kv.Value.ToList(),
+                StringComparer.OrdinalIgnoreCase
+            )
+        };
+    }
+
+    private static SubscriptionGroupCatalogItem MapCatalogGroup(
+        IGrouping<string, SnWalletSubscriptionDefinition> group
+    )
+    {
+        return MapCatalogGroup(group.ToList());
+    }
+
+    private static SubscriptionGroupCatalogItem MapCatalogGroup(
+        IReadOnlyList<SnWalletSubscriptionDefinition> definitions
+    )
+    {
+        var ordered = definitions
+            .OrderBy(x => x.PerkLevel)
+            .ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var primary = ordered.First();
+        var groupIdentifier = string.IsNullOrWhiteSpace(primary.GroupIdentifier)
+            ? primary.Identifier
+            : primary.GroupIdentifier!;
+
+        return new SubscriptionGroupCatalogItem
+        {
+            GroupIdentifier = groupIdentifier,
+            DisplayName = primary.DisplayName,
+            MaxPerkLevel = ordered.Max(x => x.PerkLevel),
+            DisplayConfig = primary.DisplayConfig?.Clone(),
+            Items = ordered.Select(MapCatalogItem).ToList()
+        };
+    }
+
+    private static SubscriptionGroupStateItem MapGroupStateItem(
+        SnWalletSubscription subscription,
+        IReadOnlyDictionary<string, SnWalletSubscriptionDefinition> definitionMap
+    )
+    {
+        definitionMap.TryGetValue(subscription.Identifier, out var definition);
+        return new SubscriptionGroupStateItem
+        {
+            Subscription = subscription.ToReference(),
+            Definition = definition is null ? null : MapCatalogItem(definition)
+        };
     }
 
     public class CreateSubscriptionRequest

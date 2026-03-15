@@ -200,6 +200,31 @@ public class SubscriptionCatalogService(
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<IGrouping<string, SnWalletSubscriptionDefinition>>> ListDefinitionGroupsAsync(
+        CancellationToken cancellationToken = default
+    )
+    {
+        var definitions = await ListDefinitionsAsync(cancellationToken);
+        return definitions
+            .GroupBy(x => string.IsNullOrWhiteSpace(x.GroupIdentifier) ? x.Identifier : x.GroupIdentifier!)
+            .OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public async Task<List<SnWalletSubscriptionDefinition>> ListDefinitionsByGroupAsync(
+        string groupIdentifier,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (string.IsNullOrWhiteSpace(groupIdentifier)) return [];
+
+        return await _db.WalletSubscriptionDefinitions
+            .Where(x => x.GroupIdentifier == groupIdentifier || x.Identifier == groupIdentifier)
+            .OrderBy(x => x.PerkLevel)
+            .ThenBy(x => x.DisplayName)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<SnWalletSubscriptionDefinition?> ResolveDefinitionAsync(
         string provider,
         string externalId,
