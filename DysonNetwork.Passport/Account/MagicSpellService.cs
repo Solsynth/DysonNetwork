@@ -98,6 +98,7 @@ public class MagicSpellService(
         logger.LogInformation("Sending magic spell... {Link}", link);
 
         var accountLanguage = account.Language;
+        var recipientName = string.IsNullOrWhiteSpace(account.Nick) ? account.Name : account.Nick;
 
         try
         {
@@ -105,7 +106,7 @@ public class MagicSpellService(
             {
                 case MagicSpellType.AccountActivation:
                     await email.SendTemplatedEmailAsync(
-                        contact.Account.Nick,
+                        recipientName,
                         contact.Content,
                         localizer.Get("regConfirmTitle", accountLanguage),
                         "Welcome",
@@ -115,7 +116,7 @@ public class MagicSpellService(
                     break;
                 case MagicSpellType.AccountRemoval:
                     await email.SendTemplatedEmailAsync(
-                        contact.Account.Nick,
+                        recipientName,
                         contact.Content,
                         localizer.Get("accountDeletionTitle", accountLanguage),
                         "AccountDeletion",
@@ -125,7 +126,7 @@ public class MagicSpellService(
                     break;
                 case MagicSpellType.AuthPasswordReset:
                     await email.SendTemplatedEmailAsync(
-                        contact.Account.Nick,
+                        recipientName,
                         contact.Content,
                         localizer.Get("passwordResetTitle", accountLanguage),
                         "PasswordReset",
@@ -134,11 +135,12 @@ public class MagicSpellService(
                     );
                     break;
                 case MagicSpellType.ContactVerification:
-                    if (spell.Meta["contact_method"] is not string contactMethod)
+                    if (!spell.Meta.TryGetValue("contact_method", out var contactMethodValue) ||
+                        contactMethodValue is not string contactMethod)
                         throw new InvalidOperationException("Contact method is not found.");
                     await email.SendTemplatedEmailAsync(
-                        contact.Account.Nick,
-                        contactMethod!,
+                        recipientName,
+                        contactMethod,
                         localizer.Get("contractMethodVerificationTitle", accountLanguage),
                         "ContactVerification",
                         new { name = account.Name, link },
