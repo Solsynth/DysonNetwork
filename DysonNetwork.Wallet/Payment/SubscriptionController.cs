@@ -433,6 +433,13 @@ public class SubscriptionController(
         public string ProviderReferenceId { get; set; } = null!;
     }
 
+    public class AfdianCheckoutResponse
+    {
+        public string CheckoutUrl { get; set; } = null!;
+        public string ProviderReferenceId { get; set; } = null!;
+        public string PlanId { get; set; } = null!;
+    }
+
     [HttpPost("order/restore/afdian")]
     [Authorize]
     public async Task<IActionResult> RestorePurchaseFromAfdian([FromBody] RestorePurchaseRequest request)
@@ -513,6 +520,44 @@ public class SubscriptionController(
                 TransactionId = session.TransactionId,
                 CheckoutUrl = session.CheckoutUrl,
                 ProviderReferenceId = providerReference
+            });
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("{identifier}/checkout/afdian")]
+    [Authorize]
+    public async Task<ActionResult<AfdianCheckoutResponse>> CreateAfdianCheckout(
+        string identifier,
+        [FromBody] CreatePaddleCheckoutRequest? request = null
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        try
+        {
+            var (_, providerReference) = await subscriptions.PrepareAfdianCheckoutAsync(
+                currentUser,
+                identifier,
+                request?.ProviderReferenceId,
+                HttpContext.RequestAborted
+            );
+
+            var planId = afdian.GetCheckoutPlanId();
+            var checkoutUrl = afdian.CreateCheckoutUrl(planId, providerReference);
+
+            return Ok(new AfdianCheckoutResponse
+            {
+                CheckoutUrl = checkoutUrl,
+                ProviderReferenceId = providerReference,
+                PlanId = planId
             });
         }
         catch (ArgumentOutOfRangeException ex)

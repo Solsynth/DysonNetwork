@@ -190,6 +190,35 @@ public class SubscriptionService(
         return (definition, resolvedReference);
     }
 
+    public async Task<(SnWalletSubscriptionDefinition Definition, string ProviderReference)> PrepareAfdianCheckoutAsync(
+        DyAccount account,
+        string identifier,
+        string? providerReference = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var definition = await catalog.GetDefinitionAsync(identifier, cancellationToken);
+        if (definition is null)
+            throw new ArgumentOutOfRangeException(nameof(identifier), $"Subscription {identifier} was not found.");
+        if (!definition.IsPaymentMethodAllowed(SubscriptionPaymentMethod.Afdian))
+            throw new InvalidOperationException($"Payment method {SubscriptionPaymentMethod.Afdian} is not allowed for subscription {identifier}.");
+        if (definition.MinimumAccountLevel.HasValue && account.Profile.Level < definition.MinimumAccountLevel.Value)
+            throw new InvalidOperationException(
+                $"Account level must be at least {definition.MinimumAccountLevel.Value} to purchase {identifier}."
+            );
+
+        var resolvedReference = await catalog.GetProviderReferenceAsync(
+            identifier,
+            SubscriptionPaymentMethod.Afdian,
+            providerReference,
+            cancellationToken
+        );
+        if (string.IsNullOrWhiteSpace(resolvedReference))
+            throw new InvalidOperationException("No Afdian SKU mapping was configured for this subscription.");
+
+        return (definition, resolvedReference);
+    }
+
     /// <summary>
     /// Cancel the renewal of the current activated subscription.
     /// </summary>

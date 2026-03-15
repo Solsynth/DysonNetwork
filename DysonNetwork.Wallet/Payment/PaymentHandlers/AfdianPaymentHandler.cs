@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.WebUtilities;
 using NodaTime;
 
 namespace DysonNetwork.Wallet.Payment.PaymentHandlers;
@@ -26,6 +27,19 @@ public class AfdianPaymentHandler(
         PropertyNameCaseInsensitive = true
     };
 
+    private const string CheckoutBaseUrl = "https://ifdian.net/order/create";
+
+    private (string UserId, string Token) GetCredentials()
+    {
+        var rawCredential = _configuration["Payment:Auth:Afdian:Credential"]
+            ?? _configuration["Payment:Auth:Afdian"]
+            ?? "_:";
+        var tokenParts = rawCredential.Split(':', 2);
+        var userId = tokenParts[0];
+        var token = tokenParts.Length > 1 ? tokenParts[1] : string.Empty;
+        return (userId, token);
+    }
+
     private static string CalculateSign(string token, string userId, string paramsJson, long ts)
     {
         var kvString = $"{token}params{paramsJson}ts{ts}user_id{userId}";
@@ -37,10 +51,7 @@ public class AfdianPaymentHandler(
     {
         try
         {
-            var token = _configuration["Payment:Auth:Afdian"] ?? "_:";
-            var tokenParts = token.Split(':');
-            var userId = tokenParts[0];
-            token = tokenParts[1];
+            var (userId, token) = GetCredentials();
             var paramsJson = JsonSerializer.Serialize(new { page }, JsonOptions);
             var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1))
                 .TotalSeconds; // Current timestamp in seconds
@@ -93,10 +104,7 @@ public class AfdianPaymentHandler(
 
         try
         {
-            var token = _configuration["Payment:Auth:Afdian"] ?? "_:";
-            var tokenParts = token.Split(':');
-            var userId = tokenParts[0];
-            token = tokenParts[1];
+            var (userId, token) = GetCredentials();
             var paramsJson = JsonSerializer.Serialize(new { out_trade_no = orderId }, JsonOptions);
             var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1))
                 .TotalSeconds; // Current timestamp in seconds
@@ -162,10 +170,7 @@ public class AfdianPaymentHandler(
             // Join the order IDs with commas as specified in the API documentation
             var orderIdsParam = string.Join(",", orders);
 
-            var token = _configuration["Payment:Auth:Afdian"] ?? "_:";
-            var tokenParts = token.Split(':');
-            var userId = tokenParts[0];
-            token = tokenParts[1];
+            var (userId, token) = GetCredentials();
             var paramsJson = JsonSerializer.Serialize(new { out_trade_no = orderIdsParam }, JsonOptions);
             var ts = (long)(DateTime.UtcNow - new DateTime(1970, 1, 1))
                 .TotalSeconds; // Current timestamp in seconds
@@ -279,6 +284,44 @@ public class AfdianPaymentHandler(
             _logger.LogError(ex, "Error handling webhook");
             return AfdianWebhookResponse.Success;
         }
+    }
+
+    public string CreateCheckoutUrl(string planId, string skuId)
+    {
+        if (string.IsNullOrWhiteSpace(planId))
+            throw new InvalidOperationException("Payment:Auth:Afdian:PlanId is not configured.");
+        if (string.IsNullOrWhiteSpace(skuId))
+            throw new ArgumentException("Afdian sku id is required.", nameof(skuId));
+
+        var skuPayload = JsonSerializer.Serialize(
+            new[]
+            {
+                new
+                {
+                    sku_id = skuId,
+                    count = 1
+                }
+            }
+        );
+
+        return QueryHelpers.AddQueryString(
+            CheckoutBaseUrl,
+            new Dictionary<string, string?>
+            {
+                ["product_type"] = "1",
+                ["plan_id"] = planId,
+                ["sku"] = skuPayload
+            }
+        );
+    }
+
+    public string GetCheckoutPlanId()
+    {
+        var planId = _configuration["Payment:Auth:Afdian:PlanId"];
+        if (string.IsNullOrWhiteSpace(planId))
+            throw new InvalidOperationException("Payment:Auth:Afdian:PlanId is not configured.");
+
+        return planId;
     }
 
     public string? GetSubscriptionPlanId(string subscriptionKey)
