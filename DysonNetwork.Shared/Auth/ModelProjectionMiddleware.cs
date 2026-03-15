@@ -63,6 +63,10 @@ public sealed class DyAuthModelProjectionMiddleware(
                 Language = proto.Language ?? string.Empty,
                 Region = proto.Region ?? string.Empty,
                 IsSuperuser = proto.IsSuperuser,
+                PerkLevel = proto.PerkLevel,
+                PerkSubscription = proto.PerkSubscription is not null
+                    ? SnSubscriptionReferenceObject.FromProtoValue(proto.PerkSubscription)
+                    : null,
                 ActivatedAt = proto.ActivatedAt?.ToInstant(),
                 Profile = new SnAccountProfile
                 {

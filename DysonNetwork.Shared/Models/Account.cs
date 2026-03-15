@@ -96,8 +96,8 @@ public class SnAccount : ModelBase
             PerkSubscription = proto.PerkSubscription is not null
                 ? SnSubscriptionReferenceObject.FromProtoValue(proto.PerkSubscription)
                 : null,
-            CreatedAt = proto.CreatedAt.ToInstant(),
-            UpdatedAt = proto.UpdatedAt.ToInstant(),
+            CreatedAt = proto.CreatedAt?.ToInstant() ?? default,
+            UpdatedAt = proto.UpdatedAt?.ToInstant() ?? default,
             AutomatedId = proto.AutomatedId is not null ? Guid.Parse(proto.AutomatedId) : null,
             Profile = mappedProfile
         };
