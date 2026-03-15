@@ -334,9 +334,22 @@ public class ThoughtController(
             if (currentUser.PerkLevel < serviceInfo.PerkLevel)
                 return StatusCode(403, "Not enough perk level");
 
-        string? topic = null;
-        if (!request.SequenceId.HasValue)
+        var canonicalSequence = await service.GetCanonicalMiChanSequenceAsync(accountId);
+        if (canonicalSequence != null &&
+            request.SequenceId.HasValue &&
+            request.SequenceId.Value != canonicalSequence.Id)
         {
+            return BadRequest("MiChan now uses a unified conversation. Please continue with the canonical MiChan sequence.");
+        }
+
+        string? topic = null;
+        if (canonicalSequence == null)
+        {
+            if (request.SequenceId.HasValue)
+            {
+                return BadRequest("MiChan now uses a unified conversation. Start without sequenceId to create the canonical MiChan thread.");
+            }
+
             topic = await service.GenerateTopicAsync(request.UserMessage, useMiChan: true);
             if (topic is null)
             {
@@ -344,7 +357,13 @@ public class ThoughtController(
             }
         }
 
-        var sequence = await service.GetOrCreateSequenceAsync(accountId, request.SequenceId, topic);
+        var resolution = await service.ResolveMiChanSequenceAsync(accountId, request.SequenceId, topic);
+        if (resolution.ErrorMessage != null)
+        {
+            return BadRequest(resolution.ErrorMessage);
+        }
+
+        var sequence = resolution.Sequence;
         if (sequence == null) return Forbid();
 
         var filesRetrieveRequest = new DyGetFileBatchRequest();
@@ -364,7 +383,7 @@ public class ThoughtController(
         if (request.AttachedPosts is not null) userPart.Metadata.Add("attached_posts", request.AttachedPosts);
         if (filesData is not null)
             userPart.Files = filesData.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
-        await service.SaveThoughtAsync(sequence, [userPart], ThinkingThoughtRole.User, botName: "michan");
+        var userThought = await service.SaveThoughtAsync(sequence, [userPart], ThinkingThoughtRole.User, botName: "michan");
 
         var (chatHistory, useVisionKernel) = await service.BuildMiChanChatHistoryAsync(
             sequence,
@@ -373,7 +392,8 @@ public class ThoughtController(
             request.AttachedPosts,
             request.AttachedMessages,
             request.AcceptProposals,
-            userPart.Files ?? []
+            userPart.Files ?? [],
+            userThought.Id
         );
 
         var kernel = useVisionKernel ? service.GetMiChanVisionKernel() : service.GetMiChanKernel();
@@ -590,7 +610,7 @@ public class ThoughtController(
 
         var thoughts = await service.GetPreviousThoughtsAsync(sequence);
 
-        return Ok(thoughts);
+        return Ok(service.FilterVisibleThoughts(thoughts));
     }
 
     [HttpDelete("sequences/{sequenceId:guid}")]

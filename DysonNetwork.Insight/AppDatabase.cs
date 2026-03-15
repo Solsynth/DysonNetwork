@@ -25,14 +25,17 @@ public class AppDatabase(
     
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        optionsBuilder.UseNpgsql(
-            configuration.GetConnectionString("App"),
-            opt => opt
-                .ConfigureDataSource(optSource => optSource.EnableDynamicJson())
-                .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
-                .UseNodaTime()
-                .UseVector()  // Enable pgvector support
-        ).UseSnakeCaseNamingConvention();
+        if (!optionsBuilder.IsConfigured)
+        {
+            optionsBuilder.UseNpgsql(
+                configuration.GetConnectionString("App"),
+                opt => opt
+                    .ConfigureDataSource(optSource => optSource.EnableDynamicJson())
+                    .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
+                    .UseNodaTime()
+                    .UseVector()  // Enable pgvector support
+            ).UseSnakeCaseNamingConvention();
+        }
 
         base.OnConfiguring(optionsBuilder);
     }

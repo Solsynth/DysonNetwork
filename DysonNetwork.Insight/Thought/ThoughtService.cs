@@ -36,6 +36,20 @@ public class ThoughtService(
     RemoteAccountService accounts
 )
 {
+    private const string MiChanBotName = "michan";
+    private const string MiChanCompactionSummaryKind = "compaction";
+    private const string MiChanSummaryKindMetadataKey = "summary_kind";
+    private const string MiChanCoveredThroughThoughtIdMetadataKey = "covered_through_thought_id";
+    private const int MiChanCompactionThresholdTokens = 12000;
+    private const int MiChanRecentHistoryTokenBudget = 4000;
+    private const int MiChanMinRecentThoughts = 8;
+
+    public sealed record MiChanSequenceResolutionResult(
+        SnThinkingSequence? Sequence,
+        bool Created,
+        string? ErrorMessage = null
+    );
+
     /// <summary>
     /// Have MiChan read the conversation and decide what to memorize using the store_memory tool.
     /// </summary>
@@ -93,6 +107,60 @@ public class ThoughtService(
         return await db.ThinkingSequences.FindAsync(sequenceId);
     }
 
+    public async Task<SnThinkingSequence?> GetCanonicalMiChanSequenceAsync(Guid accountId)
+    {
+        return await db.ThinkingSequences
+            .Where(s => s.AccountId == accountId)
+            .Where(s => db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == MiChanBotName))
+            .OrderByDescending(s => s.LastMessageAt != default ? s.LastMessageAt : s.CreatedAt)
+            .ThenByDescending(s => s.CreatedAt)
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<MiChanSequenceResolutionResult> ResolveMiChanSequenceAsync(
+        Guid accountId,
+        Guid? requestedSequenceId = null,
+        string? topic = null)
+    {
+        var canonicalSequence = await GetCanonicalMiChanSequenceAsync(accountId);
+
+        if (canonicalSequence != null)
+        {
+            if (requestedSequenceId.HasValue && requestedSequenceId.Value != canonicalSequence.Id)
+            {
+                return new MiChanSequenceResolutionResult(
+                    null,
+                    false,
+                    "MiChan now uses a unified conversation. Please continue with the canonical MiChan sequence."
+                );
+            }
+
+            return new MiChanSequenceResolutionResult(canonicalSequence, false);
+        }
+
+        if (requestedSequenceId.HasValue)
+        {
+            return new MiChanSequenceResolutionResult(
+                null,
+                false,
+                "MiChan now uses a unified conversation. Start without sequenceId to create the canonical MiChan thread."
+            );
+        }
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var sequence = new SnThinkingSequence
+        {
+            AccountId = accountId,
+            Topic = topic,
+            LastMessageAt = now
+        };
+
+        db.ThinkingSequences.Add(sequence);
+        await db.SaveChangesAsync();
+
+        return new MiChanSequenceResolutionResult(sequence, true);
+    }
+
     public async Task UpdateSequenceAsync(SnThinkingSequence sequence)
     {
         db.ThinkingSequences.Update(sequence);
@@ -141,6 +209,40 @@ public class ThoughtService(
         await db.SaveChangesAsync();
 
         // Invalidate cache for this sequence's thoughts
+        await cache.RemoveGroupAsync($"sequence:{sequence.Id}");
+
+        return thought;
+    }
+
+    public async Task<SnThinkingThought> SaveMiChanCompactionThoughtAsync(
+        SnThinkingSequence sequence,
+        string summary,
+        Guid coveredThroughThoughtId)
+    {
+        var thought = new SnThinkingThought
+        {
+            SequenceId = sequence.Id,
+            Role = ThinkingThoughtRole.Assistant,
+            TokenCount = 0,
+            ModelName = "michan-compaction",
+            BotName = MiChanBotName,
+            Parts =
+            [
+                new SnThinkingMessagePart
+                {
+                    Type = ThinkingMessagePartType.Text,
+                    Text = summary,
+                    Metadata = new Dictionary<string, object>
+                    {
+                        [MiChanSummaryKindMetadataKey] = MiChanCompactionSummaryKind,
+                        [MiChanCoveredThroughThoughtIdMetadataKey] = coveredThroughThoughtId.ToString()
+                    }
+                }
+            ]
+        };
+
+        db.ThinkingThoughts.Add(thought);
+        await db.SaveChangesAsync();
         await cache.RemoveGroupAsync($"sequence:{sequence.Id}");
 
         return thought;
@@ -230,6 +332,19 @@ public class ThoughtService(
         );
 
         return thoughts;
+    }
+
+    public bool IsMiChanCompactionThought(SnThinkingThought thought)
+    {
+        var textPart = thought.Parts.FirstOrDefault(p => p.Type == ThinkingMessagePartType.Text);
+        return string.Equals(thought.BotName, MiChanBotName, StringComparison.OrdinalIgnoreCase)
+               && TryGetMetadataString(textPart?.Metadata, MiChanSummaryKindMetadataKey, out var kind)
+               && string.Equals(kind, MiChanCompactionSummaryKind, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public List<SnThinkingThought> FilterVisibleThoughts(IEnumerable<SnThinkingThought> thoughts)
+    {
+        return thoughts.Where(thought => !IsMiChanCompactionThought(thought)).ToList();
     }
 
     public async Task<(int total, List<SnThinkingSequence> sequences)> ListSequencesAsync(
@@ -755,7 +870,8 @@ public class ThoughtService(
         List<string>? attachedPosts,
         List<Dictionary<string, dynamic>>? attachedMessages,
         List<string> acceptProposals,
-        List<SnCloudFileReferenceObject> attachments
+        List<SnCloudFileReferenceObject> attachments,
+        Guid? currentThoughtId = null
     )
     {
         // Load personality
@@ -811,12 +927,27 @@ public class ThoughtService(
         
         var chatHistory = new ChatHistory(chatHistoryBuilder.ToString());
 
-        // Add previous thoughts
         var previousThoughts = await GetPreviousThoughtsAsync(sequence);
-        var count = previousThoughts.Count;
-        for (var i = count - 1; i >= 1; i--)
+        var orderedPreviousThoughts = previousThoughts
+            .OrderBy(t => t.CreatedAt)
+            .ThenBy(t => t.Id)
+            .Where(t => currentThoughtId == null || t.Id != currentThoughtId.Value)
+            .ToList();
+
+        var (compactedSummary, recentThoughts) = await PrepareMiChanHistoryAsync(
+            sequence,
+            orderedPreviousThoughts,
+            Guid.Parse(currentUser.Id)
+        );
+
+        if (!string.IsNullOrWhiteSpace(compactedSummary))
         {
-            var thought = previousThoughts[i];
+            chatHistory.AddSystemMessage("以下是你们较早对话的压缩摘要：\n" + compactedSummary);
+        }
+
+        // Add previous thoughts
+        foreach (var thought in recentThoughts)
+        {
             var textContent = new StringBuilder();
             var functionCalls = new List<FunctionCallContent>();
             var functionResults = new List<FunctionResultContent>();
@@ -964,6 +1095,250 @@ public class ThoughtService(
         chatHistory.AddUserMessage(userMessage ?? "用户只添加了图片没有文字说明。");
 
         return (chatHistory, useVisionKernel);
+    }
+
+    private async Task<(string? summary, List<SnThinkingThought> recentThoughts)> PrepareMiChanHistoryAsync(
+        SnThinkingSequence sequence,
+        List<SnThinkingThought> orderedThoughts,
+        Guid accountId)
+    {
+        var (latestSummaryThought, rawThoughts, uncoveredThoughts) = ProjectMiChanHistoryWindowInternal(orderedThoughts);
+        var latestSummaryText = GetThoughtText(latestSummaryThought);
+
+        if (ShouldCompactMiChanHistory(uncoveredThoughts))
+        {
+            var compactPrefix = SelectCompactionPrefix(uncoveredThoughts);
+            if (compactPrefix.Count > 0)
+            {
+                var compactedSummary = await GenerateMiChanCompactionSummaryAsync(accountId, latestSummaryText, compactPrefix);
+                if (!string.IsNullOrWhiteSpace(compactedSummary))
+                {
+                    latestSummaryThought = await SaveMiChanCompactionThoughtAsync(
+                        sequence,
+                        compactedSummary,
+                        compactPrefix[^1].Id
+                    );
+                    latestSummaryText = compactedSummary;
+                    var projection = ProjectMiChanHistoryWindowInternal(
+                        rawThoughts
+                            .Concat([latestSummaryThought])
+                            .OrderBy(thought => thought.CreatedAt)
+                            .ThenBy(thought => thought.Id)
+                            .ToList()
+                    );
+                    uncoveredThoughts = projection.uncoveredThoughts;
+                }
+            }
+        }
+
+        return (latestSummaryText, uncoveredThoughts);
+    }
+
+    internal (string? summary, List<SnThinkingThought> recentThoughts) ProjectMiChanHistoryWindowForTests(
+        List<SnThinkingThought> orderedThoughts)
+    {
+        var (latestSummaryThought, _, uncoveredThoughts) = ProjectMiChanHistoryWindowInternal(orderedThoughts);
+        return (GetThoughtText(latestSummaryThought), uncoveredThoughts);
+    }
+
+    internal bool ShouldCompactMiChanHistoryForTests(List<SnThinkingThought> thoughts)
+    {
+        return ShouldCompactMiChanHistory(thoughts);
+    }
+
+    internal List<SnThinkingThought> SelectCompactionPrefixForTests(List<SnThinkingThought> thoughts)
+    {
+        return SelectCompactionPrefix(thoughts);
+    }
+
+    private (SnThinkingThought? latestSummaryThought, List<SnThinkingThought> rawThoughts, List<SnThinkingThought> uncoveredThoughts)
+        ProjectMiChanHistoryWindowInternal(List<SnThinkingThought> orderedThoughts)
+    {
+        var latestSummaryThought = orderedThoughts.LastOrDefault(IsMiChanCompactionThought);
+        var rawThoughts = orderedThoughts.Where(thought => !IsMiChanCompactionThought(thought)).ToList();
+        var coveredIndex = FindCoveredThoughtIndex(rawThoughts, latestSummaryThought);
+        var uncoveredThoughts = coveredIndex >= 0
+            ? rawThoughts.Skip(coveredIndex + 1).ToList()
+            : rawThoughts;
+
+        return (latestSummaryThought, rawThoughts, uncoveredThoughts);
+    }
+
+    private bool ShouldCompactMiChanHistory(List<SnThinkingThought> thoughts)
+    {
+        if (thoughts.Count <= MiChanMinRecentThoughts)
+        {
+            return false;
+        }
+
+        var totalTokens = thoughts.Sum(EstimateThoughtTokensForPrompt);
+        return totalTokens > MiChanCompactionThresholdTokens;
+    }
+
+    private List<SnThinkingThought> SelectCompactionPrefix(List<SnThinkingThought> thoughts)
+    {
+        if (thoughts.Count <= MiChanMinRecentThoughts)
+        {
+            return [];
+        }
+
+        var recentThoughts = new List<SnThinkingThought>();
+        var recentTokens = 0;
+
+        for (var i = thoughts.Count - 1; i >= 0; i--)
+        {
+            var tokens = EstimateThoughtTokensForPrompt(thoughts[i]);
+            if (recentThoughts.Count >= MiChanMinRecentThoughts &&
+                recentTokens + tokens > MiChanRecentHistoryTokenBudget)
+            {
+                break;
+            }
+
+            recentThoughts.Insert(0, thoughts[i]);
+            recentTokens += tokens;
+        }
+
+        var compactCount = thoughts.Count - recentThoughts.Count;
+        return compactCount > 0 ? thoughts.Take(compactCount).ToList() : [];
+    }
+
+    private async Task<string?> GenerateMiChanCompactionSummaryAsync(
+        Guid accountId,
+        string? previousSummary,
+        List<SnThinkingThought> thoughtsToCompact)
+    {
+        var kernel = miChanKernelProvider.GetKernel();
+        if (kernel == null || thoughtsToCompact.Count == 0)
+        {
+            return previousSummary;
+        }
+
+        var transcript = BuildThoughtTranscript(thoughtsToCompact);
+        var promptBuilder = new StringBuilder();
+        promptBuilder.AppendLine("你正在为 MiChan 维护与单个用户的长期对话压缩摘要。");
+        promptBuilder.AppendLine("请将较早的对话整理成紧凑、准确、面向未来对话可复用的摘要。");
+        promptBuilder.AppendLine("要求：");
+        promptBuilder.AppendLine("- 保留用户长期偏好、背景事实、未完成事项、重要上下文。");
+        promptBuilder.AppendLine("- 记录 MiChan 已做过的重要承诺、决定和工具结果。");
+        promptBuilder.AppendLine("- 不要虚构，不要加入摘要中不存在的新信息。");
+        promptBuilder.AppendLine("- 用简洁中文输出，最多 12 条短项目符号。");
+        promptBuilder.AppendLine("- 这份摘要是内部上下文，不要写成对用户说的话。");
+
+        var summaryHistory = new ChatHistory(promptBuilder.ToString());
+        var userPayload = new StringBuilder();
+        userPayload.AppendLine($"用户 ID: {accountId}");
+
+        if (!string.IsNullOrWhiteSpace(previousSummary))
+        {
+            userPayload.AppendLine();
+            userPayload.AppendLine("现有压缩摘要：");
+            userPayload.AppendLine(previousSummary);
+        }
+
+        userPayload.AppendLine();
+        userPayload.AppendLine("请把以下新增较早对话合并进压缩摘要：");
+        userPayload.AppendLine(transcript);
+        summaryHistory.AddUserMessage(userPayload.ToString());
+
+        var result = await kernel.GetRequiredService<IChatCompletionService>()
+            .GetChatMessageContentAsync(summaryHistory);
+
+        return result.Content?.Trim();
+    }
+
+    private string BuildThoughtTranscript(IEnumerable<SnThinkingThought> thoughts)
+    {
+        var builder = new StringBuilder();
+
+        foreach (var thought in thoughts)
+        {
+            builder.AppendLine(SerializeThoughtForPrompt(thought));
+        }
+
+        return builder.ToString();
+    }
+
+    private int EstimateThoughtTokensForPrompt(SnThinkingThought thought)
+    {
+        return tokenCounter.CountTokens(SerializeThoughtForPrompt(thought), thought.ModelName);
+    }
+
+    private string SerializeThoughtForPrompt(SnThinkingThought thought)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine(thought.Role == ThinkingThoughtRole.User ? "[User]" : "[MiChan]");
+
+        foreach (var part in thought.Parts)
+        {
+            switch (part.Type)
+            {
+                case ThinkingMessagePartType.Text when !string.IsNullOrWhiteSpace(part.Text):
+                    builder.AppendLine(part.Text);
+                    break;
+                case ThinkingMessagePartType.FunctionCall when part.FunctionCall != null:
+                    builder.AppendLine(
+                        $"[ToolCall] {part.FunctionCall.PluginName}.{part.FunctionCall.Name}: {part.FunctionCall.Arguments}");
+                    break;
+                case ThinkingMessagePartType.FunctionResult when part.FunctionResult != null:
+                    var resultText = part.FunctionResult.Result as string ??
+                                     JsonSerializer.Serialize(part.FunctionResult.Result);
+                    builder.AppendLine(
+                        $"[ToolResult] {part.FunctionResult.PluginName}.{part.FunctionResult.FunctionName}: {resultText}");
+                    break;
+            }
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    private int FindCoveredThoughtIndex(List<SnThinkingThought> rawThoughts, SnThinkingThought? summaryThought)
+    {
+        if (summaryThought == null)
+        {
+            return -1;
+        }
+
+        var textPart = summaryThought.Parts.FirstOrDefault(part => part.Type == ThinkingMessagePartType.Text);
+        if (!TryGetMetadataString(textPart?.Metadata, MiChanCoveredThroughThoughtIdMetadataKey, out var thoughtIdText) ||
+            !Guid.TryParse(thoughtIdText, out var thoughtId))
+        {
+            return -1;
+        }
+
+        return rawThoughts.FindIndex(thought => thought.Id == thoughtId);
+    }
+
+    private string? GetThoughtText(SnThinkingThought? thought)
+    {
+        return thought?.Parts
+            .Where(part => part.Type == ThinkingMessagePartType.Text)
+            .Select(part => part.Text)
+            .FirstOrDefault(text => !string.IsNullOrWhiteSpace(text));
+    }
+
+    private bool TryGetMetadataString(
+        Dictionary<string, object>? metadata,
+        string key,
+        out string? value)
+    {
+        value = null;
+        if (metadata == null || !metadata.TryGetValue(key, out var rawValue) || rawValue == null)
+        {
+            return false;
+        }
+
+        switch (rawValue)
+        {
+            case string text:
+                value = text;
+                return true;
+            case JsonElement { ValueKind: JsonValueKind.String } jsonText:
+                value = jsonText.GetString();
+                return value != null;
+            default:
+                value = rawValue.ToString();
+                return !string.IsNullOrWhiteSpace(value);
+        }
     }
 
     #endregion
