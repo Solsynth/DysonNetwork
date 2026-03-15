@@ -364,12 +364,11 @@ public class RealmController(
     public async Task<ActionResult<SnRealmMember>> UpdateCurrentIdentity(string slug, [FromBody] RealmMemberProfileRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (currentUser.PerkLevel < 2)
+            return StatusCode(403, "Perk level 2 is required to customize realm profile.");
 
         var realm = await rs.GetBySlug(slug);
         if (realm is null) return NotFound();
-
-        if (realm.BoostLevel < 1)
-            return StatusCode(403, "Realm boost level 1 is required to customize realm profile.");
 
         var member = await rs.GetActiveMember(realm.Id, currentUser.Id);
         if (member is null) return NotFound();

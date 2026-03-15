@@ -38,7 +38,7 @@ Rules:
 
 - only active joined members have realm identity
 - members can update their own realm `nick` and `bio`
-- custom realm profile requires realm boost level `>= 1`
+- custom realm profile requires user perk level `>= 2`
 - identity is realm-scoped and does not modify the account profile globally
 
 ## Realm Labels
@@ -95,7 +95,7 @@ Boost thresholds:
 
 Boost unlocks:
 
-- level 1: custom realm profile and labels
+- level 1: labels
 - level 2: promotions above normal member
 - level 3: highest label capacity tier in v1
 

@@ -676,6 +676,34 @@ public class ChatRoomController(
         return Ok(await crs.LoadMemberAccount(member));
     }
 
+    public class ChatMemberProfileRequest
+    {
+        [MaxLength(1024)] public string? Nick { get; set; }
+    }
+
+    [HttpPatch("{roomId:guid}/members/me/profile")]
+    [Authorize]
+    public async Task<ActionResult<SnChatMember>> UpdateRoomIdentity(Guid roomId, [FromBody] ChatMemberProfileRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+        if (currentUser.PerkLevel < 2)
+            return StatusCode(403, "Perk level 2 is required to customize chat profile.");
+
+        var member = await db.ChatMembers
+            .Where(m => m.AccountId == Guid.Parse(currentUser.Id) && m.ChatRoomId == roomId)
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+            .FirstOrDefaultAsync();
+
+        if (member == null)
+            return NotFound();
+
+        member.Nick = request.Nick;
+        await db.SaveChangesAsync();
+
+        return Ok(await crs.LoadMemberAccount(member));
+    }
+
     [HttpGet("{roomId:guid}/members/online")]
     public async Task<ActionResult<OnlineMembersResponse>> GetOnlineUsersCount(Guid roomId)
     {
