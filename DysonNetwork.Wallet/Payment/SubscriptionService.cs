@@ -31,6 +31,15 @@ public class SubscriptionService(
     ILogger<SubscriptionService> logger
 )
 {
+    private static bool RequiresMinimumAccountLevelCheck(string paymentMethod)
+    {
+        return string.Equals(
+            paymentMethod,
+            SubscriptionPaymentMethod.InAppWallet,
+            StringComparison.OrdinalIgnoreCase
+        );
+    }
+
     public async Task<SnWalletSubscription> CreateSubscriptionAsync(
         DyAccount account,
         string identifier,
@@ -48,7 +57,9 @@ public class SubscriptionService(
             throw new ArgumentOutOfRangeException(nameof(identifier), $@"Subscription {identifier} was not found.");
         if (!definition.IsPaymentMethodAllowed(paymentMethod))
             throw new InvalidOperationException($"Payment method {paymentMethod} is not allowed for subscription {identifier}.");
-        if (definition.MinimumAccountLevel.HasValue && account.Profile.Level < definition.MinimumAccountLevel.Value)
+        if (RequiresMinimumAccountLevelCheck(paymentMethod) &&
+            definition.MinimumAccountLevel.HasValue &&
+            account.Profile.Level < definition.MinimumAccountLevel.Value)
             throw new InvalidOperationException(
                 $"Account level must be at least {definition.MinimumAccountLevel.Value} to purchase {identifier}."
             );
@@ -169,10 +180,6 @@ public class SubscriptionService(
             throw new ArgumentOutOfRangeException(nameof(identifier), $"Subscription {identifier} was not found.");
         if (!definition.IsPaymentMethodAllowed(SubscriptionPaymentMethod.Paddle))
             throw new InvalidOperationException($"Payment method {SubscriptionPaymentMethod.Paddle} is not allowed for subscription {identifier}.");
-        if (definition.MinimumAccountLevel.HasValue && account.Profile.Level < definition.MinimumAccountLevel.Value)
-            throw new InvalidOperationException(
-                $"Account level must be at least {definition.MinimumAccountLevel.Value} to purchase {identifier}."
-            );
 
         var resolvedReference = await catalog.GetProviderReferenceAsync(
             identifier,
@@ -202,10 +209,6 @@ public class SubscriptionService(
             throw new ArgumentOutOfRangeException(nameof(identifier), $"Subscription {identifier} was not found.");
         if (!definition.IsPaymentMethodAllowed(SubscriptionPaymentMethod.Afdian))
             throw new InvalidOperationException($"Payment method {SubscriptionPaymentMethod.Afdian} is not allowed for subscription {identifier}.");
-        if (definition.MinimumAccountLevel.HasValue && account.Profile.Level < definition.MinimumAccountLevel.Value)
-            throw new InvalidOperationException(
-                $"Account level must be at least {definition.MinimumAccountLevel.Value} to purchase {identifier}."
-            );
 
         var resolvedReference = await catalog.GetProviderReferenceAsync(
             identifier,
