@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using DysonNetwork.Insight.MiChan;
@@ -42,11 +43,11 @@ public class ThoughtService(
     private const string MiChanCompactionSummaryKind = "compaction";
     private const string MiChanSummaryKindMetadataKey = "summary_kind";
     private const string MiChanCoveredThroughThoughtIdMetadataKey = "covered_through_thought_id";
-    private const int MiChanCompactionThresholdTokens = 12000;
-    private const int MiChanRecentHistoryTokenBudget = 4000;
+    private const int MiChanCompactionThresholdTokens = 8000;
+    private const int MiChanRecentHistoryTokenBudget = 2500;
     private const int MiChanMinRecentThoughts = 8;
-    private const int MiChanCompactionChunkTokenBudget = 8000;
-    private const int MiChanMaxThoughtWindowTokens = 10000;
+    private const int MiChanCompactionChunkTokenBudget = 3000;
+    private const int MiChanMaxThoughtWindowTokens = 6000;
 
     public sealed record MiChanSequenceResolutionResult(
         SnThinkingSequence? Sequence,
@@ -109,6 +110,42 @@ public class ThoughtService(
     public async Task<SnThinkingSequence?> GetSequenceAsync(Guid sequenceId)
     {
         return await db.ThinkingSequences.FindAsync(sequenceId);
+    }
+
+    public async Task<SnThinkingSequence?> ResolveSequenceForOwnerAsync(Guid accountId, Guid sequenceId)
+    {
+        var sequence = await db.ThinkingSequences
+            .FirstOrDefaultAsync(s => s.Id == sequenceId && s.AccountId == accountId);
+        if (sequence != null)
+        {
+            return sequence;
+        }
+
+        var deletedSequence = await db.ThinkingSequences
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.Id == sequenceId && s.AccountId == accountId);
+        if (deletedSequence?.DeletedAt == null)
+        {
+            return null;
+        }
+
+        var hasMiChanThoughts = await db.ThinkingThoughts
+            .IgnoreQueryFilters()
+            .AnyAsync(t => t.SequenceId == sequenceId && t.BotName == MiChanBotName);
+        if (!hasMiChanThoughts)
+        {
+            return null;
+        }
+
+        var hasSnChanThoughts = await db.ThinkingThoughts
+            .IgnoreQueryFilters()
+            .AnyAsync(t => t.SequenceId == sequenceId && t.BotName == "snchan");
+        if (hasSnChanThoughts)
+        {
+            return null;
+        }
+
+        return await GetCanonicalMiChanSequenceAsync(accountId);
     }
 
     public async Task<MiChanUserProfile> TouchMiChanUserProfileAsync(Guid accountId)
@@ -1104,6 +1141,7 @@ public class ThoughtService(
         Guid? currentThoughtId = null
     )
     {
+        var buildStopwatch = Stopwatch.StartNew();
         // Load personality
         var personality = PersonalityLoader.LoadPersonality(
             configuration.GetValue<string>("MiChan:PersonalityFile"),
@@ -1188,6 +1226,16 @@ public class ThoughtService(
             sequence,
             orderedPreviousThoughts,
             Guid.Parse(currentUser.Id)
+        );
+        var recentThoughtTokens = recentThoughts.Sum(EstimateThoughtTokensForPrompt);
+        logger.LogInformation(
+            "Built MiChan prompt window for sequence {SequenceId} in {ElapsedMs}ms. historyThoughts={HistoryThoughtCount}, recentThoughts={RecentThoughtCount}, recentTokens={RecentThoughtTokens}, hasSummary={HasSummary}",
+            sequence.Id,
+            buildStopwatch.ElapsedMilliseconds,
+            orderedPreviousThoughts.Count,
+            recentThoughts.Count,
+            recentThoughtTokens,
+            !string.IsNullOrWhiteSpace(compactedSummary)
         );
 
         if (!string.IsNullOrWhiteSpace(compactedSummary))
@@ -1352,27 +1400,47 @@ public class ThoughtService(
         List<SnThinkingThought> orderedThoughts,
         Guid accountId)
     {
+        var stopwatch = Stopwatch.StartNew();
         var (latestSummaryThought, rawThoughts, uncoveredThoughts) = ProjectMiChanHistoryWindowInternal(orderedThoughts);
         var latestSummaryText = GetThoughtText(latestSummaryThought);
         var originalCoveredThoughtId = GetCoveredThoughtId(latestSummaryThought);
         Guid? coveredThroughThoughtId = originalCoveredThoughtId;
+        var uncoveredTokensBefore = uncoveredThoughts.Sum(EstimateThoughtTokensForPrompt);
+        logger.LogInformation(
+            "Preparing MiChan history for sequence {SequenceId}. rawThoughts={RawThoughtCount}, uncoveredThoughts={UncoveredThoughtCount}, uncoveredTokens={UncoveredTokens}, hasExistingSummary={HasExistingSummary}",
+            sequence.Id,
+            rawThoughts.Count,
+            uncoveredThoughts.Count,
+            uncoveredTokensBefore,
+            !string.IsNullOrWhiteSpace(latestSummaryText)
+        );
 
-        while (ShouldCompactMiChanHistory(uncoveredThoughts))
+        if (ShouldCompactMiChanHistory(uncoveredThoughts))
         {
             var compactPrefix = SelectCompactionChunkPrefix(uncoveredThoughts);
             if (compactPrefix.Count > 0)
             {
+                var compactPrefixTokens = compactPrefix.Sum(EstimateThoughtTokensForPrompt);
+                logger.LogInformation(
+                    "Compacting MiChan history for sequence {SequenceId}. compactThoughts={CompactThoughtCount}, compactTokens={CompactTokens}",
+                    sequence.Id,
+                    compactPrefix.Count,
+                    compactPrefixTokens
+                );
                 var compactedSummary = await GenerateMiChanCompactionSummaryAsync(accountId, latestSummaryText, compactPrefix);
                 if (!string.IsNullOrWhiteSpace(compactedSummary))
                 {
                     latestSummaryText = compactedSummary;
                     coveredThroughThoughtId = compactPrefix[^1].Id;
                     uncoveredThoughts = uncoveredThoughts.Skip(compactPrefix.Count).ToList();
-                    continue;
+                    logger.LogInformation(
+                        "Compacted MiChan history for sequence {SequenceId} in {ElapsedMs}ms. remainingThoughts={RemainingThoughtCount}",
+                        sequence.Id,
+                        stopwatch.ElapsedMilliseconds,
+                        uncoveredThoughts.Count
+                    );
                 }
             }
-
-            break;
         }
 
         uncoveredThoughts = ClampMiChanThoughtWindow(uncoveredThoughts, MiChanMaxThoughtWindowTokens);
@@ -1383,6 +1451,15 @@ public class ThoughtService(
         {
             await SaveMiChanCompactionThoughtAsync(sequence, latestSummaryText, coveredThroughThoughtId.Value);
         }
+
+        logger.LogInformation(
+            "Prepared MiChan history for sequence {SequenceId} in {ElapsedMs}ms. finalThoughts={FinalThoughtCount}, finalTokens={FinalTokens}, savedSummary={SavedSummary}",
+            sequence.Id,
+            stopwatch.ElapsedMilliseconds,
+            uncoveredThoughts.Count,
+            uncoveredThoughts.Sum(EstimateThoughtTokensForPrompt),
+            coveredThroughThoughtId != originalCoveredThoughtId
+        );
 
         return (latestSummaryText, uncoveredThoughts);
     }
@@ -1431,6 +1508,7 @@ public class ThoughtService(
         SnThinkingSequence sequence,
         Guid? currentThoughtId)
     {
+        var stopwatch = Stopwatch.StartNew();
         var latestSummaryThought = await db.ThinkingThoughts
             .Where(t => t.SequenceId == sequence.Id)
             .Where(t => currentThoughtId == null || t.Id != currentThoughtId.Value)
@@ -1490,6 +1568,15 @@ public class ThoughtService(
         var recentThoughts = coveredIndex >= 0
             ? visibleCandidates.Skip(coveredIndex + 1).ToList()
             : visibleCandidates;
+
+        logger.LogDebug(
+            "Loaded MiChan prompt history for sequence {SequenceId} in {ElapsedMs}ms. latestSummaryFound={HasSummary}, candidateThoughts={CandidateThoughtCount}, recentThoughts={RecentThoughtCount}",
+            sequence.Id,
+            stopwatch.ElapsedMilliseconds,
+            true,
+            candidateThoughts.Count,
+            recentThoughts.Count
+        );
 
         return [latestSummaryThought, .. recentThoughts];
     }
@@ -1569,6 +1656,8 @@ public class ThoughtService(
             return previousSummary;
         }
 
+        var stopwatch = Stopwatch.StartNew();
+
         var transcript = BuildThoughtTranscript(thoughtsToCompact);
         var promptBuilder = new StringBuilder();
         promptBuilder.AppendLine("你正在为 MiChan 维护与单个用户的长期对话压缩摘要。");
@@ -1598,6 +1687,15 @@ public class ThoughtService(
 
         var result = await kernel.GetRequiredService<IChatCompletionService>()
             .GetChatMessageContentAsync(summaryHistory);
+
+        logger.LogInformation(
+            "Generated MiChan compaction summary in {ElapsedMs}ms. thoughtCount={ThoughtCount}, transcriptTokens={TranscriptTokens}, previousSummaryChars={PreviousSummaryLength}, summaryChars={SummaryLength}",
+            stopwatch.ElapsedMilliseconds,
+            thoughtsToCompact.Count,
+            tokenCounter.CountTokens(transcript),
+            previousSummary?.Length ?? 0,
+            result.Content?.Length ?? 0
+        );
 
         return result.Content?.Trim();
     }

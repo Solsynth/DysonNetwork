@@ -1,5 +1,6 @@
 #pragma warning disable SKEXP0050
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
@@ -21,7 +22,8 @@ public class ThoughtController(
     ThoughtService service,
     MiChanConfig miChanConfig,
     IServiceProvider serviceProvider,
-    DyFileService.DyFileServiceClient files
+    DyFileService.DyFileServiceClient files,
+    ILogger<ThoughtController> logger
 ) : ControllerBase
 {
     public static readonly List<string> AvailableProposals = ["post_create"];
@@ -183,8 +185,13 @@ public class ThoughtController(
         var assistantParts = new List<SnThinkingMessagePart>();
         var fullResponse = new StringBuilder();
 
+        const int maxMiChanToolRounds = 8;
+        var toolRound = 0;
+        var repeatedToolCalls = new Dictionary<string, int>();
+
         while (true)
         {
+            toolRound++;
             var textContentBuilder = new StringBuilder();
             AuthorRole? authorRole = null;
             var functionCallBuilder = new FunctionCallContentBuilder();
@@ -222,6 +229,21 @@ public class ThoughtController(
             if (functionCalls.Count == 0)
                 break;
 
+            if (toolRound > maxMiChanToolRounds)
+            {
+                const string fallbackMessage = "抱歉，刚才内部处理花了太多轮。我先停下来：请再说一次你的需求，或把问题缩小一点，我会直接回答你。";
+                assistantParts.Add(new SnThinkingMessagePart
+                {
+                    Type = ThinkingMessagePartType.Text,
+                    Text = fallbackMessage
+                });
+                fullResponse.Append(fallbackMessage);
+                var fallbackJson = JsonSerializer.Serialize(new { type = "text", data = fallbackMessage });
+                await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {fallbackJson}\n\n"));
+                await Response.Body.FlushAsync();
+                break;
+            }
+
             var assistantMessage = new ChatMessageContent(
                 authorRole ?? AuthorRole.Assistant,
                 string.IsNullOrEmpty(finalMessageText) ? null : finalMessageText
@@ -253,6 +275,20 @@ public class ThoughtController(
                 await Response.Body.FlushAsync();
 
                 FunctionResultContent resultContent;
+                var toolSignature = $"{functionCall.PluginName}.{functionCall.FunctionName}:{JsonSerializer.Serialize(functionCall.Arguments)}";
+                repeatedToolCalls.TryGetValue(toolSignature, out var duplicateCount);
+                repeatedToolCalls[toolSignature] = duplicateCount + 1;
+
+                if (duplicateCount >= 2)
+                {
+                    resultContent = new FunctionResultContent(
+                        callId: functionCall.Id!,
+                        functionName: functionCall.FunctionName,
+                        pluginName: functionCall.PluginName,
+                        result: "Skipped repeated tool call because the same call was requested too many times in one reply. Reply to the user directly instead."
+                    );
+                }
+                else
                 try
                 {
                     var result = await functionCall.InvokeAsync(kernel);
@@ -294,6 +330,8 @@ public class ThoughtController(
                 await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {resultMessageJson}\n\n"));
                 await Response.Body.FlushAsync();
             }
+
+            chatHistory.AddSystemMessage("工具结果已经返回。除非确实缺少关键参数，否则不要继续重复调用工具，直接向用户作答。");
         }
 
         // Save assistant thought
@@ -332,6 +370,16 @@ public class ThoughtController(
         Guid accountId
     )
     {
+        var overallStopwatch = Stopwatch.StartNew();
+        logger.LogInformation(
+            "Received MiChan thought request from user {AccountId}. sequenceId={SequenceId}, attachedPosts={AttachedPostsCount}, attachedFiles={AttachedFilesCount}, attachedMessages={AttachedMessagesCount}",
+            accountId,
+            request.SequenceId,
+            request.AttachedPosts?.Count ?? 0,
+            request.AttachedFiles?.Count ?? 0,
+            request.AttachedMessages?.Count ?? 0
+        );
+
         var serviceInfo = service.GetMiChanServiceInfo(request.AttachedFiles is { Count: > 0 });
         if (serviceInfo is null)
             return BadRequest("Service not found or configured.");
@@ -371,6 +419,13 @@ public class ThoughtController(
 
         var sequence = resolution.Sequence;
         if (sequence == null) return Forbid();
+        logger.LogInformation(
+            "MiChan request resolved sequence {SequenceId} for user {AccountId}. created={Created}, topicGenerated={TopicGenerated}",
+            sequence.Id,
+            accountId,
+            resolution.Created,
+            !string.IsNullOrWhiteSpace(topic)
+        );
 
         var filesRetrieveRequest = new DyGetFileBatchRequest();
         if (request.AttachedFiles is { Count: > 0 })
@@ -378,6 +433,12 @@ public class ThoughtController(
         var filesData = request.AttachedFiles is { Count: > 0 }
             ? (await files.GetFileBatchAsync(filesRetrieveRequest)).Files.ToList()
             : null;
+        logger.LogDebug(
+            "MiChan request fetched {FilesCount} attached files for sequence {SequenceId} in {ElapsedMs}ms",
+            filesData?.Count ?? 0,
+            sequence.Id,
+            overallStopwatch.ElapsedMilliseconds
+        );
 
         var userPart = new SnThinkingMessagePart
         {
@@ -393,6 +454,19 @@ public class ThoughtController(
 
         await service.TouchMiChanUserProfileAsync(accountId);
 
+        Response.Headers.Append("Content-Type", "text/event-stream");
+        Response.StatusCode = 200;
+        var preparingJson = JsonSerializer.Serialize(new { type = "status", data = "preparing_context" });
+        await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {preparingJson}\n\n"));
+        await Response.Body.FlushAsync();
+        logger.LogInformation(
+            "MiChan SSE stream opened for user {AccountId}, sequence {SequenceId} at {ElapsedMs}ms",
+            accountId,
+            sequence.Id,
+            overallStopwatch.ElapsedMilliseconds
+        );
+
+        var historyStopwatch = Stopwatch.StartNew();
         var (chatHistory, useVisionKernel) = await service.BuildMiChanChatHistoryAsync(
             sequence,
             currentUser,
@@ -403,14 +477,19 @@ public class ThoughtController(
             userPart.Files ?? [],
             userThought.Id
         );
+        logger.LogInformation(
+            "MiChan context prepared for user {AccountId}, sequence {SequenceId} in {ElapsedMs}ms. useVisionKernel={UseVisionKernel}, chatMessages={ChatMessagesCount}",
+            accountId,
+            sequence.Id,
+            historyStopwatch.ElapsedMilliseconds,
+            useVisionKernel,
+            chatHistory.Count
+        );
 
         var kernel = useVisionKernel ? service.GetMiChanVisionKernel() : service.GetMiChanKernel();
 
         // Register plugins using centralized extension method
         kernel.AddMiChanPlugins(serviceProvider);
-
-        Response.Headers.Append("Content-Type", "text/event-stream");
-        Response.StatusCode = 200;
 
         var chatService = kernel.GetRequiredService<IChatCompletionService>();
         var executionSettings = service.CreateMiChanExecutionSettings();
@@ -418,10 +497,13 @@ public class ThoughtController(
         var assistantParts = new List<SnThinkingMessagePart>();
         var fullResponse = new StringBuilder();
 
-        var contextId = $"{sequence.Id}-{Guid.NewGuid()}";
+        var firstChunkStopwatch = Stopwatch.StartNew();
+        var streamedAnyContent = false;
+        var toolRound = 0;
 
         while (true)
         {
+            toolRound++;
             var textContentBuilder = new StringBuilder();
             AuthorRole? authorRole = null;
             var functionCallBuilder = new FunctionCallContentBuilder();
@@ -433,6 +515,17 @@ public class ThoughtController(
 
                 if (streamingContent.Content is not null)
                 {
+                    if (!streamedAnyContent)
+                    {
+                        streamedAnyContent = true;
+                        logger.LogInformation(
+                            "MiChan streamed first text chunk for user {AccountId}, sequence {SequenceId} after {ElapsedMs}ms",
+                            accountId,
+                            sequence.Id,
+                            firstChunkStopwatch.ElapsedMilliseconds
+                        );
+                    }
+
                     textContentBuilder.Append(streamingContent.Content);
                     fullResponse.Append(streamingContent.Content);
                     var messageJson = JsonSerializer.Serialize(new { type = "text", data = streamingContent.Content });
@@ -458,6 +551,14 @@ public class ThoughtController(
 
             if (functionCalls.Count == 0)
                 break;
+
+            logger.LogInformation(
+                "MiChan entered tool round {ToolRound} for user {AccountId}, sequence {SequenceId} with {FunctionCallCount} tool calls",
+                toolRound,
+                accountId,
+                sequence.Id,
+                functionCalls.Count
+            );
 
             var assistantMessage = new ChatMessageContent(
                 authorRole ?? AuthorRole.Assistant,
@@ -541,6 +642,14 @@ public class ThoughtController(
             useVisionKernel ? miChanConfig.Vision.VisionThinkingService : miChanConfig.ThinkingService,
             botName: "michan"
         );
+        logger.LogInformation(
+            "MiChan completed thought request for user {AccountId}, sequence {SequenceId} in {ElapsedMs}ms. assistantParts={AssistantPartsCount}, responseChars={ResponseLength}",
+            accountId,
+            sequence.Id,
+            overallStopwatch.ElapsedMilliseconds,
+            assistantParts.Count,
+            fullResponse.Length
+        );
 
         // Write final metadata
         using (var streamBuilder = new MemoryStream())
@@ -580,6 +689,23 @@ public class ThoughtController(
         return Ok(sequences);
     }
 
+    [HttpGet("michan/sequence")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SnThinkingSequence>> GetMiChanUnifiedSequence()
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var sequence = await service.GetCanonicalMiChanSequenceAsync(accountId);
+        if (sequence == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(sequence);
+    }
+
     [HttpPatch("sequences/{sequenceId:guid}/sharing")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -611,13 +737,21 @@ public class ThoughtController(
         if (take <= 0) return BadRequest("take must be greater than 0.");
         take = Math.Min(take, 200);
 
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
+        var currentAccountId = currentUser != null ? Guid.Parse(currentUser.Id) : (Guid?)null;
+
         var sequence = await service.GetSequenceAsync(sequenceId);
+        if (sequence == null && currentAccountId.HasValue)
+        {
+            sequence = await service.ResolveSequenceForOwnerAsync(currentAccountId.Value, sequenceId);
+        }
+
         if (sequence == null) return NotFound();
 
         if (!sequence.IsPublic)
         {
-            if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-            var accountId = Guid.Parse(currentUser.Id);
+            if (currentUser == null) return Unauthorized();
+            var accountId = currentAccountId!.Value;
 
             if (sequence.AccountId != accountId)
                 return StatusCode(403);
