@@ -58,19 +58,25 @@ curl -X GET "http://localhost:5000/api/thought/sequences?take=10"
 
 ### GET /api/thought/sequences/{sequenceId}
 
-Retrieves all thoughts (messages) in a specific conversation sequence.
+Retrieves thoughts (messages) in a specific conversation sequence.
 
 #### Parameters
 - `sequenceId` (Guid, path): ID of the sequence to retrieve
+- `offset` (int, default 0): Number of visible thoughts to skip
+- `take` (int, default 50, max 200): Maximum number of visible thoughts to return
 
 #### Response
-- `200 OK`: Array of `SnThinkingThought` ordered by creation date
+- `200 OK`: Array of `SnThinkingThought` ordered by creation date descending
 - `401 Unauthorized`: If not authenticated
 - `404 Not Found`: If sequence doesn't exist or doesn't belong to user
+- Headers:
+  - `X-Has-More`: `true` if more visible thoughts can be fetched
+  - `X-Offset`: Effective offset used for this page
+  - `X-Take`: Effective take used for this page
 
 #### Example Usage
 ```bash
-curl -X GET "http://localhost:5000/api/thought/sequences/12345678-1234-1234-1234-123456789abc"
+curl -X GET "http://localhost:5000/api/thought/sequences/12345678-1234-1234-1234-123456789abc?offset=0&take=50"
 ```
 
 ## Data Models

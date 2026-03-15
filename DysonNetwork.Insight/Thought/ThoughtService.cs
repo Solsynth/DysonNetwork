@@ -334,6 +334,69 @@ public class ThoughtService(
         return thoughts;
     }
 
+    public async Task<(List<SnThinkingThought> thoughts, bool hasMore)> GetVisibleThoughtsPageAsync(
+        SnThinkingSequence sequence,
+        int offset,
+        int take)
+    {
+        const int minBatchSize = 50;
+        var batchSize = Math.Max(minBatchSize, take * 2);
+        var rawOffset = 0;
+        var visibleSkipped = 0;
+        var visibleThoughts = new List<SnThinkingThought>(take + 1);
+
+        while (visibleThoughts.Count <= take)
+        {
+            var batch = await db.ThinkingThoughts
+                .Where(t => t.SequenceId == sequence.Id)
+                .OrderByDescending(t => t.CreatedAt)
+                .ThenByDescending(t => t.Id)
+                .Skip(rawOffset)
+                .Take(batchSize)
+                .ToListAsync();
+
+            if (batch.Count == 0)
+            {
+                break;
+            }
+
+            rawOffset += batch.Count;
+
+            foreach (var thought in batch)
+            {
+                if (IsMiChanCompactionThought(thought))
+                {
+                    continue;
+                }
+
+                if (visibleSkipped < offset)
+                {
+                    visibleSkipped++;
+                    continue;
+                }
+
+                visibleThoughts.Add(thought);
+                if (visibleThoughts.Count > take)
+                {
+                    break;
+                }
+            }
+
+            if (batch.Count < batchSize)
+            {
+                break;
+            }
+        }
+
+        var hasMore = visibleThoughts.Count > take;
+        if (hasMore)
+        {
+            visibleThoughts.RemoveAt(visibleThoughts.Count - 1);
+        }
+
+        return (visibleThoughts, hasMore);
+    }
+
     public bool IsMiChanCompactionThought(SnThinkingThought thought)
     {
         var textPart = thought.Parts.FirstOrDefault(p => p.Type == ThinkingMessagePartType.Text);
@@ -345,6 +408,24 @@ public class ThoughtService(
     public List<SnThinkingThought> FilterVisibleThoughts(IEnumerable<SnThinkingThought> thoughts)
     {
         return thoughts.Where(thought => !IsMiChanCompactionThought(thought)).ToList();
+    }
+
+    internal (List<SnThinkingThought> thoughts, bool hasMore) SliceVisibleThoughtsForTests(
+        IEnumerable<SnThinkingThought> orderedThoughts,
+        int offset,
+        int take)
+    {
+        var visibleThoughts = FilterVisibleThoughts(orderedThoughts)
+            .Skip(offset)
+            .Take(take + 1)
+            .ToList();
+        var hasMore = visibleThoughts.Count > take;
+        if (hasMore)
+        {
+            visibleThoughts.RemoveAt(visibleThoughts.Count - 1);
+        }
+
+        return (visibleThoughts, hasMore);
     }
 
     public async Task<(int total, List<SnThinkingSequence> sequences)> ListSequencesAsync(
@@ -927,12 +1008,7 @@ public class ThoughtService(
         
         var chatHistory = new ChatHistory(chatHistoryBuilder.ToString());
 
-        var previousThoughts = await GetPreviousThoughtsAsync(sequence);
-        var orderedPreviousThoughts = previousThoughts
-            .OrderBy(t => t.CreatedAt)
-            .ThenBy(t => t.Id)
-            .Where(t => currentThoughtId == null || t.Id != currentThoughtId.Value)
-            .ToList();
+        var orderedPreviousThoughts = await LoadMiChanHistoryForPromptAsync(sequence, currentThoughtId);
 
         var (compactedSummary, recentThoughts) = await PrepareMiChanHistoryAsync(
             sequence,
@@ -1162,6 +1238,73 @@ public class ThoughtService(
             : rawThoughts;
 
         return (latestSummaryThought, rawThoughts, uncoveredThoughts);
+    }
+
+    private async Task<List<SnThinkingThought>> LoadMiChanHistoryForPromptAsync(
+        SnThinkingSequence sequence,
+        Guid? currentThoughtId)
+    {
+        var latestSummaryThought = await db.ThinkingThoughts
+            .Where(t => t.SequenceId == sequence.Id)
+            .Where(t => currentThoughtId == null || t.Id != currentThoughtId.Value)
+            .Where(t => t.BotName == MiChanBotName && t.ModelName == "michan-compaction")
+            .OrderByDescending(t => t.CreatedAt)
+            .ThenByDescending(t => t.Id)
+            .FirstOrDefaultAsync();
+        if (latestSummaryThought == null)
+        {
+            var fullThoughts = await GetPreviousThoughtsAsync(sequence);
+            return fullThoughts
+                .OrderBy(t => t.CreatedAt)
+                .ThenBy(t => t.Id)
+                .Where(t => currentThoughtId == null || t.Id != currentThoughtId.Value)
+                .ToList();
+        }
+
+        var textPart = latestSummaryThought.Parts.FirstOrDefault(part => part.Type == ThinkingMessagePartType.Text);
+        if (!TryGetMetadataString(textPart?.Metadata, MiChanCoveredThroughThoughtIdMetadataKey, out var coveredThoughtIdText) ||
+            !Guid.TryParse(coveredThoughtIdText, out var coveredThoughtId))
+        {
+            var fullThoughts = await GetPreviousThoughtsAsync(sequence);
+            return fullThoughts
+                .OrderBy(t => t.CreatedAt)
+                .ThenBy(t => t.Id)
+                .Where(t => currentThoughtId == null || t.Id != currentThoughtId.Value)
+                .ToList();
+        }
+
+        var coveredThought = await db.ThinkingThoughts
+            .Where(t => t.Id == coveredThoughtId)
+            .Select(t => new { t.Id, t.CreatedAt })
+            .FirstOrDefaultAsync();
+
+        if (coveredThought == null)
+        {
+            var fullThoughts = await GetPreviousThoughtsAsync(sequence);
+            return fullThoughts
+                .OrderBy(t => t.CreatedAt)
+                .ThenBy(t => t.Id)
+                .Where(t => currentThoughtId == null || t.Id != currentThoughtId.Value)
+                .ToList();
+        }
+
+        var candidateThoughts = await db.ThinkingThoughts
+            .Where(t => t.SequenceId == sequence.Id)
+            .Where(t => currentThoughtId == null || t.Id != currentThoughtId.Value)
+            .Where(t => t.CreatedAt >= coveredThought.CreatedAt)
+            .OrderBy(t => t.CreatedAt)
+            .ThenBy(t => t.Id)
+            .ToListAsync();
+
+        var visibleCandidates = candidateThoughts
+            .Where(thought => !IsMiChanCompactionThought(thought))
+            .ToList();
+        var coveredIndex = visibleCandidates.FindIndex(thought => thought.Id == coveredThought.Id);
+        var recentThoughts = coveredIndex >= 0
+            ? visibleCandidates.Skip(coveredIndex + 1).ToList()
+            : visibleCandidates;
+
+        return [latestSummaryThought, .. recentThoughts];
     }
 
     private bool ShouldCompactMiChanHistory(List<SnThinkingThought> thoughts)

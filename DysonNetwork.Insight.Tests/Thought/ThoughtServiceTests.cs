@@ -90,6 +90,26 @@ public class ThoughtServiceTests
         Assert.Contains(recentThoughts[0].Parts, part => part.Type == ThinkingMessagePartType.FunctionResult);
     }
 
+    [Fact]
+    public void SliceVisibleThoughtsForTests_PaginatesAcrossHiddenSummaryThoughts()
+    {
+        var service = CreateService();
+        var first = CreateTextThought(ThinkingThoughtRole.Assistant, "michan", "first");
+        var covered = CreateTextThought(ThinkingThoughtRole.User, "michan", "covered");
+        var summary = CreateSummaryThought("- summary", covered.Id);
+        var second = CreateTextThought(ThinkingThoughtRole.Assistant, "michan", "second");
+        var third = CreateTextThought(ThinkingThoughtRole.User, "michan", "third");
+
+        var (page, hasMore) = service.SliceVisibleThoughtsForTests(
+            [first, covered, summary, second, third],
+            offset: 1,
+            take: 2
+        );
+
+        Assert.True(hasMore);
+        Assert.Equal([covered.Id, second.Id], page.Select(t => t.Id).ToList());
+    }
+
     private static ThoughtService CreateService()
     {
         return new ThoughtService(

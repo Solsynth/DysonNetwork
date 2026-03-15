@@ -594,8 +594,15 @@ public class ThoughtController(
     [HttpGet("sequences/{sequenceId:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<List<SnThinkingThought>>> GetSequenceThoughts(Guid sequenceId)
+    public async Task<ActionResult<List<SnThinkingThought>>> GetSequenceThoughts(
+        Guid sequenceId,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 50)
     {
+        if (offset < 0) return BadRequest("offset must be greater than or equal to 0.");
+        if (take <= 0) return BadRequest("take must be greater than 0.");
+        take = Math.Min(take, 200);
+
         var sequence = await service.GetSequenceAsync(sequenceId);
         if (sequence == null) return NotFound();
 
@@ -608,9 +615,12 @@ public class ThoughtController(
                 return StatusCode(403);
         }
 
-        var thoughts = await service.GetPreviousThoughtsAsync(sequence);
+        var (thoughts, hasMore) = await service.GetVisibleThoughtsPageAsync(sequence, offset, take);
+        Response.Headers["X-Has-More"] = hasMore.ToString().ToLowerInvariant();
+        Response.Headers["X-Offset"] = offset.ToString();
+        Response.Headers["X-Take"] = take.ToString();
 
-        return Ok(service.FilterVisibleThoughts(thoughts));
+        return Ok(thoughts);
     }
 
     [HttpDelete("sequences/{sequenceId:guid}")]
