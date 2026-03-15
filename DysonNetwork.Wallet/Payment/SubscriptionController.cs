@@ -462,11 +462,11 @@ public class SubscriptionController(
     }
 
     [HttpPost("order/handle/afdian")]
-    public async Task<ActionResult<WebhookResponse>> AfdianWebhook()
+    public async Task<ActionResult<AfdianWebhookResponse>> AfdianWebhook()
     {
         var response = await afdian.HandleWebhook(Request, async webhookData =>
         {
-            var order = webhookData.Order;
+            var order = webhookData.AfdianOrder;
             await subscriptions.CreateSubscriptionFromOrder(order);
         });
 

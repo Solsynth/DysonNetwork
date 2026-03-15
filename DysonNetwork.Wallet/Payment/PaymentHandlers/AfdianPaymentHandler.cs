@@ -26,17 +26,14 @@ public class AfdianPaymentHandler(
         PropertyNameCaseInsensitive = true
     };
 
-    private string CalculateSign(string token, string userId, string paramsJson, long ts)
+    private static string CalculateSign(string token, string userId, string paramsJson, long ts)
     {
         var kvString = $"{token}params{paramsJson}ts{ts}user_id{userId}";
-        using (var md5 = MD5.Create())
-        {
-            var hashBytes = md5.ComputeHash(Encoding.UTF8.GetBytes(kvString));
-            return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
-        }
+        var hashBytes = MD5.HashData(Encoding.UTF8.GetBytes(kvString));
+        return Convert.ToHexStringLower(hashBytes);
     }
 
-    public async Task<OrderResponse?> ListOrderAsync(int page = 1)
+    public async Task<AfdianOrderResponse?> ListOrderAsync(int page = 1)
     {
         try
         {
@@ -70,7 +67,7 @@ public class AfdianPaymentHandler(
                 return null;
             }
 
-            var result = await JsonSerializer.DeserializeAsync<OrderResponse>(
+            var result = await JsonSerializer.DeserializeAsync<AfdianOrderResponse>(
                 await response.Content.ReadAsStreamAsync(), JsonOptions);
             return result;
         }
@@ -86,7 +83,7 @@ public class AfdianPaymentHandler(
     /// </summary>
     /// <param name="orderId">The order ID to query</param>
     /// <returns>The order item if found, otherwise null</returns>
-    public async Task<OrderItem?> GetOrderAsync(string orderId)
+    public async Task<AfdianOrderItem?> GetOrderAsync(string orderId)
     {
         if (string.IsNullOrEmpty(orderId))
         {
@@ -126,7 +123,7 @@ public class AfdianPaymentHandler(
                 return null;
             }
 
-            var result = await JsonSerializer.DeserializeAsync<OrderResponse>(
+            var result = await JsonSerializer.DeserializeAsync<AfdianOrderResponse>(
                 await response.Content.ReadAsStreamAsync(), JsonOptions);
 
             // Check if we have a valid response and orders in the list
@@ -151,7 +148,7 @@ public class AfdianPaymentHandler(
     /// </summary>
     /// <param name="orderIds">A collection of order IDs to query</param>
     /// <returns>A list of found order items</returns>
-    public async Task<List<OrderItem>> GetOrderBatchAsync(IEnumerable<string> orderIds)
+    public async Task<List<AfdianOrderItem>> GetOrderBatchAsync(IEnumerable<string> orderIds)
     {
         var orders = orderIds.ToList();
         if (orders.Count == 0)
@@ -192,10 +189,10 @@ public class AfdianPaymentHandler(
             {
                 _logger.LogError(
                     $"Response Error: {response.StatusCode}, {await response.Content.ReadAsStringAsync()}");
-                return new List<OrderItem>();
+                return new List<AfdianOrderItem>();
             }
 
-            var result = await JsonSerializer.DeserializeAsync<OrderResponse>(
+            var result = await JsonSerializer.DeserializeAsync<AfdianOrderResponse>(
                 await response.Content.ReadAsStreamAsync(), JsonOptions);
 
             // Check if we have a valid response and orders in the list
@@ -216,9 +213,9 @@ public class AfdianPaymentHandler(
     /// <param name="request">The HTTP request containing webhook data</param>
     /// <param name="processOrderAction">An action to process the received order</param>
     /// <returns>A WebhookResponse object to be returned to Afdian</returns>
-    public async Task<WebhookResponse> HandleWebhook(
+    public async Task<AfdianWebhookResponse> HandleWebhook(
         HttpRequest request,
-        Func<WebhookOrderData, Task>? processOrderAction
+        Func<AfdianWebhookOrderData, Task>? processOrderAction
     )
     {
         _logger.LogInformation("Received webhook request from afdian...");
@@ -235,25 +232,25 @@ public class AfdianPaymentHandler(
             if (string.IsNullOrEmpty(requestBody))
             {
                 _logger.LogError("Webhook request body is empty");
-                return new WebhookResponse { ErrorCode = 400, ErrorMessage = "Empty request body" };
+                return new AfdianWebhookResponse { ErrorCode = 400, ErrorMessage = "Empty request body" };
             }
 
             _logger.LogInformation($"Received webhook: {requestBody}");
 
             // Parse the webhook data
-            var webhook = JsonSerializer.Deserialize<WebhookRequest>(requestBody, JsonOptions);
+            var webhook = JsonSerializer.Deserialize<AfdianWebhookRequest>(requestBody, JsonOptions);
 
             if (webhook == null)
             {
                 _logger.LogError("Failed to parse webhook data");
-                return new WebhookResponse { ErrorCode = 400, ErrorMessage = "Invalid webhook data" };
+                return new AfdianWebhookResponse { ErrorCode = 400, ErrorMessage = "Invalid webhook data" };
             }
 
             // Validate the webhook type
             if (webhook.Data.Type != "order")
             {
                 _logger.LogWarning($"Unsupported webhook type: {webhook.Data.Type}");
-                return WebhookResponse.Success;
+                return AfdianWebhookResponse.Success;
             }
 
             // Process the order
@@ -265,22 +262,22 @@ public class AfdianPaymentHandler(
                     await processOrderAction(webhook.Data);
                 else
                     _logger.LogInformation(
-                        $"Order received but no processing action provided: {webhook.Data.Order.TradeNumber}");
+                        $"Order received but no processing action provided: {webhook.Data.AfdianOrder.TradeNumber}");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error processing order {webhook.Data.Order.TradeNumber}");
+                _logger.LogError(ex, $"Error processing order {webhook.Data.AfdianOrder.TradeNumber}");
                 // Still returning success to Afdian to prevent repeated callbacks
                 // Your system should handle the error internally
             }
 
             // Return success response to Afdian
-            return WebhookResponse.Success;
+            return AfdianWebhookResponse.Success;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling webhook");
-            return WebhookResponse.Success;
+            return AfdianWebhookResponse.Success;
         }
     }
 
@@ -298,27 +295,27 @@ public class AfdianPaymentHandler(
     }
 }
 
-public class OrderResponse
+public class AfdianOrderResponse
 {
     [JsonPropertyName("ec")] public int ErrorCode { get; set; }
 
     [JsonPropertyName("em")] public string ErrorMessage { get; set; } = null!;
 
-    [JsonPropertyName("data")] public OrderData Data { get; set; } = null!;
+    [JsonPropertyName("data")] public AfdianOrderData Data { get; set; } = null!;
 }
 
-public class OrderData
+public class AfdianOrderData
 {
-    [JsonPropertyName("list")] public List<OrderItem> Orders { get; set; } = null!;
+    [JsonPropertyName("list")] public List<AfdianOrderItem> Orders { get; set; } = null!;
 
     [JsonPropertyName("total_count")] public int TotalCount { get; set; }
 
     [JsonPropertyName("total_page")] public int TotalPages { get; set; }
 
-    [JsonPropertyName("request")] public RequestDetails Request { get; set; } = null!;
+    [JsonPropertyName("request")] public AfdianRequestDetails AfdianRequest { get; set; } = null!;
 }
 
-public class OrderItem : ISubscriptionOrder
+public class AfdianOrderItem : ISubscriptionOrder
 {
     [JsonPropertyName("out_trade_no")] public string TradeNumber { get; set; } = null!;
 
@@ -342,7 +339,7 @@ public class OrderItem : ISubscriptionOrder
 
     [JsonPropertyName("discount")] public string Discount { get; set; } = null!;
 
-    [JsonPropertyName("sku_detail")] public List<object> SkuDetail { get; set; } = null!;
+    [JsonPropertyName("sku_detail")] public List<AfdianSkuDetailItem> SkuDetail { get; set; } = [];
 
     [JsonPropertyName("create_time")] public long CreateTime { get; set; }
 
@@ -366,12 +363,15 @@ public class OrderItem : ISubscriptionOrder
 
     public string Id => TradeNumber;
 
-    public string SubscriptionId => PlanId;
+    [JsonIgnore]
+    public string? PrimarySkuId => SkuDetail.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x.SkuId))?.SkuId;
+
+    public string SubscriptionId => PrimarySkuId ?? PlanId;
 
     public string AccountId => UserId;
 }
 
-public class RequestDetails
+public class AfdianRequestDetails
 {
     [JsonPropertyName("user_id")] public string UserId { get; set; } = null!;
 
@@ -385,29 +385,29 @@ public class RequestDetails
 /// <summary>
 /// Request structure for Afdian webhook
 /// </summary>
-public class WebhookRequest
+public class AfdianWebhookRequest
 {
     [JsonPropertyName("ec")] public int ErrorCode { get; set; }
 
     [JsonPropertyName("em")] public string ErrorMessage { get; set; } = null!;
 
-    [JsonPropertyName("data")] public WebhookOrderData Data { get; set; } = null!;
+    [JsonPropertyName("data")] public AfdianWebhookOrderData Data { get; set; } = null!;
 }
 
 /// <summary>
 /// Order data contained in the webhook
 /// </summary>
-public class WebhookOrderData
+public class AfdianWebhookOrderData
 {
     [JsonPropertyName("type")] public string Type { get; set; } = null!;
 
-    [JsonPropertyName("order")] public WebhookOrderDetails Order { get; set; } = null!;
+    [JsonPropertyName("order")] public AfdianWebhookAfdianOrderDetails AfdianOrder { get; set; } = null!;
 }
 
 /// <summary>
 /// Order details in the webhook
 /// </summary>
-public class WebhookOrderDetails : OrderItem
+public class AfdianWebhookAfdianOrderDetails : AfdianOrderItem
 {
     [JsonPropertyName("custom_order_id")] public string CustomOrderId { get; set; } = null!;
 }
@@ -415,13 +415,13 @@ public class WebhookOrderDetails : OrderItem
 /// <summary>
 /// Response structure to acknowledge webhook receipt
 /// </summary>
-public class WebhookResponse
+public class AfdianWebhookResponse
 {
     [JsonPropertyName("ec")] public int ErrorCode { get; set; } = 200;
 
     [JsonPropertyName("em")] public string ErrorMessage { get; set; } = "";
 
-    public static WebhookResponse Success => new()
+    public static AfdianWebhookResponse Success => new()
     {
         ErrorCode = 200,
         ErrorMessage = string.Empty
@@ -431,7 +431,7 @@ public class WebhookResponse
 /// <summary>
 /// SKU detail item
 /// </summary>
-public class SkuDetailItem
+public class AfdianSkuDetailItem
 {
     [JsonPropertyName("sku_id")] public string SkuId { get; set; } = null!;
 
