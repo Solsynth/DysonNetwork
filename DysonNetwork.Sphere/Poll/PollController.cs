@@ -178,7 +178,7 @@ public class PollController(
         var now = SystemClock.Instance.GetCurrentInstant();
         var query = db.Polls
             .Where(e => publishers.Contains(e.PublisherId));
-        if (active) query = query.Where(e => e.EndedAt > now);
+        if (active) query = query.Where(e => !e.EndedAt.HasValue || e.EndedAt > now);
 
         var totalCount = await query.CountAsync();
         HttpContext.Response.Headers.Append("X-Total", totalCount.ToString());
@@ -196,6 +196,7 @@ public class PollController(
         public string? Title { get; set; }
         public string? Description { get; set; }
         public Instant? EndedAt { get; set; }
+        public bool? ClearEndedAt { get; set; }
         public bool? IsAnonymous { get; set; }
         public List<PollRequestQuestion>? Questions { get; set; }
     }
@@ -309,7 +310,8 @@ public class PollController(
             // Update properties if they are provided in the request
             if (request.Title != null) poll.Title = request.Title;
             if (request.Description != null) poll.Description = request.Description;
-            if (request.EndedAt.HasValue) poll.EndedAt = request.EndedAt;
+            if (request.ClearEndedAt == true) poll.EndedAt = null;
+            else if (request.EndedAt.HasValue) poll.EndedAt = request.EndedAt;
             if (request.IsAnonymous.HasValue) poll.IsAnonymous = request.IsAnonymous.Value;
 
             db.Update(poll);

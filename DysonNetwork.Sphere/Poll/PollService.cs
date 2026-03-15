@@ -130,7 +130,7 @@ public class PollService(AppDatabase db, ICacheService cache)
             .FirstOrDefaultAsync();
         if (poll is null)
             throw new Exception("Poll not found");
-        if (poll.EndedAt < SystemClock.Instance.GetCurrentInstant())
+        if (poll.EndedAt.HasValue && poll.EndedAt < SystemClock.Instance.GetCurrentInstant())
             throw new Exception("Poll has ended");
 
         await ValidatePollAnswer(pollId, answer);
