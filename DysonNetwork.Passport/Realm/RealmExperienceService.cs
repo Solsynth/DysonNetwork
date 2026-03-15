@@ -1,10 +1,11 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Passport.Realm;
 
-public class RealmExperienceService(AppDatabase db)
+public class RealmExperienceService(AppDatabase db, RemoteSubscriptionService subscriptions)
 {
     public const int TenureDailyXp = 5;
     public const int ChatMessageXp = 2;
@@ -26,6 +27,20 @@ public class RealmExperienceService(AppDatabase db)
             .Where(m => m.RealmId == realmId && m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync(cancellationToken);
         if (member is null) return null;
+
+        var finalDelta = delta;
+        var perkSubscription = await subscriptions.GetPerkSubscription(accountId);
+        if (perkSubscription is not null && finalDelta > 0)
+        {
+            var bonusMultiplier = perkSubscription.PerkLevel switch
+            {
+                1 => 1.5,
+                2 => 2,
+                3 => 2.5,
+                _ => 1
+            };
+            finalDelta = (int)Math.Floor(finalDelta * bonusMultiplier);
+        }
 
         if (cooldown.HasValue)
         {
@@ -50,7 +65,7 @@ public class RealmExperienceService(AppDatabase db)
             AccountId = accountId,
             ReasonType = reasonType,
             Reason = reason,
-            Delta = delta
+            Delta = finalDelta
         };
 
         db.RealmExperienceRecords.Add(record);
@@ -58,7 +73,7 @@ public class RealmExperienceService(AppDatabase db)
 
         await db.RealmMembers
             .Where(m => m.RealmId == realmId && m.AccountId == accountId)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(m => m.Experience, m => m.Experience + delta), cancellationToken);
+            .ExecuteUpdateAsync(setters => setters.SetProperty(m => m.Experience, m => m.Experience + finalDelta), cancellationToken);
 
         return record;
     }

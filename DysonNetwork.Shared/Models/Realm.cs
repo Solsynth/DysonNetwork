@@ -125,8 +125,8 @@ public class SnRealmMember : ModelBase
     public SnRealmLabel? Label { get; set; }
     public int Experience { get; set; }
 
-    [NotMapped] public int Level => Leveling.GetLevelFromExp(Experience);
-    [NotMapped] public double LevelingProgress => Leveling.GetProgressToNextLevel(Experience);
+    [NotMapped] public int Level => RealmLeveling.GetLevelFromExp(Experience);
+    [NotMapped] public double LevelingProgress => RealmLeveling.GetProgressToNextLevel(Experience);
 
     public int Role { get; set; } = RealmMemberRole.Normal;
     public Instant? JoinedAt { get; set; }

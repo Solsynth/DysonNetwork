@@ -158,7 +158,12 @@ Record fields:
 - `delta`
 - `created_at`
 
-XP uses the shared `Leveling` curve already used for account progression.
+Realm XP uses a dedicated harder `RealmLeveling` curve derived from the account leveling model.
+
+Current realm leveling characteristics:
+
+- level 1 requires `1000` EXP
+- later levels follow the same cumulative progression style as account leveling, but on a higher base requirement
 
 Current XP sources:
 
@@ -171,6 +176,14 @@ Anti-abuse rules:
 - tenure XP is granted by a scheduled Quartz job once per day
 - chat XP is throttled by a cooldown in Passport event handling
 - post XP is event-based and keyed by the post id
+
+XP boosters:
+
+- positive realm XP awards apply the same stellar/perk multiplier logic used by account XP
+- current multiplier tiers are:
+  - perk level 1: `1.5x`
+  - perk level 2: `2x`
+  - perk level 3: `2.5x`
 
 REST endpoint:
 

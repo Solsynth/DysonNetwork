@@ -159,6 +159,49 @@ public abstract class Leveling
     }
 }
 
+public abstract class RealmLeveling
+{
+    private const int MaxLevel = 120;
+    private const double BaseExp = 1000.0;
+    private const double K = 3.52;
+
+    public static double ExpForLevel(int level)
+    {
+        if (level < 1) return 0;
+        return BaseExp + K * Math.Pow(level - 1, 2);
+    }
+
+    public static double TotalExpForLevel(int level)
+    {
+        if (level < 1) return 0;
+        return BaseExp * level + K * ((level - 1) * level * (2 * level - 1)) / 6.0;
+    }
+
+    public static int GetLevelFromExp(int xp)
+    {
+        if (xp < 0) return 0;
+
+        var level = 0;
+        while (level < MaxLevel && TotalExpForLevel(level + 1) <= xp)
+        {
+            level++;
+        }
+
+        return level;
+    }
+
+    public static double GetProgressToNextLevel(int xp)
+    {
+        var currentLevel = GetLevelFromExp(xp);
+        if (currentLevel >= MaxLevel) return 1.0;
+
+        var prevTotal = TotalExpForLevel(currentLevel);
+        var nextTotal = TotalExpForLevel(currentLevel + 1);
+
+        return (xp - prevTotal) / (nextTotal - prevTotal);
+    }
+}
+
 public class UsernameColor
 {
     public string Type { get; set; } = "plain"; // "plain" | "gradient"
