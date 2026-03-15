@@ -14,7 +14,7 @@ public class OidcUserInfo
     public string? RefreshToken { get; set; }
     public string? AccessToken { get; set; }
 
-    public Dictionary<string, object> ToMetadata()
+    public Dictionary<string, object?> ToMetadata()
     {
         var metadata = new Dictionary<string, object>();
 

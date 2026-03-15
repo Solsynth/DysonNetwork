@@ -221,7 +221,7 @@ public class OidcController(
         return newAccount;
     }
 
-    private void AppendAuthCookies(TokenPair pair)
+    private void AppendAuthCookies(AuthService.TokenPair pair)
     {
         Response.Cookies.Append(AuthConstants.CookieTokenName, pair.AccessToken, new CookieOptions
         {

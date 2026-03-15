@@ -396,15 +396,15 @@ public class ConnectionController(
             null,
             ClientPlatform.Web,
             registrationParentSession);
-        var pair = await auth.CreateTokenPair(loginSession);
-        AppendAuthCookies(pair);
+        var pair2 = await auth.CreateTokenPair(loginSession);
+        AppendAuthCookies(pair2);
 
-        var finalRedirectUrl = BuildLoginRedirectUrl(redirectBaseUrl, pair);
+        var finalRedirectUrl = BuildLoginRedirectUrl(redirectBaseUrl, pair2);
         logger.LogInformation("OIDC registration successful for new user {UserId}. Redirecting to {RedirectUrl}", account.Id, finalRedirectUrl);
         return Redirect(finalRedirectUrl);
     }
 
-    private string BuildLoginRedirectUrl(string redirectBaseUrl, TokenPair pair)
+    private string BuildLoginRedirectUrl(string redirectBaseUrl, AuthService.TokenPair pair)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var redirectUrl = QueryHelpers.AddQueryString(redirectBaseUrl, "token", pair.AccessToken);
@@ -422,7 +422,7 @@ public class ConnectionController(
         return redirectUrl;
     }
 
-    private void AppendAuthCookies(TokenPair pair)
+    private void AppendAuthCookies(AuthService.TokenPair pair)
     {
         Response.Cookies.Append(AuthConstants.CookieTokenName, pair.AccessToken, new CookieOptions
         {
