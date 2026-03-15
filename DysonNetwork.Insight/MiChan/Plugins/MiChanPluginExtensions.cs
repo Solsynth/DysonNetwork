@@ -39,6 +39,13 @@ public static class MiChanPluginExtensions
             kernel.Plugins.AddFromObject(memoryPlugin, "memory");
         }
 
+        // User profile plugin
+        if (!kernel.Plugins.Contains("userProfile"))
+        {
+            var userProfilePlugin = serviceProvider.GetRequiredService<UserProfilePlugin>();
+            kernel.Plugins.AddFromObject(userProfilePlugin, "userProfile");
+        }
+
         // Scheduled task plugin
         if (!kernel.Plugins.Contains("scheduledTasks"))
         {
@@ -89,6 +96,12 @@ public static class MiChanPluginExtensions
             kernel.Plugins.AddFromObject(memoryPlugin, "memory");
         }
 
+        if (!excludedSet.Contains("userProfile") && !kernel.Plugins.Contains("userProfile"))
+        {
+            var userProfilePlugin = serviceProvider.GetRequiredService<UserProfilePlugin>();
+            kernel.Plugins.AddFromObject(userProfilePlugin, "userProfile");
+        }
+
         // Scheduled task plugin
         if (!excludedSet.Contains("scheduledTasks") && !kernel.Plugins.Contains("scheduledTasks"))
         {
@@ -112,6 +125,7 @@ public static class MiChanPluginExtensions
         return kernel.Plugins.Contains("post") &&
                kernel.Plugins.Contains("account") &&
                kernel.Plugins.Contains("memory") &&
+               kernel.Plugins.Contains("userProfile") &&
                kernel.Plugins.Contains("scheduledTasks") &&
                kernel.Plugins.Contains("conversation");
     }
@@ -129,6 +143,8 @@ public static class MiChanPluginExtensions
             missing.Add("account");
         if (!kernel.Plugins.Contains("memory"))
             missing.Add("memory");
+        if (!kernel.Plugins.Contains("userProfile"))
+            missing.Add("userProfile");
         if (!kernel.Plugins.Contains("scheduledTasks"))
             missing.Add("scheduledTasks");
         if (!kernel.Plugins.Contains("conversation"))

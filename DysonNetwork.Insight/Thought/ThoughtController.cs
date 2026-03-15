@@ -385,6 +385,8 @@ public class ThoughtController(
             userPart.Files = filesData.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
         var userThought = await service.SaveThoughtAsync(sequence, [userPart], ThinkingThoughtRole.User, botName: "michan");
 
+        await service.TouchMiChanUserProfileAsync(accountId);
+
         var (chatHistory, useVisionKernel) = await service.BuildMiChanChatHistoryAsync(
             sequence,
             currentUser,

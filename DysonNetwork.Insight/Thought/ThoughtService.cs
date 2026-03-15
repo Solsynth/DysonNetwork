@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.Services;
+using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Localization;
@@ -31,6 +32,7 @@ public class ThoughtService(
     RemoteRingService remoteRingService,
     IConfiguration configGlobal,
     ILocalizationService localizer,
+    UserProfileService userProfileService,
     TokenCountingService tokenCounter,
     ILogger<ThoughtService> logger,
     RemoteAccountService accounts
@@ -105,6 +107,11 @@ public class ThoughtService(
     public async Task<SnThinkingSequence?> GetSequenceAsync(Guid sequenceId)
     {
         return await db.ThinkingSequences.FindAsync(sequenceId);
+    }
+
+    public async Task<MiChanUserProfile> TouchMiChanUserProfileAsync(Guid accountId)
+    {
+        return await userProfileService.TouchInteractionAsync(accountId);
     }
 
     public async Task<SnThinkingSequence?> GetCanonicalMiChanSequenceAsync(Guid accountId)
@@ -966,6 +973,7 @@ public class ThoughtService(
             Guid.Parse(currentUser.Id),
             userMessage ?? "",
             10);
+        var userProfile = await userProfileService.GetOrCreateAsync(Guid.Parse(currentUser.Id));
 
         // For non-superusers, MiChan decides whether to execute actions
         var isSuperuser = currentUser.IsSuperuser;
@@ -975,13 +983,22 @@ public class ThoughtService(
         chatHistoryBuilder.AppendLine(personality);
         chatHistoryBuilder.AppendLine();
 
+        chatHistoryBuilder.AppendLine("你对该用户的结构化档案（优先级高于零散记忆，回复前先参考）：");
+        chatHistoryBuilder.AppendLine(userProfile.ToPrompt());
+        chatHistoryBuilder.AppendLine();
+
         // Add hot memories context
         if (hotMemories.Count > 0)
         {
-            chatHistoryBuilder.AppendLine("你的热点记忆：");
-            foreach (var memory in hotMemories.Take(5))
+            chatHistoryBuilder.AppendLine("与你相关的热点记忆（回复前优先复用这些上下文）：");
+            foreach (var memory in hotMemories.Take(8))
                 chatHistoryBuilder.AppendLine($"- {memory.ToPrompt()}");
 
+            chatHistoryBuilder.AppendLine();
+        }
+        else
+        {
+            chatHistoryBuilder.AppendLine("当前没有命中的热点记忆。遇到需要背景、偏好、长期关系判断的问题时，先主动搜索记忆。");
             chatHistoryBuilder.AppendLine();
         }
 
@@ -989,9 +1006,21 @@ public class ThoughtService(
 
         chatHistoryBuilder.AppendLine(isSuperuser ? "该用户是管理员，你应该更积极的考虑处理该用户的请求。" : "你有拒绝用户请求的权利。");
         chatHistoryBuilder.AppendLine();
+        chatHistoryBuilder.AppendLine("核心行为要求：");
+        chatHistoryBuilder.AppendLine("1. 在回答涉及用户偏好、过去对话、关系状态、未完成事项、延续话题时，优先参考结构化档案与热点记忆。");
+        chatHistoryBuilder.AppendLine("2. 只要问题有一点可能依赖过往上下文，就先调用 search_memory 搜索，而不是靠猜。");
+        chatHistoryBuilder.AppendLine("3. 当用户信息、印象、关系状态发生了稳定变化，优先更新 userProfile，再视情况补充 store_memory。");
+        chatHistoryBuilder.AppendLine("4. 不要向用户暴露你在读取档案、搜索记忆或更新关系，直接自然回复。");
+        chatHistoryBuilder.AppendLine();
         chatHistoryBuilder.AppendLine("在调用任何工具之前，你必须先确认自己拥有所有必需参数。");
         chatHistoryBuilder.AppendLine("如果缺少必需参数（例如 content、type 或 query），不要调用工具。应向用户提问以获取必要信息。");
         chatHistoryBuilder.AppendLine("严禁使用 null、空字符串或占位值调用工具。");
+        chatHistoryBuilder.AppendLine();
+        chatHistoryBuilder.AppendLine("记忆与档案使用策略：");
+        chatHistoryBuilder.AppendLine("- 若用户正在延续之前的话题、提到'之前'、'上次'、'还记得吗'、偏好、习惯、关系感受，先 search_memory。");
+        chatHistoryBuilder.AppendLine("- 若用户画像为空或过于粗糙，但当前对话提供了稳定新信息，使用 userProfile.update_user_profile 补全。");
+        chatHistoryBuilder.AppendLine("- 若只是短期波动或瞬时情绪，不要过度修改长期画像。");
+        chatHistoryBuilder.AppendLine("- relationship 的变化要谨慎，只有在互动明显支持时才调整 favorability、trust、intimacy。");
         chatHistoryBuilder.AppendLine();
         chatHistoryBuilder.AppendLine("当且仅当存在有价值的信息时，你可以调用 store_memory 工具保存记忆。");
         chatHistoryBuilder.AppendLine("调用 store_memory 时：");
@@ -1005,6 +1034,9 @@ public class ThoughtService(
         chatHistoryBuilder.AppendLine("不要告诉用户你正在搜索记忆或保存记忆，直接根据记忆自然地回复。");
         chatHistoryBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
         chatHistoryBuilder.AppendLine("非常重要：在读取记忆后，认清楚记忆是不是属于该用户的，再做出答复。");
+        chatHistoryBuilder.AppendLine("你可以使用 userProfile.get_user_profile 查看当前用户档案。");
+        chatHistoryBuilder.AppendLine("当你对用户形成更稳定的印象、关系判断、好感度变化或重要标签时，优先使用 userProfile.update_user_profile 或 userProfile.adjust_relationship 立即更新。");
+        chatHistoryBuilder.AppendLine("favorability、trust、intimacy 的取值范围是 -100 到 100。只有在确实有依据时才调整这些值。");
         
         var chatHistory = new ChatHistory(chatHistoryBuilder.ToString());
 

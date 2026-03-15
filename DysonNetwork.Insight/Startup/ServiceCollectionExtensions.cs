@@ -110,6 +110,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<PostPlugin>();
             services.AddSingleton<AccountPlugin>();
             services.AddScoped<MemoryPlugin>();
+            services.AddScoped<UserProfilePlugin>();
             services.AddScoped<ScheduledTaskPlugin>();
             services.AddScoped<ConversationPlugin>();
             
@@ -119,6 +120,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<EmbeddingService>();
             services.AddScoped<MemoryService>();
             services.AddScoped<InteractiveHistoryService>();
+            services.AddScoped<UserProfileService>();
             services.AddSingleton<PostAnalysisService>();
             services.AddScoped<MiChanAutonomousBehavior>();
             

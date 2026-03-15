@@ -20,6 +20,7 @@ public class AppDatabase(
     public DbSet<SnWebFeedSubscription> FeedSubscriptions { get; set; }
     
     public DbSet<MiChanMemoryRecord> MemoryRecords { get; set; }
+    public DbSet<MiChanUserProfile> UserProfiles { get; set; }
     public DbSet<MiChanScheduledTask> ScheduledTasks { get; set; }
     public DbSet<MiChanInteractiveHistory> InteractiveHistories { get; set; }
     

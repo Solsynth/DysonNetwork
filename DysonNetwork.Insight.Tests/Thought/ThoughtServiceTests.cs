@@ -1,4 +1,5 @@
 using DysonNetwork.Insight.Services;
+using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.Thought;
 using DysonNetwork.Shared.Models;
 using Microsoft.Extensions.Configuration;
@@ -125,6 +126,7 @@ public class ThoughtServiceTests
             null!,
             new ConfigurationBuilder().AddInMemoryCollection().Build(),
             null!,
+            null!,
             new TokenCountingService(NullLogger<TokenCountingService>.Instance),
             NullLogger<ThoughtService>.Instance,
             null!
@@ -204,5 +206,30 @@ public class ThoughtServiceTests
                 }
             ]
         };
+    }
+
+    [Fact]
+    public void MiChanUserProfile_ToPrompt_ContainsRelationshipAndSummaryFields()
+    {
+        var profile = new MiChanUserProfile
+        {
+            AccountId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            Favorability = 24,
+            TrustLevel = 18,
+            IntimacyLevel = 7,
+            InteractionCount = 12,
+            Tags = ["coder", "cat lover"],
+            ProfileSummary = "A backend engineer who likes concise answers.",
+            ImpressionSummary = "Thoughtful and direct.",
+            RelationshipSummary = "MiChan feels increasingly comfortable talking with this user."
+        };
+
+        var prompt = profile.ToPrompt();
+
+        Assert.Contains("favorability=24", prompt);
+        Assert.Contains("trust=18", prompt);
+        Assert.Contains("intimacy=7", prompt);
+        Assert.Contains("coder, cat lover", prompt);
+        Assert.Contains("Thoughtful and direct.", prompt);
     }
 }
