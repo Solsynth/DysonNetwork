@@ -66,6 +66,32 @@ Response:
   - **Regular users**: MiChan decides whether to execute actions
 - **Personality**: Casual, friendly, philosophical, no emojis
 - **Billing**: Per token usage
+- **Conversation Model**: One canonical chat thread per user
+
+## Unified MiChan Conversation
+
+MiChan now uses a unified long-lived conversation per account.
+
+- If the client omits `sequenceId`, MiChan resolves the account's canonical MiChan sequence automatically
+- If the client sends the canonical `sequenceId`, MiChan continues that same thread
+- If the client sends a different `sequenceId`, the request is rejected
+- Existing old MiChan sequences are still readable as archive history
+- SnChan behavior is unchanged and still supports separate conversation branches
+
+### Canonical Sequence Rules
+
+- The canonical MiChan sequence is the most recent non-deleted `SnThinkingSequence` that contains at least one thought with `BotName = "michan"`
+- If no MiChan sequence exists yet, the first MiChan message creates it
+- Proactive MiChan messages created through `conversation.start_conversation` also append to this canonical sequence
+
+### History Compaction
+
+Because MiChan now keeps one long-lived chat, older history is compacted automatically for prompt building:
+
+- Recent turns are kept verbatim
+- Older turns can be replaced by an internal compaction summary stored in the same sequence
+- Compaction summaries are internal only and are hidden from normal history reads
+- Prompt assembly prefers the latest compaction summary plus recent uncovered turns instead of replaying the full sequence each time
 
 ## MiChan Decision Gate
 
@@ -158,12 +184,40 @@ MiChan monitors posts for mentions:
 
 ## Conversation History
 
-Both bots share the same conversation sequences:
+Both bots still store thoughts in `SnThinkingSequence` and `SnThinkingThought`, but their conversation policies now differ:
 
-- Conversations stored in `SnThinkingSequence` and `SnThinkingThought`
-- `BotName` field tracks which bot was used
-- Users can switch between bots in the same conversation
+- `BotName` on each thought tracks which bot produced the message
+- **SnChan**: multi-sequence / branch-friendly
+- **MiChan**: one canonical thread per user plus archived legacy sequences
 - History persists across sessions
+
+## MiChan User Profile
+
+MiChan now maintains a structured per-user profile in addition to semantic memory.
+
+Each user profile stores:
+
+- Stable profile summary
+- MiChan's current impression summary
+- Relationship summary
+- Tags
+- `favorability`, `trust_level`, and `intimacy_level` scores
+- Interaction count and recent timestamps
+
+### How MiChan Uses It
+
+- The structured user profile is injected into MiChan's prompt before reply generation
+- MiChan is encouraged to consult memory more aggressively when past context may matter
+- MiChan can update profile state through the `userProfile` plugin
+- Interaction counts are touched automatically on MiChan chat turns and proactive MiChan messages
+
+### User Profile Tools
+
+The following tools are available to MiChan:
+
+- `userProfile.get_user_profile`
+- `userProfile.update_user_profile`
+- `userProfile.adjust_relationship`
 
 ## Admin API
 
@@ -214,9 +268,25 @@ curl -X POST http://localhost:5071/api/thought \
   }'
 ```
 
+### Fetch MiChan History With Pagination
+```bash
+curl -X GET "http://localhost:5071/api/thought/sequences/550e8400-e29b-41d4-a716-446655440000?offset=0&take=50" \
+  -H "Authorization: Bearer <token>"
+```
+
+Response headers:
+
+- `X-Has-More`: whether more visible thoughts remain
+- `X-Offset`: effective offset
+- `X-Take`: effective take
+
 ## Database Migration
 
-The migration adds a `BotName` column to track which bot was used:
+Recent migrations add support for:
+
+- `BotName` on thoughts
+- MiChan user profiles
+- MiChan interaction history
 
 ```bash
 dotnet ef database update --project DysonNetwork.Insight
@@ -229,12 +299,14 @@ When migrating from old API:
 1. Remove `ServiceId` from requests (optional, only used by SnChan now)
 2. Add `Bot` field to specify which bot to use
 3. Update client code to handle bot selection UI
-4. Existing sequences remain compatible
+4. For MiChan, treat `sequenceId` as canonical-thread only
+5. Existing old MiChan sequences remain readable but are no longer the active main thread
 
 ## Security Considerations
 
 - MiChan decision gate prevents unauthorized actions
 - Superusers bypass decision gate
 - All actions logged in conversation history
+- Structured relationship/profile state should be treated as internal agent state
 - Rate limiting applies to both bots
 - Admin API restricted to admin/superuser roles

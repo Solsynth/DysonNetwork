@@ -124,6 +124,12 @@ public class ThoughtService(
             .FirstOrDefaultAsync();
     }
 
+    public async Task<bool> IsCanonicalMiChanSequenceAsync(Guid accountId, Guid sequenceId)
+    {
+        var canonicalSequence = await GetCanonicalMiChanSequenceAsync(accountId);
+        return canonicalSequence?.Id == sequenceId;
+    }
+
     public async Task<MiChanSequenceResolutionResult> ResolveMiChanSequenceAsync(
         Guid accountId,
         Guid? requestedSequenceId = null,
@@ -166,6 +172,87 @@ public class ThoughtService(
         await db.SaveChangesAsync();
 
         return new MiChanSequenceResolutionResult(sequence, true);
+    }
+
+    public async Task<int> MergeHistoricMiChanSequencesAsync(CancellationToken cancellationToken = default)
+    {
+        var mergedSequenceCount = 0;
+
+        var candidateAccountIds = await db.ThinkingSequences
+            .Where(s => db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == MiChanBotName))
+            .Select(s => s.AccountId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        foreach (var accountId in candidateAccountIds)
+        {
+            var canonicalSequence = await GetCanonicalMiChanSequenceAsync(accountId);
+            if (canonicalSequence == null)
+                continue;
+
+            var sourceSequences = await db.ThinkingSequences
+                .Where(s => s.AccountId == accountId && s.Id != canonicalSequence.Id)
+                .Where(s => db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == MiChanBotName))
+                .Where(s => !db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == "snchan"))
+                .OrderBy(s => s.CreatedAt)
+                .ToListAsync(cancellationToken);
+
+            if (sourceSequences.Count == 0)
+                continue;
+
+            foreach (var sourceSequence in sourceSequences)
+            {
+                var thoughtCount = await db.ThinkingThoughts
+                    .Where(t => t.SequenceId == sourceSequence.Id)
+                    .CountAsync(cancellationToken);
+
+                if (thoughtCount == 0)
+                    continue;
+
+                await db.ThinkingThoughts
+                    .Where(t => t.SequenceId == sourceSequence.Id)
+                    .ExecuteUpdateAsync(
+                        update => update.SetProperty(t => t.SequenceId, canonicalSequence.Id),
+                        cancellationToken
+                    );
+
+                canonicalSequence.TotalToken += sourceSequence.TotalToken;
+                canonicalSequence.PaidToken += sourceSequence.PaidToken;
+                canonicalSequence.FreeTokens += sourceSequence.FreeTokens;
+                canonicalSequence.AgentInitiated = canonicalSequence.AgentInitiated || sourceSequence.AgentInitiated;
+
+                if (sourceSequence.UserLastReadAt.HasValue &&
+                    (!canonicalSequence.UserLastReadAt.HasValue ||
+                     sourceSequence.UserLastReadAt.Value > canonicalSequence.UserLastReadAt.Value))
+                {
+                    canonicalSequence.UserLastReadAt = sourceSequence.UserLastReadAt;
+                }
+
+                if (sourceSequence.LastMessageAt > canonicalSequence.LastMessageAt)
+                {
+                    canonicalSequence.LastMessageAt = sourceSequence.LastMessageAt;
+                }
+
+                sourceSequence.TotalToken = 0;
+                sourceSequence.PaidToken = 0;
+                sourceSequence.FreeTokens = 0;
+                sourceSequence.DeletedAt = SystemClock.Instance.GetCurrentInstant();
+
+                mergedSequenceCount++;
+
+                await cache.RemoveGroupAsync($"sequence:{sourceSequence.Id}");
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+            await cache.RemoveGroupAsync($"sequence:{canonicalSequence.Id}");
+        }
+
+        if (mergedSequenceCount > 0)
+        {
+            logger.LogInformation("Merged {Count} historic MiChan sequences into canonical threads.", mergedSequenceCount);
+        }
+
+        return mergedSequenceCount;
     }
 
     public async Task UpdateSequenceAsync(SnThinkingSequence sequence)

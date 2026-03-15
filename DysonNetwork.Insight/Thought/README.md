@@ -10,6 +10,8 @@ This service is handled by the Insight, when using with the Gateway, the `/api` 
 - Conversation context management with sequences
 - Caching for improved performance
 - Authentication required for all operations
+- MiChan unified-thread support with prompt compaction
+- Paginated sequence-history reads
 
 ## Endpoints
 
@@ -19,7 +21,13 @@ Initiates or continues a chat conversation.
 
 #### Parameters
 - `UserMessage` (string, required): The message from the user
-- `SequenceId` (Guid, optional): ID of existing conversation sequence. If not provided, a new sequence is created.
+- `SequenceId` (Guid, optional): ID of existing conversation sequence
+
+#### Bot-specific sequence behavior
+
+- **SnChan**: If `SequenceId` is omitted, a new conversation sequence is created
+- **MiChan**: If `SequenceId` is omitted, the canonical MiChan sequence is used or created automatically
+- **MiChan**: If a non-canonical `SequenceId` is provided, the request is rejected
 
 #### Response
 - Content-Type: `text/event-stream`
@@ -98,6 +106,21 @@ curl -X GET "http://localhost:5000/api/thought/sequences/12345678-1234-1234-1234
 }
 ```
 
+### MiChan User Profile
+```csharp
+{
+  Guid AccountId,
+  string? ProfileSummary,
+  string? ImpressionSummary,
+  string? RelationshipSummary,
+  List<string> Tags,
+  int Favorability,
+  int TrustLevel,
+  int IntimacyLevel,
+  int InteractionCount
+}
+```
+
 ### SnThinkingThought
 ```csharp
 {
@@ -120,6 +143,14 @@ The API uses Redis-based caching for conversation thoughts:
 - Thoughts are cached for 10 minutes with group-based invalidation
 - Cache is invalidated when new thoughts are added to a sequence
 - Improves performance for accessing conversation history
+
+## MiChan Notes
+
+- MiChan uses a single canonical conversation sequence per account
+- Older MiChan history can be compacted into internal summary thoughts for prompt assembly
+- Internal compaction thoughts are excluded from normal history responses
+- Proactive MiChan messages started through the conversation plugin append to the canonical MiChan sequence
+- MiChan also keeps a structured per-user profile to track impressions and relationship state
 
 ## Authentication
 

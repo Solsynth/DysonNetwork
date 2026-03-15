@@ -125,6 +125,12 @@ public class ThoughtController(
             if (currentUser.PerkLevel < serviceInfo.PerkLevel)
                 return StatusCode(403, "Not enough perk level");
 
+        if (request.SequenceId.HasValue &&
+            await service.IsCanonicalMiChanSequenceAsync(accountId, request.SequenceId.Value))
+        {
+            return BadRequest("SnChan cannot use MiChan's unified conversation. Start a new SnChan thread instead.");
+        }
+
         var kernel = service.GetSnChanKernel();
         if (kernel is null)
         {

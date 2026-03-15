@@ -123,6 +123,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<UserProfileService>();
             services.AddSingleton<PostAnalysisService>();
             services.AddScoped<MiChanAutonomousBehavior>();
+            services.AddHostedService<MiChanSequenceUnificationHostedService>();
             
             // Only start the hosted service when enabled
             if (miChanConfig.Enabled)
