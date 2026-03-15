@@ -131,6 +131,7 @@ public class SubscriptionController(
             .Include(s => s.Coupon)
             .OrderBy(s => s.BegunAt)
             .ToListAsync();
+        await HydrateSubscriptionMetadataAsync(subscriptionsInGroup, definitionMap);
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var current = subscriptionsInGroup
@@ -158,6 +159,36 @@ public class SubscriptionController(
                 .Select(s => MapGroupStateItem(s, definitionMap))
                 .ToList()
         });
+    }
+
+    [HttpGet("groups/{groupIdentifier}/active")]
+    [Authorize]
+    public async Task<ActionResult<SnWalletSubscription>> GetActiveSubscriptionInGroup(string groupIdentifier)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var definitions = await catalog.ListDefinitionsByGroupAsync(groupIdentifier, HttpContext.RequestAborted);
+        if (definitions.Count == 0) return NotFound($"Subscription group {groupIdentifier} was not found.");
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var identifiers = definitions.Select(x => x.Identifier).ToList();
+        var definitionMap = definitions.ToDictionary(x => x.Identifier, StringComparer.OrdinalIgnoreCase);
+        var subscriptionsInGroup = await db.WalletSubscriptions
+            .Where(s => s.AccountId == accountId)
+            .Where(s => identifiers.Contains(s.Identifier))
+            .Include(s => s.Coupon)
+            .ToListAsync();
+        await HydrateSubscriptionMetadataAsync(subscriptionsInGroup, definitionMap);
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var active = subscriptionsInGroup
+            .Where(s => s.IsAvailableAt(now))
+            .OrderByDescending(s => s.PerkLevel)
+            .ThenByDescending(s => s.BegunAt)
+            .FirstOrDefault();
+        if (active is null) return NotFound();
+
+        return Ok(active);
     }
 
     [HttpGet("{identifier}")]
@@ -236,6 +267,39 @@ public class SubscriptionController(
             Subscription = subscription.ToReference(),
             Definition = definition is null ? null : MapCatalogItem(definition)
         };
+    }
+
+    private async Task HydrateSubscriptionMetadataAsync(
+        IEnumerable<SnWalletSubscription> subscriptionsInGroup,
+        IReadOnlyDictionary<string, SnWalletSubscriptionDefinition> definitionMap
+    )
+    {
+        var changed = false;
+        foreach (var subscription in subscriptionsInGroup)
+        {
+            if (!definitionMap.TryGetValue(subscription.Identifier, out var definition)) continue;
+
+            if (string.IsNullOrWhiteSpace(subscription.GroupIdentifier) && !string.IsNullOrWhiteSpace(definition.GroupIdentifier))
+            {
+                subscription.GroupIdentifier = definition.GroupIdentifier;
+                changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(subscription.DisplayName))
+            {
+                subscription.DisplayName = definition.DisplayName;
+                changed = true;
+            }
+
+            if (subscription.PerkLevel == 0 && definition.PerkLevel > 0)
+            {
+                subscription.PerkLevel = definition.PerkLevel;
+                changed = true;
+            }
+        }
+
+        if (changed)
+            await db.SaveChangesAsync();
     }
 
     public class CreateSubscriptionRequest
