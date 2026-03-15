@@ -187,54 +187,59 @@ namespace DysonNetwork.Shared.Proto {
             "dG9yc1JlcXVlc3QSHQoKYWNjb3VudF9pZBgBIAEoCVIJYWNjb3VudElkEh8K",
             "C2FjdGl2ZV9vbmx5GAIgASgIUgphY3RpdmVPbmx5IlEKGUR5TGlzdEF1dGhG",
             "YWN0b3JzUmVzcG9uc2USNAoHZmFjdG9ycxgBIAMoCzIaLnByb3RvLkR5QWNj",
-            "b3VudEF1dGhGYWN0b3JSB2ZhY3RvcnMiVQoYRHlMaXN0Q29ubmVjdGlvbnNS",
-            "ZXF1ZXN0Eh0KCmFjY291bnRfaWQYASABKAlSCWFjY291bnRJZBIaCghwcm92",
-            "aWRlchgCIAEoCVIIcHJvdmlkZXIiWQoZRHlMaXN0Q29ubmVjdGlvbnNSZXNw",
-            "b25zZRI8Cgtjb25uZWN0aW9ucxgBIAMoCzIaLnByb3RvLkR5QWNjb3VudENv",
-            "bm5lY3Rpb25SC2Nvbm5lY3Rpb25zIrgBChxEeUdldFZhbGlkQWNjZXNzVG9r",
-            "ZW5SZXF1ZXN0EiMKDWNvbm5lY3Rpb25faWQYASABKAlSDGNvbm5lY3Rpb25J",
-            "ZBIjCg1yZWZyZXNoX3Rva2VuGAIgASgJUgxyZWZyZXNoVG9rZW4STgoUY3Vy",
-            "cmVudF9hY2Nlc3NfdG9rZW4YAyABKAsyHC5nb29nbGUucHJvdG9idWYuU3Ry",
-            "aW5nVmFsdWVSEmN1cnJlbnRBY2Nlc3NUb2tlbiJCCh1EeUdldFZhbGlkQWNj",
-            "ZXNzVG9rZW5SZXNwb25zZRIhCgxhY2Nlc3NfdG9rZW4YASABKAlSC2FjY2Vz",
-            "c1Rva2VuKsABChZEeVZlcmlmaWNhdGlvbk1hcmtUeXBlEikKJURZX1ZFUklG",
-            "SUNBVElPTl9NQVJLX1RZUEVfVU5TUEVDSUZJRUQQABIPCgtEWV9PRkZJQ0lB",
-            "TBABEhEKDURZX0lORElWSURVQUwQAhITCg9EWV9PUkdBTklaQVRJT04QAxIR",
-            "Cg1EWV9HT1ZFUk5NRU5UEAQSDgoKRFlfQ1JFQVRPUhAFEhAKDERZX0RFVkVM",
-            "T1BFUhAGEg0KCURZX1BBUk9EWRAHKnIKFER5QWNjb3VudENvbnRhY3RUeXBl",
-            "EicKI0RZX0FDQ09VTlRfQ09OVEFDVF9UWVBFX1VOU1BFQ0lGSUVEEAASDAoI",
-            "RFlfRU1BSUwQARITCg9EWV9QSE9ORV9OVU1CRVIQAhIOCgpEWV9BRERSRVNT",
-            "EAMqmgEKF0R5QWNjb3VudEF1dGhGYWN0b3JUeXBlEiMKH0RZX0FVVEhfRkFD",
-            "VE9SX1RZUEVfVU5TUEVDSUZJRUQQABIPCgtEWV9QQVNTV09SRBABEhEKDURZ",
-            "X0VNQUlMX0NPREUQAhISCg5EWV9JTl9BUFBfQ09ERRADEhEKDURZX1RJTUVE",
-            "X0NPREUQBBIPCgtEWV9QSU5fQ09ERRAFMu4IChBEeUFjY291bnRTZXJ2aWNl",
-            "EjwKCkdldEFjY291bnQSGi5wcm90by5EeUdldEFjY291bnRSZXF1ZXN0GhAu",
-            "cHJvdG8uRHlBY2NvdW50IgASQgoNR2V0Qm90QWNjb3VudBIdLnByb3RvLkR5",
-            "R2V0Qm90QWNjb3VudFJlcXVlc3QaEC5wcm90by5EeUFjY291bnQiABJWCg9H",
-            "ZXRBY2NvdW50QmF0Y2gSHy5wcm90by5EeUdldEFjY291bnRCYXRjaFJlcXVl",
-            "c3QaIC5wcm90by5EeUdldEFjY291bnRCYXRjaFJlc3BvbnNlIgASXAoSR2V0",
-            "Qm90QWNjb3VudEJhdGNoEiIucHJvdG8uRHlHZXRCb3RBY2NvdW50QmF0Y2hS",
-            "ZXF1ZXN0GiAucHJvdG8uRHlHZXRBY2NvdW50QmF0Y2hSZXNwb25zZSIAElwK",
-            "Ekxvb2t1cEFjY291bnRCYXRjaBIiLnByb3RvLkR5TG9va3VwQWNjb3VudEJh",
-            "dGNoUmVxdWVzdBogLnByb3RvLkR5R2V0QWNjb3VudEJhdGNoUmVzcG9uc2Ui",
-            "ABJSCg1TZWFyY2hBY2NvdW50Eh0ucHJvdG8uRHlTZWFyY2hBY2NvdW50UmVx",
-            "dWVzdBogLnByb3RvLkR5R2V0QWNjb3VudEJhdGNoUmVzcG9uc2UiABJNCgxM",
-            "aXN0QWNjb3VudHMSHC5wcm90by5EeUxpc3RBY2NvdW50c1JlcXVlc3QaHS5w",
-            "cm90by5EeUxpc3RBY2NvdW50c1Jlc3BvbnNlIgASTQoMTGlzdENvbnRhY3Rz",
-            "EhwucHJvdG8uRHlMaXN0Q29udGFjdHNSZXF1ZXN0Gh0ucHJvdG8uRHlMaXN0",
-            "Q29udGFjdHNSZXNwb25zZSIAEl8KFUdldENvbnRhY3RzQnlQcm92aWRlchIl",
-            "LnByb3RvLkR5R2V0Q29udGFjdHNCeVByb3ZpZGVyUmVxdWVzdBodLnByb3Rv",
-            "LkR5TGlzdENvbnRhY3RzUmVzcG9uc2UiABJdChRHZXRDb250YWN0c0J5QWNj",
-            "b3VudBIkLnByb3RvLkR5R2V0Q29udGFjdHNCeUFjY291bnRSZXF1ZXN0Gh0u",
-            "cHJvdG8uRHlMaXN0Q29udGFjdHNSZXNwb25zZSIAElYKD0xpc3RBdXRoRmFj",
-            "dG9ycxIfLnByb3RvLkR5TGlzdEF1dGhGYWN0b3JzUmVxdWVzdBogLnByb3Rv",
-            "LkR5TGlzdEF1dGhGYWN0b3JzUmVzcG9uc2UiABJWCg9MaXN0Q29ubmVjdGlv",
-            "bnMSHy5wcm90by5EeUxpc3RDb25uZWN0aW9uc1JlcXVlc3QaIC5wcm90by5E",
-            "eUxpc3RDb25uZWN0aW9uc1Jlc3BvbnNlIgASYgoTR2V0VmFsaWRBY2Nlc3NU",
-            "b2tlbhIjLnByb3RvLkR5R2V0VmFsaWRBY2Nlc3NUb2tlblJlcXVlc3QaJC5w",
-            "cm90by5EeUdldFZhbGlkQWNjZXNzVG9rZW5SZXNwb25zZSIAQj1aH2dpdC5z",
-            "b2xzeW50aC5kZXYvc29zeXMvc3BlYy9nZW6qAhlEeXNvbk5ldHdvcmsuU2hh",
-            "cmVkLlByb3RvYgZwcm90bzM="));
+            "b3VudEF1dGhGYWN0b3JSB2ZhY3RvcnMimQEKHER5UmVzZXRQYXNzd29yZEZh",
+            "Y3RvclJlcXVlc3QSHQoKYWNjb3VudF9pZBgBIAEoCVIJYWNjb3VudElkEiEK",
+            "DG5ld19wYXNzd29yZBgCIAEoCVILbmV3UGFzc3dvcmQSNwoIc3BlbGxfaWQY",
+            "AyABKAsyHC5nb29nbGUucHJvdG9idWYuU3RyaW5nVmFsdWVSB3NwZWxsSWQi",
+            "VQoYRHlMaXN0Q29ubmVjdGlvbnNSZXF1ZXN0Eh0KCmFjY291bnRfaWQYASAB",
+            "KAlSCWFjY291bnRJZBIaCghwcm92aWRlchgCIAEoCVIIcHJvdmlkZXIiWQoZ",
+            "RHlMaXN0Q29ubmVjdGlvbnNSZXNwb25zZRI8Cgtjb25uZWN0aW9ucxgBIAMo",
+            "CzIaLnByb3RvLkR5QWNjb3VudENvbm5lY3Rpb25SC2Nvbm5lY3Rpb25zIrgB",
+            "ChxEeUdldFZhbGlkQWNjZXNzVG9rZW5SZXF1ZXN0EiMKDWNvbm5lY3Rpb25f",
+            "aWQYASABKAlSDGNvbm5lY3Rpb25JZBIjCg1yZWZyZXNoX3Rva2VuGAIgASgJ",
+            "UgxyZWZyZXNoVG9rZW4STgoUY3VycmVudF9hY2Nlc3NfdG9rZW4YAyABKAsy",
+            "HC5nb29nbGUucHJvdG9idWYuU3RyaW5nVmFsdWVSEmN1cnJlbnRBY2Nlc3NU",
+            "b2tlbiJCCh1EeUdldFZhbGlkQWNjZXNzVG9rZW5SZXNwb25zZRIhCgxhY2Nl",
+            "c3NfdG9rZW4YASABKAlSC2FjY2Vzc1Rva2VuKsABChZEeVZlcmlmaWNhdGlv",
+            "bk1hcmtUeXBlEikKJURZX1ZFUklGSUNBVElPTl9NQVJLX1RZUEVfVU5TUEVD",
+            "SUZJRUQQABIPCgtEWV9PRkZJQ0lBTBABEhEKDURZX0lORElWSURVQUwQAhIT",
+            "Cg9EWV9PUkdBTklaQVRJT04QAxIRCg1EWV9HT1ZFUk5NRU5UEAQSDgoKRFlf",
+            "Q1JFQVRPUhAFEhAKDERZX0RFVkVMT1BFUhAGEg0KCURZX1BBUk9EWRAHKnIK",
+            "FER5QWNjb3VudENvbnRhY3RUeXBlEicKI0RZX0FDQ09VTlRfQ09OVEFDVF9U",
+            "WVBFX1VOU1BFQ0lGSUVEEAASDAoIRFlfRU1BSUwQARITCg9EWV9QSE9ORV9O",
+            "VU1CRVIQAhIOCgpEWV9BRERSRVNTEAMqmgEKF0R5QWNjb3VudEF1dGhGYWN0",
+            "b3JUeXBlEiMKH0RZX0FVVEhfRkFDVE9SX1RZUEVfVU5TUEVDSUZJRUQQABIP",
+            "CgtEWV9QQVNTV09SRBABEhEKDURZX0VNQUlMX0NPREUQAhISCg5EWV9JTl9B",
+            "UFBfQ09ERRADEhEKDURZX1RJTUVEX0NPREUQBBIPCgtEWV9QSU5fQ09ERRAF",
+            "MsgJChBEeUFjY291bnRTZXJ2aWNlEjwKCkdldEFjY291bnQSGi5wcm90by5E",
+            "eUdldEFjY291bnRSZXF1ZXN0GhAucHJvdG8uRHlBY2NvdW50IgASQgoNR2V0",
+            "Qm90QWNjb3VudBIdLnByb3RvLkR5R2V0Qm90QWNjb3VudFJlcXVlc3QaEC5w",
+            "cm90by5EeUFjY291bnQiABJWCg9HZXRBY2NvdW50QmF0Y2gSHy5wcm90by5E",
+            "eUdldEFjY291bnRCYXRjaFJlcXVlc3QaIC5wcm90by5EeUdldEFjY291bnRC",
+            "YXRjaFJlc3BvbnNlIgASXAoSR2V0Qm90QWNjb3VudEJhdGNoEiIucHJvdG8u",
+            "RHlHZXRCb3RBY2NvdW50QmF0Y2hSZXF1ZXN0GiAucHJvdG8uRHlHZXRBY2Nv",
+            "dW50QmF0Y2hSZXNwb25zZSIAElwKEkxvb2t1cEFjY291bnRCYXRjaBIiLnBy",
+            "b3RvLkR5TG9va3VwQWNjb3VudEJhdGNoUmVxdWVzdBogLnByb3RvLkR5R2V0",
+            "QWNjb3VudEJhdGNoUmVzcG9uc2UiABJSCg1TZWFyY2hBY2NvdW50Eh0ucHJv",
+            "dG8uRHlTZWFyY2hBY2NvdW50UmVxdWVzdBogLnByb3RvLkR5R2V0QWNjb3Vu",
+            "dEJhdGNoUmVzcG9uc2UiABJNCgxMaXN0QWNjb3VudHMSHC5wcm90by5EeUxp",
+            "c3RBY2NvdW50c1JlcXVlc3QaHS5wcm90by5EeUxpc3RBY2NvdW50c1Jlc3Bv",
+            "bnNlIgASTQoMTGlzdENvbnRhY3RzEhwucHJvdG8uRHlMaXN0Q29udGFjdHNS",
+            "ZXF1ZXN0Gh0ucHJvdG8uRHlMaXN0Q29udGFjdHNSZXNwb25zZSIAEl8KFUdl",
+            "dENvbnRhY3RzQnlQcm92aWRlchIlLnByb3RvLkR5R2V0Q29udGFjdHNCeVBy",
+            "b3ZpZGVyUmVxdWVzdBodLnByb3RvLkR5TGlzdENvbnRhY3RzUmVzcG9uc2Ui",
+            "ABJdChRHZXRDb250YWN0c0J5QWNjb3VudBIkLnByb3RvLkR5R2V0Q29udGFj",
+            "dHNCeUFjY291bnRSZXF1ZXN0Gh0ucHJvdG8uRHlMaXN0Q29udGFjdHNSZXNw",
+            "b25zZSIAElYKD0xpc3RBdXRoRmFjdG9ycxIfLnByb3RvLkR5TGlzdEF1dGhG",
+            "YWN0b3JzUmVxdWVzdBogLnByb3RvLkR5TGlzdEF1dGhGYWN0b3JzUmVzcG9u",
+            "c2UiABJYChNSZXNldFBhc3N3b3JkRmFjdG9yEiMucHJvdG8uRHlSZXNldFBh",
+            "c3N3b3JkRmFjdG9yUmVxdWVzdBoaLnByb3RvLkR5QWNjb3VudEF1dGhGYWN0",
+            "b3IiABJWCg9MaXN0Q29ubmVjdGlvbnMSHy5wcm90by5EeUxpc3RDb25uZWN0",
+            "aW9uc1JlcXVlc3QaIC5wcm90by5EeUxpc3RDb25uZWN0aW9uc1Jlc3BvbnNl",
+            "IgASYgoTR2V0VmFsaWRBY2Nlc3NUb2tlbhIjLnByb3RvLkR5R2V0VmFsaWRB",
+            "Y2Nlc3NUb2tlblJlcXVlc3QaJC5wcm90by5EeUdldFZhbGlkQWNjZXNzVG9r",
+            "ZW5SZXNwb25zZSIAQj1aH2dpdC5zb2xzeW50aC5kZXYvc29zeXMvc3BlYy9n",
+            "ZW6qAhlEeXNvbk5ldHdvcmsuU2hhcmVkLlByb3RvYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.StructReflection.Descriptor, global::DysonNetwork.Shared.Proto.FileReflection.Descriptor, global::DysonNetwork.Shared.Proto.WalletReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyVerificationMarkType), typeof(global::DysonNetwork.Shared.Proto.DyAccountContactType), typeof(global::DysonNetwork.Shared.Proto.DyAccountAuthFactorType), }, null, new pbr::GeneratedClrTypeInfo[] {
@@ -264,6 +269,7 @@ namespace DysonNetwork.Shared.Proto {
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetContactsByAccountRequest), global::DysonNetwork.Shared.Proto.DyGetContactsByAccountRequest.Parser, new[]{ "AccountId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyListAuthFactorsRequest), global::DysonNetwork.Shared.Proto.DyListAuthFactorsRequest.Parser, new[]{ "AccountId", "ActiveOnly" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyListAuthFactorsResponse), global::DysonNetwork.Shared.Proto.DyListAuthFactorsResponse.Parser, new[]{ "Factors" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyResetPasswordFactorRequest), global::DysonNetwork.Shared.Proto.DyResetPasswordFactorRequest.Parser, new[]{ "AccountId", "NewPassword", "SpellId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyListConnectionsRequest), global::DysonNetwork.Shared.Proto.DyListConnectionsRequest.Parser, new[]{ "AccountId", "Provider" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyListConnectionsResponse), global::DysonNetwork.Shared.Proto.DyListConnectionsResponse.Parser, new[]{ "Connections" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest), global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest.Parser, new[]{ "ConnectionId", "RefreshToken", "CurrentAccessToken" }, null, null, null, null),
@@ -9810,6 +9816,286 @@ namespace DysonNetwork.Shared.Proto {
 
   }
 
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DyResetPasswordFactorRequest : pb::IMessage<DyResetPasswordFactorRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DyResetPasswordFactorRequest> _parser = new pb::MessageParser<DyResetPasswordFactorRequest>(() => new DyResetPasswordFactorRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DyResetPasswordFactorRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor.MessageTypes[26]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyResetPasswordFactorRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyResetPasswordFactorRequest(DyResetPasswordFactorRequest other) : this() {
+      accountId_ = other.accountId_;
+      newPassword_ = other.newPassword_;
+      SpellId = other.SpellId;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyResetPasswordFactorRequest Clone() {
+      return new DyResetPasswordFactorRequest(this);
+    }
+
+    /// <summary>Field number for the "account_id" field.</summary>
+    public const int AccountIdFieldNumber = 1;
+    private string accountId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string AccountId {
+      get { return accountId_; }
+      set {
+        accountId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "new_password" field.</summary>
+    public const int NewPasswordFieldNumber = 2;
+    private string newPassword_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string NewPassword {
+      get { return newPassword_; }
+      set {
+        newPassword_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "spell_id" field.</summary>
+    public const int SpellIdFieldNumber = 3;
+    private static readonly pb::FieldCodec<string> _single_spellId_codec = pb::FieldCodec.ForClassWrapper<string>(26);
+    private string spellId_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string SpellId {
+      get { return spellId_; }
+      set {
+        spellId_ = value;
+      }
+    }
+
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DyResetPasswordFactorRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DyResetPasswordFactorRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (AccountId != other.AccountId) return false;
+      if (NewPassword != other.NewPassword) return false;
+      if (SpellId != other.SpellId) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (AccountId.Length != 0) hash ^= AccountId.GetHashCode();
+      if (NewPassword.Length != 0) hash ^= NewPassword.GetHashCode();
+      if (spellId_ != null) hash ^= SpellId.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (AccountId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(AccountId);
+      }
+      if (NewPassword.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(NewPassword);
+      }
+      if (spellId_ != null) {
+        _single_spellId_codec.WriteTagAndValue(output, SpellId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (AccountId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(AccountId);
+      }
+      if (NewPassword.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(NewPassword);
+      }
+      if (spellId_ != null) {
+        _single_spellId_codec.WriteTagAndValue(ref output, SpellId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (AccountId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(AccountId);
+      }
+      if (NewPassword.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(NewPassword);
+      }
+      if (spellId_ != null) {
+        size += _single_spellId_codec.CalculateSizeWithTag(SpellId);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DyResetPasswordFactorRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.AccountId.Length != 0) {
+        AccountId = other.AccountId;
+      }
+      if (other.NewPassword.Length != 0) {
+        NewPassword = other.NewPassword;
+      }
+      if (other.spellId_ != null) {
+        if (spellId_ == null || other.SpellId != "") {
+          SpellId = other.SpellId;
+        }
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            AccountId = input.ReadString();
+            break;
+          }
+          case 18: {
+            NewPassword = input.ReadString();
+            break;
+          }
+          case 26: {
+            string value = _single_spellId_codec.Read(input);
+            if (spellId_ == null || value != "") {
+              SpellId = value;
+            }
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            AccountId = input.ReadString();
+            break;
+          }
+          case 18: {
+            NewPassword = input.ReadString();
+            break;
+          }
+          case 26: {
+            string value = _single_spellId_codec.Read(ref input);
+            if (spellId_ == null || value != "") {
+              SpellId = value;
+            }
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
   /// <summary>
   /// Connection Requests/Responses
   /// </summary>
@@ -9828,7 +10114,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor.MessageTypes[26]; }
+      get { return global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor.MessageTypes[27]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -10063,7 +10349,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor.MessageTypes[27]; }
+      get { return global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor.MessageTypes[28]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -10250,7 +10536,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor.MessageTypes[28]; }
+      get { return global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor.MessageTypes[29]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -10530,7 +10816,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor.MessageTypes[29]; }
+      get { return global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor.MessageTypes[30]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

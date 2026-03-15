@@ -219,6 +219,39 @@ public class AccountService(
         await db.SaveChangesAsync();
     }
 
+    public async Task<SnAccountAuthFactor> ResetPasswordFactor(Guid accountId, string newPassword)
+    {
+        var factor = await db.AccountAuthFactors
+            .FirstOrDefaultAsync(f => f.AccountId == accountId && f.Type == AccountAuthFactorType.Password);
+
+        if (factor is null)
+        {
+            factor = new SnAccountAuthFactor
+            {
+                Id = Guid.NewGuid(),
+                AccountId = accountId,
+                Type = AccountAuthFactorType.Password,
+                Trustworthy = 1,
+                Secret = newPassword,
+                EnabledAt = SystemClock.Instance.GetCurrentInstant(),
+                ExpiredAt = null
+            }.HashSecret();
+
+            db.AccountAuthFactors.Add(factor);
+        }
+        else
+        {
+            factor.Secret = newPassword;
+            factor.HashSecret();
+            factor.EnabledAt ??= SystemClock.Instance.GetCurrentInstant();
+            factor.ExpiredAt = null;
+            db.AccountAuthFactors.Update(factor);
+        }
+
+        await db.SaveChangesAsync();
+        return factor;
+    }
+
     
     private async Task _SetFactorCode(SnAccountAuthFactor factor, string code, TimeSpan expires)
     {

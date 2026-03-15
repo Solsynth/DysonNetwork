@@ -218,7 +218,27 @@ public class MagicSpellService(
     {
         if (spell.Type != MagicSpellType.AuthPasswordReset)
             throw new ArgumentException("This spell is not a password reset spell.");
-        throw new InvalidOperationException("Password reset has moved to Padlock. Please use Padlock auth endpoints.");
+        if (!spell.AccountId.HasValue)
+            throw new ArgumentException("Password reset spell is missing account id.");
+        if (string.IsNullOrWhiteSpace(newPassword))
+            throw new ArgumentException("New password cannot be empty.");
+
+        try
+        {
+            await remoteAccounts.ResetPasswordFactorAsync(new DyResetPasswordFactorRequest
+            {
+                AccountId = spell.AccountId.Value.ToString(),
+                NewPassword = newPassword,
+                SpellId = spell.Id.ToString()
+            });
+        }
+        catch (Grpc.Core.RpcException ex)
+        {
+            throw new InvalidOperationException(ex.Status.Detail);
+        }
+
+        db.Remove(spell);
+        await db.SaveChangesAsync();
     }
 
     private static string _GenerateRandomString(int length)

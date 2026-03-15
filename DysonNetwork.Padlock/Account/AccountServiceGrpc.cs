@@ -13,6 +13,7 @@ namespace DysonNetwork.Padlock.Account;
 
 public class AccountServiceGrpc(
     AppDatabase db,
+    AccountService accounts,
     IEnumerable<OidcService> oidcServices,
     RemoteSubscriptionService remoteSubscription,
     ILogger<AccountServiceGrpc> logger
@@ -307,6 +308,25 @@ public class AccountServiceGrpc(
         var response = new DyListAuthFactorsResponse();
         response.Factors.AddRange(factors.Select(ToProtoAuthFactor));
         return response;
+    }
+
+    public override async Task<DyAccountAuthFactor> ResetPasswordFactor(
+        DyResetPasswordFactorRequest request,
+        ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+        if (string.IsNullOrWhiteSpace(request.NewPassword))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "New password is required"));
+
+        var accountExists = await db.Accounts
+            .AsNoTracking()
+            .AnyAsync(a => a.Id == accountId, context.CancellationToken);
+        if (!accountExists)
+            throw new RpcException(new Status(StatusCode.NotFound, $"Account {request.AccountId} not found"));
+
+        var factor = await accounts.ResetPasswordFactor(accountId, request.NewPassword);
+        return ToProtoAuthFactor(factor);
     }
 
     public override async Task<DyListConnectionsResponse> ListConnections(

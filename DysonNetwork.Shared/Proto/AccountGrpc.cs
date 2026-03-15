@@ -81,6 +81,10 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListAuthFactorsResponse> __Marshaller_proto_DyListAuthFactorsResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListAuthFactorsResponse.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyResetPasswordFactorRequest> __Marshaller_proto_DyResetPasswordFactorRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyResetPasswordFactorRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyAccountAuthFactor> __Marshaller_proto_DyAccountAuthFactor = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyAccountAuthFactor.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListConnectionsRequest> __Marshaller_proto_DyListConnectionsRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListConnectionsRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListConnectionsResponse> __Marshaller_proto_DyListConnectionsResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListConnectionsResponse.Parser));
@@ -176,6 +180,14 @@ namespace DysonNetwork.Shared.Proto {
         "ListAuthFactors",
         __Marshaller_proto_DyListAuthFactorsRequest,
         __Marshaller_proto_DyListAuthFactorsResponse);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyResetPasswordFactorRequest, global::DysonNetwork.Shared.Proto.DyAccountAuthFactor> __Method_ResetPasswordFactor = new grpc::Method<global::DysonNetwork.Shared.Proto.DyResetPasswordFactorRequest, global::DysonNetwork.Shared.Proto.DyAccountAuthFactor>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "ResetPasswordFactor",
+        __Marshaller_proto_DyResetPasswordFactorRequest,
+        __Marshaller_proto_DyAccountAuthFactor);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyListConnectionsRequest, global::DysonNetwork.Shared.Proto.DyListConnectionsResponse> __Method_ListConnections = new grpc::Method<global::DysonNetwork.Shared.Proto.DyListConnectionsRequest, global::DysonNetwork.Shared.Proto.DyListConnectionsResponse>(
@@ -283,6 +295,12 @@ namespace DysonNetwork.Shared.Proto {
       /// <returns>The response to send back to the client (wrapped by a task).</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyListAuthFactorsResponse> ListAuthFactors(global::DysonNetwork.Shared.Proto.DyListAuthFactorsRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyAccountAuthFactor> ResetPasswordFactor(global::DysonNetwork.Shared.Proto.DyResetPasswordFactorRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
@@ -638,6 +656,26 @@ namespace DysonNetwork.Shared.Proto {
       {
         return CallInvoker.AsyncUnaryCall(__Method_ListAuthFactors, null, options, request);
       }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyAccountAuthFactor ResetPasswordFactor(global::DysonNetwork.Shared.Proto.DyResetPasswordFactorRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return ResetPasswordFactor(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyAccountAuthFactor ResetPasswordFactor(global::DysonNetwork.Shared.Proto.DyResetPasswordFactorRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_ResetPasswordFactor, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyAccountAuthFactor> ResetPasswordFactorAsync(global::DysonNetwork.Shared.Proto.DyResetPasswordFactorRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return ResetPasswordFactorAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyAccountAuthFactor> ResetPasswordFactorAsync(global::DysonNetwork.Shared.Proto.DyResetPasswordFactorRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_ResetPasswordFactor, null, options, request);
+      }
       /// <summary>
       /// Connection Operations
       /// </summary>
@@ -731,6 +769,7 @@ namespace DysonNetwork.Shared.Proto {
           .AddMethod(__Method_GetContactsByProvider, serviceImpl.GetContactsByProvider)
           .AddMethod(__Method_GetContactsByAccount, serviceImpl.GetContactsByAccount)
           .AddMethod(__Method_ListAuthFactors, serviceImpl.ListAuthFactors)
+          .AddMethod(__Method_ResetPasswordFactor, serviceImpl.ResetPasswordFactor)
           .AddMethod(__Method_ListConnections, serviceImpl.ListConnections)
           .AddMethod(__Method_GetValidAccessToken, serviceImpl.GetValidAccessToken).Build();
     }
@@ -753,6 +792,7 @@ namespace DysonNetwork.Shared.Proto {
       serviceBinder.AddMethod(__Method_GetContactsByProvider, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetContactsByProviderRequest, global::DysonNetwork.Shared.Proto.DyListContactsResponse>(serviceImpl.GetContactsByProvider));
       serviceBinder.AddMethod(__Method_GetContactsByAccount, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetContactsByAccountRequest, global::DysonNetwork.Shared.Proto.DyListContactsResponse>(serviceImpl.GetContactsByAccount));
       serviceBinder.AddMethod(__Method_ListAuthFactors, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListAuthFactorsRequest, global::DysonNetwork.Shared.Proto.DyListAuthFactorsResponse>(serviceImpl.ListAuthFactors));
+      serviceBinder.AddMethod(__Method_ResetPasswordFactor, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyResetPasswordFactorRequest, global::DysonNetwork.Shared.Proto.DyAccountAuthFactor>(serviceImpl.ResetPasswordFactor));
       serviceBinder.AddMethod(__Method_ListConnections, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListConnectionsRequest, global::DysonNetwork.Shared.Proto.DyListConnectionsResponse>(serviceImpl.ListConnections));
       serviceBinder.AddMethod(__Method_GetValidAccessToken, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest, global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse>(serviceImpl.GetValidAccessToken));
     }
