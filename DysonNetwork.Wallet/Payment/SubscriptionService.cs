@@ -9,6 +9,7 @@ using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Localization;
 using Google.Protobuf.Collections;
@@ -24,6 +25,7 @@ public class SubscriptionService(
     AppDatabase db,
     PaymentService payment,
     SubscriptionCatalogService catalog,
+    DyAccountService.DyAccountServiceClient accountGrpc,
     DyProfileService.DyProfileServiceClient accounts,
     DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
@@ -134,23 +136,7 @@ public class SubscriptionService(
             throw new ArgumentOutOfRangeException(nameof(order.SubscriptionId),
                 $"Subscription mapping {order.SubscriptionId} was not found for provider {provider}.");
 
-        SnAccount? account = null;
-        if (!string.IsNullOrEmpty(provider))
-        {
-            // Use GetAccount instead of LookupAccountByConnection since that method may not exist
-            if (Guid.TryParse(order.AccountId, out var accountId))
-            {
-                var accountProto = await accounts.GetAccountAsync(new DyGetAccountRequest { Id = accountId.ToString() });
-                if (accountProto != null)
-                    account = SnAccount.FromProtoValue(accountProto);
-            }
-        }
-        else if (Guid.TryParse(order.AccountId, out var accountId))
-        {
-            var accountProto = await accounts.GetAccountAsync(new DyGetAccountRequest { Id = accountId.ToString() });
-            if (accountProto != null)
-                account = SnAccount.FromProtoValue(accountProto);
-        }
+        var account = await ResolveAccountForOrderAsync(order);
 
         if (account is null)
             throw new InvalidOperationException($"Account was not found with identifier {order.AccountId}");
@@ -166,6 +152,41 @@ public class SubscriptionService(
             order.BegunAt,
             order.Duration
         );
+    }
+
+    private async Task<SnAccount?> ResolveAccountForOrderAsync(ISubscriptionOrder order)
+    {
+        if (!string.IsNullOrWhiteSpace(order.Provider))
+        {
+            try
+            {
+                var accountProto = await accountGrpc.GetAccountByConnectionAsync(new DyGetAccountByConnectionRequest
+                {
+                    Provider = order.Provider,
+                    ProvidedIdentifier = order.AccountId
+                });
+                return accountProto is null ? null : SnAccount.FromProtoValue(accountProto);
+            }
+            catch (RpcException ex) when (ex.StatusCode is StatusCode.NotFound or StatusCode.InvalidArgument)
+            {
+                // Some providers embed the Dyson account id directly instead of a connection identifier.
+            }
+        }
+
+        if (Guid.TryParse(order.AccountId, out var accountId))
+        {
+            try
+            {
+                var accountProto = await accountGrpc.GetAccountAsync(new DyGetAccountRequest { Id = accountId.ToString() });
+                return accountProto is null ? null : SnAccount.FromProtoValue(accountProto);
+            }
+            catch (RpcException ex) when (ex.StatusCode is StatusCode.NotFound or StatusCode.InvalidArgument)
+            {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     public async Task<(SnWalletSubscriptionDefinition Definition, string ProviderReference)> PreparePaddleCheckoutAsync(

@@ -349,6 +349,42 @@ public class AccountServiceGrpc(
         return response;
     }
 
+    public override async Task<DyAccount> GetAccountByConnection(
+        DyGetAccountByConnectionRequest request,
+        ServerCallContext context)
+    {
+        if (string.IsNullOrWhiteSpace(request.Provider))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Provider is required"));
+        if (string.IsNullOrWhiteSpace(request.ProvidedIdentifier))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Provided identifier is required"));
+
+        var connection = await db.AccountConnections
+            .AsNoTracking()
+            .Where(c => c.Provider.ToLower() == request.Provider.Trim().ToLower())
+            .Where(c => c.ProvidedIdentifier == request.ProvidedIdentifier)
+            .Select(c => new { c.AccountId })
+            .FirstOrDefaultAsync(context.CancellationToken);
+
+        if (connection is null)
+            throw new RpcException(new Status(
+                StatusCode.NotFound,
+                $"Connection {request.Provider}:{request.ProvidedIdentifier} not found"
+            ));
+
+        var account = await db.Accounts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == connection.AccountId, context.CancellationToken);
+
+        if (account is null)
+            throw new RpcException(new Status(
+                StatusCode.NotFound,
+                $"Account for connection {request.Provider}:{request.ProvidedIdentifier} not found"
+            ));
+
+        await PopulatePerkSubscriptionAsync(account, context.CancellationToken);
+        return account.ToProtoValue();
+    }
+
     public override async Task<DyGetValidAccessTokenResponse> GetValidAccessToken(
         DyGetValidAccessTokenRequest request,
         ServerCallContext context)

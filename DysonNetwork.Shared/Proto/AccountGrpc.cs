@@ -92,6 +92,8 @@ namespace DysonNetwork.Shared.Proto {
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest> __Marshaller_proto_DyGetValidAccessTokenRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse> __Marshaller_proto_DyGetValidAccessTokenResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetAccountByConnectionRequest> __Marshaller_proto_DyGetAccountByConnectionRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetAccountByConnectionRequest.Parser));
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetAccountRequest, global::DysonNetwork.Shared.Proto.DyAccount> __Method_GetAccount = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetAccountRequest, global::DysonNetwork.Shared.Proto.DyAccount>(
@@ -204,6 +206,14 @@ namespace DysonNetwork.Shared.Proto {
         "GetValidAccessToken",
         __Marshaller_proto_DyGetValidAccessTokenRequest,
         __Marshaller_proto_DyGetValidAccessTokenResponse);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetAccountByConnectionRequest, global::DysonNetwork.Shared.Proto.DyAccount> __Method_GetAccountByConnection = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetAccountByConnectionRequest, global::DysonNetwork.Shared.Proto.DyAccount>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "GetAccountByConnection",
+        __Marshaller_proto_DyGetAccountByConnectionRequest,
+        __Marshaller_proto_DyAccount);
 
     /// <summary>Service descriptor</summary>
     public static global::Google.Protobuf.Reflection.ServiceDescriptor Descriptor
@@ -319,6 +329,12 @@ namespace DysonNetwork.Shared.Proto {
 
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse> GetValidAccessToken(global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyAccount> GetAccountByConnection(global::DysonNetwork.Shared.Proto.DyGetAccountByConnectionRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
@@ -744,6 +760,26 @@ namespace DysonNetwork.Shared.Proto {
       {
         return CallInvoker.AsyncUnaryCall(__Method_GetValidAccessToken, null, options, request);
       }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyAccount GetAccountByConnection(global::DysonNetwork.Shared.Proto.DyGetAccountByConnectionRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return GetAccountByConnection(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyAccount GetAccountByConnection(global::DysonNetwork.Shared.Proto.DyGetAccountByConnectionRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_GetAccountByConnection, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyAccount> GetAccountByConnectionAsync(global::DysonNetwork.Shared.Proto.DyGetAccountByConnectionRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return GetAccountByConnectionAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyAccount> GetAccountByConnectionAsync(global::DysonNetwork.Shared.Proto.DyGetAccountByConnectionRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_GetAccountByConnection, null, options, request);
+      }
       /// <summary>Creates a new instance of client from given <c>ClientBaseConfiguration</c>.</summary>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       protected override DyAccountServiceClient NewInstance(ClientBaseConfiguration configuration)
@@ -771,7 +807,8 @@ namespace DysonNetwork.Shared.Proto {
           .AddMethod(__Method_ListAuthFactors, serviceImpl.ListAuthFactors)
           .AddMethod(__Method_ResetPasswordFactor, serviceImpl.ResetPasswordFactor)
           .AddMethod(__Method_ListConnections, serviceImpl.ListConnections)
-          .AddMethod(__Method_GetValidAccessToken, serviceImpl.GetValidAccessToken).Build();
+          .AddMethod(__Method_GetValidAccessToken, serviceImpl.GetValidAccessToken)
+          .AddMethod(__Method_GetAccountByConnection, serviceImpl.GetAccountByConnection).Build();
     }
 
     /// <summary>Register service method with a service binder with or without implementation. Useful when customizing the service binding logic.
@@ -795,6 +832,7 @@ namespace DysonNetwork.Shared.Proto {
       serviceBinder.AddMethod(__Method_ResetPasswordFactor, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyResetPasswordFactorRequest, global::DysonNetwork.Shared.Proto.DyAccountAuthFactor>(serviceImpl.ResetPasswordFactor));
       serviceBinder.AddMethod(__Method_ListConnections, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListConnectionsRequest, global::DysonNetwork.Shared.Proto.DyListConnectionsResponse>(serviceImpl.ListConnections));
       serviceBinder.AddMethod(__Method_GetValidAccessToken, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest, global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse>(serviceImpl.GetValidAccessToken));
+      serviceBinder.AddMethod(__Method_GetAccountByConnection, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetAccountByConnectionRequest, global::DysonNetwork.Shared.Proto.DyAccount>(serviceImpl.GetAccountByConnection));
     }
 
   }
