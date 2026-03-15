@@ -637,54 +637,105 @@ public class ThoughtService(
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
+        var isMiChan = botName.Equals(MiChanBotName, StringComparison.OrdinalIgnoreCase);
 
         // Generate a topic if not provided
         if (string.IsNullOrEmpty(topic))
         {
-            topic = await GenerateTopicAsync(initialMessage, useMiChan: true);
+            topic = await GenerateTopicAsync(initialMessage, useMiChan: isMiChan);
             if (string.IsNullOrEmpty(topic))
             {
                 topic = "New conversation";
             }
         }
 
-        // Create the sequence
-        var sequence = new SnThinkingSequence
-        {
-            AccountId = accountId,
-            Topic = topic,
-            AgentInitiated = true,
-            LastMessageAt = now,
-            CreatedAt = now,
-            UpdatedAt = now
-        };
+        SnThinkingSequence sequence;
+        var isNewSequence = false;
 
-        db.ThinkingSequences.Add(sequence);
-        await db.SaveChangesAsync();
+        if (isMiChan)
+        {
+            var resolution = await ResolveMiChanSequenceAsync(accountId, topic: topic);
+            if (resolution.Sequence == null)
+            {
+                return null;
+            }
+
+            sequence = resolution.Sequence;
+            isNewSequence = resolution.Created;
+
+            if (resolution.Created)
+            {
+                sequence.AgentInitiated = true;
+                sequence.Topic = topic;
+                sequence.LastMessageAt = now;
+                await db.SaveChangesAsync();
+            }
+            else if (string.IsNullOrWhiteSpace(sequence.Topic) && !string.IsNullOrWhiteSpace(topic))
+            {
+                sequence.Topic = topic;
+                await db.SaveChangesAsync();
+            }
+        }
+        else
+        {
+            sequence = new SnThinkingSequence
+            {
+                AccountId = accountId,
+                Topic = topic,
+                AgentInitiated = true,
+                LastMessageAt = now,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+
+            db.ThinkingSequences.Add(sequence);
+            await db.SaveChangesAsync();
+            isNewSequence = true;
+        }
 
         // Save the initial message as a thought from the assistant
-        var thought = new SnThinkingThought
+        if (isMiChan)
         {
-            SequenceId = sequence.Id,
-            Parts =
-            [
-                new SnThinkingMessagePart
-                {
-                    Type = ThinkingMessagePartType.Text,
-                    Text = initialMessage
-                }
-            ],
-            Role = ThinkingThoughtRole.Assistant,
-            TokenCount = tokenCounter.CountTokens(initialMessage),
-            ModelName = botName,
-            BotName = botName,
-            CreatedAt = now,
-            UpdatedAt = now
-        };
+            await SaveThoughtAsync(
+                sequence,
+                [
+                    new SnThinkingMessagePart
+                    {
+                        Type = ThinkingMessagePartType.Text,
+                        Text = initialMessage
+                    }
+                ],
+                ThinkingThoughtRole.Assistant,
+                model: botName,
+                botName: botName
+            );
+            await TouchMiChanUserProfileAsync(accountId);
+        }
+        else
+        {
+            var thought = new SnThinkingThought
+            {
+                SequenceId = sequence.Id,
+                Parts =
+                [
+                    new SnThinkingMessagePart
+                    {
+                        Type = ThinkingMessagePartType.Text,
+                        Text = initialMessage
+                    }
+                ],
+                Role = ThinkingThoughtRole.Assistant,
+                TokenCount = tokenCounter.CountTokens(initialMessage),
+                ModelName = botName,
+                BotName = botName,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
 
-        db.ThinkingThoughts.Add(thought);
-        sequence.TotalToken += thought.TokenCount;
-        await db.SaveChangesAsync();
+            db.ThinkingThoughts.Add(thought);
+            sequence.TotalToken += thought.TokenCount;
+            await db.SaveChangesAsync();
+        }
 
         // Send push notification to the user
         try
@@ -721,7 +772,9 @@ public class ThoughtService(
             );
 
             logger.LogInformation(
-                "Agent-initiated conversation created for account {AccountId} with sequence {SequenceId}. Notification sent.",
+                isNewSequence
+                    ? "Agent-initiated conversation created for account {AccountId} with sequence {SequenceId}. Notification sent."
+                    : "Agent-initiated message appended for account {AccountId} on sequence {SequenceId}. Notification sent.",
                 accountId,
                 sequence.Id);
         }
