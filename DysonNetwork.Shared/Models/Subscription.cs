@@ -264,7 +264,7 @@ public abstract class SubscriptionPaymentMethod
     public const string InAppWallet = "solian.wallet";
 
     /// <summary>
-    /// afdian.com
+    /// ifdian.net
     /// aka. China patreon
     /// </summary>
     public const string Afdian = "afdian";

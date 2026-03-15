@@ -35,15 +35,15 @@ public class AfdianOidcService(
         };
 
         var queryString = string.Join("&", queryParams.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
-        return $"https://afdian.com/oauth2/authorize?{queryString}";
+        return $"https://ifdian.net/oauth2/authorize?{queryString}";
     }
 
     protected override Task<OidcDiscoveryDocument?> GetDiscoveryDocumentAsync()
     {
         return Task.FromResult(new OidcDiscoveryDocument
         {
-            AuthorizationEndpoint = "https://afdian.com/oauth2/authorize",
-            TokenEndpoint = "https://afdian.com/api/oauth2/access_token",
+            AuthorizationEndpoint = "https://ifdian.net/oauth2/authorize",
+            TokenEndpoint = "https://ifdian.net/api/oauth2/access_token",
             UserinfoEndpoint = null,
             JwksUri = null
         })!;
@@ -64,7 +64,7 @@ public class AfdianOidcService(
             });
 
             var client = HttpClientFactory.CreateClient();
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://afdian.com/api/oauth2/access_token");
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://ifdian.net/api/oauth2/access_token");
             request.Content = content;
             
             var response = await client.SendAsync(request);
