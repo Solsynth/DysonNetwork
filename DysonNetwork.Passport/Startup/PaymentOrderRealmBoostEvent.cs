@@ -13,5 +13,5 @@ public class PaymentOrderRealmBoostMeta
     [JsonPropertyName("realm_id")] public Guid RealmId { get; set; }
     [JsonPropertyName("account_id")] public Guid AccountId { get; set; }
     [JsonPropertyName("shares")] public int Shares { get; set; }
-    [JsonPropertyName("amount_points")] public string AmountPoints { get; set; } = null!;
+    [JsonPropertyName("amount_golds")] public string AmountGolds { get; set; } = null!;
 }

@@ -206,12 +206,12 @@ public static class ServiceCollectionExtensions
                     var realm = await db.Realms.FirstOrDefaultAsync(r => r.Id == boostEvt.Meta.RealmId, ctx.CancellationToken);
                     if (realm is null) return;
 
-                    var amount = decimal.Parse(boostEvt.Meta.AmountPoints, CultureInfo.InvariantCulture);
+                    var amount = decimal.Parse(boostEvt.Meta.AmountGolds, CultureInfo.InvariantCulture);
                     db.RealmBoostContributions.Add(new SnRealmBoostContribution
                     {
                         RealmId = boostEvt.Meta.RealmId,
                         AccountId = boostEvt.Meta.AccountId,
-                        Currency = "points",
+                        Currency = "golds",
                         Amount = amount,
                         OrderId = boostEvt.OrderId,
                         TransactionId = Guid.Empty

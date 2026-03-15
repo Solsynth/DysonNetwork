@@ -72,7 +72,7 @@ REST endpoints:
 
 ## Realm Boosts
 
-Realm boosts are shared, time-limited contributions funded by wallet `points`.
+Realm boosts are shared, time-limited contributions funded by wallet `golds`.
 
 Boost data is tracked on:
 
@@ -82,7 +82,7 @@ Boost data is tracked on:
 
 Boost purchases use order-style processing.
 
-One boost share is worth `100` points.
+One boost share is worth `10` golds.
 
 Each boost contribution stays active for `30` days from the time the paid order is applied.
 
@@ -102,9 +102,9 @@ Boost unlocks:
 Label capacity by boost level:
 
 - level 0: `0`
-- level 1: `10`
-- level 2: `50`
-- level 3: `200`
+- level 1: `3`
+- level 2: `6`
+- level 3: `9`
 
 REST endpoints:
 
@@ -124,7 +124,7 @@ Behavior:
 Leaderboard data:
 
 - groups active contributions by boosting account
-- exposes total `amount_points`
+- exposes total `amount_golds`
 - exposes computed `shares`
 - exposes contribution count
 - exposes `last_boosted_at`

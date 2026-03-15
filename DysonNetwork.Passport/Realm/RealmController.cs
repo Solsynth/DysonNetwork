@@ -112,7 +112,7 @@ public class RealmController(
     {
         public Guid OrderId { get; set; }
         public int Shares { get; set; }
-        public decimal AmountPoints { get; set; }
+        public decimal AmountGolds { get; set; }
     }
 
     public class RealmLabelAssignmentRequest
@@ -520,10 +520,10 @@ public class RealmController(
         if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
             return StatusCode(403, "You must be a member to boost this realm.");
 
-        var amountPoints = request.Shares * RealmBoostPolicy.SharePoints;
+        var amountGolds = request.Shares * RealmBoostPolicy.SharePoints;
         var order = await payments.CreateOrder(
-            currency: "points",
-            amount: amountPoints.ToString(CultureInfo.InvariantCulture),
+            currency: "golds",
+            amount: amountGolds.ToString(CultureInfo.InvariantCulture),
             productIdentifier: "realms.boost",
             remarks: $"Boost realm {realm.Name}",
             meta: InfraObjectCoder.ConvertObjectToByteString(
@@ -532,7 +532,7 @@ public class RealmController(
                     ["realm_id"] = realm.Id,
                     ["account_id"] = currentUser.Id,
                     ["shares"] = request.Shares,
-                    ["amount_points"] = amountPoints.ToString(CultureInfo.InvariantCulture)
+                    ["amount_golds"] = amountGolds.ToString(CultureInfo.InvariantCulture)
                 }
             ).ToByteArray()
         );
@@ -541,7 +541,7 @@ public class RealmController(
         {
             OrderId = Guid.Parse(order.Id),
             Shares = request.Shares,
-            AmountPoints = amountPoints
+            AmountGolds = amountGolds
         });
     }
 
@@ -574,12 +574,12 @@ public class RealmController(
             .Select(g => new
             {
                 account_id = g.Key,
-                amount_points = g.Sum(x => x.Amount),
+                amount_golds = g.Sum(x => x.Amount),
                 shares = g.Sum(x => x.Amount) / RealmBoostPolicy.SharePoints,
                 boosts = g.Count(),
                 last_boosted_at = g.Max(x => x.CreatedAt)
             })
-            .OrderByDescending(x => x.amount_points)
+            .OrderByDescending(x => x.amount_golds)
             .Take(take)
             .ToListAsync();
 
@@ -591,7 +591,7 @@ public class RealmController(
         {
             row.account_id,
             account = accountDict.GetValueOrDefault(row.account_id),
-            row.amount_points,
+            row.amount_golds,
             row.shares,
             row.boosts,
             row.last_boosted_at

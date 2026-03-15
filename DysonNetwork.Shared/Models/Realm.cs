@@ -80,7 +80,7 @@ public class SnRealm : ModelBase, IIdentifiedResource
 
 public static class RealmBoostPolicy
 {
-    public const decimal SharePoints = 100m;
+    public const decimal SharePoints = 10m;
     public const decimal Level1Points = 1000m;
     public const decimal Level2Points = 5000m;
     public const decimal Level3Points = 15000m;
@@ -98,9 +98,9 @@ public static class RealmBoostPolicy
 
     public static int GetLabelCap(int boostLevel) => boostLevel switch
     {
-        >= 3 => 200,
-        >= 2 => 50,
-        >= 1 => 10,
+        >= 3 => 9,
+        >= 2 => 6,
+        >= 1 => 3,
         _ => 0
     };
 }
@@ -247,7 +247,7 @@ public class SnRealmBoostContribution : ModelBase
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid RealmId { get; set; }
     public Guid AccountId { get; set; }
-    [MaxLength(128)] public string Currency { get; set; } = "points";
+    [MaxLength(128)] public string Currency { get; set; } = "golds";
     public decimal Amount { get; set; }
     public Guid OrderId { get; set; }
     public Guid TransactionId { get; set; }
