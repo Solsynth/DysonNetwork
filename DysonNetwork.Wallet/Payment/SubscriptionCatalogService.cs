@@ -30,6 +30,12 @@ public class SubscriptionCatalogService(
         return null;
     }
 
+    public SubscriptionCatalogSeedSettings GetSettings()
+    {
+        var options = _configuration.GetSection("Payment:SubscriptionCatalog").Get<SubscriptionCatalogSeedOptions>();
+        return options?.Settings ?? new SubscriptionCatalogSeedSettings();
+    }
+
     public async Task EnsureSeededAsync(CancellationToken cancellationToken = default)
     {
         var options = _configuration.GetSection("Payment:SubscriptionCatalog").Get<SubscriptionCatalogSeedOptions>();
@@ -296,8 +302,7 @@ public class SubscriptionCatalogService(
         CancellationToken cancellationToken = default
     )
     {
-        var options = _configuration.GetSection("Payment:SubscriptionCatalog").Get<SubscriptionCatalogSeedOptions>();
-        var defaults = options?.Settings?.GiftPolicyDefaults.Clone() ?? new SubscriptionGiftPolicy();
+        var defaults = GetSettings().GiftPolicyDefaults.Clone();
         return defaults.Merge(definition.GiftPolicy);
     }
 }

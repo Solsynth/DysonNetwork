@@ -42,6 +42,25 @@ public class SubscriptionService(
         );
     }
 
+    private bool IsSponsorRewardEligiblePaymentMethod(string paymentMethod)
+    {
+        if (string.IsNullOrWhiteSpace(paymentMethod))
+            return false;
+
+        var settings = catalog.GetSettings();
+        return settings.SponsorRewardEligiblePaymentMethods.Any(method =>
+            string.Equals(method, paymentMethod, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private Duration GetExternalOrderDuration()
+    {
+        var settings = catalog.GetSettings();
+        var configuredDays = settings.ExternalOrderDurationDays > 0
+            ? settings.ExternalOrderDurationDays
+            : 30;
+        return Duration.FromDays(configuredDays);
+    }
+
     public async Task<SnWalletSubscription> CreateSubscriptionAsync(
         DyAccount account,
         string identifier,
@@ -140,6 +159,8 @@ public class SubscriptionService(
 
         if (account is null)
             throw new InvalidOperationException($"Account was not found with identifier {order.AccountId}");
+
+        var appliedAt = SystemClock.Instance.GetCurrentInstant();
         return await ApplyPaidSubscriptionAsync(
             account.Id,
             definition,
@@ -149,8 +170,8 @@ public class SubscriptionService(
                 Currency = definition.Currency,
                 OrderId = order.Id,
             },
-            order.BegunAt,
-            order.Duration
+            appliedAt,
+            GetExternalOrderDuration()
         );
     }
 
@@ -575,8 +596,11 @@ public class SubscriptionService(
         if (begunAt <= SystemClock.Instance.GetCurrentInstant())
         {
             await NotifySubscriptionBegun(subscription);
-            await HandleSponsorCurrencyUpdateAsync(subscription);
-            await HandleSponsorBadgeSubscriptionAsync(subscription);
+            if (IsSponsorRewardEligiblePaymentMethod(paymentMethod))
+            {
+                await HandleSponsorCurrencyUpdateAsync(subscription);
+                await HandleSponsorBadgeSubscriptionAsync(subscription);
+            }
         }
 
         return subscription;
