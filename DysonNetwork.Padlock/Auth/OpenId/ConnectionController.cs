@@ -303,7 +303,7 @@ public class ConnectionController(
         await cache.RemoveAsync(returnUrlKey);
 
         var siteUrl = configuration["SiteUrl"];
-        var redirectUrl = string.IsNullOrEmpty(returnUrl) ? siteUrl + "/auth/callback" : returnUrl;
+        var redirectUrl = string.IsNullOrEmpty(returnUrl) ? siteUrl + "/auth/success" : returnUrl;
         
         logger.LogInformation("Redirecting after OIDC connection to {RedirectUrl}", redirectUrl);
         return Redirect(redirectUrl);
@@ -339,7 +339,7 @@ public class ConnectionController(
         await cache.RemoveAsync(returnUrlKey);
 
         var siteUrl = configuration["SiteUrl"];
-        var redirectBaseUrl = string.IsNullOrEmpty(returnUrl) ? siteUrl + "/auth/callback" : returnUrl;
+        var redirectBaseUrl = string.IsNullOrEmpty(returnUrl) ? siteUrl + "/auth/success" : returnUrl;
 
         var connection = await db.AccountConnections
             .Include(c => c.Account)
