@@ -115,7 +115,7 @@ public class SubscriptionCatalogSeedOptions
 public class SubscriptionCatalogSeedSettings
 {
     public SubscriptionGiftPolicy GiftPolicyDefaults { get; set; } = new();
-    public int ExternalOrderDurationDays { get; set; } = 30;
+    public int DefaultSubscriptionDurationDays { get; set; } = 30;
     public List<string> SponsorRewardEligiblePaymentMethods { get; set; } =
     [
         SubscriptionPaymentMethod.Afdian,

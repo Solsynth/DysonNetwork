@@ -52,11 +52,11 @@ public class SubscriptionService(
             string.Equals(method, paymentMethod, StringComparison.OrdinalIgnoreCase));
     }
 
-    private Duration GetExternalOrderDuration()
+    private Duration GetDefaultSubscriptionDuration()
     {
         var settings = catalog.GetSettings();
-        var configuredDays = settings.ExternalOrderDurationDays > 0
-            ? settings.ExternalOrderDurationDays
+        var configuredDays = settings.DefaultSubscriptionDurationDays > 0
+            ? settings.DefaultSubscriptionDurationDays
             : 30;
         return Duration.FromDays(configuredDays);
     }
@@ -85,7 +85,7 @@ public class SubscriptionService(
                 $"Account level must be at least {definition.MinimumAccountLevel.Value} to purchase {identifier}."
             );
 
-        cycleDuration ??= Duration.FromDays(30);
+        cycleDuration ??= GetDefaultSubscriptionDuration();
 
         var accountId = Guid.Parse(account.Id);
         var existingSubscription = await GetSubscriptionAsync(accountId, identifier);
@@ -171,7 +171,7 @@ public class SubscriptionService(
                 OrderId = order.Id,
             },
             appliedAt,
-            GetExternalOrderDuration()
+            GetDefaultSubscriptionDuration()
         );
     }
 
@@ -382,7 +382,7 @@ public class SubscriptionService(
                          ?? throw new InvalidOperationException("Invalid order.");
         var cycleDuration = subscription.EndedAt.HasValue
             ? subscription.EndedAt.Value - subscription.BegunAt
-            : Duration.FromDays(30);
+            : GetDefaultSubscriptionDuration();
 
         return await ApplyPaidSubscriptionAsync(
             subscription.AccountId,
@@ -865,7 +865,7 @@ public class SubscriptionService(
 
         // Set defaults
         giftDuration ??= Duration.FromDays(giftPolicy.GiftDurationDays ?? 30);
-        cycleDuration ??= Duration.FromDays(giftPolicy.SubscriptionDurationDays ?? 30);
+        cycleDuration ??= Duration.FromDays(giftPolicy.SubscriptionDurationDays ?? catalog.GetSettings().DefaultSubscriptionDurationDays);
 
         var now = SystemClock.Instance.GetCurrentInstant();
         await EnforceGiftPurchaseLimitAsync(Guid.Parse(gifter.Id), subscriptionIdentifier, giftPolicy, now);
@@ -947,7 +947,7 @@ public class SubscriptionService(
         if (definition is null)
             throw new InvalidOperationException("Invalid gift subscription type.");
         var giftPolicy = await catalog.GetGiftPolicyAsync(definition);
-        var cycleDuration = Duration.FromDays(giftPolicy.SubscriptionDurationDays ?? 30);
+        var cycleDuration = Duration.FromDays(giftPolicy.SubscriptionDurationDays ?? catalog.GetSettings().DefaultSubscriptionDurationDays);
         var subscription = await ApplyPaidSubscriptionAsync(
             redeemerId,
             definition,
