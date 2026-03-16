@@ -13,28 +13,18 @@ public class MiChanKernelProvider(
     IConfiguration configuration
 ) : IKernelProvider
 {
-    private Kernel? _kernel;
-    private Kernel? _visionKernel;
-
     [Experimental("SKEXP0050")]
     public Kernel GetKernel()
     {
-        if (_kernel != null)
-            return _kernel;
-
-        _kernel = kernelFactory.CreateKernel(config.ThinkingService, addEmbeddings: true);
-        InitializeHelperFunctions(_kernel);
-        return _kernel;
+        var kernel = kernelFactory.CreateKernel(config.ThinkingService, addEmbeddings: true);
+        InitializeHelperFunctions(kernel);
+        return kernel;
     }
 
     [Experimental("SKEXP0050")]
     public Kernel GetVisionKernel()
     {
-        if (_visionKernel != null)
-            return _visionKernel;
-
-        _visionKernel = kernelFactory.CreateKernel(config.Vision.VisionThinkingService, addEmbeddings: false);
-        return _visionKernel;
+        return kernelFactory.CreateKernel(config.Vision.VisionThinkingService, addEmbeddings: false);
     }
 
     [Experimental("SKEXP0050")]
