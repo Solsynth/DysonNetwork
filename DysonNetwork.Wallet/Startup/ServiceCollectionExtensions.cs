@@ -107,6 +107,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AppleStorePaymentHandler>();
         services.AddScoped<PaddlePaymentHandler>();
         services.AddScoped<LotteryService>();
+        services.AddHostedService<LegacyInAppSubscriptionAvailabilityValidationService>();
 
         services.AddEventBus()
             .AddListener<PaymentOrderEvent>(

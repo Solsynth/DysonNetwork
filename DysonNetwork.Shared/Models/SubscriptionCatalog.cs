@@ -116,6 +116,7 @@ public class SubscriptionCatalogSeedSettings
 {
     public SubscriptionGiftPolicy GiftPolicyDefaults { get; set; } = new();
     public int DefaultSubscriptionDurationDays { get; set; } = 30;
+    public int LegacyInAppAvailabilityValidationDelaySeconds { get; set; } = 180;
     public List<string> SponsorRewardEligiblePaymentMethods { get; set; } =
     [
         SubscriptionPaymentMethod.Afdian,

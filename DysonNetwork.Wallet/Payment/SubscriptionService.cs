@@ -61,6 +61,182 @@ public class SubscriptionService(
         return Duration.FromDays(configuredDays);
     }
 
+    public async Task<int> CancelUnavailableInAppWalletSubscriptionsAsync(CancellationToken cancellationToken = default)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var subscriptions = await db.WalletSubscriptions
+            .Where(s => s.IsActive)
+            .Where(s => s.Status == SubscriptionStatus.Active)
+            .Where(s => s.PaymentMethod == SubscriptionPaymentMethod.InAppWallet)
+            .Where(s => !s.IsFreeTrial)
+            .Where(s => !s.BegunAt.Equals(default(Instant)))
+            .Where(s => !s.EndedAt.HasValue || s.EndedAt.Value > now)
+            .Include(s => s.Coupon)
+            .OrderBy(s => s.BegunAt)
+            .ToListAsync(cancellationToken);
+
+        var cancelledCount = 0;
+        foreach (var subscription in subscriptions)
+        {
+            var definition = await catalog.GetDefinitionAsync(subscription.Identifier, cancellationToken);
+            if (definition is null)
+            {
+                logger.LogWarning(
+                    "Skipping legacy in-app subscription validation for {SubscriptionId}; definition {Identifier} was not found.",
+                    subscription.Id,
+                    subscription.Identifier
+                );
+                continue;
+            }
+
+            if (definition.IsPaymentMethodAllowed(SubscriptionPaymentMethod.InAppWallet))
+                continue;
+
+            try
+            {
+                var refundAmount = await CalculateLegacyInAppRefundAmountAsync(subscription, definition, now, cancellationToken);
+                var refundCurrency = string.IsNullOrWhiteSpace(subscription.PaymentDetails.Currency)
+                    ? definition.Currency
+                    : subscription.PaymentDetails.Currency;
+
+                await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+                subscription.IsActive = false;
+                subscription.Status = SubscriptionStatus.Cancelled;
+                subscription.RenewalAt = null;
+                subscription.EndedAt = now < subscription.BegunAt ? subscription.BegunAt : now;
+                subscription.UpdatedAt = now;
+
+                db.WalletSubscriptions.Update(subscription);
+
+                if (refundAmount > 0)
+                {
+                    await payment.CreateTransactionWithAccountAsync(
+                        null,
+                        subscription.AccountId,
+                        refundCurrency,
+                        refundAmount,
+                        remarks: $"Refund for discontinued in-app subscription {subscription.DisplayName ?? subscription.Identifier}"
+                    );
+                }
+
+                await db.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+
+                await InvalidateSubscriptionCaches(subscription.AccountId, subscription.Identifier);
+                await NotifyLegacyInAppSubscriptionCancelledAsync(
+                    subscription,
+                    refundAmount,
+                    refundCurrency,
+                    definition.DisplayName ?? subscription.DisplayName ?? subscription.Identifier
+                );
+
+                cancelledCount++;
+                logger.LogInformation(
+                    "Cancelled legacy in-app subscription {SubscriptionId} and refunded {RefundAmount} {Currency}.",
+                    subscription.Id,
+                    refundAmount,
+                    refundCurrency
+                );
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    ex,
+                    "Failed to cancel legacy in-app subscription {SubscriptionId} for account {AccountId}.",
+                    subscription.Id,
+                    subscription.AccountId
+                );
+            }
+        }
+
+        return cancelledCount;
+    }
+
+    private async Task<decimal> CalculateLegacyInAppRefundAmountAsync(
+        SnWalletSubscription subscription,
+        SnWalletSubscriptionDefinition definition,
+        Instant now,
+        CancellationToken cancellationToken
+    )
+    {
+        var chargedAmount = await ResolveSubscriptionChargeAmountAsync(subscription, definition, cancellationToken);
+        if (chargedAmount <= 0)
+            return 0;
+
+        var cycleDuration = subscription.EndedAt.HasValue
+            ? subscription.EndedAt.Value - subscription.BegunAt
+            : GetDefaultSubscriptionDuration();
+        if (cycleDuration <= Duration.Zero)
+            return chargedAmount;
+
+        var remainingDuration = now < subscription.BegunAt
+            ? cycleDuration
+            : subscription.EndedAt.HasValue && subscription.EndedAt.Value > now
+                ? subscription.EndedAt.Value - now
+                : Duration.Zero;
+        if (remainingDuration <= Duration.Zero)
+            return 0;
+
+        var totalSeconds = (decimal)cycleDuration.ToTimeSpan().TotalSeconds;
+        var remainingSeconds = (decimal)remainingDuration.ToTimeSpan().TotalSeconds;
+        if (totalSeconds <= 0)
+            return chargedAmount;
+
+        var ratio = Math.Clamp(remainingSeconds / totalSeconds, 0m, 1m);
+        return Math.Round(chargedAmount * ratio, 3, MidpointRounding.ToZero);
+    }
+
+    private async Task<decimal> ResolveSubscriptionChargeAmountAsync(
+        SnWalletSubscription subscription,
+        SnWalletSubscriptionDefinition definition,
+        CancellationToken cancellationToken
+    )
+    {
+        if (Guid.TryParse(subscription.PaymentDetails.OrderId, out var orderId))
+        {
+            var order = await db.PaymentOrders
+                .AsNoTracking()
+                .FirstOrDefaultAsync(o => o.Id == orderId, cancellationToken);
+            if (order is not null && order.Amount > 0)
+                return order.Amount;
+        }
+
+        return subscription.CalculateFinalPriceAt(subscription.BegunAt);
+    }
+
+    private async Task NotifyLegacyInAppSubscriptionCancelledAsync(
+        SnWalletSubscription subscription,
+        decimal refundAmount,
+        string currency,
+        string subscriptionName
+    )
+    {
+        var notification = new DyPushNotification
+        {
+            Topic = "subscriptions.discontinued_in_app",
+            Title = "Subscription Cancelled",
+            Body = $"Your {subscriptionName} in-app wallet subscription is no longer available and has been cancelled. " +
+                   $"Refunded: {refundAmount.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)} {currency}.",
+            Meta = InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
+            {
+                ["subscription_id"] = subscription.Id.ToString(),
+                ["subscription_identifier"] = subscription.Identifier,
+                ["refund_amount"] = refundAmount,
+                ["refund_currency"] = currency
+            }),
+            IsSavable = true
+        };
+
+        await pusher.SendPushNotificationToUserAsync(
+            new DySendPushNotificationToUserRequest
+            {
+                UserId = subscription.AccountId.ToString(),
+                Notification = notification
+            }
+        );
+    }
+
     public async Task<SnWalletSubscription> CreateSubscriptionAsync(
         DyAccount account,
         string identifier,
