@@ -1153,41 +1153,69 @@ public class SubscriptionService(
             var sponsorBadges = listBadgesResponse.Badges
                 .Where(b => b.Type == "sponsor")
                 .OrderByDescending(b => b.ActivatedAt)
+                .ThenByDescending(b => b.CreatedAt)
                 .ToList();
 
             var newLevel = subscription.PerkLevel;
+            DyAccountBadge? latestBadge = null;
             if (sponsorBadges.Count > 0)
             {
                 // Increment the level from the existing badge
-                var latestBadge = sponsorBadges.First();
+                latestBadge = sponsorBadges.First();
                 if (latestBadge.Meta != null && latestBadge.Meta.TryGetValue("level", out var levelValue))
                 {
-                    if (int.TryParse(levelValue?.ToString(), out var currentLevel))
+                    var rawLevel = levelValue.KindCase switch
+                    {
+                        Value.KindOneofCase.NumberValue => levelValue.NumberValue.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        Value.KindOneofCase.StringValue => levelValue.StringValue,
+                        _ => null
+                    };
+
+                    if (int.TryParse(rawLevel, out var currentLevel))
                         newLevel = currentLevel + 1;
                 }
             }
 
-            // Create new sponsor badge
-            var newBadge = new DyAccountBadge
+            var sponsorBadge = new DyAccountBadge
             {
+                Id = latestBadge?.Id ?? string.Empty,
                 Type = "sponsor",
                 Label = "Sponsor",
                 Caption = $"Level {newLevel}",
-                AccountId = subscription.AccountId.ToString()
+                AccountId = subscription.AccountId.ToString(),
+                ActivatedAt = Timestamp.FromDateTime(DateTime.UtcNow)
             };
 
             // Add metadata
-            newBadge.Meta.Add("level", new Value { StringValue = newLevel.ToString() });
-            newBadge.Meta.Add("subscription_id", new Value { StringValue = subscription.Id.ToString() });
+            sponsorBadge.Meta.Add("level", new Value { StringValue = newLevel.ToString() });
+            sponsorBadge.Meta.Add("subscription_id", new Value { StringValue = subscription.Id.ToString() });
 
-            // Grant the new badge using the AccountService
-            var grantBadgeRequest = new DyGrantBadgeRequest
+            if (latestBadge is null)
             {
-                AccountId = subscription.AccountId.ToString(),
-                Badge = newBadge
-            };
+                var grantBadgeRequest = new DyGrantBadgeRequest
+                {
+                    AccountId = subscription.AccountId.ToString(),
+                    Badge = sponsorBadge
+                };
 
-            await accounts.GrantBadgeAsync(grantBadgeRequest);
+                await accounts.GrantBadgeAsync(grantBadgeRequest);
+            }
+            else
+            {
+                var updateBadgeRequest = new DyUpdateBadgeRequest
+                {
+                    AccountId = subscription.AccountId.ToString(),
+                    BadgeId = latestBadge.Id,
+                    Badge = sponsorBadge,
+                    UpdateMask = new FieldMask()
+                };
+                updateBadgeRequest.UpdateMask.Paths.Add("label");
+                updateBadgeRequest.UpdateMask.Paths.Add("caption");
+                updateBadgeRequest.UpdateMask.Paths.Add("meta");
+                updateBadgeRequest.UpdateMask.Paths.Add("activated_at");
+
+                await accounts.UpdateBadgeAsync(updateBadgeRequest);
+            }
 
             // Log the badge update
             logger.LogInformation("Sponsor badge updated for account {AccountId}: Level {Level}",

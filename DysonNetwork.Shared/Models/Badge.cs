@@ -65,6 +65,7 @@ public class SnAccountBadge : ModelBase
             Type = proto.Type,
             Label = proto.Label,
             Caption = proto.Caption,
+            Meta = InfraObjectCoder.ConvertFromValueMap(proto.Meta).ToDictionary(),
             ActivatedAt = proto.ActivatedAt?.ToInstant(),
             ExpiredAt = proto.ExpiredAt?.ToInstant(),
             CreatedAt = proto.CreatedAt.ToInstant(),
