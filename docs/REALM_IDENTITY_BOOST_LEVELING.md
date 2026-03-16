@@ -72,7 +72,7 @@ REST endpoints:
 
 ## Realm Boosts
 
-Realm boosts are shared, time-limited contributions funded by wallet `golds`.
+Realm boosts are shared, time-limited contributions funded by wallet `golds` or `points`.
 
 Boost data is tracked on:
 
@@ -82,7 +82,11 @@ Boost data is tracked on:
 
 Boost purchases use order-style processing.
 
-One boost share is worth `10` golds.
+Boost shares are the canonical unit:
+
+- `1` gold = `1` share
+- `1000` points = `1` share
+- if the client omits `currency` when creating the order, it defaults to `golds`
 
 Each boost contribution stays active for `30` days from the time the paid order is applied.
 
@@ -115,9 +119,10 @@ REST endpoints:
 Behavior:
 
 - `POST /boosts` creates a wallet order with product identifier `realms.boost`
+- boost order requests accept `shares` plus an optional `currency`
 - boost points are only applied after the payment order event is received
 - each successful paid order writes a `SnRealmBoostContribution`
-- realm boost level is derived from active boost points from the last `30` days
+- realm boost level is derived from active boost shares from the last `30` days
 - contributions are idempotent by `order_id`
 - expired contributions no longer count toward unlocks or promotion gates
 
@@ -125,6 +130,7 @@ Leaderboard data:
 
 - groups active contributions by boosting account
 - exposes total `amount_golds`
+- exposes total `amount_points`
 - exposes computed `shares`
 - exposes contribution count
 - exposes `last_boosted_at`

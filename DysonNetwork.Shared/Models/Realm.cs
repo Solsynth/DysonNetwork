@@ -80,7 +80,11 @@ public class SnRealm : ModelBase, IIdentifiedResource
 
 public static class RealmBoostPolicy
 {
-    public const decimal SharePoints = 10m;
+    public const string DefaultCurrency = "golds";
+    public const string GoldsCurrency = "golds";
+    public const string PointsCurrency = "points";
+    public const decimal GoldsPerShare = 1m;
+    public const decimal PointsPerShare = 1000m;
     public const decimal Level1Points = 1000m;
     public const decimal Level2Points = 5000m;
     public const decimal Level3Points = 15000m;
@@ -103,6 +107,40 @@ public static class RealmBoostPolicy
         >= 1 => 3,
         _ => 0
     };
+
+    public static string NormalizeCurrency(string? currency)
+    {
+        var normalized = currency?.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            null or "" => DefaultCurrency,
+            GoldsCurrency => GoldsCurrency,
+            PointsCurrency => PointsCurrency,
+            _ => throw new ArgumentException($"Unsupported realm boost currency: {currency}", nameof(currency))
+        };
+    }
+
+    public static decimal GetAmountForShares(string? currency, int shares)
+    {
+        var normalized = NormalizeCurrency(currency);
+        return normalized switch
+        {
+            GoldsCurrency => shares * GoldsPerShare,
+            PointsCurrency => shares * PointsPerShare,
+            _ => throw new ArgumentOutOfRangeException(nameof(currency))
+        };
+    }
+
+    public static decimal GetSharesForAmount(string? currency, decimal amount)
+    {
+        var normalized = NormalizeCurrency(currency);
+        return normalized switch
+        {
+            GoldsCurrency => amount / GoldsPerShare,
+            PointsCurrency => amount / PointsPerShare,
+            _ => throw new ArgumentOutOfRangeException(nameof(currency))
+        };
+    }
 }
 
 public abstract class RealmMemberRole
@@ -247,13 +285,13 @@ public class SnRealmBoostContribution : ModelBase
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid RealmId { get; set; }
     public Guid AccountId { get; set; }
-    [MaxLength(128)] public string Currency { get; set; } = "golds";
+    [MaxLength(128)] public string Currency { get; set; } = RealmBoostPolicy.DefaultCurrency;
     public decimal Amount { get; set; }
     public Guid OrderId { get; set; }
     public Guid TransactionId { get; set; }
 
     [NotMapped]
-    public decimal Shares => Amount / RealmBoostPolicy.SharePoints;
+    public decimal Shares => RealmBoostPolicy.GetSharesForAmount(Currency, Amount);
 
     [NotMapped]
     public Instant ExpiresAt => CreatedAt + Duration.FromDays(RealmBoostPolicy.ExpirationDays);

@@ -206,22 +206,24 @@ public static class ServiceCollectionExtensions
                     var realm = await db.Realms.FirstOrDefaultAsync(r => r.Id == boostEvt.Meta.RealmId, ctx.CancellationToken);
                     if (realm is null) return;
 
-                    var amount = decimal.Parse(boostEvt.Meta.AmountGolds, CultureInfo.InvariantCulture);
+                    var currency = RealmBoostPolicy.NormalizeCurrency(boostEvt.Meta.Currency);
+                    var amount = decimal.Parse(boostEvt.Meta.Amount, CultureInfo.InvariantCulture);
                     db.RealmBoostContributions.Add(new SnRealmBoostContribution
                     {
                         RealmId = boostEvt.Meta.RealmId,
                         AccountId = boostEvt.Meta.AccountId,
-                        Currency = "golds",
+                        Currency = currency,
                         Amount = amount,
                         OrderId = boostEvt.OrderId,
                         TransactionId = Guid.Empty
                     });
 
                     var cutoff = RealmBoostPolicy.GetActiveCutoff(SystemClock.Instance.GetCurrentInstant());
-                    realm.BoostPoints = (await db.RealmBoostContributions
+                    var activeContributions = await db.RealmBoostContributions
                         .Where(c => c.RealmId == boostEvt.Meta.RealmId && c.CreatedAt >= cutoff)
-                        .Select(c => (decimal?)c.Amount)
-                        .SumAsync(ctx.CancellationToken) ?? 0m) + amount;
+                        .ToListAsync(ctx.CancellationToken);
+                    realm.BoostPoints = activeContributions.Sum(c => c.Shares) +
+                        RealmBoostPolicy.GetSharesForAmount(currency, amount);
                     await db.SaveChangesAsync(ctx.CancellationToken);
                 },
                 opts =>

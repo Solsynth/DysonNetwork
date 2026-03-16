@@ -30,10 +30,10 @@ public class RealmService(
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var cutoff = RealmBoostPolicy.GetActiveCutoff(now);
-        var activeBoostPoints = await db.RealmBoostContributions
+        var activeContributions = await db.RealmBoostContributions
             .Where(c => c.RealmId == realm.Id && c.CreatedAt >= cutoff)
-            .Select(c => (decimal?)c.Amount)
-            .SumAsync(cancellationToken) ?? 0m;
+            .ToListAsync(cancellationToken);
+        var activeBoostPoints = activeContributions.Sum(c => c.Shares);
 
         realm.BoostPoints = activeBoostPoints;
     }
@@ -44,11 +44,12 @@ public class RealmService(
 
         var realmIds = realms.Select(r => r.Id).Distinct().ToList();
         var cutoff = RealmBoostPolicy.GetActiveCutoff(SystemClock.Instance.GetCurrentInstant());
-        var boostPoints = await db.RealmBoostContributions
+        var activeContributions = await db.RealmBoostContributions
             .Where(c => realmIds.Contains(c.RealmId) && c.CreatedAt >= cutoff)
+            .ToListAsync(cancellationToken);
+        var boostPoints = activeContributions
             .GroupBy(c => c.RealmId)
-            .Select(g => new { realm_id = g.Key, amount = g.Sum(x => x.Amount) })
-            .ToDictionaryAsync(x => x.realm_id, x => x.amount, cancellationToken);
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Shares));
 
         foreach (var realm in realms)
             realm.BoostPoints = boostPoints.GetValueOrDefault(realm.Id, 0m);

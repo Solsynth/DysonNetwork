@@ -106,13 +106,15 @@ public class RealmController(
     public class RealmBoostRequest
     {
         [Range(1, 1000000)] public int Shares { get; set; }
+        [MaxLength(128)] public string? Currency { get; set; }
     }
 
     public class RealmBoostResponse
     {
         public Guid OrderId { get; set; }
         public int Shares { get; set; }
-        public decimal AmountGolds { get; set; }
+        public string Currency { get; set; } = RealmBoostPolicy.DefaultCurrency;
+        public decimal Amount { get; set; }
     }
 
     public class RealmLabelAssignmentRequest
@@ -519,10 +521,20 @@ public class RealmController(
         if (!await rs.IsMemberWithRole(realm.Id, currentUser.Id, RealmMemberRole.Normal))
             return StatusCode(403, "You must be a member to boost this realm.");
 
-        var amountGolds = request.Shares * RealmBoostPolicy.SharePoints;
+        string currency;
+        try
+        {
+            currency = RealmBoostPolicy.NormalizeCurrency(request.Currency);
+        }
+        catch (ArgumentException)
+        {
+            return BadRequest("Unsupported boost currency. Use golds or points.");
+        }
+
+        var amount = RealmBoostPolicy.GetAmountForShares(currency, request.Shares);
         var order = await payments.CreateOrder(
-            currency: "golds",
-            amount: amountGolds.ToString(CultureInfo.InvariantCulture),
+            currency: currency,
+            amount: amount.ToString(CultureInfo.InvariantCulture),
             productIdentifier: "realms.boost",
             remarks: $"Boost realm {realm.Name}",
             meta: InfraObjectCoder.ConvertObjectToByteString(
@@ -531,7 +543,8 @@ public class RealmController(
                     ["realm_id"] = realm.Id,
                     ["account_id"] = currentUser.Id,
                     ["shares"] = request.Shares,
-                    ["amount_golds"] = amountGolds.ToString(CultureInfo.InvariantCulture)
+                    ["currency"] = currency,
+                    ["amount"] = amount.ToString(CultureInfo.InvariantCulture)
                 }
             ).ToByteArray()
         );
@@ -540,7 +553,8 @@ public class RealmController(
         {
             OrderId = Guid.Parse(order.Id),
             Shares = request.Shares,
-            AmountGolds = amountGolds
+            Currency = currency,
+            Amount = amount
         });
     }
 
@@ -555,7 +569,13 @@ public class RealmController(
             boost_points = realm.BoostPoints,
             boost_level = realm.BoostLevel,
             label_cap = RealmBoostPolicy.GetLabelCap(realm.BoostLevel),
-            expires_after_days = RealmBoostPolicy.ExpirationDays
+            expires_after_days = RealmBoostPolicy.ExpirationDays,
+            supported_currencies = new[]
+            {
+                RealmBoostPolicy.GoldsCurrency,
+                RealmBoostPolicy.PointsCurrency
+            },
+            default_currency = RealmBoostPolicy.DefaultCurrency
         });
     }
 
@@ -566,21 +586,29 @@ public class RealmController(
         if (realm is null) return NotFound();
         var cutoff = RealmBoostPolicy.GetActiveCutoff(SystemClock.Instance.GetCurrentInstant());
 
-        var leaderboard = await db.RealmBoostContributions
+        var contributions = await db.RealmBoostContributions
             .Where(c => c.RealmId == realm.Id)
             .Where(c => c.CreatedAt >= cutoff)
+            .ToListAsync();
+        var leaderboard = contributions
             .GroupBy(c => c.AccountId)
             .Select(g => new
             {
                 account_id = g.Key,
-                amount_golds = g.Sum(x => x.Amount),
-                shares = g.Sum(x => x.Amount) / RealmBoostPolicy.SharePoints,
+                amount_golds = g
+                    .Where(x => RealmBoostPolicy.NormalizeCurrency(x.Currency) == RealmBoostPolicy.GoldsCurrency)
+                    .Sum(x => x.Amount),
+                amount_points = g
+                    .Where(x => RealmBoostPolicy.NormalizeCurrency(x.Currency) == RealmBoostPolicy.PointsCurrency)
+                    .Sum(x => x.Amount),
+                shares = g.Sum(x => x.Shares),
                 boosts = g.Count(),
                 last_boosted_at = g.Max(x => x.CreatedAt)
             })
-            .OrderByDescending(x => x.amount_golds)
+            .OrderByDescending(x => x.shares)
+            .ThenByDescending(x => x.last_boosted_at)
             .Take(take)
-            .ToListAsync();
+            .ToList();
 
         var accountDict = new Dictionary<Guid, SnAccount?>();
         foreach (var row in leaderboard)
@@ -591,6 +619,7 @@ public class RealmController(
             row.account_id,
             account = accountDict.GetValueOrDefault(row.account_id),
             row.amount_golds,
+            row.amount_points,
             row.shares,
             row.boosts,
             row.last_boosted_at
