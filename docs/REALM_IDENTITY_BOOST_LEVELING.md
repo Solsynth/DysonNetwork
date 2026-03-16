@@ -92,10 +92,10 @@ Each boost contribution stays active for `30` days from the time the paid order 
 
 Boost thresholds:
 
-- level 0: below `1000`
-- level 1: `1000+`
-- level 2: `5000+`
-- level 3: `15000+`
+- level 0: below `10`
+- level 1: `10+`
+- level 2: `25+`
+- level 3: `50+`
 
 Boost unlocks:
 

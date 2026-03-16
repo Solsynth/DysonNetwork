@@ -85,9 +85,9 @@ public static class RealmBoostPolicy
     public const string PointsCurrency = "points";
     public const decimal GoldsPerShare = 1m;
     public const decimal PointsPerShare = 1000m;
-    public const decimal Level1Points = 1000m;
-    public const decimal Level2Points = 5000m;
-    public const decimal Level3Points = 15000m;
+    public const decimal Level1Points = 10m;
+    public const decimal Level2Points = 25m;
+    public const decimal Level3Points = 50m;
     public const int ExpirationDays = 30;
 
     public static Instant GetActiveCutoff(Instant now) => now - Duration.FromDays(ExpirationDays);
