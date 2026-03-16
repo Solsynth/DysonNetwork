@@ -10,6 +10,7 @@ public class RealmExperienceService(AppDatabase db, RemoteSubscriptionService su
     public const int TenureDailyXp = 5;
     public const int ChatMessageXp = 2;
     public const int PostCreatedXp = 20;
+    public const int BoostShareXp = 100;
 
     public async Task<SnRealmExperienceRecord?> AddRecord(
         Guid realmId,

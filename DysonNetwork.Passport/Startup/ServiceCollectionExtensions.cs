@@ -190,6 +190,7 @@ public static class ServiceCollectionExtensions
 
                     var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
                     var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
+                    var experience = ctx.ServiceProvider.GetRequiredService<RealmExperienceService>();
 
                     var boostEvt = JsonSerializer.Deserialize<PaymentOrderRealmBoostEvent>(
                         JsonSerializer.Serialize(evt, InfraObjectCoder.SerializerOptions),
@@ -225,6 +226,27 @@ public static class ServiceCollectionExtensions
                     realm.BoostPoints = activeContributions.Sum(c => c.Shares) +
                         RealmBoostPolicy.GetSharesForAmount(currency, amount);
                     await db.SaveChangesAsync(ctx.CancellationToken);
+
+                    var boostXp = boostEvt.Meta.Shares * RealmExperienceService.BoostShareXp;
+                    var xpRecord = await experience.AddRecord(
+                        boostEvt.Meta.RealmId,
+                        boostEvt.Meta.AccountId,
+                        "realm.boost.purchase",
+                        boostEvt.OrderId.ToString(),
+                        boostXp,
+                        cooldown: null,
+                        cancellationToken: ctx.CancellationToken
+                    );
+
+                    if (xpRecord is not null)
+                    {
+                        logger.LogDebug(
+                            "Granted realm boost XP for order {OrderId} to {RealmId}/{AccountId}",
+                            boostEvt.OrderId,
+                            boostEvt.Meta.RealmId,
+                            boostEvt.Meta.AccountId
+                        );
+                    }
                 },
                 opts =>
                 {
