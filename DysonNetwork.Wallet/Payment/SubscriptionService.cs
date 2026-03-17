@@ -337,6 +337,14 @@ public class SubscriptionService(
             throw new InvalidOperationException($"Account was not found with identifier {order.AccountId}");
 
         var appliedAt = SystemClock.Instance.GetCurrentInstant();
+        logger.LogInformation(
+            "Applying provider subscription order {OrderId} from {Provider} for account {AccountId}. SubscriptionId={SubscriptionId} IsTesting={IsTesting}",
+            order.Id,
+            provider,
+            account.Id,
+            order.SubscriptionId,
+            order.IsTesting
+        );
         return await ApplyPaidSubscriptionAsync(
             account.Id,
             definition,
@@ -701,9 +709,25 @@ public class SubscriptionService(
             .OrderByDescending(s => s.EndedAt ?? s.BegunAt)
             .FirstOrDefault();
         var effectivePerkLevel = isTesting ? 0 : definition.PerkLevel;
+        logger.LogInformation(
+            "Applying subscription definition {Identifier} for account {AccountId}. PaymentMethod={PaymentMethod} IsTesting={IsTesting} EffectivePerkLevel={EffectivePerkLevel} ExistingTail={ExistingTailId}",
+            definition.Identifier,
+            accountId,
+            paymentMethod,
+            isTesting,
+            effectivePerkLevel,
+            sameIdentifierTail?.Id
+        );
 
         if (sameIdentifierTail?.PaymentDetails.OrderId == paymentDetails.OrderId)
+        {
+            logger.LogInformation(
+                "Skipping duplicate subscription application for order {OrderId} on subscription {SubscriptionId}",
+                paymentDetails.OrderId,
+                sameIdentifierTail.Id
+            );
             return sameIdentifierTail;
+        }
 
         if (sameIdentifierTail is not null)
         {
@@ -736,6 +760,12 @@ public class SubscriptionService(
             db.WalletSubscriptions.Update(sameIdentifierTail);
             await db.SaveChangesAsync();
             await InvalidateSubscriptionCaches(accountId, definition.Identifier);
+            logger.LogInformation(
+                "Extended existing subscription {SubscriptionId}. NewEndAt={EndedAt} IsTesting={IsTesting}",
+                sameIdentifierTail.Id,
+                sameIdentifierTail.EndedAt,
+                sameIdentifierTail.IsTesting
+            );
             return sameIdentifierTail;
         }
 
@@ -774,6 +804,14 @@ public class SubscriptionService(
 
         await db.SaveChangesAsync();
         await InvalidateSubscriptionCaches(accountId, definition.Identifier);
+        logger.LogInformation(
+            "Created subscription {SubscriptionId} for definition {Identifier}. BegunAt={BegunAt} EndedAt={EndedAt} IsTesting={IsTesting}",
+            subscription.Id,
+            definition.Identifier,
+            subscription.BegunAt,
+            subscription.EndedAt,
+            subscription.IsTesting
+        );
 
         if (begunAt <= SystemClock.Instance.GetCurrentInstant())
         {
@@ -782,6 +820,13 @@ public class SubscriptionService(
             {
                 await HandleSponsorCurrencyUpdateAsync(subscription);
                 await HandleSponsorBadgeSubscriptionAsync(subscription);
+            }
+            else if (isTesting)
+            {
+                logger.LogInformation(
+                    "Skipping sponsor reward side effects for testing subscription {SubscriptionId}",
+                    subscription.Id
+                );
             }
         }
 

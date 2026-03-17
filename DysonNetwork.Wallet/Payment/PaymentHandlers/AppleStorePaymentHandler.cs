@@ -48,6 +48,13 @@ public class AppleStorePaymentHandler(
             throw new ArgumentException("Signed transaction info is required.", nameof(signedTransactionInfo));
 
         var transaction = VerifyAndDecodeJws<AppleSignedTransactionPayload>(signedTransactionInfo).Payload;
+        _logger.LogInformation(
+            "Parsed Apple signed transaction {TransactionId} for product {ProductId} in environment {Environment} with app account token {AppAccountToken}",
+            transaction.TransactionId ?? transaction.OriginalTransactionId,
+            transaction.ProductId,
+            transaction.Environment,
+            transaction.AppAccountToken
+        );
         ValidateBundleId(transaction.BundleId);
         ValidateEnvironment(transaction.Environment);
 
@@ -94,6 +101,13 @@ public class AppleStorePaymentHandler(
         try
         {
             var notification = VerifyAndDecodeJws<AppleNotificationPayload>(webhookRequest.SignedPayload).Payload;
+            _logger.LogInformation(
+                "Apple notification decoded: type={NotificationType} subtype={Subtype} environment={Environment} bundleId={BundleId}",
+                notification.NotificationType,
+                notification.Subtype,
+                notification.Data?.Environment,
+                notification.Data?.BundleId
+            );
             ValidateBundleId(notification.Data?.BundleId);
             ValidateEnvironment(notification.Data?.Environment);
 
@@ -117,6 +131,12 @@ public class AppleStorePaymentHandler(
             }
 
             var transaction = ParseSignedTransaction(signedTransactionInfo);
+            _logger.LogInformation(
+                "Apple webhook transaction resolved: transactionId={TransactionId} productId={ProductId} isTesting={IsTesting}",
+                transaction.Id,
+                transaction.SubscriptionId,
+                transaction.IsTesting
+            );
             if (processTransactionAction is not null)
                 await processTransactionAction(transaction);
 
@@ -205,7 +225,14 @@ public class AppleStorePaymentHandler(
     )
     {
         if (chain.Build(leafCertificate))
+        {
+            _logger.LogDebug(
+                "Apple certificate chain validated with platform trust. Leaf subject={Subject} signedAt={SignedAt}",
+                leafCertificate.Subject,
+                signedAt
+            );
             return true;
+        }
 
         if (!ShouldRetryWithCustomRootTrust(chain.ChainStatus) || x5cCertificates.Count == 0)
             return false;
@@ -214,8 +241,19 @@ public class AppleStorePaymentHandler(
             Convert.FromBase64String(x5cCertificates[^1])
         );
         var rootFingerprint = rootCertificate.GetCertHashString(HashAlgorithmName.SHA256);
+        _logger.LogWarning(
+            "Retrying Apple certificate chain validation with custom root trust. Root subject={RootSubject} fingerprint={RootFingerprint}",
+            rootCertificate.Subject,
+            rootFingerprint
+        );
         if (!GetTrustedAppleRootFingerprints().Contains(rootFingerprint))
+        {
+            _logger.LogWarning(
+                "Apple certificate root fingerprint {RootFingerprint} is not in the trusted root list",
+                rootFingerprint
+            );
             return false;
+        }
 
         chain.ChainPolicy.CustomTrustStore.Clear();
         chain.ChainPolicy.CustomTrustStore.Add(rootCertificate);
@@ -224,7 +262,12 @@ public class AppleStorePaymentHandler(
         chain.ChainPolicy.VerificationFlags = X509VerificationFlags.NoFlag;
         chain.ChainPolicy.VerificationTime = signedAt.ToDateTimeUtc();
 
-        return chain.Build(leafCertificate);
+        var rebuilt = chain.Build(leafCertificate);
+        _logger.LogInformation(
+            "Apple certificate chain custom-root validation result: {Result}",
+            rebuilt
+        );
+        return rebuilt;
     }
 
     private bool ShouldRetryWithCustomRootTrust(X509ChainStatus[] statuses)
