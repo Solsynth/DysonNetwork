@@ -694,6 +694,29 @@ public class SubscriptionService(
     )
     {
         var groupIdentifiers = await catalog.GetGroupIdentifiersAsync(definition.GroupIdentifier, definition.Identifier);
+        if (!string.IsNullOrWhiteSpace(paymentDetails.OrderId))
+        {
+            var existingByOrder = await db.WalletSubscriptions
+                .Where(s => s.AccountId == accountId)
+                .Where(s => s.IsTesting == isTesting)
+                .Where(s => groupIdentifiers.Contains(s.Identifier))
+                .OrderByDescending(s => s.BegunAt)
+                .ToListAsync();
+
+            var matchedByOrder = existingByOrder.FirstOrDefault(s =>
+                string.Equals(s.PaymentDetails.OrderId, paymentDetails.OrderId, StringComparison.OrdinalIgnoreCase));
+            if (matchedByOrder is not null)
+            {
+                logger.LogInformation(
+                    "Skipping duplicate subscription application for order {OrderId} because subscription {SubscriptionId} already exists with status {Status}",
+                    paymentDetails.OrderId,
+                    matchedByOrder.Id,
+                    matchedByOrder.Status
+                );
+                return matchedByOrder;
+            }
+        }
+
         var activeOrQueued = await db.WalletSubscriptions
             .Where(s => s.AccountId == accountId)
             .Where(s => s.IsActive)
@@ -816,17 +839,10 @@ public class SubscriptionService(
         if (begunAt <= SystemClock.Instance.GetCurrentInstant())
         {
             await NotifySubscriptionBegun(subscription);
-            if (!isTesting && IsSponsorRewardEligiblePaymentMethod(paymentMethod))
+            if (IsSponsorRewardEligiblePaymentMethod(paymentMethod))
             {
                 await HandleSponsorCurrencyUpdateAsync(subscription);
                 await HandleSponsorBadgeSubscriptionAsync(subscription);
-            }
-            else if (isTesting)
-            {
-                logger.LogInformation(
-                    "Skipping sponsor reward side effects for testing subscription {SubscriptionId}",
-                    subscription.Id
-                );
             }
         }
 
