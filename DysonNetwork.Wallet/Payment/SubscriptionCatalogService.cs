@@ -13,21 +13,68 @@ public class SubscriptionCatalogService(
     private readonly IConfiguration _configuration = configuration;
     private readonly ILogger<SubscriptionCatalogService> _logger = logger;
 
+    private static readonly Dictionary<string, string[]> ProviderAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [SubscriptionPaymentMethod.AppleStore] = ["AppleStore", "apple_store", "applestore", "apple", "app_store"],
+        [SubscriptionPaymentMethod.Paddle] = ["Paddle", "paddle"],
+        [SubscriptionPaymentMethod.Afdian] = ["Afdian", "afdian"],
+        [SubscriptionPaymentMethod.InAppWallet] = ["solian.wallet", "wallet", "in_app_wallet", "inappwallet"],
+        [SubscriptionPaymentMethod.Gift] = ["gift", "Gift"]
+    };
+
     private static List<string>? GetProviderMappings(
         Dictionary<string, List<string>> mappings,
         string provider
     )
     {
-        if (mappings.TryGetValue(provider, out var directMatch))
-            return directMatch;
-
-        foreach (var kv in mappings)
+        foreach (var lookupKey in GetProviderLookupKeys(provider))
         {
-            if (string.Equals(kv.Key, provider, StringComparison.OrdinalIgnoreCase))
-                return kv.Value;
+            if (mappings.TryGetValue(lookupKey, out var directMatch))
+                return directMatch;
+
+            foreach (var kv in mappings)
+            {
+                if (string.Equals(kv.Key, lookupKey, StringComparison.OrdinalIgnoreCase))
+                    return kv.Value;
+            }
         }
 
         return null;
+    }
+
+    private static IEnumerable<string> GetProviderLookupKeys(string provider)
+    {
+        if (string.IsNullOrWhiteSpace(provider))
+            yield break;
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in ExpandProviderAliases(provider))
+        {
+            if (!string.IsNullOrWhiteSpace(key) && seen.Add(key))
+                yield return key;
+        }
+    }
+
+    private static IEnumerable<string> ExpandProviderAliases(string provider)
+    {
+        yield return provider;
+
+        if (ProviderAliases.TryGetValue(provider, out var aliases))
+        {
+            foreach (var alias in aliases)
+                yield return alias;
+        }
+
+        foreach (var kv in ProviderAliases)
+        {
+            if (!string.Equals(kv.Key, provider, StringComparison.OrdinalIgnoreCase) &&
+                !kv.Value.Any(alias => string.Equals(alias, provider, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            yield return kv.Key;
+            foreach (var alias in kv.Value)
+                yield return alias;
+        }
     }
 
     public SubscriptionCatalogSeedSettings GetSettings()
