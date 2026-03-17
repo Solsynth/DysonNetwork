@@ -1443,6 +1443,16 @@ public class SubscriptionService(
             sponsorBadge.Meta.Add("level", new Value { StringValue = newLevel.ToString() });
             sponsorBadge.Meta.Add("subscription_id", new Value { StringValue = subscription.Id.ToString() });
 
+            logger.LogInformation(
+                "Sending sponsor badge request for account {AccountId}: existingBadgeId={ExistingBadgeId}, activatedAtPresent={HasActivatedAt}, expiredAtPresent={HasExpiredAt}, createdAtPresent={HasCreatedAt}, updatedAtPresent={HasUpdatedAt}, metaKeys={MetaKeys}",
+                subscription.AccountId,
+                latestBadge?.Id ?? string.Empty,
+                sponsorBadge.ActivatedAt is not null,
+                sponsorBadge.ExpiredAt is not null,
+                sponsorBadge.CreatedAt is not null,
+                sponsorBadge.UpdatedAt is not null,
+                string.Join(",", sponsorBadge.Meta.Keys));
+
             if (latestBadge is null)
             {
                 var grantBadgeRequest = new DyGrantBadgeRequest

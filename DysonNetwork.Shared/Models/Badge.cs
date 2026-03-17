@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
+using Google.Protobuf.WellKnownTypes;
 using MessagePack;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
@@ -58,6 +59,7 @@ public class SnAccountBadge : ModelBase
     
     public static SnAccountBadge FromProtoValue(DyAccountBadge proto)
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
         var badge = new SnAccountBadge
         {
             Id = Guid.TryParse(proto.Id, out var badgeId) ? badgeId : Guid.NewGuid(),
@@ -66,13 +68,18 @@ public class SnAccountBadge : ModelBase
             Label = proto.Label,
             Caption = proto.Caption,
             Meta = InfraObjectCoder.ConvertFromValueMap(proto.Meta).ToDictionary(),
-            ActivatedAt = proto.ActivatedAt?.ToInstant(),
-            ExpiredAt = proto.ExpiredAt?.ToInstant(),
-            CreatedAt = proto.CreatedAt.ToInstant(),
-            UpdatedAt = proto.UpdatedAt.ToInstant()
+            ActivatedAt = ToOptionalInstant(proto.ActivatedAt),
+            ExpiredAt = ToOptionalInstant(proto.ExpiredAt),
+            CreatedAt = ToOptionalInstant(proto.CreatedAt) ?? now,
+            UpdatedAt = ToOptionalInstant(proto.UpdatedAt) ?? now
         };
 
         return badge;
+    }
+
+    private static Instant? ToOptionalInstant(Timestamp? timestamp)
+    {
+        return timestamp is null ? null : timestamp.ToInstant();
     }
 }
 
@@ -114,11 +121,16 @@ public class SnAccountBadgeRef : ModelBase
             Label = proto.Label,
             Caption = proto.Caption,
             Meta = InfraObjectCoder.ConvertFromValueMap(proto.Meta).ToDictionary(),
-            ActivatedAt = proto.ActivatedAt?.ToInstant(),
-            ExpiredAt = proto.ExpiredAt?.ToInstant(),
+            ActivatedAt = ToOptionalInstant(proto.ActivatedAt),
+            ExpiredAt = ToOptionalInstant(proto.ExpiredAt),
             AccountId = Guid.Parse(proto.AccountId)
         };
         
         return badge;
+    }
+
+    private static Instant? ToOptionalInstant(Timestamp? timestamp)
+    {
+        return timestamp is null ? null : timestamp.ToInstant();
     }
 }
