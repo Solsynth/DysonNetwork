@@ -75,6 +75,7 @@ public class SubscriptionCatalogService(
             GroupIdentifier = definition.GroupIdentifier,
             DisplayName = definition.DisplayName,
             Currency = definition.Currency,
+            IsTesting = definition.IsTesting,
             BasePrice = definition.BasePrice,
             PerkLevel = definition.PerkLevel,
             MinimumAccountLevel = definition.MinimumAccountLevel,
@@ -97,6 +98,7 @@ public class SubscriptionCatalogService(
         changed |= SetIfDifferent(existingDefinition.GroupIdentifier, definition.GroupIdentifier, value => existingDefinition.GroupIdentifier = value);
         changed |= SetIfDifferent(existingDefinition.DisplayName, definition.DisplayName, value => existingDefinition.DisplayName = value);
         changed |= SetIfDifferent(existingDefinition.Currency, definition.Currency, value => existingDefinition.Currency = value);
+        changed |= SetIfDifferent(existingDefinition.IsTesting, definition.IsTesting, value => existingDefinition.IsTesting = value);
         changed |= SetIfDifferent(existingDefinition.BasePrice, definition.BasePrice, value => existingDefinition.BasePrice = value);
         changed |= SetIfDifferent(existingDefinition.PerkLevel, definition.PerkLevel, value => existingDefinition.PerkLevel = value);
         changed |= SetIfDifferent(existingDefinition.MinimumAccountLevel, definition.MinimumAccountLevel, value => existingDefinition.MinimumAccountLevel = value);

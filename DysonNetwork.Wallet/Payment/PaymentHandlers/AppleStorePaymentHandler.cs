@@ -212,19 +212,43 @@ public class AppleStorePaymentHandler(
 
     private void ValidateEnvironment(string? environment)
     {
-        var configuredEnvironment = _configuration["Payment:Auth:AppleStore:Environment"];
-        if (string.IsNullOrWhiteSpace(configuredEnvironment) || string.IsNullOrWhiteSpace(environment))
+        if (string.IsNullOrWhiteSpace(environment))
             return;
 
-        var normalizedConfigured = configuredEnvironment.Trim().ToUpperInvariant();
         var normalizedActual = environment.Trim().ToUpperInvariant();
-        if (normalizedConfigured == "PRODUCTION")
-            normalizedConfigured = "PROD";
+        var acceptedEnvironments = GetAcceptedEnvironments();
+        if (acceptedEnvironments.Contains(normalizedActual))
+            return;
+        if (normalizedActual == "PRODUCTION" && acceptedEnvironments.Contains("PROD"))
+            return;
 
-        if (normalizedConfigured != normalizedActual)
-            throw new InvalidOperationException(
-                $"Apple environment mismatch. Expected {configuredEnvironment}, got {environment}."
-            );
+        throw new InvalidOperationException(
+            $"Apple environment mismatch. Accepted environments: {string.Join(", ", acceptedEnvironments)}, got {environment}."
+        );
+    }
+
+    private HashSet<string> GetAcceptedEnvironments()
+    {
+        var configuredEnvironment = _configuration["Payment:Auth:AppleStore:Environment"];
+        if (string.IsNullOrWhiteSpace(configuredEnvironment))
+            return ["SANDBOX", "PROD"];
+
+        var values = configuredEnvironment
+            .Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => x.ToUpperInvariant())
+            .ToList();
+        if (values.Count == 0)
+            return ["SANDBOX", "PROD"];
+        if (values.Contains("BOTH") || values.Contains("ALL") || values.Contains("ANY"))
+            return ["SANDBOX", "PROD"];
+
+        var normalized = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var value in values)
+        {
+            normalized.Add(value == "PRODUCTION" ? "PROD" : value);
+        }
+
+        return normalized.Count == 0 ? ["SANDBOX", "PROD"] : normalized;
     }
 
     private static byte[] DecodeBase64Url(string value)

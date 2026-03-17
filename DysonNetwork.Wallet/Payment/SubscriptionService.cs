@@ -697,6 +697,7 @@ public class SubscriptionService(
             .Where(s => s.Identifier == definition.Identifier)
             .OrderByDescending(s => s.EndedAt ?? s.BegunAt)
             .FirstOrDefault();
+        var effectivePerkLevel = definition.IsTesting ? 0 : definition.PerkLevel;
 
         if (sameIdentifierTail?.PaymentDetails.OrderId == paymentDetails.OrderId)
             return sameIdentifierTail;
@@ -715,7 +716,7 @@ public class SubscriptionService(
             sameIdentifierTail.BasePrice = definition.BasePrice;
             sameIdentifierTail.GroupIdentifier = definition.GroupIdentifier;
             sameIdentifierTail.DisplayName = definition.DisplayName;
-            sameIdentifierTail.PerkLevel = definition.PerkLevel;
+            sameIdentifierTail.PerkLevel = effectivePerkLevel;
             sameIdentifierTail.Status = SubscriptionStatus.Active;
             sameIdentifierTail.RenewalAt = definition.PaymentPolicy.AllowInternalWalletRenewal
                 ? sameIdentifierTail.EndedAt
@@ -747,7 +748,7 @@ public class SubscriptionService(
         subscription.Identifier = definition.Identifier;
         subscription.GroupIdentifier = definition.GroupIdentifier;
         subscription.DisplayName = definition.DisplayName;
-        subscription.PerkLevel = definition.PerkLevel;
+        subscription.PerkLevel = effectivePerkLevel;
         subscription.IsActive = true;
         subscription.IsFreeTrial = false;
         subscription.Status = SubscriptionStatus.Active;
@@ -772,7 +773,7 @@ public class SubscriptionService(
         if (begunAt <= SystemClock.Instance.GetCurrentInstant())
         {
             await NotifySubscriptionBegun(subscription);
-            if (IsSponsorRewardEligiblePaymentMethod(paymentMethod))
+            if (!definition.IsTesting && IsSponsorRewardEligiblePaymentMethod(paymentMethod))
             {
                 await HandleSponsorCurrencyUpdateAsync(subscription);
                 await HandleSponsorBadgeSubscriptionAsync(subscription);
@@ -954,9 +955,19 @@ public class SubscriptionService(
                 {
                     subscription.GroupIdentifier ??= definition.GroupIdentifier;
                     subscription.DisplayName ??= definition.DisplayName;
-                    if (subscription.PerkLevel <= 0)
+                    if (definition.IsTesting)
+                    {
+                        if (subscription.PerkLevel != 0)
+                        {
+                            subscription.PerkLevel = 0;
+                            changed = true;
+                        }
+                    }
+                    else if (subscription.PerkLevel <= 0)
+                    {
                         subscription.PerkLevel = definition.PerkLevel;
-                    changed = true;
+                        changed = true;
+                    }
                 }
             }
         }
