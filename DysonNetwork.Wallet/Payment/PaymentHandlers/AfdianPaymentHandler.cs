@@ -412,6 +412,8 @@ public class AfdianOrderItem : ISubscriptionOrder
     public string SubscriptionId => PrimarySkuId ?? PlanId;
 
     public string AccountId => UserId;
+
+    public bool IsTesting => false;
 }
 
 public class AfdianRequestDetails

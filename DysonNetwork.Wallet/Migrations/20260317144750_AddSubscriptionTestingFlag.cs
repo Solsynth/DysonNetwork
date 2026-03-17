@@ -12,7 +12,7 @@ namespace DysonNetwork.Wallet.Migrations
         {
             migrationBuilder.AddColumn<bool>(
                 name: "is_testing",
-                table: "wallet_subscription_definitions",
+                table: "wallet_subscriptions",
                 type: "boolean",
                 nullable: false,
                 defaultValue: false);
@@ -23,7 +23,7 @@ namespace DysonNetwork.Wallet.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "is_testing",
-                table: "wallet_subscription_definitions");
+                table: "wallet_subscriptions");
         }
     }
 }

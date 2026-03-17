@@ -311,6 +311,10 @@ public sealed class AppleAppStoreTransaction : ISubscriptionOrder
     [JsonIgnore] public string Provider => SubscriptionPaymentMethod.AppleStore;
 
     [JsonIgnore] public string AccountId => Payload.AppAccountToken ?? string.Empty;
+
+    [JsonIgnore]
+    public bool IsTesting =>
+        string.Equals(Payload.Environment, "Sandbox", StringComparison.OrdinalIgnoreCase);
 }
 
 public class AppleStoreWebhookResponse

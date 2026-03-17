@@ -13,7 +13,6 @@ public class SnWalletSubscriptionDefinition : ModelBase
     [MaxLength(4096)] public string? GroupIdentifier { get; set; }
     [MaxLength(4096)] public string DisplayName { get; set; } = null!;
     [MaxLength(128)] public string Currency { get; set; } = null!;
-    public bool IsTesting { get; set; }
     public decimal BasePrice { get; set; }
     public int PerkLevel { get; set; }
     public int? MinimumAccountLevel { get; set; }
@@ -132,7 +131,6 @@ public class SubscriptionCatalogSeedDefinition
     public string? GroupIdentifier { get; set; }
     public string DisplayName { get; set; } = null!;
     public string Currency { get; set; } = null!;
-    public bool IsTesting { get; set; }
     public decimal BasePrice { get; set; }
     public int PerkLevel { get; set; }
     public int? MinimumAccountLevel { get; set; }

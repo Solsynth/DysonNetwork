@@ -15,7 +15,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Wallet.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20260317144202_AddSubscriptionTestingFlag")]
+    [Migration("20260317144750_AddSubscriptionTestingFlag")]
     partial class AddSubscriptionTestingFlag
     {
         /// <inheritdoc />
@@ -626,6 +626,10 @@ namespace DysonNetwork.Wallet.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_free_trial");
 
+                    b.Property<bool>("IsTesting")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_testing");
+
                     b.Property<SnPaymentDetails>("PaymentDetails")
                         .IsRequired()
                         .HasColumnType("jsonb")
@@ -734,10 +738,6 @@ namespace DysonNetwork.Wallet.Migrations
                         .HasMaxLength(4096)
                         .HasColumnType("character varying(4096)")
                         .HasColumnName("identifier");
-
-                    b.Property<bool>("IsTesting")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_testing");
 
                     b.Property<int?>("MinimumAccountLevel")
                         .HasColumnType("integer")

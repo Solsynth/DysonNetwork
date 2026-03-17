@@ -350,6 +350,9 @@ public class PaddleTransaction : ISubscriptionOrder
         ?? GetCustomDataString("user_id")
         ?? string.Empty;
 
+    [JsonIgnore]
+    public bool IsTesting => false;
+
     private string? GetCustomDataString(string key)
     {
         if (CustomData is null || !CustomData.TryGetValue(key, out var value))

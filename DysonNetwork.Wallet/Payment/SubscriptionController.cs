@@ -32,7 +32,6 @@ public class SubscriptionController(
         public string? GroupIdentifier { get; set; }
         public string DisplayName { get; set; } = null!;
         public string Currency { get; set; } = null!;
-        public bool IsTesting { get; set; }
         public decimal BasePrice { get; set; }
         public int PerkLevel { get; set; }
         public int? MinimumAccountLevel { get; set; }
@@ -212,7 +211,6 @@ public class SubscriptionController(
             GroupIdentifier = def.GroupIdentifier,
             DisplayName = def.DisplayName,
             Currency = def.Currency,
-            IsTesting = def.IsTesting,
             BasePrice = def.BasePrice,
             PerkLevel = def.PerkLevel,
             MinimumAccountLevel = def.MinimumAccountLevel,
@@ -293,7 +291,7 @@ public class SubscriptionController(
                 changed = true;
             }
 
-            if (subscription.PerkLevel == 0 && definition.PerkLevel > 0)
+            if (!subscription.IsTesting && subscription.PerkLevel == 0 && definition.PerkLevel > 0)
             {
                 subscription.PerkLevel = definition.PerkLevel;
                 changed = true;

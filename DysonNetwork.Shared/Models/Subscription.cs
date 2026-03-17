@@ -326,6 +326,7 @@ public class SnWalletSubscription : ModelBase
     [MaxLength(4096)] public string? GroupIdentifier { get; set; }
     [MaxLength(4096)] public string? DisplayName { get; set; }
     public int PerkLevel { get; set; }
+    public bool IsTesting { get; set; }
 
     /// <summary>
     /// The field is used to override the activation status of the membership.
@@ -415,6 +416,7 @@ public class SnWalletSubscription : ModelBase
             GroupIdentifier = GroupIdentifier,
             DisplayName = DisplayName,
             PerkLevel = PerkLevel,
+            IsTesting = IsTesting,
             BegunAt = BegunAt,
             EndedAt = EndedAt,
             IsActive = IsActive,
@@ -475,6 +477,7 @@ public class SnWalletSubscription : ModelBase
         GroupIdentifier = string.IsNullOrWhiteSpace(proto.GroupIdentifier) ? null : proto.GroupIdentifier,
         DisplayName = string.IsNullOrWhiteSpace(proto.DisplayName) ? null : proto.DisplayName,
         PerkLevel = proto.PerkLevel,
+        IsTesting = false,
         IsActive = proto.IsActive,
         IsFreeTrial = proto.IsFreeTrial,
         Status = (SubscriptionStatus)proto.Status,
@@ -501,6 +504,7 @@ public class SnSubscriptionReferenceObject : ModelBase
     public string? GroupIdentifier { get; set; }
     public string? DisplayName { get; set; }
     public int PerkLevel { get; set; }
+    public bool IsTesting { get; set; }
     public Instant BegunAt { get; set; }
     public Instant? EndedAt { get; set; }
     public bool IsActive { get; set; }
@@ -543,6 +547,7 @@ public class SnSubscriptionReferenceObject : ModelBase
         GroupIdentifier = string.IsNullOrWhiteSpace(proto.GroupIdentifier) ? null : proto.GroupIdentifier,
         DisplayName = string.IsNullOrWhiteSpace(proto.DisplayName) ? null : proto.DisplayName,
         PerkLevel = proto.PerkLevel,
+        IsTesting = false,
         BegunAt = proto.BegunAt.ToInstant(),
         EndedAt = proto.EndedAt?.ToInstant(),
         IsActive = proto.IsActive,

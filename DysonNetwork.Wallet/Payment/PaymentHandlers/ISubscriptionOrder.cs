@@ -15,4 +15,6 @@ public interface ISubscriptionOrder
     public string Provider { get; }
 
     public string AccountId { get; }
+
+    public bool IsTesting { get; }
 }

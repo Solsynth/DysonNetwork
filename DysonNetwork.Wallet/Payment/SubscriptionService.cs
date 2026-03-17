@@ -347,7 +347,8 @@ public class SubscriptionService(
                 OrderId = order.Id,
             },
             appliedAt,
-            GetDefaultSubscriptionDuration()
+            GetDefaultSubscriptionDuration(),
+            isTesting: order.IsTesting
         );
     }
 
@@ -678,6 +679,7 @@ public class SubscriptionService(
         SnPaymentDetails paymentDetails,
         Instant effectiveFrom,
         Duration cycleDuration,
+        bool isTesting = false,
         SnWalletSubscription? placeholderSubscription = null,
         Guid? couponId = null,
         SnWalletCoupon? coupon = null
@@ -689,6 +691,7 @@ public class SubscriptionService(
             .Where(s => s.IsActive)
             .Where(s => s.Status == SubscriptionStatus.Active)
             .Where(s => groupIdentifiers.Contains(s.Identifier))
+            .Where(s => s.IsTesting == isTesting)
             .Where(s => placeholderSubscription == null || s.Id != placeholderSubscription.Id)
             .OrderBy(s => s.BegunAt)
             .ToListAsync();
@@ -697,7 +700,7 @@ public class SubscriptionService(
             .Where(s => s.Identifier == definition.Identifier)
             .OrderByDescending(s => s.EndedAt ?? s.BegunAt)
             .FirstOrDefault();
-        var effectivePerkLevel = definition.IsTesting ? 0 : definition.PerkLevel;
+        var effectivePerkLevel = isTesting ? 0 : definition.PerkLevel;
 
         if (sameIdentifierTail?.PaymentDetails.OrderId == paymentDetails.OrderId)
             return sameIdentifierTail;
@@ -717,6 +720,7 @@ public class SubscriptionService(
             sameIdentifierTail.GroupIdentifier = definition.GroupIdentifier;
             sameIdentifierTail.DisplayName = definition.DisplayName;
             sameIdentifierTail.PerkLevel = effectivePerkLevel;
+            sameIdentifierTail.IsTesting = isTesting;
             sameIdentifierTail.Status = SubscriptionStatus.Active;
             sameIdentifierTail.RenewalAt = definition.PaymentPolicy.AllowInternalWalletRenewal
                 ? sameIdentifierTail.EndedAt
@@ -749,6 +753,7 @@ public class SubscriptionService(
         subscription.GroupIdentifier = definition.GroupIdentifier;
         subscription.DisplayName = definition.DisplayName;
         subscription.PerkLevel = effectivePerkLevel;
+        subscription.IsTesting = isTesting;
         subscription.IsActive = true;
         subscription.IsFreeTrial = false;
         subscription.Status = SubscriptionStatus.Active;
@@ -773,7 +778,7 @@ public class SubscriptionService(
         if (begunAt <= SystemClock.Instance.GetCurrentInstant())
         {
             await NotifySubscriptionBegun(subscription);
-            if (!definition.IsTesting && IsSponsorRewardEligiblePaymentMethod(paymentMethod))
+            if (!isTesting && IsSponsorRewardEligiblePaymentMethod(paymentMethod))
             {
                 await HandleSponsorCurrencyUpdateAsync(subscription);
                 await HandleSponsorBadgeSubscriptionAsync(subscription);
@@ -955,7 +960,7 @@ public class SubscriptionService(
                 {
                     subscription.GroupIdentifier ??= definition.GroupIdentifier;
                     subscription.DisplayName ??= definition.DisplayName;
-                    if (definition.IsTesting)
+                    if (subscription.IsTesting)
                     {
                         if (subscription.PerkLevel != 0)
                         {
