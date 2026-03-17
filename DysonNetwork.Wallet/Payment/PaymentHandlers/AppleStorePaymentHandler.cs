@@ -35,6 +35,13 @@ public class AppleStorePaymentHandler(
         "RENEWAL_EXTENSION"
     ];
 
+    private static readonly HashSet<string> KnownAppleRootFingerprints =
+    [
+        "C2B9B042DD57830E7D117DAC55AC8AE19407D38E41D88F3215BC3A890444A050",
+        "63343ABFB89A6A03EBB57E9B3F5FA7BE7C4F5C756F3017B3A8C488C3653E9179",
+        "B0B1730ECBC7FF4505142C49F1295E6EDA6BCAED7E2C68C5BE91B5A11001F024"
+    ];
+
     public AppleAppStoreTransaction ParseSignedTransaction(string signedTransactionInfo)
     {
         if (string.IsNullOrWhiteSpace(signedTransactionInfo))
@@ -162,7 +169,7 @@ public class AppleStorePaymentHandler(
             chain.ChainPolicy.ExtraStore.Add(X509CertificateLoader.LoadCertificate(Convert.FromBase64String(certificate)));
         }
 
-        if (!chain.Build(leafCertificate))
+        if (!BuildAppleCertificateChain(chain, leafCertificate, header.X5c, signedAt))
         {
             var statuses = string.Join(", ", chain.ChainStatus.Select(x => x.StatusInformation.Trim()));
             throw new CryptographicException($"Apple certificate chain validation failed: {statuses}");
@@ -188,6 +195,67 @@ public class AppleStorePaymentHandler(
             throw new CryptographicException("Apple JWS signature verification failed.");
 
         return new VerifiedJwsPayload<T>(payload, signedAt);
+    }
+
+    private bool BuildAppleCertificateChain(
+        X509Chain chain,
+        X509Certificate2 leafCertificate,
+        IReadOnlyList<string> x5cCertificates,
+        Instant signedAt
+    )
+    {
+        if (chain.Build(leafCertificate))
+            return true;
+
+        if (!ShouldRetryWithCustomRootTrust(chain.ChainStatus) || x5cCertificates.Count == 0)
+            return false;
+
+        using var rootCertificate = X509CertificateLoader.LoadCertificate(
+            Convert.FromBase64String(x5cCertificates[^1])
+        );
+        var rootFingerprint = rootCertificate.GetCertHashString(HashAlgorithmName.SHA256);
+        if (!GetTrustedAppleRootFingerprints().Contains(rootFingerprint))
+            return false;
+
+        chain.ChainPolicy.CustomTrustStore.Clear();
+        chain.ChainPolicy.CustomTrustStore.Add(rootCertificate);
+        chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+        chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+        chain.ChainPolicy.VerificationFlags = X509VerificationFlags.NoFlag;
+        chain.ChainPolicy.VerificationTime = signedAt.ToDateTimeUtc();
+
+        return chain.Build(leafCertificate);
+    }
+
+    private bool ShouldRetryWithCustomRootTrust(X509ChainStatus[] statuses)
+    {
+        if (statuses.Length == 0)
+            return false;
+
+        return statuses.All(status =>
+            status.Status == X509ChainStatusFlags.UntrustedRoot ||
+            status.Status == X509ChainStatusFlags.PartialChain ||
+            status.Status == X509ChainStatusFlags.NoError);
+    }
+
+    private HashSet<string> GetTrustedAppleRootFingerprints()
+    {
+        var trusted = new HashSet<string>(KnownAppleRootFingerprints, StringComparer.OrdinalIgnoreCase);
+        var configuredValues = _configuration
+            .GetSection("Payment:Auth:AppleStore:TrustedRootSha256Fingerprints")
+            .Get<string[]>();
+        if (configuredValues is null)
+            return trusted;
+
+        foreach (var value in configuredValues)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                continue;
+
+            trusted.Add(value.Replace(" ", string.Empty).Trim().ToUpperInvariant());
+        }
+
+        return trusted;
     }
 
     private Instant ResolveSignedAt(byte[] payloadBytes)
