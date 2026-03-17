@@ -60,7 +60,7 @@ public class SnAccountBadge : ModelBase
     {
         var badge = new SnAccountBadge
         {
-            Id = Guid.Parse(proto.Id),
+            Id = Guid.TryParse(proto.Id, out var badgeId) ? badgeId : Guid.NewGuid(),
             AccountId = Guid.Parse(proto.AccountId),
             Type = proto.Type,
             Label = proto.Label,
