@@ -357,6 +357,7 @@ public class AccountServiceGrpc(
 
         var badge = SnAccountBadge.FromProtoValue(request.Badge);
         var grantedBadge = await _accountService.GrantBadge(account, badge);
+        await SyncActiveBadgeReferenceAsync(accountId, grantedBadge, context.CancellationToken);
 
         return new DyGrantBadgeResponse
         {
@@ -444,11 +445,29 @@ public class AccountServiceGrpc(
         badge.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
         _db.Badges.Update(badge);
         await _db.SaveChangesAsync(context.CancellationToken);
+        await SyncActiveBadgeReferenceAsync(accountId, badge, context.CancellationToken);
 
         return new DyUpdateBadgeResponse
         {
             Badge = badge.ToProtoValue()
         };
+    }
+
+    private async Task SyncActiveBadgeReferenceAsync(
+        Guid accountId,
+        SnAccountBadge badge,
+        CancellationToken cancellationToken
+    )
+    {
+        if (badge.ActivatedAt is null)
+            return;
+
+        await _db.AccountProfiles
+            .Where(p => p.AccountId == accountId)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(p => p.ActiveBadge, badge.ToReference()),
+                cancellationToken
+            );
     }
 
     private static void ApplyAllProfileFields(SnAccountProfile profile, SnAccountProfile incoming)
