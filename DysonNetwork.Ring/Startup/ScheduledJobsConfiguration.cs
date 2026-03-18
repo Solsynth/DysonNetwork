@@ -15,6 +15,13 @@ public static class ScheduledJobsConfiguration
                 .ForJob(appDatabaseRecyclingJob)
                 .WithIdentity("AppDatabaseRecyclingTrigger")
                 .WithCronSchedule("0 0 0 * * ?"));
+
+            var notificationRetentionCleanupJob = new JobKey("NotificationRetentionCleanup");
+            q.AddJob<NotificationRetentionCleanupJob>(opts => opts.WithIdentity(notificationRetentionCleanupJob));
+            q.AddTrigger(opts => opts
+                .ForJob(notificationRetentionCleanupJob)
+                .WithIdentity("NotificationRetentionCleanupTrigger")
+                .WithCronSchedule("0 15 0 * * ?"));
             
             q.AddJob<PushSubFlushJob>(opts => opts.WithIdentity("PushSubFlush"));
             q.AddTrigger(opts => opts

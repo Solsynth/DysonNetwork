@@ -96,6 +96,24 @@ public class AppDatabaseRecyclingJob(AppDatabase db, ILogger<AppDatabaseRecyclin
     }
 }
 
+public class NotificationRetentionCleanupJob(AppDatabase db, ILogger<NotificationRetentionCleanupJob> logger) : IJob
+{
+    public async Task Execute(IJobExecutionContext context)
+    {
+        var threshold = SystemClock.Instance.GetCurrentInstant() - Duration.FromDays(30);
+
+        var count = await db.Notifications
+            .Where(n => n.CreatedAt <= threshold)
+            .ExecuteDeleteAsync(context.CancellationToken);
+
+        logger.LogInformation(
+            "Permanently deleted {Count} notifications created on or before {Threshold}.",
+            count,
+            threshold
+        );
+    }
+}
+
 public class AppDatabaseFactory : IDesignTimeDbContextFactory<AppDatabase>
 {
     public AppDatabase CreateDbContext(string[] args)
