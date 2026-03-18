@@ -9,7 +9,7 @@ public static class ProgressionActionLogRegistry
     {
         Shared.Models.ActionLogType.PostCreate,
         Shared.Models.ActionLogType.PostReact,
-        Shared.Models.ActionLogType.MessageCreate,
+        Shared.Models.ActionLogType.ChatUse,
         Shared.Models.ActionLogType.PublisherCreate,
         Shared.Models.ActionLogType.PublisherMemberJoin,
         Shared.Models.ActionLogType.RealmCreate,

@@ -9,6 +9,7 @@ using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Queue;
+using DysonNetwork.Shared.Cache;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -22,9 +23,14 @@ public partial class ChatService(
     ChatVoiceService voice,
     ILogger<ChatService> logger,
     RemoteWebReaderService webReader,
-    IEventBus eventBus
+    IEventBus eventBus,
+    ICacheService cache,
+    RemoteActionLogService actionLogs
 )
 {
+    private const string ChatUseCooldownCacheKey = "actionlog:chat.use:";
+    private static readonly TimeSpan ChatUseCooldown = TimeSpan.FromSeconds(5);
+
     private static string NormalizeEncryptionMessageType(string? messageType, string fallbackType)
     {
         if (string.IsNullOrWhiteSpace(messageType)) return fallbackType;
@@ -50,6 +56,23 @@ public partial class ChatService(
 
     [GeneratedRegex(@"(?<!\w)@(?:u/)?everyone\b", RegexOptions.IgnoreCase)]
     private static partial Regex GetEveryoneMentionRegex();
+
+    private async Task EmitChatUseActionLogAsync(SnChatMessage message, SnChatMember sender, SnChatRoom room)
+    {
+        if (sender.AccountId == Guid.Empty || message.Type.StartsWith("system."))
+            return;
+
+        var cacheKey = $"{ChatUseCooldownCacheKey}{sender.AccountId}";
+        var alreadyEmitted = await cache.GetAsync<bool?>(cacheKey);
+        if (alreadyEmitted == true) return;
+
+        await cache.SetAsync(cacheKey, true, ChatUseCooldown);
+        actionLogs.CreateActionLog(sender.AccountId, ActionLogType.ChatUse, new Dictionary<string, object>
+        {
+            ["room_id"] = room.Id,
+            ["message_type"] = message.Type
+        });
+    }
 
     /// <summary>
     /// Process link previews for a message in the background
@@ -241,6 +264,8 @@ public partial class ChatService(
                 Delta = 2
             });
         }
+
+        await EmitChatUseActionLogAsync(message, sender, room);
 
 
         // Copy the value to ensure the delivery is correct
