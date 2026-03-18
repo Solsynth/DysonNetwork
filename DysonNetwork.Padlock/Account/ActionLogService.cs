@@ -1,10 +1,12 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.EventBus;
+using DysonNetwork.Shared.Queue;
 
 namespace DysonNetwork.Padlock.Account;
 
-public class ActionLogService(AppDatabase db)
+public class ActionLogService(AppDatabase db, IEventBus eventBus)
 {
-    public async Task CreateActionLogAsync(
+    public async Task<SnActionLog> CreateActionLogAsync(
         Guid accountId,
         string action,
         Dictionary<string, object> meta,
@@ -24,5 +26,23 @@ public class ActionLogService(AppDatabase db)
 
         db.ActionLogs.Add(log);
         await db.SaveChangesAsync();
+
+        if (ProgressionActionLogRegistry.ShouldPublish(action))
+        {
+            await eventBus.PublishAsync(
+                ActionLogTriggeredEvent.GetSubject(action),
+                new ActionLogTriggeredEvent
+                {
+                    ActionLogId = log.Id,
+                    AccountId = accountId,
+                    Action = action,
+                    Meta = meta,
+                    SessionId = sessionId,
+                    OccurredAt = log.CreatedAt
+                }
+            );
+        }
+
+        return log;
     }
 }

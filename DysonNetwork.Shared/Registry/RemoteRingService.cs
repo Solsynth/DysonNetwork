@@ -1,8 +1,12 @@
 using DysonNetwork.Shared.Proto;
+using Google.Protobuf;
 
 namespace DysonNetwork.Shared.Registry;
 
-public class RemoteRingService(DyRingService.DyRingServiceClient ring)
+public class RemoteRingService(
+    DyRingService.DyRingServiceClient ring,
+    RemoteWebSocketService? webSocket = null
+)
 {
     public async Task SendEmail(string toName, string toAddress, string subject, string body)
     {
@@ -92,5 +96,13 @@ public class RemoteRingService(DyRingService.DyRingServiceClient ring)
             DeviceId = deviceId
         };
         await ring.UnsubscribePushNotificationsAsync(request);
+    }
+
+    public async Task SendWebSocketPacketToUser(string userId, string type, byte[] data, string? errorMessage = null)
+    {
+        if (webSocket is null)
+            throw new InvalidOperationException("WebSocket delivery is not configured for RemoteRingService.");
+
+        await webSocket.PushWebSocketPacket(userId, type, data, errorMessage);
     }
 }

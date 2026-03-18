@@ -11,6 +11,7 @@ using DysonNetwork.Passport.Credit;
 using DysonNetwork.Passport.Handlers;
 using DysonNetwork.Passport.Leveling;
 using DysonNetwork.Passport.Mailer;
+using DysonNetwork.Passport.Progression;
 using DysonNetwork.Passport.Realm;
 using DysonNetwork.Passport.Rewind;
 using DysonNetwork.Passport.Ticket;
@@ -129,6 +130,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<RealmQuotaService>();
         services.AddScoped<RealmExperienceService>();
         services.AddScoped<AffiliationSpellService>();
+        services.AddScoped<ProgressionSeedService>();
+        services.AddScoped<ProgressionService>();
 
         services.AddScoped<SpotifyPresenceService>();
         services.AddScoped<SteamPresenceService>();
@@ -284,6 +287,20 @@ public static class ServiceCollectionExtensions
                     opts.UseJetStream = true;
                     opts.StreamName = "realm_activity_events";
                     opts.ConsumerName = "passport_realm_activity_xp";
+                    opts.MaxRetries = 3;
+                })
+            .AddListener<ActionLogTriggeredEvent>(
+                ActionLogTriggeredEvent.SubjectPrefix + ">",
+                async (evt, ctx) =>
+                {
+                    var progression = ctx.ServiceProvider.GetRequiredService<ProgressionService>();
+                    await progression.HandleActionLogAsync(evt, ctx.CancellationToken);
+                },
+                opts =>
+                {
+                    opts.UseJetStream = true;
+                    opts.StreamName = "action_log_events";
+                    opts.ConsumerName = "passport_progression_action_logs";
                     opts.MaxRetries = 3;
                 });
 

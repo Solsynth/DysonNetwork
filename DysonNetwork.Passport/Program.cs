@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
+using DysonNetwork.Passport.Progression;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +41,8 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
     await db.Database.MigrateAsync();
+    var progressionSeed = scope.ServiceProvider.GetRequiredService<ProgressionSeedService>();
+    await progressionSeed.EnsureSeededAsync();
 }
 
 // Configure application middleware pipeline

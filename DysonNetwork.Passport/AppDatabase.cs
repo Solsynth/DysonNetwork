@@ -35,6 +35,12 @@ public class AppDatabase(
 
     public DbSet<SnSocialCreditRecord> SocialCreditRecords { get; set; } = null!;
     public DbSet<SnExperienceRecord> ExperienceRecords { get; set; } = null!;
+    public DbSet<SnAchievementDefinition> AchievementDefinitions { get; set; } = null!;
+    public DbSet<SnQuestDefinition> QuestDefinitions { get; set; } = null!;
+    public DbSet<SnAccountAchievement> AccountAchievements { get; set; } = null!;
+    public DbSet<SnAccountQuestProgress> AccountQuestProgresses { get; set; } = null!;
+    public DbSet<SnProgressRewardGrant> ProgressRewardGrants { get; set; } = null!;
+    public DbSet<SnProgressEventReceipt> ProgressEventReceipts { get; set; } = null!;
 
     public DbSet<SnAffiliationSpell> AffiliationSpells { get; set; } = null!;
     public DbSet<SnAffiliationResult> AffiliationResults { get; set; } = null!;
