@@ -120,6 +120,15 @@ public class AppDatabase(
             .HasForeignKey(a => a.AccountId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        modelBuilder.Entity<SnAuthClient>()
+            .HasIndex(c => new { c.AccountId, c.DeviceId })
+            .IsUnique();
+        modelBuilder.Entity<SnAuthClient>()
+            .HasOne(c => c.Account)
+            .WithMany()
+            .HasForeignKey(c => c.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<SnE2eeDevice>()
             .HasIndex(d => new { d.AccountId, d.DeviceId })
             .IsUnique();

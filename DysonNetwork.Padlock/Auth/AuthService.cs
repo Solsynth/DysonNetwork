@@ -9,6 +9,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using Npgsql;
 
 namespace DysonNetwork.Padlock.Auth;
 
@@ -184,7 +185,15 @@ public class AuthService(
         };
         if (deviceName is not null) device.DeviceName = deviceName;
         db.AuthClients.Add(device);
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            db.Entry(device).State = EntityState.Detached;
+            device = await db.AuthClients.FirstAsync(d => d.DeviceId == deviceId && d.AccountId == accountId);
+        }
 
         return device;
     }
