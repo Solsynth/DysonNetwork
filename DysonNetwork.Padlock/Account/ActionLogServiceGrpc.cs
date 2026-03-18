@@ -35,6 +35,7 @@ public class ActionLogServiceGrpc(
                 meta,
                 string.IsNullOrWhiteSpace(request.UserAgent) ? null : request.UserAgent,
                 string.IsNullOrWhiteSpace(request.IpAddress) ? null : request.IpAddress,
+                string.IsNullOrWhiteSpace(request.Location) ? null : request.Location,
                 sessionId
             );
             return new DyCreateActionLogResponse();

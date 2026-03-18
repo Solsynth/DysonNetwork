@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -10,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
+using System.Text.Json;
 
 namespace DysonNetwork.Passport.Account;
 
@@ -432,6 +434,18 @@ public class AccountCurrentController(
             if (!string.IsNullOrWhiteSpace(log.SessionId) && Guid.TryParse(log.SessionId, out var parsedSessionId))
                 sessionId = parsedSessionId;
 
+            GeoPoint? location = null;
+            if (!string.IsNullOrWhiteSpace(log.Location))
+            {
+                try
+                {
+                    location = JsonSerializer.Deserialize<GeoPoint>(log.Location);
+                }
+                catch (JsonException)
+                {
+                }
+            }
+
             return new SnActionLog
             {
                 Id = Guid.TryParse(log.Id, out var parsedId) ? parsedId : Guid.NewGuid(),
@@ -440,6 +454,7 @@ public class AccountCurrentController(
                 Meta = meta,
                 UserAgent = string.IsNullOrWhiteSpace(log.UserAgent) ? null : log.UserAgent,
                 IpAddress = string.IsNullOrWhiteSpace(log.IpAddress) ? null : log.IpAddress,
+                Location = location,
                 SessionId = sessionId,
                 CreatedAt = log.CreatedAt.ToInstant(),
                 UpdatedAt = log.CreatedAt.ToInstant()

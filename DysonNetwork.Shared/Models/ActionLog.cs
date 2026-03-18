@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Proto;
 using NodaTime.Serialization.Protobuf;
+using System.Text.Json;
 
 namespace DysonNetwork.Shared.Models;
 
@@ -28,7 +29,7 @@ public class SnActionLog : ModelBase
             Action = Action,
             UserAgent = UserAgent ?? string.Empty,
             IpAddress = IpAddress ?? string.Empty,
-            Location = Location?.ToString() ?? string.Empty,
+            Location = Location is null ? string.Empty : JsonSerializer.Serialize(Location),
             AccountId = AccountId.ToString(),
             CreatedAt = CreatedAt.ToTimestamp()
         };
