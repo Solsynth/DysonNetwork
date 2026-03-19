@@ -47,8 +47,26 @@ public class SnProgressRewardDefinition
     public SnProgressBadgeRewardDefinition? Badge { get; set; }
 }
 
+public interface IProgressionDefinition
+{
+    string Identifier { get; set; }
+    string Title { get; set; }
+    string Summary { get; set; }
+    string? Icon { get; set; }
+    int SortOrder { get; set; }
+    bool Hidden { get; set; }
+    bool IsEnabled { get; set; }
+    bool IsSeedManaged { get; set; }
+    bool IsProgressEnabled { get; set; }
+    Instant? AvailableFrom { get; set; }
+    Instant? AvailableUntil { get; set; }
+    int TargetCount { get; set; }
+    SnProgressTriggerDefinition Trigger { get; set; }
+    SnProgressRewardDefinition Reward { get; set; }
+}
+
 [Index(nameof(Identifier), IsUnique = true)]
-public class SnAchievementDefinition : ModelBase
+public class SnAchievementDefinition : ModelBase, IProgressionDefinition
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(256)] public string Identifier { get; set; } = null!;
@@ -59,13 +77,16 @@ public class SnAchievementDefinition : ModelBase
     public bool Hidden { get; set; }
     public bool IsEnabled { get; set; } = true;
     public bool IsSeedManaged { get; set; } = true;
+    public bool IsProgressEnabled { get; set; } = true;
+    public Instant? AvailableFrom { get; set; }
+    public Instant? AvailableUntil { get; set; }
     public int TargetCount { get; set; } = 1;
     [Column(TypeName = "jsonb")] public SnProgressTriggerDefinition Trigger { get; set; } = new();
     [Column(TypeName = "jsonb")] public SnProgressRewardDefinition Reward { get; set; } = new();
 }
 
 [Index(nameof(Identifier), IsUnique = true)]
-public class SnQuestDefinition : ModelBase
+public class SnQuestDefinition : ModelBase, IProgressionDefinition
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     [MaxLength(256)] public string Identifier { get; set; } = null!;
@@ -76,6 +97,9 @@ public class SnQuestDefinition : ModelBase
     public bool Hidden { get; set; }
     public bool IsEnabled { get; set; } = true;
     public bool IsSeedManaged { get; set; } = true;
+    public bool IsProgressEnabled { get; set; } = true;
+    public Instant? AvailableFrom { get; set; }
+    public Instant? AvailableUntil { get; set; }
     public int TargetCount { get; set; } = 1;
     [Column(TypeName = "jsonb")] public SnProgressTriggerDefinition Trigger { get; set; } = new();
     [Column(TypeName = "jsonb")] public SnQuestScheduleConfig Schedule { get; set; } = new();
@@ -161,6 +185,9 @@ public class AchievementSeedDefinition
     public bool Hidden { get; set; }
     public bool IsEnabled { get; set; } = true;
     public bool IsSeedManaged { get; set; } = true;
+    public bool IsProgressEnabled { get; set; } = true;
+    public Instant? AvailableFrom { get; set; }
+    public Instant? AvailableUntil { get; set; }
     public int TargetCount { get; set; } = 1;
     public SnProgressTriggerDefinition Trigger { get; set; } = new();
     public SnProgressRewardDefinition Reward { get; set; } = new();
@@ -176,6 +203,9 @@ public class QuestSeedDefinition
     public bool Hidden { get; set; }
     public bool IsEnabled { get; set; } = true;
     public bool IsSeedManaged { get; set; } = true;
+    public bool IsProgressEnabled { get; set; } = true;
+    public Instant? AvailableFrom { get; set; }
+    public Instant? AvailableUntil { get; set; }
     public int TargetCount { get; set; } = 1;
     public SnProgressTriggerDefinition Trigger { get; set; } = new();
     public SnQuestScheduleConfig Schedule { get; set; } = new();

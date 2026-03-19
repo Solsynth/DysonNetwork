@@ -128,6 +128,9 @@ public class ProgressionAdminController(
         entity.Hidden = request.Hidden;
         entity.IsEnabled = request.IsEnabled;
         entity.IsSeedManaged = request.IsSeedManaged;
+        entity.IsProgressEnabled = request.IsProgressEnabled;
+        entity.AvailableFrom = request.AvailableFrom;
+        entity.AvailableUntil = request.AvailableUntil;
         entity.TargetCount = request.TargetCount;
         entity.Trigger = request.Trigger;
         entity.Reward = request.Reward;
@@ -143,6 +146,9 @@ public class ProgressionAdminController(
         entity.Hidden = request.Hidden;
         entity.IsEnabled = request.IsEnabled;
         entity.IsSeedManaged = request.IsSeedManaged;
+        entity.IsProgressEnabled = request.IsProgressEnabled;
+        entity.AvailableFrom = request.AvailableFrom;
+        entity.AvailableUntil = request.AvailableUntil;
         entity.TargetCount = request.TargetCount;
         entity.Trigger = request.Trigger;
         entity.Reward = request.Reward;

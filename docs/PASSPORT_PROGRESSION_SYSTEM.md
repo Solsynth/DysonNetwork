@@ -96,6 +96,8 @@ Achievement definitions include:
 - title, summary, icon, sort order
 - hidden flag
 - enabled flag
+- progress-enabled flag
+- optional `AvailableFrom` and `AvailableUntil` event window
 - seed-managed flag
 - target count
 - trigger definition
@@ -105,6 +107,14 @@ Quest definitions include the same core fields plus:
 
 - schedule config
 - repeatability mode: `daily`, `weekly`, `monthly`, or `none`
+
+### Definition lifecycle
+
+- `IsEnabled`: visible in the catalog
+- `IsProgressEnabled`: can still gain progress from events
+- `AvailableFrom` / `AvailableUntil`: optional live event window
+
+This allows a special-event achievement or quest to stay visible after the event ends while no longer being earnable.
 
 ### User progress
 
@@ -200,6 +210,7 @@ Current seeding behavior:
 - missing definitions are inserted from code defaults
 - existing definitions are updated only when `IsSeedManaged` is `true`
 - DB remains the runtime source of truth
+- built-in defaults now include limited-time and retired event examples
 
 This is intentionally similar to Wallet’s subscription catalog seeding model.
 

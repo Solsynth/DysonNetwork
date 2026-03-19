@@ -87,6 +87,9 @@ public class ProgressionSeedService(
             Hidden = definition.Hidden,
             IsEnabled = definition.IsEnabled,
             IsSeedManaged = definition.IsSeedManaged,
+            IsProgressEnabled = definition.IsProgressEnabled,
+            AvailableFrom = definition.AvailableFrom,
+            AvailableUntil = definition.AvailableUntil,
             TargetCount = definition.TargetCount,
             Trigger = definition.Trigger,
             Reward = definition.Reward
@@ -105,6 +108,9 @@ public class ProgressionSeedService(
             Hidden = definition.Hidden,
             IsEnabled = definition.IsEnabled,
             IsSeedManaged = definition.IsSeedManaged,
+            IsProgressEnabled = definition.IsProgressEnabled,
+            AvailableFrom = definition.AvailableFrom,
+            AvailableUntil = definition.AvailableUntil,
             TargetCount = definition.TargetCount,
             Trigger = definition.Trigger,
             Schedule = definition.Schedule,
@@ -120,6 +126,9 @@ public class ProgressionSeedService(
         existing.SortOrder = definition.SortOrder;
         existing.Hidden = definition.Hidden;
         existing.IsEnabled = definition.IsEnabled;
+        existing.IsProgressEnabled = definition.IsProgressEnabled;
+        existing.AvailableFrom = definition.AvailableFrom;
+        existing.AvailableUntil = definition.AvailableUntil;
         existing.TargetCount = definition.TargetCount;
         existing.Trigger = definition.Trigger;
         existing.Reward = definition.Reward;
@@ -133,6 +142,9 @@ public class ProgressionSeedService(
         existing.SortOrder = definition.SortOrder;
         existing.Hidden = definition.Hidden;
         existing.IsEnabled = definition.IsEnabled;
+        existing.IsProgressEnabled = definition.IsProgressEnabled;
+        existing.AvailableFrom = definition.AvailableFrom;
+        existing.AvailableUntil = definition.AvailableUntil;
         existing.TargetCount = definition.TargetCount;
         existing.Trigger = definition.Trigger;
         existing.Schedule = definition.Schedule;

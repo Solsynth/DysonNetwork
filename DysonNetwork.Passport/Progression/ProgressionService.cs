@@ -27,11 +27,11 @@ public class ProgressionService(
     public async Task HandleActionLogAsync(ActionLogTriggeredEvent evt, CancellationToken cancellationToken = default)
     {
         var achievements = await db.AchievementDefinitions
-            .Where(m => m.IsEnabled)
+            .Where(m => m.IsEnabled && m.IsProgressEnabled)
             .OrderBy(m => m.SortOrder)
             .ToListAsync(cancellationToken);
 
-        foreach (var definition in achievements.Where(m => Matches(evt, m.Trigger)))
+        foreach (var definition in achievements.Where(m => IsAvailableAt(m, evt.OccurredAt) && Matches(evt, m.Trigger)))
         {
             var grant = await ProcessAchievementAsync(evt, definition, cancellationToken);
             if (grant is not null)
@@ -40,11 +40,11 @@ public class ProgressionService(
 
         var zone = await ResolveAccountZoneAsync(evt.AccountId, cancellationToken);
         var quests = await db.QuestDefinitions
-            .Where(m => m.IsEnabled)
+            .Where(m => m.IsEnabled && m.IsProgressEnabled)
             .OrderBy(m => m.SortOrder)
             .ToListAsync(cancellationToken);
 
-        foreach (var definition in quests.Where(m => Matches(evt, m.Trigger)))
+        foreach (var definition in quests.Where(m => IsAvailableAt(m, evt.OccurredAt) && Matches(evt, m.Trigger)))
         {
             var grant = await ProcessQuestAsync(evt, definition, zone, cancellationToken);
             if (grant is not null)
@@ -54,7 +54,9 @@ public class ProgressionService(
 
     public async Task<List<ProgressionAchievementState>> ListAchievementStatesAsync(Guid accountId, CancellationToken cancellationToken = default)
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
         var definitions = await db.AchievementDefinitions
+            .Where(m => m.IsEnabled)
             .OrderBy(m => m.SortOrder)
             .ThenBy(m => m.Title)
             .ToListAsync(cancellationToken);
@@ -74,6 +76,10 @@ public class ProgressionService(
                 SortOrder = definition.SortOrder,
                 Hidden = definition.Hidden,
                 IsEnabled = definition.IsEnabled,
+                IsProgressEnabled = definition.IsProgressEnabled,
+                IsCurrentlyAvailable = definition.IsProgressEnabled && IsAvailableAt(definition, now),
+                AvailableFrom = definition.AvailableFrom,
+                AvailableUntil = definition.AvailableUntil,
                 TargetCount = definition.TargetCount,
                 ProgressCount = progress?.ProgressCount ?? 0,
                 IsCompleted = progress?.CompletedAt is not null,
@@ -85,6 +91,7 @@ public class ProgressionService(
 
     public async Task<List<ProgressionQuestState>> ListQuestStatesAsync(Guid accountId, CancellationToken cancellationToken = default)
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
         var definitions = await db.QuestDefinitions
             .Where(m => m.IsEnabled)
             .OrderBy(m => m.SortOrder)
@@ -111,6 +118,10 @@ public class ProgressionService(
                 SortOrder = definition.SortOrder,
                 Hidden = definition.Hidden,
                 IsEnabled = definition.IsEnabled,
+                IsProgressEnabled = definition.IsProgressEnabled,
+                IsCurrentlyAvailable = definition.IsProgressEnabled && IsAvailableAt(definition, now),
+                AvailableFrom = definition.AvailableFrom,
+                AvailableUntil = definition.AvailableUntil,
                 TargetCount = definition.TargetCount,
                 ProgressCount = progress?.ProgressCount ?? 0,
                 IsCompleted = progress?.CompletedAt is not null,
@@ -380,6 +391,17 @@ public class ProgressionService(
             if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
                 return false;
         }
+
+        return true;
+    }
+
+    private static bool IsAvailableAt(IProgressionDefinition definition, Instant instant)
+    {
+        if (definition.AvailableFrom.HasValue && instant < definition.AvailableFrom.Value)
+            return false;
+
+        if (definition.AvailableUntil.HasValue && instant > definition.AvailableUntil.Value)
+            return false;
 
         return true;
     }

@@ -13,6 +13,9 @@ public class ProgressionDefinitionUpsertRequest
     public bool Hidden { get; set; }
     public bool IsEnabled { get; set; } = true;
     public bool IsSeedManaged { get; set; }
+    public bool IsProgressEnabled { get; set; } = true;
+    public Instant? AvailableFrom { get; set; }
+    public Instant? AvailableUntil { get; set; }
     public int TargetCount { get; set; } = 1;
     public SnProgressTriggerDefinition Trigger { get; set; } = new();
     public SnProgressRewardDefinition Reward { get; set; } = new();
@@ -32,6 +35,10 @@ public class ProgressionAchievementState
     public int SortOrder { get; set; }
     public bool Hidden { get; set; }
     public bool IsEnabled { get; set; }
+    public bool IsProgressEnabled { get; set; }
+    public bool IsCurrentlyAvailable { get; set; }
+    public Instant? AvailableFrom { get; set; }
+    public Instant? AvailableUntil { get; set; }
     public int TargetCount { get; set; }
     public int ProgressCount { get; set; }
     public bool IsCompleted { get; set; }
@@ -48,6 +55,10 @@ public class ProgressionQuestState
     public int SortOrder { get; set; }
     public bool Hidden { get; set; }
     public bool IsEnabled { get; set; }
+    public bool IsProgressEnabled { get; set; }
+    public bool IsCurrentlyAvailable { get; set; }
+    public Instant? AvailableFrom { get; set; }
+    public Instant? AvailableUntil { get; set; }
     public int TargetCount { get; set; }
     public int ProgressCount { get; set; }
     public bool IsCompleted { get; set; }

@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using NodaTime;
 
 namespace DysonNetwork.Passport.Progression;
 
@@ -183,6 +184,54 @@ public static class ProgressionCatalogDefaults
                     Caption = "Joined a publisher."
                 }
             }
+        },
+        new()
+        {
+            Identifier = "spring-rally-2026",
+            Title = "Spring Rally 2026",
+            Summary = "Join the 2026 spring event by triggering chat activity three times between March 20, 2026 and April 20, 2026.",
+            Icon = "flowers",
+            SortOrder = 90,
+            AvailableFrom = Instant.FromUtc(2026, 3, 20, 0, 0),
+            AvailableUntil = Instant.FromUtc(2026, 4, 20, 23, 59),
+            TargetCount = 3,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.ChatUse] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 120,
+                SourcePoints = 12,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.spring-rally-2026",
+                    Label = "Spring Rally 2026",
+                    Caption = "Joined the 2026 spring rally."
+                }
+            }
+        },
+        new()
+        {
+            Identifier = "new-year-flashback-2026",
+            Title = "New Year Flashback 2026",
+            Summary = "A retired 2026 new year event achievement kept for historical rewards.",
+            Icon = "party-popper",
+            SortOrder = 100,
+            IsProgressEnabled = false,
+            AvailableFrom = Instant.FromUtc(2026, 1, 1, 0, 0),
+            AvailableUntil = Instant.FromUtc(2026, 1, 10, 23, 59),
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostCreate] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 75,
+                SourcePoints = 6,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.new-year-flashback-2026",
+                    Label = "New Year Flashback 2026",
+                    Caption = "Completed the 2026 new year event."
+                }
+            }
         }
     ];
 
@@ -257,6 +306,34 @@ public static class ProgressionCatalogDefaults
             Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.ChatUse] },
             Schedule = new SnQuestScheduleConfig { Repeatability = QuestRepeatability.Daily },
             Reward = new SnProgressRewardDefinition { Experience = 30, SourcePoints = 3, SourcePointsCurrency = WalletCurrency.SourcePoint }
+        },
+        new()
+        {
+            Identifier = "spring-rally-daily-2026",
+            Title = "Spring Rally Daily 2026",
+            Summary = "Trigger chat activity twice per day during the spring event window.",
+            Icon = "confetti",
+            SortOrder = 70,
+            AvailableFrom = Instant.FromUtc(2026, 3, 20, 0, 0),
+            AvailableUntil = Instant.FromUtc(2026, 4, 20, 23, 59),
+            TargetCount = 2,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.ChatUse] },
+            Schedule = new SnQuestScheduleConfig { Repeatability = QuestRepeatability.Daily },
+            Reward = new SnProgressRewardDefinition { Experience = 45, SourcePoints = 5, SourcePointsCurrency = WalletCurrency.SourcePoint }
+        },
+        new()
+        {
+            Identifier = "anniversary-archive-2026",
+            Title = "Anniversary Archive 2026",
+            Summary = "A retired anniversary quest kept visible for historical reward records.",
+            Icon = "calendar-heart",
+            SortOrder = 80,
+            IsProgressEnabled = false,
+            AvailableFrom = Instant.FromUtc(2026, 2, 1, 0, 0),
+            AvailableUntil = Instant.FromUtc(2026, 2, 7, 23, 59),
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostCreate] },
+            Schedule = new SnQuestScheduleConfig { Repeatability = QuestRepeatability.Daily },
+            Reward = new SnProgressRewardDefinition { Experience = 35, SourcePoints = 4, SourcePointsCurrency = WalletCurrency.SourcePoint }
         },
         new()
         {
