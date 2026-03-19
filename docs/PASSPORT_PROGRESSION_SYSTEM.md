@@ -11,7 +11,7 @@ The system is event-driven:
 - Passport consumes those events
 - Passport updates achievement and quest progress
 - Passport grants rewards automatically
-- Passport sends a websocket completion packet for client VFX
+- Passport adds a silent completion notification to the user inbox
 
 Definitions live in Passport DB. Passport seeds built-in defaults from code at startup for missing or seed-managed records.
 
@@ -169,27 +169,25 @@ Transaction type used:
 
 - `DyTransactionType.System`
 
-### Client VFX packet
+### Completion inbox notification
 
-Completion notifications are sent through:
+Completion notifications are delivered through:
 
 - [DysonNetwork.Shared/Registry/RemoteRingService.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Shared/Registry/RemoteRingService.cs)
 
-The packet type is:
+- `topic`: `progression.completed`
+- `IsSilent = true`
+- `IsSavable = true`
 
-- `progression.completed`
-
-Websocket type constant:
-
-- [DysonNetwork.Shared/Models/WebSocket.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Shared/Models/WebSocket.cs)
-
-Packet payload currently includes:
+Notification metadata currently includes:
 
 - completion kind: achievement or quest
 - definition identifier
 - definition title
 - optional quest period key
 - reward payload
+
+This means progression completions are stored in inbox/history without producing a loud live websocket popup.
 
 ## Config And Seeding
 

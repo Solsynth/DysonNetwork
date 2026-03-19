@@ -364,10 +364,16 @@ public class ProgressionService(
                 Reward = grant.Reward
             };
             var payload = JsonSerializer.SerializeToUtf8Bytes(packet);
-            await ring.SendWebSocketPacketToUser(
+            await ring.SendPushNotificationToUser(
                 grant.AccountId.ToString(),
-                seedService.GetSettings().CompletionPacketType,
-                payload
+                "progression.completed",
+                grant.DefinitionTitle,
+                grant.DefinitionType,
+                BuildNotificationBody(grant),
+                payload,
+                actionUri: "/account/progression",
+                isSilent: true,
+                isSavable: true
             );
             grant.NotificationSentAt = now;
         }
@@ -414,6 +420,25 @@ public class ProgressionService(
             JsonElement element => element.ToString(),
             _ => raw.ToString() ?? string.Empty
         };
+    }
+
+    private static string BuildNotificationBody(SnProgressRewardGrant grant)
+    {
+        var parts = new List<string>();
+
+        if (grant.Reward.Badge is not null)
+            parts.Add($"Badge: {grant.Reward.Badge.Label ?? grant.Reward.Badge.Type}");
+
+        if (grant.Reward.Experience > 0)
+            parts.Add($"+{grant.Reward.Experience} XP");
+
+        if (grant.Reward.SourcePoints > 0)
+            parts.Add($"+{grant.Reward.SourcePoints} {grant.Reward.SourcePointsCurrency}");
+
+        if (parts.Count == 0)
+            return $"Completed {grant.DefinitionType}.";
+
+        return $"Completed {grant.DefinitionType}. Rewards: {string.Join(", ", parts)}";
     }
 
     private async Task<DateTimeZone> ResolveAccountZoneAsync(Guid accountId, CancellationToken cancellationToken)
