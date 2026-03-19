@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Padlock.Account;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Extensions;
+using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
