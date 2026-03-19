@@ -10,7 +10,9 @@ using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Extensions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
 using NodaTime;
 
 namespace DysonNetwork.Messager.Chat;
@@ -25,11 +27,12 @@ public partial class ChatService(
     RemoteWebReaderService webReader,
     IEventBus eventBus,
     ICacheService cache,
-    RemoteActionLogService actionLogs
+    RemoteActionLogService actionLogs,
+    IHttpContextAccessor httpContextAccessor
 )
 {
     private const string ChatUseCooldownCacheKey = "actionlog:chat.use:";
-    private static readonly TimeSpan ChatUseCooldown = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan ChatUseCooldown = TimeSpan.FromMinutes(1);
 
     private static string NormalizeEncryptionMessageType(string? messageType, string fallbackType)
     {
@@ -66,12 +69,22 @@ public partial class ChatService(
         var alreadyEmitted = await cache.GetAsync<bool?>(cacheKey);
         if (alreadyEmitted == true) return;
 
+        var request = httpContextAccessor.HttpContext?.Request;
+        var userAgent = request?.Headers.UserAgent.ToString();
+        var ipAddress = request?.GetClientIpAddress();
+
         await cache.SetAsync(cacheKey, true, ChatUseCooldown);
-        actionLogs.CreateActionLog(sender.AccountId, ActionLogType.ChatUse, new Dictionary<string, object>
-        {
-            ["room_id"] = room.Id,
-            ["message_type"] = message.Type
-        });
+        actionLogs.CreateActionLog(
+            sender.AccountId,
+            ActionLogType.ChatUse,
+            new Dictionary<string, object>
+            {
+                ["room_id"] = room.Id,
+                ["message_type"] = message.Type
+            },
+            userAgent: string.IsNullOrWhiteSpace(userAgent) ? null : userAgent,
+            ipAddress: string.IsNullOrWhiteSpace(ipAddress) ? null : ipAddress
+        );
     }
 
     /// <summary>

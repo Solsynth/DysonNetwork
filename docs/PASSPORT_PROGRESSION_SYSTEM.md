@@ -13,7 +13,7 @@ The system is event-driven:
 - Passport grants rewards automatically
 - Passport sends a websocket completion packet for client VFX
 
-Definitions live in Passport DB. `appsettings.json` is used only as startup seed data for missing or seed-managed records.
+Definitions live in Passport DB. Passport seeds built-in defaults from code at startup for missing or seed-managed records.
 
 ## Event Flow
 
@@ -183,9 +183,9 @@ Packet payload currently includes:
 
 ## Config And Seeding
 
-Seed config lives in:
+Built-in catalog defaults live in:
 
-- [DysonNetwork.Passport/appsettings.json](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/appsettings.json)
+- [DysonNetwork.Passport/Progression/ProgressionCatalogDefaults.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Progression/ProgressionCatalogDefaults.cs)
 
 Seed sync service:
 
@@ -197,11 +197,24 @@ Startup wiring:
 
 Current seeding behavior:
 
-- missing definitions are inserted from config
+- missing definitions are inserted from code defaults
 - existing definitions are updated only when `IsSeedManaged` is `true`
 - DB remains the runtime source of truth
 
 This is intentionally similar to Wallet’s subscription catalog seeding model.
+
+## Chat Use Action Log
+
+`chat.use` is emitted by:
+
+- [DysonNetwork.Messager/Chat/ChatService.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Messager/Chat/ChatService.cs)
+
+Current behavior:
+
+- emitted only for non-system user messages
+- throttled to at most once per account per minute
+- includes normal action-log request metadata such as user-agent and IP address
+- includes action meta fields: `room_id` and `message_type`
 
 ## APIs
 
