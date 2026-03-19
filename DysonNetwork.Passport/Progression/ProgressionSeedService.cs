@@ -5,27 +5,18 @@ namespace DysonNetwork.Passport.Progression;
 
 public class ProgressionSeedService(
     AppDatabase db,
-    IConfiguration configuration,
     ILogger<ProgressionSeedService> logger
 )
 {
     private readonly AppDatabase _db = db;
-    private readonly IConfiguration _configuration = configuration;
     private readonly ILogger<ProgressionSeedService> _logger = logger;
 
-    public ProgressionSeedSettings GetSettings()
-    {
-        var options = _configuration.GetSection("Progression").Get<ProgressionSeedOptions>();
-        return options?.Settings ?? new ProgressionSeedSettings();
-    }
+    public ProgressionSeedSettings GetSettings() => ProgressionCatalogDefaults.Settings;
 
     public async Task EnsureSeededAsync(CancellationToken cancellationToken = default)
     {
-        var options = _configuration.GetSection("Progression").Get<ProgressionSeedOptions>();
-        if (options is null) return;
-
-        await SyncAchievementsAsync(options.Achievements, cancellationToken);
-        await SyncQuestsAsync(options.Quests, cancellationToken);
+        await SyncAchievementsAsync(ProgressionCatalogDefaults.Achievements, cancellationToken);
+        await SyncQuestsAsync(ProgressionCatalogDefaults.Quests, cancellationToken);
     }
 
     private async Task SyncAchievementsAsync(List<AchievementSeedDefinition> definitions, CancellationToken cancellationToken)
