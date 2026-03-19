@@ -321,43 +321,82 @@ public class ChatRoomService(
     }
 
     private const string ChatRoomSubscribeKeyPrefix = "chatroom:subscribe:";
+    private const string ChatRoomSubscribersGroupPrefix = "chatroom:subscribers:";
+    private const string ChatRoomMemberSubscribersGroupPrefix = "chatroom:member-subscribers:";
+    private static readonly TimeSpan ChatRoomSubscriptionTtl = TimeSpan.FromHours(1);
 
-    public async Task SubscribeChatRoom(SnChatMember member)
+    private static string GetChatRoomSubscriptionKey(Guid roomId, Guid memberId, string deviceId) =>
+        $"{ChatRoomSubscribeKeyPrefix}{roomId}:{memberId}:{deviceId}";
+
+    private static string GetChatRoomSubscribersGroup(Guid roomId) =>
+        $"{ChatRoomSubscribersGroupPrefix}{roomId}";
+
+    private static string GetChatRoomMemberSubscribersGroup(Guid roomId, Guid memberId) =>
+        $"{ChatRoomMemberSubscribersGroupPrefix}{roomId}:{memberId}";
+
+    private async Task<List<string>> GetActiveSubscriptionKeys(string group)
     {
-        var cacheKey = $"{ChatRoomSubscribeKeyPrefix}{member.ChatRoomId}:{member.Id}";
-        await cache.SetAsync(cacheKey, true, TimeSpan.FromHours(1));
-        await cache.AddToGroupAsync(cacheKey, $"chatroom:subscribers:{member.ChatRoomId}");
+        var keys = (await cache.GetGroupKeysAsync(group)).Distinct().ToList();
+        if (keys.Count == 0) return [];
+
+        var activeKeys = new List<string>(keys.Count);
+        foreach (var key in keys)
+        {
+            var (found, _) = await cache.GetAsyncWithStatus<bool>(key);
+            if (found)
+            {
+                activeKeys.Add(key);
+                continue;
+            }
+
+            await cache.RemoveAsync(key);
+        }
+
+        return activeKeys;
     }
 
-    public async Task UnsubscribeChatRoom(SnChatMember member)
+    public async Task SubscribeChatRoom(SnChatMember member, string deviceId)
     {
-        var cacheKey = $"{ChatRoomSubscribeKeyPrefix}{member.ChatRoomId}:{member.Id}";
+        var cacheKey = GetChatRoomSubscriptionKey(member.ChatRoomId, member.Id, deviceId);
+        await cache.SetWithGroupsAsync(
+            cacheKey,
+            true,
+            [
+                GetChatRoomSubscribersGroup(member.ChatRoomId),
+                GetChatRoomMemberSubscribersGroup(member.ChatRoomId, member.Id)
+            ],
+            ChatRoomSubscriptionTtl
+        );
+    }
+
+    public async Task UnsubscribeChatRoom(SnChatMember member, string deviceId)
+    {
+        var cacheKey = GetChatRoomSubscriptionKey(member.ChatRoomId, member.Id, deviceId);
         await cache.RemoveAsync(cacheKey);
     }
 
     public async Task<bool> IsSubscribedChatRoom(Guid roomId, Guid memberId)
     {
-        var cacheKey = $"{ChatRoomSubscribeKeyPrefix}{roomId}:{memberId}";
-        var result = await cache.GetAsync<bool?>(cacheKey);
-        return result ?? false;
+        var group = GetChatRoomMemberSubscribersGroup(roomId, memberId);
+        var activeKeys = await GetActiveSubscriptionKeys(group);
+        return activeKeys.Count > 0;
     }
 
     public async Task<List<Guid>> GetSubscribedMembers(Guid roomId)
     {
-        var group = $"chatroom:subscribers:{roomId}";
-        var keys = (await cache.GetGroupKeysAsync(group)).ToList();
-
-        var memberIds = new List<Guid>(keys.Count);
+        var group = GetChatRoomSubscribersGroup(roomId);
+        var keys = await GetActiveSubscriptionKeys(group);
+        var memberIds = new HashSet<Guid>();
         foreach (var key in keys)
         {
-            var lastColonIndex = key.LastIndexOf(':');
-            if (lastColonIndex >= 0 && Guid.TryParse(key.AsSpan(lastColonIndex + 1), out var memberId))
+            var parts = key.Split(':');
+            if (parts.Length >= 3 && Guid.TryParse(parts[^2], out var memberId))
             {
                 memberIds.Add(memberId);
             }
         }
 
-        return memberIds;
+        return memberIds.ToList();
     }
 
     public async Task<List<SnAccount>> GetTopActiveMembers(Guid roomId, Instant startDate, Instant endDate)

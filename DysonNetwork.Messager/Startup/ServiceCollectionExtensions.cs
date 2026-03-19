@@ -659,7 +659,7 @@ public static class ServiceCollectionExtensions
                 return;
             }
 
-            await crs.SubscribeChatRoom(sender);
+            await crs.SubscribeChatRoom(sender, evt.DeviceId);
         }
 
         private static async Task HandleMessageUnsubscribe(WebSocketPacketEvent evt, WebSocketPacket packet,
@@ -688,7 +688,7 @@ public static class ServiceCollectionExtensions
                 return;
             }
 
-            await crs.UnsubscribeChatRoom(sender);
+            await crs.UnsubscribeChatRoom(sender, evt.DeviceId);
         }
 
         private static async Task HandleMessageTest(WebSocketPacketEvent evt, WebSocketPacket packet, EventContext ctx)
