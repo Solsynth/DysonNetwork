@@ -7,7 +7,22 @@ public static class ProgressionActionLogRegistry
 {
     public static readonly HashSet<string> TrackedActions = new(StringComparer.OrdinalIgnoreCase)
     {
+        Shared.Models.ActionLogType.AccountProfileUpdate,
+        Shared.Models.ActionLogType.AuthFactorCreate,
+        Shared.Models.ActionLogType.AuthFactorEnable,
+        Shared.Models.ActionLogType.AuthFactorDisable,
+        Shared.Models.ActionLogType.AuthFactorDelete,
+        Shared.Models.ActionLogType.AuthFactorResetPassword,
+        Shared.Models.ActionLogType.SessionRevoke,
+        Shared.Models.ActionLogType.DeviceRevoke,
+        Shared.Models.ActionLogType.DeviceRename,
+        Shared.Models.ActionLogType.AuthorizedAppDeauthorize,
+        Shared.Models.ActionLogType.RelationshipFriendRequest,
+        Shared.Models.ActionLogType.RelationshipFriendAccept,
+        Shared.Models.ActionLogType.RelationshipBlock,
+        Shared.Models.ActionLogType.RelationshipUnblock,
         Shared.Models.ActionLogType.PostCreate,
+        Shared.Models.ActionLogType.PostFeatured,
         Shared.Models.ActionLogType.PostReact,
         Shared.Models.ActionLogType.ChatUse,
         Shared.Models.ActionLogType.PublisherCreate,

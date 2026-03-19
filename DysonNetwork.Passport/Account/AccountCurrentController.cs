@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
@@ -100,33 +101,46 @@ public class AccountCurrentController(
         var userId = currentUser.Id;
 
         var profile = await accounts.GetOrCreateAccountProfileAsync(userId);
+        var changedFields = new List<string>();
 
-        if (request.FirstName is not null) profile.FirstName = request.FirstName;
-        if (request.MiddleName is not null) profile.MiddleName = request.MiddleName;
-        if (request.LastName is not null) profile.LastName = request.LastName;
-        if (request.Bio is not null) profile.Bio = request.Bio;
-        if (request.Gender is not null) profile.Gender = request.Gender;
-        if (request.Pronouns is not null) profile.Pronouns = request.Pronouns;
-        if (request.Birthday is not null) profile.Birthday = request.Birthday;
-        if (request.Location is not null) profile.Location = request.Location;
-        if (request.TimeZone is not null) profile.TimeZone = request.TimeZone;
-        if (request.Links is not null) profile.Links = request.Links;
-        if (request.UsernameColor is not null) profile.UsernameColor = request.UsernameColor;
+        if (request.FirstName is not null) { profile.FirstName = request.FirstName; changedFields.Add("first_name"); }
+        if (request.MiddleName is not null) { profile.MiddleName = request.MiddleName; changedFields.Add("middle_name"); }
+        if (request.LastName is not null) { profile.LastName = request.LastName; changedFields.Add("last_name"); }
+        if (request.Bio is not null) { profile.Bio = request.Bio; changedFields.Add("bio"); }
+        if (request.Gender is not null) { profile.Gender = request.Gender; changedFields.Add("gender"); }
+        if (request.Pronouns is not null) { profile.Pronouns = request.Pronouns; changedFields.Add("pronouns"); }
+        if (request.Birthday is not null) { profile.Birthday = request.Birthday; changedFields.Add("birthday"); }
+        if (request.Location is not null) { profile.Location = request.Location; changedFields.Add("location"); }
+        if (request.TimeZone is not null) { profile.TimeZone = request.TimeZone; changedFields.Add("time_zone"); }
+        if (request.Links is not null) { profile.Links = request.Links; changedFields.Add("links"); }
+        if (request.UsernameColor is not null) { profile.UsernameColor = request.UsernameColor; changedFields.Add("username_color"); }
 
         if (request.PictureId is not null)
         {
             var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
             profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
+            changedFields.Add("picture");
         }
 
         if (request.BackgroundId is not null)
         {
             var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
             profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
+            changedFields.Add("background");
         }
 
         db.Update(profile);
         await db.SaveChangesAsync();
+        if (changedFields.Count > 0)
+        {
+            remoteActionLogs.CreateActionLog(
+                userId,
+                ActionLogType.AccountProfileUpdate,
+                new Dictionary<string, object> { ["fields"] = changedFields },
+                Request.Headers.UserAgent.ToString(),
+                Request.GetClientIpAddress()
+            );
+        }
 
         await accounts.PurgeAccountCache(currentUser);
 

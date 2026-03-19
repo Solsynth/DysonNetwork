@@ -1,8 +1,11 @@
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Localization;
+using DysonNetwork.Shared.Registry;
+using Microsoft.AspNetCore.Http;
 using NodaTime;
 
 namespace DysonNetwork.Passport.Account;
@@ -12,7 +15,9 @@ public class RelationshipService(
     ICacheService cache,
     DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
-    AccountService accounts
+    AccountService accounts,
+    RemoteActionLogService remoteActionLogs,
+    IHttpContextAccessor httpContextAccessor
 )
 {
     private const string UserFriendsCacheKeyPrefix = "accounts:friends:";
@@ -77,7 +82,6 @@ public class RelationshipService(
 
         db.AccountRelationships.Add(relationship);
         await db.SaveChangesAsync();
-
         await PurgeRelationshipCache(sender.Id, target.Id, status);
 
         return relationship;
@@ -85,9 +89,17 @@ public class RelationshipService(
 
     public async Task<SnAccountRelationship> BlockAccount(SnAccount sender, SnAccount target)
     {
-        if (await HasExistingRelationship(sender.Id, target.Id))
-            return await UpdateRelationship(sender.Id, target.Id, RelationshipStatus.Blocked);
-        return await CreateRelationship(sender, target, RelationshipStatus.Blocked);
+        var relationship = await HasExistingRelationship(sender.Id, target.Id)
+            ? await UpdateRelationship(sender.Id, target.Id, RelationshipStatus.Blocked)
+            : await CreateRelationship(sender, target, RelationshipStatus.Blocked);
+
+        CreateActionLog(
+            sender.Id,
+            ActionLogType.RelationshipBlock,
+            target.Id,
+            new Dictionary<string, object> { ["status"] = RelationshipStatus.Blocked.ToString().ToLowerInvariant() }
+        );
+        return relationship;
     }
 
     public async Task<SnAccountRelationship> UnblockAccount(SnAccount sender, SnAccount target)
@@ -97,6 +109,7 @@ public class RelationshipService(
         db.Remove(relationship);
         await db.SaveChangesAsync();
 
+        CreateActionLog(sender.Id, ActionLogType.RelationshipUnblock, target.Id);
         await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Blocked);
 
         return relationship;
@@ -118,6 +131,7 @@ public class RelationshipService(
         db.AccountRelationships.Add(relationship);
         await db.SaveChangesAsync();
 
+        CreateActionLog(sender.Id, ActionLogType.RelationshipFriendRequest, target.Id);
         await pusher.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
         {
             UserId = target.Id.ToString(),
@@ -177,6 +191,12 @@ public class RelationshipService(
 
         await db.SaveChangesAsync();
 
+        CreateActionLog(
+            relationship.RelatedId,
+            ActionLogType.RelationshipFriendAccept,
+            relationship.AccountId,
+            new Dictionary<string, object> { ["status"] = status.ToString().ToLowerInvariant() }
+        );
         await PurgeRelationshipCache(relationship.AccountId, relationship.RelatedId, RelationshipStatus.Friends,
             status);
 
@@ -231,6 +251,26 @@ public class RelationshipService(
     {
         return await GetCachedRelationships(accountId, RelationshipStatus.Blocked, UserBlockedCacheKeyPrefix,
             isRelated);
+    }
+
+    private void CreateActionLog(
+        Guid accountId,
+        string action,
+        Guid relatedAccountId,
+        Dictionary<string, object>? meta = null
+    )
+    {
+        var request = httpContextAccessor.HttpContext?.Request;
+        var payload = meta ?? new Dictionary<string, object>();
+        payload["related_account_id"] = relatedAccountId;
+
+        remoteActionLogs.CreateActionLog(
+            accountId,
+            action,
+            payload,
+            request?.Headers.UserAgent.ToString(),
+            request?.GetClientIpAddress()
+        );
     }
 
     public async Task<bool> HasRelationshipWithStatus(Guid accountId, Guid relatedId,

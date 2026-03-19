@@ -33,7 +33,8 @@ public partial class PostService(
     PublisherService ps,
     RemoteWebReaderService reader,
     DyProfileService.DyProfileServiceClient accounts,
-    ActivityPubObjectFactory objFactory
+    ActivityPubObjectFactory objFactory,
+    RemoteActionLogService actionLogs
 )
 {
     private sealed class ThreadReplyCountResult
@@ -2135,6 +2136,26 @@ public partial class PostService(
             {
                 db.PostFeaturedRecords.AddRange(records);
                 await db.SaveChangesAsync();
+
+                var featuredPosts = await db.Posts
+                    .Where(p => records.Select(r => r.PostId).Contains(p.Id))
+                    .Include(p => p.Publisher)
+                    .ToListAsync();
+
+                foreach (var featuredPost in featuredPosts.Where(p => p.Publisher?.AccountId is not null))
+                {
+                    var record = records.First(r => r.PostId == featuredPost.Id);
+                    actionLogs.CreateActionLog(
+                        featuredPost.Publisher!.AccountId!.Value,
+                        ActionLogType.PostFeatured,
+                        new Dictionary<string, object>
+                        {
+                            ["post_id"] = featuredPost.Id,
+                            ["publisher_id"] = featuredPost.PublisherId ?? Guid.Empty,
+                            ["social_credits"] = record.SocialCredits
+                        }
+                    );
+                }
             }
         }
 

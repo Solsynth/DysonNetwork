@@ -8,6 +8,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
+using DysonNetwork.Padlock.Account;
 using NodaTime;
 using Npgsql;
 
@@ -28,7 +29,8 @@ public class AuthService(
     GeoService geo,
     RemoteSubscriptionService subscriptions,
     AuthJwtService authJwt,
-    ILogger<AuthService> logger
+    ILogger<AuthService> logger,
+    ActionLogService actionLogs
 )
 {
     public sealed record TokenPair(
@@ -761,6 +763,19 @@ public class AuthService(
 
         foreach (var apiKey in apiKeys)
             await RevokeApiKeyToken(apiKey);
+
+        await actionLogs.CreateActionLogAsync(
+            accountId,
+            ActionLogType.AuthorizedAppDeauthorize,
+            new Dictionary<string, object>
+            {
+                ["app_id"] = appId,
+                ["count"] = appAuths.Count,
+                ["type"] = type?.ToString() ?? string.Empty
+            },
+            HttpContext.Request.Headers.UserAgent.ToString(),
+            HttpContext.GetClientIpAddress()
+        );
 
         return appAuths.Count;
     }

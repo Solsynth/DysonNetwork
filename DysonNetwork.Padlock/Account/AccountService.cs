@@ -2,11 +2,13 @@ using DysonNetwork.Padlock.Auth.OpenId;
 using DysonNetwork.Padlock.Mailer;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.EventBus;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using Grpc.Core;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -20,7 +22,9 @@ public class AccountService(
     DyRingService.DyRingServiceClient ring,
     EmailService mailer,
     ILocalizationService localizer,
-    ILogger<AccountService> logger
+    ILogger<AccountService> logger,
+    IHttpContextAccessor httpContextAccessor,
+    ActionLogService actionLogs
 )
 {
     private const string AuthFactorCachePrefix = "authfactor:";
@@ -183,6 +187,11 @@ public class AccountService(
         if (factor == null) return null;
         db.AccountAuthFactors.Add(factor);
         await db.SaveChangesAsync();
+        await CreateAccountActionLogAsync(
+            account.Id,
+            ActionLogType.AuthFactorCreate,
+            new Dictionary<string, object> { ["factor_type"] = factor.Type.ToString() }
+        );
         return factor;
     }
 
@@ -193,6 +202,11 @@ public class AccountService(
             factor.EnabledAt = SystemClock.Instance.GetCurrentInstant();
             db.Update(factor);
             await db.SaveChangesAsync();
+            await CreateAccountActionLogAsync(
+                factor.AccountId,
+                ActionLogType.AuthFactorEnable,
+                new Dictionary<string, object> { ["factor_type"] = factor.Type.ToString() }
+            );
             return factor;
         }
 
@@ -202,6 +216,11 @@ public class AccountService(
         factor.EnabledAt = SystemClock.Instance.GetCurrentInstant();
         db.Update(factor);
         await db.SaveChangesAsync();
+        await CreateAccountActionLogAsync(
+            factor.AccountId,
+            ActionLogType.AuthFactorEnable,
+            new Dictionary<string, object> { ["factor_type"] = factor.Type.ToString() }
+        );
         return factor;
     }
 
@@ -210,13 +229,20 @@ public class AccountService(
         factor.EnabledAt = null;
         db.Update(factor);
         await db.SaveChangesAsync();
+        await CreateAccountActionLogAsync(
+            factor.AccountId,
+            ActionLogType.AuthFactorDisable,
+            new Dictionary<string, object> { ["factor_type"] = factor.Type.ToString() }
+        );
         return factor;
     }
 
     public async Task DeleteAuthFactor(SnAccountAuthFactor factor)
     {
+        var meta = new Dictionary<string, object> { ["factor_type"] = factor.Type.ToString() };
         db.AccountAuthFactors.Remove(factor);
         await db.SaveChangesAsync();
+        await CreateAccountActionLogAsync(factor.AccountId, ActionLogType.AuthFactorDelete, meta);
     }
 
     public async Task<SnAccountAuthFactor> ResetPasswordFactor(Guid accountId, string newPassword)
@@ -249,6 +275,11 @@ public class AccountService(
         }
 
         await db.SaveChangesAsync();
+        await CreateAccountActionLogAsync(
+            accountId,
+            ActionLogType.AuthFactorResetPassword,
+            new Dictionary<string, object> { ["factor_type"] = AccountAuthFactorType.Password.ToString() }
+        );
         return factor;
     }
 
@@ -352,6 +383,11 @@ public class AccountService(
         session.ExpiredAt = SystemClock.Instance.GetCurrentInstant();
         db.Update(session);
         await db.SaveChangesAsync();
+        await CreateAccountActionLogAsync(
+            account.Id,
+            ActionLogType.SessionRevoke,
+            new Dictionary<string, object> { ["session_id"] = sessionId }
+        );
     }
 
     public async Task DeleteDevice(SnAccount account, string deviceId)
@@ -361,6 +397,11 @@ public class AccountService(
         await db.AuthSessions
             .Where(s => s.ClientId == client.Id)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.ExpiredAt, SystemClock.Instance.GetCurrentInstant()));
+        await CreateAccountActionLogAsync(
+            account.Id,
+            ActionLogType.DeviceRevoke,
+            new Dictionary<string, object> { ["device_id"] = deviceId }
+        );
     }
 
     public async Task UpdateDeviceName(SnAccount account, string deviceId, string label)
@@ -370,6 +411,15 @@ public class AccountService(
         client.DeviceName = label;
         db.Update(client);
         await db.SaveChangesAsync();
+        await CreateAccountActionLogAsync(
+            account.Id,
+            ActionLogType.DeviceRename,
+            new Dictionary<string, object>
+            {
+                ["device_id"] = deviceId,
+                ["label"] = label
+            }
+        );
     }
 
     public async Task<SnAccountContact> CreateContactMethod(SnAccount account, AccountContactType type, string content)
@@ -576,7 +626,37 @@ public class AccountService(
 
         db.Update(dbAccount);
         await db.SaveChangesAsync();
+        var changedFields = new List<string>();
+        if (nick is not null) changedFields.Add("nick");
+        if (language is not null) changedFields.Add("language");
+        if (region is not null) changedFields.Add("region");
+        if (changedFields.Count > 0)
+        {
+            await CreateAccountActionLogAsync(
+                account.Id,
+                ActionLogType.AccountProfileUpdate,
+                new Dictionary<string, object> { ["fields"] = changedFields }
+            );
+        }
 
         return dbAccount;
+    }
+
+    private Task CreateAccountActionLogAsync(Guid accountId, string action, Dictionary<string, object> meta)
+    {
+        var request = httpContextAccessor.HttpContext?.Request;
+        Guid? sessionId = null;
+        if (httpContextAccessor.HttpContext?.Items["CurrentSession"] is SnAuthSession currentSession)
+            sessionId = currentSession.Id;
+
+        return actionLogs.CreateActionLogAsync(
+            accountId,
+            action,
+            meta,
+            request?.Headers.UserAgent.ToString(),
+            request?.HttpContext.GetClientIpAddress(),
+            null,
+            sessionId
+        );
     }
 }
