@@ -65,28 +65,32 @@ public class ProgressionService(
             .ToDictionaryAsync(m => m.AchievementDefinitionId, cancellationToken);
 
         return definitions.Select(definition =>
-        {
-            progressMap.TryGetValue(definition.Id, out var progress);
-            return new ProgressionAchievementState
             {
-                Identifier = definition.Identifier,
-                Title = definition.Title,
-                Summary = definition.Summary,
-                Icon = definition.Icon,
-                SortOrder = definition.SortOrder,
-                Hidden = definition.Hidden,
-                IsEnabled = definition.IsEnabled,
-                IsProgressEnabled = definition.IsProgressEnabled,
-                IsCurrentlyAvailable = definition.IsProgressEnabled && IsAvailableAt(definition, now),
-                AvailableFrom = definition.AvailableFrom,
-                AvailableUntil = definition.AvailableUntil,
-                TargetCount = definition.TargetCount,
-                ProgressCount = progress?.ProgressCount ?? 0,
-                IsCompleted = progress?.CompletedAt is not null,
-                CompletedAt = progress?.CompletedAt,
-                Reward = definition.Reward
-            };
-        }).ToList();
+                progressMap.TryGetValue(definition.Id, out var progress);
+                return new ProgressionAchievementState
+                {
+                    Identifier = definition.Identifier,
+                    Title = definition.Title,
+                    Summary = definition.Summary,
+                    Icon = definition.Icon,
+                    SortOrder = definition.SortOrder,
+                    Hidden = definition.Hidden,
+                    IsEnabled = definition.IsEnabled,
+                    IsProgressEnabled = definition.IsProgressEnabled,
+                    IsCurrentlyAvailable = definition.IsProgressEnabled && IsAvailableAt(definition, now),
+                    AvailableFrom = definition.AvailableFrom,
+                    AvailableUntil = definition.AvailableUntil,
+                    TargetCount = definition.TargetCount,
+                    ProgressCount = progress?.ProgressCount ?? 0,
+                    IsCompleted = progress?.CompletedAt is not null,
+                    CompletedAt = progress?.CompletedAt,
+                    Reward = definition.Reward
+                };
+            })
+            .OrderBy(state => state.IsCompleted)
+            .ThenBy(state => state.SortOrder)
+            .ThenBy(state => state.Title)
+            .ToList();
     }
 
     public async Task<List<ProgressionQuestState>> ListQuestStatesAsync(Guid accountId, CancellationToken cancellationToken = default)
@@ -133,7 +137,11 @@ public class ProgressionService(
             });
         }
 
-        return states;
+        return states
+            .OrderBy(state => state.IsCompleted)
+            .ThenBy(state => state.SortOrder)
+            .ThenBy(state => state.Title)
+            .ToList();
     }
 
     public Task<List<SnProgressRewardGrant>> ListRewardGrantsAsync(Guid accountId, int take = 50, CancellationToken cancellationToken = default)
