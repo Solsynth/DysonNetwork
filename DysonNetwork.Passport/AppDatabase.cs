@@ -49,6 +49,8 @@ public class AppDatabase(
 
     public DbSet<SnTicket> Tickets { get; set; } = null!;
     public DbSet<SnTicketMessage> TicketMessages { get; set; } = null!;
+    public DbSet<SnMeet> Meets { get; set; } = null!;
+    public DbSet<SnMeetParticipant> MeetParticipants { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -63,6 +65,7 @@ public class AppDatabase(
                     })
                 )
                 .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
+                .UseNetTopologySuite()
                 .UseNodaTime()
         ).UseSnakeCaseNamingConvention();
 
@@ -120,6 +123,14 @@ public class AppDatabase(
             .HasForeignKey(l => l.RealmId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        modelBuilder.Entity<SnMeetParticipant>()
+            .HasKey(p => new { p.MeetId, p.AccountId });
+        modelBuilder.Entity<SnMeetParticipant>()
+            .HasOne(p => p.Meet)
+            .WithMany(m => m.Participants)
+            .HasForeignKey(p => p.MeetId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Passport no longer owns auth/account rows; keep profile as an account-id keyed read model only.
         modelBuilder.Entity<SnAccountProfile>()
             .Ignore(p => p.Account);
@@ -152,6 +163,12 @@ public class AppDatabaseRecyclingJob(AppDatabase db, ILogger<AppDatabaseRecyclin
             .Where(x => x.ExpiredAt != null && x.ExpiredAt <= now)
             .ExecuteDeleteAsync();
         logger.LogDebug("Removed {Count} records of expired permission group members.", affectedRows);
+        affectedRows = await db.Meets
+            .Where(x => x.Status == MeetStatus.Active && x.ExpiresAt <= now)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(m => m.Status, MeetStatus.Expired)
+                .SetProperty(m => m.UpdatedAt, now));
+        logger.LogDebug("Expired {Count} stale meets.", affectedRows);
 
         logger.LogInformation("Deleting soft-deleted records...");
 

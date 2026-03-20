@@ -11,6 +11,7 @@ using DysonNetwork.Passport.Credit;
 using DysonNetwork.Passport.Handlers;
 using DysonNetwork.Passport.Leveling;
 using DysonNetwork.Passport.Mailer;
+using DysonNetwork.Passport.Meet;
 using DysonNetwork.Passport.Progression;
 using DysonNetwork.Passport.Realm;
 using DysonNetwork.Passport.Rewind;
@@ -154,6 +155,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PassRewindService>();
         services.AddScoped<AccountRewindService>();
         services.AddScoped<TicketService>();
+        services.AddScoped<MeetService>();
+        services.AddSingleton<MeetSubscriptionHub>();
+        services.AddSingleton<MeetExpirationScheduler>();
+        services.AddHostedService<MeetLifecycleHostedService>();
         services.AddEventBus()
             .AddListener<AccountCreatedEvent>(async (evt, ctx) =>
             {
