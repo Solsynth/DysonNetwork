@@ -3,7 +3,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Padlock.Account;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using NodaTime;
@@ -15,7 +17,8 @@ public abstract class OidcService(
     IHttpClientFactory httpClientFactory,
     AppDatabase db,
     AuthService auth,
-    ICacheService cache
+    ICacheService cache,
+    ActionLogService actionLogs
 )
 {
     protected readonly IConfiguration Configuration = configuration;
@@ -243,6 +246,19 @@ public abstract class OidcService(
 
         await Db.AuthSessions.AddAsync(session);
         await Db.SaveChangesAsync();
+        await actionLogs.CreateActionLogAsync(
+            account.Id,
+            ActionLogType.NewLogin,
+            new Dictionary<string, object>
+            {
+                ["session_type"] = SessionType.Oidc.ToString(),
+                ["provider"] = ProviderName
+            },
+            request.Request.Headers.UserAgent.ToString(),
+            request.GetClientIpAddress(),
+            null,
+            session.Id
+        );
 
         return session;
     }

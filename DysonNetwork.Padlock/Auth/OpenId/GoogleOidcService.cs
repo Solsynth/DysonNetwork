@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Padlock.Account;
 
 namespace DysonNetwork.Padlock.Auth.OpenId;
 
@@ -7,9 +8,10 @@ public class GoogleOidcService(
     IHttpClientFactory httpClientFactory,
     AppDatabase db,
     AuthService auth,
-    ICacheService cache
+    ICacheService cache,
+    ActionLogService actionLogs
 )
-    : OidcService(configuration, httpClientFactory, db, auth, cache)
+    : OidcService(configuration, httpClientFactory, db, auth, cache, actionLogs)
 {
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
 

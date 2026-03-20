@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Padlock.Account;
 using Microsoft.IdentityModel.Tokens;
 
 namespace DysonNetwork.Padlock.Auth.OpenId;
@@ -16,9 +17,10 @@ public class AppleOidcService(
     IHttpClientFactory httpClientFactory,
     AppDatabase db,
     AuthService auth,
-    ICacheService cache
+    ICacheService cache,
+    ActionLogService actionLogs
 )
-    : OidcService(configuration, httpClientFactory, db, auth, cache)
+    : OidcService(configuration, httpClientFactory, db, auth, cache, actionLogs)
 {
     private readonly IConfiguration _configuration = configuration;
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;

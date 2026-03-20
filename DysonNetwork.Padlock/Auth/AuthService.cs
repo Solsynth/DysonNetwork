@@ -165,6 +165,19 @@ public class AuthService(
 
         db.AuthSessions.Add(session);
         await db.SaveChangesAsync();
+        await actionLogs.CreateActionLogAsync(
+            account.Id,
+            ActionLogType.NewLogin,
+            new Dictionary<string, object>
+            {
+                ["session_type"] = session.Type.ToString(),
+                ["app_id"] = customAppId?.ToString() ?? string.Empty
+            },
+            HttpContext.Request.Headers.UserAgent.ToString(),
+            HttpContext.GetClientIpAddress(),
+            null,
+            session.Id
+        );
 
         return session;
     }
@@ -416,6 +429,19 @@ public class AuthService(
             await db.SaveChangesAsync();
 
             var pair = await CreateTokenPair(session);
+            await actionLogs.CreateActionLogAsync(
+                challenge.AccountId,
+                ActionLogType.NewLogin,
+                new Dictionary<string, object>
+                {
+                    ["session_type"] = session.Type.ToString(),
+                    ["challenge_id"] = challenge.Id.ToString()
+                },
+                challenge.UserAgent,
+                challenge.IpAddress,
+                challenge.Location is null ? null : JsonSerializer.Serialize(challenge.Location),
+                session.Id
+            );
 
             await tx.CommitAsync();
             return pair;
@@ -481,6 +507,31 @@ public class AuthService(
     public async Task PopulatePerkAsync(SnAccount account)
     {
         await HydratePerkAsync(account);
+    }
+
+    public async Task TrackAuthenticatedActivityAsync(SnAuthSession session, string? ipAddress = null)
+    {
+        var activityCacheKey = $"auth:activity:{session.AccountId}";
+        var (trackedRecently, _) = await cache.GetAsyncWithStatus<bool>(activityCacheKey);
+        if (trackedRecently) return;
+
+        var resolvedIpAddress = string.IsNullOrWhiteSpace(ipAddress) ? session.IpAddress : ipAddress;
+        await actionLogs.CreateActionLogAsync(
+            session.AccountId,
+            ActionLogType.AccountActive,
+            new Dictionary<string, object>
+            {
+                ["session_id"] = session.Id.ToString(),
+                ["session_type"] = session.Type.ToString(),
+                ["app_id"] = session.AppId?.ToString() ?? string.Empty
+            },
+            session.UserAgent,
+            resolvedIpAddress,
+            session.Location is null ? null : JsonSerializer.Serialize(session.Location),
+            session.Id
+        );
+
+        await cache.SetAsync(activityCacheKey, true, TimeSpan.FromHours(1));
     }
 
     private async Task HydratePerkAsync(SnAccount account)

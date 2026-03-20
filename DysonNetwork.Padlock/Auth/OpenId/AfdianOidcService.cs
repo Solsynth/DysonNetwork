@@ -1,5 +1,6 @@
 using System.Text.Json;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Padlock.Account;
 
 namespace DysonNetwork.Padlock.Auth.OpenId;
 
@@ -9,9 +10,10 @@ public class AfdianOidcService(
     AppDatabase db,
     AuthService auth,
     ICacheService cache,
-    ILogger<AfdianOidcService> logger
+    ILogger<AfdianOidcService> logger,
+    ActionLogService actionLogs
 )
-    : OidcService(configuration, httpClientFactory, db, auth, cache)
+    : OidcService(configuration, httpClientFactory, db, auth, cache, actionLogs)
 {
     public override string ProviderName => "Afdian";
     protected override string DiscoveryEndpoint => ""; // Afdian doesn't have a standard OIDC discovery endpoint

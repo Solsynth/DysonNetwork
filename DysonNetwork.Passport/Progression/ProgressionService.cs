@@ -26,6 +26,7 @@ public class ProgressionService(
 {
     public async Task HandleActionLogAsync(ActionLogTriggeredEvent evt, CancellationToken cancellationToken = default)
     {
+        var zone = await ResolveAccountZoneAsync(evt.AccountId, cancellationToken);
         var achievements = await db.AchievementDefinitions
             .Where(m => m.IsEnabled && m.IsProgressEnabled)
             .OrderBy(m => m.SortOrder)
@@ -33,12 +34,11 @@ public class ProgressionService(
 
         foreach (var definition in achievements.Where(m => IsAvailableAt(m, evt.OccurredAt) && Matches(evt, m.Trigger)))
         {
-            var grant = await ProcessAchievementAsync(evt, definition, cancellationToken);
+            var grant = await ProcessAchievementAsync(evt, definition, zone, cancellationToken);
             if (grant is not null)
                 await DeliverGrantAsync(grant, cancellationToken);
         }
 
-        var zone = await ResolveAccountZoneAsync(evt.AccountId, cancellationToken);
         var quests = await db.QuestDefinitions
             .Where(m => m.IsEnabled && m.IsProgressEnabled)
             .OrderBy(m => m.SortOrder)
@@ -82,6 +82,8 @@ public class ProgressionService(
                     AvailableUntil = definition.AvailableUntil,
                     TargetCount = definition.TargetCount,
                     ProgressCount = progress?.ProgressCount ?? 0,
+                    CurrentStreak = progress?.CurrentStreak ?? 0,
+                    BestStreak = progress?.BestStreak ?? 0,
                     IsCompleted = progress?.CompletedAt is not null,
                     CompletedAt = progress?.CompletedAt,
                     Reward = definition.Reward
@@ -156,6 +158,7 @@ public class ProgressionService(
     private async Task<SnProgressRewardGrant?> ProcessAchievementAsync(
         ActionLogTriggeredEvent evt,
         SnAchievementDefinition definition,
+        DateTimeZone zone,
         CancellationToken cancellationToken
     )
     {
@@ -203,7 +206,7 @@ public class ProgressionService(
 
         if (progress.CompletedAt is null)
         {
-            progress.ProgressCount = Math.Min(definition.TargetCount, progress.ProgressCount + 1);
+            ApplyAchievementProgress(progress, definition, evt.OccurredAt, zone);
             if (progress.ProgressCount >= definition.TargetCount)
             {
                 progress.CompletedAt = SystemClock.Instance.GetCurrentInstant();
@@ -407,6 +410,55 @@ public class ProgressionService(
         }
 
         return true;
+    }
+
+    private static void ApplyAchievementProgress(
+        SnAccountAchievement progress,
+        SnAchievementDefinition definition,
+        Instant occurredAt,
+        DateTimeZone zone
+    )
+    {
+        if (string.Equals(definition.Trigger.Mode, ProgressionTriggerMode.Streak, StringComparison.OrdinalIgnoreCase))
+        {
+            ApplyStreakProgress(progress, definition.TargetCount, occurredAt, zone);
+            return;
+        }
+
+        progress.ProgressCount = Math.Min(definition.TargetCount, progress.ProgressCount + 1);
+        progress.LastProgressAt = occurredAt;
+    }
+
+    private static void ApplyStreakProgress(
+        SnAccountAchievement progress,
+        int targetCount,
+        Instant occurredAt,
+        DateTimeZone zone
+    )
+    {
+        var currentDate = occurredAt.InZone(zone).Date;
+        if (progress.LastProgressAt.HasValue)
+        {
+            var lastDate = progress.LastProgressAt.Value.InZone(zone).Date;
+            var daysBetween = Period.Between(lastDate, currentDate, PeriodUnits.Days).Days;
+
+            if (daysBetween <= 0)
+            {
+                progress.ProgressCount = Math.Min(targetCount, progress.CurrentStreak);
+                progress.BestStreak = Math.Max(progress.BestStreak, progress.CurrentStreak);
+                return;
+            }
+
+            progress.CurrentStreak = daysBetween == 1 ? progress.CurrentStreak + 1 : 1;
+        }
+        else
+        {
+            progress.CurrentStreak = 1;
+        }
+
+        progress.BestStreak = Math.Max(progress.BestStreak, progress.CurrentStreak);
+        progress.ProgressCount = Math.Min(targetCount, progress.CurrentStreak);
+        progress.LastProgressAt = occurredAt;
     }
 
     private static bool IsAvailableAt(IProgressionDefinition definition, Instant instant)

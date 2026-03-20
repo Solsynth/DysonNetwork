@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Padlock.Account;
 
 namespace DysonNetwork.Padlock.Auth.OpenId;
 
@@ -7,9 +8,10 @@ public class SteamOidcService(
     IHttpClientFactory httpClientFactory,
     AppDatabase db,
     AuthService auth,
-    ICacheService cache
+    ICacheService cache,
+    ActionLogService actionLogs
 )
-    : OidcService(configuration, httpClientFactory, db, auth, cache)
+    : OidcService(configuration, httpClientFactory, db, auth, cache, actionLogs)
 {
     public override string ProviderName => "steam";
     protected override string DiscoveryEndpoint => ""; // Steam uses OpenID 2.0, not OIDC discovery

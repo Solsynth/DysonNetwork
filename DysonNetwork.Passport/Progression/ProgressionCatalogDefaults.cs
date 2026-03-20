@@ -115,6 +115,182 @@ public static class ProgressionCatalogDefaults
         },
         new()
         {
+            Identifier = "initial-featured-post",
+            Title = "Editor's Pick",
+            Summary = "Get one of your posts featured.",
+            Icon = "sparkles",
+            SortOrder = 105,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostFeatured] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 150,
+                SourcePoints = 15,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.post.featured",
+                    Label = "Editor's Pick",
+                    Caption = "Created a post that got featured."
+                }
+            }
+        },
+        new()
+        {
+            Identifier = "streak-post-3",
+            Title = "Three-day Build",
+            Summary = "Create posts for 3 days in a row.",
+            Icon = "calendar-heart",
+            SortOrder = 106,
+            TargetCount = 3,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.PostCreate],
+                Mode = ProgressionTriggerMode.Streak
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 200,
+                SourcePoints = 20,
+                SourcePointsCurrency = WalletCurrency.SourcePoint
+            }
+        },
+        new()
+        {
+            Identifier = "streak-post-7",
+            Title = "One-week Columnist",
+            Summary = "Create posts for 7 days in a row.",
+            Icon = "calendar-range",
+            SortOrder = 107,
+            TargetCount = 7,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.PostCreate],
+                Mode = ProgressionTriggerMode.Streak
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 500,
+                SourcePoints = 35,
+                SourcePointsCurrency = WalletCurrency.SourcePoint
+            }
+        },
+        new()
+        {
+            Identifier = "streak-post-30",
+            Title = "Serial Publisher",
+            Summary = "Create posts for 30 days in a row.",
+            Icon = "calendar-fold",
+            SortOrder = 108,
+            TargetCount = 30,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.PostCreate],
+                Mode = ProgressionTriggerMode.Streak
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 3000,
+                SourcePoints = 90,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.post.streak.30",
+                    Label = "Serial Publisher",
+                    Caption = "Created posts for 30 days in a row."
+                }
+            }
+        },
+        new()
+        {
+            Identifier = "streak-login-7",
+            Title = "Daily Standup",
+            Summary = "Stay active for 7 days in a row.",
+            Icon = "sunrise",
+            SortOrder = 109,
+            TargetCount = 7,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.AccountActive],
+                Mode = ProgressionTriggerMode.Streak
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 250,
+                SourcePoints = 20,
+                SourcePointsCurrency = WalletCurrency.SourcePoint
+            }
+        },
+        new()
+        {
+            Identifier = "streak-login-30",
+            Title = "Always Online",
+            Summary = "Stay active for 30 days in a row.",
+            Icon = "sun-medium",
+            SortOrder = 110,
+            TargetCount = 30,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.AccountActive],
+                Mode = ProgressionTriggerMode.Streak
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 1200,
+                SourcePoints = 60,
+                SourcePointsCurrency = WalletCurrency.SourcePoint
+            }
+        },
+        new()
+        {
+            Identifier = "streak-login-365",
+            Title = "Still Here",
+            Summary = "Stay active for 365 days in a row.",
+            Icon = "sun",
+            SortOrder = 210,
+            TargetCount = 365,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.AccountActive],
+                Mode = ProgressionTriggerMode.Streak
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 12000,
+                SourcePoints = 365,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.login.streak.365",
+                    Label = "Still Here",
+                    Caption = "Logged in for 365 days in a row."
+                }
+            }
+        },
+        new()
+        {
+            Identifier = "expert-featured-post",
+            Title = "Hall of Fame",
+            Summary = "Get 100 of your posts featured.",
+            Icon = "sparkles",
+            SortOrder = 205,
+            TargetCount = 100,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostFeatured] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 5000,
+                SourcePoints = 100,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.post.featured.expert",
+                    Label = "Hall of Fame",
+                    Caption = "Created 100 featured posts."
+                }
+            }
+        },
+        new()
+        {
             Identifier = "expert-chat",
             Title = "Never touch grass",
             Summary = "Use chat over 10k times.",

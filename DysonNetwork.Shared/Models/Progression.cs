@@ -23,6 +23,13 @@ public class SnProgressTriggerDefinition
 {
     public List<string> Actions { get; set; } = [];
     public Dictionary<string, string> MetaEquals { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    [MaxLength(32)] public string Mode { get; set; } = ProgressionTriggerMode.Count;
+}
+
+public abstract class ProgressionTriggerMode
+{
+    public const string Count = "count";
+    public const string Streak = "streak";
 }
 
 public class SnQuestScheduleConfig
@@ -113,6 +120,9 @@ public class SnAccountAchievement : ModelBase
     public Guid AccountId { get; set; }
     public Guid AchievementDefinitionId { get; set; }
     public int ProgressCount { get; set; }
+    public int CurrentStreak { get; set; }
+    public int BestStreak { get; set; }
+    public Instant? LastProgressAt { get; set; }
     public Instant? CompletedAt { get; set; }
     public Instant? ClaimedAt { get; set; }
     [MaxLength(256)] public string? LastRewardToken { get; set; }

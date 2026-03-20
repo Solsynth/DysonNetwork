@@ -13,6 +13,8 @@ public static class ProgressionActionLogRegistry
         Shared.Models.ActionLogType.AuthFactorDisable,
         Shared.Models.ActionLogType.AuthFactorDelete,
         Shared.Models.ActionLogType.AuthFactorResetPassword,
+        Shared.Models.ActionLogType.NewLogin,
+        Shared.Models.ActionLogType.AccountActive,
         Shared.Models.ActionLogType.SessionRevoke,
         Shared.Models.ActionLogType.DeviceRevoke,
         Shared.Models.ActionLogType.DeviceRename,

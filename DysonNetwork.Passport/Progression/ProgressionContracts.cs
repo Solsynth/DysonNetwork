@@ -41,6 +41,8 @@ public class ProgressionAchievementState
     public Instant? AvailableUntil { get; set; }
     public int TargetCount { get; set; }
     public int ProgressCount { get; set; }
+    public int CurrentStreak { get; set; }
+    public int BestStreak { get; set; }
     public bool IsCompleted { get; set; }
     public Instant? CompletedAt { get; set; }
     public SnProgressRewardDefinition Reward { get; set; } = new();

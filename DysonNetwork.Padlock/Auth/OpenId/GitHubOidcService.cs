@@ -1,5 +1,6 @@
 using System.Text.Json;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Padlock.Account;
 
 namespace DysonNetwork.Padlock.Auth.OpenId;
 
@@ -8,9 +9,10 @@ public class GitHubOidcService(
     IHttpClientFactory httpClientFactory,
     AppDatabase db,
     AuthService auth,
-    ICacheService cache
+    ICacheService cache,
+    ActionLogService actionLogs
 )
-    : OidcService(configuration, httpClientFactory, db, auth, cache)
+    : OidcService(configuration, httpClientFactory, db, auth, cache, actionLogs)
 {
     public override string ProviderName => "GitHub";
     protected override string DiscoveryEndpoint => ""; // GitHub doesn't have a standard OIDC discovery endpoint
