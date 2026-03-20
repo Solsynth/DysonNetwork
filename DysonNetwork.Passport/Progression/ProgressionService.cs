@@ -390,6 +390,11 @@ public class ProgressionService(
                 Reward = grant.Reward
             };
             var payload = JsonSerializer.SerializeToUtf8Bytes(packet);
+            await ring.SendWebSocketPacketToUser(
+                grant.AccountId.ToString(),
+                seedService.GetSettings().CompletionPacketType,
+                payload
+            );
             await ring.SendPushNotificationToUser(
                 grant.AccountId.ToString(),
                 "progression.completed",
