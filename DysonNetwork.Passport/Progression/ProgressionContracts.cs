@@ -9,6 +9,9 @@ public class ProgressionDefinitionUpsertRequest
     public string Title { get; set; } = null!;
     public string Summary { get; set; } = null!;
     public string? Icon { get; set; }
+    public string? SeriesIdentifier { get; set; }
+    public string? SeriesTitle { get; set; }
+    public int? SeriesOrder { get; set; }
     public int SortOrder { get; set; }
     public bool Hidden { get; set; }
     public bool IsEnabled { get; set; } = true;
@@ -32,6 +35,9 @@ public class ProgressionAchievementState
     public string Title { get; set; } = null!;
     public string Summary { get; set; } = null!;
     public string? Icon { get; set; }
+    public string? SeriesIdentifier { get; set; }
+    public string? SeriesTitle { get; set; }
+    public int? SeriesOrder { get; set; }
     public int SortOrder { get; set; }
     public bool Hidden { get; set; }
     public bool IsEnabled { get; set; }
@@ -43,6 +49,8 @@ public class ProgressionAchievementState
     public int ProgressCount { get; set; }
     public int CurrentStreak { get; set; }
     public int BestStreak { get; set; }
+    public int SeriesTotalSteps { get; set; } = 1;
+    public int SeriesCompletedSteps { get; set; }
     public bool IsCompleted { get; set; }
     public Instant? CompletedAt { get; set; }
     public SnProgressRewardDefinition Reward { get; set; } = new();
@@ -54,6 +62,9 @@ public class ProgressionQuestState
     public string Title { get; set; } = null!;
     public string Summary { get; set; } = null!;
     public string? Icon { get; set; }
+    public string? SeriesIdentifier { get; set; }
+    public string? SeriesTitle { get; set; }
+    public int? SeriesOrder { get; set; }
     public int SortOrder { get; set; }
     public bool Hidden { get; set; }
     public bool IsEnabled { get; set; }
@@ -63,6 +74,8 @@ public class ProgressionQuestState
     public Instant? AvailableUntil { get; set; }
     public int TargetCount { get; set; }
     public int ProgressCount { get; set; }
+    public int SeriesTotalSteps { get; set; } = 1;
+    public int SeriesCompletedSteps { get; set; }
     public bool IsCompleted { get; set; }
     public Instant? CompletedAt { get; set; }
     public string PeriodKey { get; set; } = string.Empty;

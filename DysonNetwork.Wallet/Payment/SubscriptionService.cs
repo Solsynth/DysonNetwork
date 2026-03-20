@@ -30,9 +30,12 @@ public class SubscriptionService(
     DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
     ICacheService cache,
+    RemoteActionLogService actionLogs,
     ILogger<SubscriptionService> logger
 )
 {
+    private const string StellarProgramGroupIdentifier = "solian.stellar";
+
     private static bool RequiresMinimumAccountLevelCheck(string paymentMethod)
     {
         return string.Equals(
@@ -783,6 +786,7 @@ public class SubscriptionService(
             db.WalletSubscriptions.Update(sameIdentifierTail);
             await db.SaveChangesAsync();
             await InvalidateSubscriptionCaches(accountId, definition.Identifier);
+            TrackStellarSupportPurchase(sameIdentifierTail, definition, paymentMethod, cycleDuration, isTesting);
             logger.LogInformation(
                 "Extended existing subscription {SubscriptionId}. NewEndAt={EndedAt} IsTesting={IsTesting}",
                 sameIdentifierTail.Id,
@@ -827,6 +831,7 @@ public class SubscriptionService(
 
         await db.SaveChangesAsync();
         await InvalidateSubscriptionCaches(accountId, definition.Identifier);
+        TrackStellarSupportPurchase(subscription, definition, paymentMethod, cycleDuration, isTesting);
         logger.LogInformation(
             "Created subscription {SubscriptionId} for definition {Identifier}. BegunAt={BegunAt} EndedAt={EndedAt} IsTesting={IsTesting}",
             subscription.Id,
@@ -847,6 +852,46 @@ public class SubscriptionService(
         }
 
         return subscription;
+    }
+
+    private void TrackStellarSupportPurchase(
+        SnWalletSubscription subscription,
+        SnWalletSubscriptionDefinition definition,
+        string paymentMethod,
+        Duration cycleDuration,
+        bool isTesting
+    )
+    {
+        if (isTesting ||
+            !string.Equals(definition.GroupIdentifier, StellarProgramGroupIdentifier, StringComparison.OrdinalIgnoreCase) ||
+            !IsSponsorRewardEligiblePaymentMethod(paymentMethod))
+            return;
+
+        var creditedMonths = ResolveCreditedMonths(cycleDuration);
+        for (var monthIndex = 1; monthIndex <= creditedMonths; monthIndex++)
+        {
+            actionLogs.CreateActionLog(
+                subscription.AccountId,
+                ActionLogType.StellarSupportMonth,
+                new Dictionary<string, object>
+                {
+                    ["subscription_id"] = subscription.Id.ToString(),
+                    ["subscription_identifier"] = definition.Identifier,
+                    ["subscription_group_identifier"] = definition.GroupIdentifier ?? string.Empty,
+                    ["payment_method"] = paymentMethod,
+                    ["perk_level"] = definition.PerkLevel,
+                    ["credited_months"] = creditedMonths,
+                    ["credited_month_index"] = monthIndex,
+                    ["order_id"] = subscription.PaymentDetails.OrderId ?? string.Empty
+                }
+            );
+        }
+    }
+
+    private static int ResolveCreditedMonths(Duration cycleDuration)
+    {
+        var totalDays = Math.Max(1d, cycleDuration.ToTimeSpan().TotalDays);
+        return Math.Max(1, (int)Math.Floor((totalDays + 2d) / 30d));
     }
 
     private async Task InvalidateSubscriptionCaches(Guid accountId, string identifier)

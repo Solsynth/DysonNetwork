@@ -124,6 +124,9 @@ public class ProgressionAdminController(
         entity.Title = request.Title;
         entity.Summary = request.Summary;
         entity.Icon = request.Icon;
+        entity.SeriesIdentifier = request.SeriesIdentifier;
+        entity.SeriesTitle = request.SeriesTitle;
+        entity.SeriesOrder = request.SeriesOrder;
         entity.SortOrder = request.SortOrder;
         entity.Hidden = request.Hidden;
         entity.IsEnabled = request.IsEnabled;
@@ -142,6 +145,9 @@ public class ProgressionAdminController(
         entity.Title = request.Title;
         entity.Summary = request.Summary;
         entity.Icon = request.Icon;
+        entity.SeriesIdentifier = request.SeriesIdentifier;
+        entity.SeriesTitle = request.SeriesTitle;
+        entity.SeriesOrder = request.SeriesOrder;
         entity.SortOrder = request.SortOrder;
         entity.Hidden = request.Hidden;
         entity.IsEnabled = request.IsEnabled;

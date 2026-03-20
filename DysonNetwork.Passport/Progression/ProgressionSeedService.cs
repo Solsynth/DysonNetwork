@@ -83,6 +83,9 @@ public class ProgressionSeedService(
             Title = definition.Title,
             Summary = definition.Summary,
             Icon = definition.Icon,
+            SeriesIdentifier = definition.SeriesIdentifier,
+            SeriesTitle = definition.SeriesTitle,
+            SeriesOrder = definition.SeriesOrder,
             SortOrder = definition.SortOrder,
             Hidden = definition.Hidden,
             IsEnabled = definition.IsEnabled,
@@ -104,6 +107,9 @@ public class ProgressionSeedService(
             Title = definition.Title,
             Summary = definition.Summary,
             Icon = definition.Icon,
+            SeriesIdentifier = definition.SeriesIdentifier,
+            SeriesTitle = definition.SeriesTitle,
+            SeriesOrder = definition.SeriesOrder,
             SortOrder = definition.SortOrder,
             Hidden = definition.Hidden,
             IsEnabled = definition.IsEnabled,
@@ -123,6 +129,9 @@ public class ProgressionSeedService(
         existing.Title = definition.Title;
         existing.Summary = definition.Summary;
         existing.Icon = definition.Icon;
+        existing.SeriesIdentifier = definition.SeriesIdentifier;
+        existing.SeriesTitle = definition.SeriesTitle;
+        existing.SeriesOrder = definition.SeriesOrder;
         existing.SortOrder = definition.SortOrder;
         existing.Hidden = definition.Hidden;
         existing.IsEnabled = definition.IsEnabled;
@@ -139,6 +148,9 @@ public class ProgressionSeedService(
         existing.Title = definition.Title;
         existing.Summary = definition.Summary;
         existing.Icon = definition.Icon;
+        existing.SeriesIdentifier = definition.SeriesIdentifier;
+        existing.SeriesTitle = definition.SeriesTitle;
+        existing.SeriesOrder = definition.SeriesOrder;
         existing.SortOrder = definition.SortOrder;
         existing.Hidden = definition.Hidden;
         existing.IsEnabled = definition.IsEnabled;

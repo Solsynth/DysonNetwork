@@ -64,7 +64,7 @@ public class ProgressionService(
             .Where(m => m.AccountId == accountId)
             .ToDictionaryAsync(m => m.AchievementDefinitionId, cancellationToken);
 
-        return definitions.Select(definition =>
+        var states = definitions.Select(definition =>
             {
                 progressMap.TryGetValue(definition.Id, out var progress);
                 return new ProgressionAchievementState
@@ -73,6 +73,9 @@ public class ProgressionService(
                     Title = definition.Title,
                     Summary = definition.Summary,
                     Icon = definition.Icon,
+                    SeriesIdentifier = definition.SeriesIdentifier,
+                    SeriesTitle = definition.SeriesTitle,
+                    SeriesOrder = definition.SeriesOrder,
                     SortOrder = definition.SortOrder,
                     Hidden = definition.Hidden,
                     IsEnabled = definition.IsEnabled,
@@ -84,13 +87,19 @@ public class ProgressionService(
                     ProgressCount = progress?.ProgressCount ?? 0,
                     CurrentStreak = progress?.CurrentStreak ?? 0,
                     BestStreak = progress?.BestStreak ?? 0,
+                    SeriesTotalSteps = 1,
+                    SeriesCompletedSteps = progress?.CompletedAt is not null ? 1 : 0,
                     IsCompleted = progress?.CompletedAt is not null,
                     CompletedAt = progress?.CompletedAt,
                     Reward = definition.Reward
                 };
             })
+            .ToList();
+
+        return MergeAchievementSeries(states)
             .OrderBy(state => state.IsCompleted)
             .ThenBy(state => state.SortOrder)
+            .ThenBy(state => state.SeriesOrder ?? int.MaxValue)
             .ThenBy(state => state.Title)
             .ToList();
     }
@@ -121,6 +130,9 @@ public class ProgressionService(
                 Title = definition.Title,
                 Summary = definition.Summary,
                 Icon = definition.Icon,
+                SeriesIdentifier = definition.SeriesIdentifier,
+                SeriesTitle = definition.SeriesTitle,
+                SeriesOrder = definition.SeriesOrder,
                 SortOrder = definition.SortOrder,
                 Hidden = definition.Hidden,
                 IsEnabled = definition.IsEnabled,
@@ -130,6 +142,8 @@ public class ProgressionService(
                 AvailableUntil = definition.AvailableUntil,
                 TargetCount = definition.TargetCount,
                 ProgressCount = progress?.ProgressCount ?? 0,
+                SeriesTotalSteps = 1,
+                SeriesCompletedSteps = progress?.CompletedAt is not null ? 1 : 0,
                 IsCompleted = progress?.CompletedAt is not null,
                 CompletedAt = progress?.CompletedAt,
                 PeriodKey = periodKey,
@@ -139,9 +153,10 @@ public class ProgressionService(
             });
         }
 
-        return states
+        return MergeQuestSeries(states)
             .OrderBy(state => state.IsCompleted)
             .ThenBy(state => state.SortOrder)
+            .ThenBy(state => state.SeriesOrder ?? int.MaxValue)
             .ThenBy(state => state.Title)
             .ToList();
     }
@@ -499,6 +514,48 @@ public class ProgressionService(
             return $"Completed {grant.DefinitionType}.";
 
         return $"Completed {grant.DefinitionType}. Rewards: {string.Join(", ", parts)}";
+    }
+
+    private static IEnumerable<ProgressionAchievementState> MergeAchievementSeries(
+        IEnumerable<ProgressionAchievementState> states
+    )
+    {
+        return states
+            .GroupBy(state => string.IsNullOrWhiteSpace(state.SeriesIdentifier) ? state.Identifier : state.SeriesIdentifier)
+            .Select(group =>
+            {
+                var ordered = group
+                    .OrderBy(state => state.SeriesOrder ?? int.MaxValue)
+                    .ThenBy(state => state.SortOrder)
+                    .ThenBy(state => state.Title)
+                    .ToList();
+                var representative = ordered.FirstOrDefault(state => !state.IsCompleted) ?? ordered.Last();
+                representative.SeriesTotalSteps = ordered.Count;
+                representative.SeriesCompletedSteps = ordered.Count(state => state.IsCompleted);
+                representative.SeriesTitle ??= representative.Title;
+                representative.SeriesIdentifier ??= representative.Identifier;
+                return representative;
+            });
+    }
+
+    private static IEnumerable<ProgressionQuestState> MergeQuestSeries(IEnumerable<ProgressionQuestState> states)
+    {
+        return states
+            .GroupBy(state => string.IsNullOrWhiteSpace(state.SeriesIdentifier) ? state.Identifier : state.SeriesIdentifier)
+            .Select(group =>
+            {
+                var ordered = group
+                    .OrderBy(state => state.SeriesOrder ?? int.MaxValue)
+                    .ThenBy(state => state.SortOrder)
+                    .ThenBy(state => state.Title)
+                    .ToList();
+                var representative = ordered.FirstOrDefault(state => !state.IsCompleted) ?? ordered.Last();
+                representative.SeriesTotalSteps = ordered.Count;
+                representative.SeriesCompletedSteps = ordered.Count(state => state.IsCompleted);
+                representative.SeriesTitle ??= representative.Title;
+                representative.SeriesIdentifier ??= representative.Identifier;
+                return representative;
+            });
     }
 
     private async Task<DateTimeZone> ResolveAccountZoneAsync(Guid accountId, CancellationToken cancellationToken)

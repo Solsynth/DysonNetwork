@@ -119,6 +119,9 @@ public static class ProgressionCatalogDefaults
             Title = "Editor's Pick",
             Summary = "Get one of your posts featured.",
             Icon = "sparkles",
+            SeriesIdentifier = "featured-post",
+            SeriesTitle = "Featured Posts",
+            SeriesOrder = 1,
             SortOrder = 105,
             TargetCount = 1,
             Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostFeatured] },
@@ -141,6 +144,9 @@ public static class ProgressionCatalogDefaults
             Title = "Three-day Build",
             Summary = "Create posts for 3 days in a row.",
             Icon = "calendar-heart",
+            SeriesIdentifier = "post-streak",
+            SeriesTitle = "Posting Streak",
+            SeriesOrder = 1,
             SortOrder = 106,
             TargetCount = 3,
             Trigger = new SnProgressTriggerDefinition
@@ -161,6 +167,9 @@ public static class ProgressionCatalogDefaults
             Title = "One-week Columnist",
             Summary = "Create posts for 7 days in a row.",
             Icon = "calendar-range",
+            SeriesIdentifier = "post-streak",
+            SeriesTitle = "Posting Streak",
+            SeriesOrder = 2,
             SortOrder = 107,
             TargetCount = 7,
             Trigger = new SnProgressTriggerDefinition
@@ -181,6 +190,9 @@ public static class ProgressionCatalogDefaults
             Title = "Serial Publisher",
             Summary = "Create posts for 30 days in a row.",
             Icon = "calendar-fold",
+            SeriesIdentifier = "post-streak",
+            SeriesTitle = "Posting Streak",
+            SeriesOrder = 3,
             SortOrder = 108,
             TargetCount = 30,
             Trigger = new SnProgressTriggerDefinition
@@ -207,6 +219,9 @@ public static class ProgressionCatalogDefaults
             Title = "Daily Standup",
             Summary = "Stay active for 7 days in a row.",
             Icon = "sunrise",
+            SeriesIdentifier = "activity-streak",
+            SeriesTitle = "Activity Streak",
+            SeriesOrder = 1,
             SortOrder = 109,
             TargetCount = 7,
             Trigger = new SnProgressTriggerDefinition
@@ -227,6 +242,9 @@ public static class ProgressionCatalogDefaults
             Title = "Always Online",
             Summary = "Stay active for 30 days in a row.",
             Icon = "sun-medium",
+            SeriesIdentifier = "activity-streak",
+            SeriesTitle = "Activity Streak",
+            SeriesOrder = 2,
             SortOrder = 110,
             TargetCount = 30,
             Trigger = new SnProgressTriggerDefinition
@@ -247,6 +265,9 @@ public static class ProgressionCatalogDefaults
             Title = "Still Here",
             Summary = "Stay active for 365 days in a row.",
             Icon = "sun",
+            SeriesIdentifier = "activity-streak",
+            SeriesTitle = "Activity Streak",
+            SeriesOrder = 3,
             SortOrder = 210,
             TargetCount = 365,
             Trigger = new SnProgressTriggerDefinition
@@ -273,6 +294,9 @@ public static class ProgressionCatalogDefaults
             Title = "Hall of Fame",
             Summary = "Get 100 of your posts featured.",
             Icon = "sparkles",
+            SeriesIdentifier = "featured-post",
+            SeriesTitle = "Featured Posts",
+            SeriesOrder = 2,
             SortOrder = 205,
             TargetCount = 100,
             Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostFeatured] },
@@ -286,6 +310,107 @@ public static class ProgressionCatalogDefaults
                     Type = "progression.post.featured.expert",
                     Label = "Hall of Fame",
                     Caption = "Created 100 featured posts."
+                }
+            }
+        },
+        new()
+        {
+            Identifier = "stellar-supporter-1",
+            Title = "Supporter",
+            Summary = "Purchase one eligible month of the Stellar Program.",
+            Icon = "badge-cent",
+            SeriesIdentifier = "stellar-supporter",
+            SeriesTitle = "Stellar Supporter",
+            SeriesOrder = 1,
+            SortOrder = 120,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.StellarSupportMonth] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 120,
+                SourcePoints = 12,
+                SourcePointsCurrency = WalletCurrency.SourcePoint
+            }
+        },
+        new()
+        {
+            Identifier = "stellar-supporter-3",
+            Title = "Backer",
+            Summary = "Purchase 3 eligible months of the Stellar Program.",
+            Icon = "gem",
+            SeriesIdentifier = "stellar-supporter",
+            SeriesTitle = "Stellar Supporter",
+            SeriesOrder = 2,
+            SortOrder = 121,
+            TargetCount = 3,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.StellarSupportMonth] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 360,
+                SourcePoints = 24,
+                SourcePointsCurrency = WalletCurrency.SourcePoint
+            }
+        },
+        new()
+        {
+            Identifier = "stellar-supporter-6",
+            Title = "Patron",
+            Summary = "Purchase 6 eligible months of the Stellar Program.",
+            Icon = "medal",
+            SeriesIdentifier = "stellar-supporter",
+            SeriesTitle = "Stellar Supporter",
+            SeriesOrder = 3,
+            SortOrder = 122,
+            TargetCount = 6,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.StellarSupportMonth] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 900,
+                SourcePoints = 48,
+                SourcePointsCurrency = WalletCurrency.SourcePoint
+            }
+        },
+        new()
+        {
+            Identifier = "stellar-supporter-9",
+            Title = "Celestial Patron",
+            Summary = "Purchase 9 eligible months of the Stellar Program.",
+            Icon = "orbit",
+            SeriesIdentifier = "stellar-supporter",
+            SeriesTitle = "Stellar Supporter",
+            SeriesOrder = 4,
+            SortOrder = 123,
+            TargetCount = 9,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.StellarSupportMonth] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 1500,
+                SourcePoints = 72,
+                SourcePointsCurrency = WalletCurrency.SourcePoint
+            }
+        },
+        new()
+        {
+            Identifier = "stellar-supporter-12",
+            Title = "Mega Supporter",
+            Summary = "Purchase 12 eligible months of the Stellar Program.",
+            Icon = "crown",
+            SeriesIdentifier = "stellar-supporter",
+            SeriesTitle = "Stellar Supporter",
+            SeriesOrder = 5,
+            SortOrder = 124,
+            TargetCount = 12,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.StellarSupportMonth] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 2400,
+                SourcePoints = 120,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.stellar.supporter.12",
+                    Label = "Mega Supporter",
+                    Caption = "Purchased 12 eligible months of the Stellar Program."
                 }
             }
         },

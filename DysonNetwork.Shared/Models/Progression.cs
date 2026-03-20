@@ -60,6 +60,9 @@ public interface IProgressionDefinition
     string Title { get; set; }
     string Summary { get; set; }
     string? Icon { get; set; }
+    string? SeriesIdentifier { get; set; }
+    string? SeriesTitle { get; set; }
+    int? SeriesOrder { get; set; }
     int SortOrder { get; set; }
     bool Hidden { get; set; }
     bool IsEnabled { get; set; }
@@ -80,6 +83,9 @@ public class SnAchievementDefinition : ModelBase, IProgressionDefinition
     [MaxLength(256)] public string Title { get; set; } = null!;
     [MaxLength(4096)] public string Summary { get; set; } = null!;
     [MaxLength(256)] public string? Icon { get; set; }
+    [MaxLength(256)] public string? SeriesIdentifier { get; set; }
+    [MaxLength(256)] public string? SeriesTitle { get; set; }
+    public int? SeriesOrder { get; set; }
     public int SortOrder { get; set; }
     public bool Hidden { get; set; }
     public bool IsEnabled { get; set; } = true;
@@ -100,6 +106,9 @@ public class SnQuestDefinition : ModelBase, IProgressionDefinition
     [MaxLength(256)] public string Title { get; set; } = null!;
     [MaxLength(4096)] public string Summary { get; set; } = null!;
     [MaxLength(256)] public string? Icon { get; set; }
+    [MaxLength(256)] public string? SeriesIdentifier { get; set; }
+    [MaxLength(256)] public string? SeriesTitle { get; set; }
+    public int? SeriesOrder { get; set; }
     public int SortOrder { get; set; }
     public bool Hidden { get; set; }
     public bool IsEnabled { get; set; } = true;
@@ -191,6 +200,9 @@ public class AchievementSeedDefinition
     public string Title { get; set; } = null!;
     public string Summary { get; set; } = null!;
     public string? Icon { get; set; }
+    public string? SeriesIdentifier { get; set; }
+    public string? SeriesTitle { get; set; }
+    public int? SeriesOrder { get; set; }
     public int SortOrder { get; set; }
     public bool Hidden { get; set; }
     public bool IsEnabled { get; set; } = true;
@@ -209,6 +221,9 @@ public class QuestSeedDefinition
     public string Title { get; set; } = null!;
     public string Summary { get; set; } = null!;
     public string? Icon { get; set; }
+    public string? SeriesIdentifier { get; set; }
+    public string? SeriesTitle { get; set; }
+    public int? SeriesOrder { get; set; }
     public int SortOrder { get; set; }
     public bool Hidden { get; set; }
     public bool IsEnabled { get; set; } = true;

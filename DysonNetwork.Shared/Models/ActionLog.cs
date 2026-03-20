@@ -47,6 +47,7 @@ public abstract class ActionLogType
 {
     public const string NewLogin = "login";
     public const string AccountActive = "accounts.active";
+    public const string StellarSupportMonth = "stellar.support.month";
     public const string ChallengeAttempt = "challenges.attempt";
     public const string ChallengeSuccess = "challenges.success";
     public const string ChallengeFailure = "challenges.failure";

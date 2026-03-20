@@ -15,6 +15,7 @@ public static class ProgressionActionLogRegistry
         Shared.Models.ActionLogType.AuthFactorResetPassword,
         Shared.Models.ActionLogType.NewLogin,
         Shared.Models.ActionLogType.AccountActive,
+        Shared.Models.ActionLogType.StellarSupportMonth,
         Shared.Models.ActionLogType.SessionRevoke,
         Shared.Models.ActionLogType.DeviceRevoke,
         Shared.Models.ActionLogType.DeviceRename,
