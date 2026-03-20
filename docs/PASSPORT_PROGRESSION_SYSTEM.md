@@ -65,9 +65,10 @@ The service:
 - loads matching enabled quest definitions
 - resolves the account timezone, falling back to configured default
 - increments progress
+- collapses stepped series on user-facing lists so only the current or highest tier is shown
 - deduplicates repeated event deliveries
 - creates reward-grant audit rows
-- delivers badge, XP, source point, and websocket rewards
+- delivers badge, XP, source point, and inbox rewards
 
 ## Data Model
 
@@ -94,6 +95,7 @@ Achievement definitions include:
 
 - stable `Identifier`
 - title, summary, icon, sort order
+- optional series metadata: `SeriesIdentifier`, `SeriesTitle`, `SeriesOrder`
 - hidden flag
 - enabled flag
 - progress-enabled flag
@@ -107,6 +109,27 @@ Quest definitions include the same core fields plus:
 
 - schedule config
 - repeatability mode: `daily`, `weekly`, `monthly`, or `none`
+
+### Stepped achievements and quests
+
+Passport supports tiered progression definitions through series metadata.
+
+- `SeriesIdentifier`: stable key for a tier ladder
+- `SeriesTitle`: user-facing title for the merged ladder
+- `SeriesOrder`: step number inside the ladder
+
+User-facing progression endpoints merge definitions that share the same `SeriesIdentifier`:
+
+- if the user still has unfinished tiers, Passport returns the first unfinished tier
+- if the whole ladder is complete, Passport returns the highest completed tier
+- the payload also includes `SeriesTotalSteps` and `SeriesCompletedSteps`
+
+This is intended for upgrade-style ladders such as:
+
+- posting streaks: 3 / 7 / 30 days
+- activity streaks: 7 / 30 / 365 days
+- featured post milestones
+- Stellar supporter milestones: 1 / 3 / 6 / 9 / 12 eligible months
 
 ### Definition lifecycle
 
@@ -208,7 +231,7 @@ Current seeding behavior:
 - missing definitions are inserted from code defaults
 - existing definitions are updated only when `IsSeedManaged` is `true`
 - DB remains the runtime source of truth
-- built-in defaults now include limited-time and retired event examples
+- built-in defaults include streak ladders, featured-post ladders, and Stellar supporter ladders
 
 This is intentionally similar to Wallet’s subscription catalog seeding model.
 
@@ -225,6 +248,31 @@ Current behavior:
 - includes normal action-log request metadata such as user-agent and IP address
 - includes action meta fields: `room_id` and `message_type`
 
+## Stellar Support Progression
+
+Eligible Stellar purchases emit a support-month action log from Wallet:
+
+- action: `stellar.support.month`
+- implementation: [DysonNetwork.Wallet/Payment/SubscriptionService.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Wallet/Payment/SubscriptionService.cs)
+
+Emission rules:
+
+- only subscriptions in the `solian.stellar` group are counted
+- only payment methods in Wallet `SponsorRewardEligiblePaymentMethods` are counted
+- in-app wallet purchases are excluded by default
+- one action log is emitted per credited purchase month, so 12-month purchases advance 12 steps
+
+Current action metadata includes:
+
+- `subscription_id`
+- `subscription_identifier`
+- `subscription_group_identifier`
+- `payment_method`
+- `perk_level`
+- `credited_months`
+- `credited_month_index`
+- `order_id`
+
 ## APIs
 
 ### Current user APIs
@@ -238,6 +286,14 @@ Endpoints:
 - `GET /api/accounts/me/progression/achievements`
 - `GET /api/accounts/me/progression/quests`
 - `GET /api/accounts/me/progression/grants`
+
+User list payloads now include series fields for merged stepped ladders:
+
+- `SeriesIdentifier`
+- `SeriesTitle`
+- `SeriesOrder`
+- `SeriesTotalSteps`
+- `SeriesCompletedSteps`
 
 ### Admin APIs
 
@@ -278,23 +334,20 @@ Note:
 - [DysonNetwork.Shared/Registry/RemoteAccountService.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Shared/Registry/RemoteAccountService.cs) currently does not expose a permission helper
 - the controller therefore uses the same direct `DyPermissionService` pattern already used by Passport ticket admin flows
 
-## Seeded V1 Content
+## Seeded Content
 
-Current achievement seeds:
+Current code-seeded achievement highlights:
 
-- `first-post`
-- `first-reaction`
-- `social-butterfly`
-- `publisher-founder`
-- `realm-citizen`
+- first post, first reaction, first chat, first realm join, and first publisher
+- featured post ladder
+- posting streak ladder
+- activity streak ladder
+- Stellar supporter ladder
+- high-count chat and post milestones
 
-Current quest seeds:
+Current code-seeded quest highlights:
 
-- `daily-post`
-- `daily-react-3`
-- `weekly-discussion`
-- `weekly-publisher-participation`
-- `monthly-realm-engagement`
+- daily post
 
 You can add more definitions either by:
 
@@ -306,13 +359,15 @@ You can add more definitions either by:
 
 - V1 does not include a manual reward-claim step
 - only tracked action-log types publish progression events
-- `chat.use` is emitted by Messager after successful chat sends and is throttled to one action log per user every 5 seconds
+- merged series are applied only on user-facing progression list endpoints; admin definition endpoints still return every raw tier
 - quest scheduling currently uses account profile timezone when available, otherwise configured default timezone
-- the built-in websocket packet is generic and assumes the client knows how to render `progression.completed`
+- progression completion now lands in the inbox silently instead of using a loud direct websocket popup
+- `chat.use` is emitted by Messager after successful chat sends and is throttled to one action log per user every minute
 
 ## Verification
 
 The implementation was validated with:
 
 - `dotnet build DysonNetwork.Passport/DysonNetwork.Passport.csproj`
+- `dotnet build DysonNetwork.Wallet/DysonNetwork.Wallet.csproj`
 - `dotnet build DysonNetwork.Padlock/DysonNetwork.Padlock.csproj`

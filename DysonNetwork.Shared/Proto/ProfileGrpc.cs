@@ -1073,6 +1073,10 @@ namespace DysonNetwork.Shared.Proto {
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListActionLogsRequest> __Marshaller_proto_DyListActionLogsRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListActionLogsRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListActionLogsResponse> __Marshaller_proto_DyListActionLogsResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListActionLogsResponse.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DySearchActionLogsRequest> __Marshaller_proto_DySearchActionLogsRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DySearchActionLogsRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DySearchActionLogsResponse> __Marshaller_proto_DySearchActionLogsResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DySearchActionLogsResponse.Parser));
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateActionLogRequest, global::DysonNetwork.Shared.Proto.DyCreateActionLogResponse> __Method_CreateActionLog = new grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateActionLogRequest, global::DysonNetwork.Shared.Proto.DyCreateActionLogResponse>(
@@ -1089,6 +1093,14 @@ namespace DysonNetwork.Shared.Proto {
         "ListActionLogs",
         __Marshaller_proto_DyListActionLogsRequest,
         __Marshaller_proto_DyListActionLogsResponse);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DySearchActionLogsRequest, global::DysonNetwork.Shared.Proto.DySearchActionLogsResponse> __Method_SearchActionLogs = new grpc::Method<global::DysonNetwork.Shared.Proto.DySearchActionLogsRequest, global::DysonNetwork.Shared.Proto.DySearchActionLogsResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "SearchActionLogs",
+        __Marshaller_proto_DySearchActionLogsRequest,
+        __Marshaller_proto_DySearchActionLogsResponse);
 
     /// <summary>Service descriptor</summary>
     public static global::Google.Protobuf.Reflection.ServiceDescriptor Descriptor
@@ -1108,6 +1120,12 @@ namespace DysonNetwork.Shared.Proto {
 
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyListActionLogsResponse> ListActionLogs(global::DysonNetwork.Shared.Proto.DyListActionLogsRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DySearchActionLogsResponse> SearchActionLogs(global::DysonNetwork.Shared.Proto.DySearchActionLogsRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
@@ -1181,6 +1199,26 @@ namespace DysonNetwork.Shared.Proto {
       {
         return CallInvoker.AsyncUnaryCall(__Method_ListActionLogs, null, options, request);
       }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DySearchActionLogsResponse SearchActionLogs(global::DysonNetwork.Shared.Proto.DySearchActionLogsRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return SearchActionLogs(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DySearchActionLogsResponse SearchActionLogs(global::DysonNetwork.Shared.Proto.DySearchActionLogsRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_SearchActionLogs, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DySearchActionLogsResponse> SearchActionLogsAsync(global::DysonNetwork.Shared.Proto.DySearchActionLogsRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return SearchActionLogsAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DySearchActionLogsResponse> SearchActionLogsAsync(global::DysonNetwork.Shared.Proto.DySearchActionLogsRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_SearchActionLogs, null, options, request);
+      }
       /// <summary>Creates a new instance of client from given <c>ClientBaseConfiguration</c>.</summary>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       protected override DyActionLogServiceClient NewInstance(ClientBaseConfiguration configuration)
@@ -1196,7 +1234,8 @@ namespace DysonNetwork.Shared.Proto {
     {
       return grpc::ServerServiceDefinition.CreateBuilder()
           .AddMethod(__Method_CreateActionLog, serviceImpl.CreateActionLog)
-          .AddMethod(__Method_ListActionLogs, serviceImpl.ListActionLogs).Build();
+          .AddMethod(__Method_ListActionLogs, serviceImpl.ListActionLogs)
+          .AddMethod(__Method_SearchActionLogs, serviceImpl.SearchActionLogs).Build();
     }
 
     /// <summary>Register service method with a service binder with or without implementation. Useful when customizing the service binding logic.
@@ -1208,6 +1247,7 @@ namespace DysonNetwork.Shared.Proto {
     {
       serviceBinder.AddMethod(__Method_CreateActionLog, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyCreateActionLogRequest, global::DysonNetwork.Shared.Proto.DyCreateActionLogResponse>(serviceImpl.CreateActionLog));
       serviceBinder.AddMethod(__Method_ListActionLogs, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListActionLogsRequest, global::DysonNetwork.Shared.Proto.DyListActionLogsResponse>(serviceImpl.ListActionLogs));
+      serviceBinder.AddMethod(__Method_SearchActionLogs, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DySearchActionLogsRequest, global::DysonNetwork.Shared.Proto.DySearchActionLogsResponse>(serviceImpl.SearchActionLogs));
     }
 
   }

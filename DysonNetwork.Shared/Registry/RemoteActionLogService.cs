@@ -1,5 +1,7 @@
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
+using NodaTime;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Registry;
 
@@ -9,6 +11,11 @@ public class RemoteActionLogService(DyActionLogService.DyActionLogServiceClient 
         List<DyActionLog> ActionLogs,
         string? NextPageToken,
         int TotalSize
+    );
+    
+    public sealed record SearchActionLogsPageResult(
+        List<DyActionLog> ActionLogs,
+        string? NextPageToken
     );
 
     public void CreateActionLog(Guid accountId, string action, Dictionary<string, object> meta)
@@ -103,6 +110,63 @@ public class RemoteActionLogService(DyActionLogService.DyActionLogServiceClient 
         for (var i = 0; i < maxPages; i++)
         {
             var page = await ListActionLogsPage(accountId, action, pageSize, token, orderBy);
+            logs.AddRange(page.ActionLogs);
+            if (string.IsNullOrWhiteSpace(page.NextPageToken))
+                break;
+
+            token = page.NextPageToken;
+        }
+
+        return logs;
+    }
+
+    public async Task<SearchActionLogsPageResult> SearchActionLogsPage(
+        List<string>? actions = null,
+        Guid? accountId = null,
+        Instant? createdAfter = null,
+        Instant? createdBefore = null,
+        int pageSize = 500,
+        string? pageToken = null,
+        string? orderBy = "createdat asc")
+    {
+        var request = new DySearchActionLogsRequest
+        {
+            PageSize = pageSize,
+            PageToken = pageToken ?? string.Empty,
+            OrderBy = orderBy ?? "createdat asc"
+        };
+
+        if (actions is { Count: > 0 })
+            request.Actions.Add(actions);
+        if (accountId.HasValue)
+            request.AccountId = accountId.Value.ToString();
+        if (createdAfter.HasValue)
+            request.CreatedAfter = createdAfter.Value.ToTimestamp();
+        if (createdBefore.HasValue)
+            request.CreatedBefore = createdBefore.Value.ToTimestamp();
+
+        var response = await actionLogs.SearchActionLogsAsync(request);
+        return new SearchActionLogsPageResult(
+            response.ActionLogs.ToList(),
+            string.IsNullOrWhiteSpace(response.NextPageToken) ? null : response.NextPageToken
+        );
+    }
+
+    public async Task<List<DyActionLog>> SearchAllActionLogs(
+        List<string>? actions = null,
+        Guid? accountId = null,
+        Instant? createdAfter = null,
+        Instant? createdBefore = null,
+        int pageSize = 500,
+        string? orderBy = "createdat asc",
+        int maxPages = 500)
+    {
+        var logs = new List<DyActionLog>();
+        string? token = null;
+
+        for (var i = 0; i < maxPages; i++)
+        {
+            var page = await SearchActionLogsPage(actions, accountId, createdAfter, createdBefore, pageSize, token, orderBy);
             logs.AddRange(page.ActionLogs);
             if (string.IsNullOrWhiteSpace(page.NextPageToken))
                 break;
