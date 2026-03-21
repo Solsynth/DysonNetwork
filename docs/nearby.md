@@ -40,7 +40,7 @@ Configured in [appsettings.json](/Users/littlesheep/Documents/Projects/DysonNetw
 
 Defaults in this implementation:
 
-- `service_uuid = 12345678-1234-1234-1234-1234567890ab`
+- `service_uuid = FFF0`
 - `slot_duration_sec = 30`
 - `prefetch_slots = 10`
 
@@ -98,7 +98,7 @@ Implementation reference:
 
 - [NearbyService.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Nearby/NearbyService.cs)
 
-The current token format returned to clients is an 8-byte value encoded as uppercase hex.
+The current token format returned to clients is a 16-byte value encoded as uppercase hex.
 
 ## Authentication
 
@@ -130,12 +130,12 @@ Response:
 
 ```json
 {
-  "service_uuid": "12345678-1234-1234-1234-1234567890ab",
+  "service_uuid": "FFF0",
   "slot_duration_sec": 30,
   "tokens": [
     {
       "slot": 58765432,
-      "token": "A1B2C3D4E5F60718",
+      "token": "A1B2C3D4E5F60718293A4B5C6D7E8F90",
       "valid_from": "2026-03-21T12:00:00Z",
       "valid_to": "2026-03-21T12:00:30Z"
     }
@@ -163,7 +163,7 @@ Request body:
 {
   "observations": [
     {
-      "token": "A1B2C3D4E5F60718",
+      "token": "A1B2C3D4E5F60718293A4B5C6D7E8F90",
       "slot": 58765432,
       "avg_rssi": -67,
       "seen_count": 4,
@@ -323,18 +323,19 @@ Recommended flow:
 
 Recommended payload layout:
 
+- `magic`: 1 byte
 - `version`: 1 byte
 - `flags`: 1 byte
 - `slot`: 4 bytes
-- `rolling_presence_token`: 8 bytes
+- `rolling_presence_token`: 16 bytes
 - `capabilities`: 1 byte optional
 
 Suggested total payload size:
 
-- 14 bytes without `capabilities`
-- 15 bytes with `capabilities`
+- 23 bytes without `capabilities`
+- 24 bytes with `capabilities`
 
-This is intentionally small enough to stay under Android BLE advertising limits once service UUID and other advertising overhead are included. Keep the custom payload around `20` bytes or less.
+This only works reliably when the nearby protocol uses a 16-bit service UUID and keeps the payload in service data only. A 128-bit service UUID adds too much advertising overhead on Android, and a separate advertised UUID block can also push the packet over the limit.
 
 Recommended flag meanings:
 
@@ -343,16 +344,23 @@ Recommended flag meanings:
 - bit 2: do not disturb
 - bit 3: friend-only
 
+Recommended magic marker:
+
+- `0xD9` at byte `0`
+
+This lets the scanner cheaply reject unrelated service data before parsing the rest of the packet.
+
 ### Token Encoding
 
 The backend currently returns `token` as uppercase hex text.
 
-Before placing the token into BLE payload bytes, the client should decode the hex string into raw 8 bytes.
+Before placing the token into BLE payload bytes, the client should decode the hex string into raw 16 bytes.
 
 ### Example Payload Builder
 
 ```dart
 Uint8List buildPresencePayload({
+  required int magic,
   required int version,
   required int flags,
   required int slot,
@@ -360,6 +368,7 @@ Uint8List buildPresencePayload({
   required int capabilities,
 }) {
   final builder = BytesBuilder();
+  builder.addByte(magic);
   builder.addByte(version);
   builder.addByte(flags);
   builder.add(_u32be(slot));
@@ -373,6 +382,7 @@ Uint8List buildPresencePayload({
 
 ```dart
 class PresencePayload {
+  final int magic;
   final int version;
   final int flags;
   final int slot;
@@ -380,6 +390,7 @@ class PresencePayload {
   final int capabilities;
 
   PresencePayload({
+    required this.magic,
     required this.version,
     required this.flags,
     required this.slot,
@@ -390,11 +401,12 @@ class PresencePayload {
 
 PresencePayload parsePresencePayload(Uint8List data) {
   return PresencePayload(
-    version: data[0],
-    flags: data[1],
-    slot: _readU32be(data, 2),
-    token: data.sublist(6, 14),
-    capabilities: data.length > 14 ? data[14] : 0,
+    magic: data[0],
+    version: data[1],
+    flags: data[2],
+    slot: _readU32be(data, 3),
+    token: data.sublist(7, 23),
+    capabilities: data.length > 23 ? data[23] : 0,
   );
 }
 ```
@@ -403,25 +415,57 @@ PresencePayload parsePresencePayload(Uint8List data) {
 
 Recommended client flow:
 
-1. Decode current token hex into 8 bytes.
+1. Decode current token hex into 16 bytes.
 2. Build payload with current slot.
 3. Start advertising under the returned `service_uuid`.
 4. Stop and restart advertising when the slot changes.
 
 Android-specific guidance:
 
-- use `serviceData` only for the nearby payload when possible
+- use a 16-bit service UUID such as `FFF0`
+- keep the nearby payload in `serviceData`
 - do not add `localName`
-- avoid extra manufacturer data unless you intentionally move the protocol there
+- avoid extra service UUIDs
 - add a defensive client-side size check before advertising
 
 Example defensive check:
 
 ```dart
-if (payload.length > 20) {
+if (payload.length > 24) {
   throw Exception('BLE payload too large');
 }
 ```
+
+Recommended advertising shape:
+
+```dart
+AdvertiseData(
+  serviceData: {
+    Uuid.parse('FFF0'): payload,
+  },
+)
+```
+
+### Manufacturer Data Presentation
+
+If the client also wants a manufacturer-data copy for easier low-level inspection on some platforms, keep it secondary and compact.
+
+Suggested layout:
+
+- manufacturer company id: your assigned company identifier in production
+- byte 0: same magic marker
+- byte 1: version
+- byte 2: flags
+- byte 3-6: slot
+- byte 7-22: rolling token
+- byte 23: capabilities optional
+
+Recommendations:
+
+- keep `serviceData` as the source of truth for the nearby protocol
+- only mirror the same payload into manufacturer data when you have a platform-specific reason
+- use a real Bluetooth company identifier in production rather than a placeholder
+- if both are present, scanners should prefer `serviceData` and treat manufacturer data as advisory
 
 Pseudo-example:
 

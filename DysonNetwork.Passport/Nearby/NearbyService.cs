@@ -45,11 +45,11 @@ public class NearbyService(
     ILogger<NearbyService> logger
 )
 {
-    public const string DefaultServiceUuid = "12345678-1234-1234-1234-1234567890ab";
+    public const string DefaultServiceUuid = "FFF0";
     public const int DefaultSlotDurationSec = 30;
     public const int DefaultPrefetchSlots = 10;
     public const int MaxPrefetchSlots = 30;
-    public const int TokenBytes = 8;
+    public const int TokenBytes = 16;
     private static readonly Duration AllowedClockSkew = Duration.FromMinutes(2);
 
     private string ServiceUuid => configuration["Nearby:ServiceUuid"] ?? DefaultServiceUuid;
