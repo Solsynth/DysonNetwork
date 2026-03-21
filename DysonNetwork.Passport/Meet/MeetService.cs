@@ -133,6 +133,61 @@ public class MeetService(
         return meets;
     }
 
+    public async Task<List<SnMeet>> ListNearbyMeetsAsync(
+        Guid accountId,
+        Geometry location,
+        double distanceMeters = 1000,
+        MeetStatus? status = MeetStatus.Active,
+        int offset = 0,
+        int take = 20,
+        CancellationToken cancellationToken = default
+    )
+    {
+        await ExpireMeetsAsync(accountId, cancellationToken);
+        var friendIds = await relationships.ListAccountFriends(accountId);
+        var locationWkt = location.AsText();
+        var limitedTake = Math.Clamp(take, 1, 100);
+        var candidateTake = Math.Max(limitedTake * 5, 50);
+
+        var query = db.Meets
+            .FromSqlInterpolated($"""
+                SELECT *
+                FROM meets
+                WHERE location IS NOT NULL
+                  AND ST_DWithin(
+                    location::geography,
+                    ST_GeomFromText({locationWkt}, 4326)::geography,
+                    {distanceMeters}
+                  )
+                ORDER BY ST_Distance(
+                    location::geography,
+                    ST_GeomFromText({locationWkt}, 4326)::geography
+                )
+                LIMIT {candidateTake}
+                """)
+            .Include(m => m.Participants)
+            .AsQueryable();
+
+        query = query.Where(m =>
+            m.Visibility == MeetVisibility.Public
+            || m.HostId == accountId
+            || friendIds.Contains(m.HostId)
+            || m.Participants.Any(p => p.AccountId == accountId));
+
+        if (status.HasValue)
+            query = query.Where(m => m.Status == status.Value);
+
+        var meets = await query
+            .Skip(offset)
+            .Take(limitedTake)
+            .ToListAsync(cancellationToken);
+
+        foreach (var meet in meets)
+            await HydrateMeetAsync(meet, cancellationToken);
+
+        return meets;
+    }
+
     public async Task<SnMeet?> GetMeetAsync(Guid meetId, Guid accountId, CancellationToken cancellationToken = default)
     {
         await TryExpireMeetAsync(meetId, cancellationToken);

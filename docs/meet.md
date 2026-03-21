@@ -113,6 +113,32 @@ Query params:
 - `offset`: pagination offset
 - `take`: page size
 
+### List nearby meets
+
+`GET /api/meets/nearby`
+
+Lists nearby meets around a provided geometry.
+
+Query params:
+
+- `locationWkt`: required WKT geometry used as the search origin
+- `distanceMeters`: optional radius in meters, defaults to `1000`
+- `status`: optional status filter, defaults to `Active`
+- `offset`: pagination offset
+- `take`: page size
+
+Example:
+
+```text
+GET /api/meets/nearby?locationWkt=POINT(121.5170%2025.0478)&distanceMeters=1500
+```
+
+Notes:
+
+- The search uses PostGIS `ST_DWithin` on geography casts, so `distanceMeters` is measured in meters.
+- Only meets with a stored location are returned.
+- Visibility rules still apply, so you only see meets you are allowed to access.
+
 ### Get meet
 
 `GET /api/meets/{id}`

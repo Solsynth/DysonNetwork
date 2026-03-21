@@ -81,6 +81,62 @@ public class MeetController(
         }
     }
 
+    [HttpGet("nearby")]
+    [Authorize]
+    public async Task<ActionResult<List<SnMeet>>> ListNearbyMeets(
+        [FromQuery] string locationWkt,
+        [FromQuery] double distanceMeters = 1000,
+        [FromQuery] MeetStatus? status = MeetStatus.Active,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        if (string.IsNullOrWhiteSpace(locationWkt))
+        {
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(locationWkt)] = ["Location WKT is required."]
+            }, traceId: HttpContext.TraceIdentifier));
+        }
+
+        if (distanceMeters <= 0)
+        {
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(distanceMeters)] = ["Distance must be greater than zero."]
+            }, traceId: HttpContext.TraceIdentifier));
+        }
+
+        Geometry location;
+        try
+        {
+            location = new WKTReader().Read(locationWkt);
+            location.SRID = 4326;
+        }
+        catch (Exception)
+        {
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(locationWkt)] = ["Invalid WKT geometry."]
+            }, traceId: HttpContext.TraceIdentifier));
+        }
+
+        var meets = await meetService.ListNearbyMeetsAsync(
+            currentUser.Id,
+            location,
+            distanceMeters,
+            status,
+            offset,
+            take,
+            cancellationToken
+        );
+
+        return Ok(meets);
+    }
+
     [HttpGet]
     [Authorize]
     public async Task<ActionResult<List<SnMeet>>> ListMeets(

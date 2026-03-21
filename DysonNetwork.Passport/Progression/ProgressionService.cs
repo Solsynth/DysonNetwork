@@ -8,6 +8,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
+using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Calendars;
@@ -366,17 +367,33 @@ public class ProgressionService(
 
         if (grant.Reward.SourcePoints > 0 && grant.SourcePointsGrantedAt is null)
         {
-            await payments.CreateTransactionWithAccount(
-                null,
-                grant.AccountId.ToString(),
-                string.IsNullOrWhiteSpace(grant.Reward.SourcePointsCurrency)
-                    ? seedService.GetSettings().SourcePointCurrency
-                    : grant.Reward.SourcePointsCurrency,
-                grant.Reward.SourcePoints.ToString(CultureInfo.InvariantCulture),
-                $"Progression reward: {grant.DefinitionTitle}",
-                DyTransactionType.System
-            );
-            grant.SourcePointsGrantedAt = now;
+            try
+            {
+                await payments.CreateTransactionWithAccount(
+                    null,
+                    grant.AccountId.ToString(),
+                    string.IsNullOrWhiteSpace(grant.Reward.SourcePointsCurrency)
+                        ? seedService.GetSettings().SourcePointCurrency
+                        : grant.Reward.SourcePointsCurrency,
+                    grant.Reward.SourcePoints.ToString(CultureInfo.InvariantCulture),
+                    $"Progression reward: {grant.DefinitionTitle}",
+                    DyTransactionType.System
+                );
+                grant.SourcePointsGrantedAt = now;
+            }
+            catch (RpcException ex) when (IsMissingWalletError(ex))
+            {
+                logger.LogWarning(
+                    ex,
+                    "Skipping source point reward for progression grant {GrantId} because account {AccountId} has no wallet for currency {Currency}.",
+                    grant.Id,
+                    grant.AccountId,
+                    string.IsNullOrWhiteSpace(grant.Reward.SourcePointsCurrency)
+                        ? seedService.GetSettings().SourcePointCurrency
+                        : grant.Reward.SourcePointsCurrency
+                );
+                grant.SourcePointsGrantedAt = now;
+            }
         }
 
         if (grant.NotificationSentAt is null)
@@ -411,6 +428,12 @@ public class ProgressionService(
 
         db.ProgressRewardGrants.Update(grant);
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static bool IsMissingWalletError(RpcException ex)
+    {
+        return ex.StatusCode == StatusCode.Unknown &&
+               ex.Status.Detail.Contains("wallet was not found", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool Matches(ActionLogTriggeredEvent evt, SnProgressTriggerDefinition trigger)
