@@ -322,17 +322,24 @@ public class ChatRoomService(
 
     private const string ChatRoomSubscribeKeyPrefix = "chatroom:subscribe:";
     private const string ChatRoomSubscribersGroupPrefix = "chatroom:subscribers:";
-    private const string ChatRoomMemberSubscribersGroupPrefix = "chatroom:member-subscribers:";
+    private const string ChatRoomSubscriptionLockPrefix = "chatroom:subscribe-lock:";
+    private const string CacheGlobalKeyPrefix = "dyson:";
     private static readonly TimeSpan ChatRoomSubscriptionTtl = TimeSpan.FromHours(1);
+    private static readonly TimeSpan ChatRoomSubscriptionLockTtl = TimeSpan.FromSeconds(5);
 
-    private static string GetChatRoomSubscriptionKey(Guid roomId, Guid memberId, string deviceId) =>
-        $"{ChatRoomSubscribeKeyPrefix}{roomId}:{memberId}:{deviceId}";
+    private static string GetChatRoomSubscriptionKey(Guid roomId, Guid memberId) =>
+        $"{ChatRoomSubscribeKeyPrefix}{roomId}:{memberId}";
 
     private static string GetChatRoomSubscribersGroup(Guid roomId) =>
         $"{ChatRoomSubscribersGroupPrefix}{roomId}";
 
-    private static string GetChatRoomMemberSubscribersGroup(Guid roomId, Guid memberId) =>
-        $"{ChatRoomMemberSubscribersGroupPrefix}{roomId}:{memberId}";
+    private static string GetChatRoomSubscriptionLockKey(Guid roomId, Guid memberId) =>
+        $"{ChatRoomSubscriptionLockPrefix}{roomId}:{memberId}";
+
+    private static string GetRawCacheKey(string key) =>
+        key.StartsWith(CacheGlobalKeyPrefix, StringComparison.Ordinal)
+            ? key[CacheGlobalKeyPrefix.Length..]
+            : key;
 
     private async Task<List<string>> GetActiveSubscriptionKeys(string group)
     {
@@ -342,14 +349,15 @@ public class ChatRoomService(
         var activeKeys = new List<string>(keys.Count);
         foreach (var key in keys)
         {
-            var (found, _) = await cache.GetAsyncWithStatus<bool>(key);
-            if (found)
+            var rawKey = GetRawCacheKey(key);
+            var (found, tokens) = await cache.GetAsyncWithStatus<List<string>>(rawKey);
+            if (found && tokens is { Count: > 0 })
             {
                 activeKeys.Add(key);
                 continue;
             }
 
-            await cache.RemoveAsync(key);
+            await cache.RemoveAsync(rawKey);
         }
 
         return activeKeys;
@@ -357,29 +365,45 @@ public class ChatRoomService(
 
     public async Task SubscribeChatRoom(SnChatMember member, string deviceId)
     {
-        var cacheKey = GetChatRoomSubscriptionKey(member.ChatRoomId, member.Id, deviceId);
-        await cache.SetWithGroupsAsync(
-            cacheKey,
-            true,
-            [
-                GetChatRoomSubscribersGroup(member.ChatRoomId),
-                GetChatRoomMemberSubscribersGroup(member.ChatRoomId, member.Id)
-            ],
-            ChatRoomSubscriptionTtl
-        );
+        var cacheKey = GetChatRoomSubscriptionKey(member.ChatRoomId, member.Id);
+        var group = GetChatRoomSubscribersGroup(member.ChatRoomId);
+        var lockKey = GetChatRoomSubscriptionLockKey(member.ChatRoomId, member.Id);
+
+        await cache.ExecuteWithLockAsync(lockKey, async () =>
+        {
+            var tokens = await cache.GetAsync<List<string>>(cacheKey) ?? [];
+            if (!tokens.Contains(deviceId))
+                tokens.Add(deviceId);
+
+            await cache.SetWithGroupsAsync(cacheKey, tokens, [group], ChatRoomSubscriptionTtl);
+        }, ChatRoomSubscriptionLockTtl);
     }
 
     public async Task UnsubscribeChatRoom(SnChatMember member, string deviceId)
     {
-        var cacheKey = GetChatRoomSubscriptionKey(member.ChatRoomId, member.Id, deviceId);
-        await cache.RemoveAsync(cacheKey);
+        var cacheKey = GetChatRoomSubscriptionKey(member.ChatRoomId, member.Id);
+        var lockKey = GetChatRoomSubscriptionLockKey(member.ChatRoomId, member.Id);
+
+        await cache.ExecuteWithLockAsync(lockKey, async () =>
+        {
+            var tokens = await cache.GetAsync<List<string>>(cacheKey) ?? [];
+            tokens.RemoveAll(token => token == deviceId);
+
+            if (tokens.Count == 0)
+            {
+                await cache.RemoveAsync(cacheKey);
+                return;
+            }
+
+            await cache.SetAsync(cacheKey, tokens, ChatRoomSubscriptionTtl);
+        }, ChatRoomSubscriptionLockTtl);
     }
 
     public async Task<bool> IsSubscribedChatRoom(Guid roomId, Guid memberId)
     {
-        var group = GetChatRoomMemberSubscribersGroup(roomId, memberId);
-        var activeKeys = await GetActiveSubscriptionKeys(group);
-        return activeKeys.Count > 0;
+        var cacheKey = GetChatRoomSubscriptionKey(roomId, memberId);
+        var tokens = await cache.GetAsync<List<string>>(cacheKey);
+        return tokens is { Count: > 0 };
     }
 
     public async Task<List<Guid>> GetSubscribedMembers(Guid roomId)
@@ -389,8 +413,9 @@ public class ChatRoomService(
         var memberIds = new HashSet<Guid>();
         foreach (var key in keys)
         {
-            var parts = key.Split(':');
-            if (parts.Length >= 3 && Guid.TryParse(parts[^2], out var memberId))
+            var rawKey = GetRawCacheKey(key);
+            var parts = rawKey.Split(':');
+            if (parts.Length >= 4 && Guid.TryParse(parts[^1], out var memberId))
             {
                 memberIds.Add(memberId);
             }
