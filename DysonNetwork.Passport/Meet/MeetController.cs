@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.IO;
+using Grpc.Core;
 using NodaTime;
 
 namespace DysonNetwork.Passport.Meet;
@@ -21,6 +22,9 @@ public class MeetController(
 {
     public class CreateMeetRequest
     {
+        public MeetVisibility Visibility { get; set; } = MeetVisibility.Private;
+        [MaxLength(8192)] public string? Notes { get; set; }
+        [MaxLength(512)] public string? ImageId { get; set; }
         [MaxLength(256)] public string? LocationName { get; set; }
         [MaxLength(1024)] public string? LocationAddress { get; set; }
         public string? LocationWkt { get; set; }
@@ -34,34 +38,47 @@ public class MeetController(
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        Geometry? location = null;
-        if (!string.IsNullOrWhiteSpace(request.LocationWkt))
+        try
         {
-            try
+            Geometry? location = null;
+            if (!string.IsNullOrWhiteSpace(request.LocationWkt))
             {
-                location = new WKTReader().Read(request.LocationWkt);
-                location.SRID = 4326;
-            }
-            catch (Exception)
-            {
-                return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+                try
                 {
-                    [nameof(request.LocationWkt)] = ["Invalid WKT geometry."]
-                }, traceId: HttpContext.TraceIdentifier));
+                    location = new WKTReader().Read(request.LocationWkt);
+                    location.SRID = 4326;
+                }
+                catch (Exception)
+                {
+                    return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+                    {
+                        [nameof(request.LocationWkt)] = ["Invalid WKT geometry."]
+                    }, traceId: HttpContext.TraceIdentifier));
+                }
             }
+
+            var meet = await meetService.CreateMeetAsync(
+                currentUser.Id,
+                request.Visibility,
+                request.Notes,
+                request.ImageId,
+                request.LocationName,
+                request.LocationAddress,
+                location,
+                request.Metadata,
+                request.ExpiresInSeconds.HasValue ? Duration.FromSeconds(request.ExpiresInSeconds.Value) : null,
+                cancellationToken
+            );
+
+            return Ok(meet);
         }
-
-        var meet = await meetService.CreateMeetAsync(
-            currentUser.Id,
-            request.LocationName,
-            request.LocationAddress,
-            location,
-            request.Metadata,
-            request.ExpiresInSeconds.HasValue ? Duration.FromSeconds(request.ExpiresInSeconds.Value) : null,
-            cancellationToken
-        );
-
-        return Ok(meet);
+        catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+        {
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(CreateMeetRequest.ImageId)] = ["Image was not found."]
+            }, traceId: HttpContext.TraceIdentifier));
+        }
     }
 
     [HttpGet]

@@ -1,5 +1,7 @@
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
+using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using NodaTime;
@@ -9,6 +11,7 @@ namespace DysonNetwork.Passport.Meet;
 public class MeetService(
     AppDatabase db,
     AccountService accounts,
+    DyFileService.DyFileServiceClient files,
     MeetSubscriptionHub subscriptions,
     MeetExpirationScheduler expirationScheduler,
     ILogger<MeetService> logger
@@ -21,6 +24,9 @@ public class MeetService(
 
     public async Task<SnMeet> CreateMeetAsync(
         Guid hostId,
+        MeetVisibility visibility,
+        string? notes,
+        string? imageId,
         string? locationName,
         string? locationAddress,
         Geometry? location,
@@ -52,7 +58,10 @@ public class MeetService(
         {
             HostId = hostId,
             Status = MeetStatus.Active,
+            Visibility = visibility,
             ExpiresAt = now + normalizedTtl,
+            Notes = notes,
+            Image = await LoadImageAsync(imageId),
             LocationName = locationName,
             LocationAddress = locationAddress,
             Location = location,
@@ -90,7 +99,10 @@ public class MeetService(
         }
         else
         {
-            query = query.Where(m => m.HostId == accountId || m.Participants.Any(p => p.AccountId == accountId));
+            query = query.Where(m =>
+                m.Visibility == MeetVisibility.Public
+                || m.HostId == accountId
+                || m.Participants.Any(p => p.AccountId == accountId));
         }
 
         if (status.HasValue)
@@ -218,7 +230,9 @@ public class MeetService(
 
     private static bool CanAccessMeet(SnMeet meet, Guid accountId)
     {
-        return meet.HostId == accountId || meet.Participants.Any(p => p.AccountId == accountId);
+        return meet.Visibility == MeetVisibility.Public
+            || meet.HostId == accountId
+            || meet.Participants.Any(p => p.AccountId == accountId);
     }
 
     private static Duration NormalizeTtl(Duration? ttl)
@@ -234,5 +248,20 @@ public class MeetService(
         meet.Host = await accounts.GetAccount(meet.HostId);
         foreach (var participant in meet.Participants)
             participant.Account = await accounts.GetAccount(participant.AccountId);
+    }
+
+    private async Task<SnCloudFileReferenceObject?> LoadImageAsync(string? imageId)
+    {
+        if (string.IsNullOrWhiteSpace(imageId))
+            return null;
+
+        var request = new DyGetFileBatchRequest();
+        request.Ids.Add(imageId);
+        var response = await files.GetFileBatchAsync(request);
+        var file = response.Files.FirstOrDefault();
+        if (file is null)
+            throw new RpcException(new Status(StatusCode.NotFound, "Image was not found."));
+
+        return SnCloudFileReferenceObject.FromProtoValue(file);
     }
 }

@@ -14,6 +14,12 @@ public enum MeetStatus
     Cancelled = 3
 }
 
+public enum MeetVisibility
+{
+    Public = 0,
+    Private = 1
+}
+
 [Index(nameof(HostId), nameof(Status))]
 public class SnMeet : ModelBase, IIdentifiedResource
 {
@@ -21,10 +27,13 @@ public class SnMeet : ModelBase, IIdentifiedResource
     public Guid HostId { get; set; }
     [NotMapped] public SnAccount? Host { get; set; }
     public MeetStatus Status { get; set; } = MeetStatus.Active;
+    public MeetVisibility Visibility { get; set; } = MeetVisibility.Private;
     public Instant ExpiresAt { get; set; }
     public Instant? CompletedAt { get; set; }
+    [MaxLength(8192)] public string? Notes { get; set; }
     [MaxLength(256)] public string? LocationName { get; set; }
     [MaxLength(1024)] public string? LocationAddress { get; set; }
+    [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject? Image { get; set; }
     [JsonIgnore]
     [Column(TypeName = "geometry (Geometry,4326)")]
     public NetTopologySuite.Geometries.Geometry? Location { get; set; }

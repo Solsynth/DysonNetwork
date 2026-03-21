@@ -33,8 +33,11 @@ Important fields:
 - `id`: meet ID
 - `host_id`: host account ID
 - `status`: current meet status
+- `visibility`: `public` or `private`
 - `expires_at`: auto-expiration time
 - `completed_at`: set when host completes the meet
+- `notes`: optional notes text
+- `image`: optional image file reference
 - `location_name`: optional human-friendly label
 - `location_address`: optional address text
 - `location_wkt`: optional geometry serialized as WKT for API responses
@@ -42,6 +45,16 @@ Important fields:
 - `participants`: joined participant accounts
 
 Location storage uses PostGIS geometry in the database and is fully optional.
+
+## Visibility
+
+`MeetVisibility`
+
+- `Public`
+- `Private`
+
+Public meets can be fetched by ID without already being a participant.
+Private meets still work as share-by-ID sessions, but they are not treated as public resources.
 
 ## Authentication
 
@@ -61,6 +74,9 @@ Request body:
 
 ```json
 {
+  "visibility": 0,
+  "notes": "Meet me near the east gate.",
+  "image_id": "01JV6Y7Q7M8P6C3S0X4F8YZZZZ",
   "location_name": "Taipei Main Station",
   "location_address": "No. 3, Beiping W. Rd., Zhongzheng District, Taipei City",
   "location_wkt": "POINT(121.5170 25.0478)",
@@ -73,10 +89,14 @@ Request body:
 
 Notes:
 
+- `visibility` is optional and defaults to `Private`.
+- `notes` is optional.
+- `image_id` is optional.
 - `location_name` is optional.
 - `location_address` is optional.
 - `location_wkt` is optional.
 - `expires_in_seconds` is optional.
+- `image_id` must point to an existing file object.
 - `location_wkt` must be valid WKT. The server sets SRID `4326`.
 - TTL is clamped by the server to a safe range.
 
@@ -97,7 +117,11 @@ Query params:
 
 `GET /api/meets/{id}`
 
-Returns a single meet if the current user is the host or a participant.
+Returns a single meet if:
+
+- the current user is the host
+- the current user is a participant
+- the meet visibility is `Public`
 
 ### Join meet and open SSE
 
@@ -148,10 +172,12 @@ Behavior:
 
 ## Access rules
 
-A meet is visible only to:
+A private meet is visible only to:
 
 - the host
 - joined participants
+
+A public meet can also be fetched by ID by other authenticated users.
 
 Only the host can complete the meet.
 
@@ -176,6 +202,7 @@ When a meet expires:
 Common error scenarios:
 
 - invalid meet ID: `404`
+- invalid image ID: `400`
 - trying to join a non-active meet: `400`
 - non-host trying to complete a meet: `403`
 - invalid `location_wkt`: `400`
@@ -186,3 +213,5 @@ Common error scenarios:
 - Service: [MeetService.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Meet/MeetService.cs)
 - Models: [Meet.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Shared/Models/Meet.cs)
 - Migration: [20260320155249_AddMeetSystem.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Migrations/20260320155249_AddMeetSystem.cs)
+- Migration: [20260320170931_UpdateMeetLocationToPostgis.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Migrations/20260320170931_UpdateMeetLocationToPostgis.cs)
+- Migration: [20260321060302_AddMeetImageNotesAndVisibility.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Migrations/20260321060302_AddMeetImageNotesAndVisibility.cs)
