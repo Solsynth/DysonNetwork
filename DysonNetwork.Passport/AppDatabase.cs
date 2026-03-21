@@ -51,6 +51,8 @@ public class AppDatabase(
     public DbSet<SnTicketMessage> TicketMessages { get; set; } = null!;
     public DbSet<SnMeet> Meets { get; set; } = null!;
     public DbSet<SnMeetParticipant> MeetParticipants { get; set; } = null!;
+    public DbSet<SnNearbyDevice> NearbyDevices { get; set; } = null!;
+    public DbSet<SnNearbyPresenceToken> NearbyPresenceTokens { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -131,6 +133,12 @@ public class AppDatabase(
             .HasForeignKey(p => p.MeetId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        modelBuilder.Entity<SnNearbyPresenceToken>()
+            .HasOne(t => t.Device)
+            .WithMany(d => d.PresenceTokens)
+            .HasForeignKey(t => t.DeviceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Passport no longer owns auth/account rows; keep profile as an account-id keyed read model only.
         modelBuilder.Entity<SnAccountProfile>()
             .Ignore(p => p.Account);
@@ -169,6 +177,10 @@ public class AppDatabaseRecyclingJob(AppDatabase db, ILogger<AppDatabaseRecyclin
                 .SetProperty(m => m.Status, MeetStatus.Expired)
                 .SetProperty(m => m.UpdatedAt, now));
         logger.LogDebug("Expired {Count} stale meets.", affectedRows);
+        affectedRows = await db.NearbyPresenceTokens
+            .Where(x => x.ValidTo <= now - Duration.FromMinutes(5))
+            .ExecuteDeleteAsync();
+        logger.LogDebug("Removed {Count} expired nearby presence tokens.", affectedRows);
 
         logger.LogInformation("Deleting soft-deleted records...");
 
