@@ -49,6 +49,7 @@ public class NearbyService(
     public const int DefaultSlotDurationSec = 30;
     public const int DefaultPrefetchSlots = 10;
     public const int MaxPrefetchSlots = 30;
+    public const int TokenBytes = 8;
     private static readonly Duration AllowedClockSkew = Duration.FromMinutes(2);
 
     private string ServiceUuid => configuration["Nearby:ServiceUuid"] ?? DefaultServiceUuid;
@@ -224,7 +225,7 @@ public class NearbyService(
         var secret = Encoding.UTF8.GetBytes(TokenSecret);
         using var hmac = new HMACSHA256(secret);
         var full = hmac.ComputeHash(Encoding.UTF8.GetBytes(material));
-        return Convert.ToHexString(full[..16]);
+        return Convert.ToHexString(full[..TokenBytes]);
     }
 
     private static string ComputeHash(string token)

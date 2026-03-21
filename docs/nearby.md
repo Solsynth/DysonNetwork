@@ -98,7 +98,7 @@ Implementation reference:
 
 - [NearbyService.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Nearby/NearbyService.cs)
 
-The current token format returned to clients is a 16-byte value encoded as uppercase hex.
+The current token format returned to clients is an 8-byte value encoded as uppercase hex.
 
 ## Authentication
 
@@ -135,7 +135,7 @@ Response:
   "tokens": [
     {
       "slot": 58765432,
-      "token": "A1B2C3D4E5F60718293A4B5C6D7E8F90",
+      "token": "A1B2C3D4E5F60718",
       "valid_from": "2026-03-21T12:00:00Z",
       "valid_to": "2026-03-21T12:00:30Z"
     }
@@ -163,7 +163,7 @@ Request body:
 {
   "observations": [
     {
-      "token": "A1B2C3D4E5F60718293A4B5C6D7E8F90",
+      "token": "A1B2C3D4E5F60718",
       "slot": 58765432,
       "avg_rssi": -67,
       "seen_count": 4,
@@ -326,12 +326,15 @@ Recommended payload layout:
 - `version`: 1 byte
 - `flags`: 1 byte
 - `slot`: 4 bytes
-- `rolling_presence_token`: 16 bytes
-- `capabilities`: 1 byte
+- `rolling_presence_token`: 8 bytes
+- `capabilities`: 1 byte optional
 
 Suggested total payload size:
 
-- about 23 bytes
+- 14 bytes without `capabilities`
+- 15 bytes with `capabilities`
+
+This is intentionally small enough to stay under Android BLE advertising limits once service UUID and other advertising overhead are included. Keep the custom payload around `20` bytes or less.
 
 Recommended flag meanings:
 
@@ -344,7 +347,7 @@ Recommended flag meanings:
 
 The backend currently returns `token` as uppercase hex text.
 
-Before placing the token into BLE payload bytes, the client should decode the hex string into raw 16 bytes.
+Before placing the token into BLE payload bytes, the client should decode the hex string into raw 8 bytes.
 
 ### Example Payload Builder
 
@@ -390,8 +393,8 @@ PresencePayload parsePresencePayload(Uint8List data) {
     version: data[0],
     flags: data[1],
     slot: _readU32be(data, 2),
-    token: data.sublist(6, 22),
-    capabilities: data[22],
+    token: data.sublist(6, 14),
+    capabilities: data.length > 14 ? data[14] : 0,
   );
 }
 ```
@@ -400,10 +403,25 @@ PresencePayload parsePresencePayload(Uint8List data) {
 
 Recommended client flow:
 
-1. Decode current token hex into 16 bytes.
+1. Decode current token hex into 8 bytes.
 2. Build payload with current slot.
 3. Start advertising under the returned `service_uuid`.
 4. Stop and restart advertising when the slot changes.
+
+Android-specific guidance:
+
+- use `serviceData` only for the nearby payload when possible
+- do not add `localName`
+- avoid extra manufacturer data unless you intentionally move the protocol there
+- add a defensive client-side size check before advertising
+
+Example defensive check:
+
+```dart
+if (payload.length > 20) {
+  throw Exception('BLE payload too large');
+}
+```
 
 Pseudo-example:
 

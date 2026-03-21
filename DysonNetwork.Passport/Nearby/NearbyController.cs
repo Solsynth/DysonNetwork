@@ -45,7 +45,7 @@ public class NearbyController(
     public class ResolveObservationRequest
     {
         [Required]
-        [MaxLength(64)]
+        [StringLength(NearbyService.TokenBytes * 2, MinimumLength = NearbyService.TokenBytes * 2)]
         public string Token { get; set; } = string.Empty;
 
         public long Slot { get; set; }
