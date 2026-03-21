@@ -5,6 +5,7 @@ using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using NodaTime;
+using System.Text.Json;
 
 namespace DysonNetwork.Passport.Meet;
 
@@ -39,14 +40,23 @@ public class MeetService(
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var normalizedTtl = NormalizeTtl(ttl);
-        var existing = await db.Meets
+        var candidates = await db.Meets
             .Include(m => m.Participants)
             .Where(m => m.HostId == hostId)
             .Where(m => m.Status == MeetStatus.Active)
             .Where(m => m.ExpiresAt > now)
             .Where(m => m.CreatedAt >= now - DuplicateWindow)
             .OrderByDescending(m => m.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
+
+        var existing = candidates.FirstOrDefault(m =>
+            m.Visibility == visibility
+            && m.Notes == notes
+            && m.LocationName == locationName
+            && m.LocationAddress == locationAddress
+            && SameGeometry(m.Location, location)
+            && SameFileRef(m.Image, imageId)
+            && SameMetadata(m.Metadata, metadata));
 
         if (existing is not null)
         {
@@ -263,5 +273,49 @@ public class MeetService(
             throw new RpcException(new Status(StatusCode.NotFound, "Image was not found."));
 
         return SnCloudFileReferenceObject.FromProtoValue(file);
+    }
+
+    private static bool SameFileRef(SnCloudFileReferenceObject? image, string? imageId)
+    {
+        if (string.IsNullOrWhiteSpace(imageId))
+            return image is null;
+        return image?.Id == imageId;
+    }
+
+    private static bool SameGeometry(Geometry? left, Geometry? right)
+    {
+        if (left is null || right is null)
+            return left is null && right is null;
+
+        return left.SRID == right.SRID && string.Equals(left.AsText(), right.AsText(), StringComparison.Ordinal);
+    }
+
+    private static bool SameMetadata(Dictionary<string, object> existing, Dictionary<string, object>? incoming)
+    {
+        incoming ??= [];
+        return CanonicalizeJson(existing) == CanonicalizeJson(incoming);
+    }
+
+    private static string CanonicalizeJson(object? value)
+    {
+        var element = JsonSerializer.SerializeToElement(value);
+        return CanonicalizeElement(element);
+    }
+
+    private static string CanonicalizeElement(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.Object => "{"
+                + string.Join(",",
+                    element.EnumerateObject()
+                        .OrderBy(p => p.Name, StringComparer.Ordinal)
+                        .Select(p => JsonSerializer.Serialize(p.Name) + ":" + CanonicalizeElement(p.Value)))
+                + "}",
+            JsonValueKind.Array => "["
+                + string.Join(",", element.EnumerateArray().Select(CanonicalizeElement))
+                + "]",
+            _ => element.GetRawText()
+        };
     }
 }
