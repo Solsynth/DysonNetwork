@@ -1,6 +1,7 @@
 using DysonNetwork.Padlock.Auth.OpenId;
 using DysonNetwork.Padlock.Mailer;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Localization;
@@ -11,6 +12,7 @@ using Grpc.Core;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Padlock.Account;
 
@@ -24,7 +26,8 @@ public class AccountService(
     ILocalizationService localizer,
     ILogger<AccountService> logger,
     IHttpContextAccessor httpContextAccessor,
-    ActionLogService actionLogs
+    ActionLogService actionLogs,
+    DyMagicSpellService.DyMagicSpellServiceClient magicSpells
 )
 {
     private const string AuthFactorCachePrefix = "authfactor:";
@@ -436,11 +439,44 @@ public class AccountService(
         return contact;
     }
 
-    public async Task VerifyContactMethod(SnAccount account, SnAccountContact contact)
+    public async Task RequestContactVerification(SnAccount account, SnAccountContact contact)
     {
-        contact.VerifiedAt = SystemClock.Instance.GetCurrentInstant();
-        db.Update(contact);
+        if (contact.AccountId != account.Id)
+            throw new InvalidOperationException("Contact does not belong to the account.");
+        if (contact.VerifiedAt is not null)
+            throw new InvalidOperationException("Contact has already been verified.");
+
+        var request = new DyCreateMagicSpellRequest
+        {
+            AccountId = account.Id.ToString(),
+            Type = DyMagicSpellType.DyMagicSpellContactVerification,
+            ExpiresAt = SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromHours(24)).ToTimestamp(),
+            PreventRepeat = true
+        };
+        request.Meta.Add("contact_id", InfraObjectCoder.ConvertObjectToValue(contact.Id.ToString()));
+        request.Meta.Add("contact_type", InfraObjectCoder.ConvertObjectToValue(contact.Type.ToString()));
+        request.Meta.Add("contact_method", InfraObjectCoder.ConvertObjectToValue(contact.Content));
+
+        var spell = await magicSpells.CreateMagicSpellAsync(request);
+        await magicSpells.NotifyMagicSpellAsync(new DyNotifyMagicSpellRequest
+        {
+            SpellId = spell.Id,
+            BypassVerify = true
+        });
+    }
+
+    public async Task<bool> MarkContactMethodVerified(Guid accountId, Guid contactId, Instant verifiedAt)
+    {
+        var contact = await db.AccountContacts
+            .FirstOrDefaultAsync(c => c.AccountId == accountId && c.Id == contactId);
+        if (contact is null) return false;
+
+        if (contact.VerifiedAt is null || contact.VerifiedAt < verifiedAt)
+            contact.VerifiedAt = verifiedAt;
+
+        db.AccountContacts.Update(contact);
         await db.SaveChangesAsync();
+        return true;
     }
 
     public async Task<SnAccountContact> SetContactMethodPrimary(SnAccount account, SnAccountContact contact)
@@ -612,6 +648,15 @@ public class AccountService(
             AccountId = account.Id,
             DeletedAt = SystemClock.Instance.GetCurrentInstant()
         });
+    }
+
+    public async Task<bool> DeleteAccountById(Guid accountId)
+    {
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
+        if (account is null) return false;
+
+        await DeleteAccount(account);
+        return true;
     }
 
     public async Task<SnAccount> UpdateBasicInfo(SnAccount account, string? nick, string? language, string? region)

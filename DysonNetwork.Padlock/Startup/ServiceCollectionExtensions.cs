@@ -156,6 +156,9 @@ public static class ServiceCollectionExtensions
         services.AddGrpcClientWithSharedChannel<DyProfileService.DyProfileServiceClient>(
             "https://_grpc.passport",
             "DyProfileService");
+        services.AddGrpcClientWithSharedChannel<DyMagicSpellService.DyMagicSpellServiceClient>(
+            "https://_grpc.passport",
+            "DyMagicSpellService");
 
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();
@@ -173,6 +176,42 @@ public static class ServiceCollectionExtensions
                 }
 
                 logger.LogInformation("Applied activation event for account {AccountId}", evt.AccountId);
+            })
+            .AddListener<AccountContactVerifiedEvent>(async (evt, ctx) =>
+            {
+                var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+                var accounts = ctx.ServiceProvider.GetRequiredService<AccountService>();
+
+                var handled = await accounts.MarkContactMethodVerified(evt.AccountId, evt.ContactId, evt.VerifiedAt);
+                if (!handled)
+                {
+                    logger.LogWarning(
+                        "Received contact verification event for missing contact {ContactId} on account {AccountId}",
+                        evt.ContactId,
+                        evt.AccountId
+                    );
+                    return;
+                }
+
+                logger.LogInformation(
+                    "Applied contact verification event for contact {ContactId} on account {AccountId}",
+                    evt.ContactId,
+                    evt.AccountId
+                );
+            })
+            .AddListener<AccountRemovalConfirmedEvent>(async (evt, ctx) =>
+            {
+                var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+                var accounts = ctx.ServiceProvider.GetRequiredService<AccountService>();
+
+                var handled = await accounts.DeleteAccountById(evt.AccountId);
+                if (!handled)
+                {
+                    logger.LogWarning("Received removal confirmation for missing account {AccountId}", evt.AccountId);
+                    return;
+                }
+
+                logger.LogInformation("Applied account removal confirmation for account {AccountId}", evt.AccountId);
             });
 
         return services;

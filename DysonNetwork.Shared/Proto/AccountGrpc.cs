@@ -836,5 +836,270 @@ namespace DysonNetwork.Shared.Proto {
     }
 
   }
+  /// <summary>
+  /// MagicSpellService is owned by Passport and exposes spell issuance, delivery,
+  /// lookup, and application for other services such as Padlock.
+  /// </summary>
+  public static partial class DyMagicSpellService
+  {
+    static readonly string __ServiceName = "proto.DyMagicSpellService";
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static void __Helper_SerializeMessage(global::Google.Protobuf.IMessage message, grpc::SerializationContext context)
+    {
+      #if !GRPC_DISABLE_PROTOBUF_BUFFER_SERIALIZATION
+      if (message is global::Google.Protobuf.IBufferMessage)
+      {
+        context.SetPayloadLength(message.CalculateSize());
+        global::Google.Protobuf.MessageExtensions.WriteTo(message, context.GetBufferWriter());
+        context.Complete();
+        return;
+      }
+      #endif
+      context.Complete(global::Google.Protobuf.MessageExtensions.ToByteArray(message));
+    }
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static class __Helper_MessageCache<T>
+    {
+      public static readonly bool IsBufferMessage = global::System.Reflection.IntrospectionExtensions.GetTypeInfo(typeof(global::Google.Protobuf.IBufferMessage)).IsAssignableFrom(typeof(T));
+    }
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static T __Helper_DeserializeMessage<T>(grpc::DeserializationContext context, global::Google.Protobuf.MessageParser<T> parser) where T : global::Google.Protobuf.IMessage<T>
+    {
+      #if !GRPC_DISABLE_PROTOBUF_BUFFER_SERIALIZATION
+      if (__Helper_MessageCache<T>.IsBufferMessage)
+      {
+        return parser.ParseFrom(context.PayloadAsReadOnlySequence());
+      }
+      #endif
+      return parser.ParseFrom(context.PayloadAsNewBuffer());
+    }
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyCreateMagicSpellRequest> __Marshaller_proto_DyCreateMagicSpellRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyCreateMagicSpellRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyMagicSpell> __Marshaller_proto_DyMagicSpell = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyMagicSpell.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyNotifyMagicSpellRequest> __Marshaller_proto_DyNotifyMagicSpellRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyNotifyMagicSpellRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::Google.Protobuf.WellKnownTypes.Empty> __Marshaller_google_protobuf_Empty = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::Google.Protobuf.WellKnownTypes.Empty.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetMagicSpellRequest> __Marshaller_proto_DyGetMagicSpellRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetMagicSpellRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyApplyMagicSpellRequest> __Marshaller_proto_DyApplyMagicSpellRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyApplyMagicSpellRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyApplyMagicSpellResponse> __Marshaller_proto_DyApplyMagicSpellResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyApplyMagicSpellResponse.Parser));
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateMagicSpellRequest, global::DysonNetwork.Shared.Proto.DyMagicSpell> __Method_CreateMagicSpell = new grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateMagicSpellRequest, global::DysonNetwork.Shared.Proto.DyMagicSpell>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "CreateMagicSpell",
+        __Marshaller_proto_DyCreateMagicSpellRequest,
+        __Marshaller_proto_DyMagicSpell);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyNotifyMagicSpellRequest, global::Google.Protobuf.WellKnownTypes.Empty> __Method_NotifyMagicSpell = new grpc::Method<global::DysonNetwork.Shared.Proto.DyNotifyMagicSpellRequest, global::Google.Protobuf.WellKnownTypes.Empty>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "NotifyMagicSpell",
+        __Marshaller_proto_DyNotifyMagicSpellRequest,
+        __Marshaller_google_protobuf_Empty);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetMagicSpellRequest, global::DysonNetwork.Shared.Proto.DyMagicSpell> __Method_GetMagicSpell = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetMagicSpellRequest, global::DysonNetwork.Shared.Proto.DyMagicSpell>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "GetMagicSpell",
+        __Marshaller_proto_DyGetMagicSpellRequest,
+        __Marshaller_proto_DyMagicSpell);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyApplyMagicSpellRequest, global::DysonNetwork.Shared.Proto.DyApplyMagicSpellResponse> __Method_ApplyMagicSpell = new grpc::Method<global::DysonNetwork.Shared.Proto.DyApplyMagicSpellRequest, global::DysonNetwork.Shared.Proto.DyApplyMagicSpellResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "ApplyMagicSpell",
+        __Marshaller_proto_DyApplyMagicSpellRequest,
+        __Marshaller_proto_DyApplyMagicSpellResponse);
+
+    /// <summary>Service descriptor</summary>
+    public static global::Google.Protobuf.Reflection.ServiceDescriptor Descriptor
+    {
+      get { return global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor.Services[1]; }
+    }
+
+    /// <summary>Base class for server-side implementations of DyMagicSpellService</summary>
+    [grpc::BindServiceMethod(typeof(DyMagicSpellService), "BindService")]
+    public abstract partial class DyMagicSpellServiceBase
+    {
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyMagicSpell> CreateMagicSpell(global::DysonNetwork.Shared.Proto.DyCreateMagicSpellRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::Google.Protobuf.WellKnownTypes.Empty> NotifyMagicSpell(global::DysonNetwork.Shared.Proto.DyNotifyMagicSpellRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyMagicSpell> GetMagicSpell(global::DysonNetwork.Shared.Proto.DyGetMagicSpellRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyApplyMagicSpellResponse> ApplyMagicSpell(global::DysonNetwork.Shared.Proto.DyApplyMagicSpellRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+    }
+
+    /// <summary>Client for DyMagicSpellService</summary>
+    public partial class DyMagicSpellServiceClient : grpc::ClientBase<DyMagicSpellServiceClient>
+    {
+      /// <summary>Creates a new client for DyMagicSpellService</summary>
+      /// <param name="channel">The channel to use to make remote calls.</param>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public DyMagicSpellServiceClient(grpc::ChannelBase channel) : base(channel)
+      {
+      }
+      /// <summary>Creates a new client for DyMagicSpellService that uses a custom <c>CallInvoker</c>.</summary>
+      /// <param name="callInvoker">The callInvoker to use to make remote calls.</param>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public DyMagicSpellServiceClient(grpc::CallInvoker callInvoker) : base(callInvoker)
+      {
+      }
+      /// <summary>Protected parameterless constructor to allow creation of test doubles.</summary>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      protected DyMagicSpellServiceClient() : base()
+      {
+      }
+      /// <summary>Protected constructor to allow creation of configured clients.</summary>
+      /// <param name="configuration">The client configuration.</param>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      protected DyMagicSpellServiceClient(ClientBaseConfiguration configuration) : base(configuration)
+      {
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyMagicSpell CreateMagicSpell(global::DysonNetwork.Shared.Proto.DyCreateMagicSpellRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return CreateMagicSpell(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyMagicSpell CreateMagicSpell(global::DysonNetwork.Shared.Proto.DyCreateMagicSpellRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_CreateMagicSpell, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyMagicSpell> CreateMagicSpellAsync(global::DysonNetwork.Shared.Proto.DyCreateMagicSpellRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return CreateMagicSpellAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyMagicSpell> CreateMagicSpellAsync(global::DysonNetwork.Shared.Proto.DyCreateMagicSpellRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_CreateMagicSpell, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::Google.Protobuf.WellKnownTypes.Empty NotifyMagicSpell(global::DysonNetwork.Shared.Proto.DyNotifyMagicSpellRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return NotifyMagicSpell(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::Google.Protobuf.WellKnownTypes.Empty NotifyMagicSpell(global::DysonNetwork.Shared.Proto.DyNotifyMagicSpellRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_NotifyMagicSpell, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> NotifyMagicSpellAsync(global::DysonNetwork.Shared.Proto.DyNotifyMagicSpellRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return NotifyMagicSpellAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.Empty> NotifyMagicSpellAsync(global::DysonNetwork.Shared.Proto.DyNotifyMagicSpellRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_NotifyMagicSpell, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyMagicSpell GetMagicSpell(global::DysonNetwork.Shared.Proto.DyGetMagicSpellRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return GetMagicSpell(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyMagicSpell GetMagicSpell(global::DysonNetwork.Shared.Proto.DyGetMagicSpellRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_GetMagicSpell, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyMagicSpell> GetMagicSpellAsync(global::DysonNetwork.Shared.Proto.DyGetMagicSpellRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return GetMagicSpellAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyMagicSpell> GetMagicSpellAsync(global::DysonNetwork.Shared.Proto.DyGetMagicSpellRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_GetMagicSpell, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyApplyMagicSpellResponse ApplyMagicSpell(global::DysonNetwork.Shared.Proto.DyApplyMagicSpellRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return ApplyMagicSpell(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyApplyMagicSpellResponse ApplyMagicSpell(global::DysonNetwork.Shared.Proto.DyApplyMagicSpellRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_ApplyMagicSpell, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyApplyMagicSpellResponse> ApplyMagicSpellAsync(global::DysonNetwork.Shared.Proto.DyApplyMagicSpellRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return ApplyMagicSpellAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyApplyMagicSpellResponse> ApplyMagicSpellAsync(global::DysonNetwork.Shared.Proto.DyApplyMagicSpellRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_ApplyMagicSpell, null, options, request);
+      }
+      /// <summary>Creates a new instance of client from given <c>ClientBaseConfiguration</c>.</summary>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      protected override DyMagicSpellServiceClient NewInstance(ClientBaseConfiguration configuration)
+      {
+        return new DyMagicSpellServiceClient(configuration);
+      }
+    }
+
+    /// <summary>Creates service definition that can be registered with a server</summary>
+    /// <param name="serviceImpl">An object implementing the server-side handling logic.</param>
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    public static grpc::ServerServiceDefinition BindService(DyMagicSpellServiceBase serviceImpl)
+    {
+      return grpc::ServerServiceDefinition.CreateBuilder()
+          .AddMethod(__Method_CreateMagicSpell, serviceImpl.CreateMagicSpell)
+          .AddMethod(__Method_NotifyMagicSpell, serviceImpl.NotifyMagicSpell)
+          .AddMethod(__Method_GetMagicSpell, serviceImpl.GetMagicSpell)
+          .AddMethod(__Method_ApplyMagicSpell, serviceImpl.ApplyMagicSpell).Build();
+    }
+
+    /// <summary>Register service method with a service binder with or without implementation. Useful when customizing the service binding logic.
+    /// Note: this method is part of an experimental API that can change or be removed without any prior notice.</summary>
+    /// <param name="serviceBinder">Service methods will be bound by calling <c>AddMethod</c> on this object.</param>
+    /// <param name="serviceImpl">An object implementing the server-side handling logic.</param>
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    public static void BindService(grpc::ServiceBinderBase serviceBinder, DyMagicSpellServiceBase serviceImpl)
+    {
+      serviceBinder.AddMethod(__Method_CreateMagicSpell, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyCreateMagicSpellRequest, global::DysonNetwork.Shared.Proto.DyMagicSpell>(serviceImpl.CreateMagicSpell));
+      serviceBinder.AddMethod(__Method_NotifyMagicSpell, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyNotifyMagicSpellRequest, global::Google.Protobuf.WellKnownTypes.Empty>(serviceImpl.NotifyMagicSpell));
+      serviceBinder.AddMethod(__Method_GetMagicSpell, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetMagicSpellRequest, global::DysonNetwork.Shared.Proto.DyMagicSpell>(serviceImpl.GetMagicSpell));
+      serviceBinder.AddMethod(__Method_ApplyMagicSpell, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyApplyMagicSpellRequest, global::DysonNetwork.Shared.Proto.DyApplyMagicSpellResponse>(serviceImpl.ApplyMagicSpell));
+    }
+
+  }
 }
 #endregion

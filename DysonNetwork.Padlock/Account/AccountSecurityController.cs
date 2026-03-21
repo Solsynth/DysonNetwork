@@ -360,7 +360,15 @@ public class AccountSecurityController(
         if (contact is null)
             return NotFound();
 
-        await accounts.VerifyContactMethod(currentUser, contact);
+        try
+        {
+            await accounts.RequestContactVerification(currentUser, contact);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+
         return Ok(contact);
     }
 

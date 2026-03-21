@@ -42,3 +42,26 @@ public class AccountActivatedEvent : EventBase
     public Guid AccountId { get; set; }
     public Instant ActivatedAt { get; set; } = SystemClock.Instance.GetCurrentInstant();
 }
+
+public class AccountContactVerifiedEvent : EventBase
+{
+    public static string Type => "accounts.contacts.verified";
+    public override string EventType => Type;
+    public override string StreamName => "account_events";
+
+    public Guid AccountId { get; set; }
+    public Guid ContactId { get; set; }
+    public Guid SpellId { get; set; }
+    public Instant VerifiedAt { get; set; } = SystemClock.Instance.GetCurrentInstant();
+}
+
+public class AccountRemovalConfirmedEvent : EventBase
+{
+    public static string Type => "accounts.removal.confirmed";
+    public override string EventType => Type;
+    public override string StreamName => "account_events";
+
+    public Guid AccountId { get; set; }
+    public Guid SpellId { get; set; }
+    public Instant ConfirmedAt { get; set; } = SystemClock.Instance.GetCurrentInstant();
+}

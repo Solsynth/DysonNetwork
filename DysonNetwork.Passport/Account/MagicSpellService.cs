@@ -160,9 +160,12 @@ public class MagicSpellService(
         }
     }
 
-    public async Task ApplyMagicSpell(SnMagicSpell spell)
+    public async Task<IReadOnlyList<string>> ApplyMagicSpell(SnMagicSpell spell)
     {
+        var publishedEventTypes = new List<string>();
         AccountActivatedEvent? accountActivatedEvent = null;
+        AccountContactVerifiedEvent? accountContactVerifiedEvent = null;
+        AccountRemovalConfirmedEvent? accountRemovalConfirmedEvent = null;
 
         switch (spell.Type)
         {
@@ -187,6 +190,15 @@ public class MagicSpellService(
                         .Where(m => m.Actor == accountId.ToString())
                         .ExecuteDeleteAsync();
                 }
+                if (spell.AccountId.HasValue)
+                {
+                    accountRemovalConfirmedEvent = new AccountRemovalConfirmedEvent
+                    {
+                        AccountId = spell.AccountId.Value,
+                        SpellId = spell.Id,
+                        ConfirmedAt = SystemClock.Instance.GetCurrentInstant()
+                    };
+                }
                 break;
             case MagicSpellType.AccountActivation:
                 if (spell.AccountId.HasValue)
@@ -200,8 +212,20 @@ public class MagicSpellService(
                 }
                 break;
             case MagicSpellType.ContactVerification:
-                // Contact data is now owned by Padlock; verification state should be applied there.
-                logger.LogInformation("Contact verification spell {SpellId} applied in Passport (no local contact write).", spell.Id);
+                if (!spell.AccountId.HasValue)
+                    throw new InvalidOperationException("Contact verification spell is missing account id.");
+                if (!spell.Meta.TryGetValue("contact_id", out var contactIdValue) || contactIdValue is not string contactIdRaw)
+                    throw new InvalidOperationException("Contact verification spell is missing contact id.");
+                if (!Guid.TryParse(contactIdRaw, out var contactId))
+                    throw new InvalidOperationException("Contact verification spell contains an invalid contact id.");
+
+                accountContactVerifiedEvent = new AccountContactVerifiedEvent
+                {
+                    AccountId = spell.AccountId.Value,
+                    ContactId = contactId,
+                    SpellId = spell.Id,
+                    VerifiedAt = SystemClock.Instance.GetCurrentInstant()
+                };
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -211,10 +235,25 @@ public class MagicSpellService(
         await db.SaveChangesAsync();
 
         if (accountActivatedEvent is not null)
+        {
             await eventBus.PublishAsync(AccountActivatedEvent.Type, accountActivatedEvent);
+            publishedEventTypes.Add(AccountActivatedEvent.Type);
+        }
+        if (accountContactVerifiedEvent is not null)
+        {
+            await eventBus.PublishAsync(AccountContactVerifiedEvent.Type, accountContactVerifiedEvent);
+            publishedEventTypes.Add(AccountContactVerifiedEvent.Type);
+        }
+        if (accountRemovalConfirmedEvent is not null)
+        {
+            await eventBus.PublishAsync(AccountRemovalConfirmedEvent.Type, accountRemovalConfirmedEvent);
+            publishedEventTypes.Add(AccountRemovalConfirmedEvent.Type);
+        }
+
+        return publishedEventTypes;
     }
 
-    public async Task ApplyPasswordReset(SnMagicSpell spell, string newPassword)
+    public async Task<IReadOnlyList<string>> ApplyPasswordReset(SnMagicSpell spell, string newPassword)
     {
         if (spell.Type != MagicSpellType.AuthPasswordReset)
             throw new ArgumentException("This spell is not a password reset spell.");
@@ -239,6 +278,7 @@ public class MagicSpellService(
 
         db.Remove(spell);
         await db.SaveChangesAsync();
+        return Array.Empty<string>();
     }
 
     private static string _GenerateRandomString(int length)
