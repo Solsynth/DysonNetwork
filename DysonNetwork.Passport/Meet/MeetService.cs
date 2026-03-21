@@ -12,6 +12,7 @@ namespace DysonNetwork.Passport.Meet;
 public class MeetService(
     AppDatabase db,
     AccountService accounts,
+    RelationshipService relationships,
     DyFileService.DyFileServiceClient files,
     MeetSubscriptionHub subscriptions,
     MeetExpirationScheduler expirationScheduler,
@@ -98,6 +99,7 @@ public class MeetService(
     )
     {
         await ExpireMeetsAsync(accountId, cancellationToken);
+        var friendIds = await relationships.ListAccountFriends(accountId);
 
         var query = db.Meets
             .Include(m => m.Participants)
@@ -112,6 +114,7 @@ public class MeetService(
             query = query.Where(m =>
                 m.Visibility == MeetVisibility.Public
                 || m.HostId == accountId
+                || friendIds.Contains(m.HostId)
                 || m.Participants.Any(p => p.AccountId == accountId));
         }
 
@@ -138,7 +141,7 @@ public class MeetService(
             .Include(m => m.Participants)
             .FirstOrDefaultAsync(m => m.Id == meetId, cancellationToken);
         if (meet is null) return null;
-        if (!CanAccessMeet(meet, accountId)) return null;
+        if (!await CanAccessMeetAsync(meet, accountId)) return null;
 
         await HydrateMeetAsync(meet, cancellationToken);
         return meet;
@@ -153,6 +156,8 @@ public class MeetService(
             .FirstOrDefaultAsync(m => m.Id == meetId, cancellationToken)
             ?? throw new KeyNotFoundException("Meet not found.");
 
+        if (!await CanAccessMeetAsync(meet, accountId))
+            throw new UnauthorizedAccessException("You do not have access to this meet.");
         if (meet.Status != MeetStatus.Active || meet.ExpiresAt <= SystemClock.Instance.GetCurrentInstant())
             throw new InvalidOperationException("Meet is no longer active.");
 
@@ -238,10 +243,11 @@ public class MeetService(
             await TryExpireMeetAsync(meetId, cancellationToken);
     }
 
-    private static bool CanAccessMeet(SnMeet meet, Guid accountId)
+    private async Task<bool> CanAccessMeetAsync(SnMeet meet, Guid accountId)
     {
         return meet.Visibility == MeetVisibility.Public
             || meet.HostId == accountId
+            || await relationships.HasRelationshipWithStatus(meet.HostId, accountId)
             || meet.Participants.Any(p => p.AccountId == accountId);
     }
 

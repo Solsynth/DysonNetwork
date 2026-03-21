@@ -195,6 +195,11 @@ public class MeetController(
             Response.StatusCode = StatusCodes.Status404NotFound;
             await WriteJsonBodyAsync(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier), cancellationToken);
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            Response.StatusCode = StatusCodes.Status403Forbidden;
+            await WriteJsonBodyAsync(ApiError.Unauthorized(ex.Message, forbidden: true, traceId: HttpContext.TraceIdentifier), cancellationToken);
+        }
         catch (InvalidOperationException ex)
         {
             Response.StatusCode = StatusCodes.Status400BadRequest;
