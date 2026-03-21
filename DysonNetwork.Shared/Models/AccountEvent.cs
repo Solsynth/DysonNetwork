@@ -212,3 +212,18 @@ public class SnPresenceActivity : ModelBase
     public Guid AccountId { get; set; }
     [NotMapped] public SnAccount Account { get; set; } = null!;
 }
+
+public enum TimelineEventType
+{
+    StatusChange,
+    Activity,
+}
+
+public class AccountTimelineItem
+{
+    public Guid Id { get; set; }
+    public Instant CreatedAt { get; set; }
+    public TimelineEventType EventType { get; set; }
+    public SnAccountStatus? Status { get; set; }
+    public SnPresenceActivity? Activity { get; set; }
+}

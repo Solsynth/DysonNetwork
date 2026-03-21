@@ -128,4 +128,27 @@ public class AccountController(
         var calendar = await events.GetEventCalendar(account, month.Value, year.Value, replaceInvisible: true);
         return Ok(calendar);
     }
+
+    [HttpGet("{name}/timeline")]
+    public async Task<ActionResult<List<AccountTimelineItem>>> GetTimeline(
+        string name,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        var account = await accounts.LookupAccount(name);
+        if (account is null)
+            return BadRequest(new ApiError
+            {
+                Code = "NOT_FOUND",
+                Message = "Account not found.",
+                Detail = name,
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
+
+        var (timeline, total) = await events.GetTimeline(account.Id, offset, take);
+        Response.Headers["X-Total"] = total.ToString();
+        return Ok(timeline);
+    }
 }

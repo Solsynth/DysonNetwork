@@ -561,6 +561,76 @@ public class AccountEventService(
         return (activities, totalCount);
     }
 
+    public async Task<(List<SnAccountStatus>, int)> GetStatusHistory(Guid userId, int offset = 0, int take = 20)
+    {
+        var query = db.AccountStatuses
+            .Where(e => e.AccountId == userId && e.DeletedAt == null);
+
+        var totalCount = await query.CountAsync();
+
+        var statuses = await query
+            .OrderByDescending(e => e.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        return (statuses, totalCount);
+    }
+
+    public async Task<(List<AccountTimelineItem>, int)> GetTimeline(Guid userId, int offset = 0, int take = 20)
+    {
+        var statusQuery = db.AccountStatuses
+            .Where(e => e.AccountId == userId && e.DeletedAt == null);
+        var activityQuery = db.PresenceActivities
+            .Where(e => e.AccountId == userId && e.DeletedAt == null);
+
+        var totalCount = await statusQuery.CountAsync() + await activityQuery.CountAsync();
+
+        var statusesTask = statusQuery
+            .OrderByDescending(e => e.CreatedAt)
+            .ToListAsync();
+        var activitiesTask = activityQuery
+            .OrderByDescending(e => e.CreatedAt)
+            .ToListAsync();
+
+        await Task.WhenAll(statusesTask, activitiesTask);
+
+        var statuses = await statusesTask;
+        var activities = await activitiesTask;
+
+        var timelineItems = new List<AccountTimelineItem>();
+
+        foreach (var status in statuses)
+        {
+            timelineItems.Add(new AccountTimelineItem
+            {
+                Id = status.Id,
+                CreatedAt = status.CreatedAt,
+                EventType = TimelineEventType.StatusChange,
+                Status = status
+            });
+        }
+
+        foreach (var activity in activities)
+        {
+            timelineItems.Add(new AccountTimelineItem
+            {
+                Id = activity.Id,
+                CreatedAt = activity.CreatedAt,
+                EventType = TimelineEventType.Activity,
+                Activity = activity
+            });
+        }
+
+        var sortedTimeline = timelineItems
+            .OrderByDescending(e => e.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToList();
+
+        return (sortedTimeline, totalCount);
+    }
+
     public async Task<SnPresenceActivity> SetActivity(SnPresenceActivity activity, int leaseMinutes)
     {
         if (leaseMinutes is < 1 or > 60)

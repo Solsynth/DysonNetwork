@@ -11,7 +11,7 @@ namespace DysonNetwork.Passport.Account;
 /// </summary>
 [ApiController]
 [Route("/api/activities")]
-public class PresenceActivityController(AppDatabase db, AccountEventService service, AccountService accounts)
+public class PresenceActivityController(AccountEventService service, AccountService accounts)
     : ControllerBase
 {
     /// <summary>
