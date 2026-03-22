@@ -202,8 +202,6 @@ public class ChatRoomService(
         member.RealmLevel = realmMember.Level;
         member.RealmLevelingProgress = realmMember.LevelingProgress;
         member.RealmLabel = realmMember.Label;
-        if (!string.IsNullOrWhiteSpace(realmMember.Nick))
-            member.Nick = realmMember.Nick;
 
         return member;
     }
@@ -271,8 +269,6 @@ public class ChatRoomService(
             member.RealmLevel = realmMember.Level;
             member.RealmLevelingProgress = realmMember.LevelingProgress;
             member.RealmLabel = realmMember.Label;
-            if (!string.IsNullOrWhiteSpace(realmMember.Nick))
-                member.Nick = realmMember.Nick;
         }
 
         return hydratedMembers;
@@ -315,8 +311,6 @@ public class ChatRoomService(
             member.RealmLevel = realmMember.Level;
             member.RealmLevelingProgress = realmMember.LevelingProgress;
             member.RealmLabel = realmMember.Label;
-            if (!string.IsNullOrWhiteSpace(realmMember.Nick))
-                member.Nick = realmMember.Nick;
         }
     }
 

@@ -351,7 +351,7 @@ public partial class ChatService(
         if (member.Account is null)
             member = await crs.LoadMemberAccount(member);
 
-        var displayName = member.Nick ?? member.Account?.Nick ?? "Someone";
+        var displayName = member.Nick ?? member.RealmNick ?? member.Account?.Nick ?? "Someone";
         return await SendSystemMessageAsync(
             room,
             member,
@@ -375,7 +375,7 @@ public partial class ChatService(
         if (member.Account is null)
             member = await crs.LoadMemberAccount(member);
 
-        var displayName = member.Nick ?? member.Account?.Nick ?? "Someone";
+        var displayName = member.Nick ?? member.RealmNick ?? member.Account?.Nick ?? "Someone";
 
         string content;
         var meta = new Dictionary<string, object>
@@ -390,7 +390,7 @@ public partial class ChatService(
             if (operatorMember.Account is null)
                 operatorMember = await crs.LoadMemberAccount(operatorMember);
 
-            var operatorName = operatorMember.Nick ?? operatorMember.Account?.Nick ?? "Moderator";
+            var operatorName = operatorMember.Nick ?? operatorMember.RealmNick ?? operatorMember.Account?.Nick ?? "Moderator";
             content = $"{displayName} was removed from the chat by {operatorName}.";
             meta["operator_member_id"] = operatorMember.Id;
             meta["operator_account_id"] = operatorMember.AccountId;
@@ -420,7 +420,7 @@ public partial class ChatService(
         if (operatorMember.Account is null)
             operatorMember = await crs.LoadMemberAccount(operatorMember);
 
-        var operatorName = operatorMember.Nick ?? operatorMember.Account?.Nick ?? "Someone";
+        var operatorName = operatorMember.Nick ?? operatorMember.RealmNick ?? operatorMember.Account?.Nick ?? "Someone";
         var changedKeys = string.Join(", ", changes.Keys.OrderBy(k => k));
 
         return await SendSystemMessageAsync(
@@ -560,8 +560,8 @@ public partial class ChatService(
         if (targetMember.Account is null)
             targetMember = crs.LoadMemberAccount(targetMember).Result;
 
-        var operatorName = operatorMember.Nick ?? operatorMember.Account?.Nick ?? "Moderator";
-        var targetName = targetMember.Nick ?? targetMember.Account?.Nick ?? "Someone";
+        var operatorName = operatorMember.Nick ?? operatorMember.RealmNick ?? operatorMember.Account?.Nick ?? "Moderator";
+        var targetName = targetMember.Nick ?? targetMember.RealmNick ?? targetMember.Account?.Nick ?? "Someone";
 
         var content = $"{targetName}'s timeout was removed by {operatorName}.";
 
@@ -696,12 +696,12 @@ public partial class ChatService(
         var notification = new DyPushNotification
         {
             Topic = isAdded ? "messages.reaction.added" : "messages.reaction.removed",
-            Title = $"{reactor.Nick ?? reactor.Account?.Nick} reacted to your message ({roomSubject})",
+            Title = $"{reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick} reacted to your message ({roomSubject})",
             Meta = InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
             {
                 ["user_id"] = reactor.AccountId,
                 ["reactor_id"] = reactor.Id,
-                ["reactor_name"] = reactor.Nick ?? reactor.Account?.Nick,
+                ["reactor_name"] = reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick,
                 ["message_id"] = message.Id,
                 ["room_id"] = room.Id,
                 ["symbol"] = symbol ?? ""
@@ -724,7 +724,7 @@ public partial class ChatService(
     {
         var metaDict = new Dictionary<string, object>
         {
-            ["sender_name"] = sender.Nick ?? sender.Account!.Nick,
+            ["sender_name"] = sender.Nick ?? sender.RealmNick ?? sender.Account!.Nick,
             ["user_id"] = sender.AccountId,
             ["sender_id"] = sender.Id,
             ["message_id"] = message.Id,
@@ -745,7 +745,7 @@ public partial class ChatService(
         var notification = new DyPushNotification
         {
             Topic = "messages.new",
-            Title = $"{sender.Nick ?? sender.Account.Nick} ({roomSubject})",
+            Title = $"{sender.Nick ?? sender.RealmNick ?? sender.Account.Nick} ({roomSubject})",
             Meta = InfraObjectCoder.ConvertObjectToByteString(metaDict),
             ActionUri = $"/chat/{room.Id}",
             IsSavable = false,
