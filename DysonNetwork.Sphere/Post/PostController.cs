@@ -33,6 +33,7 @@ public class PostController(
         Dictionary<Guid, List<SnPost>> repliesByParent
     )
     {
+        post.RepliedPost = null;
         var replies = repliesByParent.GetValueOrDefault(post.Id, []);
         return new ThreadedReplyNode
         {
