@@ -9,6 +9,7 @@ using DysonNetwork.Messager.Poll;
 using DysonNetwork.Messager.Wallet;
 using DysonNetwork.Messager.Chat.Voice;
 using DysonNetwork.Shared.Models.Embed;
+using DysonNetwork.Shared.Registry;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,7 +29,8 @@ public partial class ChatController(
     DyAccountService.DyAccountServiceClient accounts,
     DyPaymentService.DyPaymentServiceClient paymentClient,
     DyPollService.DyPollServiceClient pollClient,
-    DyAutocompletionService.DyAutocompletionServiceClient autocompleteClient
+    DyAutocompletionService.DyAutocompletionServiceClient autocompleteClient,
+    RemoteWebSocketService webSocket
 ) : ControllerBase
 {
     private const string E2EeCapabilityHeader = "X-Client-Ability";
@@ -110,6 +112,31 @@ public partial class ChatController(
         public SnChatMessage? LastMessage { get; set; }
     }
 
+    public class ChatSubscriptionDeviceStatusResponse
+    {
+        public string DeviceToken { get; set; } = string.Empty;
+        public bool IsWebSocketConnected { get; set; }
+    }
+
+    public class ChatSubscriptionRoomStatusResponse
+    {
+        public Guid RoomId { get; set; }
+        public Guid MemberId { get; set; }
+        public SnChatRoom Room { get; set; } = null!;
+        public bool IsSubscribed { get; set; }
+        public bool PushNotificationsSuppressed { get; set; }
+        public List<ChatSubscriptionDeviceStatusResponse> Devices { get; set; } = [];
+    }
+
+    public class ChatAccountStatusResponse
+    {
+        public Guid AccountId { get; set; }
+        public bool HasActiveSubscriptions { get; set; }
+        public bool HasAnyWebSocketConnection { get; set; }
+        public bool PushNotificationsMaySendForUnsubscribedRooms { get; set; }
+        public List<ChatSubscriptionRoomStatusResponse> Subscriptions { get; set; } = [];
+    }
+
     [HttpGet("summary")]
     [Authorize]
     public async Task<ActionResult<Dictionary<Guid, ChatSummaryResponse>>> GetChatSummary()
@@ -163,19 +190,59 @@ public partial class ChatController(
         return Ok(subscriptions);
     }
 
-    [HttpGet("accounts/{accountId:guid}/subscriptions")]
+    [HttpGet("accounts/me/subscriptions")]
     [Authorize]
-    public async Task<ActionResult<List<ChatRoomService.AccountSubscriptionEntry>>> GetAccountSubscriptions(
-        Guid accountId)
+    public async Task<ActionResult<List<ChatRoomService.AccountSubscriptionEntry>>> GetMyAccountSubscriptions()
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
-        var currentUserId = Guid.Parse(currentUser.Id);
-        if (currentUserId != accountId)
-            return Forbid();
-
+        var accountId = Guid.Parse(currentUser.Id);
         var subscriptions = await crs.GetAccountSubscriptions(accountId);
         return Ok(subscriptions);
+    }
+
+    [HttpGet("accounts/me/status")]
+    [Authorize]
+    public async Task<ActionResult<ChatAccountStatusResponse>> GetMyChatStatus()
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var subscriptions = await crs.GetAccountSubscriptions(accountId);
+        var hasAnyWebSocketConnection = await webSocket.GetWebsocketConnectionStatus(accountId.ToString(), true);
+
+        var subscriptionStatuses = new List<ChatSubscriptionRoomStatusResponse>(subscriptions.Count);
+        foreach (var subscription in subscriptions)
+        {
+            var deviceStatuses = new List<ChatSubscriptionDeviceStatusResponse>(subscription.DeviceTokens.Count);
+            foreach (var token in subscription.DeviceTokens)
+            {
+                deviceStatuses.Add(new ChatSubscriptionDeviceStatusResponse
+                {
+                    DeviceToken = token,
+                    IsWebSocketConnected = await webSocket.GetWebsocketConnectionStatus(token)
+                });
+            }
+
+            subscriptionStatuses.Add(new ChatSubscriptionRoomStatusResponse
+            {
+                RoomId = subscription.RoomId,
+                MemberId = subscription.MemberId,
+                Room = subscription.Room,
+                IsSubscribed = subscription.DeviceTokens.Count > 0,
+                PushNotificationsSuppressed = subscription.DeviceTokens.Count > 0,
+                Devices = deviceStatuses
+            });
+        }
+
+        return Ok(new ChatAccountStatusResponse
+        {
+            AccountId = accountId,
+            HasActiveSubscriptions = subscriptionStatuses.Count > 0,
+            HasAnyWebSocketConnection = hasAnyWebSocketConnection,
+            PushNotificationsMaySendForUnsubscribedRooms = true,
+            Subscriptions = subscriptionStatuses
+        });
     }
 
     public class SendMessageRequest
