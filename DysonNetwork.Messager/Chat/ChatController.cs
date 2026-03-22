@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Text;
 using DysonNetwork.Shared.Auth;
@@ -1224,7 +1225,7 @@ public partial class ChatController(
         {
             Type = r.Type,
             Keyword = r.Keyword,
-            Data = r.Data
+            Data = JsonSerializer.Deserialize<Dictionary<string, object?>>(r.Data) ?? []
         }).ToList();
 
         return Ok(results);
