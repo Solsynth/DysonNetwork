@@ -835,8 +835,9 @@ public class MiChanAutonomousBehavior
             // Process any STORE actions
             if (storeActions.Count > 0)
             {
-                // Store as global memories (shared across all users) unless specifically user-related
-                await ProcessStoreActionsAsync(storeActions, accountId: null);
+                // Store memories linked to the post author so we can find them for future conversations
+                // These are still searchable globally but help us identify active users
+                await ProcessStoreActionsAsync(storeActions, post.Publisher?.AccountId);
             }
             else
             {
@@ -1562,19 +1563,74 @@ public class MiChanAutonomousBehavior
             // Get blocked users list to filter out
             var blockedUsers = await GetBlockedByUsersAsync();
 
-            // Get all memories with associated account IDs
-            var recentMemories = await _memoryService.GetByFiltersAsync(
+            // Get user profiles and recent memories to find eligible users
+            // First, get all users we've interacted with recently via their profiles
+            var userProfiles = await _memoryService.GetByFiltersAsync(
+                type: "user",
                 take: 100,
+                orderBy: "lastAccessedAt",
+                descending: true);
+
+            // Also get recent memories with account IDs to find active users
+            var recentMemories = await _memoryService.GetByFiltersAsync(
+                take: 200,
                 orderBy: "createdAt",
                 descending: true);
 
-            // Group memories by account ID and filter eligible users
-            var userMemoryGroups = recentMemories
+            // Combine and get unique users from both sources
+            var userIdsFromProfiles = userProfiles
                 .Where(m => m.AccountId.HasValue && m.AccountId.Value != Guid.Empty)
-                .GroupBy(m => m.AccountId!.Value)
-                .Where(g =>
+                .Select(m => m.AccountId!.Value)
+                .Distinct();
+
+            var userIdsFromMemories = recentMemories
+                .Where(m => m.AccountId.HasValue && m.AccountId.Value != Guid.Empty)
+                .Select(m => m.AccountId!.Value)
+                .Distinct();
+
+            var allUserIds = userIdsFromProfiles.Union(userIdsFromMemories).ToList();
+
+            // Group all memories by account ID to get user context
+            var userMemoryGroups = allUserIds
+                .Select(userId => new { UserId = userId, Memories = recentMemories.Where(m => m.AccountId == userId).ToList() })
+                .Where(g => g.Memories.Any())
+                .Select(g => g.Memories.GroupBy(m => g.UserId).First())
+                .ToList();
+
+            // If no users found via memories, fallback: get all users who have posted recently via API
+            if (userMemoryGroups.Count == 0)
+            {
+                _logger.LogInformation("Autonomous: No users found in memories, attempting to find active users via API...");
+                
+                // Try to get recent posts to find active users
+                try 
                 {
-                    var accountId = g.Key.ToString();
+                    var recentPosts = await _apiClient.GetAsync<List<SnPost>>("sphere", "/posts?take=50");
+                    if (recentPosts != null)
+                    {
+                        var activeUserIds = recentPosts
+                            .Where(p => p.Publisher?.AccountId != null && p.Publisher.AccountId.ToString() != _config.BotAccountId)
+                            .Select(p => p.Publisher.AccountId.Value)
+                            .Distinct()
+                            .ToList();
+
+                        // Create memory groups for these users (empty memories, but we'll have their ID)
+                        userMemoryGroups = activeUserIds
+                            .Select(userId => new List<MiChanMemoryRecord>().GroupBy(m => userId).First())
+                            .ToList();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to fetch recent posts for user discovery");
+                }
+            }
+
+            // Filter eligible users and apply constraints
+            var eligibleUserIds = allUserIds
+                .Where(userId =>
+                {
+                    var accountId = userId.ToString();
 
                     // Skip blocked users
                     if (blockedUsers.Contains(accountId))
@@ -1585,7 +1641,7 @@ public class MiChanAutonomousBehavior
                         return false;
 
                     // Check cooldown period
-                    if (_recentlyContactedUsers.TryGetValue(g.Key, out var lastContact))
+                    if (_recentlyContactedUsers.TryGetValue(userId, out var lastContact))
                     {
                         var hoursSinceLastContact = (DateTime.UtcNow - lastContact).TotalHours;
                         if (hoursSinceLastContact < _config.AutonomousBehavior.MinHoursSinceLastContact)
@@ -1596,21 +1652,26 @@ public class MiChanAutonomousBehavior
                 })
                 .ToList();
 
-            if (userMemoryGroups.Count == 0)
+            if (eligibleUserIds.Count == 0)
             {
                 _logger.LogDebug("Autonomous: No eligible users found for conversation");
                 return;
             }
 
+            // Get memories for eligible users to weight selection
+            var eligibleUserMemories = eligibleUserIds
+                .Select(userId => new { UserId = userId, Memories = recentMemories.Where(m => m.AccountId == userId).ToList() })
+                .ToList();
+
             // Weight users by number of memories (more memories = higher chance)
             // This prioritizes users MiChan has more history with
-            var weightedUsers = userMemoryGroups
-                .SelectMany(g => Enumerable.Repeat(g.Key, Math.Min(g.Count(), 5)))
+            var weightedUsers = eligibleUserMemories
+                .SelectMany(u => Enumerable.Repeat(u.UserId, Math.Max(1, Math.Min(u.Memories.Count, 5))))
                 .ToList();
 
             // Select a random user from weighted list
             var selectedUserId = weightedUsers[_random.Next(weightedUsers.Count)];
-            var userMemories = userMemoryGroups.First(g => g.Key == selectedUserId).ToList();
+            var userMemories = eligibleUserMemories.First(u => u.UserId == selectedUserId).Memories;
 
             _logger.LogInformation("Autonomous: Selected user {UserId} for conversation (has {MemoryCount} memories)",
                 selectedUserId, userMemories.Count);
