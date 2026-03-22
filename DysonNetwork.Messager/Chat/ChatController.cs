@@ -1225,7 +1225,7 @@ public partial class ChatController(
         {
             Type = r.Type,
             Keyword = r.Keyword,
-            Data = JsonSerializer.Deserialize<Dictionary<string, object?>>(r.Data) ?? []
+            Data = JsonSerializer.Deserialize<Dictionary<string, object?>>(r.Data, InfraObjectCoder.SerializerOptionsWithoutIgnore) ?? []
         }).ToList();
 
         return Ok(results);
