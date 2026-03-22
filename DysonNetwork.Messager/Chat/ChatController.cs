@@ -16,6 +16,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using System.Text.Json.Serialization;
+using NodaTime.Serialization.SystemTextJson;
 
 namespace DysonNetwork.Messager.Chat;
 
@@ -1205,6 +1207,14 @@ public partial class ChatController(
         });
     }
 
+    private readonly JsonSerializerOptions AutocompleteOptions = new JsonSerializerOptions()
+    {
+        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
+        PropertyNameCaseInsensitive = true,
+    }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+
     [HttpPost("{roomId}/autocomplete")]
     public async Task<ActionResult<List<Autocompletion>>> AutocompleteChat(
         [FromBody] AutocompletionRequest request, Guid roomId)
@@ -1223,11 +1233,11 @@ public partial class ChatController(
             ChatId = roomId.ToString()
         });
 
-        var results = response.Results.Select(r => new Shared.Models.Autocompletion
+        var results = response.Results.Select(r => new Autocompletion
         {
             Type = r.Type,
             Keyword = r.Keyword,
-            Data = JsonSerializer.Deserialize<Dictionary<string, object?>>(r.Data, InfraObjectCoder.SerializerOptionsWithoutIgnore) ?? []
+            Data = JsonSerializer.Deserialize<Dictionary<string, object?>>(r.Data, AutocompleteOptions) ?? []
         }).ToList();
 
         return Ok(results);
