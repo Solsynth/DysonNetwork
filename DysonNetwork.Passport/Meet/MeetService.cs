@@ -160,52 +160,40 @@ public class MeetService(
     {
         await ExpireMeetsAsync(accountId, cancellationToken);
         var friendIds = await relationships.ListAccountFriends(accountId);
-        var locationWkt = location.AsText();
         var limitedTake = Math.Clamp(take, 1, 100);
-        var candidateTake = Math.Max(limitedTake * 5, 50);
 
-        var query = db.Meets
-            .FromSqlInterpolated($"""
-                SELECT m.*
-                FROM meets m
-                LEFT JOIN meet_participants mp ON m.id = mp.meet_id AND mp.account_id = {accountId}
-                WHERE m.location IS NOT NULL
-                  AND ST_DWithin(
-                    m.location::geography,
-                    ST_GeomFromText({locationWkt}, 4326)::geography,
-                    {distanceMeters}
-                  )
-                  AND (
-                    m.visibility = 0
-                    OR m.host_id = {accountId}
-                    OR mp.account_id IS NOT NULL
-                  )
-                ORDER BY ST_Distance(
-                    m.location::geography,
-                    ST_GeomFromText({locationWkt}, 4326)::geography
-                )
-                LIMIT {candidateTake}
-                """)
+        // Query meets within distance that are Public or user's own
+        var nearbyMeets = await db.Meets
             .Include(m => m.Participants)
-            .AsQueryable();
-
-        query = query.Where(m =>
-            m.HostId == accountId
-            || friendIds.Contains(m.HostId)
-            || m.Participants.Any(p => p.AccountId == accountId));
-
-        if (status.HasValue)
-            query = query.Where(m => m.Status == status.Value);
-
-        var meets = await query
-            .Skip(offset)
-            .Take(limitedTake)
+            .Where(m => m.Location != null)
+            .Where(m => m.Location.IsWithinDistance(location, distanceMeters))
+            .Where(m => m.Visibility == MeetVisibility.Public
+                || m.HostId == accountId
+                || m.Participants.Any(p => p.AccountId == accountId))
             .ToListAsync(cancellationToken);
 
-        foreach (var meet in meets)
+        // Also get Unlisted meets where user is friend of host or participant
+        var unlistedMeets = await db.Meets
+            .Include(m => m.Participants)
+            .Where(m => m.Location != null)
+            .Where(m => m.Location.IsWithinDistance(location, distanceMeters))
+            .Where(m => m.Visibility == MeetVisibility.Unlisted)
+            .Where(m => friendIds.Contains(m.HostId) 
+                || m.Participants.Any(p => friendIds.Contains(p.AccountId)))
+            .ToListAsync(cancellationToken);
+
+        var allMeets = nearbyMeets.Concat(unlistedMeets)
+            .DistinctBy(m => m.Id)
+            .Where(m => !status.HasValue || m.Status == status.Value)
+            .OrderBy(m => m.Location!.Distance(location))
+            .Skip(offset)
+            .Take(limitedTake)
+            .ToList();
+
+        foreach (var meet in allMeets)
             await HydrateMeetAsync(meet, cancellationToken);
 
-        return meets;
+        return allMeets;
     }
 
     public async Task<SnMeet?> GetMeetAsync(Guid meetId, Guid accountId, Geometry? userLocation = null, CancellationToken cancellationToken = default)
