@@ -86,7 +86,7 @@ public class MeetController(
     public async Task<ActionResult<List<SnMeet>>> ListNearbyMeets(
         [FromQuery] string locationWkt,
         [FromQuery] double distanceMeters = 1000,
-        [FromQuery] MeetStatus? status = MeetStatus.Active,
+        [FromQuery] MeetStatus? status = null,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
         CancellationToken cancellationToken = default

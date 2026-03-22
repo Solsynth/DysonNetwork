@@ -152,7 +152,7 @@ public class MeetService(
         Guid accountId,
         Geometry location,
         double distanceMeters = 1000,
-        MeetStatus? status = MeetStatus.Active,
+        MeetStatus? status = null,
         int offset = 0,
         int take = 20,
         CancellationToken cancellationToken = default
@@ -184,7 +184,7 @@ public class MeetService(
 
         var allMeets = nearbyMeets.Concat(unlistedMeets)
             .DistinctBy(m => m.Id)
-            .Where(m => !status.HasValue || m.Status == status.Value)
+            .Where(m => status.HasValue ? m.Status == status.Value : m.Status != MeetStatus.Expired)
             .OrderBy(m => m.Location!.Distance(location))
             .Skip(offset)
             .Take(limitedTake)

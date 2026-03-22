@@ -137,7 +137,7 @@ Query params:
 
 - `locationWkt`: required WKT geometry used as the search origin
 - `distanceMeters`: optional radius in meters, defaults to `1000`
-- `status`: optional status filter, defaults to `Active`
+- `status`: optional status filter. If not specified, returns all statuses except `Expired`
 - `offset`: pagination offset
 - `take`: page size
 
