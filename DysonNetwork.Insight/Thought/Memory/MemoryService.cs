@@ -95,7 +95,8 @@ public class MemoryService(
         if (!string.IsNullOrEmpty(type))
             queryable = queryable.Where(r => r.Type == type);
         if (accountId.HasValue)
-            queryable = queryable.Where(r => r.AccountId == accountId);
+            // Include both user-specific memories AND global memories (shared across all users)
+            queryable = queryable.Where(r => r.AccountId == accountId || r.AccountId == null);
         if (isHot.HasValue)
             queryable = queryable.Where(r => r.IsHot == isHot);
         if (minConfidence.HasValue)

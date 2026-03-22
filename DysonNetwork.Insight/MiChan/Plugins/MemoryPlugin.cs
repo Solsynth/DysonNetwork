@@ -13,19 +13,20 @@ public class MemoryPlugin(
     ILogger<MemoryPlugin> logger)
 {
     /// <summary>
-    /// Search through MiChan's memory for information related to a query
+    /// Search through MiChan's memory for information related to a query.
+    /// This searches ALL shared memories by default - use this often to recall what you know!
     /// </summary>
     [KernelFunction("search_memory")]
     [Description(
-        "Search MiChan's memory database for past interactions, conversations, or information related to a query. Use this when you need to recall previous conversations or find relevant context.")]
+        "Search your memory database for relevant information. USE THIS FREQUENTLY before responding - you have access to shared memories from ALL conversations! By default (no accountId), this searches global memories visible to everyone. Use this to recall user preferences, past topics, facts, and context to make your responses more personal and consistent.")]
     public async Task<string> SearchMemoryAsync(
-        [Description("The search query to find relevant memories")]
+        [Description("What to search for. Be specific: 'user's favorite color', 'discussions about AI', 'Alice's job'")]
         string query,
-        [Description("Optional: Type of memory to search. Leave empty to search all types.")]
+        [Description("Optional: Filter by memory type ('user', 'topic', 'fact', 'context', 'interaction'). Leave empty to search all.")]
         string? memoryType = null,
-        [Description("Optional: The account ID of the user, must be Guid. Leave this blank to search global memories.")]
+        [Description("Optional: Account ID to include that user's specific memories too. Leave EMPTY to search only global shared memories (recommended for most searches).")]
         Guid? accountId = null,
-        [Description("Maximum number of results to return (default: 10)")]
+        [Description("Maximum results to return (default: 10)")]
         int limit = 10)
     {
         try
@@ -185,23 +186,23 @@ public class MemoryPlugin(
 
     /// <summary>
     /// Store a new memory in the database.
-    /// Use this to save important information, facts, or context that should be remembered for future interactions.
+    /// Use this FREQUENTLY to save information - this is how you learn and build up knowledge about the world and users.
     /// </summary>
     [KernelFunction("store_memory")]
     [Description(
-        "Store a new memory or fact in the database. Use this to save important information, user preferences, or context that should be remembered for future interactions. The content should be concise and factual. REQUIRED: You must provide the 'content' parameter with the memory text to store.")]
+        "Store a new memory or fact. USE THIS OFTEN - every interaction is an opportunity to learn! Save user preferences, facts, topics discussed, insights, observations, and any information that would be useful later. Memories are SHARED across all users, helping you be consistent and knowledgeable with everyone. Be prolific - store multiple memories from each conversation.")]
     public async Task<string> StoreMemoryAsync(
         [Description(
-            "REQUIRED. The type of memory to store (e.g., 'fact', 'user', 'context', 'summary'). Must not be empty.")]
+            "REQUIRED. The type of memory: 'user' (user info/personality/preferences - requires accountId), 'topic' (subjects discussed), 'fact' (general knowledge), 'context' (situation details), 'interaction' (social patterns). Choose the best fit.")]
         string type,
-        [Description("REQUIRED. The content/text to store in the memory. Must be non-empty plain text. Do NOT call this function without providing this field.")]
+        [Description("REQUIRED. The actual content to remember. Be specific and detailed. Example: 'User Alice is passionate about machine learning and works at Google' or 'We discussed the importance of sleep for productivity'")]
         string content,
-        [Description("Optional: Confidence level 0-1 (default: 0.7)")]
+        [Description("Optional: How confident you are in this memory 0-1 (default: 0.7). Higher for facts, lower for observations.")]
         float? confidence = null,
         [Description(
-            "Optional: Account who owns the memory, leave this blank to create global memory. The 'user' type must provide account ID. Type is Guid")]
+            "Optional: Account ID (Guid) if this is user-specific. Leave EMPTY to create GLOBAL memory visible to all conversations. Most memories should be global!")]
         Guid? accountId = null,
-        [Description("Optional: Mark as hot memory for quick access (default: false)")]
+        [Description("Optional: Mark as 'hot' for frequently accessed memories (default: false)")]
         bool? isHot = null
     )
     {

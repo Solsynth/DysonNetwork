@@ -35,6 +35,7 @@ public class MiChanAutonomousBehaviorConfig
     public List<string> Actions { get; set; } = ["browse", "react", "create_post", "pin", "repost", "start_conversation"];
     public string PersonalityMood { get; set; } = "curious, friendly, occasionally philosophical";
     public int MinRepostAgeDays { get; set; } = 3; // Minimum age of post before reposting (days)
+    public MiChanDynamicMoodConfig DynamicMood { get; set; } = new();
 
     // Settings for proactive conversation behavior
     public int MaxConversationsPerDay { get; set; } = 3; // Maximum conversations MiChan can initiate per day
@@ -45,6 +46,15 @@ public class MiChanAutonomousBehaviorConfig
     public int ReplyProbability { get; set; } = 30; // % chance to reply to a post (when not mentioned)
     public int RepostProbability { get; set; } = 15; // % chance to check for and repost interesting content
     public int CreatePostProbability { get; set; } = 20; // % chance to create an autonomous post
+}
+
+public class MiChanDynamicMoodConfig
+{
+    public bool Enabled { get; set; } = true;
+    public int UpdateIntervalMinutes { get; set; } = 30; // How often mood can update (time-based)
+    public int MinUpdateIntervalMinutes { get; set; } = 15; // Minimum time between mood updates
+    public int MinInteractionsForUpdate { get; set; } = 5; // Minimum interactions before mood update
+    public string BasePersonality { get; set; } = "curious, friendly, occasionally philosophical";
 }
 
 public class MiChanPostMonitoringConfig

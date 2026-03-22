@@ -27,6 +27,7 @@ public class MiChanAutonomousBehavior
     private readonly PostAnalysisService _postAnalysisService;
     private readonly MemoryService _memoryService;
     private readonly InteractiveHistoryService _interactiveHistoryService;
+    private readonly MoodService _moodService;
     private Kernel? _kernel;
 
     private readonly Random _random = new();
@@ -61,7 +62,8 @@ public class MiChanAutonomousBehavior
         PostAnalysisService postAnalysisService,
         IConfiguration configGlobal,
         MemoryService memoryService,
-        InteractiveHistoryService interactiveHistoryService
+        InteractiveHistoryService interactiveHistoryService,
+        MoodService moodService
     )
     {
         _config = config;
@@ -74,6 +76,7 @@ public class MiChanAutonomousBehavior
         _configGlobal = configGlobal;
         _memoryService = memoryService;
         _interactiveHistoryService = interactiveHistoryService;
+        _moodService = moodService;
         _nextInterval = CalculateNextInterval();
         _mentionRegex = new Regex("@michan\\b", RegexOptions.IgnoreCase);
     }
@@ -233,10 +236,12 @@ public class MiChanAutonomousBehavior
         var blockedUsers = await GetBlockedByUsersAsync();
 
         var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
-        var mood = _config.AutonomousBehavior.PersonalityMood;
+        var mood = await _moodService.GetCurrentMoodDescriptionAsync();
 
         // Reset pagination for each autonomous cycle
         _currentPageIndex = 0;
+        var totalProcessedCount = 0;
+        var totalMentionFound = false;
 
         // Paginate through posts
         while (_currentPageIndex <= MaxPageIndex)
@@ -374,12 +379,14 @@ public class MiChanAutonomousBehavior
                 await _interactiveHistoryService.MarkSeenAsync(post.Id);
 
                 processedCount++;
+                totalProcessedCount++;
 
                 // If mentioned, prioritize and stop processing this page
                 if (isMentioned)
                 {
                     _logger.LogInformation("Autonomous: Detected mention in post {PostId}", post.Id);
                     mentionFound = true;
+                    totalMentionFound = true;
                     break;
                 }
             }
@@ -405,6 +412,17 @@ public class MiChanAutonomousBehavior
         }
 
         _logger.LogInformation("Autonomous: Finished checking posts across {PageCount} pages", _currentPageIndex);
+        
+        // Record mood events based on interactions and try to update mood
+        if (totalProcessedCount > 0)
+        {
+            await _moodService.RecordEmotionalEventAsync($"processed_{totalProcessedCount}_posts");
+            if (totalMentionFound)
+            {
+                await _moodService.RecordEmotionalEventAsync("mentioned_by_user");
+            }
+            await _moodService.TryUpdateMoodAsync();
+        }
     }
 
     /// <summary>
@@ -603,6 +621,41 @@ public class MiChanAutonomousBehavior
         }
     }
 
+    /// <summary>
+    /// Automatically stores a memory about a post when the AI doesn't explicitly store one.
+    /// This ensures we always remember something from every interaction.
+    /// </summary>
+    private async Task StoreAutomaticMemoryAsync(SnPost post, string content)
+    {
+        try
+        {
+            // Create a condensed memory about the post
+            var authorName = post.Publisher?.Name ?? "Unknown";
+            var memoryContent = $"@{authorName} shared: {content}";
+
+            // Determine memory type based on content
+            var memoryType = "interaction";
+            if (content.Contains("?"))
+                memoryType = "topic"; // Questions often indicate topics of interest
+            else if (content.Length > 100)
+                memoryType = "fact"; // Longer posts might contain factual information
+
+            await _memoryService.StoreMemoryAsync(
+                type: memoryType,
+                content: memoryContent,
+                confidence: 0.6f,
+                accountId: post.Publisher?.AccountId, // Link to user for context, but still searchable globally
+                hot: false);
+
+            _logger.LogDebug("Automatically stored memory about post {PostId} from @{Author}", 
+                post.Id, authorName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to store automatic memory for post {PostId}", post.Id);
+        }
+    }
+
     private async Task<PostActionDecision> DecidePostActionAsync(SnPost post, bool isMentioned, string personality,
         string mood)
     {
@@ -757,8 +810,14 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine("IGNORE");
                 decisionPrompt.AppendLine("STORE:fact:某公司在昨日发布了新产品");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("**强制要求**：对每一条浏览的帖子，你必须至少保存一条记忆（使用 STORE）。即使只是记录'用户分享了关于XX的内容'或'这是一条普通的生活分享'。");
-                decisionPrompt.AppendLine("**注意**：回复应谨慎，仅在确实想互动时才使用 REPLY。大多数情况下使用 REACT 或仅 STORE 即可。");
+                decisionPrompt.AppendLine("**强制要求 - 必须遵守**：");
+                decisionPrompt.AppendLine("1. 对每一条浏览的帖子，你必须保存至少1-3条记忆（使用 STORE）。");
+                decisionPrompt.AppendLine("2. 记忆是全局共享的 - 你看到的所有记忆来自所有用户的互动，保存的记忆也会帮助你在未来与任何人交流时参考。");
+                decisionPrompt.AppendLine("3. 尽可能多地记录：用户的兴趣、讨论的话题、有趣的观点、事实知识、互动模式。");
+                decisionPrompt.AppendLine("4. 即使只是简单的'用户分享了关于XX的内容'也要记录 - 积少成多。");
+                decisionPrompt.AppendLine("5. 如果帖子提到多个话题，为每个话题都保存一条记忆。");
+                decisionPrompt.AppendLine();
+                decisionPrompt.AppendLine("**注意**：回复应谨慎，仅在确实想互动时才使用 REPLY。大多数情况下使用 REACT 或 STORE 即可。多保存记忆比回复更重要！");
 
                 var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
 
@@ -776,7 +835,13 @@ public class MiChanAutonomousBehavior
             // Process any STORE actions
             if (storeActions.Count > 0)
             {
-                await ProcessStoreActionsAsync(storeActions, post.Publisher?.AccountId);
+                // Store as global memories (shared across all users) unless specifically user-related
+                await ProcessStoreActionsAsync(storeActions, accountId: null);
+            }
+            else
+            {
+                // AI didn't store any memories - create automatic summary memory
+                await StoreAutomaticMemoryAsync(post, content);
             }
 
             return actionDecision;
@@ -861,7 +926,11 @@ public class MiChanAutonomousBehavior
             instructionText.AppendLine("当被提到时，你必须回复。如果很欣赏，也可以添加表情反应。");
             instructionText.AppendLine("回复时：使用简体中文，不要全大写，表达简洁有力，用最少的语言表达观点。不要使用表情符号。");
             instructionText.AppendLine();
-            instructionText.AppendLine("如果发现重要信息或用户偏好，请使用 store_memory 工具保存到记忆中。必须提供 content 参数（要保存的记忆内容），不能为空！");
+            instructionText.AppendLine("**重要 - 必须执行**：使用 store_memory 工具保存多条记忆！");
+            instructionText.AppendLine("- 保存用户的偏好、兴趣、性格特点");
+            instructionText.AppendLine("- 记录讨论的话题和重要信息");
+            instructionText.AppendLine("- 记忆是全局共享的，会帮助你以后与所有人交流");
+            instructionText.AppendLine("- 尽可能多保存，至少2-3条记忆");
         }
         else
         {
@@ -898,8 +967,14 @@ public class MiChanAutonomousBehavior
             instructionText.AppendLine("IGNORE");
             instructionText.AppendLine("STORE:fact:某公司在昨日发布了新产品");
             instructionText.AppendLine();
-            instructionText.AppendLine("**强制要求**：对每一条浏览的帖子，你必须至少保存一条记忆（使用 STORE）。即使只是记录'用户分享了关于XX的内容'或'这是一条普通的生活分享'。");
-            instructionText.AppendLine("**注意**：回复应谨慎，仅在确实想互动时才使用 REPLY。大多数情况下使用 REACT 或仅 STORE 即可。");
+            instructionText.AppendLine("**强制要求 - 必须遵守**：");
+            instructionText.AppendLine("1. 对每一条浏览的帖子，你必须保存至少1-3条记忆（使用 STORE）。");
+            instructionText.AppendLine("2. 记忆是全局共享的 - 你看到的所有记忆来自所有用户的互动，保存的记忆也会帮助你在未来与任何人交流时参考。");
+            instructionText.AppendLine("3. 尽可能多地记录：用户的兴趣、讨论的话题、有趣的观点、事实知识、互动模式。");
+            instructionText.AppendLine("4. 即使只是简单的'用户分享了关于XX的内容'也要记录 - 积少成多。");
+            instructionText.AppendLine("5. 如果帖子提到多个话题，为每个话题都保存一条记忆。");
+            instructionText.AppendLine();
+            instructionText.AppendLine("**注意**：回复应谨慎，仅在确实想互动时才使用 REPLY。大多数情况下使用 REACT 或 STORE 即可。多保存记忆比回复更重要！");
         }
 
         contentItems.Add(new TextContent(instructionText.ToString()));
@@ -1172,7 +1247,7 @@ public class MiChanAutonomousBehavior
             excludeAccountId: botAccountId);
 
         var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
-        var mood = _config.AutonomousBehavior.PersonalityMood;
+        var mood = await _moodService.GetCurrentMoodDescriptionAsync();
 
         var prompt = $"""
                       {personality}
@@ -1210,6 +1285,10 @@ public class MiChanAutonomousBehavior
             await _apiClient.PostAsync<object>("sphere", "/posts", request);
 
             _logger.LogInformation("Autonomous: Created post: {Content}", content);
+            
+            // Record that we created a post and try to update mood
+            await _moodService.RecordEmotionalEventAsync("created_autonomous_post");
+            await _moodService.TryUpdateMoodAsync();
         }
     }
 
@@ -1237,10 +1316,11 @@ public class MiChanAutonomousBehavior
             }
 
             var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
-            var mood = _config.AutonomousBehavior.PersonalityMood;
+            var mood = await _moodService.GetCurrentMoodDescriptionAsync();
             var minAgeDays = _config.AutonomousBehavior.MinRepostAgeDays;
             var cutoffInstant = SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromDays(minAgeDays));
 
+            var repostCount = 0;
             foreach (var post in posts)
             {
                 // Skip if post is too recent
@@ -1280,8 +1360,16 @@ public class MiChanAutonomousBehavior
                 if (isVeryInteresting)
                 {
                     await RepostPostAsync(post, personality, mood);
+                    repostCount++;
                     break; // Only repost one per cycle
                 }
+            }
+            
+            // Record mood event and try to update mood after reposting
+            if (repostCount > 0)
+            {
+                await _moodService.RecordEmotionalEventAsync("reposted_interesting_content");
+                await _moodService.TryUpdateMoodAsync();
             }
         }
         catch (Exception ex)
@@ -1529,7 +1617,7 @@ public class MiChanAutonomousBehavior
 
             // Load personality and mood
             var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
-            var mood = _config.AutonomousBehavior.PersonalityMood;
+            var mood = await _moodService.GetCurrentMoodDescriptionAsync();
 
             // Retrieve relevant memories about this user
             var relevantMemories = await _memoryService.SearchAsync(
@@ -1608,6 +1696,10 @@ public class MiChanAutonomousBehavior
 
             _logger.LogInformation("Autonomous: Started conversation with user {UserId} - {Result}",
                 selectedUserId, conversationResult);
+            
+            // Record mood event and try to update mood after conversation
+            await _moodService.RecordEmotionalEventAsync("started_conversation");
+            await _moodService.TryUpdateMoodAsync();
         }
         catch (Exception ex)
         {

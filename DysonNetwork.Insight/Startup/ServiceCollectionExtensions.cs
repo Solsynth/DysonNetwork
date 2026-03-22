@@ -113,6 +113,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<UserProfilePlugin>();
             services.AddScoped<ScheduledTaskPlugin>();
             services.AddScoped<ConversationPlugin>();
+            services.AddScoped<MoodPlugin>();
             
             // Memory and behavior services
             services.AddScoped<ScheduledTaskService>();
@@ -123,6 +124,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<UserProfileService>();
             services.AddSingleton<PostAnalysisService>();
             services.AddScoped<MiChanAutonomousBehavior>();
+            services.AddScoped<MoodService>();
             services.AddHostedService<MiChanSequenceUnificationHostedService>();
             
             // Only start the hosted service when enabled

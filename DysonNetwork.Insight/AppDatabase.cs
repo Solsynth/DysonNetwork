@@ -23,6 +23,7 @@ public class AppDatabase(
     public DbSet<MiChanUserProfile> UserProfiles { get; set; }
     public DbSet<MiChanScheduledTask> ScheduledTasks { get; set; }
     public DbSet<MiChanInteractiveHistory> InteractiveHistories { get; set; }
+    public DbSet<MiChanMoodState> MoodStates { get; set; }
     
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
