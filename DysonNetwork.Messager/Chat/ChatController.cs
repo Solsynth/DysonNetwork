@@ -1210,10 +1210,13 @@ public partial class ChatController(
     private readonly JsonSerializerOptions AutocompleteOptions = new JsonSerializerOptions()
     {
         NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
+        PropertyNamingPolicy = null,
+        DictionaryKeyPolicy = null,
         PropertyNameCaseInsensitive = true,
     }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+
+    private static string ToSnakeCase(string input) =>
+        string.Concat(input.Select((c, i) => i > 0 && char.IsUpper(c) ? "_" + char.ToLower(c) : char.ToLower(c).ToString()));
 
     [HttpPost("{roomId}/autocomplete")]
     public async Task<ActionResult<List<Autocompletion>>> AutocompleteChat(
@@ -1237,7 +1240,8 @@ public partial class ChatController(
         {
             Type = r.Type,
             Keyword = r.Keyword,
-            Data = JsonSerializer.Deserialize<Dictionary<string, object?>>(r.Data, AutocompleteOptions) ?? []
+            Data = JsonSerializer.Deserialize<Dictionary<string, object?>>(r.Data, AutocompleteOptions)?
+                .ToDictionary(kvp => ToSnakeCase(kvp.Key), kvp => kvp.Value) ?? []
         }).ToList();
 
         return Ok(results);
