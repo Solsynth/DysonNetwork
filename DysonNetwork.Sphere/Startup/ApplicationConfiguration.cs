@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Networking;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
+using DysonNetwork.Sphere.Autocompletion;
 using DysonNetwork.Sphere.Rewind;
 
 namespace DysonNetwork.Sphere.Startup;
@@ -27,6 +28,7 @@ public static class ApplicationConfiguration
         app.MapGrpcService<PollServiceGrpc>();
         app.MapGrpcService<PublisherServiceGrpc>();
         app.MapGrpcService<SphereRewindServiceGrpc>();
+        app.MapGrpcService<AutocompletionServiceGrpc>();
         app.MapGrpcReflectionService();
 
         return app;

@@ -39,7 +39,7 @@ public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAc
         }
     }
 
-    private async Task<List<DysonNetwork.Shared.Models.Autocompletion>> AutocompleteAt(string type, string query, Guid? chatId, Guid? realmId, bool hadSlash,
+    private async Task<List<Shared.Models.Autocompletion>> AutocompleteAt(string type, string query, Guid? chatId, Guid? realmId, bool hadSlash,
         int limit)
     {
         var results = new List<DysonNetwork.Shared.Models.Autocompletion>();
@@ -100,7 +100,7 @@ public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAc
         return results;
     }
 
-    private async Task<List<DysonNetwork.Shared.Models.Autocompletion>> AutocompleteSticker(string query, int limit)
+    private async Task<List<Shared.Models.Autocompletion>> AutocompleteSticker(string query, int limit)
     {
         var stickers = await db.Stickers
             .Include(s => s.Pack)

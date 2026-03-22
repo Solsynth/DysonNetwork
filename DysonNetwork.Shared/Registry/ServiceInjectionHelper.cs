@@ -125,6 +125,11 @@ public static class ServiceInjectionHelper
             services.AddGrpcClientWithSharedChannel<DyPollService.DyPollServiceClient>(
                 "https://_grpc.sphere",
                 "DyPollService");
+
+            services.AddGrpcClientWithSharedChannel<DyAutocompletionService.DyAutocompletionServiceClient>(
+                "https://_grpc.sphere",
+                "DyAutocompletionService");
+
             services.AddSingleton<RemotePublisherService>();
 
             return services;

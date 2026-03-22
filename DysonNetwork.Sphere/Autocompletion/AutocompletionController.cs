@@ -9,7 +9,7 @@ namespace DysonNetwork.Sphere.Autocompletion;
 public class AutocompletionController(AutocompletionService aus) : ControllerBase
 {
     [HttpPost]
-    public async Task<ActionResult<List<DysonNetwork.Shared.Models.Autocompletion>>> TextAutocomplete([FromBody] AutocompletionRequest request, Guid roomId)
+    public async Task<ActionResult<List<Shared.Models.Autocompletion>>> TextAutocomplete([FromBody] AutocompletionRequest request, Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();

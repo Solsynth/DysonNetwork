@@ -27,7 +27,8 @@ public partial class ChatController(
     DyFileService.DyFileServiceClient files,
     DyAccountService.DyAccountServiceClient accounts,
     DyPaymentService.DyPaymentServiceClient paymentClient,
-    DyPollService.DyPollServiceClient pollClient
+    DyPollService.DyPollServiceClient pollClient,
+    DyAutocompletionService.DyAutocompletionServiceClient autocompleteClient
 ) : ControllerBase
 {
     private const string E2EeCapabilityHeader = "X-Client-Ability";
@@ -410,7 +411,7 @@ public partial class ChatController(
                 {
                     FundId = request.FundId.Value.ToString()
                 });
-                
+
                 // Check if the fund was created by the current user
                 if (fundResponse.CreatorAccountId != member.AccountId.ToString())
                     return BadRequest("You can only share funds that you created.");
@@ -728,7 +729,7 @@ public partial class ChatController(
                 {
                     FundId = request.FundId.Value.ToString()
                 });
-                
+
                 // Check if the fund was created by the current user
                 if (fundResponse.CreatorAccountId != accountId.ToString())
                     return BadRequest("You can only share funds that you created.");
@@ -1102,5 +1103,32 @@ public partial class ChatController(
         });
     }
 
+    [HttpPost("{roomId}/autocomplete")]
+    public async Task<ActionResult<List<Autocompletion>>> AutocompleteChat(
+        [FromBody] AutocompletionRequest request, Guid roomId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var member = await crs.GetRoomMember(accountId, roomId);
+        if (member == null)
+            return StatusCode(403, "You need to be a member to use autocomplete here.");
+
+        var response = await autocompleteClient.AutocompleteAsync(new DyAutocompletionRequest
+        {
+            Content = request.Content,
+            ChatId = roomId.ToString()
+        });
+
+        var results = response.Results.Select(r => new Shared.Models.Autocompletion
+        {
+            Type = r.Type,
+            Keyword = r.Keyword,
+            Data = r.Data
+        }).ToList();
+
+        return Ok(results);
+    }
 
 }
