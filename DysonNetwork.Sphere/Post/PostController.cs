@@ -25,22 +25,24 @@ public class PostController(
     public class ThreadedReplyNode
     {
         public required SnPost Post { get; set; }
-        public List<ThreadedReplyNode> Replies { get; set; } = [];
+        public required int Depth { get; set; }
+        public required Guid? ParentId { get; set; }
     }
 
-    private static ThreadedReplyNode BuildThreadedReplyNode(
+    private static void FlattenThreadedReplies(
         SnPost post,
-        Dictionary<Guid, List<SnPost>> repliesByParent
+        Dictionary<Guid, List<SnPost>> repliesByParent,
+        int depth,
+        List<ThreadedReplyNode> result
     )
     {
         post.RepliedPost = null;
         post.ForwardedPost = null;
+        result.Add(new ThreadedReplyNode { Post = post, Depth = depth, ParentId = post.RepliedPostId });
+
         var replies = repliesByParent.GetValueOrDefault(post.Id, []);
-        return new ThreadedReplyNode
-        {
-            Post = post,
-            Replies = replies.Select(reply => BuildThreadedReplyNode(reply, repliesByParent)).ToList(),
-        };
+        foreach (var reply in replies)
+            FlattenThreadedReplies(reply, repliesByParent, depth + 1, result);
     }
 
     [HttpGet("featured")]
@@ -630,7 +632,9 @@ public class PostController(
             frontier = children.Select(e => e.Id).ToList();
         }
 
-        var tree = rootReplies.Select(root => BuildThreadedReplyNode(root, repliesByParent)).ToList();
+        var tree = new List<ThreadedReplyNode>();
+        foreach (var root in rootReplies)
+            FlattenThreadedReplies(root, repliesByParent, 0, tree);
         return Ok(tree);
     }
 }
