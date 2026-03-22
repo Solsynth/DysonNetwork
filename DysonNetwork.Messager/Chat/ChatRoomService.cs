@@ -13,13 +13,19 @@ public class ChatRoomService(
     RemoteRealmService remoteRealms
 )
 {
+    public sealed class DeviceSubscriptionEntry
+    {
+        public string DeviceToken { get; set; } = string.Empty;
+        public Instant ExpiresAt { get; set; }
+    }
+
     public sealed class RoomSubscriptionEntry
     {
         public Guid RoomId { get; set; }
         public Guid MemberId { get; set; }
         public Guid AccountId { get; set; }
         public SnChatMember Member { get; set; } = null!;
-        public List<string> DeviceTokens { get; set; } = [];
+        public List<DeviceSubscriptionEntry> Devices { get; set; } = [];
     }
 
     public sealed class AccountSubscriptionEntry
@@ -27,7 +33,7 @@ public class ChatRoomService(
         public Guid RoomId { get; set; }
         public Guid MemberId { get; set; }
         public SnChatRoom Room { get; set; } = null!;
-        public List<string> DeviceTokens { get; set; } = [];
+        public List<DeviceSubscriptionEntry> Devices { get; set; } = [];
     }
 
     private const string ChatRoomGroupPrefix = "chatroom:";
@@ -336,7 +342,7 @@ public class ChatRoomService(
     private const string ChatAccountSubscriptionsGroupPrefix = "chatroom:account-subscribers:";
     private const string ChatRoomSubscriptionLockPrefix = "chatroom:subscribe-lock:";
     private const string CacheGlobalKeyPrefix = "dyson:";
-    private static readonly TimeSpan ChatRoomSubscriptionTtl = TimeSpan.FromHours(1);
+    private static readonly Duration ChatRoomSubscriptionDuration = Duration.FromMinutes(5);
     private static readonly TimeSpan ChatRoomSubscriptionLockTtl = TimeSpan.FromSeconds(5);
 
     private static string GetChatRoomSubscriptionKey(Guid roomId, Guid memberId) =>
@@ -368,6 +374,36 @@ public class ChatRoomService(
         return Guid.TryParse(parts[^2], out roomId) && Guid.TryParse(parts[^1], out memberId);
     }
 
+    private static TimeSpan GetCacheExpiry(List<DeviceSubscriptionEntry> devices, Instant now)
+    {
+        var maxDuration = devices.Max(d => d.ExpiresAt - now);
+        return maxDuration.ToTimeSpan();
+    }
+
+    private async Task<List<DeviceSubscriptionEntry>> GetActiveSubscriptionDevices(string cacheKey)
+    {
+        var devices = await cache.GetAsync<List<DeviceSubscriptionEntry>>(cacheKey) ?? [];
+        if (devices.Count == 0) return [];
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var activeDevices = devices
+            .Where(d => d.ExpiresAt > now)
+            .GroupBy(d => d.DeviceToken)
+            .Select(g => g.OrderByDescending(d => d.ExpiresAt).First())
+            .ToList();
+
+        if (activeDevices.Count == devices.Count) return activeDevices;
+
+        if (activeDevices.Count == 0)
+        {
+            await cache.RemoveAsync(cacheKey);
+            return [];
+        }
+
+        await cache.SetAsync(cacheKey, activeDevices, GetCacheExpiry(activeDevices, now));
+        return activeDevices;
+    }
+
     private async Task<List<string>> GetActiveSubscriptionKeys(string group)
     {
         var keys = (await cache.GetGroupKeysAsync(group)).Distinct().ToList();
@@ -377,8 +413,15 @@ public class ChatRoomService(
         foreach (var key in keys)
         {
             var rawKey = GetRawCacheKey(key);
-            var (found, tokens) = await cache.GetAsyncWithStatus<List<string>>(rawKey);
-            if (found && tokens is { Count: > 0 })
+            var (found, _) = await cache.GetAsyncWithStatus<List<DeviceSubscriptionEntry>>(rawKey);
+            if (!found)
+            {
+                await cache.RemoveAsync(rawKey);
+                continue;
+            }
+
+            var devices = await GetActiveSubscriptionDevices(rawKey);
+            if (devices.Count > 0)
             {
                 activeKeys.Add(key);
                 continue;
@@ -399,11 +442,24 @@ public class ChatRoomService(
 
         await cache.ExecuteWithLockAsync(lockKey, async () =>
         {
-            var tokens = await cache.GetAsync<List<string>>(cacheKey) ?? [];
-            if (!tokens.Contains(deviceId))
-                tokens.Add(deviceId);
+            var now = SystemClock.Instance.GetCurrentInstant();
+            var devices = await GetActiveSubscriptionDevices(cacheKey);
+            var expiresAt = now + ChatRoomSubscriptionDuration;
+            var existingDevice = devices.FirstOrDefault(d => d.DeviceToken == deviceId);
+            if (existingDevice is null)
+            {
+                devices.Add(new DeviceSubscriptionEntry
+                {
+                    DeviceToken = deviceId,
+                    ExpiresAt = expiresAt
+                });
+            }
+            else
+            {
+                existingDevice.ExpiresAt = expiresAt;
+            }
 
-            await cache.SetWithGroupsAsync(cacheKey, tokens, [group, accountGroup], ChatRoomSubscriptionTtl);
+            await cache.SetWithGroupsAsync(cacheKey, devices, [group, accountGroup], GetCacheExpiry(devices, now));
         }, ChatRoomSubscriptionLockTtl);
     }
 
@@ -414,24 +470,25 @@ public class ChatRoomService(
 
         await cache.ExecuteWithLockAsync(lockKey, async () =>
         {
-            var tokens = await cache.GetAsync<List<string>>(cacheKey) ?? [];
-            tokens.RemoveAll(token => token == deviceId);
+            var now = SystemClock.Instance.GetCurrentInstant();
+            var devices = await GetActiveSubscriptionDevices(cacheKey);
+            devices.RemoveAll(device => device.DeviceToken == deviceId);
 
-            if (tokens.Count == 0)
+            if (devices.Count == 0)
             {
                 await cache.RemoveAsync(cacheKey);
                 return;
             }
 
-            await cache.SetAsync(cacheKey, tokens, ChatRoomSubscriptionTtl);
+            await cache.SetAsync(cacheKey, devices, GetCacheExpiry(devices, now));
         }, ChatRoomSubscriptionLockTtl);
     }
 
     public async Task<bool> IsSubscribedChatRoom(Guid roomId, Guid memberId)
     {
         var cacheKey = GetChatRoomSubscriptionKey(roomId, memberId);
-        var tokens = await cache.GetAsync<List<string>>(cacheKey);
-        return tokens is { Count: > 0 };
+        var devices = await GetActiveSubscriptionDevices(cacheKey);
+        return devices.Count > 0;
     }
 
     public async Task<List<Guid>> GetSubscribedMembers(Guid roomId)
@@ -465,8 +522,8 @@ public class ChatRoomService(
             if (!TryParseSubscriptionKey(key, out _, out var memberId)) continue;
             if (!memberMap.TryGetValue(memberId, out var member)) continue;
 
-            var tokens = await cache.GetAsync<List<string>>(GetRawCacheKey(key)) ?? [];
-            if (tokens.Count == 0) continue;
+            var devices = await GetActiveSubscriptionDevices(GetRawCacheKey(key));
+            if (devices.Count == 0) continue;
 
             result.Add(new RoomSubscriptionEntry
             {
@@ -474,7 +531,7 @@ public class ChatRoomService(
                 MemberId = member.Id,
                 AccountId = member.AccountId,
                 Member = member,
-                DeviceTokens = tokens
+                Devices = devices
             });
         }
 
@@ -487,15 +544,15 @@ public class ChatRoomService(
         var keys = await GetActiveSubscriptionKeys(group);
         if (keys.Count == 0) return [];
 
-        var subscriptions = new List<(Guid RoomId, Guid MemberId, List<string> Tokens)>(keys.Count);
+        var subscriptions = new List<(Guid RoomId, Guid MemberId, List<DeviceSubscriptionEntry> Devices)>(keys.Count);
         foreach (var key in keys)
         {
             if (!TryParseSubscriptionKey(key, out var roomId, out var memberId)) continue;
 
-            var tokens = await cache.GetAsync<List<string>>(GetRawCacheKey(key)) ?? [];
-            if (tokens.Count == 0) continue;
+            var devices = await GetActiveSubscriptionDevices(GetRawCacheKey(key));
+            if (devices.Count == 0) continue;
 
-            subscriptions.Add((roomId, memberId, tokens));
+            subscriptions.Add((roomId, memberId, devices));
         }
 
         var roomIds = subscriptions.Select(s => s.RoomId).Distinct().ToList();
@@ -516,7 +573,7 @@ public class ChatRoomService(
                 RoomId = subscription.RoomId,
                 MemberId = subscription.MemberId,
                 Room = room,
-                DeviceTokens = subscription.Tokens
+                Devices = subscription.Devices
             });
         }
 

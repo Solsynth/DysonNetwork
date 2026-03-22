@@ -116,6 +116,7 @@ public partial class ChatController(
     public class ChatSubscriptionDeviceStatusResponse
     {
         public string DeviceToken { get; set; } = string.Empty;
+        public Instant ExpiresAt { get; set; }
         public bool IsWebSocketConnected { get; set; }
     }
 
@@ -215,13 +216,14 @@ public partial class ChatController(
         var subscriptionStatuses = new List<ChatSubscriptionRoomStatusResponse>(subscriptions.Count);
         foreach (var subscription in subscriptions)
         {
-            var deviceStatuses = new List<ChatSubscriptionDeviceStatusResponse>(subscription.DeviceTokens.Count);
-            foreach (var token in subscription.DeviceTokens)
+            var deviceStatuses = new List<ChatSubscriptionDeviceStatusResponse>(subscription.Devices.Count);
+            foreach (var device in subscription.Devices)
             {
                 deviceStatuses.Add(new ChatSubscriptionDeviceStatusResponse
                 {
-                    DeviceToken = token,
-                    IsWebSocketConnected = await webSocket.GetWebsocketConnectionStatus(token)
+                    DeviceToken = device.DeviceToken,
+                    ExpiresAt = device.ExpiresAt,
+                    IsWebSocketConnected = await webSocket.GetWebsocketConnectionStatus(device.DeviceToken)
                 });
             }
 
@@ -230,8 +232,8 @@ public partial class ChatController(
                 RoomId = subscription.RoomId,
                 MemberId = subscription.MemberId,
                 Room = subscription.Room,
-                IsSubscribed = subscription.DeviceTokens.Count > 0,
-                PushNotificationsSuppressed = subscription.DeviceTokens.Count > 0,
+                IsSubscribed = subscription.Devices.Count > 0,
+                PushNotificationsSuppressed = subscription.Devices.Count > 0,
                 Devices = deviceStatuses
             });
         }
