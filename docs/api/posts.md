@@ -50,7 +50,7 @@ Notes:
 
 ## List Threaded Replies
 
-Returns paginated direct replies at the top level, with all visible descendants nested under each returned root reply.
+Returns a flattened list of all visible replies (direct and descendants), ordered by hierarchy. The response is paginated at the top level only.
 
 ```http
 GET /api/posts/{id}/replies/threaded?offset=0&take=20
@@ -78,46 +78,44 @@ Each item is a `ThreadedReplyNode`:
       "replies_count": 1,
       "thread_replies_count": 3
     },
-    "replies": [
-      {
-        "post": {
-          "id": "reply-b",
-          "replied_post_id": "reply-a",
-          "replies_count": 1,
-          "thread_replies_count": 2
-        },
-        "replies": [
-          {
-            "post": {
-              "id": "reply-c",
-              "replied_post_id": "reply-b",
-              "replies_count": 1,
-              "thread_replies_count": 1
-            },
-            "replies": [
-              {
-                "post": {
-                  "id": "reply-d",
-                  "replied_post_id": "reply-c",
-                  "replies_count": 0,
-                  "thread_replies_count": 0
-                },
-                "replies": []
-              }
-            ]
-          }
-        ]
-      }
-    ]
+    "depth": 0,
+    "parentId": null
+  },
+  {
+    "post": {
+      "id": "reply-b",
+      "replied_post_id": "reply-a",
+      "replies_count": 1,
+      "thread_replies_count": 2
+    },
+    "depth": 1,
+    "parentId": "reply-a"
+  },
+  {
+    "post": {
+      "id": "reply-c",
+      "replied_post_id": "reply-b",
+      "replies_count": 0,
+      "thread_replies_count": 0
+    },
+    "depth": 2,
+    "parentId": "reply-b"
   }
 ]
 ```
 
-Notes:
+### Fields
+
+- `post`: the full post object
+- `depth`: nesting level relative to the root replies (0 = direct reply to the target post)
+- `parentId`: the `id` of the parent post this reply responds to
+
+### Notes
 
 - pagination applies only to the top-level direct replies of the target post
-- descendants of those returned top-level replies are expanded in full
-- visibility filtering still applies, so hidden replies are omitted from the returned tree
+- descendants are returned in depth-first order
+- `depth` and `parentId` allow the client to reconstruct the tree structure on the frontend
+- visibility filtering still applies, so hidden replies are omitted
 
 ## Client Guidance
 

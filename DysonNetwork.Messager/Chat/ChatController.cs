@@ -148,6 +148,36 @@ public partial class ChatController(
         return Ok(totalUnreadCount);
     }
 
+    [HttpGet("{roomId:guid}/subscriptions")]
+    [Authorize]
+    public async Task<ActionResult<List<ChatRoomService.RoomSubscriptionEntry>>> GetRoomSubscriptions(Guid roomId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var member = await crs.GetRoomMember(accountId, roomId);
+        if (member == null)
+            return StatusCode(403, "You are not a member of this chat room.");
+
+        var subscriptions = await crs.GetRoomSubscriptions(roomId);
+        return Ok(subscriptions);
+    }
+
+    [HttpGet("accounts/{accountId:guid}/subscriptions")]
+    [Authorize]
+    public async Task<ActionResult<List<ChatRoomService.AccountSubscriptionEntry>>> GetAccountSubscriptions(
+        Guid accountId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var currentUserId = Guid.Parse(currentUser.Id);
+        if (currentUserId != accountId)
+            return Forbid();
+
+        var subscriptions = await crs.GetAccountSubscriptions(accountId);
+        return Ok(subscriptions);
+    }
+
     public class SendMessageRequest
     {
         [MaxLength(4096)] public string? Content { get; set; }

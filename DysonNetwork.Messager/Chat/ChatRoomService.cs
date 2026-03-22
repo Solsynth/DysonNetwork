@@ -13,6 +13,23 @@ public class ChatRoomService(
     RemoteRealmService remoteRealms
 )
 {
+    public sealed class RoomSubscriptionEntry
+    {
+        public Guid RoomId { get; set; }
+        public Guid MemberId { get; set; }
+        public Guid AccountId { get; set; }
+        public SnChatMember Member { get; set; } = null!;
+        public List<string> DeviceTokens { get; set; } = [];
+    }
+
+    public sealed class AccountSubscriptionEntry
+    {
+        public Guid RoomId { get; set; }
+        public Guid MemberId { get; set; }
+        public SnChatRoom Room { get; set; } = null!;
+        public List<string> DeviceTokens { get; set; } = [];
+    }
+
     private const string ChatRoomGroupPrefix = "chatroom:";
     private const string RoomMembersCacheKeyPrefix = "chatroom:members:";
     private const string ChatMemberCacheKey = "chatroom:{0}:member:{1}";
@@ -316,6 +333,7 @@ public class ChatRoomService(
 
     private const string ChatRoomSubscribeKeyPrefix = "chatroom:subscribe:";
     private const string ChatRoomSubscribersGroupPrefix = "chatroom:subscribers:";
+    private const string ChatAccountSubscriptionsGroupPrefix = "chatroom:account-subscribers:";
     private const string ChatRoomSubscriptionLockPrefix = "chatroom:subscribe-lock:";
     private const string CacheGlobalKeyPrefix = "dyson:";
     private static readonly TimeSpan ChatRoomSubscriptionTtl = TimeSpan.FromHours(1);
@@ -327,6 +345,9 @@ public class ChatRoomService(
     private static string GetChatRoomSubscribersGroup(Guid roomId) =>
         $"{ChatRoomSubscribersGroupPrefix}{roomId}";
 
+    private static string GetChatAccountSubscriptionsGroup(Guid accountId) =>
+        $"{ChatAccountSubscriptionsGroupPrefix}{accountId}";
+
     private static string GetChatRoomSubscriptionLockKey(Guid roomId, Guid memberId) =>
         $"{ChatRoomSubscriptionLockPrefix}{roomId}:{memberId}";
 
@@ -334,6 +355,18 @@ public class ChatRoomService(
         key.StartsWith(CacheGlobalKeyPrefix, StringComparison.Ordinal)
             ? key[CacheGlobalKeyPrefix.Length..]
             : key;
+
+    private static bool TryParseSubscriptionKey(string key, out Guid roomId, out Guid memberId)
+    {
+        roomId = Guid.Empty;
+        memberId = Guid.Empty;
+
+        var rawKey = GetRawCacheKey(key);
+        var parts = rawKey.Split(':');
+        if (parts.Length < 4) return false;
+
+        return Guid.TryParse(parts[^2], out roomId) && Guid.TryParse(parts[^1], out memberId);
+    }
 
     private async Task<List<string>> GetActiveSubscriptionKeys(string group)
     {
@@ -361,6 +394,7 @@ public class ChatRoomService(
     {
         var cacheKey = GetChatRoomSubscriptionKey(member.ChatRoomId, member.Id);
         var group = GetChatRoomSubscribersGroup(member.ChatRoomId);
+        var accountGroup = GetChatAccountSubscriptionsGroup(member.AccountId);
         var lockKey = GetChatRoomSubscriptionLockKey(member.ChatRoomId, member.Id);
 
         await cache.ExecuteWithLockAsync(lockKey, async () =>
@@ -369,7 +403,7 @@ public class ChatRoomService(
             if (!tokens.Contains(deviceId))
                 tokens.Add(deviceId);
 
-            await cache.SetWithGroupsAsync(cacheKey, tokens, [group], ChatRoomSubscriptionTtl);
+            await cache.SetWithGroupsAsync(cacheKey, tokens, [group, accountGroup], ChatRoomSubscriptionTtl);
         }, ChatRoomSubscriptionLockTtl);
     }
 
@@ -407,15 +441,86 @@ public class ChatRoomService(
         var memberIds = new HashSet<Guid>();
         foreach (var key in keys)
         {
-            var rawKey = GetRawCacheKey(key);
-            var parts = rawKey.Split(':');
-            if (parts.Length >= 4 && Guid.TryParse(parts[^1], out var memberId))
+            if (TryParseSubscriptionKey(key, out _, out var memberId))
             {
                 memberIds.Add(memberId);
             }
         }
 
         return memberIds.ToList();
+    }
+
+    public async Task<List<RoomSubscriptionEntry>> GetRoomSubscriptions(Guid roomId)
+    {
+        var group = GetChatRoomSubscribersGroup(roomId);
+        var keys = await GetActiveSubscriptionKeys(group);
+        if (keys.Count == 0) return [];
+
+        var roomMembers = await ListRoomMembers(roomId);
+        var memberMap = roomMembers.ToDictionary(m => m.Id, m => m);
+        var result = new List<RoomSubscriptionEntry>(keys.Count);
+
+        foreach (var key in keys)
+        {
+            if (!TryParseSubscriptionKey(key, out _, out var memberId)) continue;
+            if (!memberMap.TryGetValue(memberId, out var member)) continue;
+
+            var tokens = await cache.GetAsync<List<string>>(GetRawCacheKey(key)) ?? [];
+            if (tokens.Count == 0) continue;
+
+            result.Add(new RoomSubscriptionEntry
+            {
+                RoomId = roomId,
+                MemberId = member.Id,
+                AccountId = member.AccountId,
+                Member = member,
+                DeviceTokens = tokens
+            });
+        }
+
+        return result;
+    }
+
+    public async Task<List<AccountSubscriptionEntry>> GetAccountSubscriptions(Guid accountId)
+    {
+        var group = GetChatAccountSubscriptionsGroup(accountId);
+        var keys = await GetActiveSubscriptionKeys(group);
+        if (keys.Count == 0) return [];
+
+        var subscriptions = new List<(Guid RoomId, Guid MemberId, List<string> Tokens)>(keys.Count);
+        foreach (var key in keys)
+        {
+            if (!TryParseSubscriptionKey(key, out var roomId, out var memberId)) continue;
+
+            var tokens = await cache.GetAsync<List<string>>(GetRawCacheKey(key)) ?? [];
+            if (tokens.Count == 0) continue;
+
+            subscriptions.Add((roomId, memberId, tokens));
+        }
+
+        var roomIds = subscriptions.Select(s => s.RoomId).Distinct().ToList();
+        var rooms = await db.ChatRooms
+            .Where(r => roomIds.Contains(r.Id))
+            .ToListAsync();
+        rooms = await LoadChatRealms(rooms);
+        rooms = await LoadDirectMessageMembers(rooms, accountId);
+
+        var roomMap = rooms.ToDictionary(r => r.Id, r => r);
+        var result = new List<AccountSubscriptionEntry>(subscriptions.Count);
+        foreach (var subscription in subscriptions)
+        {
+            if (!roomMap.TryGetValue(subscription.RoomId, out var room)) continue;
+
+            result.Add(new AccountSubscriptionEntry
+            {
+                RoomId = subscription.RoomId,
+                MemberId = subscription.MemberId,
+                Room = room,
+                DeviceTokens = subscription.Tokens
+            });
+        }
+
+        return result;
     }
 
     public async Task<List<SnAccount>> GetTopActiveMembers(Guid roomId, Instant startDate, Instant endDate)
