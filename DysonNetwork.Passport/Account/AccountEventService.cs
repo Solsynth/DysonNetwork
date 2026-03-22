@@ -752,10 +752,18 @@ public class AccountEventService(
     }
 
     /// <summary>
-    /// Gets all user IDs that have Spotify connections
+    /// Gets all user IDs that have usable connections for the specified presence providers.
     /// </summary>
-    public async Task<List<Guid>> GetSpotifyConnectedUsersAsync()
+    public async Task<List<Guid>> GetPresenceConnectedUsersAsync(params string[] providers)
     {
+        var providerSet = providers
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p.Trim().ToLowerInvariant())
+            .ToHashSet();
+
+        if (providerSet.Count == 0)
+            return [];
+
         var accountIds = await db.AccountProfiles
             .AsNoTracking()
             .Select(p => p.AccountId)
@@ -764,9 +772,20 @@ public class AccountEventService(
         var connected = new List<Guid>();
         foreach (var accountId in accountIds)
         {
-            var connections = await accountConnections.ListConnectionsAsync(accountId, "spotify");
-            if (connections.Any(c => !string.IsNullOrWhiteSpace(c.AccessToken) &&
-                                     !string.IsNullOrWhiteSpace(c.RefreshToken)))
+            var hasPresenceConnection = false;
+            foreach (var provider in providerSet)
+            {
+                var connections = await accountConnections.ListConnectionsAsync(accountId, provider);
+                if (connections.Any(c => !string.IsNullOrWhiteSpace(c.ProvidedIdentifier) &&
+                                         (!string.IsNullOrWhiteSpace(c.RefreshToken) ||
+                                          !string.IsNullOrWhiteSpace(c.AccessToken))))
+                {
+                    hasPresenceConnection = true;
+                    break;
+                }
+            }
+
+            if (hasPresenceConnection)
             {
                 connected.Add(accountId);
             }

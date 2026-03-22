@@ -39,26 +39,10 @@ public class SpotifyPresenceService(
 
         try
         {
-            // Ensure we have a valid access token
-            var validToken = await connections.GetValidAccessTokenAsync(
-                connection.Id,
-                connection.RefreshToken,
-                connection.AccessToken);
-            if (string.IsNullOrEmpty(validToken))
-            {
-                // Couldn't get a valid token, remove presence
-                await RemoveSpotifyPresenceAsync(accountId);
-                return;
-            }
-
-            // Create Spotify client with the valid token
-            var spotify = new SpotifyClient(validToken);
-
-            // Get currently playing track
-            var currentlyPlaying = await spotify.Player.GetCurrentlyPlaying(new PlayerCurrentlyPlayingRequest());
+            var currentlyPlaying = await GetCurrentlyPlayingAsync(connection);
             if (currentlyPlaying?.Item == null || !currentlyPlaying.IsPlaying)
             {
-                // Nothing playing or paused, remove the presence
+                // Nothing playing, paused, or we couldn't get a usable token.
                 await RemoveSpotifyPresenceAsync(accountId);
                 return;
             }
@@ -100,6 +84,36 @@ public class SpotifyPresenceService(
             logger.LogError(ex, "Failed to update Spotify presence for user {UserId}", accountId);
         }
     }
+
+    private async Task<CurrentlyPlaying?> GetCurrentlyPlayingAsync(SnAccountConnection connection)
+    {
+        var validToken = await connections.GetValidAccessTokenAsync(
+            connection.Id,
+            connection.RefreshToken!,
+            connection.AccessToken);
+        if (string.IsNullOrEmpty(validToken))
+            return null;
+
+        try
+        {
+            return await CreateSpotifyClient(validToken)
+                .Player
+                .GetCurrentlyPlaying(new PlayerCurrentlyPlayingRequest());
+        }
+        catch (APIUnauthorizedException)
+        {
+            // The token can expire after validation but before the player request completes.
+            var refreshedToken = await connections.GetValidAccessTokenAsync(connection.Id, connection.RefreshToken!);
+            if (string.IsNullOrEmpty(refreshedToken))
+                return null;
+
+            return await CreateSpotifyClient(refreshedToken)
+                .Player
+                .GetCurrentlyPlaying(new PlayerCurrentlyPlayingRequest());
+        }
+    }
+
+    private static SpotifyClient CreateSpotifyClient(string accessToken) => new(accessToken);
 
     /// <summary>
     /// Removes the Spotify presence activity for a user

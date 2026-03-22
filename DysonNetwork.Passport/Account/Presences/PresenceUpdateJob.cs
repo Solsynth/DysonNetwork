@@ -98,15 +98,6 @@ public class PresenceUpdateJob(
 
     private async Task<List<Guid>> GetAllUsersWithPresenceConnectionsAsync()
     {
-        // This method should return all users who have connections to any presence service
-        // For now, we'll focus on Spotify users, but this should be extended to include all presence services
-
-        // In a more complete implementation, you might want to query all presence services
-        // to get users with connections to any of them
-
-        // For simplicity, we'll return users with Spotify connections
-        // This should be made more generic in the future
-        var spotifyUsers = await accountEventService.GetSpotifyConnectedUsersAsync();
-        return spotifyUsers;
+        return await accountEventService.GetPresenceConnectedUsersAsync("spotify", "steam");
     }
 }
