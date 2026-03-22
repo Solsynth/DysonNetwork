@@ -92,7 +92,7 @@ public class FileService(
             .ToList();
     }
 
-    public async Task<SnCloudFile> ProcessNewFileAsync(
+    public async Task<(SnCloudFile CloudFile, FileUploadedEvent Event)> ProcessNewFileAsync(
         DyAccount account,
         string fileId,
         string filePool,
@@ -103,7 +103,8 @@ public class FileService(
         string? encryptionScheme,
         string? encryptionHeader,
         string? encryptionSignature,
-        Instant? expiredAt
+        Instant? expiredAt,
+        string? taskId = null
     )
     {
         var accountId = Guid.Parse(account.Id);
@@ -137,9 +138,18 @@ public class FileService(
 
         await SaveFileToDatabaseAsync(file, fileObject, pool.Id);
 
-        await PublishFileUploadedEventAsync(file, pool, processingPath, isTempFile);
+        var fileEvent = new FileUploadedEvent
+        {
+            FileId = file.Id,
+            TaskId = taskId ?? string.Empty,
+            RemoteId = pool.Id,
+            StorageId = file.StorageId,
+            ContentType = file.MimeType,
+            ProcessingFilePath = processingPath,
+            IsTempFile = isTempFile
+        };
 
-        return file;
+        return (file, fileEvent);
     }
 
     private async Task<FilePool> ValidateAndGetPoolAsync(string filePool)
@@ -336,19 +346,10 @@ public class FileService(
         file.StorageId ??= file.Id;
     }
 
-    private async Task PublishFileUploadedEventAsync(SnCloudFile file, FilePool pool, string processingPath,
-        bool isTempFile)
+    public async Task PublishUploadCompletedEventAsync(FileUploadedEvent fileEvent)
     {
         var eventBus = serviceProvider.GetRequiredService<DysonNetwork.Shared.EventBus.IEventBus>();
-        await eventBus.PublishAsync(new FileUploadedEvent
-        {
-            FileId = file.Id,
-            RemoteId = pool.Id,
-            StorageId = file.StorageId,
-            ContentType = file.MimeType,
-            ProcessingFilePath = processingPath,
-            IsTempFile = isTempFile
-        });
+        await eventBus.PublishAsync(fileEvent);
     }
 
     private async Task ExtractMetadataAsync(SnCloudFile file, string filePath)

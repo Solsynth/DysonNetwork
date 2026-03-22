@@ -9,6 +9,7 @@ public class FileUploadedEvent : EventBase
     public override string StreamName => "file_events";
 
     public string FileId { get; set; } = null!;
+    public string TaskId { get; set; } = null!;
     public Guid RemoteId { get; set; }
     public string? StorageId { get; set; }
     public string? ContentType { get; set; }
@@ -18,6 +19,7 @@ public class FileUploadedEvent : EventBase
 
 public record FileUploadedEventPayload(
     string FileId,
+    string TaskId,
     Guid RemoteId,
     string? StorageId,
     string? ContentType,

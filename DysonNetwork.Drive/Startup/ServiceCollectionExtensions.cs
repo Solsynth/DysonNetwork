@@ -311,6 +311,11 @@ public static class ServiceCollectionExtensions
 
             logger.LogInformation("Optimized file {FileId}, now uploading...", evt.FileId);
 
+            if (!string.IsNullOrEmpty(evt.TaskId))
+            {
+                await persistentTaskService.UpdateTaskProgressAsync(evt.TaskId, 0.70, "Uploading to remote storage...");
+            }
+
             var missingFiles = uploads.Where(u => !File.Exists(u.FilePath)).ToList();
             if (missingFiles.Any())
             {
