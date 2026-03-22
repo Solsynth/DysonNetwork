@@ -17,7 +17,8 @@ public enum MeetStatus
 public enum MeetVisibility
 {
     Public = 0,
-    Private = 1
+    Private = 1,
+    Unlisted = 2
 }
 
 [Index(nameof(HostId), nameof(Status))]

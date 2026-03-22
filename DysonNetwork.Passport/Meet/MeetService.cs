@@ -99,7 +99,6 @@ public class MeetService(
     )
     {
         await ExpireMeetsAsync(accountId, cancellationToken);
-        var friendIds = await relationships.ListAccountFriends(accountId);
 
         var query = db.Meets
             .Include(m => m.Participants)
@@ -111,11 +110,27 @@ public class MeetService(
         }
         else
         {
-            query = query.Where(m =>
-                m.Visibility == MeetVisibility.Public
-                || m.HostId == accountId
-                || friendIds.Contains(m.HostId)
-                || m.Participants.Any(p => p.AccountId == accountId));
+            var allMeets = await query.ToListAsync(cancellationToken);
+            var accessibleMeets = new List<SnMeet>();
+            foreach (var meet in allMeets)
+            {
+                if (await CanAccessMeetAsync(meet, accountId))
+                    accessibleMeets.Add(meet);
+            }
+            
+            if (status.HasValue)
+                accessibleMeets = accessibleMeets.Where(m => m.Status == status.Value).ToList();
+            
+            var result = accessibleMeets
+                .OrderByDescending(m => m.CreatedAt)
+                .Skip(offset)
+                .Take(take)
+                .ToList();
+            
+            foreach (var meet in result)
+                await HydrateMeetAsync(meet, cancellationToken);
+            
+            return result;
         }
 
         if (status.HasValue)
@@ -154,6 +169,7 @@ public class MeetService(
                 SELECT *
                 FROM meets
                 WHERE location IS NOT NULL
+                  AND visibility = 0
                   AND ST_DWithin(
                     location::geography,
                     ST_GeomFromText({locationWkt}, 4326)::geography,
@@ -169,8 +185,7 @@ public class MeetService(
             .AsQueryable();
 
         query = query.Where(m =>
-            m.Visibility == MeetVisibility.Public
-            || m.HostId == accountId
+            m.HostId == accountId
             || friendIds.Contains(m.HostId)
             || m.Participants.Any(p => p.AccountId == accountId));
 
@@ -188,7 +203,7 @@ public class MeetService(
         return meets;
     }
 
-    public async Task<SnMeet?> GetMeetAsync(Guid meetId, Guid accountId, CancellationToken cancellationToken = default)
+    public async Task<SnMeet?> GetMeetAsync(Guid meetId, Guid accountId, Geometry? userLocation = null, CancellationToken cancellationToken = default)
     {
         await TryExpireMeetAsync(meetId, cancellationToken);
 
@@ -196,7 +211,18 @@ public class MeetService(
             .Include(m => m.Participants)
             .FirstOrDefaultAsync(m => m.Id == meetId, cancellationToken);
         if (meet is null) return null;
-        if (!await CanAccessMeetAsync(meet, accountId)) return null;
+
+        bool canAccess;
+        if (userLocation != null)
+        {
+            canAccess = await CanAccessMeetAsync(meet, accountId, userLocation);
+        }
+        else
+        {
+            canAccess = await CanAccessMeetAsync(meet, accountId);
+        }
+
+        if (!canAccess) return null;
 
         await HydrateMeetAsync(meet, cancellationToken);
         return meet;
@@ -298,12 +324,48 @@ public class MeetService(
             await TryExpireMeetAsync(meetId, cancellationToken);
     }
 
+    private const double PublicMeetMaxDistanceMeters = 5000;
+
     private async Task<bool> CanAccessMeetAsync(SnMeet meet, Guid accountId)
     {
-        return meet.Visibility == MeetVisibility.Public
-            || meet.HostId == accountId
-            || await relationships.HasRelationshipWithStatus(meet.HostId, accountId)
-            || meet.Participants.Any(p => p.AccountId == accountId);
+        if (meet.HostId == accountId) return true;
+        if (meet.Participants.Any(p => p.AccountId == accountId)) return true;
+
+        var participantIds = meet.Participants.Select(p => p.AccountId).Append(meet.HostId).Distinct();
+        foreach (var participantId in participantIds)
+        {
+            if (await relationships.HasRelationshipWithStatus(participantId, accountId))
+                return true;
+        }
+
+        return false;
+    }
+
+    private async Task<bool> CanAccessMeetAsync(SnMeet meet, Guid accountId, Geometry userLocation)
+    {
+        if (meet.HostId == accountId) return true;
+        if (meet.Participants.Any(p => p.AccountId == accountId)) return true;
+
+        var participantIds = meet.Participants.Select(p => p.AccountId).Append(meet.HostId).Distinct();
+        foreach (var participantId in participantIds)
+        {
+            if (await relationships.HasRelationshipWithStatus(participantId, accountId))
+                return true;
+        }
+
+        if (meet.Visibility == MeetVisibility.Public)
+        {
+            if (meet.Location == null) return false;
+            var distance = CalculateDistance(meet.Location, userLocation);
+            return distance <= PublicMeetMaxDistanceMeters;
+        }
+
+        return false;
+    }
+
+    private static double CalculateDistance(Geometry location1, Geometry location2)
+    {
+        return location1.Distance(location2) * 111320;
     }
 
     private static Duration NormalizeTtl(Duration? ttl)

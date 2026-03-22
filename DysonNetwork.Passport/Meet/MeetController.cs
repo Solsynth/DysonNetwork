@@ -155,11 +155,28 @@ public class MeetController(
 
     [HttpGet("{id:guid}")]
     [Authorize]
-    public async Task<ActionResult<SnMeet>> GetMeet(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<SnMeet>> GetMeet(Guid id, [FromQuery] string? locationWkt = null, CancellationToken cancellationToken = default)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        var meet = await meetService.GetMeetAsync(id, currentUser.Id, cancellationToken);
+        Geometry? userLocation = null;
+        if (!string.IsNullOrWhiteSpace(locationWkt))
+        {
+            try
+            {
+                userLocation = new WKTReader().Read(locationWkt);
+                userLocation.SRID = 4326;
+            }
+            catch (Exception)
+            {
+                return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+                {
+                    [nameof(locationWkt)] = ["Invalid WKT geometry."]
+                }, traceId: HttpContext.TraceIdentifier));
+            }
+        }
+
+        var meet = await meetService.GetMeetAsync(id, currentUser.Id, userLocation, cancellationToken);
         if (meet is null)
             return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
 
