@@ -34,6 +34,7 @@ public class PostController(
     )
     {
         post.RepliedPost = null;
+        post.ForwardedPost = null;
         var replies = repliesByParent.GetValueOrDefault(post.Id, []);
         return new ThreadedReplyNode
         {
@@ -575,6 +576,7 @@ public class PostController(
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .Include(e => e.FeaturedRecords)
+            .AsNoTracking()
             .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
@@ -600,6 +602,7 @@ public class PostController(
                 .Include(e => e.Categories)
                 .Include(e => e.Tags)
                 .Include(e => e.FeaturedRecords)
+                .AsNoTracking()
                 .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
                 .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
                 .ToListAsync();

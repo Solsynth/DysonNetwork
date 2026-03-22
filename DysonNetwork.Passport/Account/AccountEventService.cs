@@ -584,19 +584,16 @@ public class AccountEventService(
         var activityQuery = db.PresenceActivities
             .Where(e => e.AccountId == userId && e.DeletedAt == null);
 
-        var totalCount = await statusQuery.CountAsync() + await activityQuery.CountAsync();
+        var statusCount = await statusQuery.CountAsync();
+        var activityCount = await activityQuery.CountAsync();
+        var totalCount = statusCount + activityCount;
 
-        var statusesTask = statusQuery
+        var statuses = await statusQuery
             .OrderByDescending(e => e.CreatedAt)
             .ToListAsync();
-        var activitiesTask = activityQuery
+        var activities = await activityQuery
             .OrderByDescending(e => e.CreatedAt)
             .ToListAsync();
-
-        await Task.WhenAll(statusesTask, activitiesTask);
-
-        var statuses = await statusesTask;
-        var activities = await activitiesTask;
 
         var timelineItems = new List<AccountTimelineItem>();
 
