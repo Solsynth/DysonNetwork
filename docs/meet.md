@@ -33,7 +33,7 @@ Important fields:
 - `id`: meet ID
 - `host_id`: host account ID
 - `status`: current meet status
-- `visibility`: `public` or `private`
+- `visibility`: `public`, `private`, or `unlisted`
 - `expires_at`: auto-expiration time
 - `completed_at`: set when host completes the meet
 - `notes`: optional notes text
@@ -50,11 +50,25 @@ Location storage uses PostGIS geometry in the database and is fully optional.
 
 `MeetVisibility`
 
-- `Public`
-- `Private`
+- `Public` (0)
+- `Private` (1)  
+- `Unlisted` (2)
 
-Public meets can be fetched by ID without already being a participant.
-Private meets still work as share-by-ID sessions, but they are not treated as public resources.
+### Public
+Public meets are visible to:
+- Participants
+- Friends of any participant (including host)
+- Nearby users within 5km of the meet location
+
+### Private
+Private meets are only visible to participants. They do not appear in nearby searches.
+
+### Unlisted
+Unlisted meets are visible to:
+- Participants
+- Friends of any participant (including host)
+
+Unlike Public meets, Unlisted meets do NOT appear in nearby searches even if the user is within range.
 
 ## Authentication
 
@@ -89,7 +103,7 @@ Request body:
 
 Notes:
 
-- `visibility` is optional and defaults to `Private`.
+- `visibility` is optional and defaults to `Private` (1). Use `Public` (0) for meets visible to nearby users, `Unlisted` (2) for meets visible to friends only.
 - `notes` is optional.
 - `image_id` is optional.
 - `location_name` is optional.
@@ -137,7 +151,10 @@ Notes:
 
 - The search uses PostGIS `ST_DWithin` on geography casts, so `distanceMeters` is measured in meters.
 - Only meets with a stored location are returned.
-- Visibility rules still apply, so you only see meets you are allowed to access.
+- `Public` meets appear in nearby searches for friends of participants.
+- User's own meets (`Private` and `Unlisted`) also appear in nearby searches when within range.
+- Meets where the user is a participant also appear regardless of visibility.
+- Public meets have a maximum visibility range of 5km regardless of the `distanceMeters` parameter.
 
 ### Get meet
 
@@ -147,7 +164,12 @@ Returns a single meet if:
 
 - the current user is the host
 - the current user is a participant
-- the meet visibility is `Public`
+- the current user is a friend of any participant
+- the meet visibility is `Public` AND the user is within 5km (requires `locationWkt` query param)
+
+Query params:
+
+- `locationWkt`: optional WKT geometry of the user's current location. Required for accessing Public meets when not a participant/friend.
 
 ### Join meet and open SSE
 
@@ -198,13 +220,29 @@ Behavior:
 
 ## Access rules
 
-A private meet is visible only to:
-
+### Private meets
+Visible only to:
 - the host
 - joined participants
 
-A public meet can also be fetched by ID by other authenticated users.
+### Unlisted meets
+Visible to:
+- the host
+- joined participants  
+- friends of any participant (including host)
 
+Does NOT appear in nearby searches.
+
+### Public meets
+Visible to:
+- the host
+- joined participants
+- friends of any participant (including host)
+- nearby users within 5km of the meet location
+
+For non-participants/non-friends to access a Public meet via `GET /api/meets/{id}`, they must provide their current location via the `locationWkt` query parameter to verify they are within 5km.
+
+### Host privileges
 Only the host can complete the meet.
 
 ## Expiration

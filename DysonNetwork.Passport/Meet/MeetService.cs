@@ -166,17 +166,22 @@ public class MeetService(
 
         var query = db.Meets
             .FromSqlInterpolated($"""
-                SELECT *
-                FROM meets
-                WHERE location IS NOT NULL
-                  AND visibility = 0
+                SELECT m.*
+                FROM meets m
+                LEFT JOIN meet_participants mp ON m.id = mp.meet_id AND mp.account_id = {accountId}
+                WHERE m.location IS NOT NULL
                   AND ST_DWithin(
-                    location::geography,
+                    m.location::geography,
                     ST_GeomFromText({locationWkt}, 4326)::geography,
                     {distanceMeters}
                   )
+                  AND (
+                    m.visibility = 0
+                    OR m.host_id = {accountId}
+                    OR mp.account_id IS NOT NULL
+                  )
                 ORDER BY ST_Distance(
-                    location::geography,
+                    m.location::geography,
                     ST_GeomFromText({locationWkt}, 4326)::geography
                 )
                 LIMIT {candidateTake}
