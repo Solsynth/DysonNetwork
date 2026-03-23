@@ -11,6 +11,7 @@ using DysonNetwork.Messager.Wallet;
 using DysonNetwork.Messager.Chat.Voice;
 using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Extensions;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -646,7 +647,7 @@ public partial class ChatController(
                 request.ForwardedMessageId, roomId);
         }
 
-        var result = await cs.SendMessageAsync(message, member, member.ChatRoom);
+        var result = await cs.SendMessageAsync(message, member, member.ChatRoom, Request.GetClientIpAddress());
 
         return Ok(result);
     }
@@ -730,7 +731,7 @@ public partial class ChatController(
             roomId
         );
 
-        var result = await cs.SendMessageAsync(message, member, member.ChatRoom);
+        var result = await cs.SendMessageAsync(message, member, member.ChatRoom, Request.GetClientIpAddress());
         return Ok(result);
     }
 

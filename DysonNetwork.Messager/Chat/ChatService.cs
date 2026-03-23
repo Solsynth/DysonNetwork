@@ -60,7 +60,7 @@ public partial class ChatService(
     [GeneratedRegex(@"(?<!\w)@(?:u/)?everyone\b", RegexOptions.IgnoreCase)]
     private static partial Regex GetEveryoneMentionRegex();
 
-    private async Task EmitChatUseActionLogAsync(SnChatMessage message, SnChatMember sender, SnChatRoom room)
+    private async Task EmitChatUseActionLogAsync(SnChatMessage message, SnChatMember sender, SnChatRoom room, string? clientIpAddress = null)
     {
         if (sender.AccountId == Guid.Empty || message.Type.StartsWith("system."))
             return;
@@ -71,7 +71,7 @@ public partial class ChatService(
 
         var request = httpContextAccessor.HttpContext?.Request;
         var userAgent = request?.Headers.UserAgent.ToString();
-        var ipAddress = request?.GetClientIpAddress();
+        var ipAddress = clientIpAddress ?? request?.GetClientIpAddress();
 
         await cache.SetAsync(cacheKey, true, ChatUseCooldown);
         actionLogs.CreateActionLog(
@@ -253,7 +253,7 @@ public partial class ChatService(
         logger.LogInformation($"Delivered message to {request.UserIds.Count} accounts.");
     }
 
-    public async Task<SnChatMessage> SendMessageAsync(SnChatMessage message, SnChatMember sender, SnChatRoom room)
+    public async Task<SnChatMessage> SendMessageAsync(SnChatMessage message, SnChatMember sender, SnChatRoom room, string? clientIpAddress = null)
     {
         if (string.IsNullOrWhiteSpace(message.Nonce)) message.Nonce = Guid.NewGuid().ToString();
 
@@ -278,7 +278,7 @@ public partial class ChatService(
             });
         }
 
-        await EmitChatUseActionLogAsync(message, sender, room);
+        await EmitChatUseActionLogAsync(message, sender, room, clientIpAddress);
 
 
         // Copy the value to ensure the delivery is correct
