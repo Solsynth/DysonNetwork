@@ -1061,6 +1061,7 @@ public partial class ChatController(
         var message = await db.ChatMessages
             .Where(m => m.Id == messageId && m.ChatRoomId == roomId)
             .Include(m => m.ChatRoom)
+            .Include(m => m.Sender)
             .FirstOrDefaultAsync();
 
         if (message is null)
