@@ -1,5 +1,6 @@
 #pragma warning disable SKEXP0050
 using System.Text;
+using System.Text.Json;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Shared.Models;
 
@@ -139,8 +140,9 @@ public class PostAnalysisService
         else if (post.RepliedPostId.HasValue)
         {
             // Fetch replied post if not loaded
-            var repliedPost = await _postPlugin.GetPost(post.RepliedPostId.Value.ToString());
-            if (repliedPost != null)
+            var repliedPostJson = await _postPlugin.GetPost(post.RepliedPostId.Value.ToString());
+            var repliedPost = JsonSerializer.Deserialize<SnPost>(repliedPostJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (repliedPost != null && string.IsNullOrEmpty(repliedPost.Id.ToString()) == false)
             {
                 await CollectAttachmentsRecursiveAsync(repliedPost, attachments, processedIds, currentDepth + 1, maxDepth);
             }
@@ -154,8 +156,9 @@ public class PostAnalysisService
         else if (post.ForwardedPostId.HasValue)
         {
             // Fetch forwarded post if not loaded
-            var forwardedPost = await _postPlugin.GetPost(post.ForwardedPostId.Value.ToString());
-            if (forwardedPost != null)
+            var forwardedPostJson = await _postPlugin.GetPost(post.ForwardedPostId.Value.ToString());
+            var forwardedPost = JsonSerializer.Deserialize<SnPost>(forwardedPostJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (forwardedPost != null && string.IsNullOrEmpty(forwardedPost.Id.ToString()) == false)
             {
                 await CollectAttachmentsRecursiveAsync(forwardedPost, attachments, processedIds, currentDepth + 1, maxDepth);
             }
@@ -353,10 +356,11 @@ public class PostAnalysisService
         var parentPost = post.RepliedPost;
         if (parentPost == null && post.RepliedPostId.HasValue)
         {
-            parentPost = await _postPlugin.GetPost(post.RepliedPostId.Value.ToString());
+            var postJson = await _postPlugin.GetPost(post.RepliedPostId.Value.ToString());
+            parentPost = JsonSerializer.Deserialize<SnPost>(postJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
 
-        if (parentPost == null)
+        if (parentPost == null || string.IsNullOrEmpty(parentPost.Id.ToString()))
             return;
 
         var authorSummary = GetPosterSummary(parentPost);
@@ -378,10 +382,11 @@ public class PostAnalysisService
         var parentPost = post.ForwardedPost;
         if (parentPost == null && post.ForwardedPostId.HasValue)
         {
-            parentPost = await _postPlugin.GetPost(post.ForwardedPostId.Value.ToString());
+            var postJson = await _postPlugin.GetPost(post.ForwardedPostId.Value.ToString());
+            parentPost = JsonSerializer.Deserialize<SnPost>(postJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         }
 
-        if (parentPost == null)
+        if (parentPost == null || string.IsNullOrEmpty(parentPost.Id.ToString()))
             return;
 
         var authorSummary = GetPosterSummary(parentPost);
