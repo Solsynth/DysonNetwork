@@ -3,7 +3,6 @@ using AngleSharp;
 using AngleSharp.Dom;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models.Embed;
-using HtmlAgilityPack;
 
 namespace DysonNetwork.Insight.Reader;
 
@@ -23,7 +22,8 @@ public class WebReaderService(
     public async Task<ScrapedArticle> ScrapeArticleAsync(string url, CancellationToken cancellationToken = default)
     {
         var linkEmbed = await GetLinkPreviewAsync(url, cancellationToken);
-        var content = await GetArticleContentAsync(url, cancellationToken);
+        var httpClient = httpClientFactory.CreateClient("WebReader");
+        var content = await FetchArticleContentAsync(httpClient, url, cancellationToken);
         return new ScrapedArticle
         {
             LinkEmbed = linkEmbed,
@@ -31,21 +31,18 @@ public class WebReaderService(
         };
     }
 
-    private async Task<string?> GetArticleContentAsync(string url, CancellationToken cancellationToken)
+    private static async Task<string?> FetchArticleContentAsync(
+        HttpClient httpClient, string url, CancellationToken cancellationToken)
     {
-        var httpClient = httpClientFactory.CreateClient("WebReader");
         var response = await httpClient.GetAsync(url, cancellationToken);
         if (!response.IsSuccessStatusCode)
-        {
-            logger.LogWarning("Failed to scrap article content for URL: {Url}", url);
             return null;
-        }
 
         var html = await response.Content.ReadAsStringAsync(cancellationToken);
-        var doc = new HtmlDocument();
-        doc.LoadHtml(html);
-        var articleNode = doc.DocumentNode.SelectSingleNode("//article");
-        return articleNode?.InnerHtml;
+        var config = Configuration.Default;
+        var context = BrowsingContext.New(config);
+        var document = await context.OpenAsync(req => req.Content(html), cancellationToken);
+        return document.QuerySelector("article")?.InnerHtml;
     }
 
 
@@ -81,11 +78,6 @@ public class WebReaderService(
         // Cache miss or bypass, fetch fresh data
         logger.LogDebug("Fetching fresh link preview for URL: {Url}", url);
         var httpClient = httpClientFactory.CreateClient("WebReader");
-        httpClient.MaxResponseContentBufferSize =
-            10 * 1024 * 1024; // 10MB, prevent scrap some directly accessible files
-        httpClient.Timeout = TimeSpan.FromSeconds(3);
-        // Setting UA to facebook's bot to get the opengraph.
-        httpClient.DefaultRequestHeaders.Add("User-Agent", "facebookexternalhit/1.1");
 
         try
         {

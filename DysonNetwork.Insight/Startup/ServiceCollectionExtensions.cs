@@ -26,6 +26,12 @@ public static class ServiceCollectionExtensions
             services.AddHttpContextAccessor();
 
             services.AddHttpClient();
+            services.AddHttpClient("WebReader", client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(3);
+                client.MaxResponseContentBufferSize = 10 * 1024 * 1024; // 10MB
+                client.DefaultRequestHeaders.Add("User-Agent", "facebookexternalhit/1.1");
+            });
 
             // Register gRPC services
             services.AddGrpc(options =>

@@ -1,13 +1,12 @@
-using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Proto;
 using EmbedLinkEmbed = DysonNetwork.Shared.Models.Embed.LinkEmbed;
 
 namespace DysonNetwork.Insight.Reader;
 
-public class ScrapedArticle
+public record ScrapedArticle
 {
-    public EmbedLinkEmbed LinkEmbed { get; set; } = null!;
-    public string? Content { get; set; }
+    public required EmbedLinkEmbed LinkEmbed { get; init; }
+    public string? Content { get; init; }
 
     public DyScrapedArticle ToProtoValue()
     {
