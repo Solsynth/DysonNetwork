@@ -5,6 +5,7 @@ using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Text;
+using Microsoft.Extensions.Logging;
 using PostVisibility = DysonNetwork.Shared.Models.PostVisibility;
 
 namespace DysonNetwork.Sphere.Timeline;
@@ -17,7 +18,8 @@ public class TimelineService(
     DyProfileService.DyProfileServiceClient accounts,
     RemoteAccountService remoteAccounts,
     DysonNetwork.Shared.Cache.ICacheService cache,
-    Automod.AutomodService automodService
+    Automod.AutomodService automodService,
+    ILogger<TimelineService> logger
 )
 {
     private const double ArticleTypeBoost = 1.5d;
@@ -134,6 +136,11 @@ public class TimelineService(
 
         var userRealms = await GetCachedUserRealms(accountId);
 
+        logger.LogInformation(
+            "ListEvents: account={AccountId}, mode={Mode}, filter={Filter}, cursor={Cursor}, effectiveCursor={EffectiveCursor}, userRealms={RealmCount}",
+            accountId, mode, filter, cursor, effectiveCursor, userRealms.Count
+        );
+
         // Build and execute the post query
         var postsQuery = BuildPostsQuery(effectiveCursor, filteredPublishersId, userRealms);
         if (!showFediverse)
@@ -152,11 +159,15 @@ public class TimelineService(
         // Get, process and rank posts
         var posts = await GetAndProcessPosts(postsQuery, currentUser, trackViews: false);
 
+        logger.LogInformation("ListEvents: fetched {PostCount} posts before ranking", posts.Count);
+
         await LoadPostsRealmsAsync(posts, rs);
 
         posts = await RankPosts(posts, take, currentUser, mode, aggressive);
         await RememberServedPostsAsync(posts, accountId);
         await TrackPostViewsAsync(posts, currentUser);
+
+        logger.LogInformation("ListEvents: returning {PostCount} posts after ranking", posts.Count);
 
         // Update soft cursor to current time after serving content
         await UpdateSoftCursorAsync(accountId);
@@ -297,22 +308,37 @@ public class TimelineService(
         var shadowbanPenalty = await GetShadowbanPenaltyMap(posts);
         var automodPenalties = await automodService.GetAutomodPenaltiesAsync(posts);
 
+        const double PersonalizationBoostMultiplier = 3.0d;
+
+        logger.LogDebug(
+            "RankPosts: mode={Mode}, posts={PostCount}, personalizationBonus entries={PersonalizationCount}",
+            mode, posts.Count, personalizationBonus.Count
+        );
+
         var rankedCandidates = posts
             .Select(p =>
             {
                 var (automodPenaltyValue, shouldHide) = automodPenalties.GetValueOrDefault(p.Id, (0d, false));
                 var shadowbanPenaltyValue = shadowbanPenalty.GetValueOrDefault(p.Id, 0d);
+                var persoBonus = personalizationBonus.GetValueOrDefault(p.Id, 0d) * PersonalizationBoostMultiplier;
+                var baseRank = CalculateBaseRank(p, now)
+                    - recentServedPenalty.GetValueOrDefault(p.Id, 0d)
+                    + persoBonus
+                    + publisherLevelBonus.GetValueOrDefault(p.Id, 0d)
+                    - automatedPenalty.GetValueOrDefault(p.Id, 0d)
+                    + subscriptionBoost.GetValueOrDefault(p.Id, 0d)
+                    - shadowbanPenaltyValue
+                    - automodPenaltyValue;
+
+                logger.LogTrace(
+                    "Post {PostId}: baseRank={BaseRank}, persoBonus={PersoBonus}, finalRank={FinalRank}",
+                    p.Id, CalculateBaseRank(p, now), persoBonus, baseRank
+                );
+
                 return new RankedPostCandidate
                 {
                     Post = p,
-                    Rank = CalculateBaseRank(p, now)
-                        - recentServedPenalty.GetValueOrDefault(p.Id, 0d)
-                        + personalizationBonus.GetValueOrDefault(p.Id, 0d)
-                        + publisherLevelBonus.GetValueOrDefault(p.Id, 0d)
-                        - automatedPenalty.GetValueOrDefault(p.Id, 0d)
-                        + subscriptionBoost.GetValueOrDefault(p.Id, 0d)
-                        - shadowbanPenaltyValue
-                        - automodPenaltyValue,
+                    Rank = baseRank,
                     ShouldHide = shouldHide || shadowbanPenaltyValue > ShadowbanHideThreshold
                 };
             })
@@ -320,10 +346,14 @@ public class TimelineService(
             .OrderByDescending(x => x.Rank)
             .ToList();
 
+        logger.LogDebug("RankPosts: after ranking, candidates={CandidateCount}", rankedCandidates.Count);
+
         if (mode == SnTimelineMode.Personalized && currentUser is not null && aggressive)
             rankedCandidates = FilterLowRankPersonalizedCandidates(rankedCandidates, take);
 
-        return DiversifyRankedPosts(rankedCandidates, take);
+        var diversified = DiversifyRankedPosts(rankedCandidates, take);
+        logger.LogDebug("RankPosts: after diversification, result={ResultCount}", diversified.Count);
+        return diversified;
     }
 
     private static List<RankedPostCandidate> FilterLowRankPersonalizedCandidates(
