@@ -15,6 +15,7 @@ using DysonNetwork.Sphere.Sticker;
 using DysonNetwork.Sphere.Timeline;
 using DysonNetwork.Sphere.Translation;
 using DysonNetwork.Sphere.Live;
+using DysonNetwork.Sphere.Automod;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
@@ -214,6 +215,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<PublisherQuotaService>();
             services.AddScoped<PublisherSubscriptionService>();
             services.AddScoped<TimelineService>();
+            services.AddScoped<AutomodService>();
             services.AddScoped<PostService>();
             services.AddScoped<PollService>();
             services.AddScoped<StickerService>();

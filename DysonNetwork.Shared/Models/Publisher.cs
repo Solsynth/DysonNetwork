@@ -17,6 +17,18 @@ public enum PublisherType
     Organizational
 }
 
+public enum PublisherShadowbanReason
+{
+    None = 0,
+    Spam = 1,
+    Advertising = 2,
+    Harassment = 3,
+    HateSpeech = 4,
+    Misinformation = 5,
+    Illegal = 6,
+    Other = 99
+}
+
 [Index(nameof(Name), IsUnique = true)]
 public class SnPublisher : ModelBase, IIdentifiedResource
 {
@@ -48,6 +60,11 @@ public class SnPublisher : ModelBase, IIdentifiedResource
     public Guid? RealmId { get; set; }
     [NotMapped] public SnRealm? Realm { get; set; }
     [NotMapped] public SnAccount? Account { get; set; }
+
+    public PublisherShadowbanReason? ShadowbanReason { get; set; }
+    public Instant? ShadowbannedAt { get; set; }
+
+    public bool IsShadowbanned => ShadowbanReason.HasValue && ShadowbanReason != PublisherShadowbanReason.None;
 
     public string ResourceIdentifier => $"publisher:{Id}";
 

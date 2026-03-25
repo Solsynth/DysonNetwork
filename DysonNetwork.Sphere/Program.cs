@@ -42,6 +42,9 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
     await db.Database.MigrateAsync();
+    
+    // Initialize automod rules from configuration
+    await AutomodConfiguration.InitializeAutomodRulesAsync(scope.ServiceProvider, builder.Configuration);
 }
 
 // Configure application middleware pipeline

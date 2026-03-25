@@ -38,6 +38,18 @@ public enum PostPinMode
     ReplyPage,
 }
 
+public enum PostShadowbanReason
+{
+    None = 0,
+    Spam = 1,
+    Advertising = 2,
+    Harassment = 3,
+    HateSpeech = 4,
+    Misinformation = 5,
+    Illegal = 6,
+    Other = 99
+}
+
 public class ContentMention
 {
     [MaxLength(256)]
@@ -158,6 +170,11 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
 
     public Guid? PublisherId { get; set; }
     public SnPublisher? Publisher { get; set; }
+
+    public PostShadowbanReason? ShadowbanReason { get; set; }
+    public Instant? ShadowbannedAt { get; set; }
+
+    public bool IsShadowbanned => ShadowbanReason.HasValue && ShadowbanReason != PostShadowbanReason.None;
 
     public List<SnPostAward> Awards { get; set; } = [];
 

@@ -28,6 +28,7 @@ public class AppDatabase(
     public DbSet<SnPostCategorySubscription> PostCategorySubscriptions { get; set; } = null!;
     public DbSet<SnPostInterestProfile> PostInterestProfiles { get; set; } = null!;
     public DbSet<SnDiscoveryPreference> DiscoveryPreferences { get; set; } = null!;
+    public DbSet<SnAutomodRule> AutomodRules { get; set; } = null!;
 
     public DbSet<SnPoll> Polls { get; set; } = null!;
     public DbSet<SnPollQuestion> PollQuestions { get; set; } = null!;
