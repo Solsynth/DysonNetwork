@@ -1653,7 +1653,7 @@ public class TimelineService(
             .Where(e => e.DraftedAt == null)
             .Where(e => e.RepliedPostId == null)
             .Where(p => cursor == null || p.PublishedAt < cursor)
-            .Where(p => !p.IsShadowbanned)
+            .Where(p => p.ShadowbanReason == null || p.ShadowbanReason == PostShadowbanReason.None)
             .OrderByDescending(p => p.PublishedAt)
             .AsNoTracking()
             .AsQueryable();
@@ -1690,8 +1690,8 @@ public class TimelineService(
             .Where(e => e.DraftedAt == null)
             .Where(e => e.RepliedPostId == null)
             .Where(p => cursor == null || p.PublishedAt < cursor)
-            .Where(p => !p.IsShadowbanned)
-            .Where(p => p.Publisher == null || !p.Publisher.IsShadowbanned)
+            .Where(p => p.ShadowbanReason == null || p.ShadowbanReason == PostShadowbanReason.None)
+            .Where(p => p.Publisher == null || p.Publisher.ShadowbanReason == null || p.Publisher.ShadowbanReason == PublisherShadowbanReason.None)
             .OrderByDescending(p => p.PublishedAt)
             .AsNoTracking()
             .AsQueryable();
