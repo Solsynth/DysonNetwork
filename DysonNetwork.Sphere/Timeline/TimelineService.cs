@@ -5,7 +5,6 @@ using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Text;
-using Microsoft.Extensions.Logging;
 using PostVisibility = DysonNetwork.Shared.Models.PostVisibility;
 
 namespace DysonNetwork.Sphere.Timeline;
@@ -17,9 +16,7 @@ public class TimelineService(
     RemoteRealmService rs,
     DyProfileService.DyProfileServiceClient accounts,
     RemoteAccountService remoteAccounts,
-    DysonNetwork.Shared.Cache.ICacheService cache,
-    Automod.AutomodService automodService,
-    ILogger<TimelineService> logger
+    DysonNetwork.Shared.Cache.ICacheService cache
 )
 {
     private const double ArticleTypeBoost = 1.5d;
@@ -32,16 +29,10 @@ public class TimelineService(
     private const int DiscoveryCandidatePostTake = 48;
     private const int TimelineCandidateMultiplier = 2;
     private const int RecentServedPostLimit = 100;
-    private const double AutomatedPostPenalty = 2.5d;
-    private const double SubscriptionBoostBonus = 1.5d;
-    private const double PublisherShadowbanPenalty = 50.0d;
-    private const double PostShadowbanPenalty = 40.0d;
-    private const double ShadowbanHideThreshold = -10.0d;
     private static readonly TimeSpan DiscoveryProfileCacheTtl = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan FriendIdsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan UserRealmsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan RecentServedPostsCacheTtl = TimeSpan.FromHours(24);
-    private static readonly TimeSpan SoftCursorCacheTtl = TimeSpan.FromMinutes(5);
     private static readonly Duration DiscoveryLookback = Duration.FromDays(45);
 
     private static double CalculateBaseRank(SnPost post, Instant now)
@@ -120,12 +111,6 @@ public class TimelineService(
 
         // Get user's friends and publishers
         var accountId = Guid.Parse(currentUser.Id);
-
-        // Soft cursor logic: only use cached cursor when paginating (cursor is explicit), not for fresh requests
-        Instant? effectiveCursor = cursor.HasValue
-            ? cursor
-            : null;
-
         var userFriends = await GetCachedFriendIds(accountId, currentUser.Id);
         var userPublishers = await pub.GetUserPublishers(accountId);
         var userPublisherIds = userPublishers.Select(x => x.Id).ToList();
@@ -136,13 +121,8 @@ public class TimelineService(
 
         var userRealms = await GetCachedUserRealms(accountId);
 
-        logger.LogInformation(
-            "ListEvents: account={AccountId}, mode={Mode}, filter={Filter}, cursor={Cursor}, effectiveCursor={EffectiveCursor}, userRealms={RealmCount}",
-            accountId, mode, filter, cursor, effectiveCursor, userRealms.Count
-        );
-
         // Build and execute the post query
-        var postsQuery = BuildPostsQuery(effectiveCursor, filteredPublishersId, userRealms);
+        var postsQuery = BuildPostsQuery(cursor, filteredPublishersId, userRealms);
         if (!showFediverse)
             postsQuery = postsQuery.Where(p => p.FediverseUri == null);
 
@@ -159,18 +139,11 @@ public class TimelineService(
         // Get, process and rank posts
         var posts = await GetAndProcessPosts(postsQuery, currentUser, trackViews: false);
 
-        logger.LogInformation("ListEvents: fetched {PostCount} posts before ranking", posts.Count);
-
         await LoadPostsRealmsAsync(posts, rs);
 
         posts = await RankPosts(posts, take, currentUser, mode, aggressive);
         await RememberServedPostsAsync(posts, accountId);
         await TrackPostViewsAsync(posts, currentUser);
-
-        logger.LogInformation("ListEvents: returning {PostCount} posts after ranking", posts.Count);
-
-        // Update soft cursor to current time after serving content
-        await UpdateSoftCursorAsync(accountId);
 
         var interleaved = new List<SnTimelineEvent>();
         SnTimelineEvent? personalizedDiscovery = null;
@@ -200,19 +173,6 @@ public class TimelineService(
             activities.Add(SnTimelineEvent.Empty());
 
         return BuildTimelinePage(activities, posts, mode);
-    }
-
-    private async Task<Instant?> GetSoftCursorAsync(Guid accountId)
-    {
-        var cacheKey = $"timeline:soft-cursor:{accountId}";
-        return await cache.GetAsync<Instant>(cacheKey);
-    }
-
-    private async Task UpdateSoftCursorAsync(Guid accountId)
-    {
-        var cacheKey = $"timeline:soft-cursor:{accountId}";
-        var now = SystemClock.Instance.GetCurrentInstant();
-        await cache.SetAsync(cacheKey, now, SoftCursorCacheTtl);
     }
 
     private async Task<SnTimelineEvent?> MaybeGetDiscoveryActivity()
@@ -295,65 +255,28 @@ public class TimelineService(
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var recentServedPenalty = currentUser is null
-            ? []
+            ? new Dictionary<Guid, double>()
             : await GetRecentServedPenaltyMap(Guid.Parse(currentUser.Id), posts, now);
         var personalizationBonus = mode != SnTimelineMode.Personalized || currentUser is null
-            ? []
+            ? new Dictionary<Guid, double>()
             : await GetPersonalizationBonusMap(posts, Guid.Parse(currentUser.Id), now);
         var publisherLevelBonus = await GetPublisherLevelBonusMap(posts);
-        var automatedPenalty = await GetAutomatedPenaltyMap(posts);
-        var subscriptionBoost = currentUser is null
-            ? []
-            : await GetSubscriptionBoostMap(posts, Guid.Parse(currentUser.Id));
-        var shadowbanPenalty = await GetShadowbanPenaltyMap(posts);
-        var automodPenalties = await automodService.GetAutomodPenaltiesAsync(posts);
-
-        const double PersonalizationBoostMultiplier = 3.0d;
-
-        logger.LogDebug(
-            "RankPosts: mode={Mode}, posts={PostCount}, personalizationBonus entries={PersonalizationCount}",
-            mode, posts.Count, personalizationBonus.Count
-        );
-
         var rankedCandidates = posts
-            .Select(p =>
+            .Select(p => new RankedPostCandidate
             {
-                var (automodPenaltyValue, shouldHide) = automodPenalties.GetValueOrDefault(p.Id, (0d, false));
-                var shadowbanPenaltyValue = shadowbanPenalty.GetValueOrDefault(p.Id, 0d);
-                var persoBonus = personalizationBonus.GetValueOrDefault(p.Id, 0d) * PersonalizationBoostMultiplier;
-                var baseRank = CalculateBaseRank(p, now)
+                Post = p,
+                Rank = CalculateBaseRank(p, now)
                     - recentServedPenalty.GetValueOrDefault(p.Id, 0d)
-                    + persoBonus
-                    + publisherLevelBonus.GetValueOrDefault(p.Id, 0d)
-                    - automatedPenalty.GetValueOrDefault(p.Id, 0d)
-                    + subscriptionBoost.GetValueOrDefault(p.Id, 0d)
-                    - shadowbanPenaltyValue
-                    - automodPenaltyValue;
-
-                logger.LogTrace(
-                    "Post {PostId}: baseRank={BaseRank}, persoBonus={PersoBonus}, finalRank={FinalRank}",
-                    p.Id, CalculateBaseRank(p, now), persoBonus, baseRank
-                );
-
-                return new RankedPostCandidate
-                {
-                    Post = p,
-                    Rank = baseRank,
-                    ShouldHide = shouldHide || shadowbanPenaltyValue > ShadowbanHideThreshold
-                };
+                    + personalizationBonus.GetValueOrDefault(p.Id, 0d)
+                    + publisherLevelBonus.GetValueOrDefault(p.Id, 0d),
             })
-            .Where(x => !x.ShouldHide)
             .OrderByDescending(x => x.Rank)
             .ToList();
-
-        logger.LogDebug("RankPosts: after ranking, candidates={CandidateCount}", rankedCandidates.Count);
 
         if (mode == SnTimelineMode.Personalized && currentUser is not null && aggressive)
             rankedCandidates = FilterLowRankPersonalizedCandidates(rankedCandidates, take);
 
-        var diversified = DiversifyRankedPosts(rankedCandidates, take);
-        logger.LogDebug("RankPosts: after diversification, result={ResultCount}", diversified.Count);
-        return diversified;
+        return DiversifyRankedPosts(rankedCandidates, take);
     }
 
     private static List<RankedPostCandidate> FilterLowRankPersonalizedCandidates(
@@ -479,90 +402,6 @@ public class TimelineService(
 
                 var socialLevel = socialLevelByAccountId.GetValueOrDefault(accountId.Value, 0);
                 return Math.Min(3d, socialLevel * 0.05d);
-            }
-        );
-    }
-
-    private async Task<Dictionary<Guid, double>> GetAutomatedPenaltyMap(List<SnPost> posts)
-    {
-        var publisherAccounts = posts
-            .Where(p => p.Publisher?.AccountId.HasValue == true)
-            .Select(p => p.Publisher!.AccountId!.Value)
-            .Distinct()
-            .ToList();
-
-        if (publisherAccounts.Count == 0)
-            return [];
-
-        var statuses = await remoteAccounts.GetAccountStatusBatch(publisherAccounts);
-        var automatedAccountIds = statuses
-            .Where(kvp => kvp.Value.IsAutomated)
-            .Select(kvp => kvp.Key)
-            .ToHashSet();
-
-        return posts.ToDictionary(
-            p => p.Id,
-            p =>
-            {
-                var accountId = p.Publisher?.AccountId;
-                if (!accountId.HasValue)
-                    return 0d;
-
-                return automatedAccountIds.Contains(accountId.Value) ? AutomatedPostPenalty : 0d;
-            }
-        );
-    }
-
-    private async Task<Dictionary<Guid, double>> GetSubscriptionBoostMap(List<SnPost> posts, Guid accountId)
-    {
-        var subscribedPublisherIds = (await pub.GetSubscribedPublishers(accountId))
-            .Select(x => x.Id)
-            .ToHashSet();
-
-        if (subscribedPublisherIds.Count == 0)
-            return [];
-
-        return posts.ToDictionary(
-            p => p.Id,
-            p => p.PublisherId.HasValue && subscribedPublisherIds.Contains(p.PublisherId.Value)
-                ? SubscriptionBoostBonus
-                : 0d
-        );
-    }
-
-    private async Task<Dictionary<Guid, double>> GetShadowbanPenaltyMap(List<SnPost> posts)
-    {
-        var publisherIds = posts
-            .Where(p => p.PublisherId.HasValue)
-            .Select(p => p.PublisherId!.Value)
-            .Distinct()
-            .ToList();
-
-        var publisherShadowbanStatus = publisherIds.Count == 0
-            ? new Dictionary<Guid, (bool IsShadowbanned, double Penalty)>()
-            : (await db.Publishers
-                .Where(p => publisherIds.Contains(p.Id))
-                .Select(p => new { p.Id, p.IsShadowbanned, p.ShadowbanReason })
-                .ToListAsync())
-                .ToDictionary(
-                    x => x.Id,
-                    x => (x.IsShadowbanned, x.IsShadowbanned ? PublisherShadowbanPenalty : 0d)
-                );
-
-        return posts.ToDictionary(
-            p => p.Id,
-            p =>
-            {
-                double penalty = 0d;
-                if (p.PublisherId.HasValue && publisherShadowbanStatus.TryGetValue(p.PublisherId.Value, out var pubStatus))
-                {
-                    penalty += pubStatus.Item2;
-                }
-                if (p.IsShadowbanned)
-                {
-                    penalty += PostShadowbanPenalty;
-                }
-                return penalty;
             }
         );
     }
@@ -1432,7 +1271,6 @@ public class TimelineService(
     {
         public required SnPost Post { get; init; }
         public required double Rank { get; init; }
-        public bool ShouldHide { get; init; }
     }
 
     private sealed record RankedDiscoveryTarget<T>(T ReferenceId, double Score, List<string> Reasons)
@@ -1679,8 +1517,6 @@ public class TimelineService(
             .Where(e => e.DraftedAt == null)
             .Where(e => e.RepliedPostId == null)
             .Where(p => cursor == null || p.PublishedAt < cursor)
-            .Where(p => p.ShadowbanReason == null || p.ShadowbanReason == PostShadowbanReason.None)
-            .Where(p => p.Publisher == null || p.Publisher.ShadowbanReason == null || p.Publisher.ShadowbanReason == PublisherShadowbanReason.None)
             .OrderByDescending(p => p.PublishedAt)
             .AsNoTracking()
             .AsQueryable();
@@ -1694,42 +1530,6 @@ public class TimelineService(
             // For anonymous users, only show public realm posts or posts without realm
             // Get public realm ids in the caller and pass them
             query = query.Where(p => p.RealmId == null); // Modify in caller
-        }
-        else
-            query = query.Where(p => p.RealmId == null || userRealms.Contains(p.RealmId.Value));
-
-        return query;
-    }
-
-    private IQueryable<SnPost> BuildPostsQueryWithPublisherFilter(
-        Instant? cursor,
-        List<Guid>? filteredPublishersId = null,
-        List<Guid>? userRealms = null
-    )
-    {
-        var query = db
-            .Posts.Include(e => e.RepliedPost)
-            .Include(e => e.ForwardedPost)
-            .Include(e => e.Categories)
-            .Include(e => e.Tags)
-            .Include(e => e.FeaturedRecords)
-            .Include(p => p.Publisher)
-            .Where(e => e.DraftedAt == null)
-            .Where(e => e.RepliedPostId == null)
-            .Where(p => cursor == null || p.PublishedAt < cursor)
-            .Where(p => p.ShadowbanReason == null || p.ShadowbanReason == PostShadowbanReason.None)
-            .Where(p => p.Publisher == null || p.Publisher.ShadowbanReason == null || p.Publisher.ShadowbanReason == PublisherShadowbanReason.None)
-            .OrderByDescending(p => p.PublishedAt)
-            .AsNoTracking()
-            .AsQueryable();
-
-        if (filteredPublishersId != null && filteredPublishersId.Count != 0)
-            query = query.Where(p =>
-                p.PublisherId.HasValue && filteredPublishersId.Contains(p.PublisherId.Value)
-            );
-        if (userRealms == null)
-        {
-            query = query.Where(p => p.RealmId == null);
         }
         else
             query = query.Where(p => p.RealmId == null || userRealms.Contains(p.RealmId.Value));
