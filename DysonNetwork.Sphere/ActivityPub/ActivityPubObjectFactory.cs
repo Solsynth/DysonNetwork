@@ -112,7 +112,7 @@ public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase 
 
             // Local post
             if (forwardedPost?.Publisher != null)
-                postObject["quoteUri"] = $"https://{baseDomain}/posts/{post.RepliedPostId}";
+                postObject["quoteUri"] = $"https://{baseDomain}/posts/{post.ForwardedPostId}";
             // Fediverse post
             if (forwardedPost?.FediverseUri != null)
                 postObject["quoteUri"] = forwardedPost.FediverseUri;

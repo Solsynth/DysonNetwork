@@ -138,10 +138,20 @@ public class TimelineService(
 
         var userRealms = await GetCachedUserRealms(accountId);
 
+        // Get posts boosted by followed publishers
+        var boostedPostIds = await GetBoostedPostIdsAsync(filteredPublishersId, effectiveCursor);
+
         // Build and execute the post query
         var postsQuery = BuildPostsQuery(effectiveCursor, filteredPublishersId, userRealms);
         if (!showFediverse)
             postsQuery = postsQuery.Where(p => p.FediverseUri == null);
+
+        // Include boosted posts
+        if (boostedPostIds.Count > 0)
+        {
+            var boostedIds = boostedPostIds.ToHashSet();
+            postsQuery = postsQuery.Where(p => boostedIds.Contains(p.Id) || filteredPublishersId == null || filteredPublishersId.Count == 0 || p.PublisherId.HasValue && filteredPublishersId.Contains(p.PublisherId.Value));
+        }
 
         // Apply visibility filtering and execute
         postsQuery = postsQuery
@@ -1636,6 +1646,28 @@ public class TimelineService(
         var realmIds = await rs.GetUserRealms(accountId);
         await cache.SetAsync(cacheKey, realmIds, UserRealmsCacheTtl);
         return realmIds;
+    }
+
+    private async Task<List<Guid>> GetBoostedPostIdsAsync(List<Guid>? followedPublisherIds, Instant? cursor)
+    {
+        if (followedPublisherIds == null || followedPublisherIds.Count == 0)
+            return [];
+
+        var boostQuery = db.Boosts
+            .Include(b => b.Actor)
+            .Where(b => b.Actor.PublisherId != null && followedPublisherIds.Contains(b.Actor.PublisherId.Value));
+
+        if (cursor.HasValue)
+        {
+            boostQuery = boostQuery.Where(b => b.BoostedAt < cursor.Value);
+        }
+
+        var boostedPostIds = await boostQuery
+            .Select(b => b.PostId)
+            .Distinct()
+            .ToListAsync();
+
+        return boostedPostIds;
     }
 
     private IQueryable<SnPost> BuildPostsQuery(

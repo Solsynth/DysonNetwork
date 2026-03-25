@@ -632,6 +632,43 @@ public partial class ActivityPubDiscoveryService(
         };
     }
 
+    public async Task<Dictionary<string, object>?> FetchActivityAsync(string uri)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            request.Headers.Accept.ParseAdd("application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"");
+            request.Headers.Accept.ParseAdd("application/activity+json");
+
+            var response = await HttpClient.SendAsync(request);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning("Failed to fetch activity from {Uri}: {StatusCode}", uri, response.StatusCode);
+                return null;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var activity = JsonSerializer.Deserialize<Dictionary<string, object>>(content, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (activity == null)
+            {
+                logger.LogWarning("Failed to parse activity from {Uri}", uri);
+                return null;
+            }
+
+            return activity;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Error fetching activity from {Uri}", uri);
+            return null;
+        }
+    }
+
     [GeneratedRegex(@"^@?(\w+)@([\w.-]+)$", RegexOptions.Compiled)]
     private static partial Regex HandleRegex();
 }

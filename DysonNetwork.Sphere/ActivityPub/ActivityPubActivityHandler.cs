@@ -336,9 +336,13 @@ public class ActivityPubActivityHandler(
             content.RepliedPostId = replyingTo.Id;
         }
         
-        var quoteUri = GetStringValue(objectDict, "quoteUri");
+        var quoteUri = GetStringValue(objectDict, "quoteUri") 
+            ?? GetStringValue(objectDict, "quoteUrl")
+            ?? GetStringValue(objectDict, "_misskey_quote");
+        
         if (!string.IsNullOrEmpty(quoteUri))
         {
+            logger.LogInformation("Processing quote post with URI: {QuoteUri}", quoteUri);
             var forwardedItem = await db.Posts
                 .FirstOrDefaultAsync(c => c.FediverseUri == quoteUri);
             if (forwardedItem == null)
@@ -414,16 +418,175 @@ public class ActivityPubActivityHandler(
         if (string.IsNullOrEmpty(objectUri))
             return false;
 
+        var actor = await GetOrCreateActorAsync(actorUri);
         var content = await GetPostByUriAsync(objectUri);
 
-        if (content != null)
+        if (content == null)
         {
-            content.BoostCount++;
-            await db.SaveChangesAsync();
+            logger.LogInformation("Boosted post not found locally, attempting to fetch: {Uri}", objectUri);
+            content = await FetchAndCreatePostFromUriAsync(objectUri, actorUri);
+            
+            if (content == null)
+            {
+                logger.LogWarning("Could not fetch boosted post: {Uri}", objectUri);
+                return false;
+            }
         }
 
-        logger.LogInformation("Handled announce from {Actor}", actorUri);
+        var activityId = activity.GetValueOrDefault("id")?.ToString();
+        var contentValue = GetStringValue(ConvertToDictionary(activity.GetValueOrDefault("object")), "content")
+            ?? GetStringValue(activity, "content");
+        
+        var webUrl = GetStringValue(activity, "url") 
+            ?? GetStringValue(ConvertToDictionary(activity.GetValueOrDefault("object")), "url");
+
+        var existingBoost = await db.Boosts
+            .FirstOrDefaultAsync(b => b.PostId == content.Id && b.ActorId == actor.Id);
+
+        if (existingBoost != null)
+        {
+            logger.LogDebug("Boost already exists from {Actor} for post {PostId}", actorUri, content.Id);
+            return true;
+        }
+
+        var boost = new SnBoost
+        {
+            PostId = content.Id,
+            ActorId = actor.Id,
+            ActivityPubUri = activityId,
+            WebUrl = webUrl,
+            Content = contentValue,
+            BoostedAt = SystemClock.Instance.GetCurrentInstant()
+        };
+
+        db.Boosts.Add(boost);
+        content.BoostCount++;
+        await db.SaveChangesAsync();
+
+        logger.LogInformation("Handled announce from {Actor} for post {PostId}", actorUri, content.Id);
         return true;
+    }
+
+    private async Task<SnPost?> FetchAndCreatePostFromUriAsync(string objectUri, string actorUri)
+    {
+        try
+        {
+            var uri = new Uri(objectUri);
+            var domain = uri.Host;
+            
+            var instance = await db.FediverseInstances
+                .FirstOrDefaultAsync(i => i.Domain == domain);
+            
+            if (instance == null)
+            {
+                instance = new SnFediverseInstance
+                {
+                    Domain = domain,
+                    Name = domain
+                };
+                db.FediverseInstances.Add(instance);
+                await db.SaveChangesAsync();
+                await discoveryService.FetchInstanceMetadataAsync(instance);
+            }
+
+            var actor = await db.FediverseActors
+                .FirstOrDefaultAsync(a => a.Uri == actorUri);
+            
+            var postUri = objectUri;
+            var webUrl = objectUri;
+            
+            if (uri.AbsolutePath.Contains("/objects/") || uri.AbsolutePath.Contains("/statuses/"))
+            {
+                webUrl = $"https://{domain}/@{uri.Segments.ElementAtOrDefault(1)?.Trim('/')}/{uri.Segments.LastOrDefault()}";
+            }
+
+            var activity = await discoveryService.FetchActivityAsync(postUri);
+            if (activity == null)
+            {
+                logger.LogWarning("Failed to fetch activity from {Uri}", postUri);
+                return null;
+            }
+
+            var objectValue = activity.GetValueOrDefault("object");
+            var objectDict = ConvertToDictionary(objectValue);
+            if (objectDict == null)
+            {
+                objectDict = activity;
+            }
+
+            var objectType = GetStringValue(objectDict, "type");
+            if (objectType != "Note" && objectType != "Article")
+            {
+                logger.LogInformation("Skipping non-note content type in boost fetch: {Type}", objectType);
+                return null;
+            }
+
+            var contentUri = GetStringValue(objectDict, "id");
+            if (string.IsNullOrEmpty(contentUri))
+                contentUri = postUri;
+
+            var existingContent = await db.Posts
+                .FirstOrDefaultAsync(c => c.FediverseUri == contentUri);
+
+            if (existingContent != null)
+                return existingContent;
+
+            var content = new SnPost
+            {
+                FediverseUri = contentUri,
+                FediverseType = objectType == "Article"
+                    ? DyFediverseContentType.DyFediverseArticle
+                    : DyFediverseContentType.DyFediverseNote,
+                Title = GetStringValue(objectDict, "name"),
+                Description = GetStringValue(objectDict, "summary"),
+                Content = GetStringValue(objectDict, "content"),
+                ContentType = objectDict.GetValueOrDefault("contentMap") != null
+                    ? PostContentType.Html
+                    : PostContentType.Markdown,
+                PublishedAt = ParseInstant(objectDict.GetValueOrDefault("published")),
+                EditedAt = ParseInstant(objectDict.GetValueOrDefault("updated")),
+                ActorId = actor?.Id,
+                Language = GetStringValue(objectDict, "language"),
+                Mentions = ParseMentions(objectDict.GetValueOrDefault("tag")),
+                Attachments = ParseAttachments(objectDict.GetValueOrDefault("attachment")) ?? [],
+                Type = objectType == "Article" ? PostType.Article : PostType.Moment,
+                Visibility = PostVisibility.Public,
+                Metadata = BuildMetadataFromActivity(objectDict)
+            };
+
+            var inReplyTo = GetStringValue(objectDict, "inReplyTo");
+            if (!string.IsNullOrEmpty(inReplyTo))
+            {
+                var replyingTo = await db.Posts
+                    .FirstOrDefaultAsync(c => c.FediverseUri == inReplyTo);
+                if (replyingTo != null)
+                    content.RepliedPostId = replyingTo.Id;
+            }
+
+            var quoteUri = GetStringValue(objectDict, "quoteUri")
+                ?? GetStringValue(objectDict, "quoteUrl")
+                ?? GetStringValue(objectDict, "_misskey_quote");
+            if (!string.IsNullOrEmpty(quoteUri))
+            {
+                var forwardedItem = await db.Posts
+                    .FirstOrDefaultAsync(c => c.FediverseUri == quoteUri);
+                if (forwardedItem != null)
+                    content.ForwardedPostId = forwardedItem.Id;
+                else
+                    content.ForwardedGone = true;
+            }
+
+            db.Posts.Add(content);
+            await db.SaveChangesAsync();
+
+            logger.LogInformation("Fetched and created boosted post: {Uri}", contentUri);
+            return content;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error fetching boosted post from {Uri}", objectUri);
+            return null;
+        }
     }
 
     private async Task<bool> HandleDeleteAsync(Dictionary<string, object> activity)
@@ -545,12 +708,28 @@ public class ActivityPubActivityHandler(
         if (string.IsNullOrEmpty(objectUri))
             return false;
 
+        var actor = await GetOrCreateActorAsync(actorUri);
         var content = await GetPostByUriAsync(objectUri);
 
-        if (content != null)
+        if (content == null)
         {
+            logger.LogWarning("Cannot undo announce - post not found: {Uri}", objectUri);
+            return false;
+        }
+
+        var boost = await db.Boosts
+            .FirstOrDefaultAsync(b => b.PostId == content.Id && b.ActorId == actor.Id);
+
+        if (boost != null)
+        {
+            db.Boosts.Remove(boost);
             content.BoostCount = Math.Max(0, content.BoostCount - 1);
             await db.SaveChangesAsync();
+            logger.LogInformation("Removed boost from {Actor} for post {PostId}", actorUri, content.Id);
+        }
+        else
+        {
+            logger.LogWarning("Boost record not found when undoing - actor: {Actor}, post: {Uri}", actorUri, objectUri);
         }
 
         return true;

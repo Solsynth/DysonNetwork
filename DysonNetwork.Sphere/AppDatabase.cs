@@ -42,6 +42,7 @@ public class AppDatabase(
     public DbSet<SnFediverseActor> FediverseActors { get; set; } = null!;
     public DbSet<SnFediverseRelationship> FediverseRelationships { get; set; } = null!;
     public DbSet<SnActivityPubDelivery> ActivityPubDeliveries { get; set; } = null!;
+    public DbSet<SnBoost> Boosts { get; set; } = null!;
 
     public DbSet<SnLiveStream> LiveStreams { get; set; } = null!;
     public DbSet<SnLiveStreamChatMessage> LiveStreamChatMessages { get; set; } = null!;
@@ -115,6 +116,17 @@ public class AppDatabase(
             .HasOne(r => r.TargetActor)
             .WithMany(a => a.FollowerRelationships)
             .HasForeignKey(r => r.TargetActorId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnBoost>()
+            .HasOne(b => b.Post)
+            .WithMany()
+            .HasForeignKey(b => b.PostId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnBoost>()
+            .HasOne(b => b.Actor)
+            .WithMany()
+            .HasForeignKey(b => b.ActorId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.ApplySoftDeleteFilters();

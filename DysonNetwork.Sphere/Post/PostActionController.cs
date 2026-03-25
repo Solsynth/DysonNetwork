@@ -9,6 +9,7 @@ using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Sphere.ActivityPub;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Wallet;
 using DysonNetwork.Sphere.Live;
@@ -38,6 +39,7 @@ public class PostActionController(
     PollsService polls,
     RemoteRealmService rs,
     LiveStreamService liveStreams,
+    ActivityPubDeliveryService activityPubDelivery,
     ILogger<PostActionController> logger,
     IEventBus eventBus
 ) : ControllerBase
@@ -966,5 +968,154 @@ public class PostActionController(
         );
 
         return Ok(post);
+    }
+
+    public class BoostRequest
+    {
+        [MaxLength(1024)] public string? Content { get; set; }
+    }
+
+    [HttpPost("{id:guid}/boost")]
+    [Authorize]
+    [AskPermission("posts.boost")]
+    public async Task<ActionResult<SnBoost>> BoostPost(
+        Guid id,
+        [FromBody] BoostRequest? request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var friendsResponse = await accounts.ListFriendsAsync(
+            new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
+        );
+        var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        var userPublishers = await pub.GetUserPublishers(accountId);
+
+        var post = await db
+            .Posts.Where(e => e.Id == id)
+            .Include(e => e.Publisher)
+            .Include(e => e.Actor)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers)
+            .FirstOrDefaultAsync();
+        if (post is null)
+            return NotFound();
+
+        var userPublisher = userPublishers.FirstOrDefault(p => p.AccountId == accountId);
+        if (userPublisher is null)
+            return BadRequest("You need a publisher to boost posts");
+
+        var existingBoost = await db.Boosts
+            .FirstOrDefaultAsync(b => b.PostId == post.Id && b.Actor.PublisherId == userPublisher.Id);
+
+        if (existingBoost != null)
+            return BadRequest("You have already boosted this post");
+
+        var localActor = await db.FediverseActors
+            .FirstOrDefaultAsync(a => a.PublisherId == userPublisher.Id);
+
+        if (localActor is null)
+            return BadRequest("Publisher does not have an ActivityPub actor");
+
+        var boost = new SnBoost
+        {
+            PostId = post.Id,
+            ActorId = localActor.Id,
+            Content = request?.Content,
+            BoostedAt = SystemClock.Instance.GetCurrentInstant()
+        };
+
+        db.Boosts.Add(boost);
+        post.BoostCount++;
+        await db.SaveChangesAsync();
+
+        await activityPubDelivery.SendAnnounceActivityAsync(post, localActor, request?.Content);
+
+        als.CreateActionLog(
+            accountId,
+            ActionLogType.PostBoost,
+            new Dictionary<string, object>
+            {
+                { "post_id", post.Id.ToString() }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
+
+        return Ok(boost);
+    }
+
+    [HttpDelete("{id:guid}/boost")]
+    [Authorize]
+    public async Task<IActionResult> UnboostPost(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var userPublishers = await pub.GetUserPublishers(accountId);
+        var userPublisher = userPublishers.FirstOrDefault(p => p.AccountId == accountId);
+        if (userPublisher is null)
+            return BadRequest("You need a publisher to unboost posts");
+
+        var localActor = await db.FediverseActors
+            .FirstOrDefaultAsync(a => a.PublisherId == userPublisher.Id);
+
+        if (localActor is null)
+            return BadRequest("Publisher does not have an ActivityPub actor");
+
+        var boost = await db.Boosts
+            .FirstOrDefaultAsync(b => b.PostId == id && b.ActorId == localActor.Id);
+
+        if (boost is null)
+            return NotFound();
+
+        var post = await db.Posts.FindAsync(id);
+        if (post != null)
+        {
+            post.BoostCount = Math.Max(0, post.BoostCount - 1);
+        }
+
+        db.Boosts.Remove(boost);
+        await db.SaveChangesAsync();
+
+        if (post != null)
+        {
+            await activityPubDelivery.SendUndoAnnounceActivityAsync(post, localActor);
+        }
+
+        als.CreateActionLog(
+            accountId,
+            ActionLogType.PostUnboost,
+            new Dictionary<string, object>
+            {
+                { "post_id", id.ToString() }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
+
+        return NoContent();
+    }
+
+    [HttpGet("{id:guid}/boosts")]
+    public async Task<ActionResult<List<SnBoost>>> GetPostBoosts(
+        Guid id,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        var boosts = await db.Boosts
+            .Where(b => b.PostId == id)
+            .Include(b => b.Actor)
+            .OrderByDescending(b => b.BoostedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        return Ok(boosts);
     }
 }

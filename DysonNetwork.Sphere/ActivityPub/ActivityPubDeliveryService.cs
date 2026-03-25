@@ -446,6 +446,111 @@ public class ActivityPubDeliveryService(
         return followers.Count > 0;
     }
 
+    public async Task<bool> SendAnnounceActivityAsync(
+        SnPost post,
+        SnFediverseActor actor,
+        string? content = null,
+        string? quoteUri = null
+    )
+    {
+        var actorUrl = actor.Uri;
+        var postUrl = $"https://{Domain}/posts/{post.Id}";
+        var activityId = $"{actorUrl}/announces/{Guid.NewGuid()}";
+
+        var targetPostUri = post.FediverseUri ?? postUrl;
+        var targetWebUrl = post.FediverseUri != null 
+            ? $"https://{new Uri(post.FediverseUri).Host}/@{new Uri(post.FediverseUri).Segments.ElementAtOrDefault(1)?.Trim('/')}/{new Uri(post.FediverseUri).Segments.LastOrDefault()}"
+            : postUrl;
+
+        var announceObject = new Dictionary<string, object>
+        {
+            ["id"] = targetPostUri,
+            ["type"] = post.Type == PostType.Article ? "Article" : "Note"
+        };
+
+        if (!string.IsNullOrEmpty(content))
+        {
+            announceObject["content"] = content;
+        }
+
+        if (!string.IsNullOrEmpty(quoteUri))
+        {
+            announceObject["quoteUri"] = quoteUri;
+        }
+
+        var activity = new Dictionary<string, object>
+        {
+            ["@context"] = "https://www.w3.org/ns/activitystreams",
+            ["id"] = activityId,
+            ["type"] = "Announce",
+            ["actor"] = actorUrl,
+            ["object"] = targetPostUri,
+            ["url"] = targetWebUrl,
+            ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
+            ["cc"] = new[] { $"{actorUrl}/followers" }
+        };
+
+        if (!string.IsNullOrEmpty(content))
+        {
+            activity["content"] = content;
+        }
+
+        if (!string.IsNullOrEmpty(quoteUri))
+        {
+            activity["quoteUri"] = quoteUri;
+        }
+
+        var followers = await GetRemoteFollowersAsync(actor.Id);
+        logger.LogInformation("Enqueuing Announce activity for {Count} followers", followers.Count);
+
+        foreach (var follower in followers)
+        {
+            if (follower.InboxUri == null) continue;
+            await EnqueueActivityDeliveryAsync("Announce", activity, actorUrl, follower.InboxUri, activityId);
+        }
+
+        return followers.Count > 0;
+    }
+
+    public async Task<bool> SendUndoAnnounceActivityAsync(
+        SnPost post,
+        SnFediverseActor actor
+    )
+    {
+        var actorUrl = actor.Uri;
+        var postUrl = $"https://{Domain}/posts/{post.Id}";
+        var activityId = $"{actorUrl}/undo/{Guid.NewGuid()}";
+
+        var targetPostUri = post.FediverseUri ?? postUrl;
+
+        var activity = new Dictionary<string, object>
+        {
+            ["@context"] = "https://www.w3.org/ns/activitystreams",
+            ["id"] = activityId,
+            ["type"] = "Undo",
+            ["actor"] = actorUrl,
+            ["object"] = new Dictionary<string, object>
+            {
+                ["type"] = "Announce",
+                ["id"] = targetPostUri,
+                ["actor"] = actorUrl
+            },
+            ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
+            ["cc"] = new[] { $"{actorUrl}/followers" }
+        };
+
+        var followers = await GetRemoteFollowersAsync(actor.Id);
+        logger.LogInformation("Enqueuing Undo Announce activity for {Count} followers", followers.Count);
+
+        foreach (var follower in followers)
+        {
+            if (follower.InboxUri == null) continue;
+            await EnqueueActivityDeliveryAsync("Undo", activity, actorUrl, follower.InboxUri, activityId);
+        }
+
+        return followers.Count > 0;
+    }
+
     public async Task<bool> SendLikeActivityAsync(
         Guid postId,
         Guid accountId,
