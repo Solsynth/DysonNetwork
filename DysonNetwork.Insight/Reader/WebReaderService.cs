@@ -100,8 +100,12 @@ public class WebReaderService(
                 return nonHtmlEmbed;
             }
 
+            // Use final URL after redirects for extraction
+            var finalUrl = response.RequestMessage?.RequestUri?.ToString() ?? url;
+            var finalUri = response.RequestMessage?.RequestUri ?? uri;
+
             var html = await response.Content.ReadAsStringAsync(cancellationToken);
-            var linkEmbed = await ExtractLinkData(url, html, uri);
+            var linkEmbed = await ExtractLinkData(finalUrl, html, finalUri);
 
             // Cache the result
             await CacheLinkPreview(linkEmbed, url, cacheExpiry);
@@ -127,6 +131,9 @@ public class WebReaderService(
         var context = BrowsingContext.New(config);
         var document = await context.OpenAsync(req => req.Content(html));
 
+        // Extract JSON-LD structured data as an additional fallback source
+        var jsonLd = ExtractJsonLdData(document);
+
         // Extract OpenGraph tags
         var ogTitle = GetMetaTagContent(document, "og:title");
         var ogDescription = GetMetaTagContent(document, "og:description");
@@ -147,6 +154,15 @@ public class WebReaderService(
         // Extract page title
         var pageTitle = document.Title?.Trim();
 
+        // Extract h1 as title fallback
+        var h1Title = document.QuerySelector("h1")?.TextContent?.Trim();
+
+        // Extract first meaningful paragraph as description fallback
+        var firstParagraph = GetFirstMeaningfulParagraph(document);
+
+        // Extract first meaningful image as image fallback
+        var firstImage = GetFirstMeaningfulImage(document, uri);
+
         // Extract publish date
         var publishedTime = GetMetaTagContent(document, "article:published_time") ??
                             GetMetaTagContent(document, "datePublished") ??
@@ -159,24 +175,151 @@ public class WebReaderService(
         // Extract favicon
         var faviconUrl = GetFaviconUrl(document, uri);
 
-        // Populate the embed with the data, prioritizing OpenGraph
-        embed.Title = ogTitle ?? twitterTitle ?? metaTitle ?? pageTitle ?? uri.Host;
-        embed.Description = ogDescription ?? twitterDescription ?? metaDescription;
-        embed.ImageUrl = ResolveRelativeUrl(ogImage ?? twitterImage, uri);
-        embed.SiteName = ogSiteName ?? uri.Host;
-        embed.ContentType = ogType;
+        // Check for canonical URL (useful after redirects)
+        var canonicalUrl = document.QuerySelector("link[rel='canonical'][href]")
+            ?.GetAttribute("href")?.Trim();
+        if (!string.IsNullOrEmpty(canonicalUrl) && Uri.TryCreate(canonicalUrl, UriKind.Absolute, out var canonicalUri))
+        {
+            embed.Url = canonicalUri.ToString();
+            uri = canonicalUri;
+        }
+
+        // Populate the embed, prioritizing: OG -> Twitter -> JSON-LD -> meta -> DOM -> hostname
+        embed.Title = ogTitle ?? twitterTitle ?? jsonLd.Title ?? metaTitle ?? pageTitle ?? h1Title ?? uri.Host;
+        embed.Description = ogDescription ?? twitterDescription ?? jsonLd.Description ?? metaDescription ?? firstParagraph;
+        embed.ImageUrl = ResolveRelativeUrl(ogImage ?? twitterImage ?? jsonLd.ImageUrl ?? firstImage, uri);
+        embed.SiteName = ogSiteName ?? jsonLd.SiteName ?? GetMetaContent(document, "application-name") ?? uri.Host;
+        embed.ContentType = ogType ?? jsonLd.Type;
         embed.FaviconUrl = faviconUrl;
-        embed.Author = author;
+        embed.Author = author ?? jsonLd.Author;
 
         // Parse and set published date
         if (!string.IsNullOrEmpty(publishedTime) &&
             DateTime.TryParse(publishedTime, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal,
-                out DateTime parsedDate))
+                out var parsedDate))
         {
             embed.PublishedDate = parsedDate;
         }
 
         return embed;
+    }
+
+    private static JsonLdData ExtractJsonLdData(IDocument document)
+    {
+        var result = new JsonLdData();
+        var scriptNodes = document.QuerySelectorAll("script[type='application/ld+json']");
+
+        foreach (var script in scriptNodes)
+        {
+            var jsonText = script.TextContent;
+            if (string.IsNullOrWhiteSpace(jsonText)) continue;
+
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(jsonText);
+                var root = doc.RootElement;
+
+                // Handle arrays of JSON-LD objects
+                var elements = root.ValueKind == System.Text.Json.JsonValueKind.Array
+                    ? root.EnumerateArray()
+                    : Enumerable.Repeat(root, 1);
+
+                foreach (var element in elements)
+                {
+                    if (string.IsNullOrEmpty(result.Title))
+                        result.Title = GetStringProperty(element, "headline") ??
+                                      GetStringProperty(element, "name");
+
+                    if (string.IsNullOrEmpty(result.Description))
+                        result.Description = GetStringProperty(element, "description");
+
+                    if (string.IsNullOrEmpty(result.ImageUrl))
+                        result.ImageUrl = ExtractImageFromJsonLd(element);
+
+                    if (string.IsNullOrEmpty(result.SiteName))
+                    {
+                        var publisher = GetNestedProperty(element, "publisher");
+                        if (publisher != null)
+                            result.SiteName = GetStringProperty(publisher.Value, "name");
+                    }
+
+                    if (string.IsNullOrEmpty(result.Author))
+                    {
+                        var authorProp = element.TryGetProperty("author", out var authorEl) ? authorEl : default;
+                        if (authorProp.ValueKind == System.Text.Json.JsonValueKind.Object)
+                            result.Author = GetStringProperty(authorProp, "name");
+                        else if (authorProp.ValueKind == System.Text.Json.JsonValueKind.Array)
+                            result.Author = authorProp.EnumerateArray().FirstOrDefault()
+                                .TryGetProperty("name", out var nameEl) ? nameEl.GetString() : null;
+                    }
+
+                    if (string.IsNullOrEmpty(result.Type))
+                        result.Type = GetStringProperty(element, "@type");
+
+                    // Stop after finding useful data
+                    if (!string.IsNullOrEmpty(result.Title) || !string.IsNullOrEmpty(result.Description))
+                        break;
+                }
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // Skip malformed JSON-LD
+            }
+        }
+
+        return result;
+    }
+
+    private static string? GetStringProperty(System.Text.Json.JsonElement element, string name) =>
+        element.TryGetProperty(name, out var prop) && prop.ValueKind == System.Text.Json.JsonValueKind.String
+            ? prop.GetString()
+            : null;
+
+    private static System.Text.Json.JsonElement? GetNestedProperty(System.Text.Json.JsonElement element, string name) =>
+        element.TryGetProperty(name, out var prop) ? prop : null;
+
+    private static string? ExtractImageFromJsonLd(System.Text.Json.JsonElement element)
+    {
+        if (element.TryGetProperty("image", out var image))
+        {
+            if (image.ValueKind == System.Text.Json.JsonValueKind.String)
+                return image.GetString();
+            if (image.ValueKind == System.Text.Json.JsonValueKind.Array)
+                return image.EnumerateArray().FirstOrDefault().GetString();
+            if (image.ValueKind == System.Text.Json.JsonValueKind.Object)
+                return GetStringProperty(image, "url");
+        }
+        return null;
+    }
+
+    private static string? GetFirstMeaningfulParagraph(IDocument document)
+    {
+        foreach (var p in document.QuerySelectorAll("article p, main p, .content p, .post p, p"))
+        {
+            var text = p.TextContent?.Trim();
+            if (!string.IsNullOrEmpty(text) && text.Length > 30 && text.Length < 500)
+                return text.Length > 300 ? string.Concat(text.AsSpan(0, 297), "...") : text;
+        }
+        return null;
+    }
+
+    private static string? GetFirstMeaningfulImage(IDocument document, Uri baseUri)
+    {
+        foreach (var img in document.QuerySelectorAll("article img, main img, .content img, img"))
+        {
+            var src = img.GetAttribute("src");
+            if (string.IsNullOrEmpty(src)) continue;
+            if (src.StartsWith("data:")) continue;
+
+            // Skip tiny tracking pixels and icons
+            var width = img.GetAttribute("width");
+            var height = img.GetAttribute("height");
+            if (int.TryParse(width, out var w) && int.TryParse(height, out var h) && w < 50 && h < 50)
+                continue;
+
+            return src;
+        }
+        return null;
     }
 
     private static string? GetMetaTagContent(IDocument doc, string property)
@@ -356,5 +499,15 @@ public class WebReaderService(
         {
             logger.LogWarning(ex, "Failed to invalidate all cached link previews");
         }
+    }
+
+    private record JsonLdData
+    {
+        public string? Title { get; set; }
+        public string? Description { get; set; }
+        public string? ImageUrl { get; set; }
+        public string? SiteName { get; set; }
+        public string? Author { get; set; }
+        public string? Type { get; set; }
     }
 }
