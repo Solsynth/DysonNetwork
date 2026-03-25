@@ -138,20 +138,10 @@ public class TimelineService(
 
         var userRealms = await GetCachedUserRealms(accountId);
 
-        // Get posts boosted by followed publishers
-        var boostedPostIds = await GetBoostedPostIdsAsync(filteredPublishersId, effectiveCursor);
-
         // Build and execute the post query
         var postsQuery = BuildPostsQuery(effectiveCursor, filteredPublishersId, userRealms);
         if (!showFediverse)
             postsQuery = postsQuery.Where(p => p.FediverseUri == null);
-
-        // Include boosted posts
-        if (boostedPostIds.Count > 0)
-        {
-            var boostedIds = boostedPostIds.ToHashSet();
-            postsQuery = postsQuery.Where(p => boostedIds.Contains(p.Id) || filteredPublishersId == null || filteredPublishersId.Count == 0 || p.PublisherId.HasValue && filteredPublishersId.Contains(p.PublisherId.Value));
-        }
 
         // Apply visibility filtering and execute
         postsQuery = postsQuery
