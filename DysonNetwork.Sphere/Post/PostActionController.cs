@@ -638,6 +638,9 @@ public class PostActionController(
         if (post is null)
             return NotFound();
 
+        if (post.LockedAt is not null)
+            return StatusCode(423, "This post is locked and cannot be edited.");
+
         var accountId = Guid.Parse(currentUser.Id);
         if (!await pub.IsMemberWithRole(post.Publisher.Id, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to edit this publisher's post.");
@@ -881,6 +884,9 @@ public class PostActionController(
             .FirstOrDefaultAsync();
         if (post is null)
             return NotFound();
+
+        if (post.LockedAt is not null)
+            return StatusCode(423, "This post is locked and cannot be deleted.");
 
         if (
             !await pub.IsMemberWithRole(

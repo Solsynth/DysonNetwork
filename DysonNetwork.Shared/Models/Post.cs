@@ -173,6 +173,7 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
 
     public PostShadowbanReason? ShadowbanReason { get; set; }
     public Instant? ShadowbannedAt { get; set; }
+    public Instant? LockedAt { get; set; }
 
     public bool IsShadowbanned => ShadowbanReason.HasValue && ShadowbanReason != PostShadowbanReason.None;
 
