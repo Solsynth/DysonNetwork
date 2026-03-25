@@ -119,14 +119,10 @@ public class TimelineService(
         // Get user's friends and publishers
         var accountId = Guid.Parse(currentUser.Id);
 
-        // Soft cursor logic: use cached cursor when no explicit cursor provided
-        var effectiveCursor = cursor;
-        if (cursor == null)
-        {
-            var softCursor = await GetSoftCursorAsync(accountId);
-            if (softCursor.HasValue)
-                effectiveCursor = softCursor;
-        }
+        // Soft cursor logic: only use cached cursor when paginating (cursor is explicit), not for fresh requests
+        Instant? effectiveCursor = cursor.HasValue
+            ? cursor
+            : null;
 
         var userFriends = await GetCachedFriendIds(accountId, currentUser.Id);
         var userPublishers = await pub.GetUserPublishers(accountId);
@@ -288,15 +284,15 @@ public class TimelineService(
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var recentServedPenalty = currentUser is null
-            ? new Dictionary<Guid, double>()
+            ? []
             : await GetRecentServedPenaltyMap(Guid.Parse(currentUser.Id), posts, now);
         var personalizationBonus = mode != SnTimelineMode.Personalized || currentUser is null
-            ? new Dictionary<Guid, double>()
+            ? []
             : await GetPersonalizationBonusMap(posts, Guid.Parse(currentUser.Id), now);
         var publisherLevelBonus = await GetPublisherLevelBonusMap(posts);
         var automatedPenalty = await GetAutomatedPenaltyMap(posts);
         var subscriptionBoost = currentUser is null
-            ? new Dictionary<Guid, double>()
+            ? []
             : await GetSubscriptionBoostMap(posts, Guid.Parse(currentUser.Id));
         var shadowbanPenalty = await GetShadowbanPenaltyMap(posts);
         var automodPenalties = await automodService.GetAutomodPenaltiesAsync(posts);
@@ -698,12 +694,12 @@ public class TimelineService(
         switch (kind.Trim().ToLowerInvariant())
         {
             case "post":
-            {
-                adjustments = await BuildPostFeedbackAdjustmentsAsync(referenceId, baseScore);
-                if (adjustments.Count == 0)
-                    return null;
-                break;
-            }
+                {
+                    adjustments = await BuildPostFeedbackAdjustmentsAsync(referenceId, baseScore);
+                    if (adjustments.Count == 0)
+                        return null;
+                    break;
+                }
             case "publisher":
                 adjustments = [(PostInterestKind.Publisher, referenceId, baseScore)];
                 break;
