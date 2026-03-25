@@ -382,6 +382,105 @@ public class ActivityPubController(
                 break;
         }
     }
+
+    [HttpGet("featured")]
+    [Produces("application/activity+json")]
+    [ProducesResponseType(typeof(ActivityPubCollection), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ActivityPubCollectionPage), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [SwaggerOperation(
+        Summary = "Get featured posts",
+        Description = "Returns the actor's pinned posts and top performing posts",
+        OperationId = "GetActorFeatured"
+    )]
+    public async Task<IActionResult> GetFeatured(string username, [FromQuery] int? page)
+    {
+        var publisher = await db.Publishers
+            .FirstOrDefaultAsync(p => p.Name == username);
+
+        if (publisher == null)
+            return NotFound();
+
+        var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
+        var featuredUrl = $"{actorUrl}/featured";
+
+        var pinnedPostsQuery = db.Posts
+            .Where(p => p.PublisherId == publisher.Id && p.PinMode == PostPinMode.PublisherPage && p.DraftedAt == null);
+
+        var featuredRecordsQuery = db.PostFeaturedRecords
+            .Include(r => r.Post)
+            .Where(r => r.Post.PublisherId == publisher.Id && r.Post.DraftedAt == null)
+            .OrderByDescending(r => r.FeaturedAt)
+            .Take(10);
+
+        var pinnedPosts = await pinnedPostsQuery
+            .OrderByDescending(p => p.PublishedAt ?? p.CreatedAt)
+            .Take(10)
+            .ToListAsync();
+
+        var featuredPosts = await featuredRecordsQuery
+            .Select(r => r.Post)
+            .ToListAsync();
+
+        var allFeaturedPosts = pinnedPosts.Concat(featuredPosts)
+            .DistinctBy(p => p.Id)
+            .OrderByDescending(p => p.PublishedAt ?? p.CreatedAt)
+            .ToList();
+
+        var totalItems = allFeaturedPosts.Count;
+
+        if (page.HasValue)
+        {
+            const int pageSize = 20;
+            var skip = (page.Value - 1) * pageSize;
+
+            var postsPage = allFeaturedPosts
+                .Skip(skip)
+                .Take(pageSize)
+                .ToList();
+
+            var items = await Task.WhenAll(postsPage.Select(async post =>
+            {
+                var postObject = await objFactory.CreatePostObject(post, actorUrl);
+                postObject["url"] = $"https://{Domain}/posts/{post.Id}";
+                return postObject;
+            }));
+
+            var collectionPage = new ActivityPubCollectionPage
+            {
+                Context = ["https://www.w3.org/ns/activitystreams"],
+                Id = $"{featuredUrl}?page={page.Value}",
+                Type = "OrderedCollectionPage",
+                TotalItems = totalItems,
+                PartOf = featuredUrl,
+                OrderedItems = items.Cast<object>().ToList(),
+                Next = skip + pageSize < totalItems ? $"{featuredUrl}?page={page.Value + 1}" : null,
+                Prev = page.Value > 1 ? $"{featuredUrl}?page={page.Value - 1}" : null
+            };
+
+            return Ok(collectionPage);
+        }
+        else
+        {
+            var items = await Task.WhenAll(allFeaturedPosts.Select(async post =>
+            {
+                var postObject = await objFactory.CreatePostObject(post, actorUrl);
+                postObject["url"] = $"https://{Domain}/posts/{post.Id}";
+                return postObject;
+            }));
+
+            var collection = new ActivityPubCollection
+            {
+                Context = ["https://www.w3.org/ns/activitystreams"],
+                Id = featuredUrl,
+                Type = "OrderedCollection",
+                TotalItems = totalItems,
+                Items = items.Cast<object>().ToList()
+            };
+
+            return Ok(collection);
+        }
+    }
 }
 
 public class ActivityPubActor

@@ -1,8 +1,10 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using DysonNetwork.Shared.Data;
+using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf;
@@ -24,6 +26,7 @@ public class ActivityPubDeliveryWorker(
     public const string QueueName = "activitypub_delivery_queue";
     private const string QueueGroup = "activitypub_delivery_workers";
     private readonly List<Task> _consumerTasks = [];
+    private readonly ConcurrentDictionary<string, HttpClient> _httpClients = new();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -43,14 +46,23 @@ public class ActivityPubDeliveryWorker(
         {
             try
             {
-                var message = InfraObjectCoder.ConvertByteStringToObject<ActivityPubDeliveryMessage>(ByteString.CopyFrom(msg.Data));
-                if (message is not null)
+                // Try to parse as batch first, then as single message
+                var batchMessage = InfraObjectCoder.ConvertByteStringToObject<ActivityPubDeliveryBatchMessage>(ByteString.CopyFrom(msg.Data));
+                if (batchMessage is not null && batchMessage.Deliveries.Count > 0)
                 {
-                    await ProcessDeliveryAsync(message, stoppingToken);
+                    await ProcessBatchAsync(batchMessage, stoppingToken);
                 }
                 else
                 {
-                    logger.LogWarning("Invalid message format for ActivityPub delivery");
+                    var message = InfraObjectCoder.ConvertByteStringToObject<ActivityPubDeliveryMessage>(ByteString.CopyFrom(msg.Data));
+                    if (message is not null)
+                    {
+                        await ProcessDeliveryAsync(message, stoppingToken);
+                    }
+                    else
+                    {
+                        logger.LogWarning("Invalid message format for ActivityPub delivery");
+                    }
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -62,6 +74,101 @@ public class ActivityPubDeliveryWorker(
                 logger.LogError(ex, "Error in ActivityPub delivery consumer");
             }
         }
+    }
+
+    private async Task ProcessBatchAsync(ActivityPubDeliveryBatchMessage batch, CancellationToken cancellationToken)
+    {
+        logger.LogDebug("Processing batch of {Count} deliveries to {Inbox}", batch.Deliveries.Count, batch.InboxUri);
+
+        using var scope = serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+        var signatureService = scope.ServiceProvider.GetRequiredService<ActivityPubSignatureService>();
+
+        var deliveryIds = batch.Deliveries.Select(d => d.DeliveryId).ToList();
+        var deliveries = await db.ActivityPubDeliveries
+            .Where(d => deliveryIds.Contains(d.Id))
+            .ToDictionaryAsync(d => d.Id, cancellationToken);
+
+        foreach (var message in batch.Deliveries)
+        {
+            if (!deliveries.TryGetValue(message.DeliveryId, out var delivery))
+            {
+                logger.LogWarning("Delivery record not found: {DeliveryId}", message.DeliveryId);
+                continue;
+            }
+
+            delivery.Status = DeliveryStatus.Processing;
+            delivery.LastAttemptAt = clock.GetCurrentInstant();
+        }
+        await db.SaveChangesAsync(cancellationToken);
+
+        var tasks = batch.Deliveries.Select(async message =>
+        {
+            if (!deliveries.TryGetValue(message.DeliveryId, out var delivery))
+                return;
+
+            try
+            {
+                var success = await SendActivityToInboxAsync(
+                    message.Activity,
+                    message.InboxUri,
+                    message.ActorUri,
+                    signatureService,
+                    httpClientFactory,
+                    logger,
+                    cancellationToken
+                );
+
+                if (success.IsSuccessStatusCode)
+                {
+                    delivery.Status = DeliveryStatus.Sent;
+                    delivery.SentAt = clock.GetCurrentInstant();
+                    delivery.ResponseStatusCode = success.StatusCode.ToString();
+                }
+                else
+                {
+                    var retryAfter = success.Headers.TryGetValues("Retry-After", out var values) && 
+                                     values.FirstOrDefault() is string ra && 
+                                     double.TryParse(ra, out var seconds) 
+                        ? TimeSpan.FromSeconds(seconds) 
+                        : (TimeSpan?)null;
+                    var shouldRetry = ShouldRetry(success.StatusCode, retryAfter);
+                    delivery.ResponseStatusCode = success.StatusCode.ToString();
+                    delivery.ErrorMessage = await success.Content.ReadAsStringAsync(cancellationToken);
+
+                    if (shouldRetry && delivery.RetryCount < options.Value.MaxRetries)
+                    {
+                        delivery.Status = DeliveryStatus.Failed;
+                        delivery.RetryCount++;
+                        delivery.NextRetryAt = CalculateNextRetryAt(delivery.RetryCount, clock, retryAfter);
+                    }
+                    else
+                    {
+                        delivery.Status = DeliveryStatus.ExhaustedRetries;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                delivery.Status = DeliveryStatus.Failed;
+                delivery.ErrorMessage = ex.Message;
+
+                if (delivery.RetryCount < options.Value.MaxRetries)
+                {
+                    delivery.RetryCount++;
+                    delivery.NextRetryAt = CalculateNextRetryAt(delivery.RetryCount, clock);
+                }
+                else
+                {
+                    delivery.Status = DeliveryStatus.ExhaustedRetries;
+                }
+            }
+        });
+
+        await Task.WhenAll(tasks);
+        await db.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Processed batch of {Count} deliveries to {Inbox}", batch.Deliveries.Count, batch.InboxUri);
     }
 
     private async Task ProcessDeliveryAsync(ActivityPubDeliveryMessage message, CancellationToken cancellationToken)
@@ -105,7 +212,12 @@ public class ActivityPubDeliveryWorker(
             }
             else
             {
-                var shouldRetry = ShouldRetry(success.StatusCode);
+                var retryAfter = success.Headers.TryGetValues("Retry-After", out var values) && 
+                                 values.FirstOrDefault() is string ra && 
+                                 double.TryParse(ra, out var seconds) 
+                    ? TimeSpan.FromSeconds(seconds) 
+                    : (TimeSpan?)null;
+                var shouldRetry = ShouldRetry(success.StatusCode, retryAfter);
                 delivery.ResponseStatusCode = success.StatusCode.ToString();
                 delivery.ErrorMessage = await success.Content.ReadAsStringAsync(cancellationToken);
 
@@ -113,7 +225,7 @@ public class ActivityPubDeliveryWorker(
                 {
                     delivery.Status = DeliveryStatus.Failed;
                     delivery.RetryCount++;
-                    delivery.NextRetryAt = CalculateNextRetryAt(delivery.RetryCount, clock);
+                    delivery.NextRetryAt = CalculateNextRetryAt(delivery.RetryCount, clock, retryAfter);
                     logger.LogWarning("Failed to deliver activity {ActivityId} to {Inbox}. Status: {Status}. Retry {RetryCount}/{MaxRetries} at {NextRetry}",
                         message.ActivityId, message.InboxUri, success.StatusCode, delivery.RetryCount, options.Value.MaxRetries, delivery.NextRetryAt);
                 }
@@ -189,22 +301,37 @@ public class ActivityPubDeliveryWorker(
         return response;
     }
 
-    private static bool ShouldRetry(HttpStatusCode statusCode)
+    private static bool ShouldRetry(HttpStatusCode statusCode, TimeSpan? retryAfter = null)
     {
+        if (statusCode == (HttpStatusCode)429 && retryAfter.HasValue)
+            return true;
+
         return statusCode == HttpStatusCode.InternalServerError ||
                statusCode == HttpStatusCode.BadGateway ||
                statusCode == HttpStatusCode.ServiceUnavailable ||
                statusCode == HttpStatusCode.GatewayTimeout ||
                statusCode == HttpStatusCode.RequestTimeout ||
-               statusCode == (HttpStatusCode)429; // Too Many Requests
+               statusCode == (HttpStatusCode)429;
     }
 
-    private static Instant CalculateNextRetryAt(int retryCount, IClock clock)
+    private static Instant CalculateNextRetryAt(int retryCount, IClock clock, TimeSpan? retryAfter = null)
     {
-        var baseDelaySeconds = 1;
-        var maxDelaySeconds = 300;
-        var delaySeconds = Math.Min(maxDelaySeconds, baseDelaySeconds * (int)Math.Pow(2, retryCount - 1));
-        return clock.GetCurrentInstant() + Duration.FromSeconds(delaySeconds);
+        const int maxDelaySeconds = 900;
+        double delaySec;
+        
+        if (retryAfter.HasValue)
+        {
+            var retryDelay = retryAfter.Value.TotalSeconds;
+            delaySec = Math.Min(maxDelaySeconds, Math.Max(1, retryDelay));
+        }
+        else
+        {
+            var baseDelaySeconds = 1;
+            delaySec = Math.Min(maxDelaySeconds, baseDelaySeconds * (int)Math.Pow(2, retryCount - 1));
+        }
+        
+        var jitter = Random.Shared.NextDouble() * 0.3 * delaySec;
+        return clock.GetCurrentInstant() + Duration.FromSeconds(delaySec + jitter);
     }
 }
 

@@ -23,6 +23,8 @@ public class SnActivityPubDelivery : ModelBase
     public Instant? SentAt { get; set; }
     
     [MaxLength(2048)] public string? ResponseStatusCode { get; set; }
+    
+    public string? ActivityPayload { get; set; }
 }
 
 public enum DeliveryStatus

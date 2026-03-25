@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -19,19 +20,33 @@ public class ActivityPubDeliveryRetryJob(AppDatabase db, ActivityPubQueueService
             var failedDeliveries = await db.ActivityPubDeliveries
                 .Where(d => d.Status == DeliveryStatus.Failed && d.NextRetryAt != null && d.NextRetryAt <= now)
                 .OrderBy(d => d.NextRetryAt)
-                .Take(100)
+                .Take(500)
                 .ToListAsync();
 
             logger.LogInformation("Found {Count} failed deliveries ready for retry", failedDeliveries.Count);
 
             foreach (var delivery in failedDeliveries)
             {
+                Dictionary<string, object> activity;
+                try
+                {
+                    activity = string.IsNullOrEmpty(delivery.ActivityPayload)
+                        ? new Dictionary<string, object>()
+                        : JsonSerializer.Deserialize<Dictionary<string, object>>(delivery.ActivityPayload) 
+                          ?? new Dictionary<string, object>();
+                }
+                catch
+                {
+                    activity = new Dictionary<string, object>();
+                    logger.LogWarning("Failed to deserialize activity payload for delivery {DeliveryId}, using empty payload", delivery.Id);
+                }
+
                 var message = new ActivityPubDeliveryMessage
                 {
                     DeliveryId = delivery.Id,
                     ActivityId = delivery.ActivityId,
                     ActivityType = delivery.ActivityType,
-                    Activity = new Dictionary<string, object>(),
+                    Activity = activity,
                     ActorUri = delivery.ActorUri,
                     InboxUri = delivery.InboxUri,
                     CurrentRetry = delivery.RetryCount

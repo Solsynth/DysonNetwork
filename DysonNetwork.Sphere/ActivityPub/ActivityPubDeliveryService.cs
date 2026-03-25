@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -673,7 +674,8 @@ public class ActivityPubDeliveryService(
                 InboxUri = inboxUri,
                 ActorUri = actorUri,
                 Status = DeliveryStatus.Pending,
-                RetryCount = 0
+                RetryCount = 0,
+                ActivityPayload = JsonSerializer.Serialize(activity)
             };
 
             db.ActivityPubDeliveries.Add(delivery);

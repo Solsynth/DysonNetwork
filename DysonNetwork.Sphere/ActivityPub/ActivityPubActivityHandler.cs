@@ -5,6 +5,7 @@ using System.Text.Json;
 using DysonNetwork.Shared.Proto;
 using ContentMention = DysonNetwork.Shared.Models.ContentMention;
 using PostContentType = DysonNetwork.Shared.Models.PostContentType;
+using PostPinMode = DysonNetwork.Shared.Models.PostPinMode;
 using PostReactionAttitude = DysonNetwork.Shared.Models.PostReactionAttitude;
 using PostType = DysonNetwork.Shared.Models.PostType;
 using PostVisibility = DysonNetwork.Shared.Models.PostVisibility;
@@ -96,6 +97,10 @@ public class ActivityPubActivityHandler(
                     return await HandleDeleteAsync(activity);
                 case "Update":
                     return await HandleUpdateAsync(actorUri, activity);
+                case "Add":
+                    return await HandleAddAsync(actorUri, activity);
+                case "Remove":
+                    return await HandleRemoveAsync(actorUri, activity);
                 default:
                     logger.LogWarning("Unsupported activity type: {Type}. Full activity: {Activity}",
                         activityType, JsonSerializer.Serialize(activity));
@@ -730,6 +735,133 @@ public class ActivityPubActivityHandler(
         else
         {
             logger.LogWarning("Boost record not found when undoing - actor: {Actor}, post: {Uri}", actorUri, objectUri);
+        }
+
+        return true;
+    }
+
+    private async Task<bool> HandleAddAsync(string actorUri, Dictionary<string, object> activity)
+    {
+        var target = ConvertToDictionary(activity.GetValueOrDefault("target"));
+        if (target == null)
+        {
+            logger.LogWarning("Add activity missing target");
+            return false;
+        }
+
+        var targetType = target.GetValueOrDefault("type")?.ToString();
+        if (targetType != "Collection" && targetType != "OrderedCollection")
+        {
+            logger.LogDebug("Add activity target is not a collection, skipping: {Type}", targetType);
+            return false;
+        }
+
+        var collection = target.GetValueOrDefault("id")?.ToString();
+        if (collection == null || !collection.Contains("/featured"))
+        {
+            logger.LogDebug("Add activity target is not featured collection: {Collection}", collection);
+            return false;
+        }
+
+        var obj = ConvertToDictionary(activity.GetValueOrDefault("object"));
+        if (obj == null)
+        {
+            logger.LogWarning("Add activity missing object");
+            return false;
+        }
+
+        var objectUri = obj.GetValueOrDefault("id")?.ToString();
+        if (string.IsNullOrEmpty(objectUri))
+        {
+            logger.LogWarning("Add activity object missing id");
+            return false;
+        }
+
+        var post = await GetPostByUriAsync(objectUri);
+        if (post == null)
+        {
+            logger.LogWarning("Add activity: post not found: {Uri}", objectUri);
+            return false;
+        }
+
+        var actor = await GetOrCreateActorAsync(actorUri);
+        var actorInstanceDomain = actor.Instance?.Domain;
+        
+        var localPublisher = await db.Publishers
+            .Include(p => p.Members)
+            .FirstOrDefaultAsync(p => p.Members.Any(m => m.AccountId != null));
+
+        if (localPublisher == null)
+        {
+            logger.LogWarning("Add activity: local publisher not found");
+            return false;
+        }
+
+        if (post.PublisherId != localPublisher.Id)
+        {
+            logger.LogWarning("Add activity: post does not belong to local publisher");
+            return false;
+        }
+
+        if (post.PinMode != PostPinMode.PublisherPage)
+        {
+            post.PinMode = PostPinMode.PublisherPage;
+            await db.SaveChangesAsync();
+            logger.LogInformation("Pinned post {PostId} via Add activity", post.Id);
+        }
+
+        return true;
+    }
+
+    private async Task<bool> HandleRemoveAsync(string actorUri, Dictionary<string, object> activity)
+    {
+        var target = ConvertToDictionary(activity.GetValueOrDefault("target"));
+        if (target == null)
+        {
+            logger.LogWarning("Remove activity missing target");
+            return false;
+        }
+
+        var targetType = target.GetValueOrDefault("type")?.ToString();
+        if (targetType != "Collection" && targetType != "OrderedCollection")
+        {
+            logger.LogDebug("Remove activity target is not a collection, skipping: {Type}", targetType);
+            return false;
+        }
+
+        var collection = target.GetValueOrDefault("id")?.ToString();
+        if (collection == null || !collection.Contains("/featured"))
+        {
+            logger.LogDebug("Remove activity target is not featured collection: {Collection}", collection);
+            return false;
+        }
+
+        var obj = ConvertToDictionary(activity.GetValueOrDefault("object"));
+        if (obj == null)
+        {
+            logger.LogWarning("Remove activity missing object");
+            return false;
+        }
+
+        var objectUri = obj.GetValueOrDefault("id")?.ToString();
+        if (string.IsNullOrEmpty(objectUri))
+        {
+            logger.LogWarning("Remove activity object missing id");
+            return false;
+        }
+
+        var post = await GetPostByUriAsync(objectUri);
+        if (post == null)
+        {
+            logger.LogWarning("Remove activity: post not found: {Uri}", objectUri);
+            return false;
+        }
+
+        if (post.PinMode == PostPinMode.PublisherPage)
+        {
+            post.PinMode = (PostPinMode)0;
+            await db.SaveChangesAsync();
+            logger.LogInformation("Unpinned post {PostId} via Remove activity", post.Id);
         }
 
         return true;

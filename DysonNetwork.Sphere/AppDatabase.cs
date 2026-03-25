@@ -65,9 +65,10 @@ public class AppDatabase(
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<SnAccount>()
-            .Ignore(a => a.IncomingRelationships)
-            .Ignore(a => a.OutgoingRelationships);
+        modelBuilder.Ignore<SnAccount>();
+        modelBuilder.Ignore<SnAccountRelationship>();
+        modelBuilder.Ignore<SnRealmMember>();
+        modelBuilder.Ignore<SnCloudFileReferenceObject>();
 
         modelBuilder.Entity<SnPublisherMember>()
             .HasKey(pm => new { pm.PublisherId, pm.AccountId });
