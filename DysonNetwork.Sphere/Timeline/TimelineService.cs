@@ -1638,28 +1638,6 @@ public class TimelineService(
         return realmIds;
     }
 
-    private async Task<List<Guid>> GetBoostedPostIdsAsync(List<Guid>? followedPublisherIds, Instant? cursor)
-    {
-        if (followedPublisherIds == null || followedPublisherIds.Count == 0)
-            return [];
-
-        var boostQuery = db.Boosts
-            .Include(b => b.Actor)
-            .Where(b => b.Actor.PublisherId != null && followedPublisherIds.Contains(b.Actor.PublisherId.Value));
-
-        if (cursor.HasValue)
-        {
-            boostQuery = boostQuery.Where(b => b.BoostedAt < cursor.Value);
-        }
-
-        var boostedPostIds = await boostQuery
-            .Select(b => b.PostId)
-            .Distinct()
-            .ToListAsync();
-
-        return boostedPostIds;
-    }
-
     private IQueryable<SnPost> BuildPostsQuery(
         Instant? cursor,
         List<Guid>? filteredPublishersId = null,
@@ -1676,6 +1654,7 @@ public class TimelineService(
             .Where(e => e.RepliedPostId == null)
             .Where(p => cursor == null || p.PublishedAt < cursor)
             .Where(p => p.ShadowbanReason == null || p.ShadowbanReason == PostShadowbanReason.None)
+            .Where(p => p.Publisher == null || p.Publisher.ShadowbanReason == null || p.Publisher.ShadowbanReason == PublisherShadowbanReason.None)
             .OrderByDescending(p => p.PublishedAt)
             .AsNoTracking()
             .AsQueryable();
