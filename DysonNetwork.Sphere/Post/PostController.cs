@@ -387,7 +387,8 @@ public class PostController(
         Guid id,
         [FromQuery] string? symbol = null,
         [FromQuery] int offset = 0,
-        [FromQuery] int take = 20
+        [FromQuery] int take = 20,
+        [FromQuery(Name = "order")] string? order = null
     )
     {
         var query = db.PostReactions.Where(e => e.PostId == id);
@@ -397,11 +398,15 @@ public class PostController(
         var totalCount = await query.CountAsync();
         Response.Headers.Append("X-Total", totalCount.ToString());
 
+        query = order?.ToLowerInvariant() switch
+        {
+            "created" => query.OrderByDescending(r => r.CreatedAt),
+            _ => query.OrderBy(r => r.Symbol).ThenByDescending(r => r.CreatedAt)
+        };
+
         var reactions = await query
             .Include(r => r.Actor)
             .ThenInclude(r => r.Instance)
-            .OrderBy(r => r.Symbol)
-            .ThenByDescending(r => r.CreatedAt)
             .Take(take)
             .Skip(offset)
             .ToListAsync();
@@ -636,5 +641,63 @@ public class PostController(
         foreach (var root in rootReplies)
             FlattenThreadedReplies(root, repliesByParent, 0, tree);
         return Ok(tree);
+    }
+
+    [HttpGet("{id:guid}/forwards")]
+    public async Task<ActionResult<List<SnPost>>> ListForwards(
+        Guid id,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var currentUser = currentUserValue as DyAccount;
+
+        List<Guid> userFriends = [];
+        if (currentUser != null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(
+                new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
+            );
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        }
+
+        var userPublishers = currentUser is null
+            ? []
+            : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+
+        var parent = await db.Posts.Where(e => e.Id == id).FirstOrDefaultAsync();
+        if (parent is null)
+            return NotFound();
+
+        var totalCount = await db
+            .Posts.Where(e => e.ForwardedPostId == parent.Id)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
+            .CountAsync();
+
+        var posts = await db
+            .Posts.Where(e => e.ForwardedPostId == id)
+            .Include(e => e.ForwardedPost)
+            .Include(e => e.Categories)
+            .Include(e => e.Tags)
+            .Include(e => e.FeaturedRecords)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
+            .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        posts = await ps.LoadPostInfo(posts, currentUser, true);
+
+        var postsId = posts.Select(e => e.Id).ToList();
+        var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
+        foreach (var post in posts)
+            post.ReactionsCount = reactionMaps.TryGetValue(post.Id, out var count)
+                ? count
+                : new Dictionary<string, int>();
+
+        Response.Headers["X-Total"] = totalCount.ToString();
+
+        return Ok(posts);
     }
 }

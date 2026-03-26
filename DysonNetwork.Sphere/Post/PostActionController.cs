@@ -1108,8 +1108,11 @@ public class PostActionController(
         [FromQuery] int take = 20
     )
     {
-        var boosts = await db.Boosts
-            .Where(b => b.PostId == id)
+        var query = db.Boosts.Where(b => b.PostId == id);
+        var totalCount = await query.CountAsync();
+        Response.Headers.Append("X-Total", totalCount.ToString());
+
+        var boosts = await query
             .Include(b => b.Actor)
             .OrderByDescending(b => b.BoostedAt)
             .Skip(offset)
