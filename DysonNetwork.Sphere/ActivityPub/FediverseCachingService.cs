@@ -327,6 +327,7 @@ public class CachedActor
     public string? InstanceDomain { get; set; }
     public string? InstanceName { get; set; }
     public string? InstanceSoftware { get; set; }
+    public CachedInstance? Instance { get; set; }
     public int FollowersCount { get; set; }
     public int FollowingCount { get; set; }
     public Instant? LastActivityAt { get; set; }

@@ -86,6 +86,72 @@ In the timeline response, boosted posts have the `boosted_by` field populated:
 
 Show a small booster avatar badge overlaid on the original author's avatar when space is limited.
 
+## Fediverse Actor Posts Endpoint
+
+The `/api/fediverse/actors/{id}/posts` endpoint returns both original posts and boosted posts.
+
+### Identifying Boosted Posts in Response
+
+Check if `boostInfo` is non-null:
+
+```json
+{
+  "id": "original-post-uuid",
+  "content": "Original post content...",
+  "publishedAt": "2026-03-27T08:00:00Z",
+  "actorId": "booster-actor-uuid",
+  "boostInfo": {
+    "boostId": "boost-record-uuid",
+    "boostedAt": "2026-03-27T09:30:00Z",
+    "activityPubUri": "https://mastodon.social/users/booster/statuses/123",
+    "webUrl": "https://mastodon.social/@booster/123",
+    "originalPost": { ... },
+    "originalActor": { ... }
+  }
+}
+```
+
+### Key Fields for Boost Display
+
+| Field | Description |
+|-------|-------------|
+| `boostInfo` | Non-null = boosted post, null = original post |
+| `boostInfo.boostedAt` | When the boost happened |
+| `boostInfo.originalActor` | Original post's author info |
+| `actorId` | The booster's ID (not original author for boosts) |
+| `publishedAt` | Original post date (not boost date) |
+
+## ActivityPub Outbox
+
+The ActivityPub outbox endpoint (`/activitypub/actors/{username}/outbox`) now includes both `Create` activities (original posts) and `Announce` activities (boosts).
+
+### Identifying Announce Activities
+
+Check the `type` field in each outbox item:
+
+```json
+{
+  "id": "https://instance.com/activitypub/objects/boost-uuid/activity",
+  "type": "Announce",
+  "actor": "https://instance.com/activitypub/actors/username",
+  "published": "2026-03-27T09:30:00Z",
+  "@object": {
+    "id": "https://other-instance.com/users/original-author/posts/456",
+    "type": "Note",
+    "content": "Original post content...",
+    "_boostedAt": "2026-03-27T09:30:00Z",
+    "_boostId": "boost-record-uuid"
+  }
+}
+```
+
+### Fields Added to Post Object for Boosts
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `_boostedAt` | string | ISO 8601 timestamp when the boost occurred |
+| `_boostId` | string | UUID of the boost record |
+
 ### Handling Interactions
 
 When a user interacts with a boosted post:
@@ -192,5 +258,6 @@ Some implementations allow self-boosting. In this case, `boosted_by` will match 
 
 ## Related Documentation
 
-- [Fediverse Actor API](./docs/ActivityPub/FediverseActorApi.md) - Fediverse actor data structure
-- [ActivityPub Integration](./docs/ActivityPub/OVERVIEW.md) - Fediverse integration overview
+- [Fediverse Actor API](./FEDIVERSE_ACTORS_API.md) - Fediverse actor data structure and posts endpoint
+- [Fediverse Actors API](./FEDIVERSE_ACTORS_API.md) - PostResponse and BoostInfo models
+- [ActivityPub Summary](./activitypub/ACTIVITYPUB_SUMMARY.md) - Fediverse integration overview

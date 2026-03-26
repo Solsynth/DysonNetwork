@@ -128,7 +128,7 @@ public class ActivityPubController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [SwaggerOperation(
         Summary = "Get ActivityPub outbox",
-        Description = "Returns the actor's outbox collection containing their public activities",
+        Description = "Returns the actor's outbox collection containing their public activities (posts and boosts)",
         OperationId = "GetActorOutbox"
     )]
     public async Task<IActionResult> GetOutbox(string username, [FromQuery] int? page)
@@ -139,40 +139,97 @@ public class ActivityPubController(
         if (publisher == null)
             return NotFound();
 
+        var actor = await db.FediverseActors
+            .FirstOrDefaultAsync(a => a.PublisherId == publisher.Id);
+
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
         var outboxUrl = $"{actorUrl}/outbox";
 
         var postsQuery = db.Posts
+            .Include(p => p.Actor)
             .Where(p => p.PublisherId == publisher.Id && p.Visibility == PostVisibility.Public);
 
-        var totalItems = await postsQuery.CountAsync();
+        var postsTask = postsQuery.ToListAsync();
+
+        List<SnBoost>? boosts = null;
+        if (actor != null)
+        {
+            var boostsQuery = db.Boosts
+                .Include(b => b.Post)
+                    .ThenInclude(p => p.Actor)
+                .Where(b => b.ActorId == actor.Id)
+                .Where(b => b.Post.DraftedAt == null)
+                .Where(b => b.Post.Visibility == PostVisibility.Public);
+            boosts = await boostsQuery.ToListAsync();
+        }
+
+        var posts = await postsTask;
+        var totalItems = posts.Count + (boosts?.Count ?? 0);
 
         if (page.HasValue)
         {
             const int pageSize = 20;
             var skip = (page.Value - 1) * pageSize;
 
-            var posts = await postsQuery
-                .OrderByDescending(p => p.PublishedAt ?? p.CreatedAt)
+            var createActivities = posts.Select(post => new OutboxItem
+            {
+                Id = $"https://{Domain}/activitypub/objects/{post.Id}/activity",
+                Type = "Create",
+                Actor = actorUrl,
+                Published = post.PublishedAt ?? post.CreatedAt,
+                PostId = post.Id,
+                IsBoost = false
+            }).ToList();
+
+            var announceActivities = (boosts ?? []).Select(boost => new OutboxItem
+            {
+                Id = boost.ActivityPubUri ?? $"https://{Domain}/activitypub/objects/{boost.Id}/activity",
+                Type = "Announce",
+                Actor = actorUrl,
+                Published = boost.BoostedAt,
+                PostId = boost.PostId,
+                BoostId = boost.Id,
+                BoostedAt = boost.BoostedAt,
+                IsBoost = true
+            }).ToList();
+
+            var allItems = createActivities.Concat(announceActivities)
+                .OrderByDescending(i => i.Published)
                 .Skip(skip)
                 .Take(pageSize)
-                .ToListAsync();
+                .ToList();
 
-            var items = Task.WhenAll(posts.Select(async post =>
+            var items = await Task.WhenAll(allItems.Select(async item =>
             {
+                var post = posts.FirstOrDefault(p => p.Id == item.PostId)
+                    ?? boosts?.FirstOrDefault(b => b.Id == item.BoostId)?.Post;
+
+                if (post == null)
+                    return (object)new Dictionary<string, object>();
+
                 var postObject = await objFactory.CreatePostObject(post, actorUrl);
                 postObject["url"] = $"https://{Domain}/posts/{post.Id}";
+
+                if (item.IsBoost)
+                {
+                    postObject["_boostedAt"] = item.BoostedAt?.ToDateTimeOffset().ToString("O");
+                    if (item.BoostId.HasValue)
+                    {
+                        postObject["_boostId"] = item.BoostId.Value.ToString();
+                    }
+                }
+
                 return new Dictionary<string, object>
                 {
-                    ["id"] = $"https://{Domain}/activitypub/objects/{post.Id}/activity",
-                    ["type"] = "Create",
-                    ["actor"] = actorUrl,
-                    ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
+                    ["id"] = item.Id,
+                    ["type"] = item.Type,
+                    ["actor"] = item.Actor,
+                    ["published"] = item.Published.ToDateTimeOffset(),
                     ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
                     ["cc"] = new[] { $"{actorUrl}/followers" },
                     ["@object"] = postObject
                 };
-            })).Result.Cast<object>().ToList();
+            }));
 
             var collectionPage = new ActivityPubCollectionPage
             {
@@ -181,7 +238,7 @@ public class ActivityPubController(
                 Type = "OrderedCollectionPage",
                 TotalItems = totalItems,
                 PartOf = outboxUrl,
-                OrderedItems = items,
+                OrderedItems = items.ToList(),
                 Next = skip + pageSize < totalItems ? $"{outboxUrl}?page={page.Value + 1}" : null,
                 Prev = page.Value > 1 ? $"{outboxUrl}?page={page.Value - 1}" : null
             };
@@ -539,4 +596,16 @@ public class ActivityPubCollectionPage
     [JsonPropertyName("orderedItems")] public List<object>? OrderedItems { get; set; }
     [JsonPropertyName("next")] public string? Next { get; set; }
     [JsonPropertyName("prev")] public string? Prev { get; set; }
+}
+
+public class OutboxItem
+{
+    public string Id { get; set; } = null!;
+    public string Type { get; set; } = null!;
+    public string Actor { get; set; } = null!;
+    public Instant Published { get; set; }
+    public Guid PostId { get; set; }
+    public bool IsBoost { get; set; }
+    public Guid? BoostId { get; set; }
+    public Instant? BoostedAt { get; set; }
 }

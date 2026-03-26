@@ -98,11 +98,52 @@ GET /api/fediverse/actors/search
 GET /api/fediverse/actors/search?query=gargr&limit=10
 ```
 
+**Response Example:**
+```json
+[
+  {
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "type": "Person",
+    "username": "Gargr",
+    "fullHandle": "@Gargr@mastodon.social",
+    "displayName": "Gargr",
+    "bio": "Software developer",
+    "avatarUrl": "https://mastodon.social/avatars/Gargr.png",
+    "headerUrl": "https://mastodon.social/headers/Gargr.png",
+    "isBot": false,
+    "isLocked": false,
+    "isDiscoverable": true,
+    "instanceDomain": "mastodon.social",
+    "instanceName": "Mastodon",
+    "instanceSoftware": "mastodon",
+    "instance": {
+      "id": "...",
+      "domain": "mastodon.social",
+      "name": "Mastodon",
+      "description": "The original server operated by the Mastodon gGmbH non-profit",
+      "software": "mastodon",
+      "version": "4.2.0",
+      "iconUrl": "https://mastodon.social/icons/icon.png",
+      "thumbnailUrl": "https://mastodon.social/headers/thumbnail.png",
+      "contactEmail": "staff@mastodon.social",
+      "activeUsers": 1000000,
+      "isBlocked": false,
+      "isSilenced": false
+    },
+    "followersCount": 150,
+    "followingCount": 89,
+    "lastActivityAt": "2026-03-27T10:30:00Z",
+    "lastFetchedAt": "2026-03-27T12:00:00Z",
+    "webUrl": "https://mastodon.social/@Gargr"
+  }
+]
+```
+
 ---
 
 ### Get Actor's Posts
 
-Get public posts from a remote actor.
+Get public posts from a remote actor, including both original posts and boosts.
 
 ```
 GET /api/fediverse/actors/{id}/posts
@@ -118,12 +159,58 @@ GET /api/fediverse/actors/{id}/posts
 **Headers:**
 | Name | Description |
 |------|-------------|
-| `X-Total` | Total number of posts |
+| `X-Total` | Total number of posts and boosts |
 
 **Example:**
 ```bash
 GET /api/fediverse/actors/3fa85f64-5717-4562-b3fc-2c963f66afa6/posts?take=20&offset=0
 ```
+
+**Response:** Returns a list of `PostResponse` objects containing both original posts and boosted posts.
+
+**Example Response (original post):**
+```json
+[
+  {
+    "id": "post-uuid",
+    "title": "My Post Title",
+    "content": "Post content here...",
+    "publishedAt": "2026-03-27T10:00:00Z",
+    "visibility": "Public",
+    "actorId": "actor-uuid",
+    "actor": { ... },
+    "boostInfo": null
+  }
+]
+```
+
+**Example Response (boosted post):**
+```json
+[
+  {
+    "id": "original-post-uuid",
+    "title": "Original Post Title",
+    "content": "Original post content...",
+    "publishedAt": "2026-03-27T08:00:00Z",
+    "visibility": "Public",
+    "actorId": "booster-actor-uuid",
+    "actor": { "id": "booster-uuid", ... },
+    "boostInfo": {
+      "boostId": "boost-record-uuid",
+      "boostedAt": "2026-03-27T09:30:00Z",
+      "activityPubUri": "https://mastodon.social/users/booster/statuses/123",
+      "webUrl": "https://mastodon.social/@booster/123",
+      "originalPost": { ... },
+      "originalActor": { "id": "original-author-uuid", ... }
+    }
+  }
+]
+```
+
+**Notes:**
+- Boosted posts are merged with original posts and sorted by `publishedAt` (original post date)
+- For boosted posts, `actorId` is the booster, not the original author
+- `X-Total` header includes both posts and boosts
 
 ---
 
@@ -237,12 +324,36 @@ Authorization: Bearer <token>
 | `instanceDomain` | string? | Fediverse server domain |
 | `instanceName` | string? | Human-readable server name |
 | `instanceSoftware` | string? | Server software (mastodon, misskey, etc.) |
+| `instance` | FediverseInstanceResponse? | Full instance information |
 | `followersCount` | int | Number of followers |
 | `followingCount` | int | Number of accounts being followed |
 | `lastActivityAt` | datetime? | When the actor was last active |
 | `lastFetchedAt` | datetime? | When local data was last updated |
 | `webUrl` | string | Direct link to profile |
 | `recentPosts` | Post[]? | Recent posts (when `includeActivity=true`) |
+
+### FediverseInstanceResponse
+
+Full information about a Fediverse instance (server).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | guid? | Instance ID |
+| `domain` | string | Server domain (e.g., `mastodon.social`) |
+| `name` | string? | Human-readable server name |
+| `description` | string? | Server description/about page |
+| `software` | string? | Software name (mastodon, misskey, etc.) |
+| `version` | string? | Software version |
+| `iconUrl` | string? | Server icon/avatar |
+| `thumbnailUrl` | string? | Server banner image |
+| `contactEmail` | string? | Contact email address |
+| `contactAccountUsername` | string? | Contact account username |
+| `activeUsers` | int? | Approximate active user count |
+| `metadata` | object? | Additional instance metadata |
+| `isBlocked` | bool | Whether instance is blocked |
+| `isSilenced` | bool | Whether instance is silenced |
+| `lastFetchedAt` | datetime? | When instance data was last fetched |
+| `lastActivityAt` | datetime? | Last recorded activity |
 
 ### FediverseRelationshipResponse
 
@@ -256,6 +367,37 @@ Authorization: Bearer <token>
 | `isFollowedBy` | bool | This actor follows the current user |
 | `isPending` | bool | Follow request is pending (for locked accounts) |
 
+### PostResponse
+
+Post response model that extends `SnPost` with boost information.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | guid | Post ID (original post ID for boosted posts) |
+| `title` | string? | Post title |
+| `content` | string? | Post content |
+| `publishedAt` | datetime? | Original post publish date (not boost date) |
+| `visibility` | enum | Post visibility (Public, Followers, Direct) |
+| `actorId` | guid | Actor who posted OR boosted (booster for boosts) |
+| `actor` | FediverseActorResponse? | The actor object |
+| `publisherId` | guid? | Publisher ID |
+| `tags` | PostTag[]? | Post tags |
+| `attachments` | CloudFileReferenceObject[]? | Media attachments |
+| `boostInfo` | BoostInfo? | Non-null if this is a boosted post |
+
+### BoostInfo
+
+Contains information about the boost, including the original post and author.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `boostId` | guid | The boost record ID |
+| `boostedAt` | datetime | When the boost occurred |
+| `activityPubUri` | string? | ActivityPub URI of the boost activity |
+| `webUrl` | string? | Web URL to the boost |
+| `originalPost` | SnPost | The original post that was boosted |
+| `originalActor` | FediverseActorResponse? | The original post's author |
+
 ---
 
 ## Notes
@@ -265,3 +407,5 @@ Authorization: Bearer <token>
 - Actor data is fetched from remote servers and cached locally
 - Public endpoints return cached data when available
 - Authenticated endpoints (relationship) show personalized data
+- The `instance` field includes full instance data (description, version, icon, etc.) when available
+- Flat instance fields (`instanceDomain`, `instanceName`, `instanceSoftware`) are provided for convenience
