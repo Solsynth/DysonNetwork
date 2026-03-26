@@ -130,9 +130,11 @@ public class TimelineService(
 
         var userRealms = await GetCachedUserRealms(accountId);
 
+        var boostedPostIds = await GetBoostedPostIdsForTimelineAsync(accountId, userPublishers, effectiveCursor);
+
         logger.LogInformation(
-            "ListEvents: account={AccountId}, mode={Mode}, filter={Filter}, cursor={Cursor}, effectiveCursor={EffectiveCursor}, userRealms={RealmCount}",
-            accountId, mode, filter, cursor, effectiveCursor, userRealms.Count
+            "ListEvents: account={AccountId}, mode={Mode}, filter={Filter}, cursor={Cursor}, effectiveCursor={EffectiveCursor}, userRealms={RealmCount}, boostedPosts={BoostedCount}",
+            accountId, mode, filter, cursor, effectiveCursor, userRealms.Count, boostedPostIds.Count
         );
 
         var postsQuery = BuildPostsQuery(effectiveCursor, filteredPublishersId, userRealms);
@@ -151,6 +153,26 @@ public class TimelineService(
         var posts = await GetAndProcessPosts(postsQuery, currentUser, trackViews: false);
 
         logger.LogInformation("ListEvents: fetched {PostCount} posts before ranking", posts.Count);
+
+        var existingPostIds = posts.Select(p => p.Id).ToHashSet();
+        var newBoostedPostIds = boostedPostIds.Where(id => !existingPostIds.Contains(id)).ToList();
+
+        if (newBoostedPostIds.Count > 0)
+        {
+            var boostedPostsQuery = db.Posts
+                .Include(p => p.RepliedPost)
+                .Include(p => p.ForwardedPost)
+                .Include(p => p.Categories)
+                .Include(p => p.Tags)
+                .Include(p => p.FeaturedRecords)
+                .Where(p => newBoostedPostIds.Contains(p.Id))
+                .Where(p => p.DraftedAt == null)
+                .Where(p => cursor == null || p.PublishedAt < cursor);
+
+            var boostedPosts = await GetAndProcessPosts(boostedPostsQuery, currentUser, trackViews: false);
+            posts.AddRange(boostedPosts);
+            logger.LogInformation("ListEvents: added {BoostedCount} boosted posts to timeline", boostedPosts.Count);
+        }
 
         await LoadPostsRealmsAsync(posts, rs);
 
@@ -190,6 +212,39 @@ public class TimelineService(
             activities.Add(SnTimelineEvent.Empty());
 
         return BuildTimelinePage(activities, posts, mode);
+    }
+
+    private async Task<List<Guid>> GetBoostedPostIdsForTimelineAsync(
+        Guid accountId,
+        List<SnPublisher> userPublishers,
+        Instant? cursor
+    )
+    {
+        var publisherIds = userPublishers.Select(p => p.Id).ToList();
+
+        var localActorIds = await db.FediverseActors
+            .Where(a => a.PublisherId != null && publisherIds.Contains(a.PublisherId.Value))
+            .Select(a => a.Id)
+            .ToListAsync();
+
+        if (localActorIds.Count == 0)
+            return new List<Guid>();
+
+        var followedActorIds = await db.FediverseRelationships
+            .Where(r => localActorIds.Contains(r.ActorId) && r.State == RelationshipState.Accepted)
+            .Select(r => r.TargetActorId)
+            .ToListAsync();
+
+        if (followedActorIds.Count == 0)
+            return new List<Guid>();
+
+        var query = db.Boosts
+            .Where(b => followedActorIds.Contains(b.ActorId))
+            .Where(b => cursor == null || b.BoostedAt < cursor)
+            .OrderByDescending(b => b.BoostedAt)
+            .Select(b => b.PostId);
+
+        return await query.Distinct().ToListAsync();
     }
 
     private async Task UpdateSoftCursorAsync(Guid accountId)
