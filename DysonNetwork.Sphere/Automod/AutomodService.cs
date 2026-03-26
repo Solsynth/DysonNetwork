@@ -120,6 +120,10 @@ public class AutomodService(
             result[post.Id] = (totalPenalty, shouldHide);
         }
 
+        var hiddenCount = result.Count(r => r.Value.ShouldHide);
+        var derankedCount = result.Count(r => r.Value.Penalty > 0 && !r.Value.ShouldHide);
+        Console.WriteLine($"[Automod] GetAutomodPenaltiesAsync: posts={posts.Count}, rules={rules.Count}, hidden={hiddenCount}, deranked={derankedCount}");
+
         return result;
     }
 

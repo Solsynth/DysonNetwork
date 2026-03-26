@@ -314,24 +314,36 @@ public class TimelineService(
                     - shadowbanPenaltyValue
                     - automodPenaltyValue;
 
+                logger.LogTrace(
+                    "Post {PostId}: baseRank={BaseRank}, persoBonus={PersoBonus}, shadowbanPenalty={ShadowbanPenalty}, automodPenalty={AutomodPenalty}, finalRank={FinalRank}, shouldHide={ShouldHide}",
+                    p.Id, CalculateBaseRank(p, now), persoBonus, shadowbanPenaltyValue, automodPenaltyValue, baseRank, shouldHide
+                );
+
                 return new RankedPostCandidate
                 {
                     Post = p,
                     Rank = baseRank,
-                    ShouldHide = shouldHide || shadowbanPenaltyValue > ShadowbanHideThreshold
+                    ShouldHide = shouldHide
                 };
             })
             .Where(x => !x.ShouldHide)
             .OrderByDescending(x => x.Rank)
             .ToList();
 
-        logger.LogDebug("RankPosts: after ranking, candidates={CandidateCount}", rankedCandidates.Count);
+        logger.LogInformation(
+            "RankPosts: mode={Mode}, inputPosts={InputCount}, afterRanking={RankedCount}, afterHiding={HiddenCount}",
+            mode, posts.Count, rankedCandidates.Count, posts.Count - rankedCandidates.Count
+        );
 
         if (mode == SnTimelineMode.Personalized && currentUser is not null && aggressive)
             rankedCandidates = FilterLowRankPersonalizedCandidates(rankedCandidates, take);
 
         var diversified = DiversifyRankedPosts(rankedCandidates, take);
-        logger.LogDebug("RankPosts: after diversification, result={ResultCount}", diversified.Count);
+        logger.LogInformation(
+            "RankPosts: after diversification, result={ResultCount}, top5Ranks=[{Ranks}]",
+            diversified.Count,
+            string.Join(",", diversified.Take(5).Select(p => p.DebugRank.ToString("F2")))
+        );
         return diversified;
     }
 
@@ -534,7 +546,7 @@ public class TimelineService(
             );
         }
 
-        return posts.ToDictionary(
+        var result = posts.ToDictionary(
             p => p.Id,
             p =>
             {
@@ -550,6 +562,14 @@ public class TimelineService(
                 return penalty;
             }
         );
+
+        var shadowbannedCount = result.Count(r => r.Value > 0);
+        logger.LogDebug(
+            "GetShadowbanPenaltyMap: posts={PostCount}, shadowbannedPublishers={ShadowbannedPubCount}, shadowbannedPosts={ShadowbannedPostCount}",
+            posts.Count, publisherShadowbanStatus.Count(r => r.Value.IsShadowbanned), shadowbannedCount
+        );
+
+        return result;
     }
 
     public async Task<SnDiscoveryProfile> GetDiscoveryProfile(DyAccount currentUser)
