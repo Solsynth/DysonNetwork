@@ -147,7 +147,11 @@ public partial class ActivityPubDiscoveryService(
             var webfingerUrl = $"https://{domain}/.well-known/webfinger?resource=acct:{username}@{domain}";
             logger.LogInformation("Querying Webfinger: {Url}", webfingerUrl);
 
-            var response = await HttpClient.GetAsync(webfingerUrl);
+            var webfingerRequest = new HttpRequestMessage(HttpMethod.Get, webfingerUrl);
+            webfingerRequest.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
+            webfingerRequest.Headers.Accept.ParseAdd("application/jrd+json");
+            webfingerRequest.Headers.Accept.ParseAdd("application/json");
+            var response = await HttpClient.SendAsync(webfingerRequest);
             if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("Webfinger request failed: {Url} - {StatusCode}", webfingerUrl, response.StatusCode);
@@ -319,7 +323,11 @@ public partial class ActivityPubDiscoveryService(
         try
         {
             var apiUrl = $"https://{instance.Domain}/api/v2/instance";
-            var response = await HttpClient.GetAsync(apiUrl);
+            var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
+            request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
+            request.Headers.Accept.ParseAdd("application/activity+json");
+            request.Headers.Accept.ParseAdd("application/json");
+            var response = await HttpClient.SendAsync(request);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -396,7 +404,10 @@ public partial class ActivityPubDiscoveryService(
         try
         {
             var apiUrl = $"https://{instance.Domain}/api/meta";
-            var response = await HttpClient.PostAsync(apiUrl, null);
+            var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+            request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
+            request.Headers.Accept.ParseAdd("application/activity+json");
+            var response = await HttpClient.SendAsync(request);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -539,10 +550,21 @@ public partial class ActivityPubDiscoveryService(
             request.Headers.Accept.Add(
                 new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/activity+json")
             );
+            request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
+            request.Headers.Accept.ParseAdd("application/activity+json");
 
             var response = await HttpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
             {
+                if (response.StatusCode == System.Net.HttpStatusCode.Gone)
+                {
+                    logger.LogWarning("Actor has been deleted: {Url} - {StatusCode}, removing from database",
+                        actor.Uri, response.StatusCode);
+                    db.FediverseActors.Remove(actor);
+                    await db.SaveChangesAsync();
+                    return;
+                }
+
                 logger.LogWarning("Failed to fetch actor data: {Url} - {StatusCode}, using Webfinger data only",
                     actor.Uri, response.StatusCode);
                 return;
@@ -638,6 +660,8 @@ public partial class ActivityPubDiscoveryService(
         {
             var request = new HttpRequestMessage(HttpMethod.Get, uri);
             request.Headers.Accept.ParseAdd("application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"");
+            request.Headers.Accept.ParseAdd("application/activity+json");
+            request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
             request.Headers.Accept.ParseAdd("application/activity+json");
 
             var response = await HttpClient.SendAsync(request);
