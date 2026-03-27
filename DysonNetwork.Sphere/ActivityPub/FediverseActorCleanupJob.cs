@@ -5,7 +5,11 @@ using Quartz;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
-public class FediverseActorCleanupJob(AppDatabase db, ILogger<FediverseActorCleanupJob> logger, IClock clock)
+public class FediverseActorCleanupJob(
+    AppDatabase db,
+    ActivityPubDiscoveryService discoveryService,
+    ILogger<FediverseActorCleanupJob> logger,
+    IClock clock)
     : IJob
 {
     public async Task Execute(IJobExecutionContext context)
@@ -16,6 +20,10 @@ public class FediverseActorCleanupJob(AppDatabase db, ILogger<FediverseActorClea
 
         try
         {
+            var (refetchedCount, stillIncompleteCount) = await RefetchIncompleteActorsAsync();
+            logger.LogInformation("Refetched metadata for {RefetchedCount} actors, {StillIncompleteCount} still incomplete",
+                refetchedCount, stillIncompleteCount);
+
             var deletedActorsCount = await DeleteUnusedActorsAsync();
             var deletedInstancesCount = await DeleteOrphanedInstancesAsync();
 
@@ -27,6 +35,49 @@ public class FediverseActorCleanupJob(AppDatabase db, ILogger<FediverseActorClea
         {
             logger.LogError(ex, "Error executing Fediverse actor cleanup job");
         }
+    }
+
+    private bool IsActorIncomplete(SnFediverseActor actor)
+    {
+        return string.IsNullOrWhiteSpace(actor.Bio) || string.IsNullOrWhiteSpace(actor.DisplayName);
+    }
+
+    private async Task<(int refetched, int stillIncomplete)> RefetchIncompleteActorsAsync()
+    {
+        const int batchSize = 100;
+        var totalRefetched = 0;
+        var totalStillIncomplete = 0;
+
+        while (true)
+        {
+            var incompleteActors = await db.FediverseActors
+                .Where(a => a.PublisherId == null)
+                .Where(a => a.Uri != null)
+                .Where(a => string.IsNullOrWhiteSpace(a.Bio) || string.IsNullOrWhiteSpace(a.DisplayName))
+                .OrderBy(a => a.LastFetchedAt ?? a.CreatedAt)
+                .Take(batchSize)
+                .ToListAsync();
+
+            if (incompleteActors.Count == 0)
+                break;
+
+            foreach (var actor in incompleteActors)
+            {
+                logger.LogDebug("Attempting to refetch incomplete actor: {ActorUri}", actor.Uri);
+                await discoveryService.FetchActorDataAsync(actor);
+            }
+
+            await db.SaveChangesAsync();
+
+            var stillIncomplete = incompleteActors.Count(a => IsActorIncomplete(a));
+            totalRefetched += incompleteActors.Count - stillIncomplete;
+            totalStillIncomplete += stillIncomplete;
+
+            logger.LogDebug("Processed batch of {Count} incomplete actors, {StillCount} still incomplete",
+                incompleteActors.Count, stillIncomplete);
+        }
+
+        return (totalRefetched, totalStillIncomplete);
     }
 
     private async Task<int> DeleteUnusedActorsAsync()
