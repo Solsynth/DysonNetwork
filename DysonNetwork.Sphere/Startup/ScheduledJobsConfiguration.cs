@@ -60,6 +60,13 @@ public static class ScheduledJobsConfiguration
                 .WithCronSchedule("0 0 3 * * ?")
             );
 
+            q.AddJob<FediverseActorCleanupJob>(opts => opts.WithIdentity("FediverseActorCleanup"));
+            q.AddTrigger(opts => opts
+                .ForJob("FediverseActorCleanup")
+                .WithIdentity("FediverseActorCleanupTrigger")
+                .WithCronSchedule("0 0 4 * * ?")
+            );
+
             q.AddJob<LiveStreamIngressCleanupJob>(opts => opts.WithIdentity("LiveStreamIngressCleanup"));
             q.AddTrigger(opts => opts
                 .ForJob("LiveStreamIngressCleanup")

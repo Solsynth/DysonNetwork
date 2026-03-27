@@ -96,7 +96,7 @@ public partial class ActivityPubDiscoveryService(
         if (actorUri == null)
             return null;
 
-        return await StoreActorAsync(actorUri, username, domain, avatarUrl);
+        return await GetActorFromWebfingerAsync(actorUri, username, domain, avatarUrl);
     }
 
     public async Task<List<SnFediverseActor>> SearchActorsAsync(
@@ -123,10 +123,56 @@ public partial class ActivityPubDiscoveryService(
         {
             var (actorUri, avatarUrl) = await GetActorUriFromWebfingerAsync(username, domain);
             if (actorUri == null) return localResults;
-            var remoteActor = await StoreActorAsync(actorUri, username, domain, avatarUrl);
+            var remoteActor = await GetActorFromWebfingerAsync(actorUri, username, domain, avatarUrl);
             if (remoteActor == null || localResults.Any(a => a.Uri == actorUri)) return localResults;
             var combined = new List<SnFediverseActor>(localResults) { remoteActor };
             return combined.Take(limit).ToList();
+        }
+    }
+
+    private async Task<SnFediverseActor?> GetActorFromWebfingerAsync(
+        string actorUri,
+        string username,
+        string domain,
+        string? webfingerAvatarUrl
+    )
+    {
+        try
+        {
+            logger.LogInformation("Getting actor from Webfinger (no DB save): {ActorUri}", actorUri);
+
+            var instance = await db.FediverseInstances
+                .FirstOrDefaultAsync(i => i.Domain == domain);
+
+            if (instance == null)
+            {
+                instance = new SnFediverseInstance
+                {
+                    Domain = domain,
+                    Name = domain
+                };
+                db.FediverseInstances.Add(instance);
+                await db.SaveChangesAsync();
+                await FetchInstanceMetadataAsync(instance);
+            }
+
+            var actor = new SnFediverseActor
+            {
+                Uri = actorUri,
+                Username = username,
+                AvatarUrl = webfingerAvatarUrl,
+                InstanceId = instance.Id,
+                LastFetchedAt = NodaTime.SystemClock.Instance.GetCurrentInstant()
+            };
+
+            await FetchActorDataAsync(actor);
+            actor.Instance = instance;
+            return actor;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error getting actor from Webfinger: {Uri}", actorUri);
+            return null;
         }
     }
 
