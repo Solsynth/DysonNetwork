@@ -412,28 +412,27 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
     public class ResetMlsGroupBody
     {
-        [Required][MaxLength(256)] public string GroupId { get; set; } = null!;
         public long NewEpoch { get; set; }
         public long StateVersion { get; set; }
         [MaxLength(512)] public string? Reason { get; set; }
     }
 
-    [HttpPost("mls/groups/reset")]
-    public async Task<ActionResult<SnMlsGroupState>> ResetMlsGroup([FromBody] ResetMlsGroupBody body)
+    [HttpPost("mls/groups/{groupId}/reset")]
+    public async Task<ActionResult<SnMlsGroupState>> ResetMlsGroup(string groupId, [FromBody] ResetMlsGroupBody body)
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        var group = await e2eeModule.GetMlsGroupStateByGroupIdAsync(body.GroupId);
+        var group = await e2eeModule.GetMlsGroupStateByGroupIdAsync(groupId);
         if (group is null) return NotFound();
 
-        await e2eeModule.DeleteMlsGroupAsync(body.GroupId);
+        await e2eeModule.DeleteMlsGroupAsync(groupId);
 
-        await e2eeModule.NotifyGroupResetAsync(body.GroupId, body.Reason);
+        await e2eeModule.NotifyGroupResetAsync(groupId, body.Reason);
 
         var newState = await e2eeModule.CreateMlsGroupAsync(
-            body.GroupId,
+            groupId,
             body.NewEpoch,
             body.StateVersion + 1
         );
