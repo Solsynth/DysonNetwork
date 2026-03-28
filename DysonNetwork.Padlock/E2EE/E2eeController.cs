@@ -112,7 +112,6 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
     public class BootstrapMlsGroupBody
     {
-        [Required][MaxLength(256)] public string GroupId { get; set; } = null!;
         [Required] public long Epoch { get; set; }
         public long StateVersion { get; set; } = 1;
         public Dictionary<string, object>? Meta { get; set; }
@@ -120,7 +119,6 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
     public class CommitMlsGroupBody
     {
-        [Required][MaxLength(256)] public string GroupId { get; set; } = null!;
         [Required] public long Epoch { get; set; }
         [Required][MaxLength(128)] public string Reason { get; set; } = null!;
         public Dictionary<string, object>? Meta { get; set; }
@@ -128,7 +126,6 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
     public class FanoutMlsWelcomeBody
     {
-        [Required][MaxLength(256)] public string GroupId { get; set; } = null!;
         [Required] public Guid RecipientAccountId { get; set; }
         public DateTimeOffset? ExpiresAt { get; set; }
         [Required][MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
@@ -136,7 +133,6 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
     public class MarkMlsReshareRequiredBody
     {
-        [Required][MaxLength(256)] public string GroupId { get; set; } = null!;
         [Required] public Guid TargetAccountId { get; set; }
         [Required][MaxLength(512)] public string TargetDeviceId { get; set; } = null!;
         [Required] public long Epoch { get; set; }
@@ -196,10 +192,9 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        if (groupId != body.GroupId) return BadRequest("Group id mismatch.");
 
         var state = await e2eeModule.BootstrapMlsGroupAsync(currentUser.Id, new BootstrapMlsGroupRequest(
-            body.GroupId, body.Epoch, body.StateVersion, body.Meta
+            groupId, body.Epoch, body.StateVersion, body.Meta
         ));
         return Ok(state);
     }
@@ -209,10 +204,9 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        if (groupId != body.GroupId) return BadRequest("Group id mismatch.");
 
         var state = await e2eeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
-            body.GroupId, body.Epoch, body.Reason, body.Meta
+            groupId, body.Epoch, body.Reason, body.Meta
         ));
         if (state is null) return NotFound();
         return Ok(state);
@@ -225,7 +219,6 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
             return Unauthorized();
-        if (groupId != body.GroupId) return BadRequest("Group id mismatch.");
 
         var senderDeviceId = ResolveDeviceId(currentSession);
         if (string.IsNullOrWhiteSpace(senderDeviceId))
@@ -233,7 +226,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
         var result = await e2eeModule.FanoutMlsWelcomeAsync(currentUser.Id, senderDeviceId,
             new FanoutMlsWelcomeRequest(
-                body.GroupId,
+                groupId,
                 body.RecipientAccountId,
                 body.ExpiresAt,
                 [.. body.Payloads.Select(x => new DeviceCiphertextEnvelope(
@@ -256,10 +249,9 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        if (groupId != body.GroupId) return BadRequest("Group id mismatch.");
 
         var result = await e2eeModule.MarkMlsReshareRequiredAsync(currentUser.Id, new MarkMlsReshareRequiredRequest(
-            body.GroupId, body.TargetAccountId, body.TargetDeviceId, body.Epoch, body.Reason
+            groupId, body.TargetAccountId, body.TargetDeviceId, body.Epoch, body.Reason
         ));
         return Ok(result);
     }
@@ -299,7 +291,6 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
     public class FanoutMlsCommitBody
     {
-        [Required][MaxLength(256)] public string GroupId { get; set; } = null!;
         [Required] public long Epoch { get; set; }
         [Required][MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
     }
@@ -314,7 +305,6 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
             return Unauthorized();
-        if (groupId != body.GroupId) return BadRequest("Group id mismatch.");
 
         var senderDeviceId = ResolveDeviceId(currentSession);
         if (string.IsNullOrWhiteSpace(senderDeviceId))
@@ -335,7 +325,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
             currentUser.Id,
             senderDeviceId,
             new FanoutMlsCommitRequest(
-                body.GroupId,
+                groupId,
                 body.Epoch,
                 [.. body.Payloads.Select(x => new DeviceCiphertextEnvelope(
                     x.RecipientDeviceId,
@@ -349,7 +339,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         );
 
         await e2eeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
-            body.GroupId, body.Epoch, "member_add", null
+            groupId, body.Epoch, "member_add", null
         ));
 
         return Ok(envelopes);
