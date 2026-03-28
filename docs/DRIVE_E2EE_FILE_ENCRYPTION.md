@@ -17,7 +17,7 @@ Drive now treats file encryption as client-side only.
 - Recommended client file payload encryption: `AES-256-GCM` with random 12-byte nonce.
 - Recommended key generation: crypto-random 32-byte key (`crypto.getRandomValues` or equivalent).
 - Key distribution: wrapped key material should be carried in `encryptionHeader` (base64), not via Drive key fields.
-- For shared files, key distribution should use MLS chat control messages (`chat.mls.v1`) rather than Drive upload APIs.
+- For shared files, key distribution should use MLS chat control messages (`chat.mls.v2`) rather than Drive upload APIs.
 - Recommended signature semantics: `encryptionSignature = Ed25519(header_bytes || file_hash)` (client-verifiable).
 
 ## Upload API Changes

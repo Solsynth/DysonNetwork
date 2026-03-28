@@ -38,8 +38,8 @@ public partial class ChatController(
 ) : ControllerBase
 {
     private const string E2EeCapabilityHeader = "X-Client-Ability";
-    private const string MlsCapabilityToken = "chat-mls-v1";
-    private const string MlsEncryptionScheme = "chat.mls.v1";
+    private const string MlsCapabilityToken = "chat-mls.v2";
+    private const string MlsEncryptionScheme = "chat.mls.v2";
 
     private bool HasClientCapability(string token)
     {
@@ -489,7 +489,7 @@ public partial class ChatController(
             if (!request.IsEncrypted || !HasEncryptedPayload(request))
                 return E2EeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
             if (mlsMode && !IsMlsPayloadValid(request))
-                return E2EeError("chat.mls_payload_required", "MLS rooms require scheme chat.mls.v1 and encryption_epoch.");
+                return E2EeError("chat.mls_payload_required", "MLS rooms require scheme chat.mls.v2 and encryption_epoch.");
             if (LooksLikePlaintextJson(request.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (!string.IsNullOrWhiteSpace(request.Content) ||
@@ -802,7 +802,7 @@ public partial class ChatController(
             if (!request.IsEncrypted || !HasEncryptedPayload(request))
                 return E2EeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
             if (mlsMode && !IsMlsPayloadValid(request))
-                return E2EeError("chat.mls_payload_required", "MLS rooms require scheme chat.mls.v1 and encryption_epoch.");
+                return E2EeError("chat.mls_payload_required", "MLS rooms require scheme chat.mls.v2 and encryption_epoch.");
             if (LooksLikePlaintextJson(request.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (!string.IsNullOrWhiteSpace(request.Content) ||
@@ -994,7 +994,7 @@ public partial class ChatController(
             if (mlsMode && request is not null &&
                 (!string.Equals(request.EncryptionScheme, MlsEncryptionScheme, StringComparison.Ordinal) ||
                  !request.EncryptionEpoch.HasValue))
-                return E2EeError("chat.mls_payload_required", "MLS rooms require scheme chat.mls.v1 and encryption_epoch.");
+                return E2EeError("chat.mls_payload_required", "MLS rooms require scheme chat.mls.v2 and encryption_epoch.");
             if (LooksLikePlaintextJson(request?.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
         }

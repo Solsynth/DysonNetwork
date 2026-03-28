@@ -23,7 +23,7 @@ Encrypted chat is now MLS-only.
 
 For MLS room write endpoints (`send`, `update`, `delete`), client must include:
 
-`X-Client-Ability: chat-mls-v1`
+`X-Client-Ability: chat-mls.v2`
 
 Pass MLS control-plane endpoints (`/api/e2ee/mls/*`) also require the same ability token.
 
@@ -32,7 +32,7 @@ Pass MLS control-plane endpoints (`/api/e2ee/mls/*`) also require the same abili
 In MLS rooms, user content writes must include:
 
 - `is_encrypted = true`
-- `encryption_scheme = chat.mls.v1`
+- `encryption_scheme = chat.mls.v2`
 - `encryption_epoch` (required)
 - `ciphertext` (required)
 - `encryption_message_type` mirrors chat `type` semantics (`text`, `messages.update`, `messages.delete`)
@@ -60,11 +60,11 @@ Attachment policy:
 
 Crypto remains client-side. Server contract markers:
 
-- scheme: `chat.mls.v1`
+- scheme: `chat.mls.v2`
 - default ciphersuite policy: `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`
 
 Compatibility note:
-- `pass.e2ee.mls.v1` is no longer accepted in chat write paths.
+- `pass.e2ee.mls.v2` is no longer accepted in chat write paths.
 
 ## Threat Model
 

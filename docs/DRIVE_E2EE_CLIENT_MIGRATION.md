@@ -21,7 +21,7 @@ Any Drive client (web/mobile/desktop) that uploads or downloads E2EE files.
 2. Keep file key only in secure client storage.
 3. Put wrapped key material into `encryptionHeader` (base64).
 4. Upload ciphertext bytes via existing chunk upload flow.
-5. Use MLS chat channel (`chat.mls.v1`) for sharing file keys with other users/devices.
+5. Use MLS chat channel (`chat.mls.v2`) for sharing file keys with other users/devices.
 
 ## Upload request example
 

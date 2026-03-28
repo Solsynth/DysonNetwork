@@ -15,7 +15,7 @@ For chat, MLS endpoints are authoritative:
 All MLS endpoints require:
 
 - header: `X-Client-Ability`
-- token: `chat-mls-v1`
+- token: `chat-mls.v2`
 
 Missing ability is rejected with `409` (`e2ee.mls_ability_required`).
 
@@ -77,7 +77,7 @@ On MLS fanout send, server:
 
 ## Contract Markers
 
-- chat encryption scheme marker: `chat.mls.v1`
+- chat encryption scheme marker: `chat.mls.v2`
 - default ciphersuite policy: `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`
 - scheme identifiers follow `<usecase>.<method>.<version>`
 
