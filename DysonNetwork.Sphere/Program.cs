@@ -45,6 +45,9 @@ using (var scope = app.Services.CreateScope())
     
     // Initialize automod rules from configuration
     await AutomodConfiguration.InitializeAutomodRulesAsync(scope.ServiceProvider, builder.Configuration);
+    
+    // Initialize Fediverse moderation rules from configuration
+    await FediverseModerationConfiguration.InitializeFediverseModerationRulesAsync(scope.ServiceProvider, builder.Configuration);
 }
 
 // Configure application middleware pipeline

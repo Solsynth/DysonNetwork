@@ -41,6 +41,7 @@ public class AppDatabase(
     public DbSet<SnFediverseInstance> FediverseInstances { get; set; } = null!;
     public DbSet<SnFediverseActor> FediverseActors { get; set; } = null!;
     public DbSet<SnFediverseRelationship> FediverseRelationships { get; set; } = null!;
+    public DbSet<SnFediverseModerationRule> FediverseModerationRules { get; set; } = null!;
     public DbSet<SnActivityPubDelivery> ActivityPubDeliveries { get; set; } = null!;
     public DbSet<SnBoost> Boosts { get; set; } = null!;
 

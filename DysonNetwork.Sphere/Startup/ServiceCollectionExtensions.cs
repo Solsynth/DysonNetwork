@@ -227,6 +227,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ActivityPubDiscoveryService>();
             services.AddScoped<ActivityPubObjectFactory>();
             services.AddScoped<FediverseCachingService>();
+            services.AddScoped<FediverseModerationService>();
             services.AddSingleton<ActivityPubQueueService>();
             services.AddScoped<LiveStreamService>();
             services.AddSingleton<LiveKitLivestreamService>();

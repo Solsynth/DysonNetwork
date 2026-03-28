@@ -17,6 +17,7 @@ public class ActivityPubActivityHandler(
     ActivityPubSignatureService signatureService,
     ActivityPubDeliveryService deliveryService,
     ActivityPubDiscoveryService discoveryService,
+    FediverseModerationService moderationService,
     ILogger<ActivityPubActivityHandler> logger,
     IConfiguration configuration
 )
@@ -71,6 +72,23 @@ public class ActivityPubActivityHandler(
 
         if (string.IsNullOrEmpty(actorUri))
             return false;
+
+        var actorDomain = ExtractDomainFromUri(actorUri);
+        var content = ExtractContentFromActivity(activity);
+        var moderationResult = await moderationService.CheckActorAsync(actorUri, content, actorDomain);
+
+        if (moderationResult.IsBlocked)
+        {
+            logger.LogWarning("Blocked incoming {Type} from {ActorUri}. Matched rule: {Rule}",
+                activityType, actorUri, moderationResult.MatchedRuleName);
+            return false;
+        }
+
+        if (moderationResult.IsSilenced)
+        {
+            logger.LogInformation("Silenced incoming {Type} from {ActorUri}. Matched rule: {Rule}",
+                activityType, actorUri, moderationResult.MatchedRuleName);
+        }
 
         logger.LogInformation("Signature verified successfully. Handling {Type} from {ActorUri}",
             activityType, actorUri);
@@ -920,6 +938,27 @@ public class ActivityPubActivityHandler(
     {
         var uriObj = new Uri(uri);
         return uriObj.Host;
+    }
+
+    private string? ExtractContentFromActivity(Dictionary<string, object> activity)
+    {
+        var objectValue = activity.GetValueOrDefault("object");
+        if (objectValue == null)
+            return null;
+
+        if (objectValue is JsonElement element && element.ValueKind == JsonValueKind.Object)
+        {
+            if (element.TryGetProperty("content", out var contentElement))
+            {
+                return contentElement.ValueKind == JsonValueKind.String ? contentElement.GetString() : null;
+            }
+        }
+        else if (objectValue is Dictionary<string, object> dict)
+        {
+            return GetStringValue(dict, "content");
+        }
+
+        return null;
     }
 
     private static string? GetStringValue(Dictionary<string, object> dict, string key)
