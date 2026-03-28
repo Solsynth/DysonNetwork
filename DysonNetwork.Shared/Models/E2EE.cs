@@ -135,7 +135,6 @@ public class SnMlsGroupState : ModelBase
 public class SnMlsDeviceMembership : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid ChatRoomId { get; set; }
     [MaxLength(256)] public string MlsGroupId { get; set; } = string.Empty;
     public Guid AccountId { get; set; }
     [MaxLength(512)] public string DeviceId { get; set; } = string.Empty;

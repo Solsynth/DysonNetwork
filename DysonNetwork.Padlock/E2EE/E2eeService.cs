@@ -530,6 +530,7 @@ public class E2EeService(
             .Select(m => m.AccountId)
             .Distinct()
             .ToListAsync();
+        if (memberships is { Count: 0 }) return;
 
         var userIds = memberships.Select(m => m.ToString()).ToList();
 
