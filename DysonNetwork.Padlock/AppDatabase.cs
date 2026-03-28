@@ -189,13 +189,10 @@ public class AppDatabase(
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnMlsGroupState>()
-            .HasIndex(s => s.ChatRoomId)
-            .IsUnique();
-        modelBuilder.Entity<SnMlsGroupState>()
             .HasIndex(s => new { s.MlsGroupId, s.Epoch });
 
         modelBuilder.Entity<SnMlsDeviceMembership>()
-            .HasIndex(m => new { m.ChatRoomId, m.AccountId, m.DeviceId })
+            .HasIndex(m => new { m.MlsGroupId, m.AccountId, m.DeviceId })
             .IsUnique();
         modelBuilder.Entity<SnMlsDeviceMembership>()
             .HasIndex(m => new { m.MlsGroupId, m.LastSeenEpoch });

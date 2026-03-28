@@ -40,7 +40,6 @@ public interface IE2eeModule
     Task<SnMlsGroupState?> CommitMlsGroupAsync(Guid accountId, CommitMlsGroupRequest request);
     Task<List<SnE2eeEnvelope>> FanoutMlsWelcomeAsync(Guid senderId, string senderDeviceId, FanoutMlsWelcomeRequest request);
     Task<SnMlsDeviceMembership> MarkMlsReshareRequiredAsync(Guid accountId, MarkMlsReshareRequiredRequest request);
-    Task<SnMlsGroupState?> GetMlsGroupStateAsync(Guid chatRoomId);
     Task<SnMlsGroupState?> GetMlsGroupStateByGroupIdAsync(string groupId);
     Task<List<SnE2eeEnvelope>> FanoutMlsCommitAsync(Guid senderId, string senderDeviceId, FanoutMlsCommitRequest request);
     Task<List<MlsDeviceKeyPackageResponse>> GetCapableDevicesAsync(string groupId);

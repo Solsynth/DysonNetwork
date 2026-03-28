@@ -426,12 +426,6 @@ public class E2EeService(
         return membership;
     }
 
-    public async Task<SnMlsGroupState?> GetMlsGroupStateAsync(Guid chatRoomId)
-    {
-        return await db.MlsGroupStates
-            .FirstOrDefaultAsync(s => s.ChatRoomId == chatRoomId);
-    }
-
     public async Task<SnMlsGroupState?> GetMlsGroupStateByGroupIdAsync(string groupId)
     {
         return await db.MlsGroupStates

@@ -383,9 +383,9 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     )
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
-        if (currentUser is null || currentSession is null) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
+            return Unauthorized();
 
         var effectiveDeviceId = string.IsNullOrWhiteSpace(deviceId)
             ? ResolveDeviceId(currentSession)

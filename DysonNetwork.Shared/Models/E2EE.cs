@@ -125,7 +125,6 @@ public class SnMlsKeyPackage : ModelBase
 public class SnMlsGroupState : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid ChatRoomId { get; set; }
     [MaxLength(256)] public string MlsGroupId { get; set; } = string.Empty;
     public long Epoch { get; set; }
     public long StateVersion { get; set; }
