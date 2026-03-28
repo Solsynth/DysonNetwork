@@ -949,7 +949,7 @@ public partial class ChatController(
             message.EncryptionMessageType = NormalizeEncryptionMessageType(request.EncryptionMessageType, "messages.update");
             message.ClientMessageId = request.ClientMessageId;
             message.Content = null;
-            message.Meta ??= new Dictionary<string, object>();
+            message.Meta ??= [];
         }
 
         // Call service method to update the message

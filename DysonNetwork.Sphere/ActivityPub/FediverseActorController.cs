@@ -23,7 +23,7 @@ public class FediverseActorController(
 
     [HttpGet("{username}@{instance}")]
     [AllowAnonymous]
-    public async Task<ActionResult<FediverseActorResponse>> GetActorByHandle(
+    public async Task<ActionResult<SnFediverseActor>> GetActorByHandle(
         string username,
         string instance,
         [FromQuery] bool includeActivity = false
@@ -32,7 +32,7 @@ public class FediverseActorController(
         var cachedActor = await cachingService.GetActorByHandleAsync(username, instance);
         if (cachedActor != null)
         {
-            var response = CachedActorToResponse(cachedActor);
+            var response = CachedActorToEntity(cachedActor);
             if (includeActivity)
             {
                 response.RecentPosts = await GetActorPostsInternalAsync(cachedActor.Id, 5);
@@ -53,7 +53,7 @@ public class FediverseActorController(
                 return NotFound(new { error = "Actor not found" });
         }
 
-        var dto = CachedActorToResponse(dbActor);
+        var dto = CachedActorToEntity(dbActor);
 
         if (includeActivity)
         {
@@ -65,7 +65,7 @@ public class FediverseActorController(
 
     [HttpGet("{id:guid}")]
     [AllowAnonymous]
-    public async Task<ActionResult<FediverseActorResponse>> GetActorById(
+    public async Task<ActionResult<SnFediverseActor>> GetActorById(
         Guid id,
         [FromQuery] bool includeActivity = false
     )
@@ -73,7 +73,7 @@ public class FediverseActorController(
         var cachedActor = await cachingService.GetActorByIdAsync(id);
         if (cachedActor != null)
         {
-            var response = CachedActorToResponse(cachedActor);
+            var response = CachedActorToEntity(cachedActor);
             if (includeActivity)
             {
                 response.RecentPosts = await GetActorPostsInternalAsync(cachedActor.Id, 5);
@@ -85,7 +85,7 @@ public class FediverseActorController(
         if (actor == null)
             return NotFound(new { error = "Actor not found" });
 
-        var dto = CachedActorToResponse(actor);
+        var dto = CachedActorToEntity(actor);
 
         if (includeActivity)
         {
@@ -97,7 +97,7 @@ public class FediverseActorController(
 
     [HttpGet("search")]
     [AllowAnonymous]
-    public async Task<ActionResult<List<FediverseActorResponse>>> SearchActors(
+    public async Task<ActionResult<List<SnFediverseActor>>> SearchActors(
         [FromQuery] string query,
         [FromQuery] int limit = 20
     )
@@ -110,18 +110,17 @@ public class FediverseActorController(
         var cachedResults = await cachingService.GetSearchResultsAsync(query, limit);
         if (cachedResults != null && cachedResults.Count > 0)
         {
-            return Ok(cachedResults.Select(CachedActorToResponse).ToList());
+            return Ok(cachedResults.Select(CachedActorToEntity).ToList());
         }
 
         var remoteActors = await discoveryService.SearchActorsAsync(query, limit, includeRemoteDiscovery: true);
 
-        var actorDtos = new List<FediverseActorResponse>();
+        var actorList = new List<SnFediverseActor>();
         var cachedActors = new List<CachedActor>();
         
         foreach (var actor in remoteActors)
         {
-            var dto = await ToDtoAsync(actor);
-            actorDtos.Add(dto);
+            actorList.Add(actor);
             
             cachedActors.Add(new CachedActor
             {
@@ -154,8 +153,8 @@ public class FediverseActorController(
                     ActiveUsers = actor.Instance.ActiveUsers,
                     MetadataFetchedAt = actor.Instance.MetadataFetchedAt
                 } : null,
-                FollowersCount = dto.FollowersCount,
-                FollowingCount = dto.FollowingCount,
+                FollowersCount = actor.FollowerRelationships?.Count ?? 0,
+                FollowingCount = actor.FollowingRelationships?.Count ?? 0,
                 LastActivityAt = actor.LastActivityAt,
                 LastFetchedAt = actor.LastFetchedAt
             });
@@ -166,7 +165,7 @@ public class FediverseActorController(
             await cachingService.SetSearchResultsAsync(query, limit, cachedActors);
         }
 
-        return Ok(actorDtos);
+        return Ok(actorList);
     }
 
     [HttpGet("{id:guid}/posts")]
@@ -268,7 +267,7 @@ public class FediverseActorController(
                 ActivityPubUri = b.ActivityPubUri,
                 WebUrl = b.WebUrl,
                 OriginalPost = b.Post,
-                OriginalActor = b.Post.Actor != null ? ToDto(b.Post.Actor) : null
+                OriginalActor = b.Post.Actor
             }
         }).ToList();
 
@@ -529,25 +528,16 @@ public class FediverseActorController(
 
         public PostResponse ToPostResponse(SnFediverseActor actor)
         {
-            var originalActor = new FediverseActorResponse
+            var domain = ExtractDomain(OriginalActorUri ?? ActorUri ?? actor.Uri);
+            var originalActor = new SnFediverseActor
             {
                 Id = Guid.Empty,
                 Username = OriginalActorUsername ?? ActorUsername ?? actor.Username,
-                FullHandle = $"{OriginalActorUsername ?? ActorUsername ?? actor.Username}@{ExtractDomain(OriginalActorUri ?? ActorUri ?? actor.Uri)}",
                 DisplayName = OriginalActorDisplayName ?? ActorDisplayName ?? actor.DisplayName,
                 AvatarUrl = OriginalActorAvatarUrl ?? ActorAvatarUrl ?? actor.AvatarUrl,
-                WebUrl = OriginalActorUri ?? ActorUri ?? actor.Uri ?? ""
+                Uri = OriginalActorUri ?? ActorUri ?? actor.Uri ?? "",
+                Instance = new SnFediverseInstance { Domain = domain ?? "unknown" }
             };
-
-            var boostingActor = IsBoost ? new FediverseActorResponse
-            {
-                Id = actor.Id,
-                Username = actor.Username,
-                FullHandle = $"{actor.Username}@{actor.Instance?.Domain}",
-                DisplayName = actor.DisplayName,
-                AvatarUrl = actor.AvatarUrl,
-                WebUrl = actor.Uri ?? ""
-            } : null;
 
             return new PostResponse
             {
@@ -608,7 +598,7 @@ public class FediverseActorController(
 
     [HttpGet("{id:guid}/followers")]
     [AllowAnonymous]
-    public async Task<ActionResult<List<FediverseActorResponse>>> GetActorFollowers(
+    public async Task<ActionResult<List<SnFediverseActor>>> GetActorFollowers(
         Guid id,
         [FromQuery] int take = 40,
         [FromQuery] int offset = 0
@@ -634,18 +624,12 @@ public class FediverseActorController(
             .Take(take)
             .ToListAsync();
 
-        var dtos = new List<FediverseActorResponse>();
-        foreach (var follower in followers)
-        {
-            dtos.Add(await ToDtoAsync(follower));
-        }
-
-        return Ok(dtos);
+        return Ok(followers);
     }
 
     [HttpGet("{id:guid}/following")]
     [AllowAnonymous]
-    public async Task<ActionResult<List<FediverseActorResponse>>> GetActorFollowing(
+    public async Task<ActionResult<List<SnFediverseActor>>> GetActorFollowing(
         Guid id,
         [FromQuery] int take = 40,
         [FromQuery] int offset = 0
@@ -671,13 +655,7 @@ public class FediverseActorController(
             .Take(take)
             .ToListAsync();
 
-        var dtos = new List<FediverseActorResponse>();
-        foreach (var followed in following)
-        {
-            dtos.Add(await ToDtoAsync(followed));
-        }
-
-        return Ok(dtos);
+        return Ok(following);
     }
 
     [HttpGet("{id:guid}/relationship")]
@@ -763,111 +741,30 @@ public class FediverseActorController(
         return Ok(dto);
     }
 
-    private async Task<FediverseActorResponse> ToDtoAsync(SnFediverseActor actor)
+    private static SnFediverseActor CachedActorToEntity(CachedActor cached)
     {
-        var followersCount = await db.FediverseRelationships
-            .CountAsync(r => r.TargetActorId == actor.Id && r.State == RelationshipState.Accepted);
-
-        var followingCount = await db.FediverseRelationships
-            .CountAsync(r => r.ActorId == actor.Id && r.State == RelationshipState.Accepted);
-
-        var webUrl = actor.Uri;
-        if (string.IsNullOrEmpty(webUrl) && !string.IsNullOrEmpty(actor.Username))
+        var instance = cached.Instance != null ? new SnFediverseInstance
         {
-            var instance = actor.Instance?.Domain ?? Domain;
-            webUrl = $"https://{instance}/@{actor.Username}";
-        }
+            Id = cached.Instance.Id,
+            Domain = cached.Instance.Domain,
+            Name = cached.Instance.Name,
+            Description = cached.Instance.Description,
+            Software = cached.Instance.Software,
+            Version = cached.Instance.Version,
+            IconUrl = cached.Instance.IconUrl,
+            ThumbnailUrl = cached.Instance.ThumbnailUrl,
+            ContactEmail = cached.Instance.ContactEmail,
+            ContactAccountUsername = cached.Instance.ContactAccountUsername,
+            ActiveUsers = cached.Instance.ActiveUsers,
+            MetadataFetchedAt = cached.Instance.MetadataFetchedAt
+        } : null;
 
-        return new FediverseActorResponse
-        {
-            Id = actor.Id,
-            Type = actor.Type,
-            Username = actor.Username,
-            FullHandle = $"{actor.Username}@{actor.Instance?.Domain}",
-            DisplayName = actor.DisplayName,
-            Bio = actor.Bio,
-            AvatarUrl = actor.AvatarUrl,
-            HeaderUrl = actor.HeaderUrl,
-            IsBot = actor.IsBot,
-            IsLocked = actor.IsLocked,
-            IsDiscoverable = actor.IsDiscoverable,
-            InstanceDomain = actor.Instance?.Domain,
-            InstanceName = actor.Instance?.Name,
-            InstanceSoftware = actor.Instance?.Software,
-            Instance = actor.Instance != null ? ToInstanceDto(actor.Instance) : null,
-            FollowersCount = followersCount,
-            FollowingCount = followingCount,
-            LastActivityAt = actor.LastActivityAt,
-            LastFetchedAt = actor.LastFetchedAt,
-            WebUrl = webUrl
-        };
-    }
-
-    private static FediverseActorResponse ToDto(SnFediverseActor actor)
-    {
-        var webUrl = actor.Uri;
-        if (string.IsNullOrEmpty(webUrl) && !string.IsNullOrEmpty(actor.Username))
-        {
-            var instance = actor.Instance?.Domain ?? "localhost";
-            webUrl = $"https://{instance}/@{actor.Username}";
-        }
-
-        return new FediverseActorResponse
-        {
-            Id = actor.Id,
-            Type = actor.Type,
-            Username = actor.Username,
-            FullHandle = $"{actor.Username}@{actor.Instance?.Domain}",
-            DisplayName = actor.DisplayName,
-            Bio = actor.Bio,
-            AvatarUrl = actor.AvatarUrl,
-            HeaderUrl = actor.HeaderUrl,
-            IsBot = actor.IsBot,
-            IsLocked = actor.IsLocked,
-            IsDiscoverable = actor.IsDiscoverable,
-            InstanceDomain = actor.Instance?.Domain,
-            InstanceName = actor.Instance?.Name,
-            InstanceSoftware = actor.Instance?.Software,
-            Instance = actor.Instance != null ? ToInstanceDto(actor.Instance) : null,
-            FollowersCount = 0,
-            FollowingCount = 0,
-            LastActivityAt = actor.LastActivityAt,
-            LastFetchedAt = actor.LastFetchedAt,
-            WebUrl = webUrl
-        };
-    }
-
-    private static FediverseInstanceResponse ToInstanceDto(SnFediverseInstance instance)
-    {
-        return new FediverseInstanceResponse
-        {
-            Id = instance.Id,
-            Domain = instance.Domain,
-            Name = instance.Name,
-            Description = instance.Description,
-            Software = instance.Software,
-            Version = instance.Version,
-            IconUrl = instance.IconUrl,
-            ThumbnailUrl = instance.ThumbnailUrl,
-            ContactEmail = instance.ContactEmail,
-            ContactAccountUsername = instance.ContactAccountUsername,
-            ActiveUsers = instance.ActiveUsers,
-            Metadata = instance.Metadata,
-            IsBlocked = instance.IsBlocked,
-            IsSilenced = instance.IsSilenced,
-            LastFetchedAt = instance.LastFetchedAt,
-            LastActivityAt = instance.LastActivityAt
-        };
-    }
-
-    private static FediverseActorResponse CachedActorToResponse(CachedActor cached)
-    {
-        return new FediverseActorResponse
+        return new SnFediverseActor
         {
             Id = cached.Id,
             Type = cached.Type,
+            Uri = cached.Uri,
             Username = cached.Username,
-            FullHandle = cached.FullHandle,
             DisplayName = cached.DisplayName,
             Bio = cached.Bio,
             AvatarUrl = cached.AvatarUrl,
@@ -875,38 +772,12 @@ public class FediverseActorController(
             IsBot = cached.IsBot,
             IsLocked = cached.IsLocked,
             IsDiscoverable = cached.IsDiscoverable,
-            InstanceDomain = cached.InstanceDomain,
-            InstanceName = cached.InstanceName,
-            InstanceSoftware = cached.InstanceSoftware,
-            Instance = cached.Instance != null ? CachedInstanceToDto(cached.Instance) : null,
+            InstanceId = instance?.Id ?? Guid.Empty,
+            Instance = instance ?? new SnFediverseInstance { Domain = cached.InstanceDomain ?? "localhost" },
             FollowersCount = cached.FollowersCount,
             FollowingCount = cached.FollowingCount,
             LastActivityAt = cached.LastActivityAt,
-            LastFetchedAt = cached.LastFetchedAt,
-            WebUrl = cached.WebUrl
-        };
-    }
-
-    private static FediverseInstanceResponse CachedInstanceToDto(CachedInstance cached)
-    {
-        return new FediverseInstanceResponse
-        {
-            Id = cached.Id,
-            Domain = cached.Domain,
-            Name = cached.Name,
-            Description = cached.Description,
-            Software = cached.Software,
-            Version = cached.Version,
-            IconUrl = cached.IconUrl,
-            ThumbnailUrl = cached.ThumbnailUrl,
-            ContactEmail = cached.ContactEmail,
-            ContactAccountUsername = cached.ContactAccountUsername,
-            ActiveUsers = cached.ActiveUsers,
-            Metadata = null,
-            IsBlocked = false,
-            IsSilenced = false,
-            LastFetchedAt = cached.MetadataFetchedAt,
-            LastActivityAt = null
+            LastFetchedAt = cached.LastFetchedAt
         };
     }
 

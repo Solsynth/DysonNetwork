@@ -41,4 +41,35 @@ public class SnFediverseActor : ModelBase
     public Instant? LastActivityAt { get; set; }
     
     public Guid? PublisherId { get; set; }
+
+    [NotMapped]
+    [JsonPropertyName("fullHandle")]
+    public string FullHandle => $"{Username}@{Instance?.Domain}";
+
+    [NotMapped]
+    [JsonPropertyName("webUrl")]
+    public string WebUrl
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(Uri) && Uri.StartsWith("http"))
+            {
+                return Uri.Replace("/users/", "/@");
+            }
+            var domain = Instance?.Domain ?? "localhost";
+            return $"https://{domain}/@{Username}";
+        }
+    }
+
+    [NotMapped]
+    [JsonPropertyName("followersCount")]
+    public int FollowersCount { get; set; }
+
+    [NotMapped]
+    [JsonPropertyName("followingCount")]
+    public int FollowingCount { get; set; }
+
+    [NotMapped]
+    [JsonPropertyName("recentPosts")]
+    public List<SnPost>? RecentPosts { get; set; }
 }

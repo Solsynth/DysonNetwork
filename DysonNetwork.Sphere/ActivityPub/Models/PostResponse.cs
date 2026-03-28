@@ -10,7 +10,7 @@ public class BoostInfo
     public string? ActivityPubUri { get; set; }
     public string? WebUrl { get; set; }
     public SnPost OriginalPost { get; set; } = null!;
-    public FediverseActorResponse? OriginalActor { get; set; }
+    public SnFediverseActor? OriginalActor { get; set; }
 }
 
 public class PostResponse : SnPost
