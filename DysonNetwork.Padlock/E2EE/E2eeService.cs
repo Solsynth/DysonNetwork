@@ -429,6 +429,53 @@ public class E2EeService(
         return membership;
     }
 
+    public async Task<SnMlsGroupState?> GetMlsGroupStateAsync(Guid chatRoomId)
+    {
+        return await db.MlsGroupStates
+            .FirstOrDefaultAsync(s => s.ChatRoomId == chatRoomId);
+    }
+
+    public async Task<List<SnE2eeEnvelope>> FanoutMlsCommitAsync(
+        Guid senderId,
+        string senderDeviceId,
+        FanoutMlsCommitRequest request
+    )
+    {
+        if (request.Payloads.Count == 0)
+            throw new InvalidOperationException("payloads cannot be empty.");
+
+        var payloads = request.Payloads
+            .Select(p => new DeviceCiphertextEnvelope(
+                p.RecipientDeviceId,
+                p.ClientMessageId,
+                p.Ciphertext,
+                p.Header,
+                p.Signature,
+                p.Meta is null
+                    ? new Dictionary<string, object> { ["mls_group_id"] = request.MlsGroupId }
+                    : new Dictionary<string, object>(p.Meta) { ["mls_group_id"] = request.MlsGroupId }
+            ))
+            .ToList();
+
+        var recipientAccountId = await db.MlsDeviceMemberships
+            .Where(m => m.ChatRoomId == request.ChatRoomId && m.DeviceId == request.Payloads.First().RecipientDeviceId)
+            .Select(m => m.AccountId)
+            .FirstOrDefaultAsync();
+
+        if (recipientAccountId == Guid.Empty)
+            throw new KeyNotFoundException("Recipient account not found in group membership.");
+
+        return await SendFanoutEnvelopesAsync(senderId, senderDeviceId, new SendE2eeFanoutRequest(
+            recipientAccountId,
+            null,
+            SnE2eeEnvelopeType.MlsCommit,
+            request.MlsGroupId,
+            null,
+            IncludeSenderCopy: false,
+            payloads
+        ));
+    }
+
     public async Task<SnE2eeSession> EnsureSessionAsync(Guid accountId, Guid peerId, EnsureE2eeSessionRequest request)
     {
         EnsurePairOrder(accountId, peerId, out var accountAId, out var accountBId);
@@ -586,7 +633,7 @@ public class E2EeService(
             if (senderPayload is not null)
             {
                 var senderCopyMeta = senderPayload.Meta is null
-                    ? new Dictionary<string, object>()
+                    ? []
                     : new Dictionary<string, object>(senderPayload.Meta);
                 senderCopyMeta["sender_copy"] = true;
                 var senderCopy = await CreateEnvelopeForTargetAsync(
@@ -613,8 +660,7 @@ public class E2EeService(
         if (request.SessionId.HasValue)
         {
             var session = await db.E2eeSessions.FirstOrDefaultAsync(s => s.Id == request.SessionId.Value);
-            if (session is not null)
-                session.LastMessageAt = now;
+            session?.LastMessageAt = now;
         }
 
         await db.SaveChangesAsync();

@@ -38,15 +38,6 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         });
     }
 
-    private ActionResult LegacyEndpointRemoved()
-    {
-        return StatusCode(410, new
-        {
-            code = "e2ee.legacy_endpoint_removed",
-            error = "Legacy E2EE endpoint removed. Use /api/e2ee/mls/* endpoints."
-        });
-    }
-
     public class UploadKeyBundleBody
     {
         [Required][MaxLength(32)] public string Algorithm { get; set; } = "x25519";
@@ -173,102 +164,6 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         public Dictionary<string, object>? Meta { get; set; }
     }
 
-    [HttpPost("keys/upload")]
-    public async Task<ActionResult<SnE2eeKeyBundle>> UploadKeyBundle([FromBody] UploadKeyBundleBody body)
-    {
-        return LegacyEndpointRemoved();
-    }
-
-    [HttpPut("devices/me/bundle")]
-    public async Task<ActionResult<SnE2eeKeyBundle>> UploadDeviceBundle([FromBody] UploadDeviceBundleBody body)
-    {
-        return LegacyEndpointRemoved();
-    }
-
-    [HttpGet("keys/me")]
-    public async Task<ActionResult<E2eePublicKeyBundleResponse>> GetMyPublicBundle()
-    {
-        return LegacyEndpointRemoved();
-    }
-
-    [HttpGet("keys/{accountId:guid}/bundle")]
-    public async Task<ActionResult<E2eePublicKeyBundleResponse>> GetPublicBundle(
-        Guid accountId,
-        [FromQuery] bool consumeOneTimePreKey = true
-    )
-    {
-        return LegacyEndpointRemoved();
-    }
-
-    [HttpGet("keys/{accountId:guid}/devices")]
-    public async Task<ActionResult<List<E2eeDevicePublicBundleResponse>>> GetPublicBundlesByDevice(
-        Guid accountId,
-        [FromQuery] bool consumeOneTimePreKey = true
-    )
-    {
-        return LegacyEndpointRemoved();
-    }
-
-    [HttpPost("sessions/{peerId:guid}")]
-    public async Task<ActionResult<SnE2eeSession>> EnsureSession(Guid peerId, [FromBody] EnsureSessionBody body)
-    {
-        return LegacyEndpointRemoved();
-    }
-
-    [HttpPost("messages")]
-    public async Task<ActionResult<SnE2eeEnvelope>> SendEnvelope([FromBody] SendEnvelopeBody body)
-    {
-        return LegacyEndpointRemoved();
-    }
-
-    [HttpPost("messages/fanout")]
-    public async Task<ActionResult<List<SnE2eeEnvelope>>> SendFanout([FromBody] FanoutEnvelopeBody body)
-    {
-        return LegacyEndpointRemoved();
-    }
-
-    [HttpPost("groups/sender-key/distribute")]
-    public async Task<ActionResult<object>> DistributeSenderKey([FromBody] DistributeSenderKeyBody body)
-    {
-        return LegacyEndpointRemoved();
-    }
-
-    [HttpGet("messages/pending")]
-    public async Task<ActionResult<List<SnE2eeEnvelope>>> GetPendingMessages([FromQuery] int take = 100)
-    {
-        return LegacyEndpointRemoved();
-    }
-
-    [HttpGet("envelopes/pending")]
-    public async Task<ActionResult<List<SnE2eeEnvelope>>> GetPendingByDevice(
-        [FromQuery(Name = "device_id")] string? deviceId,
-        [FromQuery] int take = 100
-    )
-    {
-        return LegacyEndpointRemoved();
-    }
-
-    [HttpPost("messages/{envelopeId:guid}/ack")]
-    public async Task<ActionResult<SnE2eeEnvelope>> AckMessage(Guid envelopeId)
-    {
-        return LegacyEndpointRemoved();
-    }
-
-    [HttpPost("envelopes/{envelopeId:guid}/ack")]
-    public async Task<ActionResult<SnE2eeEnvelope>> AckMessageByDevice(
-        Guid envelopeId,
-        [FromQuery(Name = "device_id")] string? deviceId
-    )
-    {
-        return LegacyEndpointRemoved();
-    }
-
-    [HttpPost("devices/{deviceId}/revoke")]
-    public async Task<ActionResult> RevokeDevice(string deviceId)
-    {
-        return LegacyEndpointRemoved();
-    }
-
     [HttpPut("mls/devices/me/key-packages")]
     public async Task<ActionResult<SnMlsKeyPackage>> PublishMlsKeyPackage([FromBody] PublishMlsKeyPackageBody body)
     {
@@ -293,8 +188,8 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     )
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
 
         var result = await e2eeModule.ListMlsDeviceKeyPackagesAsync(accountId, currentUser.Id, consume);
         return Ok(result);
@@ -333,9 +228,9 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     public async Task<ActionResult<List<SnE2eeEnvelope>>> FanoutMlsWelcome(Guid roomId, [FromBody] FanoutMlsWelcomeBody body)
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
-        if (currentUser is null || currentSession is null) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
+            return Unauthorized();
         if (roomId != body.ChatRoomId) return BadRequest("Room id mismatch.");
 
         var senderDeviceId = ResolveDeviceId(currentSession);
@@ -348,14 +243,14 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
                 body.MlsGroupId,
                 body.RecipientAccountId,
                 body.ExpiresAt,
-                body.Payloads.Select(x => new DeviceCiphertextEnvelope(
+                [.. body.Payloads.Select(x => new DeviceCiphertextEnvelope(
                     x.RecipientDeviceId,
                     x.ClientMessageId,
                     x.Ciphertext,
                     x.Header,
                     x.Signature,
                     x.Meta
-                )).ToList()
+                ))]
             ));
         return Ok(result);
     }
@@ -367,8 +262,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     )
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         if (roomId != body.ChatRoomId) return BadRequest("Room id mismatch.");
 
         var result = await e2eeModule.MarkMlsReshareRequiredAsync(currentUser.Id, new MarkMlsReshareRequiredRequest(
@@ -381,9 +275,9 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     public async Task<ActionResult<List<SnE2eeEnvelope>>> SendMlsFanout([FromBody] FanoutEnvelopeBody body)
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
-        if (currentUser is null || currentSession is null) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
+            return Unauthorized();
 
         var senderDeviceId = ResolveDeviceId(currentSession);
         if (string.IsNullOrWhiteSpace(senderDeviceId))
@@ -398,15 +292,78 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
                 body.GroupId,
                 body.ExpiresAt,
                 body.IncludeSenderCopy,
-                body.Payloads.Select(x => new DeviceCiphertextEnvelope(
+                [.. body.Payloads.Select(x => new DeviceCiphertextEnvelope(
                     x.RecipientDeviceId,
                     x.ClientMessageId,
                     x.Ciphertext,
                     x.Header,
                     x.Signature,
                     x.Meta
-                )).ToList()
+                ))]
             ));
+        return Ok(envelopes);
+    }
+
+    public class FanoutMlsCommitBody
+    {
+        [Required] public Guid ChatRoomId { get; set; }
+        [Required][MaxLength(256)] public string MlsGroupId { get; set; } = null!;
+        [Required] public long Epoch { get; set; }
+        [Required][MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
+    }
+
+    [HttpPost("mls/groups/{roomId:guid}/commit/fanout")]
+    public async Task<ActionResult<List<SnE2eeEnvelope>>> FanoutMlsCommit(
+        Guid roomId,
+        [FromBody] FanoutMlsCommitBody body
+    )
+    {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
+            return Unauthorized();
+        if (roomId != body.ChatRoomId) return BadRequest("Room id mismatch.");
+
+        var senderDeviceId = ResolveDeviceId(currentSession);
+        if (string.IsNullOrWhiteSpace(senderDeviceId))
+            return BadRequest("Current session device id is missing.");
+
+        // 验证 epoch 递增
+        var currentState = await e2eeModule.GetMlsGroupStateAsync(roomId);
+        if (currentState != null && body.Epoch != currentState.Epoch + 1)
+        {
+            return Conflict(new
+            {
+                code = "e2ee.mls_epoch_mismatch",
+                currentEpoch = currentState.Epoch,
+                requestedEpoch = body.Epoch
+            });
+        }
+
+        // 分发 Commit 信封给现有成员
+        var envelopes = await e2eeModule.FanoutMlsCommitAsync(
+            currentUser.Id,
+            senderDeviceId,
+            new FanoutMlsCommitRequest(
+                body.ChatRoomId,
+                body.MlsGroupId,
+                body.Epoch,
+                [.. body.Payloads.Select(x => new DeviceCiphertextEnvelope(
+                    x.RecipientDeviceId,
+                    x.ClientMessageId,
+                    x.Ciphertext,
+                    x.Header,
+                    x.Signature,
+                    x.Meta
+                ))]
+            )
+        );
+
+        // Update server epoch
+        await e2eeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
+            body.ChatRoomId, body.MlsGroupId, body.Epoch, "member_add", null
+        ));
+
         return Ok(envelopes);
     }
 
