@@ -23,7 +23,7 @@ Encrypted chat is now MLS-only.
 
 For MLS room write endpoints (`send`, `update`, `delete`), client must include:
 
-`X-Client-Ability: chat-mls.v2`
+`X-Client-Ability: chat.mls.v2`
 
 Pass MLS control-plane endpoints (`/api/e2ee/mls/*`) also require the same ability token.
 

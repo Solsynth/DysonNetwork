@@ -38,7 +38,7 @@ public partial class ChatController(
 ) : ControllerBase
 {
     private const string E2EeCapabilityHeader = "X-Client-Ability";
-    private const string MlsCapabilityToken = "chat-mls.v2";
+    private const string MlsCapabilityToken = "chat.mls.v2";
     private const string MlsEncryptionScheme = "chat.mls.v2";
 
     private bool HasClientCapability(string token)

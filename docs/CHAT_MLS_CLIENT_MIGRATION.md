@@ -8,7 +8,7 @@ For all chat clients (web/mobile/desktop) that send or process encrypted message
 
 1. Encrypted chat is MLS-only.
 2. Chat write payload scheme must be `chat.mls.v2` (legacy `pass.e2ee.mls.v2` is not accepted).
-3. MLS write endpoints require `X-Client-Ability: chat-mls.v2`.
+3. MLS write endpoints require `X-Client-Ability: chat.mls.v2`.
 4. Legacy chat E2EE enable endpoint is removed; use `POST /api/chat/{id}/mls/enable`.
 5. Legacy encrypted modes (`E2eeDm`, `E2eeSenderKeyGroup`) are retired for new writes.
 
@@ -16,7 +16,7 @@ For all chat clients (web/mobile/desktop) that send or process encrypted message
 
 1. Store MLS identity/state per device.
 2. Publish MLS key packages through Pass MLS APIs.
-3. Include `X-Client-Ability: chat-mls.v2` on:
+3. Include `X-Client-Ability: chat.mls.v2` on:
    - chat write APIs (`send`, `update`, `delete`)
    - Pass MLS APIs (`/api/e2ee/mls/*`)
 4. For MLS room user-content writes:

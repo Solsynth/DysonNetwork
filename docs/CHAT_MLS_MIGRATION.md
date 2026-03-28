@@ -19,7 +19,7 @@ Messager migration performs:
 2. Deploy Messager hard-cut build.
 3. Run DB migrations.
 4. Verify rooms previously in mode 1/2 are now mode 3.
-5. Verify write requests require `X-Client-Ability: chat-mls.v2` in MLS rooms.
+5. Verify write requests require `X-Client-Ability: chat.mls.v2` in MLS rooms.
 
 ## Validation Checklist
 

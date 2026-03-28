@@ -12,7 +12,7 @@ namespace DysonNetwork.Padlock.E2EE;
 public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 {
     private const string AbilityHeader = "X-Client-Ability";
-    private const string MlsAbilityToken = "chat-mls.v2";
+    private const string MlsAbilityToken = "chat.mls.v2";
     private static string? ResolveDeviceId(SnAuthSession session) => session.Client?.DeviceId;
     private bool HasAbility(string token)
     {

@@ -15,7 +15,7 @@ For chat, MLS endpoints are authoritative:
 All MLS endpoints require:
 
 - header: `X-Client-Ability`
-- token: `chat-mls.v2`
+- token: `chat.mls.v2`
 
 Missing ability is rejected with `409` (`e2ee.mls_ability_required`).
 
