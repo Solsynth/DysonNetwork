@@ -30,17 +30,13 @@ public class FriendsController(
 
         var friendIds = await rels.ListAccountFriends(currentUser);
 
-        // Fetch data in parallel using batch methods for better performance
-        var accountsTask = accountGrpc.GetAccountBatchAsync(new DyGetAccountBatchRequest
+        var accounts = await accountGrpc.GetAccountBatchAsync(new DyGetAccountBatchRequest
         {
             Id = { friendIds.Select(x => x.ToString()) }
         }).ResponseAsync;
 
-        var statusesTask = events.GetStatuses(friendIds);
-        var activitiesTask = events.GetActiveActivitiesBatch(friendIds);
-
-        // Wait for all data to be fetched
-        await Task.WhenAll(accountsTask, statusesTask, activitiesTask);
+        var statuses = await events.GetStatuses(friendIds);
+        var activities = await events.GetActiveActivitiesBatch(friendIds);
 
         var profilesTask = db.AccountProfiles
             .Where(p => friendIds.Contains(p.AccountId))
@@ -48,7 +44,7 @@ public class FriendsController(
         await profilesTask;
         var profiles = profilesTask.Result;
 
-        var accounts = accountsTask.Result.Accounts
+        var accountsList = accounts.Accounts
             .Select(SnAccount.FromProtoValue)
             .Select(a =>
             {
@@ -57,10 +53,8 @@ public class FriendsController(
                 return a;
             })
             .ToList();
-        var statuses = statusesTask.Result;
-        var activities = activitiesTask.Result;
 
-        var result = (from account in accounts
+        var result = (from account in accountsList
             let status = statuses.GetValueOrDefault(account.Id)
             where includeOffline || status is { IsOnline: true }
             let accountActivities = activities.GetValueOrDefault(account.Id, new List<SnPresenceActivity>())

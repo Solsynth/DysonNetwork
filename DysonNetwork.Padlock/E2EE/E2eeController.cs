@@ -49,7 +49,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
     public class UploadKeyBundleBody
     {
-        [Required] [MaxLength(32)] public string Algorithm { get; set; } = "x25519";
+        [Required][MaxLength(32)] public string Algorithm { get; set; } = "x25519";
         [Required] public byte[] IdentityKey { get; set; } = [];
         public int? SignedPreKeyId { get; set; }
         [Required] public byte[] SignedPreKey { get; set; } = [];
@@ -98,12 +98,12 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         [MaxLength(256)] public string? GroupId { get; set; }
         public DateTimeOffset? ExpiresAt { get; set; }
         public bool IncludeSenderCopy { get; set; }
-        [Required] [MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
+        [Required][MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
     }
 
     public class FanoutEnvelopeItemBody
     {
-        [Required] [MaxLength(512)] public string RecipientDeviceId { get; set; } = null!;
+        [Required][MaxLength(512)] public string RecipientDeviceId { get; set; } = null!;
         [MaxLength(128)] public string? ClientMessageId { get; set; }
         [Required] public byte[] Ciphertext { get; set; } = [];
         public byte[]? Header { get; set; }
@@ -122,7 +122,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     public class BootstrapMlsGroupBody
     {
         [Required] public Guid ChatRoomId { get; set; }
-        [Required] [MaxLength(256)] public string MlsGroupId { get; set; } = null!;
+        [Required][MaxLength(256)] public string MlsGroupId { get; set; } = null!;
         [Required] public long Epoch { get; set; }
         public long StateVersion { get; set; } = 1;
         public Dictionary<string, object>? Meta { get; set; }
@@ -131,35 +131,35 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     public class CommitMlsGroupBody
     {
         [Required] public Guid ChatRoomId { get; set; }
-        [Required] [MaxLength(256)] public string MlsGroupId { get; set; } = null!;
+        [Required][MaxLength(256)] public string MlsGroupId { get; set; } = null!;
         [Required] public long Epoch { get; set; }
-        [Required] [MaxLength(128)] public string Reason { get; set; } = null!;
+        [Required][MaxLength(128)] public string Reason { get; set; } = null!;
         public Dictionary<string, object>? Meta { get; set; }
     }
 
     public class FanoutMlsWelcomeBody
     {
         [Required] public Guid ChatRoomId { get; set; }
-        [Required] [MaxLength(256)] public string MlsGroupId { get; set; } = null!;
+        [Required][MaxLength(256)] public string MlsGroupId { get; set; } = null!;
         [Required] public Guid RecipientAccountId { get; set; }
         public DateTimeOffset? ExpiresAt { get; set; }
-        [Required] [MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
+        [Required][MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
     }
 
     public class MarkMlsReshareRequiredBody
     {
         [Required] public Guid ChatRoomId { get; set; }
-        [Required] [MaxLength(256)] public string MlsGroupId { get; set; } = null!;
+        [Required][MaxLength(256)] public string MlsGroupId { get; set; } = null!;
         [Required] public Guid TargetAccountId { get; set; }
-        [Required] [MaxLength(512)] public string TargetDeviceId { get; set; } = null!;
+        [Required][MaxLength(512)] public string TargetDeviceId { get; set; } = null!;
         [Required] public long Epoch { get; set; }
-        [Required] [MaxLength(128)] public string Reason { get; set; } = null!;
+        [Required][MaxLength(128)] public string Reason { get; set; } = null!;
     }
 
     public class DistributeSenderKeyBody
     {
-        [Required] [MaxLength(256)] public string GroupId { get; set; } = null!;
-        [Required] [MinLength(1)] public List<SenderKeyEnvelopeBody> Items { get; set; } = [];
+        [Required][MaxLength(256)] public string GroupId { get; set; } = null!;
+        [Required][MinLength(1)] public List<SenderKeyEnvelopeBody> Items { get; set; } = [];
         public DateTimeOffset? ExpiresAt { get; set; }
     }
 
@@ -273,9 +273,9 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     public async Task<ActionResult<SnMlsKeyPackage>> PublishMlsKeyPackage([FromBody] PublishMlsKeyPackageBody body)
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
-        if (currentUser is null || currentSession is null) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
+            return Unauthorized();
 
         var deviceId = ResolveDeviceId(currentSession);
         if (string.IsNullOrWhiteSpace(deviceId))
