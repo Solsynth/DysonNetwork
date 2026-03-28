@@ -112,8 +112,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
     public class BootstrapMlsGroupBody
     {
-        [Required] public Guid ChatRoomId { get; set; }
-        [Required][MaxLength(256)] public string MlsGroupId { get; set; } = null!;
+        [Required][MaxLength(256)] public string GroupId { get; set; } = null!;
         [Required] public long Epoch { get; set; }
         public long StateVersion { get; set; } = 1;
         public Dictionary<string, object>? Meta { get; set; }
@@ -121,8 +120,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
     public class CommitMlsGroupBody
     {
-        [Required] public Guid ChatRoomId { get; set; }
-        [Required][MaxLength(256)] public string MlsGroupId { get; set; } = null!;
+        [Required][MaxLength(256)] public string GroupId { get; set; } = null!;
         [Required] public long Epoch { get; set; }
         [Required][MaxLength(128)] public string Reason { get; set; } = null!;
         public Dictionary<string, object>? Meta { get; set; }
@@ -130,8 +128,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
     public class FanoutMlsWelcomeBody
     {
-        [Required] public Guid ChatRoomId { get; set; }
-        [Required][MaxLength(256)] public string MlsGroupId { get; set; } = null!;
+        [Required][MaxLength(256)] public string GroupId { get; set; } = null!;
         [Required] public Guid RecipientAccountId { get; set; }
         public DateTimeOffset? ExpiresAt { get; set; }
         [Required][MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
@@ -139,8 +136,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
     public class MarkMlsReshareRequiredBody
     {
-        [Required] public Guid ChatRoomId { get; set; }
-        [Required][MaxLength(256)] public string MlsGroupId { get; set; } = null!;
+        [Required][MaxLength(256)] public string GroupId { get; set; } = null!;
         [Required] public Guid TargetAccountId { get; set; }
         [Required][MaxLength(512)] public string TargetDeviceId { get; set; } = null!;
         [Required] public long Epoch { get; set; }
@@ -195,41 +191,41 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         return Ok(result);
     }
 
-    [HttpPost("mls/groups/{roomId:guid}/bootstrap")]
-    public async Task<ActionResult<SnMlsGroupState>> BootstrapMlsGroup(Guid roomId, [FromBody] BootstrapMlsGroupBody body)
+    [HttpPost("mls/groups/{groupId}/bootstrap")]
+    public async Task<ActionResult<SnMlsGroupState>> BootstrapMlsGroup(string groupId, [FromBody] BootstrapMlsGroupBody body)
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        if (roomId != body.ChatRoomId) return BadRequest("Room id mismatch.");
+        if (groupId != body.GroupId) return BadRequest("Group id mismatch.");
 
         var state = await e2eeModule.BootstrapMlsGroupAsync(currentUser.Id, new BootstrapMlsGroupRequest(
-            body.ChatRoomId, body.MlsGroupId, body.Epoch, body.StateVersion, body.Meta
+            body.GroupId, body.Epoch, body.StateVersion, body.Meta
         ));
         return Ok(state);
     }
 
-    [HttpPost("mls/groups/{roomId:guid}/commit")]
-    public async Task<ActionResult<SnMlsGroupState>> CommitMlsGroup(Guid roomId, [FromBody] CommitMlsGroupBody body)
+    [HttpPost("mls/groups/{groupId}/commit")]
+    public async Task<ActionResult<SnMlsGroupState>> CommitMlsGroup(string groupId, [FromBody] CommitMlsGroupBody body)
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        if (roomId != body.ChatRoomId) return BadRequest("Room id mismatch.");
+        if (groupId != body.GroupId) return BadRequest("Group id mismatch.");
 
         var state = await e2eeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
-            body.ChatRoomId, body.MlsGroupId, body.Epoch, body.Reason, body.Meta
+            body.GroupId, body.Epoch, body.Reason, body.Meta
         ));
         if (state is null) return NotFound();
         return Ok(state);
     }
 
-    [HttpPost("mls/groups/{roomId:guid}/welcome/fanout")]
-    public async Task<ActionResult<List<SnE2eeEnvelope>>> FanoutMlsWelcome(Guid roomId, [FromBody] FanoutMlsWelcomeBody body)
+    [HttpPost("mls/groups/{groupId}/welcome/fanout")]
+    public async Task<ActionResult<List<SnE2eeEnvelope>>> FanoutMlsWelcome(string groupId, [FromBody] FanoutMlsWelcomeBody body)
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
             return Unauthorized();
-        if (roomId != body.ChatRoomId) return BadRequest("Room id mismatch.");
+        if (groupId != body.GroupId) return BadRequest("Group id mismatch.");
 
         var senderDeviceId = ResolveDeviceId(currentSession);
         if (string.IsNullOrWhiteSpace(senderDeviceId))
@@ -237,8 +233,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
         var result = await e2eeModule.FanoutMlsWelcomeAsync(currentUser.Id, senderDeviceId,
             new FanoutMlsWelcomeRequest(
-                body.ChatRoomId,
-                body.MlsGroupId,
+                body.GroupId,
                 body.RecipientAccountId,
                 body.ExpiresAt,
                 [.. body.Payloads.Select(x => new DeviceCiphertextEnvelope(
@@ -253,18 +248,18 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         return Ok(result);
     }
 
-    [HttpPost("mls/groups/{roomId:guid}/reshare-required")]
+    [HttpPost("mls/groups/{groupId}/reshare-required")]
     public async Task<ActionResult<SnMlsDeviceMembership>> MarkMlsReshareRequired(
-        Guid roomId,
+        string groupId,
         [FromBody] MarkMlsReshareRequiredBody body
     )
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        if (roomId != body.ChatRoomId) return BadRequest("Room id mismatch.");
+        if (groupId != body.GroupId) return BadRequest("Group id mismatch.");
 
         var result = await e2eeModule.MarkMlsReshareRequiredAsync(currentUser.Id, new MarkMlsReshareRequiredRequest(
-            body.ChatRoomId, body.MlsGroupId, body.TargetAccountId, body.TargetDeviceId, body.Epoch, body.Reason
+            body.GroupId, body.TargetAccountId, body.TargetDeviceId, body.Epoch, body.Reason
         ));
         return Ok(result);
     }
@@ -304,15 +299,14 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
     public class FanoutMlsCommitBody
     {
-        [Required] public Guid ChatRoomId { get; set; }
-        [Required][MaxLength(256)] public string MlsGroupId { get; set; } = null!;
+        [Required][MaxLength(256)] public string GroupId { get; set; } = null!;
         [Required] public long Epoch { get; set; }
         [Required][MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
     }
 
-    [HttpPost("mls/groups/{roomId:guid}/commit/fanout")]
+    [HttpPost("mls/groups/{groupId}/commit/fanout")]
     public async Task<ActionResult<List<SnE2eeEnvelope>>> FanoutMlsCommit(
-        Guid roomId,
+        string groupId,
         [FromBody] FanoutMlsCommitBody body
     )
     {
@@ -320,14 +314,13 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
             return Unauthorized();
-        if (roomId != body.ChatRoomId) return BadRequest("Room id mismatch.");
+        if (groupId != body.GroupId) return BadRequest("Group id mismatch.");
 
         var senderDeviceId = ResolveDeviceId(currentSession);
         if (string.IsNullOrWhiteSpace(senderDeviceId))
             return BadRequest("Current session device id is missing.");
 
-        // 验证 epoch 递增
-        var currentState = await e2eeModule.GetMlsGroupStateAsync(roomId);
+        var currentState = await e2eeModule.GetMlsGroupStateByGroupIdAsync(groupId);
         if (currentState != null && body.Epoch != currentState.Epoch + 1)
         {
             return Conflict(new
@@ -338,13 +331,11 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
             });
         }
 
-        // 分发 Commit 信封给现有成员
         var envelopes = await e2eeModule.FanoutMlsCommitAsync(
             currentUser.Id,
             senderDeviceId,
             new FanoutMlsCommitRequest(
-                body.ChatRoomId,
-                body.MlsGroupId,
+                body.GroupId,
                 body.Epoch,
                 [.. body.Payloads.Select(x => new DeviceCiphertextEnvelope(
                     x.RecipientDeviceId,
@@ -357,9 +348,8 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
             )
         );
 
-        // Update server epoch
         await e2eeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
-            body.ChatRoomId, body.MlsGroupId, body.Epoch, "member_add", null
+            body.GroupId, body.Epoch, "member_add", null
         ));
 
         return Ok(envelopes);

@@ -161,32 +161,28 @@ public record MlsDeviceKeyPackageResponse(
 );
 
 public record BootstrapMlsGroupRequest(
-    Guid ChatRoomId,
-    string MlsGroupId,
+    string GroupId,
     long Epoch,
     long StateVersion,
     Dictionary<string, object>? Meta
 );
 
 public record CommitMlsGroupRequest(
-    Guid ChatRoomId,
-    string MlsGroupId,
+    string GroupId,
     long Epoch,
     string Reason,
     Dictionary<string, object>? Meta
 );
 
 public record FanoutMlsWelcomeRequest(
-    Guid ChatRoomId,
-    string MlsGroupId,
+    string GroupId,
     Guid RecipientAccountId,
     DateTimeOffset? ExpiresAt,
     List<DeviceCiphertextEnvelope> Payloads
 );
 
 public record MarkMlsReshareRequiredRequest(
-    Guid ChatRoomId,
-    string MlsGroupId,
+    string GroupId,
     Guid TargetAccountId,
     string TargetDeviceId,
     long Epoch,
@@ -194,8 +190,7 @@ public record MarkMlsReshareRequiredRequest(
 );
 
 public record FanoutMlsCommitRequest(
-    Guid ChatRoomId,
-    string MlsGroupId,
+    string GroupId,
     long Epoch,
     List<DeviceCiphertextEnvelope> Payloads
 );

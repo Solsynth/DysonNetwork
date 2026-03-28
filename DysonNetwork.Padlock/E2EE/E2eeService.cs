@@ -322,10 +322,9 @@ public class E2EeService(
     public async Task<SnMlsGroupState> BootstrapMlsGroupAsync(Guid accountId, BootstrapMlsGroupRequest request)
     {
         var existing = await db.MlsGroupStates
-            .FirstOrDefaultAsync(s => s.ChatRoomId == request.ChatRoomId);
+            .FirstOrDefaultAsync(s => s.MlsGroupId == request.GroupId);
         if (existing is not null)
         {
-            existing.MlsGroupId = request.MlsGroupId;
             existing.Epoch = request.Epoch;
             existing.StateVersion = request.StateVersion;
             existing.Meta = request.Meta;
@@ -336,8 +335,7 @@ public class E2EeService(
 
         var state = new SnMlsGroupState
         {
-            ChatRoomId = request.ChatRoomId,
-            MlsGroupId = request.MlsGroupId,
+            MlsGroupId = request.GroupId,
             Epoch = request.Epoch,
             StateVersion = request.StateVersion,
             LastCommitAt = SystemClock.Instance.GetCurrentInstant(),
@@ -351,7 +349,7 @@ public class E2EeService(
     public async Task<SnMlsGroupState?> CommitMlsGroupAsync(Guid accountId, CommitMlsGroupRequest request)
     {
         var state = await db.MlsGroupStates
-            .FirstOrDefaultAsync(s => s.ChatRoomId == request.ChatRoomId && s.MlsGroupId == request.MlsGroupId);
+            .FirstOrDefaultAsync(s => s.MlsGroupId == request.GroupId);
         if (state is null)
             return null;
 
@@ -382,8 +380,8 @@ public class E2EeService(
                 p.Header,
                 p.Signature,
                 p.Meta is null
-                    ? new Dictionary<string, object> { ["mls_group_id"] = request.MlsGroupId }
-                    : new Dictionary<string, object>(p.Meta) { ["mls_group_id"] = request.MlsGroupId }
+                    ? new Dictionary<string, object> { ["mls_group_id"] = request.GroupId }
+                    : new Dictionary<string, object>(p.Meta) { ["mls_group_id"] = request.GroupId }
             ))
             .ToList();
 
@@ -391,7 +389,7 @@ public class E2EeService(
             request.RecipientAccountId,
             null,
             SnE2eeEnvelopeType.MlsWelcome,
-            request.MlsGroupId,
+            request.GroupId,
             request.ExpiresAt,
             IncludeSenderCopy: false,
             payloads
@@ -405,15 +403,14 @@ public class E2EeService(
     {
         var membership = await db.MlsDeviceMemberships
             .FirstOrDefaultAsync(m =>
-                m.ChatRoomId == request.ChatRoomId &&
+                m.MlsGroupId == request.GroupId &&
                 m.AccountId == request.TargetAccountId &&
                 m.DeviceId == request.TargetDeviceId);
         if (membership is null)
         {
             membership = new SnMlsDeviceMembership
             {
-                ChatRoomId = request.ChatRoomId,
-                MlsGroupId = request.MlsGroupId,
+                MlsGroupId = request.GroupId,
                 AccountId = request.TargetAccountId,
                 DeviceId = request.TargetDeviceId,
                 JoinedEpoch = request.Epoch,
@@ -422,7 +419,7 @@ public class E2EeService(
             db.MlsDeviceMemberships.Add(membership);
         }
 
-        membership.MlsGroupId = request.MlsGroupId;
+        membership.MlsGroupId = request.GroupId;
         membership.LastReshareRequiredAt = SystemClock.Instance.GetCurrentInstant();
         membership.LastSeenEpoch = request.Epoch;
         await db.SaveChangesAsync();
@@ -458,13 +455,13 @@ public class E2EeService(
                 p.Header,
                 p.Signature,
                 p.Meta is null
-                    ? new Dictionary<string, object> { ["mls_group_id"] = request.MlsGroupId }
-                    : new Dictionary<string, object>(p.Meta) { ["mls_group_id"] = request.MlsGroupId }
+                    ? new Dictionary<string, object> { ["mls_group_id"] = request.GroupId }
+                    : new Dictionary<string, object>(p.Meta) { ["mls_group_id"] = request.GroupId }
             ))
             .ToList();
 
         var recipientAccountId = await db.MlsDeviceMemberships
-            .Where(m => m.ChatRoomId == request.ChatRoomId && m.DeviceId == request.Payloads.First().RecipientDeviceId)
+            .Where(m => m.MlsGroupId == request.GroupId && m.DeviceId == request.Payloads.First().RecipientDeviceId)
             .Select(m => m.AccountId)
             .FirstOrDefaultAsync();
 
@@ -475,7 +472,7 @@ public class E2EeService(
             recipientAccountId,
             null,
             SnE2eeEnvelopeType.MlsCommit,
-            request.MlsGroupId,
+            request.GroupId,
             null,
             IncludeSenderCopy: false,
             payloads
