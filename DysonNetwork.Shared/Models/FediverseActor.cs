@@ -9,45 +9,105 @@ namespace DysonNetwork.Shared.Models;
 [Index(nameof(Uri), IsUnique = true)]
 public class SnFediverseActor : ModelBase
 {
+    [JsonPropertyName("id")]
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    [MaxLength(2048)] public string Type { get; set; } = "Person";
-    [MaxLength(2048)] public string Uri { get; set; } = null!;
-    [MaxLength(256)] public string Username { get; set; } = null!;
-    [MaxLength(2048)] public string? DisplayName { get; set; }
-    [MaxLength(4096)] public string? Bio { get; set; }
-    [MaxLength(2048)] public string? InboxUri { get; set; }
-    [MaxLength(2048)] public string? OutboxUri { get; set; }
-    [MaxLength(2048)] public string? FollowersUri { get; set; }
-    [MaxLength(2048)] public string? FollowingUri { get; set; }
-    [MaxLength(2048)] public string? FeaturedUri { get; set; }
-    [MaxLength(2048)] public string? PublicKeyId { get; set; }
-    [MaxLength(8192)] public string? PublicKey { get; set; }
-    [Column(TypeName = "jsonb")] public Dictionary<string, object>? Metadata { get; set; }
-    [MaxLength(2048)] public string? AvatarUrl { get; set; }
-    [MaxLength(2048)] public string? HeaderUrl { get; set; }
-    
+    [MaxLength(2048)]
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "Person";
+
+    [MaxLength(2048)]
+    [JsonPropertyName("uri")]
+    public string Uri { get; set; } = null!;
+
+    [MaxLength(256)]
+    [JsonPropertyName("username")]
+    public string Username { get; set; } = null!;
+
+    [MaxLength(2048)]
+    [JsonPropertyName("display_name")]
+    public string? DisplayName { get; set; }
+
+    [MaxLength(4096)]
+    [JsonPropertyName("bio")]
+    public string? Bio { get; set; }
+
+    [MaxLength(2048)]
+    [JsonPropertyName("inbox_uri")]
+    public string? InboxUri { get; set; }
+
+    [MaxLength(2048)]
+    [JsonPropertyName("outbox_uri")]
+    public string? OutboxUri { get; set; }
+
+    [MaxLength(2048)]
+    [JsonPropertyName("followers_uri")]
+    public string? FollowersUri { get; set; }
+
+    [MaxLength(2048)]
+    [JsonPropertyName("following_uri")]
+    public string? FollowingUri { get; set; }
+
+    [MaxLength(2048)]
+    [JsonPropertyName("featured_uri")]
+    public string? FeaturedUri { get; set; }
+
+    [MaxLength(2048)]
+    [JsonPropertyName("public_key_id")]
+    public string? PublicKeyId { get; set; }
+
+    [MaxLength(8192)]
+    [JsonPropertyName("public_key")]
+    public string? PublicKey { get; set; }
+
+    [Column(TypeName = "jsonb")]
+    [JsonPropertyName("metadata")]
+    public Dictionary<string, object>? Metadata { get; set; }
+
+    [MaxLength(2048)]
+    [JsonPropertyName("avatar_url")]
+    public string? AvatarUrl { get; set; }
+
+    [MaxLength(2048)]
+    [JsonPropertyName("header_url")]
+    public string? HeaderUrl { get; set; }
+
+    [JsonPropertyName("is_bot")]
     public bool IsBot { get; set; } = false;
+
+    [JsonPropertyName("is_locked")]
     public bool IsLocked { get; set; } = false;
+
+    [JsonPropertyName("is_discoverable")]
     public bool IsDiscoverable { get; set; } = true;
-    
+
+    [JsonPropertyName("instance_id")]
     public Guid InstanceId { get; set; }
+
+    [JsonPropertyName("instance")]
     public SnFediverseInstance Instance { get; set; } = null!;
-    
-    [JsonIgnore] public List<SnFediverseRelationship> FollowingRelationships { get; set; } = [];
-    [JsonIgnore] public List<SnFediverseRelationship> FollowerRelationships { get; set; } = [];
-    
+
+    [JsonIgnore]
+    public List<SnFediverseRelationship> FollowingRelationships { get; set; } = [];
+
+    [JsonIgnore]
+    public List<SnFediverseRelationship> FollowerRelationships { get; set; } = [];
+
+    [JsonPropertyName("last_fetched_at")]
     public Instant? LastFetchedAt { get; set; }
+
+    [JsonPropertyName("last_activity_at")]
     public Instant? LastActivityAt { get; set; }
-    
+
+    [JsonPropertyName("publisher_id")]
     public Guid? PublisherId { get; set; }
 
     [NotMapped]
-    [JsonPropertyName("fullHandle")]
+    [JsonPropertyName("full_handle")]
     public string FullHandle => $"{Username}@{Instance?.Domain}";
 
     [NotMapped]
-    [JsonPropertyName("webUrl")]
+    [JsonPropertyName("web_url")]
     public string WebUrl
     {
         get
@@ -62,14 +122,14 @@ public class SnFediverseActor : ModelBase
     }
 
     [NotMapped]
-    [JsonPropertyName("followersCount")]
+    [JsonPropertyName("followers_count")]
     public int FollowersCount { get; set; }
 
     [NotMapped]
-    [JsonPropertyName("followingCount")]
+    [JsonPropertyName("following_count")]
     public int FollowingCount { get; set; }
 
     [NotMapped]
-    [JsonPropertyName("recentPosts")]
+    [JsonPropertyName("recent_posts")]
     public List<SnPost>? RecentPosts { get; set; }
 }
