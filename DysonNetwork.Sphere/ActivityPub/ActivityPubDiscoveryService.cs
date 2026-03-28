@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -139,7 +140,7 @@ public partial class ActivityPubDiscoveryService(
     {
         try
         {
-            logger.LogInformation("Getting actor from Webfinger (no DB save): {ActorUri}", actorUri);
+            logger.LogInformation("Getting actor from Webfinger: {ActorUri}", actorUri);
 
             var instance = await db.FediverseInstances
                 .FirstOrDefaultAsync(i => i.Domain == domain);
@@ -156,18 +157,58 @@ public partial class ActivityPubDiscoveryService(
                 await FetchInstanceMetadataAsync(instance);
             }
 
+            // Check if we already have this actor in DB
+            var existingActor = await db.FediverseActors
+                .Include(a => a.Instance)
+                .FirstOrDefaultAsync(a => a.Uri == actorUri);
+
+            if (existingActor != null)
+            {
+                // If we have the actor but bio is missing, try to refresh
+                if (string.IsNullOrEmpty(existingActor.Bio) || string.IsNullOrEmpty(existingActor.DisplayName))
+                {
+                    logger.LogDebug("Actor exists but missing bio/displayname, refreshing: {ActorUri}", actorUri);
+                    await FetchActorDataAsync(existingActor);
+                }
+                return existingActor;
+            }
+
+            // Create new actor and fetch full data
             var actor = new SnFediverseActor
             {
                 Uri = actorUri,
                 Username = username,
                 AvatarUrl = webfingerAvatarUrl,
                 InstanceId = instance.Id,
+                Instance = instance,
                 LastFetchedAt = NodaTime.SystemClock.Instance.GetCurrentInstant()
             };
 
-            await FetchActorDataAsync(actor);
-            actor.Instance = instance;
-            return actor;
+            try
+            {
+                db.FediverseActors.Add(actor);
+                await db.SaveChangesAsync();
+                await FetchActorDataAsync(actor);
+                return actor;
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+            {
+                // Race condition - another request created the actor, fetch it instead
+                logger.LogInformation("Actor was created by another request, fetching: {ActorUri}", actorUri);
+                var existing = await db.FediverseActors
+                    .Include(a => a.Instance)
+                    .FirstOrDefaultAsync(a => a.Uri == actorUri);
+                
+                if (existing != null)
+                {
+                    if (string.IsNullOrEmpty(existing.Bio) || string.IsNullOrEmpty(existing.DisplayName))
+                    {
+                        await FetchActorDataAsync(existing);
+                    }
+                    return existing;
+                }
+                throw;
+            }
         }
         catch (Exception ex)
         {
