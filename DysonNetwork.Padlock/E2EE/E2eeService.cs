@@ -680,15 +680,31 @@ public class E2EeService(
         if (activeDevices.Count == 0)
             throw new InvalidOperationException("Recipient has no active E2EE devices.");
 
-        var payloadByDevice = request.Payloads.ToDictionary(p => p.RecipientDeviceId, p => p);
-        var missingDevices = activeDevices.Where(d => !payloadByDevice.ContainsKey(d)).ToList();
-        if (missingDevices.Count > 0)
-            throw new InvalidOperationException($"Missing ciphertext for recipient devices: {string.Join(", ", missingDevices)}");
+        var isMlsType = request.Type is SnE2eeEnvelopeType.MlsWelcome
+            or SnE2eeEnvelopeType.MlsCommit
+            or SnE2eeEnvelopeType.MlsApplication
+            or SnE2eeEnvelopeType.MlsProposal
+            or SnE2eeEnvelopeType.Control;
 
-        var extraDevices = request.Payloads.Select(p => p.RecipientDeviceId).Where(d => !activeDevices.Contains(d)).Distinct()
-            .ToList();
-        if (extraDevices.Count > 0)
-            throw new InvalidOperationException($"Payload includes unknown/revoked devices: {string.Join(", ", extraDevices)}");
+        if (!isMlsType)
+        {
+            var payloadByDevice = request.Payloads.ToDictionary(p => p.RecipientDeviceId, p => p);
+            var missingDevices = activeDevices.Where(d => !payloadByDevice.ContainsKey(d)).ToList();
+            if (missingDevices.Count > 0)
+                throw new InvalidOperationException($"Missing ciphertext for recipient devices: {string.Join(", ", missingDevices)}");
+
+            var extraDevices = request.Payloads.Select(p => p.RecipientDeviceId).Where(d => !activeDevices.Contains(d)).Distinct()
+                .ToList();
+            if (extraDevices.Count > 0)
+                throw new InvalidOperationException($"Payload includes unknown/revoked devices: {string.Join(", ", extraDevices)}");
+        }
+        else
+        {
+            var payloadDeviceIds = request.Payloads.Select(p => p.RecipientDeviceId).ToList();
+            var unknownDevices = payloadDeviceIds.Where(d => !activeDevices.Contains(d)).Distinct().ToList();
+            if (unknownDevices.Count > 0)
+                throw new InvalidOperationException($"Payload includes unknown/revoked devices: {string.Join(", ", unknownDevices)}");
+        }
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var envelopes = new List<SnE2eeEnvelope>();
