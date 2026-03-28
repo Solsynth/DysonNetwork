@@ -41,11 +41,12 @@ public interface IE2eeModule
     Task<List<SnE2eeEnvelope>> FanoutMlsWelcomeAsync(Guid senderId, string senderDeviceId, FanoutMlsWelcomeRequest request);
     Task<SnMlsDeviceMembership> MarkMlsReshareRequiredAsync(Guid accountId, MarkMlsReshareRequiredRequest request);
     Task<SnMlsGroupState?> GetMlsGroupStateAsync(Guid chatRoomId);
+    Task<SnMlsGroupState?> GetMlsGroupStateByGroupIdAsync(string groupId);
     Task<List<SnE2eeEnvelope>> FanoutMlsCommitAsync(Guid senderId, string senderDeviceId, FanoutMlsCommitRequest request);
-    Task<List<MlsDeviceKeyPackageResponse>> GetCapableDevicesAsync(Guid chatRoomId);
-    Task<int> DeleteMlsGroupAsync(Guid chatRoomId);
-    Task NotifyGroupResetAsync(Guid chatRoomId, string? reason);
-    Task<SnMlsGroupState> CreateMlsGroupAsync(Guid chatRoomId, string mlsGroupId, long epoch, long stateVersion);
+    Task<List<MlsDeviceKeyPackageResponse>> GetCapableDevicesAsync(string groupId);
+    Task<int> DeleteMlsGroupAsync(string groupId);
+    Task NotifyGroupResetAsync(string groupId, string? reason);
+    Task<SnMlsGroupState> CreateMlsGroupAsync(string groupId, long epoch, long stateVersion);
 }
 
 public interface IGroupE2eeModule : IE2eeModule

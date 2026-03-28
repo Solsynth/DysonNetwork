@@ -435,6 +435,12 @@ public class E2EeService(
             .FirstOrDefaultAsync(s => s.ChatRoomId == chatRoomId);
     }
 
+    public async Task<SnMlsGroupState?> GetMlsGroupStateByGroupIdAsync(string groupId)
+    {
+        return await db.MlsGroupStates
+            .FirstOrDefaultAsync(s => s.MlsGroupId == groupId);
+    }
+
     public async Task<List<SnE2eeEnvelope>> FanoutMlsCommitAsync(
         Guid senderId,
         string senderDeviceId,
@@ -476,10 +482,10 @@ public class E2EeService(
         ));
     }
 
-    public async Task<List<MlsDeviceKeyPackageResponse>> GetCapableDevicesAsync(Guid chatRoomId)
+    public async Task<List<MlsDeviceKeyPackageResponse>> GetCapableDevicesAsync(string groupId)
     {
         var memberships = await db.MlsDeviceMemberships
-            .Where(m => m.ChatRoomId == chatRoomId)
+            .Where(m => m.MlsGroupId == groupId)
             .ToListAsync();
 
         var responses = new List<MlsDeviceKeyPackageResponse>();
@@ -506,10 +512,10 @@ public class E2EeService(
         return responses;
     }
 
-    public async Task<int> DeleteMlsGroupAsync(Guid chatRoomId)
+    public async Task<int> DeleteMlsGroupAsync(string groupId)
     {
         var states = await db.MlsGroupStates
-            .Where(s => s.ChatRoomId == chatRoomId)
+            .Where(s => s.MlsGroupId == groupId)
             .ToListAsync();
 
         if (states.Count == 0) return 0;
@@ -517,7 +523,7 @@ public class E2EeService(
         db.MlsGroupStates.RemoveRange(states);
 
         var memberships = await db.MlsDeviceMemberships
-            .Where(m => m.ChatRoomId == chatRoomId)
+            .Where(m => m.MlsGroupId == groupId)
             .ToListAsync();
 
         db.MlsDeviceMemberships.RemoveRange(memberships);
@@ -526,10 +532,10 @@ public class E2EeService(
         return states.Count;
     }
 
-    public async Task NotifyGroupResetAsync(Guid chatRoomId, string? reason)
+    public async Task NotifyGroupResetAsync(string groupId, string? reason)
     {
         var memberships = await db.MlsDeviceMemberships
-            .Where(m => m.ChatRoomId == chatRoomId)
+            .Where(m => m.MlsGroupId == groupId)
             .Select(m => m.AccountId)
             .Distinct()
             .ToListAsync();
@@ -539,7 +545,7 @@ public class E2EeService(
         var payload = System.Text.Json.JsonSerializer.Serialize(new
         {
             Type = "mls.group.reset",
-            ChatRoomId = chatRoomId,
+            GroupId = groupId,
             Reason = reason,
             Timestamp = SystemClock.Instance.GetCurrentInstant().ToString()
         });
@@ -548,16 +554,14 @@ public class E2EeService(
     }
 
     public async Task<SnMlsGroupState> CreateMlsGroupAsync(
-        Guid chatRoomId,
-        string mlsGroupId,
+        string groupId,
         long epoch,
         long stateVersion
     )
     {
         var state = new SnMlsGroupState
         {
-            ChatRoomId = chatRoomId,
-            MlsGroupId = mlsGroupId,
+            MlsGroupId = groupId,
             Epoch = epoch,
             StateVersion = stateVersion,
             LastCommitAt = SystemClock.Instance.GetCurrentInstant()

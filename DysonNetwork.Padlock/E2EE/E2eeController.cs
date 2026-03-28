@@ -372,9 +372,8 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     )
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
-        if (currentUser is null || currentSession is null) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         var effectiveDeviceId = string.IsNullOrWhiteSpace(deviceId)
             ? ResolveDeviceId(currentSession)
@@ -423,29 +422,28 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
     public class ResetMlsGroupBody
     {
-        [MaxLength(256)] public string? NewGroupId { get; set; }
+        [Required][MaxLength(256)] public string GroupId { get; set; } = null!;
         public long NewEpoch { get; set; }
         public long StateVersion { get; set; }
         [MaxLength(512)] public string? Reason { get; set; }
     }
 
-    [HttpPost("mls/groups/{roomId:guid}/reset")]
-    public async Task<ActionResult<SnMlsGroupState>> ResetMlsGroup(Guid roomId, [FromBody] ResetMlsGroupBody body)
+    [HttpPost("mls/groups/reset")]
+    public async Task<ActionResult<SnMlsGroupState>> ResetMlsGroup([FromBody] ResetMlsGroupBody body)
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        var group = await e2eeModule.GetMlsGroupStateAsync(roomId);
+        var group = await e2eeModule.GetMlsGroupStateByGroupIdAsync(body.GroupId);
         if (group is null) return NotFound();
 
-        await e2eeModule.DeleteMlsGroupAsync(roomId);
+        await e2eeModule.DeleteMlsGroupAsync(body.GroupId);
 
-        await e2eeModule.NotifyGroupResetAsync(roomId, body.Reason);
+        await e2eeModule.NotifyGroupResetAsync(body.GroupId, body.Reason);
 
         var newState = await e2eeModule.CreateMlsGroupAsync(
-            roomId,
-            body.NewGroupId ?? Guid.NewGuid().ToString(),
+            body.GroupId,
             body.NewEpoch,
             body.StateVersion + 1
         );
