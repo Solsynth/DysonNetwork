@@ -187,23 +187,23 @@ public class FediverseActorController(
         [FromQuery] int offset = 0
     )
     {
-        var actor = await db
-            .FediverseActors.Include(a => a.Instance)
+        var actor = await db.FediverseActors
+            .Include(a => a.Instance)
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (actor == null)
             return NotFound(new { error = "Actor not found" });
 
-        var postsQuery = db
-            .Posts.Include(p => p.Publisher)
+        var postsQuery = db.Posts
+            .Include(p => p.Publisher)
             .Include(p => p.Actor)
             .ThenInclude(a => a.Instance)
             .Where(p => p.ActorId == id || p.Actor.Uri == actor.Uri)
             .Where(p => p.DraftedAt == null)
             .Where(p => p.Visibility == PostVisibility.Public);
 
-        var boostsQuery = db
-            .Boosts.Include(b => b.Post)
+        var boostsQuery = db.Boosts
+            .Include(b => b.Post)
             .ThenInclude(p => p.Actor)
             .ThenInclude(a => a.Instance)
             .Include(b => b.Post)
@@ -212,15 +212,10 @@ public class FediverseActorController(
             .Where(b => b.Post.DraftedAt == null)
             .Where(b => b.Post.Visibility == PostVisibility.Public);
 
-        var postsTask = postsQuery.OrderByDescending(p => p.PublishedAt).ToListAsync();
-        var boostsTask = boostsQuery.OrderByDescending(b => b.Post.PublishedAt).ToListAsync();
-        var remotePostsTask = FetchRemoteOutboxPostsAsync(actor, take * 2);
+        var posts = await postsQuery.OrderByDescending(p => p.PublishedAt).ToListAsync();
+        var boosts = await boostsQuery.OrderByDescending(b => b.Post.PublishedAt).ToListAsync();
+        var remotePosts = await FetchRemoteOutboxPostsAsync(actor, take * 2);
 
-        await Task.WhenAll(postsTask, boostsTask, remotePostsTask);
-
-        var posts = postsTask.Result;
-        var boosts = boostsTask.Result;
-        var remotePosts = remotePostsTask.Result;
         var localUris = new HashSet<string>(
             posts.Where(p => !string.IsNullOrEmpty(p.FediverseUri)).Select(p => p.FediverseUri!)
         );

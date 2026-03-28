@@ -1,6 +1,7 @@
 using System.Text;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.ActivityPub;
@@ -140,7 +141,7 @@ public class ActivityPubSignatureService(
                 db.FediverseInstances.Add(instance);
                 await db.SaveChangesAsync();
             }
-            
+
             actor = new SnFediverseActor
             {
                 Uri = actorUri,
@@ -148,10 +149,25 @@ public class ActivityPubSignatureService(
                 DisplayName = actorUri.Split('/').Last(),
                 InstanceId = instance.Id
             };
-            db.FediverseActors.Add(actor);
-            await db.SaveChangesAsync();
-            
-            await discoveryService.FetchActorDataAsync(actor);
+
+            try
+            {
+                db.FediverseActors.Add(actor);
+                await db.SaveChangesAsync();
+                await discoveryService.FetchActorDataAsync(actor);
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+            {
+                // Race condition - another request created the actor, fetch it instead
+                logger.LogInformation("Actor was created by another request, fetching: {ActorUri}", actorUri);
+                actor = await db.FediverseActors
+                    .FirstOrDefaultAsync(a => a.Uri == actorUri);
+                
+                if (actor != null && string.IsNullOrEmpty(actor.PublicKey))
+                {
+                    await discoveryService.FetchActorDataAsync(actor);
+                }
+            }
         }
         else if (string.IsNullOrEmpty(actor.PublicKey))
         {
