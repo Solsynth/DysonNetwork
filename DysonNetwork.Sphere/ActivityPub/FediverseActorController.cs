@@ -216,14 +216,30 @@ public class FediverseActorController(
         var boosts = await boostsQuery.OrderByDescending(b => b.Post.PublishedAt).ToListAsync();
         var remotePosts = await FetchRemoteOutboxPostsAsync(actor, take * 2);
 
-        var localUris = new HashSet<string>(
-            posts.Where(p => !string.IsNullOrEmpty(p.FediverseUri)).Select(p => p.FediverseUri!)
-        );
-        localUris.UnionWith(
-            boosts
-                .Where(b => !string.IsNullOrEmpty(b.ActivityPubUri))
-                .Select(b => b.ActivityPubUri!)
-        );
+        // Build set of URIs to exclude (both FediverseUri and ActivityPubUri for local posts/boosts)
+        var localUris = new HashSet<string>();
+        
+        // Include all local post URIs (both FediverseUri and direct ID matching)
+        foreach (var p in posts)
+        {
+            if (!string.IsNullOrEmpty(p.FediverseUri))
+                localUris.Add(p.FediverseUri);
+            // Also add by ID for posts that might be referenced differently
+            localUris.Add(p.Id.ToString());
+        }
+        
+        // Include all boost URIs
+        foreach (var b in boosts)
+        {
+            if (!string.IsNullOrEmpty(b.ActivityPubUri))
+                localUris.Add(b.ActivityPubUri);
+            if (!string.IsNullOrEmpty(b.Post.FediverseUri))
+                localUris.Add(b.Post.FediverseUri);
+            localUris.Add(b.PostId.ToString());
+        }
+
+        // Also add remote post URIs we've already seen to prevent duplicates within remote list
+        var seenRemoteUris = new HashSet<string>();
 
         var localPostResponses = posts
             .Select(p => new PostResponse
@@ -283,12 +299,20 @@ public class FediverseActorController(
             })
             .ToList();
 
-        var remotePostResponses = remotePosts
-            .Where(r => !localUris.Contains(r.FediverseUri ?? ""))
-            .Select(r => r.ToPostResponse(actor))
-            .ToList();
+        // Filter remote posts: exclude those already in local DB and deduplicate within remote list
+        var remotePostResponses = new List<PostResponse>();
+        foreach (var r in remotePosts)
+        {
+            var uri = r.FediverseUri ?? r.WebUrl ?? "";
+            if (string.IsNullOrEmpty(uri) || localUris.Contains(uri) || seenRemoteUris.Contains(uri))
+                continue;
+            
+            seenRemoteUris.Add(uri);
+            var postResponse = r.ToPostResponse(actor);
+            remotePostResponses.Add(postResponse);
+        }
 
-        var totalCount = posts.Count + boosts.Count + remotePostResponses.Count;
+        var totalCount = localPostResponses.Count + boostResponses.Count + remotePostResponses.Count;
         Response.Headers["X-Total"] = totalCount.ToString();
 
         var combined = localPostResponses
@@ -585,27 +609,65 @@ public class FediverseActorController(
                 Instance = new SnFediverseInstance { Domain = domain ?? "unknown" },
             };
 
-            return new PostResponse
+            var originalDomain = ExtractDomain(OriginalActorUri ?? ActorUri ?? actor.Uri);
+            var originalInstance = new SnFediverseInstance { Domain = originalDomain ?? "unknown" };
+            originalActor.Instance = originalInstance;
+
+            if (IsBoost)
             {
-                Id = Guid.Empty,
-                Title = Title,
-                Description = Description,
-                Content = Content,
-                PublishedAt = PublishedAt,
-                Visibility = PostVisibility.Public,
-                ActorId = IsBoost ? actor.Id : Guid.Empty,
-                Actor = IsBoost ? actor : null,
-                BoostInfo = IsBoost
-                    ? new BoostInfo
+                // For boosts, return the original post data with boost info
+                return new PostResponse
+                {
+                    Id = Guid.Empty,
+                    FediverseUri = FediverseUri,
+                    Title = Title,
+                    Description = Description,
+                    Content = Content,
+                    ContentType = Content?.Contains("<") == true ? PostContentType.Html : PostContentType.Markdown,
+                    Type = PostType.Moment,
+                    PublishedAt = PublishedAt,
+                    Visibility = PostVisibility.Public,
+                    ActorId = actor.Id,
+                    Actor = actor,
+                    PinMode = null,
+                    BoostInfo = new BoostInfo
                     {
                         BoostId = Guid.Empty,
                         BoostedAt = BoostedAt ?? PublishedAt ?? Instant.MinValue,
                         ActivityPubUri = FediverseUri,
                         WebUrl = WebUrl,
+                        OriginalPost = new SnPost
+                        {
+                            FediverseUri = FediverseUri,
+                            Content = Content,
+                            Title = Title,
+                            Description = Description,
+                            PublishedAt = PublishedAt,
+                        },
                         OriginalActor = originalActor,
-                    }
-                    : null,
-            };
+                    },
+                };
+            }
+            else
+            {
+                // For regular posts, return as the post by the original author
+                return new PostResponse
+                {
+                    Id = Guid.Empty,
+                    FediverseUri = FediverseUri,
+                    Title = Title,
+                    Description = Description,
+                    Content = Content,
+                    ContentType = Content?.Contains("<") == true ? PostContentType.Html : PostContentType.Markdown,
+                    Type = PostType.Moment,
+                    PublishedAt = PublishedAt,
+                    Visibility = PostVisibility.Public,
+                    ActorId = Guid.Empty,
+                    Actor = originalActor,
+                    PinMode = null,
+                    BoostInfo = null,
+                };
+            }
         }
 
         private static string? ExtractDomain(string? uri)

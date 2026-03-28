@@ -174,7 +174,7 @@ public class ActivityPubSignatureService(
             await discoveryService.FetchActorDataAsync(actor);
         }
 
-        if (!string.IsNullOrEmpty(actor.PublicKey)) return actor.PublicKey;
+        if (actor != null && !string.IsNullOrEmpty(actor.PublicKey)) return actor.PublicKey;
         logger.LogWarning("Still no public key after fetch for actor: {ActorUri}", actorUri);
         return null;
 
