@@ -199,8 +199,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     public async Task<ActionResult<SnMlsGroupState>> BootstrapMlsGroup(Guid roomId, [FromBody] BootstrapMlsGroupBody body)
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         if (roomId != body.ChatRoomId) return BadRequest("Room id mismatch.");
 
         var state = await e2eeModule.BootstrapMlsGroupAsync(currentUser.Id, new BootstrapMlsGroupRequest(
@@ -213,8 +212,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     public async Task<ActionResult<SnMlsGroupState>> CommitMlsGroup(Guid roomId, [FromBody] CommitMlsGroupBody body)
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         if (roomId != body.ChatRoomId) return BadRequest("Room id mismatch.");
 
         var state = await e2eeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
@@ -421,5 +419,37 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         var revoked = await e2eeModule.RevokeDeviceAsync(currentUser.Id, deviceId);
         if (!revoked) return NotFound();
         return NoContent();
+    }
+
+    public class ResetMlsGroupBody
+    {
+        [MaxLength(256)] public string? NewGroupId { get; set; }
+        public long NewEpoch { get; set; }
+        public long StateVersion { get; set; }
+        [MaxLength(512)] public string? Reason { get; set; }
+    }
+
+    [HttpPost("mls/groups/{roomId:guid}/reset")]
+    public async Task<ActionResult<SnMlsGroupState>> ResetMlsGroup(Guid roomId, [FromBody] ResetMlsGroupBody body)
+    {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+
+        var group = await e2eeModule.GetMlsGroupStateAsync(roomId);
+        if (group is null) return NotFound();
+
+        await e2eeModule.DeleteMlsGroupAsync(roomId);
+
+        await e2eeModule.NotifyGroupResetAsync(roomId, body.Reason);
+
+        var newState = await e2eeModule.CreateMlsGroupAsync(
+            roomId,
+            body.NewGroupId ?? Guid.NewGuid().ToString(),
+            body.NewEpoch,
+            body.StateVersion + 1
+        );
+
+        return Ok(newState);
     }
 }

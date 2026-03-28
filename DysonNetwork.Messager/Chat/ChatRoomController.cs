@@ -556,9 +556,9 @@ public class ChatRoomController(
 
         chatRoom.EncryptionMode = ChatRoomEncryptionMode.E2eeMls;
         chatRoom.MlsGroupId = string.IsNullOrWhiteSpace(request?.MlsGroupId)
-            ? $"chat:{chatRoom.Id}"
+            ? $"room:{chatRoom.Id}"
             : request!.MlsGroupId;
-        chatRoom.E2eePolicy ??= new Dictionary<string, object>();
+        chatRoom.E2eePolicy ??= [];
         if (!chatRoom.E2eePolicy.ContainsKey("ciphersuite"))
             chatRoom.E2eePolicy["ciphersuite"] = DefaultMlsCiphersuite;
         if (request?.E2eePolicy is not null)
@@ -1421,7 +1421,7 @@ public class ChatRoomController(
     {
         var account = await accounts.GetAccountAsync(new DyGetAccountRequest { Id = member.AccountId.ToString() });
         var locale = account.Language;
-        
+
         var title = localization.Get("chatInviteTitle", locale);
         var body = member.ChatRoom.Type == ChatRoomType.DirectMessage
             ? localization.Get("chatInviteBodyDirectMessage", locale, new { senderNick = sender.Nick })

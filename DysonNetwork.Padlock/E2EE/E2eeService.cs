@@ -476,6 +476,98 @@ public class E2EeService(
         ));
     }
 
+    public async Task<List<MlsDeviceKeyPackageResponse>> GetCapableDevicesAsync(Guid chatRoomId)
+    {
+        var memberships = await db.MlsDeviceMemberships
+            .Where(m => m.ChatRoomId == chatRoomId)
+            .ToListAsync();
+
+        var responses = new List<MlsDeviceKeyPackageResponse>();
+        foreach (var membership in memberships)
+        {
+            var package = await db.MlsKeyPackages
+                .Where(k => k.AccountId == membership.AccountId && k.DeviceId == membership.DeviceId && !k.IsConsumed)
+                .OrderBy(k => k.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (package is not null)
+            {
+                responses.Add(new MlsDeviceKeyPackageResponse(
+                    package.AccountId,
+                    package.DeviceId,
+                    package.DeviceLabel,
+                    package.Ciphersuite,
+                    package.KeyPackage,
+                    package.Meta
+                ));
+            }
+        }
+
+        return responses;
+    }
+
+    public async Task<int> DeleteMlsGroupAsync(Guid chatRoomId)
+    {
+        var states = await db.MlsGroupStates
+            .Where(s => s.ChatRoomId == chatRoomId)
+            .ToListAsync();
+
+        if (states.Count == 0) return 0;
+
+        db.MlsGroupStates.RemoveRange(states);
+
+        var memberships = await db.MlsDeviceMemberships
+            .Where(m => m.ChatRoomId == chatRoomId)
+            .ToListAsync();
+
+        db.MlsDeviceMemberships.RemoveRange(memberships);
+
+        await db.SaveChangesAsync();
+        return states.Count;
+    }
+
+    public async Task NotifyGroupResetAsync(Guid chatRoomId, string? reason)
+    {
+        var memberships = await db.MlsDeviceMemberships
+            .Where(m => m.ChatRoomId == chatRoomId)
+            .Select(m => m.AccountId)
+            .Distinct()
+            .ToListAsync();
+
+        var userIds = memberships.Select(m => m.ToString()).ToList();
+
+        var payload = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            Type = "mls.group.reset",
+            ChatRoomId = chatRoomId,
+            Reason = reason,
+            Timestamp = SystemClock.Instance.GetCurrentInstant().ToString()
+        });
+
+        await ws.PushWebSocketPacketToUsers(userIds, "e2ee.group.reset", System.Text.Encoding.UTF8.GetBytes(payload));
+    }
+
+    public async Task<SnMlsGroupState> CreateMlsGroupAsync(
+        Guid chatRoomId,
+        string mlsGroupId,
+        long epoch,
+        long stateVersion
+    )
+    {
+        var state = new SnMlsGroupState
+        {
+            ChatRoomId = chatRoomId,
+            MlsGroupId = mlsGroupId,
+            Epoch = epoch,
+            StateVersion = stateVersion,
+            LastCommitAt = SystemClock.Instance.GetCurrentInstant()
+        };
+
+        db.MlsGroupStates.Add(state);
+        await db.SaveChangesAsync();
+        return state;
+    }
+
     public async Task<SnE2eeSession> EnsureSessionAsync(Guid accountId, Guid peerId, EnsureE2eeSessionRequest request)
     {
         EnsurePairOrder(accountId, peerId, out var accountAId, out var accountBId);
