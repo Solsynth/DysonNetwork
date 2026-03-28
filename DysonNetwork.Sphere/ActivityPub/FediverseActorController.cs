@@ -43,10 +43,12 @@ public class FediverseActorController(
         var dbActor = await cachingService.GetActorFromDbByHandleAsync(username, instance);
         if (dbActor == null)
         {
-            var discoveredActor = await discoveryService.DiscoverActorAsync($"{username}@{instance}");
+            var discoveredActor = await discoveryService.DiscoverActorAsync(
+                $"{username}@{instance}"
+            );
             if (discoveredActor == null)
                 return NotFound(new { error = "Actor not found" });
-            
+
             await cachingService.SetActorAsync(discoveredActor, instance);
             dbActor = await cachingService.GetActorByHandleAsync(username, instance);
             if (dbActor == null)
@@ -113,51 +115,60 @@ public class FediverseActorController(
             return Ok(cachedResults.Select(CachedActorToEntity).ToList());
         }
 
-        var remoteActors = await discoveryService.SearchActorsAsync(query, limit, includeRemoteDiscovery: true);
+        var remoteActors = await discoveryService.SearchActorsAsync(
+            query,
+            limit,
+            includeRemoteDiscovery: true
+        );
 
         var actorList = new List<SnFediverseActor>();
         var cachedActors = new List<CachedActor>();
-        
+
         foreach (var actor in remoteActors)
         {
             actorList.Add(actor);
-            
-            cachedActors.Add(new CachedActor
-            {
-                Id = actor.Id,
-                Type = actor.Type,
-                Uri = actor.Uri,
-                Username = actor.Username,
-                DisplayName = actor.DisplayName,
-                Bio = actor.Bio,
-                AvatarUrl = actor.AvatarUrl,
-                HeaderUrl = actor.HeaderUrl,
-                IsBot = actor.IsBot,
-                IsLocked = actor.IsLocked,
-                IsDiscoverable = actor.IsDiscoverable,
-                InstanceDomain = actor.Instance?.Domain,
-                InstanceName = actor.Instance?.Name,
-                InstanceSoftware = actor.Instance?.Software,
-                Instance = actor.Instance != null ? new CachedInstance
+
+            cachedActors.Add(
+                new CachedActor
                 {
-                    Id = actor.Instance.Id,
-                    Domain = actor.Instance.Domain,
-                    Name = actor.Instance.Name,
-                    Description = actor.Instance.Description,
-                    Software = actor.Instance.Software,
-                    Version = actor.Instance.Version,
-                    IconUrl = actor.Instance.IconUrl,
-                    ThumbnailUrl = actor.Instance.ThumbnailUrl,
-                    ContactEmail = actor.Instance.ContactEmail,
-                    ContactAccountUsername = actor.Instance.ContactAccountUsername,
-                    ActiveUsers = actor.Instance.ActiveUsers,
-                    MetadataFetchedAt = actor.Instance.MetadataFetchedAt
-                } : null,
-                FollowersCount = actor.FollowerRelationships?.Count ?? 0,
-                FollowingCount = actor.FollowingRelationships?.Count ?? 0,
-                LastActivityAt = actor.LastActivityAt,
-                LastFetchedAt = actor.LastFetchedAt
-            });
+                    Id = actor.Id,
+                    Type = actor.Type,
+                    Uri = actor.Uri,
+                    Username = actor.Username,
+                    DisplayName = actor.DisplayName,
+                    Bio = actor.Bio,
+                    AvatarUrl = actor.AvatarUrl,
+                    HeaderUrl = actor.HeaderUrl,
+                    IsBot = actor.IsBot,
+                    IsLocked = actor.IsLocked,
+                    IsDiscoverable = actor.IsDiscoverable,
+                    InstanceDomain = actor.Instance?.Domain,
+                    InstanceName = actor.Instance?.Name,
+                    InstanceSoftware = actor.Instance?.Software,
+                    Instance =
+                        actor.Instance != null
+                            ? new CachedInstance
+                            {
+                                Id = actor.Instance.Id,
+                                Domain = actor.Instance.Domain,
+                                Name = actor.Instance.Name,
+                                Description = actor.Instance.Description,
+                                Software = actor.Instance.Software,
+                                Version = actor.Instance.Version,
+                                IconUrl = actor.Instance.IconUrl,
+                                ThumbnailUrl = actor.Instance.ThumbnailUrl,
+                                ContactEmail = actor.Instance.ContactEmail,
+                                ContactAccountUsername = actor.Instance.ContactAccountUsername,
+                                ActiveUsers = actor.Instance.ActiveUsers,
+                                MetadataFetchedAt = actor.Instance.MetadataFetchedAt,
+                            }
+                            : null,
+                    FollowersCount = actor.FollowerRelationships?.Count ?? 0,
+                    FollowingCount = actor.FollowingRelationships?.Count ?? 0,
+                    LastActivityAt = actor.LastActivityAt,
+                    LastFetchedAt = actor.LastFetchedAt,
+                }
+            );
         }
 
         if (cachedActors.Count > 0)
@@ -176,27 +187,27 @@ public class FediverseActorController(
         [FromQuery] int offset = 0
     )
     {
-        var actor = await db.FediverseActors
-            .Include(a => a.Instance)
+        var actor = await db
+            .FediverseActors.Include(a => a.Instance)
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (actor == null)
             return NotFound(new { error = "Actor not found" });
 
-        var postsQuery = db.Posts
-            .Include(p => p.Publisher)
+        var postsQuery = db
+            .Posts.Include(p => p.Publisher)
             .Include(p => p.Actor)
-                .ThenInclude(a => a.Instance)
+            .ThenInclude(a => a.Instance)
             .Where(p => p.ActorId == id || p.Actor.Uri == actor.Uri)
             .Where(p => p.DraftedAt == null)
             .Where(p => p.Visibility == PostVisibility.Public);
 
-        var boostsQuery = db.Boosts
+        var boostsQuery = db
+            .Boosts.Include(b => b.Post)
+            .ThenInclude(p => p.Actor)
+            .ThenInclude(a => a.Instance)
             .Include(b => b.Post)
-                .ThenInclude(p => p.Actor)
-                    .ThenInclude(a => a.Instance)
-            .Include(b => b.Post)
-                .ThenInclude(p => p.Publisher)
+            .ThenInclude(p => p.Publisher)
             .Where(b => b.ActorId == id)
             .Where(b => b.Post.DraftedAt == null)
             .Where(b => b.Post.Visibility == PostVisibility.Public);
@@ -210,66 +221,72 @@ public class FediverseActorController(
         var posts = postsTask.Result;
         var boosts = boostsTask.Result;
         var remotePosts = remotePostsTask.Result;
-        var localUris = new HashSet<string>(posts
-            .Where(p => !string.IsNullOrEmpty(p.FediverseUri))
-            .Select(p => p.FediverseUri!));
-        localUris.UnionWith(boosts
-            .Where(b => !string.IsNullOrEmpty(b.ActivityPubUri))
-            .Select(b => b.ActivityPubUri!));
+        var localUris = new HashSet<string>(
+            posts.Where(p => !string.IsNullOrEmpty(p.FediverseUri)).Select(p => p.FediverseUri!)
+        );
+        localUris.UnionWith(
+            boosts
+                .Where(b => !string.IsNullOrEmpty(b.ActivityPubUri))
+                .Select(b => b.ActivityPubUri!)
+        );
 
-        var localPostResponses = posts.Select(p => new PostResponse
-        {
-            Id = p.Id,
-            Title = p.Title,
-            Description = p.Description,
-            Slug = p.Slug,
-            EditedAt = p.EditedAt,
-            DraftedAt = p.DraftedAt,
-            PublishedAt = p.PublishedAt,
-            Visibility = p.Visibility,
-            Content = p.Content,
-            ContentType = p.ContentType,
-            Type = p.Type,
-            PinMode = p.PinMode,
-            ActorId = p.ActorId,
-            Actor = p.Actor,
-            PublisherId = p.PublisherId,
-            Publisher = p.Publisher,
-            Tags = p.Tags,
-            Attachments = p.Attachments,
-            BoostInfo = null
-        }).ToList();
-
-        var boostResponses = boosts.Select(b => new PostResponse
-        {
-            Id = b.PostId,
-            Title = b.Post.Title,
-            Description = b.Post.Description,
-            Slug = b.Post.Slug,
-            EditedAt = b.Post.EditedAt,
-            DraftedAt = b.Post.DraftedAt,
-            PublishedAt = b.Post.PublishedAt,
-            Visibility = b.Post.Visibility,
-            Content = b.Post.Content,
-            ContentType = b.Post.ContentType,
-            Type = b.Post.Type,
-            PinMode = b.Post.PinMode,
-            ActorId = b.ActorId,
-            Actor = b.Actor,
-            PublisherId = b.Post.PublisherId,
-            Publisher = b.Post.Publisher,
-            Tags = b.Post.Tags,
-            Attachments = b.Post.Attachments,
-            BoostInfo = new BoostInfo
+        var localPostResponses = posts
+            .Select(p => new PostResponse
             {
-                BoostId = b.Id,
-                BoostedAt = b.BoostedAt,
-                ActivityPubUri = b.ActivityPubUri,
-                WebUrl = b.WebUrl,
-                OriginalPost = b.Post,
-                OriginalActor = b.Post.Actor
-            }
-        }).ToList();
+                Id = p.Id,
+                Title = p.Title,
+                Description = p.Description,
+                Slug = p.Slug,
+                EditedAt = p.EditedAt,
+                DraftedAt = p.DraftedAt,
+                PublishedAt = p.PublishedAt,
+                Visibility = p.Visibility,
+                Content = p.Content,
+                ContentType = p.ContentType,
+                Type = p.Type,
+                PinMode = p.PinMode,
+                ActorId = p.ActorId,
+                Actor = p.Actor,
+                PublisherId = p.PublisherId,
+                Publisher = p.Publisher,
+                Tags = p.Tags,
+                Attachments = p.Attachments,
+                BoostInfo = null,
+            })
+            .ToList();
+
+        var boostResponses = boosts
+            .Select(b => new PostResponse
+            {
+                Id = b.PostId,
+                Title = b.Post.Title,
+                Description = b.Post.Description,
+                Slug = b.Post.Slug,
+                EditedAt = b.Post.EditedAt,
+                DraftedAt = b.Post.DraftedAt,
+                PublishedAt = b.Post.PublishedAt,
+                Visibility = b.Post.Visibility,
+                Content = b.Post.Content,
+                ContentType = b.Post.ContentType,
+                Type = b.Post.Type,
+                PinMode = b.Post.PinMode,
+                ActorId = b.ActorId,
+                Actor = b.Actor,
+                PublisherId = b.Post.PublisherId,
+                Publisher = b.Post.Publisher,
+                Tags = b.Post.Tags,
+                Attachments = b.Post.Attachments,
+                BoostInfo = new BoostInfo
+                {
+                    BoostId = b.Id,
+                    BoostedAt = b.BoostedAt,
+                    ActivityPubUri = b.ActivityPubUri,
+                    WebUrl = b.WebUrl,
+                    OriginalPost = b.Post,
+                    OriginalActor = b.Post.Actor,
+                },
+            })
+            .ToList();
 
         var remotePostResponses = remotePosts
             .Where(r => !localUris.Contains(r.FediverseUri ?? ""))
@@ -290,7 +307,10 @@ public class FediverseActorController(
         return Ok(combined);
     }
 
-    private async Task<List<RemotePost>> FetchRemoteOutboxPostsAsync(SnFediverseActor actor, int limit)
+    private async Task<List<RemotePost>> FetchRemoteOutboxPostsAsync(
+        SnFediverseActor actor,
+        int limit
+    )
     {
         if (string.IsNullOrEmpty(actor.OutboxUri))
             return [];
@@ -305,7 +325,11 @@ public class FediverseActorController(
             var response = await client.SendAsync(request);
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogDebug("Failed to fetch outbox from {Url}: {Status}", actor.OutboxUri, response.StatusCode);
+                logger.LogDebug(
+                    "Failed to fetch outbox from {Url}: {Status}",
+                    actor.OutboxUri,
+                    response.StatusCode
+                );
                 return [];
             }
 
@@ -314,15 +338,25 @@ public class FediverseActorController(
             if (outboxData == null)
                 return [];
 
-            var orderedItems = outboxData.GetValueOrDefault("orderedItems") as JsonElement?
-                ?? (outboxData.GetValueOrDefault("first") is JsonElement firstPageElement
-                    ? (firstPageElement.ValueKind == JsonValueKind.String && firstPageElement.GetString()?.StartsWith("http") == true ? await FetchOutboxPageAsync(firstPageElement.GetString()!) : null)
-                    : null) as JsonElement?;
+            var orderedItems =
+                outboxData.GetValueOrDefault("orderedItems") as JsonElement?
+                ?? (
+                    outboxData.GetValueOrDefault("first") is JsonElement firstPageElement
+                        ? (
+                            firstPageElement.ValueKind == JsonValueKind.String
+                            && firstPageElement.GetString()?.StartsWith("http") == true
+                                ? await FetchOutboxPageAsync(firstPageElement.GetString()!)
+                                : null
+                        )
+                        : null
+                ) as JsonElement?;
 
             if (orderedItems == null)
                 return [];
 
-            var items = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(orderedItems.Value.GetRawText());
+            var items = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(
+                orderedItems.Value.GetRawText()
+            );
             if (items == null)
                 return [];
 
@@ -341,7 +375,9 @@ public class FediverseActorController(
                         var postType = postDict.GetValueOrDefault("type")?.ToString();
                         if (postType == "Note" || postType == "Article")
                         {
-                            remotePosts.Add(RemotePost.FromActivityStream(postDict, activityId, actor));
+                            remotePosts.Add(
+                                RemotePost.FromActivityStream(postDict, activityId, actor)
+                            );
                         }
                     }
                 }
@@ -355,7 +391,9 @@ public class FediverseActorController(
                         if (postType == "Note" || postType == "Article")
                         {
                             var boostedAt = ParseInstant(item.GetValueOrDefault("published"));
-                            remotePosts.Add(RemotePost.FromAnnounce(postDict, activityId, actor, boostedAt));
+                            remotePosts.Add(
+                                RemotePost.FromAnnounce(postDict, activityId, actor, boostedAt)
+                            );
                         }
                     }
                 }
@@ -401,7 +439,7 @@ public class FediverseActorController(
             Dictionary<string, object> dict => dict,
             JsonElement element when element.ValueKind == JsonValueKind.Object =>
                 JsonSerializer.Deserialize<Dictionary<string, object>>(element.GetRawText()),
-            _ => null
+            _ => null,
         };
     }
 
@@ -427,9 +465,7 @@ public class FediverseActorController(
                 return Instant.FromDateTimeOffset(dto);
             }
         }
-        catch
-        {
-        }
+        catch { }
 
         return null;
     }
@@ -454,12 +490,18 @@ public class FediverseActorController(
         public string? OriginalActorUri { get; set; }
         public string? OriginalActorAvatarUrl { get; set; }
 
-        public static RemotePost FromActivityStream(Dictionary<string, object> obj, string? activityId, SnFediverseActor actor)
+        public static RemotePost FromActivityStream(
+            Dictionary<string, object> obj,
+            string? activityId,
+            SnFediverseActor actor
+        )
         {
             var published = obj.GetValueOrDefault("published");
             var id = obj.GetValueOrDefault("id")?.ToString();
             var content = obj.GetValueOrDefault("content")?.ToString();
-            var name = obj.GetValueOrDefault("name")?.ToString() ?? obj.GetValueOrDefault("summary")?.ToString();
+            var name =
+                obj.GetValueOrDefault("name")?.ToString()
+                ?? obj.GetValueOrDefault("summary")?.ToString();
             var summary = obj.GetValueOrDefault("summary")?.ToString();
 
             var attributedTo = obj.GetValueOrDefault("attributedTo");
@@ -473,8 +515,12 @@ public class FediverseActorController(
                         actorUri = element.GetString();
                     else if (element.ValueKind == JsonValueKind.Object)
                     {
-                        actorUsername = element.TryGetProperty("preferredUsername", out var u) ? u.GetString() : null;
-                        actorUri = element.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+                        actorUsername = element.TryGetProperty("preferredUsername", out var u)
+                            ? u.GetString()
+                            : null;
+                        actorUri = element.TryGetProperty("id", out var idProp)
+                            ? idProp.GetString()
+                            : null;
                     }
                 }
                 else if (attributedTo is Dictionary<string, object> attrDict)
@@ -506,11 +552,16 @@ public class FediverseActorController(
                 ActorDisplayName = actor.DisplayName,
                 ActorUri = actorUri ?? actor.Uri,
                 ActorAvatarUrl = actor.AvatarUrl,
-                IsBoost = false
+                IsBoost = false,
             };
         }
 
-        public static RemotePost FromAnnounce(Dictionary<string, object> obj, string? activityId, SnFediverseActor actor, Instant? boostedAt)
+        public static RemotePost FromAnnounce(
+            Dictionary<string, object> obj,
+            string? activityId,
+            SnFediverseActor actor,
+            Instant? boostedAt
+        )
         {
             var original = FromActivityStream(obj, activityId, actor);
             original.IsBoost = true;
@@ -536,7 +587,7 @@ public class FediverseActorController(
                 DisplayName = OriginalActorDisplayName ?? ActorDisplayName ?? actor.DisplayName,
                 AvatarUrl = OriginalActorAvatarUrl ?? ActorAvatarUrl ?? actor.AvatarUrl,
                 Uri = OriginalActorUri ?? ActorUri ?? actor.Uri ?? "",
-                Instance = new SnFediverseInstance { Domain = domain ?? "unknown" }
+                Instance = new SnFediverseInstance { Domain = domain ?? "unknown" },
             };
 
             return new PostResponse
@@ -549,14 +600,16 @@ public class FediverseActorController(
                 Visibility = PostVisibility.Public,
                 ActorId = IsBoost ? actor.Id : Guid.Empty,
                 Actor = IsBoost ? actor : null,
-                BoostInfo = IsBoost ? new BoostInfo
-                {
-                    BoostId = Guid.Empty,
-                    BoostedAt = BoostedAt ?? PublishedAt ?? Instant.MinValue,
-                    ActivityPubUri = FediverseUri,
-                    WebUrl = WebUrl,
-                    OriginalActor = originalActor
-                } : null
+                BoostInfo = IsBoost
+                    ? new BoostInfo
+                    {
+                        BoostId = Guid.Empty,
+                        BoostedAt = BoostedAt ?? PublishedAt ?? Instant.MinValue,
+                        ActivityPubUri = FediverseUri,
+                        WebUrl = WebUrl,
+                        OriginalActor = originalActor,
+                    }
+                    : null,
             };
         }
 
@@ -589,9 +642,7 @@ public class FediverseActorController(
                 if (!string.IsNullOrEmpty(str) && DateTimeOffset.TryParse(str, out var dto))
                     return Instant.FromDateTimeOffset(dto);
             }
-            catch
-            {
-            }
+            catch { }
             return null;
         }
     }
@@ -604,25 +655,21 @@ public class FediverseActorController(
         [FromQuery] int offset = 0
     )
     {
-        var actor = await db.FediverseActors
-            .FirstOrDefaultAsync(a => a.Id == id);
+        var actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Id == id);
 
         if (actor == null)
             return NotFound(new { error = "Actor not found" });
 
-        var followerQuery = db.FediverseRelationships
-            .Include(r => r.Actor)
-                .ThenInclude(a => a.Instance)
+        var followerQuery = db
+            .FediverseRelationships.Include(r => r.Actor)
+            .ThenInclude(a => a.Instance)
             .Where(r => r.TargetActorId == id && r.State == RelationshipState.Accepted)
             .Select(r => r.Actor);
 
         var totalCount = await followerQuery.CountAsync();
         Response.Headers["X-Total"] = totalCount.ToString();
 
-        var followers = await followerQuery
-            .Skip(offset)
-            .Take(take)
-            .ToListAsync();
+        var followers = await followerQuery.Skip(offset).Take(take).ToListAsync();
 
         return Ok(followers);
     }
@@ -635,25 +682,21 @@ public class FediverseActorController(
         [FromQuery] int offset = 0
     )
     {
-        var actor = await db.FediverseActors
-            .FirstOrDefaultAsync(a => a.Id == id);
+        var actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Id == id);
 
         if (actor == null)
             return NotFound(new { error = "Actor not found" });
 
-        var followingQuery = db.FediverseRelationships
-            .Include(r => r.TargetActor)
-                .ThenInclude(a => a.Instance)
+        var followingQuery = db
+            .FediverseRelationships.Include(r => r.TargetActor)
+            .ThenInclude(a => a.Instance)
             .Where(r => r.ActorId == id && r.State == RelationshipState.Accepted)
             .Select(r => r.TargetActor);
 
         var totalCount = await followingQuery.CountAsync();
         Response.Headers["X-Total"] = totalCount.ToString();
 
-        var following = await followingQuery
-            .Skip(offset)
-            .Take(take)
-            .ToListAsync();
+        var following = await followingQuery.Skip(offset).Take(take).ToListAsync();
 
         return Ok(following);
     }
@@ -668,35 +711,39 @@ public class FediverseActorController(
 
         var accountId = Guid.Parse(currentUser.Id);
 
-        var actor = await db.FediverseActors
-            .Include(a => a.Instance)
+        var actor = await db
+            .FediverseActors.Include(a => a.Instance)
             .FirstOrDefaultAsync(a => a.Id == id);
 
         if (actor == null)
             return NotFound(new { error = "Actor not found" });
 
-        var userPublishers = await db.Publishers
-            .Where(p => p.AccountId == accountId)
+        var userPublishers = await db
+            .Publishers.Where(p => p.AccountId == accountId)
             .Select(p => p.Id)
             .ToListAsync();
 
-        var localActorIds = await db.FediverseActors
-            .Where(a => a.PublisherId != null && userPublishers.Contains(a.PublisherId.Value))
+        var localActorIds = await db
+            .FediverseActors.Where(a =>
+                a.PublisherId != null && userPublishers.Contains(a.PublisherId.Value)
+            )
             .Select(a => a.Id)
             .ToListAsync();
 
         if (localActorIds.Count == 0)
         {
-            return Ok(new FediverseRelationshipResponse
-            {
-                ActorId = actor.Id,
-                ActorUsername = actor.Username,
-                ActorInstance = actor.Instance?.Domain,
-                ActorHandle = $"{actor.Username}@{actor.Instance?.Domain}",
-                IsFollowing = false,
-                IsPending = false,
-                IsFollowedBy = false
-            });
+            return Ok(
+                new FediverseRelationshipResponse
+                {
+                    ActorId = actor.Id,
+                    ActorUsername = actor.Username,
+                    ActorInstance = actor.Instance?.Domain,
+                    ActorHandle = $"{actor.Username}@{actor.Instance?.Domain}",
+                    IsFollowing = false,
+                    IsPending = false,
+                    IsFollowedBy = false,
+                }
+            );
         }
 
         var localActorId = localActorIds.First();
@@ -704,19 +751,24 @@ public class FediverseActorController(
         var cachedRelationship = await cachingService.GetRelationshipAsync(localActorId, id);
         if (cachedRelationship != null)
         {
-            return Ok(CachedRelationshipToResponse(cachedRelationship, actor.Username, actor.Instance?.Domain));
+            return Ok(
+                CachedRelationshipToResponse(
+                    cachedRelationship,
+                    actor.Username,
+                    actor.Instance?.Domain
+                )
+            );
         }
 
-        var relationship = await db.FediverseRelationships
-            .FirstOrDefaultAsync(r => 
-                r.ActorId != null && localActorIds.Contains(r.ActorId) && 
-                r.TargetActorId == id);
+        var relationship = await db.FediverseRelationships.FirstOrDefaultAsync(r =>
+            r.ActorId != null && localActorIds.Contains(r.ActorId) && r.TargetActorId == id
+        );
 
-        var isFollowedBy = await db.FediverseRelationships
-            .AnyAsync(r => 
-                r.ActorId == id && 
-                localActorIds.Contains(r.TargetActorId) &&
-                r.State == RelationshipState.Accepted);
+        var isFollowedBy = await db.FediverseRelationships.AnyAsync(r =>
+            r.ActorId == id
+            && localActorIds.Contains(r.TargetActorId)
+            && r.State == RelationshipState.Accepted
+        );
 
         var dto = new FediverseRelationshipResponse
         {
@@ -726,38 +778,45 @@ public class FediverseActorController(
             ActorHandle = $"{actor.Username}@{actor.Instance?.Domain}",
             IsFollowing = relationship?.State == RelationshipState.Accepted,
             IsPending = relationship?.State == RelationshipState.Pending,
-            IsFollowedBy = isFollowedBy
+            IsFollowedBy = isFollowedBy,
         };
 
-        await cachingService.SetRelationshipAsync(localActorId, id, new CachedRelationship
-        {
-            ActorId = actor.Id,
-            TargetActorId = id,
-            IsFollowing = dto.IsFollowing,
-            IsPending = dto.IsPending,
-            IsFollowedBy = isFollowedBy
-        });
+        await cachingService.SetRelationshipAsync(
+            localActorId,
+            id,
+            new CachedRelationship
+            {
+                ActorId = actor.Id,
+                TargetActorId = id,
+                IsFollowing = dto.IsFollowing,
+                IsPending = dto.IsPending,
+                IsFollowedBy = isFollowedBy,
+            }
+        );
 
         return Ok(dto);
     }
 
     private static SnFediverseActor CachedActorToEntity(CachedActor cached)
     {
-        var instance = cached.Instance != null ? new SnFediverseInstance
-        {
-            Id = cached.Instance.Id,
-            Domain = cached.Instance.Domain,
-            Name = cached.Instance.Name,
-            Description = cached.Instance.Description,
-            Software = cached.Instance.Software,
-            Version = cached.Instance.Version,
-            IconUrl = cached.Instance.IconUrl,
-            ThumbnailUrl = cached.Instance.ThumbnailUrl,
-            ContactEmail = cached.Instance.ContactEmail,
-            ContactAccountUsername = cached.Instance.ContactAccountUsername,
-            ActiveUsers = cached.Instance.ActiveUsers,
-            MetadataFetchedAt = cached.Instance.MetadataFetchedAt
-        } : null;
+        var instance =
+            cached.Instance != null
+                ? new SnFediverseInstance
+                {
+                    Id = cached.Instance.Id,
+                    Domain = cached.Instance.Domain,
+                    Name = cached.Instance.Name,
+                    Description = cached.Instance.Description,
+                    Software = cached.Instance.Software,
+                    Version = cached.Instance.Version,
+                    IconUrl = cached.Instance.IconUrl,
+                    ThumbnailUrl = cached.Instance.ThumbnailUrl,
+                    ContactEmail = cached.Instance.ContactEmail,
+                    ContactAccountUsername = cached.Instance.ContactAccountUsername,
+                    ActiveUsers = cached.Instance.ActiveUsers,
+                    MetadataFetchedAt = cached.Instance.MetadataFetchedAt,
+                }
+                : null;
 
         return new SnFediverseActor
         {
@@ -773,16 +832,21 @@ public class FediverseActorController(
             IsLocked = cached.IsLocked,
             IsDiscoverable = cached.IsDiscoverable,
             InstanceId = instance?.Id ?? Guid.Empty,
-            Instance = instance ?? new SnFediverseInstance { Domain = cached.InstanceDomain ?? "localhost" },
+            Instance =
+                instance
+                ?? new SnFediverseInstance { Domain = cached.InstanceDomain ?? "localhost" },
             FollowersCount = cached.FollowersCount,
             FollowingCount = cached.FollowingCount,
             LastActivityAt = cached.LastActivityAt,
-            LastFetchedAt = cached.LastFetchedAt
+            LastFetchedAt = cached.LastFetchedAt,
         };
     }
 
     private static FediverseRelationshipResponse CachedRelationshipToResponse(
-        CachedRelationship cached, string actorUsername, string? actorInstance)
+        CachedRelationship cached,
+        string actorUsername,
+        string? actorInstance
+    )
     {
         return new FediverseRelationshipResponse
         {
@@ -792,14 +856,14 @@ public class FediverseActorController(
             ActorHandle = $"{actorUsername}@{actorInstance}",
             IsFollowing = cached.IsFollowing,
             IsFollowedBy = cached.IsFollowedBy,
-            IsPending = cached.IsPending
+            IsPending = cached.IsPending,
         };
     }
 
     private async Task<List<SnPost>> GetActorPostsInternalAsync(Guid actorId, int limit)
     {
-        return await db.Posts
-            .Include(p => p.Publisher)
+        return await db
+            .Posts.Include(p => p.Publisher)
             .Include(p => p.Actor)
             .Where(p => p.ActorId == actorId)
             .Where(p => p.DraftedAt == null)
@@ -808,51 +872,6 @@ public class FediverseActorController(
             .Take(limit)
             .ToListAsync();
     }
-}
-
-public class FediverseActorResponse
-{
-    public Guid Id { get; set; }
-    public string Type { get; set; } = "Person";
-    public string Username { get; set; } = null!;
-    public string FullHandle { get; set; } = null!;
-    public string? DisplayName { get; set; }
-    public string? Bio { get; set; }
-    public string? AvatarUrl { get; set; }
-    public string? HeaderUrl { get; set; }
-    public bool IsBot { get; set; }
-    public bool IsLocked { get; set; }
-    public bool IsDiscoverable { get; set; } = true;
-    public string? InstanceDomain { get; set; }
-    public string? InstanceName { get; set; }
-    public string? InstanceSoftware { get; set; }
-    public FediverseInstanceResponse? Instance { get; set; }
-    public int FollowersCount { get; set; }
-    public int FollowingCount { get; set; }
-    public Instant? LastActivityAt { get; set; }
-    public Instant? LastFetchedAt { get; set; }
-    public string WebUrl { get; set; } = null!;
-    public List<SnPost>? RecentPosts { get; set; }
-}
-
-public class FediverseInstanceResponse
-{
-    public Guid? Id { get; set; }
-    public string Domain { get; set; } = null!;
-    public string? Name { get; set; }
-    public string? Description { get; set; }
-    public string? Software { get; set; }
-    public string? Version { get; set; }
-    public string? IconUrl { get; set; }
-    public string? ThumbnailUrl { get; set; }
-    public string? ContactEmail { get; set; }
-    public string? ContactAccountUsername { get; set; }
-    public int? ActiveUsers { get; set; }
-    public Dictionary<string, object>? Metadata { get; set; }
-    public bool IsBlocked { get; set; }
-    public bool IsSilenced { get; set; }
-    public Instant? LastFetchedAt { get; set; }
-    public Instant? LastActivityAt { get; set; }
 }
 
 public class FediverseRelationshipResponse
