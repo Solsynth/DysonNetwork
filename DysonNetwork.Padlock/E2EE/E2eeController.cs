@@ -106,6 +106,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     {
         [Required] public byte[] KeyPackage { get; set; } = [];
         [MaxLength(128)] public string Ciphersuite { get; set; } = "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519";
+        [Required][MaxLength(1024)] public string DeviceId { get; set; }
         [MaxLength(1024)] public string? DeviceLabel { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
     }
@@ -164,11 +165,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
             return Unauthorized();
 
-        var deviceId = ResolveDeviceId(currentSession);
-        if (string.IsNullOrWhiteSpace(deviceId))
-            return BadRequest("Current session device id is missing.");
-
-        var result = await e2eeModule.PublishMlsKeyPackageAsync(currentUser.Id, deviceId, body.DeviceLabel,
+        var result = await e2eeModule.PublishMlsKeyPackageAsync(currentUser.Id, body.DeviceId, body.DeviceLabel,
             new PublishMlsKeyPackageRequest(body.KeyPackage, body.Ciphersuite, body.Meta));
         return Ok(result);
     }
@@ -347,7 +344,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
 
     [HttpGet("mls/envelopes/pending")]
     public async Task<ActionResult<List<SnE2eeEnvelope>>> GetMlsPendingByDevice(
-        [FromQuery(Name = "device_id")] string? deviceId,
+        [FromQuery(Name = "deviceId")] string? deviceId,
         [FromQuery] int take = 100
     )
     {
@@ -369,7 +366,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     [HttpPost("mls/envelopes/{envelopeId:guid}/ack")]
     public async Task<ActionResult<SnE2eeEnvelope>> AckMlsEnvelope(
         Guid envelopeId,
-        [FromQuery(Name = "device_id")] string? deviceId
+        [FromQuery(Name = "deviceId")] string? deviceId
     )
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
