@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
@@ -13,6 +14,7 @@ public class FediverseActorController(
     AppDatabase db,
     ActivityPubDiscoveryService discoveryService,
     FediverseCachingService cachingService,
+    IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     ILogger<FediverseActorController> logger
 ) : ControllerBase
@@ -200,18 +202,23 @@ public class FediverseActorController(
             .Where(b => b.Post.DraftedAt == null)
             .Where(b => b.Post.Visibility == PostVisibility.Public);
 
-        var totalCount = await postsQuery.CountAsync() + await boostsQuery.CountAsync();
-        Response.Headers["X-Total"] = totalCount.ToString();
-
         var postsTask = postsQuery.OrderByDescending(p => p.PublishedAt).ToListAsync();
         var boostsTask = boostsQuery.OrderByDescending(b => b.Post.PublishedAt).ToListAsync();
+        var remotePostsTask = FetchRemoteOutboxPostsAsync(actor, take * 2);
 
-        await Task.WhenAll(postsTask, boostsTask);
+        await Task.WhenAll(postsTask, boostsTask, remotePostsTask);
 
         var posts = postsTask.Result;
         var boosts = boostsTask.Result;
+        var remotePosts = remotePostsTask.Result;
+        var localUris = new HashSet<string>(posts
+            .Where(p => !string.IsNullOrEmpty(p.FediverseUri))
+            .Select(p => p.FediverseUri!));
+        localUris.UnionWith(boosts
+            .Where(b => !string.IsNullOrEmpty(b.ActivityPubUri))
+            .Select(b => b.ActivityPubUri!));
 
-        var postResponses = posts.Select(p => new PostResponse
+        var localPostResponses = posts.Select(p => new PostResponse
         {
             Id = p.Id,
             Title = p.Title,
@@ -265,13 +272,338 @@ public class FediverseActorController(
             }
         }).ToList();
 
-        var combined = postResponses.Concat(boostResponses)
+        var remotePostResponses = remotePosts
+            .Where(r => !localUris.Contains(r.FediverseUri ?? ""))
+            .Select(r => r.ToPostResponse(actor))
+            .ToList();
+
+        var totalCount = posts.Count + boosts.Count + remotePostResponses.Count;
+        Response.Headers["X-Total"] = totalCount.ToString();
+
+        var combined = localPostResponses
+            .Concat(boostResponses)
+            .Concat(remotePostResponses)
             .OrderByDescending(p => p.PublishedAt)
             .Skip(offset)
             .Take(take)
             .ToList();
 
         return Ok(combined);
+    }
+
+    private async Task<List<RemotePost>> FetchRemoteOutboxPostsAsync(SnFediverseActor actor, int limit)
+    {
+        if (string.IsNullOrEmpty(actor.OutboxUri))
+            return [];
+
+        try
+        {
+            var client = httpClientFactory.CreateClient();
+            var request = new HttpRequestMessage(HttpMethod.Get, actor.OutboxUri);
+            request.Headers.Accept.ParseAdd("application/activity+json");
+            request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
+
+            var response = await client.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogDebug("Failed to fetch outbox from {Url}: {Status}", actor.OutboxUri, response.StatusCode);
+                return [];
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            var outboxData = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+            if (outboxData == null)
+                return [];
+
+            var orderedItems = outboxData.GetValueOrDefault("orderedItems") as JsonElement?
+                ?? (outboxData.GetValueOrDefault("first") is JsonElement firstPageElement
+                    ? (firstPageElement.ValueKind == JsonValueKind.String && firstPageElement.GetString()?.StartsWith("http") == true ? await FetchOutboxPageAsync(firstPageElement.GetString()!) : null)
+                    : null) as JsonElement?;
+
+            if (orderedItems == null)
+                return [];
+
+            var items = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(orderedItems.Value.GetRawText());
+            if (items == null)
+                return [];
+
+            var remotePosts = new List<RemotePost>();
+            foreach (var item in items.Take(limit))
+            {
+                var activityType = item.GetValueOrDefault("type")?.ToString();
+                var activityId = item.GetValueOrDefault("id")?.ToString();
+
+                if (activityType == "Create")
+                {
+                    var obj = item.GetValueOrDefault("object");
+                    var postDict = ConvertToDictionary(obj);
+                    if (postDict != null)
+                    {
+                        var postType = postDict.GetValueOrDefault("type")?.ToString();
+                        if (postType == "Note" || postType == "Article")
+                        {
+                            remotePosts.Add(RemotePost.FromActivityStream(postDict, activityId, actor));
+                        }
+                    }
+                }
+                else if (activityType == "Announce")
+                {
+                    var obj = item.GetValueOrDefault("object");
+                    var postDict = ConvertToDictionary(obj);
+                    if (postDict != null)
+                    {
+                        var postType = postDict.GetValueOrDefault("type")?.ToString();
+                        if (postType == "Note" || postType == "Article")
+                        {
+                            var boostedAt = ParseInstant(item.GetValueOrDefault("published"));
+                            remotePosts.Add(RemotePost.FromAnnounce(postDict, activityId, actor, boostedAt));
+                        }
+                    }
+                }
+            }
+
+            return remotePosts;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to fetch remote outbox for actor {ActorUri}", actor.Uri);
+            return [];
+        }
+    }
+
+    private async Task<JsonElement?> FetchOutboxPageAsync(string pageUrl)
+    {
+        try
+        {
+            var client = httpClientFactory.CreateClient();
+            var request = new HttpRequestMessage(HttpMethod.Get, pageUrl);
+            request.Headers.Accept.ParseAdd("application/activity+json");
+            request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
+
+            var response = await client.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            var json = await response.Content.ReadAsStringAsync();
+            var pageData = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+            return pageData?.GetValueOrDefault("orderedItems") as JsonElement?;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static Dictionary<string, object>? ConvertToDictionary(object? obj)
+    {
+        return obj switch
+        {
+            null => null,
+            Dictionary<string, object> dict => dict,
+            JsonElement element when element.ValueKind == JsonValueKind.Object =>
+                JsonSerializer.Deserialize<Dictionary<string, object>>(element.GetRawText()),
+            _ => null
+        };
+    }
+
+    private static Instant? ParseInstant(object? value)
+    {
+        if (value == null)
+            return null;
+
+        try
+        {
+            string? str = null;
+            if (value is JsonElement element && element.ValueKind == JsonValueKind.String)
+            {
+                str = element.GetString();
+            }
+            else if (value is string s)
+            {
+                str = s;
+            }
+
+            if (!string.IsNullOrEmpty(str) && DateTimeOffset.TryParse(str, out var dto))
+            {
+                return Instant.FromDateTimeOffset(dto);
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
+    private class RemotePost
+    {
+        public string? FediverseUri { get; set; }
+        public string? WebUrl { get; set; }
+        public string? Title { get; set; }
+        public string? Description { get; set; }
+        public string? Content { get; set; }
+        public Instant? PublishedAt { get; set; }
+        public Instant? EditedAt { get; set; }
+        public Instant? BoostedAt { get; set; }
+        public string? ActorUsername { get; set; }
+        public string? ActorDisplayName { get; set; }
+        public string? ActorUri { get; set; }
+        public string? ActorAvatarUrl { get; set; }
+        public bool IsBoost { get; set; }
+        public string? OriginalActorUsername { get; set; }
+        public string? OriginalActorDisplayName { get; set; }
+        public string? OriginalActorUri { get; set; }
+        public string? OriginalActorAvatarUrl { get; set; }
+
+        public static RemotePost FromActivityStream(Dictionary<string, object> obj, string? activityId, SnFediverseActor actor)
+        {
+            var published = obj.GetValueOrDefault("published");
+            var id = obj.GetValueOrDefault("id")?.ToString();
+            var content = obj.GetValueOrDefault("content")?.ToString();
+            var name = obj.GetValueOrDefault("name")?.ToString() ?? obj.GetValueOrDefault("summary")?.ToString();
+            var summary = obj.GetValueOrDefault("summary")?.ToString();
+
+            var attributedTo = obj.GetValueOrDefault("attributedTo");
+            string? actorUsername = null;
+            string? actorUri = null;
+            if (attributedTo != null)
+            {
+                if (attributedTo is JsonElement element)
+                {
+                    if (element.ValueKind == JsonValueKind.String)
+                        actorUri = element.GetString();
+                    else if (element.ValueKind == JsonValueKind.Object)
+                    {
+                        actorUsername = element.TryGetProperty("preferredUsername", out var u) ? u.GetString() : null;
+                        actorUri = element.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+                    }
+                }
+                else if (attributedTo is Dictionary<string, object> attrDict)
+                {
+                    actorUsername = attrDict.GetValueOrDefault("preferredUsername")?.ToString();
+                    actorUri = attrDict.GetValueOrDefault("id")?.ToString();
+                }
+            }
+
+            var webUrl = obj.GetValueOrDefault("url");
+            string? webUrlStr = null;
+            if (webUrl != null)
+            {
+                if (webUrl is JsonElement urlElement)
+                    webUrlStr = urlElement.GetString();
+                else
+                    webUrlStr = webUrl.ToString();
+            }
+
+            return new RemotePost
+            {
+                FediverseUri = id ?? activityId,
+                WebUrl = webUrlStr,
+                Title = name,
+                Description = summary,
+                Content = content,
+                PublishedAt = ParseInstantValue(published),
+                ActorUsername = actorUsername ?? actor.Username,
+                ActorDisplayName = actor.DisplayName,
+                ActorUri = actorUri ?? actor.Uri,
+                ActorAvatarUrl = actor.AvatarUrl,
+                IsBoost = false
+            };
+        }
+
+        public static RemotePost FromAnnounce(Dictionary<string, object> obj, string? activityId, SnFediverseActor actor, Instant? boostedAt)
+        {
+            var original = FromActivityStream(obj, activityId, actor);
+            original.IsBoost = true;
+            original.BoostedAt = boostedAt;
+            original.OriginalActorUsername = original.ActorUsername;
+            original.OriginalActorDisplayName = original.ActorDisplayName;
+            original.OriginalActorUri = original.ActorUri;
+            original.OriginalActorAvatarUrl = original.ActorAvatarUrl;
+            original.ActorUsername = actor.Username;
+            original.ActorDisplayName = actor.DisplayName;
+            original.ActorUri = actor.Uri;
+            original.ActorAvatarUrl = actor.AvatarUrl;
+            return original;
+        }
+
+        public PostResponse ToPostResponse(SnFediverseActor actor)
+        {
+            var originalActor = new FediverseActorResponse
+            {
+                Id = Guid.Empty,
+                Username = OriginalActorUsername ?? ActorUsername ?? actor.Username,
+                FullHandle = $"{OriginalActorUsername ?? ActorUsername ?? actor.Username}@{ExtractDomain(OriginalActorUri ?? ActorUri ?? actor.Uri)}",
+                DisplayName = OriginalActorDisplayName ?? ActorDisplayName ?? actor.DisplayName,
+                AvatarUrl = OriginalActorAvatarUrl ?? ActorAvatarUrl ?? actor.AvatarUrl,
+                WebUrl = OriginalActorUri ?? ActorUri ?? actor.Uri ?? ""
+            };
+
+            var boostingActor = IsBoost ? new FediverseActorResponse
+            {
+                Id = actor.Id,
+                Username = actor.Username,
+                FullHandle = $"{actor.Username}@{actor.Instance?.Domain}",
+                DisplayName = actor.DisplayName,
+                AvatarUrl = actor.AvatarUrl,
+                WebUrl = actor.Uri ?? ""
+            } : null;
+
+            return new PostResponse
+            {
+                Id = Guid.Empty,
+                Title = Title,
+                Description = Description,
+                Content = Content,
+                PublishedAt = PublishedAt,
+                Visibility = PostVisibility.Public,
+                ActorId = IsBoost ? actor.Id : Guid.Empty,
+                Actor = IsBoost ? actor : null,
+                BoostInfo = IsBoost ? new BoostInfo
+                {
+                    BoostId = Guid.Empty,
+                    BoostedAt = BoostedAt ?? PublishedAt ?? Instant.MinValue,
+                    ActivityPubUri = FediverseUri,
+                    WebUrl = WebUrl,
+                    OriginalActor = originalActor
+                } : null
+            };
+        }
+
+        private static string? ExtractDomain(string? uri)
+        {
+            if (string.IsNullOrEmpty(uri))
+                return null;
+            try
+            {
+                return new Uri(uri).Host;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static Instant? ParseInstantValue(object? value)
+        {
+            if (value == null)
+                return null;
+            try
+            {
+                string? str = null;
+                if (value is JsonElement element && element.ValueKind == JsonValueKind.String)
+                    str = element.GetString();
+                else if (value is string s)
+                    str = s;
+
+                if (!string.IsNullOrEmpty(str) && DateTimeOffset.TryParse(str, out var dto))
+                    return Instant.FromDateTimeOffset(dto);
+            }
+            catch
+            {
+            }
+            return null;
+        }
     }
 
     [HttpGet("{id:guid}/followers")]

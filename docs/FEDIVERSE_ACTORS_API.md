@@ -143,7 +143,7 @@ GET /api/fediverse/actors/search?query=gargr&limit=10
 
 ### Get Actor's Posts
 
-Get public posts from a remote actor, including both original posts and boosts.
+Get public posts from a remote actor, including both original posts and boosts. This endpoint fetches posts from both locally stored data and the remote actor's ActivityPub outbox.
 
 ```
 GET /api/fediverse/actors/{id}/posts
@@ -168,49 +168,53 @@ GET /api/fediverse/actors/3fa85f64-5717-4562-b3fc-2c963f66afa6/posts?take=20&off
 
 **Response:** Returns a list of `PostResponse` objects containing both original posts and boosted posts.
 
-**Example Response (original post):**
+**Data Sources:**
+- **Local posts:** Posts stored in our database for this actor (received via ActivityPub federation)
+- **Local boosts:** Boosts by this actor stored in our database
+- **Remote outbox:** Posts fetched directly from the actor's ActivityPub outbox endpoint
+
+**Example Response (original post from remote outbox):**
 ```json
-[
-  {
-    "id": "post-uuid",
-    "title": "My Post Title",
-    "content": "Post content here...",
-    "publishedAt": "2026-03-27T10:00:00Z",
-    "visibility": "Public",
-    "actorId": "actor-uuid",
-    "actor": { ... },
-    "boostInfo": null
-  }
-]
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "title": "Post Title",
+  "content": "Post content here...",
+  "publishedAt": "2026-03-27T10:00:00Z",
+  "visibility": "Public",
+  "actorId": "actor-uuid",
+  "actor": { ... },
+  "boostInfo": null
+}
 ```
 
 **Example Response (boosted post):**
 ```json
-[
-  {
-    "id": "original-post-uuid",
-    "title": "Original Post Title",
-    "content": "Original post content...",
-    "publishedAt": "2026-03-27T08:00:00Z",
-    "visibility": "Public",
-    "actorId": "booster-actor-uuid",
-    "actor": { "id": "booster-uuid", ... },
-    "boostInfo": {
-      "boostId": "boost-record-uuid",
-      "boostedAt": "2026-03-27T09:30:00Z",
-      "activityPubUri": "https://mastodon.social/users/booster/statuses/123",
-      "webUrl": "https://mastodon.social/@booster/123",
-      "originalPost": { ... },
-      "originalActor": { "id": "original-author-uuid", ... }
-    }
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "title": "Original Post Title",
+  "content": "Original post content...",
+  "publishedAt": "2026-03-27T08:00:00Z",
+  "visibility": "Public",
+  "actorId": "booster-actor-uuid",
+  "actor": { "id": "booster-uuid", ... },
+  "boostInfo": {
+    "boostId": "00000000-0000-0000-0000-000000000000",
+    "boostedAt": "2026-03-27T09:30:00Z",
+    "activityPubUri": "https://mastodon.social/users/booster/statuses/123",
+    "webUrl": "https://mastodon.social/@booster/123",
+    "originalPost": { ... },
+    "originalActor": { "id": "original-author-uuid", ... }
   }
-]
+}
 ```
 
 **Notes:**
+- Posts are fetched from both local database and remote outbox, then merged and deduplicated
 - Boosted posts are merged with original posts and sorted by `publishedAt` (original post date)
 - For boosted posts, `actorId` is the booster, not the original author
-- `X-Total` header includes both posts and boosts
+- Remote posts will have `id = "00000000-0000-0000-0000-000000000000"` since they don't exist in our DB
+- `X-Total` header includes all posts (local + remote)
+- Uses `fediverseUri` field for deduplication between local and remote data
 
 ---
 
@@ -409,3 +413,4 @@ Contains information about the boost, including the original post and author.
 - Authenticated endpoints (relationship) show personalized data
 - The `instance` field includes full instance data (description, version, icon, etc.) when available
 - Flat instance fields (`instanceDomain`, `instanceName`, `instanceSoftware`) are provided for convenience
+- Posts endpoint (`/posts`) fetches from both local DB and remote ActivityPub outbox for comprehensive results
