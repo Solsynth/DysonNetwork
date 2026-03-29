@@ -233,7 +233,8 @@ public class SnPublisherFeature : ModelBase
 
 public abstract class PublisherFeatureFlag
 {
-    public static List<string> AllFlags => [Develop, FollowRequiresApproval, PostsRequireFollow];
+    public static List<string> AllFlags => [FollowRequiresApproval, PostsRequireFollow];
+    public static List<string> SystemOnlyFlags => [Develop];
     public const string Develop = "develop";
     public const string FollowRequiresApproval = "followRequiresApproval";
     public const string PostsRequireFollow = "postsRequireFollow";

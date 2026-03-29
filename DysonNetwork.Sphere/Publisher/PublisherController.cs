@@ -741,7 +741,7 @@ public class PublisherController(
         if (publisher is null)
             return NotFound();
 
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId,PublisherMemberRole.Viewer))
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Viewer))
             return StatusCode(403, "You are not allowed to view stats data of this publisher.");
 
         var result = await ps.GetPublisherExpectedReward(publisher.Id);
@@ -757,7 +757,6 @@ public class PublisherController(
 
     [HttpPost("{name}/features")]
     [Authorize]
-    [AskPermission("publishers.features")]
     public async Task<ActionResult<SnPublisherFeature>> AddPublisherFeature(
         string name,
         [FromBody] PublisherFeatureRequest request
@@ -766,6 +765,18 @@ public class PublisherController(
         var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
+
+        if (PublisherFeatureFlag.SystemOnlyFlags.Contains(request.Flag))
+            return BadRequest($"Flag '{request.Flag}' is a system flag and cannot be enabled manually");
+
+        if ((request.Flag == PublisherFeatureFlag.FollowRequiresApproval ||
+             request.Flag == PublisherFeatureFlag.PostsRequireFollow) &&
+            publisher.AccountId.HasValue)
+        {
+            var publisherAccount = await remoteAccounts.GetAccount(publisher.AccountId.Value);
+            if (publisherAccount != null && publisherAccount.PerkLevel < PublisherFeatureFlag.MinimumPerkLevel)
+                return StatusCode(403, $"This feature requires PerkLevel >= {PublisherFeatureFlag.MinimumPerkLevel}");
+        }
 
         var feature = new SnPublisherFeature
         {
@@ -782,7 +793,6 @@ public class PublisherController(
 
     [HttpDelete("{name}/features/{flag}")]
     [Authorize]
-    [AskPermission("publishers.features")]
     public async Task<ActionResult> RemovePublisherFeature(string name, string flag)
     {
         var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
