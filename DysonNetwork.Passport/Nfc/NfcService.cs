@@ -184,6 +184,51 @@ public class NfcService(
     }
 
     /// <summary>
+    /// Look up a tag by its UID and return the associated user profile.
+    /// Does NOT perform SUN MAC verification — use for admin/debug/testing only.
+    /// </summary>
+    public async Task<NfcResolveResult?> LookupByUidAsync(
+        string uid,
+        Guid? observerUserId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var tag = await db.NfcTags
+            .FirstOrDefaultAsync(t => t.Uid == uid.ToUpperInvariant() && t.IsActive, cancellationToken);
+
+        if (tag is null) return null;
+
+        var account = await accounts.GetAccount(tag.UserId);
+        if (account is null) return null;
+
+        var profile = account.Profile;
+        var isFriend = false;
+
+        if (observerUserId.HasValue && observerUserId.Value != tag.UserId)
+        {
+            isFriend = await relationships.HasRelationshipWithStatus(observerUserId.Value, tag.UserId);
+
+            var blocked =
+                await relationships.HasRelationshipWithStatus(observerUserId.Value, tag.UserId,
+                    RelationshipStatus.Blocked) ||
+                await relationships.HasRelationshipWithStatus(tag.UserId, observerUserId.Value,
+                    RelationshipStatus.Blocked);
+            if (blocked) return null;
+        }
+
+        var actions = new List<string> { "view_profile" };
+        if (observerUserId.HasValue && observerUserId.Value != tag.UserId)
+            actions.Add("add_friend");
+
+        return new NfcResolveResult
+        {
+            User = account,
+            Profile = profile,
+            IsFriend = isFriend,
+            Actions = actions
+        };
+    }
+
+    /// <summary>
     /// Update tag metadata (label, active status).
     /// </summary>
     public async Task<SnNfcTag?> UpdateTagAsync(

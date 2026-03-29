@@ -139,6 +139,7 @@ Bytes 11-15: PKCS7 padding
 
 | Endpoint | Auth | Description |
 |---|---|---|
+| `GET /api/nfc/lookup` | Optional | Look up tag by UID (admin/debug only, no MAC verification) |
 | `GET /api/nfc` | Optional | Public scan resolution. If JWT present, includes relationship info. |
 | `GET /api/nfc/tags` | Required | List user's tags |
 | `POST /api/nfc/tags` | Required | Register a tag |
@@ -149,6 +150,43 @@ Bytes 11-15: PKCS7 padding
 The current user is read from `HttpContext.Items["CurrentUser"]`.
 
 ## Endpoints
+
+### Lookup tag by UID
+
+`GET /api/nfc/lookup?uid={uid}`
+
+No authentication required. If JWT present, relationship info is included.
+
+**Warning**: This endpoint bypasses SUN MAC verification and replay protection. Intended for admin/debug/testing only.
+
+Parameters:
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `uid` | string | Yes | Chip UID (hex string) |
+
+Response (200):
+
+```json
+{
+  "user": {
+    "id": "11111111-2222-3333-4444-555555555555",
+    "name": "alice",
+    "nick": "Alice",
+    "picture": null,
+    "bio": "Hello world"
+  },
+  "is_friend": false,
+  "actions": ["view_profile", "add_friend"]
+}
+```
+
+Error responses:
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | Missing uid parameter |
+| 404 | `NOT_FOUND` | Tag not found |
 
 ### Resolve NFC tag
 

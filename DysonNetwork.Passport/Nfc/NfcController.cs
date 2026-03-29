@@ -58,6 +58,45 @@ public class NfcController(NfcService nfc) : ControllerBase
     }
 
     /// <summary>
+    /// Look up a tag by UID (admin/debug/testing only).
+    /// Does NOT verify SUN MAC — bypasses replay protection.
+    /// </summary>
+    [HttpGet("lookup")]
+    public async Task<ActionResult<NfcResolveResponse>> Lookup(
+        [FromQuery] string uid,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(uid))
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                ["uid"] = ["Parameter 'uid' is required."]
+            }));
+
+        Guid? observerUserId = null;
+        if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
+            observerUserId = currentUser.Id;
+
+        var result = await nfc.LookupByUidAsync(uid, observerUserId, cancellationToken);
+
+        if (result is null)
+            return NotFound(ApiError.NotFound("nfc_tag", "NFC tag not found."));
+
+        return Ok(new NfcResolveResponse
+        {
+            User = new NfcUserDto
+            {
+                Id = result.User.Id,
+                Name = result.User.Name,
+                Nick = result.User.Nick,
+                Picture = result.Profile?.Picture,
+                Bio = result.Profile?.Bio
+            },
+            IsFriend = result.IsFriend,
+            Actions = result.Actions
+        });
+    }
+
+    /// <summary>
     /// Public endpoint: resolve SUN URL parameters to a user profile.
     /// Called when an NFC tag is scanned. No authentication required.
     /// </summary>
