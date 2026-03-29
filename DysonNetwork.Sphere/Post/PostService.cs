@@ -1737,7 +1737,7 @@ public partial class PostService(
     /// <param name="postId">The ID of the post to mark as viewed</param>
     /// <param name="viewerId">Optional viewer ID for unique view counting (anonymous if null)</param>
     /// <returns>Task representing the asynchronous operation</returns>
-    public async Task IncreaseViewCount(Guid postId, string? viewerId = null)
+    public async Task IncreaseViewCount(Guid postId, string? viewerId = null, bool isDetailView = false)
     {
         // Check if this view is already counted in cache to prevent duplicate counting
         if (!string.IsNullOrEmpty(viewerId))
@@ -1755,7 +1755,7 @@ public partial class PostService(
             await cache.SetAsync(cacheKey, true, TimeSpan.FromHours(1));
         }
 
-        // Add view info to flush buffer
+        // Always increment view count
         flushBuffer.Enqueue(
             new PostViewInfo
             {
@@ -1765,7 +1765,8 @@ public partial class PostService(
             }
         );
 
-        if (!string.IsNullOrEmpty(viewerId) && Guid.TryParse(viewerId, out var accountId))
+        // Only fire interest signal on detail page views
+        if (isDetailView && !string.IsNullOrEmpty(viewerId) && Guid.TryParse(viewerId, out var accountId))
         {
             var interestCacheKey =
                 $"post:interest:view:{postId}:{viewerId}:{DateTime.UtcNow:yyyyMMdd}";
@@ -1925,7 +1926,7 @@ public partial class PostService(
                 }
             }
 
-            // Track view for each post in the list
+            // Track view for each post in the list (without interest signal)
             if (currentUser != null)
                 await IncreaseViewCount(post.Id, currentUser.Id);
             else

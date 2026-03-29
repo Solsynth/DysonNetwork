@@ -340,6 +340,11 @@ public class PostController(
         if (post.RealmId != null)
             post.Realm = await rs.GetRealm(post.RealmId.Value.ToString());
 
+        if (currentUser != null)
+            await ps.IncreaseViewCount(post.Id, currentUser.Id, isDetailView: true);
+        else
+            await ps.IncreaseViewCount(post.Id, isDetailView: true);
+
         return Ok(post);
     }
 
@@ -378,6 +383,11 @@ public class PostController(
         {
             post.Realm = await rs.GetRealm(post.RealmId.Value.ToString());
         }
+
+        if (currentUser != null)
+            await ps.IncreaseViewCount(post.Id, currentUser.Id, isDetailView: true);
+        else
+            await ps.IncreaseViewCount(post.Id, isDetailView: true);
 
         return Ok(post);
     }

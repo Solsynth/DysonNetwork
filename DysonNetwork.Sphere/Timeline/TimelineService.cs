@@ -150,7 +150,7 @@ public class TimelineService(
             )
             .Take(take * TimelineCandidateMultiplier);
 
-        var posts = await GetAndProcessPosts(postsQuery, currentUser, trackViews: false);
+        var posts = await GetAndProcessPosts(postsQuery, currentUser);
 
         logger.LogInformation("ListEvents: fetched {PostCount} posts before ranking", posts.Count);
 
@@ -169,7 +169,7 @@ public class TimelineService(
                 .Where(p => p.DraftedAt == null)
                 .Where(p => cursor == null || p.PublishedAt < cursor);
 
-            var boostedPosts = await GetAndProcessPosts(boostedPostsQuery, currentUser, trackViews: false);
+            var boostedPosts = await GetAndProcessPosts(boostedPostsQuery, currentUser);
             posts.AddRange(boostedPosts);
             logger.LogInformation("ListEvents: added {BoostedCount} boosted posts to timeline", boostedPosts.Count);
         }
@@ -178,7 +178,6 @@ public class TimelineService(
 
         posts = await RankPosts(posts, take, currentUser, mode, aggressive);
         await RememberServedPostsAsync(posts, accountId);
-        await TrackPostViewsAsync(posts, currentUser);
 
         logger.LogInformation("ListEvents: returning {PostCount} posts after ranking", posts.Count);
 
@@ -1572,7 +1571,7 @@ public class TimelineService(
             .OrderBy(_ => EF.Functions.Random())
             .Take(count);
 
-        var posts = await GetAndProcessPosts(postsQuery, trackViews: false);
+        var posts = await GetAndProcessPosts(postsQuery);
         await LoadPostsRealmsAsync(posts, rs);
 
         return posts.Count == 0
@@ -1584,8 +1583,7 @@ public class TimelineService(
 
     private async Task<List<SnPost>> GetAndProcessPosts(
         IQueryable<SnPost> baseQuery,
-        DyAccount? currentUser = null,
-        bool trackViews = true
+        DyAccount? currentUser = null
     )
     {
         var posts = await baseQuery.ToListAsync();
@@ -1600,20 +1598,9 @@ public class TimelineService(
                 post.Id,
                 new Dictionary<string, int>()
             );
-
-            if (trackViews && currentUser != null)
-            {
-                await ps.IncreaseViewCount(post.Id, currentUser.Id.ToString());
-            }
         }
 
         return posts;
-    }
-
-    private async Task TrackPostViewsAsync(IEnumerable<SnPost> posts, DyAccount currentUser)
-    {
-        foreach (var post in posts)
-            await ps.IncreaseViewCount(post.Id, currentUser.Id.ToString());
     }
 
     private async Task<Dictionary<Guid, double>> GetRecentServedPenaltyMap(
