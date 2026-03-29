@@ -596,6 +596,91 @@ public class AuthService(
         return factor.VerifyPassword(pinCode);
     }
 
+    public async Task<TokenPair> RecoverAccountWithRecoveryCodeAsync(
+        SnAccount account,
+        string recoveryCode,
+        string deviceId,
+        ClientPlatform platform,
+        string? deviceName = null
+    )
+    {
+        var recoveryFactor = await db.AccountAuthFactors
+            .Where(f => f.AccountId == account.Id)
+            .Where(f => f.Type == AccountAuthFactorType.RecoveryCode)
+            .Where(f => f.EnabledAt != null)
+            .FirstOrDefaultAsync();
+
+        if (recoveryFactor is null)
+            throw new ArgumentException("Recovery code factor not found.");
+
+        if (recoveryFactor.Secret != recoveryCode)
+            throw new ArgumentException("Invalid recovery code.");
+
+        await using var tx = await db.Database.BeginTransactionAsync();
+        try
+        {
+            var factorsToDisable = await db.AccountAuthFactors
+                .Where(f => f.AccountId == account.Id)
+                .Where(f => f.Type != AccountAuthFactorType.Password)
+                .Where(f => f.Type != AccountAuthFactorType.RecoveryCode)
+                .Where(f => f.EnabledAt != null)
+                .ToListAsync();
+
+            foreach (var factor in factorsToDisable)
+            {
+                factor.EnabledAt = null;
+                db.AccountAuthFactors.Update(factor);
+            }
+
+            var revokedCount = await RevokeAllSessionsForAccountAsync(account.Id);
+
+            var now = SystemClock.Instance.GetCurrentInstant();
+            var device = await GetOrCreateDeviceAsync(account.Id, deviceId, deviceName, platform);
+
+            var ipAddress = HttpContext.GetClientIpAddress();
+            var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
+            var geoLocation = ipAddress is not null ? geo.GetPointFromIp(ipAddress) : null;
+
+            var session = new SnAuthSession
+            {
+                Type = SessionType.Login,
+                CreatedAt = now,
+                LastGrantedAt = now,
+                ExpiredAt = now.Plus(GetRefreshTokenLifetime()),
+                AccountId = account.Id,
+                IpAddress = ipAddress,
+                UserAgent = userAgent,
+                Location = geoLocation,
+                ClientId = device.Id,
+            };
+
+            db.AuthSessions.Add(session);
+            await db.SaveChangesAsync();
+
+            await actionLogs.CreateActionLogAsync(
+                account.Id,
+                ActionLogType.AccountRecovery,
+                new Dictionary<string, object>
+                {
+                    ["factors_disabled"] = factorsToDisable.Select(f => f.Type.ToString()).ToList(),
+                    ["sessions_revoked"] = revokedCount
+                },
+                userAgent,
+                ipAddress,
+                geoLocation is null ? null : JsonSerializer.Serialize(geoLocation),
+                session.Id
+            );
+
+            await tx.CommitAsync();
+            return await CreateTokenPair(session);
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
+    }
+
     public async Task<SnApiKey?> GetApiKey(Guid id, Guid? accountId = null)
     {
         var key = await db.ApiKeys

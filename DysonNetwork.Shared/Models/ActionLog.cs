@@ -57,6 +57,7 @@ public abstract class ActionLogType
     public const string AuthFactorDisable = "accounts.auth_factors.disable";
     public const string AuthFactorDelete = "accounts.auth_factors.delete";
     public const string AuthFactorResetPassword = "accounts.auth_factors.reset_password";
+    public const string AccountRecovery = "accounts.recovery";
     public const string SessionRevoke = "developer.sessions.revoke";
     public const string DeviceRevoke = "developer.devices.revoke";
     public const string DeviceRename = "developer.devices.rename";

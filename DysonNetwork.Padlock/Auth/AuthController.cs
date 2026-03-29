@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -332,6 +333,84 @@ public class AuthController(
     {
         var result = await auth.ValidateCaptcha(token);
         return result ? Ok() : BadRequest();
+    }
+
+    public class RecoveryRequest
+    {
+        [Required] public string Account { get; set; } = null!;
+        [Required] public string RecoveryCode { get; set; } = null!;
+        [Required] public string CaptchaToken { get; set; } = null!;
+        [Required] public string DeviceId { get; set; } = null!;
+        [MaxLength(1024)] public string? DeviceName { get; set; }
+        public ClientPlatform Platform { get; set; } = ClientPlatform.Unidentified;
+    }
+
+    [HttpPost("recover")]
+    public async Task<ActionResult<TokenExchangeResponse>> RecoverAccount([FromBody] RecoveryRequest request)
+    {
+        var captchaResp = await auth.ValidateCaptcha(request.CaptchaToken);
+        if (!captchaResp)
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(request.CaptchaToken)] = ["Invalid captcha token."]
+            }, traceId: HttpContext.TraceIdentifier));
+
+        var account = await accounts.LookupAccount(request.Account);
+        if (account is null)
+            return BadRequest(new ApiError
+            {
+                Code = "NOT_FOUND",
+                Message = "Unable to find the account.",
+                Detail = request.Account,
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
+
+        try
+        {
+            var pair = await auth.RecoverAccountWithRecoveryCodeAsync(
+                account,
+                request.RecoveryCode,
+                request.DeviceId,
+                request.Platform,
+                request.DeviceName
+            );
+
+            HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, pair.AccessToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Lax,
+                Domain = _cookieDomain,
+                Expires = pair.AccessTokenExpiresAt.ToDateTimeOffset()
+            });
+            HttpContext.Response.Cookies.Append(AuthConstants.RefreshCookieTokenName, pair.RefreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Lax,
+                Domain = _cookieDomain,
+                Expires = pair.RefreshTokenExpiresAt.ToDateTimeOffset()
+            });
+
+            return Ok(new TokenExchangeResponse
+            {
+                Token = pair.AccessToken,
+                RefreshToken = pair.RefreshToken,
+                ExpiresIn = (long)Math.Max(0, (pair.AccessTokenExpiresAt - SystemClock.Instance.GetCurrentInstant()).TotalSeconds),
+                RefreshExpiresIn = (long)Math.Max(0, (pair.RefreshTokenExpiresAt - SystemClock.Instance.GetCurrentInstant()).TotalSeconds)
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ApiError
+            {
+                Code = "RECOVERY_FAILED",
+                Message = ex.Message,
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
+        }
     }
 
     [HttpPost("logout")]
