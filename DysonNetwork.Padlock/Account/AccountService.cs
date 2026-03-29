@@ -137,6 +137,31 @@ public class AccountService(
 
     public async Task<SnAccountAuthFactor?> CreateAuthFactor(SnAccount account, AccountAuthFactorType type, string? secret)
     {
+        if (type == AccountAuthFactorType.RecoveryCode)
+        {
+            var recoveryCode = Guid.NewGuid().ToString("N");
+            var recoveryFactor = new SnAccountAuthFactor
+            {
+                Type = AccountAuthFactorType.RecoveryCode,
+                Trustworthy = 0,
+                AccountId = account.Id,
+                Secret = recoveryCode,
+                EnabledAt = SystemClock.Instance.GetCurrentInstant(),
+                CreatedResponse = new Dictionary<string, object>
+                {
+                    ["recovery_code"] = recoveryCode
+                }
+            };
+            db.AccountAuthFactors.Add(recoveryFactor);
+            await db.SaveChangesAsync();
+            await CreateAccountActionLogAsync(
+                account.Id,
+                ActionLogType.AuthFactorCreate,
+                new Dictionary<string, object> { ["factor_type"] = recoveryFactor.Type.ToString() }
+            );
+            return recoveryFactor;
+        }
+
         SnAccountAuthFactor? factor = type switch
         {
             AccountAuthFactorType.Password when !string.IsNullOrWhiteSpace(secret) => new SnAccountAuthFactor
@@ -176,14 +201,6 @@ public class AccountService(
                 Secret = secret,
                 EnabledAt = SystemClock.Instance.GetCurrentInstant(),
             }.HashSecret(),
-            AccountAuthFactorType.RecoveryCode => new SnAccountAuthFactor
-            {
-                Type = AccountAuthFactorType.RecoveryCode,
-                Trustworthy = 0,
-                AccountId = account.Id,
-                Secret = Guid.NewGuid().ToString("N"),
-                EnabledAt = SystemClock.Instance.GetCurrentInstant(),
-            },
             _ => null
         };
 

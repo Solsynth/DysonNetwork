@@ -102,14 +102,16 @@ Creates the recovery code factor for the authenticated user.
   "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
   "accountId": "11111111-2222-3333-4444-555555555555",
   "type": "RecoveryCode",
-  "secret": "a1b2c3d4e5f678901234567890123456",
   "trustworthy": 0,
   "enabledAt": "2026-03-29T08:00:00Z",
-  "expiredAt": null
+  "expiredAt": null,
+  "createdResponse": {
+    "recovery_code": "a1b2c3d4e5f678901234567890123456"
+  }
 }
 ```
 
-**Important:** Store the `secret` value securely — it cannot be retrieved again.
+**Important:** Store the `recovery_code` from `createdResponse` securely — it cannot be retrieved again.
 
 **Error responses:**
 
