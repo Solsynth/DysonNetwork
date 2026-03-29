@@ -20,13 +20,13 @@ public class ActivityController(TimelineService acts) : ControllerBase
     /// the API will personalize the user's experience
     /// by ranking up the people they like and the posts they like.
     /// Besides, when users are logged in, it will also mix the other kinds of data and who're plying to them.
+    /// Fediverse posts are shown to all users (unauthenticated see all, authenticated see posts from followed actors or friends' follows).
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<SnTimelinePage>> ListEvents(
         [FromQuery] string? cursor,
         [FromQuery] string? filter,
         [FromQuery] int take = 20,
-        [FromQuery] bool showFediverse = false,
         [FromQuery] string? mode = null,
         [FromQuery] bool aggressive = true
     )
@@ -50,14 +50,13 @@ public class ActivityController(TimelineService acts) : ControllerBase
 
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         return currentUserValue is not DyAccount currentUser
-            ? Ok(await acts.ListEventsForAnyone(take, cursorTimestamp, timelineMode.Value, showFediverse))
+            ? Ok(await acts.ListEventsForAnyone(take, cursorTimestamp, timelineMode.Value))
             : Ok(await acts.ListEvents(
                 take,
                 cursorTimestamp,
                 currentUser,
                 timelineMode.Value,
                 filter,
-                showFediverse,
                 aggressive
             ));
     }

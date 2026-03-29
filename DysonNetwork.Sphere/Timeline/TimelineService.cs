@@ -62,8 +62,7 @@ public class TimelineService(
     public async Task<SnTimelinePage> ListEventsForAnyone(
         int take,
         Instant? cursor,
-        SnTimelineMode mode,
-        bool showFediverse = false
+        SnTimelineMode mode
     )
     {
         var activities = new List<SnTimelineEvent>();
@@ -74,8 +73,6 @@ public class TimelineService(
         var postsQuery = BuildPostsQuery(cursor, null, publicRealmIds)
             .FilterWithVisibility(null, [], [], isListing: true)
             .Take(take * TimelineCandidateMultiplier);
-        if (!showFediverse)
-            postsQuery = postsQuery.Where(p => p.FediverseUri == null);
 
         var posts = await GetAndProcessPosts(postsQuery);
         await LoadPostsRealmsAsync(posts, rs);
@@ -109,7 +106,6 @@ public class TimelineService(
         DyAccount currentUser,
         SnTimelineMode mode,
         string? filter = null,
-        bool showFediverse = false,
         bool aggressive = true
     )
     {
@@ -132,14 +128,17 @@ public class TimelineService(
 
         var boostedPostIds = await GetBoostedPostIdsForTimelineAsync(accountId, userPublishers, effectiveCursor);
 
+        // Get visible fediverse actor IDs based on user's follows and friends' follows
+        var visibleFediverseActorIds = await GetVisibleFediverseActorIdsAsync(accountId, userFriends);
+
         logger.LogInformation(
-            "ListEvents: account={AccountId}, mode={Mode}, filter={Filter}, cursor={Cursor}, effectiveCursor={EffectiveCursor}, userRealms={RealmCount}, boostedPosts={BoostedCount}",
-            accountId, mode, filter, cursor, effectiveCursor, userRealms.Count, boostedPostIds.Count
+            "ListEvents: account={AccountId}, mode={Mode}, filter={Filter}, cursor={Cursor}, effectiveCursor={EffectiveCursor}, userRealms={RealmCount}, boostedPosts={BoostedCount}, visibleFediverseActors={FediverseActorCount}",
+            accountId, mode, filter, cursor, effectiveCursor, userRealms.Count, boostedPostIds.Count, visibleFediverseActorIds.Count
         );
 
         var postsQuery = BuildPostsQuery(effectiveCursor, filteredPublishersId, userRealms);
-        if (!showFediverse)
-            postsQuery = postsQuery.Where(p => p.FediverseUri == null);
+        // Filter fediverse posts: only show if user follows the actor or a friend follows them
+        postsQuery = postsQuery.Where(p => p.FediverseUri == null || (p.ActorId.HasValue && visibleFediverseActorIds.Contains(p.ActorId.Value)));
 
         postsQuery = postsQuery
             .FilterWithVisibility(
@@ -244,6 +243,60 @@ public class TimelineService(
             .Select(b => b.PostId);
 
         return await query.Distinct().ToListAsync();
+    }
+
+    private async Task<HashSet<Guid>> GetVisibleFediverseActorIdsAsync(
+        Guid accountId,
+        List<Guid> userFriendIds
+    )
+    {
+        var visibleActorIds = new HashSet<Guid>();
+
+        // 1. Get local actors for the current user's publishers
+        var userPublisherIds = await db.Publishers
+            .Where(p => p.AccountId == accountId)
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        var userLocalActorIds = await db.FediverseActors
+            .Where(a => a.PublisherId != null && userPublisherIds.Contains(a.PublisherId.Value))
+            .Select(a => a.Id)
+            .ToListAsync();
+
+        // 2. Get actors followed by current user's local actors
+        if (userLocalActorIds.Count > 0)
+        {
+            var followedByUser = await db.FediverseRelationships
+                .Where(r => userLocalActorIds.Contains(r.ActorId) && r.State == RelationshipState.Accepted)
+                .Select(r => r.TargetActorId)
+                .ToListAsync();
+            foreach (var id in followedByUser)
+                visibleActorIds.Add(id);
+        }
+
+        // 3. Get local actors for friends
+        var friendPublisherIds = await db.Publishers
+            .Where(p => p.AccountId.HasValue && userFriendIds.Contains(p.AccountId.Value))
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        var friendLocalActorIds = await db.FediverseActors
+            .Where(a => a.PublisherId != null && friendPublisherIds.Contains(a.PublisherId.Value))
+            .Select(a => a.Id)
+            .ToListAsync();
+
+        // 4. Get actors followed by friends' local actors
+        if (friendLocalActorIds.Count > 0)
+        {
+            var followedByFriends = await db.FediverseRelationships
+                .Where(r => friendLocalActorIds.Contains(r.ActorId) && r.State == RelationshipState.Accepted)
+                .Select(r => r.TargetActorId)
+                .ToListAsync();
+            foreach (var id in followedByFriends)
+                visibleActorIds.Add(id);
+        }
+
+        return visibleActorIds;
     }
 
     private async Task UpdateSoftCursorAsync(Guid accountId)
