@@ -94,7 +94,8 @@ public class FediverseCachingService(
             LastActivityAt = actor.LastActivityAt,
             LastFetchedAt = actor.LastFetchedAt,
             FollowersCount = actor.FollowerRelationships?.Count ?? -1,
-            FollowingCount = actor.FollowingRelationships?.Count ?? -1
+            FollowingCount = actor.FollowingRelationships?.Count ?? -1,
+            Metadata = actor.Metadata
         };
 
         var handleCacheKey = GetActorHandleCacheKey(actor.Username, instanceDomain);
@@ -148,7 +149,8 @@ public class FediverseCachingService(
             LastActivityAt = actor.LastActivityAt,
             LastFetchedAt = actor.LastFetchedAt,
             FollowersCount = followersCount,
-            FollowingCount = followingCount
+            FollowingCount = followingCount,
+            Metadata = actor.Metadata
         };
     }
 
@@ -188,7 +190,8 @@ public class FediverseCachingService(
             LastActivityAt = actor.LastActivityAt,
             LastFetchedAt = actor.LastFetchedAt,
             FollowersCount = followersCount,
-            FollowingCount = followingCount
+            FollowingCount = followingCount,
+            Metadata = actor.Metadata
         };
     }
 
@@ -334,6 +337,7 @@ public class CachedActor
     public int? TotalPostCount { get; set; }
     public Instant? LastActivityAt { get; set; }
     public Instant? LastFetchedAt { get; set; }
+    public Dictionary<string, object>? Metadata { get; set; }
     public string WebUrl => string.IsNullOrEmpty(Uri)
         ? $"https://{InstanceDomain}/@{Username}"
         : Uri.StartsWith("http") ? Uri.Replace("/users/", "/@") : $"https://{InstanceDomain}/@{Username}";
