@@ -974,6 +974,57 @@ public class FediverseActorController(
             .Take(limit)
             .ToListAsync();
     }
+
+    /// <summary>
+    /// Check if the current user has any publishers with Fediverse enabled.
+    /// </summary>
+    [HttpGet("availability")]
+    [Authorize]
+    public async Task<ActionResult<FediverseAvailabilityResponse>> CheckAvailability()
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        // Get all publishers owned by the user
+        var ownedPublishers = await db.Publishers
+            .Where(p => p.AccountId == accountId)
+            .ToListAsync();
+
+        if (ownedPublishers.Count == 0)
+        {
+            return Ok(new FediverseAvailabilityResponse
+            {
+                IsEnabled = false,
+                Publishers = []
+            });
+        }
+
+        var publisherIds = ownedPublishers.Select(p => p.Id).ToList();
+
+        // Check which publishers have Fediverse actors
+        var fediverseActors = await db.FediverseActors
+            .Include(a => a.Instance)
+            .Where(a => a.PublisherId != null && publisherIds.Contains(a.PublisherId.Value))
+            .ToListAsync();
+
+        var enabledPublishers = fediverseActors.Select(a => new FediversePublisherInfo
+        {
+            PublisherId = a.PublisherId!.Value,
+            PublisherName = ownedPublishers.FirstOrDefault(p => p.Id == a.PublisherId)?.Name ?? "Unknown",
+            FediverseHandle = $"{a.Username}@{a.Instance?.Domain}",
+            FediverseUri = a.Uri,
+            AvatarUrl = a.AvatarUrl,
+            IsEnabled = true
+        }).ToList();
+
+        return Ok(new FediverseAvailabilityResponse
+        {
+            IsEnabled = enabledPublishers.Count > 0,
+            Publishers = enabledPublishers
+        });
+    }
 }
 
 public class FediverseRelationshipResponse
@@ -985,4 +1036,20 @@ public class FediverseRelationshipResponse
     public bool IsFollowing { get; set; }
     public bool IsFollowedBy { get; set; }
     public bool IsPending { get; set; }
+}
+
+public class FediverseAvailabilityResponse
+{
+    public bool IsEnabled { get; set; }
+    public List<FediversePublisherInfo> Publishers { get; set; } = [];
+}
+
+public class FediversePublisherInfo
+{
+    public Guid PublisherId { get; set; }
+    public string PublisherName { get; set; } = null!;
+    public string FediverseHandle { get; set; } = null!;
+    public string FediverseUri { get; set; } = null!;
+    public string? AvatarUrl { get; set; }
+    public bool IsEnabled { get; set; }
 }
