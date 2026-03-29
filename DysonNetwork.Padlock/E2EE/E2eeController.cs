@@ -184,6 +184,27 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         return Ok(result);
     }
 
+    public class CheckMlsReadyResponse
+    {
+        public bool IsReady { get; set; }
+        public int AvailableKeyPackages { get; set; }
+    }
+
+    [HttpGet("mls/users/{accountId:guid}/ready")]
+    public async Task<ActionResult<CheckMlsReadyResponse>> CheckMlsUserReady(Guid accountId)
+    {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
+        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
+        if (currentUser is null) return Unauthorized();
+
+        var packages = await e2eeModule.ListMlsDeviceKeyPackagesAsync(accountId, currentUser.Id, consume: false);
+        return Ok(new CheckMlsReadyResponse
+        {
+            IsReady = packages.Count > 0,
+            AvailableKeyPackages = packages.Count
+        });
+    }
+
     [HttpPost("mls/groups/{groupId}/bootstrap")]
     public async Task<ActionResult<SnMlsGroupState>> BootstrapMlsGroup(string groupId, [FromBody] BootstrapMlsGroupBody body)
     {
