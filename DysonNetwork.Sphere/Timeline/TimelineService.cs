@@ -70,8 +70,10 @@ public class TimelineService(
         var publicRealms = await rs.GetPublicRealms();
         var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
 
+        var gatekeptPublisherIds = await GetGatekeptPublisherIds(publicRealmIds);
+
         var postsQuery = BuildPostsQuery(cursor, null, publicRealmIds)
-            .FilterWithVisibility(null, [], [], isListing: true)
+            .FilterWithVisibility(null, [], [], isListing: true, gatekeptPublisherIds)
             .Take(take * TimelineCandidateMultiplier);
 
         var posts = await GetAndProcessPosts(postsQuery);
@@ -98,6 +100,25 @@ public class TimelineService(
             activities.Add(SnTimelineEvent.Empty());
 
         return BuildTimelinePage(activities, posts, mode);
+    }
+
+    private async Task<HashSet<Guid>> GetGatekeptPublisherIds(List<Guid> realmIds)
+    {
+        var publisherIds = await db.Publishers
+            .Where(p => p.RealmId == null || realmIds.Contains(p.RealmId.Value))
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        var gatekeptPublisherIds = new HashSet<Guid>();
+        foreach (var publisherId in publisherIds)
+        {
+            if (await pub.HasPostsRequireFollowFlag(publisherId))
+            {
+                gatekeptPublisherIds.Add(publisherId);
+            }
+        }
+
+        return gatekeptPublisherIds;
     }
 
     public async Task<SnTimelinePage> ListEvents(
@@ -137,15 +158,41 @@ public class TimelineService(
         );
 
         var postsQuery = BuildPostsQuery(effectiveCursor, filteredPublishersId, userRealms);
-        // Filter fediverse posts: only show if user follows the actor or a friend follows them
         postsQuery = postsQuery.Where(p => p.FediverseUri == null || (p.ActorId.HasValue && visibleFediverseActorIds.Contains(p.ActorId.Value)));
+
+        var timelinePublishers = filter is null ? userPublishers : [];
+        HashSet<Guid>? gatekeptPublisherIds = null;
+        HashSet<Guid>? followerPublisherIds = null;
+
+        if (timelinePublishers.Count > 0)
+        {
+            gatekeptPublisherIds = [];
+            foreach (var publisher in timelinePublishers)
+            {
+                if (await pub.HasPostsRequireFollowFlag(publisher.Id))
+                {
+                    gatekeptPublisherIds.Add(publisher.Id);
+                }
+            }
+
+            if (gatekeptPublisherIds.Count > 0)
+            {
+                var acceptedFollows = await db.PublisherFollowRequests
+                    .Where(r => r.AccountId == accountId && r.State == FollowRequestState.Accepted)
+                    .Select(r => r.PublisherId)
+                    .ToListAsync();
+                followerPublisherIds = acceptedFollows.ToHashSet();
+            }
+        }
 
         postsQuery = postsQuery
             .FilterWithVisibility(
                 currentUser,
                 userFriends,
-                filter is null ? userPublishers : [],
-                isListing: true
+                timelinePublishers,
+                isListing: true,
+                gatekeptPublisherIds,
+                followerPublisherIds
             )
             .Take(take * TimelineCandidateMultiplier);
 

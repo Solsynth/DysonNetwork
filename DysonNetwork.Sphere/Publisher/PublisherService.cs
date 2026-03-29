@@ -389,6 +389,152 @@ public class PublisherService(
         return isEnabled.Value;
     }
 
+    public async Task<bool> HasFollowRequiresApprovalFlag(Guid publisherId) =>
+        await HasFeature(publisherId, PublisherFeatureFlag.FollowRequiresApproval);
+
+    public async Task<bool> HasPostsRequireFollowFlag(Guid publisherId) =>
+        await HasFeature(publisherId, PublisherFeatureFlag.PostsRequireFollow);
+
+    public async Task<bool> IsFollower(Guid publisherId, Guid accountId)
+    {
+        var request = await db.PublisherFollowRequests
+            .FirstOrDefaultAsync(r =>
+                r.PublisherId == publisherId &&
+                r.AccountId == accountId &&
+                r.State == FollowRequestState.Accepted
+            );
+        return request != null;
+    }
+
+    public async Task<bool> HasAcceptedFollowRequest(Guid publisherId, Guid accountId)
+    {
+        return await db.PublisherFollowRequests
+            .AnyAsync(r =>
+                r.PublisherId == publisherId &&
+                r.AccountId == accountId &&
+                r.State == FollowRequestState.Accepted
+            );
+    }
+
+    public async Task<SnPublisherFollowRequest?> GetFollowRequest(Guid publisherId, Guid accountId)
+    {
+        return await db.PublisherFollowRequests
+            .FirstOrDefaultAsync(r =>
+                r.PublisherId == publisherId &&
+                r.AccountId == accountId
+            );
+    }
+
+    public async Task<SnPublisherFollowRequest> CreateFollowRequest(Guid publisherId, Guid accountId)
+    {
+        var existingRequest = await GetFollowRequest(publisherId, accountId);
+        if (existingRequest != null)
+        {
+            if (existingRequest.State == FollowRequestState.Pending)
+                throw new InvalidOperationException("Follow request already pending");
+            if (existingRequest.State == FollowRequestState.Accepted)
+                throw new InvalidOperationException("Already following");
+            existingRequest.State = FollowRequestState.Pending;
+            existingRequest.ReviewedAt = null;
+            existingRequest.ReviewedByAccountId = null;
+            existingRequest.RejectReason = null;
+            await db.SaveChangesAsync();
+            return existingRequest;
+        }
+
+        var request = new SnPublisherFollowRequest
+        {
+            PublisherId = publisherId,
+            AccountId = accountId,
+            State = FollowRequestState.Pending
+        };
+        db.PublisherFollowRequests.Add(request);
+        await db.SaveChangesAsync();
+        return request;
+    }
+
+    public async Task<SnPublisherFollowRequest> ApproveFollowRequest(Guid requestId, Guid reviewerAccountId)
+    {
+        var request = await db.PublisherFollowRequests
+            .Include(r => r.Publisher)
+            .FirstOrDefaultAsync(r => r.Id == requestId);
+
+        if (request == null)
+            throw new InvalidOperationException("Follow request not found");
+
+        if (request.State != FollowRequestState.Pending)
+            throw new InvalidOperationException("Request is not pending");
+
+        request.State = FollowRequestState.Accepted;
+        request.ReviewedAt = SystemClock.Instance.GetCurrentInstant();
+        request.ReviewedByAccountId = reviewerAccountId;
+        await db.SaveChangesAsync();
+
+        return request;
+    }
+
+    public async Task<SnPublisherFollowRequest> RejectFollowRequest(Guid requestId, Guid reviewerAccountId, string? reason = null)
+    {
+        var request = await db.PublisherFollowRequests
+            .FirstOrDefaultAsync(r => r.Id == requestId);
+
+        if (request == null)
+            throw new InvalidOperationException("Follow request not found");
+
+        if (request.State != FollowRequestState.Pending)
+            throw new InvalidOperationException("Request is not pending");
+
+        request.State = FollowRequestState.Rejected;
+        request.ReviewedAt = SystemClock.Instance.GetCurrentInstant();
+        request.ReviewedByAccountId = reviewerAccountId;
+        request.RejectReason = reason;
+        await db.SaveChangesAsync();
+
+        return request;
+    }
+
+    public async Task<List<SnPublisherFollowRequest>> GetPendingFollowRequests(Guid publisherId)
+    {
+        return await db.PublisherFollowRequests
+            .Where(r => r.PublisherId == publisherId && r.State == FollowRequestState.Pending)
+            .OrderBy(r => r.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<int> CleanupExpiredFollowRequests()
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var expirationThreshold = now.Minus(Duration.FromDays(7));
+
+        var expiredRequests = await db.PublisherFollowRequests
+            .Where(r => r.State == FollowRequestState.Pending && r.CreatedAt < expirationThreshold)
+            .ToListAsync();
+
+        if (expiredRequests.Count == 0)
+            return 0;
+
+        db.PublisherFollowRequests.RemoveRange(expiredRequests);
+        await db.SaveChangesAsync();
+
+        return expiredRequests.Count;
+    }
+
+    public async Task CancelFollowRequest(Guid publisherId, Guid accountId)
+    {
+        var request = await db.PublisherFollowRequests
+            .FirstOrDefaultAsync(r =>
+                r.PublisherId == publisherId &&
+                r.AccountId == accountId &&
+                r.State == FollowRequestState.Pending
+            );
+
+        if (request != null)
+        {
+            db.PublisherFollowRequests.Remove(request);
+            await db.SaveChangesAsync();
+        }
+    }
+
     public async Task<bool> IsMemberWithRole(Guid publisherId, Guid accountId,
         PublisherMemberRole requiredRole)
     {

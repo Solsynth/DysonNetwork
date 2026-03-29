@@ -233,6 +233,33 @@ public class SnPublisherFeature : ModelBase
 
 public abstract class PublisherFeatureFlag
 {
-    public static List<string> AllFlags => [Develop];
-    public static string Develop = "develop";
+    public static List<string> AllFlags => [Develop, FollowRequiresApproval, PostsRequireFollow];
+    public const string Develop = "develop";
+    public const string FollowRequiresApproval = "followRequiresApproval";
+    public const string PostsRequireFollow = "postsRequireFollow";
+    public const int MinimumPerkLevel = 2;
+}
+
+public class SnPublisherFollowRequest : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    public Guid PublisherId { get; set; }
+    public SnPublisher Publisher { get; set; } = null!;
+
+    public Guid AccountId { get; set; }
+
+    public FollowRequestState State { get; set; } = FollowRequestState.Pending;
+
+    public Instant? ReviewedAt { get; set; }
+    public Guid? ReviewedByAccountId { get; set; }
+
+    [MaxLength(4096)] public string? RejectReason { get; set; }
+}
+
+public enum FollowRequestState
+{
+    Pending,
+    Accepted,
+    Rejected
 }

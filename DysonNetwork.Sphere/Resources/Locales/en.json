@@ -13,5 +13,11 @@
     "postReplyBody": "{user} replied: {content}",
     "postReplyContentBody": "{user} replied to post \"{title}\": {content}",
     "publishingRewardTitle": "Achievement for publisher {publisher} on {date}",
-    "liveStreamStartedTitle": "{publisher} is now live"
+    "liveStreamStartedTitle": "{publisher} is now live",
+    "followRequestReceivedTitle": "New follow request",
+    "followRequestReceivedBody": "{publisher} wants to follow you",
+    "followRequestApprovedTitle": "Follow request approved",
+    "followRequestApprovedBody": "{publisher} approved your follow request",
+    "followRequestRejectedTitle": "Follow request rejected",
+    "followRequestRejectedBody": "{publisher} rejected your follow request"
 }

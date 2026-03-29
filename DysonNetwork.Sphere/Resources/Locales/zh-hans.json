@@ -13,5 +13,11 @@
     "postReplyBody": "{user} 回复：{content}",
     "postReplyContentBody": "{user} 回复了帖子 \"{title}\"：{content}",
     "publishingRewardTitle": "发布者 {publisher} 于 {date} 的成就",
-    "liveStreamStartedTitle": "{publisher} 正在直播"
+    "liveStreamStartedTitle": "{publisher} 正在直播",
+    "followRequestReceivedTitle": "新的关注请求",
+    "followRequestReceivedBody": "{publisher} 想要关注您",
+    "followRequestApprovedTitle": "关注请求已通过",
+    "followRequestApprovedBody": "{publisher} 已通过您的关注请求",
+    "followRequestRejectedTitle": "关注请求被拒绝",
+    "followRequestRejectedBody": "{publisher} 已拒绝您的关注请求"
 }

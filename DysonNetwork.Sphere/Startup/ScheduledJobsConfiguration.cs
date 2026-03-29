@@ -75,6 +75,13 @@ public static class ScheduledJobsConfiguration
                     .WithIntervalInMinutes(5)
                     .RepeatForever())
             );
+
+            q.AddJob<PublisherFollowRequestCleanupJob>(opts => opts.WithIdentity("PublisherFollowRequestCleanup"));
+            q.AddTrigger(opts => opts
+                .ForJob("PublisherFollowRequestCleanup")
+                .WithIdentity("PublisherFollowRequestCleanupTrigger")
+                .WithCronSchedule("0 0 6 * * ?")
+            );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

@@ -17,6 +17,7 @@ public class AppDatabase(
     public DbSet<SnPublisherMember> PublisherMembers { get; set; } = null!;
     public DbSet<SnPublisherSubscription> PublisherSubscriptions { get; set; } = null!;
     public DbSet<SnPublisherFeature> PublisherFeatures { get; set; } = null!;
+    public DbSet<SnPublisherFollowRequest> PublisherFollowRequests { get; set; } = null!;
 
     public DbSet<SnPost> Posts { get; set; } = null!;
     public DbSet<SnPostReaction> PostReactions { get; set; } = null!;
@@ -82,6 +83,12 @@ public class AppDatabase(
             .HasOne(ps => ps.Publisher)
             .WithMany(p => p.Subscriptions)
             .HasForeignKey(ps => ps.PublisherId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnPublisherFollowRequest>()
+            .HasOne(fr => fr.Publisher)
+            .WithMany()
+            .HasForeignKey(fr => fr.PublisherId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnPost>()

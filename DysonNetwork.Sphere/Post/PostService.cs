@@ -635,15 +635,23 @@ public partial class PostService(
         if (publisherId == null)
             return filteredUserIds;
 
-        // Get publisher members
         var publisherMembers = await ps.GetPublisherMembers(publisherId.Value);
         var memberAccountIds = publisherMembers.Select(m => m.AccountId.ToString()).ToHashSet();
 
-        // Get friends if needed for Friends visibility
+        var postsRequireFollow = await ps.HasPostsRequireFollowFlag(publisherId.Value);
+        HashSet<string>? followerAccountIds = null;
+        if (postsRequireFollow)
+        {
+            var followerRequests = await db.PublisherFollowRequests
+                .Where(r => r.PublisherId == publisherId.Value && r.State == FollowRequestState.Accepted)
+                .Select(r => r.AccountId.ToString())
+                .ToListAsync();
+            followerAccountIds = followerRequests.ToHashSet();
+        }
+
         HashSet<string>? friendAccountIds = null;
         if (post.Visibility == PostVisibility.Friends)
         {
-            // Get all accounts that are friends with the publisher
             var queryRequest = new DyGetAccountBatchRequest();
             queryRequest.Id.AddRange(
                 publisherMembers
@@ -669,31 +677,36 @@ public partial class PostService(
 
         foreach (var userId in connectedUserIds)
         {
-            // Check if user is a member of the publisher
             var isMember = memberAccountIds.Contains(userId);
 
             switch (post.Visibility)
             {
-                // Private posts: only members can see
                 case PostVisibility.Private:
                 {
                     if (isMember)
                         filteredUserIds.Add(userId);
                     continue;
                 }
-                // Friends posts: members and friends can see
                 case PostVisibility.Friends:
                 {
                     if (isMember || (friendAccountIds != null && friendAccountIds.Contains(userId)))
                         filteredUserIds.Add(userId);
                     continue;
                 }
-                // Unlisted posts: same as public for real-time updates
                 case PostVisibility.Unlisted:
-                    filteredUserIds.Add(userId);
-                    break;
                 case PostVisibility.Public:
-                    break;
+                {
+                    if (postsRequireFollow)
+                    {
+                        if (isMember || (followerAccountIds != null && followerAccountIds.Contains(userId)))
+                            filteredUserIds.Add(userId);
+                    }
+                    else
+                    {
+                        filteredUserIds.Add(userId);
+                    }
+                    continue;
+                }
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -2285,7 +2298,9 @@ public static class PostQueryExtensions
         DyAccount? currentUser,
         List<Guid> userFriends,
         List<SnPublisher> publishers,
-        bool isListing = false
+        bool isListing = false,
+        HashSet<Guid>? gatekeptPublisherIds = null,
+        HashSet<Guid>? followerPublisherIds = null
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -2305,12 +2320,21 @@ public static class PostQueryExtensions
         };
 
         if (currentUser is null)
+        {
+            if (gatekeptPublisherIds != null && gatekeptPublisherIds.Count > 0)
+            {
+                source = source.Where(e =>
+                    !(e.PublisherId.HasValue && gatekeptPublisherIds.Contains(e.PublisherId.Value))
+                    || e.Visibility == Shared.Models.PostVisibility.Public
+                );
+            }
             return source
                 .Where(e => e.DraftedAt == null)
                 .Where(e => e.PublishedAt != null && now >= e.PublishedAt)
                 .Where(e => e.Visibility == Shared.Models.PostVisibility.Public);
+        }
 
-        return source
+        var result = source
             .Where(e =>
                 (e.DraftedAt == null && e.PublishedAt != null && now >= e.PublishedAt)
                 || (e.PublisherId.HasValue && publishersId.Contains(e.PublisherId.Value))
@@ -2327,5 +2351,19 @@ public static class PostQueryExtensions
                 )
                 || publishersId.Contains(e.PublisherId!.Value)
             );
+
+        if (gatekeptPublisherIds != null && gatekeptPublisherIds.Count > 0 && followerPublisherIds != null)
+        {
+            result = result.Where(e =>
+                !(e.PublisherId.HasValue && gatekeptPublisherIds.Contains(e.PublisherId.Value))
+                || e.PublisherId == null
+                || publishersId.Contains(e.PublisherId.Value)
+                || followerPublisherIds.Contains(e.PublisherId.Value)
+                || e.Visibility == Shared.Models.PostVisibility.Private
+                || e.Visibility == Shared.Models.PostVisibility.Friends
+            );
+        }
+
+        return result;
     }
 }
