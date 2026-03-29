@@ -149,14 +149,25 @@ public partial class ChatService(
                     syncMessage.Sender = dbMessage.Sender;
                     syncMessage.ChatRoom = dbMessage.ChatRoom;
 
+                    logger.LogWarning("CreateLinkPreviewBackgroundAsync: sending link preview for messageId={messageId}, embedCount={embedCount}",
+                        dbMessage.Id, embedsList.Count);
+
                     using var syncScope = scopeFactory.CreateScope();
 
-                    await DeliverMessageAsync(
-                        syncMessage,
-                        syncMessage.Sender,
-                        syncMessage.ChatRoom,
-                        notify: false
-                    );
+                    try
+                    {
+                        await DeliverMessageAsync(
+                            syncMessage,
+                            syncMessage.Sender,
+                            syncMessage.ChatRoom,
+                            type: syncMessage.Type,
+                            notify: false
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning("Failed to deliver link preview: messageId={messageId}, error={error}", dbMessage.Id, ex.Message);
+                    }
                 }
             }
         }
@@ -346,6 +357,7 @@ public partial class ChatService(
             systemMessage,
             sender,
             room,
+            type: type,
             notify: false
         );
 
@@ -1191,6 +1203,7 @@ public partial class ChatService(
             syncMessage,
             syncMessage.Sender,
             syncMessage.ChatRoom,
+            type: syncMessage.Type,
             notify: false
         );
 
@@ -1269,6 +1282,7 @@ public partial class ChatService(
             syncMessage,
             syncMessage.Sender,
             syncMessage.ChatRoom,
+            type: syncMessage.Type,
             notify: false
         );
     }
@@ -1387,6 +1401,7 @@ public partial class ChatService(
             syncMessage,
             syncMessage.Sender,
             syncMessage.ChatRoom,
+            type: WebSocketPacketType.MessageReactionAdded,
             notify: false
         );
 
@@ -1468,6 +1483,7 @@ public partial class ChatService(
             syncMessage,
             syncMessage.Sender,
             syncMessage.ChatRoom,
+            type: WebSocketPacketType.MessageReactionRemoved,
             notify: false
         );
 
