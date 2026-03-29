@@ -113,6 +113,16 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
         return Ok(profile);
     }
 
+    [HttpPost("reset")]
+    public async Task<ActionResult<int>> ResetInterests()
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var count = await timeline.ResetInterestProfileAsync(currentUser);
+        return Ok(count);
+    }
+
     private static DiscoveryTargetKind? ParseKind(string? kind)
     {
         if (string.IsNullOrWhiteSpace(kind))

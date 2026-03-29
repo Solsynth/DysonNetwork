@@ -121,8 +121,8 @@ Now fetches from both local DB and remote outbox:
 | Field | Description |
 |-------|-------------|
 | `id` | Valid GUID for local posts, `Guid.Empty` for remote |
-| `fediverseUri` | Remote post URI (for deduplication) |
-| `isCached` | `true` if stored locally, `false` if from remote |
+| `fediverse_uri` | Remote post URI (for deduplication) |
+| `is_cached` | `true` if stored locally, `false` if from remote |
 | `boostInfo` | Populated for boosted posts, null for original |
 
 **Remote Post Parsing:**

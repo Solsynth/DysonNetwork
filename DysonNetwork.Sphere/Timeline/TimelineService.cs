@@ -764,6 +764,93 @@ public class TimelineService(
         return true;
     }
 
+    public async Task<int> ResetInterestProfileAsync(DyAccount currentUser)
+    {
+        var accountId = Guid.Parse(currentUser.Id);
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        // Delete all existing interest profiles for this user
+        var existingProfiles = await db.PostInterestProfiles
+            .Where(p => p.AccountId == accountId)
+            .ToListAsync();
+        db.PostInterestProfiles.RemoveRange(existingProfiles);
+
+        var adjustments = new List<(PostInterestKind Kind, Guid ReferenceId, double ScoreDelta)>();
+
+        // 1. Publisher subscriptions → Publisher interests (score: 4.0)
+        var subscribedPublishers = await pub.GetSubscribedPublishers(accountId);
+        adjustments.AddRange(subscribedPublishers.Select(p =>
+            (PostInterestKind.Publisher, p.Id, 4.0d)
+        ));
+
+        // 2. Tag/Category subscriptions → interests (score: 4.0)
+        var categorySubscriptions = await db.PostCategorySubscriptions
+            .Where(s => s.AccountId == accountId)
+            .ToListAsync();
+        adjustments.AddRange(categorySubscriptions
+            .Where(s => s.TagId.HasValue)
+            .Select(s => (PostInterestKind.Tag, s.TagId!.Value, 4.0d))
+        );
+        adjustments.AddRange(categorySubscriptions
+            .Where(s => s.CategoryId.HasValue)
+            .Select(s => (PostInterestKind.Category, s.CategoryId!.Value, 4.0d))
+        );
+
+        // 3. Historic posts from user's publishers → interests (score: 2.0)
+        var userPublishers = await pub.GetUserPublishers(accountId);
+        var userPublisherIds = userPublishers.Select(p => p.Id).ToList();
+
+        if (userPublisherIds.Count > 0)
+        {
+            var recent = now.Minus(DiscoveryLookback);
+            var historicPosts = await db.Posts
+                .AsNoTracking()
+                .Include(p => p.Tags)
+                .Include(p => p.Categories)
+                .Where(p => p.PublisherId != null && userPublisherIds.Contains(p.PublisherId.Value))
+                .Where(p => p.DraftedAt == null)
+                .Where(p =>
+                    (p.PublishedAt != null && p.PublishedAt >= recent)
+                    || (p.PublishedAt == null && p.CreatedAt >= recent)
+                )
+                .ToListAsync();
+
+            // Aggregate tags from historic posts
+            var tagScores = historicPosts
+                .SelectMany(p => p.Tags)
+                .GroupBy(t => t.Id)
+                .Select(g => (Kind: PostInterestKind.Tag, ReferenceId: g.Key, ScoreDelta: 2.0d * g.Count()))
+                .ToList();
+            adjustments.AddRange(tagScores);
+
+            // Aggregate categories from historic posts
+            var categoryScores = historicPosts
+                .SelectMany(p => p.Categories)
+                .GroupBy(c => c.Id)
+                .Select(g => (Kind: PostInterestKind.Category, ReferenceId: g.Key, ScoreDelta: 2.0d * g.Count()))
+                .ToList();
+            adjustments.AddRange(categoryScores);
+
+            // Add publisher interests from user's own publishers (score: 2.0)
+            adjustments.AddRange(userPublisherIds.Select(id =>
+                (PostInterestKind.Publisher, id, 2.0d)
+            ));
+        }
+
+        // Apply all adjustments
+        await ApplyInterestProfileAdjustmentsAsync(
+            accountId,
+            adjustments,
+            "reset",
+            now
+        );
+
+        // Invalidate discovery profile cache
+        await cache.RemoveAsync($"timeline:discovery-profile:{accountId}");
+
+        return adjustments.Count;
+    }
+
     public async Task<RecommendationFeedbackResult?> ApplyRecommendationFeedbackAsync(
         DyAccount currentUser,
         string kind,
