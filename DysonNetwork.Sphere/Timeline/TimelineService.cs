@@ -1180,6 +1180,7 @@ public class TimelineService(
         await cache.RemoveAsync($"timeline:discovery-profile:{accountId}");
 
         return aggregatedAdjustments
+            .Where(x => profileMap.ContainsKey((x.Kind, x.ReferenceId)))
             .Select(x => profileMap[(x.Kind, x.ReferenceId)])
             .ToList();
     }
