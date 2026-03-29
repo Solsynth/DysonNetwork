@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Passport.Nfc;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
@@ -53,6 +54,8 @@ public class AppDatabase(
     public DbSet<SnMeetParticipant> MeetParticipants { get; set; } = null!;
     public DbSet<SnNearbyDevice> NearbyDevices { get; set; } = null!;
     public DbSet<SnNearbyPresenceToken> NearbyPresenceTokens { get; set; } = null!;
+
+    public DbSet<SnNfcTag> NfcTags { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

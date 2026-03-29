@@ -13,6 +13,7 @@ using DysonNetwork.Passport.Leveling;
 using DysonNetwork.Passport.Mailer;
 using DysonNetwork.Passport.Meet;
 using DysonNetwork.Passport.Nearby;
+using DysonNetwork.Passport.Nfc;
 using DysonNetwork.Passport.Progression;
 using DysonNetwork.Passport.Realm;
 using DysonNetwork.Passport.Rewind;
@@ -158,6 +159,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<TicketService>();
         services.AddScoped<MeetService>();
         services.AddScoped<NearbyService>();
+        services.AddScoped<NfcService>();
         services.AddSingleton<MeetSubscriptionHub>();
         services.AddSingleton<MeetExpirationScheduler>();
         services.AddHostedService<MeetLifecycleHostedService>();
