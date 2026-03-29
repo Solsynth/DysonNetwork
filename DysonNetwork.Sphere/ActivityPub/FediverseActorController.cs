@@ -302,6 +302,7 @@ public class FediverseActorController(
                 Tags = p.Tags,
                 Attachments = p.Attachments,
                 BoostInfo = null,
+                IsCached = true,
             })
             .ToList();
 
@@ -335,6 +336,7 @@ public class FediverseActorController(
                     OriginalPost = b.Post,
                     OriginalActor = b.Post.Actor,
                 },
+                IsCached = true,
             })
             .ToList();
 
@@ -685,6 +687,7 @@ public class FediverseActorController(
                         },
                         OriginalActor = originalActor,
                     },
+                    IsCached = false,
                 };
             }
             else
@@ -705,6 +708,7 @@ public class FediverseActorController(
                     Actor = originalActor,
                     PinMode = null,
                     BoostInfo = null,
+                    IsCached = false,
                 };
             }
         }

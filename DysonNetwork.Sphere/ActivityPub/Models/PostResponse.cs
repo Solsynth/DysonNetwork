@@ -29,4 +29,12 @@ public class PostResponse : SnPost
 {
     [JsonPropertyName("boost_info")]
     public BoostInfo? BoostInfo { get; set; }
+
+    /// <summary>
+    /// Whether this post is stored locally in the database.
+    /// If true, GET /posts/{id} will return this post.
+    /// If false, the post is only fetched from remote outbox.
+    /// </summary>
+    [JsonPropertyName("is_cached")]
+    public bool IsCached { get; set; }
 }
