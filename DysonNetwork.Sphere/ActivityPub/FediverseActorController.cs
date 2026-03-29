@@ -549,6 +549,7 @@ public class FediverseActorController(
         public string? OriginalActorDisplayName { get; set; }
         public string? OriginalActorUri { get; set; }
         public string? OriginalActorAvatarUrl { get; set; }
+        public List<SnCloudFileReferenceObject>? Attachments { get; set; }
 
         public static RemotePost FromActivityStream(
             Dictionary<string, object> obj,
@@ -600,6 +601,9 @@ public class FediverseActorController(
                     webUrlStr = webUrl.ToString();
             }
 
+            // Parse attachments
+            var attachments = ParseAttachments(obj.GetValueOrDefault("attachment"));
+
             return new RemotePost
             {
                 FediverseUri = id ?? activityId,
@@ -613,6 +617,7 @@ public class FediverseActorController(
                 ActorUri = actorUri ?? actor.Uri,
                 ActorAvatarUrl = actor.AvatarUrl,
                 IsBoost = false,
+                Attachments = attachments,
             };
         }
 
@@ -671,6 +676,7 @@ public class FediverseActorController(
                     ActorId = actor.Id,
                     Actor = actor,
                     PinMode = null,
+                    Attachments = Attachments ?? [],
                     BoostInfo = new BoostInfo
                     {
                         BoostId = Guid.Empty,
@@ -707,6 +713,7 @@ public class FediverseActorController(
                     ActorId = Guid.Empty,
                     Actor = originalActor,
                     PinMode = null,
+                    Attachments = Attachments ?? [],
                     BoostInfo = null,
                     IsCached = false,
                 };
@@ -725,6 +732,68 @@ public class FediverseActorController(
             {
                 return null;
             }
+        }
+
+        private static List<SnCloudFileReferenceObject>? ParseAttachments(object? value)
+        {
+            if (value == null)
+                return null;
+
+            var attachments = value switch
+            {
+                JsonElement { ValueKind: JsonValueKind.Array } element
+                    => element.EnumerateArray().Select(e => ConvertJsonElementToDict(e)).ToList(),
+                List<Dictionary<string, object>> list => list,
+                _ => null
+            };
+
+            return attachments?.Select(dict => new SnCloudFileReferenceObject
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = dict.GetValueOrDefault("name")?.ToString() ?? string.Empty,
+                Url = dict.GetValueOrDefault("url")?.ToString(),
+                MimeType = dict.GetValueOrDefault("mediaType")?.ToString(),
+                Width = TryGetIntFromDict(dict, "width"),
+                Height = TryGetIntFromDict(dict, "height"),
+                Blurhash = dict.GetValueOrDefault("blurhash")?.ToString(),
+                FileMeta = new Dictionary<string, object?>(),
+                UserMeta = new Dictionary<string, object?>(),
+                Size = 0,
+                CreatedAt = Instant.FromDateTimeOffset(DateTimeOffset.UtcNow),
+                UpdatedAt = Instant.FromDateTimeOffset(DateTimeOffset.UtcNow)
+            }).ToList();
+        }
+
+        private static Dictionary<string, object> ConvertJsonElementToDict(JsonElement element)
+        {
+            var dict = new Dictionary<string, object>();
+            foreach (var prop in element.EnumerateObject())
+            {
+                dict[prop.Name] = prop.Value.ValueKind switch
+                {
+                    JsonValueKind.String => prop.Value.GetString() ?? "",
+                    JsonValueKind.Number => prop.Value.GetDouble(),
+                    JsonValueKind.True => true,
+                    JsonValueKind.False => false,
+                    JsonValueKind.Null => null!,
+                    JsonValueKind.Object => ConvertJsonElementToDict(prop.Value),
+                    JsonValueKind.Array => prop.Value.EnumerateArray()
+                        .Select(ConvertJsonElementToDict).ToList(),
+                    _ => prop.Value.ToString()
+                };
+            }
+            return dict;
+        }
+
+        private static int? TryGetIntFromDict(Dictionary<string, object> dict, string key)
+        {
+            var value = dict.GetValueOrDefault(key);
+            if (value == null) return null;
+            if (value is JsonElement element && element.ValueKind == JsonValueKind.Number)
+                return element.GetInt32();
+            if (value is int i) return i;
+            if (value is double d) return (int)d;
+            return null;
         }
 
         private static Instant? ParseInstantValue(object? value)
@@ -1009,6 +1078,19 @@ public class FediverseActorController(
             .Where(a => a.PublisherId != null && publisherIds.Contains(a.PublisherId.Value))
             .ToListAsync();
 
+        // Fetch stats for each actor if not already populated
+        var statsTasks = fediverseActors
+            .Where(a => a.FollowersCount == 0 || a.FollowingCount == 0 || a.TotalPostCount == null)
+            .Select(a => discoveryService.FetchActorDataAsync(a))
+            .ToList();
+        
+        if (statsTasks.Count > 0)
+        {
+            await Task.WhenAll(statsTasks);
+            // Refetch actors after stats update
+            await db.Entry(fediverseActors.First()).ReloadAsync();
+        }
+
         var enabledPublishers = fediverseActors.Select(a => new FediversePublisherInfo
         {
             PublisherId = a.PublisherId!.Value,
@@ -1016,7 +1098,10 @@ public class FediverseActorController(
             FediverseHandle = $"{a.Username}@{a.Instance?.Domain}",
             FediverseUri = a.Uri,
             AvatarUrl = a.AvatarUrl,
-            IsEnabled = true
+            IsEnabled = true,
+            FollowersCount = a.FollowersCount,
+            FollowingCount = a.FollowingCount,
+            PostsCount = a.TotalPostCount ?? 0
         }).ToList();
 
         return Ok(new FediverseAvailabilityResponse
@@ -1052,4 +1137,7 @@ public class FediversePublisherInfo
     public string FediverseUri { get; set; } = null!;
     public string? AvatarUrl { get; set; }
     public bool IsEnabled { get; set; }
+    public int FollowersCount { get; set; }
+    public int FollowingCount { get; set; }
+    public int PostsCount { get; set; }
 }

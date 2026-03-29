@@ -692,6 +692,9 @@ public partial class ActivityPubDiscoveryService(
             if (int.TryParse(actorData.GetValueOrDefault("statusesCount")?.ToString(), out var statusesCount))
                 actor.TotalPostCount = statusesCount;
 
+            // Fetch stats from collection endpoints if not already populated
+            await FetchActorStatsAsync(actor);
+
             var excludedKeys = new HashSet<string>
             {
                 "id", "name", "summary", "preferredUsername", "inbox", "outbox", "followers", "following", "featured",
@@ -709,6 +712,80 @@ public partial class ActivityPubDiscoveryService(
         {
             logger.LogWarning(ex, "Failed to fetch additional actor data for {Uri}, using Webfinger data only",
                 actor.Uri);
+        }
+    }
+
+    /// <summary>
+    /// Fetch actor stats (followers, following, posts count) from ActivityPub collection endpoints.
+    /// This is more reliable than using counts from the actor object itself.
+    /// </summary>
+    public async Task FetchActorStatsAsync(SnFediverseActor actor)
+    {
+        try
+        {
+            var tasks = new List<Task>();
+
+            // Fetch followers count
+            if (!string.IsNullOrEmpty(actor.FollowersUri) && actor.FollowersCount == 0)
+            {
+                tasks.Add(FetchCollectionCountAsync(actor.FollowersUri)
+                    .ContinueWith(t => { if (t.IsCompletedSuccessfully && t.Result.HasValue) actor.FollowersCount = t.Result.Value; }));
+            }
+
+            // Fetch following count
+            if (!string.IsNullOrEmpty(actor.FollowingUri) && actor.FollowingCount == 0)
+            {
+                tasks.Add(FetchCollectionCountAsync(actor.FollowingUri)
+                    .ContinueWith(t => { if (t.IsCompletedSuccessfully && t.Result.HasValue) actor.FollowingCount = t.Result.Value; }));
+            }
+
+            // Fetch post count from outbox
+            if (!string.IsNullOrEmpty(actor.OutboxUri) && actor.TotalPostCount == null)
+            {
+                tasks.Add(FetchCollectionCountAsync(actor.OutboxUri)
+                    .ContinueWith(t => { if (t.IsCompletedSuccessfully && t.Result.HasValue) actor.TotalPostCount = t.Result.Value; }));
+            }
+
+            if (tasks.Count > 0)
+            {
+                await Task.WhenAll(tasks);
+                logger.LogDebug("Fetched stats for {Username}: followers={Followers}, following={Following}, posts={Posts}",
+                    actor.Username, actor.FollowersCount, actor.FollowingCount, actor.TotalPostCount);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to fetch actor stats for {Uri}", actor.Uri);
+        }
+    }
+
+    private async Task<int?> FetchCollectionCountAsync(string collectionUri)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, collectionUri);
+            request.Headers.Accept.ParseAdd("application/activity+json");
+            request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
+
+            var response = await HttpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogDebug("Failed to fetch collection count from {Uri}: {Status}", collectionUri, response.StatusCode);
+                return null;
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            var data = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
+            
+            if (data != null && int.TryParse(data.GetValueOrDefault("totalItems")?.ToString(), out var count))
+                return count;
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to fetch collection count from {Uri}", collectionUri);
+            return null;
         }
     }
 
