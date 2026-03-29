@@ -246,8 +246,12 @@ public partial class ChatService(
                 Data = InfraObjectCoder.ConvertObjectToByteString(message),
             },
         };
-        request.UserIds.AddRange(members.Select(a => a.Account).Where(a => a is not null)
-            .Select(a => a!.Id.ToString()));
+        var memberAccounts = members.Select(a => a.Account).Where(a => a is not null).ToList();
+        request.UserIds.AddRange(memberAccounts.Select(a => a!.Id.ToString()));
+        
+        logger.LogWarning("DeliverWebSocketMessage: messageId={messageId}, targetUserCount={targetUserCount}, userIds={userIds}",
+            message.Id, request.UserIds.Count, string.Join(",", request.UserIds.Take(10)));
+        
         await scopedWs.PushWebSocketPacketToUsersAsync(request);
 
         logger.LogInformation($"Delivered message to {request.UserIds.Count} accounts.");
@@ -292,12 +296,14 @@ public partial class ChatService(
         var localLogger = logger;
         _ = Task.Run(async () =>
         {
+            localLogger.LogWarning("Starting background message delivery: messageId={messageId}, roomId={roomId}", localMessage.Id, localRoom.Id);
             try
             {
                 await DeliverMessageAsync(localMessage, localSender, localRoom);
             }
             catch (Exception ex)
             {
+                localLogger.LogWarning("Error delivering message: messageId={messageId}, error={error}", localMessage.Id, ex.Message);
                 localLogger.LogError($"Error when delivering message: {ex.Message} {ex.StackTrace}");
             }
         });
@@ -600,6 +606,9 @@ public partial class ChatService(
 
         var members = await scopedCrs.ListRoomMembers(room.Id);
 
+        logger.LogWarning("DeliverMessageAsync: roomId={roomId}, messageId={messageId}, memberCount={memberCount}, type={type}",
+            room.Id, message.Id, members.Count, type);
+
         await DeliverWebSocketMessage(message, type, members, scope);
 
         if (notify)
@@ -644,6 +653,9 @@ public partial class ChatService(
         }
 
         accountsToNotify = accountsToNotify.Where(a => !subscribedMemberIds.Contains(Guid.Parse(a.Id))).ToList();
+
+        logger.LogWarning("SendPushNotificationsAsync: messageId={messageId}, totalMembers={totalMembers}, filteredCount={filteredCount}, notifyingCount={notifyingCount}",
+            message.Id, members.Count, accountsToNotify.Count, accountsToNotify.Count);
 
         logger.LogInformation("Trying to deliver message to {count} accounts...", accountsToNotify.Count);
 
