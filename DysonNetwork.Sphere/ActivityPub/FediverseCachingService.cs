@@ -330,6 +330,8 @@ public class CachedActor
     public CachedInstance? Instance { get; set; }
     public int FollowersCount { get; set; }
     public int FollowingCount { get; set; }
+    public int PostCount { get; set; }
+    public int? TotalPostCount { get; set; }
     public Instant? LastActivityAt { get; set; }
     public Instant? LastFetchedAt { get; set; }
     public string WebUrl => string.IsNullOrEmpty(Uri)

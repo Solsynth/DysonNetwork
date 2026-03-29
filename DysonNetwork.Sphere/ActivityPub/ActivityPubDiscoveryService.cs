@@ -682,10 +682,21 @@ public partial class ActivityPubDiscoveryService(
             actor.IsLocked = actorData.GetValueOrDefault("manuallyApprovesFollowers")?.ToString() == "true";
             actor.IsDiscoverable = actorData.GetValueOrDefault("discoverable")?.ToString() != "false";
 
+            // Extract follower/following counts from ActivityPub response
+            if (int.TryParse(actorData.GetValueOrDefault("followersCount")?.ToString(), out var followersCount))
+                actor.FollowersCount = followersCount;
+            if (int.TryParse(actorData.GetValueOrDefault("followingCount")?.ToString(), out var followingCount))
+                actor.FollowingCount = followingCount;
+
+            // Extract total post count from ActivityPub response (Mastodon uses statusesCount)
+            if (int.TryParse(actorData.GetValueOrDefault("statusesCount")?.ToString(), out var statusesCount))
+                actor.TotalPostCount = statusesCount;
+
             var excludedKeys = new HashSet<string>
             {
                 "id", "name", "summary", "preferredUsername", "inbox", "outbox", "followers", "following", "featured",
-                "icon", "image", "publicKey", "type", "manuallyApprovesFollowers", "discoverable", "@context"
+                "icon", "image", "publicKey", "type", "manuallyApprovesFollowers", "discoverable", "@context",
+                "followersCount", "followingCount"
             };
             actor.Metadata = actorData.Where(kvp => !excludedKeys.Contains(kvp.Key))
                 .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);

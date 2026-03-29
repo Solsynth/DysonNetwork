@@ -124,8 +124,45 @@ public class FediverseActorController(
         var actorList = new List<SnFediverseActor>();
         var cachedActors = new List<CachedActor>();
 
+        // Get post counts for all actors from local DB
+        var actorIds = remoteActors.Select(a => a.Id).ToList();
+        var actorUris = remoteActors.Where(a => a.Uri != null).Select(a => a.Uri!).ToList();
+        
+        // Get post counts by ActorId
+        var postCountList = await db.Posts
+            .Where(p => p.ActorId != null && actorIds.Contains(p.ActorId.Value))
+            .GroupBy(p => p.ActorId!.Value)
+            .Select(g => new { ActorId = g.Key, Count = g.Count() })
+            .ToListAsync();
+        
+        // Get post counts by Actor Uri (for actors where posts use Uri instead of ID)
+        var postsByUri = await db.Posts
+            .Include(p => p.Actor)
+            .Where(p => p.Actor != null && actorUris.Contains(p.Actor.Uri))
+            .GroupBy(p => p.Actor!.Uri!)
+            .Select(g => new { ActorUri = g.Key, Count = g.Count() })
+            .ToListAsync();
+        
+        var postCountDict = new Dictionary<Guid, int>();
+        foreach (var item in postCountList)
+        {
+            postCountDict[item.ActorId] = item.Count;
+        }
+        foreach (var item in postsByUri)
+        {
+            var actor = remoteActors.FirstOrDefault(a => a.Uri == item.ActorUri);
+            if (actor != null)
+            {
+                postCountDict[actor.Id] = postCountDict.GetValueOrDefault(actor.Id, 0) + item.Count;
+            }
+        }
+
         foreach (var actor in remoteActors)
         {
+            var localPostCount = postCountDict.GetValueOrDefault(actor.Id, 0);
+            // Use remote total if available, otherwise use local count
+            actor.PostCount = actor.TotalPostCount ?? localPostCount;
+            
             actorList.Add(actor);
 
             cachedActors.Add(
@@ -163,8 +200,10 @@ public class FediverseActorController(
                                 MetadataFetchedAt = actor.Instance.MetadataFetchedAt,
                             }
                             : null,
-                    FollowersCount = actor.FollowerRelationships?.Count ?? 0,
-                    FollowingCount = actor.FollowingRelationships?.Count ?? 0,
+                    FollowersCount = actor.FollowersCount,
+                    FollowingCount = actor.FollowingCount,
+                    PostCount = actor.PostCount,
+                    TotalPostCount = actor.TotalPostCount,
                     LastActivityAt = actor.LastActivityAt,
                     LastFetchedAt = actor.LastFetchedAt,
                 }
@@ -894,6 +933,8 @@ public class FediverseActorController(
                 ?? new SnFediverseInstance { Domain = cached.InstanceDomain ?? "localhost" },
             FollowersCount = cached.FollowersCount,
             FollowingCount = cached.FollowingCount,
+            PostCount = cached.PostCount,
+            TotalPostCount = cached.TotalPostCount,
             LastActivityAt = cached.LastActivityAt,
             LastFetchedAt = cached.LastFetchedAt,
         };
