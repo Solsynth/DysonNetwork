@@ -15,6 +15,9 @@ This document summarizes all changes made to the ActivityPub/Fediverse implement
 7. [Garbage Collection](#7-garbage-collection)
 8. [Scheduled Jobs](#8-scheduled-jobs)
 9. [Redis Caching](#9-redis-caching)
+10. [Fediverse Availability](#10-fediverse-availability)
+11. [Stats Fetching Improvements](#11-stats-fetching-improvements)
+12. [Remote Post Attachments](#12-remote-post-attachments)
 
 ---
 
@@ -359,5 +362,124 @@ dotnet ef database update
     "original_post": { ... },
     "original_actor": { ... }
   }
+}
+```
+
+---
+
+## 10. Fediverse Availability
+
+### Endpoint
+
+```
+GET /api/fediverse/actors/availability
+```
+
+**Authentication:** Required (regular user)
+
+**Description:** Checks if the authenticated user has publishers with Fediverse features enabled. Used by the UI to determine if Fediverse options should be shown.
+
+**Response:**
+
+```json
+{
+  "available": true,
+  "publishers": [
+    {
+      "id": "publisher-uuid",
+      "username": "myblog",
+      "fediverse_enabled": true,
+      "fediverse_domain": "fediverse.mydomain.com"
+    }
+  ]
+}
+```
+
+**Behavior:**
+- Only returns publishers that belong to the authenticated user
+- Filters to publishers with `FediverseEnabled == true`
+- Returns empty `publishers` array if user has no Fediverse-enabled publishers
+
+---
+
+## 11. Stats Fetching Improvements
+
+### FetchActorStatsAsync
+
+New method in `ActivityPubDiscoveryService` that fetches accurate actor stats from remote collection endpoints:
+
+```csharp
+public async Task FetchActorStatsAsync(SnFediverseActor actor)
+```
+
+**Implementation:**
+- Fetches `/followers` endpoint and gets `totalItems` for `FollowersCount`
+- Fetches `/following` endpoint and gets `totalItems` for `FollowingCount`
+- Fetches `/outbox` endpoint and gets `totalItems` for `PostCount`
+- Updates `actor.TotalPostCount` if not already set
+
+**When Stats Are Fetched:**
+- When creating a new actor for the first time
+- When the availability endpoint is called for remote actors (not local)
+- `TotalPostCount` is cached from the actor object's `statusesCount` field
+
+**Local vs Remote Actors:**
+- Local actors (with `PublisherId`) use DB counts - no remote fetching
+- Remote actors fetch stats from their instance's collection endpoints
+
+---
+
+## 12. Remote Post Attachments
+
+### Attachment Parsing
+
+Remote posts from outbox now include media attachments.
+
+**Implementation:**
+
+```csharp
+// Parse ActivityPub attachment array
+var attachments = new List<SnCloudFileReferenceObject>();
+if (postObj["attachment"] is JsonElement attachArray && attachArray.ValueKind == JsonValueKind.Array)
+{
+    foreach (var attach in attachArray.EnumerateArray())
+    {
+        attachments.Add(new SnCloudFileReferenceObject
+        {
+            Name = attach.GetProperty("name").GetString() ?? "",
+            Url = attach.GetProperty("url").GetString() ?? "",
+            MimeType = attach.TryGetProperty("mediaType", out var mt) ? mt.GetString() : null,
+            Width = attach.TryGetProperty("width", out var w) ? w.GetInt32() : null,
+            Height = attach.TryGetProperty("height", out var h) ? h.GetInt32() : null,
+            Blurhash = attach.TryGetProperty("blurhash", out var bh) ? bh.GetString() : null
+        });
+    }
+}
+```
+
+**SnCloudFileReferenceObject Fields:**
+| Field | Description |
+|-------|-------------|
+| `name` | Human-readable name for the attachment |
+| `url` | Direct URL to the media file |
+| `mime_type` | Media type (e.g., `image/jpeg`, `video/mp4`) |
+| `width` | Width in pixels (images/videos) |
+| `height` | Height in pixels (images/videos) |
+| `blurhash` | BlurHash placeholder for images |
+
+**ActivityPub Attachment Format:**
+```json
+{
+  "attachment": [
+    {
+      "type": "Document",
+      "mediaType": "image/jpeg",
+      "url": "https://mastodon.social/media/example.jpg",
+      "name": "Example image",
+      "width": 1200,
+      "height": 800,
+      "blurhash": "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
+    }
+  ]
 }
 ```

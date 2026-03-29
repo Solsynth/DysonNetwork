@@ -1078,17 +1078,20 @@ public class FediverseActorController(
             .Where(a => a.PublisherId != null && publisherIds.Contains(a.PublisherId.Value))
             .ToListAsync();
 
-        // Fetch stats for each actor if not already populated
-        var statsTasks = fediverseActors
+        // Only fetch stats for REMOTE actors (not local ones)
+        // Local actors have stats in our DB already
+        var localDomain = Domain;
+        var remoteActorsNeedingStats = fediverseActors
+            .Where(a => a.Instance?.Domain != localDomain)
             .Where(a => a.FollowersCount == 0 || a.FollowingCount == 0 || a.TotalPostCount == null)
-            .Select(a => discoveryService.FetchActorDataAsync(a))
             .ToList();
-        
-        if (statsTasks.Count > 0)
+
+        if (remoteActorsNeedingStats.Count > 0)
         {
+            var statsTasks = remoteActorsNeedingStats
+                .Select(a => discoveryService.FetchActorStatsAsync(a))
+                .ToList();
             await Task.WhenAll(statsTasks);
-            // Refetch actors after stats update
-            await db.Entry(fediverseActors.First()).ReloadAsync();
         }
 
         var enabledPublishers = fediverseActors.Select(a => new FediversePublisherInfo
