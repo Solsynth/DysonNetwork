@@ -874,6 +874,8 @@ public class TimelineService(
             .Where(p => p.AccountId == accountId)
             .ToListAsync();
         db.PostInterestProfiles.RemoveRange(existingProfiles);
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
 
         var adjustments = new List<(PostInterestKind Kind, Guid ReferenceId, double ScoreDelta)>();
 
@@ -1138,7 +1140,43 @@ public class TimelineService(
             profile.LastSignalType = signalType;
         }
 
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            db.ChangeTracker.Clear();
+            existingProfiles = await db.PostInterestProfiles
+                .Where(p => p.AccountId == accountId)
+                .Where(p =>
+                    (p.Kind == PostInterestKind.Tag && tagIds.Contains(p.ReferenceId))
+                    || (p.Kind == PostInterestKind.Category && categoryIds.Contains(p.ReferenceId))
+                    || (p.Kind == PostInterestKind.Publisher && publisherIds.Contains(p.ReferenceId))
+                )
+                .ToListAsync();
+
+            profileMap = existingProfiles.ToDictionary(
+                x => (x.Kind, x.ReferenceId),
+                x => x
+            );
+
+            foreach (var adjustment in aggregatedAdjustments)
+            {
+                if (!profileMap.TryGetValue((adjustment.Kind, adjustment.ReferenceId), out var profile))
+                {
+                    continue;
+                }
+
+                profile.Score = Math.Clamp(profile.Score + adjustment.ScoreDelta, -100d, 100d);
+                profile.InteractionCount += Math.Max(1, interactionCount);
+                profile.LastInteractedAt = occurredAt;
+                profile.LastSignalType = signalType;
+            }
+
+            await db.SaveChangesAsync();
+        }
+
         await cache.RemoveAsync($"timeline:discovery-profile:{accountId}");
 
         return aggregatedAdjustments
