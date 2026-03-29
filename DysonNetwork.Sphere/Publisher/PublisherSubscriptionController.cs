@@ -31,20 +31,68 @@ public class PublisherSubscriptionController(
         public Instant? LastReadAt { get; set; }
     }
 
+    public class SubscriptionStatusResponse
+    {
+        public SnPublisherSubscription? Subscription { get; set; }
+        public SnPublisherFollowRequest? FollowRequest { get; set; }
+        public bool RequiresApproval { get; set; }
+        public string Status { get; set; } = "none";
+        public string Message { get; set; } = string.Empty;
+    }
+
     [HttpGet("{name}/subscription")]
     [Authorize]
-    public async Task<ActionResult<SnPublisherSubscription>> CheckSubscriptionStatus(string name)
+    public async Task<ActionResult<SubscriptionStatusResponse>> CheckSubscriptionStatus(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
-        // Check if the publisher exists
         var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
         if (publisher == null)
             return NotFound("Publisher not found");
 
-        var subscription = await subs.GetSubscriptionAsync(Guid.Parse(currentUser.Id), publisher.Id);
-        if (subscription is null) return NotFound("Subscription not found");
-        return subscription;
+        var accountId = Guid.Parse(currentUser.Id);
+        var requiresApproval = await pub.HasFollowRequiresApprovalFlag(publisher.Id);
+
+        var response = new SubscriptionStatusResponse
+        {
+            RequiresApproval = requiresApproval
+        };
+
+        if (requiresApproval)
+        {
+            var followRequest = await pub.GetFollowRequest(publisher.Id, accountId);
+            response.FollowRequest = followRequest;
+
+            if (followRequest != null)
+            {
+                response.Subscription = await subs.GetSubscriptionAsync(accountId, publisher.Id);
+                response.Status = followRequest.State switch
+                {
+                    FollowRequestState.Pending => "pending",
+                    FollowRequestState.Accepted => "following",
+                    FollowRequestState.Rejected => "rejected",
+                    _ => "none"
+                };
+                response.Message = followRequest.State switch
+                {
+                    FollowRequestState.Pending => "Follow request is pending approval",
+                    FollowRequestState.Accepted => "You are following this publisher",
+                    FollowRequestState.Rejected => "Follow request was rejected",
+                    _ => string.Empty
+                };
+                return Ok(response);
+            }
+        }
+
+        var subscription = await subs.GetSubscriptionAsync(accountId, publisher.Id);
+        if (subscription != null)
+        {
+            response.Subscription = subscription;
+            response.Status = "subscribed";
+            response.Message = "You are subscribed to this publisher";
+        }
+
+        return Ok(response);
     }
 
     [HttpGet("{name}/subscription/read-status")]
@@ -67,50 +115,162 @@ public class PublisherSubscriptionController(
 
     [HttpPost("{name}/subscribe")]
     [Authorize]
-    public async Task<ActionResult<SnPublisherSubscription>> Subscribe(
+    public async Task<ActionResult<SubscriptionStatusResponse>> Subscribe(
         string name,
         [FromBody] SubscribeRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
-        // Check if the publisher exists
         var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
         if (publisher == null)
             return NotFound("Publisher not found");
 
-        try
-        {
-            var subscription = await subs.CreateSubscriptionAsync(
-                Guid.Parse(currentUser.Id),
-                publisher.Id
-            );
+        var accountId = Guid.Parse(currentUser.Id);
+        var requiresApproval = await pub.HasFollowRequiresApprovalFlag(publisher.Id);
 
-            return subscription;
-        }
-        catch (Exception ex)
+        if (requiresApproval)
         {
-            logger.LogError(ex, "Error subscribing to publisher {PublisherName}", name);
-            return StatusCode(500, "Failed to create subscription");
+            var existingRequest = await pub.GetFollowRequest(publisher.Id, accountId);
+            if (existingRequest != null)
+            {
+                return existingRequest.State switch
+                {
+                    FollowRequestState.Pending => BadRequest(new SubscriptionStatusResponse
+                    {
+                        Status = "pending",
+                        Message = "Follow request already pending",
+                        RequiresApproval = true,
+                        FollowRequest = existingRequest
+                    }),
+                    FollowRequestState.Accepted => Ok(new SubscriptionStatusResponse
+                    {
+                        Status = "following",
+                        Message = "Already following",
+                        RequiresApproval = true,
+                        FollowRequest = existingRequest
+                    }),
+                    FollowRequestState.Rejected => BadRequest(new SubscriptionStatusResponse
+                    {
+                        Status = "rejected",
+                        Message = "Follow request was rejected. Please contact the publisher.",
+                        RequiresApproval = true,
+                        FollowRequest = existingRequest
+                    }),
+                    _ => BadRequest("Invalid follow request state")
+                };
+            }
+
+            var followRequest = await pub.CreateFollowRequest(publisher.Id, accountId);
+
+            var title = localization.Get("followRequestReceivedTitle", currentUser.Language,
+                new { publisher = publisher.Nick });
+            var body = localization.Get("followRequestReceivedBody", currentUser.Language,
+                new { publisher = publisher.Nick });
+
+            var managerMembers = await pub.GetPublisherMembers(publisher.Id);
+            foreach (var manager in managerMembers.Where(m => m.Role >= PublisherMemberRole.Manager))
+            {
+                var managerAccount = await accounts.GetAccount(manager.AccountId);
+                if (managerAccount != null)
+                {
+                    await ring.SendPushNotificationToUser(
+                        manager.AccountId.ToString(),
+                        "follow_request",
+                        title,
+                        null,
+                        body,
+                        isSavable: true
+                    );
+                }
+            }
+
+            return Ok(new SubscriptionStatusResponse
+            {
+                Status = "pending",
+                Message = "Follow request submitted and pending approval",
+                RequiresApproval = true,
+                FollowRequest = followRequest
+            });
+        }
+        else
+        {
+            var existingSubscription = await subs.GetSubscriptionAsync(accountId, publisher.Id);
+            if (existingSubscription != null)
+                return BadRequest(new SubscriptionStatusResponse
+                {
+                    Status = "subscribed",
+                    Message = "Already subscribed to this publisher",
+                    Subscription = existingSubscription
+                });
+
+            try
+            {
+                var subscription = await subs.CreateSubscriptionAsync(accountId, publisher.Id);
+                return Ok(new SubscriptionStatusResponse
+                {
+                    Status = "subscribed",
+                    Message = "Successfully subscribed",
+                    Subscription = subscription
+                });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error subscribing to publisher {PublisherName}", name);
+                return StatusCode(500, "Failed to create subscription");
+            }
         }
     }
 
     [HttpPost("{name}/unsubscribe")]
     [Authorize]
-    public async Task<ActionResult> Unsubscribe(string name)
+    public async Task<ActionResult<SubscriptionStatusResponse>> Unsubscribe(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
-        // Check if the publisher exists
         var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name == name);
         if (publisher == null)
             return NotFound("Publisher not found");
 
-        var success = await subs.CancelSubscriptionAsync(Guid.Parse(currentUser.Id), publisher.Id);
+        var accountId = Guid.Parse(currentUser.Id);
+        var requiresApproval = await pub.HasFollowRequiresApprovalFlag(publisher.Id);
 
-        if (success)
-            return Ok(new { message = "Subscription cancelled successfully" });
+        if (requiresApproval)
+        {
+            var existingRequest = await pub.GetFollowRequest(publisher.Id, accountId);
+            if (existingRequest != null)
+            {
+                await pub.CancelFollowRequest(publisher.Id, accountId);
+                return Ok(new SubscriptionStatusResponse
+                {
+                    Status = "none",
+                    Message = "Follow request cancelled",
+                    RequiresApproval = true,
+                    FollowRequest = null
+                });
+            }
+            return NotFound(new SubscriptionStatusResponse
+            {
+                Status = "none",
+                Message = "No follow request found",
+                RequiresApproval = true
+            });
+        }
+        else
+        {
+            var success = await subs.CancelSubscriptionAsync(accountId, publisher.Id);
+            if (success)
+                return Ok(new SubscriptionStatusResponse
+                {
+                    Status = "none",
+                    Message = "Subscription cancelled successfully"
+                });
 
-        return NotFound("Active subscription not found");
+            return NotFound(new SubscriptionStatusResponse
+            {
+                Status = "none",
+                Message = "No active subscription found"
+            });
+        }
     }
 
     /// <summary>
@@ -212,7 +372,6 @@ public class PublisherSubscriptionController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        // Get subscribed publisher IDs
         var subscribedPublisherIds = await db.PublisherSubscriptions
             .Where(ps => ps.AccountId == accountId)
             .Select(ps => ps.PublisherId)
@@ -223,7 +382,6 @@ public class PublisherSubscriptionController(
             return Ok(new List<SnLiveStream>());
         }
 
-        // Get active live streams from subscribed publishers
         var liveStreams = await db.LiveStreams
             .Include(ls => ls.Publisher)
             .Where(ls => subscribedPublisherIds.Contains(ls.PublisherId ?? Guid.Empty) 
@@ -237,133 +395,12 @@ public class PublisherSubscriptionController(
         return Ok(liveStreams);
     }
 
-    public class FollowRequestStatusResponse
-    {
-        public SnPublisherFollowRequest? Request { get; set; }
-        public bool RequiresApproval { get; set; }
-        public bool IsFollower { get; set; }
-    }
-
-    [HttpGet("{name}/follow-request/status")]
-    [Authorize]
-    public async Task<ActionResult<FollowRequestStatusResponse>> GetFollowRequestStatus(string name)
-    {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
-        if (publisher == null)
-            return NotFound("Publisher not found");
-
-        var accountId = Guid.Parse(currentUser.Id);
-        var request = await pub.GetFollowRequest(publisher.Id, accountId);
-        var isFollower = request?.State == FollowRequestState.Accepted;
-        var requiresApproval = await pub.HasFollowRequiresApprovalFlag(publisher.Id);
-
-        return Ok(new FollowRequestStatusResponse
-        {
-            Request = request,
-            RequiresApproval = requiresApproval,
-            IsFollower = isFollower
-        });
-    }
-
-    [HttpPost("{name}/follow")]
-    [Authorize]
-    public async Task<ActionResult> FollowPublisher(string name)
-    {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
-        if (publisher == null)
-            return NotFound("Publisher not found");
-
-        if (currentUser.PerkLevel < PublisherFeatureFlag.MinimumPerkLevel)
-            return StatusCode(403, $"This feature requires PerkLevel >= {PublisherFeatureFlag.MinimumPerkLevel}");
-
-        var accountId = Guid.Parse(currentUser.Id);
-
-        if (await pub.HasFollowRequiresApprovalFlag(publisher.Id))
-        {
-            var existingRequest = await pub.GetFollowRequest(publisher.Id, accountId);
-            if (existingRequest?.State == FollowRequestState.Pending)
-                return BadRequest("Follow request already pending");
-
-            if (existingRequest?.State == FollowRequestState.Accepted)
-                return BadRequest("Already following");
-
-            var followRequest = await pub.CreateFollowRequest(publisher.Id, accountId);
-
-            var title = localization.Get("followRequestReceivedTitle", currentUser.Language,
-                new { publisher = publisher.Nick });
-            var body = localization.Get("followRequestReceivedBody", currentUser.Language,
-                new { publisher = publisher.Nick });
-
-            var managerMembers = await pub.GetPublisherMembers(publisher.Id);
-            foreach (var manager in managerMembers.Where(m => m.Role >= PublisherMemberRole.Manager))
-            {
-                var managerAccount = await accounts.GetAccount(manager.AccountId);
-                if (managerAccount != null)
-                {
-                    await ring.SendPushNotificationToUser(
-                        manager.AccountId.ToString(),
-                        "follow_request",
-                        title,
-                        null,
-                        body,
-                        isSavable: true
-                    );
-                }
-            }
-
-            return Ok(followRequest);
-        }
-        else
-        {
-            try
-            {
-                var subscription = await subs.CreateSubscriptionAsync(accountId, publisher.Id);
-                return Ok(subscription);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error subscribing to publisher {PublisherName}", name);
-                return StatusCode(500, "Failed to create subscription");
-            }
-        }
-    }
-
-    [HttpDelete("{name}/follow")]
-    [Authorize]
-    public async Task<ActionResult> UnfollowPublisher(string name)
-    {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
-        if (publisher == null)
-            return NotFound("Publisher not found");
-
-        var accountId = Guid.Parse(currentUser.Id);
-
-        if (await pub.HasFollowRequiresApprovalFlag(publisher.Id))
-        {
-            await pub.CancelFollowRequest(publisher.Id, accountId);
-            return Ok(new { message = "Follow request cancelled successfully" });
-        }
-        else
-        {
-            var success = await subs.CancelSubscriptionAsync(accountId, publisher.Id);
-            if (success)
-                return Ok(new { message = "Unfollowed successfully" });
-            return NotFound("Subscription not found");
-        }
-    }
-
     public class RejectFollowRequestBody
     {
         public string? Reason { get; set; }
     }
 
-    [HttpGet("{name}/follow-requests")]
+    [HttpGet("{name}/subscription/requests")]
     [Authorize]
     public async Task<ActionResult<List<SnPublisherFollowRequest>>> GetPendingFollowRequests(string name)
     {
@@ -381,7 +418,7 @@ public class PublisherSubscriptionController(
         return Ok(requests);
     }
 
-    [HttpPost("{name}/follow-requests/{requestId}/approve")]
+    [HttpPost("{name}/subscription/requests/{requestId}/approve")]
     [Authorize]
     public async Task<ActionResult<SnPublisherFollowRequest>> ApproveFollowRequest(string name, Guid requestId)
     {
@@ -424,7 +461,7 @@ public class PublisherSubscriptionController(
         }
     }
 
-    [HttpPost("{name}/follow-requests/{requestId}/reject")]
+    [HttpPost("{name}/subscription/requests/{requestId}/reject")]
     [Authorize]
     public async Task<ActionResult<SnPublisherFollowRequest>> RejectFollowRequest(string name, Guid requestId,
         [FromBody] RejectFollowRequestBody body)

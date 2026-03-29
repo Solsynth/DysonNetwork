@@ -59,55 +59,81 @@ Attempting to enable these flags will return:
 
 ## API Endpoints
 
-### Follow Publisher
+### Check Subscription Status
 
-Submit a follow request (if approval required) or subscribe directly.
+Get the current subscription and follow request status in one call.
 
 ```http
-POST /api/publishers/{name}/follow
+GET /api/publishers/{name}/subscription
 ```
 
-**Response (approval required):**
+**Response (no follow required):**
 ```json
 {
-    "requestId": "uuid",
-    "state": "Pending",
-    "message": "Follow request submitted and pending approval"
+    "subscription": { ... },
+    "followRequest": null,
+    "requiresApproval": false,
+    "status": "subscribed",
+    "message": "You are subscribed to this publisher"
 }
 ```
 
-**Response (no approval required):**
+**Response (follow required, pending):**
 ```json
 {
-    "message": "Successfully subscribed to publisher"
+    "subscription": null,
+    "followRequest": {
+        "id": "uuid",
+        "state": "Pending",
+        ...
+    },
+    "requiresApproval": true,
+    "status": "pending",
+    "message": "Follow request is pending approval"
 }
 ```
 
-### Unfollow Publisher
-
-Cancel pending request or unsubscribe.
-
-```http
-DELETE /api/publishers/{name}/follow
-```
-
-### Get Follow Request Status
-
-Check the status of your follow request.
-
-```http
-GET /api/publishers/{name}/follow/request
-```
-
-**Response:**
+**Response (follow required, accepted):**
 ```json
 {
-    "requestId": "uuid",
-    "publisherId": "uuid",
-    "state": "Pending|Accepted|Rejected",
-    "rejectReason": "string (if rejected)",
-    "createdAt": "2026-03-29T00:00:00Z"
+    "subscription": { ... },
+    "followRequest": {
+        "id": "uuid",
+        "state": "Accepted",
+        ...
+    },
+    "requiresApproval": true,
+    "status": "following",
+    "message": "You are following this publisher"
 }
+```
+
+**Status Values:**
+- `none` - No subscription or follow request
+- `pending` - Follow request pending approval
+- `following` - Approved and following
+- `subscribed` - Subscribed (no approval required)
+- `rejected` - Follow request was rejected
+
+### Subscribe / Follow
+
+Subscribe or submit follow request. Prevents duplicate requests.
+
+```http
+POST /api/publishers/{name}/subscribe
+```
+
+Returns 400 if:
+- Follow request already pending
+- Already following/subscribed
+- Follow request was rejected
+
+### Unsubscribe
+
+Cancel subscription or follow request.
+
+```http
+POST /api/publishers/{name}/unsubscribe
 ```
 
 ### List Pending Follow Requests (Managers+)
@@ -115,19 +141,18 @@ GET /api/publishers/{name}/follow/request
 Get all pending follow requests for a publisher.
 
 ```http
-GET /api/publishers/{name}/follow/requests
+GET /api/publishers/{name}/subscription/requests
 ```
 
 **Response:**
 ```json
-{
-    "requests": [
-        {
-            "id": "uuid",
-            "accountId": "uuid",
-            "state": "Pending",
-            "createdAt": "2026-03-29T00:00:00Z",
-            "account": {
+[
+    {
+        "id": "uuid",
+        "accountId": "uuid",
+        "state": "Pending",
+        "createdAt": "2026-03-29T00:00:00Z",
+        "account": {
                 "id": "uuid",
                 "name": "UserName",
                 "avatar": { ... }
@@ -142,7 +167,7 @@ GET /api/publishers/{name}/follow/requests
 Approve a user's follow request.
 
 ```http
-POST /api/publishers/{name}/follow/requests/{requestId}/approve
+POST /api/publishers/{name}/subscription/requests/{requestId}/approve
 ```
 
 The user will receive a push notification and in-app notification.
@@ -152,7 +177,7 @@ The user will receive a push notification and in-app notification.
 Reject a user's follow request with optional reason.
 
 ```http
-POST /api/publishers/{name}/follow/requests/{requestId}/reject
+POST /api/publishers/{name}/subscription/requests/{requestId}/reject
 Content-Type: application/json
 
 {
