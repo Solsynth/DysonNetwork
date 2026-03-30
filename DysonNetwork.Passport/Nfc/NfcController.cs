@@ -1,29 +1,28 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Passport.Account;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Passport.Nfc;
 
 [ApiController]
 [Route("/api/nfc")]
-public class NfcController(NfcService nfc) : ControllerBase
+public class NfcController(
+    NfcService nfc,
+    AppDatabase db,
+    AccountService accountService,
+    RemoteSubscriptionService remoteSubscription
+) : ControllerBase
 {
     public class NfcResolveResponse
     {
-        public NfcUserDto User { get; set; } = null!;
+        public SnAccount User { get; set; } = null!;
         public bool IsFriend { get; set; }
         public List<string> Actions { get; set; } = [];
-    }
-
-    public class NfcUserDto
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string? Nick { get; set; }
-        public SnCloudFileReferenceObject? Picture { get; set; }
-        public string? Bio { get; set; }
     }
 
     public class NfcTagDto
@@ -55,19 +54,48 @@ public class NfcController(NfcService nfc) : ControllerBase
         public bool? IsActive { get; set; }
     }
 
-    private static ActionResult<NfcResolveResponse> ToResponse(NfcResolveResult result) => new OkObjectResult(new NfcResolveResponse
+    private async Task<ActionResult<NfcResolveResponse>> ToResponseAsync(NfcResolveResult result)
     {
-        User = new NfcUserDto
+        var account = await accountService.GetAccount(result.User.Id);
+        if (account is null)
+            return StatusCode(500, ApiError.Server("Failed to load account data."));
+
+        await EnsureProfileAsync(account);
+        account.Badges = await db.Badges.Where(b => b.AccountId == account.Id).ToListAsync();
+        account.Contacts = [];
+
+        try
         {
-            Id = result.User.Id,
-            Name = result.User.Name,
-            Nick = result.User.Nick,
-            Picture = result.Profile?.Picture,
-            Bio = result.Profile?.Bio
-        },
-        IsFriend = result.IsFriend,
-        Actions = result.Actions
-    });
+            var subscription = await remoteSubscription.GetPerkSubscription(account.Id);
+            if (subscription is not null)
+            {
+                account.PerkSubscription = SnWalletSubscription.FromProtoValue(subscription).ToReference();
+                account.PerkLevel = account.PerkSubscription.PerkLevel;
+            }
+            else
+            {
+                account.PerkSubscription = null;
+                account.PerkLevel = 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to populate PerkSubscription for account {account.Id}: {ex.Message}");
+        }
+
+        return Ok(new NfcResolveResponse
+        {
+            User = account,
+            IsFriend = result.IsFriend,
+            Actions = result.Actions
+        });
+    }
+
+    private async Task EnsureProfileAsync(SnAccount account)
+    {
+        if (account.Profile is not null) return;
+        account.Profile = await accountService.GetOrCreateAccountProfileAsync(account.Id);
+    }
 
     /// <summary>
     /// Resolve a UID read from an NFC tag to a user profile.
@@ -93,7 +121,7 @@ public class NfcController(NfcService nfc) : ControllerBase
         if (result is null)
             return NotFound(ApiError.NotFound("nfc_tag", "NFC tag not found."));
 
-        return ToResponse(result);
+        return await ToResponseAsync(result);
     }
 
     /// <summary>
@@ -119,7 +147,7 @@ public class NfcController(NfcService nfc) : ControllerBase
         if (result is null)
             return NotFound(ApiError.NotFound("nfc_tag", "NFC tag not found."));
 
-        return ToResponse(result);
+        return await ToResponseAsync(result);
     }
 
     /// <summary>
@@ -139,7 +167,7 @@ public class NfcController(NfcService nfc) : ControllerBase
         if (result is null)
             return NotFound(ApiError.NotFound("nfc_tag", "NFC tag not found."));
 
-        return ToResponse(result);
+        return await ToResponseAsync(result);
     }
 
     /// <summary>
