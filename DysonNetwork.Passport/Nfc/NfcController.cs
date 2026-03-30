@@ -29,6 +29,7 @@ public class NfcController(NfcService nfc) : ControllerBase
     public class NfcTagDto
     {
         public Guid Id { get; set; }
+        public string Uid { get; set; } = string.Empty;
         public string? Label { get; set; }
         public bool IsActive { get; set; }
         public bool IsLocked { get; set; }
@@ -39,11 +40,8 @@ public class NfcController(NfcService nfc) : ControllerBase
     public class RegisterTagRequest
     {
         [Required]
-        [MaxLength(32)]
+        [MaxLength(64)]
         public string Uid { get; set; } = string.Empty;
-
-        [Required]
-        public string SunKey { get; set; } = string.Empty;
 
         [MaxLength(64)]
         public string? Label { get; set; }
@@ -57,9 +55,49 @@ public class NfcController(NfcService nfc) : ControllerBase
         public bool? IsActive { get; set; }
     }
 
+    private static ActionResult<NfcResolveResponse> ToResponse(NfcResolveResult result) => new OkObjectResult(new NfcResolveResponse
+    {
+        User = new NfcUserDto
+        {
+            Id = result.User.Id,
+            Name = result.User.Name,
+            Nick = result.User.Nick,
+            Picture = result.Profile?.Picture,
+            Bio = result.Profile?.Bio
+        },
+        IsFriend = result.IsFriend,
+        Actions = result.Actions
+    });
+
+    /// <summary>
+    /// Resolve a UID read from an NFC tag to a user profile.
+    /// No authentication required.
+    /// </summary>
+    [HttpGet]
+    public async Task<ActionResult<NfcResolveResponse>> Resolve(
+        [FromQuery] string uid,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(uid))
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                ["uid"] = ["Parameter 'uid' is required."]
+            }));
+
+        Guid? observerUserId = null;
+        if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
+            observerUserId = currentUser.Id;
+
+        var result = await nfc.ResolveAsync(uid, observerUserId, cancellationToken);
+
+        if (result is null)
+            return NotFound(ApiError.NotFound("nfc_tag", "NFC tag not found."));
+
+        return ToResponse(result);
+    }
+
     /// <summary>
     /// Look up a tag by UID (admin/debug/testing only).
-    /// Does NOT verify SUN MAC — bypasses replay protection.
     /// </summary>
     [HttpGet("lookup")]
     public async Task<ActionResult<NfcResolveResponse>> Lookup(
@@ -81,62 +119,27 @@ public class NfcController(NfcService nfc) : ControllerBase
         if (result is null)
             return NotFound(ApiError.NotFound("nfc_tag", "NFC tag not found."));
 
-        return Ok(new NfcResolveResponse
-        {
-            User = new NfcUserDto
-            {
-                Id = result.User.Id,
-                Name = result.User.Name,
-                Nick = result.User.Nick,
-                Picture = result.Profile?.Picture,
-                Bio = result.Profile?.Bio
-            },
-            IsFriend = result.IsFriend,
-            Actions = result.Actions
-        });
+        return ToResponse(result);
     }
 
     /// <summary>
-    /// Public endpoint: resolve SUN URL parameters to a user profile.
-    /// Called when an NFC tag is scanned. No authentication required.
+    /// Look up a tag by its database entry ID (for unencrypted/plain tags).
     /// </summary>
-    [HttpGet]
-    public async Task<ActionResult<NfcResolveResponse>> Resolve(
-        [FromQuery] string e,
-        [FromQuery] string c,
-        [FromQuery] string mac,
+    [HttpGet("tags/{id:guid}")]
+    public async Task<ActionResult<NfcResolveResponse>> GetById(
+        Guid id,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(e) || string.IsNullOrWhiteSpace(c) || string.IsNullOrWhiteSpace(mac))
-            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
-            {
-                ["e"] = ["Parameter 'e' is required."],
-                ["c"] = ["Parameter 'c' is required."],
-                ["mac"] = ["Parameter 'mac' is required."]
-            }));
-
         Guid? observerUserId = null;
         if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
             observerUserId = currentUser.Id;
 
-        var result = await nfc.ResolveTagAsync(e, c, mac, observerUserId, cancellationToken);
+        var result = await nfc.LookupByIdAsync(id, observerUserId, cancellationToken);
 
         if (result is null)
-            return NotFound(ApiError.NotFound("nfc_tag", "NFC tag not found or verification failed."));
+            return NotFound(ApiError.NotFound("nfc_tag", "NFC tag not found."));
 
-        return Ok(new NfcResolveResponse
-        {
-            User = new NfcUserDto
-            {
-                Id = result.User.Id,
-                Name = result.User.Name,
-                Nick = result.User.Nick,
-                Picture = result.Profile?.Picture,
-                Bio = result.Profile?.Bio
-            },
-            IsFriend = result.IsFriend,
-            Actions = result.Actions
-        });
+        return ToResponse(result);
     }
 
     /// <summary>
@@ -155,6 +158,7 @@ public class NfcController(NfcService nfc) : ControllerBase
         return Ok(tags.Select(t => new NfcTagDto
         {
             Id = t.Id,
+            Uid = t.Uid,
             Label = t.Label,
             IsActive = t.IsActive,
             IsLocked = t.LockedAt.HasValue,
@@ -175,44 +179,24 @@ public class NfcController(NfcService nfc) : ControllerBase
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        byte[] sunKey;
-        try
-        {
-            sunKey = Convert.FromBase64String(request.SunKey);
-        }
-        catch (FormatException)
-        {
-            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
-            {
-                ["sun_key"] = ["SUN key must be a valid base64-encoded 16-byte value."]
-            }));
-        }
-
         try
         {
             var tag = await nfc.RegisterTagAsync(
                 currentUser.Id,
-                request.Uid.ToUpperInvariant(),
-                sunKey,
+                request.Uid,
                 request.Label,
                 cancellationToken);
 
             return Ok(new NfcTagDto
             {
                 Id = tag.Id,
+                Uid = tag.Uid,
                 Label = tag.Label,
                 IsActive = tag.IsActive,
                 IsLocked = tag.LockedAt.HasValue,
                 LastSeenAt = tag.LastSeenAt,
                 CreatedAt = tag.CreatedAt
             });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
-            {
-                ["sun_key"] = [ex.Message]
-            }));
         }
         catch (InvalidOperationException ex)
         {
@@ -251,6 +235,7 @@ public class NfcController(NfcService nfc) : ControllerBase
         return Ok(new NfcTagDto
         {
             Id = tag.Id,
+            Uid = tag.Uid,
             Label = tag.Label,
             IsActive = tag.IsActive,
             IsLocked = tag.LockedAt.HasValue,
@@ -279,6 +264,7 @@ public class NfcController(NfcService nfc) : ControllerBase
         return Ok(new NfcTagDto
         {
             Id = tag.Id,
+            Uid = tag.Uid,
             Label = tag.Label,
             IsActive = tag.IsActive,
             IsLocked = tag.LockedAt.HasValue,

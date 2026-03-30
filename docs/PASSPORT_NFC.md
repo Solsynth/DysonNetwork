@@ -140,7 +140,8 @@ Bytes 11-15: PKCS7 padding
 | Endpoint | Auth | Description |
 |---|---|---|
 | `GET /api/nfc/lookup` | Optional | Look up tag by UID (admin/debug only, no MAC verification) |
-| `GET /api/nfc` | Optional | Public scan resolution. If JWT present, includes relationship info. |
+| `GET /api/nfc/tags/{id}` | Optional | Look up tag by entry ID (for unencrypted/plain tags) |
+| `GET /api/nfc` | Optional | Public scan resolution via SUN URL. If JWT present, includes relationship info. |
 | `GET /api/nfc/tags` | Required | List user's tags |
 | `POST /api/nfc/tags` | Required | Register a tag |
 | `PATCH /api/nfc/tags/{id}` | Required | Update tag metadata |
@@ -186,6 +187,42 @@ Error responses:
 | Status | Code | When |
 |---|---|---|
 | 400 | `VALIDATION_ERROR` | Missing uid parameter |
+| 404 | `NOT_FOUND` | Tag not found |
+
+### Lookup tag by entry ID
+
+`GET /api/nfc/tags/{id}`
+
+No authentication required. If JWT present, relationship info is included.
+
+For unencrypted/plain NFC tags — the tag entry ID is stored on the physical tag and read directly without SUN verification.
+
+Parameters:
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `id` | UUID | Yes | Database entry ID of the tag |
+
+Response (200):
+
+```json
+{
+  "user": {
+    "id": "11111111-2222-3333-4444-555555555555",
+    "name": "alice",
+    "nick": "Alice",
+    "picture": null,
+    "bio": "Hello world"
+  },
+  "is_friend": false,
+  "actions": ["view_profile", "add_friend"]
+}
+```
+
+Error responses:
+
+| Status | Code | When |
+|---|---|---|
 | 404 | `NOT_FOUND` | Tag not found |
 
 ### Resolve NFC tag

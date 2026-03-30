@@ -11,27 +11,16 @@ public class SnNfcTag : DysonNetwork.Shared.Models.ModelBase
     public Guid Id { get; set; } = Guid.NewGuid();
 
     /// <summary>
-    /// Chip UID extracted from SUN decryption. Unique per physical tag.
+    /// Unique identifier stored on the physical NFC tag.
+    /// For encrypted tags this is derived from PICCData; for plain tags it's the entry UUID.
     /// </summary>
-    [MaxLength(32)]
+    [MaxLength(64)]
     public string Uid { get; set; } = string.Empty;
 
     /// <summary>
     /// Owner account ID.
     /// </summary>
     public Guid UserId { get; set; }
-
-    /// <summary>
-    /// Per-tag SUN decryption key (AES-128, 16 bytes). Stored as raw bytes.
-    /// Used to verify MAC and decrypt PICCData from SUN URL parameters.
-    /// </summary>
-    public byte[] SunKey { get; set; } = [];
-
-    /// <summary>
-    /// Read counter for replay protection. Each successful scan increments this.
-    /// NTAG424 tags have a built-in read counter that increments on every read.
-    /// </summary>
-    public int Counter { get; set; }
 
     /// <summary>
     /// Optional user-facing label for this tag (e.g., "Work Card", "Personal").
@@ -54,4 +43,16 @@ public class SnNfcTag : DysonNetwork.Shared.Models.ModelBase
     /// Last time this tag was successfully scanned.
     /// </summary>
     public Instant? LastSeenAt { get; set; }
+
+    /// <summary>
+    /// SUN key for tag verification (legacy, unused).
+    /// Kept for DB compatibility only.
+    /// </summary>
+    public byte[]? SunKey { get; set; }
+
+    /// <summary>
+    /// Scan counter for replay protection (legacy, unused).
+    /// Kept for DB compatibility only.
+    /// </summary>
+    public int? Counter { get; set; }
 }

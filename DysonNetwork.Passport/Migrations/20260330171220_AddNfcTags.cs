@@ -17,10 +17,8 @@ namespace DysonNetwork.Passport.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
-                    uid = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    uid = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     user_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    sun_key = table.Column<byte[]>(type: "bytea", nullable: false),
-                    counter = table.Column<int>(type: "integer", nullable: false),
                     label = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     locked_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),

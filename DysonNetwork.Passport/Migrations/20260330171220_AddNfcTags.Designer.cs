@@ -17,7 +17,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Passport.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20260329082033_AddNfcTags")]
+    [Migration("20260330171220_AddNfcTags")]
     partial class AddNfcTags
     {
         /// <inheritdoc />
@@ -37,10 +37,6 @@ namespace DysonNetwork.Passport.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
-
-                    b.Property<int>("Counter")
-                        .HasColumnType("integer")
-                        .HasColumnName("counter");
 
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -67,15 +63,10 @@ namespace DysonNetwork.Passport.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("locked_at");
 
-                    b.Property<byte[]>("SunKey")
-                        .IsRequired()
-                        .HasColumnType("bytea")
-                        .HasColumnName("sun_key");
-
                     b.Property<string>("Uid")
                         .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
                         .HasColumnName("uid");
 
                     b.Property<Instant>("UpdatedAt")
