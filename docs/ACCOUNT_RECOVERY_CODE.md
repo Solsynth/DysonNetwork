@@ -7,27 +7,30 @@ This document describes the account recovery code feature in Padlock.
 The recovery code is a fallback authentication factor that allows users to regain access to their account if they lose access to their primary factors (e.g., TOTP authenticator, email code, in-app code).
 
 **Key characteristics:**
-- Must be created **first** before any other auth factors can be added
+- Must be **enabled first** before any other auth factors can be added
 - Trust level: `0` (lowest priority)
 - Auto-generated UUID as the secret
-- One-time use per recovery attempt
+- One-time use — after use, the code is disabled and must be re-enabled to get a new code
 
 ## Design Decisions
 
-### Why recovery code must be created first
+### Why recovery code must be enabled first
 
-By requiring the recovery code to be set up before other factors, users are guaranteed to always have a fallback method. This prevents situations where a user:
+By requiring the recovery code to be enabled before other factors, users are guaranteed to always have a fallback method when they need it. This prevents situations where a user:
 - Enables TOTP, loses their phone, and has no way to recover
 - Sets up email code, then loses access to email
+
+After a recovery code is used, it becomes disabled. The user must re-enable it to get a new code before adding other auth factors again.
 
 ### Security model
 
 When a recovery code is used:
-1. All auth factors (except Password and RecoveryCode) are **disabled**
-2. All existing sessions are **revoked**
-3. A new session is created for the recovery device
+1. The recovery code factor is **disabled** (a new code must be generated)
+2. All auth factors (except Password) are **disabled**
+3. All existing sessions are **revoked**
+4. A new session is created for the recovery device
 
-This ensures that if an attacker obtained the recovery code, they cannot continue to use the victim's authenticated sessions.
+This ensures that if an attacker obtained the recovery code, they cannot continue to use the victim's authenticated sessions, and the compromised code is no longer valid.
 
 ### Trust levels
 
@@ -189,7 +192,34 @@ Sets authentication cookies on the response.
 | 400 | `VALIDATION_ERROR` | Invalid captcha token |
 | 400 | `NOT_FOUND` | Account not found |
 | 400 | `RECOVERY_FAILED` | Invalid recovery code |
-| 400 | `RECOVERY_FAILED` | Recovery code factor not found |
+| 400 | `RECOVERY_FAILED` | Recovery code factor not found or disabled |
+
+### Re-enable Recovery Code
+
+After a recovery code is used, it becomes disabled. To get a new recovery code:
+
+**Endpoint:** `POST /api/factors/{id}/enable`
+
+**Authentication:** Required (interactive session)
+
+**Request:** Empty body (no code required for RecoveryCode)
+
+**Response (200):**
+```json
+{
+  "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "accountId": "11111111-2222-3333-4444-555555555555",
+  "type": "RecoveryCode",
+  "trustworthy": 0,
+  "enabledAt": "2026-03-30T10:00:00Z",
+  "expiredAt": null,
+  "createdResponse": {
+    "recovery_code": "newcode123456789012345678901234567"
+  }
+}
+```
+
+**Important:** The new `recovery_code` in `createdResponse` must be stored securely.
 
 ### Other Factor Endpoints
 
@@ -221,12 +251,13 @@ Sets authentication cookies on the response.
    b. Account exists
    c. Recovery code matches stored secret
 6. On success:
-   a. Disable all factors except Password and RecoveryCode
-   b. Revoke all existing sessions
-   c. Create new session for recovery device
-   d. Return tokens and set cookies
+   a. Disable the recovery code factor (it can no longer be used)
+   b. Disable all factors except Password
+   c. Revoke all existing sessions
+   d. Create new session for recovery device
+   e. Return tokens and set cookies
 7. User is now logged in with fresh session
-8. User should re-configure their auth factors
+8. User must re-enable recovery code to get a new code, then re-configure other factors
 ```
 
 ## Security Considerations
@@ -294,11 +325,16 @@ final captchaToken = await CaptchaService.verify();
 
 ### Post-Recovery
 
-After successful recovery, prompt the user to re-configure their auth factors:
+After successful recovery:
 
-1. Set up new TOTP authenticator
-2. Verify email if email code was disabled
-3. Re-enable any other factors they need
+1. **Re-enable recovery code** — Call `POST /api/factors/{id}/enable` to generate a new recovery code
+2. Store the new code securely
+3. Re-configure other auth factors:
+   - Set up new TOTP authenticator
+   - Verify email if email code was disabled
+   - Re-enable any other factors they need
+
+The recovery code must be enabled before other auth factors can be added again.
 
 ## Implementation References
 
@@ -312,10 +348,10 @@ After successful recovery, prompt the user to re-configure their auth factors:
 
 ### Multiple Recovery Codes
 
-Current implementation uses a single recovery code. Future versions could support:
-- Multiple one-time codes
-- Recovery code regeneration
-- Recovery code backup methods (e.g., encrypted download)
+Current implementation supports one-time use with regeneration. Future versions could support:
+- Multiple one-time codes in a set
+- Recovery code download as backup (e.g., encrypted file)
+- Manual code rotation by re-enabling
 
 ### Recovery Code Hashing
 

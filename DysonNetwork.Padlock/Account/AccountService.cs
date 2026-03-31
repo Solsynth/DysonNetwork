@@ -230,6 +230,10 @@ public class AccountService(
             var newRecoveryCode = Guid.NewGuid().ToString("N");
             factor.Secret = newRecoveryCode;
             factor.EnabledAt = SystemClock.Instance.GetCurrentInstant();
+            factor.CreatedResponse = new Dictionary<string, object>
+            {
+                ["recovery_code"] = newRecoveryCode
+            };
             db.Update(factor);
             await db.SaveChangesAsync();
             await CreateAccountActionLogAsync(
