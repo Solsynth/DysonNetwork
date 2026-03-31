@@ -196,7 +196,7 @@ public class AccountService(
             AccountAuthFactorType.PinCode when !string.IsNullOrWhiteSpace(secret) => new SnAccountAuthFactor
             {
                 Type = AccountAuthFactorType.PinCode,
-                Trustworthy = 1,
+                Trustworthy = 0, // PIN Code is designed for confirm operations, not for logged etc
                 AccountId = account.Id,
                 Secret = secret,
                 EnabledAt = SystemClock.Instance.GetCurrentInstant(),
@@ -303,7 +303,7 @@ public class AccountService(
         return factor;
     }
 
-    
+
     private async Task _SetFactorCode(SnAccountAuthFactor factor, string code, TimeSpan expires)
     {
         await cache.SetAsync(
@@ -312,7 +312,7 @@ public class AccountService(
             expires
         );
     }
-    
+
     private async Task<string?> _GetFactorCode(SnAccountAuthFactor factor)
     {
         return await cache.GetAsync<string?>(
@@ -323,8 +323,8 @@ public class AccountService(
     public async Task SendFactorCode(SnAccount account, SnAccountAuthFactor factor)
     {
         var code = Random.Shared.Next(100000, 999999).ToString();
-        
-         switch (factor.Type)
+
+        switch (factor.Type)
         {
             case Shared.Models.AccountAuthFactorType.InAppCode:
                 if (await _GetFactorCode(factor) is not null)
@@ -597,12 +597,12 @@ public class AccountService(
 
         return candidate;
     }
-     public async Task<SnAccount> CreateBotAccount(
-        SnAccount account,
-        Guid automatedId,
-        string? pictureId,
-        string? backgroundId
-    )
+    public async Task<SnAccount> CreateBotAccount(
+       SnAccount account,
+       Guid automatedId,
+       string? pictureId,
+       string? backgroundId
+   )
     {
         var dupeAutomateCount = await db.Set<SnAccount>().Where(a => a.AutomatedId == automatedId).CountAsync();
         if (dupeAutomateCount > 0)
