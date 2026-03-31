@@ -22,6 +22,7 @@ public class AccountService(
     IEventBus eventBus,
     DyFileService.DyFileServiceClient files,
     DyRingService.DyRingServiceClient ring,
+    DyNfcService.DyNfcServiceClient nfcService,
     EmailService mailer,
     ILocalizationService localizer,
     ILogger<AccountService> logger,
@@ -209,6 +210,18 @@ public class AccountService(
                 Secret = secret,
                 EnabledAt = SystemClock.Instance.GetCurrentInstant(),
             }.HashSecret(),
+            AccountAuthFactorType.NfcToken => new SnAccountAuthFactor
+            {
+                Type = AccountAuthFactorType.NfcToken,
+                Trustworthy = 1,
+                AccountId = account.Id,
+                Secret = null, // Verification is delegated to Passport via gRPC
+                Config = !string.IsNullOrEmpty(secret) ? new Dictionary<string, object>
+                {
+                    ["tag_id"] = secret
+                } : null,
+                EnabledAt = SystemClock.Instance.GetCurrentInstant(),
+            },
             _ => null
         };
 
@@ -423,8 +436,46 @@ public class AccountService(
             AccountAuthFactorType.EmailCode or AccountAuthFactorType.InAppCode => await VerifyCachedFactorCode(factor, code),
             AccountAuthFactorType.Password or AccountAuthFactorType.PinCode => BCrypt.Net.BCrypt.Verify(code, factor.Secret),
             AccountAuthFactorType.TimedCode => factor.VerifyPassword(code),
+            AccountAuthFactorType.NfcToken => await VerifyNfcToken(code),
             _ => false
         };
+    }
+
+    /// <summary>
+    /// Verify an NFC SUN token by calling Passport's gRPC service.
+    /// The code parameter is expected to be a URL-encoded query string: "e={e}&c={c}&mac={mac}".
+    /// </summary>
+    private async Task<bool> VerifyNfcToken(string code)
+    {
+        // Parse e, c, mac from the URL-encoded code string
+        var parts = code.Split('&')
+            .Select(p => p.Split('=', 2))
+            .Where(p => p.Length == 2)
+            .ToDictionary(p => p[0].ToLowerInvariant(), p => p[1]);
+
+        if (!parts.TryGetValue("e", out var e) ||
+            !parts.TryGetValue("c", out var cStr) ||
+            !parts.TryGetValue("mac", out var mac))
+            return false;
+
+        if (!int.TryParse(cStr, out var c))
+            return false;
+
+        try
+        {
+            var response = await nfcService.ValidateNfcTokenAsync(new DyValidateNfcTokenRequest
+            {
+                E = e,
+                C = c,
+                Mac = mac
+            });
+
+            return response.IsValid;
+        }
+        catch (RpcException)
+        {
+            return false;
+        }
     }
 
     public async Task DeleteSession(SnAccount account, Guid sessionId)

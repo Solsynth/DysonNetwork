@@ -519,6 +519,7 @@ public enum AccountAuthFactorType
     TimedCode,
     PinCode,
     RecoveryCode,
+    NfcToken,
 }
 
 public class SnAccountConnection : ModelBase

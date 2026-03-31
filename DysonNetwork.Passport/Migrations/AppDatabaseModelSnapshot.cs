@@ -49,6 +49,10 @@ namespace DysonNetwork.Passport.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
 
+                    b.Property<bool>("IsEncrypted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_encrypted");
+
                     b.Property<string>("Label")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")

@@ -1,6 +1,7 @@
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Credit;
 using DysonNetwork.Passport.Leveling;
+using DysonNetwork.Passport.Nfc;
 using DysonNetwork.Passport.Realm;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
@@ -34,6 +35,7 @@ public static class ApplicationConfiguration
         app.MapGrpcService<SocialCreditServiceGrpc>();
         app.MapGrpcService<ExperienceServiceGrpc>();
         app.MapGrpcService<RealmServiceGrpc>();
+        app.MapGrpcService<NfcServiceGrpc>();
         app.MapGrpcReflectionService();
 
         return app;

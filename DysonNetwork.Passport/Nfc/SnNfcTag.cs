@@ -45,14 +45,20 @@ public class SnNfcTag : DysonNetwork.Shared.Models.ModelBase
     public Instant? LastSeenAt { get; set; }
 
     /// <summary>
-    /// SUN key for tag verification (legacy, unused).
-    /// Kept for DB compatibility only.
+    /// Whether this tag uses NTAG424 SUN encryption.
+    /// Encrypted tags have a SunKey and Counter; unencrypted tags are scan-only.
+    /// </summary>
+    public bool IsEncrypted { get; set; }
+
+    /// <summary>
+    /// Per-tag SDMFileReadKey (16 bytes, AES-128) for SUN verification.
+    /// Only set for encrypted tags; null for unencrypted tags.
     /// </summary>
     public byte[]? SunKey { get; set; }
 
     /// <summary>
-    /// Scan counter for replay protection (legacy, unused).
-    /// Kept for DB compatibility only.
+    /// Last seen read counter for replay protection.
+    /// Only set for encrypted tags; null for unencrypted tags.
     /// </summary>
     public int? Counter { get; set; }
 }

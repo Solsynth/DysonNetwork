@@ -159,6 +159,9 @@ public static class ServiceCollectionExtensions
         services.AddGrpcClientWithSharedChannel<DyMagicSpellService.DyMagicSpellServiceClient>(
             "https://_grpc.passport",
             "DyMagicSpellService");
+        services.AddGrpcClientWithSharedChannel<DyNfcService.DyNfcServiceClient>(
+            "https://_grpc.passport",
+            "DyNfcService");
 
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Cryptography;
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
@@ -32,6 +33,8 @@ public class NfcController(
         public string? Label { get; set; }
         public bool IsActive { get; set; }
         public bool IsLocked { get; set; }
+        public bool IsEncrypted { get; set; }
+        public string? SunKey { get; set; }
         public NodaTime.Instant? LastSeenAt { get; set; }
         public NodaTime.Instant CreatedAt { get; set; }
     }
@@ -44,6 +47,8 @@ public class NfcController(
 
         [MaxLength(64)]
         public string? Label { get; set; }
+
+        public bool IsEncrypted { get; set; }
     }
 
     public class UpdateTagRequest
@@ -98,30 +103,94 @@ public class NfcController(
     }
 
     /// <summary>
-    /// Resolve a UID read from an NFC tag to a user profile.
-    /// No authentication required.
+    /// Resolve an NFC tag to a user profile.
+    /// Supports both encrypted (e, c, mac) and unencrypted (uid) scans.
+    /// No authentication required. If caller is authenticated, relationship info is included.
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<NfcResolveResponse>> Resolve(
-        [FromQuery] string uid,
+        [FromQuery] string? uid,
+        [FromQuery] string? e,
+        [FromQuery] int? c,
+        [FromQuery] string? mac,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(uid))
-            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
-            {
-                ["uid"] = ["Parameter 'uid' is required."]
-            }));
-
         Guid? observerUserId = null;
         if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
             observerUserId = currentUser.Id;
 
-        var result = await nfc.ResolveAsync(uid, observerUserId, cancellationToken);
+        // Encrypted SUN scan: e, c, mac parameters
+        if (!string.IsNullOrEmpty(e) && c.HasValue && !string.IsNullOrEmpty(mac))
+        {
+            try
+            {
+                var result = await nfc.ValidateSunAsync(e, c.Value, mac, observerUserId, cancellationToken);
 
-        if (result is null)
-            return NotFound(ApiError.NotFound("nfc_tag", "NFC tag not found."));
+                if (result is null)
+                    return NotFound(ApiError.NotFound("nfc_tag", "No matching NFC tag found."));
 
-        return await ToResponseAsync(result);
+                var account = await accountService.GetAccount(result.Account.Id);
+                if (account is null)
+                    return StatusCode(500, ApiError.Server("Failed to load account data."));
+
+                await EnsureProfileAsync(account);
+                account.Badges = await db.Badges.Where(b => b.AccountId == account.Id).ToListAsync();
+                account.Contacts = [];
+
+                try
+                {
+                    var subscription = await remoteSubscription.GetPerkSubscription(account.Id);
+                    if (subscription is not null)
+                    {
+                        account.PerkSubscription = SnWalletSubscription.FromProtoValue(subscription).ToReference();
+                        account.PerkLevel = account.PerkSubscription.PerkLevel;
+                    }
+                    else
+                    {
+                        account.PerkSubscription = null;
+                        account.PerkLevel = 0;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to populate PerkSubscription for account {account.Id}: {ex.Message}");
+                }
+
+                return Ok(new NfcResolveResponse
+                {
+                    User = account,
+                    IsFriend = result.IsFriend,
+                    Actions = result.Actions
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+                {
+                    ["counter"] = [ex.Message]
+                }));
+            }
+            catch (CryptographicException)
+            {
+                return NotFound(ApiError.NotFound("nfc_tag", "NFC tag verification failed."));
+            }
+        }
+
+        // Unencrypted scan: uid parameter
+        if (!string.IsNullOrWhiteSpace(uid))
+        {
+            var result = await nfc.ResolveAsync(uid, observerUserId, cancellationToken);
+
+            if (result is null)
+                return NotFound(ApiError.NotFound("nfc_tag", "NFC tag not found."));
+
+            return await ToResponseAsync(result);
+        }
+
+        return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+        {
+            ["parameters"] = ["Either 'uid' or ('e', 'c', 'mac') parameters are required."]
+        }));
     }
 
     /// <summary>
@@ -190,6 +259,7 @@ public class NfcController(
             Label = t.Label,
             IsActive = t.IsActive,
             IsLocked = t.LockedAt.HasValue,
+            IsEncrypted = t.IsEncrypted,
             LastSeenAt = t.LastSeenAt,
             CreatedAt = t.CreatedAt
         }));
@@ -213,6 +283,7 @@ public class NfcController(
                 currentUser.Id,
                 request.Uid,
                 request.Label,
+                request.IsEncrypted,
                 cancellationToken);
 
             return Ok(new NfcTagDto
@@ -222,6 +293,8 @@ public class NfcController(
                 Label = tag.Label,
                 IsActive = tag.IsActive,
                 IsLocked = tag.LockedAt.HasValue,
+                IsEncrypted = tag.IsEncrypted,
+                SunKey = tag.SunKey != null ? Convert.ToBase64String(tag.SunKey) : null,
                 LastSeenAt = tag.LastSeenAt,
                 CreatedAt = tag.CreatedAt
             });
@@ -267,6 +340,7 @@ public class NfcController(
             Label = tag.Label,
             IsActive = tag.IsActive,
             IsLocked = tag.LockedAt.HasValue,
+            IsEncrypted = tag.IsEncrypted,
             LastSeenAt = tag.LastSeenAt,
             CreatedAt = tag.CreatedAt
         });
@@ -296,6 +370,7 @@ public class NfcController(
             Label = tag.Label,
             IsActive = tag.IsActive,
             IsLocked = tag.LockedAt.HasValue,
+            IsEncrypted = tag.IsEncrypted,
             LastSeenAt = tag.LastSeenAt,
             CreatedAt = tag.CreatedAt
         });

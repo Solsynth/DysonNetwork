@@ -69,10 +69,11 @@ Implemented in [SnNfcTag.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/
 | Column | Type | Description |
 |---|---|---|
 | `id` | `uuid` | Primary key |
-| `uid` | `text` | Chip UID from SUN decryption. Unique index. |
+| `uid` | `text` | Chip UID (hex string). Unique index. For encrypted tags, this is the UID from decrypted PICCData; for plain tags, it's the entry UUID. |
 | `user_id` | `uuid` | Owner account ID. Indexed. |
-| `sun_key` | `bytea` | Per-tag AES-128 SUN key (16 bytes) |
-| `counter` | `int` | Last seen read counter for replay protection |
+| `is_encrypted` | `bool` | Whether this is an NTAG424 SUN encrypted tag. |
+| `sun_key` | `bytea` | Per-tag SDMFileReadKey (16 bytes, AES-128). Only set for encrypted tags; null for plain tags. |
+| `counter` | `int` | Last seen read counter for replay protection. Only set for encrypted tags; null for plain tags. |
 | `label` | `text` | Optional user label (e.g., "Work Card") |
 | `is_active` | `bool` | Soft disable flag |
 | `locked_at` | `timestamptz` | When the tag was locked against reprogramming |
@@ -83,7 +84,7 @@ Implemented in [SnNfcTag.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/
 
 ## SUN Verification Flow
 
-When a tag is scanned, NTAG424 generates a URL like:
+When an encrypted NTAG424 tag is scanned, it generates a URL like:
 
 ```
 https://solian.app/nfc?e=BASE64_ENC&c=COUNTER&mac=BASE64_MAC
@@ -92,22 +93,30 @@ https://solian.app/nfc?e=BASE64_ENC&c=COUNTER&mac=BASE64_MAC
 The server performs these steps:
 
 ```
-1. Decode parameters
-   e   → encrypted PICCData bytes (AES-CBC, zero IV)
+1. Parse parameters
+   e   → encrypted PICCData bytes (16 bytes, AES-CBC encrypted)
    c   → read counter (int)
    mac → AES-CMAC signature (16 bytes)
 
-2. Load all active tags from database
+2. Load all active encrypted tags from database (is_encrypted = true)
 
 3. For each candidate tag:
-   a. Compute AES-CMAC(tag.sun_key, e || c_as_3bytes_le)
-   b. Compare with received mac (constant-time)
-   c. If match → AES-CBC decrypt e with tag.sun_key
-   d. Extract UID from decrypted PICCData
-   e. Verify UID matches tag.uid
+   a. Decrypt e using the tag's SunKey:
+      - Derive SUN_ENC_KEY via KDF(SunKey, 0xC7 || UID_placeholder || readCtr || 0x80)
+      - AES-CBC decrypt e with SUN_ENC_KEY (zero IV)
+      - Extract UID (bytes 1-7) and SDMReadCtr (bytes 8-10) from decrypted data
+      - Verify SDMReadCtr == c
+
+   b. Verify CMAC using the extracted UID:
+      - Derive SUN_MAC_KEY via KDF(SunKey, 0x01 || UID || readCtr || 0x80)
+      - Compute CMAC(SUN_MAC_KEY, e || readCtr_3bytes_LE)
+      - Compare with received mac (constant-time comparison)
+      - Verify the extracted UID matches tag.uid
+
+   c. If both pass → found the matching tag
 
 4. Counter check (replay protection):
-   counter must be > tag.counter - ReplayWindow
+   counter must be > tag.counter (strict: no replay allowed)
 
 5. On success:
    - Update tag.counter and tag.last_seen_at
@@ -116,37 +125,91 @@ The server performs these steps:
    - Return user info + available actions
 ```
 
-### Crypto implementation details
+### Key hierarchy
+
+```
+SDMFileReadKey (16 bytes, stored as sun_key in DB)
+    │
+    ├─→ KDF(0xC7 || UID_placeholder || ReadCtr || 0x80) → SUN_ENC_KEY
+    │   (UID_placeholder is all zeros since UID is unknown before decryption)
+    │
+    └─→ KDF(0x01 || UID || ReadCtr || 0x80) → SUN_MAC_KEY
+        (UID is extracted from decrypted PICCData)
+```
+
+### Crypto implementation
 
 | Operation | Algorithm | Notes |
 |---|---|---|
-| MAC verification | AES-128-CMAC (NIST SP 800-38B / RFC 4493) | Pure .NET, no external deps |
-| PICCData decryption | AES-CBC with zero IV | No padding validation (NTAG424 uses PKCS7 to 16 bytes) |
-| Replay detection | Counter comparison | Configurable window via `Nfc:ReplayWindow` |
+| Session key derivation | AES-CMAC based KDF (NXP NTAG424 spec) | Derives ENC_KEY and MAC_KEY from SDMFileReadKey |
+| MAC verification | AES-128-CMAC (NIST SP 800-38B / RFC 4493) | Pure .NET implementation, constant-time comparison |
+| PICCData decryption | AES-CBC with zero IV | 16-byte block, parsed for UID and counter |
+| Replay detection | Counter comparison | Strict: counter must be strictly greater than last seen |
 
 ### PICCData format
 
 After decryption, the PICCData layout is:
 
 ```
-Byte 0:     PICCDataTag (0x08 for UID)
-Bytes 1-7:  UID (7 bytes)
+Byte 0:     PICCDataTag (0xC7 for AES-128, 0x08 for 3DES)
+Bytes 1-7:  UID (7 bytes, ISO 14443-3A)
 Bytes 8-10: SDMReadCtr (3 bytes, little-endian)
-Bytes 11-15: PKCS7 padding
+Bytes 11-15: Reserved/zeros
 ```
+
+## NFC Login Flow
+
+Encrypted NFC tags can be used as an authentication factor in the Padlock challenge flow.
+
+### Flow
+
+```
+1. User creates auth challenge: POST /api/auth/challenge
+2. Client scans NFC tag → extracts e, c, mac from SUN URL
+3. Client submits NFC factor: PATCH /api/auth/challenge/{id}
+   Body: { "factor_id": "...", "password": "e=...&c=...&mac=..." }
+4. Padlock calls Passport via gRPC to validate the SUN token
+5. If valid, the NfcToken factor is completed (Trustworthy: 1)
+6. When all required steps are done, client exchanges for tokens: POST /api/auth/token
+```
+
+### How Padlock validates NFC tokens
+
+Padlock's `AccountService.VerifyFactorCode` handles the `NfcToken` factor type:
+1. Parses `e`, `c`, `mac` from the URL-encoded password string
+2. Calls Passport's `DyNfcService.ValidateNfcToken` via gRPC
+3. Passport performs full SUN verification (CMAC, decryption, counter check)
+4. Returns `{ is_valid, account_id, tag_id, error_code }`
+
+### Setting up NfcToken as an auth factor
+
+Users can enable NFC as an auth factor after registering an encrypted NFC tag:
+```
+POST /api/auth/factors { "type": "NfcToken", "secret": "<tag_id>" }
+```
+
+The factor's `Config` dictionary stores the associated tag ID. Trustworthy level: 1 (single-step factor).
 
 ## Authentication
 
 | Endpoint | Auth | Description |
 |---|---|---|
-| `GET /api/nfc/lookup` | Optional | Look up tag by UID (admin/debug only, no MAC verification) |
+| `GET /api/nfc?uid=` | Optional | Public scan resolution by UID (unencrypted tags). If JWT present, includes relationship info. |
+| `GET /api/nfc?e=&c=&mac=` | Optional | Public scan resolution via SUN URL (encrypted tags). If JWT present, includes relationship info. |
+| `GET /api/nfc/lookup?uid=` | Optional | Look up tag by UID (admin/debug only, no MAC verification) |
 | `GET /api/nfc/tags/{id}` | Optional | Look up tag by entry ID (for unencrypted/plain tags) |
-| `GET /api/nfc` | Optional | Public scan resolution via SUN URL. If JWT present, includes relationship info. |
 | `GET /api/nfc/tags` | Required | List user's tags |
 | `POST /api/nfc/tags` | Required | Register a tag |
 | `PATCH /api/nfc/tags/{id}` | Required | Update tag metadata |
 | `POST /api/nfc/tags/{id}/lock` | Required | Lock a tag |
 | `DELETE /api/nfc/tags/{id}` | Required | Unregister a tag |
+
+### gRPC endpoints (internal, Padlock ↔ Passport)
+
+| gRPC Method | Direction | Description |
+|---|---|---|
+| `DyNfcService.ValidateNfcToken` | Padlock → Passport | Validate SUN token for login. Returns `{ is_valid, account_id, tag_id, error_code }` |
+| `DyNfcService.ResolveNfcTag` | Any → Passport | Resolve SUN token to full user profile. Returns `{ is_valid, account, profile, is_friend, actions }` |
 
 The current user is read from `HttpContext.Items["CurrentUser"]`.
 
@@ -304,24 +367,42 @@ Request body:
 ```json
 {
   "uid": "04A1B2C3D4E5F6",
-  "sun_key": "AAAAAAAAAAAAAAAAAAAAAA==",
+  "is_encrypted": true,
   "label": "Work Card"
 }
 ```
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `uid` | string | Yes | Chip UID (hex, up to 32 chars) |
-| `sun_key` | string | Yes | Base64-encoded 16-byte AES-128 key |
+| `uid` | string | Yes | Chip UID (hex, e.g., "04A1B2C3D4E5F6") |
+| `is_encrypted` | bool | No | Whether this is an NTAG424 SUN encrypted tag (default: `false`) |
 | `label` | string | No | User-facing label (max 64 chars) |
 
-Response (200): Tag DTO
+Response (200):
+
+```json
+{
+  "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "uid": "04A1B2C3D4E5F6",
+  "label": "Work Card",
+  "is_active": true,
+  "is_locked": false,
+  "is_encrypted": true,
+  "sun_key": "xJ9fKqM7tR2vBwZpN4hY8gQ3eU6sT1aD==",
+  "last_seen_at": null,
+  "created_at": "2026-03-30T12:00:00Z"
+}
+```
+
+For encrypted tags (`is_encrypted: true`), the `sun_key` field contains the server-generated AES-128 key (Base64-encoded 16 bytes). **The client must write this key to the physical NFC tag's authentication slots.**
+
+For unencrypted tags (`is_encrypted: false`), `sun_key` is `null`.
 
 Error responses:
 
 | Status | Code | When |
 |---|---|---|
-| 400 | `VALIDATION_ERROR` | Invalid key format or length |
+| 400 | `VALIDATION_ERROR` | Invalid parameters |
 | 409 | `NFC_TAG_EXISTS` | UID already registered |
 
 ### Update tag
@@ -365,20 +446,29 @@ Response: 204 No Content
 
 The physical tag programming and server registration are separate operations:
 
-### Server-side (what the API handles)
+### Registration flow (for encrypted tags)
 
-1. User generates a unique AES-128 key
-2. User calls `POST /api/nfc/tags` with the chip UID and key
-3. Server stores the mapping: UID → user_id + sun_key
+1. User calls `POST /api/nfc/tags` with `{ "uid": "...", "is_encrypted": true }`
+2. Server generates a random 16-byte AES-128 SUN key, stores it, returns the key
+3. User writes the returned SUN key to the physical tag using an NFC writer
+4. User configures the tag's SDM settings (see below)
+5. User optionally locks the tag
 
-### Physical tag (done with NFC writer tool)
+### Physical tag configuration (NFC writer tool)
 
 1. Configure NTAG424 SDM settings:
    - Enable SUN (Secure Unique NFC)
    - Set SDM MAC input: PICCData + ReadCtr
    - Set URL template: `https://solian.app/nfc?e={ENC}&c={CNT}&mac={MAC}`
-2. Write the SUN key to the tag's authentication keys
+   - Set SUN MAC offset: after encrypted data
+2. Write the received SUN key to the tag's SDM keys (FileRead key)
 3. Lock the tag (optional but recommended)
+
+### For unencrypted/plain tags
+
+1. User calls `POST /api/nfc/tags` with `{ "uid": "...", "is_encrypted": false }`
+2. User writes the tag entry ID (the UUID returned by the server) to the physical tag
+3. No key configuration needed
 
 ### Recommended NTAG424 SDM configuration
 
@@ -389,16 +479,30 @@ The physical tag programming and server registration are separate operations:
 | SDMMACInput | PICCData + ReadCtr | MAC covers both encrypted data and counter |
 | SDMMAC | Enabled | Generates AES-CMAC signature |
 | UIDMirroring | Disabled | UID is inside encrypted PICCData, not in plaintext |
+| SDMFileReadKey | Server-generated | 16-byte AES-128 key returned during registration |
 
 ## Client Implementation Guide
 
 ### NFC scan flow
+
+**For encrypted tags (SUN):**
 
 ```
 1. User taps phone to NFC tag
 2. Platform NFC API reads NDEF record → URL string
 3. Parse URL: extract e, c, mac parameters
 4. Call GET /api/nfc?e={e}&c={c}&mac={mac}
+5. Display returned user profile
+6. Offer actions: view profile, add friend
+```
+
+**For unencrypted tags:**
+
+```
+1. User taps phone to NFC tag
+2. Platform NFC API reads NDEF record → URL string
+3. Parse URL: extract uid parameter (or tag entry ID)
+4. Call GET /api/nfc?uid={uid} or GET /api/nfc/tags/{id}
 5. Display returned user profile
 6. Offer actions: view profile, add friend
 ```
@@ -414,11 +518,13 @@ All crypto verification is server-side.
 
 ### URL format
 
-The tag emits URLs in this format:
+Encrypted tags emit URLs in this format:
 
 ```
 https://solian.app/nfc?e={BASE64_ENC}&c={COUNTER}&mac={BASE64_MAC}
 ```
+
+Unencrypted tags emit a simple URL with the UID or entry ID.
 
 Parameters are URL-encoded Base64 (standard Base64 with `+` → `%2B`, `/` → `%2F`, `=` → `%3D`).
 
@@ -485,26 +591,31 @@ Soft-deleted NFC tags follow the standard Passport recycling job cleanup (7 days
 
 ## Future Extensions
 
-The current design is forward-compatible with an NFC-based login flow:
+The NFC feature supports:
 
-```
-NFC scan → identify user (current implementation)
-    ↓
-Passkey / biometric → authenticate user (future)
-```
+- **Social identification** (scan-only): Both encrypted (SUN) and unencrypted tags can resolve to user profiles.
+- **Login via NFC**: Encrypted SUN tags can be used as an `NfcToken` auth factor in the Padlock challenge flow. Padlock calls Passport via gRPC to validate SUN tokens.
 
-No schema changes would be needed — the same tag, same endpoint, with an additional authentication step on the client.
+Possible future enhancements:
+
+- **Multi-factor NFC**: Require NFC + biometric/passkey for high-security scenarios
+- **NFC-based device binding**: Tie sessions to specific NFC tags for continuous authentication
+- **SUN key rotation**: Allow users to regenerate SUN keys for existing tags
 
 ## Migration
 
-Schema migration:
+Schema migrations:
 
-- [20260329082033_AddNfcTags.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Migrations/20260329082033_AddNfcTags.cs)
+- [20260330171220_AddNfcTags.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Migrations/20260330171220_AddNfcTags.cs) - Initial nfc_tags table
+- [20260331000000_AddNfcTagsEncrypted.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Migrations/20260331000000_AddNfcTagsEncrypted.cs) - Add is_encrypted column
 
 ## Implementation References
 
 - Controller: [NfcController.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Nfc/NfcController.cs)
 - Service: [NfcService.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Nfc/NfcService.cs)
+- gRPC Server: [NfcServiceGrpc.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Nfc/NfcServiceGrpc.cs)
+- Crypto: [NfcCrypto.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Nfc/NfcCrypto.cs)
 - Model: [SnNfcTag.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Nfc/SnNfcTag.cs)
 - Database wiring: [AppDatabase.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/AppDatabase.cs)
 - Service registration: [ServiceCollectionExtensions.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Startup/ServiceCollectionExtensions.cs)
+- Proto: nfc.proto (external proto repo)
