@@ -135,6 +135,14 @@ public class AccountService(
             .AnyAsync();
     }
 
+    public async Task<bool> CheckAuthFactorEnabled(SnAccount account, AccountAuthFactorType type)
+    {
+        return await db.AccountAuthFactors
+            .Where(x => x.AccountId == account.Id && x.Type == type)
+            .Where(x => x.EnabledAt != null)
+            .AnyAsync();
+    }
+
     public async Task<SnAccountAuthFactor?> CreateAuthFactor(SnAccount account, AccountAuthFactorType type, string? secret)
     {
         if (type == AccountAuthFactorType.RecoveryCode)
@@ -217,6 +225,25 @@ public class AccountService(
 
     public async Task<SnAccountAuthFactor> EnableAuthFactor(SnAccountAuthFactor factor, string? code)
     {
+        if (factor.Type == AccountAuthFactorType.RecoveryCode)
+        {
+            var newRecoveryCode = Guid.NewGuid().ToString("N");
+            factor.Secret = newRecoveryCode;
+            factor.EnabledAt = SystemClock.Instance.GetCurrentInstant();
+            db.Update(factor);
+            await db.SaveChangesAsync();
+            await CreateAccountActionLogAsync(
+                factor.AccountId,
+                ActionLogType.AuthFactorEnable,
+                new Dictionary<string, object>
+                {
+                    ["factor_type"] = factor.Type.ToString(),
+                    ["regenerated"] = true
+                }
+            );
+            return factor;
+        }
+
         if (factor.Type is AccountAuthFactorType.Password or AccountAuthFactorType.TimedCode)
         {
             factor.EnabledAt = SystemClock.Instance.GetCurrentInstant();

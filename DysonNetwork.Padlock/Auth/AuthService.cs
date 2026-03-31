@@ -632,6 +632,9 @@ public class AuthService(
                 db.AccountAuthFactors.Update(factor);
             }
 
+            recoveryFactor.EnabledAt = null;
+            db.AccountAuthFactors.Update(recoveryFactor);
+
             var revokedCount = await RevokeAllSessionsForAccountAsync(account.Id);
 
             var now = SystemClock.Instance.GetCurrentInstant();
@@ -662,7 +665,10 @@ public class AuthService(
                 ActionLogType.AccountRecovery,
                 new Dictionary<string, object>
                 {
-                    ["factors_disabled"] = factorsToDisable.Select(f => f.Type.ToString()).ToList(),
+                    ["factors_disabled"] = factorsToDisable
+                        .Select(f => f.Type.ToString())
+                        .Concat([AccountAuthFactorType.RecoveryCode.ToString()])
+                        .ToList(),
                     ["sessions_revoked"] = revokedCount
                 },
                 userAgent,

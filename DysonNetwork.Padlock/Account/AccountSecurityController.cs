@@ -64,7 +64,7 @@ public class AccountSecurityController(
             return Unauthorized();
         if (
             request.Type != AccountAuthFactorType.RecoveryCode
-            && !await accounts.CheckAuthFactorExists(
+            && !await accounts.CheckAuthFactorEnabled(
                 currentUser,
                 AccountAuthFactorType.RecoveryCode
             )
@@ -75,7 +75,7 @@ public class AccountSecurityController(
                     {
                         ["factor"] =
                         [
-                            "Recovery code must be created before creating other auth factors.",
+                            "Recovery code must be enabled before creating other auth factors.",
                         ],
                     },
                     traceId: HttpContext.TraceIdentifier
