@@ -467,75 +467,62 @@ public class FileUploadController(
         var mergedFilePath = Path.Combine(_tempPath, taskId + ".tmp");
         var accountId = Guid.Parse(currentUser.Id);
 
-        _ = Task.Run(async () =>
+        try
         {
-            using var scope = scopeFactory.CreateScope();
-            var scopedPersistentTaskService = scope.ServiceProvider.GetRequiredService<PersistentTaskService>();
-            var scopedFileService = scope.ServiceProvider.GetRequiredService<FileService>();
-            var scopedFileIndexService = scope.ServiceProvider.GetRequiredService<FileIndexService>();
+            await MergeChunksParallelAsync(taskId, taskPath, mergedFilePath, persistentTask.ChunksCount, persistentTaskService);
 
-            try
+            await persistentTaskService.UpdateTaskProgressAsync(taskId, 0.50, "Processing file locally...");
+
+            var fileId = await Nanoid.GenerateAsync();
+            var (cloudFile, fileEvent) = await fileService.ProcessNewFileAsync(
+                currentUser,
+                fileId,
+                persistentTask.PoolId.ToString(),
+                persistentTask.BundleId?.ToString(),
+                mergedFilePath,
+                persistentTask.FileName,
+                persistentTask.ContentType,
+                persistentTask.EncryptionScheme,
+                persistentTask.EncryptionHeader,
+                persistentTask.EncryptionSignature,
+                persistentTask.ExpiredAt,
+                taskId
+            );
+
+            if (!string.IsNullOrEmpty(persistentTask.Path))
             {
-                await MergeChunksParallelAsync(taskId, taskPath, mergedFilePath, persistentTask.ChunksCount, scopedPersistentTaskService);
-
-                await scopedPersistentTaskService.UpdateTaskProgressAsync(taskId, 0.50, "Processing file locally...");
-
-                var fileId = await Nanoid.GenerateAsync();
-                var (cloudFile, fileEvent) = await scopedFileService.ProcessNewFileAsync(
-                    currentUser,
-                    fileId,
-                    persistentTask.PoolId.ToString(),
-                    persistentTask.BundleId?.ToString(),
-                    mergedFilePath,
-                    persistentTask.FileName,
-                    persistentTask.ContentType,
-                    persistentTask.EncryptionScheme,
-                    persistentTask.EncryptionHeader,
-                    persistentTask.EncryptionSignature,
-                    persistentTask.ExpiredAt,
-                    taskId
-                );
-
-                if (!string.IsNullOrEmpty(persistentTask.Path))
+                try
                 {
-                    try
-                    {
-                        await scopedFileIndexService.CreateAsync(persistentTask.Path, fileId, accountId);
-                        logger.LogInformation("Created file index for file {FileId} at path {Path}", fileId,
-                            persistentTask.Path);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning(ex, "Failed to create file index for file {FileId} at path {Path}", fileId,
-                            persistentTask.Path);
-                    }
+                    await fileIndexService.CreateAsync(persistentTask.Path, fileId, accountId);
+                    logger.LogInformation("Created file index for file {FileId} at path {Path}", fileId,
+                        persistentTask.Path);
                 }
-
-                await scopedPersistentTaskService.UpdateTaskProgressAsync(taskId, 0.55, "Uploading to remote storage...");
-
-                await scopedFileService.PublishUploadCompletedEventAsync(fileEvent);
-
-                await scopedPersistentTaskService.SendUploadCompletedNotificationAsync(persistentTask, fileId);
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to create file index for file {FileId} at path {Path}", fileId,
+                        persistentTask.Path);
+                }
             }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Background upload processing failed for task {TaskId}. Error: {ErrorMessage}", taskId,
-                    ex.Message);
-                await scopedPersistentTaskService.MarkTaskFailedAsync(taskId, ex.Message);
-                await scopedPersistentTaskService.SendUploadFailedNotificationAsync(persistentTask, ex.Message);
-            }
-            finally
-            {
-                await CleanupTempFiles(taskPath, mergedFilePath);
-            }
-        });
 
-        return Accepted(new
+            await persistentTaskService.UpdateTaskProgressAsync(taskId, 0.55, "Uploading to remote storage...");
+
+            await fileService.PublishUploadCompletedEventAsync(fileEvent);
+
+            await persistentTaskService.SendUploadCompletedNotificationAsync(persistentTask, fileId);
+
+            await CleanupTempFiles(taskPath, mergedFilePath);
+
+            return Ok(cloudFile);
+        }
+        catch (Exception ex)
         {
-            message = "Upload is being processed",
-            taskId = taskId,
-            status = "processing"
-        });
+            logger.LogError(ex, "Upload processing failed for task {TaskId}. Error: {ErrorMessage}", taskId,
+                ex.Message);
+            await persistentTaskService.MarkTaskFailedAsync(taskId, ex.Message);
+            await persistentTaskService.SendUploadFailedNotificationAsync(persistentTask, ex.Message);
+            await CleanupTempFiles(taskPath, mergedFilePath);
+            return StatusCode(500, ApiError.Server(ex.Message));
+        }
     }
 
     private static async Task MergeChunksParallelAsync(
