@@ -1,5 +1,5 @@
 using DysonNetwork.Insight;
-using DysonNetwork.Insight.Migrations;
+// using DysonNetwork.Insight.Migrations;
 using DysonNetwork.Insight.Startup;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
