@@ -194,12 +194,12 @@ The factor's `Config` dictionary stores the associated tag ID. Trustworthy level
 
 | Endpoint | Auth | Description |
 |---|---|---|
-| `GET /api/nfc?uid=` | Optional | Public scan resolution by UID (unencrypted tags). If JWT present, includes relationship info. |
-| `GET /api/nfc?e=&c=&mac=` | Optional | Public scan resolution via SUN URL (encrypted tags). Includes claim logic. |
+| `GET /api/nfc?uid=` | Optional | Public scan resolution by UID (unencrypted tags). |
 | `GET /api/nfc/lookup?uid=` | Optional | Look up tag by UID (admin/debug only, no MAC verification) |
 | `GET /api/nfc/tags/{id}` | Optional | Look up tag by entry ID (for unencrypted/plain tags) |
 | `GET /api/nfc/tags` | Required | List user's tags |
 | `POST /api/nfc/tags` | Required | Register an unencrypted tag |
+| `POST /api/nfc/tags/claim` | Required | Claim an unclaimed encrypted tag by UID (without scanning) |
 | `PATCH /api/nfc/tags/{id}` | Required | Update tag metadata |
 | `POST /api/nfc/tags/{id}/lock` | Required | Lock a tag |
 | `DELETE /api/nfc/tags/{id}` | Required | Unregister a tag |
@@ -401,6 +401,33 @@ Error responses:
 |---|---|---|
 | 400 | `VALIDATION_ERROR` | Invalid UID format |
 | 409 | `NFC_TAG_EXISTS` | UID already registered |
+
+### Claim encrypted tag (without scanning)
+
+`POST /api/nfc/tags/claim`
+
+Requires JWT. For factory-produced encrypted tags where the user knows the tag's UID (e.g., printed on the tag).
+
+This allows users to claim an unclaimed encrypted tag without scanning it. The user must provide the tag's UID.
+
+Request body:
+
+```json
+{
+  "uid": "04A1B2C3D4E5F6"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `uid` | string | Yes | The tag's UID (hex string) |
+
+Response (200): Tag DTO
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `TAG_CLAIM_FAILED` | Tag not found, already claimed, or not encrypted |
+| 404 | `NOT_FOUND` | No matching tag |
 
 ### Update tag
 

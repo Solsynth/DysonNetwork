@@ -342,6 +342,43 @@ public class NfcService(
     }
 
     /// <summary>
+    /// Claim an unclaimed encrypted NFC tag by UID (without scanning).
+    /// The user provides the tag's UID (e.g., printed on the tag).
+    /// </summary>
+    /// <param name="uid">Tag UID (hex string, e.g., "04A1B2C3D4E5F6").</param>
+    /// <param name="userId">User claiming the tag.</param>
+    public async Task<SnNfcTag> ClaimTagByUidAsync(
+        string uid,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedUid = uid.ToUpperInvariant();
+
+        var tag = await db.NfcTags
+            .FirstOrDefaultAsync(t => t.Uid == normalizedUid && t.IsEncrypted && t.IsActive, cancellationToken);
+
+        if (tag is null)
+            throw new InvalidOperationException("Encrypted tag not found with this UID.");
+
+        // Check if already claimed by this user
+        if (tag.UserId == userId)
+            return tag; // Already their tag, return as-is
+
+        // Check if already claimed by someone else
+        if (tag.UserId != Guid.Empty && tag.UserId != default)
+            throw new InvalidOperationException("This tag has already been claimed by another account.");
+
+        // Claim the tag
+        tag.UserId = userId;
+        tag.LastSeenAt = SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Tag {TagId} (UID: {Uid}) claimed by user {UserId} via UID", tag.Id, uid, userId);
+
+        return tag;
+    }
+
+    /// <summary>
     /// Factory/Admin: List all encrypted tags (for management).
     /// </summary>
     public async Task<List<SnNfcTag>> ListAllEncryptedTagsAsync(

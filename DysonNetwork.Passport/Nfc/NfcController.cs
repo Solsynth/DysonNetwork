@@ -59,6 +59,13 @@ public class NfcController(
         public bool? IsActive { get; set; }
     }
 
+    public class ClaimTagRequest
+    {
+        [Required]
+        [MaxLength(64)]
+        public string Uid { get; set; } = string.Empty;
+    }
+
     private async Task<ActionResult<NfcResolveResponse>> ToResponseAsync(NfcResolveResult result)
     {
         var account = await accountService.GetAccount(result.User.Id);
@@ -340,6 +347,49 @@ public class NfcController(
                 Code = "NFC_TAG_EXISTS",
                 Message = ex.Message,
                 Status = 409
+            });
+        }
+    }
+
+    /// <summary>
+    /// Claim an unclaimed encrypted NFC tag by UID (without scanning).
+    /// For factory-produced tags where the user knows the tag's UID.
+    /// </summary>
+    [HttpPost("tags/claim")]
+    [Authorize]
+    public async Task<ActionResult<NfcTagDto>> ClaimTag(
+        [FromBody] ClaimTagRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+
+        try
+        {
+            var tag = await nfc.ClaimTagByUidAsync(
+                request.Uid,
+                currentUser.Id,
+                cancellationToken);
+
+            return Ok(new NfcTagDto
+            {
+                Id = tag.Id,
+                Uid = tag.Uid,
+                Label = tag.Label,
+                IsActive = tag.IsActive,
+                IsLocked = tag.LockedAt.HasValue,
+                IsEncrypted = tag.IsEncrypted,
+                LastSeenAt = tag.LastSeenAt,
+                CreatedAt = tag.CreatedAt
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiError
+            {
+                Code = "TAG_CLAIM_FAILED",
+                Message = ex.Message,
+                Status = 400
             });
         }
     }
