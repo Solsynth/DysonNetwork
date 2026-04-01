@@ -33,8 +33,8 @@ public class NfcServiceGrpc(
 
         try
         {
-            // request.E contains the hex-encoded encrypted PICCData
-            var uidHex = request.E;
+            // request.UidHex contains the hex-encoded encrypted PICCData
+            var uidHex = request.UidHex;
             if (string.IsNullOrWhiteSpace(uidHex))
             {
                 response.IsValid = false;
@@ -108,7 +108,7 @@ public class NfcServiceGrpc(
 
         try
         {
-            var uidHex = request.E;
+            var uidHex = request.UidHex;
             if (string.IsNullOrWhiteSpace(uidHex))
             {
                 response.IsValid = false;

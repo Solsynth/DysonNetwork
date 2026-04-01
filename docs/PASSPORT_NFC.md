@@ -84,36 +84,34 @@ Implemented in [SnNfcTag.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/
 
 ## SUN Verification Flow
 
-When an encrypted NTAG424 tag is scanned, it generates a URL like:
+When an encrypted tag is scanned, it generates a URL like:
 
 ```
-https://solian.app/nfc?e=BASE64_ENC&c=COUNTER&mac=BASE64_MAC
+solian://phpass?uid=D7E4AF3C6F49A801D351FB82974B7729000000
 ```
 
 The server performs these steps:
 
 ```
-1. Parse parameters
-   e   → encrypted PICCData bytes (16 bytes, AES-CBC encrypted)
-   c   → read counter (int)
-   mac → AES-CMAC signature (16 bytes)
+1. Parse the uid parameter
+   → First 32 hex chars = 16 bytes of encrypted PICCData
+   → Trailing hex chars are ignored
 
 2. Load all active encrypted tags from database (is_encrypted = true)
 
 3. For each candidate tag:
-   a. Decrypt e using the tag's SunKey:
-      - Derive SUN_ENC_KEY via KDF(SunKey, 0xC7 || UID_placeholder || readCtr || 0x80)
-      - AES-CBC decrypt e with SUN_ENC_KEY (zero IV)
-      - Extract UID (bytes 1-7) and SDMReadCtr (bytes 8-10) from decrypted data
-      - Verify SDMReadCtr == c
+   a. Decrypt PICCData with AES-CBC using the tag's SunKey directly:
+      - SunKey is used directly as the AES key (no KDF)
+      - IV = all zeros
+      - Decrypt the 16-byte PICCData
 
-   b. Verify CMAC using the extracted UID:
-      - Derive SUN_MAC_KEY via KDF(SunKey, 0x01 || UID || readCtr || 0x80)
-      - Compute CMAC(SUN_MAC_KEY, e || readCtr_3bytes_LE)
-      - Compare with received mac (constant-time comparison)
-      - Verify the extracted UID matches tag.uid
+   b. Validate the decrypted PICCData structure:
+      - Byte 0 must be 0xC7 (PICCDataTag for AES)
+      - Bytes 1-7 = UID, must start with 0x04
+      - Bytes 8-10 = ReadCounter (3 bytes, little-endian)
 
-   c. If both pass → found the matching tag
+   c. Check if decrypted UID matches the tag's UID in database
+      → If match → found the matching tag
 
 4. Counter check (replay protection):
    counter must be > tag.counter (strict: no replay allowed)
@@ -125,26 +123,14 @@ The server performs these steps:
    - Return user info + available actions
 ```
 
-### Key hierarchy
-
-```
-SDMFileReadKey (16 bytes, stored as sun_key in DB)
-    │
-    ├─→ KDF(0xC7 || UID_placeholder || ReadCtr || 0x80) → SUN_ENC_KEY
-    │   (UID_placeholder is all zeros since UID is unknown before decryption)
-    │
-    └─→ KDF(0x01 || UID || ReadCtr || 0x80) → SUN_MAC_KEY
-        (UID is extracted from decrypted PICCData)
-```
-
 ### Crypto implementation
 
 | Operation | Algorithm | Notes |
 |---|---|---|
-| Session key derivation | AES-CMAC based KDF (NXP NTAG424 spec) | Derives ENC_KEY and MAC_KEY from SDMFileReadKey |
-| MAC verification | AES-128-CMAC (NIST SP 800-38B / RFC 4493) | Pure .NET implementation, constant-time comparison |
-| PICCData decryption | AES-CBC with zero IV | 16-byte block, parsed for UID and counter |
-| Replay detection | Counter comparison | Strict: counter must be strictly greater than last seen |
+| PICCData decryption | AES-128/256-CBC with zero IV | Key used directly, no KDF |
+| PICCData validation | Check tag byte (0xC7) and UID prefix (04) | No CMAC verification |
+| Replay detection | Counter comparison | Counter embedded in decrypted PICCData |
+| Key sizes | 16 bytes (AES-128) or 32 bytes (AES-256) | Configurable per tag |
 
 ### PICCData format
 
@@ -165,9 +151,10 @@ Encrypted NFC tags can be used as an authentication factor in the Padlock challe
 
 ```
 1. User creates auth challenge: POST /api/auth/challenge
-2. Client scans NFC tag → extracts e, c, mac from SUN URL
+2. Client scans NFC tag → extracts uid_hex from SUN URL
 3. Client submits NFC factor: PATCH /api/auth/challenge/{id}
-   Body: { "factor_id": "...", "password": "e=...&c=...&mac=..." }
+   Body: { "factor_id": "...", "password": "<uid_hex>" }
+   Example password: "D7E4AF3C6F49A801D351FB82974B7729000000"
 4. Padlock calls Passport via gRPC to validate the SUN token
 5. If valid, the NfcToken factor is completed (Trustworthy: 1)
 6. When all required steps are done, client exchanges for tokens: POST /api/auth/token
@@ -176,9 +163,9 @@ Encrypted NFC tags can be used as an authentication factor in the Padlock challe
 ### How Padlock validates NFC tokens
 
 Padlock's `AccountService.VerifyFactorCode` handles the `NfcToken` factor type:
-1. Parses `e`, `c`, `mac` from the URL-encoded password string
-2. Calls Passport's `DyNfcService.ValidateNfcToken` via gRPC
-3. Passport performs full SUN verification (CMAC, decryption, counter check)
+1. The `password` field contains the full hex UID string from the NFC scan
+2. Calls Passport's `DyNfcService.ValidateNfcToken` via gRPC with `uid_hex`
+3. Passport performs SUN decryption and counter check
 4. Returns `{ is_valid, account_id, tag_id, error_code }`
 
 ### Setting up NfcToken as an auth factor
@@ -292,17 +279,22 @@ Error responses:
 
 ### Resolve NFC tag
 
-`GET /api/nfc?e={enc}&c={counter}&mac={mac}`
+`GET /api/nfc?uid={uid_hex}`
 
 No authentication required. If the caller is authenticated, relationship status is included.
+
+The `uid` parameter works for both encrypted (SUN) and unencrypted tags:
+- If 32+ hex chars, attempts SDM decryption (encrypted scan)
+- Otherwise, looks up by tag UID (unencrypted scan)
 
 Parameters:
 
 | Param | Type | Required | Description |
 |---|---|---|---|
-| `e` | string | Yes | Base64-encoded encrypted PICCData |
-| `c` | string | Yes | Read counter (integer) |
-| `mac` | string | Yes | Base64-encoded AES-CMAC signature |
+| `uid` | string | Yes | Full hex SDM data (e.g., `D7E4AF3C6F49A801D351FB82974B7729000000`) or tag UID for unencrypted tags |
+
+For encrypted tags, this returns the owner's profile (or claim status if unassigned).
+For unencrypted tags, this works like the UID lookup.
 
 Response (200):
 
@@ -499,16 +491,25 @@ POST /api/admin/nfc/tags
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `uid` | string | Yes | Physical chip UID |
-| `sun_key` | string | Yes | Base64-encoded 16-byte SUN key |
+| `sun_key` | string | Yes | SUN key: hex (32 chars for 16-byte AES-128, 64 chars for 32-byte AES-256) or Base64. Auto-detected. Example hex: `00000000000000000000000000000000` |
 | `assigned_user_id` | string? | No | Pre-assign to a specific user (null = unassigned) |
 
 Requires `nfc.admin` permission.
 
-#### Step 3: User receives and scans the tag
+#### Step 3: User receives and associates the tag
+
+**Option A: Claim by UID (without scanning)**
+
+1. User receives the pre-programmed tag (UID printed on it)
+2. User signs in to the app
+3. User calls `POST /api/nfc/tags/claim` with `{ "uid": "04A1B2C3D4E5F6" }`
+4. Tag is now associated with the user's account
+
+**Option B: Claim by scanning**
 
 1. User receives the pre-programmed tag
 2. User signs in to the app
-3. User scans the tag → `GET /api/nfc?e=...&c=...&mac=...`
+3. User scans the tag → `GET /api/nfc?uid=D7E4AF3C6F49A801D351FB82974B7729000000`
 4. Server validates the SUN, finds the unclaimed tag
 5. Server automatically claims the tag for the authenticated user
 6. Response includes `is_claimed: true`
@@ -548,8 +549,10 @@ Unencrypted tags are self-registered by users:
 ```
 1. User taps phone to NFC tag
 2. Platform NFC API reads NDEF record → URL string
-3. Parse URL: extract e, c, mac parameters
-4. Call GET /api/nfc?e={e}&c={c}&mac={mac}
+   Example: "solian://phpass?uid=D7E4AF3C6F49A801D351FB82974B7729000000"
+3. Parse URL: extract uid parameter value (full hex string)
+4. Call GET /api/nfc?uid={uid_hex}
+   Example: GET /api/nfc?uid=D7E4AF3C6F49A801D351FB82974B7729000000
 5. Display returned user profile
 6. Offer actions: view profile, add friend
 ```
@@ -579,12 +582,19 @@ All crypto verification is server-side.
 Encrypted tags emit URLs in this format:
 
 ```
-https://solian.app/nfc?e={BASE64_ENC}&c={COUNTER}&mac={BASE64_MAC}
+solian://phpass?uid={HEX_SDM_DATA}
 ```
 
-Unencrypted tags emit a simple URL with the UID or entry ID.
+Example:
+```
+solian://phpass?uid=D7E4AF3C6F49A801D351FB82974B7729000000
+```
 
-Parameters are URL-encoded Base64 (standard Base64 with `+` → `%2B`, `/` → `%2F`, `=` → `%3D`).
+The `uid` parameter contains:
+- Bytes 0-15: Encrypted PICCData (32 hex chars)
+- Bytes 16-18: Additional data (3 hex chars, ignored by server)
+
+Unencrypted tags emit a simple URL with the UID or entry ID.
 
 ### Error handling
 

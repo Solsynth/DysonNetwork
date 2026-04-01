@@ -24,31 +24,30 @@ namespace DysonNetwork.Shared.Proto {
     static NfcReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "CgluZmMucHJvdG8SBXByb3RvGg1hY2NvdW50LnByb3RvIkkKGUR5VmFsaWRh",
-            "dGVOZmNUb2tlblJlcXVlc3QSDAoBZRgBIAEoCVIBZRIMCgFjGAIgASgFUgFj",
-            "EhAKA21hYxgDIAEoCVIDbWFjIowBChpEeVZhbGlkYXRlTmZjVG9rZW5SZXNw",
-            "b25zZRIZCghpc192YWxpZBgBIAEoCFIHaXNWYWxpZBIdCgphY2NvdW50X2lk",
-            "GAIgASgJUglhY2NvdW50SWQSFQoGdGFnX2lkGAMgASgJUgV0YWdJZBIdCgpl",
-            "cnJvcl9jb2RlGAQgASgJUgllcnJvckNvZGUiRgoWRHlSZXNvbHZlTmZjVGFn",
-            "UmVxdWVzdBIMCgFlGAEgASgJUgFlEgwKAWMYAiABKAVSAWMSEAoDbWFjGAMg",
-            "ASgJUgNtYWMi6QEKF0R5UmVzb2x2ZU5mY1RhZ1Jlc3BvbnNlEhkKCGlzX3Zh",
-            "bGlkGAEgASgIUgdpc1ZhbGlkEioKB2FjY291bnQYAiABKAsyEC5wcm90by5E",
-            "eUFjY291bnRSB2FjY291bnQSMQoHcHJvZmlsZRgDIAEoCzIXLnByb3RvLkR5",
-            "QWNjb3VudFByb2ZpbGVSB3Byb2ZpbGUSGwoJaXNfZnJpZW5kGAQgASgIUghp",
-            "c0ZyaWVuZBIYCgdhY3Rpb25zGAUgAygJUgdhY3Rpb25zEh0KCmVycm9yX2Nv",
-            "ZGUYBiABKAlSCWVycm9yQ29kZTK3AQoMRHlOZmNTZXJ2aWNlElcKEFZhbGlk",
-            "YXRlTmZjVG9rZW4SIC5wcm90by5EeVZhbGlkYXRlTmZjVG9rZW5SZXF1ZXN0",
-            "GiEucHJvdG8uRHlWYWxpZGF0ZU5mY1Rva2VuUmVzcG9uc2USTgoNUmVzb2x2",
-            "ZU5mY1RhZxIdLnByb3RvLkR5UmVzb2x2ZU5mY1RhZ1JlcXVlc3QaHi5wcm90",
-            "by5EeVJlc29sdmVOZmNUYWdSZXNwb25zZUI9Wh9naXQuc29sc3ludGguZGV2",
-            "L3Nvc3lzL3NwZWMvZ2VuqgIZRHlzb25OZXR3b3JrLlNoYXJlZC5Qcm90b2IG",
-            "cHJvdG8z"));
+            "CgluZmMucHJvdG8SBXByb3RvGg1hY2NvdW50LnByb3RvIjQKGUR5VmFsaWRh",
+            "dGVOZmNUb2tlblJlcXVlc3QSFwoHdWlkX2hleBgBIAEoCVIGdWlkSGV4IowB",
+            "ChpEeVZhbGlkYXRlTmZjVG9rZW5SZXNwb25zZRIZCghpc192YWxpZBgBIAEo",
+            "CFIHaXNWYWxpZBIdCgphY2NvdW50X2lkGAIgASgJUglhY2NvdW50SWQSFQoG",
+            "dGFnX2lkGAMgASgJUgV0YWdJZBIdCgplcnJvcl9jb2RlGAQgASgJUgllcnJv",
+            "ckNvZGUiMQoWRHlSZXNvbHZlTmZjVGFnUmVxdWVzdBIXCgd1aWRfaGV4GAEg",
+            "ASgJUgZ1aWRIZXgi6QEKF0R5UmVzb2x2ZU5mY1RhZ1Jlc3BvbnNlEhkKCGlz",
+            "X3ZhbGlkGAEgASgIUgdpc1ZhbGlkEioKB2FjY291bnQYAiABKAsyEC5wcm90",
+            "by5EeUFjY291bnRSB2FjY291bnQSMQoHcHJvZmlsZRgDIAEoCzIXLnByb3Rv",
+            "LkR5QWNjb3VudFByb2ZpbGVSB3Byb2ZpbGUSGwoJaXNfZnJpZW5kGAQgASgI",
+            "Ughpc0ZyaWVuZBIYCgdhY3Rpb25zGAUgAygJUgdhY3Rpb25zEh0KCmVycm9y",
+            "X2NvZGUYBiABKAlSCWVycm9yQ29kZTK3AQoMRHlOZmNTZXJ2aWNlElcKEFZh",
+            "bGlkYXRlTmZjVG9rZW4SIC5wcm90by5EeVZhbGlkYXRlTmZjVG9rZW5SZXF1",
+            "ZXN0GiEucHJvdG8uRHlWYWxpZGF0ZU5mY1Rva2VuUmVzcG9uc2USTgoNUmVz",
+            "b2x2ZU5mY1RhZxIdLnByb3RvLkR5UmVzb2x2ZU5mY1RhZ1JlcXVlc3QaHi5w",
+            "cm90by5EeVJlc29sdmVOZmNUYWdSZXNwb25zZUI9Wh9naXQuc29sc3ludGgu",
+            "ZGV2L3Nvc3lzL3NwZWMvZ2VuqgIZRHlzb25OZXR3b3JrLlNoYXJlZC5Qcm90",
+            "b2IGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyValidateNfcTokenRequest), global::DysonNetwork.Shared.Proto.DyValidateNfcTokenRequest.Parser, new[]{ "E", "C", "Mac" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyValidateNfcTokenRequest), global::DysonNetwork.Shared.Proto.DyValidateNfcTokenRequest.Parser, new[]{ "UidHex" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyValidateNfcTokenResponse), global::DysonNetwork.Shared.Proto.DyValidateNfcTokenResponse.Parser, new[]{ "IsValid", "AccountId", "TagId", "ErrorCode" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyResolveNfcTagRequest), global::DysonNetwork.Shared.Proto.DyResolveNfcTagRequest.Parser, new[]{ "E", "C", "Mac" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyResolveNfcTagRequest), global::DysonNetwork.Shared.Proto.DyResolveNfcTagRequest.Parser, new[]{ "UidHex" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyResolveNfcTagResponse), global::DysonNetwork.Shared.Proto.DyResolveNfcTagResponse.Parser, new[]{ "IsValid", "Account", "Profile", "IsFriend", "Actions", "ErrorCode" }, null, null, null, null)
           }));
     }
@@ -91,9 +90,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public DyValidateNfcTokenRequest(DyValidateNfcTokenRequest other) : this() {
-      e_ = other.e_;
-      c_ = other.c_;
-      mac_ = other.mac_;
+      uidHex_ = other.uidHex_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -103,39 +100,15 @@ namespace DysonNetwork.Shared.Proto {
       return new DyValidateNfcTokenRequest(this);
     }
 
-    /// <summary>Field number for the "e" field.</summary>
-    public const int EFieldNumber = 1;
-    private string e_ = "";
+    /// <summary>Field number for the "uid_hex" field.</summary>
+    public const int UidHexFieldNumber = 1;
+    private string uidHex_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string E {
-      get { return e_; }
+    public string UidHex {
+      get { return uidHex_; }
       set {
-        e_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "c" field.</summary>
-    public const int CFieldNumber = 2;
-    private int c_;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public int C {
-      get { return c_; }
-      set {
-        c_ = value;
-      }
-    }
-
-    /// <summary>Field number for the "mac" field.</summary>
-    public const int MacFieldNumber = 3;
-    private string mac_ = "";
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Mac {
-      get { return mac_; }
-      set {
-        mac_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        uidHex_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
@@ -154,9 +127,7 @@ namespace DysonNetwork.Shared.Proto {
       if (ReferenceEquals(other, this)) {
         return true;
       }
-      if (E != other.E) return false;
-      if (C != other.C) return false;
-      if (Mac != other.Mac) return false;
+      if (UidHex != other.UidHex) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -164,9 +135,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override int GetHashCode() {
       int hash = 1;
-      if (E.Length != 0) hash ^= E.GetHashCode();
-      if (C != 0) hash ^= C.GetHashCode();
-      if (Mac.Length != 0) hash ^= Mac.GetHashCode();
+      if (UidHex.Length != 0) hash ^= UidHex.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -185,17 +154,9 @@ namespace DysonNetwork.Shared.Proto {
     #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       output.WriteRawMessage(this);
     #else
-      if (E.Length != 0) {
+      if (UidHex.Length != 0) {
         output.WriteRawTag(10);
-        output.WriteString(E);
-      }
-      if (C != 0) {
-        output.WriteRawTag(16);
-        output.WriteInt32(C);
-      }
-      if (Mac.Length != 0) {
-        output.WriteRawTag(26);
-        output.WriteString(Mac);
+        output.WriteString(UidHex);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -207,17 +168,9 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-      if (E.Length != 0) {
+      if (UidHex.Length != 0) {
         output.WriteRawTag(10);
-        output.WriteString(E);
-      }
-      if (C != 0) {
-        output.WriteRawTag(16);
-        output.WriteInt32(C);
-      }
-      if (Mac.Length != 0) {
-        output.WriteRawTag(26);
-        output.WriteString(Mac);
+        output.WriteString(UidHex);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -229,14 +182,8 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public int CalculateSize() {
       int size = 0;
-      if (E.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(E);
-      }
-      if (C != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeInt32Size(C);
-      }
-      if (Mac.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Mac);
+      if (UidHex.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(UidHex);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -250,14 +197,8 @@ namespace DysonNetwork.Shared.Proto {
       if (other == null) {
         return;
       }
-      if (other.E.Length != 0) {
-        E = other.E;
-      }
-      if (other.C != 0) {
-        C = other.C;
-      }
-      if (other.Mac.Length != 0) {
-        Mac = other.Mac;
+      if (other.UidHex.Length != 0) {
+        UidHex = other.UidHex;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -279,15 +220,7 @@ namespace DysonNetwork.Shared.Proto {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
             break;
           case 10: {
-            E = input.ReadString();
-            break;
-          }
-          case 16: {
-            C = input.ReadInt32();
-            break;
-          }
-          case 26: {
-            Mac = input.ReadString();
+            UidHex = input.ReadString();
             break;
           }
         }
@@ -310,15 +243,7 @@ namespace DysonNetwork.Shared.Proto {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
             break;
           case 10: {
-            E = input.ReadString();
-            break;
-          }
-          case 16: {
-            C = input.ReadInt32();
-            break;
-          }
-          case 26: {
-            Mac = input.ReadString();
+            UidHex = input.ReadString();
             break;
           }
         }
@@ -672,9 +597,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public DyResolveNfcTagRequest(DyResolveNfcTagRequest other) : this() {
-      e_ = other.e_;
-      c_ = other.c_;
-      mac_ = other.mac_;
+      uidHex_ = other.uidHex_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -684,39 +607,15 @@ namespace DysonNetwork.Shared.Proto {
       return new DyResolveNfcTagRequest(this);
     }
 
-    /// <summary>Field number for the "e" field.</summary>
-    public const int EFieldNumber = 1;
-    private string e_ = "";
+    /// <summary>Field number for the "uid_hex" field.</summary>
+    public const int UidHexFieldNumber = 1;
+    private string uidHex_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string E {
-      get { return e_; }
+    public string UidHex {
+      get { return uidHex_; }
       set {
-        e_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    /// <summary>Field number for the "c" field.</summary>
-    public const int CFieldNumber = 2;
-    private int c_;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public int C {
-      get { return c_; }
-      set {
-        c_ = value;
-      }
-    }
-
-    /// <summary>Field number for the "mac" field.</summary>
-    public const int MacFieldNumber = 3;
-    private string mac_ = "";
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Mac {
-      get { return mac_; }
-      set {
-        mac_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        uidHex_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
@@ -735,9 +634,7 @@ namespace DysonNetwork.Shared.Proto {
       if (ReferenceEquals(other, this)) {
         return true;
       }
-      if (E != other.E) return false;
-      if (C != other.C) return false;
-      if (Mac != other.Mac) return false;
+      if (UidHex != other.UidHex) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -745,9 +642,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override int GetHashCode() {
       int hash = 1;
-      if (E.Length != 0) hash ^= E.GetHashCode();
-      if (C != 0) hash ^= C.GetHashCode();
-      if (Mac.Length != 0) hash ^= Mac.GetHashCode();
+      if (UidHex.Length != 0) hash ^= UidHex.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -766,17 +661,9 @@ namespace DysonNetwork.Shared.Proto {
     #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       output.WriteRawMessage(this);
     #else
-      if (E.Length != 0) {
+      if (UidHex.Length != 0) {
         output.WriteRawTag(10);
-        output.WriteString(E);
-      }
-      if (C != 0) {
-        output.WriteRawTag(16);
-        output.WriteInt32(C);
-      }
-      if (Mac.Length != 0) {
-        output.WriteRawTag(26);
-        output.WriteString(Mac);
+        output.WriteString(UidHex);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -788,17 +675,9 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-      if (E.Length != 0) {
+      if (UidHex.Length != 0) {
         output.WriteRawTag(10);
-        output.WriteString(E);
-      }
-      if (C != 0) {
-        output.WriteRawTag(16);
-        output.WriteInt32(C);
-      }
-      if (Mac.Length != 0) {
-        output.WriteRawTag(26);
-        output.WriteString(Mac);
+        output.WriteString(UidHex);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -810,14 +689,8 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public int CalculateSize() {
       int size = 0;
-      if (E.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(E);
-      }
-      if (C != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeInt32Size(C);
-      }
-      if (Mac.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Mac);
+      if (UidHex.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(UidHex);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -831,14 +704,8 @@ namespace DysonNetwork.Shared.Proto {
       if (other == null) {
         return;
       }
-      if (other.E.Length != 0) {
-        E = other.E;
-      }
-      if (other.C != 0) {
-        C = other.C;
-      }
-      if (other.Mac.Length != 0) {
-        Mac = other.Mac;
+      if (other.UidHex.Length != 0) {
+        UidHex = other.UidHex;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -860,15 +727,7 @@ namespace DysonNetwork.Shared.Proto {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
             break;
           case 10: {
-            E = input.ReadString();
-            break;
-          }
-          case 16: {
-            C = input.ReadInt32();
-            break;
-          }
-          case 26: {
-            Mac = input.ReadString();
+            UidHex = input.ReadString();
             break;
           }
         }
@@ -891,15 +750,7 @@ namespace DysonNetwork.Shared.Proto {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
             break;
           case 10: {
-            E = input.ReadString();
-            break;
-          }
-          case 16: {
-            C = input.ReadInt32();
-            break;
-          }
-          case 26: {
-            Mac = input.ReadString();
+            UidHex = input.ReadString();
             break;
           }
         }

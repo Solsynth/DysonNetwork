@@ -116,15 +116,14 @@ public class NfcService(
         Guid? observerUserId = null,
         CancellationToken cancellationToken = default)
     {
-        logger.LogDebug("ValidateSunAsync called with uidHex={Length} chars: {Preview}",
-            uidHex.Length,
-            uidHex.Length > 64 ? uidHex[..64] + "..." : uidHex);
+        logger.LogInformation("SUN scan: uidHex={Length} chars, first 32={Preview}",
+            uidHex.Length, uidHex.Length >= 32 ? uidHex[..32] : uidHex);
 
         // Parse the full hex data
         var fullData = NfcCrypto.ParseFullUidData(uidHex, logger);
         if (fullData is null)
         {
-            logger.LogWarning("SUN validation: invalid uid_hex format: {Length} chars", uidHex.Length);
+            logger.LogWarning("SUN scan: invalid uid_hex format: {Length} chars", uidHex.Length);
             return null;
         }
 
@@ -132,7 +131,7 @@ public class NfcService(
         var encryptedPiccData = NfcCrypto.ExtractPiccDataBlock(fullData, logger);
         if (encryptedPiccData is null)
         {
-            logger.LogWarning("SUN validation: data too short ({Len} bytes)", fullData.Length);
+            logger.LogWarning("SUN scan: data too short ({Len} bytes)", fullData.Length);
             return null;
         }
 
@@ -141,43 +140,42 @@ public class NfcService(
             .Where(t => t.IsActive && t.IsEncrypted && t.SunKey != null)
             .ToListAsync(cancellationToken);
 
-        logger.LogDebug("Trying {Count} encrypted tags", encryptedTags.Count);
+        logger.LogInformation("SUN scan: trying {Count} encrypted tags", encryptedTags.Count);
 
         SnNfcTag? matchedTag = null;
         NfcCrypto.SunValidationResult? validation = null;
 
         foreach (var tag in encryptedTags)
         {
-            var keyLen = tag.SunKey!.Length;
-            logger.LogDebug("Trying tag {TagId} (UID: {Uid}, key length: {KeyLen})",
-                tag.Id, tag.Uid, keyLen);
+            logger.LogInformation("SUN scan: trying tag {TagId} (DB UID: {TagUid}, key={KeyLen}B)",
+                tag.Id, tag.Uid, tag.SunKey!.Length);
 
             // Try decrypting with this tag's key
             var result = NfcCrypto.DecryptPiccData(tag.SunKey!, encryptedPiccData, logger);
             if (result is null)
             {
-                logger.LogDebug("  -> Decryption failed with tag {TagId}'s key", tag.Id);
+                logger.LogInformation("SUN scan: tag {TagId} key did not match", tag.Id);
                 continue;
             }
 
             // Check if the decrypted UID matches this tag
             var decryptedUid = NfcCrypto.FormatUid(result.Uid);
-            logger.LogDebug("  -> Decrypted UID: {Decrypted}, tag UID: {TagUid}, match: {Match}",
+            logger.LogInformation("SUN scan: decrypted UID={Decrypted}, DB UID={TagUid}, match={Match}",
                 decryptedUid, tag.Uid, decryptedUid == tag.Uid);
 
             if (decryptedUid == tag.Uid)
             {
                 matchedTag = tag;
                 validation = result;
-                logger.LogDebug("  -> MATCHED tag {TagId}", tag.Id);
+                logger.LogInformation("SUN scan: ✓ MATCHED tag {TagId}", tag.Id);
                 break;
             }
         }
 
         if (matchedTag is null || validation is null)
         {
-            logger.LogWarning("SUN validation: no matching encrypted tag found for data {Length} chars",
-                uidHex.Length);
+            logger.LogWarning("SUN scan: no matching tag found for {Len} chars (tried {Count} tags)",
+                uidHex.Length, encryptedTags.Count);
             return null;
         }
 

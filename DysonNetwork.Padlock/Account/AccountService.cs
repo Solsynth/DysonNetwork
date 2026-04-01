@@ -443,31 +443,21 @@ public class AccountService(
 
     /// <summary>
     /// Verify an NFC SUN token by calling Passport's gRPC service.
-    /// The code parameter is expected to be a URL-encoded query string: "e={e}&c={c}&mac={mac}".
+    /// The code parameter is expected to be the full hex-encoded UID data from the NFC scan URL.
+    /// E.g., for "solian://phpass?uid=D7E4AF3C6F49A801D351FB82974B7729000000", 
+    /// the code would be "D7E4AF3C6F49A801D351FB82974B7729000000".
     /// </summary>
     private async Task<bool> VerifyNfcToken(string code)
     {
-        // Parse e, c, mac from the URL-encoded code string
-        var parts = code.Split('&')
-            .Select(p => p.Split('=', 2))
-            .Where(p => p.Length == 2)
-            .ToDictionary(p => p[0].ToLowerInvariant(), p => p[1]);
-
-        if (!parts.TryGetValue("e", out var e) ||
-            !parts.TryGetValue("c", out var cStr) ||
-            !parts.TryGetValue("mac", out var mac))
-            return false;
-
-        if (!int.TryParse(cStr, out var c))
+        // The code should be the full hex string from the NFC URL uid parameter
+        if (string.IsNullOrWhiteSpace(code) || code.Length < 32)
             return false;
 
         try
         {
             var response = await nfcService.ValidateNfcTokenAsync(new DyValidateNfcTokenRequest
             {
-                E = e,
-                C = c,
-                Mac = mac
+                UidHex = code
             });
 
             return response.IsValid;

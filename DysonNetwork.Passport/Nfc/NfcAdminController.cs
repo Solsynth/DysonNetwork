@@ -61,6 +61,11 @@ public class NfcAdminController(
     /// Create an encrypted NFC tag with a pre-generated SUN key (factory flow).
     /// The tag can be optionally pre-assigned to a user.
     /// Requires nfc.admin permission.
+    ///
+    /// SunKey accepts both Base64 and hex formats:
+    /// - Base64: "AAAAAAAAAAAAAAAAAAAAAA==" (16 zero bytes)
+    /// - Hex: "00000000000000000000000000000000" (16 zero bytes)
+    /// Auto-detects format: if it looks like hex (all hex chars, no padding), uses hex decode.
     /// </summary>
     [HttpPost("tags")]
     public async Task<ActionResult<EncryptedTagDto>> CreateEncryptedTag(
@@ -72,7 +77,7 @@ public class NfcAdminController(
 
         try
         {
-            var sunKey = Convert.FromBase64String(request.SunKey);
+            var sunKey = ParseSunKey(request.SunKey);
             var tag = await nfc.RegisterEncryptedTagAsync(
                 request.Uid,
                 sunKey,
@@ -110,8 +115,39 @@ public class NfcAdminController(
         {
             return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
             {
-                ["sun_key"] = ["Invalid Base64 format."]
+                ["sun_key"] = ["Invalid key format. Provide Base64 or hex string."]
             }));
+        }
+    }
+
+    /// <summary>
+    /// Parse a SUN key from either Base64 or hex string.
+    /// Auto-detects: if all chars are hex digits (0-9, A-F, a-f), treats as hex.
+    /// Otherwise tries Base64 decode.
+    /// </summary>
+    private static byte[] ParseSunKey(string sunKey)
+    {
+        if (string.IsNullOrWhiteSpace(sunKey))
+            throw new ArgumentException("SUN key cannot be empty.");
+
+        // Check if it looks like hex (all hex chars, reasonable length for 16 or 32 byte key)
+        var isHex = sunKey.All(c =>
+            (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'));
+
+        if (isHex && (sunKey.Length == 32 || sunKey.Length == 64))
+        {
+            // Treat as hex
+            return Convert.FromHexString(sunKey);
+        }
+
+        // Try Base64 decode
+        try
+        {
+            return Convert.FromBase64String(sunKey);
+        }
+        catch (FormatException)
+        {
+            throw new FormatException($"Cannot decode sun_key. Provide hex (32 or 64 chars) or Base64.");
         }
     }
 
