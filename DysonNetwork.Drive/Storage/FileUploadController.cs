@@ -547,37 +547,37 @@ public class FileUploadController(
 
         await using var mergedStream = new FileStream(mergedFilePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize);
         var semaphore = new SemaphoreSlim(maxParallel);
-        var chunkBuffers = new List<byte[]>();
+        var chunkBuffers = new byte[chunksCount][];
         var totalChunks = chunksCount;
+        var tasks = new List<Task>();
 
         for (var i = 0; i < chunksCount; i++)
         {
+            var index = i;
             await semaphore.WaitAsync();
-            _ = Task.Run(async () =>
+            tasks.Add(Task.Run(async () =>
             {
+                var chunkPath = Path.Combine(taskPath, index + ".chunk");
                 try
                 {
-                    var chunkPath = Path.Combine(taskPath, i + ".chunk");
                     var fileInfo = new FileInfo(chunkPath);
                     var buffer = new byte[fileInfo.Length];
                     await using var chunkStream = new FileStream(chunkPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize);
                     await chunkStream.ReadExactlyAsync(buffer);
-                    lock (chunkBuffers)
-                    {
-                        while (chunkBuffers.Count <= i)
-                            chunkBuffers.Add(null!);
-                        chunkBuffers[i] = buffer;
-                    }
+                    chunkBuffers[index] = buffer;
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"Chunk {index} failed to read from {chunkPath}.", ex);
                 }
                 finally
                 {
                     semaphore.Release();
                 }
-            });
+            }));
         }
 
-        await semaphore.WaitAsync();
-        semaphore.Release();
+        await Task.WhenAll(tasks);
 
         for (var i = 0; i < chunksCount; i++)
         {
