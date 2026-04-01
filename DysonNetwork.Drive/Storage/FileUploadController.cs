@@ -27,6 +27,7 @@ public class FileUploadController(
     QuotaService quotaService,
     PersistentTaskService persistentTaskService,
     FileIndexService fileIndexService,
+    IServiceScopeFactory scopeFactory,
     ILogger<FileUploadController> logger
 )
     : ControllerBase
@@ -468,11 +469,14 @@ public class FileUploadController(
 
         _ = Task.Run(async () =>
         {
+            using var scope = scopeFactory.CreateScope();
+            var scopedPersistentTaskService = scope.ServiceProvider.GetRequiredService<PersistentTaskService>();
+
             try
             {
-                await MergeChunksParallelAsync(taskId, taskPath, mergedFilePath, persistentTask.ChunksCount, persistentTaskService);
+                await MergeChunksParallelAsync(taskId, taskPath, mergedFilePath, persistentTask.ChunksCount, scopedPersistentTaskService);
 
-                await persistentTaskService.UpdateTaskProgressAsync(taskId, 0.50, "Processing file locally...");
+                await scopedPersistentTaskService.UpdateTaskProgressAsync(taskId, 0.50, "Processing file locally...");
 
                 var fileId = await Nanoid.GenerateAsync();
                 var (cloudFile, fileEvent) = await fileService.ProcessNewFileAsync(
@@ -505,18 +509,18 @@ public class FileUploadController(
                     }
                 }
 
-                await persistentTaskService.UpdateTaskProgressAsync(taskId, 0.55, "Uploading to remote storage...");
+                await scopedPersistentTaskService.UpdateTaskProgressAsync(taskId, 0.55, "Uploading to remote storage...");
 
                 await fileService.PublishUploadCompletedEventAsync(fileEvent);
 
-                await persistentTaskService.SendUploadCompletedNotificationAsync(persistentTask, fileId);
+                await scopedPersistentTaskService.SendUploadCompletedNotificationAsync(persistentTask, fileId);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Background upload processing failed for task {TaskId}. Error: {ErrorMessage}", taskId,
                     ex.Message);
-                await persistentTaskService.MarkTaskFailedAsync(taskId, ex.Message);
-                await persistentTaskService.SendUploadFailedNotificationAsync(persistentTask, ex.Message);
+                await scopedPersistentTaskService.MarkTaskFailedAsync(taskId, ex.Message);
+                await scopedPersistentTaskService.SendUploadFailedNotificationAsync(persistentTask, ex.Message);
             }
             finally
             {
