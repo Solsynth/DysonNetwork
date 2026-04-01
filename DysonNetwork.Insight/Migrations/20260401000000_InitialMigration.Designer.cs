@@ -17,7 +17,7 @@ using Pgvector;
 namespace DysonNetwork.Insight.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20260401_InitialMigration")]
+    [Migration("20260401000000_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />

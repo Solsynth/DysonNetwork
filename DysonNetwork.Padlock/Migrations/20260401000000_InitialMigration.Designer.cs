@@ -16,7 +16,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Padlock.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20260401_InitialMigration")]
+    [Migration("20260401000000_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />
