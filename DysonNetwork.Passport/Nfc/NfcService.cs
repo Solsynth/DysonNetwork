@@ -105,20 +105,28 @@ public class NfcService(
     }
 
     /// <summary>
-    /// Validate NTAG424 SUN parameters (encrypted scan).
-    /// Verifies the CMAC, decrypts the PICCData to extract UID, checks counter for replay,
-    /// updates the counter, and returns the tag + account info.
+    /// Validate encrypted SDM scan data.
+    /// Decrypts the PICCData using each tag's SDMFileReadKey, extracts UID and counter,
+    /// matches the UID to find the tag, and performs claim logic.
     ///
-    /// If the tag is unclaimed (UserId is null), the observer can claim it.
-    /// If the tag is pre-assigned, only the assigned user can claim it.
+    /// The uidHex contains the encrypted PICCData (first 32 hex chars = 16 bytes).
+    /// Trailing hex bytes (counter, MAC) are ignored — the counter comes from the decrypted data.
     /// </summary>
+    /// <param name="uidHex">Hex-encoded SDM data from the NFC scan URL (at least 32 hex chars).</param>
+    /// <param name="observerUserId">Optional authenticated user ID.</param>
     public async Task<NfcValidationResult?> ValidateSunAsync(
-        string eBase64,
-        int readCtr,
-        string macBase64,
+        string uidHex,
         Guid? observerUserId = null,
         CancellationToken cancellationToken = default)
     {
+        // Parse encrypted PICCData from the hex string
+        var encryptedPiccData = NfcCrypto.ParsePiccData(uidHex);
+        if (encryptedPiccData is null)
+        {
+            logger.LogWarning("SUN validation: invalid uid_hex format: {Length} chars", uidHex.Length);
+            return null;
+        }
+
         // Load all active encrypted tags
         var encryptedTags = await db.NfcTags
             .Where(t => t.IsActive && t.IsEncrypted && t.SunKey != null)
@@ -129,23 +137,18 @@ public class NfcService(
 
         foreach (var tag in encryptedTags)
         {
-            try
-            {
-                var result = NfcCrypto.Validate(tag.SunKey!, eBase64, readCtr, macBase64);
+            // Try decrypting with this tag's key
+            var result = NfcCrypto.DecryptPiccData(tag.SunKey!, encryptedPiccData);
+            if (result is null)
+                continue; // Wrong key, try next tag
 
-                // Verify the decrypted UID matches this tag
-                var decryptedUid = FormatUid(result.Uid);
-                if (decryptedUid == tag.Uid)
-                {
-                    matchedTag = tag;
-                    validation = result;
-                    break;
-                }
-            }
-            catch (CryptographicException)
+            // Check if the decrypted UID matches this tag
+            var decryptedUid = NfcCrypto.FormatUid(result.Uid);
+            if (decryptedUid == tag.Uid)
             {
-                // MAC doesn't match this tag's key, try next one
-                continue;
+                matchedTag = tag;
+                validation = result;
+                break;
             }
         }
 
@@ -154,6 +157,8 @@ public class NfcService(
             logger.LogWarning("SUN validation: no matching encrypted tag found");
             return null;
         }
+
+        var readCtr = validation.ReadCtr;
 
         // Counter replay check: must be greater than last known counter
         if (matchedTag.Counter.HasValue && readCtr <= matchedTag.Counter.Value)
@@ -204,16 +209,8 @@ public class NfcService(
         }
         else if (observerUserId.HasValue && observerUserId.Value != matchedTag.UserId)
         {
-            // Check if observer matches the tag owner
-            if (observerUserId.Value == matchedTag.UserId)
-            {
-                claimStatus = NfcTagClaimStatus.HasOwner;
-            }
-            else
-            {
-                // Observer is different from tag owner
-                claimStatus = NfcTagClaimStatus.PreAssignedMismatch;
-            }
+            // Observer is different from tag owner
+            claimStatus = NfcTagClaimStatus.PreAssignedMismatch;
         }
 
         // Build result — fetch the tag owner's account
@@ -443,13 +440,5 @@ public class NfcService(
             IsFriend = isFriend,
             Actions = actions
         };
-    }
-
-    /// <summary>
-    /// Convert a 7-byte UID to an uppercase hex string (e.g., "04A1B2C3D4E5F6").
-    /// </summary>
-    private static string FormatUid(byte[] uid)
-    {
-        return BitConverter.ToString(uid).Replace("-", "");
     }
 }

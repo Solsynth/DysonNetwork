@@ -22,8 +22,7 @@ public class NfcServiceGrpc(
 ) : DyNfcService.DyNfcServiceBase
 {
     /// <summary>
-    /// Validate an NTAG424 SUN token. Used by Padlock during NFC login flow.
-    /// Verifies the CMAC, decrypts the PICCData, checks counter for replay.
+    /// Validate an SDM NFC token. Used by Padlock during NFC login flow.
     /// Only claimed tags (with a valid owner) can be used for login.
     /// </summary>
     public override async Task<DyValidateNfcTokenResponse> ValidateNfcToken(
@@ -34,12 +33,17 @@ public class NfcServiceGrpc(
 
         try
         {
-            // For login, we don't pass observerUserId — we just want to validate
-            // and check if the tag has an owner
+            // request.E contains the hex-encoded encrypted PICCData
+            var uidHex = request.E;
+            if (string.IsNullOrWhiteSpace(uidHex))
+            {
+                response.IsValid = false;
+                response.ErrorCode = "TAG_NOT_FOUND";
+                return response;
+            }
+
             var result = await nfc.ValidateSunAsync(
-                request.E,
-                request.C,
-                request.Mac,
+                uidHex,
                 cancellationToken: context.CancellationToken);
 
             if (result is null)
@@ -65,7 +69,6 @@ public class NfcServiceGrpc(
                 return response;
             }
 
-            // Ensure the tag has a valid owner
             if (result.Account is null || result.Tag.UserId == Guid.Empty || result.Tag.UserId == default)
             {
                 response.IsValid = false;
@@ -83,11 +86,6 @@ public class NfcServiceGrpc(
             response.IsValid = false;
             response.ErrorCode = "REPLAY";
         }
-        catch (System.Security.Cryptography.CryptographicException)
-        {
-            response.IsValid = false;
-            response.ErrorCode = "MAC_FAILED";
-        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error validating NFC token");
@@ -99,7 +97,7 @@ public class NfcServiceGrpc(
     }
 
     /// <summary>
-    /// Resolve an NTAG424 SUN tag and return the full user profile.
+    /// Resolve an SDM NFC tag and return the full user profile.
     /// Used by other services to scan NFC tags via gRPC.
     /// </summary>
     public override async Task<DyResolveNfcTagResponse> ResolveNfcTag(
@@ -110,10 +108,16 @@ public class NfcServiceGrpc(
 
         try
         {
+            var uidHex = request.E;
+            if (string.IsNullOrWhiteSpace(uidHex))
+            {
+                response.IsValid = false;
+                response.ErrorCode = "TAG_NOT_FOUND";
+                return response;
+            }
+
             var result = await nfc.ValidateSunAsync(
-                request.E,
-                request.C,
-                request.Mac,
+                uidHex,
                 cancellationToken: context.CancellationToken);
 
             if (result is null)
@@ -139,7 +143,6 @@ public class NfcServiceGrpc(
                 return response;
             }
 
-            // Ensure we have an account
             if (result.Account is null)
             {
                 response.IsValid = false;
@@ -147,7 +150,6 @@ public class NfcServiceGrpc(
                 return response;
             }
 
-            // Enrich the account with perks and contacts
             await PopulatePerkSubscriptionAsync(result.Account);
             await remoteContacts.PopulateContactsAsync(result.Account, cancellationToken: context.CancellationToken);
 
@@ -162,11 +164,6 @@ public class NfcServiceGrpc(
         {
             response.IsValid = false;
             response.ErrorCode = "REPLAY";
-        }
-        catch (System.Security.Cryptography.CryptographicException)
-        {
-            response.IsValid = false;
-            response.ErrorCode = "MAC_FAILED";
         }
         catch (Exception ex)
         {

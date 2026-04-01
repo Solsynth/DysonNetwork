@@ -105,89 +105,96 @@ public class NfcController(
 
     /// <summary>
     /// Resolve an NFC tag to a user profile.
-    /// Supports both encrypted (e, c, mac) and unencrypted (uid) scans.
+    /// The uid parameter works for both encrypted and unencrypted tags:
+    /// - If it looks like encrypted PICCData (32+ hex chars), attempts SDM decryption
+    /// - Otherwise, looks up by tag UID directly
     /// No authentication required. If caller is authenticated, relationship info is included.
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<NfcResolveResponse>> Resolve(
-        [FromQuery] string? uid,
-        [FromQuery] string? e,
-        [FromQuery] int? c,
-        [FromQuery] string? mac,
+        [FromQuery] string uid,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(uid))
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                ["uid"] = ["Parameter 'uid' is required."]
+            }));
+
         Guid? observerUserId = null;
         if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
             observerUserId = currentUser.Id;
 
-        // Encrypted SUN scan: e, c, mac parameters
-        if (!string.IsNullOrEmpty(e) && c.HasValue && !string.IsNullOrEmpty(mac))
+        // Check if this looks like encrypted PICCData (32+ hex chars)
+        if (uid.Length >= 32 && IsHexString(uid))
         {
+            // Try encrypted scan
             try
             {
-                var result = await nfc.ValidateSunAsync(e, c.Value, mac, observerUserId, cancellationToken);
+                var result = await nfc.ValidateSunAsync(uid, observerUserId, cancellationToken);
 
-                if (result is null)
-                    return NotFound(ApiError.NotFound("nfc_tag", "No matching NFC tag found."));
-
-                // Handle unclaimed/pre-assigned tag states
-                if (result.ClaimStatus == NfcTagClaimStatus.NeedsAuth)
+                if (result is not null)
                 {
-                    return StatusCode(403, new ApiError
+                    // Handle unclaimed/pre-assigned tag states
+                    if (result.ClaimStatus == NfcTagClaimStatus.NeedsAuth)
                     {
-                        Code = "TAG_UNCLAIMED",
-                        Message = "This tag is not yet associated with an account. Please sign in to claim it.",
-                        Status = 403
+                        return StatusCode(403, new ApiError
+                        {
+                            Code = "TAG_UNCLAIMED",
+                            Message = "This tag is not yet associated with an account. Please sign in to claim it.",
+                            Status = 403
+                        });
+                    }
+
+                    if (result.ClaimStatus == NfcTagClaimStatus.PreAssignedMismatch)
+                    {
+                        return StatusCode(403, new ApiError
+                        {
+                            Code = "TAG_PRE_ASSIGNED",
+                            Message = "This tag is assigned to a different account.",
+                            Status = 403
+                        });
+                    }
+
+                    if (result.Account is null)
+                        return NotFound(ApiError.NotFound("nfc_tag", "Tag owner not found."));
+
+                    var account = await accountService.GetAccount(result.Account.Id);
+                    if (account is null)
+                        return StatusCode(500, ApiError.Server("Failed to load account data."));
+
+                    await EnsureProfileAsync(account);
+                    account.Badges = await db.Badges.Where(b => b.AccountId == account.Id).ToListAsync();
+                    account.Contacts = [];
+
+                    try
+                    {
+                        var subscription = await remoteSubscription.GetPerkSubscription(account.Id);
+                        if (subscription is not null)
+                        {
+                            account.PerkSubscription = SnWalletSubscription.FromProtoValue(subscription).ToReference();
+                            account.PerkLevel = account.PerkSubscription.PerkLevel;
+                        }
+                        else
+                        {
+                            account.PerkSubscription = null;
+                            account.PerkLevel = 0;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to populate PerkSubscription for account {account.Id}: {ex.Message}");
+                    }
+
+                    return Ok(new NfcResolveResponse
+                    {
+                        User = account,
+                        IsFriend = result.IsFriend,
+                        IsClaimed = result.IsClaimed,
+                        Actions = result.Actions
                     });
                 }
-
-                if (result.ClaimStatus == NfcTagClaimStatus.PreAssignedMismatch)
-                {
-                    return StatusCode(403, new ApiError
-                    {
-                        Code = "TAG_PRE_ASSIGNED",
-                        Message = "This tag is assigned to a different account.",
-                        Status = 403
-                    });
-                }
-
-                if (result.Account is null)
-                    return NotFound(ApiError.NotFound("nfc_tag", "Tag owner not found."));
-
-                var account = await accountService.GetAccount(result.Account.Id);
-                if (account is null)
-                    return StatusCode(500, ApiError.Server("Failed to load account data."));
-
-                await EnsureProfileAsync(account);
-                account.Badges = await db.Badges.Where(b => b.AccountId == account.Id).ToListAsync();
-                account.Contacts = [];
-
-                try
-                {
-                    var subscription = await remoteSubscription.GetPerkSubscription(account.Id);
-                    if (subscription is not null)
-                    {
-                        account.PerkSubscription = SnWalletSubscription.FromProtoValue(subscription).ToReference();
-                        account.PerkLevel = account.PerkSubscription.PerkLevel;
-                    }
-                    else
-                    {
-                        account.PerkSubscription = null;
-                        account.PerkLevel = 0;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Failed to populate PerkSubscription for account {account.Id}: {ex.Message}");
-                }
-
-                return Ok(new NfcResolveResponse
-                {
-                    User = account,
-                    IsFriend = result.IsFriend,
-                    IsClaimed = result.IsClaimed,
-                    Actions = result.Actions
-                });
+                // If encrypted scan didn't match, fall through to unencrypted lookup
             }
             catch (InvalidOperationException ex)
             {
@@ -196,14 +203,9 @@ public class NfcController(
                     ["counter"] = [ex.Message]
                 }));
             }
-            catch (CryptographicException)
-            {
-                return NotFound(ApiError.NotFound("nfc_tag", "NFC tag verification failed."));
-            }
         }
 
-        // Unencrypted scan: uid parameter
-        if (!string.IsNullOrWhiteSpace(uid))
+        // Unencrypted scan: look up by UID
         {
             var result = await nfc.ResolveAsync(uid, observerUserId, cancellationToken);
 
@@ -212,11 +214,19 @@ public class NfcController(
 
             return await ToResponseAsync(result);
         }
+    }
 
-        return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+    /// <summary>
+    /// Check if a string contains only hexadecimal characters.
+    /// </summary>
+    private static bool IsHexString(string s)
+    {
+        foreach (var c in s)
         {
-            ["parameters"] = ["Either 'uid' or ('e', 'c', 'mac') parameters are required."]
-        }));
+            if (!((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')))
+                return false;
+        }
+        return true;
     }
 
     /// <summary>
