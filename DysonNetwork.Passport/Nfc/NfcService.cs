@@ -11,14 +11,36 @@ public class NfcResolveResult
     public SnAccount User { get; set; } = null!;
     public SnAccountProfile? Profile { get; set; }
     public bool IsFriend { get; set; }
+    public bool IsClaimed { get; set; }
     public List<string> Actions { get; set; } = [];
+}
+
+/// <summary>
+/// Status of an encrypted tag after SUN validation.
+/// </summary>
+public enum NfcTagClaimStatus
+{
+    /// <summary>Tag has an owner. Standard profile lookup.</summary>
+    HasOwner,
+    /// <summary>Tag was unclaimed, now claimed by the observer.</summary>
+    JustClaimed,
+    /// <summary>Tag is pre-assigned to a different user.</summary>
+    PreAssigned,
+    /// <summary>Tag is unclaimed and no observer provided.</summary>
+    Unclaimed,
+    /// <summary>Tag is unclaimed but observer is not authenticated.</summary>
+    NeedsAuth,
+    /// <summary>Tag is pre-assigned but observer doesn't match.</summary>
+    PreAssignedMismatch
 }
 
 public record NfcValidationResult(
     SnNfcTag Tag,
-    SnAccount Account,
+    SnAccount? Account,
     SnAccountProfile? Profile,
     bool IsFriend,
+    bool IsClaimed,
+    NfcTagClaimStatus ClaimStatus,
     List<string> Actions
 );
 
@@ -85,16 +107,11 @@ public class NfcService(
     /// <summary>
     /// Validate NTAG424 SUN parameters (encrypted scan).
     /// Verifies the CMAC, decrypts the PICCData to extract UID, checks counter for replay,
-    /// updates the counter, and returns the tag + account.
+    /// updates the counter, and returns the tag + account info.
+    ///
+    /// If the tag is unclaimed (UserId is null), the observer can claim it.
+    /// If the tag is pre-assigned, only the assigned user can claim it.
     /// </summary>
-    /// <param name="eBase64">Base64-encoded encrypted PICCData from the SUN URL.</param>
-    /// <param name="readCtr">Read counter from the SUN URL parameter 'c'.</param>
-    /// <param name="macBase64">Base64-encoded CMAC from the SUN URL.</param>
-    /// <param name="observerUserId">Optional authenticated user ID for relationship checks.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Validation result with tag and account info, or null if no matching encrypted tag.</returns>
-    /// <exception cref="CryptographicException">Thrown if crypto verification fails (MAC mismatch, invalid data).</exception>
-    /// <exception cref="InvalidOperationException">Thrown if counter replay is detected.</exception>
     public async Task<NfcValidationResult?> ValidateSunAsync(
         string eBase64,
         int readCtr,
@@ -157,47 +174,89 @@ public class NfcService(
             "SUN validated for tag {TagId}, UID {Uid}, counter {Counter}",
             matchedTag.Id, matchedTag.Uid, readCtr);
 
-        // Build result with relationship info
-        var account = await accounts.GetAccount(matchedTag.UserId);
-        if (account is null) return null;
+        // --- Handle tag ownership / claiming ---
 
-        var profile = account.Profile;
+        var isClaimed = false;
+        var claimStatus = NfcTagClaimStatus.HasOwner;
+        SnAccount? account = null;
+        SnAccountProfile? profile = null;
         var isFriend = false;
-        var actions = new List<string> { "view_profile" };
+        var actions = new List<string>();
+
+        if (matchedTag.UserId == Guid.Empty || matchedTag.UserId == default)
+        {
+            // Tag is unclaimed — attempt to claim
+            if (observerUserId.HasValue)
+            {
+                // Claim the tag for the observer
+                matchedTag.UserId = observerUserId.Value;
+                await db.SaveChangesAsync(cancellationToken);
+
+                isClaimed = true;
+                claimStatus = NfcTagClaimStatus.JustClaimed;
+                logger.LogInformation("Tag {TagId} claimed by user {UserId}", matchedTag.Id, observerUserId.Value);
+            }
+            else
+            {
+                // No authenticated user — return unclaimed status
+                return new NfcValidationResult(matchedTag, null, null, false, false, NfcTagClaimStatus.NeedsAuth, []);
+            }
+        }
+        else if (observerUserId.HasValue && observerUserId.Value != matchedTag.UserId)
+        {
+            // Check if observer matches the tag owner
+            if (observerUserId.Value == matchedTag.UserId)
+            {
+                claimStatus = NfcTagClaimStatus.HasOwner;
+            }
+            else
+            {
+                // Observer is different from tag owner
+                claimStatus = NfcTagClaimStatus.PreAssignedMismatch;
+            }
+        }
+
+        // Build result — fetch the tag owner's account
+        account = await accounts.GetAccount(matchedTag.UserId);
+        if (account is null)
+        {
+            return new NfcValidationResult(matchedTag, null, null, false, isClaimed, claimStatus, []);
+        }
+
+        profile = account.Profile;
+        actions = ["view_profile"];
 
         if (observerUserId.HasValue && observerUserId.Value != matchedTag.UserId)
         {
-            isFriend = await relationships.HasRelationshipWithStatus(
-                observerUserId.Value, matchedTag.UserId);
-
+            // Check if blocked
             var blocked =
                 await relationships.HasRelationshipWithStatus(observerUserId.Value, matchedTag.UserId,
                     RelationshipStatus.Blocked) ||
                 await relationships.HasRelationshipWithStatus(matchedTag.UserId, observerUserId.Value,
                     RelationshipStatus.Blocked);
 
-            if (blocked) return null;
+            if (blocked)
+            {
+                // Blocked — don't return profile, but still return tag info for the gRPC login path
+                return new NfcValidationResult(matchedTag, account, profile, false, isClaimed, claimStatus, []);
+            }
 
+            isFriend = await relationships.HasRelationshipWithStatus(
+                observerUserId.Value, matchedTag.UserId);
             actions.Add("add_friend");
         }
 
-        return new NfcValidationResult(matchedTag, account, profile, isFriend, actions);
+        return new NfcValidationResult(matchedTag, account, profile, isFriend, isClaimed, claimStatus, actions);
     }
 
     /// <summary>
-    /// Register a new NFC tag for a user.
-    /// For encrypted tags, generates a random SUN key and stores it.
+    /// Register a new unencrypted NFC tag for a user.
+    /// The user writes the tag entry ID to the physical tag.
     /// </summary>
-    /// <param name="userId">Owner account ID.</param>
-    /// <param name="uid">Chip UID (hex string, e.g. "04A1B2C3D4E5F6").</param>
-    /// <param name="label">Optional user-facing label.</param>
-    /// <param name="isEncrypted">Whether this is an encrypted NTAG424 SUN tag.</param>
-    /// <returns>The created tag. For encrypted tags, SunKey is populated with the generated key.</returns>
     public async Task<SnNfcTag> RegisterTagAsync(
         Guid userId,
         string uid,
         string? label = null,
-        bool isEncrypted = false,
         CancellationToken cancellationToken = default)
     {
         var existing = await db.NfcTags
@@ -211,25 +270,67 @@ public class NfcService(
             Uid = uid.ToUpperInvariant(),
             UserId = userId,
             Label = label,
-            IsEncrypted = isEncrypted
+            IsEncrypted = false
         };
 
-        if (isEncrypted)
+        db.NfcTags.Add(tag);
+        await db.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("NFC tag {TagId} registered for user {UserId} (unencrypted)", tag.Id, userId);
+
+        return tag;
+    }
+
+    /// <summary>
+    /// Factory/Admin: Register an encrypted NFC tag with a pre-generated SUN key.
+    /// The tag is registered without an owner (unassigned) until a user claims it by scanning.
+    /// Optionally pre-assign to a specific user.
+    /// </summary>
+    public async Task<SnNfcTag> RegisterEncryptedTagAsync(
+        string uid,
+        byte[] sunKey,
+        Guid? assignedUserId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await db.NfcTags
+            .FirstOrDefaultAsync(t => t.Uid == uid.ToUpperInvariant(), cancellationToken);
+
+        if (existing is not null)
+            throw new InvalidOperationException("This NFC tag is already registered.");
+
+        if (sunKey.Length != 16)
+            throw new ArgumentException("SUN key must be exactly 16 bytes (AES-128).");
+
+        var tag = new SnNfcTag
         {
-            // Generate a random 16-byte AES-128 SUN key
-            tag.SunKey = new byte[16];
-            RandomNumberGenerator.Fill(tag.SunKey);
-            tag.Counter = 0;
-        }
+            Uid = uid.ToUpperInvariant(),
+            UserId = assignedUserId ?? Guid.Empty,
+            Label = null,
+            IsEncrypted = true,
+            SunKey = sunKey,
+            Counter = 0
+        };
 
         db.NfcTags.Add(tag);
         await db.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation(
-            "NFC tag {TagId} registered for user {UserId}, encrypted={IsEncrypted}",
-            tag.Id, userId, isEncrypted);
+            "Encrypted NFC tag {TagId} registered (UID: {Uid}, assigned: {Assigned})",
+            tag.Id, uid, assignedUserId?.ToString() ?? "unassigned");
 
         return tag;
+    }
+
+    /// <summary>
+    /// Factory/Admin: List all encrypted tags (for management).
+    /// </summary>
+    public async Task<List<SnNfcTag>> ListAllEncryptedTagsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await db.NfcTags
+            .Where(t => t.IsEncrypted && t.IsActive)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync(cancellationToken);
     }
 
     /// <summary>

@@ -195,14 +195,16 @@ The factor's `Config` dictionary stores the associated tag ID. Trustworthy level
 | Endpoint | Auth | Description |
 |---|---|---|
 | `GET /api/nfc?uid=` | Optional | Public scan resolution by UID (unencrypted tags). If JWT present, includes relationship info. |
-| `GET /api/nfc?e=&c=&mac=` | Optional | Public scan resolution via SUN URL (encrypted tags). If JWT present, includes relationship info. |
+| `GET /api/nfc?e=&c=&mac=` | Optional | Public scan resolution via SUN URL (encrypted tags). Includes claim logic. |
 | `GET /api/nfc/lookup?uid=` | Optional | Look up tag by UID (admin/debug only, no MAC verification) |
 | `GET /api/nfc/tags/{id}` | Optional | Look up tag by entry ID (for unencrypted/plain tags) |
 | `GET /api/nfc/tags` | Required | List user's tags |
-| `POST /api/nfc/tags` | Required | Register a tag |
+| `POST /api/nfc/tags` | Required | Register an unencrypted tag |
 | `PATCH /api/nfc/tags/{id}` | Required | Update tag metadata |
 | `POST /api/nfc/tags/{id}/lock` | Required | Lock a tag |
 | `DELETE /api/nfc/tags/{id}` | Required | Unregister a tag |
+| `POST /api/admin/nfc/tags` | `nfc.admin` | Create encrypted tag with SUN key (factory) |
+| `GET /api/admin/nfc/tags` | `nfc.admin` | List all encrypted tags |
 
 ### gRPC endpoints (internal, Padlock ↔ Passport)
 
@@ -356,18 +358,17 @@ Response (200):
 ]
 ```
 
-### Register tag
+### Register tag (unencrypted only)
 
 `POST /api/nfc/tags`
 
-Requires JWT.
+Requires JWT. Only for unencrypted/plain tags. Encrypted tags are registered via the admin API.
 
 Request body:
 
 ```json
 {
   "uid": "04A1B2C3D4E5F6",
-  "is_encrypted": true,
   "label": "Work Card"
 }
 ```
@@ -375,7 +376,6 @@ Request body:
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `uid` | string | Yes | Chip UID (hex, e.g., "04A1B2C3D4E5F6") |
-| `is_encrypted` | bool | No | Whether this is an NTAG424 SUN encrypted tag (default: `false`) |
 | `label` | string | No | User-facing label (max 64 chars) |
 
 Response (200):
@@ -387,22 +387,19 @@ Response (200):
   "label": "Work Card",
   "is_active": true,
   "is_locked": false,
-  "is_encrypted": true,
-  "sun_key": "xJ9fKqM7tR2vBwZpN4hY8gQ3eU6sT1aD==",
+  "is_encrypted": false,
   "last_seen_at": null,
   "created_at": "2026-03-30T12:00:00Z"
 }
 ```
 
-For encrypted tags (`is_encrypted: true`), the `sun_key` field contains the server-generated AES-128 key (Base64-encoded 16 bytes). **The client must write this key to the physical NFC tag's authentication slots.**
-
-For unencrypted tags (`is_encrypted: false`), `sun_key` is `null`.
+For encrypted tags, use the admin endpoint: `POST /api/admin/nfc/tags`.
 
 Error responses:
 
 | Status | Code | When |
 |---|---|---|
-| 400 | `VALIDATION_ERROR` | Invalid parameters |
+| 400 | `VALIDATION_ERROR` | Invalid UID format |
 | 409 | `NFC_TAG_EXISTS` | UID already registered |
 
 ### Update tag
@@ -444,33 +441,67 @@ Response: 204 No Content
 
 ## Tag Registration Flow
 
-The physical tag programming and server registration are separate operations:
+### Factory flow (encrypted tags)
 
-### Registration flow (for encrypted tags)
+Encrypted NTAG424 SUN tags are produced by a factory. End users cannot write to NTAG424 authentication slots, so the factory handles key generation and tag programming.
 
-1. User calls `POST /api/nfc/tags` with `{ "uid": "...", "is_encrypted": true }`
-2. Server generates a random 16-byte AES-128 SUN key, stores it, returns the key
-3. User writes the returned SUN key to the physical tag using an NFC writer
-4. User configures the tag's SDM settings (see below)
-5. User optionally locks the tag
+#### Step 1: Factory prepares the tag
 
-### Physical tag configuration (NFC writer tool)
-
-1. Configure NTAG424 SDM settings:
+1. Factory generates a unique 16-byte AES-128 SUN key
+2. Factory configures NTAG424 SDM settings on the tag:
    - Enable SUN (Secure Unique NFC)
    - Set SDM MAC input: PICCData + ReadCtr
    - Set URL template: `https://solian.app/nfc?e={ENC}&c={CNT}&mac={MAC}`
    - Set SUN MAC offset: after encrypted data
-2. Write the received SUN key to the tag's SDM keys (FileRead key)
-3. Lock the tag (optional but recommended)
+   - Write the SUN key to the tag's SDM keys (FileRead key)
+3. Factory optionally locks the tag
 
-### For unencrypted/plain tags
+#### Step 2: Admin registers the tag on the server
 
-1. User calls `POST /api/nfc/tags` with `{ "uid": "...", "is_encrypted": false }`
+Factory (or admin) calls the admin API to register the tag:
+
+```
+POST /api/admin/nfc/tags
+{
+  "uid": "04A1B2C3D4E5F6",
+  "sun_key": "base64-encoded-16-byte-key==",
+  "assigned_user_id": null  // or a specific user ID for pre-assigned tags
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `uid` | string | Yes | Physical chip UID |
+| `sun_key` | string | Yes | Base64-encoded 16-byte SUN key |
+| `assigned_user_id` | string? | No | Pre-assign to a specific user (null = unassigned) |
+
+Requires `nfc.admin` permission.
+
+#### Step 3: User receives and scans the tag
+
+1. User receives the pre-programmed tag
+2. User signs in to the app
+3. User scans the tag → `GET /api/nfc?e=...&c=...&mac=...`
+4. Server validates the SUN, finds the unclaimed tag
+5. Server automatically claims the tag for the authenticated user
+6. Response includes `is_claimed: true`
+
+#### Pre-assigned vs unassigned tags
+
+| Mode | `assigned_user_id` | Behavior on scan |
+|---|---|---|
+| Unassigned | `null` | First authenticated scanner claims the tag |
+| Pre-assigned | User ID | Only the assigned user can claim the tag; others get `TAG_PRE_ASSIGNED` error |
+
+### User flow (unencrypted tags)
+
+Unencrypted tags are self-registered by users:
+
+1. User calls `POST /api/nfc/tags` with `{ "uid": "..." }`
 2. User writes the tag entry ID (the UUID returned by the server) to the physical tag
 3. No key configuration needed
 
-### Recommended NTAG424 SDM configuration
+### Recommended NTAG424 SDM configuration (for factory)
 
 | Setting | Value | Notes |
 |---|---|---|
@@ -479,7 +510,7 @@ The physical tag programming and server registration are separate operations:
 | SDMMACInput | PICCData + ReadCtr | MAC covers both encrypted data and counter |
 | SDMMAC | Enabled | Generates AES-CMAC signature |
 | UIDMirroring | Disabled | UID is inside encrypted PICCData, not in plaintext |
-| SDMFileReadKey | Server-generated | 16-byte AES-128 key returned during registration |
+| SDMFileReadKey | Factory-generated | 16-byte AES-128 key, also stored on server via admin API |
 
 ## Client Implementation Guide
 

@@ -24,6 +24,7 @@ public class NfcServiceGrpc(
     /// <summary>
     /// Validate an NTAG424 SUN token. Used by Padlock during NFC login flow.
     /// Verifies the CMAC, decrypts the PICCData, checks counter for replay.
+    /// Only claimed tags (with a valid owner) can be used for login.
     /// </summary>
     public override async Task<DyValidateNfcTokenResponse> ValidateNfcToken(
         DyValidateNfcTokenRequest request,
@@ -33,6 +34,8 @@ public class NfcServiceGrpc(
 
         try
         {
+            // For login, we don't pass observerUserId — we just want to validate
+            // and check if the tag has an owner
             var result = await nfc.ValidateSunAsync(
                 request.E,
                 request.C,
@@ -43,6 +46,30 @@ public class NfcServiceGrpc(
             {
                 response.IsValid = false;
                 response.ErrorCode = "TAG_NOT_FOUND";
+                return response;
+            }
+
+            // Check claim status — only tags with owners can be used for login
+            if (result.ClaimStatus == NfcTagClaimStatus.NeedsAuth ||
+                result.ClaimStatus == NfcTagClaimStatus.Unclaimed)
+            {
+                response.IsValid = false;
+                response.ErrorCode = "TAG_UNCLAIMED";
+                return response;
+            }
+
+            if (result.ClaimStatus == NfcTagClaimStatus.PreAssignedMismatch)
+            {
+                response.IsValid = false;
+                response.ErrorCode = "TAG_PRE_ASSIGNED";
+                return response;
+            }
+
+            // Ensure the tag has a valid owner
+            if (result.Account is null || result.Tag.UserId == Guid.Empty || result.Tag.UserId == default)
+            {
+                response.IsValid = false;
+                response.ErrorCode = "TAG_UNCLAIMED";
                 return response;
             }
 
@@ -93,6 +120,30 @@ public class NfcServiceGrpc(
             {
                 response.IsValid = false;
                 response.ErrorCode = "TAG_NOT_FOUND";
+                return response;
+            }
+
+            // Check for unclaimed/pre-assigned states
+            if (result.ClaimStatus == NfcTagClaimStatus.NeedsAuth ||
+                result.ClaimStatus == NfcTagClaimStatus.Unclaimed)
+            {
+                response.IsValid = false;
+                response.ErrorCode = "TAG_UNCLAIMED";
+                return response;
+            }
+
+            if (result.ClaimStatus == NfcTagClaimStatus.PreAssignedMismatch)
+            {
+                response.IsValid = false;
+                response.ErrorCode = "TAG_PRE_ASSIGNED";
+                return response;
+            }
+
+            // Ensure we have an account
+            if (result.Account is null)
+            {
+                response.IsValid = false;
+                response.ErrorCode = "TAG_UNCLAIMED";
                 return response;
             }
 

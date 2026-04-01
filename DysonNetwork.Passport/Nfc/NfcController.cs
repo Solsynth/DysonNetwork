@@ -23,6 +23,7 @@ public class NfcController(
     {
         public SnAccount User { get; set; } = null!;
         public bool IsFriend { get; set; }
+        public bool IsClaimed { get; set; }
         public List<string> Actions { get; set; } = [];
     }
 
@@ -35,6 +36,7 @@ public class NfcController(
         public bool IsLocked { get; set; }
         public bool IsEncrypted { get; set; }
         public string? SunKey { get; set; }
+        public Guid? UserId { get; set; }
         public NodaTime.Instant? LastSeenAt { get; set; }
         public NodaTime.Instant CreatedAt { get; set; }
     }
@@ -47,8 +49,6 @@ public class NfcController(
 
         [MaxLength(64)]
         public string? Label { get; set; }
-
-        public bool IsEncrypted { get; set; }
     }
 
     public class UpdateTagRequest
@@ -92,6 +92,7 @@ public class NfcController(
         {
             User = account,
             IsFriend = result.IsFriend,
+            IsClaimed = result.IsClaimed,
             Actions = result.Actions
         });
     }
@@ -129,6 +130,30 @@ public class NfcController(
                 if (result is null)
                     return NotFound(ApiError.NotFound("nfc_tag", "No matching NFC tag found."));
 
+                // Handle unclaimed/pre-assigned tag states
+                if (result.ClaimStatus == NfcTagClaimStatus.NeedsAuth)
+                {
+                    return StatusCode(403, new ApiError
+                    {
+                        Code = "TAG_UNCLAIMED",
+                        Message = "This tag is not yet associated with an account. Please sign in to claim it.",
+                        Status = 403
+                    });
+                }
+
+                if (result.ClaimStatus == NfcTagClaimStatus.PreAssignedMismatch)
+                {
+                    return StatusCode(403, new ApiError
+                    {
+                        Code = "TAG_PRE_ASSIGNED",
+                        Message = "This tag is assigned to a different account.",
+                        Status = 403
+                    });
+                }
+
+                if (result.Account is null)
+                    return NotFound(ApiError.NotFound("nfc_tag", "Tag owner not found."));
+
                 var account = await accountService.GetAccount(result.Account.Id);
                 if (account is null)
                     return StatusCode(500, ApiError.Server("Failed to load account data."));
@@ -160,6 +185,7 @@ public class NfcController(
                 {
                     User = account,
                     IsFriend = result.IsFriend,
+                    IsClaimed = result.IsClaimed,
                     Actions = result.Actions
                 });
             }
@@ -283,7 +309,6 @@ public class NfcController(
                 currentUser.Id,
                 request.Uid,
                 request.Label,
-                request.IsEncrypted,
                 cancellationToken);
 
             return Ok(new NfcTagDto
@@ -294,7 +319,6 @@ public class NfcController(
                 IsActive = tag.IsActive,
                 IsLocked = tag.LockedAt.HasValue,
                 IsEncrypted = tag.IsEncrypted,
-                SunKey = tag.SunKey != null ? Convert.ToBase64String(tag.SunKey) : null,
                 LastSeenAt = tag.LastSeenAt,
                 CreatedAt = tag.CreatedAt
             });
