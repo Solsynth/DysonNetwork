@@ -108,22 +108,31 @@ public class NfcService(
     /// Validate encrypted SDM scan data.
     /// Decrypts the PICCData using each tag's SDMFileReadKey, extracts UID and counter,
     /// matches the UID to find the tag, and performs claim logic.
-    ///
-    /// The uidHex contains the encrypted PICCData (first 32 hex chars = 16 bytes).
-    /// Trailing hex bytes (counter, MAC) are ignored — the counter comes from the decrypted data.
     /// </summary>
-    /// <param name="uidHex">Hex-encoded SDM data from the NFC scan URL (at least 32 hex chars).</param>
+    /// <param name="uidHex">Full hex-encoded SDM data from the NFC scan URL.</param>
     /// <param name="observerUserId">Optional authenticated user ID.</param>
     public async Task<NfcValidationResult?> ValidateSunAsync(
         string uidHex,
         Guid? observerUserId = null,
         CancellationToken cancellationToken = default)
     {
-        // Parse encrypted PICCData from the hex string
-        var encryptedPiccData = NfcCrypto.ParsePiccData(uidHex);
-        if (encryptedPiccData is null)
+        logger.LogDebug("ValidateSunAsync called with uidHex={Length} chars: {Preview}",
+            uidHex.Length,
+            uidHex.Length > 64 ? uidHex[..64] + "..." : uidHex);
+
+        // Parse the full hex data
+        var fullData = NfcCrypto.ParseFullUidData(uidHex, logger);
+        if (fullData is null)
         {
             logger.LogWarning("SUN validation: invalid uid_hex format: {Length} chars", uidHex.Length);
+            return null;
+        }
+
+        // Extract the first 16 bytes as the encrypted PICCData block
+        var encryptedPiccData = NfcCrypto.ExtractPiccDataBlock(fullData, logger);
+        if (encryptedPiccData is null)
+        {
+            logger.LogWarning("SUN validation: data too short ({Len} bytes)", fullData.Length);
             return null;
         }
 
@@ -132,29 +141,43 @@ public class NfcService(
             .Where(t => t.IsActive && t.IsEncrypted && t.SunKey != null)
             .ToListAsync(cancellationToken);
 
+        logger.LogDebug("Trying {Count} encrypted tags", encryptedTags.Count);
+
         SnNfcTag? matchedTag = null;
         NfcCrypto.SunValidationResult? validation = null;
 
         foreach (var tag in encryptedTags)
         {
+            var keyLen = tag.SunKey!.Length;
+            logger.LogDebug("Trying tag {TagId} (UID: {Uid}, key length: {KeyLen})",
+                tag.Id, tag.Uid, keyLen);
+
             // Try decrypting with this tag's key
-            var result = NfcCrypto.DecryptPiccData(tag.SunKey!, encryptedPiccData);
+            var result = NfcCrypto.DecryptPiccData(tag.SunKey!, encryptedPiccData, logger);
             if (result is null)
-                continue; // Wrong key, try next tag
+            {
+                logger.LogDebug("  -> Decryption failed with tag {TagId}'s key", tag.Id);
+                continue;
+            }
 
             // Check if the decrypted UID matches this tag
             var decryptedUid = NfcCrypto.FormatUid(result.Uid);
+            logger.LogDebug("  -> Decrypted UID: {Decrypted}, tag UID: {TagUid}, match: {Match}",
+                decryptedUid, tag.Uid, decryptedUid == tag.Uid);
+
             if (decryptedUid == tag.Uid)
             {
                 matchedTag = tag;
                 validation = result;
+                logger.LogDebug("  -> MATCHED tag {TagId}", tag.Id);
                 break;
             }
         }
 
         if (matchedTag is null || validation is null)
         {
-            logger.LogWarning("SUN validation: no matching encrypted tag found");
+            logger.LogWarning("SUN validation: no matching encrypted tag found for data {Length} chars",
+                uidHex.Length);
             return null;
         }
 
@@ -295,8 +318,8 @@ public class NfcService(
         if (existing is not null)
             throw new InvalidOperationException("This NFC tag is already registered.");
 
-        if (sunKey.Length != 16)
-            throw new ArgumentException("SUN key must be exactly 16 bytes (AES-128).");
+        if (sunKey.Length != 16 && sunKey.Length != 32)
+            throw new ArgumentException("SUN key must be 16 bytes (AES-128) or 32 bytes (AES-256).");
 
         var tag = new SnNfcTag
         {

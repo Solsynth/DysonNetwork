@@ -471,6 +471,8 @@ public class FileUploadController(
         {
             using var scope = scopeFactory.CreateScope();
             var scopedPersistentTaskService = scope.ServiceProvider.GetRequiredService<PersistentTaskService>();
+            var scopedFileService = scope.ServiceProvider.GetRequiredService<FileService>();
+            var scopedFileIndexService = scope.ServiceProvider.GetRequiredService<FileIndexService>();
 
             try
             {
@@ -479,7 +481,7 @@ public class FileUploadController(
                 await scopedPersistentTaskService.UpdateTaskProgressAsync(taskId, 0.50, "Processing file locally...");
 
                 var fileId = await Nanoid.GenerateAsync();
-                var (cloudFile, fileEvent) = await fileService.ProcessNewFileAsync(
+                var (cloudFile, fileEvent) = await scopedFileService.ProcessNewFileAsync(
                     currentUser,
                     fileId,
                     persistentTask.PoolId.ToString(),
@@ -498,7 +500,7 @@ public class FileUploadController(
                 {
                     try
                     {
-                        await fileIndexService.CreateAsync(persistentTask.Path, fileId, accountId);
+                        await scopedFileIndexService.CreateAsync(persistentTask.Path, fileId, accountId);
                         logger.LogInformation("Created file index for file {FileId} at path {Path}", fileId,
                             persistentTask.Path);
                     }
@@ -511,7 +513,7 @@ public class FileUploadController(
 
                 await scopedPersistentTaskService.UpdateTaskProgressAsync(taskId, 0.55, "Uploading to remote storage...");
 
-                await fileService.PublishUploadCompletedEventAsync(fileEvent);
+                await scopedFileService.PublishUploadCompletedEventAsync(fileEvent);
 
                 await scopedPersistentTaskService.SendUploadCompletedNotificationAsync(persistentTask, fileId);
             }

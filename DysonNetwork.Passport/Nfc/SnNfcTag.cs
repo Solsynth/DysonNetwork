@@ -51,7 +51,7 @@ public class SnNfcTag : DysonNetwork.Shared.Models.ModelBase
     public bool IsEncrypted { get; set; }
 
     /// <summary>
-    /// Per-tag SDMFileReadKey (16 bytes, AES-128) for SUN verification.
+    /// Per-tag SDMFileReadKey used directly as AES key (16 bytes for AES-128, 32 bytes for AES-256).
     /// Only set for encrypted tags; null for unencrypted tags.
     /// </summary>
     public byte[]? SunKey { get; set; }

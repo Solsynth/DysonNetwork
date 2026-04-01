@@ -1,32 +1,40 @@
 using System.Security.Cryptography;
+using Microsoft.Extensions.Logging;
 
 namespace DysonNetwork.Passport.Nfc;
 
 /// <summary>
 /// SDM (Secure Dynamic Messaging) crypto utilities for NFC tag validation.
 ///
-/// The SDMFileReadKey is used **directly** as the AES-128 CBC key (no KDF).
-/// Encrypted PICCData is decrypted to extract UID and counter for tag matching and replay protection.
-/// Validation is by PICCData tag byte (0xC7) and UID format check (starts with 04).
+/// The SDMFileReadKey is used directly as the AES key (no KDF).
+/// Supports both AES-128 (16-byte key) and AES-256 (32-byte key).
 /// </summary>
 public static class NfcCrypto
 {
-    private const byte PaddedPrefix = 0x80;
-
     /// <summary>
     /// Decrypt SDM encrypted PICCData using the SDMFileReadKey directly.
     /// Returns uid and counter on successful decryption, null if the key is wrong.
     /// </summary>
-    /// <param name="sdMFileReadKey">16-byte per-tag SDMFileReadKey (used directly as AES key).</param>
-    /// <param name="encryptedPiccData">16 bytes of encrypted PICCData.</param>
+    /// <param name="sdMFileReadKey">Per-tag SDMFileReadKey (16 bytes for AES-128, 32 bytes for AES-256).</param>
+    /// <param name="encryptedPiccData">Encrypted PICCData bytes (first block only, 16 bytes).</param>
+    /// <param name="logger">Logger for debug output.</param>
     /// <returns>Validation result with UID and counter, or null if key is wrong.</returns>
-    public static SunValidationResult? DecryptPiccData(byte[] sdMFileReadKey, byte[] encryptedPiccData)
+    public static SunValidationResult? DecryptPiccData(
+        byte[] sdMFileReadKey,
+        byte[] encryptedPiccData,
+        ILogger? logger = null)
     {
-        if (encryptedPiccData.Length != 16)
+        if (encryptedPiccData.Length < 16)
+        {
+            logger?.LogDebug("PICCData too short: {Len} bytes", encryptedPiccData.Length);
             return null;
+        }
 
-        if (sdMFileReadKey.Length != 16)
+        if (sdMFileReadKey.Length != 16 && sdMFileReadKey.Length != 32)
+        {
+            logger?.LogDebug("Invalid key length: {Len} bytes", sdMFileReadKey.Length);
             return null;
+        }
 
         try
         {
@@ -38,51 +46,87 @@ public static class NfcCrypto
             aes.IV = new byte[16]; // zero IV
 
             using var decryptor = aes.CreateDecryptor();
+            // Only decrypt the first 16 bytes (PICCData block)
             var decrypted = decryptor.TransformFinalBlock(encryptedPiccData, 0, 16);
 
-            // Validate PICCData structure
-            var piccDataTag = decrypted[0];
-            if (piccDataTag != 0xC7)
-                return null; // wrong key or invalid data
+            logger?.LogDebug("Decrypted PICCData (first 16 bytes): {Hex}", Convert.ToHexString(decrypted));
+            logger?.LogDebug("PICCDataTag byte: 0x{Tag:X2}", decrypted[0]);
+
+            // Check PICCDataTag
+            if (decrypted[0] != 0xC7)
+            {
+                logger?.LogDebug("PICCDataTag != 0xC7 (got 0x{Tag:X2}), wrong key?", decrypted[0]);
+                return null;
+            }
 
             var uid = new byte[7];
             Array.Copy(decrypted, 1, uid, 0, 7);
+            var uidHex = Convert.ToHexString(uid);
+            logger?.LogDebug("Decrypted UID: {Uid} (starts with 04: {Starts04})", uidHex, uid[0] == 0x04);
 
             // UID should start with 04 (ISO 14443-3A manufacturing code)
             if (uid[0] != 0x04)
-                return null; // suspicious UID, likely wrong key
+            {
+                logger?.LogDebug("UID doesn't start with 04, likely wrong key");
+                return null;
+            }
 
             var counter = decrypted[8] | (decrypted[9] << 8) | (decrypted[10] << 16);
+            logger?.LogDebug("Decrypted counter: {Counter}", counter);
 
             return new SunValidationResult(uid, counter);
         }
-        catch (CryptographicException)
+        catch (CryptographicException ex)
         {
+            logger?.LogDebug("AES decryption failed: {Message}", ex.Message);
             return null;
         }
     }
 
     /// <summary>
     /// Parse the UID parameter from the NFC scan URL.
-    /// The uid hex string contains the encrypted PICCData (first 32 hex chars = 16 bytes).
-    /// Trailing bytes (e.g., counter, MAC) are ignored.
+    /// Uses the full hex string — decrypts the first 16 bytes as PICCData,
+    /// but also passes the full data for potential future use.
     /// </summary>
-    /// <param name="uidHex">Hex-encoded SDM data (at least 32 hex chars).</param>
-    /// <returns>The 16-byte encrypted PICCData, or null if input is invalid.</returns>
-    public static byte[]? ParsePiccData(string uidHex)
+    /// <param name="uidHex">Full hex-encoded SDM data from the URL.</param>
+    /// <param name="logger">Logger for debug output.</param>
+    /// <returns>The full decoded bytes, or null if input is invalid.</returns>
+    public static byte[]? ParseFullUidData(string uidHex, ILogger? logger = null)
     {
         if (string.IsNullOrEmpty(uidHex) || uidHex.Length < 32)
+        {
+            logger?.LogDebug("uidHex too short: {Len} chars (need >= 32)", uidHex?.Length ?? 0);
             return null;
+        }
+
+        // Ensure even length for hex decoding
+        var hexLength = uidHex.Length - (uidHex.Length % 2);
 
         try
         {
-            // Take only the first 32 hex chars (16 bytes)
-            return Convert.FromHexString(uidHex.AsSpan(0, 32));
+            var data = Convert.FromHexString(uidHex.AsSpan(0, hexLength));
+            logger?.LogDebug("Parsed {Len} bytes from {HexLen} hex chars", data.Length, hexLength);
+            logger?.LogDebug("Full decoded data: {Hex}", Convert.ToHexString(data));
+            return data;
         }
-        catch (FormatException)
+        catch (FormatException ex)
         {
+            logger?.LogDebug("Hex decode failed: {Message}", ex.Message);
             return null;
         }
+    }
+
+    /// <summary>
+    /// Extract just the encrypted PICCData (first 16 bytes) from the full SDM data.
+    /// </summary>
+    public static byte[]? ExtractPiccDataBlock(byte[] fullData, ILogger? logger = null)
+    {
+        if (fullData.Length < 16)
+            return null;
+
+        var piccData = new byte[16];
+        Array.Copy(fullData, 0, piccData, 0, 16);
+        return piccData;
     }
 
     /// <summary>
