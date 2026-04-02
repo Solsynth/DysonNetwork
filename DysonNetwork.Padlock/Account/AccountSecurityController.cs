@@ -184,7 +184,7 @@ public class AccountSecurityController(
         Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
 
         var devices = await db
-            .AuthClients.Where(device => device.AccountId == currentUser.Id)
+            .AuthClients.Where(device => device.AccountId == currentUser.Id && device.DeletedAt == null)
             .ToListAsync();
 
         var sessionDevices = devices.ConvertAll(SnAuthClientWithSessions.FromClient).ToList();

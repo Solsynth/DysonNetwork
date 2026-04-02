@@ -489,6 +489,9 @@ public class AccountService(
         await db.AuthSessions
             .Where(s => s.ClientId == client.Id)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.ExpiredAt, SystemClock.Instance.GetCurrentInstant()));
+        client.DeletedAt = SystemClock.Instance.GetCurrentInstant();
+        db.Update(client);
+        await db.SaveChangesAsync();
         await CreateAccountActionLogAsync(
             account.Id,
             ActionLogType.DeviceRevoke,
