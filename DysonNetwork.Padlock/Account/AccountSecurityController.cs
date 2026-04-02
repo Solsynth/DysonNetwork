@@ -27,6 +27,17 @@ public class AccountSecurityController(
         NodaTime.Instant? LastUsedAt
     );
 
+    public record SessionResponse(
+        Guid Id,
+        SessionType Type,
+        NodaTime.Instant? LastGrantedAt,
+        NodaTime.Instant? ExpiredAt,
+        string? IpAddress,
+        string? UserAgent,
+        Guid? ClientId,
+        bool IsCurrent
+    );
+
     [HttpGet("identity")]
     public async Task<ActionResult<SnAccount>> GetCurrentIdentity()
     {
@@ -179,19 +190,19 @@ public class AccountSecurityController(
         var sessionDevices = devices.ConvertAll(SnAuthClientWithSessions.FromClient).ToList();
         var clientIds = sessionDevices.Select(x => x.Id).ToList();
 
-        var authSessions = await db
-            .AuthSessions.Where(c => c.ClientId != null && clientIds.Contains(c.ClientId.Value))
-            .GroupBy(c => c.ClientId!.Value)
-            .ToDictionaryAsync(c => c.Key, c => c.ToList());
-        foreach (var dev in sessionDevices)
-            if (authSessions.TryGetValue(dev.Id, out var challenge))
-                dev.Sessions = challenge;
+        var sessionsByClientId = await db
+            .AuthSessions.Where(s => s.ClientId != null && clientIds.Contains(s.ClientId.Value))
+            .GroupBy(s => s.ClientId!.Value)
+            .ToDictionaryAsync(g => g.Key, g => g.ToList());
+        foreach (var device in sessionDevices)
+            if (sessionsByClientId.TryGetValue(device.Id, out var sessions))
+                device.Sessions = sessions;
 
         return Ok(sessionDevices);
     }
 
     [HttpGet("sessions")]
-    public async Task<ActionResult<List<SnAuthSession>>> GetSessions(
+    public async Task<ActionResult<List<SessionResponse>>> GetSessions(
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0
     )
@@ -211,7 +222,17 @@ public class AccountSecurityController(
         Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
 
         var sessions = await query.Skip(offset).Take(take).ToListAsync();
-        return Ok(sessions);
+        var response = sessions.Select(s => new SessionResponse(
+            s.Id,
+            s.Type,
+            s.LastGrantedAt,
+            s.ExpiredAt,
+            s.IpAddress,
+            s.UserAgent,
+            s.ClientId,
+            s.Id == currentSession.Id
+        )).ToList();
+        return Ok(response);
     }
 
     [HttpDelete("sessions/{id:guid}")]
