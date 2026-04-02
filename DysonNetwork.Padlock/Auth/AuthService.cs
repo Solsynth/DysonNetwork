@@ -42,7 +42,6 @@ public class AuthService(
 
     private HttpContext HttpContext => httpContextAccessor.HttpContext!;
     public const string AuthCachePrefix = "auth:";
-    private const string RevokedJtiPrefix = "auth:revoked:jti:";
     private const string AccountVersionPrefix = "auth:account_ver:";
 
     public async Task<int> DetectChallengeRisk(HttpRequest request, SnAccount account)
@@ -468,7 +467,7 @@ public class AuthService(
         var jti = jwt.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
         if (string.IsNullOrWhiteSpace(jti))
             throw new ArgumentException("Invalid refresh token.");
-        var (revoked, _) = await cache.GetAsyncWithStatus<bool>($"{RevokedJtiPrefix}{jti}");
+        var (revoked, _) = await cache.GetAsyncWithStatus<bool>(AuthCacheKeys.RevokedJti(jti));
         if (revoked)
             throw new ArgumentException("Refresh token has been revoked.");
 
@@ -977,7 +976,7 @@ public class AuthService(
             ? expiresAt.Value.ToDateTimeUtc() - DateTime.UtcNow
             : TimeSpan.FromDays(30);
         if (ttl <= TimeSpan.Zero) ttl = TimeSpan.FromHours(1);
-        await cache.SetAsync($"{RevokedJtiPrefix}{jti}", true, ttl);
+        await cache.SetAsync(AuthCacheKeys.RevokedJti(jti), true, ttl);
     }
 
     private async Task<int> GetAccountVersion(Guid accountId)

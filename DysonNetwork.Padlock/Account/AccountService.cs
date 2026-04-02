@@ -1,5 +1,6 @@
 using DysonNetwork.Padlock.Auth.OpenId;
 using DysonNetwork.Padlock.Mailer;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
@@ -475,6 +476,11 @@ public class AccountService(
         session.ExpiredAt = SystemClock.Instance.GetCurrentInstant();
         db.Update(session);
         await db.SaveChangesAsync();
+        await cache.SetAsync(
+            AuthCacheKeys.RevokedJti(sessionId.ToString()),
+            true,
+            TimeSpan.FromDays(AuthCacheKeys.RevokedJtiTtlDays)
+        );
         await CreateAccountActionLogAsync(
             account.Id,
             ActionLogType.SessionRevoke,

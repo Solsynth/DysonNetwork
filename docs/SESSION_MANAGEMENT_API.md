@@ -55,6 +55,31 @@ Previously, clients had to rely on the `X-Auth-Session` response header to ident
 
 The variable name now accurately reflects its purpose - a dictionary mapping client IDs to their associated sessions.
 
+## Bug Fixes
+
+### Device Deletion Not Removing Device from List
+
+**Problem**: Calling `DELETE /api/devices/{deviceId}` would expire sessions for the device but leave the device itself in the database. The device would continue appearing in `GET /api/devices` responses.
+
+**Fix**: `AccountService.DeleteDevice` now sets `DeletedAt` on the `SnAuthClient` record in addition to expiring sessions. `GetDevices` now filters out devices where `DeletedAt != null`.
+
+### Session Logout Not Invalidating Token
+
+**Problem**: Calling `DELETE /api/sessions/{id}` or `DELETE /api/sessions/current` would set `ExpiredAt` in the database but not invalidate the JWT token itself. Since the shared Redis cache is checked first during authentication, the token remained valid until natural JWT expiration.
+
+**Fix**: `AccountService.DeleteSession` now adds the session ID (JTI) to the revoked tokens list in Redis (`auth:revoked:jti:{sessionId}`) with a 30-day TTL. The token is immediately rejected on subsequent requests.
+
+**Shared Cache Key**: The revoked JTI prefix is now centralized in `DysonNetwork.Shared.Auth.AuthCacheKeys`:
+- `AuthCacheKeys.RevokedJtiPrefix` = `"auth:revoked:jti:"`
+- `AuthCacheKeys.RevokedJti(jti)` = `"{RevokedJtiPrefix}{jti}"`
+- `AuthCacheKeys.RevokedJtiTtlDays` = `30`
+
+This constant is used across:
+- `DysonNetwork.Shared.Auth.AuthScheme`
+- `DysonNetwork.Padlock.Auth.AuthService`
+- `DysonNetwork.Padlock.Auth.OidcProvider.Services.OidcProviderService`
+- `DysonNetwork.Padlock.Account.AccountService`
+
 ## Notes
 
 - Pagination for sessions remains unchanged (`take`, `offset` query parameters)

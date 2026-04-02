@@ -29,7 +29,6 @@ public class DysonTokenAuthHandler(
 ) : AuthenticationHandler<DysonTokenAuthOptions>(options, logger, encoder)
 {
     private static readonly DateTime LegacyDefaultCutoffUtc = DateTime.UtcNow.AddDays(14);
-    private const string RevokedJtiPrefix = "auth:revoked:jti:";
     private const string AccountVersionPrefix = "auth:account_ver:";
     private const string ProfileCachePrefix = "auth:profile:";
     private static readonly TimeSpan ProfileCacheTtl = TimeSpan.FromMinutes(5);
@@ -243,7 +242,7 @@ public class DysonTokenAuthHandler(
 
     private async Task<bool> IsRevokedJti(string jti)
     {
-        var (found, _) = await cache.GetAsyncWithStatus<bool>($"{RevokedJtiPrefix}{jti}");
+        var (found, _) = await cache.GetAsyncWithStatus<bool>(AuthCacheKeys.RevokedJti(jti));
         return found;
     }
 

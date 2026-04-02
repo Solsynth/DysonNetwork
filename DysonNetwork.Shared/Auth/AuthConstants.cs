@@ -10,6 +10,13 @@ public static class AuthConstants
     public const string BotHeaderScheme = "Bot";
 }
 
+public static class AuthCacheKeys
+{
+    public const string RevokedJtiPrefix = "auth:revoked:jti:";
+    public static string RevokedJti(string jti) => $"{RevokedJtiPrefix}{jti}";
+    public const int RevokedJtiTtlDays = 30;
+}
+
 public enum TokenType
 {
     AuthKey,

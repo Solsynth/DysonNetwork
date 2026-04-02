@@ -5,6 +5,7 @@ using System.Text;
 using DysonNetwork.Padlock.Auth.OidcProvider.Models;
 using DysonNetwork.Padlock.Auth.OidcProvider.Options;
 using DysonNetwork.Padlock.Auth.OidcProvider.Responses;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -32,7 +33,6 @@ public class OidcProviderService(
     private const string CacheKeyPrefixClientId = "auth:oidc-client:id:";
     private const string CacheKeyPrefixClientSlug = "auth:oidc-client:slug:";
     private const string CacheKeyPrefixAuthCode = "auth:oidc-code:";
-    private const string RevokedJtiPrefix = "auth:revoked:jti:";
     private const string AccountVersionPrefix = "auth:account_ver:";
     private const string CodeChallengeMethodS256 = "S256";
     private const string CodeChallengeMethodPlain = "PLAIN";
@@ -293,7 +293,7 @@ public class OidcProviderService(
         var jti = jwt.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
         if (string.IsNullOrWhiteSpace(jti))
             throw new InvalidOperationException("Invalid refresh token");
-        var (revoked, _) = await cache.GetAsyncWithStatus<bool>($"{RevokedJtiPrefix}{jti}");
+        var (revoked, _) = await cache.GetAsyncWithStatus<bool>(AuthCacheKeys.RevokedJti(jti));
         if (revoked)
             throw new InvalidOperationException("Refresh token has been revoked");
 
