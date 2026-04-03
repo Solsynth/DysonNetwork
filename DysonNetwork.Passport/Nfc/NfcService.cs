@@ -181,8 +181,8 @@ public class NfcService(
 
         var readCtr = validation.ReadCtr;
 
-        // Counter replay check: must be greater than last known counter
-        if (matchedTag.Counter.HasValue && readCtr <= matchedTag.Counter.Value)
+        // Counter replay check: must be strictly greater than last known counter
+        if (matchedTag.Counter.HasValue && readCtr < matchedTag.Counter.Value)
         {
             logger.LogWarning(
                 "SUN replay detected: counter {Counter} <= last counter {LastCounter} for tag {TagId}",
