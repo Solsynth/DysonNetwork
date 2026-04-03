@@ -155,11 +155,13 @@ public class NfcController(
 
                     if (result.ClaimStatus == NfcTagClaimStatus.Unclaimed)
                     {
-                        return StatusCode(403, new ApiError
+                        // Return 200 with null user - client will show "unclaimed" and prompt to claim
+                        return Ok(new NfcResolveResponse
                         {
-                            Code = "TAG_UNCLAIMED",
-                            Message = "This tag is not yet claimed. Use POST /api/nfc/tags/claim to claim it.",
-                            Status = 403
+                            User = null!,
+                            IsFriend = false,
+                            IsClaimed = false,
+                            Actions = result.Actions
                         });
                     }
 
