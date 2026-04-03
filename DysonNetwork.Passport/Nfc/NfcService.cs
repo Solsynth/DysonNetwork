@@ -211,20 +211,16 @@ public class NfcService(
 
         if (matchedTag.UserId == Guid.Empty || matchedTag.UserId == default)
         {
-            // Tag is unclaimed — attempt to claim
+            // Tag is unclaimed — do NOT auto-claim.
+            // User must explicitly claim via POST /api/nfc/tags/claim
             if (observerUserId.HasValue)
             {
-                // Claim the tag for the observer
-                matchedTag.UserId = observerUserId.Value;
-                await db.SaveChangesAsync(cancellationToken);
-
-                isClaimed = true;
-                claimStatus = NfcTagClaimStatus.JustClaimed;
-                logger.LogInformation("Tag {TagId} claimed by user {UserId}", matchedTag.Id, observerUserId.Value);
+                // Authenticated user scanned unclaimed tag — return unclaimed status
+                return new NfcValidationResult(matchedTag, null, null, false, false, NfcTagClaimStatus.Unclaimed, ["claim_tag"]);
             }
             else
             {
-                // No authenticated user — return unclaimed status
+                // No authenticated user — return needs auth status
                 return new NfcValidationResult(matchedTag, null, null, false, false, NfcTagClaimStatus.NeedsAuth, []);
             }
         }

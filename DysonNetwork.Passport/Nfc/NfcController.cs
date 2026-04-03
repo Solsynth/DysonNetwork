@@ -153,6 +153,16 @@ public class NfcController(
                         });
                     }
 
+                    if (result.ClaimStatus == NfcTagClaimStatus.Unclaimed)
+                    {
+                        return StatusCode(403, new ApiError
+                        {
+                            Code = "TAG_UNCLAIMED",
+                            Message = "This tag is not yet claimed. Use POST /api/nfc/tags/claim to claim it.",
+                            Status = 403
+                        });
+                    }
+
                     if (result.ClaimStatus == NfcTagClaimStatus.PreAssignedMismatch)
                     {
                         return StatusCode(403, new ApiError

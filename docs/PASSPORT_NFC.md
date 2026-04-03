@@ -505,14 +505,15 @@ Requires `nfc.admin` permission.
 3. User calls `POST /api/nfc/tags/claim` with `{ "uid": "04A1B2C3D4E5F6" }`
 4. Tag is now associated with the user's account
 
-**Option B: Claim by scanning**
+**Option B: Claim by scanning (deprecated)**
 
-1. User receives the pre-programmed tag
-2. User signs in to the app
-3. User scans the tag → `GET /api/nfc?uid=D7E4AF3C6F49A801D351FB82974B7729000000`
-4. Server validates the SUN, finds the unclaimed tag
-5. Server automatically claims the tag for the authenticated user
-6. Response includes `is_claimed: true`
+_This flow is currently disabled. Users must claim via Option A instead._
+
+~~1. User receives the pre-programmed tag~~
+~~2. User signs in to the app~~
+~~3. User scans the tag → `GET /api/nfc?uid=D7E4AF3C6F49A801D351FB82974B7729000000`~~
+~~4. Server validates the SUN, finds the unclaimed tag~~
+~~5. Server returns `TAG_UNCLAIMED` status (user must explicitly claim)~~
 
 #### Pre-assigned vs unassigned tags
 
