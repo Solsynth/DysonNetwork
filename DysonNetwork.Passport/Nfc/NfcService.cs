@@ -209,7 +209,7 @@ public class NfcService(
         var isFriend = false;
         var actions = new List<string>();
 
-        if (matchedTag.UserId == Guid.Empty || matchedTag.UserId == default)
+        if (!matchedTag.UserId.HasValue)
         {
             // Tag is unclaimed — do NOT auto-claim.
             // User must explicitly claim via POST /api/nfc/tags/claim
@@ -231,7 +231,12 @@ public class NfcService(
         }
 
         // Build result — fetch the tag owner's account
-        account = await accounts.GetAccount(matchedTag.UserId);
+        if (!matchedTag.UserId.HasValue)
+        {
+            return new NfcValidationResult(matchedTag, null, null, false, isClaimed, claimStatus, []);
+        }
+
+        account = await accounts.GetAccount(matchedTag.UserId.Value);
         if (account is null)
         {
             return new NfcValidationResult(matchedTag, null, null, false, isClaimed, claimStatus, []);
@@ -240,13 +245,13 @@ public class NfcService(
         profile = account.Profile;
         actions = ["view_profile"];
 
-        if (observerUserId.HasValue && observerUserId.Value != matchedTag.UserId)
+        if (observerUserId.HasValue && observerUserId.Value != matchedTag.UserId.Value)
         {
             // Check if blocked
             var blocked =
-                await relationships.HasRelationshipWithStatus(observerUserId.Value, matchedTag.UserId,
+                await relationships.HasRelationshipWithStatus(observerUserId.Value, matchedTag.UserId!.Value,
                     RelationshipStatus.Blocked) ||
-                await relationships.HasRelationshipWithStatus(matchedTag.UserId, observerUserId.Value,
+                await relationships.HasRelationshipWithStatus(matchedTag.UserId!.Value, observerUserId.Value,
                     RelationshipStatus.Blocked);
 
             if (blocked)
@@ -256,7 +261,7 @@ public class NfcService(
             }
 
             isFriend = await relationships.HasRelationshipWithStatus(
-                observerUserId.Value, matchedTag.UserId);
+                observerUserId.Value, matchedTag.UserId!.Value);
             actions.Add("add_friend");
         }
 
@@ -318,7 +323,7 @@ public class NfcService(
         var tag = new SnNfcTag
         {
             Uid = uid.ToUpperInvariant(),
-            UserId = assignedUserId ?? Guid.Empty,
+            UserId = assignedUserId,
             Label = null,
             IsEncrypted = true,
             SunKey = sunKey,
@@ -359,7 +364,7 @@ public class NfcService(
             return tag; // Already their tag, return as-is
 
         // Check if already claimed by someone else
-        if (tag.UserId != Guid.Empty && tag.UserId != default)
+        if (tag.UserId.HasValue && tag.UserId.Value != userId)
             throw new InvalidOperationException("This tag has already been claimed by another account.");
 
         // Claim the tag
@@ -465,26 +470,28 @@ public class NfcService(
         Guid? observerUserId,
         CancellationToken cancellationToken)
     {
-        var account = await accounts.GetAccount(tag.UserId);
+        if (!tag.UserId.HasValue) return null;
+
+        var account = await accounts.GetAccount(tag.UserId.Value);
         if (account is null) return null;
 
         var profile = account.Profile;
         var isFriend = false;
 
-        if (observerUserId.HasValue && observerUserId.Value != tag.UserId)
+        if (observerUserId.HasValue && observerUserId.Value != tag.UserId.Value)
         {
-            isFriend = await relationships.HasRelationshipWithStatus(observerUserId.Value, tag.UserId);
+            isFriend = await relationships.HasRelationshipWithStatus(observerUserId.Value, tag.UserId.Value);
 
             var blocked =
-                await relationships.HasRelationshipWithStatus(observerUserId.Value, tag.UserId,
+                await relationships.HasRelationshipWithStatus(observerUserId.Value, tag.UserId.Value,
                     RelationshipStatus.Blocked) ||
-                await relationships.HasRelationshipWithStatus(tag.UserId, observerUserId.Value,
+                await relationships.HasRelationshipWithStatus(tag.UserId.Value, observerUserId.Value,
                     RelationshipStatus.Blocked);
             if (blocked) return null;
         }
 
         var actions = new List<string> { "view_profile" };
-        if (observerUserId.HasValue && observerUserId.Value != tag.UserId)
+        if (observerUserId.HasValue && observerUserId.Value != tag.UserId.Value)
             actions.Add("add_friend");
 
         return new NfcResolveResult

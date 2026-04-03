@@ -18,9 +18,9 @@ public class SnNfcTag : DysonNetwork.Shared.Models.ModelBase
     public string Uid { get; set; } = string.Empty;
 
     /// <summary>
-    /// Owner account ID.
+    /// Owner account ID. Null means the tag is unclaimed.
     /// </summary>
-    public Guid UserId { get; set; }
+    public Guid? UserId { get; set; }
 
     /// <summary>
     /// Optional user-facing label for this tag (e.g., "Work Card", "Personal").
