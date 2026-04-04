@@ -141,12 +141,9 @@ public class NfcService(
 
         // Load all active encrypted tags
         var tag = await db.NfcTags
-            .Where(t => t.IsActive && t.IsEncrypted && t.Uid == tagUid && t.SunKey != null)
+            .Where(t => t.IsActive && t.IsEncrypted && t.Uid == tagUid.ToUpper() && t.SunKey != null)
             .FirstOrDefaultAsync(cancellationToken);
         if (tag is null) return null;
-
-        SnNfcTag? matchedTag = null;
-        NfcCrypto.SunValidationResult? validation = null;
 
         logger.LogInformation("SUN scan: trying tag {TagId} (DB UID: {TagUid}, key={KeyLen}B)",
             tag.Id, tag.Uid, tag.SunKey!.Length);
@@ -164,29 +161,26 @@ public class NfcService(
         logger.LogInformation("SUN scan: decrypted UID={Decrypted}, DB UID={TagUid}, match={Match}",
             decryptedUid, tag.Uid, decryptedUid == tag.Uid);
 
-        if (validation is null) return null;
-        matchedTag = tag;
-
-        var readCtr = validation.ReadCtr;
+        var readCtr = result.ReadCtr;
 
         // Counter replay check: must be strictly greater than last known counter
-        if (matchedTag.Counter.HasValue && readCtr < matchedTag.Counter.Value)
+        if (tag.Counter.HasValue && readCtr < tag.Counter.Value)
         {
             logger.LogWarning(
                 "SUN replay detected: counter {Counter} <= last counter {LastCounter} for tag {TagId}",
-                readCtr, matchedTag.Counter.Value, matchedTag.Id);
+                readCtr, tag.Counter.Value, tag.Id);
             throw new InvalidOperationException(
-                $"Replay detected: counter {readCtr} is not greater than last seen counter {matchedTag.Counter.Value}.");
+                $"Replay detected: counter {readCtr} is not greater than last seen counter {tag.Counter.Value}.");
         }
 
         // Update counter and last seen
-        matchedTag.Counter = readCtr;
-        matchedTag.LastSeenAt = SystemClock.Instance.GetCurrentInstant();
+        tag.Counter = readCtr;
+        tag.LastSeenAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation(
             "SUN validated for tag {TagId}, UID {Uid}, counter {Counter}",
-            matchedTag.Id, matchedTag.Uid, readCtr);
+            tag.Id, tag.Uid, readCtr);
 
         // --- Handle tag ownership / claiming ---
 
@@ -197,63 +191,63 @@ public class NfcService(
         var isFriend = false;
         var actions = new List<string>();
 
-        if (!matchedTag.AccountId.HasValue)
+        if (!tag.AccountId.HasValue)
         {
             // Tag is unclaimed — do NOT auto-claim.
             // User must explicitly claim via POST /api/nfc/tags/claim
             if (observerUserId.HasValue)
             {
                 // Authenticated user scanned unclaimed tag — return unclaimed status
-                return new NfcValidationResult(matchedTag, null, null, false, false, NfcTagClaimStatus.Unclaimed, ["claim_tag"]);
+                return new NfcValidationResult(tag, null, null, false, false, NfcTagClaimStatus.Unclaimed, ["claim_tag"]);
             }
             else
             {
                 // No authenticated user — return needs auth status
-                return new NfcValidationResult(matchedTag, null, null, false, false, NfcTagClaimStatus.NeedsAuth, []);
+                return new NfcValidationResult(tag, null, null, false, false, NfcTagClaimStatus.NeedsAuth, []);
             }
         }
-        else if (observerUserId.HasValue && observerUserId.Value != matchedTag.AccountId)
+        else if (observerUserId.HasValue && observerUserId.Value != tag.AccountId)
         {
             // Observer is different from tag owner
             claimStatus = NfcTagClaimStatus.PreAssignedMismatch;
         }
 
         // Build result — fetch the tag owner's account
-        if (!matchedTag.AccountId.HasValue)
+        if (!tag.AccountId.HasValue)
         {
-            return new NfcValidationResult(matchedTag, null, null, false, isClaimed, claimStatus, []);
+            return new NfcValidationResult(tag, null, null, false, isClaimed, claimStatus, []);
         }
 
-        account = await accounts.GetAccount(matchedTag.AccountId.Value);
+        account = await accounts.GetAccount(tag.AccountId.Value);
         if (account is null)
         {
-            return new NfcValidationResult(matchedTag, null, null, false, isClaimed, claimStatus, []);
+            return new NfcValidationResult(tag, null, null, false, isClaimed, claimStatus, []);
         }
 
         profile = account.Profile;
         actions = ["view_profile"];
 
-        if (observerUserId.HasValue && observerUserId.Value != matchedTag.AccountId.Value)
+        if (observerUserId.HasValue && observerUserId.Value != tag.AccountId.Value)
         {
             // Check if blocked
             var blocked =
-                await relationships.HasRelationshipWithStatus(observerUserId.Value, matchedTag.AccountId!.Value,
+                await relationships.HasRelationshipWithStatus(observerUserId.Value, tag.AccountId!.Value,
                     RelationshipStatus.Blocked) ||
-                await relationships.HasRelationshipWithStatus(matchedTag.AccountId!.Value, observerUserId.Value,
+                await relationships.HasRelationshipWithStatus(tag.AccountId!.Value, observerUserId.Value,
                     RelationshipStatus.Blocked);
 
             if (blocked)
             {
                 // Blocked — don't return profile, but still return tag info for the gRPC login path
-                return new NfcValidationResult(matchedTag, account, profile, false, isClaimed, claimStatus, []);
+                return new NfcValidationResult(tag, account, profile, false, isClaimed, claimStatus, []);
             }
 
             isFriend = await relationships.HasRelationshipWithStatus(
-                observerUserId.Value, matchedTag.AccountId!.Value);
+                observerUserId.Value, tag.AccountId!.Value);
             actions.Add("add_friend");
         }
 
-        return new NfcValidationResult(matchedTag, account, profile, isFriend, isClaimed, claimStatus, actions);
+        return new NfcValidationResult(tag, account, profile, isFriend, isClaimed, claimStatus, actions);
     }
 
     /// <summary>
