@@ -483,7 +483,7 @@ public class PublisherSubscriptionController(
         return Ok(subscription);
     }
 
-    [HttpPatch("{name}/me/notify")]
+    [HttpPatch("{name}/subscription/me/notify")]
     [Authorize]
     public async Task<ActionResult<SnPublisherSubscription>> UpdateMySubscriptionNotify(
         string name,
