@@ -129,7 +129,7 @@ public class PublisherSubscriptionController(
     [Authorize]
     public async Task<ActionResult<SubscriptionStatusResponse>> Subscribe(
         string name,
-        [FromBody] SubscribeRequest request)
+        [FromBody] SubscribeRequest? request = null)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
