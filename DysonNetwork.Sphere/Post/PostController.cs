@@ -264,6 +264,12 @@ public class PostController(
             }
         }
 
+        if (gatekeptPublisherIds != null && gatekeptPublisherIds.Count > 0 && currentUser != null)
+        {
+            gatekeptPublisherIds ??= [];
+            subscriberPublisherIds ??= [];
+        }
+
         query = query.FilterWithVisibility(
             currentUser,
             userFriends,

@@ -418,11 +418,25 @@ public class PublisherSubscriptionService(
         Guid publisherId
     )
     {
-        // Check if a subscription already exists
+        // Check if an active subscription already exists
         var existingSubscription = await GetSubscriptionAsync(accountId, publisherId);
 
         if (existingSubscription != null)
             return existingSubscription;
+
+        // Check if a ended subscription exists - resume it if so
+        var endedSubscription = await GetSubscriptionIncludingEndedAsync(accountId, publisherId);
+        if (endedSubscription != null)
+        {
+            endedSubscription.EndedAt = null;
+            endedSubscription.EndReason = null;
+            endedSubscription.EndedByAccountId = null;
+            endedSubscription.Notify = true;
+            db.PublisherSubscriptions.Update(endedSubscription);
+            await db.SaveChangesAsync();
+            await cache.RemoveAsync(string.Format(PublisherService.SubscribedPublishersCacheKey, accountId));
+            return endedSubscription;
+        }
 
         // Create a new subscription
         var subscription = new SnPublisherSubscription

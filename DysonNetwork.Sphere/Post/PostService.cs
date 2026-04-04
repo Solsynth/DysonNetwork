@@ -2381,6 +2381,7 @@ public static class PostQueryExtensions
 
         if (gatekeptPublisherIds != null && gatekeptPublisherIds.Count > 0 && followerPublisherIds != null)
         {
+            followerPublisherIds ??= [];
             result = result.Where(e =>
                 !(e.PublisherId.HasValue && gatekeptPublisherIds.Contains(e.PublisherId.Value))
                 || e.PublisherId == null

@@ -544,8 +544,7 @@ public class PublisherService(
         var request = await db.PublisherFollowRequests
             .FirstOrDefaultAsync(r =>
                 r.PublisherId == publisherId &&
-                r.AccountId == accountId &&
-                r.State == FollowRequestState.Pending
+                r.AccountId == accountId
             );
 
         if (request != null)
