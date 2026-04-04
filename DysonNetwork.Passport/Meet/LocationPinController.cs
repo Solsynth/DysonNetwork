@@ -44,13 +44,12 @@ public class LocationPinController(
     [HttpPost]
     [Authorize]
     public async Task<ActionResult<SnLocationPin>> CreatePin(
-        [FromHeader(Name = "X-Device-Id")] string deviceId,
         [FromBody] CreatePinRequest request,
         CancellationToken cancellationToken
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        if (string.IsNullOrWhiteSpace(deviceId)) return BadRequest("Device ID is required.");
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         Geometry? location = null;
         if (!string.IsNullOrWhiteSpace(request.LocationWkt))
@@ -71,7 +70,7 @@ public class LocationPinController(
 
         var pin = await locationPinService.CreatePinAsync(
             currentUser.Id,
-            deviceId,
+            currentSession.ClientId!.Value.ToString(),
             request.Visibility,
             request.LocationName,
             request.LocationAddress,
@@ -89,13 +88,12 @@ public class LocationPinController(
     [Authorize]
     public async Task<ActionResult<SnLocationPin>> UpdateLocation(
         Guid id,
-        [FromHeader(Name = "X-Device-Id")] string deviceId,
         [FromBody] UpdateLocationRequest request,
         CancellationToken cancellationToken
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        if (string.IsNullOrWhiteSpace(deviceId)) return BadRequest("Device ID is required.");
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         Geometry? location = null;
         if (!string.IsNullOrWhiteSpace(request.LocationWkt))
@@ -116,7 +114,7 @@ public class LocationPinController(
 
         var pin = await locationPinService.UpdateLocationAsync(
             currentUser.Id,
-            deviceId,
+            currentSession.ClientId!.Value.ToString(),
             location,
             request.LocationName,
             request.LocationAddress,
@@ -135,14 +133,13 @@ public class LocationPinController(
     [Authorize]
     public async Task<ActionResult> RemovePin(
         Guid id,
-        [FromHeader(Name = "X-Device-Id")] string deviceId,
         CancellationToken cancellationToken
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        if (string.IsNullOrWhiteSpace(deviceId)) return BadRequest("Device ID is required.");
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
-        var removed = await locationPinService.RemovePinAsync(currentUser.Id, deviceId, cancellationToken);
+        var removed = await locationPinService.RemovePinAsync(currentUser.Id, currentSession.ClientId!.Value.ToString(), cancellationToken);
         if (!removed)
         {
             return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
@@ -232,17 +229,16 @@ public class LocationPinController(
     [Authorize]
     public async Task<ActionResult> DisconnectPin(
         Guid id,
-        [FromHeader(Name = "X-Device-Id")] string deviceId,
         [FromBody] DisconnectRequest request,
         CancellationToken cancellationToken
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        if (string.IsNullOrWhiteSpace(deviceId)) return BadRequest("Device ID is required.");
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
         await locationPinService.DisconnectPinAsync(
             currentUser.Id,
-            deviceId,
+            currentSession.ClientId!.Value.ToString(),
             request.KeepOnDisconnect,
             cancellationToken
         );
@@ -254,19 +250,12 @@ public class LocationPinController(
     [Authorize]
     public async Task StreamPin(
         Guid id,
-        [FromHeader(Name = "X-Device-Id")] string deviceId,
         CancellationToken cancellationToken
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
         {
             Response.StatusCode = StatusCodes.Status401Unauthorized;
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(deviceId))
-        {
-            Response.StatusCode = StatusCodes.Status400BadRequest;
             return;
         }
 
@@ -311,15 +300,13 @@ public class LocationPinController(
         }
     }
 
-    [HttpGet("my-pins")]
+    [HttpGet("me")]
     [Authorize]
     public async Task<ActionResult<List<SnLocationPin>>> GetMyPins(
-        [FromHeader(Name = "X-Device-Id")] string deviceId,
         CancellationToken cancellationToken
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        if (string.IsNullOrWhiteSpace(deviceId)) return BadRequest("Device ID is required.");
 
         var pins = await locationPinService.ListNearbyPinsAsync(
             currentUser.Id,
