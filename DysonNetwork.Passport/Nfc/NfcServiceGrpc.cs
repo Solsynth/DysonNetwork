@@ -14,8 +14,6 @@ namespace DysonNetwork.Passport.Nfc;
 /// </summary>
 public class NfcServiceGrpc(
     NfcService nfc,
-    AppDatabase db,
-    AccountService accounts,
     RemoteSubscriptionService remoteSubscription,
     RemoteAccountContactService remoteContacts,
     ILogger<NfcServiceGrpc> logger
@@ -35,7 +33,8 @@ public class NfcServiceGrpc(
         {
             // request.UidHex contains the hex-encoded encrypted PICCData
             var uidHex = request.UidHex;
-            if (string.IsNullOrWhiteSpace(uidHex))
+            var tagUid = request.TagUid;
+            if (string.IsNullOrWhiteSpace(uidHex) || string.IsNullOrWhiteSpace(tagUid))
             {
                 response.IsValid = false;
                 response.ErrorCode = "TAG_NOT_FOUND";
@@ -44,7 +43,9 @@ public class NfcServiceGrpc(
 
             var result = await nfc.ValidateSunAsync(
                 uidHex,
-                cancellationToken: context.CancellationToken);
+                tagUid,
+                cancellationToken: context.CancellationToken
+            );
 
             if (result is null)
             {
@@ -109,7 +110,8 @@ public class NfcServiceGrpc(
         try
         {
             var uidHex = request.UidHex;
-            if (string.IsNullOrWhiteSpace(uidHex))
+            var tagUid = request.TagUid;
+            if (string.IsNullOrWhiteSpace(uidHex) || string.IsNullOrWhiteSpace(tagUid))
             {
                 response.IsValid = false;
                 response.ErrorCode = "TAG_NOT_FOUND";
@@ -118,7 +120,9 @@ public class NfcServiceGrpc(
 
             var result = await nfc.ValidateSunAsync(
                 uidHex,
-                cancellationToken: context.CancellationToken);
+                tagUid,
+                cancellationToken: context.CancellationToken
+            );
 
             if (result is null)
             {

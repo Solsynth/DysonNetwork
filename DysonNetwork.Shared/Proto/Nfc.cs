@@ -24,30 +24,31 @@ namespace DysonNetwork.Shared.Proto {
     static NfcReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "CgluZmMucHJvdG8SBXByb3RvGg1hY2NvdW50LnByb3RvIjQKGUR5VmFsaWRh",
-            "dGVOZmNUb2tlblJlcXVlc3QSFwoHdWlkX2hleBgBIAEoCVIGdWlkSGV4IowB",
-            "ChpEeVZhbGlkYXRlTmZjVG9rZW5SZXNwb25zZRIZCghpc192YWxpZBgBIAEo",
-            "CFIHaXNWYWxpZBIdCgphY2NvdW50X2lkGAIgASgJUglhY2NvdW50SWQSFQoG",
-            "dGFnX2lkGAMgASgJUgV0YWdJZBIdCgplcnJvcl9jb2RlGAQgASgJUgllcnJv",
-            "ckNvZGUiMQoWRHlSZXNvbHZlTmZjVGFnUmVxdWVzdBIXCgd1aWRfaGV4GAEg",
-            "ASgJUgZ1aWRIZXgi6QEKF0R5UmVzb2x2ZU5mY1RhZ1Jlc3BvbnNlEhkKCGlz",
-            "X3ZhbGlkGAEgASgIUgdpc1ZhbGlkEioKB2FjY291bnQYAiABKAsyEC5wcm90",
-            "by5EeUFjY291bnRSB2FjY291bnQSMQoHcHJvZmlsZRgDIAEoCzIXLnByb3Rv",
-            "LkR5QWNjb3VudFByb2ZpbGVSB3Byb2ZpbGUSGwoJaXNfZnJpZW5kGAQgASgI",
-            "Ughpc0ZyaWVuZBIYCgdhY3Rpb25zGAUgAygJUgdhY3Rpb25zEh0KCmVycm9y",
-            "X2NvZGUYBiABKAlSCWVycm9yQ29kZTK3AQoMRHlOZmNTZXJ2aWNlElcKEFZh",
-            "bGlkYXRlTmZjVG9rZW4SIC5wcm90by5EeVZhbGlkYXRlTmZjVG9rZW5SZXF1",
-            "ZXN0GiEucHJvdG8uRHlWYWxpZGF0ZU5mY1Rva2VuUmVzcG9uc2USTgoNUmVz",
-            "b2x2ZU5mY1RhZxIdLnByb3RvLkR5UmVzb2x2ZU5mY1RhZ1JlcXVlc3QaHi5w",
-            "cm90by5EeVJlc29sdmVOZmNUYWdSZXNwb25zZUI9Wh9naXQuc29sc3ludGgu",
-            "ZGV2L3Nvc3lzL3NwZWMvZ2VuqgIZRHlzb25OZXR3b3JrLlNoYXJlZC5Qcm90",
-            "b2IGcHJvdG8z"));
+            "CgluZmMucHJvdG8SBXByb3RvGg1hY2NvdW50LnByb3RvIk0KGUR5VmFsaWRh",
+            "dGVOZmNUb2tlblJlcXVlc3QSFwoHdWlkX2hleBgBIAEoCVIGdWlkSGV4EhcK",
+            "B3RhZ191aWQYAiABKAlSBnRhZ1VpZCKMAQoaRHlWYWxpZGF0ZU5mY1Rva2Vu",
+            "UmVzcG9uc2USGQoIaXNfdmFsaWQYASABKAhSB2lzVmFsaWQSHQoKYWNjb3Vu",
+            "dF9pZBgCIAEoCVIJYWNjb3VudElkEhUKBnRhZ19pZBgDIAEoCVIFdGFnSWQS",
+            "HQoKZXJyb3JfY29kZRgEIAEoCVIJZXJyb3JDb2RlIkoKFkR5UmVzb2x2ZU5m",
+            "Y1RhZ1JlcXVlc3QSFwoHdWlkX2hleBgBIAEoCVIGdWlkSGV4EhcKB3RhZ191",
+            "aWQYAiABKAlSBnRhZ1VpZCLpAQoXRHlSZXNvbHZlTmZjVGFnUmVzcG9uc2US",
+            "GQoIaXNfdmFsaWQYASABKAhSB2lzVmFsaWQSKgoHYWNjb3VudBgCIAEoCzIQ",
+            "LnByb3RvLkR5QWNjb3VudFIHYWNjb3VudBIxCgdwcm9maWxlGAMgASgLMhcu",
+            "cHJvdG8uRHlBY2NvdW50UHJvZmlsZVIHcHJvZmlsZRIbCglpc19mcmllbmQY",
+            "BCABKAhSCGlzRnJpZW5kEhgKB2FjdGlvbnMYBSADKAlSB2FjdGlvbnMSHQoK",
+            "ZXJyb3JfY29kZRgGIAEoCVIJZXJyb3JDb2RlMrcBCgxEeU5mY1NlcnZpY2US",
+            "VwoQVmFsaWRhdGVOZmNUb2tlbhIgLnByb3RvLkR5VmFsaWRhdGVOZmNUb2tl",
+            "blJlcXVlc3QaIS5wcm90by5EeVZhbGlkYXRlTmZjVG9rZW5SZXNwb25zZRJO",
+            "Cg1SZXNvbHZlTmZjVGFnEh0ucHJvdG8uRHlSZXNvbHZlTmZjVGFnUmVxdWVz",
+            "dBoeLnByb3RvLkR5UmVzb2x2ZU5mY1RhZ1Jlc3BvbnNlQj1aH2dpdC5zb2xz",
+            "eW50aC5kZXYvc29zeXMvc3BlYy9nZW6qAhlEeXNvbk5ldHdvcmsuU2hhcmVk",
+            "LlByb3RvYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyValidateNfcTokenRequest), global::DysonNetwork.Shared.Proto.DyValidateNfcTokenRequest.Parser, new[]{ "UidHex" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyValidateNfcTokenRequest), global::DysonNetwork.Shared.Proto.DyValidateNfcTokenRequest.Parser, new[]{ "UidHex", "TagUid" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyValidateNfcTokenResponse), global::DysonNetwork.Shared.Proto.DyValidateNfcTokenResponse.Parser, new[]{ "IsValid", "AccountId", "TagId", "ErrorCode" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyResolveNfcTagRequest), global::DysonNetwork.Shared.Proto.DyResolveNfcTagRequest.Parser, new[]{ "UidHex" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyResolveNfcTagRequest), global::DysonNetwork.Shared.Proto.DyResolveNfcTagRequest.Parser, new[]{ "UidHex", "TagUid" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyResolveNfcTagResponse), global::DysonNetwork.Shared.Proto.DyResolveNfcTagResponse.Parser, new[]{ "IsValid", "Account", "Profile", "IsFriend", "Actions", "ErrorCode" }, null, null, null, null)
           }));
     }
@@ -91,6 +92,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public DyValidateNfcTokenRequest(DyValidateNfcTokenRequest other) : this() {
       uidHex_ = other.uidHex_;
+      tagUid_ = other.tagUid_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -112,6 +114,18 @@ namespace DysonNetwork.Shared.Proto {
       }
     }
 
+    /// <summary>Field number for the "tag_uid" field.</summary>
+    public const int TagUidFieldNumber = 2;
+    private string tagUid_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string TagUid {
+      get { return tagUid_; }
+      set {
+        tagUid_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -128,6 +142,7 @@ namespace DysonNetwork.Shared.Proto {
         return true;
       }
       if (UidHex != other.UidHex) return false;
+      if (TagUid != other.TagUid) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -136,6 +151,7 @@ namespace DysonNetwork.Shared.Proto {
     public override int GetHashCode() {
       int hash = 1;
       if (UidHex.Length != 0) hash ^= UidHex.GetHashCode();
+      if (TagUid.Length != 0) hash ^= TagUid.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -158,6 +174,10 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(10);
         output.WriteString(UidHex);
       }
+      if (TagUid.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(TagUid);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -172,6 +192,10 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(10);
         output.WriteString(UidHex);
       }
+      if (TagUid.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(TagUid);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -184,6 +208,9 @@ namespace DysonNetwork.Shared.Proto {
       int size = 0;
       if (UidHex.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(UidHex);
+      }
+      if (TagUid.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(TagUid);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -199,6 +226,9 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.UidHex.Length != 0) {
         UidHex = other.UidHex;
+      }
+      if (other.TagUid.Length != 0) {
+        TagUid = other.TagUid;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -223,6 +253,10 @@ namespace DysonNetwork.Shared.Proto {
             UidHex = input.ReadString();
             break;
           }
+          case 18: {
+            TagUid = input.ReadString();
+            break;
+          }
         }
       }
     #endif
@@ -244,6 +278,10 @@ namespace DysonNetwork.Shared.Proto {
             break;
           case 10: {
             UidHex = input.ReadString();
+            break;
+          }
+          case 18: {
+            TagUid = input.ReadString();
             break;
           }
         }
@@ -598,6 +636,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public DyResolveNfcTagRequest(DyResolveNfcTagRequest other) : this() {
       uidHex_ = other.uidHex_;
+      tagUid_ = other.tagUid_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -619,6 +658,18 @@ namespace DysonNetwork.Shared.Proto {
       }
     }
 
+    /// <summary>Field number for the "tag_uid" field.</summary>
+    public const int TagUidFieldNumber = 2;
+    private string tagUid_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string TagUid {
+      get { return tagUid_; }
+      set {
+        tagUid_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -635,6 +686,7 @@ namespace DysonNetwork.Shared.Proto {
         return true;
       }
       if (UidHex != other.UidHex) return false;
+      if (TagUid != other.TagUid) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -643,6 +695,7 @@ namespace DysonNetwork.Shared.Proto {
     public override int GetHashCode() {
       int hash = 1;
       if (UidHex.Length != 0) hash ^= UidHex.GetHashCode();
+      if (TagUid.Length != 0) hash ^= TagUid.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -665,6 +718,10 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(10);
         output.WriteString(UidHex);
       }
+      if (TagUid.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(TagUid);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -679,6 +736,10 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(10);
         output.WriteString(UidHex);
       }
+      if (TagUid.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(TagUid);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -691,6 +752,9 @@ namespace DysonNetwork.Shared.Proto {
       int size = 0;
       if (UidHex.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(UidHex);
+      }
+      if (TagUid.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(TagUid);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -706,6 +770,9 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.UidHex.Length != 0) {
         UidHex = other.UidHex;
+      }
+      if (other.TagUid.Length != 0) {
+        TagUid = other.TagUid;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -730,6 +797,10 @@ namespace DysonNetwork.Shared.Proto {
             UidHex = input.ReadString();
             break;
           }
+          case 18: {
+            TagUid = input.ReadString();
+            break;
+          }
         }
       }
     #endif
@@ -751,6 +822,10 @@ namespace DysonNetwork.Shared.Proto {
             break;
           case 10: {
             UidHex = input.ReadString();
+            break;
+          }
+          case 18: {
+            TagUid = input.ReadString();
             break;
           }
         }
