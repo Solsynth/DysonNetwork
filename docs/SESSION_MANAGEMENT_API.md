@@ -2,58 +2,118 @@
 
 ## Overview
 
-Improvements to session management endpoints in `AccountSecurityController` for better clarity and client-side session identification.
+Improvements to session management endpoints in `AccountSecurityController` for better clarity, filtering, and pagination.
 
 ## Changes
 
 ### GET /api/sessions
 
-**Improvement**: Added `IsCurrent` flag to session responses.
+**Improvement**: Returns full `SnAuthSession` entity directly (removed `SessionResponse` DTO wrapper), added filtering options.
 
-Previously, clients had to rely on the `X-Auth-Session` response header to identify the current session. Now, each session object in the list explicitly indicates whether it represents the active session.
+**Query Parameters**:
+- `take` (int, default: 20) - Number of sessions to return
+- `offset` (int, default: 0) - Number of sessions to skip
+- `type` (SessionType?, optional) - Filter by session type (Login, OAuth, Oidc)
+- `clientId` (Guid?, optional) - Filter by client/device ID
+
+**Response Headers**:
+- `X-Auth-Session`: Current session ID
+- `X-Total`: Total count of sessions matching filters
 
 **Before**:
 ```json
-{
-  "id": "...",
-  "type": 0,
-  "lastGrantedAt": "...",
-  "expiredAt": null,
-  "ipAddress": "...",
-  "userAgent": "...",
-  "clientId": "..."
-}
+[
+  {
+    "id": "...",
+    "type": 0,
+    "lastGrantedAt": "...",
+    "expiredAt": null,
+    "ipAddress": "...",
+    "userAgent": "...",
+    "clientId": "...",
+    "isCurrent": true
+  }
+]
 ```
 
 **After**:
 ```json
-{
-  "id": "...",
-  "type": 0,
-  "lastGrantedAt": "...",
-  "expiredAt": null,
-  "ipAddress": "...",
-  "userAgent": "...",
-  "clientId": "...",
-  "isCurrent": true
-}
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "type": 0,
+    "lastGrantedAt": "2024-01-15T10:30:00Z",
+    "expiredAt": null,
+    "audiences": ["padlock"],
+    "scopes": ["read", "write"],
+    "ipAddress": "192.168.1.1",
+    "userAgent": "Mozilla/5.0...",
+    "location": null,
+    "accountId": "...",
+    "clientId": "...",
+    "parentSessionId": null,
+    "challengeId": null,
+    "appId": null,
+    "createdAt": "2024-01-15T10:30:00Z",
+    "updatedAt": "2024-01-15T10:30:00Z",
+    "deletedAt": null
+  }
+]
 ```
 
-**Response Record** (`SessionResponse`):
+**Response Fields** (`SnAuthSession`):
 - `Id`: Session identifier
-- `Type`: Session type (Login, OAuth, Oidc)
+- `Type`: Session type (0=Login, 1=OAuth, 2=Oidc)
 - `LastGrantedAt`: Last time session was refreshed
 - `ExpiredAt`: Expiration timestamp (null if active)
+- `Audiences`: List of audiences
+- `Scopes`: List of scopes
 - `IpAddress`: Client IP address
 - `UserAgent`: Client user agent string
+- `Location`: Geo location (if available)
+- `AccountId`: Account ID
 - `ClientId`: Associated device/client ID
-- `IsCurrent`: True if this session matches the current request's session
+- `ParentSessionId`: Parent session ID (for OAuth/Oidc)
+- `ChallengeId`: Challenge ID
+- `AppId`: App ID (for OIDC connections)
+- `CreatedAt`: Creation timestamp
+- `UpdatedAt`: Last update timestamp
+- `DeletedAt`: Deletion timestamp (null if active)
+
+**Example**:
+```
+GET /api/sessions?take=20&offset=0&type=0
+GET /api/sessions?take=10&offset=10&clientId=550e8400-e29b-41d4-a716-446655440000
+```
+
+---
 
 ### GET /api/devices
 
-**Improvement**: Renamed internal variable from `challenge` to `sessionsByClientId` for clarity.
+**Improvement**: Added pagination support.
 
-The variable name now accurately reflects its purpose - a dictionary mapping client IDs to their associated sessions.
+**Query Parameters**:
+- `take` (int, default: 20) - Number of devices to return
+- `offset` (int, default: 0) - Number of devices to skip
+
+**Response Headers**:
+- `X-Auth-Session`: Current session ID
+- `X-Total`: Total count of devices
+
+**Example**:
+```
+GET /api/devices?take=10&offset=0
+```
+
+---
+
+### GET /api/devices (Previously)
+
+No filters or pagination - returned all devices and their sessions.
+
+**After**: Supports pagination and filtering via query parameters.
+
+---
 
 ## Bug Fixes
 
@@ -80,8 +140,10 @@ This constant is used across:
 - `DysonNetwork.Padlock.Auth.OidcProvider.Services.OidcProviderService`
 - `DysonNetwork.Padlock.Account.AccountService`
 
+---
+
 ## Notes
 
-- Pagination for sessions remains unchanged (`take`, `offset` query parameters)
-- `X-Auth-Session` header still included for backwards compatibility
-- `X-Total` header still included for pagination UI
+- `X-Auth-Session` header included for identifying current session
+- `X-Total` header included for pagination UI
+- Session type enum: `0 = Login`, `1 = OAuth`, `2 = Oidc`

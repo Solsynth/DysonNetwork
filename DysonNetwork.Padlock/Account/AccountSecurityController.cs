@@ -27,17 +27,6 @@ public class AccountSecurityController(
         NodaTime.Instant? LastUsedAt
     );
 
-    public record SessionResponse(
-        Guid Id,
-        SessionType Type,
-        NodaTime.Instant? LastGrantedAt,
-        NodaTime.Instant? ExpiredAt,
-        string? IpAddress,
-        string? UserAgent,
-        Guid? ClientId,
-        bool IsCurrent
-    );
-
     [HttpGet("identity")]
     public async Task<ActionResult<SnAccount>> GetCurrentIdentity()
     {
@@ -173,36 +162,7 @@ public class AccountSecurityController(
     }
 
     [HttpGet("devices")]
-    public async Task<ActionResult<List<SnAuthClientWithSessions>>> GetDevices()
-    {
-        if (
-            HttpContext.Items["CurrentUser"] is not SnAccount currentUser
-            || HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession
-        )
-            return Unauthorized();
-
-        Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
-
-        var devices = await db
-            .AuthClients.Where(device => device.AccountId == currentUser.Id && device.DeletedAt == null)
-            .ToListAsync();
-
-        var sessionDevices = devices.ConvertAll(SnAuthClientWithSessions.FromClient).ToList();
-        var clientIds = sessionDevices.Select(x => x.Id).ToList();
-
-        var sessionsByClientId = await db
-            .AuthSessions.Where(s => s.ClientId != null && clientIds.Contains(s.ClientId.Value))
-            .GroupBy(s => s.ClientId!.Value)
-            .ToDictionaryAsync(g => g.Key, g => g.ToList());
-        foreach (var device in sessionDevices)
-            if (sessionsByClientId.TryGetValue(device.Id, out var sessions))
-                device.Sessions = sessions;
-
-        return Ok(sessionDevices);
-    }
-
-    [HttpGet("sessions")]
-    public async Task<ActionResult<List<SessionResponse>>> GetSessions(
+    public async Task<ActionResult<List<SnAuthClientWithSessions>>> GetDevices(
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0
     )
@@ -213,26 +173,69 @@ public class AccountSecurityController(
         )
             return Unauthorized();
 
+        Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
+
+        var baseQuery = db.AuthClients.Where(device => device.AccountId == currentUser.Id && device.DeletedAt == null);
+
+        var total = await baseQuery.CountAsync();
+        Response.Headers.Append("X-Total", total.ToString());
+
+        var devices = await baseQuery
+            .OrderByDescending(d => d.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        var sessionDevices = devices.ConvertAll(SnAuthClientWithSessions.FromClient).ToList();
+        var clientIds = sessionDevices.Select(x => x.Id).ToList();
+
+        if (clientIds.Count > 0)
+        {
+            var sessionsByClientId = await db
+                .AuthSessions.Where(s => clientIds.Contains(s.ClientId!.Value))
+                .GroupBy(s => s.ClientId!.Value)
+                .ToDictionaryAsync(g => g.Key, g => g.ToList());
+            foreach (var device in sessionDevices)
+                if (sessionsByClientId.TryGetValue(device.Id, out var sessions))
+                    device.Sessions = sessions;
+        }
+
+        return Ok(sessionDevices);
+    }
+
+    [HttpGet("sessions")]
+    public async Task<ActionResult<List<SnAuthSession>>> GetSessions(
+        [FromQuery] int take = 20,
+        [FromQuery] int offset = 0,
+        [FromQuery] SessionType? type = null,
+        [FromQuery] Guid? clientId = null
+    )
+    {
+        if (
+            HttpContext.Items["CurrentUser"] is not SnAccount currentUser
+            || HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession
+        )
+            return Unauthorized();
+
         var query = db
-            .AuthSessions.OrderByDescending(x => x.LastGrantedAt)
-            .Where(session => session.AccountId == currentUser.Id);
+            .AuthSessions.Where(session => session.AccountId == currentUser.Id);
+
+        if (type.HasValue)
+            query = query.Where(session => session.Type == type.Value);
+
+        if (clientId.HasValue)
+            query = query.Where(session => session.ClientId == clientId.Value);
 
         var total = await query.CountAsync();
         Response.Headers.Append("X-Total", total.ToString());
         Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
 
-        var sessions = await query.Skip(offset).Take(take).ToListAsync();
-        var response = sessions.Select(s => new SessionResponse(
-            s.Id,
-            s.Type,
-            s.LastGrantedAt,
-            s.ExpiredAt,
-            s.IpAddress,
-            s.UserAgent,
-            s.ClientId,
-            s.Id == currentSession.Id
-        )).ToList();
-        return Ok(response);
+        var sessions = await query
+            .OrderByDescending(x => x.LastGrantedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+        return Ok(sessions);
     }
 
     [HttpDelete("sessions/{id:guid}")]
