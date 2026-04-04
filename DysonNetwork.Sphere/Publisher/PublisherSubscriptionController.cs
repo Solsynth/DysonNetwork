@@ -94,7 +94,7 @@ public class PublisherSubscriptionController(
             response.Subscription = subscription;
             response.IsActive = subscription.IsActive;
             response.Status = subscription.IsActive ? "subscribed" : "ended";
-            response.Message = subscription.IsActive 
+            response.Message = subscription.IsActive
                 ? "You are subscribed to this publisher"
                 : "Your subscription has ended";
         }
@@ -466,6 +466,28 @@ public class PublisherSubscriptionController(
             if (!await pub.IsMemberWithRole(publisher.Id, subscriberAccountId, PublisherMemberRole.Manager))
                 return Forbid();
         }
+
+        var subscription = await subs.UpdateSubscriberNotifyAsync(accountId, publisher.Id, request.Notify);
+        if (subscription == null)
+            return NotFound("Subscription not found");
+
+        return Ok(subscription);
+    }
+
+    [HttpPatch("{name}/me/notify")]
+    [Authorize]
+    public async Task<ActionResult<SnPublisherSubscription>> UpdateMySubscriptionNotify(
+        string name,
+        [FromBody] UpdateNotifyRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        if (publisher == null)
+            return NotFound("Publisher not found");
+
+        var accountId = Guid.Parse(currentUser.Id);
 
         var subscription = await subs.UpdateSubscriberNotifyAsync(accountId, publisher.Id, request.Notify);
         if (subscription == null)

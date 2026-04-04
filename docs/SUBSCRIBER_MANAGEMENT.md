@@ -154,10 +154,10 @@ DELETE /api/publishers/{name}/subscribers/{accountId}
 
 ### Update Notify Setting
 
-Toggle notification preference for a subscriber.
+Toggle notification preference for your own subscription.
 
 ```http
-PATCH /api/publishers/{name}/subscribers/{accountId}/notify
+PATCH /api/publishers/{name}/me/notify
 Content-Type: application/json
 
 {
@@ -165,7 +165,7 @@ Content-Type: application/json
 }
 ```
 
-**Authorization**: The subscriber themselves OR Manager+ role
+**Authorization**: Authenticated user (updates own subscription)
 
 **Response:**
 ```json
