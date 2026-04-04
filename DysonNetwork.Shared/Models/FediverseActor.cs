@@ -81,6 +81,12 @@ public class SnFediverseActor : ModelBase
     [JsonPropertyName("is_discoverable")]
     public bool IsDiscoverable { get; set; } = true;
 
+    [JsonPropertyName("is_community")]
+    public bool IsCommunity { get; set; } = false;
+
+    [JsonPropertyName("realm_id")]
+    public Guid? RealmId { get; set; }
+
     [JsonPropertyName("instance_id")]
     public Guid InstanceId { get; set; }
 

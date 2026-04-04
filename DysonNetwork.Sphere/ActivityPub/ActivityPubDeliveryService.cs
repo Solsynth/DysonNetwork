@@ -759,7 +759,7 @@ public class ActivityPubDeliveryService(
         return stats;
     }
 
-    private async Task<bool> EnqueueActivityDeliveryAsync(
+    public async Task<bool> EnqueueActivityDeliveryAsync(
         string activityType,
         Dictionary<string, object> activity,
         string actorUri,

@@ -11,12 +11,14 @@
 
 - [FEP-67ff: FEDERATION.md](https://codeberg.org/fediverse/fep/src/branch/main/fep/67ff/fep-67ff.md)
 - [FEP-c0e0: Emoji reactions](https://fediverse.codeberg.page/fep/fep/c0e0/) (Draft)
+- [FEP-1b12: Group federation](https://fediverse.codeberg.page/fep/fep/1b12/) (Communities/Forums)
 
 ## ActivityPub
 
 ### Actors
 
 - `Person` - User actors with inbox/outbox
+- `Group` - Community actors for federated forums (FEP-1b12)
 - Supports actor discovery via WebFinger
 - Actor endpoints: `/activitypub/actors/{name}`, `/activitypub/actors/{name}/inbox`, `/activitypub/actors/{name}/outbox`, `/activitypub/actors/{name}/followers`, `/activitypub/actors/{name}/following`
 

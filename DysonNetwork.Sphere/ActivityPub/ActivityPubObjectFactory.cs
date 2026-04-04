@@ -1,11 +1,12 @@
 using System.Text;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Registry;
 using Markdig;
 using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
-public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase db)
+public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase db, RemoteRealmService? realmService = null)
 {
     public static readonly string PublicTo = "https://www.w3.org/ns/activitystreams#Public";
 
@@ -91,6 +92,21 @@ public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase 
                 ["url"] = $"{assetsBaseUrl}/{a.Id}"
             }).ToList<object>()
         };
+
+        if (post.RealmId.HasValue && realmService != null)
+        {
+            try
+            {
+                var realm = await realmService.GetRealm(post.RealmId.Value.ToString());
+                if (realm != null && realm.IsCommunity)
+                {
+                    postObject["audience"] = $"https://{baseDomain}/activitypub/realms/{realm.Slug}";
+                }
+            }
+            catch
+            {
+            }
+        }
 
         // The post's replied post is ensure loaded above, so we directly using it here
         if (post.RepliedPost != null)

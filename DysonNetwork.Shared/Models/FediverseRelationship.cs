@@ -21,6 +21,8 @@ public class SnFediverseRelationship : ModelBase
     public Instant? FollowedBackAt { get; set; }
 
     [MaxLength(4096)] public string? RejectReason { get; set; }
+
+    public Guid? RealmId { get; set; }
 }
 
 public enum RelationshipState
