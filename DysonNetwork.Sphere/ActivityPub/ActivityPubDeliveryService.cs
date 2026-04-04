@@ -387,13 +387,18 @@ public class ActivityPubDeliveryService(
         var postUrl = $"https://{Domain}/posts/{postId}";
         var activityId = $"{actorUrl}/likes/{Guid.NewGuid()}";
 
+        var post = await db.Posts.FindAsync(postId);
+        if (post == null) return false;
+
+        var postObject = await objFactory.CreatePostObject(post, actorUrl);
+
         var activity = new Dictionary<string, object>
         {
             ["@context"] = "https://www.w3.org/ns/activitystreams",
             ["id"] = activityId,
             ["type"] = "Like",
             ["actor"] = actor.Uri,
-            ["object"] = postUrl,
+            ["object"] = postObject,
             ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
             ["cc"] = new[] { $"{actorUrl}/followers", postSenderActor.Uri, postSenderActor.FollowersUri }
         };
@@ -420,6 +425,11 @@ public class ActivityPubDeliveryService(
         var postUrl = $"https://{Domain}/posts/{postId}";
         var activityId = $"{actorUrl}/undo/{Guid.NewGuid()}";
 
+        var post = await db.Posts.FindAsync(postId);
+        if (post == null) return false;
+
+        var postObject = await objFactory.CreatePostObject(post, actorUrl);
+
         var activity = new Dictionary<string, object>
         {
             ["@context"] = "https://www.w3.org/ns/activitystreams",
@@ -429,7 +439,7 @@ public class ActivityPubDeliveryService(
             ["object"] = new Dictionary<string, object>
             {
                 ["type"] = "Like",
-                ["object"] = postUrl
+                ["object"] = postObject
             },
             ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
             ["cc"] = new[] { $"{actorUrl}/followers", postSenderActor.Uri, postSenderActor.FollowersUri }
@@ -573,6 +583,11 @@ public class ActivityPubDeliveryService(
         if (targetActor?.InboxUri == null)
             return false;
 
+        var post = await db.Posts.FindAsync(postId);
+        if (post == null) return false;
+
+        var postObject = await objFactory.CreatePostObject(post, actorUrl);
+
         var activityId = $"{actorUrl}/likes/{Guid.NewGuid()}";
         var activity = new Dictionary<string, object>
         {
@@ -580,7 +595,7 @@ public class ActivityPubDeliveryService(
             ["id"] = activityId,
             ["type"] = "Like",
             ["actor"] = actorUrl,
-            ["object"] = postUrl
+            ["object"] = postObject
         };
 
         return await EnqueueActivityDeliveryAsync("Like", activity, actorUrl, targetActor.InboxUri, activityId);
