@@ -128,14 +128,14 @@ public class FediverseActorController(
         // Get post counts for all actors from local DB
         var actorIds = remoteActors.Select(a => a.Id).ToList();
         var actorUris = remoteActors.Where(a => a.Uri != null).Select(a => a.Uri!).ToList();
-        
+
         // Get post counts by ActorId
         var postCountList = await db.Posts
             .Where(p => p.ActorId != null && actorIds.Contains(p.ActorId.Value))
             .GroupBy(p => p.ActorId!.Value)
             .Select(g => new { ActorId = g.Key, Count = g.Count() })
             .ToListAsync();
-        
+
         // Get post counts by Actor Uri (for actors where posts use Uri instead of ID)
         var postsByUri = await db.Posts
             .Include(p => p.Actor)
@@ -143,7 +143,7 @@ public class FediverseActorController(
             .GroupBy(p => p.Actor!.Uri!)
             .Select(g => new { ActorUri = g.Key, Count = g.Count() })
             .ToListAsync();
-        
+
         var postCountDict = new Dictionary<Guid, int>();
         foreach (var item in postCountList)
         {
@@ -163,7 +163,7 @@ public class FediverseActorController(
             var localPostCount = postCountDict.GetValueOrDefault(actor.Id, 0);
             // Use remote total if available, otherwise use local count
             actor.PostCount = actor.TotalPostCount ?? localPostCount;
-            
+
             actorList.Add(actor);
 
             cachedActors.Add(
@@ -258,7 +258,7 @@ public class FediverseActorController(
 
         // Build set of URIs to exclude (both FediverseUri and ActivityPubUri for local posts/boosts)
         var localUris = new HashSet<string>();
-        
+
         // Include all local post URIs (both FediverseUri and direct ID matching)
         foreach (var p in posts)
         {
@@ -267,7 +267,7 @@ public class FediverseActorController(
             // Also add by ID for posts that might be referenced differently
             localUris.Add(p.Id.ToString());
         }
-        
+
         // Include all boost URIs
         foreach (var b in boosts)
         {
@@ -348,7 +348,7 @@ public class FediverseActorController(
             var uri = r.FediverseUri ?? r.WebUrl ?? "";
             if (string.IsNullOrEmpty(uri) || localUris.Contains(uri) || seenRemoteUris.Contains(uri))
                 continue;
-            
+
             seenRemoteUris.Add(uri);
             var postResponse = r.ToPostResponse(actor);
             remotePostResponses.Add(postResponse);
@@ -1119,8 +1119,7 @@ public class FediverseActorController(
     [Authorize]
     public async Task<ActionResult> FollowActor(Guid id)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
-        if (currentUser == null)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -1161,8 +1160,7 @@ public class FediverseActorController(
     [Authorize]
     public async Task<ActionResult> UnfollowActor(Guid id)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
-        if (currentUser == null)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
