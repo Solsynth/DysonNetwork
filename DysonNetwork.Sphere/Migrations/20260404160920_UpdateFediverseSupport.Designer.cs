@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
-using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Sphere;
 using Microsoft.EntityFrameworkCore;
@@ -17,8 +16,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20260404152249_QuoteAuthorization")]
-    partial class QuoteAuthorization
+    [Migration("20260404160920_UpdateFediverseSupport")]
+    partial class UpdateFediverseSupport
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -29,402 +28,6 @@ namespace DysonNetwork.Sphere.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnAccountAuthFactor", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("account_id");
-
-                    b.Property<Dictionary<string, object>>("Config")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("config");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Instant?>("EnabledAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("enabled_at");
-
-                    b.Property<Instant?>("ExpiredAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expired_at");
-
-                    b.Property<string>("Secret")
-                        .HasMaxLength(8196)
-                        .HasColumnType("character varying(8196)")
-                        .HasColumnName("secret");
-
-                    b.Property<int>("Trustworthy")
-                        .HasColumnType("integer")
-                        .HasColumnName("trustworthy");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasColumnName("type");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_sn_account_auth_factor");
-
-                    b.ToTable("sn_account_auth_factor", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnAccountBadge", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("account_id");
-
-                    b.Property<Instant?>("ActivatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("activated_at");
-
-                    b.Property<string>("Caption")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("caption");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Instant?>("ExpiredAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expired_at");
-
-                    b.Property<string>("Label")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("label");
-
-                    b.Property<Dictionary<string, object>>("Meta")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("meta");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("type");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_sn_account_badge");
-
-                    b.ToTable("sn_account_badge", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnAccountConnection", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("AccessToken")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("access_token");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("account_id");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Instant?>("LastUsedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_used_at");
-
-                    b.Property<Dictionary<string, object>>("Meta")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("meta");
-
-                    b.Property<string>("ProvidedIdentifier")
-                        .IsRequired()
-                        .HasMaxLength(8192)
-                        .HasColumnType("character varying(8192)")
-                        .HasColumnName("provided_identifier");
-
-                    b.Property<string>("Provider")
-                        .IsRequired()
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("provider");
-
-                    b.Property<string>("RefreshToken")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("refresh_token");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_sn_account_connection");
-
-                    b.ToTable("sn_account_connection", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnAccountContact", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("account_id");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("content");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<bool>("IsPrimary")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_primary");
-
-                    b.Property<bool>("IsPublic")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_public");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasColumnName("type");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<Instant?>("VerifiedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("verified_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_sn_account_contact");
-
-                    b.ToTable("sn_account_contact", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnAccountProfile", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("account_id");
-
-                    b.Property<SnAccountBadgeRef>("ActiveBadge")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("active_badge");
-
-                    b.Property<SnCloudFileReferenceObject>("Background")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("background");
-
-                    b.Property<string>("Bio")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("bio");
-
-                    b.Property<Instant?>("Birthday")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("birthday");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<int>("Experience")
-                        .HasColumnType("integer")
-                        .HasColumnName("experience");
-
-                    b.Property<string>("FirstName")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("first_name");
-
-                    b.Property<string>("Gender")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("gender");
-
-                    b.Property<string>("LastName")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("last_name");
-
-                    b.Property<Instant?>("LastSeenAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_seen_at");
-
-                    b.Property<List<SnProfileLink>>("Links")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("links");
-
-                    b.Property<string>("Location")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("location");
-
-                    b.Property<string>("MiddleName")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("middle_name");
-
-                    b.Property<SnCloudFileReferenceObject>("Picture")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("picture");
-
-                    b.Property<string>("Pronouns")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("pronouns");
-
-                    b.Property<double>("SocialCredits")
-                        .HasColumnType("double precision")
-                        .HasColumnName("social_credits");
-
-                    b.Property<string>("TimeZone")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("time_zone");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<UsernameColor>("UsernameColor")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("username_color");
-
-                    b.Property<SnVerificationMark>("Verification")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("verification");
-
-                    b.HasKey("Id")
-                        .HasName("pk_sn_account_profile");
-
-                    b.ToTable("sn_account_profile", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnAccountStatus", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("account_id");
-
-                    b.Property<string>("AppIdentifier")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("app_identifier");
-
-                    b.Property<int>("Attitude")
-                        .HasColumnType("integer")
-                        .HasColumnName("attitude");
-
-                    b.Property<Instant?>("ClearedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("cleared_at");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<bool>("IsAutomated")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_automated");
-
-                    b.Property<string>("Label")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("label");
-
-                    b.Property<Dictionary<string, object>>("Meta")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("meta");
-
-                    b.Property<string>("Symbol")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("symbol");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasColumnName("type");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_sn_account_status");
-
-                    b.ToTable("sn_account_status", (string)null);
-                });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnActivityPubDelivery", b =>
                 {
@@ -507,237 +110,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasName("pk_activity_pub_deliveries");
 
                     b.ToTable("activity_pub_deliveries", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnAuthChallenge", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("account_id");
-
-                    b.PrimitiveCollection<string>("Audiences")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("audiences");
-
-                    b.PrimitiveCollection<string>("BlacklistFactors")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("blacklist_factors");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("DeviceId")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasColumnName("device_id");
-
-                    b.Property<string>("DeviceName")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("device_name");
-
-                    b.Property<Instant?>("ExpiredAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expired_at");
-
-                    b.Property<int>("FailedAttempts")
-                        .HasColumnType("integer")
-                        .HasColumnName("failed_attempts");
-
-                    b.Property<string>("IpAddress")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("ip_address");
-
-                    b.Property<GeoPoint>("Location")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("location");
-
-                    b.Property<string>("Nonce")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("nonce");
-
-                    b.Property<int>("Platform")
-                        .HasColumnType("integer")
-                        .HasColumnName("platform");
-
-                    b.PrimitiveCollection<string>("Scopes")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("scopes");
-
-                    b.Property<int>("StepRemain")
-                        .HasColumnType("integer")
-                        .HasColumnName("step_remain");
-
-                    b.Property<int>("StepTotal")
-                        .HasColumnType("integer")
-                        .HasColumnName("step_total");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UserAgent")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasColumnName("user_agent");
-
-                    b.HasKey("Id")
-                        .HasName("pk_sn_auth_challenge");
-
-                    b.ToTable("sn_auth_challenge", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnAuthClient", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("account_id");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("DeviceId")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("device_id");
-
-                    b.Property<string>("DeviceLabel")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("device_label");
-
-                    b.Property<string>("DeviceName")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("device_name");
-
-                    b.Property<int>("Platform")
-                        .HasColumnType("integer")
-                        .HasColumnName("platform");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_sn_auth_client");
-
-                    b.ToTable("sn_auth_client", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnAuthSession", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("account_id");
-
-                    b.Property<Guid?>("AppId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("app_id");
-
-                    b.PrimitiveCollection<string>("Audiences")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("audiences");
-
-                    b.Property<Guid?>("ChallengeId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("challenge_id");
-
-                    b.Property<Guid?>("ClientId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("client_id");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Instant?>("ExpiredAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expired_at");
-
-                    b.Property<string>("IpAddress")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("ip_address");
-
-                    b.Property<Instant?>("LastGrantedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_granted_at");
-
-                    b.Property<GeoPoint>("Location")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("location");
-
-                    b.Property<Guid?>("ParentSessionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("parent_session_id");
-
-                    b.PrimitiveCollection<string>("Scopes")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("scopes");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasColumnName("type");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UserAgent")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasColumnName("user_agent");
-
-                    b.HasKey("Id")
-                        .HasName("pk_sn_auth_session");
-
-                    b.HasIndex("ClientId")
-                        .HasDatabaseName("ix_sn_auth_session_client_id");
-
-                    b.HasIndex("ParentSessionId")
-                        .HasDatabaseName("ix_sn_auth_session_parent_session_id");
-
-                    b.ToTable("sn_auth_session", (string)null);
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnAutomodRule", b =>
@@ -2677,150 +2049,18 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnName("updated_at");
 
                     b.HasKey("Id")
-                        .HasName("pk_sn_quote_authorization");
+                        .HasName("pk_quote_authorizations");
 
                     b.HasIndex("AuthorId")
-                        .HasDatabaseName("ix_sn_quote_authorization_author_id");
+                        .HasDatabaseName("ix_quote_authorizations_author_id");
 
                     b.HasIndex("QuotePostId")
-                        .HasDatabaseName("ix_sn_quote_authorization_quote_post_id");
+                        .HasDatabaseName("ix_quote_authorizations_quote_post_id");
 
                     b.HasIndex("TargetPostId")
-                        .HasDatabaseName("ix_sn_quote_authorization_target_post_id");
+                        .HasDatabaseName("ix_quote_authorizations_target_post_id");
 
-                    b.ToTable("sn_quote_authorization", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnRealm", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("account_id");
-
-                    b.Property<SnCloudFileReferenceObject>("Background")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("background");
-
-                    b.Property<decimal>("BoostPoints")
-                        .HasColumnType("numeric")
-                        .HasColumnName("boost_points");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("description");
-
-                    b.Property<bool>("IsCommunity")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_community");
-
-                    b.Property<bool>("IsPublic")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_public");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("name");
-
-                    b.Property<SnCloudFileReferenceObject>("Picture")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("picture");
-
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("slug");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<SnVerificationMark>("Verification")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("verification");
-
-                    b.HasKey("Id")
-                        .HasName("pk_sn_realm");
-
-                    b.HasIndex("Slug")
-                        .IsUnique()
-                        .HasDatabaseName("ix_sn_realm_slug");
-
-                    b.ToTable("sn_realm", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnRealmLabel", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Color")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("color");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid>("CreatedByAccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_account_id");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("description");
-
-                    b.Property<string>("Icon")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("icon");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("name");
-
-                    b.Property<Guid>("RealmId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("realm_id");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_sn_realm_label");
-
-                    b.HasIndex("RealmId")
-                        .HasDatabaseName("ix_sn_realm_label_realm_id");
-
-                    b.ToTable("sn_realm_label", (string)null);
+                    b.ToTable("quote_authorizations", (string)null);
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnSticker", b =>
@@ -3020,23 +2260,6 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("post_tag_links", (string)null);
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnAuthSession", b =>
-                {
-                    b.HasOne("DysonNetwork.Shared.Models.SnAuthClient", "Client")
-                        .WithMany()
-                        .HasForeignKey("ClientId")
-                        .HasConstraintName("fk_sn_auth_session_sn_auth_client_client_id");
-
-                    b.HasOne("DysonNetwork.Shared.Models.SnAuthSession", "ParentSession")
-                        .WithMany()
-                        .HasForeignKey("ParentSessionId")
-                        .HasConstraintName("fk_sn_auth_session_sn_auth_session_parent_session_id");
-
-                    b.Navigation("Client");
-
-                    b.Navigation("ParentSession");
-                });
-
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnBoost", b =>
                 {
                     b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "Actor")
@@ -3183,7 +2406,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .WithMany()
                         .HasForeignKey("QuoteAuthorizationId")
                         .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_posts_sn_quote_authorization_quote_authorization_id");
+                        .HasConstraintName("fk_posts_quote_authorizations_quote_authorization_id");
 
                     b.HasOne("DysonNetwork.Shared.Models.SnPost", "RepliedPost")
                         .WithMany()
@@ -3329,37 +2552,25 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasForeignKey("AuthorId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_sn_quote_authorization_fediverse_actors_author_id");
+                        .HasConstraintName("fk_quote_authorizations_fediverse_actors_author_id");
 
                     b.HasOne("DysonNetwork.Shared.Models.SnPost", "QuotePost")
                         .WithMany()
                         .HasForeignKey("QuotePostId")
                         .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_sn_quote_authorization_posts_quote_post_id");
+                        .HasConstraintName("fk_quote_authorizations_posts_quote_post_id");
 
                     b.HasOne("DysonNetwork.Shared.Models.SnPost", "TargetPost")
                         .WithMany()
                         .HasForeignKey("TargetPostId")
                         .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_sn_quote_authorization_posts_target_post_id");
+                        .HasConstraintName("fk_quote_authorizations_posts_target_post_id");
 
                     b.Navigation("Author");
 
                     b.Navigation("QuotePost");
 
                     b.Navigation("TargetPost");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnRealmLabel", b =>
-                {
-                    b.HasOne("DysonNetwork.Shared.Models.SnRealm", "Realm")
-                        .WithMany("Labels")
-                        .HasForeignKey("RealmId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_sn_realm_label_sn_realm_realm_id");
-
-                    b.Navigation("Realm");
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnSticker", b =>
@@ -3488,11 +2699,6 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Posts");
 
                     b.Navigation("Subscriptions");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnRealm", b =>
-                {
-                    b.Navigation("Labels");
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.StickerPack", b =>

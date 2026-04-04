@@ -73,6 +73,22 @@ public class AppDatabase(
         modelBuilder.Ignore<SnRealmMember>();
         modelBuilder.Ignore<SnCloudFileReferenceObject>();
 
+        modelBuilder.Ignore<SnAccountProfile>();
+        modelBuilder.Ignore<SnAccountContact>();
+        modelBuilder.Ignore<SnAccountBadge>();
+        modelBuilder.Ignore<SnAccountAuthFactor>();
+        modelBuilder.Ignore<SnAccountConnection>();
+        modelBuilder.Ignore<SnAccountStatus>();
+
+        modelBuilder.Ignore<SnAuthSession>();
+        modelBuilder.Ignore<SnAuthChallenge>();
+        modelBuilder.Ignore<SnAuthClient>();
+
+        modelBuilder.Ignore<SnRealm>();
+        modelBuilder.Ignore<SnRealmLabel>();
+        modelBuilder.Ignore<SnRealmBoostContribution>();
+        modelBuilder.Ignore<SnRealmExperienceRecord>();
+
         modelBuilder.Entity<SnPublisherMember>()
             .HasKey(pm => new { pm.PublisherId, pm.AccountId });
         modelBuilder.Entity<SnPublisherMember>()

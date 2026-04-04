@@ -18,6 +18,12 @@ This document summarizes all changes made to the ActivityPub/Fediverse implement
 10. [Fediverse Availability](#10-fediverse-availability)
 11. [Stats Fetching Improvements](#11-stats-fetching-improvements)
 12. [Remote Post Attachments](#12-remote-post-attachments)
+13. [Like Action Fix](#13-like-action-fix)
+14. [Emoji Reactions (FEP-c0e0)](#14-emoji-reactions-fep-c0e0)
+15. [NodeInfo Endpoints](#15-nodeinfo-endpoints)
+16. [Group Federation (FEP-1b12)](#16-group-federation-fep-1b12)
+17. [Media Attachments (FEP-1311)](#17-media-attachments-fep-1311)
+18. [Quote Authorization (FEP-044f)](#18-quote-authorization-fep-044f)
 
 ---
 
@@ -482,4 +488,311 @@ if (postObj["attachment"] is JsonElement attachArray && attachArray.ValueKind ==
     }
   ]
 }
+```
+
+---
+
+## 13. Like Action Fix
+
+### Problem
+
+Mastodon requires full Note/Article object in Like activities, not just a URL reference.
+
+### Solution
+
+Updated `SendLikeActivityAsync`, `SendLikeActivityToLocalPostAsync`, and `SendUndoLikeActivityAsync` in `ActivityPubDeliveryService` to include full post object via `CreatePostObject()`.
+
+**Before:**
+```json
+{
+  "type": "Like",
+  "object": "https://other.instance/users/alice/posts/123"
+}
+```
+
+**After:**
+```json
+{
+  "type": "Like",
+  "object": {
+    "type": "Note",
+    "id": "https://other.instance/users/alice/posts/123",
+    "content": "Post content...",
+    "attributedTo": "https://other.instance/users/alice",
+    "published": "2026-04-01T12:00:00Z"
+  }
+}
+```
+
+---
+
+## 14. Emoji Reactions (FEP-c0e0)
+
+### Overview
+
+Implemented FEP-c0e0 for emoji reactions using LitePub vocabulary.
+
+### Model Changes
+
+- Added `SendEmojiReactionActivityAsync` to `ActivityPubDeliveryService`
+- Added `SendUndoEmojiReactionActivityAsync` for removing reactions
+- Added `HandleEmojiReactAsync` in `ActivityPubActivityHandler`
+- Updated `PostService` to send emoji reactions
+
+### Activity Format
+
+```json
+{
+  "type": "EmojiReact",
+  "actor": "https://example.com/users/bob",
+  "object": "https://other.instance/users/alice/posts/123",
+  "content": "👍"
+}
+```
+
+Supported emojis: 👍 (thumb_up), ❤️ (heart), 😂 (laugh), 😢 (sad), 😮 (wow), 😡 (angry), 🔁 (repeat)
+
+---
+
+## 15. NodeInfo Endpoints
+
+### New Controller
+
+`NodeInfoController` at `/nodeinfo/`
+
+### Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /.well-known/nodeinfo` | Discovery endpoint, returns links to 2.0 and 2.1 |
+| `GET /nodeinfo/2.0` | NodeInfo 2.0 document |
+| `GET /nodeinfo/2.1` | NodeInfo 2.1 document |
+
+### NodeInfo 2.1 Document
+
+```json
+{
+  "version": "2.1",
+  "software": {
+    "name": "dysonnetwork",
+    "version": "1.0.0"
+  },
+  "protocols": ["activitypub"],
+  "services": {
+    "inbound": [],
+    "outbound": ["activitypub"]
+  },
+  "openRegistrations": false,
+  "usage": {
+    "users": { "total": 100, "activeHalfyear": 50, "activeMonth": 30 },
+    "localPosts": 500,
+    "localComments": 1000
+  },
+  "configuration": {
+    "statuses": { "maxCharacters": 5000, "maxMediaAttachments": 4 },
+    "media": { "images": { "enabled": true, "sizeMax": 10485760 } }
+  },
+  "metadata": {
+    "nodeName": "DysonNetwork",
+    "maintainer": { "name": "Dyson", "email": "admin@example.com" }
+  }
+}
+```
+
+### Integration
+
+- Added `FetchNodeInfoMetadataAsync` to `ActivityPubDiscoveryService`
+- Falls back after Mastodon/Misskey API fetching
+- Stores NodeInfo data in `SnFediverseInstance`
+
+---
+
+## 16. Group Federation (FEP-1b12)
+
+### Overview
+
+Implemented FEP-1b12 for community/forum federation using Group actors.
+
+### Model Changes
+
+```csharp
+// SnFediverseActor
+public bool IsCommunity { get; set; } = false;  // New field
+public Guid? RealmId { get; set; }               // New field
+
+// SnFediverseRelationship  
+public Guid? RealmId { get; set; }               // New field
+```
+
+### New Controller
+
+`ActivityPubRealmController` handles community Group actors:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /activitypub/realms/{slug}` | Get community actor (Group) |
+| `POST /activitypub/realms/{slug}/followers` | Follow community |
+| `DELETE /activitypub/realms/{slug}/followers` | Unfollow |
+
+### ActivityPub Object Format
+
+Community posts include `audience` property:
+
+```json
+{
+  "type": "Note",
+  "id": "https://example.com/posts/123",
+  "audience": "https://example.com/activitypub/realms/mycommunity",
+  "attributedTo": "https://example.com/activitypub/realms/mycommunity"
+}
+```
+
+---
+
+## 17. Media Attachments (FEP-1311)
+
+### Overview
+
+Updated outgoing media attachments to follow FEP-1311 format.
+
+### Changes in ActivityPubObjectFactory
+
+**Before:**
+```json
+{
+  "attachment": [
+    { "type": "Document", "mediaType": "image/jpeg", "url": "..." }
+  ]
+}
+```
+
+**After:**
+```json
+{
+  "attachment": [
+    {
+      "type": "Image",
+      "mediaType": "image/jpeg",
+      "url": "...",
+      "width": 1200,
+      "height": 800,
+      "size": 9045,
+      "blurhash": "LEHV6nWB2yk8pyo0adR*"
+    }
+  ]
+}
+```
+
+### Type Mapping
+
+| MIME Type | ActivityPub Type |
+|-----------|-----------------|
+| `image/*` | `Image` |
+| `video/*` | `Video` |
+| `audio/*` | `Audio` |
+| other | `Document` |
+
+---
+
+## 18. Quote Authorization (FEP-044f)
+
+### Overview
+
+Implemented consent-respecting quote posts with revocable authorization stamps.
+
+### Database Models
+
+```csharp
+// SnQuoteAuthorization
+public class SnQuoteAuthorization : ModelBase
+{
+    public Guid Id { get; set; }
+    public string? FediverseUri { get; set; }
+    public Guid AuthorId { get; set; }
+    public string InteractingObjectUri { get; set; }  // Quote post
+    public string InteractionTargetUri { get; set; }   // Quoted post
+    public Guid? TargetPostId { get; set; }
+    public Guid? QuotePostId { get; set; }
+    public bool IsValid { get; set; } = true;
+    public Instant? RevokedAt { get; set; }
+}
+
+// SnPost - added field
+public Guid? QuoteAuthorizationId { get; set; }
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/quote-authorizations/{id}` | GET | Dereference authorization |
+| `/quote-authorizations` | POST | Create authorization |
+| `/quote-authorizations/{id}` | DELETE | Revoke authorization |
+
+### Activity Types
+
+**QuoteRequest (incoming):**
+```json
+{
+  "type": "QuoteRequest",
+  "actor": "https://other.instance/users/charlie",
+  "object": "https://example.com/users/bob/posts/123",
+  "instrument": "https://other.instance/users/charlie/posts/456"
+}
+```
+
+**Accept (response):**
+```json
+{
+  "type": "Accept",
+  "actor": "https://example.com/users/bob",
+  "object": { "type": "QuoteRequest", "id": "..." },
+  "result": "https://example.com/quote-authorizations/{id}"
+}
+```
+
+### Quote Post Format
+
+```json
+{
+  "type": "Note",
+  "id": "https://example.com/posts/456",
+  "quote": "https://other.instance/users/alice/posts/123",
+  "quoteUrl": "https://other.instance/users/alice/posts/123",
+  "quoteUri": "https://other.instance/users/alice/posts/123",
+  "quoteAuthorization": "https://example.com/quote-authorizations/{id}",
+  "content": "Great post! <span class=\"quote-inline\"><br/>RE: https://other.instance/users/alice/posts/123</span>"
+}
+```
+
+### Interaction Policy
+
+Posts include `interactionPolicy` to advertise quote permissions:
+
+```json
+{
+  "@context": {
+    "gts": "https://gotosocial.org/ns#",
+    "interactionPolicy": "gts:interactionPolicy",
+    "canQuote": "gts:canQuote",
+    "automaticApproval": "gts:automaticApproval"
+  },
+  "interactionPolicy": {
+    "canQuote": {
+      "automaticApproval": "https://www.w3.org/ns/activitystreams#Public"
+    }
+  }
+}
+```
+
+---
+
+## Migration
+
+Run all migrations after updating code:
+
+```bash
+dotnet ef migrations add AddFediverseCommunityFields
+dotnet ef migrations add QuoteAuthorization
+dotnet ef database update
 ```
