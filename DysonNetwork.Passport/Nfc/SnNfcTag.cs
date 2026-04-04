@@ -5,7 +5,7 @@ using NodaTime;
 namespace DysonNetwork.Passport.Nfc;
 
 [Index(nameof(Uid), IsUnique = true)]
-[Index(nameof(UserId))]
+[Index(nameof(AccountId))]
 public class SnNfcTag : DysonNetwork.Shared.Models.ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -20,7 +20,7 @@ public class SnNfcTag : DysonNetwork.Shared.Models.ModelBase
     /// <summary>
     /// Owner account ID. Null means the tag is unclaimed.
     /// </summary>
-    public Guid? UserId { get; set; }
+    public Guid? AccountId { get; set; }
 
     /// <summary>
     /// Optional user-facing label for this tag (e.g., "Work Card", "Personal").

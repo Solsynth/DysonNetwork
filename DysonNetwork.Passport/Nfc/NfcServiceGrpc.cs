@@ -69,7 +69,7 @@ public class NfcServiceGrpc(
                 return response;
             }
 
-            if (result.Account is null || result.Tag.UserId == Guid.Empty || result.Tag.UserId == default)
+            if (result.Account is null || result.Tag.AccountId == Guid.Empty || result.Tag.AccountId == default)
             {
                 response.IsValid = false;
                 response.ErrorCode = "TAG_UNCLAIMED";
@@ -77,7 +77,7 @@ public class NfcServiceGrpc(
             }
 
             response.IsValid = true;
-            response.AccountId = result.Tag.UserId.ToString();
+            response.AccountId = result.Tag.AccountId.ToString();
             response.TagId = result.Tag.Id.ToString();
             response.ErrorCode = string.Empty;
         }

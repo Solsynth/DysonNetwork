@@ -35,6 +35,10 @@ namespace DysonNetwork.Passport.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
                     b.Property<int?>("Counter")
                         .HasColumnType("integer")
                         .HasColumnName("counter");
@@ -82,19 +86,15 @@ namespace DysonNetwork.Passport.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<Guid?>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
                     b.HasKey("Id")
                         .HasName("pk_nfc_tags");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_nfc_tags_account_id");
 
                     b.HasIndex("Uid")
                         .IsUnique()
                         .HasDatabaseName("ix_nfc_tags_uid");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_nfc_tags_user_id");
 
                     b.ToTable("nfc_tags", (string)null);
                 });

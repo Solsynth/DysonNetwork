@@ -17,8 +17,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Passport.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20260403183606_MakeUserIdNullable")]
-    partial class MakeUserIdNullable
+    [Migration("20260404040856_UpdateNfcTag")]
+    partial class UpdateNfcTag
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -37,6 +37,10 @@ namespace DysonNetwork.Passport.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
 
                     b.Property<int?>("Counter")
                         .HasColumnType("integer")
@@ -85,19 +89,15 @@ namespace DysonNetwork.Passport.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<Guid?>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
                     b.HasKey("Id")
                         .HasName("pk_nfc_tags");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_nfc_tags_account_id");
 
                     b.HasIndex("Uid")
                         .IsUnique()
                         .HasDatabaseName("ix_nfc_tags_uid");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_nfc_tags_user_id");
 
                     b.ToTable("nfc_tags", (string)null);
                 });

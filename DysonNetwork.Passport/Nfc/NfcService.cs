@@ -8,8 +8,8 @@ namespace DysonNetwork.Passport.Nfc;
 
 public class NfcResolveResult
 {
-    public SnAccount User { get; set; } = null!;
-    public SnAccountProfile? Profile { get; set; }
+    public Guid Id { get; set; }
+    public SnAccount Account { get; set; } = null!;
     public bool IsFriend { get; set; }
     public bool IsClaimed { get; set; }
     public List<string> Actions { get; set; } = [];
@@ -58,10 +58,11 @@ public class NfcService(
     public async Task<NfcResolveResult?> ResolveAsync(
         string uid,
         Guid? observerUserId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var tag = await db.NfcTags
-            .FirstOrDefaultAsync(t => t.Uid == uid.ToUpperInvariant() && t.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Uid.Equals(uid, StringComparison.InvariantCultureIgnoreCase) && t.IsActive, cancellationToken);
 
         if (tag is null) return null;
 
@@ -77,10 +78,11 @@ public class NfcService(
     public async Task<NfcResolveResult?> LookupByUidAsync(
         string uid,
         Guid? observerUserId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var tag = await db.NfcTags
-            .FirstOrDefaultAsync(t => t.Uid == uid.ToUpperInvariant() && t.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Uid.Equals(uid, StringComparison.InvariantCultureIgnoreCase) && t.IsActive, cancellationToken);
 
         if (tag is null) return null;
 
@@ -209,7 +211,7 @@ public class NfcService(
         var isFriend = false;
         var actions = new List<string>();
 
-        if (!matchedTag.UserId.HasValue)
+        if (!matchedTag.AccountId.HasValue)
         {
             // Tag is unclaimed — do NOT auto-claim.
             // User must explicitly claim via POST /api/nfc/tags/claim
@@ -224,19 +226,19 @@ public class NfcService(
                 return new NfcValidationResult(matchedTag, null, null, false, false, NfcTagClaimStatus.NeedsAuth, []);
             }
         }
-        else if (observerUserId.HasValue && observerUserId.Value != matchedTag.UserId)
+        else if (observerUserId.HasValue && observerUserId.Value != matchedTag.AccountId)
         {
             // Observer is different from tag owner
             claimStatus = NfcTagClaimStatus.PreAssignedMismatch;
         }
 
         // Build result — fetch the tag owner's account
-        if (!matchedTag.UserId.HasValue)
+        if (!matchedTag.AccountId.HasValue)
         {
             return new NfcValidationResult(matchedTag, null, null, false, isClaimed, claimStatus, []);
         }
 
-        account = await accounts.GetAccount(matchedTag.UserId.Value);
+        account = await accounts.GetAccount(matchedTag.AccountId.Value);
         if (account is null)
         {
             return new NfcValidationResult(matchedTag, null, null, false, isClaimed, claimStatus, []);
@@ -245,13 +247,13 @@ public class NfcService(
         profile = account.Profile;
         actions = ["view_profile"];
 
-        if (observerUserId.HasValue && observerUserId.Value != matchedTag.UserId.Value)
+        if (observerUserId.HasValue && observerUserId.Value != matchedTag.AccountId.Value)
         {
             // Check if blocked
             var blocked =
-                await relationships.HasRelationshipWithStatus(observerUserId.Value, matchedTag.UserId!.Value,
+                await relationships.HasRelationshipWithStatus(observerUserId.Value, matchedTag.AccountId!.Value,
                     RelationshipStatus.Blocked) ||
-                await relationships.HasRelationshipWithStatus(matchedTag.UserId!.Value, observerUserId.Value,
+                await relationships.HasRelationshipWithStatus(matchedTag.AccountId!.Value, observerUserId.Value,
                     RelationshipStatus.Blocked);
 
             if (blocked)
@@ -261,7 +263,7 @@ public class NfcService(
             }
 
             isFriend = await relationships.HasRelationshipWithStatus(
-                observerUserId.Value, matchedTag.UserId!.Value);
+                observerUserId.Value, matchedTag.AccountId!.Value);
             actions.Add("add_friend");
         }
 
@@ -287,7 +289,7 @@ public class NfcService(
         var tag = new SnNfcTag
         {
             Uid = uid.ToUpperInvariant(),
-            UserId = userId,
+            AccountId = userId,
             Label = label,
             IsEncrypted = false
         };
@@ -323,7 +325,7 @@ public class NfcService(
         var tag = new SnNfcTag
         {
             Uid = uid.ToUpperInvariant(),
-            UserId = assignedUserId,
+            AccountId = assignedUserId,
             Label = null,
             IsEncrypted = true,
             SunKey = sunKey,
@@ -360,15 +362,15 @@ public class NfcService(
             throw new InvalidOperationException("Encrypted tag not found with this UID.");
 
         // Check if already claimed by this user
-        if (tag.UserId == userId)
+        if (tag.AccountId == userId)
             return tag; // Already their tag, return as-is
 
         // Check if already claimed by someone else
-        if (tag.UserId.HasValue && tag.UserId.Value != userId)
+        if (tag.AccountId.HasValue && tag.AccountId.Value != userId)
             throw new InvalidOperationException("This tag has already been claimed by another account.");
 
         // Claim the tag
-        tag.UserId = userId;
+        tag.AccountId = userId;
         tag.LastSeenAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync(cancellationToken);
 
@@ -398,7 +400,7 @@ public class NfcService(
         CancellationToken cancellationToken = default)
     {
         var tag = await db.NfcTags
-            .FirstOrDefaultAsync(t => t.Id == tagId && t.UserId == userId, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Id == tagId && t.AccountId == userId, cancellationToken);
 
         if (tag is null) return false;
 
@@ -418,7 +420,7 @@ public class NfcService(
         CancellationToken cancellationToken = default)
     {
         return await db.NfcTags
-            .Where(t => t.UserId == userId && t.IsActive)
+            .Where(t => t.AccountId == userId && t.IsActive)
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync(cancellationToken);
     }
@@ -434,7 +436,7 @@ public class NfcService(
         CancellationToken cancellationToken = default)
     {
         var tag = await db.NfcTags
-            .FirstOrDefaultAsync(t => t.Id == tagId && t.UserId == userId, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Id == tagId && t.AccountId == userId, cancellationToken);
 
         if (tag is null) return null;
 
@@ -454,7 +456,7 @@ public class NfcService(
         CancellationToken cancellationToken = default)
     {
         var tag = await db.NfcTags
-            .FirstOrDefaultAsync(t => t.Id == tagId && t.UserId == userId, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Id == tagId && t.AccountId == userId, cancellationToken);
 
         if (tag is null) return null;
 
@@ -470,34 +472,33 @@ public class NfcService(
         Guid? observerUserId,
         CancellationToken cancellationToken)
     {
-        if (!tag.UserId.HasValue) return null;
+        if (!tag.AccountId.HasValue) return null;
 
-        var account = await accounts.GetAccount(tag.UserId.Value);
+        var account = await accounts.GetAccount(tag.AccountId.Value);
         if (account is null) return null;
 
-        var profile = account.Profile;
         var isFriend = false;
 
-        if (observerUserId.HasValue && observerUserId.Value != tag.UserId.Value)
+        if (observerUserId.HasValue && observerUserId.Value != tag.AccountId.Value)
         {
-            isFriend = await relationships.HasRelationshipWithStatus(observerUserId.Value, tag.UserId.Value);
+            isFriend = await relationships.HasRelationshipWithStatus(observerUserId.Value, tag.AccountId.Value);
 
             var blocked =
-                await relationships.HasRelationshipWithStatus(observerUserId.Value, tag.UserId.Value,
+                await relationships.HasRelationshipWithStatus(observerUserId.Value, tag.AccountId.Value,
                     RelationshipStatus.Blocked) ||
-                await relationships.HasRelationshipWithStatus(tag.UserId.Value, observerUserId.Value,
+                await relationships.HasRelationshipWithStatus(tag.AccountId.Value, observerUserId.Value,
                     RelationshipStatus.Blocked);
             if (blocked) return null;
         }
 
         var actions = new List<string> { "view_profile" };
-        if (observerUserId.HasValue && observerUserId.Value != tag.UserId.Value)
+        if (observerUserId.HasValue && observerUserId.Value != tag.AccountId.Value)
             actions.Add("add_friend");
 
         return new NfcResolveResult
         {
-            User = account,
-            Profile = profile,
+            Id = tag.Id,
+            Account = account,
             IsFriend = isFriend,
             Actions = actions
         };

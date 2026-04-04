@@ -21,13 +21,14 @@ public class NfcController(
 {
     public class NfcResolveResponse
     {
-        public SnAccount User { get; set; } = null!;
+        public Guid Id { get; set; }
+        public SnAccount Account { get; set; } = null!;
         public bool IsFriend { get; set; }
         public bool IsClaimed { get; set; }
         public List<string> Actions { get; set; } = [];
     }
 
-    public class NfcTagDto
+    public class NfcTagResponse
     {
         public Guid Id { get; set; }
         public string Uid { get; set; } = string.Empty;
@@ -68,7 +69,7 @@ public class NfcController(
 
     private async Task<ActionResult<NfcResolveResponse>> ToResponseAsync(NfcResolveResult result)
     {
-        var account = await accountService.GetAccount(result.User.Id);
+        var account = await accountService.GetAccount(result.Account.Id);
         if (account is null)
             return StatusCode(500, ApiError.Server("Failed to load account data."));
 
@@ -97,7 +98,7 @@ public class NfcController(
 
         return Ok(new NfcResolveResponse
         {
-            User = account,
+            Account = account,
             IsFriend = result.IsFriend,
             IsClaimed = result.IsClaimed,
             Actions = result.Actions
@@ -158,7 +159,7 @@ public class NfcController(
                         // Return 200 with null user - client will show "unclaimed" and prompt to claim
                         return Ok(new NfcResolveResponse
                         {
-                            User = null!,
+                            Account = null!,
                             IsFriend = false,
                             IsClaimed = false,
                             Actions = result.Actions
@@ -207,7 +208,7 @@ public class NfcController(
 
                     return Ok(new NfcResolveResponse
                     {
-                        User = account,
+                        Account = account,
                         IsFriend = result.IsFriend,
                         IsClaimed = result.IsClaimed,
                         Actions = result.Actions
@@ -254,7 +255,8 @@ public class NfcController(
     [HttpGet("lookup")]
     public async Task<ActionResult<NfcResolveResponse>> Lookup(
         [FromQuery] string uid,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         if (string.IsNullOrWhiteSpace(uid))
             return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
@@ -280,7 +282,8 @@ public class NfcController(
     [HttpGet("tags/{id:guid}")]
     public async Task<ActionResult<NfcResolveResponse>> GetById(
         Guid id,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         Guid? observerUserId = null;
         if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
@@ -299,7 +302,7 @@ public class NfcController(
     /// </summary>
     [HttpGet("tags")]
     [Authorize]
-    public async Task<ActionResult<List<NfcTagDto>>> ListTags(
+    public async Task<ActionResult<List<NfcTagResponse>>> ListTags(
         CancellationToken cancellationToken)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
@@ -307,7 +310,7 @@ public class NfcController(
 
         var tags = await nfc.ListTagsAsync(currentUser.Id, cancellationToken);
 
-        return Ok(tags.Select(t => new NfcTagDto
+        return Ok(tags.Select(t => new NfcTagResponse
         {
             Id = t.Id,
             Uid = t.Uid,
@@ -325,7 +328,7 @@ public class NfcController(
     /// </summary>
     [HttpPost("tags")]
     [Authorize]
-    public async Task<ActionResult<NfcTagDto>> RegisterTag(
+    public async Task<ActionResult<NfcTagResponse>> RegisterTag(
         [FromBody] RegisterTagRequest request,
         CancellationToken cancellationToken)
     {
@@ -340,7 +343,7 @@ public class NfcController(
                 request.Label,
                 cancellationToken);
 
-            return Ok(new NfcTagDto
+            return Ok(new NfcTagResponse
             {
                 Id = tag.Id,
                 Uid = tag.Uid,
@@ -369,7 +372,7 @@ public class NfcController(
     /// </summary>
     [HttpPost("tags/claim")]
     [Authorize]
-    public async Task<ActionResult<NfcTagDto>> ClaimTag(
+    public async Task<ActionResult<NfcTagResponse>> ClaimTag(
         [FromBody] ClaimTagRequest request,
         CancellationToken cancellationToken)
     {
@@ -383,7 +386,7 @@ public class NfcController(
                 currentUser.Id,
                 cancellationToken);
 
-            return Ok(new NfcTagDto
+            return Ok(new NfcTagResponse
             {
                 Id = tag.Id,
                 Uid = tag.Uid,
@@ -411,7 +414,7 @@ public class NfcController(
     /// </summary>
     [HttpPatch("tags/{tagId:guid}")]
     [Authorize]
-    public async Task<ActionResult<NfcTagDto>> UpdateTag(
+    public async Task<ActionResult<NfcTagResponse>> UpdateTag(
         Guid tagId,
         [FromBody] UpdateTagRequest request,
         CancellationToken cancellationToken)
@@ -429,7 +432,7 @@ public class NfcController(
         if (tag is null)
             return NotFound(ApiError.NotFound("nfc_tag", "NFC tag not found."));
 
-        return Ok(new NfcTagDto
+        return Ok(new NfcTagResponse
         {
             Id = tag.Id,
             Uid = tag.Uid,
@@ -447,7 +450,7 @@ public class NfcController(
     /// </summary>
     [HttpPost("tags/{tagId:guid}/lock")]
     [Authorize]
-    public async Task<ActionResult<NfcTagDto>> LockTag(
+    public async Task<ActionResult<NfcTagResponse>> LockTag(
         Guid tagId,
         CancellationToken cancellationToken)
     {
@@ -459,7 +462,7 @@ public class NfcController(
         if (tag is null)
             return NotFound(ApiError.NotFound("nfc_tag", "NFC tag not found."));
 
-        return Ok(new NfcTagDto
+        return Ok(new NfcTagResponse
         {
             Id = tag.Id,
             Uid = tag.Uid,

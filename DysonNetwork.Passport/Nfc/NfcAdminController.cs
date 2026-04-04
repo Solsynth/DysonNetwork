@@ -88,7 +88,7 @@ public class NfcAdminController(
             {
                 Id = tag.Id,
                 Uid = tag.Uid,
-                UserId = tag.UserId == Guid.Empty ? null : tag.UserId,
+                UserId = tag.AccountId == Guid.Empty ? null : tag.AccountId,
                 IsActive = tag.IsActive,
                 IsLocked = tag.LockedAt.HasValue,
                 LastSeenAt = tag.LastSeenAt,
@@ -168,7 +168,7 @@ public class NfcAdminController(
         {
             Id = t.Id,
             Uid = t.Uid,
-            UserId = t.UserId == Guid.Empty ? null : t.UserId,
+            UserId = t.AccountId == Guid.Empty ? null : t.AccountId,
             IsActive = t.IsActive,
             IsLocked = t.LockedAt.HasValue,
             LastSeenAt = t.LastSeenAt,
