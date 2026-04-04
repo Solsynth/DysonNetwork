@@ -177,11 +177,11 @@ public class TimelineService(
 
             if (gatekeptPublisherIds.Count > 0)
             {
-                var acceptedFollows = await db.PublisherFollowRequests
-                    .Where(r => r.AccountId == accountId && r.State == FollowRequestState.Accepted)
-                    .Select(r => r.PublisherId)
+                var activeSubscriptions = await db.PublisherSubscriptions
+                    .Where(s => s.AccountId == accountId && s.EndedAt == null)
+                    .Select(s => s.PublisherId)
                     .ToListAsync();
-                followerPublisherIds = acceptedFollows.ToHashSet();
+                followerPublisherIds = activeSubscriptions.ToHashSet();
             }
         }
 

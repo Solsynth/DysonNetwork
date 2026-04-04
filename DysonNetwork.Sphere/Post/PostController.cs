@@ -239,11 +239,38 @@ public class PostController(
             );
         }
 
+        var publisherIdsInQuery = publisher != null
+            ? new List<Guid> { publisher.Id }
+            : await query.Where(p => p.PublisherId != null).Select(p => p.PublisherId!.Value).Distinct().ToListAsync();
+
+        HashSet<Guid>? gatekeptPublisherIds = null;
+        HashSet<Guid>? subscriberPublisherIds = null;
+
+        if (publisherIdsInQuery.Count > 0)
+        {
+            gatekeptPublisherIds = (await db.Publishers
+                .Where(p => publisherIdsInQuery.Contains(p.Id) && p.GatekeptFollows == true)
+                .Select(p => p.Id)
+                .ToListAsync()).ToHashSet();
+
+            if (gatekeptPublisherIds.Count > 0 && currentUser != null)
+            {
+                var currentAccountId = Guid.Parse(currentUser.Id);
+                var activeSubscriptions = await db.PublisherSubscriptions
+                    .Where(s => s.AccountId == currentAccountId && s.EndedAt == null && publisherIdsInQuery.Contains(s.PublisherId))
+                    .Select(s => s.PublisherId)
+                    .ToListAsync();
+                subscriberPublisherIds = activeSubscriptions.ToHashSet();
+            }
+        }
+
         query = query.FilterWithVisibility(
             currentUser,
             userFriends,
             userPublishers,
-            isListing: true
+            isListing: true,
+            gatekeptPublisherIds,
+            subscriberPublisherIds
         );
 
         if (shuffle)
@@ -336,6 +363,18 @@ public class PostController(
             .FirstOrDefaultAsync();
         if (post is null)
             return NotFound();
+
+        if (post.PublisherId.HasValue && post.Publisher?.GatekeptFollows == true)
+        {
+            if (currentUser == null)
+                return NotFound();
+            var currentAccountId = Guid.Parse(currentUser.Id);
+            var isSubscriber = await db.PublisherSubscriptions
+                .AnyAsync(s => s.PublisherId == post.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
+            if (!isSubscriber && !userPublishers.Any(p => p.Id == post.PublisherId.Value))
+                return NotFound();
+        }
+
         post = await ps.LoadPostInfo(post, currentUser);
         if (post.RealmId != null)
             post.Realm = await rs.GetRealm(post.RealmId.Value.ToString());
@@ -378,6 +417,18 @@ public class PostController(
             .FirstOrDefaultAsync();
         if (post is null)
             return NotFound();
+
+        if (post.PublisherId.HasValue && post.Publisher?.GatekeptFollows == true)
+        {
+            if (currentUser == null)
+                return NotFound();
+            var currentAccountId = Guid.Parse(currentUser.Id);
+            var isSubscriber = await db.PublisherSubscriptions
+                .AnyAsync(s => s.PublisherId == post.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
+            if (!isSubscriber && !userPublishers.Any(p => p.Id == post.PublisherId.Value))
+                return NotFound();
+        }
+
         post = await ps.LoadPostInfo(post, currentUser);
         if (post.RealmId != null)
         {
