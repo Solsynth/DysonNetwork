@@ -292,6 +292,9 @@ public class FileController(
         string? overrideMimeType
     )
     {
+        if (thumbnail && !file.HasThumbnail)
+            return NotFound("Thumbnail not available.");
+
         var primaryReplica = file.Object?.FileReplicas.FirstOrDefault(r => r.IsPrimary);
         if (primaryReplica == null || primaryReplica.PoolId == null)
             return StatusCode(StatusCodes.Status500InternalServerError,
