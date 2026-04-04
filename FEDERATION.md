@@ -10,7 +10,9 @@
 ## Supported FEPs
 
 - [FEP-67ff: FEDERATION.md](https://codeberg.org/fediverse/fep/src/branch/main/fep/67ff/fep-67ff.md)
+- [FEP-044f: Consent-respecting quote posts](https://fediverse.codeberg.page/fep/fep/044f/) (Draft)
 - [FEP-c0e0: Emoji reactions](https://fediverse.codeberg.page/fep/fep/c0e0/) (Draft)
+- [FEP-1311: Media Attachments](https://fediverse.codeberg.page/fep/fep/1311/) (Draft)
 - [FEP-1b12: Group federation](https://fediverse.codeberg.page/fep/fep/1b12/) (Communities/Forums)
 
 ## ActivityPub
@@ -38,6 +40,7 @@
 | Undo (Like/EmojiReact) | Supported | Unlike/unreact posts |
 | Announce | Supported | Boost/share posts |
 | Undo (Announce) | Supported | Un-boost posts |
+| QuoteRequest | Supported | Request quote permission (FEP-044f) |
 | Update (Actor) | Supported | Update profile information |
 | Add | Supported | Featured collection (pinning) |
 | Remove | Supported | Remove from featured collection |
@@ -49,7 +52,8 @@
 | Follow | Supported | Handle incoming follow requests |
 | Accept | Supported | Handle follow acceptance |
 | Reject | Supported | Handle follow rejection |
-| Undo | Supported | Handle undo for Follow, Like, EmojiReact, Announce |
+| QuoteRequest | Supported | Handle quote permission requests (FEP-044f) |
+| Undo | Supported | Handle undo for Follow, Like, EmojiReact, Announce, QuoteAuthorization |
 | Create | Supported | Receive Note and Article posts |
 | Like | Supported | Handle likes and Like with content |
 | EmojiReact | Supported | Handle emoji reactions |
@@ -64,23 +68,30 @@
 **Outgoing:**
 - Note - Standard microblog posts
 - Article - Long-form articles
-- Document - Media attachments (images, videos, audio)
-- Image - Avatar and header images
+- Image - Media attachments (FEP-1311)
+- Video - Video attachments
+- Audio - Audio attachments
 - Tombstone - Deleted content marker
 - Person - Actor type
+- Group - Community actor type
+- QuoteAuthorization - Quote permission stamp (FEP-044f)
 
 **Incoming:**
 - Note and Article content types
 - Tombstone for deletions
 - Mention for @mentions
 - Hashtag for #tags
+- QuoteAuthorization for quote permissions
 
 ### Custom Extensions
 
 - LitePub vocabulary for EmojiReact (`http://litepub.social/ns#EmojiReact`)
+- GoToSocial interactionPolicy for quote permissions (`https://gotosocial.org/ns#interactionPolicy`)
+- FEP-044f quote properties: `quote`, `quoteUrl`, `quoteUri`, `quoteAuthorization`
 
 ## Additional documentation
 
 - ActivityPub endpoints available at `/activitypub/actors/{username}`
+- QuoteAuthorization endpoint at `/quote-authorizations/{id}`
 - NodeInfo discovery at `/.well-known/nodeinfo`
 - NodeInfo documents at `/nodeinfo/2.0` and `/nodeinfo/2.1`

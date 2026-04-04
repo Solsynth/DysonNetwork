@@ -76,6 +76,31 @@ public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase 
                 postReceivers.Add(post.Actor!.FollowersUri!);
         }
 
+        var attachments = post.Attachments.Select(a =>
+        {
+            var type = a.MimeType?.Split('/')[0] switch
+            {
+                "image" => "Image",
+                "video" => "Video",
+                "audio" => "Audio",
+                _ => "Document"
+            };
+
+            var attachment = new Dictionary<string, object>
+            {
+                ["type"] = type,
+                ["mediaType"] = a.MimeType ?? "application/octet-stream",
+                ["url"] = $"{assetsBaseUrl}/{a.Id}"
+            };
+
+            if (a.Width.HasValue) attachment["width"] = a.Width.Value;
+            if (a.Height.HasValue) attachment["height"] = a.Height.Value;
+            if (a.Size > 0) attachment["size"] = a.Size;
+            if (!string.IsNullOrEmpty(a.Blurhash)) attachment["blurhash"] = a.Blurhash;
+
+            return attachment;
+        }).ToList<object>();
+
         var postObject = new Dictionary<string, object>
         {
             ["id"] = postUrl,
@@ -85,12 +110,7 @@ public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase 
             ["content"] = Markdown.ToHtml(finalContent),
             ["to"] = new[] { PublicTo },
             ["cc"] = postReceivers,
-            ["attachment"] = post.Attachments.Select(a => new Dictionary<string, object>
-            {
-                ["type"] = "Document",
-                ["mediaType"] = a.MimeType ?? "media/jpeg",
-                ["url"] = $"{assetsBaseUrl}/{a.Id}"
-            }).ToList<object>()
+            ["attachment"] = attachments
         };
 
         if (post.RealmId.HasValue && realmService != null)
@@ -128,10 +148,76 @@ public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase 
 
             // Local post
             if (forwardedPost?.Publisher != null)
-                postObject["quoteUri"] = $"https://{baseDomain}/posts/{post.ForwardedPostId}";
+            {
+                var quoteUrl = $"https://{baseDomain}/posts/{post.ForwardedPostId}";
+                postObject["quote"] = quoteUrl;
+                postObject["quoteUrl"] = quoteUrl;
+                postObject["quoteUri"] = quoteUrl;
+            }
             // Fediverse post
             if (forwardedPost?.FediverseUri != null)
+            {
+                postObject["quote"] = forwardedPost.FediverseUri;
+                postObject["quoteUrl"] = forwardedPost.FediverseUri;
                 postObject["quoteUri"] = forwardedPost.FediverseUri;
+            }
+
+            // Add interactionPolicy for the quoted post
+            if (forwardedPost != null)
+            {
+                var postAuthor = forwardedPost.Publisher != null
+                    ? await GetLocalActorAsync(forwardedPost.PublisherId!.Value)
+                    : forwardedPost.Actor;
+
+                if (postAuthor != null)
+                {
+                    postObject["@context"] = new object[]
+                    {
+                        "https://www.w3.org/ns/activitystreams",
+                        new Dictionary<string, object>
+                        {
+                            ["gts"] = "https://gotosocial.org/ns#",
+                            ["interactionPolicy"] = new Dictionary<string, object>
+                            {
+                                ["@id"] = "gts:interactionPolicy",
+                                ["@type"] = "@id"
+                            },
+                            ["canQuote"] = new Dictionary<string, object>
+                            {
+                                ["@id"] = "gts:canQuote",
+                                ["@type"] = "@id"
+                            },
+                            ["automaticApproval"] = new Dictionary<string, object>
+                            {
+                                ["@id"] = "gts:automaticApproval",
+                                ["@type"] = "@id"
+                            }
+                        }
+                    };
+
+                    var quotePolicy = new Dictionary<string, object>
+                    {
+                        ["canQuote"] = new Dictionary<string, object>
+                        {
+                            ["automaticApproval"] = "https://www.w3.org/ns/activitystreams#Public"
+                        }
+                    };
+                    postObject["interactionPolicy"] = quotePolicy;
+                }
+            }
+        }
+
+        // Add quoteAuthorization if exists
+        if (post.QuoteAuthorizationId.HasValue)
+        {
+            var quoteAuth = await db.QuoteAuthorizations
+                .FirstOrDefaultAsync(q => q.Id == post.QuoteAuthorizationId && q.IsValid);
+
+            if (quoteAuth != null)
+            {
+                var authUrl = $"https://{baseDomain}/quote-authorizations/{quoteAuth.Id}";
+                postObject["quoteAuthorization"] = authUrl;
+            }
         }
 
         if (post.EditedAt.HasValue)

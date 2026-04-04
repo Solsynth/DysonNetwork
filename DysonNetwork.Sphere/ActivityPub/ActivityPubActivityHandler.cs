@@ -24,6 +24,7 @@ public class ActivityPubActivityHandler(
 )
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
+    private string BaseUrl => $"https://{Domain}";
 
     private async Task<SnPost?> GetPostByUriAsync(string objectUri)
     {
@@ -104,6 +105,8 @@ public class ActivityPubActivityHandler(
                     return await HandleAcceptAsync(actorUri, activity);
                 case "Reject":
                     return await HandleRejectAsync(actorUri, activity);
+                case "QuoteRequest":
+                    return await HandleQuoteRequestAsync(actorUri, activity);
                 case "Undo":
                     return await HandleUndoAsync(actorUri, activity);
                 case "Create":
@@ -207,6 +210,13 @@ public class ActivityPubActivityHandler(
 
         var actor = await GetOrCreateActorAsync(actorUri);
 
+        // Check if this is a QuoteAuthorization response
+        var resultUri = GetStringValue(activity, "result");
+        if (!string.IsNullOrEmpty(resultUri))
+        {
+            return await HandleQuoteAcceptAsync(actorUri, activity, objectUri, resultUri);
+        }
+
         var relationship = await db.FediverseRelationships
             .Include(r => r.Actor)
             .Include(r => r.TargetActor)
@@ -268,6 +278,159 @@ public class ActivityPubActivityHandler(
         await db.SaveChangesAsync();
 
         logger.LogInformation("Handled reject from {Actor}", actorUri);
+        return true;
+    }
+
+    private async Task<bool> HandleQuoteRequestAsync(string actorUri, Dictionary<string, object> activity)
+    {
+        var objectUri = GetStringValue(activity, "object");
+        var instrumentUri = GetStringValue(activity, "instrument");
+        var activityId = GetStringValue(activity, "id");
+        
+        logger.LogInformation("Handling QuoteRequest. Actor: {ActorUri}, Target: {ObjectUri}, Quote: {Instrument}",
+            actorUri, objectUri, instrumentUri);
+
+        if (string.IsNullOrEmpty(objectUri))
+        {
+            logger.LogWarning("QuoteRequest missing object field");
+            return false;
+        }
+
+        var actor = await GetOrCreateActorAsync(actorUri);
+        if (actor == null)
+        {
+            logger.LogWarning("QuoteRequest actor not found: {ActorUri}", actorUri);
+            return false;
+        }
+
+        var targetPost = await db.Posts
+            .FirstOrDefaultAsync(p => p.FediverseUri == objectUri);
+
+        if (targetPost == null)
+        {
+            logger.LogWarning("QuoteRequest target post not found: {ObjectUri}", objectUri);
+            return false;
+        }
+
+        var localActor = targetPost.PublisherId.HasValue
+            ? await db.FediverseActors.FirstOrDefaultAsync(a => a.PublisherId == targetPost.PublisherId)
+            : targetPost.Actor;
+
+        if (localActor == null)
+        {
+            logger.LogWarning("Local author not found for quoted post");
+            return false;
+        }
+
+        var quotePostUri = instrumentUri ?? GetStringValue(activity, "instrument")?.ToString();
+        
+        var shouldAutoApprove = true; 
+        
+        if (shouldAutoApprove)
+        {
+            var auth = new SnQuoteAuthorization
+            {
+                Id = Guid.NewGuid(),
+                FediverseUri = $"{BaseUrl}/quote-authorizations/{Guid.NewGuid()}",
+                AuthorId = localActor.Id,
+                InteractingObjectUri = quotePostUri ?? activityId ?? "",
+                InteractionTargetUri = objectUri,
+                TargetPostId = targetPost.Id,
+                IsValid = true
+            };
+
+            db.QuoteAuthorizations.Add(auth);
+            await db.SaveChangesAsync();
+
+            var acceptActivity = new Dictionary<string, object>
+            {
+                ["@context"] = "https://www.w3.org/ns/activitystreams",
+                ["type"] = "Accept",
+                ["id"] = $"{BaseUrl}/activities/{Guid.NewGuid()}",
+                ["actor"] = localActor.Uri,
+                ["to"] = actor.Uri,
+                ["object"] = new Dictionary<string, object>
+                {
+                    ["type"] = "QuoteRequest",
+                    ["id"] = activityId,
+                    ["actor"] = actorUri,
+                    ["object"] = objectUri,
+                    ["instrument"] = quotePostUri
+                },
+                ["result"] = $"{BaseUrl}/quote-authorizations/{auth.Id}"
+            };
+
+            logger.LogInformation("Auto-approved quote request. Sending Accept to {ActorUri}", actorUri);
+        }
+        else
+        {
+            logger.LogInformation("Quote request requires manual approval for {ObjectUri}", objectUri);
+        }
+
+        return true;
+    }
+
+    private async Task<bool> HandleQuoteAcceptAsync(string actorUri, Dictionary<string, object> activity, string objectUri, string resultUri)
+    {
+        logger.LogInformation("Handling QuoteAuthorization Accept. Actor: {ActorUri}, Result: {ResultUri}",
+            actorUri, resultUri);
+
+        var quoteRequest = GetStringValue(activity, "instrument");
+        if (string.IsNullOrEmpty(quoteRequest))
+        {
+            quoteRequest = GetStringValue(ConvertToDictionary(activity.GetValueOrDefault("instrument")), "id");
+        }
+
+        if (string.IsNullOrEmpty(quoteRequest))
+        {
+            logger.LogWarning("QuoteRequest instrument not found");
+            return false;
+        }
+
+        var localActor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Uri == objectUri);
+        if (localActor == null)
+        {
+            logger.LogWarning("Local actor not found for accept: {ObjectUri}", objectUri);
+            return false;
+        }
+
+        var targetPostUri = GetStringValue(activity, "object");
+        
+        var existingAuth = await db.QuoteAuthorizations
+            .FirstOrDefaultAsync(q =>
+                q.InteractionTargetUri == targetPostUri &&
+                q.InteractingObjectUri == quoteRequest &&
+                q.AuthorId == localActor.Id &&
+                q.IsValid);
+
+        if (existingAuth == null)
+        {
+            var targetPost = await db.Posts.FirstOrDefaultAsync(p => p.FediverseUri == targetPostUri);
+            var quotePost = await db.Posts.FirstOrDefaultAsync(p => p.FediverseUri == quoteRequest);
+
+            var auth = new SnQuoteAuthorization
+            {
+                Id = Guid.NewGuid(),
+                FediverseUri = resultUri,
+                AuthorId = localActor.Id,
+                InteractingObjectUri = quoteRequest,
+                InteractionTargetUri = targetPostUri,
+                TargetPostId = targetPost?.Id,
+                QuotePostId = quotePost?.Id,
+                IsValid = true
+            };
+
+            db.QuoteAuthorizations.Add(auth);
+            
+            if (quotePost != null)
+            {
+                quotePost.QuoteAuthorizationId = auth.Id;
+            }
+
+            await db.SaveChangesAsync();
+            logger.LogInformation("Created QuoteAuthorization: {AuthId}", auth.Id);
+        }
+
         return true;
     }
 

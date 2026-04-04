@@ -7,6 +7,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Sphere;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -16,9 +17,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Sphere.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20260404151939_AddPublisherGatekeepFields")]
+    partial class AddPublisherGatekeepFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1883,10 +1886,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("publisher_id");
 
-                    b.Property<Guid?>("QuoteAuthorizationId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("quote_authorization_id");
-
                     b.Property<int>("ReactionScore")
                         .HasColumnType("integer")
                         .HasColumnName("reaction_score");
@@ -1964,9 +1963,6 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.HasIndex("PublisherId")
                         .HasDatabaseName("ix_posts_publisher_id");
-
-                    b.HasIndex("QuoteAuthorizationId")
-                        .HasDatabaseName("ix_posts_quote_authorization_id");
 
                     b.HasIndex("RepliedPostId")
                         .HasDatabaseName("ix_posts_replied_post_id");
@@ -2617,77 +2613,6 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("publisher_subscriptions", (string)null);
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnQuoteAuthorization", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("AuthorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("author_id");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("FediverseUri")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("fediverse_uri");
-
-                    b.Property<string>("InteractingObjectUri")
-                        .IsRequired()
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("interacting_object_uri");
-
-                    b.Property<string>("InteractionTargetUri")
-                        .IsRequired()
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("interaction_target_uri");
-
-                    b.Property<bool>("IsValid")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_valid");
-
-                    b.Property<Guid?>("QuotePostId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("quote_post_id");
-
-                    b.Property<Instant?>("RevokedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("revoked_at");
-
-                    b.Property<Guid?>("TargetPostId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("target_post_id");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_sn_quote_authorization");
-
-                    b.HasIndex("AuthorId")
-                        .HasDatabaseName("ix_sn_quote_authorization_author_id");
-
-                    b.HasIndex("QuotePostId")
-                        .HasDatabaseName("ix_sn_quote_authorization_quote_post_id");
-
-                    b.HasIndex("TargetPostId")
-                        .HasDatabaseName("ix_sn_quote_authorization_target_post_id");
-
-                    b.ToTable("sn_quote_authorization", (string)null);
-                });
-
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnRealm", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3176,12 +3101,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasForeignKey("PublisherId")
                         .HasConstraintName("fk_posts_publishers_publisher_id");
 
-                    b.HasOne("DysonNetwork.Shared.Models.SnQuoteAuthorization", "QuoteAuthorization")
-                        .WithMany()
-                        .HasForeignKey("QuoteAuthorizationId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_posts_sn_quote_authorization_quote_authorization_id");
-
                     b.HasOne("DysonNetwork.Shared.Models.SnPost", "RepliedPost")
                         .WithMany()
                         .HasForeignKey("RepliedPostId")
@@ -3193,8 +3112,6 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("ForwardedPost");
 
                     b.Navigation("Publisher");
-
-                    b.Navigation("QuoteAuthorization");
 
                     b.Navigation("RepliedPost");
                 });
@@ -3317,34 +3234,6 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasConstraintName("fk_publisher_subscriptions_publishers_publisher_id");
 
                     b.Navigation("Publisher");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnQuoteAuthorization", b =>
-                {
-                    b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "Author")
-                        .WithMany()
-                        .HasForeignKey("AuthorId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_sn_quote_authorization_fediverse_actors_author_id");
-
-                    b.HasOne("DysonNetwork.Shared.Models.SnPost", "QuotePost")
-                        .WithMany()
-                        .HasForeignKey("QuotePostId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_sn_quote_authorization_posts_quote_post_id");
-
-                    b.HasOne("DysonNetwork.Shared.Models.SnPost", "TargetPost")
-                        .WithMany()
-                        .HasForeignKey("TargetPostId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_sn_quote_authorization_posts_target_post_id");
-
-                    b.Navigation("Author");
-
-                    b.Navigation("QuotePost");
-
-                    b.Navigation("TargetPost");
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnRealmLabel", b =>

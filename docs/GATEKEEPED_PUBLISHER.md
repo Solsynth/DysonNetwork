@@ -4,16 +4,37 @@ Allows publishers to gatekeep their posts behind a follow system with approval w
 
 ## Overview
 
-Publishers can enable two separate feature flags:
+Publishers can enable two separate settings stored as properties on `SnPublisher`:
 
-| Flag | Description |
-|------|-------------|
-| `followRequiresApproval` | Users must submit follow requests that publishers/managers must approve |
-| `postsRequireFollow` | Only users who have been approved as followers can see the publisher's posts |
+| Property | Description |
+|----------|-------------|
+| `IsModerateSubscription` | Users must submit follow requests that publishers/managers must approve |
+| `IsGatekept` | Only users who have been approved as followers can see the publisher's posts |
 
-Both flags are gated behind Stellar program: requires `PerkLevel >= 2`.
+Internally, `IsModerateSubscription` maps to the `ModerateSubscription` database column and `IsGatekept` maps to `GatekeptFollows`. Both are nullable booleans where `null` means disabled.
 
-## Feature Flags
+Both features are gated behind Stellar program: requires `PerkLevel >= 2` for publishers with an associated account.
+
+## Model Properties
+
+### SnPublisher
+
+```csharp
+public bool? GatekeptFollows { get; set; }
+public bool? ModerateSubscription { get; set; }
+
+public bool IsGatekept => GatekeptFollows ?? false;
+public bool IsModerateSubscription => ModerateSubscription ?? false;
+```
+
+### Feature Flags (Legacy)
+
+For backward compatibility with the API, these flag names are still used:
+
+| Flag Name (API) | Maps To |
+|-----------------|---------|
+| `followRequiresApproval` | `ModerateSubscription` / `IsModerateSubscription` |
+| `postsRequireFollow` | `GatekeptFollows` / `IsGatekept` |
 
 ### Requirements
 
@@ -23,7 +44,7 @@ Enabling `followRequiresApproval` or `postsRequireFollow` requires:
 
 ### Enabling/Disabling
 
-Use the existing feature flag API:
+Use the feature flag API (internally sets publisher properties):
 
 ```http
 POST /api/publishers/{name}/features
@@ -217,7 +238,7 @@ public enum FollowRequestState
 
 ## Post Visibility
 
-When `postsRequireFollow` is enabled:
+When `IsGatekept` (via `postsRequireFollow` flag) is enabled:
 
 1. **Private/Friends posts** - Still restricted to publisher members (existing behavior)
 2. **Public/Unlisted posts** - Restricted to:
@@ -264,8 +285,18 @@ Expired follow requests are automatically cleaned up by `PublisherFollowRequestC
 ### Migration
 
 ```
-20260329135038_AddPublisherFollowRequests.cs
+20260404151939_AddPublisherGatekeepFields.cs
 ```
+
+Adds columns to `publishers` table:
+- `gatekept_follows` (boolean, nullable) - Maps to `IsGatekept`
+- `moderate_subscription` (boolean, nullable) - Maps to `IsModerateSubscription`
+
+Migrates existing feature flag data to the new columns and removes the feature flag records.
+
+### Legacy Table: publisher_follow_requests
+
+Created by migration `20260329135038_AddPublisherFollowRequests.cs`:
 
 Creates table `publisher_follow_requests` with:
 - Foreign key to `publishers` table (CASCADE delete)
@@ -283,25 +314,40 @@ Creates table `publisher_follow_requests` with:
   - `GetPendingFollowRequests()` - List pending for publisher
   - `CleanupExpiredFollowRequests()` - Delete expired requests
   - `HasAcceptedFollowRequest()` - Check if user is follower
+  - `HasFollowRequiresApprovalFlag()` - Reads from `publisher.IsModerateSubscription`
+  - `HasPostsRequireFollowFlag()` - Reads from `publisher.IsGatekept`
+
+### Property Access
+
+Instead of querying `PublisherFeatures` table, the services now read directly from `SnPublisher`:
+
+```csharp
+// Check if follow requires approval
+publisher.IsModerateSubscription  // true = moderate subscription enabled
+
+// Check if posts are gatekept  
+publisher.IsGatekept  // true = posts require follow
+```
 
 ### Filtering
 
 Post visibility filtering is applied in:
 - `TimelineService.ListEvents()` / `ListEventsForAnyone()`
 - `PostService.FilterUsersByPostVisibility()`
-- `PostQueryExtensions.FilterWithVisibility()`
+- `PostQueryExtensions.FilterWithVisibility()` - Uses `gatekeptPublisherIds` and `followerPublisherIds`
 
 ## Testing Checklist
 
-- [ ] Enable `followRequiresApproval` flag
+- [ ] Enable `followRequiresApproval` (sets `ModerateSubscription = true`)
 - [ ] Submit follow request as regular user
 - [ ] Verify manager sees pending request
-- [ ] Approve request and verify subscriber subscription created
+- [ ] Approve request and verify subscription created
 - [ ] Reject request and verify rejection reason shown
-- [ ] Enable `postsRequireFollow` flag
+- [ ] Enable `postsRequireFollow` (sets `GatekeptFollows = true`)
 - [ ] Verify non-followers cannot see posts
 - [ ] Verify approved followers can see posts
 - [ ] Verify pending/rejected users cannot see posts
 - [ ] Test unfollow/cancel request flow
 - [ ] Test cleanup job removes expired requests
 - [ ] Verify push notifications are sent
+- [ ] Verify `IsModerateSubscription` and `IsGatekept` properties work correctly

@@ -708,21 +708,11 @@ public class PublisherController(
         if (publisher is null)
             return NotFound();
 
-        var features = await db
-            .PublisherFeatures.Where(f => f.PublisherId == publisher.Id)
-            .ToListAsync();
-
-        var dict = PublisherFeatureFlag.AllFlags.ToDictionary(flag => flag, _ => false);
-
-        foreach (
-            var feature in features.Where(feature =>
-                feature.ExpiredAt == null
-                || !(feature.ExpiredAt < SystemClock.Instance.GetCurrentInstant())
-            )
-        )
+        var dict = new Dictionary<string, bool>
         {
-            dict[feature.Flag] = true;
-        }
+            [PublisherFeatureFlag.FollowRequiresApproval] = publisher.IsModerateSubscription,
+            [PublisherFeatureFlag.PostsRequireFollow] = publisher.IsGatekept
+        };
 
         return Ok(dict);
     }
@@ -769,13 +759,32 @@ public class PublisherController(
         if (PublisherFeatureFlag.SystemOnlyFlags.Contains(request.Flag))
             return BadRequest($"Flag '{request.Flag}' is a system flag and cannot be enabled manually");
 
-        if ((request.Flag == PublisherFeatureFlag.FollowRequiresApproval ||
-             request.Flag == PublisherFeatureFlag.PostsRequireFollow) &&
-            publisher.AccountId.HasValue)
+        if (request.Flag == PublisherFeatureFlag.FollowRequiresApproval)
         {
-            var publisherAccount = await remoteAccounts.GetAccount(publisher.AccountId.Value);
-            if (publisherAccount != null && publisherAccount.PerkLevel < PublisherFeatureFlag.MinimumPerkLevel)
-                return StatusCode(403, $"This feature requires PerkLevel >= {PublisherFeatureFlag.MinimumPerkLevel}");
+            if (publisher.AccountId.HasValue)
+            {
+                var publisherAccount = await remoteAccounts.GetAccount(publisher.AccountId.Value);
+                if (publisherAccount != null && publisherAccount.PerkLevel < PublisherFeatureFlag.MinimumPerkLevel)
+                    return StatusCode(403, $"This feature requires PerkLevel >= {PublisherFeatureFlag.MinimumPerkLevel}");
+            }
+            publisher.ModerateSubscription = true;
+            db.Publishers.Update(publisher);
+            await db.SaveChangesAsync();
+            return Ok(new SnPublisherFeature { PublisherId = publisher.Id, Flag = request.Flag });
+        }
+
+        if (request.Flag == PublisherFeatureFlag.PostsRequireFollow)
+        {
+            if (publisher.AccountId.HasValue)
+            {
+                var publisherAccount = await remoteAccounts.GetAccount(publisher.AccountId.Value);
+                if (publisherAccount != null && publisherAccount.PerkLevel < PublisherFeatureFlag.MinimumPerkLevel)
+                    return StatusCode(403, $"This feature requires PerkLevel >= {PublisherFeatureFlag.MinimumPerkLevel}");
+            }
+            publisher.GatekeptFollows = true;
+            db.Publishers.Update(publisher);
+            await db.SaveChangesAsync();
+            return Ok(new SnPublisherFeature { PublisherId = publisher.Id, Flag = request.Flag });
         }
 
         var feature = new SnPublisherFeature
@@ -798,6 +807,22 @@ public class PublisherController(
         var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
+
+        if (flag == PublisherFeatureFlag.FollowRequiresApproval)
+        {
+            publisher.ModerateSubscription = null;
+            db.Publishers.Update(publisher);
+            await db.SaveChangesAsync();
+            return NoContent();
+        }
+
+        if (flag == PublisherFeatureFlag.PostsRequireFollow)
+        {
+            publisher.GatekeptFollows = null;
+            db.Publishers.Update(publisher);
+            await db.SaveChangesAsync();
+            return NoContent();
+        }
 
         var feature = await db
             .PublisherFeatures.Where(f => f.PublisherId == publisher.Id)

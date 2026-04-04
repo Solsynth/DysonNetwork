@@ -45,6 +45,7 @@ public class AppDatabase(
     public DbSet<SnFediverseModerationRule> FediverseModerationRules { get; set; } = null!;
     public DbSet<SnActivityPubDelivery> ActivityPubDeliveries { get; set; } = null!;
     public DbSet<SnBoost> Boosts { get; set; } = null!;
+    public DbSet<SnQuoteAuthorization> QuoteAuthorizations { get; set; } = null!;
 
     public DbSet<SnLiveStream> LiveStreams { get; set; } = null!;
     public DbSet<SnLiveStreamChatMessage> LiveStreamChatMessages { get; set; } = null!;
@@ -102,6 +103,11 @@ public class AppDatabase(
             .HasForeignKey(p => p.ForwardedPostId)
             .OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<SnPost>()
+            .HasOne(p => p.QuoteAuthorization)
+            .WithMany()
+            .HasForeignKey(p => p.QuoteAuthorizationId)
+            .OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<SnPost>()
             .HasMany(p => p.Tags)
             .WithMany(t => t.Posts)
             .UsingEntity(j => j.ToTable("post_tag_links"));
@@ -141,6 +147,22 @@ public class AppDatabase(
             .WithMany()
             .HasForeignKey(b => b.ActorId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnQuoteAuthorization>()
+            .HasOne(q => q.Author)
+            .WithMany()
+            .HasForeignKey(q => q.AuthorId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnQuoteAuthorization>()
+            .HasOne(q => q.TargetPost)
+            .WithMany()
+            .HasForeignKey(q => q.TargetPostId)
+            .OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<SnQuoteAuthorization>()
+            .HasOne(q => q.QuotePost)
+            .WithMany()
+            .HasForeignKey(q => q.QuotePostId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.ApplySoftDeleteFilters();
     }

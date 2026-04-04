@@ -64,7 +64,12 @@ public class SnPublisher : ModelBase, IIdentifiedResource
     public PublisherShadowbanReason? ShadowbanReason { get; set; }
     public Instant? ShadowbannedAt { get; set; }
 
+    public bool? GatekeptFollows { get; set; }
+    public bool? ModerateSubscription { get; set; }
+
     public bool IsShadowbanned => ShadowbanReason.HasValue && ShadowbanReason != PublisherShadowbanReason.None;
+    public bool IsGatekept => GatekeptFollows ?? false;
+    public bool IsModerateSubscription => ModerateSubscription ?? false;
 
     public string ResourceIdentifier => $"publisher:{Id}";
 
@@ -233,7 +238,7 @@ public class SnPublisherFeature : ModelBase
 
 public abstract class PublisherFeatureFlag
 {
-    public static List<string> AllFlags => [FollowRequiresApproval, PostsRequireFollow];
+    public static List<string> AllFlags => [];
     public static List<string> SystemOnlyFlags => [Develop];
     public const string Develop = "develop";
     public const string FollowRequiresApproval = "followRequiresApproval";

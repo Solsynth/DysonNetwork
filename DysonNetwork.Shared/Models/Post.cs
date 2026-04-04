@@ -160,6 +160,11 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
     public Guid? ForwardedPostId { get; set; }
     public SnPost? ForwardedPost { get; set; }
 
+    public Guid? QuoteAuthorizationId { get; set; }
+
+    [JsonIgnore]
+    public SnQuoteAuthorization? QuoteAuthorization { get; set; }
+
     public Guid? RealmId { get; set; }
 
     [NotMapped]
@@ -725,6 +730,46 @@ public class SnPostAward : ModelBase
             proto.Message = Message;
         return proto;
     }
+}
+
+public class SnQuoteAuthorization : ModelBase
+{
+    public Guid Id { get; set; }
+
+    [MaxLength(2048)]
+    public string? FediverseUri { get; set; }
+
+    public Guid AuthorId { get; set; }
+
+    [JsonIgnore]
+    public SnFediverseActor Author { get; set; } = null!;
+
+    [MaxLength(2048)]
+    public string InteractingObjectUri { get; set; } = null!;
+
+    [MaxLength(2048)]
+    public string InteractionTargetUri { get; set; } = null!;
+
+    public Guid? TargetPostId { get; set; }
+
+    [JsonIgnore]
+    public SnPost? TargetPost { get; set; }
+
+    public Guid? QuotePostId { get; set; }
+
+    [JsonIgnore]
+    public SnPost? QuotePost { get; set; }
+
+    public bool IsValid { get; set; } = true;
+
+    public Instant? RevokedAt { get; set; }
+}
+
+public enum QuotePermission
+{
+    Everyone,
+    Followers,
+    Nobody
 }
 
 /// <summary>

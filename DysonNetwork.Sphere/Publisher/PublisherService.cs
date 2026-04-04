@@ -389,11 +389,31 @@ public class PublisherService(
         return isEnabled.Value;
     }
 
-    public async Task<bool> HasFollowRequiresApprovalFlag(Guid publisherId) =>
-        await HasFeature(publisherId, PublisherFeatureFlag.FollowRequiresApproval);
+    public async Task<bool> HasFollowRequiresApprovalFlag(Guid publisherId)
+    {
+        var cacheKey = string.Format(PublisherFeatureCacheKey, publisherId, PublisherFeatureFlag.FollowRequiresApproval);
+        var cached = await cache.GetAsync<bool?>(cacheKey);
+        if (cached.HasValue)
+            return cached.Value;
 
-    public async Task<bool> HasPostsRequireFollowFlag(Guid publisherId) =>
-        await HasFeature(publisherId, PublisherFeatureFlag.PostsRequireFollow);
+        var publisher = await db.Publishers.Where(p => p.Id == publisherId).Select(p => new { p.ModerateSubscription }).FirstOrDefaultAsync();
+        var result = publisher?.ModerateSubscription ?? false;
+        await cache.SetAsync(cacheKey, result, TimeSpan.FromMinutes(5));
+        return result;
+    }
+
+    public async Task<bool> HasPostsRequireFollowFlag(Guid publisherId)
+    {
+        var cacheKey = string.Format(PublisherFeatureCacheKey, publisherId, PublisherFeatureFlag.PostsRequireFollow);
+        var cached = await cache.GetAsync<bool?>(cacheKey);
+        if (cached.HasValue)
+            return cached.Value;
+
+        var publisher = await db.Publishers.Where(p => p.Id == publisherId).Select(p => new { p.GatekeptFollows }).FirstOrDefaultAsync();
+        var result = publisher?.GatekeptFollows ?? false;
+        await cache.SetAsync(cacheKey, result, TimeSpan.FromMinutes(5));
+        return result;
+    }
 
     public async Task<bool> IsFollower(Guid publisherId, Guid accountId)
     {
