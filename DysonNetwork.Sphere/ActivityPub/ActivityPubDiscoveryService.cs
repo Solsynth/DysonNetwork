@@ -75,6 +75,83 @@ public class MisskeyMetaResponse
     public int? MaxNoteTextLength { get; init; }
 }
 
+public class NodeInfoDiscoveryResponse
+{
+    [JsonPropertyName("links")] public List<NodeInfoLink>? Links { get; init; }
+}
+
+public class NodeInfoLink
+{
+    [JsonPropertyName("rel")] public string? Rel { get; init; }
+    [JsonPropertyName("href")] public string? Href { get; init; }
+}
+
+public class NodeInfoResponse
+{
+    [JsonPropertyName("version")] public string? Version { get; init; }
+    [JsonPropertyName("software")] public NodeInfoSoftware? Software { get; init; }
+    [JsonPropertyName("protocols")] public List<string>? Protocols { get; init; }
+    [JsonPropertyName("services")] public NodeInfoServices? Services { get; init; }
+    [JsonPropertyName("usage")] public NodeInfoUsage? Usage { get; init; }
+    [JsonPropertyName("configuration")] public NodeInfoConfiguration? Configuration { get; init; }
+    [JsonPropertyName("openRegistrations")] public bool? OpenRegistrations { get; init; }
+    [JsonPropertyName("metadata")] public Dictionary<string, object>? Metadata { get; init; }
+}
+
+public class NodeInfoSoftware
+{
+    [JsonPropertyName("name")] public string? Name { get; init; }
+    [JsonPropertyName("version")] public string? Version { get; init; }
+}
+
+public class NodeInfoServices
+{
+    [JsonPropertyName("inbound")] public List<string>? Inbound { get; init; }
+    [JsonPropertyName("outbound")] public List<string>? Outbound { get; init; }
+}
+
+public class NodeInfoUsage
+{
+    [JsonPropertyName("users")] public NodeInfoUsers? Users { get; init; }
+    [JsonPropertyName("localPosts")] public int? LocalPosts { get; init; }
+    [JsonPropertyName("localComments")] public int? LocalComments { get; init; }
+}
+
+public class NodeInfoUsers
+{
+    [JsonPropertyName("total")] public int? Total { get; init; }
+    [JsonPropertyName("activeMonth")] public int? ActiveMonth { get; init; }
+    [JsonPropertyName("activeHalfyear")] public int? ActiveHalfyear { get; init; }
+}
+
+public class NodeInfoConfiguration
+{
+    [JsonPropertyName("accounts")] public NodeInfoAccounts? Accounts { get; init; }
+    [JsonPropertyName("statuses")] public NodeInfoStatuses? Statuses { get; init; }
+    [JsonPropertyName("mediaAttachments")] public NodeInfoMediaAttachments? MediaAttachments { get; init; }
+}
+
+public class NodeInfoAccounts
+{
+    [JsonPropertyName("maxFeaturedObjects")] public int? MaxFeaturedObjects { get; init; }
+}
+
+public class NodeInfoStatuses
+{
+    [JsonPropertyName("maxCharacters")] public int? MaxCharacters { get; init; }
+    [JsonPropertyName("maxMediaAttachments")] public int? MaxMediaAttachments { get; init; }
+}
+
+public class NodeInfoMediaAttachments
+{
+    [JsonPropertyName("supportedMimeTypes")] public List<string>? SupportedMimeTypes { get; init; }
+    [JsonPropertyName("imageSizeLimit")] public int? ImageSizeLimit { get; init; }
+    [JsonPropertyName("imageMatrixLimit")] public int? ImageMatrixLimit { get; init; }
+    [JsonPropertyName("videoSizeLimit")] public int? VideoSizeLimit { get; init; }
+    [JsonPropertyName("videoFrameRateLimit")] public int? VideoFrameRateLimit { get; init; }
+    [JsonPropertyName("videoMatrixLimit")] public int? VideoMatrixLimit { get; init; }
+}
+
 public partial class ActivityPubDiscoveryService(
     AppDatabase db,
     IHttpClientFactory httpClientFactory,
@@ -388,8 +465,14 @@ public partial class ActivityPubDiscoveryService(
 
                 if (!misskeySuccess)
                 {
-                    logger.LogInformation("No compatible API found for {Domain}", instance.Domain);
-                    return;
+                    logger.LogInformation("Mastodon/Misskey API not available for {Domain}, trying NodeInfo", instance.Domain);
+                    var nodeinfoSuccess = await FetchNodeInfoMetadataAsync(instance);
+
+                    if (!nodeinfoSuccess)
+                    {
+                        logger.LogInformation("No compatible API found for {Domain}", instance.Domain);
+                        return;
+                    }
                 }
             }
 
@@ -549,6 +632,95 @@ public partial class ActivityPubDiscoveryService(
         catch (Exception ex)
         {
             logger.LogDebug(ex, "Failed to fetch Misskey metadata for {Domain}", instance.Domain);
+            return false;
+        }
+    }
+
+    private async Task<bool> FetchNodeInfoMetadataAsync(SnFediverseInstance instance)
+    {
+        try
+        {
+            var discoveryUrl = $"https://{instance.Domain}/.well-known/nodeinfo";
+            var request = new HttpRequestMessage(HttpMethod.Get, discoveryUrl);
+            request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
+            request.Headers.Accept.ParseAdd("application/json");
+
+            var response = await HttpClient.SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogDebug("NodeInfo discovery not available for {Domain} (Status: {StatusCode})",
+                    instance.Domain, response.StatusCode);
+                return false;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var discovery = JsonSerializer.Deserialize<NodeInfoDiscoveryResponse>(content);
+
+            if (discovery?.Links == null || discovery.Links.Count == 0)
+            {
+                logger.LogDebug("No NodeInfo links found for {Domain}", instance.Domain);
+                return false;
+            }
+
+            var nodeinfoLink = discovery.Links
+                .FirstOrDefault(l => l.Rel == "http://nodeinfo.diaspora.software/ns/schema/2.1"
+                                  || l.Rel == "http://nodeinfo.diaspora.software/ns/schema/2.0");
+
+            if (nodeinfoLink?.Href == null)
+            {
+                logger.LogDebug("No suitable NodeInfo link found for {Domain}", instance.Domain);
+                return false;
+            }
+
+            var nodeinfoRequest = new HttpRequestMessage(HttpMethod.Get, nodeinfoLink.Href);
+            nodeinfoRequest.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
+            nodeinfoRequest.Headers.Accept.ParseAdd("application/json");
+
+            var nodeinfoResponse = await HttpClient.SendAsync(nodeinfoRequest);
+
+            if (!nodeinfoResponse.IsSuccessStatusCode)
+            {
+                logger.LogDebug("Failed to fetch NodeInfo document for {Domain} (Status: {StatusCode})",
+                    instance.Domain, nodeinfoResponse.StatusCode);
+                return false;
+            }
+
+            var nodeinfoContent = await nodeinfoResponse.Content.ReadAsStringAsync();
+            var nodeinfo = JsonSerializer.Deserialize<NodeInfoResponse>(nodeinfoContent);
+
+            if (nodeinfo == null)
+            {
+                logger.LogWarning("Failed to parse NodeInfo response for {Domain}", instance.Domain);
+                return false;
+            }
+
+            instance.Name = instance.Domain;
+            instance.Software = nodeinfo.Software?.Name ?? "unknown";
+            instance.Version = nodeinfo.Software?.Version;
+            instance.Description = $"Users: {nodeinfo.Usage?.Users?.Total ?? 0}, Posts: {nodeinfo.Usage?.LocalPosts ?? 0}";
+
+            if (nodeinfo.Usage?.Users != null)
+            {
+                instance.ActiveUsers = nodeinfo.Usage.Users.ActiveMonth ?? nodeinfo.Usage.Users.Total;
+            }
+
+            if (nodeinfo.Configuration?.Statuses != null)
+            {
+                var metadata = new Dictionary<string, object>();
+                if (nodeinfo.Configuration.Statuses.MaxCharacters.HasValue)
+                    metadata["max_note_text_length"] = nodeinfo.Configuration.Statuses.MaxCharacters.Value;
+                if (nodeinfo.Configuration.Statuses.MaxMediaAttachments.HasValue)
+                    metadata["max_media_attachments"] = nodeinfo.Configuration.Statuses.MaxMediaAttachments.Value;
+                if (metadata.Count > 0)
+                    instance.Metadata = metadata;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Failed to fetch NodeInfo metadata for {Domain}", instance.Domain);
             return false;
         }
     }

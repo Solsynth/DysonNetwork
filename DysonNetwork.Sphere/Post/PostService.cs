@@ -69,6 +69,22 @@ public partial class PostService(
             _ => 0,
         };
 
+    private static string? GetEmojiForSymbol(string symbol) => symbol switch
+    {
+        "thumb_up" => "👍",
+        "thumb_down" => "👎",
+        "heart" => "❤️",
+        "laugh" => "😂",
+        "clap" => "👏",
+        "party" => "🎉",
+        "pray" => "🙏",
+        "cry" => "😭",
+        "confuse" => "😕",
+        "angry" => "😡",
+        "just_okay" => "😐",
+        _ => null
+    };
+
     private static double ClampInterestScore(double score) => Math.Clamp(score, -100d, 100d);
 
     private static double AdjustInterestDeltaForTarget(
@@ -1579,61 +1595,72 @@ public partial class PostService(
                 : await objFactory.GetLocalActorAsync(accountPublisher.Id);
             var publisherActor = await objFactory.GetLocalActorAsync(post.PublisherId.Value);
 
-            if (
-                accountActor != null
-                && publisherActor != null
-                && reaction.Attitude == PostReactionAttitude.Positive
-            )
+            if (accountActor != null && publisherActor != null)
             {
-                if (!isRemoving)
+                var emoji = GetEmojiForSymbol(reaction.Symbol);
+                if (emoji != null)
                 {
-                    // Sending Like - deliver to publisher's remote followers
-                    _ = Task.Run(async () =>
+                    if (!isRemoving)
                     {
-                        try
+                        _ = Task.Run(async () =>
                         {
-                            using var scope = factory.CreateScope();
-                            var deliveryService =
-                                scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
-                            await deliveryService.SendLikeActivityToLocalPostAsync(
-                                accountActor,
-                                post.Id,
-                                publisherActor
-                            );
-                        }
-                        catch (Exception ex)
-                        {
-                            logger.LogError($"Error sending ActivityPub Like: {ex.Message}");
-                        }
-                    });
-                }
-                else
-                {
-                    // Sending Undo Like - deliver to publisher's remote followers
-                    _ = Task.Run(async () =>
+                            try
+                            {
+                                using var scope = factory.CreateScope();
+                                var deliveryService =
+                                    scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
+                                var activityId = $"{accountActor.Uri}/reactions/{Guid.NewGuid()}";
+                                await deliveryService.SendEmojiReactionActivityAsync(
+                                    accountActor,
+                                    post.Id,
+                                    emoji,
+                                    publisherActor,
+                                    activityId
+                                );
+                                reaction.FediverseUri = activityId;
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError($"Error sending ActivityPub EmojiReact: {ex.Message}");
+                            }
+                        });
+                    }
+                    else
                     {
-                        try
-                        {
-                            using var scope = factory.CreateScope();
-                            var deliveryService =
-                                scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
-                            await deliveryService.SendUndoLikeActivityAsync(
-                                accountActor,
-                                post.Id,
-                                publisherActor
+                        var existingReaction = await db.PostReactions
+                            .FirstOrDefaultAsync(r =>
+                                r.PostId == post.Id
+                                && r.Symbol == reaction.Symbol
+                                && r.AccountId == reaction.AccountId
                             );
-                        }
-                        catch (Exception ex)
+                        var undoActivityId = existingReaction?.FediverseUri;
+                        _ = Task.Run(async () =>
                         {
-                            logger.LogError($"Error sending ActivityPub Undo Like: {ex.Message}");
-                        }
-                    });
+                            try
+                            {
+                                using var scope = factory.CreateScope();
+                                var deliveryService =
+                                    scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
+                                await deliveryService.SendUndoEmojiReactionActivityAsync(
+                                    accountActor,
+                                    post.Id,
+                                    emoji,
+                                    publisherActor,
+                                    undoActivityId ?? ""
+                                );
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError($"Error sending ActivityPub Undo EmojiReact: {ex.Message}");
+                            }
+                        });
+                    }
                 }
             }
             else
             {
                 logger.LogWarning(
-                    "Seems {PublisherName} didn't enable actor, skipping delivery of Like activity...",
+                    "Seems {PublisherName} didn't enable actor, skipping delivery of EmojiReact activity...",
                     accountPublisher?.Name
                 );
             }

@@ -110,6 +110,8 @@ public class ActivityPubActivityHandler(
                     return await HandleCreateAsync(actorUri, activity);
                 case "Like":
                     return await HandleLikeAsync(actorUri, activity);
+                case "EmojiReact":
+                    return await HandleEmojiReactAsync(actorUri, activity);
                 case "Announce":
                     return await HandleAnnounceAsync(actorUri, activity);
                 case "Delete":
@@ -286,7 +288,8 @@ public class ActivityPubActivityHandler(
         return objectType switch
         {
             "Follow" => await UndoFollowAsync(actorUri, objectUri),
-            "Like" => await UndoLikeAsync(actorUri, objectUri),
+            "Like" => await UndoLikeAsync(actorUri, objectUri, null),
+            "EmojiReact" => await UndoEmojiReactAsync(actorUri, objectDict),
             "Announce" => await UndoAnnounceAsync(actorUri, objectUri),
             _ => throw new InvalidOperationException($"Unhandled undo operation for {objectType}")
         };
@@ -402,23 +405,26 @@ public class ActivityPubActivityHandler(
             return false;
         }
 
+        var contentStr = activity.GetValueOrDefault("content")?.ToString();
+        var (symbol, attitude) = GetSymbolAndAttitudeFromEmoji(contentStr);
+
         var existingReaction = await db.PostReactions
             .FirstOrDefaultAsync(r =>
                 r.ActorId == actor.Id &&
                 r.PostId == content.Id &&
-                r.Symbol == "thumb_up");
+                r.Symbol == symbol);
 
         if (existingReaction != null)
         {
-            logger.LogInformation("Like already exists");
+            logger.LogInformation("Like/EmojiReact already exists");
             return true;
         }
 
         var reaction = new SnPostReaction
         {
             FediverseUri = activity.GetValueOrDefault("id")?.ToString() ?? Guid.NewGuid().ToString(),
-            Symbol = "thumb_up",
-            Attitude = PostReactionAttitude.Positive,
+            Symbol = symbol,
+            Attitude = attitude,
             IsLocal = false,
             PostId = content.Id,
             ActorId = actor.Id,
@@ -428,12 +434,42 @@ public class ActivityPubActivityHandler(
         };
 
         db.PostReactions.Add(reaction);
-        content.Upvotes++;
+        if (attitude == PostReactionAttitude.Positive)
+            content.Upvotes++;
+        else if (attitude == PostReactionAttitude.Negative)
+            content.Downvotes++;
 
         await db.SaveChangesAsync();
 
-        logger.LogInformation("Handled like from {Actor}", actorUri);
+        logger.LogInformation("Handled like/emojiReact from {Actor}", actorUri);
         return true;
+    }
+
+    private async Task<bool> HandleEmojiReactAsync(string actorUri, Dictionary<string, object> activity)
+    {
+        return await HandleLikeAsync(actorUri, activity);
+    }
+
+    private static (string symbol, PostReactionAttitude attitude) GetSymbolAndAttitudeFromEmoji(string? emoji)
+    {
+        if (string.IsNullOrEmpty(emoji))
+            return ("thumb_up", PostReactionAttitude.Positive);
+
+        return emoji switch
+        {
+            "👍" => ("thumb_up", PostReactionAttitude.Positive),
+            "👎" => ("thumb_down", PostReactionAttitude.Negative),
+            "❤️" => ("heart", PostReactionAttitude.Positive),
+            "😂" => ("laugh", PostReactionAttitude.Positive),
+            "👏" => ("clap", PostReactionAttitude.Positive),
+            "🎉" => ("party", PostReactionAttitude.Positive),
+            "🙏" => ("pray", PostReactionAttitude.Positive),
+            "😭" => ("cry", PostReactionAttitude.Negative),
+            "😕" => ("confuse", PostReactionAttitude.Neutral),
+            "😡" => ("angry", PostReactionAttitude.Negative),
+            "😐" => ("just_okay", PostReactionAttitude.Neutral),
+            _ => ("thumb_up", PostReactionAttitude.Positive)
+        };
     }
 
     private async Task<bool> HandleAnnounceAsync(string actorUri, Dictionary<string, object> activity)
@@ -700,7 +736,7 @@ public class ActivityPubActivityHandler(
         return true;
     }
 
-    private async Task<bool> UndoLikeAsync(string actorUri, string? objectUri)
+    private async Task<bool> UndoLikeAsync(string actorUri, string? objectUri, Dictionary<string, object>? undoObjectDict = null)
     {
         if (string.IsNullOrEmpty(objectUri))
             return false;
@@ -711,16 +747,53 @@ public class ActivityPubActivityHandler(
         if (content == null)
             return false;
 
+        var contentStr = undoObjectDict != null ? GetStringValue(undoObjectDict, "content") : null;
+        var (symbol, attitude) = GetSymbolAndAttitudeFromEmoji(contentStr);
+
         var reaction = await db.PostReactions
             .FirstOrDefaultAsync(r =>
                 r.ActorId == actor.Id &&
                 r.PostId == content.Id &&
-                r.Symbol == "thumb_up");
+                r.Symbol == symbol);
 
         if (reaction != null)
         {
             db.PostReactions.Remove(reaction);
-            content.Upvotes--;
+            if (attitude == PostReactionAttitude.Positive)
+                content.Upvotes--;
+            else if (attitude == PostReactionAttitude.Negative)
+                content.Downvotes--;
+            await db.SaveChangesAsync();
+        }
+
+        return true;
+    }
+
+    private async Task<bool> UndoEmojiReactAsync(string actorUri, Dictionary<string, object> undoObjectDict)
+    {
+        var objectUri = GetStringValue(undoObjectDict, "object");
+        var content = string.IsNullOrEmpty(objectUri) ? null : await GetPostByUriAsync(objectUri);
+
+        if (content == null)
+            return false;
+
+        var emoji = GetStringValue(undoObjectDict, "content");
+        var (symbol, attitude) = GetSymbolAndAttitudeFromEmoji(emoji);
+
+        var actor = await GetOrCreateActorAsync(actorUri);
+        var reaction = await db.PostReactions
+            .FirstOrDefaultAsync(r =>
+                r.ActorId == actor.Id &&
+                r.PostId == content.Id &&
+                r.Symbol == symbol);
+
+        if (reaction != null)
+        {
+            db.PostReactions.Remove(reaction);
+            if (attitude == PostReactionAttitude.Positive)
+                content.Upvotes--;
+            else if (attitude == PostReactionAttitude.Negative)
+                content.Downvotes--;
             await db.SaveChangesAsync();
         }
 

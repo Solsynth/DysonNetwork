@@ -601,6 +601,95 @@ public class ActivityPubDeliveryService(
         return await EnqueueActivityDeliveryAsync("Like", activity, actorUrl, targetActor.InboxUri, activityId);
     }
 
+    public async Task<bool> SendEmojiReactionActivityAsync(
+        SnFediverseActor actor,
+        Guid postId,
+        string emoji,
+        SnFediverseActor postSenderActor,
+        string? activityId = null
+    )
+    {
+        var actorUrl = actor.Uri;
+        activityId ??= $"{actorUrl}/reactions/{Guid.NewGuid()}";
+
+        var post = await db.Posts.FindAsync(postId);
+        if (post == null) return false;
+
+        var postObject = await objFactory.CreatePostObject(post, actorUrl);
+
+        var context = new Dictionary<string, object>
+        {
+            ["@context"] = new Dictionary<string, object>
+            {
+                ["litepub"] = "http://litepub.social/ns#",
+                ["EmojiReact"] = "litepub:EmojiReact"
+            }
+        };
+
+        var activity = new Dictionary<string, object>
+        {
+            ["@context"] = context,
+            ["id"] = activityId,
+            ["type"] = "EmojiReact",
+            ["actor"] = actorUrl,
+            ["content"] = emoji,
+            ["object"] = postObject,
+            ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
+            ["cc"] = new[] { $"{actorUrl}/followers", postSenderActor.Uri, postSenderActor.FollowersUri }
+        };
+
+        var followers = await GetRemoteFollowersAsync(actor.Id);
+        var ogFollowers = await GetRemoteFollowersAsync(postSenderActor.Id);
+
+        foreach (var follower in followers.Concat(ogFollowers))
+        {
+            if (follower.InboxUri == null) continue;
+            await EnqueueActivityDeliveryAsync("EmojiReact", activity, actorUrl, follower.InboxUri, activityId);
+        }
+
+        return followers.Count > 0;
+    }
+
+    public async Task<bool> SendUndoEmojiReactionActivityAsync(
+        SnFediverseActor actor,
+        Guid postId,
+        string emoji,
+        SnFediverseActor postSenderActor,
+        string reactionActivityId
+    )
+    {
+        var actorUrl = actor.Uri;
+        var activityId = $"{actorUrl}/undo/{Guid.NewGuid()}";
+
+        var activity = new Dictionary<string, object>
+        {
+            ["@context"] = "https://www.w3.org/ns/activitystreams",
+            ["id"] = activityId,
+            ["type"] = "Undo",
+            ["actor"] = actorUrl,
+            ["object"] = new Dictionary<string, object>
+            {
+                ["type"] = "EmojiReact",
+                ["content"] = emoji,
+                ["object"] = $"https://{Domain}/posts/{postId}",
+                ["id"] = reactionActivityId
+            },
+            ["to"] = new[] { "https://www.w3.org/ns/activitystreams#Public" },
+            ["cc"] = new[] { $"{actorUrl}/followers", postSenderActor.Uri, postSenderActor.FollowersUri }
+        };
+
+        var followers = await GetRemoteFollowersAsync(actor.Id);
+        var ogFollowers = await GetRemoteFollowersAsync(postSenderActor.Id);
+
+        foreach (var follower in followers.Concat(ogFollowers))
+        {
+            if (follower.InboxUri == null) continue;
+            await EnqueueActivityDeliveryAsync("Undo", activity, actorUrl, follower.InboxUri, activityId);
+        }
+
+        return followers.Count > 0;
+    }
+
     public async Task<bool> SendUndoActivityAsync(
         string activityType,
         string objectUri,
