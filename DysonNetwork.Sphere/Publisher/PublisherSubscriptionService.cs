@@ -27,25 +27,41 @@ public class PublisherSubscriptionService(
     }
 
     /// <summary>
-    /// Checks if a subscription exists between the account and publisher
+    /// Checks if an active subscription exists between the account and publisher
     /// </summary>
     /// <param name="accountId">The account ID</param>
     /// <param name="publisherId">The publisher ID</param>
-    /// <returns>True if a subscription exists, false otherwise</returns>
+    /// <returns>True if an active subscription exists, false otherwise</returns>
     public async Task<bool> SubscriptionExistsAsync(Guid accountId, Guid publisherId)
     {
         return await db.PublisherSubscriptions
             .AnyAsync(p => p.AccountId == accountId &&
-                            p.PublisherId == publisherId);
+                            p.PublisherId == publisherId &&
+                            p.EndedAt == null);
     }
 
     /// <summary>
-    /// Gets a subscription by account and publisher ID
+    /// Gets an active subscription by account and publisher ID
     /// </summary>
     /// <param name="accountId">The account ID</param>
     /// <param name="publisherId">The publisher ID</param>
     /// <returns>The subscription or null if not found</returns>
     public async Task<SnPublisherSubscription?> GetSubscriptionAsync(Guid accountId, Guid publisherId)
+    {
+        return await db.PublisherSubscriptions
+            .Include(p => p.Publisher)
+            .FirstOrDefaultAsync(p => p.AccountId == accountId && 
+                                       p.PublisherId == publisherId && 
+                                       p.EndedAt == null);
+    }
+
+    /// <summary>
+    /// Gets a subscription by account and publisher ID, including ended ones
+    /// </summary>
+    /// <param name="accountId">The account ID</param>
+    /// <param name="publisherId">The publisher ID</param>
+    /// <returns>The subscription or null if not found</returns>
+    public async Task<SnPublisherSubscription?> GetSubscriptionIncludingEndedAsync(Guid accountId, Guid publisherId)
     {
         return await db.PublisherSubscriptions
             .Include(p => p.Publisher)
@@ -424,22 +440,110 @@ public class PublisherSubscriptionService(
     }
 
     /// <summary>
-    /// Deletes a subscription
+    /// Marks a subscription as ended (user left voluntarily)
     /// </summary>
     /// <param name="accountId">The account ID</param>
     /// <param name="publisherId">The publisher ID</param>
-    /// <returns>True if the subscription was deleted, false if it wasn't found</returns>
+    /// <returns>True if the subscription was ended, false if it wasn't found</returns>
     public async Task<bool> CancelSubscriptionAsync(Guid accountId, Guid publisherId)
     {
         var subscription = await GetSubscriptionAsync(accountId, publisherId);
         if (subscription is null)
             return false;
 
-        db.PublisherSubscriptions.Remove(subscription);
+        subscription.EndedAt = SystemClock.Instance.GetCurrentInstant();
+        subscription.EndReason = SubscriptionEndReason.UserLeft;
+        db.PublisherSubscriptions.Update(subscription);
         await db.SaveChangesAsync();
 
         await cache.RemoveAsync(string.Format(PublisherService.SubscribedPublishersCacheKey, accountId));
 
         return true;
+    }
+
+    /// <summary>
+    /// Adds a subscriber directly (manager action), bypassing approval flow
+    /// </summary>
+    /// <param name="accountId">The account ID to add</param>
+    /// <param name="publisherId">The publisher ID</param>
+    /// <returns>The subscription or error message</returns>
+    public async Task<SnPublisherSubscription> AddSubscriberAsync(Guid accountId, Guid publisherId)
+    {
+        var existing = await GetSubscriptionIncludingEndedAsync(accountId, publisherId);
+        if (existing != null && existing.EndedAt == null)
+            throw new InvalidOperationException("Already subscribed");
+
+        if (existing != null && existing.EndReason == SubscriptionEndReason.RemovedByPublisher)
+            throw new InvalidOperationException("Account was removed by publisher and cannot be re-added");
+
+        if (existing != null && existing.EndReason == SubscriptionEndReason.UserLeft)
+            throw new InvalidOperationException("Account left voluntarily and cannot be re-added");
+
+        if (existing != null)
+        {
+            existing.EndedAt = null;
+            existing.EndReason = null;
+            existing.EndedByAccountId = null;
+            existing.Notify = true;
+            db.PublisherSubscriptions.Update(existing);
+        }
+        else
+        {
+            var subscription = new SnPublisherSubscription
+            {
+                AccountId = accountId,
+                PublisherId = publisherId,
+            };
+            db.PublisherSubscriptions.Add(subscription);
+        }
+
+        await db.SaveChangesAsync();
+        await cache.RemoveAsync(string.Format(PublisherService.SubscribedPublishersCacheKey, accountId));
+
+        return await GetSubscriptionAsync(accountId, publisherId);
+    }
+
+    /// <summary>
+    /// Removes a subscriber (manager action), preventing re-subscription
+    /// </summary>
+    /// <param name="accountId">The account ID to remove</param>
+    /// <param name="publisherId">The publisher ID</param>
+    /// <param name="removedByAccountId">The manager account ID doing the removal</param>
+    /// <returns>True if the subscriber was removed, false if not found</returns>
+    public async Task<bool> RemoveSubscriberAsync(Guid accountId, Guid publisherId, Guid removedByAccountId)
+    {
+        var subscription = await GetSubscriptionAsync(accountId, publisherId);
+        if (subscription is null)
+            return false;
+
+        subscription.EndedAt = SystemClock.Instance.GetCurrentInstant();
+        subscription.EndReason = SubscriptionEndReason.RemovedByPublisher;
+        subscription.EndedByAccountId = removedByAccountId;
+        db.PublisherSubscriptions.Update(subscription);
+        await db.SaveChangesAsync();
+
+        await cache.RemoveAsync(string.Format(PublisherService.SubscribedPublishersCacheKey, accountId));
+
+        return true;
+    }
+
+    /// <summary>
+    /// Updates the notify setting for a subscription
+    /// </summary>
+    /// <param name="accountId">The account ID</param>
+    /// <param name="publisherId">The publisher ID</param>
+    /// <param name="notify">Whether to notify on new posts</param>
+    /// <returns>The updated subscription or null if not found</returns>
+    public async Task<SnPublisherSubscription?> UpdateSubscriberNotifyAsync(Guid accountId, Guid publisherId, bool notify)
+    {
+        var subscription = await GetSubscriptionAsync(accountId, publisherId);
+        if (subscription is null)
+            return null;
+
+        subscription.Notify = notify;
+        db.PublisherSubscriptions.Update(subscription);
+        await db.SaveChangesAsync();
+
+        return subscription;
     }
 }

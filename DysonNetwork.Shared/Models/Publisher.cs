@@ -224,6 +224,13 @@ public class SnPublisherSubscription : ModelBase
     public SnPublisher Publisher { get; set; } = null!;
     public Guid AccountId { get; set; }
     public Instant? LastReadAt { get; set; }
+    public bool Notify { get; set; } = true;
+
+    public Instant? EndedAt { get; set; }
+    public SubscriptionEndReason? EndReason { get; set; }
+    public Guid? EndedByAccountId { get; set; }
+
+    public bool IsActive => EndedAt == null;
 }
 
 public class SnPublisherFeature : ModelBase
@@ -270,4 +277,10 @@ public enum FollowRequestState
     Pending,
     Accepted,
     Rejected
+}
+
+public enum SubscriptionEndReason
+{
+    UserLeft,
+    RemovedByPublisher
 }

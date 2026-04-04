@@ -332,6 +332,141 @@ public class PublisherSubscriptionController(
         public bool HasNewContent { get; set; }
     }
 
+    public class SubscriberResponse
+    {
+        public SnPublisherSubscription Subscription { get; set; } = null!;
+        public SnAccount? Account { get; set; }
+    }
+
+    public class UpdateNotifyRequest
+    {
+        public bool Notify { get; set; }
+    }
+
+    [HttpGet("{name}/subscribers")]
+    [Authorize]
+    public async Task<ActionResult<List<SubscriberResponse>>> ListSubscribers(
+        string name,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        if (publisher == null)
+            return NotFound("Publisher not found");
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
+            return Forbid();
+
+        var query = db.PublisherSubscriptions
+            .Where(s => s.PublisherId == publisher.Id)
+            .Where(s => s.EndedAt == null);
+
+        var total = await query.CountAsync();
+        Response.Headers["X-Total"] = total.ToString();
+
+        var subscriptions = await query.OrderBy(s => s.CreatedAt).Skip(offset).Take(take).ToListAsync();
+
+        var accountIds = subscriptions.Select(s => s.AccountId).Distinct().ToList();
+        var accountDict = new Dictionary<Guid, SnAccount>();
+        foreach (var id in accountIds)
+        {
+            var account = await accounts.GetAccount(id);
+            if (account != null)
+                accountDict[id] = SnAccount.FromProtoValue(account);
+        }
+
+        var result = subscriptions.Select(s => new SubscriberResponse
+        {
+            Subscription = s,
+            Account = accountDict.GetValueOrDefault(s.AccountId)
+        }).ToList();
+
+        return Ok(result);
+    }
+
+    [HttpPost("{name}/subscribers/{accountId}")]
+    [Authorize]
+    public async Task<ActionResult<SubscriberResponse>> AddSubscriber(string name, Guid accountId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        if (publisher == null)
+            return NotFound("Publisher not found");
+
+        var managerAccountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(publisher.Id, managerAccountId, PublisherMemberRole.Manager))
+            return Forbid();
+
+        try
+        {
+            var subscription = await subs.AddSubscriberAsync(accountId, publisher.Id);
+            var account = await accounts.GetAccount(accountId);
+            return Ok(new SubscriberResponse
+            {
+                Subscription = subscription,
+                Account = account != null ? SnAccount.FromProtoValue(account) : null
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpDelete("{name}/subscribers/{accountId}")]
+    [Authorize]
+    public async Task<ActionResult> RemoveSubscriber(string name, Guid accountId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        if (publisher == null)
+            return NotFound("Publisher not found");
+
+        var managerAccountId = Guid.Parse(currentUser.Id);
+        if (!await pub.IsMemberWithRole(publisher.Id, managerAccountId, PublisherMemberRole.Manager))
+            return Forbid();
+
+        var success = await subs.RemoveSubscriberAsync(accountId, publisher.Id, managerAccountId);
+        if (!success)
+            return NotFound("Subscriber not found");
+
+        return NoContent();
+    }
+
+    [HttpPatch("{name}/subscribers/{accountId}/notify")]
+    [Authorize]
+    public async Task<ActionResult<SnPublisherSubscription>> UpdateSubscriberNotify(
+        string name,
+        Guid accountId,
+        [FromBody] UpdateNotifyRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        if (publisher == null)
+            return NotFound("Publisher not found");
+
+        var subscriberAccountId = Guid.Parse(currentUser.Id);
+        if (subscriberAccountId != accountId)
+        {
+            if (!await pub.IsMemberWithRole(publisher.Id, subscriberAccountId, PublisherMemberRole.Manager))
+                return Forbid();
+        }
+
+        var subscription = await subs.UpdateSubscriberNotifyAsync(accountId, publisher.Id, request.Notify);
+        if (subscription == null)
+            return NotFound("Subscription not found");
+
+        return Ok(subscription);
+    }
+
     [HttpPut("{name}/subscription/read-status")]
     [Authorize]
     public async Task<ActionResult<PublisherSubscriptionService.SubscriptionReadStatus>>
