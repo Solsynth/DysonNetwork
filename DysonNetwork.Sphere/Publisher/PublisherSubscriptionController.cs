@@ -384,7 +384,7 @@ public class PublisherSubscriptionController(
 
         var liveStreams = await db.LiveStreams
             .Include(ls => ls.Publisher)
-            .Where(ls => subscribedPublisherIds.Contains(ls.PublisherId ?? Guid.Empty) 
+            .Where(ls => subscribedPublisherIds.Contains(ls.PublisherId ?? Guid.Empty)
                       && ls.Status == Shared.Models.LiveStreamStatus.Active
                       && ls.Visibility == Shared.Models.LiveStreamVisibility.Public)
             .OrderByDescending(ls => ls.StartedAt)
@@ -428,7 +428,7 @@ public class PublisherSubscriptionController(
         foreach (var request in requests)
         {
             if (accountDict.TryGetValue(request.AccountId, out var requesterAccount))
-                request.RequesterAccount = SnAccount.FromProtoValue(requesterAccount);
+                request.Account = SnAccount.FromProtoValue(requesterAccount);
         }
 
         return Ok(requests);

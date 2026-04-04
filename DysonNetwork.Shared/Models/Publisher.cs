@@ -44,14 +44,14 @@ public class SnPublisher : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public SnVerificationMark? Verification { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
 
-    [MaxLength(8192)] [JsonIgnore] public string? PrivateKeyPem { get; set; }
+    [MaxLength(8192)][JsonIgnore] public string? PrivateKeyPem { get; set; }
     [MaxLength(8192)] public string? PublicKeyPem { get; set; }
 
-    [IgnoreMember] [JsonIgnore] public List<SnPost> Posts { get; set; } = [];
-    [IgnoreMember] [JsonIgnore] public List<SnPoll> Polls { get; set; } = [];
-    [IgnoreMember] [JsonIgnore] public List<SnPostCollection> Collections { get; set; } = [];
-    [IgnoreMember] [JsonIgnore] public List<SnPublisherMember> Members { get; set; } = [];
-    [IgnoreMember] [JsonIgnore] public List<SnPublisherFeature> Features { get; set; } = [];
+    [IgnoreMember][JsonIgnore] public List<SnPost> Posts { get; set; } = [];
+    [IgnoreMember][JsonIgnore] public List<SnPoll> Polls { get; set; } = [];
+    [IgnoreMember][JsonIgnore] public List<SnPostCollection> Collections { get; set; } = [];
+    [IgnoreMember][JsonIgnore] public List<SnPublisherMember> Members { get; set; } = [];
+    [IgnoreMember][JsonIgnore] public List<SnPublisherFeature> Features { get; set; } = [];
 
     [JsonIgnore]
     public List<SnPublisherSubscription> Subscriptions { get; set; } = [];
@@ -176,8 +176,8 @@ public class SnPublisherMember : ModelBase
 
     public PublisherMemberRole Role { get; set; } = PublisherMemberRole.Viewer;
     public Instant? JoinedAt { get; set; }
-    
-    
+
+
     public DyPublisherMember ToProto()
     {
         return new DyPublisherMember
@@ -262,7 +262,7 @@ public class SnPublisherFollowRequest : ModelBase
 
     [MaxLength(4096)] public string? RejectReason { get; set; }
 
-    [NotMapped] public SnAccount? RequesterAccount { get; set; }
+    [NotMapped] public SnAccount? Account { get; set; }
 }
 
 public enum FollowRequestState
