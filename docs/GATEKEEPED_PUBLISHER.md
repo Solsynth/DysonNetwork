@@ -95,7 +95,28 @@ GET /api/publishers/{name}/subscription
     "followRequest": null,
     "requiresApproval": false,
     "status": "subscribed",
-    "message": "You are subscribed to this publisher"
+    "message": "You are subscribed to this publisher",
+    "isPending": false,
+    "isActive": true
+}
+```
+
+**Response (no follow required, ended):**
+```json
+{
+    "subscription": {
+        "id": "uuid",
+        "endedAt": "2026-04-05T00:00:00Z",
+        "endReason": "UserLeft",
+        "isActive": false,
+        ...
+    },
+    "followRequest": null,
+    "requiresApproval": false,
+    "status": "ended",
+    "message": "Your subscription has ended",
+    "isPending": false,
+    "isActive": false
 }
 ```
 
@@ -110,7 +131,9 @@ GET /api/publishers/{name}/subscription
     },
     "requiresApproval": true,
     "status": "pending",
-    "message": "Follow request is pending approval"
+    "message": "Follow request is pending approval",
+    "isPending": true,
+    "isActive": false
 }
 ```
 
@@ -125,7 +148,9 @@ GET /api/publishers/{name}/subscription
     },
     "requiresApproval": true,
     "status": "following",
-    "message": "You are following this publisher"
+    "message": "You are following this publisher",
+    "isPending": false,
+    "isActive": true
 }
 ```
 
@@ -135,6 +160,11 @@ GET /api/publishers/{name}/subscription
 - `following` - Approved and following
 - `subscribed` - Subscribed (no approval required)
 - `rejected` - Follow request was rejected
+- `ended` - Subscription has ended (user left or was removed)
+
+**Boolean Flags:**
+- `isPending` - True when follow request is pending
+- `isActive` - True when subscription is active (not ended)
 
 ### Subscribe / Follow
 

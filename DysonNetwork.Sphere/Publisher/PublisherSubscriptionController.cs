@@ -38,6 +38,8 @@ public class PublisherSubscriptionController(
         public bool RequiresApproval { get; set; }
         public string Status { get; set; } = "none";
         public string Message { get; set; } = string.Empty;
+        public bool IsPending { get; set; }
+        public bool IsActive { get; set; }
     }
 
     [HttpGet("{name}/subscription")]
@@ -66,6 +68,8 @@ public class PublisherSubscriptionController(
             if (followRequest != null)
             {
                 response.Subscription = await subs.GetSubscriptionAsync(accountId, publisher.Id);
+                response.IsActive = followRequest.State == FollowRequestState.Accepted;
+                response.IsPending = followRequest.State == FollowRequestState.Pending;
                 response.Status = followRequest.State switch
                 {
                     FollowRequestState.Pending => "pending",
@@ -84,12 +88,15 @@ public class PublisherSubscriptionController(
             }
         }
 
-        var subscription = await subs.GetSubscriptionAsync(accountId, publisher.Id);
+        var subscription = await subs.GetSubscriptionIncludingEndedAsync(accountId, publisher.Id);
         if (subscription != null)
         {
             response.Subscription = subscription;
-            response.Status = "subscribed";
-            response.Message = "You are subscribed to this publisher";
+            response.IsActive = subscription.IsActive;
+            response.Status = subscription.IsActive ? "subscribed" : "ended";
+            response.Message = subscription.IsActive 
+                ? "You are subscribed to this publisher"
+                : "Your subscription has ended";
         }
 
         return Ok(response);
