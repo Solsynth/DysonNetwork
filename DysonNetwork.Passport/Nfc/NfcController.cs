@@ -98,6 +98,7 @@ public class NfcController(
 
         return Ok(new NfcResolveResponse
         {
+            Id = result.Id,
             Account = account,
             IsFriend = result.IsFriend,
             IsClaimed = result.IsClaimed,
