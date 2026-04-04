@@ -121,7 +121,8 @@ public class NfcController(
     [HttpGet]
     public async Task<ActionResult<NfcResolveResponse>> Resolve(
         [FromQuery] string uid,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         if (string.IsNullOrWhiteSpace(uid))
             return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
@@ -184,7 +185,7 @@ public class NfcController(
                         return StatusCode(500, ApiError.Server("Failed to load account data."));
 
                     await EnsureProfileAsync(account);
-                    account.Badges = await db.Badges.Where(b => b.AccountId == account.Id).ToListAsync();
+                    account.Badges = await db.Badges.Where(b => b.AccountId == account.Id).ToListAsync(cancellationToken: cancellationToken);
                     account.Contacts = [];
 
                     try
@@ -208,6 +209,7 @@ public class NfcController(
 
                     return Ok(new NfcResolveResponse
                     {
+                        Id = result.Tag.Id,
                         Account = account,
                         IsFriend = result.IsFriend,
                         IsClaimed = result.IsClaimed,

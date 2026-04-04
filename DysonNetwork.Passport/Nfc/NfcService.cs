@@ -401,7 +401,8 @@ public class NfcService(
     public async Task<SnNfcTag> ClaimTagByIdAsync(
         Guid tagId,
         Guid userId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var tag = await db.NfcTags
             .FirstOrDefaultAsync(t => t.Id == tagId && t.IsEncrypted && t.IsActive, cancellationToken);
