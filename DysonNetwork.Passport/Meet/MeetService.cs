@@ -26,7 +26,7 @@ public class MeetService(
 
     public async Task<SnMeet> CreateMeetAsync(
         Guid hostId,
-        MeetVisibility visibility,
+        LocationVisibility visibility,
         string? notes,
         string? imageId,
         string? locationName,
@@ -167,7 +167,7 @@ public class MeetService(
             .Include(m => m.Participants)
             .Where(m => m.Location != null)
             .Where(m => m.Location.IsWithinDistance(location, distanceMeters))
-            .Where(m => m.Visibility == MeetVisibility.Public
+            .Where(m => m.Visibility == LocationVisibility.Public
                 || m.HostId == accountId
                 || m.Participants.Any(p => p.AccountId == accountId))
             .ToListAsync(cancellationToken);
@@ -177,7 +177,7 @@ public class MeetService(
             .Include(m => m.Participants)
             .Where(m => m.Location != null)
             .Where(m => m.Location.IsWithinDistance(location, distanceMeters))
-            .Where(m => m.Visibility == MeetVisibility.Unlisted)
+            .Where(m => m.Visibility == LocationVisibility.Unlisted)
             .Where(m => friendIds.Contains(m.HostId) 
                 || m.Participants.Any(p => friendIds.Contains(p.AccountId)))
             .ToListAsync(cancellationToken);
@@ -346,7 +346,7 @@ public class MeetService(
                 return true;
         }
 
-        if (meet.Visibility == MeetVisibility.Public)
+        if (meet.Visibility == LocationVisibility.Public)
         {
             if (meet.Location == null) return false;
             var distance = CalculateDistance(meet.Location, userLocation);

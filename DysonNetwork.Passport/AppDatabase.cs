@@ -54,6 +54,7 @@ public class AppDatabase(
     public DbSet<SnMeetParticipant> MeetParticipants { get; set; } = null!;
     public DbSet<SnNearbyDevice> NearbyDevices { get; set; } = null!;
     public DbSet<SnNearbyPresenceToken> NearbyPresenceTokens { get; set; } = null!;
+    public DbSet<SnLocationPin> LocationPins { get; set; } = null!;
 
     public DbSet<SnNfcTag> NfcTags { get; set; } = null!;
 

@@ -22,7 +22,7 @@ public class MeetController(
 {
     public class CreateMeetRequest
     {
-        public MeetVisibility Visibility { get; set; } = MeetVisibility.Private;
+        public LocationVisibility Visibility { get; set; } = LocationVisibility.Private;
         [MaxLength(8192)] public string? Notes { get; set; }
         [MaxLength(512)] public string? ImageId { get; set; }
         [MaxLength(256)] public string? LocationName { get; set; }

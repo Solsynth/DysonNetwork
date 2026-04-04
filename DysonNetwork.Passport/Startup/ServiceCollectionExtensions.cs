@@ -163,6 +163,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<MeetSubscriptionHub>();
         services.AddSingleton<MeetExpirationScheduler>();
         services.AddHostedService<MeetLifecycleHostedService>();
+        services.AddScoped<LocationPinService>();
+        services.AddSingleton<LocationPinSubscriptionHub>();
+        services.AddHostedService<LocationPinLifecycleHostedService>();
         services.AddEventBus()
             .AddListener<AccountCreatedEvent>(async (evt, ctx) =>
             {
@@ -310,6 +313,27 @@ public static class ServiceCollectionExtensions
                     opts.UseJetStream = true;
                     opts.StreamName = "action_log_events";
                     opts.ConsumerName = "passport_progression_action_logs";
+                    opts.MaxRetries = 3;
+                })
+            .AddListener<LocationPinUpdatedEvent>(
+                LocationPinUpdatedEvent.SubjectPrefix + ">",
+                async (evt, ctx) =>
+                {
+                    var subscriptions = ctx.ServiceProvider.GetRequiredService<LocationPinSubscriptionHub>();
+                    var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
+
+                    var pin = await db.LocationPins.FirstOrDefaultAsync(p => p.Id == evt.PinId, ctx.CancellationToken);
+                    if (pin == null) return;
+
+                    pin.Account = ctx.ServiceProvider.GetRequiredService<AccountService>().GetAccount(pin.AccountId).Result;
+
+                    await subscriptions.PublishAsync("pin_updated", pin, ctx.CancellationToken);
+                },
+                opts =>
+                {
+                    opts.UseJetStream = true;
+                    opts.StreamName = "locationpin_events";
+                    opts.ConsumerName = "passport_locationpin_updates";
                     opts.MaxRetries = 3;
                 });
 

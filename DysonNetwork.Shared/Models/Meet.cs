@@ -14,6 +14,14 @@ public enum MeetStatus
     Cancelled = 3
 }
 
+public enum LocationVisibility
+{
+    Public = 0,
+    Private = 1,
+    Unlisted = 2
+}
+
+[Obsolete("Use LocationVisibility instead")]
 public enum MeetVisibility
 {
     Public = 0,
@@ -28,7 +36,7 @@ public class SnMeet : ModelBase, IIdentifiedResource
     public Guid HostId { get; set; }
     [NotMapped] public SnAccount? Host { get; set; }
     public MeetStatus Status { get; set; } = MeetStatus.Active;
-    public MeetVisibility Visibility { get; set; } = MeetVisibility.Private;
+    public LocationVisibility Visibility { get; set; } = LocationVisibility.Private;
     public Instant ExpiresAt { get; set; }
     public Instant? CompletedAt { get; set; }
     [MaxLength(8192)] public string? Notes { get; set; }
