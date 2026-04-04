@@ -62,9 +62,9 @@ public class NfcController(
 
     public class ClaimTagRequest
     {
-        [Required]
         [MaxLength(64)]
-        public string Uid { get; set; } = string.Empty;
+        public string? Uid { get; set; } = string.Empty;
+        public Guid? RecordId { get; set; }
     }
 
     private async Task<ActionResult<NfcResolveResponse>> ToResponseAsync(NfcResolveResult result)
@@ -374,17 +374,32 @@ public class NfcController(
     [Authorize]
     public async Task<ActionResult<NfcTagResponse>> ClaimTag(
         [FromBody] ClaimTagRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
+        if (request.Uid == null && request.RecordId == null)
+            return BadRequest(new ApiError
+            {
+                Code = "BAD_REQUEST",
+                Message = "Uid or RecordId must provided one of them",
+                Status = 400
+            });
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
         try
         {
-            var tag = await nfc.ClaimTagByUidAsync(
-                request.Uid,
-                currentUser.Id,
-                cancellationToken);
+            var tag = await (
+                request.RecordId.HasValue ? nfc.ClaimTagByIdAsync(
+                    request.RecordId.Value,
+                    currentUser.Id,
+                    cancellationToken
+                ) : nfc.ClaimTagByUidAsync(
+                    request.Uid!,
+                    currentUser.Id,
+                    cancellationToken
+                )
+            );
 
             return Ok(new NfcTagResponse
             {
