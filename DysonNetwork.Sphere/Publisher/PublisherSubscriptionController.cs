@@ -40,6 +40,7 @@ public class PublisherSubscriptionController(
         public string Message { get; set; } = string.Empty;
         public bool IsPending { get; set; }
         public bool IsActive { get; set; }
+        public bool Notify { get; set; } = true;
     }
 
     [HttpGet("{name}/subscription")]
@@ -67,21 +68,24 @@ public class PublisherSubscriptionController(
 
             if (followRequest != null)
             {
-                response.Subscription = await subs.GetSubscriptionAsync(accountId, publisher.Id);
-                response.IsActive = followRequest.State == FollowRequestState.Accepted;
+                var followSubscription = await subs.GetSubscriptionIncludingEndedAsync(accountId, publisher.Id);
+                response.Subscription = followSubscription;
+                response.Notify = followSubscription?.Notify ?? true;
+                response.IsActive = followRequest.State == FollowRequestState.Accepted && (followSubscription?.IsActive ?? false);
                 response.IsPending = followRequest.State == FollowRequestState.Pending;
                 response.Status = followRequest.State switch
                 {
                     FollowRequestState.Pending => "pending",
-                    FollowRequestState.Accepted => "following",
+                    FollowRequestState.Accepted => response.IsActive ? "following" : "ended",
                     FollowRequestState.Rejected => "rejected",
                     _ => "none"
                 };
-                response.Message = followRequest.State switch
+                response.Message = response.Status switch
                 {
-                    FollowRequestState.Pending => "Follow request is pending approval",
-                    FollowRequestState.Accepted => "You are following this publisher",
-                    FollowRequestState.Rejected => "Follow request was rejected",
+                    "pending" => "Follow request is pending approval",
+                    "following" => "You are following this publisher",
+                    "ended" => "Your follow has ended",
+                    "rejected" => "Follow request was rejected",
                     _ => string.Empty
                 };
                 return Ok(response);
@@ -93,6 +97,7 @@ public class PublisherSubscriptionController(
         {
             response.Subscription = subscription;
             response.IsActive = subscription.IsActive;
+            response.Notify = subscription.Notify;
             response.Status = subscription.IsActive ? "subscribed" : "ended";
             response.Message = subscription.IsActive
                 ? "You are subscribed to this publisher"
@@ -247,12 +252,15 @@ public class PublisherSubscriptionController(
             if (existingRequest != null)
             {
                 await pub.CancelFollowRequest(publisher.Id, accountId);
+                await subs.CancelSubscriptionAsync(accountId, publisher.Id);
                 return Ok(new SubscriptionStatusResponse
                 {
                     Status = "none",
                     Message = "Follow request cancelled",
                     RequiresApproval = true,
-                    FollowRequest = null
+                    FollowRequest = null,
+                    IsActive = false,
+                    IsPending = false
                 });
             }
             return NotFound(new SubscriptionStatusResponse
@@ -269,13 +277,14 @@ public class PublisherSubscriptionController(
                 return Ok(new SubscriptionStatusResponse
                 {
                     Status = "none",
-                    Message = "Subscription cancelled successfully"
+                    Message = "Subscription cancelled successfully",
+                    IsActive = false
                 });
 
             return NotFound(new SubscriptionStatusResponse
             {
                 Status = "none",
-                Message = "No active subscription found"
+                Message = "No subscription found"
             });
         }
     }
