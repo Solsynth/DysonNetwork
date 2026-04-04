@@ -190,7 +190,30 @@ public class AuthService(
     {
         var device = await db.AuthClients
             .FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.AccountId == accountId);
-        if (device is not null) return device;
+        if (device is not null)
+        {
+            if (device.DeletedAt is not null)
+            {
+                device.DeletedAt = null;
+                device.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
+                if (deviceName is not null) device.DeviceName = deviceName;
+                await db.SaveChangesAsync();
+            }
+            return device;
+        }
+
+        device = await db.AuthClients
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.AccountId == accountId);
+        if (device is not null)
+        {
+            device.DeletedAt = null;
+            device.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
+            if (deviceName is not null) device.DeviceName = deviceName;
+            await db.SaveChangesAsync();
+            return device;
+        }
+
         device = new SnAuthClient
         {
             Platform = platform,
@@ -206,17 +229,17 @@ public class AuthService(
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
             db.Entry(device).State = EntityState.Detached;
-            device = await db.AuthClients.FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.AccountId == accountId);
+            device = await db.AuthClients
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(d => d.DeviceId == deviceId && d.AccountId == accountId);
             if (device is null)
             {
-                device = new SnAuthClient
-                {
-                    Platform = platform,
-                    DeviceId = deviceId,
-                    AccountId = accountId
-                };
-                if (deviceName is not null) device.DeviceName = deviceName;
-                db.AuthClients.Add(device);
+                throw;
+            }
+            if (device.DeletedAt is not null)
+            {
+                device.DeletedAt = null;
+                device.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
                 await db.SaveChangesAsync();
             }
         }
