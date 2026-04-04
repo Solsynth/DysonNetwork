@@ -165,9 +165,9 @@ public class NfcController(
 
                     if (result.ClaimStatus == NfcTagClaimStatus.Unclaimed)
                     {
-                        // Return 200 with null user - client will show "unclaimed" and prompt to claim
                         return Ok(new NfcResolveResponse
                         {
+                            Id = result.Tag.Id,
                             Account = null!,
                             IsFriend = false,
                             IsClaimed = false,
