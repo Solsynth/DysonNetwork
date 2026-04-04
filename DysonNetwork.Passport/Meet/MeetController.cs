@@ -214,6 +214,71 @@ public class MeetController(
         }
     }
 
+    [HttpDelete("{id:guid}")]
+    [Authorize]
+    public async Task<ActionResult> DeleteMeet(Guid id, CancellationToken cancellationToken)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        try
+        {
+            await meetService.DeleteMeetAsync(id, currentUser.Id, cancellationToken);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ApiError.Unauthorized(ex.Message, forbidden: true, traceId: HttpContext.TraceIdentifier));
+        }
+    }
+
+    public class UpdateVisibilityRequest
+    {
+        [Required] public LocationVisibility Visibility { get; set; }
+    }
+
+    [HttpPatch("{id:guid}/visibility")]
+    [Authorize]
+    public async Task<ActionResult<SnMeet>> UpdateVisibility(Guid id, [FromBody] UpdateVisibilityRequest request, CancellationToken cancellationToken)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(request.Visibility)] = ["Visibility is required."]
+            }, traceId: HttpContext.TraceIdentifier));
+        }
+
+        try
+        {
+            var meet = await meetService.UpdateVisibilityAsync(id, currentUser.Id, request.Visibility, cancellationToken);
+            return Ok(meet);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ApiError.Unauthorized(ex.Message, forbidden: true, traceId: HttpContext.TraceIdentifier));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiError
+            {
+                Code = "MEET_NOT_ACTIVE",
+                Message = ex.Message,
+                Status = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.TraceIdentifier
+            });
+        }
+    }
+
     [HttpPost("{id:guid}/join")]
     [Authorize]
     public async Task JoinMeet(Guid id, CancellationToken cancellationToken)

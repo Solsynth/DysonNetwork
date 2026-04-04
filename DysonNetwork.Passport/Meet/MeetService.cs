@@ -283,6 +283,47 @@ public class MeetService(
         return meet;
     }
 
+    public async Task DeleteMeetAsync(Guid meetId, Guid hostId, CancellationToken cancellationToken = default)
+    {
+        var meet = await db.Meets
+            .FirstOrDefaultAsync(m => m.Id == meetId, cancellationToken)
+            ?? throw new KeyNotFoundException("Meet not found.");
+
+        if (meet.HostId != hostId)
+            throw new UnauthorizedAccessException("Only the host can delete the meet.");
+
+        db.Meets.Remove(meet);
+        await db.SaveChangesAsync(cancellationToken);
+        expirationScheduler.Cancel(meetId);
+
+        logger.LogInformation("Deleted meet {MeetId} by host {HostId}", meetId, hostId);
+    }
+
+    public async Task<SnMeet> UpdateVisibilityAsync(Guid meetId, Guid hostId, LocationVisibility visibility, CancellationToken cancellationToken = default)
+    {
+        await TryExpireMeetAsync(meetId, cancellationToken);
+
+        var meet = await db.Meets
+            .Include(m => m.Participants)
+            .FirstOrDefaultAsync(m => m.Id == meetId, cancellationToken)
+            ?? throw new KeyNotFoundException("Meet not found.");
+
+        if (meet.HostId != hostId)
+            throw new UnauthorizedAccessException("Only the host can update the meet visibility.");
+        if (meet.Status != MeetStatus.Active)
+            throw new InvalidOperationException("Cannot update visibility of a non-active meet.");
+
+        meet.Visibility = visibility;
+        await db.SaveChangesAsync(cancellationToken);
+
+        await HydrateMeetAsync(meet, cancellationToken);
+        await subscriptions.PublishAsync("visibility_updated", meet, cancellationToken);
+
+        logger.LogInformation("Updated meet {MeetId} visibility to {Visibility} by host {HostId}", meetId, visibility, hostId);
+
+        return meet;
+    }
+
     public async Task<bool> TryExpireMeetAsync(Guid meetId, CancellationToken cancellationToken = default)
     {
         var now = SystemClock.Instance.GetCurrentInstant();

@@ -203,6 +203,7 @@ Current event types:
 - `participant_joined`
 - `completed`
 - `expired`
+- `visibility_updated`
 
 ### Complete meet
 
@@ -217,6 +218,38 @@ Behavior:
 - Stops future changes
 - Emits the final SSE event
 - Closes active SSE subscriptions
+
+### Delete meet
+
+`DELETE /api/meets/{id}`
+
+Only the host can delete a meet.
+
+Behavior:
+
+- Permanently removes the meet from the database
+- Cancels any scheduled expiration
+- Returns `204 No Content`
+
+### Update visibility
+
+`PATCH /api/meets/{id}/visibility`
+
+Only the host can update the meet visibility.
+
+Request body:
+
+```json
+{
+  "visibility": 0
+}
+```
+
+Notes:
+
+- `visibility` is required
+- Only works on `Active` meets
+- Emits a `visibility_updated` SSE event
 
 ## Access rules
 
@@ -243,7 +276,7 @@ Visible to:
 For non-participants/non-friends to access a Public meet via `GET /api/meets/{id}`, they must provide their current location via the `locationWkt` query parameter to verify they are within 5km.
 
 ### Host privileges
-Only the host can complete the meet.
+Only the host can complete, delete, or update visibility of the meet.
 
 ## Expiration
 
@@ -269,6 +302,9 @@ Common error scenarios:
 - invalid image ID: `400`
 - trying to join a non-active meet: `400`
 - non-host trying to complete a meet: `403`
+- non-host trying to delete a meet: `403`
+- non-host trying to update visibility: `403`
+- trying to update visibility of a non-active meet: `400`
 - invalid `location_wkt`: `400`
 
 ## Implementation references
