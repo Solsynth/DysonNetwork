@@ -62,7 +62,7 @@ public class NfcService(
     )
     {
         var tag = await db.NfcTags
-            .FirstOrDefaultAsync(t => t.Uid.ToUpperInvariant() == uid && t.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Uid == uid.ToUpper() && t.IsActive, cancellationToken);
 
         if (tag is null) return null;
 
@@ -82,7 +82,7 @@ public class NfcService(
     )
     {
         var tag = await db.NfcTags
-            .FirstOrDefaultAsync(t => t.Uid.ToUpperInvariant() == uid && t.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Uid == uid.ToUpper() && t.IsActive, cancellationToken);
 
         if (tag is null) return null;
 
