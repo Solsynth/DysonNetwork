@@ -121,6 +121,7 @@ public class NfcController(
     [HttpGet]
     public async Task<ActionResult<NfcResolveResponse>> Resolve(
         [FromQuery] string uid,
+        [FromQuery] string? tag,
         CancellationToken cancellationToken
     )
     {
@@ -137,10 +138,16 @@ public class NfcController(
         // Check if this looks like encrypted PICCData (32+ hex chars)
         if (uid.Length >= 32 && IsHexString(uid))
         {
+            if (string.IsNullOrWhiteSpace(tag))
+                return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+                {
+                    ["uid"] = ["Parameter 'tag' is required when encrypted."]
+                }));
+
             // Try encrypted scan
             try
             {
-                var result = await nfc.ValidateSunAsync(uid, observerUserId, cancellationToken);
+                var result = await nfc.ValidateSunAsync(uid, tag, observerUserId, cancellationToken);
 
                 if (result is not null)
                 {

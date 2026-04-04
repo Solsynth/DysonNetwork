@@ -115,8 +115,10 @@ public class NfcService(
     /// <param name="observerUserId">Optional authenticated user ID.</param>
     public async Task<NfcValidationResult?> ValidateSunAsync(
         string uidHex,
+        string tagUid,
         Guid? observerUserId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         logger.LogInformation("SUN scan: uidHex={Length} chars, first 32={Preview}",
             uidHex.Length, uidHex.Length >= 32 ? uidHex[..32] : uidHex);
@@ -138,48 +140,32 @@ public class NfcService(
         }
 
         // Load all active encrypted tags
-        var encryptedTags = await db.NfcTags
-            .Where(t => t.IsActive && t.IsEncrypted && t.SunKey != null)
-            .ToListAsync(cancellationToken);
-
-        logger.LogInformation("SUN scan: trying {Count} encrypted tags", encryptedTags.Count);
+        var tag = await db.NfcTags
+            .Where(t => t.IsActive && t.IsEncrypted && t.Uid == tagUid && t.SunKey != null)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (tag is null) return null;
 
         SnNfcTag? matchedTag = null;
         NfcCrypto.SunValidationResult? validation = null;
 
-        foreach (var tag in encryptedTags)
+        logger.LogInformation("SUN scan: trying tag {TagId} (DB UID: {TagUid}, key={KeyLen}B)",
+            tag.Id, tag.Uid, tag.SunKey!.Length);
+
+        // Try decrypting with this tag's key
+        var result = NfcCrypto.DecryptPiccData(tag.SunKey!, encryptedPiccData, logger);
+        if (result is null)
         {
-            logger.LogInformation("SUN scan: trying tag {TagId} (DB UID: {TagUid}, key={KeyLen}B)",
-                tag.Id, tag.Uid, tag.SunKey!.Length);
-
-            // Try decrypting with this tag's key
-            var result = NfcCrypto.DecryptPiccData(tag.SunKey!, encryptedPiccData, logger);
-            if (result is null)
-            {
-                logger.LogInformation("SUN scan: tag {TagId} key did not match", tag.Id);
-                continue;
-            }
-
-            // Check if the decrypted UID matches this tag
-            var decryptedUid = NfcCrypto.FormatUid(result.Uid);
-            logger.LogInformation("SUN scan: decrypted UID={Decrypted}, DB UID={TagUid}, match={Match}",
-                decryptedUid, tag.Uid, decryptedUid == tag.Uid);
-
-            if (decryptedUid == tag.Uid)
-            {
-                matchedTag = tag;
-                validation = result;
-                logger.LogInformation("SUN scan: ✓ MATCHED tag {TagId}", tag.Id);
-                break;
-            }
-        }
-
-        if (matchedTag is null || validation is null)
-        {
-            logger.LogWarning("SUN scan: no matching tag found for {Len} chars (tried {Count} tags)",
-                uidHex.Length, encryptedTags.Count);
+            logger.LogInformation("SUN scan: tag {TagId} key did not match", tag.Id);
             return null;
         }
+
+        // Check if the decrypted UID matches this tag
+        var decryptedUid = NfcCrypto.FormatUid(result.Uid);
+        logger.LogInformation("SUN scan: decrypted UID={Decrypted}, DB UID={TagUid}, match={Match}",
+            decryptedUid, tag.Uid, decryptedUid == tag.Uid);
+
+        if (validation is null) return null;
+        matchedTag = tag;
 
         var readCtr = validation.ReadCtr;
 
