@@ -70,7 +70,7 @@ public class LocationPinController(
 
         var pin = await locationPinService.CreatePinAsync(
             currentUser.Id,
-            currentSession.ClientId!.Value.ToString(),
+            currentSession.Id.ToString(),
             request.Visibility,
             request.LocationName,
             request.LocationAddress,
@@ -114,7 +114,7 @@ public class LocationPinController(
 
         var pin = await locationPinService.UpdateLocationAsync(
             currentUser.Id,
-            currentSession.ClientId!.Value.ToString(),
+            currentSession.Id.ToString(),
             location,
             request.LocationName,
             request.LocationAddress,
@@ -139,7 +139,7 @@ public class LocationPinController(
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
-        var removed = await locationPinService.RemovePinAsync(currentUser.Id, currentSession.ClientId!.Value.ToString(), cancellationToken);
+        var removed = await locationPinService.RemovePinAsync(currentUser.Id, currentSession.Id.ToString(), cancellationToken);
         if (!removed)
         {
             return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
@@ -238,7 +238,7 @@ public class LocationPinController(
 
         await locationPinService.DisconnectPinAsync(
             currentUser.Id,
-            currentSession.ClientId!.Value.ToString(),
+            currentSession.Id.ToString(),
             request.KeepOnDisconnect,
             cancellationToken
         );

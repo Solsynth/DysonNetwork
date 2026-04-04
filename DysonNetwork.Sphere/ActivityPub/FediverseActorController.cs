@@ -14,6 +14,7 @@ public class FediverseActorController(
     AppDatabase db,
     ActivityPubDiscoveryService discoveryService,
     FediverseCachingService cachingService,
+    ActivityPubDeliveryService deliveryService,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     ILogger<FediverseActorController> logger
@@ -1112,6 +1113,89 @@ public class FediverseActorController(
             IsEnabled = enabledPublishers.Count > 0,
             Publishers = enabledPublishers
         });
+    }
+
+    [HttpPost("{id:guid}/follow")]
+    [Authorize]
+    public async Task<ActionResult> FollowActor(Guid id)
+    {
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
+        if (currentUser == null)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var publisher = await db.Publishers
+            .Include(p => p.Members)
+            .Where(p => p.Members.Any(m => m.AccountId == accountId))
+            .FirstOrDefaultAsync();
+
+        if (publisher == null)
+            return BadRequest(new { error = "User doesn't have a publisher" });
+
+        var targetActor = await db.FediverseActors
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (targetActor == null)
+            return NotFound(new { error = "Actor not found" });
+
+        var success = await deliveryService.SendFollowActivityAsync(
+            publisher.Id,
+            targetActor.Uri
+        );
+
+        if (success)
+        {
+            return Ok(new
+            {
+                success = true,
+                message = "Follow request sent. Waiting for acceptance.",
+                targetActorUri = targetActor.Uri
+            });
+        }
+
+        return BadRequest(new { error = "Failed to send follow request" });
+    }
+
+    [HttpPost("{id:guid}/unfollow")]
+    [Authorize]
+    public async Task<ActionResult> UnfollowActor(Guid id)
+    {
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
+        if (currentUser == null)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var publisher = await db.Publishers
+            .Include(p => p.Members)
+            .Where(p => p.Members.Any(m => m.AccountId == accountId))
+            .FirstOrDefaultAsync();
+
+        if (publisher == null)
+            return BadRequest(new { error = "User doesn't have a publisher" });
+
+        var targetActor = await db.FediverseActors
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (targetActor == null)
+            return NotFound(new { error = "Actor not found" });
+
+        var success = await deliveryService.SendUnfollowActivityAsync(
+            publisher.Id,
+            targetActor.Uri
+        );
+
+        if (success)
+        {
+            return Ok(new
+            {
+                success = true,
+                message = "Unfollowed successfully"
+            });
+        }
+
+        return BadRequest(new { error = "Failed to unfollow" });
     }
 }
 
