@@ -14,6 +14,20 @@ public class RemoteAccountService(
     ILogger<RemoteAccountService> logger
 )
 {
+    public async Task<DyAccount?> TryGetAccount(Guid id)
+    {
+        try
+        {
+            var request = new DyGetAccountRequest { Id = id.ToString() };
+            var response = await profiles.GetAccountAsync(request);
+            return response;
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
     public async Task<DyAccount> GetAccount(Guid id)
     {
         var request = new DyGetAccountRequest { Id = id.ToString() };

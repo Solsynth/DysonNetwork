@@ -390,7 +390,7 @@ public class PublisherSubscriptionController(
         var accountDict = new Dictionary<Guid, SnAccount>();
         foreach (var id in accountIds)
         {
-            var account = await accounts.GetAccount(id);
+            var account = await accounts.TryGetAccount(id);
             if (account != null)
                 accountDict[id] = SnAccount.FromProtoValue(account);
         }
@@ -593,7 +593,7 @@ public class PublisherSubscriptionController(
         var accountDict = new Dictionary<Guid, DyAccount>();
         foreach (var id in accountIds)
         {
-            var account = await accounts.GetAccount(id);
+            var account = await accounts.TryGetAccount(id);
             if (account != null)
                 accountDict[id] = account;
         }
@@ -625,7 +625,7 @@ public class PublisherSubscriptionController(
         {
             var request = await pub.ApproveFollowRequest(requestId, accountId);
 
-            var requesterAccount = await accounts.GetAccount(request.AccountId);
+            var requesterAccount = await accounts.TryGetAccount(request.AccountId);
             if (requesterAccount != null)
             {
                 var title = localization.Get("followRequestApprovedTitle", requesterAccount.Language);
@@ -669,7 +669,7 @@ public class PublisherSubscriptionController(
         {
             var request = await pub.RejectFollowRequest(requestId, accountId, body.Reason);
 
-            var requesterAccount = await accounts.GetAccount(request.AccountId);
+            var requesterAccount = await accounts.TryGetAccount(request.AccountId);
             if (requesterAccount != null)
             {
                 var title = localization.Get("followRequestRejectedTitle", requesterAccount.Language);

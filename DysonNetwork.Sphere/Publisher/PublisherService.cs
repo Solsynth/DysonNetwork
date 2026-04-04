@@ -488,6 +488,26 @@ public class PublisherService(
         request.State = FollowRequestState.Accepted;
         request.ReviewedAt = SystemClock.Instance.GetCurrentInstant();
         request.ReviewedByAccountId = reviewerAccountId;
+
+        var existingSubscription = await db.PublisherSubscriptions
+            .FirstOrDefaultAsync(s => s.PublisherId == request.PublisherId && s.AccountId == request.AccountId);
+
+        if (existingSubscription == null)
+        {
+            var subscription = new SnPublisherSubscription
+            {
+                PublisherId = request.PublisherId,
+                AccountId = request.AccountId,
+            };
+            db.PublisherSubscriptions.Add(subscription);
+        }
+        else
+        {
+            existingSubscription.EndedAt = null;
+            existingSubscription.EndReason = null;
+            existingSubscription.EndedByAccountId = null;
+        }
+
         await db.SaveChangesAsync();
 
         return request;
