@@ -256,6 +256,8 @@ public class SnPublisherFollowRequest : ModelBase
     public Guid? ReviewedByAccountId { get; set; }
 
     [MaxLength(4096)] public string? RejectReason { get; set; }
+
+    [NotMapped] public SnAccount? RequesterAccount { get; set; }
 }
 
 public enum FollowRequestState

@@ -415,6 +415,22 @@ public class PublisherSubscriptionController(
             return Forbid();
 
         var requests = await pub.GetPendingFollowRequests(publisher.Id);
+
+        var accountIds = requests.Select(r => r.AccountId).Distinct().ToList();
+        var accountDict = new Dictionary<Guid, DyAccount>();
+        foreach (var id in accountIds)
+        {
+            var account = await accounts.GetAccount(id);
+            if (account != null)
+                accountDict[id] = account;
+        }
+
+        foreach (var request in requests)
+        {
+            if (accountDict.TryGetValue(request.AccountId, out var requesterAccount))
+                request.RequesterAccount = SnAccount.FromProtoValue(requesterAccount);
+        }
+
         return Ok(requests);
     }
 
