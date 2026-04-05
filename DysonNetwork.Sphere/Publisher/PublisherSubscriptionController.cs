@@ -175,9 +175,9 @@ public class PublisherSubscriptionController(
             var followRequest = await pub.CreateFollowRequest(publisher.Id, accountId);
 
             var title = localization.Get("followRequestReceivedTitle", currentUser.Language,
-                new { publisher = publisher.Nick });
+                new { user = currentUser.Nick, publisher = publisher.Nick });
             var body = localization.Get("followRequestReceivedBody", currentUser.Language,
-                new { publisher = publisher.Nick });
+                new { user = currentUser.Nick, publisher = publisher.Nick });
 
             var managerMembers = await pub.GetPublisherMembers(publisher.Id);
             foreach (var manager in managerMembers.Where(m => m.Role >= PublisherMemberRole.Manager))

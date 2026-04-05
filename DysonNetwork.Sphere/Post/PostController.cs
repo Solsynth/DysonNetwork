@@ -373,17 +373,19 @@ public class PostController(
         if (post.PublisherId.HasValue && post.Publisher?.GatekeptFollows == true)
         {
             if (currentUser == null)
-                return NotFound();
+                return StatusCode(403, "Subscriber access required");
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
                 .AnyAsync(s => s.PublisherId == post.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == post.PublisherId.Value))
-                return NotFound();
+                return StatusCode(403, "Subscriber access required");
         }
 
         post = await ps.LoadPostInfo(post, currentUser);
         if (post.RealmId != null)
+        {
             post.Realm = await rs.GetRealm(post.RealmId.Value.ToString());
+        }
 
         if (currentUser != null)
             await ps.IncreaseViewCount(post.Id, currentUser.Id, isDetailView: true);
@@ -427,19 +429,17 @@ public class PostController(
         if (post.PublisherId.HasValue && post.Publisher?.GatekeptFollows == true)
         {
             if (currentUser == null)
-                return NotFound();
+                return StatusCode(403, "Subscriber access required");
             var currentAccountId = Guid.Parse(currentUser.Id);
             var isSubscriber = await db.PublisherSubscriptions
                 .AnyAsync(s => s.PublisherId == post.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == post.PublisherId.Value))
-                return NotFound();
+                return StatusCode(403, "Subscriber access required");
         }
 
         post = await ps.LoadPostInfo(post, currentUser);
         if (post.RealmId != null)
-        {
             post.Realm = await rs.GetRealm(post.RealmId.Value.ToString());
-        }
 
         if (currentUser != null)
             await ps.IncreaseViewCount(post.Id, currentUser.Id, isDetailView: true);
