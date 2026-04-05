@@ -2316,6 +2316,90 @@ public partial class PostService(
 
         return award;
     }
+
+    public enum PostVisibilityResult
+    {
+        Visible,
+        NotVisible,
+        Gatekept,
+    }
+
+    public async Task<PostVisibilityResult> CheckPostVisibilityAsync(SnPost post, DyAccount? currentUser)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        if (post.DraftedAt != null)
+        {
+            if (currentUser == null)
+                return PostVisibilityResult.NotVisible;
+
+            if (post.Publisher?.AccountId == null || post.Publisher.AccountId.Value != Guid.Parse(currentUser.Id))
+                return PostVisibilityResult.NotVisible;
+        }
+
+        if (post.PublishedAt == null || post.PublishedAt > now)
+            return PostVisibilityResult.NotVisible;
+
+        if (post.Visibility == PostVisibility.Private)
+        {
+            if (currentUser == null)
+                return PostVisibilityResult.NotVisible;
+
+            if (post.Publisher?.AccountId == null || post.Publisher.AccountId.Value != Guid.Parse(currentUser.Id))
+                return PostVisibilityResult.NotVisible;
+        }
+
+        if (post.Visibility == PostVisibility.Friends)
+        {
+            if (currentUser == null)
+                return PostVisibilityResult.NotVisible;
+
+            if (post.Publisher?.AccountId != null && post.Publisher.AccountId.Value == Guid.Parse(currentUser.Id))
+                return PostVisibilityResult.Visible;
+        }
+
+        if (post.PublisherId.HasValue)
+        {
+            var publisher = post.Publisher;
+            if (publisher == null)
+            {
+                publisher = await db.Publishers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.Id == post.PublisherId.Value);
+            }
+
+            if (publisher?.IsGatekept == true)
+            {
+                if (currentUser == null)
+                    return PostVisibilityResult.Gatekept;
+
+                var accountId = Guid.Parse(currentUser.Id);
+                var isSubscribed = await db.PublisherSubscriptions
+                    .AnyAsync(s =>
+                        s.PublisherId == post.PublisherId.Value &&
+                        s.AccountId == accountId &&
+                        s.EndedAt == null
+                    );
+
+                if (!isSubscribed)
+                    return PostVisibilityResult.Gatekept;
+            }
+        }
+
+        return PostVisibilityResult.Visible;
+    }
+
+    public void EnsurePostVisible(SnPost post, DyAccount? currentUser)
+    {
+        var result = CheckPostVisibilityAsync(post, currentUser).GetAwaiter().GetResult();
+        switch (result)
+        {
+            case PostVisibilityResult.NotVisible:
+                throw new InvalidOperationException("Post is not visible to this user");
+            case PostVisibilityResult.Gatekept:
+                throw new InvalidOperationException("Post is from a gatekept publisher and user is not subscribed");
+        }
+    }
 }
 
 public static class PostQueryExtensions

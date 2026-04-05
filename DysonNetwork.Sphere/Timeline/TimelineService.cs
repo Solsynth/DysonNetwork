@@ -161,28 +161,17 @@ public class TimelineService(
         postsQuery = postsQuery.Where(p => p.FediverseUri == null || (p.ActorId.HasValue && visibleFediverseActorIds.Contains(p.ActorId.Value)));
 
         var timelinePublishers = filter is null ? userPublishers : [];
-        HashSet<Guid>? gatekeptPublisherIds = null;
-        HashSet<Guid>? followerPublisherIds = null;
 
-        if (timelinePublishers.Count > 0)
+        HashSet<Guid> gatekeptPublisherIds = await GetGatekeptPublisherIds(userRealms);
+        HashSet<Guid> followerPublisherIds = [];
+
+        if (gatekeptPublisherIds.Count > 0)
         {
-            gatekeptPublisherIds = [];
-            foreach (var publisher in timelinePublishers)
-            {
-                if (await pub.HasPostsRequireFollowFlag(publisher.Id))
-                {
-                    gatekeptPublisherIds.Add(publisher.Id);
-                }
-            }
-
-            if (gatekeptPublisherIds.Count > 0)
-            {
-                var activeSubscriptions = await db.PublisherSubscriptions
-                    .Where(s => s.AccountId == accountId && s.EndedAt == null)
-                    .Select(s => s.PublisherId)
-                    .ToListAsync();
-                followerPublisherIds = activeSubscriptions.ToHashSet();
-            }
+            var activeSubscriptions = await db.PublisherSubscriptions
+                .Where(s => s.AccountId == accountId && s.EndedAt == null)
+                .Select(s => s.PublisherId)
+                .ToListAsync();
+            followerPublisherIds = activeSubscriptions.ToHashSet();
         }
 
         postsQuery = postsQuery
