@@ -102,6 +102,7 @@ public class LocationPinService(
             Visibility = visibility
         }, cancellationToken);
 
+        await HydratePinAsync(pin, cancellationToken);
         await subscriptions.PublishAsync("pin_created", pin, cancellationToken);
 
         logger.LogInformation("Created location pin {PinId} for account {AccountId}", pin.Id, accountId);
@@ -166,6 +167,7 @@ public class LocationPinService(
             LocationAddress = locationAddress
         }, cancellationToken);
 
+        await HydratePinAsync(pin, cancellationToken);
         await subscriptions.PublishAsync("pin_updated", pin, cancellationToken);
 
         return pin;
@@ -235,6 +237,7 @@ public class LocationPinService(
             AccountId = accountId
         }, cancellationToken);
 
+        await HydratePinAsync(pin, cancellationToken);
         await subscriptions.PublishAsync("pin_offline", pin, cancellationToken);
 
         logger.LogInformation("Pin {PinId} went offline for account {AccountId}, keeping until {ExpiresAt}", pin.Id, accountId, pin.ExpiresAt);
@@ -299,10 +302,7 @@ public class LocationPinService(
             .Take(Math.Clamp(take, 1, 100))
             .ToList();
 
-        foreach (var pin in result)
-        {
-            pin.Account = await accounts.GetAccount(pin.AccountId);
-        }
+        await HydratePinAsync(result, cancellationToken);
 
         return result;
     }
@@ -436,5 +436,18 @@ public class LocationPinService(
         pin.Status = LocationPinStatus.Removed;
         pin.ExpiresAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task HydratePinAsync(SnLocationPin pin, CancellationToken cancellationToken)
+    {
+        pin.Account = await accounts.GetAccount(pin.AccountId);
+    }
+
+    private async Task HydratePinAsync(IEnumerable<SnLocationPin> pins, CancellationToken cancellationToken)
+    {
+        foreach (var pin in pins)
+        {
+            await HydratePinAsync(pin, cancellationToken);
+        }
     }
 }
