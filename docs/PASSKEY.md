@@ -84,39 +84,116 @@ Higher trust levels contribute more steps to the challenge flow. Passkey has the
 
 ## Registration Flow
 
-```
-1. Client initiates passkey registration:
-   POST /api/factors
-   {
-     "type": "Passkey",
-     "secret": "{\"credentialId\":\"...\",\"publicKeyX\":\"...\",\"publicKeyY\":\"...\"}"
-   }
+The passkey registration uses a two-step ceremony following the WebAuthn specification:
 
-2. Server stores the credential in Secret field with trustworthy=4
+### Step 1: Start Registration
 
-3. Response includes the created factor
-```
+Generate a registration challenge and options.
 
-### Secret Field Construction
+**Endpoint:** `POST /api/factors/passkey/start`
 
-The `secret` field passed during registration should be a JSON string containing:
+**Authentication:** Required (interactive session)
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `credentialId` | `string` | Base64-encoded credential ID from WebAuthn |
-| `publicKeyX` | `string` | Base64-encoded P-256 x-coordinate of public key |
-| `publicKeyY` | `string` | Base64-encoded P-256 y-coordinate of public key |
-| `counter` | `number` | Authenticator sign counter (optional, for replay detection) |
-
-Example:
-
+**Request:**
 ```json
 {
-  "credentialId": "ZLhsEWvakECWPNZBNkOtHGVEEBkAAAAA",
-  "publicKeyX": "QLJCVk5KpB9GGJHp0zZQABkR+1fT2dG2m3qV1vR1mSk=",
-  "publicKeyY": "5QmXSdR7s8k4p8nT2hK5V2mP3qR1mX5vN1jT3qR1mY=",
-  "counter": 0
+  "deviceId": "device-identifier",
+  "deviceName": "MacBook Pro",
+  "rpId": "example.com",
+  "rpName": "DysonNetwork"
 }
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `deviceId` | `string` | Yes | Unique device identifier |
+| `deviceName` | `string` | No | Human-readable device name |
+| `rpId` | `string` | Yes | Relying Party ID (domain) |
+| `rpName` | `string` | Yes | Relying Party name |
+
+**Response (200):**
+```json
+{
+  "challenge": "dG9rZW4gdGhhdCBpcyBhdCBsZWFzdDI1NiBiaXRz",
+  "rpId": "example.com",
+  "rpName": "DysonNetwork",
+  "userId": "11111111-2222-3333-4444-555555555555",
+  "pubKeyCredParams": [{"type": "public-key", "alg": -7}],
+  "timeout": 60000,
+  "authenticatorSelection": {
+    "authenticatorAttachment": "platform",
+    "residentKey": "preferred",
+    "userVerification": "preferred"
+  }
+}
+```
+
+### Step 2: Complete Registration
+
+After the client creates the credential using the WebAuthn API, send the attestation to complete registration.
+
+**Endpoint:** `POST /api/factors/passkey/complete`
+
+**Authentication:** Required (interactive session)
+
+**Request:**
+```json
+{
+  "deviceId": "device-identifier",
+  "clientDataJson": "{\"type\":\"webauthn.create\",\"challenge\":\"dG9rZW4...\",\"origin\":\"https://example.com\"}",
+  "attestationObject": "base64-encoded-attestation-object"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `deviceId` | `string` | Yes | Must match the deviceId from step 1 |
+| `clientDataJson` | `string` | Yes | JSON string of client data |
+| `attestationObject` | `string` | Yes | Base64-encoded attestation object |
+
+**Response (200):**
+```json
+{
+  "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "accountId": "11111111-2222-3333-4444-555555555555",
+  "type": "Passkey",
+  "trustworthy": 4,
+  "enabledAt": "2026-04-05T10:00:00Z",
+  "expiredAt": null
+}
+```
+
+### Client-Side Registration Example
+
+```javascript
+const challenge = response.challenge; // from /factors/passkey/start
+const userId = response.userId;
+
+const credential = await navigator.credentials.create({
+  publicKey: {
+    rp: {
+      id: response.rpId,
+      name: response.rpName
+    },
+    user: {
+      id: Uint8Array.from(atob(userId), c => c.charCodeAt(0)),
+      name: "user@example.com",
+      displayName: "User Name"
+    },
+    challenge: Uint8Array.from(atob(challenge), c => c.charCodeAt(0)),
+    pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+    timeout: 60000,
+    authenticatorSelection: {
+      authenticatorAttachment: "platform",
+      residentKey: "preferred",
+      userVerification: "preferred"
+    }
+  }
+});
+
+// Send to /factors/passkey/complete:
+// - attestationObject: btoa(String.fromCharCode(...new Uint8Array(credential.response.attestationObject)))
+// - clientDataJson: new TextDecoder().decode(credential.response.clientDataJSON)
 ```
 
 ## Verification Flow
@@ -196,48 +273,13 @@ The `VerifyPasskey` method in `AccountService.cs` performs:
 
 ## Endpoints
 
-### Create Passkey Factor
+### Start Passkey Registration
 
-Registers a new passkey for the authenticated user.
+**Endpoint:** `POST /api/factors/passkey/start`
 
-**Endpoint:** `POST /api/factors`
+### Complete Passkey Registration
 
-**Authentication:** Required (interactive session)
-
-**Request:**
-```json
-{
-  "type": "Passkey",
-  "secret": "{\"credentialId\":\"...\",\"publicKeyX\":\"...\",\"publicKeyY\":\"...\"}"
-}
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `type` | `string` | Yes | Must be `"Passkey"` |
-| `secret` | `string` | Yes | JSON containing credential data |
-
-**Response (200):**
-```json
-{
-  "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-  "accountId": "11111111-2222-3333-4444-555555555555",
-  "type": "Passkey",
-  "trustworthy": 4,
-  "enabledAt": "2026-04-05T10:00:00Z",
-  "expiredAt": null,
-  "config": {
-    "verified": false
-  }
-}
-```
-
-**Error responses:**
-
-| Status | Code | When |
-|--------|------|------|
-| 400 | `VALIDATION_ERROR` | Passkey factor already exists |
-| 400 | `VALIDATION_ERROR` | Recovery code must be enabled first |
+**Endpoint:** `POST /api/factors/passkey/complete`
 
 ### List Auth Factors
 

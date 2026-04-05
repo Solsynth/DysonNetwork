@@ -96,6 +96,120 @@ public class AccountSecurityController(
         return factor is null ? BadRequest("Invalid factor request.") : Ok(factor);
     }
 
+    public class PasskeyRegistrationStartRequest
+    {
+        public string DeviceId { get; set; } = null!;
+        public string? DeviceName { get; set; }
+        public string RpId { get; set; } = null!;
+        public string RpName { get; set; } = null!;
+    }
+
+    public class PasskeyRegistrationStartResponse
+    {
+        public string Challenge { get; set; } = null!;
+        public string RpId { get; set; } = null!;
+        public string RpName { get; set; } = null!;
+        public string UserId { get; set; } = null!;
+        public List<PublicKeyCredentialParameters> PubKeyCredParams { get; set; } = [];
+        public int Timeout { get; set; }
+        public AuthenticatorSelectionCriteria? AuthenticatorSelection { get; set; }
+    }
+
+    public class PublicKeyCredentialParameters
+    {
+        public string Type { get; set; } = "public-key";
+        public int Alg { get; set; } = -7;
+    }
+
+    public class AuthenticatorSelectionCriteria
+    {
+        public string AuthenticatorAttachment { get; set; } = "platform";
+        public string ResidentKey { get; set; } = "preferred";
+        public string UserVerification { get; set; } = "preferred";
+    }
+
+    [HttpPost("factors/passkey/start")]
+    public async Task<ActionResult<PasskeyRegistrationStartResponse>> StartPasskeyRegistration(
+        [FromBody] PasskeyRegistrationStartRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+        if (
+            !await accounts.CheckAuthFactorEnabled(
+                currentUser,
+                AccountAuthFactorType.RecoveryCode
+            )
+        )
+            return BadRequest(
+                ApiError.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        ["factor"] =
+                        [
+                            "Recovery code must be enabled before creating passkey.",
+                        ],
+                    },
+                    traceId: HttpContext.TraceIdentifier
+                )
+            );
+        if (await accounts.CheckAuthFactorExists(currentUser, AccountAuthFactorType.Passkey))
+            return BadRequest(
+                ApiError.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        ["factor"] = ["Passkey already exists."],
+                    },
+                    traceId: HttpContext.TraceIdentifier
+                )
+            );
+
+        var challenge = await accounts.GeneratePasskeyChallengeAsync(currentUser, request.DeviceId);
+
+        return Ok(new PasskeyRegistrationStartResponse
+        {
+            Challenge = challenge,
+            RpId = request.RpId,
+            RpName = request.RpName,
+            UserId = currentUser.Id.ToString(),
+            PubKeyCredParams = [new PublicKeyCredentialParameters()],
+            Timeout = 60000,
+            AuthenticatorSelection = new AuthenticatorSelectionCriteria()
+        });
+    }
+
+    public class PasskeyRegistrationCompleteRequest
+    {
+        public string DeviceId { get; set; } = null!;
+        public string ClientDataJson { get; set; } = null!;
+        public string AttestationObject { get; set; } = null!;
+        public string? DeviceName { get; set; }
+    }
+
+    [HttpPost("factors/passkey/complete")]
+    public async Task<ActionResult<SnAccountAuthFactor>> CompletePasskeyRegistration(
+        [FromBody] PasskeyRegistrationCompleteRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+
+        var credential = await accounts.CompletePasskeyRegistrationAsync(
+            currentUser,
+            request.DeviceId,
+            request.ClientDataJson,
+            "",
+            request.AttestationObject
+        );
+
+        if (credential == null)
+            return BadRequest("Passkey registration failed.");
+
+        var credentialJson = System.Text.Json.JsonSerializer.Serialize(credential);
+        var factor = await accounts.CreateAuthFactor(currentUser, AccountAuthFactorType.Passkey, credentialJson);
+        return factor is null ? BadRequest("Failed to create passkey factor.") : Ok(factor);
+    }
+
     [HttpPost("factors/{id:guid}/enable")]
     public async Task<ActionResult<SnAccountAuthFactor>> EnableAuthFactor(
         Guid id,

@@ -529,6 +529,255 @@ public class AccountService(
         }
     }
 
+    private const string PasskeyChallengePrefix = "passkey:challenge:";
+
+    public async Task<string> GeneratePasskeyChallengeAsync(SnAccount account, string deviceId)
+    {
+        var challengeBytes = new byte[32];
+        System.Security.Cryptography.RandomNumberGenerator.Fill(challengeBytes);
+        var challenge = Convert.ToBase64String(challengeBytes);
+        var key = $"{PasskeyChallengePrefix}{account.Id}:{deviceId}";
+        await cache.SetAsync(key, challenge, TimeSpan.FromMinutes(5));
+        return challenge;
+    }
+
+    public async Task<PasskeyCredential?> CompletePasskeyRegistrationAsync(
+        SnAccount account,
+        string deviceId,
+        string clientDataJson,
+        string authenticatorData,
+        string attestationObject)
+    {
+        var key = $"{PasskeyChallengePrefix}{account.Id}:{deviceId}";
+        var storedChallenge = await cache.GetAsync<string>(key);
+        if (string.IsNullOrEmpty(storedChallenge))
+            return null;
+
+        var attestation = ParseAttestationObject(attestationObject);
+        if (attestation == null)
+            return null;
+
+        if (!VerifyAttestationStatement(attestation, clientDataJson, storedChallenge))
+            return null;
+
+        await cache.RemoveAsync(key);
+
+        var credential = new PasskeyCredential
+        {
+            CredentialId = attestation.CredentialId,
+            PublicKeyX = attestation.PublicKeyX,
+            PublicKeyY = attestation.PublicKeyY,
+            Counter = attestation.Counter
+        };
+
+        return credential;
+    }
+
+    private static AttestationStatement? ParseAttestationObject(string attestationObjectBase64)
+    {
+        try
+        {
+            var attestationBytes = Convert.FromBase64String(attestationObjectBase64);
+            using var ms = new MemoryStream(attestationBytes);
+            using var reader = new BinaryReader(ms);
+
+            var format = ReadString(reader);
+            if (format != "fido-u2f")
+                return null;
+
+            var statement = new AttestationStatement();
+
+            var attStmtMap = ReadMap(reader);
+            if (attStmtMap.TryGetValue("sig", out var sigValue) && sigValue is byte[] signature)
+                statement.Signature = signature;
+
+            if (attStmtMap.TryGetValue("x5c", out var x5cValue) && x5cValue is List<object> x5cList && x5cList.Count > 0 && x5cList[0] is byte[] certBytes)
+                statement.AttestationCertificate = certBytes;
+
+            var authData = ReadBytes(reader);
+            return ParseAuthenticatorData(authData, statement);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static AttestationStatement? ParseAuthenticatorData(byte[] authData, AttestationStatement statement)
+    {
+        if (authData.Length < 37)
+            return null;
+
+        using var ms = new MemoryStream(authData);
+        using var reader = new BinaryReader(ms);
+
+        statement.RpIdHash = reader.ReadBytes(32);
+        var flags = reader.ReadByte();
+        statement.UserPresent = (flags & 0x01) != 0;
+        statement.UserVerified = (flags & 0x04) != 0;
+        statement.Counter = reader.ReadUInt32();
+
+        if ((flags & 0x40) != 0)
+        {
+            var credIdLen = reader.ReadUInt16();
+            statement.CredentialId = Convert.ToBase64String(reader.ReadBytes(credIdLen));
+
+            var publicKeyBytes = reader.ReadBytes((int)(authData.Length - ms.Position));
+            var (x, y) = ExtractPublicKeyFromCbor(publicKeyBytes);
+            if (x != null && y != null)
+            {
+                statement.PublicKeyX = x;
+                statement.PublicKeyY = y;
+            }
+        }
+
+        return statement;
+    }
+
+    private static (byte[]?, byte[]?) ExtractPublicKeyFromCbor(byte[] keyBytes)
+    {
+        try
+        {
+            using var ms = new MemoryStream(keyBytes);
+            using var reader = new BinaryReader(ms);
+
+            ReadCbor(reader);
+            ReadCbor(reader);
+            var keyType = ReadCbor(reader);
+            if (keyType is not 2)
+                return (null, null);
+
+            ReadCbor(reader);
+            var x = ReadCbor(reader) as byte[];
+            ReadCbor(reader);
+            var y = ReadCbor(reader) as byte[];
+
+            return (x, y);
+        }
+        catch
+        {
+            return (null, null);
+        }
+    }
+
+    private static object? ReadCbor(BinaryReader reader)
+    {
+        var initialByte = reader.ReadByte();
+
+        if (initialByte >= 0x60 && initialByte <= 0x77)
+        {
+            var len = initialByte - 0x60 + 1;
+            return reader.ReadBytes(len);
+        }
+        if (initialByte >= 0x80 && initialByte <= 0x97)
+        {
+            var count = initialByte - 0x80 + 1;
+            var items = new List<object>();
+            for (var i = 0; i < count; i++)
+                items.Add(ReadCbor(reader)!);
+            return items;
+        }
+        if (initialByte == 0xA0)
+        {
+            var map = new Dictionary<object, object>();
+            var count = ReadCbor(reader) is int c ? c : 0;
+            for (var i = 0; i < count; i++)
+            {
+                var k = ReadCbor(reader);
+                var v = ReadCbor(reader);
+                if (k != null) map[k] = v!;
+            }
+            return map;
+        }
+        if (initialByte == 0x20 || initialByte == 0x21 || initialByte == 0x22 || initialByte == 0x23)
+            return reader.ReadBytes(initialByte - 0x20 + 1);
+        if (initialByte == 0x58)
+            return reader.ReadBytes(reader.ReadByte());
+        if (initialByte == 0x01 || initialByte == 0x02 || initialByte == 0x03)
+            return reader.ReadBytes(initialByte - 0x20);
+
+        return null;
+    }
+
+    private static bool VerifyAttestationStatement(AttestationStatement statement, string clientDataJson, string expectedChallenge)
+    {
+        if (!statement.UserPresent)
+            return false;
+
+        var clientData = System.Text.Json.JsonDocument.Parse(clientDataJson);
+        var root = clientData.RootElement;
+
+        if (root.TryGetProperty("type", out var typeElement) && typeElement.GetString() != "webauthn.create")
+            return false;
+
+        if (root.TryGetProperty("challenge", out var challengeElement) && challengeElement.GetString() != expectedChallenge)
+            return false;
+
+        if (statement.AttestationCertificate == null || statement.Signature == null)
+            return false;
+
+        var clientDataHash = System.Security.Cryptography.SHA256.HashData(Convert.FromBase64String(clientDataJson));
+        var signedData = new List<byte>();
+        signedData.AddRange(statement.RpIdHash);
+        signedData.Add(0x00);
+        signedData.AddRange(BitConverter.GetBytes(statement.Counter).Reverse());
+        signedData.AddRange(clientDataHash);
+
+        using var ECDsa = System.Security.Cryptography.ECDsa.Create();
+        try
+        {
+            ECDsa.ImportSubjectPublicKeyInfo(statement.AttestationCertificate, out _);
+        }
+        catch
+        {
+            return false;
+        }
+
+        return ECDsa.VerifyData(signedData.ToArray(), statement.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256);
+    }
+
+    private static string ReadString(BinaryReader reader)
+    {
+        var len = reader.ReadByte();
+        return System.Text.Encoding.UTF8.GetString(reader.ReadBytes(len));
+    }
+
+    private static byte[] ReadBytes(BinaryReader reader)
+    {
+        var len = reader.ReadByte();
+        return reader.ReadBytes(len);
+    }
+
+    private static Dictionary<object, object> ReadMap(BinaryReader reader)
+    {
+        var map = new Dictionary<object, object>();
+        if (reader.ReadByte() != 0xBF)
+            return map;
+
+        while (reader.PeekChar() != 0xFF)
+        {
+            var key = ReadCbor(reader);
+            var value = ReadCbor(reader);
+            if (key != null)
+                map[key] = value!;
+        }
+        reader.ReadByte();
+        return map;
+    }
+
+    private class AttestationStatement
+    {
+        public byte[] RpIdHash { get; set; } = null!;
+        public bool UserPresent { get; set; }
+        public bool UserVerified { get; set; }
+        public uint Counter { get; set; }
+        public string CredentialId { get; set; } = null!;
+        public byte[] PublicKeyX { get; set; } = null!;
+        public byte[] PublicKeyY { get; set; } = null!;
+        public byte[]? AttestationCertificate { get; set; }
+        public byte[]? Signature { get; set; }
+    }
+
     public async Task DeleteSession(SnAccount account, Guid sessionId)
     {
         var session = await db.AuthSessions.FirstOrDefaultAsync(s => s.AccountId == account.Id && s.Id == sessionId);
