@@ -498,6 +498,7 @@ public class PublisherService(
             {
                 PublisherId = request.PublisherId,
                 AccountId = request.AccountId,
+                Notify = false,
             };
             db.PublisherSubscriptions.Add(subscription);
         }

@@ -498,7 +498,7 @@ public class PublisherSubscriptionService(
             existing.EndedAt = null;
             existing.EndReason = null;
             existing.EndedByAccountId = null;
-            existing.Notify = true;
+            existing.Notify = false;
             db.PublisherSubscriptions.Update(existing);
         }
         else
@@ -507,6 +507,7 @@ public class PublisherSubscriptionService(
             {
                 AccountId = accountId,
                 PublisherId = publisherId,
+                Notify = false,
             };
             db.PublisherSubscriptions.Add(subscription);
         }
