@@ -21,6 +21,7 @@
         <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
         <PackageReference Include="SpotifyAPI.Web" Version="7.2.1" />
         <PackageReference Include="SteamWebAPI2" Version="5.0.0" />
+        <PackageReference Include="WebAuthn" Version="3.1.0" />
     </ItemGroup>
 
     <ItemGroup>

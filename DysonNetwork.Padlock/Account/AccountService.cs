@@ -223,6 +223,18 @@ public class AccountService(
                 } : null,
                 EnabledAt = SystemClock.Instance.GetCurrentInstant(),
             },
+            AccountAuthFactorType.Passkey when !string.IsNullOrWhiteSpace(secret) => new SnAccountAuthFactor
+            {
+                Type = AccountAuthFactorType.Passkey,
+                Trustworthy = 4,
+                AccountId = account.Id,
+                Secret = secret,
+                Config = new Dictionary<string, object>
+                {
+                    ["verified"] = false
+                },
+                EnabledAt = SystemClock.Instance.GetCurrentInstant(),
+            },
             _ => null
         };
 
@@ -438,6 +450,7 @@ public class AccountService(
             AccountAuthFactorType.Password or AccountAuthFactorType.PinCode => BCrypt.Net.BCrypt.Verify(code, factor.Secret),
             AccountAuthFactorType.TimedCode => factor.VerifyPassword(code),
             AccountAuthFactorType.NfcToken => await VerifyNfcToken(code),
+            AccountAuthFactorType.Passkey => await VerifyPasskey(factor, code),
             _ => false
         };
     }
@@ -450,7 +463,6 @@ public class AccountService(
     /// </summary>
     private async Task<bool> VerifyNfcToken(string code)
     {
-        // The code should be the full hex string from the NFC URL uid parameter
         if (string.IsNullOrWhiteSpace(code) || code.Length < 32)
             return false;
 
@@ -474,6 +486,46 @@ public class AccountService(
         catch (RpcException)
         {
             return false;
+        }
+    }
+
+    private Task<bool> VerifyPasskey(SnAccountAuthFactor factor, string assertionJson)
+    {
+        if (string.IsNullOrWhiteSpace(factor.Secret))
+            return Task.FromResult(false);
+
+        try
+        {
+            var credential = System.Text.Json.JsonSerializer.Deserialize<PasskeyCredential>(factor.Secret);
+            if (credential == null)
+                return Task.FromResult(false);
+
+            var assertion = System.Text.Json.JsonSerializer.Deserialize<PasskeyAssertion>(assertionJson);
+            if (assertion == null)
+                return Task.FromResult(false);
+
+            if (credential.CredentialId != assertion.CredentialId)
+                return Task.FromResult(false);
+
+            if ((assertion.AuthenticatorData.Flags & AuthenticatorFlags.UserPresent) == 0)
+                return Task.FromResult(false);
+
+            var signatureData = assertion.AuthenticatorData.GetSignedData(assertion.ClientDataJson);
+            using var ECDsa = System.Security.Cryptography.ECDsa.Create(new System.Security.Cryptography.ECParameters
+            {
+                Curve = System.Security.Cryptography.ECCurve.NamedCurves.nistP256,
+                Q = new System.Security.Cryptography.ECPoint
+                {
+                    X = credential.PublicKeyX,
+                    Y = credential.PublicKeyY
+                }
+            });
+
+            return Task.FromResult(ECDsa.VerifyData(signatureData, assertion.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256));
+        }
+        catch
+        {
+            return Task.FromResult(false);
         }
     }
 
@@ -809,5 +861,54 @@ public class AccountService(
             null,
             sessionId
         );
+    }
+
+    public class PasskeyCredential
+    {
+        public string CredentialId { get; set; } = null!;
+        public byte[] PublicKeyX { get; set; } = null!;
+        public byte[] PublicKeyY { get; set; } = null!;
+        public byte[]? CredentialPublicKey { get; set; }
+        public ulong Counter { get; set; }
+    }
+
+    public class PasskeyAssertion
+    {
+        public string CredentialId { get; set; } = null!;
+        public string ClientDataJson { get; set; } = null!;
+        public AuthenticatorData AuthenticatorData { get; set; } = null!;
+        public byte[] Signature { get; set; } = null!;
+    }
+
+    public class AuthenticatorData
+    {
+        public byte[] RpIdHash { get; set; } = null!;
+        public AuthenticatorFlags Flags { get; set; }
+        public ulong Counter { get; set; }
+        public byte[]? AttestedCredentialData { get; set; }
+
+        public byte[] GetSignedData(string clientDataJson)
+        {
+            var clientDataHash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(clientDataJson));
+            var signedData = new byte[37 + clientDataHash.Length];
+            Buffer.BlockCopy(RpIdHash, 0, signedData, 0, 32);
+            signedData[32] = (byte)Flags;
+            var counterBytes = BitConverter.GetBytes(Counter);
+            if (BitConverter.IsLittleEndian) Array.Reverse(counterBytes);
+            Buffer.BlockCopy(counterBytes, 0, signedData, 33, 4);
+            Buffer.BlockCopy(clientDataHash, 0, signedData, 37, clientDataHash.Length);
+            return signedData;
+        }
+    }
+
+    [Flags]
+    public enum AuthenticatorFlags : byte
+    {
+        RawValue = 0,
+        UserPresent = 1 << 0,
+        UserVerified = 1 << 1,
+        BackupEligibility = 1 << 2,
+        BackupState = 1 << 3,
+        DeviceBound = 1 << 6
     }
 }

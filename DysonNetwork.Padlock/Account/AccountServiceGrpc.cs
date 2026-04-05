@@ -460,6 +460,7 @@ public class AccountServiceGrpc(
                 AccountAuthFactorType.InAppCode => DyAccountAuthFactorType.DyInAppCode,
                 AccountAuthFactorType.TimedCode => DyAccountAuthFactorType.DyTimedCode,
                 AccountAuthFactorType.PinCode => DyAccountAuthFactorType.DyPinCode,
+                AccountAuthFactorType.Passkey => DyAccountAuthFactorType.DyPasskey,
                 _ => DyAccountAuthFactorType.DyAuthFactorTypeUnspecified
             },
             Trustworthy = factor.Trustworthy,

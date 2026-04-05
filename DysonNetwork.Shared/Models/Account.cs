@@ -520,6 +520,7 @@ public enum AccountAuthFactorType
     PinCode,
     RecoveryCode,
     NfcToken,
+    Passkey,
 }
 
 public class SnAccountConnection : ModelBase
