@@ -87,8 +87,31 @@ public class MetricService(AppDatabase db, ILogger<MetricService> logger)
             return m;
         }).ToList();
 
-        db.FitnessMetrics.AddRange(metricList);
-        await db.SaveChangesAsync();
+        var externalIds = metricList
+            .Where(m => !string.IsNullOrEmpty(m.ExternalId))
+            .Select(m => m.ExternalId!)
+            .ToList();
+
+        var existingExternalIds = new HashSet<string>();
+        if (externalIds.Any())
+        {
+            var existing = await db.FitnessMetrics
+                .Where(m => externalIds.Contains(m.ExternalId!))
+                .Select(m => m.ExternalId)
+                .ToListAsync();
+            existingExternalIds = new HashSet<string>(existing);
+        }
+
+        metricList = metricList
+            .Where(m => string.IsNullOrEmpty(m.ExternalId) || !existingExternalIds.Contains(m.ExternalId!))
+            .ToList();
+
+        if (metricList.Any())
+        {
+            db.FitnessMetrics.AddRange(metricList);
+            await db.SaveChangesAsync();
+        }
+
         logger.LogInformation("Created {Count} metrics in batch for account {AccountId}", 
             metricList.Count, metricList.FirstOrDefault()?.AccountId);
         return metricList;

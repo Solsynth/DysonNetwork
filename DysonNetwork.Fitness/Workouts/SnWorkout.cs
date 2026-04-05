@@ -11,6 +11,9 @@ public class SnWorkout : ModelBase
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
 
+    [MaxLength(64)]
+    public string? ExternalId { get; set; }
+
     [Required]
     public Guid AccountId { get; set; }
 

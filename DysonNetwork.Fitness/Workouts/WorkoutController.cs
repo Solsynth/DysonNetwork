@@ -178,19 +178,29 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, IL
         var accountId = Guid.Parse(currentUser.Id);
 
         var now = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
-        var workouts = request.Workouts.Select(w => new SnWorkout
+        var workouts = request.Workouts.Select(w =>
         {
-            AccountId = accountId,
-            Name = w.Name,
-            Description = w.Description,
-            Type = w.Type,
-            StartTime = w.StartTime,
-            EndTime = w.EndTime,
-            Duration = w.Duration,
-            CaloriesBurned = w.CaloriesBurned,
-            Notes = w.Notes,
-            CreatedAt = now,
-            UpdatedAt = now
+            var duration = w.Duration;
+            if (duration is null && w.EndTime.HasValue)
+            {
+                duration = w.EndTime.Value - w.StartTime;
+            }
+
+            return new SnWorkout
+            {
+                ExternalId = w.ExternalId,
+                AccountId = accountId,
+                Name = w.Name,
+                Description = w.Description,
+                Type = w.Type,
+                StartTime = w.StartTime,
+                EndTime = w.EndTime,
+                Duration = duration,
+                CaloriesBurned = w.CaloriesBurned,
+                Notes = w.Notes,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
         });
 
         var created = await workoutService.CreateWorkoutsBatchAsync(workouts);
@@ -206,7 +216,8 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, IL
         NodaTime.Instant? EndTime = null,
         NodaTime.Duration? Duration = null,
         int? CaloriesBurned = null,
-        string? Notes = null
+        string? Notes = null,
+        string? ExternalId = null
     );
 
     public record UpdateWorkoutRequest(
@@ -250,6 +261,7 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, IL
         NodaTime.Instant? EndTime = null,
         NodaTime.Duration? Duration = null,
         int? CaloriesBurned = null,
-        string? Notes = null
+        string? Notes = null,
+        string? ExternalId = null
     );
 }

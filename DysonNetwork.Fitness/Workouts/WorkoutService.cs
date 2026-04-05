@@ -116,8 +116,31 @@ public class WorkoutService(AppDatabase db, ILogger<WorkoutService> logger)
             return w;
         }).ToList();
 
-        db.Workouts.AddRange(workoutList);
-        await db.SaveChangesAsync();
+        var externalIds = workoutList
+            .Where(w => !string.IsNullOrEmpty(w.ExternalId))
+            .Select(w => w.ExternalId!)
+            .ToList();
+
+        var existingExternalIds = new HashSet<string>();
+        if (externalIds.Any())
+        {
+            var existing = await db.Workouts
+                .Where(w => externalIds.Contains(w.ExternalId!))
+                .Select(w => w.ExternalId)
+                .ToListAsync();
+            existingExternalIds = new HashSet<string>(existing);
+        }
+
+        workoutList = workoutList
+            .Where(w => string.IsNullOrEmpty(w.ExternalId) || !existingExternalIds.Contains(w.ExternalId!))
+            .ToList();
+
+        if (workoutList.Any())
+        {
+            db.Workouts.AddRange(workoutList);
+            await db.SaveChangesAsync();
+        }
+
         logger.LogInformation("Created {Count} workouts in batch for account {AccountId}", 
             workoutList.Count, workoutList.FirstOrDefault()?.AccountId);
         return workoutList;

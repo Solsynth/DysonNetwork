@@ -59,6 +59,7 @@ public class MetricController(AppDatabase db, MetricService metricService) : Con
 
         var metric = new SnFitnessMetric
         {
+            ExternalId = request.ExternalId,
             AccountId = accountId,
             MetricType = request.MetricType,
             Value = request.Value,
@@ -119,6 +120,7 @@ public class MetricController(AppDatabase db, MetricService metricService) : Con
         var now = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
         var metrics = request.Metrics.Select(m => new SnFitnessMetric
         {
+            ExternalId = m.ExternalId,
             AccountId = accountId,
             MetricType = m.MetricType,
             Value = m.Value,
@@ -141,7 +143,8 @@ public class MetricController(AppDatabase db, MetricService metricService) : Con
         string Unit,
         NodaTime.Instant RecordedAt,
         string? Notes = null,
-        string? Source = null
+        string? Source = null,
+        string? ExternalId = null
     );
 
     public record UpdateMetricRequest(
@@ -161,6 +164,7 @@ public class MetricController(AppDatabase db, MetricService metricService) : Con
         string Unit,
         NodaTime.Instant RecordedAt,
         string? Notes = null,
-        string? Source = null
+        string? Source = null,
+        string? ExternalId = null
     );
 }
