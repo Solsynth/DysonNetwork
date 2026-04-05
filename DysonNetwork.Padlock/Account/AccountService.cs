@@ -535,10 +535,18 @@ public class AccountService(
     {
         var challengeBytes = new byte[32];
         System.Security.Cryptography.RandomNumberGenerator.Fill(challengeBytes);
-        var challenge = Convert.ToBase64String(challengeBytes);
+        var challenge = Base64UrlEncode(challengeBytes);
         var key = $"{PasskeyChallengePrefix}{account.Id}:{deviceId}";
         await cache.SetAsync(key, challenge, TimeSpan.FromMinutes(5));
         return challenge;
+    }
+
+    private static string Base64UrlEncode(byte[] data)
+    {
+        return Convert.ToBase64String(data)
+            .Replace('+', '-')
+            .Replace('/', '_')
+            .TrimEnd('=');
     }
 
     public async Task<PasskeyCredential?> CompletePasskeyRegistrationAsync(
@@ -716,7 +724,7 @@ public class AccountService(
         if (statement.AttestationCertificate == null || statement.Signature == null)
             return false;
 
-        var clientDataHash = System.Security.Cryptography.SHA256.HashData(Convert.FromBase64String(clientDataJson));
+        var clientDataHash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(clientDataJson));
         var signedData = new List<byte>();
         signedData.AddRange(statement.RpIdHash);
         signedData.Add(0x00);
