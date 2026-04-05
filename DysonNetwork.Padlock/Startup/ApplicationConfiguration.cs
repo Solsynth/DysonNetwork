@@ -21,6 +21,33 @@ public static class ApplicationConfiguration
 
         app.MapControllers();
 
+        app.MapGet("/.well-known/apple-app-site-association", (IConfiguration config) =>
+        {
+            var appId = config["Authentication:Apple:AppId"] ?? "W7HPZ53V6B.dev.solsynth.solian";
+            return Results.Json(new
+            {
+                applinks = new
+                {
+                    details = new[]
+                    {
+                        new
+                        {
+                            appIDs = new[] { appId },
+                            components = (object?)null
+                        }
+                    }
+                },
+                webcredentials = new
+                {
+                    apps = new[] { appId }
+                },
+                appclips = new
+                {
+                    apps = Array.Empty<string>()
+                }
+            });
+        }).AllowAnonymous();
+
         return app;
     }
 
