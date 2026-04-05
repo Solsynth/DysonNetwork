@@ -171,6 +171,32 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, IL
         return success ? NoContent() : NotFound();
     }
 
+    [HttpPost("batch")]
+    public async Task<ActionResult<List<SnWorkout>>> CreateWorkoutsBatch([FromBody] CreateWorkoutsBatchRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var now = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
+        var workouts = request.Workouts.Select(w => new SnWorkout
+        {
+            AccountId = accountId,
+            Name = w.Name,
+            Description = w.Description,
+            Type = w.Type,
+            StartTime = w.StartTime,
+            EndTime = w.EndTime,
+            Duration = w.Duration,
+            CaloriesBurned = w.CaloriesBurned,
+            Notes = w.Notes,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+
+        var created = await workoutService.CreateWorkoutsBatchAsync(workouts);
+        return Ok(created);
+    }
+
     // DTOs
     public record CreateWorkoutRequest(
         string Name,
@@ -212,5 +238,18 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, IL
         NodaTime.Duration? Duration = null,
         string? Notes = null,
         int OrderIndex = 0
+    );
+
+    public record CreateWorkoutsBatchRequest(List<CreateWorkoutRequestItem> Workouts);
+
+    public record CreateWorkoutRequestItem(
+        string Name,
+        WorkoutType Type,
+        NodaTime.Instant StartTime,
+        string? Description = null,
+        NodaTime.Instant? EndTime = null,
+        NodaTime.Duration? Duration = null,
+        int? CaloriesBurned = null,
+        string? Notes = null
     );
 }

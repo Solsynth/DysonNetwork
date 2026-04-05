@@ -75,4 +75,22 @@ public class MetricService(AppDatabase db, ILogger<MetricService> logger)
 
         return latestMetrics;
     }
+
+    public async Task<List<SnFitnessMetric>> CreateMetricsBatchAsync(IEnumerable<SnFitnessMetric> metrics)
+    {
+        var now = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
+        var metricList = metrics.Select(m =>
+        {
+            m.Id = Guid.NewGuid();
+            m.CreatedAt = now;
+            m.UpdatedAt = now;
+            return m;
+        }).ToList();
+
+        db.FitnessMetrics.AddRange(metricList);
+        await db.SaveChangesAsync();
+        logger.LogInformation("Created {Count} metrics in batch for account {AccountId}", 
+            metricList.Count, metricList.FirstOrDefault()?.AccountId);
+        return metricList;
+    }
 }

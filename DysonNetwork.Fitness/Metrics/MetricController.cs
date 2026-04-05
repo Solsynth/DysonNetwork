@@ -110,6 +110,30 @@ public class MetricController(AppDatabase db, MetricService metricService) : Con
         return success ? NoContent() : NotFound();
     }
 
+    [HttpPost("batch")]
+    public async Task<ActionResult<List<SnFitnessMetric>>> CreateMetricsBatch([FromBody] CreateMetricsBatchRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var now = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
+        var metrics = request.Metrics.Select(m => new SnFitnessMetric
+        {
+            AccountId = accountId,
+            MetricType = m.MetricType,
+            Value = m.Value,
+            Unit = m.Unit,
+            RecordedAt = m.RecordedAt,
+            Notes = m.Notes,
+            Source = m.Source,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+
+        var created = await metricService.CreateMetricsBatchAsync(metrics);
+        return Ok(created);
+    }
+
     // DTOs
     public record CreateMetricRequest(
         FitnessMetricType MetricType,
@@ -121,6 +145,17 @@ public class MetricController(AppDatabase db, MetricService metricService) : Con
     );
 
     public record UpdateMetricRequest(
+        FitnessMetricType MetricType,
+        decimal Value,
+        string Unit,
+        NodaTime.Instant RecordedAt,
+        string? Notes = null,
+        string? Source = null
+    );
+
+    public record CreateMetricsBatchRequest(List<CreateMetricRequestItem> Metrics);
+
+    public record CreateMetricRequestItem(
         FitnessMetricType MetricType,
         decimal Value,
         string Unit,

@@ -104,4 +104,22 @@ public class WorkoutService(AppDatabase db, ILogger<WorkoutService> logger)
         await db.SaveChangesAsync();
         return exercise;
     }
+
+    public async Task<List<SnWorkout>> CreateWorkoutsBatchAsync(IEnumerable<SnWorkout> workouts)
+    {
+        var now = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
+        var workoutList = workouts.Select(w =>
+        {
+            w.Id = Guid.NewGuid();
+            w.CreatedAt = now;
+            w.UpdatedAt = now;
+            return w;
+        }).ToList();
+
+        db.Workouts.AddRange(workoutList);
+        await db.SaveChangesAsync();
+        logger.LogInformation("Created {Count} workouts in batch for account {AccountId}", 
+            workoutList.Count, workoutList.FirstOrDefault()?.AccountId);
+        return workoutList;
+    }
 }
