@@ -19,5 +19,7 @@
     "followRequestApprovedTitle": "Follow request approved",
     "followRequestApprovedBody": "{publisher} approved your follow request",
     "followRequestRejectedTitle": "Follow request rejected",
-    "followRequestRejectedBody": "{publisher} rejected your follow request"
+    "followRequestRejectedBody": "{publisher} rejected your follow request",
+    "subscriberAddedTitle": "You've been added to {publisher}",
+    "subscriberAddedBody": "{publisher} has added you as a subscriber"
 }

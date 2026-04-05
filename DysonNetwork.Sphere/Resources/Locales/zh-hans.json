@@ -19,5 +19,7 @@
     "followRequestApprovedTitle": "关注请求已通过",
     "followRequestApprovedBody": "{publisher} 已通过您的关注请求",
     "followRequestRejectedTitle": "关注请求被拒绝",
-    "followRequestRejectedBody": "{publisher} 已拒绝您的关注请求"
+    "followRequestRejectedBody": "{publisher} 已拒绝您的关注请求",
+    "subscriberAddedTitle": "您已被添加到 {publisher}",
+    "subscriberAddedBody": "{publisher} 已将您添加为订阅者"
 }

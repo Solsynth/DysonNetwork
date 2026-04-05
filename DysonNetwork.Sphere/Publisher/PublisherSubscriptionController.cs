@@ -421,7 +421,25 @@ public class PublisherSubscriptionController(
         try
         {
             var subscription = await subs.AddSubscriberAsync(accountId, publisher.Id);
-            var account = await accounts.GetAccount(accountId);
+
+            var account = await accounts.TryGetAccount(accountId);
+            if (account != null)
+            {
+                var title = localization.Get("subscriberAddedTitle", account.Language,
+                    new { publisher = publisher.Nick });
+                var body = localization.Get("subscriberAddedBody", account.Language,
+                    new { publisher = publisher.Nick });
+
+                await ring.SendPushNotificationToUser(
+                    accountId.ToString(),
+                    "subscriber_added",
+                    title,
+                    null,
+                    body,
+                    isSavable: true
+                );
+            }
+
             return Ok(new SubscriberResponse
             {
                 Subscription = subscription,
