@@ -162,5 +162,15 @@ public static class ServiceInjectionHelper
 
             return services;
         }
+
+        public IServiceCollection AddFitnessService()
+        {
+            services.AddGrpcClientWithSharedChannel<DyFitnessService.DyFitnessServiceClient>(
+                "https://_grpc.fitness",
+                "DyFitnessService");
+            services.AddSingleton<RemoteFitnessService>();
+
+            return services;
+        }
     }
 }

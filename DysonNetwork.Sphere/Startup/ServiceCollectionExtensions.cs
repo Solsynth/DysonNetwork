@@ -233,8 +233,6 @@ public static class ServiceCollectionExtensions
             services.AddScoped<LiveStreamService>();
             services.AddSingleton<LiveKitLivestreamService>();
 
-            services.AddScoped<FitnessService>();
-
             var translationProvider = configuration["Translation:Provider"]?.ToLower();
             switch (translationProvider)
             {

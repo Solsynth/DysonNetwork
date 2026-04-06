@@ -25,7 +25,7 @@ namespace DysonNetwork.Shared.Proto {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
             "Cg1maXRuZXNzLnByb3RvEgVwcm90bxofZ29vZ2xlL3Byb3RvYnVmL3RpbWVz",
-            "dGFtcC5wcm90bxoeZ29vZ2xlL3Byb3RvYnVmL3dyYXBwZXJzLnByb3RvIqwF",
+            "dGFtcC5wcm90bxoeZ29vZ2xlL3Byb3RvYnVmL3dyYXBwZXJzLnByb3RvIugF",
             "CglEeVdvcmtvdXQSDgoCaWQYASABKAlSAmlkEh0KCmFjY291bnRfaWQYAiAB",
             "KAlSCWFjY291bnRJZBISCgRuYW1lGAMgASgJUgRuYW1lEiUKC2Rlc2NyaXB0",
             "aW9uGAQgASgJSABSC2Rlc2NyaXB0aW9uiAEBEigKBHR5cGUYBSABKA4yFC5w",
@@ -35,55 +35,59 @@ namespace DysonNetwork.Shared.Proto {
             "ZFRpbWWIAQESHwoIZHVyYXRpb24YCCABKAlIAlIIZHVyYXRpb26IAQESLAoP",
             "Y2Fsb3JpZXNfYnVybmVkGAkgASgFSANSDmNhbG9yaWVzQnVybmVkiAEBEhkK",
             "BW5vdGVzGAogASgJSARSBW5vdGVziAEBEiQKC2V4dGVybmFsX2lkGAsgASgJ",
-            "SAVSCmV4dGVybmFsSWSIAQESOQoKY3JlYXRlZF9hdBgMIAEoCzIaLmdvb2ds",
-            "ZS5wcm90b2J1Zi5UaW1lc3RhbXBSCWNyZWF0ZWRBdBI5Cgp1cGRhdGVkX2F0",
-            "GA0gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIJdXBkYXRlZEF0",
-            "EjYKCWV4ZXJjaXNlcxgOIAMoCzIYLnByb3RvLkR5V29ya291dEV4ZXJjaXNl",
-            "UglleGVyY2lzZXNCDgoMX2Rlc2NyaXB0aW9uQgsKCV9lbmRfdGltZUILCglf",
-            "ZHVyYXRpb25CEgoQX2NhbG9yaWVzX2J1cm5lZEIICgZfbm90ZXNCDgoMX2V4",
-            "dGVybmFsX2lkIr0DChFEeVdvcmtvdXRFeGVyY2lzZRIOCgJpZBgBIAEoCVIC",
-            "aWQSHQoKd29ya291dF9pZBgCIAEoCVIJd29ya291dElkEiMKDWV4ZXJjaXNl",
-            "X25hbWUYAyABKAlSDGV4ZXJjaXNlTmFtZRIXCgRzZXRzGAQgASgFSABSBHNl",
-            "dHOIAQESFwoEcmVwcxgFIAEoBUgBUgRyZXBziAEBEhsKBndlaWdodBgGIAEo",
-            "AUgCUgZ3ZWlnaHSIAQESHwoIZHVyYXRpb24YByABKAlIA1IIZHVyYXRpb26I",
-            "AQESGQoFbm90ZXMYCCABKAlIBFIFbm90ZXOIAQESHwoLb3JkZXJfaW5kZXgY",
-            "CSABKAVSCm9yZGVySW5kZXgSOQoKY3JlYXRlZF9hdBgKIAEoCzIaLmdvb2ds",
-            "ZS5wcm90b2J1Zi5UaW1lc3RhbXBSCWNyZWF0ZWRBdBI5Cgp1cGRhdGVkX2F0",
-            "GAsgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIJdXBkYXRlZEF0",
-            "QgcKBV9zZXRzQgcKBV9yZXBzQgkKB193ZWlnaHRCCwoJX2R1cmF0aW9uQggK",
-            "Bl9ub3RlcyLdAwoPRHlGaXRuZXNzTWV0cmljEg4KAmlkGAEgASgJUgJpZBId",
-            "CgphY2NvdW50X2lkGAIgASgJUglhY2NvdW50SWQSOwoLbWV0cmljX3R5cGUY",
-            "AyABKA4yGi5wcm90by5EeUZpdG5lc3NNZXRyaWNUeXBlUgptZXRyaWNUeXBl",
-            "EhQKBXZhbHVlGAQgASgBUgV2YWx1ZRISCgR1bml0GAUgASgJUgR1bml0EjsK",
-            "C3JlY29yZGVkX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFt",
-            "cFIKcmVjb3JkZWRBdBIZCgVub3RlcxgHIAEoCUgAUgVub3Rlc4gBARIbCgZz",
-            "b3VyY2UYCCABKAlIAVIGc291cmNliAEBEiQKC2V4dGVybmFsX2lkGAkgASgJ",
-            "SAJSCmV4dGVybmFsSWSIAQESOQoKY3JlYXRlZF9hdBgKIAEoCzIaLmdvb2ds",
-            "ZS5wcm90b2J1Zi5UaW1lc3RhbXBSCWNyZWF0ZWRBdBI5Cgp1cGRhdGVkX2F0",
-            "GAsgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIJdXBkYXRlZEF0",
-            "QggKBl9ub3Rlc0IJCgdfc291cmNlQg4KDF9leHRlcm5hbF9pZCKmCQoNRHlG",
-            "aXRuZXNzR29hbBIOCgJpZBgBIAEoCVICaWQSHQoKYWNjb3VudF9pZBgCIAEo",
-            "CVIJYWNjb3VudElkEjUKCWdvYWxfdHlwZRgDIAEoDjIYLnByb3RvLkR5Rml0",
-            "bmVzc0dvYWxUeXBlUghnb2FsVHlwZRIUCgV0aXRsZRgEIAEoCVIFdGl0bGUS",
-            "JQoLZGVzY3JpcHRpb24YBSABKAlIAFILZGVzY3JpcHRpb26IAQESJgoMdGFy",
-            "Z2V0X3ZhbHVlGAYgASgBSAFSC3RhcmdldFZhbHVliAEBEigKDWN1cnJlbnRf",
-            "dmFsdWUYByABKAFIAlIMY3VycmVudFZhbHVliAEBEhcKBHVuaXQYCCABKAlI",
-            "A1IEdW5pdIgBARI5CgpzdGFydF9kYXRlGAkgASgLMhouZ29vZ2xlLnByb3Rv",
-            "YnVmLlRpbWVzdGFtcFIJc3RhcnREYXRlEjoKCGVuZF9kYXRlGAogASgLMhou",
-            "Z29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgEUgdlbmREYXRliAEBEjIKBnN0",
-            "YXR1cxgLIAEoDjIaLnByb3RvLkR5Rml0bmVzc0dvYWxTdGF0dXNSBnN0YXR1",
-            "cxIZCgVub3RlcxgMIAEoCUgFUgVub3Rlc4gBARJHChJib3VuZF93b3Jrb3V0",
-            "X3R5cGUYDSABKA4yFC5wcm90by5EeVdvcmtvdXRUeXBlSAZSEGJvdW5kV29y",
-            "a291dFR5cGWIAQESSwoRYm91bmRfbWV0cmljX3R5cGUYDiABKA4yGi5wcm90",
+            "SAVSCmV4dGVybmFsSWSIAQESOgoKdmlzaWJpbGl0eRgMIAEoDjIaLnByb3Rv",
+            "LkR5Rml0bmVzc1Zpc2liaWxpdHlSCnZpc2liaWxpdHkSOQoKY3JlYXRlZF9h",
+            "dBgNIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBSCWNyZWF0ZWRB",
+            "dBI5Cgp1cGRhdGVkX2F0GA4gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVz",
+            "dGFtcFIJdXBkYXRlZEF0EjYKCWV4ZXJjaXNlcxgPIAMoCzIYLnByb3RvLkR5",
+            "V29ya291dEV4ZXJjaXNlUglleGVyY2lzZXNCDgoMX2Rlc2NyaXB0aW9uQgsK",
+            "CV9lbmRfdGltZUILCglfZHVyYXRpb25CEgoQX2NhbG9yaWVzX2J1cm5lZEII",
+            "CgZfbm90ZXNCDgoMX2V4dGVybmFsX2lkIr0DChFEeVdvcmtvdXRFeGVyY2lz",
+            "ZRIOCgJpZBgBIAEoCVICaWQSHQoKd29ya291dF9pZBgCIAEoCVIJd29ya291",
+            "dElkEiMKDWV4ZXJjaXNlX25hbWUYAyABKAlSDGV4ZXJjaXNlTmFtZRIXCgRz",
+            "ZXRzGAQgASgFSABSBHNldHOIAQESFwoEcmVwcxgFIAEoBUgBUgRyZXBziAEB",
+            "EhsKBndlaWdodBgGIAEoAUgCUgZ3ZWlnaHSIAQESHwoIZHVyYXRpb24YByAB",
+            "KAlIA1IIZHVyYXRpb26IAQESGQoFbm90ZXMYCCABKAlIBFIFbm90ZXOIAQES",
+            "HwoLb3JkZXJfaW5kZXgYCSABKAVSCm9yZGVySW5kZXgSOQoKY3JlYXRlZF9h",
+            "dBgKIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBSCWNyZWF0ZWRB",
+            "dBI5Cgp1cGRhdGVkX2F0GAsgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVz",
+            "dGFtcFIJdXBkYXRlZEF0QgcKBV9zZXRzQgcKBV9yZXBzQgkKB193ZWlnaHRC",
+            "CwoJX2R1cmF0aW9uQggKBl9ub3RlcyKZBAoPRHlGaXRuZXNzTWV0cmljEg4K",
+            "AmlkGAEgASgJUgJpZBIdCgphY2NvdW50X2lkGAIgASgJUglhY2NvdW50SWQS",
+            "OwoLbWV0cmljX3R5cGUYAyABKA4yGi5wcm90by5EeUZpdG5lc3NNZXRyaWNU",
+            "eXBlUgptZXRyaWNUeXBlEhQKBXZhbHVlGAQgASgBUgV2YWx1ZRISCgR1bml0",
+            "GAUgASgJUgR1bml0EjsKC3JlY29yZGVkX2F0GAYgASgLMhouZ29vZ2xlLnBy",
+            "b3RvYnVmLlRpbWVzdGFtcFIKcmVjb3JkZWRBdBIZCgVub3RlcxgHIAEoCUgA",
+            "UgVub3Rlc4gBARIbCgZzb3VyY2UYCCABKAlIAVIGc291cmNliAEBEiQKC2V4",
+            "dGVybmFsX2lkGAkgASgJSAJSCmV4dGVybmFsSWSIAQESOgoKdmlzaWJpbGl0",
+            "eRgKIAEoDjIaLnByb3RvLkR5Rml0bmVzc1Zpc2liaWxpdHlSCnZpc2liaWxp",
+            "dHkSOQoKY3JlYXRlZF9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1l",
+            "c3RhbXBSCWNyZWF0ZWRBdBI5Cgp1cGRhdGVkX2F0GAwgASgLMhouZ29vZ2xl",
+            "LnByb3RvYnVmLlRpbWVzdGFtcFIJdXBkYXRlZEF0QggKBl9ub3Rlc0IJCgdf",
+            "c291cmNlQg4KDF9leHRlcm5hbF9pZCLiCQoNRHlGaXRuZXNzR29hbBIOCgJp",
+            "ZBgBIAEoCVICaWQSHQoKYWNjb3VudF9pZBgCIAEoCVIJYWNjb3VudElkEjUK",
+            "CWdvYWxfdHlwZRgDIAEoDjIYLnByb3RvLkR5Rml0bmVzc0dvYWxUeXBlUghn",
+            "b2FsVHlwZRIUCgV0aXRsZRgEIAEoCVIFdGl0bGUSJQoLZGVzY3JpcHRpb24Y",
+            "BSABKAlIAFILZGVzY3JpcHRpb26IAQESJgoMdGFyZ2V0X3ZhbHVlGAYgASgB",
+            "SAFSC3RhcmdldFZhbHVliAEBEigKDWN1cnJlbnRfdmFsdWUYByABKAFIAlIM",
+            "Y3VycmVudFZhbHVliAEBEhcKBHVuaXQYCCABKAlIA1IEdW5pdIgBARI5Cgpz",
+            "dGFydF9kYXRlGAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIJ",
+            "c3RhcnREYXRlEjoKCGVuZF9kYXRlGAogASgLMhouZ29vZ2xlLnByb3RvYnVm",
+            "LlRpbWVzdGFtcEgEUgdlbmREYXRliAEBEjIKBnN0YXR1cxgLIAEoDjIaLnBy",
+            "b3RvLkR5Rml0bmVzc0dvYWxTdGF0dXNSBnN0YXR1cxIZCgVub3RlcxgMIAEo",
+            "CUgFUgVub3Rlc4gBARI6Cgp2aXNpYmlsaXR5GA0gASgOMhoucHJvdG8uRHlG",
+            "aXRuZXNzVmlzaWJpbGl0eVIKdmlzaWJpbGl0eRJHChJib3VuZF93b3Jrb3V0",
+            "X3R5cGUYDiABKA4yFC5wcm90by5EeVdvcmtvdXRUeXBlSAZSEGJvdW5kV29y",
+            "a291dFR5cGWIAQESSwoRYm91bmRfbWV0cmljX3R5cGUYDyABKA4yGi5wcm90",
             "by5EeUZpdG5lc3NNZXRyaWNUeXBlSAdSD2JvdW5kTWV0cmljVHlwZYgBARIw",
-            "ChRhdXRvX3VwZGF0ZV9wcm9ncmVzcxgPIAEoCFISYXV0b1VwZGF0ZVByb2dy",
-            "ZXNzEjQKC3JlcGVhdF90eXBlGBAgASgOMhMucHJvdG8uRHlSZXBlYXRUeXBl",
-            "UgpyZXBlYXRUeXBlEicKD3JlcGVhdF9pbnRlcnZhbBgRIAEoBVIOcmVwZWF0",
-            "SW50ZXJ2YWwSJgoMcmVwZWF0X2NvdW50GBIgASgFSAhSC3JlcGVhdENvdW50",
-            "iAEBEi0KEmN1cnJlbnRfcmVwZXRpdGlvbhgTIAEoBVIRY3VycmVudFJlcGV0",
-            "aXRpb24SKQoOcGFyZW50X2dvYWxfaWQYFCABKAlICVIMcGFyZW50R29hbElk",
-            "iAEBEjkKCmNyZWF0ZWRfYXQYFSABKAsyGi5nb29nbGUucHJvdG9idWYuVGlt",
-            "ZXN0YW1wUgljcmVhdGVkQXQSOQoKdXBkYXRlZF9hdBgWIAEoCzIaLmdvb2ds",
+            "ChRhdXRvX3VwZGF0ZV9wcm9ncmVzcxgQIAEoCFISYXV0b1VwZGF0ZVByb2dy",
+            "ZXNzEjQKC3JlcGVhdF90eXBlGBEgASgOMhMucHJvdG8uRHlSZXBlYXRUeXBl",
+            "UgpyZXBlYXRUeXBlEicKD3JlcGVhdF9pbnRlcnZhbBgSIAEoBVIOcmVwZWF0",
+            "SW50ZXJ2YWwSJgoMcmVwZWF0X2NvdW50GBMgASgFSAhSC3JlcGVhdENvdW50",
+            "iAEBEi0KEmN1cnJlbnRfcmVwZXRpdGlvbhgUIAEoBVIRY3VycmVudFJlcGV0",
+            "aXRpb24SKQoOcGFyZW50X2dvYWxfaWQYFSABKAlICVIMcGFyZW50R29hbElk",
+            "iAEBEjkKCmNyZWF0ZWRfYXQYFiABKAsyGi5nb29nbGUucHJvdG9idWYuVGlt",
+            "ZXN0YW1wUgljcmVhdGVkQXQSOQoKdXBkYXRlZF9hdBgXIAEoCzIaLmdvb2ds",
             "ZS5wcm90b2J1Zi5UaW1lc3RhbXBSCXVwZGF0ZWRBdEIOCgxfZGVzY3JpcHRp",
             "b25CDwoNX3RhcmdldF92YWx1ZUIQCg5fY3VycmVudF92YWx1ZUIHCgVfdW5p",
             "dEILCglfZW5kX2RhdGVCCAoGX25vdGVzQhUKE19ib3VuZF93b3Jrb3V0X3R5",
@@ -184,39 +188,42 @@ namespace DysonNetwork.Shared.Proto {
             "TkNFTExFRBAEKpgBCgxEeVJlcGVhdFR5cGUSHgoaRFlfUkVQRUFUX1RZUEVf",
             "VU5TUEVDSUZJRUQQABIXChNEWV9SRVBFQVRfVFlQRV9OT05FEAESGAoURFlf",
             "UkVQRUFUX1RZUEVfREFJTFkQAhIZChVEWV9SRVBFQVRfVFlQRV9XRUVLTFkQ",
-            "AxIaChZEWV9SRVBFQVRfVFlQRV9NT05USExZEAQylggKEER5Rml0bmVzc1Nl",
-            "cnZpY2USZAoVR2V0Rml0bmVzc0FjY291bnREYXRhEiUucHJvdG8uRHlHZXRG",
-            "aXRuZXNzQWNjb3VudERhdGFSZXF1ZXN0GiIucHJvdG8uRHlGaXRuZXNzQWNj",
-            "b3VudERhdGFTdW1tYXJ5IgAScQoYRGVsZXRlRml0bmVzc0FjY291bnREYXRh",
-            "EigucHJvdG8uRHlEZWxldGVGaXRuZXNzQWNjb3VudERhdGFSZXF1ZXN0Giku",
-            "cHJvdG8uRHlEZWxldGVGaXRuZXNzQWNjb3VudERhdGFSZXNwb25zZSIAEk0K",
-            "DExpc3RXb3Jrb3V0cxIcLnByb3RvLkR5TGlzdFdvcmtvdXRzUmVxdWVzdBod",
-            "LnByb3RvLkR5TGlzdFdvcmtvdXRzUmVzcG9uc2UiABI8CgpHZXRXb3Jrb3V0",
-            "EhoucHJvdG8uRHlHZXRXb3Jrb3V0UmVxdWVzdBoQLnByb3RvLkR5V29ya291",
-            "dCIAEkoKC0xpc3RNZXRyaWNzEhsucHJvdG8uRHlMaXN0TWV0cmljc1JlcXVl",
-            "c3QaHC5wcm90by5EeUxpc3RNZXRyaWNzUmVzcG9uc2UiABJZChBHZXRMYXRl",
-            "c3RNZXRyaWNzEiAucHJvdG8uRHlHZXRMYXRlc3RNZXRyaWNzUmVxdWVzdBoh",
-            "LnByb3RvLkR5R2V0TGF0ZXN0TWV0cmljc1Jlc3BvbnNlIgASQAoJR2V0TWV0",
-            "cmljEhkucHJvdG8uRHlHZXRNZXRyaWNSZXF1ZXN0GhYucHJvdG8uRHlGaXRu",
-            "ZXNzTWV0cmljIgASRAoJTGlzdEdvYWxzEhkucHJvdG8uRHlMaXN0R29hbHNS",
-            "ZXF1ZXN0GhoucHJvdG8uRHlMaXN0R29hbHNSZXNwb25zZSIAEjoKB0dldEdv",
-            "YWwSFy5wcm90by5EeUdldEdvYWxSZXF1ZXN0GhQucHJvdG8uRHlGaXRuZXNz",
-            "R29hbCIAEkIKDEdldEdvYWxTdGF0cxIcLnByb3RvLkR5R2V0R29hbFN0YXRz",
-            "UmVxdWVzdBoSLnByb3RvLkR5R29hbFN0YXRzIgASUwoOR2V0R29hbEhpc3Rv",
-            "cnkSHi5wcm90by5EeUdldEdvYWxIaXN0b3J5UmVxdWVzdBofLnByb3RvLkR5",
-            "R2V0R29hbEhpc3RvcnlSZXNwb25zZSIAElAKDUxpc3RFeGVyY2lzZXMSHS5w",
-            "cm90by5EeUxpc3RFeGVyY2lzZXNSZXF1ZXN0Gh4ucHJvdG8uRHlMaXN0RXhl",
-            "cmNpc2VzUmVzcG9uc2UiABJGCgtHZXRFeGVyY2lzZRIbLnByb3RvLkR5R2V0",
-            "RXhlcmNpc2VSZXF1ZXN0GhgucHJvdG8uRHlFeGVyY2lzZUxpYnJhcnkiAEI9",
-            "Wh9naXQuc29sc3ludGguZGV2L3Nvc3lzL3NwZWMvZ2VuqgIZRHlzb25OZXR3",
-            "b3JrLlNoYXJlZC5Qcm90b2IGcHJvdG8z"));
+            "AxIaChZEWV9SRVBFQVRfVFlQRV9NT05USExZEAQqgQEKE0R5Rml0bmVzc1Zp",
+            "c2liaWxpdHkSJQohRFlfRklUTkVTU19WSVNJQklMSVRZX1VOU1BFQ0lGSUVE",
+            "EAASIQodRFlfRklUTkVTU19WSVNJQklMSVRZX1BSSVZBVEUQARIgChxEWV9G",
+            "SVRORVNTX1ZJU0lCSUxJVFlfUFVCTElDEAIylggKEER5Rml0bmVzc1NlcnZp",
+            "Y2USZAoVR2V0Rml0bmVzc0FjY291bnREYXRhEiUucHJvdG8uRHlHZXRGaXRu",
+            "ZXNzQWNjb3VudERhdGFSZXF1ZXN0GiIucHJvdG8uRHlGaXRuZXNzQWNjb3Vu",
+            "dERhdGFTdW1tYXJ5IgAScQoYRGVsZXRlRml0bmVzc0FjY291bnREYXRhEigu",
+            "cHJvdG8uRHlEZWxldGVGaXRuZXNzQWNjb3VudERhdGFSZXF1ZXN0GikucHJv",
+            "dG8uRHlEZWxldGVGaXRuZXNzQWNjb3VudERhdGFSZXNwb25zZSIAEk0KDExp",
+            "c3RXb3Jrb3V0cxIcLnByb3RvLkR5TGlzdFdvcmtvdXRzUmVxdWVzdBodLnBy",
+            "b3RvLkR5TGlzdFdvcmtvdXRzUmVzcG9uc2UiABI8CgpHZXRXb3Jrb3V0Ehou",
+            "cHJvdG8uRHlHZXRXb3Jrb3V0UmVxdWVzdBoQLnByb3RvLkR5V29ya291dCIA",
+            "EkoKC0xpc3RNZXRyaWNzEhsucHJvdG8uRHlMaXN0TWV0cmljc1JlcXVlc3Qa",
+            "HC5wcm90by5EeUxpc3RNZXRyaWNzUmVzcG9uc2UiABJZChBHZXRMYXRlc3RN",
+            "ZXRyaWNzEiAucHJvdG8uRHlHZXRMYXRlc3RNZXRyaWNzUmVxdWVzdBohLnBy",
+            "b3RvLkR5R2V0TGF0ZXN0TWV0cmljc1Jlc3BvbnNlIgASQAoJR2V0TWV0cmlj",
+            "EhkucHJvdG8uRHlHZXRNZXRyaWNSZXF1ZXN0GhYucHJvdG8uRHlGaXRuZXNz",
+            "TWV0cmljIgASRAoJTGlzdEdvYWxzEhkucHJvdG8uRHlMaXN0R29hbHNSZXF1",
+            "ZXN0GhoucHJvdG8uRHlMaXN0R29hbHNSZXNwb25zZSIAEjoKB0dldEdvYWwS",
+            "Fy5wcm90by5EeUdldEdvYWxSZXF1ZXN0GhQucHJvdG8uRHlGaXRuZXNzR29h",
+            "bCIAEkIKDEdldEdvYWxTdGF0cxIcLnByb3RvLkR5R2V0R29hbFN0YXRzUmVx",
+            "dWVzdBoSLnByb3RvLkR5R29hbFN0YXRzIgASUwoOR2V0R29hbEhpc3RvcnkS",
+            "Hi5wcm90by5EeUdldEdvYWxIaXN0b3J5UmVxdWVzdBofLnByb3RvLkR5R2V0",
+            "R29hbEhpc3RvcnlSZXNwb25zZSIAElAKDUxpc3RFeGVyY2lzZXMSHS5wcm90",
+            "by5EeUxpc3RFeGVyY2lzZXNSZXF1ZXN0Gh4ucHJvdG8uRHlMaXN0RXhlcmNp",
+            "c2VzUmVzcG9uc2UiABJGCgtHZXRFeGVyY2lzZRIbLnByb3RvLkR5R2V0RXhl",
+            "cmNpc2VSZXF1ZXN0GhgucHJvdG8uRHlFeGVyY2lzZUxpYnJhcnkiAEI9Wh9n",
+            "aXQuc29sc3ludGguZGV2L3Nvc3lzL3NwZWMvZ2VuqgIZRHlzb25OZXR3b3Jr",
+            "LlNoYXJlZC5Qcm90b2IGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, },
-          new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyWorkoutType), typeof(global::DysonNetwork.Shared.Proto.DyFitnessMetricType), typeof(global::DysonNetwork.Shared.Proto.DyFitnessGoalType), typeof(global::DysonNetwork.Shared.Proto.DyFitnessGoalStatus), typeof(global::DysonNetwork.Shared.Proto.DyRepeatType), }, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyWorkout), global::DysonNetwork.Shared.Proto.DyWorkout.Parser, new[]{ "Id", "AccountId", "Name", "Description", "Type", "StartTime", "EndTime", "Duration", "CaloriesBurned", "Notes", "ExternalId", "CreatedAt", "UpdatedAt", "Exercises" }, new[]{ "Description", "EndTime", "Duration", "CaloriesBurned", "Notes", "ExternalId" }, null, null, null),
+          new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyWorkoutType), typeof(global::DysonNetwork.Shared.Proto.DyFitnessMetricType), typeof(global::DysonNetwork.Shared.Proto.DyFitnessGoalType), typeof(global::DysonNetwork.Shared.Proto.DyFitnessGoalStatus), typeof(global::DysonNetwork.Shared.Proto.DyRepeatType), typeof(global::DysonNetwork.Shared.Proto.DyFitnessVisibility), }, null, new pbr::GeneratedClrTypeInfo[] {
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyWorkout), global::DysonNetwork.Shared.Proto.DyWorkout.Parser, new[]{ "Id", "AccountId", "Name", "Description", "Type", "StartTime", "EndTime", "Duration", "CaloriesBurned", "Notes", "ExternalId", "Visibility", "CreatedAt", "UpdatedAt", "Exercises" }, new[]{ "Description", "EndTime", "Duration", "CaloriesBurned", "Notes", "ExternalId" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyWorkoutExercise), global::DysonNetwork.Shared.Proto.DyWorkoutExercise.Parser, new[]{ "Id", "WorkoutId", "ExerciseName", "Sets", "Reps", "Weight", "Duration", "Notes", "OrderIndex", "CreatedAt", "UpdatedAt" }, new[]{ "Sets", "Reps", "Weight", "Duration", "Notes" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyFitnessMetric), global::DysonNetwork.Shared.Proto.DyFitnessMetric.Parser, new[]{ "Id", "AccountId", "MetricType", "Value", "Unit", "RecordedAt", "Notes", "Source", "ExternalId", "CreatedAt", "UpdatedAt" }, new[]{ "Notes", "Source", "ExternalId" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyFitnessGoal), global::DysonNetwork.Shared.Proto.DyFitnessGoal.Parser, new[]{ "Id", "AccountId", "GoalType", "Title", "Description", "TargetValue", "CurrentValue", "Unit", "StartDate", "EndDate", "Status", "Notes", "BoundWorkoutType", "BoundMetricType", "AutoUpdateProgress", "RepeatType", "RepeatInterval", "RepeatCount", "CurrentRepetition", "ParentGoalId", "CreatedAt", "UpdatedAt" }, new[]{ "Description", "TargetValue", "CurrentValue", "Unit", "EndDate", "Notes", "BoundWorkoutType", "BoundMetricType", "RepeatCount", "ParentGoalId" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyFitnessMetric), global::DysonNetwork.Shared.Proto.DyFitnessMetric.Parser, new[]{ "Id", "AccountId", "MetricType", "Value", "Unit", "RecordedAt", "Notes", "Source", "ExternalId", "Visibility", "CreatedAt", "UpdatedAt" }, new[]{ "Notes", "Source", "ExternalId" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyFitnessGoal), global::DysonNetwork.Shared.Proto.DyFitnessGoal.Parser, new[]{ "Id", "AccountId", "GoalType", "Title", "Description", "TargetValue", "CurrentValue", "Unit", "StartDate", "EndDate", "Status", "Notes", "Visibility", "BoundWorkoutType", "BoundMetricType", "AutoUpdateProgress", "RepeatType", "RepeatInterval", "RepeatCount", "CurrentRepetition", "ParentGoalId", "CreatedAt", "UpdatedAt" }, new[]{ "Description", "TargetValue", "CurrentValue", "Unit", "EndDate", "Notes", "BoundWorkoutType", "BoundMetricType", "RepeatCount", "ParentGoalId" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyExerciseLibrary), global::DysonNetwork.Shared.Proto.DyExerciseLibrary.Parser, new[]{ "Id", "Name", "Description", "Category", "MuscleGroups", "Difficulty", "Equipment", "IsPublic", "AccountId", "CreatedAt", "UpdatedAt" }, new[]{ "Description", "AccountId" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyFitnessAccountDataSummary), global::DysonNetwork.Shared.Proto.DyFitnessAccountDataSummary.Parser, new[]{ "WorkoutsCount", "MetricsCount", "GoalsCount", "ExerciseLibraryCount", "TotalCount" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGoalStats), global::DysonNetwork.Shared.Proto.DyGoalStats.Parser, new[]{ "ActiveCount", "CompletedCount" }, null, null, null, null),
@@ -301,6 +308,12 @@ namespace DysonNetwork.Shared.Proto {
     [pbr::OriginalName("DY_REPEAT_TYPE_MONTHLY")] Monthly = 4,
   }
 
+  public enum DyFitnessVisibility {
+    [pbr::OriginalName("DY_FITNESS_VISIBILITY_UNSPECIFIED")] Unspecified = 0,
+    [pbr::OriginalName("DY_FITNESS_VISIBILITY_PRIVATE")] Private = 1,
+    [pbr::OriginalName("DY_FITNESS_VISIBILITY_PUBLIC")] Public = 2,
+  }
+
   #endregion
 
   #region Messages
@@ -352,6 +365,7 @@ namespace DysonNetwork.Shared.Proto {
       caloriesBurned_ = other.caloriesBurned_;
       notes_ = other.notes_;
       externalId_ = other.externalId_;
+      visibility_ = other.visibility_;
       createdAt_ = other.createdAt_ != null ? other.createdAt_.Clone() : null;
       updatedAt_ = other.updatedAt_ != null ? other.updatedAt_.Clone() : null;
       exercises_ = other.exercises_.Clone();
@@ -567,8 +581,20 @@ namespace DysonNetwork.Shared.Proto {
       externalId_ = null;
     }
 
+    /// <summary>Field number for the "visibility" field.</summary>
+    public const int VisibilityFieldNumber = 12;
+    private global::DysonNetwork.Shared.Proto.DyFitnessVisibility visibility_ = global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::DysonNetwork.Shared.Proto.DyFitnessVisibility Visibility {
+      get { return visibility_; }
+      set {
+        visibility_ = value;
+      }
+    }
+
     /// <summary>Field number for the "created_at" field.</summary>
-    public const int CreatedAtFieldNumber = 12;
+    public const int CreatedAtFieldNumber = 13;
     private global::Google.Protobuf.WellKnownTypes.Timestamp createdAt_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -580,7 +606,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "updated_at" field.</summary>
-    public const int UpdatedAtFieldNumber = 13;
+    public const int UpdatedAtFieldNumber = 14;
     private global::Google.Protobuf.WellKnownTypes.Timestamp updatedAt_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -592,9 +618,9 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "exercises" field.</summary>
-    public const int ExercisesFieldNumber = 14;
+    public const int ExercisesFieldNumber = 15;
     private static readonly pb::FieldCodec<global::DysonNetwork.Shared.Proto.DyWorkoutExercise> _repeated_exercises_codec
-        = pb::FieldCodec.ForMessage(114, global::DysonNetwork.Shared.Proto.DyWorkoutExercise.Parser);
+        = pb::FieldCodec.ForMessage(122, global::DysonNetwork.Shared.Proto.DyWorkoutExercise.Parser);
     private readonly pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyWorkoutExercise> exercises_ = new pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyWorkoutExercise>();
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -628,6 +654,7 @@ namespace DysonNetwork.Shared.Proto {
       if (CaloriesBurned != other.CaloriesBurned) return false;
       if (Notes != other.Notes) return false;
       if (ExternalId != other.ExternalId) return false;
+      if (Visibility != other.Visibility) return false;
       if (!object.Equals(CreatedAt, other.CreatedAt)) return false;
       if (!object.Equals(UpdatedAt, other.UpdatedAt)) return false;
       if(!exercises_.Equals(other.exercises_)) return false;
@@ -649,6 +676,7 @@ namespace DysonNetwork.Shared.Proto {
       if (HasCaloriesBurned) hash ^= CaloriesBurned.GetHashCode();
       if (HasNotes) hash ^= Notes.GetHashCode();
       if (HasExternalId) hash ^= ExternalId.GetHashCode();
+      if (Visibility != global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified) hash ^= Visibility.GetHashCode();
       if (createdAt_ != null) hash ^= CreatedAt.GetHashCode();
       if (updatedAt_ != null) hash ^= UpdatedAt.GetHashCode();
       hash ^= exercises_.GetHashCode();
@@ -714,12 +742,16 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(90);
         output.WriteString(ExternalId);
       }
+      if (Visibility != global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified) {
+        output.WriteRawTag(96);
+        output.WriteEnum((int) Visibility);
+      }
       if (createdAt_ != null) {
-        output.WriteRawTag(98);
+        output.WriteRawTag(106);
         output.WriteMessage(CreatedAt);
       }
       if (updatedAt_ != null) {
-        output.WriteRawTag(106);
+        output.WriteRawTag(114);
         output.WriteMessage(UpdatedAt);
       }
       exercises_.WriteTo(output, _repeated_exercises_codec);
@@ -777,12 +809,16 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(90);
         output.WriteString(ExternalId);
       }
+      if (Visibility != global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified) {
+        output.WriteRawTag(96);
+        output.WriteEnum((int) Visibility);
+      }
       if (createdAt_ != null) {
-        output.WriteRawTag(98);
+        output.WriteRawTag(106);
         output.WriteMessage(CreatedAt);
       }
       if (updatedAt_ != null) {
-        output.WriteRawTag(106);
+        output.WriteRawTag(114);
         output.WriteMessage(UpdatedAt);
       }
       exercises_.WriteTo(ref output, _repeated_exercises_codec);
@@ -828,6 +864,9 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (HasExternalId) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(ExternalId);
+      }
+      if (Visibility != global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified) {
+        size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) Visibility);
       }
       if (createdAt_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(CreatedAt);
@@ -886,6 +925,9 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.HasExternalId) {
         ExternalId = other.ExternalId;
+      }
+      if (other.Visibility != global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified) {
+        Visibility = other.Visibility;
       }
       if (other.createdAt_ != null) {
         if (createdAt_ == null) {
@@ -969,21 +1011,25 @@ namespace DysonNetwork.Shared.Proto {
             ExternalId = input.ReadString();
             break;
           }
-          case 98: {
+          case 96: {
+            Visibility = (global::DysonNetwork.Shared.Proto.DyFitnessVisibility) input.ReadEnum();
+            break;
+          }
+          case 106: {
             if (createdAt_ == null) {
               CreatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
             }
             input.ReadMessage(CreatedAt);
             break;
           }
-          case 106: {
+          case 114: {
             if (updatedAt_ == null) {
               UpdatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
             }
             input.ReadMessage(UpdatedAt);
             break;
           }
-          case 114: {
+          case 122: {
             exercises_.AddEntriesFrom(input, _repeated_exercises_codec);
             break;
           }
@@ -1056,21 +1102,25 @@ namespace DysonNetwork.Shared.Proto {
             ExternalId = input.ReadString();
             break;
           }
-          case 98: {
+          case 96: {
+            Visibility = (global::DysonNetwork.Shared.Proto.DyFitnessVisibility) input.ReadEnum();
+            break;
+          }
+          case 106: {
             if (createdAt_ == null) {
               CreatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
             }
             input.ReadMessage(CreatedAt);
             break;
           }
-          case 106: {
+          case 114: {
             if (updatedAt_ == null) {
               UpdatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
             }
             input.ReadMessage(UpdatedAt);
             break;
           }
-          case 114: {
+          case 122: {
             exercises_.AddEntriesFrom(ref input, _repeated_exercises_codec);
             break;
           }
@@ -1786,6 +1836,7 @@ namespace DysonNetwork.Shared.Proto {
       notes_ = other.notes_;
       source_ = other.source_;
       externalId_ = other.externalId_;
+      visibility_ = other.visibility_;
       createdAt_ = other.createdAt_ != null ? other.createdAt_.Clone() : null;
       updatedAt_ = other.updatedAt_ != null ? other.updatedAt_.Clone() : null;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
@@ -1947,8 +1998,20 @@ namespace DysonNetwork.Shared.Proto {
       externalId_ = null;
     }
 
+    /// <summary>Field number for the "visibility" field.</summary>
+    public const int VisibilityFieldNumber = 10;
+    private global::DysonNetwork.Shared.Proto.DyFitnessVisibility visibility_ = global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::DysonNetwork.Shared.Proto.DyFitnessVisibility Visibility {
+      get { return visibility_; }
+      set {
+        visibility_ = value;
+      }
+    }
+
     /// <summary>Field number for the "created_at" field.</summary>
-    public const int CreatedAtFieldNumber = 10;
+    public const int CreatedAtFieldNumber = 11;
     private global::Google.Protobuf.WellKnownTypes.Timestamp createdAt_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -1960,7 +2023,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "updated_at" field.</summary>
-    public const int UpdatedAtFieldNumber = 11;
+    public const int UpdatedAtFieldNumber = 12;
     private global::Google.Protobuf.WellKnownTypes.Timestamp updatedAt_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -1995,6 +2058,7 @@ namespace DysonNetwork.Shared.Proto {
       if (Notes != other.Notes) return false;
       if (Source != other.Source) return false;
       if (ExternalId != other.ExternalId) return false;
+      if (Visibility != other.Visibility) return false;
       if (!object.Equals(CreatedAt, other.CreatedAt)) return false;
       if (!object.Equals(UpdatedAt, other.UpdatedAt)) return false;
       return Equals(_unknownFields, other._unknownFields);
@@ -2013,6 +2077,7 @@ namespace DysonNetwork.Shared.Proto {
       if (HasNotes) hash ^= Notes.GetHashCode();
       if (HasSource) hash ^= Source.GetHashCode();
       if (HasExternalId) hash ^= ExternalId.GetHashCode();
+      if (Visibility != global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified) hash ^= Visibility.GetHashCode();
       if (createdAt_ != null) hash ^= CreatedAt.GetHashCode();
       if (updatedAt_ != null) hash ^= UpdatedAt.GetHashCode();
       if (_unknownFields != null) {
@@ -2069,12 +2134,16 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(74);
         output.WriteString(ExternalId);
       }
+      if (Visibility != global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified) {
+        output.WriteRawTag(80);
+        output.WriteEnum((int) Visibility);
+      }
       if (createdAt_ != null) {
-        output.WriteRawTag(82);
+        output.WriteRawTag(90);
         output.WriteMessage(CreatedAt);
       }
       if (updatedAt_ != null) {
-        output.WriteRawTag(90);
+        output.WriteRawTag(98);
         output.WriteMessage(UpdatedAt);
       }
       if (_unknownFields != null) {
@@ -2123,12 +2192,16 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(74);
         output.WriteString(ExternalId);
       }
+      if (Visibility != global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified) {
+        output.WriteRawTag(80);
+        output.WriteEnum((int) Visibility);
+      }
       if (createdAt_ != null) {
-        output.WriteRawTag(82);
+        output.WriteRawTag(90);
         output.WriteMessage(CreatedAt);
       }
       if (updatedAt_ != null) {
-        output.WriteRawTag(90);
+        output.WriteRawTag(98);
         output.WriteMessage(UpdatedAt);
       }
       if (_unknownFields != null) {
@@ -2167,6 +2240,9 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (HasExternalId) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(ExternalId);
+      }
+      if (Visibility != global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified) {
+        size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) Visibility);
       }
       if (createdAt_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(CreatedAt);
@@ -2215,6 +2291,9 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.HasExternalId) {
         ExternalId = other.ExternalId;
+      }
+      if (other.Visibility != global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified) {
+        Visibility = other.Visibility;
       }
       if (other.createdAt_ != null) {
         if (createdAt_ == null) {
@@ -2286,14 +2365,18 @@ namespace DysonNetwork.Shared.Proto {
             ExternalId = input.ReadString();
             break;
           }
-          case 82: {
+          case 80: {
+            Visibility = (global::DysonNetwork.Shared.Proto.DyFitnessVisibility) input.ReadEnum();
+            break;
+          }
+          case 90: {
             if (createdAt_ == null) {
               CreatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
             }
             input.ReadMessage(CreatedAt);
             break;
           }
-          case 90: {
+          case 98: {
             if (updatedAt_ == null) {
               UpdatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
             }
@@ -2358,14 +2441,18 @@ namespace DysonNetwork.Shared.Proto {
             ExternalId = input.ReadString();
             break;
           }
-          case 82: {
+          case 80: {
+            Visibility = (global::DysonNetwork.Shared.Proto.DyFitnessVisibility) input.ReadEnum();
+            break;
+          }
+          case 90: {
             if (createdAt_ == null) {
               CreatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
             }
             input.ReadMessage(CreatedAt);
             break;
           }
-          case 90: {
+          case 98: {
             if (updatedAt_ == null) {
               UpdatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
             }
@@ -2428,6 +2515,7 @@ namespace DysonNetwork.Shared.Proto {
       endDate_ = other.endDate_ != null ? other.endDate_.Clone() : null;
       status_ = other.status_;
       notes_ = other.notes_;
+      visibility_ = other.visibility_;
       boundWorkoutType_ = other.boundWorkoutType_;
       boundMetricType_ = other.boundMetricType_;
       autoUpdateProgress_ = other.autoUpdateProgress_;
@@ -2663,8 +2751,20 @@ namespace DysonNetwork.Shared.Proto {
       notes_ = null;
     }
 
+    /// <summary>Field number for the "visibility" field.</summary>
+    public const int VisibilityFieldNumber = 13;
+    private global::DysonNetwork.Shared.Proto.DyFitnessVisibility visibility_ = global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::DysonNetwork.Shared.Proto.DyFitnessVisibility Visibility {
+      get { return visibility_; }
+      set {
+        visibility_ = value;
+      }
+    }
+
     /// <summary>Field number for the "bound_workout_type" field.</summary>
-    public const int BoundWorkoutTypeFieldNumber = 13;
+    public const int BoundWorkoutTypeFieldNumber = 14;
     private readonly static global::DysonNetwork.Shared.Proto.DyWorkoutType BoundWorkoutTypeDefaultValue = global::DysonNetwork.Shared.Proto.DyWorkoutType.Unspecified;
 
     private global::DysonNetwork.Shared.Proto.DyWorkoutType boundWorkoutType_;
@@ -2691,7 +2791,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "bound_metric_type" field.</summary>
-    public const int BoundMetricTypeFieldNumber = 14;
+    public const int BoundMetricTypeFieldNumber = 15;
     private readonly static global::DysonNetwork.Shared.Proto.DyFitnessMetricType BoundMetricTypeDefaultValue = global::DysonNetwork.Shared.Proto.DyFitnessMetricType.Unspecified;
 
     private global::DysonNetwork.Shared.Proto.DyFitnessMetricType boundMetricType_;
@@ -2718,7 +2818,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "auto_update_progress" field.</summary>
-    public const int AutoUpdateProgressFieldNumber = 15;
+    public const int AutoUpdateProgressFieldNumber = 16;
     private bool autoUpdateProgress_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -2730,7 +2830,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "repeat_type" field.</summary>
-    public const int RepeatTypeFieldNumber = 16;
+    public const int RepeatTypeFieldNumber = 17;
     private global::DysonNetwork.Shared.Proto.DyRepeatType repeatType_ = global::DysonNetwork.Shared.Proto.DyRepeatType.Unspecified;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -2742,7 +2842,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "repeat_interval" field.</summary>
-    public const int RepeatIntervalFieldNumber = 17;
+    public const int RepeatIntervalFieldNumber = 18;
     private int repeatInterval_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -2754,7 +2854,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "repeat_count" field.</summary>
-    public const int RepeatCountFieldNumber = 18;
+    public const int RepeatCountFieldNumber = 19;
     private readonly static int RepeatCountDefaultValue = 0;
 
     private int repeatCount_;
@@ -2781,7 +2881,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "current_repetition" field.</summary>
-    public const int CurrentRepetitionFieldNumber = 19;
+    public const int CurrentRepetitionFieldNumber = 20;
     private int currentRepetition_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -2793,7 +2893,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "parent_goal_id" field.</summary>
-    public const int ParentGoalIdFieldNumber = 20;
+    public const int ParentGoalIdFieldNumber = 21;
     private readonly static string ParentGoalIdDefaultValue = "";
 
     private string parentGoalId_;
@@ -2819,7 +2919,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "created_at" field.</summary>
-    public const int CreatedAtFieldNumber = 21;
+    public const int CreatedAtFieldNumber = 22;
     private global::Google.Protobuf.WellKnownTypes.Timestamp createdAt_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -2831,7 +2931,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "updated_at" field.</summary>
-    public const int UpdatedAtFieldNumber = 22;
+    public const int UpdatedAtFieldNumber = 23;
     private global::Google.Protobuf.WellKnownTypes.Timestamp updatedAt_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -2869,6 +2969,7 @@ namespace DysonNetwork.Shared.Proto {
       if (!object.Equals(EndDate, other.EndDate)) return false;
       if (Status != other.Status) return false;
       if (Notes != other.Notes) return false;
+      if (Visibility != other.Visibility) return false;
       if (BoundWorkoutType != other.BoundWorkoutType) return false;
       if (BoundMetricType != other.BoundMetricType) return false;
       if (AutoUpdateProgress != other.AutoUpdateProgress) return false;
@@ -2898,6 +2999,7 @@ namespace DysonNetwork.Shared.Proto {
       if (endDate_ != null) hash ^= EndDate.GetHashCode();
       if (Status != global::DysonNetwork.Shared.Proto.DyFitnessGoalStatus.Unspecified) hash ^= Status.GetHashCode();
       if (HasNotes) hash ^= Notes.GetHashCode();
+      if (Visibility != global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified) hash ^= Visibility.GetHashCode();
       if (HasBoundWorkoutType) hash ^= BoundWorkoutType.GetHashCode();
       if (HasBoundMetricType) hash ^= BoundMetricType.GetHashCode();
       if (AutoUpdateProgress != false) hash ^= AutoUpdateProgress.GetHashCode();
@@ -2974,44 +3076,48 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(98);
         output.WriteString(Notes);
       }
-      if (HasBoundWorkoutType) {
+      if (Visibility != global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified) {
         output.WriteRawTag(104);
+        output.WriteEnum((int) Visibility);
+      }
+      if (HasBoundWorkoutType) {
+        output.WriteRawTag(112);
         output.WriteEnum((int) BoundWorkoutType);
       }
       if (HasBoundMetricType) {
-        output.WriteRawTag(112);
+        output.WriteRawTag(120);
         output.WriteEnum((int) BoundMetricType);
       }
       if (AutoUpdateProgress != false) {
-        output.WriteRawTag(120);
+        output.WriteRawTag(128, 1);
         output.WriteBool(AutoUpdateProgress);
       }
       if (RepeatType != global::DysonNetwork.Shared.Proto.DyRepeatType.Unspecified) {
-        output.WriteRawTag(128, 1);
+        output.WriteRawTag(136, 1);
         output.WriteEnum((int) RepeatType);
       }
       if (RepeatInterval != 0) {
-        output.WriteRawTag(136, 1);
+        output.WriteRawTag(144, 1);
         output.WriteInt32(RepeatInterval);
       }
       if (HasRepeatCount) {
-        output.WriteRawTag(144, 1);
+        output.WriteRawTag(152, 1);
         output.WriteInt32(RepeatCount);
       }
       if (CurrentRepetition != 0) {
-        output.WriteRawTag(152, 1);
+        output.WriteRawTag(160, 1);
         output.WriteInt32(CurrentRepetition);
       }
       if (HasParentGoalId) {
-        output.WriteRawTag(162, 1);
+        output.WriteRawTag(170, 1);
         output.WriteString(ParentGoalId);
       }
       if (createdAt_ != null) {
-        output.WriteRawTag(170, 1);
+        output.WriteRawTag(178, 1);
         output.WriteMessage(CreatedAt);
       }
       if (updatedAt_ != null) {
-        output.WriteRawTag(178, 1);
+        output.WriteRawTag(186, 1);
         output.WriteMessage(UpdatedAt);
       }
       if (_unknownFields != null) {
@@ -3072,44 +3178,48 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(98);
         output.WriteString(Notes);
       }
-      if (HasBoundWorkoutType) {
+      if (Visibility != global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified) {
         output.WriteRawTag(104);
+        output.WriteEnum((int) Visibility);
+      }
+      if (HasBoundWorkoutType) {
+        output.WriteRawTag(112);
         output.WriteEnum((int) BoundWorkoutType);
       }
       if (HasBoundMetricType) {
-        output.WriteRawTag(112);
+        output.WriteRawTag(120);
         output.WriteEnum((int) BoundMetricType);
       }
       if (AutoUpdateProgress != false) {
-        output.WriteRawTag(120);
+        output.WriteRawTag(128, 1);
         output.WriteBool(AutoUpdateProgress);
       }
       if (RepeatType != global::DysonNetwork.Shared.Proto.DyRepeatType.Unspecified) {
-        output.WriteRawTag(128, 1);
+        output.WriteRawTag(136, 1);
         output.WriteEnum((int) RepeatType);
       }
       if (RepeatInterval != 0) {
-        output.WriteRawTag(136, 1);
+        output.WriteRawTag(144, 1);
         output.WriteInt32(RepeatInterval);
       }
       if (HasRepeatCount) {
-        output.WriteRawTag(144, 1);
+        output.WriteRawTag(152, 1);
         output.WriteInt32(RepeatCount);
       }
       if (CurrentRepetition != 0) {
-        output.WriteRawTag(152, 1);
+        output.WriteRawTag(160, 1);
         output.WriteInt32(CurrentRepetition);
       }
       if (HasParentGoalId) {
-        output.WriteRawTag(162, 1);
+        output.WriteRawTag(170, 1);
         output.WriteString(ParentGoalId);
       }
       if (createdAt_ != null) {
-        output.WriteRawTag(170, 1);
+        output.WriteRawTag(178, 1);
         output.WriteMessage(CreatedAt);
       }
       if (updatedAt_ != null) {
-        output.WriteRawTag(178, 1);
+        output.WriteRawTag(186, 1);
         output.WriteMessage(UpdatedAt);
       }
       if (_unknownFields != null) {
@@ -3158,6 +3268,9 @@ namespace DysonNetwork.Shared.Proto {
       if (HasNotes) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Notes);
       }
+      if (Visibility != global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified) {
+        size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) Visibility);
+      }
       if (HasBoundWorkoutType) {
         size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) BoundWorkoutType);
       }
@@ -3165,7 +3278,7 @@ namespace DysonNetwork.Shared.Proto {
         size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) BoundMetricType);
       }
       if (AutoUpdateProgress != false) {
-        size += 1 + 1;
+        size += 2 + 1;
       }
       if (RepeatType != global::DysonNetwork.Shared.Proto.DyRepeatType.Unspecified) {
         size += 2 + pb::CodedOutputStream.ComputeEnumSize((int) RepeatType);
@@ -3241,6 +3354,9 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.HasNotes) {
         Notes = other.Notes;
+      }
+      if (other.Visibility != global::DysonNetwork.Shared.Proto.DyFitnessVisibility.Unspecified) {
+        Visibility = other.Visibility;
       }
       if (other.HasBoundWorkoutType) {
         BoundWorkoutType = other.BoundWorkoutType;
@@ -3352,45 +3468,49 @@ namespace DysonNetwork.Shared.Proto {
             break;
           }
           case 104: {
-            BoundWorkoutType = (global::DysonNetwork.Shared.Proto.DyWorkoutType) input.ReadEnum();
+            Visibility = (global::DysonNetwork.Shared.Proto.DyFitnessVisibility) input.ReadEnum();
             break;
           }
           case 112: {
-            BoundMetricType = (global::DysonNetwork.Shared.Proto.DyFitnessMetricType) input.ReadEnum();
+            BoundWorkoutType = (global::DysonNetwork.Shared.Proto.DyWorkoutType) input.ReadEnum();
             break;
           }
           case 120: {
-            AutoUpdateProgress = input.ReadBool();
+            BoundMetricType = (global::DysonNetwork.Shared.Proto.DyFitnessMetricType) input.ReadEnum();
             break;
           }
           case 128: {
-            RepeatType = (global::DysonNetwork.Shared.Proto.DyRepeatType) input.ReadEnum();
+            AutoUpdateProgress = input.ReadBool();
             break;
           }
           case 136: {
-            RepeatInterval = input.ReadInt32();
+            RepeatType = (global::DysonNetwork.Shared.Proto.DyRepeatType) input.ReadEnum();
             break;
           }
           case 144: {
-            RepeatCount = input.ReadInt32();
+            RepeatInterval = input.ReadInt32();
             break;
           }
           case 152: {
+            RepeatCount = input.ReadInt32();
+            break;
+          }
+          case 160: {
             CurrentRepetition = input.ReadInt32();
             break;
           }
-          case 162: {
+          case 170: {
             ParentGoalId = input.ReadString();
             break;
           }
-          case 170: {
+          case 178: {
             if (createdAt_ == null) {
               CreatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
             }
             input.ReadMessage(CreatedAt);
             break;
           }
-          case 178: {
+          case 186: {
             if (updatedAt_ == null) {
               UpdatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
             }
@@ -3471,45 +3591,49 @@ namespace DysonNetwork.Shared.Proto {
             break;
           }
           case 104: {
-            BoundWorkoutType = (global::DysonNetwork.Shared.Proto.DyWorkoutType) input.ReadEnum();
+            Visibility = (global::DysonNetwork.Shared.Proto.DyFitnessVisibility) input.ReadEnum();
             break;
           }
           case 112: {
-            BoundMetricType = (global::DysonNetwork.Shared.Proto.DyFitnessMetricType) input.ReadEnum();
+            BoundWorkoutType = (global::DysonNetwork.Shared.Proto.DyWorkoutType) input.ReadEnum();
             break;
           }
           case 120: {
-            AutoUpdateProgress = input.ReadBool();
+            BoundMetricType = (global::DysonNetwork.Shared.Proto.DyFitnessMetricType) input.ReadEnum();
             break;
           }
           case 128: {
-            RepeatType = (global::DysonNetwork.Shared.Proto.DyRepeatType) input.ReadEnum();
+            AutoUpdateProgress = input.ReadBool();
             break;
           }
           case 136: {
-            RepeatInterval = input.ReadInt32();
+            RepeatType = (global::DysonNetwork.Shared.Proto.DyRepeatType) input.ReadEnum();
             break;
           }
           case 144: {
-            RepeatCount = input.ReadInt32();
+            RepeatInterval = input.ReadInt32();
             break;
           }
           case 152: {
+            RepeatCount = input.ReadInt32();
+            break;
+          }
+          case 160: {
             CurrentRepetition = input.ReadInt32();
             break;
           }
-          case 162: {
+          case 170: {
             ParentGoalId = input.ReadString();
             break;
           }
-          case 170: {
+          case 178: {
             if (createdAt_ == null) {
               CreatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
             }
             input.ReadMessage(CreatedAt);
             break;
           }
-          case 178: {
+          case 186: {
             if (updatedAt_ == null) {
               UpdatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
             }

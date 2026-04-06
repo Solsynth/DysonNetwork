@@ -40,7 +40,7 @@ public class PostActionController(
     PollsService polls,
     RemoteRealmService rs,
     LiveStreamService liveStreams,
-    FitnessService fitnessService,
+    RemoteFitnessService fitnessService,
     ActivityPubDeliveryService activityPubDelivery,
     ILogger<PostActionController> logger,
     IEventBus eventBus
