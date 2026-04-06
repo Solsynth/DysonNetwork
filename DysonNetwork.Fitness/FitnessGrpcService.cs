@@ -143,7 +143,7 @@ public class FitnessGrpcService : DyFitnessService.DyFitnessServiceBase
         CaloriesBurned = w.CaloriesBurned ?? 0,
         Notes = w.Notes ?? string.Empty,
         ExternalId = w.ExternalId ?? string.Empty,
-        Visibility = (DyFitnessVisibility)w.Visibility,
+        Visibility = ToDyFitnessVisibility(w.Visibility),
         CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(w.CreatedAt.ToDateTimeUtc()),
         UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(w.UpdatedAt.ToDateTimeUtc())
     };
@@ -159,7 +159,7 @@ public class FitnessGrpcService : DyFitnessService.DyFitnessServiceBase
         Notes = m.Notes ?? string.Empty,
         Source = m.Source ?? string.Empty,
         ExternalId = m.ExternalId ?? string.Empty,
-        Visibility = (DyFitnessVisibility)m.Visibility,
+        Visibility = ToDyFitnessVisibility(m.Visibility),
         CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(m.CreatedAt.ToDateTimeUtc()),
         UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(m.UpdatedAt.ToDateTimeUtc())
     };
@@ -178,7 +178,7 @@ public class FitnessGrpcService : DyFitnessService.DyFitnessServiceBase
         EndDate = g.EndDate.HasValue ? Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(g.EndDate.Value.ToDateTimeUtc()) : null,
         Status = (DyFitnessGoalStatus)g.Status,
         Notes = g.Notes ?? string.Empty,
-        Visibility = (DyFitnessVisibility)g.Visibility,
+        Visibility = ToDyFitnessVisibility(g.Visibility),
         BoundWorkoutType = g.BoundWorkoutType.HasValue ? (DyWorkoutType)g.BoundWorkoutType.Value : 0,
         BoundMetricType = g.BoundMetricType.HasValue ? (DyFitnessMetricType)g.BoundMetricType.Value : 0,
         AutoUpdateProgress = g.AutoUpdateProgress,
@@ -189,5 +189,12 @@ public class FitnessGrpcService : DyFitnessService.DyFitnessServiceBase
         ParentGoalId = g.ParentGoalId.HasValue ? g.ParentGoalId.Value.ToString() : string.Empty,
         CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(g.CreatedAt.ToDateTimeUtc()),
         UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(g.UpdatedAt.ToDateTimeUtc())
+    };
+
+    private static DyFitnessVisibility ToDyFitnessVisibility(FitnessVisibility visibility) => visibility switch
+    {
+        FitnessVisibility.Private => DyFitnessVisibility.Private,
+        FitnessVisibility.Public => DyFitnessVisibility.Public,
+        _ => DyFitnessVisibility.Unspecified
     };
 }
