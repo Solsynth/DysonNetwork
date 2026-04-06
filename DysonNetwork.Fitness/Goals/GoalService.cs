@@ -172,4 +172,90 @@ public class GoalService(AppDatabase db, ILogger<GoalService> logger)
             await UpdateGoalProgressFromDataAsync(goal.Id);
         }
     }
+
+    public async Task<List<SnFitnessGoal>> GetGoalHistoryAsync(Guid goalId)
+    {
+        var goal = await db.FitnessGoals.FirstOrDefaultAsync(g => g.Id == goalId && g.DeletedAt == null);
+        if (goal is null) return new List<SnFitnessGoal>();
+
+        var rootGoalId = goal.ParentGoalId ?? goal.Id;
+
+        return await db.FitnessGoals
+            .Where(g => (g.Id == rootGoalId || g.ParentGoalId == rootGoalId) && g.DeletedAt == null)
+            .OrderBy(g => g.CurrentRepetition)
+            .ToListAsync();
+    }
+
+    public async Task<SnFitnessGoal?> CreateNextRepeatingGoalAsync(Guid completedGoalId)
+    {
+        var goal = await db.FitnessGoals.FirstOrDefaultAsync(g => g.Id == completedGoalId && g.DeletedAt == null);
+        if (goal is null) return null;
+        if (goal.RepeatType == RepeatType.None) return null;
+        if (goal.RepeatCount.HasValue && goal.CurrentRepetition >= goal.RepeatCount.Value) return null;
+
+        var nextStartDate = CalculateNextStartDate(goal.StartDate, goal.RepeatType, goal.RepeatInterval);
+        var nextEndDate = CalculateNextEndDate(nextStartDate, goal.RepeatType, goal.RepeatInterval);
+
+        var nextGoal = new SnFitnessGoal
+        {
+            AccountId = goal.AccountId,
+            Title = goal.Title,
+            Description = goal.Description,
+            GoalType = goal.GoalType,
+            TargetValue = goal.TargetValue,
+            CurrentValue = 0,
+            Unit = goal.Unit,
+            StartDate = nextStartDate,
+            EndDate = nextEndDate,
+            Status = FitnessGoalStatus.Active,
+            Notes = goal.Notes,
+            BoundWorkoutType = goal.BoundWorkoutType,
+            BoundMetricType = goal.BoundMetricType,
+            AutoUpdateProgress = goal.AutoUpdateProgress,
+            RepeatType = goal.RepeatType,
+            RepeatInterval = goal.RepeatInterval,
+            RepeatCount = goal.RepeatCount,
+            CurrentRepetition = goal.CurrentRepetition + 1,
+            ParentGoalId = goal.ParentGoalId ?? goal.Id,
+            CreatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow),
+            UpdatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
+        };
+
+        db.FitnessGoals.Add(nextGoal);
+        await db.SaveChangesAsync();
+        logger.LogInformation("Created next repeating goal {GoalId} for parent {ParentGoalId}", nextGoal.Id, nextGoal.ParentGoalId);
+
+        return nextGoal;
+    }
+
+    private NodaTime.Instant CalculateNextStartDate(NodaTime.Instant currentStart, RepeatType repeatType, int interval)
+    {
+        var current = currentStart.InUtc();
+        var next = repeatType switch
+        {
+            RepeatType.Daily => current.Date.PlusDays(interval),
+            RepeatType.Weekly => current.Date.PlusWeeks(interval),
+            RepeatType.Monthly => current.Date.PlusMonths(interval),
+            _ => current.Date
+        };
+        var zoned = next.AtStartOfDayInZone(NodaTime.DateTimeZone.Utc);
+        return zoned.ToInstant();
+    }
+
+    private NodaTime.Instant? CalculateNextEndDate(NodaTime.Instant nextStart, RepeatType repeatType, int interval)
+    {
+        if (repeatType == RepeatType.None) return null;
+        
+        var start = nextStart.InUtc();
+        var endDate = repeatType switch
+        {
+            RepeatType.Daily => start.Date.PlusDays(interval),
+            RepeatType.Weekly => start.Date.PlusWeeks(interval),
+            RepeatType.Monthly => start.Date.PlusMonths(interval),
+            _ => start.Date
+        };
+        
+        var endOfDay = endDate.At(new NodaTime.LocalTime(23, 59, 59));
+        return endOfDay.InUtc().ToInstant();
+    }
 }

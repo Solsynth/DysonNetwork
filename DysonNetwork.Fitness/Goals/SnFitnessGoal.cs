@@ -49,4 +49,14 @@ public class SnFitnessGoal : ModelBase
     public FitnessMetricType? BoundMetricType { get; set; }
 
     public bool AutoUpdateProgress { get; set; } = true;
+
+    public RepeatType RepeatType { get; set; } = RepeatType.None;
+
+    public int RepeatInterval { get; set; } = 1;
+
+    public int? RepeatCount { get; set; }
+
+    public int CurrentRepetition { get; set; } = 1;
+
+    public Guid? ParentGoalId { get; set; }
 }
