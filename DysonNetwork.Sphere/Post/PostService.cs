@@ -2115,6 +2115,7 @@ public partial class PostService(
                 .Posts.Where(e => e.Visibility == PostVisibility.Public)
                 .Where(e => e.CreatedAt >= periodStart && e.CreatedAt < periodEnd)
                 .Where(e => e.FediverseUri == null)
+                .Where(e => e.Publisher == null || e.Publisher.GatekeptFollows != true)
                 .Select(e => e.Id)
                 .ToListAsync();
 
@@ -2207,6 +2208,7 @@ public partial class PostService(
             .Include(e => e.Categories)
             .Include(e => e.Publisher)
             .Include(e => e.FeaturedRecords)
+            .Where(e => e.Publisher == null || e.Publisher.GatekeptFollows != true)
             .Take(featuredIds.Count)
             .ToListAsync();
         posts = posts.OrderBy(e => featuredIds.IndexOf(e.Id)).ToList();
