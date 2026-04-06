@@ -193,6 +193,21 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
         return Ok(history);
     }
 
+    [HttpPatch("{id:guid}/recalculate")]
+    public async Task<ActionResult<SnFitnessGoal>> RecalculateGoal(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        
+        var goal = await goalService.GetGoalByIdAsync(id);
+        if (goal is null) return NotFound();
+        if (goal.AccountId != Guid.Parse(currentUser.Id)) return Forbid();
+
+        await goalService.UpdateGoalProgressFromDataAsync(id);
+        
+        var updated = await goalService.GetGoalByIdAsync(id);
+        return Ok(updated);
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteGoal(Guid id)
     {
