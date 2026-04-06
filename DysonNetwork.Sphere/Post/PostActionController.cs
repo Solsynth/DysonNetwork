@@ -80,6 +80,9 @@ public class PostActionController(
         public string? FitnessReference { get; set; }
         
         public string? ThumbnailId { get; set; }
+
+        [MaxLength(16)]
+        public string? Language { get; set; }
     }
 
     [HttpPost]
@@ -137,6 +140,7 @@ public class PostActionController(
             Type = request.Type ?? PostType.Moment,
             Metadata = request.Meta,
             EmbedView = request.EmbedView,
+            Language = request.Language,
             Publisher = publisher,
         };
 
@@ -709,6 +713,8 @@ public class PostActionController(
             post.Visibility = request.Visibility.Value;
         if (request.Type is not null)
             post.Type = request.Type.Value;
+        if (request.Language is not null)
+            post.Language = request.Language;
         if (request.Meta is not null)
             post.Metadata = request.Meta;
         if (request.DraftedAt is not null)
