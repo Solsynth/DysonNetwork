@@ -118,6 +118,8 @@ Generate a registration challenge and options.
   "rpId": "example.com",
   "rpName": "DysonNetwork",
   "userId": "11111111-2222-3333-4444-555555555555",
+  "userName": "johndoe",
+  "displayName": "John Doe",
   "pubKeyCredParams": [{"type": "public-key", "alg": -7}],
   "timeout": 60000,
   "authenticatorSelection": {
@@ -166,9 +168,6 @@ After the client creates the credential using the WebAuthn API, send the attesta
 ### Client-Side Registration Example
 
 ```javascript
-const challenge = response.challenge; // from /factors/passkey/start
-const userId = response.userId;
-
 const credential = await navigator.credentials.create({
   publicKey: {
     rp: {
@@ -176,11 +175,11 @@ const credential = await navigator.credentials.create({
       name: response.rpName
     },
     user: {
-      id: Uint8Array.from(atob(userId), c => c.charCodeAt(0)),
-      name: "user@example.com",
-      displayName: "User Name"
+      id: Uint8Array.from(atob(response.userId), c => c.charCodeAt(0)),
+      name: response.userName,
+      displayName: response.displayName
     },
-    challenge: Uint8Array.from(atob(challenge), c => c.charCodeAt(0)),
+    challenge: Uint8Array.from(atob(response.challenge), c => c.charCodeAt(0)),
     pubKeyCredParams: [{ type: "public-key", alg: -7 }],
     timeout: 60000,
     authenticatorSelection: {

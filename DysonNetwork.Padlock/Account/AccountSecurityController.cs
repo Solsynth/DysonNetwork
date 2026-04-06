@@ -110,6 +110,8 @@ public class AccountSecurityController(
         public string RpId { get; set; } = null!;
         public string RpName { get; set; } = null!;
         public string UserId { get; set; } = null!;
+        public string UserName { get; set; } = null!;
+        public string DisplayName { get; set; } = null!;
         public List<PublicKeyCredentialParameters> PubKeyCredParams { get; set; } = [];
         public int Timeout { get; set; }
         public AuthenticatorSelectionCriteria? AuthenticatorSelection { get; set; }
@@ -172,6 +174,8 @@ public class AccountSecurityController(
             RpId = request.RpId,
             RpName = request.RpName,
             UserId = currentUser.Id.ToString(),
+            UserName = currentUser.Name,
+            DisplayName = string.IsNullOrEmpty(currentUser.Nick) ? currentUser.Name : currentUser.Nick,
             PubKeyCredParams = [new PublicKeyCredentialParameters()],
             Timeout = 60000,
             AuthenticatorSelection = new AuthenticatorSelectionCriteria()
