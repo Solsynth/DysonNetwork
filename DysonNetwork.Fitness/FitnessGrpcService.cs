@@ -145,7 +145,8 @@ public class FitnessGrpcService : DyFitnessService.DyFitnessServiceBase
         ExternalId = w.ExternalId ?? string.Empty,
         Visibility = ToDyFitnessVisibility(w.Visibility),
         CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(w.CreatedAt.ToDateTimeUtc()),
-        UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(w.UpdatedAt.ToDateTimeUtc())
+        UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(w.UpdatedAt.ToDateTimeUtc()),
+        Meta = w.Meta?.RootElement.GetRawText() ?? string.Empty
     };
 
     private static DyFitnessMetric ToDyFitnessMetric(SnFitnessMetric m) => new()

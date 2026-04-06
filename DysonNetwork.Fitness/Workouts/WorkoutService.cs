@@ -44,6 +44,8 @@ public class WorkoutService(AppDatabase db, ILogger<WorkoutService> logger)
         workout.Duration = updated.Duration;
         workout.CaloriesBurned = updated.CaloriesBurned;
         workout.Notes = updated.Notes;
+        workout.Visibility = updated.Visibility;
+        workout.Meta = updated.Meta;
         workout.UpdatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
 
         await db.SaveChangesAsync();

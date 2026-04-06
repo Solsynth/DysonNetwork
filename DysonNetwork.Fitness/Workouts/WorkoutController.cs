@@ -62,6 +62,11 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
             UpdatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
         };
 
+        if (request.Meta != null)
+        {
+            workout.Meta = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(request.Meta));
+        }
+
         var created = await workoutService.CreateWorkoutAsync(workout);
         
         await goalService.RecalculateGoalsForWorkoutTypeAsync(accountId, request.Type);
@@ -90,6 +95,11 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
             Notes = request.Notes,
             Visibility = request.Visibility ?? FitnessVisibility.Private
         };
+
+        if (request.Meta != null)
+        {
+            updated.Meta = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(request.Meta));
+        }
 
         var result = await workoutService.UpdateWorkoutAsync(id, updated);
         return Ok(result);
@@ -242,7 +252,8 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
         int? CaloriesBurned = null,
         string? Notes = null,
         string? ExternalId = null,
-        FitnessVisibility? Visibility = null
+        FitnessVisibility? Visibility = null,
+        Dictionary<string, object>? Meta = null
     );
 
     public record UpdateWorkoutRequest(
@@ -254,7 +265,8 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
         NodaTime.Duration? Duration = null,
         int? CaloriesBurned = null,
         string? Notes = null,
-        FitnessVisibility? Visibility = null
+        FitnessVisibility? Visibility = null,
+        Dictionary<string, object>? Meta = null
     );
 
     public record CreateExerciseRequest(

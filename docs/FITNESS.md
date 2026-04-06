@@ -70,14 +70,23 @@ POST /api/workouts
 
 ```json
 {
-  "name": "Upper Body",
-  "type": 0,
-  "start_time": "2026-04-05T18:00:00Z",
-  "description": "Chest and back workout",
-  "duration": "PT1H",
+  "name": "Morning Bike Ride",
+  "type": 1,
+  "start_time": "2026-04-05T06:00:00Z",
+  "description": "Great ride through the park",
+  "duration": "PT1H30M",
   "calories_burned": 450,
   "visibility": 1,
-  "notes": "Felt strong today"
+  "notes": "Felt strong today",
+  "meta": {
+    "distance": 25.5,
+    "distance_unit": "km",
+    "average_speed": 17.0,
+    "max_speed": 35.2,
+    "average_heart_rate": 145,
+    "max_heart_rate": 172,
+    "elevation_gain": 250
+  }
 }
 ```
 
@@ -85,6 +94,7 @@ POST /api/workouts
 - `WorkoutType` enum: `0=Strength, 1=Cardio, 2=HIIT, 3=Yoga, 4=Other`
 - If `duration` is not provided, it will be auto-calculated from `end_time - start_time`
 - Set `visibility: 1` to allow embedding in posts
+- `meta` supports: `distance`, `distance_unit`, `average_speed`, `max_speed`, `average_heart_rate`, `max_heart_rate`, `elevation_gain`
 
 ---
 
