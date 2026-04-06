@@ -7,6 +7,7 @@ using DysonNetwork.Fitness.ExerciseLibrary;
 using DysonNetwork.Fitness.Goals;
 using DysonNetwork.Fitness.Metrics;
 using DysonNetwork.Fitness.Workouts;
+using DysonNetwork.Shared.EventBus;
 
 namespace DysonNetwork.Fitness.Startup;
 
@@ -56,7 +57,6 @@ public static class ServiceCollectionExtensions
             options.SupportedUICultures = supportedCultures;
         });
 
-        // Add distributed cache (Redis)
         services.AddDistributedMemoryCache();
         
         // Add fitness services
