@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using DysonNetwork.Fitness;
 using DysonNetwork.Shared.Models;
 using NodaTime;
 
@@ -38,6 +39,8 @@ public class SnWorkout : ModelBase
 
     [MaxLength(4096)]
     public string? Notes { get; set; }
+
+    public FitnessVisibility Visibility { get; set; } = FitnessVisibility.Private;
 
     [JsonIgnore]
     public List<SnWorkoutExercise> Exercises { get; set; } = [];

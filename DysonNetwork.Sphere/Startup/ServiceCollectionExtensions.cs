@@ -13,6 +13,7 @@ using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Sticker;
 using DysonNetwork.Sphere.Timeline;
+using DysonNetwork.Sphere.Fitness;
 using DysonNetwork.Sphere.Translation;
 using DysonNetwork.Sphere.Live;
 using DysonNetwork.Sphere.Automod;
@@ -231,6 +232,8 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<ActivityPubQueueService>();
             services.AddScoped<LiveStreamService>();
             services.AddSingleton<LiveKitLivestreamService>();
+
+            services.AddScoped<FitnessService>();
 
             var translationProvider = configuration["Translation:Provider"]?.ToLower();
             switch (translationProvider)

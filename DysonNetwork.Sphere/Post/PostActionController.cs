@@ -13,6 +13,7 @@ using DysonNetwork.Sphere.ActivityPub;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Wallet;
 using DysonNetwork.Sphere.Live;
+using DysonNetwork.Sphere.Fitness;
 
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
@@ -39,6 +40,7 @@ public class PostActionController(
     PollsService polls,
     RemoteRealmService rs,
     LiveStreamService liveStreams,
+    FitnessService fitnessService,
     ActivityPubDeliveryService activityPubDelivery,
     ILogger<PostActionController> logger,
     IEventBus eventBus
@@ -73,6 +75,10 @@ public class PostActionController(
         public Guid? PollId { get; set; }
         public Guid? FundId { get; set; }
         public Guid? LiveStreamId { get; set; }
+        
+        [MaxLength(128)]
+        public string? FitnessReference { get; set; }
+        
         public string? ThumbnailId { get; set; }
     }
 
@@ -270,6 +276,36 @@ public class PostActionController(
             {
                 return BadRequest($"Error attaching live stream: {ex.Message}");
             }
+        }
+
+        if (!string.IsNullOrEmpty(request.FitnessReference))
+        {
+            var parts = request.FitnessReference.Split(':');
+            if (parts.Length != 2 || !Guid.TryParse(parts[1], out var fitnessId))
+                return BadRequest("Invalid fitness reference format. Use 'type:uuid' (e.g., 'workout:uuid', 'metric:uuid', 'goal:uuid')");
+
+            var fitnessType = parts[0].ToLowerInvariant();
+            if (fitnessType != "workout" && fitnessType != "metric" && fitnessType != "goal")
+                return BadRequest("Invalid fitness type. Use 'workout', 'metric', or 'goal'");
+
+            var isValid = await fitnessService.ValidateAndGetOwnershipAsync(fitnessType, fitnessId, accountId);
+            if (!isValid)
+                return BadRequest("Invalid fitness reference. You can only embed your own public fitness records.");
+
+            var fitnessEmbed = new FitnessEmbed 
+            { 
+                Id = fitnessId, 
+                FitnessType = fitnessType 
+            };
+            post.Metadata ??= new Dictionary<string, object>();
+            if (
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+            embeds.Add(EmbeddableBase.ToDictionary(fitnessEmbed));
+            post.Metadata["embeds"] = embeds;
         }
 
         if (request.ThumbnailId is not null)

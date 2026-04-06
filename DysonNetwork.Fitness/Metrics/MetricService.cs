@@ -47,6 +47,7 @@ public class MetricService(AppDatabase db, ILogger<MetricService> logger)
         metric.RecordedAt = updated.RecordedAt;
         metric.Notes = updated.Notes;
         metric.Source = updated.Source;
+        metric.Visibility = updated.Visibility;
         metric.UpdatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
 
         await db.SaveChangesAsync();

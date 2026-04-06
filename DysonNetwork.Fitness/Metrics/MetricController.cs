@@ -68,6 +68,7 @@ public class MetricController(AppDatabase db, MetricService metricService, GoalS
             RecordedAt = request.RecordedAt,
             Notes = request.Notes,
             Source = request.Source,
+            Visibility = request.Visibility ?? FitnessVisibility.Private,
             CreatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow),
             UpdatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
         };
@@ -77,6 +78,43 @@ public class MetricController(AppDatabase db, MetricService metricService, GoalS
         await goalService.RecalculateGoalsForMetricTypeAsync(accountId, request.MetricType);
         
         return CreatedAtAction(nameof(GetMetric), new { id = created.Id }, created);
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<SnFitnessMetric>> UpdateMetric(Guid id, [FromBody] UpdateMetricRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        
+        var existing = await metricService.GetMetricByIdAsync(id);
+        if (existing is null) return NotFound();
+        if (existing.AccountId != Guid.Parse(currentUser.Id)) return Forbid();
+
+        var updated = new SnFitnessMetric
+        {
+            MetricType = request.MetricType,
+            Value = request.Value,
+            Unit = request.Unit,
+            RecordedAt = request.RecordedAt,
+            Notes = request.Notes,
+            Source = request.Source,
+            Visibility = request.Visibility ?? FitnessVisibility.Private
+        };
+
+        var result = await metricService.UpdateMetricAsync(id, updated);
+        return Ok(result);
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteMetric(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        
+        var metric = await metricService.GetMetricByIdAsync(id);
+        if (metric is null) return NotFound();
+        if (metric.AccountId != Guid.Parse(currentUser.Id)) return Forbid();
+
+        var success = await metricService.DeleteMetricAsync(id);
+        return success ? NoContent() : NotFound();
     }
 
     [HttpPost("batch")]
@@ -96,6 +134,7 @@ public class MetricController(AppDatabase db, MetricService metricService, GoalS
             RecordedAt = m.RecordedAt,
             Notes = m.Notes,
             Source = m.Source,
+            Visibility = m.Visibility ?? FitnessVisibility.Private,
             CreatedAt = now,
             UpdatedAt = now
         });
@@ -119,7 +158,8 @@ public class MetricController(AppDatabase db, MetricService metricService, GoalS
         NodaTime.Instant RecordedAt,
         string? Notes = null,
         string? Source = null,
-        string? ExternalId = null
+        string? ExternalId = null,
+        FitnessVisibility? Visibility = null
     );
 
     public record UpdateMetricRequest(
@@ -128,7 +168,8 @@ public class MetricController(AppDatabase db, MetricService metricService, GoalS
         string Unit,
         NodaTime.Instant RecordedAt,
         string? Notes = null,
-        string? Source = null
+        string? Source = null,
+        FitnessVisibility? Visibility = null
     );
 
     public record CreateMetricsBatchRequest(List<CreateMetricRequestItem> Metrics);
@@ -140,6 +181,7 @@ public class MetricController(AppDatabase db, MetricService metricService, GoalS
         NodaTime.Instant RecordedAt,
         string? Notes = null,
         string? Source = null,
-        string? ExternalId = null
+        string? ExternalId = null,
+        FitnessVisibility? Visibility = null
     );
 }

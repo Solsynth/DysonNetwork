@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using DysonNetwork.Fitness;
 using DysonNetwork.Shared.Models;
 using NodaTime;
 
@@ -35,4 +36,6 @@ public class SnFitnessMetric : ModelBase
 
     [MaxLength(256)]
     public string? Source { get; set; }
+
+    public FitnessVisibility Visibility { get; set; } = FitnessVisibility.Private;
 }

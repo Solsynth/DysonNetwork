@@ -75,6 +75,7 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
             EndDate = request.EndDate,
             Status = FitnessGoalStatus.Active,
             Notes = request.Notes,
+            Visibility = request.Visibility ?? FitnessVisibility.Private,
             BoundWorkoutType = request.BoundWorkoutType,
             BoundMetricType = request.BoundMetricType,
             AutoUpdateProgress = request.AutoUpdateProgress,
@@ -111,6 +112,7 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
             EndDate = request.EndDate,
             Status = request.Status,
             Notes = request.Notes,
+            Visibility = request.Visibility ?? FitnessVisibility.Private,
             BoundWorkoutType = request.BoundWorkoutType,
             BoundMetricType = request.BoundMetricType,
             AutoUpdateProgress = request.AutoUpdateProgress,
@@ -237,7 +239,8 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
         bool AutoUpdateProgress = true,
         RepeatType RepeatType = RepeatType.None,
         int RepeatInterval = 1,
-        int? RepeatCount = null
+        int? RepeatCount = null,
+        FitnessVisibility? Visibility = null
     );
 
     public record UpdateGoalRequest(
@@ -256,7 +259,8 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
         bool AutoUpdateProgress = true,
         RepeatType RepeatType = RepeatType.None,
         int RepeatInterval = 1,
-        int? RepeatCount = null
+        int? RepeatCount = null,
+        FitnessVisibility? Visibility = null
     );
 
     public record UpdateProgressRequest(decimal CurrentValue);

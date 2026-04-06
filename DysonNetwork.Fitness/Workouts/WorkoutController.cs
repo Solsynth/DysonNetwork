@@ -57,6 +57,7 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
             Duration = request.Duration,
             CaloriesBurned = request.CaloriesBurned,
             Notes = request.Notes,
+            Visibility = request.Visibility ?? FitnessVisibility.Private,
             CreatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow),
             UpdatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
         };
@@ -86,7 +87,8 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
             EndTime = request.EndTime,
             Duration = request.Duration,
             CaloriesBurned = request.CaloriesBurned,
-            Notes = request.Notes
+            Notes = request.Notes,
+            Visibility = request.Visibility ?? FitnessVisibility.Private
         };
 
         var result = await workoutService.UpdateWorkoutAsync(id, updated);
@@ -202,6 +204,7 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
                 Duration = duration,
                 CaloriesBurned = w.CaloriesBurned,
                 Notes = w.Notes,
+                Visibility = w.Visibility ?? FitnessVisibility.Private,
                 CreatedAt = now,
                 UpdatedAt = now
             };
@@ -228,7 +231,8 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
         NodaTime.Duration? Duration = null,
         int? CaloriesBurned = null,
         string? Notes = null,
-        string? ExternalId = null
+        string? ExternalId = null,
+        FitnessVisibility? Visibility = null
     );
 
     public record UpdateWorkoutRequest(
@@ -239,7 +243,8 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
         NodaTime.Instant? EndTime = null,
         NodaTime.Duration? Duration = null,
         int? CaloriesBurned = null,
-        string? Notes = null
+        string? Notes = null,
+        FitnessVisibility? Visibility = null
     );
 
     public record CreateExerciseRequest(
@@ -273,6 +278,7 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
         NodaTime.Duration? Duration = null,
         int? CaloriesBurned = null,
         string? Notes = null,
-        string? ExternalId = null
+        string? ExternalId = null,
+        FitnessVisibility? Visibility = null
     );
 }

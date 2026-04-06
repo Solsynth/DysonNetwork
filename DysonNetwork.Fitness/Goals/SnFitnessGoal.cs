@@ -59,4 +59,6 @@ public class SnFitnessGoal : ModelBase
     public int CurrentRepetition { get; set; } = 1;
 
     public Guid? ParentGoalId { get; set; }
+
+    public FitnessVisibility Visibility { get; set; } = FitnessVisibility.Private;
 }

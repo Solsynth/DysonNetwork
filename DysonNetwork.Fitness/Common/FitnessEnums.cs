@@ -55,6 +55,12 @@ public enum RepeatType
     Monthly = 3
 }
 
+public enum FitnessVisibility
+{
+    Private = 0,
+    Public = 1
+}
+
 public enum ExerciseCategory
 {
     Cardio,

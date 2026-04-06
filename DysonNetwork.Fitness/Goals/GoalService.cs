@@ -59,6 +59,7 @@ public class GoalService(AppDatabase db, ILogger<GoalService> logger)
         goal.EndDate = updated.EndDate;
         goal.Status = updated.Status;
         goal.Notes = updated.Notes;
+        goal.Visibility = updated.Visibility;
         goal.BoundWorkoutType = updated.BoundWorkoutType;
         goal.BoundMetricType = updated.BoundMetricType;
         goal.AutoUpdateProgress = updated.AutoUpdateProgress;
