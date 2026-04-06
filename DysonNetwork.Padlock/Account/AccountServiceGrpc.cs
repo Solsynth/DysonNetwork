@@ -448,6 +448,36 @@ public class AccountServiceGrpc(
         };
     }
 
+    public override async Task<DyListSuperusersResponse> ListSuperusers(
+        Google.Protobuf.WellKnownTypes.Empty request,
+        ServerCallContext context)
+    {
+        var actorIds = await db.PermissionGroupMembers
+            .AsNoTracking()
+            .Include(m => m.Group)
+            .Where(m => m.Group != null && (m.Group.Key == "superuser" || m.Group.Key == "root"))
+            .Select(m => m.Actor)
+            .Distinct()
+            .ToListAsync(context.CancellationToken);
+
+        var superuserIds = actorIds
+            .Select(id => Guid.TryParse(id, out var guid) ? guid : (Guid?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
+        var superusers = await db.Accounts
+            .AsNoTracking()
+            .Where(a => superuserIds.Contains(a.Id))
+            .ToListAsync(context.CancellationToken);
+
+        await PopulatePerkSubscriptionsAsync(superusers, context.CancellationToken);
+
+        var response = new DyListSuperusersResponse();
+        response.Accounts.AddRange(superusers.Select(a => a.ToProtoValue()));
+        return response;
+    }
+
     private static DyAccountAuthFactor ToProtoAuthFactor(SnAccountAuthFactor factor)
     {
         var proto = new DyAccountAuthFactor

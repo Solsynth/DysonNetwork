@@ -94,6 +94,10 @@ namespace DysonNetwork.Shared.Proto {
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse> __Marshaller_proto_DyGetValidAccessTokenResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetAccountByConnectionRequest> __Marshaller_proto_DyGetAccountByConnectionRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetAccountByConnectionRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::Google.Protobuf.WellKnownTypes.Empty> __Marshaller_google_protobuf_Empty = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::Google.Protobuf.WellKnownTypes.Empty.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListSuperusersResponse> __Marshaller_proto_DyListSuperusersResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListSuperusersResponse.Parser));
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetAccountRequest, global::DysonNetwork.Shared.Proto.DyAccount> __Method_GetAccount = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetAccountRequest, global::DysonNetwork.Shared.Proto.DyAccount>(
@@ -215,6 +219,14 @@ namespace DysonNetwork.Shared.Proto {
         __Marshaller_proto_DyGetAccountByConnectionRequest,
         __Marshaller_proto_DyAccount);
 
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::Google.Protobuf.WellKnownTypes.Empty, global::DysonNetwork.Shared.Proto.DyListSuperusersResponse> __Method_ListSuperusers = new grpc::Method<global::Google.Protobuf.WellKnownTypes.Empty, global::DysonNetwork.Shared.Proto.DyListSuperusersResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "ListSuperusers",
+        __Marshaller_google_protobuf_Empty,
+        __Marshaller_proto_DyListSuperusersResponse);
+
     /// <summary>Service descriptor</summary>
     public static global::Google.Protobuf.Reflection.ServiceDescriptor Descriptor
     {
@@ -335,6 +347,18 @@ namespace DysonNetwork.Shared.Proto {
 
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyAccount> GetAccountByConnection(global::DysonNetwork.Shared.Proto.DyGetAccountByConnectionRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      /// <summary>
+      /// Superuser Operations
+      /// </summary>
+      /// <param name="request">The request received from the client.</param>
+      /// <param name="context">The context of the server-side call handler being invoked.</param>
+      /// <returns>The response to send back to the client (wrapped by a task).</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyListSuperusersResponse> ListSuperusers(global::Google.Protobuf.WellKnownTypes.Empty request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
@@ -780,6 +804,54 @@ namespace DysonNetwork.Shared.Proto {
       {
         return CallInvoker.AsyncUnaryCall(__Method_GetAccountByConnection, null, options, request);
       }
+      /// <summary>
+      /// Superuser Operations
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
+      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
+      /// <param name="cancellationToken">An optional token for canceling the call.</param>
+      /// <returns>The response received from the server.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyListSuperusersResponse ListSuperusers(global::Google.Protobuf.WellKnownTypes.Empty request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return ListSuperusers(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      /// <summary>
+      /// Superuser Operations
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="options">The options for the call.</param>
+      /// <returns>The response received from the server.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyListSuperusersResponse ListSuperusers(global::Google.Protobuf.WellKnownTypes.Empty request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_ListSuperusers, null, options, request);
+      }
+      /// <summary>
+      /// Superuser Operations
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
+      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
+      /// <param name="cancellationToken">An optional token for canceling the call.</param>
+      /// <returns>The call object.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListSuperusersResponse> ListSuperusersAsync(global::Google.Protobuf.WellKnownTypes.Empty request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return ListSuperusersAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      /// <summary>
+      /// Superuser Operations
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="options">The options for the call.</param>
+      /// <returns>The call object.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListSuperusersResponse> ListSuperusersAsync(global::Google.Protobuf.WellKnownTypes.Empty request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_ListSuperusers, null, options, request);
+      }
       /// <summary>Creates a new instance of client from given <c>ClientBaseConfiguration</c>.</summary>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       protected override DyAccountServiceClient NewInstance(ClientBaseConfiguration configuration)
@@ -808,7 +880,8 @@ namespace DysonNetwork.Shared.Proto {
           .AddMethod(__Method_ResetPasswordFactor, serviceImpl.ResetPasswordFactor)
           .AddMethod(__Method_ListConnections, serviceImpl.ListConnections)
           .AddMethod(__Method_GetValidAccessToken, serviceImpl.GetValidAccessToken)
-          .AddMethod(__Method_GetAccountByConnection, serviceImpl.GetAccountByConnection).Build();
+          .AddMethod(__Method_GetAccountByConnection, serviceImpl.GetAccountByConnection)
+          .AddMethod(__Method_ListSuperusers, serviceImpl.ListSuperusers).Build();
     }
 
     /// <summary>Register service method with a service binder with or without implementation. Useful when customizing the service binding logic.
@@ -833,6 +906,7 @@ namespace DysonNetwork.Shared.Proto {
       serviceBinder.AddMethod(__Method_ListConnections, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListConnectionsRequest, global::DysonNetwork.Shared.Proto.DyListConnectionsResponse>(serviceImpl.ListConnections));
       serviceBinder.AddMethod(__Method_GetValidAccessToken, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenRequest, global::DysonNetwork.Shared.Proto.DyGetValidAccessTokenResponse>(serviceImpl.GetValidAccessToken));
       serviceBinder.AddMethod(__Method_GetAccountByConnection, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetAccountByConnectionRequest, global::DysonNetwork.Shared.Proto.DyAccount>(serviceImpl.GetAccountByConnection));
+      serviceBinder.AddMethod(__Method_ListSuperusers, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::Google.Protobuf.WellKnownTypes.Empty, global::DysonNetwork.Shared.Proto.DyListSuperusersResponse>(serviceImpl.ListSuperusers));
     }
 
   }

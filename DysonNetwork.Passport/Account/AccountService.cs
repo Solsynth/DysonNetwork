@@ -36,23 +36,8 @@ public class AccountService(
 
     public async Task<List<SnAccount>> GetAllSuperusersAsync()
     {
-        var actorIds = await db.PermissionGroupMembers
-            .Include(m => m.Group)
-            .Where(m => m.Group.Key == "superuser" || m.Group.Key == "root")
-            .Select(m => m.Actor)
-            .Distinct()
-            .ToListAsync();
-
-        var accountsList = new List<SnAccount>();
-        foreach (var actorId in actorIds)
-        {
-            if (!Guid.TryParse(actorId, out var accountId)) continue;
-            var account = await GetAccount(accountId);
-            if (account is not null)
-                accountsList.Add(account);
-        }
-
-        return accountsList;
+        var response = await accounts.ListSuperusersAsync(new Google.Protobuf.WellKnownTypes.Empty());
+        return response.Accounts.Select(a => SnAccount.FromProtoValue(a)).ToList();
     }
 
     public async Task<SnAccount?> GetAccount(Guid id)

@@ -99,8 +99,8 @@ public class TicketService(
             query = query.Where(t => t.Priority == priority.Value);
 
         var tickets = await query
-            .OrderByDescending(t => t.Priority)
-            .ThenByDescending(t => t.CreatedAt)
+            .OrderByDescending(t => t.CreatedAt)
+            .ThenByDescending(t => t.Priority)
             .Skip(offset)
             .Take(take)
             .ToListAsync();
