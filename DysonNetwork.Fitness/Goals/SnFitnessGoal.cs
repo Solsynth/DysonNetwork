@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using DysonNetwork.Fitness;
 using DysonNetwork.Shared.Models;
 using NodaTime;
 
@@ -42,4 +43,10 @@ public class SnFitnessGoal : ModelBase
 
     [MaxLength(4096)]
     public string? Notes { get; set; }
+
+    public WorkoutType? BoundWorkoutType { get; set; }
+
+    public FitnessMetricType? BoundMetricType { get; set; }
+
+    public bool AutoUpdateProgress { get; set; } = true;
 }

@@ -99,7 +99,7 @@ public class MetricService(AppDatabase db, ILogger<MetricService> logger)
                 .Where(m => externalIds.Contains(m.ExternalId!))
                 .Select(m => m.ExternalId)
                 .ToListAsync();
-            existingExternalIds = new HashSet<string>(existing);
+            existingExternalIds = new HashSet<string>(existing!);
         }
 
         metricList = metricList

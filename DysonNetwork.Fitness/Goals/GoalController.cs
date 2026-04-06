@@ -75,6 +75,9 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
             EndDate = request.EndDate,
             Status = FitnessGoalStatus.Active,
             Notes = request.Notes,
+            BoundWorkoutType = request.BoundWorkoutType,
+            BoundMetricType = request.BoundMetricType,
+            AutoUpdateProgress = request.AutoUpdateProgress,
             CreatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow),
             UpdatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
         };
@@ -103,7 +106,10 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
             StartDate = request.StartDate,
             EndDate = request.EndDate,
             Status = request.Status,
-            Notes = request.Notes
+            Notes = request.Notes,
+            BoundWorkoutType = request.BoundWorkoutType,
+            BoundMetricType = request.BoundMetricType,
+            AutoUpdateProgress = request.AutoUpdateProgress
         };
 
         var result = await goalService.UpdateGoalAsync(id, updated);
@@ -118,6 +124,11 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
         var goal = await goalService.GetGoalByIdAsync(id);
         if (goal is null) return NotFound();
         if (goal.AccountId != Guid.Parse(currentUser.Id)) return Forbid();
+
+        if (goal.AutoUpdateProgress && (goal.BoundWorkoutType.HasValue || goal.BoundMetricType.HasValue))
+        {
+            return BadRequest(new { error = "Progress is auto-updated from bound workout/metric. Set auto_update_progress to false to update manually." });
+        }
 
         var result = await goalService.UpdateGoalProgressAsync(id, request.CurrentValue);
         return Ok(result);
@@ -162,7 +173,10 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
         decimal? CurrentValue = null,
         string? Unit = null,
         NodaTime.Instant? EndDate = null,
-        string? Notes = null
+        string? Notes = null,
+        WorkoutType? BoundWorkoutType = null,
+        FitnessMetricType? BoundMetricType = null,
+        bool AutoUpdateProgress = true
     );
 
     public record UpdateGoalRequest(
@@ -175,7 +189,10 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
         decimal? CurrentValue = null,
         string? Unit = null,
         NodaTime.Instant? EndDate = null,
-        string? Notes = null
+        string? Notes = null,
+        WorkoutType? BoundWorkoutType = null,
+        FitnessMetricType? BoundMetricType = null,
+        bool AutoUpdateProgress = true
     );
 
     public record UpdateProgressRequest(decimal CurrentValue);

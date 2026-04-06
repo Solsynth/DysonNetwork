@@ -81,7 +81,7 @@ public class WorkoutService(AppDatabase db, ILogger<WorkoutService> logger)
 
         exercise.DeletedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
         await db.SaveChangesAsync();
-        logger.LogInformation("Removed exercise {ExerciseId} from workout {WorkoutId}", exerciseId, exercise.WorkoutId);
+        logger.LogInformation("Removed exercise {ExerciseId} from workout {ExerciseId}", exerciseId, exercise.WorkoutId);
         return true;
     }
 
@@ -128,12 +128,14 @@ public class WorkoutService(AppDatabase db, ILogger<WorkoutService> logger)
                 .Where(w => externalIds.Contains(w.ExternalId!))
                 .Select(w => w.ExternalId)
                 .ToListAsync();
-            existingExternalIds = new HashSet<string>(existing);
+            existingExternalIds = new HashSet<string>(existing!);
         }
 
         workoutList = workoutList
             .Where(w => string.IsNullOrEmpty(w.ExternalId) || !existingExternalIds.Contains(w.ExternalId!))
             .ToList();
+
+        var accountId = workoutList.FirstOrDefault()?.AccountId;
 
         if (workoutList.Any())
         {
@@ -142,7 +144,7 @@ public class WorkoutService(AppDatabase db, ILogger<WorkoutService> logger)
         }
 
         logger.LogInformation("Created {Count} workouts in batch for account {AccountId}", 
-            workoutList.Count, workoutList.FirstOrDefault()?.AccountId);
+            workoutList.Count, accountId);
         return workoutList;
     }
 }
