@@ -110,6 +110,12 @@ public class GoalService(AppDatabase db, ILogger<GoalService> logger)
             .CountAsync(g => g.AccountId == accountId && g.Status == FitnessGoalStatus.Active && g.DeletedAt == null);
     }
 
+    public async Task<int> GetCompletedGoalsCountAsync(Guid accountId)
+    {
+        return await db.FitnessGoals
+            .CountAsync(g => g.AccountId == accountId && g.Status == FitnessGoalStatus.Completed && g.DeletedAt == null);
+    }
+
     public async Task UpdateGoalProgressFromDataAsync(Guid goalId)
     {
         var goal = await db.FitnessGoals.FirstOrDefaultAsync(g => g.Id == goalId && g.DeletedAt == null);

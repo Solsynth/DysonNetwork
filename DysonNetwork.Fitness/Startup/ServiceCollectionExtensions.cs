@@ -64,6 +64,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<MetricService>();
         services.AddScoped<GoalService>();
         services.AddScoped<ExerciseLibraryService>();
+        services.AddScoped<FitnessGrpcService>();
 
         return services;
     }
