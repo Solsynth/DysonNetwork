@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 
@@ -19,7 +20,7 @@ public class AutocompletionServiceGrpc(AutocompletionService aus) : DyAutocomple
         {
             Type = r.Type,
             Keyword = r.Keyword,
-            Data = JsonSerializer.Serialize(r.Data)
+            Data = JsonSerializer.Serialize(r.Data, InfraObjectCoder.SerializerOptions)
         }));
 
         return response;
