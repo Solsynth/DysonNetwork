@@ -4,13 +4,14 @@ using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Fitness.Goals;
 
 namespace DysonNetwork.Fitness.Workouts;
 
 [ApiController]
 [Route("/api/workouts")]
 [Authorize]
-public class WorkoutController(AppDatabase db, WorkoutService workoutService, ILogger<WorkoutController> logger) : ControllerBase
+public class WorkoutController(AppDatabase db, WorkoutService workoutService, GoalService goalService, ILogger<WorkoutController> logger) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<SnWorkout>>> ListWorkouts([FromQuery] int skip = 0, [FromQuery] int take = 20)
@@ -61,6 +62,9 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, IL
         };
 
         var created = await workoutService.CreateWorkoutAsync(workout);
+        
+        await goalService.RecalculateGoalsForWorkoutTypeAsync(accountId, request.Type);
+        
         return CreatedAtAction(nameof(GetWorkout), new { id = created.Id }, created);
     }
 
@@ -204,6 +208,13 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, IL
         });
 
         var created = await workoutService.CreateWorkoutsBatchAsync(workouts);
+        
+        var workoutTypes = request.Workouts.Select(w => w.Type).Distinct();
+        foreach (var type in workoutTypes)
+        {
+            await goalService.RecalculateGoalsForWorkoutTypeAsync(accountId, type);
+        }
+        
         return Ok(created);
     }
 

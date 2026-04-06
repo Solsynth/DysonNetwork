@@ -62,6 +62,9 @@ public class GoalService(AppDatabase db, ILogger<GoalService> logger)
         goal.BoundWorkoutType = updated.BoundWorkoutType;
         goal.BoundMetricType = updated.BoundMetricType;
         goal.AutoUpdateProgress = updated.AutoUpdateProgress;
+        goal.RepeatType = updated.RepeatType;
+        goal.RepeatInterval = updated.RepeatInterval;
+        goal.RepeatCount = updated.RepeatCount;
         goal.UpdatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
 
         await db.SaveChangesAsync();
@@ -257,5 +260,37 @@ public class GoalService(AppDatabase db, ILogger<GoalService> logger)
         
         var endOfDay = endDate.At(new NodaTime.LocalTime(23, 59, 59));
         return endOfDay.InUtc().ToInstant();
+    }
+
+    public async Task RecalculateGoalsForMetricTypeAsync(Guid accountId, FitnessMetricType metricType)
+    {
+        var goals = await db.FitnessGoals
+            .Where(g => g.AccountId == accountId 
+                && g.BoundMetricType == metricType 
+                && g.AutoUpdateProgress 
+                && g.Status == FitnessGoalStatus.Active
+                && g.DeletedAt == null)
+            .ToListAsync();
+
+        foreach (var goal in goals)
+        {
+            await UpdateGoalProgressFromDataAsync(goal.Id);
+        }
+    }
+
+    public async Task RecalculateGoalsForWorkoutTypeAsync(Guid accountId, WorkoutType workoutType)
+    {
+        var goals = await db.FitnessGoals
+            .Where(g => g.AccountId == accountId 
+                && g.BoundWorkoutType == workoutType 
+                && g.AutoUpdateProgress 
+                && g.Status == FitnessGoalStatus.Active
+                && g.DeletedAt == null)
+            .ToListAsync();
+
+        foreach (var goal in goals)
+        {
+            await UpdateGoalProgressFromDataAsync(goal.Id);
+        }
     }
 }

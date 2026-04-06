@@ -4,13 +4,14 @@ using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Fitness.Goals;
 
 namespace DysonNetwork.Fitness.Metrics;
 
 [ApiController]
 [Route("/api/metrics")]
 [Authorize]
-public class MetricController(AppDatabase db, MetricService metricService) : ControllerBase
+public class MetricController(AppDatabase db, MetricService metricService, GoalService goalService) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<SnFitnessMetric>>> ListMetrics(
@@ -72,43 +73,10 @@ public class MetricController(AppDatabase db, MetricService metricService) : Con
         };
 
         var created = await metricService.CreateMetricAsync(metric);
+        
+        await goalService.RecalculateGoalsForMetricTypeAsync(accountId, request.MetricType);
+        
         return CreatedAtAction(nameof(GetMetric), new { id = created.Id }, created);
-    }
-
-    [HttpPut("{id:guid}")]
-    public async Task<ActionResult<SnFitnessMetric>> UpdateMetric(Guid id, [FromBody] UpdateMetricRequest request)
-    {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-        
-        var existing = await metricService.GetMetricByIdAsync(id);
-        if (existing is null) return NotFound();
-        if (existing.AccountId != Guid.Parse(currentUser.Id)) return Forbid();
-
-        var updated = new SnFitnessMetric
-        {
-            MetricType = request.MetricType,
-            Value = request.Value,
-            Unit = request.Unit,
-            RecordedAt = request.RecordedAt,
-            Notes = request.Notes,
-            Source = request.Source
-        };
-
-        var result = await metricService.UpdateMetricAsync(id, updated);
-        return Ok(result);
-    }
-
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> DeleteMetric(Guid id)
-    {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-        
-        var metric = await metricService.GetMetricByIdAsync(id);
-        if (metric is null) return NotFound();
-        if (metric.AccountId != Guid.Parse(currentUser.Id)) return Forbid();
-
-        var success = await metricService.DeleteMetricAsync(id);
-        return success ? NoContent() : NotFound();
     }
 
     [HttpPost("batch")]
@@ -133,6 +101,13 @@ public class MetricController(AppDatabase db, MetricService metricService) : Con
         });
 
         var created = await metricService.CreateMetricsBatchAsync(metrics);
+        
+        var metricTypes = request.Metrics.Select(m => m.MetricType).Distinct();
+        foreach (var type in metricTypes)
+        {
+            await goalService.RecalculateGoalsForMetricTypeAsync(accountId, type);
+        }
+        
         return Ok(created);
     }
 

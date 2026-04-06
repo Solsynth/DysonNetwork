@@ -370,7 +370,6 @@ namespace DysonNetwork.Shared.Proto {
     [pbr::OriginalName("DY_IN_APP_CODE")] DyInAppCode = 3,
     [pbr::OriginalName("DY_TIMED_CODE")] DyTimedCode = 4,
     [pbr::OriginalName("DY_PIN_CODE")] DyPinCode = 5,
-    [pbr::OriginalName("DY_PASSKEY")] DyPasskey = 6,
   }
 
   public enum DyMagicSpellType {
