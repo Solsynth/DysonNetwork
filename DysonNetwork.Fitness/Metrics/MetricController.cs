@@ -150,6 +150,16 @@ public class MetricController(AppDatabase db, MetricService metricService, GoalS
         return Ok(created);
     }
 
+    [HttpPatch("batch/visibility")]
+    public async Task<ActionResult<int>> UpdateMetricsVisibility([FromBody] UpdateMetricsVisibilityBatchRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var updated = await metricService.UpdateMetricsVisibilityAsync(accountId, request.MetricIds, request.Visibility);
+        return Ok(updated);
+    }
+
     // DTOs
     public record CreateMetricRequest(
         FitnessMetricType MetricType,
@@ -184,4 +194,6 @@ public class MetricController(AppDatabase db, MetricService metricService, GoalS
         string? ExternalId = null,
         FitnessVisibility? Visibility = null
     );
+
+    public record UpdateMetricsVisibilityBatchRequest(List<Guid> MetricIds, FitnessVisibility Visibility);
 }

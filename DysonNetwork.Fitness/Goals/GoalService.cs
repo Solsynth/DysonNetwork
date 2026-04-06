@@ -300,4 +300,18 @@ public class GoalService(AppDatabase db, ILogger<GoalService> logger)
             await UpdateGoalProgressFromDataAsync(goal.Id);
         }
     }
+
+    public async Task<int> UpdateGoalsVisibilityAsync(Guid accountId, IEnumerable<Guid> goalIds, FitnessVisibility visibility)
+    {
+        var ids = goalIds.ToList();
+        var count = await db.FitnessGoals
+            .Where(g => g.AccountId == accountId && ids.Contains(g.Id) && g.DeletedAt == null)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(g => g.Visibility, visibility)
+                .SetProperty(g => g.UpdatedAt, NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)));
+
+        logger.LogInformation("Updated visibility to {Visibility} for {Count} goals for account {AccountId}",
+            visibility, count, accountId);
+        return count;
+    }
 }

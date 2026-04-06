@@ -117,4 +117,18 @@ public class MetricService(AppDatabase db, ILogger<MetricService> logger)
             metricList.Count, metricList.FirstOrDefault()?.AccountId);
         return metricList;
     }
+
+    public async Task<int> UpdateMetricsVisibilityAsync(Guid accountId, IEnumerable<Guid> metricIds, FitnessVisibility visibility)
+    {
+        var ids = metricIds.ToList();
+        var count = await db.FitnessMetrics
+            .Where(m => m.AccountId == accountId && ids.Contains(m.Id) && m.DeletedAt == null)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(m => m.Visibility, visibility)
+                .SetProperty(m => m.UpdatedAt, NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)));
+
+        logger.LogInformation("Updated visibility to {Visibility} for {Count} metrics for account {AccountId}",
+            visibility, count, accountId);
+        return count;
+    }
 }

@@ -147,4 +147,18 @@ public class WorkoutService(AppDatabase db, ILogger<WorkoutService> logger)
             workoutList.Count, accountId);
         return workoutList;
     }
+
+    public async Task<int> UpdateWorkoutsVisibilityAsync(Guid accountId, IEnumerable<Guid> workoutIds, FitnessVisibility visibility)
+    {
+        var ids = workoutIds.ToList();
+        var count = await db.Workouts
+            .Where(w => w.AccountId == accountId && ids.Contains(w.Id) && w.DeletedAt == null)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(w => w.Visibility, visibility)
+                .SetProperty(w => w.UpdatedAt, NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)));
+
+        logger.LogInformation("Updated visibility to {Visibility} for {Count} workouts for account {AccountId}",
+            visibility, count, accountId);
+        return count;
+    }
 }

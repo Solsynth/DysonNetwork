@@ -223,6 +223,16 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
         return success ? NoContent() : NotFound();
     }
 
+    [HttpPatch("batch/visibility")]
+    public async Task<ActionResult<int>> UpdateGoalsVisibility([FromBody] UpdateGoalsVisibilityBatchRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var updated = await goalService.UpdateGoalsVisibilityAsync(accountId, request.GoalIds, request.Visibility);
+        return Ok(updated);
+    }
+
     // DTOs
     public record CreateGoalRequest(
         string Title,
@@ -268,4 +278,6 @@ public class GoalController(AppDatabase db, GoalService goalService) : Controlle
     public record UpdateStatusRequest(FitnessGoalStatus Status);
 
     public record GoalStats(int ActiveCount, int CompletedCount);
+
+    public record UpdateGoalsVisibilityBatchRequest(List<Guid> GoalIds, FitnessVisibility Visibility);
 }

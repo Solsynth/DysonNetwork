@@ -162,6 +162,26 @@ POST /api/workouts/batch
 
 ---
 
+### Batch Update Workouts Visibility
+
+```http
+PATCH /api/workouts/batch/visibility
+```
+
+```json
+{
+  "workout_ids": [
+    "550e8400-e29b-41d4-a716-446655440000",
+    "550e8400-e29b-41d4-a716-446655440001"
+  ],
+  "visibility": 1
+}
+```
+
+**Response:** Number of workouts updated.
+
+---
+
 ### Add Exercise to Workout
 
 ```http
@@ -392,6 +412,26 @@ DELETE /api/goals/{id}
 
 ---
 
+### Batch Update Goals Visibility
+
+```http
+PATCH /api/goals/batch/visibility
+```
+
+```json
+{
+  "goal_ids": [
+    "550e8400-e29b-41d4-a716-446655440000",
+    "550e8400-e29b-41d4-a716-446655440001"
+  ],
+  "visibility": 1
+}
+```
+
+**Response:** Number of goals updated.
+
+---
+
 ## Metrics
 
 ### List Metrics
@@ -526,6 +566,26 @@ POST /api/metrics/batch
 **Features:**
 - Uses `external_id` for duplicate prevention
 - Triggers goal recalculation for all metric types
+
+---
+
+### Batch Update Metrics Visibility
+
+```http
+PATCH /api/metrics/batch/visibility
+```
+
+```json
+{
+  "metric_ids": [
+    "550e8400-e29b-41d4-a716-446655440000",
+    "550e8400-e29b-41d4-a716-446655440001"
+  ],
+  "visibility": 1
+}
+```
+
+**Response:** Number of metrics updated.
 
 ---
 

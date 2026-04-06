@@ -221,6 +221,16 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
         return Ok(created);
     }
 
+    [HttpPatch("batch/visibility")]
+    public async Task<ActionResult<int>> UpdateWorkoutsVisibility([FromBody] UpdateWorkoutsVisibilityBatchRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var updated = await workoutService.UpdateWorkoutsVisibilityAsync(accountId, request.WorkoutIds, request.Visibility);
+        return Ok(updated);
+    }
+
     // DTOs
     public record CreateWorkoutRequest(
         string Name,
@@ -281,4 +291,6 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
         string? ExternalId = null,
         FitnessVisibility? Visibility = null
     );
+
+    public record UpdateWorkoutsVisibilityBatchRequest(List<Guid> WorkoutIds, FitnessVisibility Visibility);
 }
