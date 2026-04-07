@@ -827,12 +827,11 @@ public partial class ActivityPubDiscoveryService(
             var response = await HttpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
             {
-                if (response.StatusCode == System.Net.HttpStatusCode.Gone)
+                if ((int)response.StatusCode >= 400 && (int)response.StatusCode < 500)
                 {
-                    logger.LogWarning("Actor has been deleted: {Url} - {StatusCode}, removing from database",
-                        actor.Uri, response.StatusCode);
-                    db.FediverseActors.Remove(actor);
-                    await db.SaveChangesAsync();
+                    logger.LogWarning("Actor fetch returned {StatusCode} for {Url}, cleaning up actor and all related data",
+                        response.StatusCode, actor.Uri);
+                    await DeleteActorAndRelatedDataAsync(actor);
                     return;
                 }
 
@@ -897,6 +896,22 @@ public partial class ActivityPubDiscoveryService(
             logger.LogWarning(ex, "Failed to fetch additional actor data for {Uri}, using Webfinger data only",
                 actor.Uri);
         }
+    }
+
+    private async Task DeleteActorAndRelatedDataAsync(SnFediverseActor actor)
+    {
+        var postsWithActor = await db.Posts
+            .Where(p => p.ActorId == actor.Id)
+            .ToListAsync();
+        if (postsWithActor.Count > 0)
+        {
+            logger.LogInformation("Deleting {Count} posts from gone actor: {ActorUri}", postsWithActor.Count, actor.Uri);
+            db.Posts.RemoveRange(postsWithActor);
+        }
+
+        db.FediverseActors.Remove(actor);
+        await db.SaveChangesAsync();
+        logger.LogInformation("Successfully cleaned up actor and related data: {ActorUri}", actor.Uri);
     }
 
     /// <summary>
