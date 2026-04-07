@@ -1011,6 +1011,7 @@ public class FediverseActorController(
             TotalPostCount = cached.TotalPostCount,
             LastActivityAt = cached.LastActivityAt,
             LastFetchedAt = cached.LastFetchedAt,
+            Metadata = cached.Metadata,
         };
     }
 
