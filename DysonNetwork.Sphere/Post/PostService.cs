@@ -424,7 +424,53 @@ public partial class PostService(
             }
         }
 
-        await db.SaveChangesAsync();
+        var newProfiles = profileMap.Values
+            .Where(p => !existingProfiles.Contains(p))
+            .ToList();
+
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+        {
+            db.ChangeTracker.Clear();
+
+            foreach (var profile in newProfiles)
+            {
+                await UpsertInterestProfileAsync(db, profile);
+            }
+        }
+    }
+
+    private static bool IsUniqueConstraintViolation(DbUpdateException ex)
+    {
+        return ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505";
+    }
+
+    private static async Task UpsertInterestProfileAsync(AppDatabase db, SnPostInterestProfile profile)
+    {
+        const string sql = """
+            INSERT INTO post_interest_profiles (id, account_id, kind, reference_id, score, interaction_count, last_interacted_at, last_signal_type, created_at, updated_at)
+            VALUES (@Id, @AccountId, @Kind, @ReferenceId, @Score, @InteractionCount, @LastInteractedAt, @LastSignalType, @CreatedAt, @UpdatedAt)
+            ON CONFLICT (account_id, kind, reference_id) DO UPDATE SET
+                score = EXCLUDED.score,
+                interaction_count = EXCLUDED.interaction_count,
+                last_interacted_at = EXCLUDED.last_interacted_at,
+                last_signal_type = EXCLUDED.last_signal_type,
+                updated_at = EXCLUDED.updated_at
+            """;
+        await db.Database.ExecuteSqlRawAsync(sql,
+            new NpgsqlParameter("@Id", profile.Id),
+            new NpgsqlParameter("@AccountId", profile.AccountId),
+            new NpgsqlParameter("@Kind", (int)profile.Kind),
+            new NpgsqlParameter("@ReferenceId", profile.ReferenceId),
+            new NpgsqlParameter("@Score", profile.Score),
+            new NpgsqlParameter("@InteractionCount", profile.InteractionCount),
+            new NpgsqlParameter("@LastInteractedAt", profile.LastInteractedAt ?? (object)DBNull.Value),
+            new NpgsqlParameter("@LastSignalType", profile.LastSignalType ?? (object)DBNull.Value),
+            new NpgsqlParameter("@CreatedAt", profile.CreatedAt),
+            new NpgsqlParameter("@UpdatedAt", profile.UpdatedAt));
     }
 
     private static List<SnPost> TruncatePostContent(List<SnPost> input)
