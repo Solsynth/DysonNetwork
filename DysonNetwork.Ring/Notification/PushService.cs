@@ -26,6 +26,7 @@ public class PushService
     private readonly string? _apnsTopic;
     private readonly HttpClient _httpClient;
     private readonly RemoteWebSocketService _ws;
+    private readonly NotificationPreferenceService _preferenceService;
     private static readonly HashSet<string> InvalidFcmErrors = new(StringComparer.OrdinalIgnoreCase)
     {
         "InvalidRegistration",
@@ -47,7 +48,8 @@ public class PushService
         FlushBufferService fbs,
         IHttpClientFactory httpFactory,
         ILogger<PushService> logger,
-        RemoteWebSocketService ws
+        RemoteWebSocketService ws,
+        NotificationPreferenceService preferenceService
     )
     {
         var cfgSection = config.GetSection("Notifications:Push");
@@ -80,6 +82,7 @@ public class PushService
         _fbs = fbs;
         _queueService = queueService;
         _logger = logger;
+        _preferenceService = preferenceService;
     }
 
     public async Task UnsubscribeDevice(string deviceId)
@@ -225,7 +228,12 @@ public class PushService
 
         if (actionUri is not null) meta["action_uri"] = actionUri;
 
-        var accountId = account.Id;
+        var accountId = Guid.Parse(account.Id);
+        var preference = await _preferenceService.GetPreferenceAsync(accountId, topic);
+
+        if (preference == NotificationPreferenceLevel.Reject)
+            return;
+
         var notification = new SnNotification
         {
             Topic = topic,
@@ -233,7 +241,7 @@ public class PushService
             Subtitle = subtitle,
             Content = content,
             Meta = meta,
-            AccountId = Guid.Parse(accountId),
+            AccountId = accountId,
         };
 
         if (save)
@@ -242,8 +250,8 @@ public class PushService
             await _db.SaveChangesAsync();
         }
 
-        if (!isSilent)
-            _ = _queueService.EnqueuePushNotification(notification, Guid.Parse(accountId), save);
+        if (!isSilent && preference == NotificationPreferenceLevel.Normal)
+            _ = _queueService.EnqueuePushNotification(notification, accountId, save);
     }
 
     public async Task DeliverPushNotification(SnNotification notification,

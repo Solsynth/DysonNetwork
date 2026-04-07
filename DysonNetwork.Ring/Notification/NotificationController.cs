@@ -14,7 +14,8 @@ namespace DysonNetwork.Ring.Notification;
 [Route("/api/notifications")]
 public class NotificationController(
     AppDatabase db,
-    PushService nty
+    PushService nty,
+    NotificationPreferenceService preferenceService
 ) : ControllerBase
 {
     [HttpGet("count")]
@@ -212,6 +213,59 @@ public class NotificationController(
         }
 
         await nty.SendNotificationBatch(notification, request.AccountId, save);
+        return Ok();
+    }
+
+    [HttpGet("preferences")]
+    [Authorize]
+    public async Task<ActionResult<List<SnNotificationPreference>>> ListPreferences()
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var preferences = await preferenceService.GetPreferencesAsync(accountId);
+        return Ok(preferences);
+    }
+
+    [HttpGet("preferences/{topic}")]
+    [Authorize]
+    public async Task<ActionResult<NotificationPreferenceLevel>> GetPreference(string topic)
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var preference = await preferenceService.GetPreferenceAsync(accountId, topic);
+        return Ok(preference);
+    }
+
+    public class SetPreferenceRequest
+    {
+        [Required] public NotificationPreferenceLevel Preference { get; set; }
+    }
+
+    [HttpPut("preferences/{topic}")]
+    [Authorize]
+    public async Task<ActionResult> SetPreference(string topic, [FromBody] SetPreferenceRequest request)
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        await preferenceService.SetPreferenceAsync(accountId, topic, request.Preference);
+        return Ok();
+    }
+
+    [HttpDelete("preferences/{topic}")]
+    [Authorize]
+    public async Task<ActionResult> DeletePreference(string topic)
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        if (currentUserValue is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        await preferenceService.DeletePreferenceAsync(accountId, topic);
         return Ok();
     }
 }

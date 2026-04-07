@@ -27,6 +27,22 @@ public enum PushProvider
     UnifiedPush
 }
 
+public enum NotificationPreferenceLevel
+{
+    Normal = 0,
+    Silent = 1,
+    Reject = 2
+}
+
+[Index(nameof(AccountId), nameof(Topic), nameof(DeletedAt), IsUnique = true)]
+public class SnNotificationPreference : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid AccountId { get; set; }
+    [MaxLength(1024)] public string Topic { get; set; } = null!;
+    public NotificationPreferenceLevel Preference { get; set; } = NotificationPreferenceLevel.Normal;
+}
+
 [Index(nameof(AccountId), nameof(DeviceId), nameof(Provider), nameof(DeletedAt), IsUnique = true)]
 public class SnNotificationPushSubscription : ModelBase
 {
