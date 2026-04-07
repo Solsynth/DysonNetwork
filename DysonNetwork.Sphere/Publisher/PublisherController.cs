@@ -24,7 +24,8 @@ public class PublisherController(
     RemoteActionLogService als,
     RemoteRealmService remoteRealmService,
     IServiceScopeFactory factory,
-    RemoteAccountService remoteAccounts
+    RemoteAccountService remoteAccounts,
+    ILogger<PublisherController> logger
 ) : ControllerBase
 {
     [HttpGet("quota")]
@@ -604,7 +605,9 @@ public class PublisherController(
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine($"Error sending ActivityPub Update actor activity for publisher {publisher.Id}: {ex.Message}");
+                    using var errorScope = factory.CreateScope();
+                    var errorLogger = errorScope.ServiceProvider.GetRequiredService<ILogger<ActivityPubDeliveryService>>();
+                    errorLogger.LogError(ex, "Error sending ActivityPub Update actor activity for publisher {PublisherId}", publisher.Id);
                 }
             });
         }

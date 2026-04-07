@@ -8,6 +8,7 @@ using DysonNetwork.Sphere.ActivityPub;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
+using Npgsql;
 using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherType = DysonNetwork.Shared.Models.PublisherType;
 
@@ -29,7 +30,8 @@ public class PublisherService(
     ILocalizationService localization,
     RemoteAccountService remoteAccounts,
     ActivityPubKeyService keyService,
-    IConfiguration configuration
+    IConfiguration configuration,
+    ILogger<PublisherService> logger
 )
 {
     public async Task<SnPublisher?> GetPublisherLoaded(Guid id)
@@ -832,17 +834,31 @@ public class PublisherService(
             throw new UnauthorizedAccessException(
                 "You need at least Manager role to enable fediverse for this publisher");
 
+        var publisher = await db.Publishers
+            .FirstOrDefaultAsync(p => p.Id == publisherId);
+
+        if (publisher == null)
+            throw new InvalidOperationException("Publisher not found");
+
         var existingActor = await db.FediverseActors
             .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
 
         if (existingActor != null)
             throw new InvalidOperationException("Fediverse actor already exists for this publisher");
 
-        var publisher = await db.Publishers
-            .FirstOrDefaultAsync(p => p.Id == publisherId);
+        var softDeletedActor = await db.FediverseActors
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(a => a.PublisherId == publisherId && a.DeletedAt != null);
 
-        if (publisher == null)
-            throw new InvalidOperationException("Publisher not found");
+        if (softDeletedActor != null)
+        {
+            logger.LogInformation("Reactivating soft-deleted fediverse actor for publisher: {PublisherId}", publisherId);
+            softDeletedActor.DeletedAt = null;
+            softDeletedActor.LastActivityAt = SystemClock.Instance.GetCurrentInstant();
+            db.Update(softDeletedActor);
+            await db.SaveChangesAsync();
+            return softDeletedActor;
+        }
 
         var instance = await db.FediverseInstances
             .FirstOrDefaultAsync(i => i.Domain == Domain);
@@ -885,9 +901,17 @@ public class PublisherService(
             PublisherId = publisher.Id
         };
 
-        db.FediverseActors.Add(actor);
-        db.Update(publisher);
-        await db.SaveChangesAsync();
+        try
+        {
+            db.FediverseActors.Add(actor);
+            db.Update(publisher);
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+        {
+            logger.LogInformation("Actor was created by another request, fetching: {ActorUri}", actorUrl);
+            return await db.FediverseActors.FirstOrDefaultAsync(a => a.PublisherId == publisherId);
+        }
 
         return actor;
     }

@@ -306,6 +306,13 @@ public class ActivityPubDeliveryService(
         if (publisher == null)
             return false;
 
+        actor.DisplayName = publisher.Nick;
+        actor.Bio = publisher.Bio;
+        actor.Username = publisher.Name;
+        actor.AvatarUrl = publisher.Picture != null ? $"{AssetsBaseUrl}/{publisher.Picture.Id}" : null;
+        actor.HeaderUrl = publisher.Background != null ? $"{AssetsBaseUrl}/{publisher.Background.Id}" : null;
+        actor.LastActivityAt = SystemClock.Instance.GetCurrentInstant();
+
         var actorUrl = actor.Uri;
 
         var actorObject = new Dictionary<string, object?>
@@ -348,6 +355,8 @@ public class ActivityPubDeliveryService(
                 ["url"] = $"{AssetsBaseUrl}/{publisher.Background.Id}"
             };
         }
+
+        await db.SaveChangesAsync();
 
         var activityId = $"{actorUrl}#update-{Guid.NewGuid()}";
         var activity = new Dictionary<string, object>
