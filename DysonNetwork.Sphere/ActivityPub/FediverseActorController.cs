@@ -918,18 +918,6 @@ public class FediverseActorController(
 
         var localActorId = localActorIds.First();
 
-        var cachedRelationship = await cachingService.GetRelationshipAsync(localActorId, id);
-        if (cachedRelationship != null)
-        {
-            return Ok(
-                CachedRelationshipToResponse(
-                    cachedRelationship,
-                    actor.Username,
-                    actor.Instance?.Domain
-                )
-            );
-        }
-
         var relationship = await db.FediverseRelationships.FirstOrDefaultAsync(r =>
             r.ActorId != null && localActorIds.Contains(r.ActorId) && r.TargetActorId == id
         );
@@ -950,19 +938,6 @@ public class FediverseActorController(
             IsPending = relationship?.State == RelationshipState.Pending,
             IsFollowedBy = isFollowedBy,
         };
-
-        await cachingService.SetRelationshipAsync(
-            localActorId,
-            id,
-            new CachedRelationship
-            {
-                ActorId = actor.Id,
-                TargetActorId = id,
-                IsFollowing = dto.IsFollowing,
-                IsPending = dto.IsPending,
-                IsFollowedBy = isFollowedBy,
-            }
-        );
 
         return Ok(dto);
     }
