@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using Npgsql;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
@@ -285,8 +286,15 @@ public class ActivityPubRealmController(
             InstanceId = instance.Id
         };
 
-        db.FediverseActors.Add(actor);
-        await db.SaveChangesAsync();
+        try
+        {
+            db.FediverseActors.Add(actor);
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+        {
+            actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Uri == actorUri);
+        }
 
         return actor;
     }

@@ -67,9 +67,9 @@ public class ActivityPubActivityHandler(
 
         if (!signatureService.VerifyIncomingRequest(context, out var actorUri))
         {
-            logger.LogWarning("Failed to verify signature for incoming activity. Type: {Type}, From: {Actor}",
+            logger.LogInformation("Dropping activity due to failed signature verification. Type: {Type}, From: {Actor}",
                 activityType, actor);
-            return false;
+            return true;
         }
 
         if (string.IsNullOrEmpty(actorUri))

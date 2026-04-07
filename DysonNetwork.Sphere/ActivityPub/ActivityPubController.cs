@@ -103,8 +103,8 @@ public class ActivityPubController(
     {
         if (!signatureService.VerifyIncomingRequest(HttpContext, out var actorUri))
         {
-            logger.LogWarning("Failed to verify signature for incoming activity");
-            return Unauthorized(new { error = "Invalid signature" });
+            logger.LogInformation("Dropping activity due to failed signature verification for actor: {ActorUri}", actorUri);
+            return Accepted();
         }
 
         var success = await activityHandler.HandleIncomingActivityAsync(HttpContext, username, activity);

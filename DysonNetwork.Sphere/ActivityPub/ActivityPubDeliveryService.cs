@@ -2,6 +2,7 @@ using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using Npgsql;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
@@ -875,10 +876,17 @@ public class ActivityPubDeliveryService(
             PublisherId = publisher.Id,
         };
 
-        db.FediverseActors.Add(localActor);
-        await db.SaveChangesAsync();
-
-        return localActor;
+        try
+        {
+            db.FediverseActors.Add(localActor);
+            await db.SaveChangesAsync();
+            return localActor;
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+        {
+            logger.LogInformation("Actor was created by another request, fetching: {ActorUri}", actorUrl);
+            return await db.FediverseActors.FirstOrDefaultAsync(a => a.Uri == actorUrl);
+        }
     }
 
     private async Task<SnFediverseActor?> GetOrFetchActorAsync(string actorUri)
@@ -915,14 +923,26 @@ public class ActivityPubDeliveryService(
                 LastFetchedAt = clock.GetCurrentInstant()
             };
 
-            db.FediverseActors.Add(actor);
-            await db.SaveChangesAsync();
-
-            await discoveryService.FetchActorDataAsync(actor);
-            await discoveryService.FetchInstanceMetadataAsync(instance);
-
-            actor.Instance = instance;
-            return actor;
+            try
+            {
+                db.FediverseActors.Add(actor);
+                await db.SaveChangesAsync();
+                await discoveryService.FetchActorDataAsync(actor);
+                await discoveryService.FetchInstanceMetadataAsync(instance);
+                actor.Instance = instance;
+                return actor;
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+            {
+                logger.LogInformation("Actor was created by another request, fetching: {ActorUri}", actorUri);
+                actor = await db.FediverseActors
+                    .FirstOrDefaultAsync(a => a.Uri == actorUri);
+                if (actor != null && string.IsNullOrEmpty(actor.PublicKey))
+                {
+                    await discoveryService.FetchActorDataAsync(actor);
+                }
+                return actor;
+            }
         }
         catch (Exception ex)
         {

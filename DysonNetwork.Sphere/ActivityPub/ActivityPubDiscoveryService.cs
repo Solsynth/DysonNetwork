@@ -781,16 +781,28 @@ public partial class ActivityPubDiscoveryService(
                 LastFetchedAt = NodaTime.SystemClock.Instance.GetCurrentInstant()
             };
 
-            db.FediverseActors.Add(actor);
-            await db.SaveChangesAsync();
-
-            logger.LogInformation("Successfully stored actor from Webfinger: {Username}@{Domain}", username, domain);
-
-            await FetchActorDataAsync(actor);
-            await FetchInstanceMetadataAsync(instance);
-
-            actor.Instance = instance;
-            return actor;
+            try
+            {
+                db.FediverseActors.Add(actor);
+                await db.SaveChangesAsync();
+                logger.LogInformation("Successfully stored actor from Webfinger: {Username}@{Domain}", username, domain);
+                await FetchActorDataAsync(actor);
+                await FetchInstanceMetadataAsync(instance);
+                actor.Instance = instance;
+                return actor;
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+            {
+                logger.LogInformation("Actor was created by another request, fetching: {ActorUri}", actorUri);
+                var existing = await db.FediverseActors
+                    .Include(a => a.Instance)
+                    .FirstOrDefaultAsync(a => a.Uri == actorUri);
+                if (existing != null && string.IsNullOrEmpty(existing.PublicKey))
+                {
+                    await FetchActorDataAsync(existing);
+                }
+                return existing;
+            }
         }
         catch (Exception ex)
         {
