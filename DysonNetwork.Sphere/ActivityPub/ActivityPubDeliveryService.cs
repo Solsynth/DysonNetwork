@@ -13,7 +13,8 @@ public class ActivityPubDeliveryService(
     IConfiguration configuration,
     ILogger<ActivityPubDeliveryService> logger,
     IClock clock,
-    ActivityPubObjectFactory objFactory
+    ActivityPubObjectFactory objFactory,
+    FediverseCachingService cachingService
 )
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
@@ -101,6 +102,8 @@ public class ActivityPubDeliveryService(
 
         await db.SaveChangesAsync();
 
+        await cachingService.InvalidateRelationshipAsync(localActor.Id, targetActor.Id);
+
         return await EnqueueActivityDeliveryAsync("Follow", activity, actorUrl, targetActor.InboxUri, activityId);
     }
 
@@ -146,6 +149,8 @@ public class ActivityPubDeliveryService(
 
         db.Remove(relationship);
         await db.SaveChangesAsync();
+
+        await cachingService.InvalidateRelationshipAsync(localActor.Id, targetActor.Id);
 
         return success;
     }

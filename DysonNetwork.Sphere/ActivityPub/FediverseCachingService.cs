@@ -281,6 +281,13 @@ public class FediverseCachingService(
         await cache.SetAsync(cacheKey, relationship, RelationshipCacheTtl);
     }
 
+    public async Task InvalidateRelationshipAsync(Guid actorId, Guid targetActorId)
+    {
+        var cacheKey = GetRelationshipCacheKey(actorId, targetActorId);
+        await cache.RemoveAsync(cacheKey);
+        logger.LogDebug("Invalidated relationship cache: {ActorId} -> {TargetActorId}", actorId, targetActorId);
+    }
+
     public async Task InvalidateActorAsync(Guid actorId, string? username = null, string? instanceDomain = null, string? uri = null)
     {
         var tasks = new List<Task>();
