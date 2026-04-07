@@ -65,13 +65,41 @@ public class ActivityPubFollowController(
         if (currentUser == null)
             return Unauthorized(new { error = "Not authenticated" });
 
-        var publisher = await db.Publishers
-            .Include(p => p.Members)
-            .Where(p => p.Members.Any(m => m.AccountId == currentUser))
-            .FirstOrDefaultAsync();
+        SnPublisher? publisher = null;
+        var settings = await db.PublishingSettings
+            .FirstOrDefaultAsync(s => s.AccountId == currentUser);
+        if (settings?.DefaultFediversePublisherId != null)
+        {
+            publisher = await db.Publishers
+                .Include(p => p.Members)
+                .Where(p => p.Id == settings.DefaultFediversePublisherId && p.Members.Any(m => m.AccountId == currentUser))
+                .FirstOrDefaultAsync();
+            if (publisher != null)
+            {
+                var actor = await db.FediverseActors
+                    .FirstOrDefaultAsync(a => a.PublisherId == publisher.Id);
+                if (actor == null)
+                    publisher = null;
+            }
+        }
 
         if (publisher == null)
-            return BadRequest(new { error = "User doesn't have a publisher" });
+        {
+            publisher = await db.Publishers
+                .Include(p => p.Members)
+                .Where(p => p.Members.Any(m => m.AccountId == currentUser))
+                .FirstOrDefaultAsync();
+            if (publisher != null)
+            {
+                var actor = await db.FediverseActors
+                    .FirstOrDefaultAsync(a => a.PublisherId == publisher.Id);
+                if (actor == null)
+                    publisher = null;
+            }
+        }
+
+        if (publisher == null)
+            return BadRequest(new { error = "User doesn't have a fediverse-enabled publisher" });
 
         logger.LogInformation("User {UserId} wants to follow {TargetActor}",
             currentUser, request.TargetActorUri);
@@ -101,13 +129,41 @@ public class ActivityPubFollowController(
         if (currentUser == null)
             return Unauthorized(new { error = "Not authenticated" });
 
-        var publisher = await db.Publishers
-            .Include(p => p.Members)
-            .Where(p => p.Members.Any(m => m.AccountId == currentUser))
-            .FirstOrDefaultAsync();
+        SnPublisher? publisher = null;
+        var settings = await db.PublishingSettings
+            .FirstOrDefaultAsync(s => s.AccountId == currentUser);
+        if (settings?.DefaultFediversePublisherId != null)
+        {
+            publisher = await db.Publishers
+                .Include(p => p.Members)
+                .Where(p => p.Id == settings.DefaultFediversePublisherId && p.Members.Any(m => m.AccountId == currentUser))
+                .FirstOrDefaultAsync();
+            if (publisher != null)
+            {
+                var actor = await db.FediverseActors
+                    .FirstOrDefaultAsync(a => a.PublisherId == publisher.Id);
+                if (actor == null)
+                    publisher = null;
+            }
+        }
 
         if (publisher == null)
-            return BadRequest(new { error = "User doesn't have a publisher" });
+        {
+            publisher = await db.Publishers
+                .Include(p => p.Members)
+                .Where(p => p.Members.Any(m => m.AccountId == currentUser))
+                .FirstOrDefaultAsync();
+            if (publisher != null)
+            {
+                var actor = await db.FediverseActors
+                    .FirstOrDefaultAsync(a => a.PublisherId == publisher.Id);
+                if (actor == null)
+                    publisher = null;
+            }
+        }
+
+        if (publisher == null)
+            return BadRequest(new { error = "User doesn't have a fediverse-enabled publisher" });
 
         var success = await deliveryService.SendUnfollowActivityAsync(
             publisher.Id,

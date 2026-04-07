@@ -111,10 +111,37 @@ public class PostActionController(
         SnPublisher? publisher;
         if (pubName is null)
         {
-            // Use the first personal publisher
-            publisher = await db.Publishers.FirstOrDefaultAsync(e =>
-                e.AccountId == accountId && e.Type == Shared.Models.PublisherType.Individual
-            );
+            var settings = await db.PublishingSettings
+                .FirstOrDefaultAsync(s => s.AccountId == accountId);
+            var isReply = request.RepliedPostId != null;
+            var defaultPublisherId = isReply
+                ? settings?.DefaultReplyPublisherId
+                : settings?.DefaultPostingPublisherId;
+
+            if (defaultPublisherId != null)
+            {
+                publisher = await db.Publishers
+                    .FirstOrDefaultAsync(p => p.Id == defaultPublisherId);
+                if (publisher != null && await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+                {
+                    // Use default publisher
+                }
+                else
+                {
+                    publisher = null;
+                }
+            }
+            else
+            {
+                publisher = null;
+            }
+
+            if (publisher == null)
+            {
+                publisher = await db.Publishers.FirstOrDefaultAsync(e =>
+                    e.AccountId == accountId && e.Type == Shared.Models.PublisherType.Individual
+                );
+            }
         }
         else
         {
@@ -1045,7 +1072,19 @@ public class PostActionController(
         if (post is null)
             return NotFound();
 
-        var userPublisher = userPublishers.FirstOrDefault(p => p.AccountId == accountId);
+        SnPublisher? userPublisher = null;
+        var settings = await db.PublishingSettings
+            .FirstOrDefaultAsync(s => s.AccountId == accountId);
+        if (settings?.DefaultFediversePublisherId != null)
+        {
+            userPublisher = userPublishers.FirstOrDefault(p => p.Id == settings.DefaultFediversePublisherId);
+        }
+
+        if (userPublisher == null)
+        {
+            userPublisher = userPublishers.FirstOrDefault(p => p.AccountId == accountId);
+        }
+
         if (userPublisher is null)
             return BadRequest("You need a publisher to boost posts");
 
@@ -1099,7 +1138,19 @@ public class PostActionController(
         var accountId = Guid.Parse(currentUser.Id);
 
         var userPublishers = await pub.GetUserPublishers(accountId);
-        var userPublisher = userPublishers.FirstOrDefault(p => p.AccountId == accountId);
+        SnPublisher? userPublisher = null;
+        var settings = await db.PublishingSettings
+            .FirstOrDefaultAsync(s => s.AccountId == accountId);
+        if (settings?.DefaultFediversePublisherId != null)
+        {
+            userPublisher = userPublishers.FirstOrDefault(p => p.Id == settings.DefaultFediversePublisherId);
+        }
+
+        if (userPublisher == null)
+        {
+            userPublisher = userPublishers.FirstOrDefault(p => p.AccountId == accountId);
+        }
+
         if (userPublisher is null)
             return BadRequest("You need a publisher to unboost posts");
 

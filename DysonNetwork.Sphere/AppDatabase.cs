@@ -29,6 +29,7 @@ public class AppDatabase(
     public DbSet<SnPostCategorySubscription> PostCategorySubscriptions { get; set; } = null!;
     public DbSet<SnPostInterestProfile> PostInterestProfiles { get; set; } = null!;
     public DbSet<SnDiscoveryPreference> DiscoveryPreferences { get; set; } = null!;
+    public DbSet<SnPublishingSettings> PublishingSettings { get; set; } = null!;
     public DbSet<SnAutomodRule> AutomodRules { get; set; } = null!;
 
     public DbSet<SnPoll> Polls { get; set; } = null!;
@@ -178,6 +179,22 @@ public class AppDatabase(
             .HasOne(q => q.QuotePost)
             .WithMany()
             .HasForeignKey(q => q.QuotePostId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<SnPublishingSettings>()
+            .HasOne(s => s.DefaultPostingPublisher)
+            .WithMany()
+            .HasForeignKey(s => s.DefaultPostingPublisherId)
+            .OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<SnPublishingSettings>()
+            .HasOne(s => s.DefaultReplyPublisher)
+            .WithMany()
+            .HasForeignKey(s => s.DefaultReplyPublisherId)
+            .OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<SnPublishingSettings>()
+            .HasOne(s => s.DefaultFediversePublisher)
+            .WithMany()
+            .HasForeignKey(s => s.DefaultFediversePublisherId)
             .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.ApplySoftDeleteFilters();

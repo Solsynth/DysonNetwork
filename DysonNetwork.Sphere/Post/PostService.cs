@@ -1633,9 +1633,21 @@ public partial class PostService(
         if (post.PublisherId.HasValue)
         {
             var accountId = Guid.Parse(sender.Id);
-            var accountPublisher = await db
-                .Publishers.Where(p => p.Members.Any(m => m.AccountId == accountId))
-                .FirstOrDefaultAsync();
+            SnPublisher? accountPublisher = null;
+            var settings = await db.PublishingSettings
+                .FirstOrDefaultAsync(s => s.AccountId == accountId);
+            if (settings?.DefaultFediversePublisherId != null)
+            {
+                accountPublisher = await db.Publishers
+                    .Where(p => p.Id == settings.DefaultFediversePublisherId && p.Members.Any(m => m.AccountId == accountId))
+                    .FirstOrDefaultAsync();
+            }
+            if (accountPublisher == null)
+            {
+                accountPublisher = await db
+                    .Publishers.Where(p => p.Members.Any(m => m.AccountId == accountId))
+                    .FirstOrDefaultAsync();
+            }
             var accountActor = accountPublisher is null
                 ? null
                 : await objFactory.GetLocalActorAsync(accountPublisher.Id);

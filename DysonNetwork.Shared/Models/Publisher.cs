@@ -284,3 +284,25 @@ public enum SubscriptionEndReason
     UserLeft,
     RemovedByPublisher
 }
+
+[Index(nameof(AccountId), IsUnique = true)]
+public class SnPublishingSettings : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid AccountId { get; set; }
+
+    public Guid? DefaultPostingPublisherId { get; set; }
+    public Guid? DefaultReplyPublisherId { get; set; }
+    public Guid? DefaultFediversePublisherId { get; set; }
+
+    [ForeignKey(nameof(DefaultPostingPublisherId))]
+    public SnPublisher? DefaultPostingPublisher { get; set; }
+
+    [ForeignKey(nameof(DefaultReplyPublisherId))]
+    public SnPublisher? DefaultReplyPublisher { get; set; }
+
+    [ForeignKey(nameof(DefaultFediversePublisherId))]
+    public SnPublisher? DefaultFediversePublisher { get; set; }
+
+    public Instant? UpdatedAt { get; set; }
+}
