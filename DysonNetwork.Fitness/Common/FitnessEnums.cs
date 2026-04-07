@@ -61,6 +61,21 @@ public enum FitnessVisibility
     Public = 1
 }
 
+public enum LeaderboardType
+{
+    Calories = 0,
+    Workouts = 1,
+    Goals = 2
+}
+
+public enum LeaderboardPeriod
+{
+    Daily = 0,
+    Weekly = 1,
+    Monthly = 2,
+    AllTime = 3
+}
+
 public enum ExerciseCategory
 {
     Cardio,

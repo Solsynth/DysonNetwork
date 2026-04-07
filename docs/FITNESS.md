@@ -721,6 +721,41 @@ All endpoints may return:
 
 ---
 
+## Leaderboard
+
+### Get Friends Leaderboard
+
+```http
+GET /api/leaderboard?type=0&period=1&skip=0&take=20
+```
+
+**Query Params:**
+- `type`: `0=Calories, 1=Workouts, 2=Goals`
+- `period`: `0=Daily, 1=Weekly, 2=Monthly, 3=AllTime`
+- `skip`: Pagination offset (default: 0)
+- `take`: Page size (default: 20)
+
+**Response:**
+```json
+{
+  "entries": [
+    { "rank": 1, "account_id": "550e8400-e29b-41d4-a716-446655440001", "value": 5000 },
+    { "rank": 2, "account_id": "550e8400-e29b-41d4-a716-446655440002", "value": 4500 }
+  ],
+  "user_entry": { "rank": 5, "account_id": "550e8400-e29b-41d4-a716-446655440000", "value": 3000 },
+  "total_count": 2
+}
+```
+
+**Notes:**
+- Includes user's friends + the user themselves
+- `user_entry` shows the current user's rank (null if not ranked)
+- Calories = total calories from workouts in the period
+- Workouts = total workout count in the period
+- Goals = completed goals count in the period
+
+---
+
 ## Type Reference
 
 | Enum | Values |
@@ -733,3 +768,5 @@ All endpoints may return:
 | ExerciseDifficulty | 0=Beginner, 1=Intermediate, 2=Advanced |
 | FitnessVisibility | 0=Private, 1=Public |
 | RepeatType | 0=None, 1=Daily, 2=Weekly, 3=Monthly |
+| LeaderboardType | 0=Calories, 1=Workouts, 2=Goals |
+| LeaderboardPeriod | 0=Daily, 1=Weekly, 2=Monthly, 3=AllTime |
