@@ -7,6 +7,7 @@ using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Pagination;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -45,7 +46,7 @@ public static class ServiceCollectionExtensions
             // Register gRPC services
 
             // Register OIDC services
-            services.AddControllers().AddJsonOptions(options =>
+            services.AddControllers().AddPaginationValidationFilter().AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
                 options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;

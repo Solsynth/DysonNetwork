@@ -11,6 +11,7 @@ using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Models.Embed;
+using DysonNetwork.Shared.Pagination;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
@@ -40,6 +41,7 @@ public static class ServiceCollectionExtensions
 
             services
                 .AddControllers()
+                .AddPaginationValidationFilter()
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.NumberHandling =

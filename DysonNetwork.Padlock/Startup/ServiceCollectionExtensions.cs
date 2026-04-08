@@ -20,6 +20,7 @@ using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Localization;
+using DysonNetwork.Shared.Pagination;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.Templating;
@@ -63,7 +64,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SpotifyOidcService>();
         services.AddScoped<SteamOidcService>();
 
-        services.AddControllers().AddJsonOptions(options =>
+        services.AddControllers().AddPaginationValidationFilter().AddJsonOptions(options =>
         {
             options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;

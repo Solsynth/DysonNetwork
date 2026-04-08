@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Geometry;
+using DysonNetwork.Shared.Pagination;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Sphere.ActivityPub;
 using DysonNetwork.Sphere.Autocompletion;
@@ -38,6 +39,7 @@ public static class ServiceCollectionExtensions
 
             services
                 .AddControllers()
+                .AddPaginationValidationFilter()
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.NumberHandling =

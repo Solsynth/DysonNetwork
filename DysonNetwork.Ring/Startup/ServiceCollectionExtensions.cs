@@ -5,6 +5,7 @@ using DysonNetwork.Ring.Notification;
 using DysonNetwork.Ring.Services;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.EventBus;
+using DysonNetwork.Shared.Pagination;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 
@@ -32,7 +33,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<RingServiceGrpc>();
 
         // Register OIDC services
-        services.AddControllers().AddJsonOptions(options =>
+        services.AddControllers().AddPaginationValidationFilter().AddJsonOptions(options =>
         {
             options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;

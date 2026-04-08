@@ -8,6 +8,7 @@ using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Pagination;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Wallet.Localization;
@@ -37,7 +38,7 @@ public static class ServiceCollectionExtensions
         });
         services.AddGrpcReflection();
 
-        services.AddControllers().AddJsonOptions(options =>
+        services.AddControllers().AddPaginationValidationFilter().AddJsonOptions(options =>
         {
             options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;

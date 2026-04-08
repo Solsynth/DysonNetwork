@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Develop.Identity;
 using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Pagination;
 
 namespace DysonNetwork.Develop.Startup;
 
@@ -20,7 +21,7 @@ public static class ServiceCollectionExtensions
 
         services.AddHttpClient();
 
-        services.AddControllers().AddJsonOptions(options =>
+        services.AddControllers().AddPaginationValidationFilter().AddJsonOptions(options =>
         {
             options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;

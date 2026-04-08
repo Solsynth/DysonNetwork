@@ -8,6 +8,7 @@ using DysonNetwork.Fitness.Goals;
 using DysonNetwork.Fitness.Metrics;
 using DysonNetwork.Fitness.Workouts;
 using DysonNetwork.Shared.EventBus;
+using DysonNetwork.Shared.Pagination;
 
 namespace DysonNetwork.Fitness.Startup;
 
@@ -22,7 +23,7 @@ public static class ServiceCollectionExtensions
 
         services.AddHttpClient();
 
-        services.AddControllers().AddJsonOptions(options =>
+        services.AddControllers().AddPaginationValidationFilter().AddJsonOptions(options =>
         {
             options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
             options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
@@ -32,7 +33,7 @@ public static class ServiceCollectionExtensions
             options.JsonSerializerOptions.ReadCommentHandling = JsonCommentHandling.Skip;
         });
         
-        services.AddMvc().AddJsonOptions(options =>
+        services.AddMvc().AddPaginationValidationFilter().AddJsonOptions(options =>
         {
             options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
             options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);

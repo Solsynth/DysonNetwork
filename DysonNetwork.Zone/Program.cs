@@ -2,6 +2,7 @@ using DysonNetwork.Zone;
 using DysonNetwork.Zone.Startup;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Pagination;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Zone.Publication;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,7 @@ builder.ConfigureAppKestrel(builder.Configuration);
 
 builder.Services.AddRazorPages();
 builder.Services.AddControllers();
+builder.Services.AddPaginationValidation();
 
 builder.Services.AddAppServices();
 builder.Services.AddAppAuthentication();

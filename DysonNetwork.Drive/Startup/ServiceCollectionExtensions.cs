@@ -6,6 +6,7 @@ using DysonNetwork.Drive.Storage.Model;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Pagination;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
@@ -35,7 +36,7 @@ public static class ServiceCollectionExtensions
             });
             services.AddGrpcReflection();
 
-            services.AddControllers().AddJsonOptions(options =>
+            services.AddControllers().AddPaginationValidationFilter().AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
                 options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
