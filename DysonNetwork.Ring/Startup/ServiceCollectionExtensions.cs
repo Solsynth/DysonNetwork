@@ -62,6 +62,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<EmailService>();
         services.AddScoped<PushService>();
+        services.AddScoped<NotificationPreferenceService>();
         
         // Register QueueService as a singleton since it's thread-safe
         services.AddSingleton<QueueService>();

@@ -875,8 +875,7 @@ public class FediverseActorController(
     [Authorize]
     public async Task<ActionResult<FediverseRelationshipResponse>> GetActorRelationship(Guid id)
     {
-        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
-        if (currentUser == null)
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -919,7 +918,7 @@ public class FediverseActorController(
         var localActorId = localActorIds.First();
 
         var relationship = await db.FediverseRelationships.FirstOrDefaultAsync(r =>
-            r.ActorId != null && localActorIds.Contains(r.ActorId) && r.TargetActorId == id
+            localActorIds.Contains(r.ActorId) && r.TargetActorId == id
         );
 
         var isFollowedBy = await db.FediverseRelationships.AnyAsync(r =>
