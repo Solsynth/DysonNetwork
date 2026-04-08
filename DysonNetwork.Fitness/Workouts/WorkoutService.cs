@@ -123,31 +123,68 @@ public class WorkoutService(AppDatabase db, ILogger<WorkoutService> logger)
             .Select(w => w.ExternalId!)
             .ToList();
 
-        var existingExternalIds = new HashSet<string>();
+        var existingByExternalId = new Dictionary<string, SnWorkout>(StringComparer.OrdinalIgnoreCase);
         if (externalIds.Any())
         {
             var existing = await db.Workouts
                 .Where(w => externalIds.Contains(w.ExternalId!))
-                .Select(w => w.ExternalId)
                 .ToListAsync();
-            existingExternalIds = new HashSet<string>(existing!);
+            foreach (var e in existing)
+            {
+                if (e.ExternalId != null)
+                    existingByExternalId[e.ExternalId] = e;
+            }
         }
 
-        workoutList = workoutList
-            .Where(w => string.IsNullOrEmpty(w.ExternalId) || !existingExternalIds.Contains(w.ExternalId!))
-            .ToList();
+        var toInsert = new List<SnWorkout>();
+        var toUpdate = new List<SnWorkout>();
 
-        var accountId = workoutList.FirstOrDefault()?.AccountId;
-
-        if (workoutList.Any())
+        foreach (var workout in workoutList)
         {
-            db.Workouts.AddRange(workoutList);
+            if (!string.IsNullOrEmpty(workout.ExternalId) && existingByExternalId.TryGetValue(workout.ExternalId, out var existing))
+            {
+                existing.Name = workout.Name;
+                existing.Description = workout.Description;
+                existing.Type = workout.Type;
+                existing.StartTime = workout.StartTime;
+                existing.EndTime = workout.EndTime;
+                existing.Duration = workout.Duration;
+                existing.CaloriesBurned = workout.CaloriesBurned;
+                existing.Notes = workout.Notes;
+                existing.Visibility = workout.Visibility;
+                existing.Meta = workout.Meta;
+                existing.UpdatedAt = now;
+                toUpdate.Add(existing);
+            }
+            else
+            {
+                toInsert.Add(workout);
+            }
+        }
+
+        var accountId = toInsert.FirstOrDefault()?.AccountId ?? toUpdate.FirstOrDefault()?.AccountId;
+
+        if (toInsert.Any())
+        {
+            db.Workouts.AddRange(toInsert);
+        }
+
+        if (toUpdate.Any())
+        {
+            foreach (var workout in toUpdate)
+            {
+                db.Workouts.Update(workout);
+            }
+        }
+
+        if (toInsert.Any() || toUpdate.Any())
+        {
             await db.SaveChangesAsync();
         }
 
-        logger.LogInformation("Created {Count} workouts in batch for account {AccountId}", 
-            workoutList.Count, accountId);
-        return workoutList;
+        logger.LogInformation("Created {CreatedCount} workouts, updated {UpdatedCount} workouts in batch for account {AccountId}", 
+            toInsert.Count, toUpdate.Count, accountId);
+        return toInsert.Concat(toUpdate).ToList();
     }
 
     public async Task<int> UpdateWorkoutsVisibilityAsync(Guid accountId, IEnumerable<Guid> workoutIds, FitnessVisibility visibility)

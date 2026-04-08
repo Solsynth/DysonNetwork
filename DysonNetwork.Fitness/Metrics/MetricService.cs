@@ -93,29 +93,65 @@ public class MetricService(AppDatabase db, ILogger<MetricService> logger)
             .Select(m => m.ExternalId!)
             .ToList();
 
-        var existingExternalIds = new HashSet<string>();
+        var existingByExternalId = new Dictionary<string, SnFitnessMetric>(StringComparer.OrdinalIgnoreCase);
         if (externalIds.Any())
         {
             var existing = await db.FitnessMetrics
                 .Where(m => externalIds.Contains(m.ExternalId!))
-                .Select(m => m.ExternalId)
                 .ToListAsync();
-            existingExternalIds = new HashSet<string>(existing!);
+            foreach (var e in existing)
+            {
+                if (e.ExternalId != null)
+                    existingByExternalId[e.ExternalId] = e;
+            }
         }
 
-        metricList = metricList
-            .Where(m => string.IsNullOrEmpty(m.ExternalId) || !existingExternalIds.Contains(m.ExternalId!))
-            .ToList();
+        var toInsert = new List<SnFitnessMetric>();
+        var toUpdate = new List<SnFitnessMetric>();
 
-        if (metricList.Any())
+        foreach (var metric in metricList)
         {
-            db.FitnessMetrics.AddRange(metricList);
+            if (!string.IsNullOrEmpty(metric.ExternalId) && existingByExternalId.TryGetValue(metric.ExternalId, out var existing))
+            {
+                existing.MetricType = metric.MetricType;
+                existing.Value = metric.Value;
+                existing.Unit = metric.Unit;
+                existing.RecordedAt = metric.RecordedAt;
+                existing.Notes = metric.Notes;
+                existing.Source = metric.Source;
+                existing.Visibility = metric.Visibility;
+                existing.UpdatedAt = now;
+                toUpdate.Add(existing);
+            }
+            else
+            {
+                toInsert.Add(metric);
+            }
+        }
+
+        var accountId = toInsert.FirstOrDefault()?.AccountId ?? toUpdate.FirstOrDefault()?.AccountId;
+
+        if (toInsert.Any())
+        {
+            db.FitnessMetrics.AddRange(toInsert);
+        }
+
+        if (toUpdate.Any())
+        {
+            foreach (var metric in toUpdate)
+            {
+                db.FitnessMetrics.Update(metric);
+            }
+        }
+
+        if (toInsert.Any() || toUpdate.Any())
+        {
             await db.SaveChangesAsync();
         }
 
-        logger.LogInformation("Created {Count} metrics in batch for account {AccountId}", 
-            metricList.Count, metricList.FirstOrDefault()?.AccountId);
-        return metricList;
+        logger.LogInformation("Created {CreatedCount} metrics, updated {UpdatedCount} metrics in batch for account {AccountId}", 
+            toInsert.Count, toUpdate.Count, accountId);
+        return toInsert.Concat(toUpdate).ToList();
     }
 
     public async Task<int> UpdateMetricsVisibilityAsync(Guid accountId, IEnumerable<Guid> metricIds, FitnessVisibility visibility)
