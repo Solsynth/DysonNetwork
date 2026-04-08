@@ -1173,19 +1173,6 @@ public class FediverseActorController(
 
         return hasFediverseActor ? firstPublisher.Id : null;
     }
-
-    private async Task<List<Guid>> GetLocalActorIdsForAccountAsync(Guid accountId)
-    {
-        var publisherIds = await db.Publishers
-            .Where(p => p.AccountId == accountId)
-            .Select(p => p.Id)
-            .ToListAsync();
-
-        return await db.FediverseActors
-            .Where(a => a.PublisherId != null && publisherIds.Contains(a.PublisherId.Value))
-            .Select(a => a.Id)
-            .ToListAsync();
-    }
 }
 
 public class FediverseRelationshipResponse
