@@ -121,6 +121,14 @@ public class GoalService(AppDatabase db, ILogger<GoalService> logger)
         var goal = await db.FitnessGoals.FirstOrDefaultAsync(g => g.Id == goalId && g.DeletedAt == null);
         if (goal is null || !goal.AutoUpdateProgress) return;
 
+        var now = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
+
+        if (goal.EndDate.HasValue && goal.EndDate.Value < now && goal.RepeatType != RepeatType.None)
+        {
+            await CreateNextRepeatingGoalAsync(goalId);
+            return;
+        }
+
         decimal newValue = 0;
 
         if (goal.BoundWorkoutType.HasValue)
@@ -165,7 +173,7 @@ public class GoalService(AppDatabase db, ILogger<GoalService> logger)
                 logger.LogInformation("Goal {GoalId} automatically marked as completed (auto-update)", goalId);
             }
             
-            goal.UpdatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
+            goal.UpdatedAt = now;
             await db.SaveChangesAsync();
             logger.LogInformation("Auto-updated goal {GoalId} progress to {CurrentValue}", goalId, newValue);
         }

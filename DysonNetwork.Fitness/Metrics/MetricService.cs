@@ -140,7 +140,7 @@ public class MetricService(AppDatabase db, ILogger<MetricService> logger)
         {
             foreach (var metric in toUpdate)
             {
-                db.FitnessMetrics.Update(metric);
+                db.Entry(metric).State = EntityState.Modified;
             }
         }
 

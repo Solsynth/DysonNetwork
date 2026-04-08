@@ -173,7 +173,7 @@ public class WorkoutService(AppDatabase db, ILogger<WorkoutService> logger)
         {
             foreach (var workout in toUpdate)
             {
-                db.Workouts.Update(workout);
+                db.Entry(workout).State = EntityState.Modified;
             }
         }
 
