@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Fitness.Goals;
 using NodaTime;
@@ -40,6 +41,8 @@ public class LeaderboardController(
             _ => new List<LeaderboardEntry>()
         };
 
+        entries = await EnrichWithAccountDataAsync(entries);
+
         var totalCount = entries.Count;
         var userEntry = entries.FirstOrDefault(e => e.AccountId == userId);
 
@@ -71,8 +74,8 @@ public class LeaderboardController(
         {
             LeaderboardPeriod.Daily => (Instant.FromDateTimeUtc(nowUtc.Date), now),
             LeaderboardPeriod.Weekly => (Instant.FromDateTimeUtc(GetStartOfWeek(nowUtc)), now),
-            LeaderboardPeriod.Monthly => (Instant.FromDateTimeUtc(new DateTime(nowUtc.Year, nowUtc.Month, 1)), now),
-            LeaderboardPeriod.AllTime => (Instant.FromDateTimeUtc(DateTime.MinValue), now),
+            LeaderboardPeriod.Monthly => (Instant.FromDateTimeUtc(new DateTime(nowUtc.Year, nowUtc.Month, 1, 0, 0, 0, DateTimeKind.Utc)), now),
+            LeaderboardPeriod.AllTime => (Instant.FromDateTimeUtc(DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc)), now),
             _ => (Instant.FromDateTimeUtc(GetStartOfWeek(nowUtc)), now)
         };
     }
@@ -150,11 +153,32 @@ public class LeaderboardController(
         }).ToList();
     }
 
+    private async Task<List<LeaderboardEntry>> EnrichWithAccountDataAsync(List<LeaderboardEntry> entries)
+    {
+        if (entries.Count == 0)
+            return entries;
+
+        var accountIds = entries.Select(e => e.AccountId.ToString()).ToList();
+        var response = await profileClient.GetAccountBatchAsync(new DyGetAccountBatchRequest { Id = { accountIds } });
+
+        var accountsById = response.Accounts
+            .Where(a => a != null)
+            .Select(SnAccount.FromProtoValue)
+            .ToDictionary(a => a.Id);
+
+        return entries.Select(e => 
+        {
+            accountsById.TryGetValue(e.AccountId, out var account);
+            return e with { Account = account };
+        }).ToList();
+    }
+
     public record LeaderboardEntry
     {
         public int Rank { get; init; }
         public Guid AccountId { get; init; }
         public int Value { get; init; }
+        public SnAccount? Account { get; init; }
     }
 
     public record LeaderboardResponse(
