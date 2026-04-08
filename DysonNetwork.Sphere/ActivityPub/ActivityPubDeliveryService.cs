@@ -91,6 +91,7 @@ public class ActivityPubDeliveryService(
             {
                 ActorId = localActor.Id,
                 TargetActorId = targetActor.Id,
+                FollowedAt = SystemClock.Instance.GetCurrentInstant(),
                 State = RelationshipState.Pending
             };
             db.FediverseRelationships.Add(existingRelationship);

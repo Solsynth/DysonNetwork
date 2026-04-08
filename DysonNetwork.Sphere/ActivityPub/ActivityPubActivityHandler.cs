@@ -174,8 +174,7 @@ public class ActivityPubActivityHandler(
                 {
                     ActorId = actor.Id,
                     TargetActorId = targetActor.Id,
-                    State = RelationshipState.Accepted,
-                    FollowedBackAt = SystemClock.Instance.GetCurrentInstant()
+                    State = RelationshipState.Accepted
                 };
                 db.FediverseRelationships.Add(existingRelationship);
                 logger.LogInformation(
@@ -184,7 +183,6 @@ public class ActivityPubActivityHandler(
                 break;
             default:
                 existingRelationship.State = RelationshipState.Accepted;
-                existingRelationship.FollowedBackAt = SystemClock.Instance.GetCurrentInstant();
                 logger.LogInformation("Updating existing relationship. CurrentState: {State}, NewState: Accepted",
                     existingRelationship.State);
                 break;
@@ -237,15 +235,13 @@ public class ActivityPubActivityHandler(
             {
                 ActorId = localActor.Id,
                 TargetActorId = actor.Id,
-                State = RelationshipState.Accepted,
-                FollowedAt = SystemClock.Instance.GetCurrentInstant()
+                State = RelationshipState.Accepted
             };
             db.FediverseRelationships.Add(relationship);
         }
         else
         {
             relationship.State = RelationshipState.Accepted;
-            relationship.FollowedAt = SystemClock.Instance.GetCurrentInstant();
         }
 
         await db.SaveChangesAsync();

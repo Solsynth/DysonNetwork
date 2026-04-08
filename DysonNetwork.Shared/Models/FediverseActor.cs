@@ -142,8 +142,4 @@ public class SnFediverseActor : ModelBase
     [NotMapped]
     [JsonPropertyName("total_post_count")]
     public int? TotalPostCount { get; set; }
-
-    [NotMapped]
-    [JsonPropertyName("recent_posts")]
-    public List<SnPost>? RecentPosts { get; set; }
 }

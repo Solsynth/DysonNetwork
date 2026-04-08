@@ -26,18 +26,13 @@ public class FediverseActorController(
     [AllowAnonymous]
     public async Task<ActionResult<SnFediverseActor>> GetActorByHandle(
         string username,
-        string instance,
-        [FromQuery] bool includeActivity = false
+        string instance
     )
     {
         var cachedActor = await cachingService.GetActorByHandleAsync(username, instance);
         if (cachedActor != null)
         {
             var response = CachedActorToEntity(cachedActor);
-            if (includeActivity)
-            {
-                response.RecentPosts = await GetActorPostsInternalAsync(cachedActor.Id, 5);
-            }
             return Ok(response);
         }
 
@@ -58,29 +53,17 @@ public class FediverseActorController(
 
         var dto = CachedActorToEntity(dbActor);
 
-        if (includeActivity)
-        {
-            dto.RecentPosts = await GetActorPostsInternalAsync(dbActor.Id, 5);
-        }
-
         return Ok(dto);
     }
 
     [HttpGet("{id:guid}")]
     [AllowAnonymous]
-    public async Task<ActionResult<SnFediverseActor>> GetActorById(
-        Guid id,
-        [FromQuery] bool includeActivity = false
-    )
+    public async Task<ActionResult<SnFediverseActor>> GetActorById(Guid id)
     {
         var cachedActor = await cachingService.GetActorByIdAsync(id);
         if (cachedActor != null)
         {
             var response = CachedActorToEntity(cachedActor);
-            if (includeActivity)
-            {
-                response.RecentPosts = await GetActorPostsInternalAsync(cachedActor.Id, 5);
-            }
             return Ok(response);
         }
 
@@ -89,11 +72,6 @@ public class FediverseActorController(
             return NotFound(new { error = "Actor not found" });
 
         var dto = CachedActorToEntity(actor);
-
-        if (includeActivity)
-        {
-            dto.RecentPosts = await GetActorPostsInternalAsync(actor.Id, 5);
-        }
 
         return Ok(dto);
     }
@@ -887,15 +865,13 @@ public class FediverseActorController(
         if (actor == null)
             return NotFound(new { error = "Actor not found" });
 
-        var userPublishers = await db
-            .Publishers.Where(p => p.AccountId == accountId)
+        var userPublishers = await db.Publishers
+            .Where(p => p.AccountId == accountId)
             .Select(p => p.Id)
             .ToListAsync();
 
-        var localActorIds = await db
-            .FediverseActors.Where(a =>
-                a.PublisherId != null && userPublishers.Contains(a.PublisherId.Value)
-            )
+        var localActorIds = await db.FediverseActors
+            .Where(a => a.PublisherId != null && userPublishers.Contains(a.PublisherId.Value))
             .Select(a => a.Id)
             .ToListAsync();
 
@@ -915,11 +891,12 @@ public class FediverseActorController(
             );
         }
 
-        var localActorId = localActorIds.First();
+        var relationship = await db.FediverseRelationships
+            .Where(r => localActorIds.Contains(r.ActorId) && r.TargetActorId == id)
+            .ToListAsync();
 
-        var relationship = await db.FediverseRelationships.FirstOrDefaultAsync(r =>
-            localActorIds.Contains(r.ActorId) && r.TargetActorId == id
-        );
+        var isFollowing = relationship.Any(r => r.State == RelationshipState.Accepted);
+        var isPending = relationship.Any(r => r.State == RelationshipState.Pending);
 
         var isFollowedBy = await db.FediverseRelationships.AnyAsync(r =>
             r.ActorId == id
@@ -933,8 +910,8 @@ public class FediverseActorController(
             ActorUsername = actor.Username,
             ActorInstance = actor.Instance?.Domain,
             ActorHandle = $"{actor.Username}@{actor.Instance?.Domain}",
-            IsFollowing = relationship?.State == RelationshipState.Accepted,
-            IsPending = relationship?.State == RelationshipState.Pending,
+            IsFollowing = isFollowing,
+            IsPending = isPending,
             IsFollowedBy = isFollowedBy,
         };
 
@@ -1099,13 +1076,9 @@ public class FediverseActorController(
 
         var accountId = Guid.Parse(currentUser.Id);
 
-        var publisher = await db.Publishers
-            .Include(p => p.Members)
-            .Where(p => p.Members.Any(m => m.AccountId == accountId))
-            .FirstOrDefaultAsync();
-
-        if (publisher == null)
-            return BadRequest(new { error = "User doesn't have a publisher" });
+        var publisherId = await GetEffectiveFediverseIdentityAsync(accountId);
+        if (publisherId == null)
+            return BadRequest(new { error = "No Fediverse publisher available" });
 
         var targetActor = await db.FediverseActors
             .FirstOrDefaultAsync(a => a.Id == id);
@@ -1114,7 +1087,7 @@ public class FediverseActorController(
             return NotFound(new { error = "Actor not found" });
 
         var success = await deliveryService.SendFollowActivityAsync(
-            publisher.Id,
+            publisherId.Value,
             targetActor.Uri
         );
 
@@ -1140,13 +1113,9 @@ public class FediverseActorController(
 
         var accountId = Guid.Parse(currentUser.Id);
 
-        var publisher = await db.Publishers
-            .Include(p => p.Members)
-            .Where(p => p.Members.Any(m => m.AccountId == accountId))
-            .FirstOrDefaultAsync();
-
-        if (publisher == null)
-            return BadRequest(new { error = "User doesn't have a publisher" });
+        var publisherId = await GetEffectiveFediverseIdentityAsync(accountId);
+        if (publisherId == null)
+            return BadRequest(new { error = "No Fediverse publisher available" });
 
         var targetActor = await db.FediverseActors
             .FirstOrDefaultAsync(a => a.Id == id);
@@ -1155,7 +1124,7 @@ public class FediverseActorController(
             return NotFound(new { error = "Actor not found" });
 
         var success = await deliveryService.SendUnfollowActivityAsync(
-            publisher.Id,
+            publisherId.Value,
             targetActor.Uri
         );
 
@@ -1169,6 +1138,53 @@ public class FediverseActorController(
         }
 
         return BadRequest(new { error = "Failed to unfollow" });
+    }
+
+    private async Task<Guid?> GetEffectiveFediverseIdentityAsync(Guid accountId)
+    {
+        var settings = await db.PublishingSettings
+            .FirstOrDefaultAsync(s => s.AccountId == accountId);
+
+        if (settings?.DefaultFediversePublisherId != null)
+        {
+            var isMember = await db.PublisherMembers
+                .AnyAsync(m => m.PublisherId == settings.DefaultFediversePublisherId && m.AccountId == accountId);
+
+            if (isMember)
+            {
+                var hasActor = await db.FediverseActors
+                    .AnyAsync(a => a.PublisherId == settings.DefaultFediversePublisherId);
+
+                if (hasActor)
+                    return settings.DefaultFediversePublisherId;
+            }
+        }
+
+        var firstPublisher = await db.Publishers
+            .Include(p => p.Members)
+            .Where(p => p.Members.Any(m => m.AccountId == accountId))
+            .FirstOrDefaultAsync();
+
+        if (firstPublisher == null)
+            return null;
+
+        var hasFediverseActor = await db.FediverseActors
+            .AnyAsync(a => a.PublisherId == firstPublisher.Id);
+
+        return hasFediverseActor ? firstPublisher.Id : null;
+    }
+
+    private async Task<List<Guid>> GetLocalActorIdsForAccountAsync(Guid accountId)
+    {
+        var publisherIds = await db.Publishers
+            .Where(p => p.AccountId == accountId)
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        return await db.FediverseActors
+            .Where(a => a.PublisherId != null && publisherIds.Contains(a.PublisherId.Value))
+            .Select(a => a.Id)
+            .ToListAsync();
     }
 }
 

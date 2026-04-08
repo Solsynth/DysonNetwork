@@ -18,7 +18,6 @@ public class SnFediverseRelationship : ModelBase
     public bool IsBlocking { get; set; } = false;
 
     public Instant? FollowedAt { get; set; }
-    public Instant? FollowedBackAt { get; set; }
 
     [MaxLength(4096)] public string? RejectReason { get; set; }
 
