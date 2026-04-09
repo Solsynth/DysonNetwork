@@ -278,8 +278,7 @@ public partial class ActivityPubDiscoveryService(
             }
             catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
             {
-                // Race condition - another request created the actor, fetch it instead
-                logger.LogInformation("Actor was created by another request, fetching: {ActorUri}", actorUri);
+                logger.LogInformation("Actor already exists (race condition), fetching: {ActorUri}", actorUri);
                 var existing = await db.FediverseActors
                     .Include(a => a.Instance)
                     .FirstOrDefaultAsync(a => a.Uri == actorUri);
@@ -292,7 +291,9 @@ public partial class ActivityPubDiscoveryService(
                     }
                     return existing;
                 }
-                throw;
+                
+                logger.LogWarning("Actor was null after duplicate key error, this shouldn't happen: {ActorUri}", actorUri);
+                return null;
             }
         }
         catch (Exception ex)
@@ -801,7 +802,7 @@ public partial class ActivityPubDiscoveryService(
             }
             catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
             {
-                logger.LogInformation("Actor was created by another request, fetching: {ActorUri}", actorUri);
+                logger.LogInformation("Actor already exists (race condition), fetching: {ActorUri}", actorUri);
                 var existing = await db.FediverseActors
                     .Include(a => a.Instance)
                     .FirstOrDefaultAsync(a => a.Uri == actorUri);
@@ -809,7 +810,14 @@ public partial class ActivityPubDiscoveryService(
                 {
                     await FetchActorDataAsync(existing);
                 }
-                return existing;
+                if (existing != null)
+                {
+                    existing.Instance = instance;
+                    return existing;
+                }
+                
+                logger.LogWarning("Actor was null after duplicate key error, this shouldn't happen: {ActorUri}", actorUri);
+                return null;
             }
         }
         catch (Exception ex)

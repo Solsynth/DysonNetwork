@@ -799,6 +799,12 @@ public class ActivityPubDeliveryService(
             };
 
             db.ActivityPubDeliveries.Add(delivery);
+            
+            foreach (var entry in db.ChangeTracker.Entries<SnPublisher>().ToList())
+            {
+                entry.State = EntityState.Detached;
+            }
+            
             await db.SaveChangesAsync();
 
             var message = new ActivityPubDeliveryMessage
