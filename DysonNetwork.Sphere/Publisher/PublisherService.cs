@@ -30,6 +30,7 @@ public class PublisherService(
     ILocalizationService localization,
     RemoteAccountService remoteAccounts,
     ActivityPubKeyService keyService,
+    ActivityPubDiscoveryService discoveryService,
     IConfiguration configuration,
     ILogger<PublisherService> logger
 )
@@ -882,36 +883,24 @@ public class PublisherService(
 
         var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
 
-        var actor = new SnFediverseActor
-        {
-            Uri = actorUrl,
-            Username = publisher.Name,
-            DisplayName = publisher.Nick,
-            Bio = publisher.Bio,
-            Type = "Person",
-            InboxUri = $"{actorUrl}/inbox",
-            OutboxUri = $"{actorUrl}/outbox",
-            FollowersUri = $"{actorUrl}/followers",
-            FollowingUri = $"{actorUrl}/following",
-            PublicKeyId = $"{actorUrl}#main-key",
-            PublicKey = publicKey,
-            AvatarUrl = publisher.Picture != null ? $"{assetsBaseUrl}/{publisher.Picture.Id}" : null,
-            HeaderUrl = publisher.Background != null ? $"{assetsBaseUrl}/{publisher.Background.Id}" : null,
-            InstanceId = instance.Id,
-            PublisherId = publisher.Id
-        };
+        var actor = await discoveryService.GetOrCreateActorAsync(actorUrl, publisher.Name, instance.Id);
 
-        try
-        {
-            db.FediverseActors.Add(actor);
-            db.Update(publisher);
-            await db.SaveChangesAsync();
-        }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
-        {
-            logger.LogInformation("Actor was created by another request, fetching: {ActorUri}", actorUrl);
-            return await db.FediverseActors.FirstOrDefaultAsync(a => a.PublisherId == publisherId);
-        }
+        actor.Username = publisher.Name;
+        actor.DisplayName = publisher.Nick;
+        actor.Bio = publisher.Bio;
+        actor.Type = "Person";
+        actor.InboxUri = $"{actorUrl}/inbox";
+        actor.OutboxUri = $"{actorUrl}/outbox";
+        actor.FollowersUri = $"{actorUrl}/followers";
+        actor.FollowingUri = $"{actorUrl}/following";
+        actor.PublicKeyId = $"{actorUrl}#main-key";
+        actor.PublicKey = publicKey;
+        actor.AvatarUrl = publisher.Picture != null ? $"{assetsBaseUrl}/{publisher.Picture.Id}" : null;
+        actor.HeaderUrl = publisher.Background != null ? $"{assetsBaseUrl}/{publisher.Background.Id}" : null;
+        actor.PublisherId = publisher.Id;
+
+        db.Update(publisher);
+        await db.SaveChangesAsync();
 
         return actor;
     }

@@ -944,35 +944,13 @@ public class ActivityPubDeliveryService(
                 await db.SaveChangesAsync();
             }
 
-            actor = new SnFediverseActor
-            {
-                Uri = actorUri,
-                Username = ExtractUsername(actorUri),
-                InstanceId = instance.Id,
-                LastFetchedAt = clock.GetCurrentInstant()
-            };
-
-            try
-            {
-                db.FediverseActors.Add(actor);
-                await db.SaveChangesAsync();
-                await discoveryService.FetchActorDataAsync(actor);
-                await discoveryService.FetchInstanceMetadataAsync(instance);
-                actor.Instance = instance;
-                return actor;
-            }
-            catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
-            {
-                logger.LogInformation("Actor was created by another request, fetching: {ActorUri}", actorUri);
-                actor = await db.FediverseActors
-                    .IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(a => a.Uri == actorUri);
-                if (actor != null && string.IsNullOrEmpty(actor.PublicKey))
-                {
-                    await discoveryService.FetchActorDataAsync(actor);
-                }
-                return actor;
-            }
+            actor = await discoveryService.GetOrCreateActorWithDataAsync(
+                actorUri,
+                ExtractUsername(actorUri),
+                instance.Id
+            );
+            actor.Instance = instance;
+            return actor;
         }
         catch (Exception ex)
         {

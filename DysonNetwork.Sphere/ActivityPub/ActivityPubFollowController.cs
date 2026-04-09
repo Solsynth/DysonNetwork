@@ -307,34 +307,20 @@ public class ActivityPubFollowController(
                 await discSrv.FetchInstanceMetadataAsync(instance);
             }
 
-            var actor = new SnFediverseActor
-            {
-                Uri = actorUrl,
-                Username = username,
-                DisplayName = displayName,
-                Bio = bio,
-                AvatarUrl = avatarUrl,
-                PublicKey = publicKeyPem,
-                InstanceId = instance.Id
-            };
+            var actor = await discSrv.GetOrCreateActorWithDataAsync(
+                actorUrl,
+                username,
+                instance.Id
+            );
 
-            try
+            actor.DisplayName = displayName;
+            actor.Bio = bio;
+            actor.AvatarUrl = avatarUrl;
+            if (!string.IsNullOrEmpty(publicKeyPem))
             {
-                db.FediverseActors.Add(actor);
-                await db.SaveChangesAsync();
+                actor.PublicKey = publicKeyPem;
             }
-            catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
-            {
-                logger.LogInformation("Actor already exists (race condition), fetching: {ActorUri}", actorUrl);
-                actor = await db.FediverseActors
-                    .IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(a => a.Uri == actorUrl);
-                if (actor != null && actor.DeletedAt != null)
-                {
-                    actor.DeletedAt = null;
-                    await db.SaveChangesAsync();
-                }
-            }
+            await db.SaveChangesAsync();
 
             return Ok(new ActorCheckResult
             {

@@ -1121,6 +1121,85 @@ public partial class ActivityPubDiscoveryService(
         }
     }
 
+    public async Task<SnFediverseActor?> GetOrCreateActorAsync(string actorUri, string? username = null, Guid? instanceId = null)
+    {
+        var actor = await db.FediverseActors
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(a => a.Uri == actorUri);
+
+        if (actor != null)
+        {
+            if (actor.DeletedAt != null)
+            {
+                actor.DeletedAt = null;
+                await db.SaveChangesAsync();
+            }
+            return actor;
+        }
+
+        return null;
+    }
+
+    public async Task<SnFediverseActor> GetOrCreateActorWithDataAsync(string actorUri, string username, Guid instanceId)
+    {
+        var actor = await db.FediverseActors
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(a => a.Uri == actorUri);
+
+        if (actor != null)
+        {
+            if (actor.DeletedAt != null)
+            {
+                actor.DeletedAt = null;
+                await db.SaveChangesAsync();
+            }
+            if (string.IsNullOrEmpty(actor.PublicKey))
+            {
+                await FetchActorDataAsync(actor);
+            }
+            return actor;
+        }
+
+        actor = new SnFediverseActor
+        {
+            Uri = actorUri,
+            Username = username,
+            InstanceId = instanceId,
+            LastFetchedAt = NodaTime.SystemClock.Instance.GetCurrentInstant()
+        };
+
+        try
+        {
+            db.FediverseActors.Add(actor);
+            await db.SaveChangesAsync();
+            await FetchActorDataAsync(actor);
+            return actor;
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+        {
+            actor = await db.FediverseActors
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(a => a.Uri == actorUri);
+
+            if (actor != null)
+            {
+                if (actor.DeletedAt != null)
+                {
+                    actor.DeletedAt = null;
+                    await db.SaveChangesAsync();
+                }
+                if (string.IsNullOrEmpty(actor.PublicKey))
+                {
+                    await FetchActorDataAsync(actor);
+                }
+                return actor;
+            }
+
+            logger.LogWarning("Actor was null after duplicate key error: {ActorUri}", actorUri);
+            throw new InvalidOperationException($"Failed to get or create actor: {actorUri}");
+        }
+    }
+
     [GeneratedRegex(@"^@?(\w+)@([\w.-]+)$", RegexOptions.Compiled)]
     private static partial Regex HandleRegex();
 }

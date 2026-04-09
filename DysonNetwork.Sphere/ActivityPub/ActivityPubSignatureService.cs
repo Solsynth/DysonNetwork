@@ -145,15 +145,18 @@ public class ActivityPubSignatureService(
 
     private async Task<string?> GetOrFetchPublicKeyAsync(string keyId)
     {
-        var pkActor = db.FediverseActors
+        var pkActor = await db.FediverseActors
+            .IgnoreQueryFilters()
             .Where(a => a.PublicKeyId == keyId)
             .Select(a => a.PublicKey)
-            .FirstOrDefault();
+            .FirstOrDefaultAsync();
         if (pkActor is not null) return pkActor;
-        
+
         var actorUri = keyId.Split('#')[0];
-        var actor = db.FediverseActors.FirstOrDefault(a => a.Uri == actorUri);
-        
+        var actor = await db.FediverseActors
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(a => a.Uri == actorUri);
+
         if (actor == null)
         {
             var instance = await db.FediverseInstances.FirstOrDefaultAsync(i => i.Domain == new Uri(actorUri).Host);
@@ -168,44 +171,23 @@ public class ActivityPubSignatureService(
                 await db.SaveChangesAsync();
             }
 
-            actor = new SnFediverseActor
+            actor = await GetDiscoveryService().GetOrCreateActorWithDataAsync(
+                actorUri,
+                actorUri.Split('/').Last(),
+                instance.Id
+            );
+        }
+        else
+        {
+            if (actor.DeletedAt != null)
             {
-                Uri = actorUri,
-                Username = actorUri.Split('/').Last(),
-                DisplayName = actorUri.Split('/').Last(),
-                InstanceId = instance.Id
-            };
-
-            try
-            {
-                db.FediverseActors.Add(actor);
+                actor.DeletedAt = null;
                 await db.SaveChangesAsync();
+            }
+            if (string.IsNullOrEmpty(actor.PublicKey))
+            {
                 await GetDiscoveryService().FetchActorDataAsync(actor);
             }
-            catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
-            {
-                logger.LogInformation("Actor already exists (race condition), fetching: {ActorUri}", actorUri);
-                actor = await db.FediverseActors
-                    .IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(a => a.Uri == actorUri);
-                
-                if (actor != null)
-                {
-                    if (actor.DeletedAt != null)
-                    {
-                        actor.DeletedAt = null;
-                        await db.SaveChangesAsync();
-                    }
-                    if (string.IsNullOrEmpty(actor.PublicKey))
-                    {
-                        await GetDiscoveryService().FetchActorDataAsync(actor);
-                    }
-                }
-            }
-        }
-        else if (string.IsNullOrEmpty(actor.PublicKey))
-        {
-            await GetDiscoveryService().FetchActorDataAsync(actor);
         }
 
         if (actor != null && !string.IsNullOrEmpty(actor.PublicKey)) return actor.PublicKey;

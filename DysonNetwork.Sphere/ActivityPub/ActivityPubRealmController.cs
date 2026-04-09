@@ -15,6 +15,7 @@ public class ActivityPubRealmController(
     RemoteRealmService realmService,
     ActivityPubDeliveryService deliveryService,
     ActivityPubActivityHandler activityHandler,
+    ActivityPubDiscoveryService discoveryService,
     IConfiguration configuration,
     ILogger<ActivityPubRealmController> logger
 ) : ControllerBase
@@ -262,20 +263,6 @@ public class ActivityPubRealmController(
 
     private async Task<SnFediverseActor> GetOrCreateActorAsync(string actorUri)
     {
-        var actor = await db.FediverseActors
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(a => a.Uri == actorUri);
-
-        if (actor != null)
-        {
-            if (actor.DeletedAt != null)
-            {
-                actor.DeletedAt = null;
-                await db.SaveChangesAsync();
-            }
-            return actor;
-        }
-
         var uri = new Uri(actorUri);
         var instance = await db.FediverseInstances
             .FirstOrDefaultAsync(i => i.Domain == uri.Host);
@@ -287,32 +274,11 @@ public class ActivityPubRealmController(
             await db.SaveChangesAsync();
         }
 
-        actor = new SnFediverseActor
-        {
-            Uri = actorUri,
-            Username = actorUri.Split('/').LastOrDefault() ?? "unknown",
-            DisplayName = actorUri.Split('/').LastOrDefault() ?? "unknown",
-            InstanceId = instance.Id
-        };
-
-        try
-        {
-            db.FediverseActors.Add(actor);
-            await db.SaveChangesAsync();
-        }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
-        {
-            actor = await db.FediverseActors
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(a => a.Uri == actorUri);
-            if (actor != null && actor.DeletedAt != null)
-            {
-                actor.DeletedAt = null;
-                await db.SaveChangesAsync();
-            }
-        }
-
-        return actor ?? throw new InvalidOperationException($"Failed to get or create actor: {actorUri}");
+        return await discoveryService.GetOrCreateActorWithDataAsync(
+            actorUri,
+            actorUri.Split('/').LastOrDefault() ?? "unknown",
+            instance.Id
+        );
     }
 
     private async Task<IActionResult> HandleCommunityPostAsync(SnRealm realm, string actorUri, Dictionary<string, object> activity)

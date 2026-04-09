@@ -1120,57 +1120,12 @@ public class ActivityPubActivityHandler(
 
     private async Task<SnFediverseActor> GetOrCreateActorAsync(string actorUri)
     {
-        var actor = await db.FediverseActors
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(a => a.Uri == actorUri);
-
-        if (actor != null)
-        {
-            if (actor.DeletedAt != null)
-            {
-                actor.DeletedAt = null;
-                await db.SaveChangesAsync();
-            }
-            return actor;
-        }
-
         var instance = await GetOrCreateInstanceAsync(actorUri);
-        actor = new SnFediverseActor
-        {
-            Uri = actorUri,
-            Username = ExtractUsernameFromUri(actorUri),
-            DisplayName = ExtractUsernameFromUri(actorUri),
-            InstanceId = instance.Id
-        };
-
-        try
-        {
-            db.FediverseActors.Add(actor);
-            await db.SaveChangesAsync();
-            await discoveryService.FetchActorDataAsync(actor);
-            return actor;
-        }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
-        {
-            logger.LogInformation("Actor already exists (race condition), fetching: {ActorUri}", actorUri);
-            actor = await db.FediverseActors
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(a => a.Uri == actorUri);
-            
-            if (actor != null)
-            {
-                if (actor.DeletedAt != null)
-                {
-                    actor.DeletedAt = null;
-                    await db.SaveChangesAsync();
-                }
-                if (string.IsNullOrEmpty(actor.PublicKey))
-                {
-                    await discoveryService.FetchActorDataAsync(actor);
-                }
-            }
-            return actor;
-        }
+        return await discoveryService.GetOrCreateActorWithDataAsync(
+            actorUri,
+            ExtractUsernameFromUri(actorUri),
+            instance.Id
+        );
     }
 
     private async Task<SnFediverseInstance> GetOrCreateInstanceAsync(string actorUri)
