@@ -23,13 +23,24 @@ public class FediverseActorController(
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
 
-    private async Task SignRequestAsync(HttpRequestMessage request, string actorUri)
+    private async Task SignRequestAsync(HttpRequestMessage request, string? actorUri = null)
     {
-        await signatureService.SignOutgoingRequestAsync(request, actorUri);
+        Guid? publisherId = null;
+        
+        if (HttpContext.Items["CurrentUser"] is DyAccount currentUser)
+        {
+            var accountId = Guid.Parse(currentUser.Id);
+            publisherId = await GetEffectiveFediverseIdentityAsync(accountId);
+        }
+        
+        if (publisherId != null)
+        {
+            await signatureService.SignOutgoingRequestAsync(request, publisherId.Value);
+        }
     }
 
     [HttpGet("{username}@{instance}")]
-    [AllowAnonymous]
+    [Authorize]
     public async Task<ActionResult<SnFediverseActor>> GetActorByHandle(
         string username,
         string instance
@@ -369,7 +380,7 @@ public class FediverseActorController(
             request.Headers.Date = DateTimeOffset.UtcNow;
             request.Headers.Host = new Uri(actor.OutboxUri).Host;
 
-            await SignRequestAsync(request, actor.Uri);
+            await SignRequestAsync(request);
 
             var response = await client.SendAsync(request);
             if (!response.IsSuccessStatusCode)
@@ -394,7 +405,7 @@ public class FediverseActorController(
                         ? (
                             firstPageElement.ValueKind == JsonValueKind.String
                             && firstPageElement.GetString()?.StartsWith("http") == true
-                                ? await FetchOutboxPageAsync(firstPageElement.GetString()!, actor.Uri)
+                                ? await FetchOutboxPageAsync(firstPageElement.GetString()!)
                                 : null
                         )
                         : null
@@ -457,7 +468,7 @@ public class FediverseActorController(
         }
     }
 
-    private async Task<JsonElement?> FetchOutboxPageAsync(string pageUrl, string actorUri)
+    private async Task<JsonElement?> FetchOutboxPageAsync(string pageUrl)
     {
         try
         {
@@ -468,7 +479,7 @@ public class FediverseActorController(
             request.Headers.Date = DateTimeOffset.UtcNow;
             request.Headers.Host = new Uri(pageUrl).Host;
 
-            await SignRequestAsync(request, actorUri);
+            await SignRequestAsync(request);
 
             var response = await client.SendAsync(request);
             if (!response.IsSuccessStatusCode)

@@ -94,14 +94,68 @@ public class ActivityPubSignatureService(
         string actorUri
     )
     {
+        var publisher = await GetLocalPublisherAsync();
+        if (publisher == null)
+            throw new InvalidOperationException("Publisher not found");
+        
+        await SignWithPublisherAsync(request, publisher);
+    }
+
+    public async Task SignOutgoingRequestAsync(
+        HttpRequestMessage request,
+        Guid publisherId
+    )
+    {
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Id == publisherId);
+        if (publisher == null)
+            throw new InvalidOperationException($"Publisher not found: {publisherId}");
+        
+        await SignWithPublisherAsync(request, publisher);
+    }
+
+    private async Task SignWithPublisherAsync(HttpRequestMessage request, SnPublisher publisher)
+    {
         request.Headers.Date = DateTimeOffset.UtcNow;
         
-        var signatureHeaders = await SignOutgoingRequest(request, actorUri);
+        var signatureHeaders = await SignOutgoingRequestWithPublisher(request, publisher);
         var signatureString = $"keyId=\"{signatureHeaders["keyId"]}\"," +
                               $"algorithm=\"{signatureHeaders["algorithm"]}\"," +
                               $"headers=\"{signatureHeaders["headers"]}\"," +
                               $"signature=\"{signatureHeaders["signature"]}\"";
         request.Headers.Add("Signature", signatureString);
+    }
+
+    private async Task<Dictionary<string, string>> SignOutgoingRequestWithPublisher(
+        HttpRequestMessage request,
+        SnPublisher publisher
+    )
+    {
+        var keyPair = await GetOrGenerateKeyPairAsync(publisher);
+        var localActorUri = $"https://{Domain}/activitypub/actors/{publisher.Name}";
+        var keyId = $"{localActorUri}#main-key";
+        
+        logger.LogInformation("Signing outgoing request. PublisherId: {PublisherId}, ActorUri: {ActorUri}", 
+            publisher.Id, localActorUri);
+        
+        var headersToSign = request.Method == HttpMethod.Get
+            ? new[] { RequestTarget, "host", "date" }
+            : new[] { RequestTarget, "host", "date", "digest" };
+        
+        var signingString = BuildOutgoingSigningString(request, headersToSign);
+        
+        logger.LogInformation("Signing string for outgoing request: {SigningString}", signingString);
+        
+        var signature = ActivityPubKeyService.Sign(keyPair.privateKeyPem, signingString);
+        
+        logger.LogInformation("Generated signature: {Signature}", signature.Substring(0, Math.Min(50, signature.Length)) + "...");
+        
+        return new Dictionary<string, string>
+        {
+            ["keyId"] = keyId,
+            ["algorithm"] = "rsa-sha256",
+            ["headers"] = string.Join(" ", headersToSign),
+            ["signature"] = signature
+        };
     }
 
     public async Task<Dictionary<string, string>> SignOutgoingRequest(

@@ -165,11 +165,12 @@ public partial class ActivityPubDiscoveryService(
 
     private static readonly Regex HandlePattern = HandleRegex();
 
-    private async Task SignRequestAsync(HttpRequestMessage request, string actorUri)
+    private async Task SignRequestAsync(HttpRequestMessage request, Guid? publisherId = null)
     {
-        if (request.Method == HttpMethod.Get)
-            return;
-        await signatureService.SignOutgoingRequestAsync(request, actorUri);
+        if (publisherId.HasValue)
+        {
+            await signatureService.SignOutgoingRequestAsync(request, publisherId.Value);
+        }
     }
 
     public async Task<SnFediverseActor?> DiscoverActorAsync(string query)
@@ -865,7 +866,7 @@ public partial class ActivityPubDiscoveryService(
             request.Headers.Date = DateTimeOffset.UtcNow;
             request.Headers.Host = new Uri(actor.Uri).Host;
 
-            await SignRequestAsync(request, actor.Uri);
+            await SignRequestAsync(request);
 
             var response = await HttpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
@@ -1011,7 +1012,7 @@ public partial class ActivityPubDiscoveryService(
             request.Headers.Date = DateTimeOffset.UtcNow;
             request.Headers.Host = new Uri(collectionUri).Host;
 
-            await SignRequestAsync(request, actorUri);
+            await SignRequestAsync(request);
 
             var response = await HttpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
@@ -1085,12 +1086,9 @@ public partial class ActivityPubDiscoveryService(
             request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
             request.Headers.Accept.ParseAdd("application/activity+json");
 
-            if (actorUri != null)
-            {
-                request.Headers.Date = DateTimeOffset.UtcNow;
-                request.Headers.Host = new Uri(uri).Host;
-                await SignRequestAsync(request, actorUri);
-            }
+            request.Headers.Date = DateTimeOffset.UtcNow;
+            request.Headers.Host = new Uri(uri).Host;
+            await SignRequestAsync(request);
 
             var response = await HttpClient.SendAsync(request);
             
