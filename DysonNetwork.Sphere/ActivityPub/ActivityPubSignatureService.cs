@@ -9,13 +9,18 @@ namespace DysonNetwork.Sphere.ActivityPub;
 public class ActivityPubSignatureService(
     AppDatabase db,
     ActivityPubKeyService keyService,
-    ActivityPubDiscoveryService discoveryService,
+    IServiceProvider serviceProvider,
     ILogger<ActivityPubSignatureService> logger,
     IConfiguration configuration
 )
 {
     private const string RequestTarget = "(request-target)";
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
+
+    private ActivityPubDiscoveryService GetDiscoveryService()
+    {
+        return serviceProvider.GetRequiredService<ActivityPubDiscoveryService>();
+    }
 
     public bool VerifyIncomingRequest(HttpContext context, out string? actorUri)
     {
@@ -169,7 +174,7 @@ public class ActivityPubSignatureService(
             {
                 db.FediverseActors.Add(actor);
                 await db.SaveChangesAsync();
-                await discoveryService.FetchActorDataAsync(actor);
+                await GetDiscoveryService().FetchActorDataAsync(actor);
             }
             catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
             {
@@ -180,13 +185,13 @@ public class ActivityPubSignatureService(
                 
                 if (actor != null && string.IsNullOrEmpty(actor.PublicKey))
                 {
-                    await discoveryService.FetchActorDataAsync(actor);
+                    await GetDiscoveryService().FetchActorDataAsync(actor);
                 }
             }
         }
         else if (string.IsNullOrEmpty(actor.PublicKey))
         {
-            await discoveryService.FetchActorDataAsync(actor);
+            await GetDiscoveryService().FetchActorDataAsync(actor);
         }
 
         if (actor != null && !string.IsNullOrEmpty(actor.PublicKey)) return actor.PublicKey;
