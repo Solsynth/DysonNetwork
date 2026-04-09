@@ -38,69 +38,6 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         });
     }
 
-    public class UploadKeyBundleBody
-    {
-        [Required][MaxLength(32)] public string Algorithm { get; set; } = "x25519";
-        [Required] public byte[] IdentityKey { get; set; } = [];
-        public int? SignedPreKeyId { get; set; }
-        [Required] public byte[] SignedPreKey { get; set; } = [];
-        [Required] public byte[] SignedPreKeySignature { get; set; } = [];
-        public DateTimeOffset? SignedPreKeyExpiresAt { get; set; }
-        public List<OneTimePreKeyBody>? OneTimePreKeys { get; set; }
-        public Dictionary<string, object>? Meta { get; set; }
-    }
-
-    public class UploadDeviceBundleBody : UploadKeyBundleBody
-    {
-        [MaxLength(1024)] public string? DeviceLabel { get; set; }
-    }
-
-    public class OneTimePreKeyBody
-    {
-        [Required] public int KeyId { get; set; }
-        [Required] public byte[] PublicKey { get; set; } = [];
-    }
-
-    public class EnsureSessionBody
-    {
-        [MaxLength(128)] public string? Hint { get; set; }
-        public Dictionary<string, object>? Meta { get; set; }
-    }
-
-    public class SendEnvelopeBody
-    {
-        [Required] public Guid RecipientId { get; set; }
-        public Guid? SessionId { get; set; }
-        public SnE2eeEnvelopeType Type { get; set; } = SnE2eeEnvelopeType.PairwiseMessage;
-        [MaxLength(256)] public string? GroupId { get; set; }
-        [MaxLength(128)] public string? ClientMessageId { get; set; }
-        [Required] public byte[] Ciphertext { get; set; } = [];
-        public byte[]? Header { get; set; }
-        public byte[]? Signature { get; set; }
-        public DateTimeOffset? ExpiresAt { get; set; }
-        public Dictionary<string, object>? Meta { get; set; }
-    }
-
-    public class FanoutEnvelopeBody
-    {
-        [Required] public Guid RecipientAccountId { get; set; }
-        public Guid? SessionId { get; set; }
-        public SnE2eeEnvelopeType Type { get; set; } = SnE2eeEnvelopeType.PairwiseMessage;
-        [MaxLength(256)] public string? GroupId { get; set; }
-        public DateTimeOffset? ExpiresAt { get; set; }
-        public bool IncludeSenderCopy { get; set; }
-        [Required][MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
-    }
-
-    public class FanoutEnvelopeItemBody
-    {
-        [Required][MaxLength(512)] public string RecipientDeviceId { get; set; } = null!;
-        [MaxLength(128)] public string? ClientMessageId { get; set; }
-        [Required] public byte[] Ciphertext { get; set; } = [];
-        public byte[]? Header { get; set; }
-        public byte[]? Signature { get; set; }
-        public Dictionary<string, object>? Meta { get; set; }
-    }
 
     public class PublishMlsKeyPackageBody
     {
@@ -125,6 +62,16 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         public Dictionary<string, object>? Meta { get; set; }
     }
 
+    public class FanoutEnvelopeItemBody
+    {
+        [Required][MaxLength(512)] public string RecipientDeviceId { get; set; } = null!;
+        [MaxLength(128)] public string? ClientMessageId { get; set; }
+        [Required] public byte[] Ciphertext { get; set; } = [];
+        public byte[]? Header { get; set; }
+        public byte[]? Signature { get; set; }
+        public Dictionary<string, object>? Meta { get; set; }
+    }
+
     public class FanoutMlsWelcomeBody
     {
         [Required] public Guid RecipientAccountId { get; set; }
@@ -140,21 +87,16 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         [Required][MaxLength(128)] public string Reason { get; set; } = null!;
     }
 
-    public class DistributeSenderKeyBody
-    {
-        [Required][MaxLength(256)] public string GroupId { get; set; } = null!;
-        [Required][MinLength(1)] public List<SenderKeyEnvelopeBody> Items { get; set; } = [];
-        public DateTimeOffset? ExpiresAt { get; set; }
-    }
 
-    public class SenderKeyEnvelopeBody
+    public class FanoutEnvelopeBody
     {
-        [Required] public Guid RecipientId { get; set; }
-        [Required] public byte[] Ciphertext { get; set; } = [];
-        public byte[]? Header { get; set; }
-        public byte[]? Signature { get; set; }
-        [MaxLength(128)] public string? ClientMessageId { get; set; }
-        public Dictionary<string, object>? Meta { get; set; }
+        [Required] public Guid RecipientAccountId { get; set; }
+        public Guid? SessionId { get; set; }
+        public SnE2eeEnvelopeType Type { get; set; } = SnE2eeEnvelopeType.PairwiseMessage;
+        [MaxLength(256)] public string? GroupId { get; set; }
+        public DateTimeOffset? ExpiresAt { get; set; }
+        public bool IncludeSenderCopy { get; set; }
+        [Required][MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
     }
 
     [HttpPut("mls/devices/me/key-packages")]
@@ -203,6 +145,14 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
             IsReady = packages.Count > 0,
             AvailableKeyPackages = packages.Count
         });
+    }
+
+    [HttpGet("mls/groups/{groupId}/devices/capable")]
+    public async Task<ActionResult<List<MlsDeviceKeyPackageResponse>>> GetCapableDevices(string groupId)
+    {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
+        var result = await e2eeModule.GetCapableDevicesAsync(groupId);
+        return Ok(result);
     }
 
     [HttpPost("mls/groups/{groupId}/bootstrap")]
