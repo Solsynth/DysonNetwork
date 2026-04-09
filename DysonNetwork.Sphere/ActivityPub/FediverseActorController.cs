@@ -15,12 +15,18 @@ public class FediverseActorController(
     ActivityPubDiscoveryService discoveryService,
     FediverseCachingService cachingService,
     ActivityPubDeliveryService deliveryService,
+    ActivityPubSignatureService signatureService,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     ILogger<FediverseActorController> logger
 ) : ControllerBase
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
+
+    private async Task SignRequestAsync(HttpRequestMessage request, string actorUri)
+    {
+        await signatureService.SignOutgoingRequestAsync(request, actorUri);
+    }
 
     [HttpGet("{username}@{instance}")]
     [AllowAnonymous]
@@ -360,6 +366,10 @@ public class FediverseActorController(
             var request = new HttpRequestMessage(HttpMethod.Get, actor.OutboxUri);
             request.Headers.Accept.ParseAdd("application/activity+json");
             request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
+            request.Headers.Date = DateTimeOffset.UtcNow;
+            request.Headers.Host = new Uri(actor.OutboxUri).Host;
+
+            await SignRequestAsync(request, actor.Uri);
 
             var response = await client.SendAsync(request);
             if (!response.IsSuccessStatusCode)
@@ -384,7 +394,7 @@ public class FediverseActorController(
                         ? (
                             firstPageElement.ValueKind == JsonValueKind.String
                             && firstPageElement.GetString()?.StartsWith("http") == true
-                                ? await FetchOutboxPageAsync(firstPageElement.GetString()!)
+                                ? await FetchOutboxPageAsync(firstPageElement.GetString()!, actor.Uri)
                                 : null
                         )
                         : null
@@ -447,7 +457,7 @@ public class FediverseActorController(
         }
     }
 
-    private async Task<JsonElement?> FetchOutboxPageAsync(string pageUrl)
+    private async Task<JsonElement?> FetchOutboxPageAsync(string pageUrl, string actorUri)
     {
         try
         {
@@ -455,6 +465,10 @@ public class FediverseActorController(
             var request = new HttpRequestMessage(HttpMethod.Get, pageUrl);
             request.Headers.Accept.ParseAdd("application/activity+json");
             request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
+            request.Headers.Date = DateTimeOffset.UtcNow;
+            request.Headers.Host = new Uri(pageUrl).Host;
+
+            await SignRequestAsync(request, actorUri);
 
             var response = await client.SendAsync(request);
             if (!response.IsSuccessStatusCode)

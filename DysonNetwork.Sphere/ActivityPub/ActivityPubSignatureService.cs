@@ -84,6 +84,21 @@ public class ActivityPubSignatureService(
         return isValid;
     }
 
+    public async Task SignOutgoingRequestAsync(
+        HttpRequestMessage request,
+        string actorUri
+    )
+    {
+        request.Headers.Date = DateTimeOffset.UtcNow;
+        
+        var signatureHeaders = await SignOutgoingRequest(request, actorUri);
+        var signatureString = $"keyId=\"{signatureHeaders["keyId"]}\"," +
+                              $"algorithm=\"{signatureHeaders["algorithm"]}\"," +
+                              $"headers=\"{signatureHeaders["headers"]}\"," +
+                              $"signature=\"{signatureHeaders["signature"]}\"";
+        request.Headers.Add("Signature", signatureString);
+    }
+
     public async Task<Dictionary<string, string>> SignOutgoingRequest(
         HttpRequestMessage request,
         string actorUri

@@ -276,8 +276,6 @@ public class ActivityPubDeliveryWorker(
             Content = new StringContent(json, Encoding.UTF8, "application/activity+json")
         };
 
-        request.Headers.Date = DateTimeOffset.UtcNow;
-
         var bodyBytes = Encoding.UTF8.GetBytes(json);
         var hash = SHA256.HashData(bodyBytes);
         var digest = $"SHA-256={Convert.ToBase64String(hash)}";
@@ -286,14 +284,7 @@ public class ActivityPubDeliveryWorker(
 
         logger.LogDebug("Sending request to {Inbox}", inboxUrl);
 
-        var signatureHeaders = await signatureService.SignOutgoingRequest(request, actorUri);
-
-        var signatureString = $"keyId=\"{signatureHeaders["keyId"]}\"," +
-                              $"algorithm=\"{signatureHeaders["algorithm"]}\"," +
-                              $"headers=\"{signatureHeaders["headers"]}\"," +
-                              $"signature=\"{signatureHeaders["signature"]}\"";
-
-        request.Headers.Add("Signature", signatureString);
+        await signatureService.SignOutgoingRequestAsync(request, actorUri);
 
         var response = await client.SendAsync(request, cancellationToken);
         logger.LogDebug("Response from {Inbox}. Status: {Status}", inboxUrl, response.StatusCode);

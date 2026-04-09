@@ -719,7 +719,7 @@ public class ActivityPubActivityHandler(
                 webUrl = $"https://{domain}/@{uri.Segments.ElementAtOrDefault(1)?.Trim('/')}/{uri.Segments.LastOrDefault()}";
             }
 
-            var activity = await discoveryService.FetchActivityAsync(postUri);
+            var activity = await discoveryService.FetchActivityAsync(postUri, actorUri);
             if (activity == null)
             {
                 logger.LogWarning("Failed to fetch activity from {Uri}", postUri);

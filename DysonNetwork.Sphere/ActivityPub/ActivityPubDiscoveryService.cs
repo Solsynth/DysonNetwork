@@ -156,13 +156,19 @@ public partial class ActivityPubDiscoveryService(
     AppDatabase db,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
-    ILogger<ActivityPubDiscoveryService> logger
+    ILogger<ActivityPubDiscoveryService> logger,
+    ActivityPubSignatureService signatureService
 )
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
     private HttpClient HttpClient => httpClientFactory.CreateClient();
 
     private static readonly Regex HandlePattern = HandleRegex();
+
+    private async Task SignRequestAsync(HttpRequestMessage request, string actorUri)
+    {
+        await signatureService.SignOutgoingRequestAsync(request, actorUri);
+    }
 
     public async Task<SnFediverseActor?> DiscoverActorAsync(string query)
     {
@@ -823,6 +829,10 @@ public partial class ActivityPubDiscoveryService(
             );
             request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
             request.Headers.Accept.ParseAdd("application/activity+json");
+            request.Headers.Date = DateTimeOffset.UtcNow;
+            request.Headers.Host = new Uri(actor.Uri).Host;
+
+            await SignRequestAsync(request, actor.Uri);
 
             var response = await HttpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
@@ -927,21 +937,21 @@ public partial class ActivityPubDiscoveryService(
             // Fetch followers count
             if (!string.IsNullOrEmpty(actor.FollowersUri) && actor.FollowersCount == 0)
             {
-                tasks.Add(FetchCollectionCountAsync(actor.FollowersUri)
+                tasks.Add(FetchCollectionCountAsync(actor.FollowersUri, actor.Uri)
                     .ContinueWith(t => { if (t.IsCompletedSuccessfully && t.Result.HasValue) actor.FollowersCount = t.Result.Value; }));
             }
 
             // Fetch following count
             if (!string.IsNullOrEmpty(actor.FollowingUri) && actor.FollowingCount == 0)
             {
-                tasks.Add(FetchCollectionCountAsync(actor.FollowingUri)
+                tasks.Add(FetchCollectionCountAsync(actor.FollowingUri, actor.Uri)
                     .ContinueWith(t => { if (t.IsCompletedSuccessfully && t.Result.HasValue) actor.FollowingCount = t.Result.Value; }));
             }
 
             // Fetch post count from outbox
             if (!string.IsNullOrEmpty(actor.OutboxUri) && actor.TotalPostCount == null)
             {
-                tasks.Add(FetchCollectionCountAsync(actor.OutboxUri)
+                tasks.Add(FetchCollectionCountAsync(actor.OutboxUri, actor.Uri)
                     .ContinueWith(t => { if (t.IsCompletedSuccessfully && t.Result.HasValue) actor.TotalPostCount = t.Result.Value; }));
             }
 
@@ -958,13 +968,17 @@ public partial class ActivityPubDiscoveryService(
         }
     }
 
-    private async Task<int?> FetchCollectionCountAsync(string collectionUri)
+    private async Task<int?> FetchCollectionCountAsync(string collectionUri, string actorUri)
     {
         try
         {
             var request = new HttpRequestMessage(HttpMethod.Get, collectionUri);
             request.Headers.Accept.ParseAdd("application/activity+json");
             request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
+            request.Headers.Date = DateTimeOffset.UtcNow;
+            request.Headers.Host = new Uri(collectionUri).Host;
+
+            await SignRequestAsync(request, actorUri);
 
             var response = await HttpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
@@ -1028,7 +1042,7 @@ public partial class ActivityPubDiscoveryService(
         };
     }
 
-    public async Task<Dictionary<string, object>?> FetchActivityAsync(string uri)
+    public async Task<Dictionary<string, object>?> FetchActivityAsync(string uri, string? actorUri = null)
     {
         try
         {
@@ -1037,6 +1051,13 @@ public partial class ActivityPubDiscoveryService(
             request.Headers.Accept.ParseAdd("application/activity+json");
             request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
             request.Headers.Accept.ParseAdd("application/activity+json");
+
+            if (actorUri != null)
+            {
+                request.Headers.Date = DateTimeOffset.UtcNow;
+                request.Headers.Host = new Uri(uri).Host;
+                await SignRequestAsync(request, actorUri);
+            }
 
             var response = await HttpClient.SendAsync(request);
             
