@@ -167,6 +167,8 @@ public partial class ActivityPubDiscoveryService(
 
     private async Task SignRequestAsync(HttpRequestMessage request, string actorUri)
     {
+        if (request.Method == HttpMethod.Get)
+            return;
         await signatureService.SignOutgoingRequestAsync(request, actorUri);
     }
 

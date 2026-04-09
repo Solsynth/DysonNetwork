@@ -109,12 +109,13 @@ public class ActivityPubSignatureService(
         string actorUri
     )
     {
-        var publisher = await GetPublisherByActorUri(actorUri);
+        var publisher = await GetLocalPublisherAsync();
         if (publisher == null)
             throw new InvalidOperationException("Publisher not found");
         
         var keyPair = await GetOrGenerateKeyPairAsync(publisher);
-        var keyId = $"{actorUri}#main-key";
+        var localActorUri = $"https://{Domain}/users/{publisher.Name}";
+        var keyId = $"{localActorUri}#main-key";
         
         logger.LogInformation("Signing outgoing request. ActorUri: {ActorUri}, PublisherId: {PublisherId}", 
             actorUri, publisher.Id);
@@ -135,6 +136,11 @@ public class ActivityPubSignatureService(
             ["headers"] = string.Join(" ", headersToSign),
             ["signature"] = signature
         };
+    }
+
+    private async Task<SnPublisher?> GetLocalPublisherAsync()
+    {
+        return await db.Publishers.FirstOrDefaultAsync(p => p.Name == Domain);
     }
 
     private async Task<string?> GetOrFetchPublicKeyAsync(string keyId)
@@ -198,12 +204,6 @@ public class ActivityPubSignatureService(
         logger.LogWarning("Still no public key after fetch for actor: {ActorUri}", actorUri);
         return null;
 
-    }
-
-    private async Task<SnPublisher?> GetPublisherByActorUri(string actorUri)
-    {
-        var username = actorUri.Split('/')[^1];
-        return await db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
     }
 
     private async Task<(string privateKeyPem, string publicKeyPem)> GetOrGenerateKeyPairAsync(SnPublisher publisher)
