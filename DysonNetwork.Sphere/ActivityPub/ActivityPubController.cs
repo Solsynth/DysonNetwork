@@ -145,25 +145,22 @@ public class ActivityPubController(
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
         var outboxUrl = $"{actorUrl}/outbox";
 
-        var postsQuery = db.Posts
+        var posts = await db.Posts
             .Include(p => p.Actor)
-            .Where(p => p.PublisherId == publisher.Id && p.Visibility == PostVisibility.Public);
-
-        var postsTask = postsQuery.ToListAsync();
+            .Where(p => p.PublisherId == publisher.Id && p.Visibility == PostVisibility.Public)
+            .ToListAsync();
 
         List<SnBoost>? boosts = null;
         if (actor != null)
         {
-            var boostsQuery = db.Boosts
+            boosts = await db.Boosts
                 .Include(b => b.Post)
                     .ThenInclude(p => p.Actor)
                 .Where(b => b.ActorId == actor.Id)
                 .Where(b => b.Post.DraftedAt == null)
-                .Where(b => b.Post.Visibility == PostVisibility.Public);
-            boosts = await boostsQuery.ToListAsync();
+                .Where(b => b.Post.Visibility == PostVisibility.Public)
+                .ToListAsync();
         }
-
-        var posts = await postsTask;
         var totalItems = posts.Count + (boosts?.Count ?? 0);
 
         if (page.HasValue)
