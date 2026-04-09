@@ -913,11 +913,19 @@ public class ActivityPubDeliveryService(
     private async Task<SnFediverseActor?> GetOrFetchActorAsync(string actorUri)
     {
         var actor = await db.FediverseActors
+            .IgnoreQueryFilters()
             .Include(a => a.Instance)
             .FirstOrDefaultAsync(a => a.Uri == actorUri);
 
         if (actor != null)
+        {
+            if (actor.DeletedAt != null)
+            {
+                actor.DeletedAt = null;
+                await db.SaveChangesAsync();
+            }
             return actor;
+        }
 
         try
         {
@@ -957,6 +965,7 @@ public class ActivityPubDeliveryService(
             {
                 logger.LogInformation("Actor was created by another request, fetching: {ActorUri}", actorUri);
                 actor = await db.FediverseActors
+                    .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(a => a.Uri == actorUri);
                 if (actor != null && string.IsNullOrEmpty(actor.PublicKey))
                 {

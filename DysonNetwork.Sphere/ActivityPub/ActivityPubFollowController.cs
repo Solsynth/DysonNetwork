@@ -325,8 +325,15 @@ public class ActivityPubFollowController(
             }
             catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
             {
-                logger.LogInformation("Actor was created by another request, fetching: {ActorUri}", actorUrl);
-                actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Uri == actorUrl);
+                logger.LogInformation("Actor already exists (race condition), fetching: {ActorUri}", actorUrl);
+                actor = await db.FediverseActors
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(a => a.Uri == actorUrl);
+                if (actor != null && actor.DeletedAt != null)
+                {
+                    actor.DeletedAt = null;
+                    await db.SaveChangesAsync();
+                }
             }
 
             return Ok(new ActorCheckResult

@@ -1121,9 +1121,18 @@ public class ActivityPubActivityHandler(
     private async Task<SnFediverseActor> GetOrCreateActorAsync(string actorUri)
     {
         var actor = await db.FediverseActors
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(a => a.Uri == actorUri);
 
-        if (actor != null) return actor;
+        if (actor != null)
+        {
+            if (actor.DeletedAt != null)
+            {
+                actor.DeletedAt = null;
+                await db.SaveChangesAsync();
+            }
+            return actor;
+        }
 
         var instance = await GetOrCreateInstanceAsync(actorUri);
         actor = new SnFediverseActor
@@ -1143,16 +1152,24 @@ public class ActivityPubActivityHandler(
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
         {
-            // Race condition - another request created the actor, fetch it instead
-            logger.LogInformation("Actor was created by another request, fetching: {ActorUri}", actorUri);
-            var existing = await db.FediverseActors
+            logger.LogInformation("Actor already exists (race condition), fetching: {ActorUri}", actorUri);
+            actor = await db.FediverseActors
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(a => a.Uri == actorUri);
             
-            if (existing != null && string.IsNullOrEmpty(existing.PublicKey))
+            if (actor != null)
             {
-                await discoveryService.FetchActorDataAsync(existing);
+                if (actor.DeletedAt != null)
+                {
+                    actor.DeletedAt = null;
+                    await db.SaveChangesAsync();
+                }
+                if (string.IsNullOrEmpty(actor.PublicKey))
+                {
+                    await discoveryService.FetchActorDataAsync(actor);
+                }
             }
-            return existing ?? actor;
+            return actor;
         }
     }
 

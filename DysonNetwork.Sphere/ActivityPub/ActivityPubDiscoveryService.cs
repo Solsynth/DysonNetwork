@@ -242,13 +242,21 @@ public partial class ActivityPubDiscoveryService(
                 await FetchInstanceMetadataAsync(instance);
             }
 
-            // Check if we already have this actor in DB
+            // Check if we already have this actor in DB (including soft-deleted)
             var existingActor = await db.FediverseActors
+                .IgnoreQueryFilters()
                 .Include(a => a.Instance)
                 .FirstOrDefaultAsync(a => a.Uri == actorUri);
 
             if (existingActor != null)
             {
+                // If soft-deleted, restore it
+                if (existingActor.DeletedAt != null)
+                {
+                    existingActor.DeletedAt = null;
+                    await db.SaveChangesAsync();
+                }
+                
                 // If we have the actor but bio is missing, try to refresh
                 if (string.IsNullOrEmpty(existingActor.Bio) || string.IsNullOrEmpty(existingActor.DisplayName))
                 {
@@ -757,11 +765,19 @@ public partial class ActivityPubDiscoveryService(
     )
     {
         var existingActor = await db.FediverseActors
+            .IgnoreQueryFilters()
             .Include(a => a.Instance)
             .FirstOrDefaultAsync(a => a.Uri == actorUri);
 
         if (existingActor != null)
+        {
+            if (existingActor.DeletedAt != null)
+            {
+                existingActor.DeletedAt = null;
+                await db.SaveChangesAsync();
+            }
             return existingActor;
+        }
 
         try
         {
@@ -804,14 +820,21 @@ public partial class ActivityPubDiscoveryService(
             {
                 logger.LogInformation("Actor already exists (race condition), fetching: {ActorUri}", actorUri);
                 var existing = await db.FediverseActors
+                    .IgnoreQueryFilters()
                     .Include(a => a.Instance)
                     .FirstOrDefaultAsync(a => a.Uri == actorUri);
-                if (existing != null && string.IsNullOrEmpty(existing.PublicKey))
-                {
-                    await FetchActorDataAsync(existing);
-                }
+                
                 if (existing != null)
                 {
+                    if (existing.DeletedAt != null)
+                    {
+                        existing.DeletedAt = null;
+                        await db.SaveChangesAsync();
+                    }
+                    if (string.IsNullOrEmpty(existing.PublicKey))
+                    {
+                        await FetchActorDataAsync(existing);
+                    }
                     existing.Instance = instance;
                     return existing;
                 }

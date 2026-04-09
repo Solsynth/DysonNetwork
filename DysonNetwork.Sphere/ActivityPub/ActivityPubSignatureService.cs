@@ -184,14 +184,22 @@ public class ActivityPubSignatureService(
             }
             catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
             {
-                // Race condition - another request created the actor, fetch it instead
-                logger.LogInformation("Actor was created by another request, fetching: {ActorUri}", actorUri);
+                logger.LogInformation("Actor already exists (race condition), fetching: {ActorUri}", actorUri);
                 actor = await db.FediverseActors
+                    .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(a => a.Uri == actorUri);
                 
-                if (actor != null && string.IsNullOrEmpty(actor.PublicKey))
+                if (actor != null)
                 {
-                    await GetDiscoveryService().FetchActorDataAsync(actor);
+                    if (actor.DeletedAt != null)
+                    {
+                        actor.DeletedAt = null;
+                        await db.SaveChangesAsync();
+                    }
+                    if (string.IsNullOrEmpty(actor.PublicKey))
+                    {
+                        await GetDiscoveryService().FetchActorDataAsync(actor);
+                    }
                 }
             }
         }

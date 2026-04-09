@@ -263,9 +263,18 @@ public class ActivityPubRealmController(
     private async Task<SnFediverseActor> GetOrCreateActorAsync(string actorUri)
     {
         var actor = await db.FediverseActors
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(a => a.Uri == actorUri);
 
-        if (actor != null) return actor;
+        if (actor != null)
+        {
+            if (actor.DeletedAt != null)
+            {
+                actor.DeletedAt = null;
+                await db.SaveChangesAsync();
+            }
+            return actor;
+        }
 
         var uri = new Uri(actorUri);
         var instance = await db.FediverseInstances
@@ -293,10 +302,17 @@ public class ActivityPubRealmController(
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
         {
-            actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Uri == actorUri);
+            actor = await db.FediverseActors
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(a => a.Uri == actorUri);
+            if (actor != null && actor.DeletedAt != null)
+            {
+                actor.DeletedAt = null;
+                await db.SaveChangesAsync();
+            }
         }
 
-        return actor;
+        return actor ?? throw new InvalidOperationException($"Failed to get or create actor: {actorUri}");
     }
 
     private async Task<IActionResult> HandleCommunityPostAsync(SnRealm realm, string actorUri, Dictionary<string, object> activity)
