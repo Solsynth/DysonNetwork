@@ -132,6 +132,45 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         public int AvailableKeyPackages { get; set; }
     }
 
+    public class BatchCheckMlsReadyRequest
+    {
+        [Required][MinLength(1)][MaxLength(100)] public List<Guid> AccountIds { get; set; } = [];
+    }
+
+    public class BatchCheckMlsReadyResponse
+    {
+        public List<MlsUserAvailability> Users { get; set; } = [];
+    }
+
+    public class MlsUserAvailability
+    {
+        public Guid AccountId { get; set; }
+        public bool IsReady { get; set; }
+        public int AvailableKeyPackages { get; set; }
+    }
+
+    [HttpPost("mls/users/ready/batch")]
+    public async Task<ActionResult<BatchCheckMlsReadyResponse>> BatchCheckMlsUsersReady([FromBody] BatchCheckMlsReadyRequest body)
+    {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
+        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
+        if (currentUser is null) return Unauthorized();
+
+        var results = new List<MlsUserAvailability>();
+        foreach (var accountId in body.AccountIds)
+        {
+            var packages = await e2eeModule.ListMlsDeviceKeyPackagesAsync(accountId, currentUser.Id, consume: false);
+            results.Add(new MlsUserAvailability
+            {
+                AccountId = accountId,
+                IsReady = packages.Count > 0,
+                AvailableKeyPackages = packages.Count
+            });
+        }
+
+        return Ok(new BatchCheckMlsReadyResponse { Users = results });
+    }
+
     [HttpGet("mls/users/{accountId:guid}/ready")]
     public async Task<ActionResult<CheckMlsReadyResponse>> CheckMlsUserReady(Guid accountId)
     {

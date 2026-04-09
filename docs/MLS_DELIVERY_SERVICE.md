@@ -30,6 +30,14 @@ Missing ability returns `409` with error code `e2ee.mls_ability_required`.
 
 ## API Endpoints
 
+### Key Package Availability
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/mls/users/{accountId}/ready` | Check if a user has available key packages |
+| POST | `/mls/users/ready/batch` | Batch check multiple users' key package availability |
+| GET | `/mls/groups/{groupId}/devices/capable` | Get MLS capable devices for a group |
+
 ### Key Package Management
 
 | Method | Endpoint | Description |
@@ -107,6 +115,24 @@ POST /mls/messages/fanout
 
 ```
 GET /mls/envelopes/pending?deviceId=device-uuid&take=100
+```
+
+### Batch Check User Availability
+
+```json
+POST /mls/users/ready/batch
+{
+  "accountIds": ["uuid-1", "uuid-2", "uuid-3"]
+}
+
+Response:
+{
+  "users": [
+    { "accountId": "uuid-1", "isReady": true, "availableKeyPackages": 5 },
+    { "accountId": "uuid-2", "isReady": false, "availableKeyPackages": 0 },
+    { "accountId": "uuid-3", "isReady": true, "availableKeyPackages": 3 }
+  ]
+}
 ```
 
 ## Envelope Types
