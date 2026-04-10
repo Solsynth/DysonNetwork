@@ -269,6 +269,31 @@ public class ActivityPubDeliveryWorker(
         ILogger logger,
         CancellationToken cancellationToken)
     {
+        var inboxUri = new Uri(inboxUrl);
+        var hasQueryParams = inboxUri.Query.Length > 0;
+
+        var response = await SendRequestAsync(inboxUrl, activity, actorUri, signatureService, httpClientFactory, logger, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized && hasQueryParams)
+        {
+            logger.LogWarning("Got 401 from {Inbox} with query params, retrying without query params", inboxUrl);
+
+            var baseUrl = $"{inboxUri.Scheme}://{inboxUri.Host}{inboxUri.AbsolutePath}";
+            response = await SendRequestAsync(baseUrl, activity, actorUri, signatureService, httpClientFactory, logger, cancellationToken);
+        }
+
+        return response;
+    }
+
+    private static async Task<HttpResponseMessage> SendRequestAsync(
+        string inboxUrl,
+        Dictionary<string, object> activity,
+        string actorUri,
+        ActivityPubSignatureService signatureService,
+        IHttpClientFactory httpClientFactory,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
         var client = httpClientFactory.CreateClient();
         var json = JsonSerializer.Serialize(activity);
         var request = new HttpRequestMessage(HttpMethod.Post, inboxUrl)

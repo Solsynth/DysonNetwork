@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -24,6 +25,10 @@ public class SnFediverseKey : ModelBase
     [JsonPropertyName("private_key_pem")]
     public string? PrivateKeyPem { get; set; }
 
+    [JsonPropertyName("algorithm")]
+    [MaxLength(32)]
+    public string Algorithm { get; set; } = KeyAlgorithm.RSA_SHA256;
+
     [JsonPropertyName("publisher_id")]
     public Guid? PublisherId { get; set; }
 
@@ -43,4 +48,38 @@ public class SnFediverseKey : ModelBase
     [NotMapped]
     [JsonPropertyName("is_local")]
     public bool IsLocal => PublisherId.HasValue;
+
+    [NotMapped]
+    public HashAlgorithmName HashAlgorithm => Algorithm switch
+    {
+        KeyAlgorithm.RSA_SHA256 => HashAlgorithmName.SHA256,
+        KeyAlgorithm.RSA_SHA512 => HashAlgorithmName.SHA512,
+        _ => HashAlgorithmName.SHA256
+    };
+
+    [NotMapped]
+    public string HttpSignatureAlgorithm => Algorithm switch
+    {
+        KeyAlgorithm.RSA_SHA256 => "rsa-sha256",
+        KeyAlgorithm.RSA_SHA512 => "rsa-sha512",
+        _ => "rsa-sha256"
+    };
+}
+
+public static class KeyAlgorithm
+{
+    public const string RSA_SHA256 = "rsa-sha256";
+    public const string RSA_SHA512 = "rsa-sha512";
+    public const string HS2019 = "hs2019";
+
+    public static string GetActualAlgorithm(string httpAlgorithm)
+    {
+        return httpAlgorithm.ToLowerInvariant() switch
+        {
+            "hs2019" => RSA_SHA256,
+            "rsa-sha256" or "sha256" => RSA_SHA256,
+            "rsa-sha512" or "sha512" => RSA_SHA512,
+            _ => RSA_SHA256
+        };
+    }
 }

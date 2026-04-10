@@ -11,7 +11,7 @@ public class ActivityPubKeyService(
     ILogger<ActivityPubKeyService> logger
 )
 {
-    public async Task<SnFediverseKey> GetOrCreateKeyForActorAsync(SnFediverseActor actor)
+    public async Task<SnFediverseKey> GetOrCreateKeyForActorAsync(SnFediverseActor actor, string algorithm = KeyAlgorithm.RSA_SHA256)
     {
         var existingKey = await db.FediverseKeys
             .FirstOrDefaultAsync(k => k.ActorId == actor.Id);
@@ -26,6 +26,7 @@ public class ActivityPubKeyService(
             KeyId = $"{actor.Uri}#main-key",
             KeyPem = publicKey,
             PrivateKeyPem = privateKey,
+            Algorithm = algorithm,
             ActorId = actor.Id,
             PublisherId = actor.PublisherId,
             CreatedAt = SystemClock.Instance.GetCurrentInstant()
@@ -34,7 +35,7 @@ public class ActivityPubKeyService(
         db.FediverseKeys.Add(key);
         await db.SaveChangesAsync();
 
-        logger.LogInformation("Generated new key pair for actor: {ActorUri}", actor.Uri);
+        logger.LogInformation("Generated new key pair for actor: {ActorUri} with algorithm {Algorithm}", actor.Uri, algorithm);
         return key;
     }
 
