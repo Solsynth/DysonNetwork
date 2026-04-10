@@ -116,6 +116,8 @@ public static class HttpSignature
         }
 
         var dateHeader = context.Request.Headers.Date.FirstOrDefault();
+        var digestHeader = context.Request.Headers.TryGetValue("digest", out var digestValues) ? digestValues.FirstOrDefault() : null;
+        var contentTypeHeader = context.Request.Headers.TryGetValue("Content-Type", out var ctValues) ? ctValues.FirstOrDefault() : null;
 
         var signingString = GenerateSigningString(
             signature.Headers,
@@ -125,7 +127,9 @@ public static class HttpSignature
             context.Request.Host.Host,
             signature.Created,
             signature.Expires,
-            dateHeader
+            dateHeader,
+            digestHeader,
+            contentTypeHeader
         );
 
         return await VerifySignatureAsync(keyPem, signingString, signature.Signature);
@@ -306,7 +310,9 @@ public static class HttpSignature
         string? host = null,
         string? created = null,
         string? expires = null,
-        string? date = null
+        string? date = null,
+        string? digest = null,
+        string? contentType = null
     )
     {
         var sb = new StringBuilder();
@@ -323,6 +329,8 @@ public static class HttpSignature
                 "(created)" => created ?? throw new HttpSignatureException("Signature is missing created param"),
                 "(expires)" => expires ?? throw new HttpSignatureException("Signature is missing expires param"),
                 "date" => date ?? throw new HttpSignatureException("Signature is missing date header"),
+                "digest" => digest ?? "",
+                "content-type" => contentType ?? "",
                 _ => ""
             });
 
