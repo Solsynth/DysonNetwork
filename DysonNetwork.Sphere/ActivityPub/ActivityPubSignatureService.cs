@@ -99,6 +99,13 @@ public class ActivityPubSignatureService(
             localKey = await keyService.GetOrCreateKeyForActorAsync(actor);
         }
 
+        if (localKey == null || string.IsNullOrEmpty(localKey.PrivateKeyPem))
+        {
+            logger.LogWarning("Still no valid key for actor {ActorUri}, falling back to server key", actor.Uri);
+            await SignOutgoingRequestWithServerKeyAsync(request);
+            return;
+        }
+
         var keyId = $"{actor.Uri}#main-key";
         
         await HttpSignature.SignRequestAsync(request, localKey.PrivateKeyPem, keyId);
@@ -111,20 +118,19 @@ public class ActivityPubSignatureService(
     {
         if (!actorUri.StartsWith("https://"))
         {
-            throw new InvalidOperationException($"Invalid actor URI: {actorUri}");
+            logger.LogWarning("Invalid actor URI: {ActorUri}, using server key", actorUri);
+            await SignOutgoingRequestWithServerKeyAsync(request);
+            return;
         }
 
         var actor = await db.FediverseActors
             .FirstOrDefaultAsync(a => a.Uri == actorUri);
 
-        if (actor == null)
+        if (actor == null || !actor.PublisherId.HasValue)
         {
-            throw new InvalidOperationException($"Actor not found: {actorUri}");
-        }
-
-        if (!actor.PublisherId.HasValue)
-        {
-            throw new InvalidOperationException($"Actor has no publisher: {actorUri}");
+            logger.LogDebug("Actor {ActorUri} not found or has no publisher, using server key", actorUri);
+            await SignOutgoingRequestWithServerKeyAsync(request);
+            return;
         }
 
         await SignOutgoingRequestAsync(request, actor.PublisherId.Value);
