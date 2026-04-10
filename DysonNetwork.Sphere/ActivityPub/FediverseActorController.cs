@@ -12,10 +12,10 @@ namespace DysonNetwork.Sphere.ActivityPub;
 [Route("/api/fediverse/actors")]
 public class FediverseActorController(
     AppDatabase db,
-    ActivityPubDiscoveryService discoveryService,
+    IActorDiscoveryService discoveryService,
     FediverseCachingService cachingService,
     ActivityPubDeliveryService deliveryService,
-    ActivityPubSignatureService signatureService,
+    ISignatureService signatureService,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     ILogger<FediverseActorController> logger

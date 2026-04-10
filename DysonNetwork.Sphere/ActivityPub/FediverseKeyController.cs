@@ -9,7 +9,7 @@ namespace DysonNetwork.Sphere.ActivityPub;
 [AllowAnonymous]
 public class FediverseKeyController(
     AppDatabase db,
-    ActivityPubKeyService keyService,
+    IKeyService keyService,
     ILogger<FediverseKeyController> logger,
     IConfiguration configuration
 ) : ControllerBase

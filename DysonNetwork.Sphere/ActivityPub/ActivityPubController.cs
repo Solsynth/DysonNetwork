@@ -15,9 +15,9 @@ public class ActivityPubController(
     AppDatabase db,
     IConfiguration configuration,
     ILogger<ActivityPubController> logger,
-    ActivityPubSignatureService signatureService,
+    ISignatureService signatureService,
     ActivityHandlerService activityHandler,
-    ActivityPubKeyService keyService,
+    IKeyService keyService,
     ActivityPubObjectFactory objFactory
 ) : ControllerBase
 {

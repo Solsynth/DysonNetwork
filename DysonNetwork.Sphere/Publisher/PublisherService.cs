@@ -29,8 +29,8 @@ public class PublisherService(
     ICacheService cache,
     ILocalizationService localization,
     RemoteAccountService remoteAccounts,
-    ActivityPubKeyService keyService,
-    ActivityPubDiscoveryService discoveryService,
+    IKeyService keyService,
+    IActorDiscoveryService discoveryService,
     IConfiguration configuration,
     ILogger<PublisherService> logger
 )
