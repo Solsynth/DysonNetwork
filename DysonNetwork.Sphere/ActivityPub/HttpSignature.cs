@@ -298,7 +298,9 @@ public static class HttpSignature
         string requestMethod,
         string requestPath,
         string? requestQuery,
-        string? host = null
+        string? host = null,
+        string? created = null,
+        string? expires = null
     )
     {
         var sb = new StringBuilder();
@@ -312,8 +314,8 @@ public static class HttpSignature
             {
                 "(request-target)" => $"{requestMethod.ToLowerInvariant()} {requestPath}{requestQuery ?? ""}",
                 "host" => host ?? "",
-                "(created)" => throw new HttpSignatureException("Signature is missing created param"),
-                "(expires)" => throw new HttpSignatureException("Signature is missing expires param"),
+                "(created)" => created ?? throw new HttpSignatureException("Signature is missing created param"),
+                "(expires)" => expires ?? throw new HttpSignatureException("Signature is missing expires param"),
                 "date" => DateTime.UtcNow.ToString("r"),
                 _ => ""
             });
@@ -345,23 +347,21 @@ public static class HttpSignature
             headers.Add("digest");
         }
 
-        var created = useCreatedHeader ? DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString() : null;
-
-        var signingStringParts = new List<string>();
-        foreach (var header in headers)
+        string? created = null;
+        if (useCreatedHeader)
         {
-            var value = header switch
-            {
-                "(request-target)" => $"{requestMethod.ToLowerInvariant()} {requestPath}{requestQuery ?? ""}",
-                "host" => host ?? "",
-                "date" => DateTime.UtcNow.ToString("r"),
-                "(created)" => created ?? "",
-                _ => ""
-            };
-            signingStringParts.Add($"{header.ToLowerInvariant()}: {value}");
+            headers.Add("(created)");
+            created = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
         }
 
-        result.SigningString = string.Join("\n", signingStringParts);
+        result.SigningString = GenerateSigningString(
+            headers,
+            requestMethod,
+            requestPath,
+            requestQuery,
+            host,
+            created
+        );
         result.Headers = headers;
         result.Created = created;
 
@@ -406,6 +406,7 @@ public static class HttpSignature
         string? created = null;
         if (useCreatedHeader)
         {
+            headers.Add("(created)");
             created = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
         }
 
@@ -414,13 +415,9 @@ public static class HttpSignature
             request.Method.Method,
             request.RequestUri?.AbsolutePath ?? "/",
             request.RequestUri?.Query,
-            hostHeader
+            hostHeader,
+            created
         );
-
-        if (useCreatedHeader && created != null)
-        {
-            signingString += $"\n(created): {created}";
-        }
 
         var actualAlgorithm = algorithm == KeyAlgorithm.HS2019 ? KeyAlgorithm.RSA_SHA256 : algorithm;
 
@@ -435,13 +432,7 @@ public static class HttpSignature
 
         var signatureBase64 = Convert.ToBase64String(signatureBytes);
 
-        var allHeaders = new List<string>(headers);
-        if (useCreatedHeader)
-        {
-            allHeaders.Add("(created)");
-        }
-
-        var signatureHeader = $"keyId=\"{keyId}\",algorithm=\"{algorithm.ToLowerInvariant()}\",headers=\"{string.Join(" ", allHeaders)}\",signature=\"{signatureBase64}\"";
+        var signatureHeader = $"keyId=\"{keyId}\",algorithm=\"{algorithm.ToLowerInvariant()}\",headers=\"{string.Join(" ", headers)}\",signature=\"{signatureBase64}\"";
 
         request.Headers.Remove("Signature");
         request.Headers.Add("Signature", signatureHeader);
