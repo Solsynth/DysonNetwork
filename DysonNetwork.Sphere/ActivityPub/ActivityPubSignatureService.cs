@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
@@ -236,7 +237,76 @@ public class ActivityPubSignatureService(
             return actor.PublicKey;
         }
 
+        logger.LogDebug("Actor {ActorUri} has no public key, trying to fetch from keyId URL: {KeyId}", actorUri, keyId);
+        var publicKey = await FetchPublicKeyFromUrlAsync(keyId);
+        if (!string.IsNullOrEmpty(publicKey))
+        {
+            logger.LogDebug("Got public key from keyId URL. Key length: {Length}", publicKey.Length);
+            if (actor != null)
+            {
+                actor.PublicKey = publicKey;
+                await db.SaveChangesAsync();
+            }
+            return publicKey;
+        }
+
         logger.LogWarning("No public key found for actor: {ActorUri}", actorUri);
+        return null;
+    }
+
+    private async Task<string?> FetchPublicKeyFromUrlAsync(string keyIdUrl)
+    {
+        try
+        {
+            logger.LogDebug("Fetching public key from: {Url}", keyIdUrl);
+            var keyData = await DiscoveryService.FetchActivityAsync(keyIdUrl, null);
+            if (keyData == null)
+            {
+                logger.LogDebug("No data returned from keyId URL: {Url}", keyIdUrl);
+                return null;
+            }
+
+            var publicKeyPem = ExtractPublicKeyFromKeyDocument(keyData);
+            if (!string.IsNullOrEmpty(publicKeyPem))
+            {
+                logger.LogDebug("Extracted public key from key document. Length: {Length}", publicKeyPem.Length);
+                return publicKeyPem;
+            }
+
+            logger.LogDebug("Could not extract public key from key document for: {Url}", keyIdUrl);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning("Failed to fetch public key from {Url}: {Error}", keyIdUrl, ex.Message);
+            return null;
+        }
+    }
+
+    private string? ExtractPublicKeyFromKeyDocument(Dictionary<string, object> keyData)
+    {
+        if (keyData.TryGetValue("publicKeyPem", out var pemObj))
+        {
+            return pemObj switch
+            {
+                JsonElement element => element.GetString(),
+                string str => str,
+                _ => pemObj?.ToString()
+            };
+        }
+
+        if (keyData.TryGetValue("publicKey", out var pkObj))
+        {
+            return pkObj switch
+            {
+                JsonElement element when element.ValueKind == JsonValueKind.String => element.GetString(),
+                JsonElement element when element.ValueKind == JsonValueKind.Object => 
+                    element.TryGetProperty("publicKeyPem", out var nestedPem) ? nestedPem.GetString() : null,
+                string str => str,
+                _ => pkObj?.ToString()
+            };
+        }
+
         return null;
     }
 }
