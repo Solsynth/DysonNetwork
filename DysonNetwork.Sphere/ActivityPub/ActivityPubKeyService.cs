@@ -3,6 +3,7 @@ using System.Text;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using Npgsql;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
@@ -28,26 +29,43 @@ public class ActivityPubKeyService(
             existingKey.PrivateKeyPem = privateKey;
             existingKey.Algorithm = algorithm;
             existingKey.RotatedAt = SystemClock.Instance.GetCurrentInstant();
+            
+            db.Update(existingKey);
             await db.SaveChangesAsync();
             return existingKey;
         }
 
-        var key = new SnFediverseKey
+        try
         {
-            KeyId = $"{actor.Uri}#main-key",
-            KeyPem = publicKey,
-            PrivateKeyPem = privateKey,
-            Algorithm = algorithm,
-            ActorId = actor.Id,
-            PublisherId = actor.PublisherId,
-            CreatedAt = SystemClock.Instance.GetCurrentInstant()
-        };
+            var key = new SnFediverseKey
+            {
+                KeyId = $"{actor.Uri}#main-key",
+                KeyPem = publicKey,
+                PrivateKeyPem = privateKey,
+                Algorithm = algorithm,
+                ActorId = actor.Id,
+                PublisherId = actor.PublisherId,
+                CreatedAt = SystemClock.Instance.GetCurrentInstant()
+            };
 
-        db.FediverseKeys.Add(key);
-        await db.SaveChangesAsync();
+            db.FediverseKeys.Add(key);
+            await db.SaveChangesAsync();
 
-        logger.LogInformation("Generated new key pair for actor: {ActorUri} with algorithm {Algorithm}", actor.Uri, algorithm);
-        return key;
+            logger.LogInformation("Generated new key pair for actor: {ActorUri} with algorithm {Algorithm}", actor.Uri, algorithm);
+            return key;
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx && pgEx.SqlState == "23505")
+        {
+            logger.LogWarning("Race condition: key already exists for actor {ActorUri}, fetching existing", actor.Uri);
+            var reFetchedKey = await db.FediverseKeys
+                .FirstOrDefaultAsync(k => k.ActorId == actor.Id);
+            
+            if (reFetchedKey != null && !string.IsNullOrEmpty(reFetchedKey.PrivateKeyPem))
+                return reFetchedKey;
+            
+            logger.LogError("Even after race condition retry, key is invalid for actor {ActorUri}", actor.Uri);
+            throw;
+        }
     }
 
     public async Task<SnFediverseKey?> GetKeyForActorAsync(Guid actorId)
