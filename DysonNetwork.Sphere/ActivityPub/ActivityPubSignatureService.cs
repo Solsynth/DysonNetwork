@@ -82,19 +82,24 @@ public class ActivityPubSignatureService(
         Guid publisherId
     )
     {
-        var localKey = await keyService.GetKeyByPublisherAsync(publisherId);
+        var actor = await db.FediverseActors
+            .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
+        
+        if (actor == null)
+        {
+            logger.LogWarning("No actor found for publisher: {PublisherId}, falling back to server key", publisherId);
+            await SignOutgoingRequestWithServerKeyAsync(request);
+            return;
+        }
+
+        var localKey = await keyService.GetKeyForActorAsync(actor.Id);
         if (localKey == null || string.IsNullOrEmpty(localKey.PrivateKeyPem))
         {
-            throw new InvalidOperationException($"No key found for publisher: {publisherId}");
+            logger.LogInformation("No key found for actor {ActorUri}, auto-creating key", actor.Uri);
+            localKey = await keyService.GetOrCreateKeyForActorAsync(actor);
         }
 
-        var actorUri = await GetActorUriForPublisherAsync(publisherId);
-        if (string.IsNullOrEmpty(actorUri))
-        {
-            throw new InvalidOperationException($"No actor URI found for publisher: {publisherId}");
-        }
-
-        var keyId = $"{actorUri}#main-key";
+        var keyId = $"{actor.Uri}#main-key";
         
         await HttpSignature.SignRequestAsync(request, localKey.PrivateKeyPem, keyId);
     }

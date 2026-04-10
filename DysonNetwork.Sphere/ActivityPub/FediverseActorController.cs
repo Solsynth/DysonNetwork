@@ -37,6 +37,11 @@ public class FediverseActorController(
         {
             await signatureService.SignOutgoingRequestAsync(request, publisherId.Value);
         }
+        else
+        {
+            logger.LogDebug("No publisher identity for signing, using server key");
+            await signatureService.SignOutgoingRequestWithServerKeyAsync(request);
+        }
     }
 
     [HttpGet("{username}@{instance}")]
