@@ -115,6 +115,8 @@ public static class HttpSignature
             throw new HttpSignatureException("Key PEM is required for verification");
         }
 
+        var dateHeader = context.Request.Headers.Date.FirstOrDefault();
+
         var signingString = GenerateSigningString(
             signature.Headers,
             context.Request.Method,
@@ -122,7 +124,8 @@ public static class HttpSignature
             context.Request.QueryString.HasValue ? context.Request.QueryString.Value : null,
             context.Request.Host.Host,
             signature.Created,
-            signature.Expires
+            signature.Expires,
+            dateHeader
         );
 
         return await VerifySignatureAsync(keyPem, signingString, signature.Signature);
@@ -302,7 +305,8 @@ public static class HttpSignature
         string? requestQuery,
         string? host = null,
         string? created = null,
-        string? expires = null
+        string? expires = null,
+        string? date = null
     )
     {
         var sb = new StringBuilder();
@@ -318,7 +322,7 @@ public static class HttpSignature
                 "host" => host ?? "",
                 "(created)" => created ?? throw new HttpSignatureException("Signature is missing created param"),
                 "(expires)" => expires ?? throw new HttpSignatureException("Signature is missing expires param"),
-                "date" => DateTime.UtcNow.ToString("r"),
+                "date" => date ?? throw new HttpSignatureException("Signature is missing date header"),
                 _ => ""
             });
 
@@ -356,13 +360,17 @@ public static class HttpSignature
             created = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
         }
 
+        var date = DateTime.UtcNow.ToString("r");
+
         result.SigningString = GenerateSigningString(
             headers,
             requestMethod,
             requestPath,
             requestQuery,
             host,
-            created
+            created,
+            null,
+            date
         );
         result.Headers = headers;
         result.Created = created;
@@ -412,13 +420,17 @@ public static class HttpSignature
             created = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
         }
 
+        var date = DateTime.UtcNow.ToString("r");
+
         var signingString = GenerateSigningString(
             headers,
             request.Method.Method,
             request.RequestUri?.AbsolutePath ?? "/",
             request.RequestUri?.Query,
             hostHeader,
-            created
+            created,
+            null,
+            date
         );
 
         var actualAlgorithm = algorithm == KeyAlgorithm.HS2019 ? KeyAlgorithm.RSA_SHA256 : algorithm;
