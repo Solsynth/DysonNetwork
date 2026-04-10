@@ -9,12 +9,15 @@ namespace DysonNetwork.Sphere.ActivityPub;
 public class ActivityPubSignatureService(
     AppDatabase db,
     ActivityPubKeyService keyService,
-    ActivityPubDiscoveryService discoveryService,
     ILogger<ActivityPubSignatureService> logger,
-    IConfiguration configuration
-)
+    IConfiguration configuration,
+    IServiceProvider serviceProvider
+) : ISignatureService
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
+
+    private IActorDiscoveryService? _discoveryService;
+    private IActorDiscoveryService DiscoveryService => _discoveryService ??= serviceProvider.GetRequiredService<IActorDiscoveryService>();
 
     public async Task<(bool isValid, string? actorUri)> VerifyIncomingRequestAsync(HttpContext context)
     {
@@ -163,7 +166,7 @@ public class ActivityPubSignatureService(
                 await db.SaveChangesAsync();
             }
 
-            actor = await discoveryService.GetOrCreateActorWithDataAsync(
+            actor = await DiscoveryService.GetOrCreateActorWithDataAsync(
                 actorUri,
                 actorUri.Split('/').Last(),
                 instance.Id
@@ -179,7 +182,7 @@ public class ActivityPubSignatureService(
 
             if (string.IsNullOrEmpty(actor.PublicKey))
             {
-                await discoveryService.FetchActorDataAsync(actor);
+                await DiscoveryService.FetchActorDataAsync(actor);
             }
         }
 

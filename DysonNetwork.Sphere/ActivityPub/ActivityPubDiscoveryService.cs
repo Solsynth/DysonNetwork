@@ -157,8 +157,8 @@ public partial class ActivityPubDiscoveryService(
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     ILogger<ActivityPubDiscoveryService> logger,
-    ActivityPubSignatureService signatureService
-)
+    ISignatureService signatureService
+) : IActorDiscoveryService
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
     private HttpClient HttpClient => httpClientFactory.CreateClient();

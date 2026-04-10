@@ -224,10 +224,10 @@ public static class ServiceCollectionExtensions
             services.AddScoped<StickerService>();
             services.AddScoped<AutocompletionService>();
             services.AddScoped<ActivityPubKeyService>();
-            services.AddScoped<ActivityPubSignatureService>();
+            services.AddScoped<ISignatureService, ActivityPubSignatureService>();
             services.AddScoped<ActivityHandlerService>();
             services.AddScoped<ActivityPubDeliveryService>();
-            services.AddScoped<ActivityPubDiscoveryService>();
+            services.AddScoped<IActorDiscoveryService, ActivityPubDiscoveryService>();
             services.AddScoped<UserResolver>();
             services.AddScoped<ObjectResolver>();
             services.AddScoped<ActivityPubObjectFactory>();
