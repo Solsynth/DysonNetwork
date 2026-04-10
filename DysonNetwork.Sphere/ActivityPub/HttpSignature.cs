@@ -406,7 +406,6 @@ public static class HttpSignature
         string? created = null;
         if (useCreatedHeader)
         {
-            headers.Add("(created)");
             created = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
         }
 
@@ -420,7 +419,7 @@ public static class HttpSignature
 
         if (useCreatedHeader && created != null)
         {
-            signingString = signingString.Replace("(created): ", $"(created): {created}");
+            signingString += $"\n(created): {created}";
         }
 
         var actualAlgorithm = algorithm == KeyAlgorithm.HS2019 ? KeyAlgorithm.RSA_SHA256 : algorithm;
@@ -436,7 +435,13 @@ public static class HttpSignature
 
         var signatureBase64 = Convert.ToBase64String(signatureBytes);
 
-        var signatureHeader = $"keyId=\"{keyId}\",algorithm=\"{algorithm}\",headers=\"{string.Join(" ", headers)}\",signature=\"{signatureBase64}\"";
+        var allHeaders = new List<string>(headers);
+        if (useCreatedHeader)
+        {
+            allHeaders.Add("(created)");
+        }
+
+        var signatureHeader = $"keyId=\"{keyId}\",algorithm=\"{algorithm.ToLowerInvariant()}\",headers=\"{string.Join(" ", allHeaders)}\",signature=\"{signatureBase64}\"";
 
         request.Headers.Remove("Signature");
         request.Headers.Add("Signature", signatureHeader);
