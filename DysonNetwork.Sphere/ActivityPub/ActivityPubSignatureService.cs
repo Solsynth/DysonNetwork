@@ -81,16 +81,22 @@ public class ActivityPubSignatureService(
         var dateHeader = context.Request.Headers.Date.FirstOrDefault();
         var digestHeader = context.Request.Headers.TryGetValue("digest", out var digestValues) ? digestValues.FirstOrDefault() : null;
         var contentTypeHeader = context.Request.Headers.TryGetValue("Content-Type", out var ctValues) ? ctValues.FirstOrDefault() : null;
+        var hostHeader = context.Request.Headers.Host.ToString();
         logger.LogDebug(
-            "Request headers for signing - Date: {Date}, Digest: {Digest}, ContentType: {ContentType}",
+            "Request headers for signing - Date: {Date}, Digest: {Digest}, ContentType: {ContentType}, Host: {Host}",
             dateHeader ?? "NULL",
             digestHeader ?? "NULL",
-            contentTypeHeader ?? "NULL"
+            contentTypeHeader ?? "NULL",
+            hostHeader
+        );
+        logger.LogDebug(
+            "Using domain for signature verification: {Domain}",
+            Domain
         );
 
         try
         {
-            var isValid = await HttpSignature.VerifyAsync(context, signature, null, keyPem);
+            var isValid = await HttpSignature.VerifyAsync(context, signature, null, keyPem, Domain);
 
             if (!isValid)
             {

@@ -89,7 +89,8 @@ public static class HttpSignature
         HttpContext context,
         HttpSignatureHeader signature,
         IEnumerable<string>? requiredHeaders = null,
-        string? keyPem = null
+        string? keyPem = null,
+        string? hostOverride = null
     )
     {
         requiredHeaders ??= new[] { "(request-target)", "host", "date" };
@@ -121,7 +122,7 @@ public static class HttpSignature
         var requestQuery = rawTarget == null && context.Request.QueryString.HasValue
             ? context.Request.QueryString.Value
             : null;
-        var hostHeader = context.Request.Headers.Host.ToString();
+        var hostHeader = hostOverride ?? context.Request.Headers.Host.ToString();
         var dateHeader = context.Request.Headers["Date"].ToString();
         var digestHeader = context.Request.Headers["Digest"].ToString();
         var contentTypeHeader = context.Request.Headers["Content-Type"].ToString();
