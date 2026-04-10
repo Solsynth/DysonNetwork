@@ -553,7 +553,6 @@ public class AccountService(
         SnAccount account,
         string deviceId,
         string clientDataJson,
-        string authenticatorData,
         string attestationObject)
     {
         var key = $"{PasskeyChallengePrefix}{account.Id}:{deviceId}";
@@ -590,10 +589,11 @@ public class AccountService(
             using var reader = new BinaryReader(ms);
 
             var format = ReadString(reader);
-            if (format != "fido-u2f")
+            if (format != "fido-u2f" && format != "packed")
                 return null;
 
             var statement = new AttestationStatement();
+            statement.Format = format;
 
             var attStmtMap = ReadMap(reader);
             if (attStmtMap.TryGetValue("sig", out var sigValue) && sigValue is byte[] signature)
@@ -601,6 +601,9 @@ public class AccountService(
 
             if (attStmtMap.TryGetValue("x5c", out var x5cValue) && x5cValue is List<object> x5cList && x5cList.Count > 0 && x5cList[0] is byte[] certBytes)
                 statement.AttestationCertificate = certBytes;
+
+            if (attStmtMap.TryGetValue("alg", out var algValue) && algValue is int alg)
+                statement.Algorithm = alg;
 
             var authData = ReadBytes(reader);
             return ParseAuthenticatorData(authData, statement);
@@ -639,6 +642,7 @@ public class AccountService(
             }
         }
 
+        statement.AuthData = authData;
         return statement;
     }
 
@@ -721,27 +725,83 @@ public class AccountService(
         if (root.TryGetProperty("challenge", out var challengeElement) && challengeElement.GetString() != expectedChallenge)
             return false;
 
-        if (statement.AttestationCertificate == null || statement.Signature == null)
-            return false;
-
         var clientDataHash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(clientDataJson));
-        var signedData = new List<byte>();
-        signedData.AddRange(statement.RpIdHash);
-        signedData.Add(0x00);
-        signedData.AddRange(BitConverter.GetBytes(statement.Counter).Reverse());
-        signedData.AddRange(clientDataHash);
 
-        using var ECDsa = System.Security.Cryptography.ECDsa.Create();
-        try
+        if (statement.Format == "packed")
         {
-            ECDsa.ImportSubjectPublicKeyInfo(statement.AttestationCertificate, out _);
-        }
-        catch
-        {
-            return false;
+            if (statement.Signature == null)
+                return false;
+
+            if (statement.AttestationCertificate != null)
+            {
+                var signedData = new List<byte>();
+                signedData.AddRange(statement.AuthData);
+                signedData.AddRange(clientDataHash);
+
+                using var ECDsa = System.Security.Cryptography.ECDsa.Create();
+                try
+                {
+                    ECDsa.ImportSubjectPublicKeyInfo(statement.AttestationCertificate, out _);
+                    return ECDsa.VerifyData(signedData.ToArray(), statement.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256);
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                var signedData = new List<byte>();
+                signedData.AddRange(statement.AuthData);
+                signedData.AddRange(clientDataHash);
+
+                using var ECDsa = System.Security.Cryptography.ECDsa.Create();
+                try
+                {
+                    var keyParams = new System.Security.Cryptography.ECParameters
+                    {
+                        Curve = System.Security.Cryptography.ECCurve.NamedCurves.nistP256,
+                        Q = new System.Security.Cryptography.ECPoint
+                        {
+                            X = statement.PublicKeyX,
+                            Y = statement.PublicKeyY
+                        }
+                    };
+                    ECDsa.ImportParameters(keyParams);
+                    return ECDsa.VerifyData(signedData.ToArray(), statement.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256);
+                }
+                catch
+                {
+                    return false;
+                }
+            }
         }
 
-        return ECDsa.VerifyData(signedData.ToArray(), statement.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256);
+        if (statement.Format == "fido-u2f")
+        {
+            if (statement.AttestationCertificate == null || statement.Signature == null)
+                return false;
+
+            var signedData = new List<byte>();
+            signedData.AddRange(statement.RpIdHash);
+            signedData.Add(0x00);
+            signedData.AddRange(BitConverter.GetBytes(statement.Counter).Reverse());
+            signedData.AddRange(clientDataHash);
+
+            using var ECDsa = System.Security.Cryptography.ECDsa.Create();
+            try
+            {
+                ECDsa.ImportSubjectPublicKeyInfo(statement.AttestationCertificate, out _);
+            }
+            catch
+            {
+                return false;
+            }
+
+            return ECDsa.VerifyData(signedData.ToArray(), statement.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256);
+        }
+
+        return false;
     }
 
     private static string ReadString(BinaryReader reader)
@@ -775,6 +835,7 @@ public class AccountService(
 
     private class AttestationStatement
     {
+        public string Format { get; set; } = null!;
         public byte[] RpIdHash { get; set; } = null!;
         public bool UserPresent { get; set; }
         public bool UserVerified { get; set; }
@@ -784,6 +845,8 @@ public class AccountService(
         public byte[] PublicKeyY { get; set; } = null!;
         public byte[]? AttestationCertificate { get; set; }
         public byte[]? Signature { get; set; }
+        public int Algorithm { get; set; } = -7;
+        public byte[] AuthData { get; set; } = null!;
     }
 
     public async Task DeleteSession(SnAccount account, Guid sessionId)

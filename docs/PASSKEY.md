@@ -143,7 +143,8 @@ After the client creates the credential using the WebAuthn API, send the attesta
 {
   "deviceId": "device-identifier",
   "clientDataJson": "{\"type\":\"webauthn.create\",\"challenge\":\"dG9rZW4...\",\"origin\":\"https://example.com\"}",
-  "attestationObject": "base64-encoded-attestation-object"
+  "attestationObject": "base64-encoded-attestation-object",
+  "deviceName": "MacBook Pro"
 }
 ```
 
@@ -151,7 +152,8 @@ After the client creates the credential using the WebAuthn API, send the attesta
 |-------|------|----------|-------------|
 | `deviceId` | `string` | Yes | Must match the deviceId from step 1 |
 | `clientDataJson` | `string` | Yes | JSON string of client data |
-| `attestationObject` | `string` | Yes | Base64-encoded attestation object |
+| `attestationObject` | `string` | Yes | Base64-encoded CBOR attestation object |
+| `deviceName` | `string` | No | Human-readable device name |
 
 **Response (200):**
 ```json
@@ -191,11 +193,33 @@ const credential = await navigator.credentials.create({
 });
 
 // Send to /factors/passkey/complete:
-// - attestationObject: btoa(String.fromCharCode(...new Uint8Array(credential.response.attestationObject)))
+// - attestationObject: base64 encode of credential.response.attestationObject (Uint8Array)
 // - clientDataJson: new TextDecoder().decode(credential.response.clientDataJSON)
+// - transports: credential.getTransports() (returns ["usb", "nfc", "ble", "internal"])
 ```
 
-## Verification Flow
+### Attestation Object Structure
+
+The `attestationObject` is a CBOR-encoded byte array containing:
+
+```
+{
+  "fmt": "packed" | "fido-u2f",     // Attestation format
+  "attStmt": {                        // Attestation statement (format varies)
+    "alg": -7,                       // Algorithm (ES256)
+    "sig": ArrayBuffer               // Signature
+  },
+  "authData": ArrayBuffer             // Authenticator data (RP ID hash, flags, counter, credential public key)
+}
+```
+
+**Server processing:**
+1. Decode CBOR to extract `fmt`, `attStmt`, and `authData`
+2. Verify attestation signature based on format
+3. Extract credential ID and public key from `authData`
+4. Store credential for future authentication assertions
+
+## Verification Flow (Assertion)
 
 ### Client-Side Assertion Generation
 
@@ -240,7 +264,7 @@ The `VerifyPasskey` method in `AccountService.cs` performs:
 2. **User presence check** - Verifies `UP` flag is set in authenticator data
 3. **Signature verification** - ECDSA P-256 verification using stored public key and constructed signed data
 
-**Signed data construction:**
+**Signed data construction (during authentication):**
 ```
 32 bytes | RpIdHash
 1 byte  | Flags (user present, etc.)
@@ -255,7 +279,7 @@ The `VerifyPasskey` method in `AccountService.cs` performs:
 | 0 | 32 | RP ID Hash (SHA-256) |
 | 32 | 1 | Flags byte |
 | 33 | 4 | Sign Counter (big-endian uint32) |
-| 37+ | Variable | Attested Credential Data (optional) |
+| 37+ | Variable | Attested Credential Data (optional, only during registration) |
 
 ### Flags Byte
 
@@ -265,7 +289,7 @@ The `VerifyPasskey` method in `AccountService.cs` performs:
 | 1 | UV | User Verified |
 | 2 | BE | Backup Eligibility |
 | 3 | BS | Backup State |
-| 4 | AT | Attested Credential Data Present |
+| 4 | AT | Attested Credential Data Present (only in registration) |
 | 5 | ED | Extension Data Present |
 | 6 | N/A | Reserved |
 | 7 | N/A | Reserved |
@@ -358,6 +382,7 @@ Support for credential ID updates when users re-register the same authenticator.
 For cross-device passkeys (e.g., phone as authenticator for laptop sign-in), implement hybrid authentication with:
 - `PRF` extension for key derivation
 - Large blob storage for credential state
+- Store and use `transports` field from registration (`["usb", "nfc", "ble", "internal"]`)
 
 ### Authenticator Metadata
 

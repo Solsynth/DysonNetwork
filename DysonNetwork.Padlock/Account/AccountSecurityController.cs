@@ -202,7 +202,6 @@ public class AccountSecurityController(
             currentUser,
             request.DeviceId,
             request.ClientDataJson,
-            "",
             request.AttestationObject
         );
 
