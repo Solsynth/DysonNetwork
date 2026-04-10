@@ -65,7 +65,8 @@ public class ActivityPubActivityHandler(
         logger.LogDebug("Activity {ActivityType} details: {ActivityContent}",
             activityType, JsonSerializer.Serialize(activity));
 
-        if (!signatureService.VerifyIncomingRequest(context, out var actorUri))
+        var (signatureValid, actorUri) = await signatureService.VerifyIncomingRequestAsync(context);
+        if (!signatureValid)
         {
             logger.LogInformation("Dropping activity due to failed signature verification. Type: {Type}, From: {Actor}",
                 activityType, actor);

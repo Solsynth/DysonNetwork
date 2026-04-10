@@ -101,7 +101,8 @@ public class ActivityPubController(
     )]
     public async Task<IActionResult> PostInbox(string username, [FromBody] Dictionary<string, object> activity)
     {
-        if (!signatureService.VerifyIncomingRequest(HttpContext, out var actorUri))
+        var (signatureValid, actorUri) = await signatureService.VerifyIncomingRequestAsync(HttpContext);
+        if (!signatureValid)
         {
             logger.LogInformation("Dropping activity due to failed signature verification for actor: {ActorUri}", actorUri);
             return Accepted();
@@ -391,50 +392,30 @@ public class ActivityPubController(
 
     private async Task<string> GetPublicKeyAsync(SnPublisher publisher)
     {
-        var publicKeyPem = GetPublisherKey(publisher, "public_key");
+        var actor = await db.FediverseActors
+            .FirstOrDefaultAsync(a => a.PublisherId == publisher.Id);
 
-        if (!string.IsNullOrEmpty(publicKeyPem))
+        if (actor == null)
         {
-            logger.LogInformation("Using existing public key for publisher: {PublisherId}", publisher.Id);
-            return publicKeyPem;
+            logger.LogWarning("No actor found for publisher: {PublisherId}", publisher.Id);
+            return string.Empty;
+        }
+
+        var key = await keyService.GetKeyForActorAsync(actor.Id);
+        if (key != null && !string.IsNullOrEmpty(key.KeyPem))
+        {
+            logger.LogInformation("Using existing key for publisher: {PublisherId}", publisher.Id);
+            return key.KeyPem;
         }
 
         logger.LogInformation("Generating new key pair for publisher: {PublisherId} ({Name})",
             publisher.Id, publisher.Name);
 
-        var (newPrivate, newPublic) = keyService.GenerateKeyPair();
-        SavePublisherKey(publisher, "private_key", newPrivate);
-        SavePublisherKey(publisher, "public_key", newPublic);
-
-        db.Update(publisher);
-        await db.SaveChangesAsync();
+        var newKey = await keyService.GetOrCreateKeyForActorAsync(actor);
 
         logger.LogInformation("Saved new key pair to database for publisher: {PublisherId}", publisher.Id);
 
-        return newPublic;
-    }
-
-    private static string? GetPublisherKey(SnPublisher publisher, string keyName)
-    {
-        return keyName switch
-        {
-            "private_key" => publisher.PrivateKeyPem,
-            "public_key" => publisher.PublicKeyPem,
-            _ => null
-        };
-    }
-
-    private static void SavePublisherKey(SnPublisher publisher, string keyName, string keyValue)
-    {
-        switch (keyName)
-        {
-            case "private_key":
-                publisher.PrivateKeyPem = keyValue;
-                break;
-            case "public_key":
-                publisher.PublicKeyPem = keyValue;
-                break;
-        }
+        return newKey.KeyPem;
     }
 
     [HttpGet("featured")]

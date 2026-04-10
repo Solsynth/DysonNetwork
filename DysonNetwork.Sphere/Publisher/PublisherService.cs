@@ -875,9 +875,7 @@ public class PublisherService(
             await db.SaveChangesAsync();
         }
 
-        var (privateKey, publicKey) = keyService.GenerateKeyPair();
-        publisher.PrivateKeyPem = privateKey;
-        publisher.PublicKeyPem = publicKey;
+        var (privateKey, publicKey) = HttpSignature.GenerateKeyPair();
 
         var assetsBaseUrl = configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
 
@@ -900,6 +898,18 @@ public class PublisherService(
         actor.PublisherId = publisher.Id;
 
         db.Update(publisher);
+        await db.SaveChangesAsync();
+
+        var fediverseKey = new SnFediverseKey
+        {
+            KeyId = $"{actorUrl}#main-key",
+            KeyPem = publicKey,
+            PrivateKeyPem = privateKey,
+            ActorId = actor.Id,
+            PublisherId = publisher.Id,
+            CreatedAt = SystemClock.Instance.GetCurrentInstant()
+        };
+        db.FediverseKeys.Add(fediverseKey);
         await db.SaveChangesAsync();
 
         return actor;

@@ -284,7 +284,10 @@ public class ActivityPubDeliveryWorker(
 
         logger.LogDebug("Sending request to {Inbox}", inboxUrl);
 
-        await signatureService.SignOutgoingRequestAsync(request, actorUri);
+        if (!string.IsNullOrEmpty(actorUri))
+        {
+            await signatureService.SignOutgoingRequestAsync(request, actorUri);
+        }
 
         var response = await client.SendAsync(request, cancellationToken);
         logger.LogDebug("Response from {Inbox}. Status: {Status}", inboxUrl, response.StatusCode);

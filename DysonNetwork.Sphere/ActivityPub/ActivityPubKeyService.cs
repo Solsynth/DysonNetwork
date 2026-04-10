@@ -1,34 +1,138 @@
 using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using DysonNetwork.Shared.Models;
+using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
-public class ActivityPubKeyService(ILogger<ActivityPubKeyService> logger)
+public class ActivityPubKeyService(
+    AppDatabase db,
+    ILogger<ActivityPubKeyService> logger
+)
 {
-    public (string privateKeyPem, string publicKeyPem) GenerateKeyPair()
+    public async Task<SnFediverseKey> GetOrCreateKeyForActorAsync(SnFediverseActor actor)
     {
-        using var rsa = RSA.Create(2048);
-        
-        var privateKey = rsa.ExportRSAPrivateKey();
-        var publicKey = rsa.ExportSubjectPublicKeyInfo();
-        
-        var privateKeyPem = ConvertToPem(privateKey, "RSA PRIVATE KEY");
-        var publicKeyPem = ConvertToPem(publicKey, "PUBLIC KEY");
-        
-        logger.LogInformation("Generated new RSA key pair for ActivityPub");
-        
-        return (privateKeyPem, publicKeyPem);
+        var existingKey = await db.FediverseKeys
+            .FirstOrDefaultAsync(k => k.ActorId == actor.Id);
+
+        if (existingKey != null)
+            return existingKey;
+
+        var (privateKey, publicKey) = HttpSignature.GenerateKeyPair();
+
+        var key = new SnFediverseKey
+        {
+            KeyId = $"{actor.Uri}#main-key",
+            KeyPem = publicKey,
+            PrivateKeyPem = privateKey,
+            ActorId = actor.Id,
+            PublisherId = actor.PublisherId,
+            CreatedAt = SystemClock.Instance.GetCurrentInstant()
+        };
+
+        db.FediverseKeys.Add(key);
+        await db.SaveChangesAsync();
+
+        logger.LogInformation("Generated new key pair for actor: {ActorUri}", actor.Uri);
+        return key;
+    }
+
+    public async Task<SnFediverseKey?> GetKeyForActorAsync(Guid actorId)
+    {
+        return await db.FediverseKeys
+            .FirstOrDefaultAsync(k => k.ActorId == actorId);
+    }
+
+    public async Task<SnFediverseKey?> GetKeyByKeyIdAsync(string keyId)
+    {
+        return await db.FediverseKeys
+            .FirstOrDefaultAsync(k => k.KeyId == keyId);
+    }
+
+    public async Task<SnFediverseKey?> GetKeyByPublisherAsync(Guid publisherId)
+    {
+        return await db.FediverseKeys
+            .FirstOrDefaultAsync(k => k.PublisherId == publisherId);
+    }
+
+    public async Task UpdateKeyForActorAsync(SnFediverseActor actor)
+    {
+        var existingKey = await db.FediverseKeys
+            .FirstOrDefaultAsync(k => k.ActorId == actor.Id);
+
+        if (existingKey != null && !string.IsNullOrEmpty(existingKey.PrivateKeyPem))
+        {
+            logger.LogInformation("Actor already has a key pair: {ActorUri}", actor.Uri);
+            return;
+        }
+
+        var (privateKey, publicKey) = HttpSignature.GenerateKeyPair();
+
+        if (existingKey != null)
+        {
+            existingKey.KeyPem = publicKey;
+            existingKey.PrivateKeyPem = privateKey;
+            existingKey.RotatedAt = SystemClock.Instance.GetCurrentInstant();
+        }
+        else
+        {
+            var key = new SnFediverseKey
+            {
+                KeyId = $"{actor.Uri}#main-key",
+                KeyPem = publicKey,
+                PrivateKeyPem = privateKey,
+                ActorId = actor.Id,
+                PublisherId = actor.PublisherId,
+                CreatedAt = SystemClock.Instance.GetCurrentInstant()
+            };
+
+            db.FediverseKeys.Add(key);
+        }
+
+        await db.SaveChangesAsync();
+        logger.LogInformation("Generated new key pair for actor: {ActorUri}", actor.Uri);
+    }
+
+    public async Task StoreRemoteKeyAsync(string keyId, string keyPem, Guid actorId)
+    {
+        var existingKey = await db.FediverseKeys
+            .FirstOrDefaultAsync(k => k.KeyId == keyId);
+
+        if (existingKey != null)
+        {
+            existingKey.KeyPem = keyPem;
+            existingKey.ActorId = actorId;
+            existingKey.RotatedAt = SystemClock.Instance.GetCurrentInstant();
+        }
+        else
+        {
+            var key = new SnFediverseKey
+            {
+                KeyId = keyId,
+                KeyPem = keyPem,
+                ActorId = actorId,
+                CreatedAt = SystemClock.Instance.GetCurrentInstant()
+            };
+
+            db.FediverseKeys.Add(key);
+        }
+
+        await db.SaveChangesAsync();
+        logger.LogInformation("Stored remote key: {KeyId}", keyId);
     }
 
     public static string Sign(string privateKeyPem, string dataToSign)
     {
-        using var rsa = CreateRsaFromPrivateKeyPem(privateKeyPem);
+        using var rsa = RSA.Create();
+        ImportPrivateKey(rsa, privateKeyPem);
+        
         var signature = rsa.SignData(
             Encoding.UTF8.GetBytes(dataToSign),
             HashAlgorithmName.SHA256,
             RSASignaturePadding.Pkcs1
         );
+        
         return Convert.ToBase64String(signature);
     }
 
@@ -36,11 +140,10 @@ public class ActivityPubKeyService(ILogger<ActivityPubKeyService> logger)
     {
         try
         {
-            using var rsa = CreateRsaFromPublicKeyPem(publicKeyPem);
-            var signature = Convert.FromBase64String(signatureBase64);
+            using var rsa = RSA.Create();
+            ImportPublicKey(rsa, publicKeyPem);
             
-            logger.LogDebug("Attempting signature verification. Key starts with: {KeyStart}", 
-                publicKeyPem[..Math.Min(50, publicKeyPem.Length)]);
+            var signature = Convert.FromBase64String(signatureBase64);
             
             var result = rsa.VerifyData(
                 Encoding.UTF8.GetBytes(data),
@@ -49,52 +152,35 @@ public class ActivityPubKeyService(ILogger<ActivityPubKeyService> logger)
                 RSASignaturePadding.Pkcs1
             );
             
-            logger.LogDebug("Signature verification result: {Result}", result);
             return result;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to verify signature. KeyLength: {KeyLength}, DataLength: {DataLength}, SignatureLength: {SigLength}", 
-                publicKeyPem.Length, data.Length, signatureBase64.Length);
+            logger.LogError(ex, "Failed to verify signature");
             return false;
         }
     }
 
-    private static string ConvertToPem(byte[] keyData, string keyType)
+    private static void ImportPrivateKey(RSA rsa, string privateKeyPem)
     {
-        var sb = new StringBuilder();
-        sb.Append($"-----BEGIN {keyType}-----\n");
-        sb.Append(Convert.ToBase64String(keyData) + "\n");
-        sb.Append($"-----END {keyType}-----");
-        return sb.ToString();
-    }
-
-    private static RSA CreateRsaFromPrivateKeyPem(string privateKeyPem)
-    {
-        var rsa = RSA.Create();
-        
         var lines = privateKeyPem.Split('\n')
             .Where(line => !line.StartsWith("-----") && !string.IsNullOrWhiteSpace(line))
             .ToArray();
-        
+
         var keyBytes = Convert.FromBase64String(string.Join("", lines));
         rsa.ImportRSAPrivateKey(keyBytes, out _);
-        
-        return rsa;
     }
 
-    private static RSA CreateRsaFromPublicKeyPem(string publicKeyPem)
+    private static void ImportPublicKey(RSA rsa, string publicKeyPem)
     {
-        var rsa = RSA.Create();
-        
         var lines = publicKeyPem.Split('\n')
             .Where(line => !line.StartsWith("-----") && !string.IsNullOrWhiteSpace(line))
             .ToArray();
-        
+
         var keyBytes = Convert.FromBase64String(string.Join("", lines));
-        
+
         var isRsaPublicKey = publicKeyPem.Contains("-----BEGIN RSA PUBLIC KEY-----");
-        
+
         if (isRsaPublicKey)
         {
             rsa.ImportRSAPublicKey(keyBytes, out _);
@@ -103,7 +189,5 @@ public class ActivityPubKeyService(ILogger<ActivityPubKeyService> logger)
         {
             rsa.ImportSubjectPublicKeyInfo(keyBytes, out _);
         }
-        
-        return rsa;
     }
 }

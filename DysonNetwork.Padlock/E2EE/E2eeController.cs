@@ -153,8 +153,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     public async Task<ActionResult<BatchCheckMlsReadyResponse>> BatchCheckMlsUsersReady([FromBody] BatchCheckMlsReadyRequest body)
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
-        if (currentUser is null) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var results = new List<MlsUserAvailability>();
         foreach (var accountId in body.AccountIds)
