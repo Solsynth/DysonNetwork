@@ -7,7 +7,7 @@ namespace DysonNetwork.Sphere.ActivityPub;
 
 public class FediverseActorCleanupJob(
     AppDatabase db,
-    ActivityPubDiscoveryService discoveryService,
+    IActorDiscoveryService discoveryService,
     ILogger<FediverseActorCleanupJob> logger,
     IClock clock)
     : IJob

@@ -14,7 +14,7 @@ public class ActivityPubRealmController(
     AppDatabase db,
     RemoteRealmService realmService,
     ActivityPubDeliveryService deliveryService,
-    ActivityPubDiscoveryService discoveryService,
+    IActorDiscoveryService discoveryService,
     IConfiguration configuration,
     ILogger<ActivityPubRealmController> logger
 ) : ControllerBase

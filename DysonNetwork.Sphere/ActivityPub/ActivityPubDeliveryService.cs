@@ -8,7 +8,7 @@ namespace DysonNetwork.Sphere.ActivityPub;
 
 public class ActivityPubDeliveryService(
     AppDatabase db,
-    ActivityPubDiscoveryService discoveryService,
+    IActorDiscoveryService discoveryService,
     ActivityPubQueueService queueService,
     IConfiguration configuration,
     ILogger<ActivityPubDeliveryService> logger,

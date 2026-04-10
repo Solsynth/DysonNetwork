@@ -13,9 +13,9 @@ namespace DysonNetwork.Sphere.ActivityPub;
 
 public class ActivityHandlerService(
     AppDatabase db,
-    ActivityPubSignatureService signatureService,
+    ISignatureService signatureService,
     ActivityPubDeliveryService deliveryService,
-    ActivityPubDiscoveryService discoveryService,
+    IActorDiscoveryService discoveryService,
     FediverseModerationService moderationService,
     ILogger<ActivityHandlerService> logger,
     IConfiguration configuration

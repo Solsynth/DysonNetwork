@@ -11,4 +11,5 @@ public interface IActorDiscoveryService
     Task<SnFediverseActor?> DiscoverActorAsync(string query);
     Task<List<SnFediverseActor>> SearchActorsAsync(string query, int limit = 20, bool includeRemoteDiscovery = false);
     Task FetchActorStatsAsync(SnFediverseActor actor);
+    Task FetchInstanceMetadataAsync(SnFediverseInstance instance);
 }

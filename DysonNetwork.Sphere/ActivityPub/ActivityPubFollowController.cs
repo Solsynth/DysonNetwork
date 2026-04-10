@@ -51,7 +51,7 @@ public class FediverseActorWithFollowStatus : SnFediverseActor
 public class ActivityPubFollowController(
     AppDatabase db,
     ActivityPubDeliveryService deliveryService,
-    ActivityPubDiscoveryService discSrv,
+    IActorDiscoveryService discSrv,
     IConfiguration configuration,
     ILogger<ActivityPubFollowController> logger
 ) : ControllerBase
