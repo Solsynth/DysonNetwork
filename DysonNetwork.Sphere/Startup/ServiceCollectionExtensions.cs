@@ -237,6 +237,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<DeliveryBatchService>();
             services.AddSingleton<DeliveryMetricsService>();
             services.AddScoped<DeliveryDeadLetterService>();
+            services.AddScoped<KeyMigrationService>();
             services.AddScoped<LiveStreamService>();
             services.AddSingleton<LiveKitLivestreamService>();
 

@@ -2,6 +2,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere;
+using DysonNetwork.Sphere.ActivityPub;
 using DysonNetwork.Sphere.Startup;
 using Microsoft.EntityFrameworkCore;
 
@@ -49,6 +50,9 @@ using (var scope = app.Services.CreateScope())
     
     // Initialize Fediverse moderation rules from configuration
     await FediverseModerationConfiguration.InitializeFediverseModerationRulesAsync(scope.ServiceProvider, builder.Configuration);
+    
+    // Initialize Fediverse keys for actors (only if no keys exist)
+    await KeyMigrationService.InitializeOnStartupAsync(scope.ServiceProvider);
 }
 
 // Configure application middleware pipeline
