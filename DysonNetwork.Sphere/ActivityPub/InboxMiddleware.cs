@@ -52,7 +52,7 @@ public class InboxValidationMiddleware(
             return;
         }
 
-        logger.LogInformation("[Inbox] Signature validation passed for actor: {ActorUri}", actorUri);
+        logger.LogInformation("[Inbox] Signature header parsed for actor: {ActorUri}", actorUri);
         context.Items["InboxActorUri"] = actorUri;
 
         await next(context);
