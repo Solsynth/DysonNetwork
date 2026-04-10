@@ -16,8 +16,15 @@ public class ActivityPubKeyService(
         var existingKey = await db.FediverseKeys
             .FirstOrDefaultAsync(k => k.ActorId == actor.Id);
 
-        if (existingKey != null)
+        if (existingKey != null && !string.IsNullOrEmpty(existingKey.PrivateKeyPem))
             return existingKey;
+
+        if (existingKey != null)
+        {
+            logger.LogInformation("Existing key for actor {ActorUri} has no private key, regenerating", actor.Uri);
+            db.FediverseKeys.Remove(existingKey);
+            await db.SaveChangesAsync();
+        }
 
         var (privateKey, publicKey) = HttpSignature.GenerateKeyPair();
 
