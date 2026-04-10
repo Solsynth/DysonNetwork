@@ -62,7 +62,7 @@ public class InboxValidationMiddleware(
 public class InboxActivityMiddleware(
     RequestDelegate next,
     AppDatabase db,
-    ActivityPubDiscoveryService discoveryService,
+    IActorDiscoveryService discoveryService,
     ILogger<InboxActivityMiddleware> logger
 )
 {
