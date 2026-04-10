@@ -78,6 +78,16 @@ public class ActivityPubSignatureService(
             keyPem?.Length > 50 ? keyPem[..50] + "..." : keyPem ?? "null"
         );
 
+        var dateHeader = context.Request.Headers.Date.FirstOrDefault();
+        var digestHeader = context.Request.Headers.TryGetValue("digest", out var digestValues) ? digestValues.FirstOrDefault() : null;
+        var contentTypeHeader = context.Request.Headers.TryGetValue("Content-Type", out var ctValues) ? ctValues.FirstOrDefault() : null;
+        logger.LogDebug(
+            "Request headers for signing - Date: {Date}, Digest: {Digest}, ContentType: {ContentType}",
+            dateHeader ?? "NULL",
+            digestHeader ?? "NULL",
+            contentTypeHeader ?? "NULL"
+        );
+
         try
         {
             var isValid = await HttpSignature.VerifyAsync(context, signature, null, keyPem);

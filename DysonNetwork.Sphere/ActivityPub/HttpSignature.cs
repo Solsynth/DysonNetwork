@@ -170,7 +170,7 @@ public static class HttpSignature
 
         if (!string.IsNullOrEmpty(dateHeader) && DateTime.TryParse(dateHeader, out var dateTime))
         {
-            var skew = DateTime.Now - dateTime.ToLocalTime();
+            var skew = DateTime.UtcNow - dateTime.ToUniversalTime();
 
             if (skew > MaxClockSkew)
             {
@@ -336,7 +336,7 @@ public static class HttpSignature
 
             if (i < headersList.Count - 1)
             {
-                sb.AppendLine();
+                sb.Append('\n');
             }
         }
 
