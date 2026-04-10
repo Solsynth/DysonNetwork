@@ -234,6 +234,9 @@ public static class ServiceCollectionExtensions
             services.AddScoped<FediverseCachingService>();
             services.AddScoped<FediverseModerationService>();
             services.AddSingleton<ActivityPubQueueService>();
+            services.AddSingleton<DeliveryBatchService>();
+            services.AddSingleton<DeliveryMetricsService>();
+            services.AddScoped<DeliveryDeadLetterService>();
             services.AddScoped<LiveStreamService>();
             services.AddSingleton<LiveKitLivestreamService>();
 

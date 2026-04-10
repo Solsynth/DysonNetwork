@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Sphere.ActivityPub;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using NodaTime;
@@ -46,6 +47,7 @@ public class AppDatabase(
     public DbSet<SnFediverseModerationRule> FediverseModerationRules { get; set; } = null!;
     public DbSet<SnFediverseKey> FediverseKeys { get; set; } = null!;
     public DbSet<SnActivityPubDelivery> ActivityPubDeliveries { get; set; } = null!;
+    public DbSet<DeliveryDeadLetter> DeliveryDeadLetters { get; set; } = null!;
     public DbSet<SnBoost> Boosts { get; set; } = null!;
     public DbSet<SnQuoteAuthorization> QuoteAuthorizations { get; set; } = null!;
 
