@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using DysonNetwork.Shared.Models;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -115,16 +116,22 @@ public static class HttpSignature
             throw new HttpSignatureException("Key PEM is required for verification");
         }
 
-        var dateHeader = context.Request.Headers.Date.FirstOrDefault();
-        var digestHeader = context.Request.Headers.TryGetValue("digest", out var digestValues) ? digestValues.FirstOrDefault() : null;
-        var contentTypeHeader = context.Request.Headers.TryGetValue("Content-Type", out var ctValues) ? ctValues.FirstOrDefault() : null;
+        var rawTarget = GetRawRequestTarget(context);
+        var requestPath = rawTarget ?? context.Request.Path.Value ?? "/";
+        var requestQuery = rawTarget == null && context.Request.QueryString.HasValue
+            ? context.Request.QueryString.Value
+            : null;
+        var hostHeader = context.Request.Headers.Host.ToString();
+        var dateHeader = context.Request.Headers["Date"].ToString();
+        var digestHeader = context.Request.Headers["Digest"].ToString();
+        var contentTypeHeader = context.Request.Headers["Content-Type"].ToString();
 
         var signingString = GenerateSigningString(
             signature.Headers,
             context.Request.Method,
-            context.Request.Path.Value ?? "/",
-            context.Request.QueryString.HasValue ? context.Request.QueryString.Value : null,
-            context.Request.Host.Host,
+            requestPath,
+            requestQuery,
+            hostHeader,
             signature.Created,
             signature.Expires,
             dateHeader,
@@ -238,6 +245,12 @@ public static class HttpSignature
         }
 
         return null;
+    }
+
+    private static string? GetRawRequestTarget(HttpContext context)
+    {
+        var rawTarget = context.Features.Get<IHttpRequestFeature>()?.RawTarget;
+        return string.IsNullOrWhiteSpace(rawTarget) ? null : rawTarget;
     }
 
     public static async Task<bool> VerifySignatureAsync(string keyPem, string signingString, byte[] signatureBytes, string algorithm = KeyAlgorithm.RSA_SHA256)
