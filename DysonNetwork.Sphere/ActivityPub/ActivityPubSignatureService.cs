@@ -9,6 +9,7 @@ namespace DysonNetwork.Sphere.ActivityPub;
 public class ActivityPubSignatureService(
     AppDatabase db,
     ActivityPubKeyService keyService,
+    IServerSigningKeyService serverKeyService,
     ILogger<ActivityPubSignatureService> logger,
     IConfiguration configuration,
     IServiceProvider serviceProvider
@@ -122,6 +123,27 @@ public class ActivityPubSignatureService(
         }
 
         await SignOutgoingRequestAsync(request, actor.PublisherId.Value);
+    }
+
+    public async Task SignOutgoingRequestWithServerKeyAsync(HttpRequestMessage request)
+    {
+        try
+        {
+            var (publicKey, privateKey) = await serverKeyService.GetOrCreateKeyAsync();
+            var keyId = serverKeyService.KeyId;
+
+            logger.LogDebug("Signing request with server key. KeyId: {KeyId}, Target: {Url}", 
+                keyId, request.RequestUri);
+
+            await HttpSignature.SignRequestAsync(request, privateKey, keyId);
+
+            logger.LogDebug("Request signed successfully with server key: {KeyId}", keyId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to sign request with server key");
+            throw;
+        }
     }
 
     private async Task<string?> GetActorUriForPublisherAsync(Guid publisherId)

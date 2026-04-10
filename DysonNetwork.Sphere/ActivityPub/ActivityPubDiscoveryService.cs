@@ -169,7 +169,13 @@ public partial class ActivityPubDiscoveryService(
     {
         if (publisherId.HasValue)
         {
+            logger.LogDebug("Signing request with publisher key: {PublisherId}", publisherId.Value);
             await signatureService.SignOutgoingRequestAsync(request, publisherId.Value);
+        }
+        else
+        {
+            logger.LogDebug("Signing request with server root key for federation");
+            await signatureService.SignOutgoingRequestWithServerKeyAsync(request);
         }
     }
 
@@ -866,11 +872,23 @@ public partial class ActivityPubDiscoveryService(
             request.Headers.Date = DateTimeOffset.UtcNow;
             request.Headers.Host = new Uri(actor.Uri).Host;
 
+            logger.LogDebug("Fetching actor with headers - Host: {Host}, Date: {Date}, Accept: {Accept}",
+                new Uri(actor.Uri).Host, request.Headers.Date, request.Headers.Accept);
+
             await SignRequestAsync(request);
 
+            logger.LogDebug("Request signed, sending to {Url}", actor.Uri);
+
             var response = await HttpClient.SendAsync(request);
+            
             if (!response.IsSuccessStatusCode)
             {
+                var responseHeaders = string.Join(", ", response.Headers.Select(h => $"{h.Key}={string.Join(",", h.Value)}"));
+                var responseBody = await response.Content.ReadAsStringAsync();
+                
+                logger.LogWarning("Actor fetch returned {StatusCode} for {Url}. Response headers: {Headers}. Body: {Body}",
+                    response.StatusCode, actor.Uri, responseHeaders, responseBody.Length > 500 ? responseBody[..500] + "..." : responseBody);
+
                 if ((int)response.StatusCode >= 400 && (int)response.StatusCode < 500)
                 {
                     logger.LogWarning("Actor fetch returned {StatusCode} for {Url}, cleaning up actor and all related data",
@@ -1080,21 +1098,32 @@ public partial class ActivityPubDiscoveryService(
     {
         try
         {
+            logger.LogInformation("Fetching activity from {Uri}", uri);
+
             var request = new HttpRequestMessage(HttpMethod.Get, uri);
             request.Headers.Accept.ParseAdd("application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"");
             request.Headers.Accept.ParseAdd("application/activity+json");
             request.Headers.Add("User-Agent", $"DysonNetwork/1.0 (https://{Domain})");
-            request.Headers.Accept.ParseAdd("application/activity+json");
 
             request.Headers.Date = DateTimeOffset.UtcNow;
             request.Headers.Host = new Uri(uri).Host;
+            
+            logger.LogDebug("Fetching activity with headers - Host: {Host}, Date: {Date}, Accept: {Accept}",
+                new Uri(uri).Host, request.Headers.Date, request.Headers.Accept);
+
             await SignRequestAsync(request);
+
+            logger.LogDebug("Request signed, sending to {Url}", uri);
 
             var response = await HttpClient.SendAsync(request);
             
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogWarning("Failed to fetch activity from {Uri}: {StatusCode}", uri, response.StatusCode);
+                var responseHeaders = string.Join(", ", response.Headers.Select(h => $"{h.Key}={string.Join(",", h.Value)}"));
+                var responseBody = await response.Content.ReadAsStringAsync();
+                
+                logger.LogWarning("Failed to fetch activity from {Uri}: {StatusCode}. Response headers: {Headers}. Body: {Body}",
+                    uri, response.StatusCode, responseHeaders, responseBody.Length > 500 ? responseBody[..500] + "..." : responseBody);
                 return null;
             }
 
