@@ -120,7 +120,9 @@ public static class HttpSignature
             context.Request.Method,
             context.Request.Path.Value ?? "/",
             context.Request.QueryString.HasValue ? context.Request.QueryString.Value : null,
-            context.Request.Host.Host
+            context.Request.Host.Host,
+            signature.Created,
+            signature.Expires
         );
 
         return await VerifySignatureAsync(keyPem, signingString, signature.Signature);
