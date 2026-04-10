@@ -1,6 +1,8 @@
 using System.Text.Json;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using NodaTime;
+using NodaTime.Serialization.SystemTextJson;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
@@ -46,7 +48,7 @@ public class ServerSigningKeyService : IServerSigningKeyService
 
         _logger.LogInformation("No server signing key found, generating new one at {Path}", _keyPath);
 
-        var (publicKey, privateKey) = HttpSignature.GenerateKeyPair();
+        var (privateKey, publicKey) = HttpSignature.GenerateKeyPair();
 
         key = new ServerSigningKeyData
         {
@@ -79,7 +81,7 @@ public class ServerSigningKeyService : IServerSigningKeyService
     {
         _logger.LogInformation("Rotating server signing key");
 
-        var (publicKey, privateKey) = HttpSignature.GenerateKeyPair();
+        var (privateKey, publicKey) = HttpSignature.GenerateKeyPair();
 
         var key = new ServerSigningKeyData
         {
@@ -104,10 +106,7 @@ public class ServerSigningKeyService : IServerSigningKeyService
                 return null;
 
             var json = await File.ReadAllTextAsync(_keyPath);
-            return JsonSerializer.Deserialize<ServerSigningKeyData>(json, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
+            return JsonSerializer.Deserialize<ServerSigningKeyData>(json, InfraObjectCoder.SerializerOptions);
         }
         catch (Exception ex)
         {
@@ -126,10 +125,7 @@ public class ServerSigningKeyService : IServerSigningKeyService
                 Directory.CreateDirectory(directory);
             }
 
-            var json = JsonSerializer.Serialize(key, new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
+            var json = JsonSerializer.Serialize(key, InfraObjectCoder.SerializerOptions);
 
             await File.WriteAllTextAsync(_keyPath, json);
         }
