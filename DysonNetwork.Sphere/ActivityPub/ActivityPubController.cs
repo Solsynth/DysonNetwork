@@ -1,4 +1,6 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.ActivityStreams;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +16,7 @@ public class ActivityPubController(
     IConfiguration configuration,
     ILogger<ActivityPubController> logger,
     ActivityPubSignatureService signatureService,
-    ActivityPubActivityHandler activityHandler,
+    ActivityHandlerService activityHandler,
     ActivityPubKeyService keyService,
     ActivityPubObjectFactory objFactory
 ) : ControllerBase
@@ -101,25 +103,25 @@ public class ActivityPubController(
     )]
     public async Task<IActionResult> PostInbox(string username, [FromBody] Dictionary<string, object> activity)
     {
-        var (signatureValid, actorUri) = await signatureService.VerifyIncomingRequestAsync(HttpContext);
-        if (!signatureValid)
+        var activityType = activity.GetValueOrDefault("type")?.ToString();
+        
+        if (string.IsNullOrEmpty(activityType))
         {
-            logger.LogInformation("Dropping activity due to failed signature verification for actor: {ActorUri}", actorUri);
-            return Accepted();
+            logger.LogWarning("Missing activity type");
+            return BadRequest(new { error = "Missing activity type" });
         }
 
-        var success = await activityHandler.HandleIncomingActivityAsync(HttpContext, username, activity);
+        var result = await activityHandler.ProcessActivityAsync(HttpContext, username, activity);
 
-        if (!success)
+        return result switch
         {
-            logger.LogWarning("Failed to process activity for actor {Username}", username);
-            return BadRequest(new { error = "Failed to process activity" });
-        }
-
-        logger.LogInformation("Successfully processed activity for actor {Username}: {Type}", username,
-            activity.GetValueOrDefault("type")?.ToString());
-
-        return Accepted();
+            ActivityResult.Success => Accepted(),
+            ActivityResult.Rejected => Unauthorized(),
+            ActivityResult.BadRequest => BadRequest(),
+            ActivityResult.NotFound => NotFound(),
+            ActivityResult.NotSupported => StatusCode(422, new { error = "Unsupported activity type" }),
+            _ => Accepted()
+        };
     }
 
     [HttpGet("outbox")]
