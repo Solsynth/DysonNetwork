@@ -1,9 +1,6 @@
+using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
-using NodaTime;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
@@ -19,27 +16,37 @@ public class ActivityPubSignatureService(
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
 
     private IActorDiscoveryService? _discoveryService;
-    private IActorDiscoveryService DiscoveryService => _discoveryService ??= serviceProvider.GetRequiredService<IActorDiscoveryService>();
+    private IActorDiscoveryService DiscoveryService =>
+        _discoveryService ??= serviceProvider.GetRequiredService<IActorDiscoveryService>();
 
-    public async Task<(bool isValid, string? actorUri)> VerifyIncomingRequestAsync(HttpContext context)
+    public async Task<(bool isValid, string? actorUri)> VerifyIncomingRequestAsync(
+        HttpContext context
+    )
     {
         var actorUri = (string?)null;
-        
+
         if (!context.Request.Headers.TryGetValue("Signature", out var signatureHeader))
         {
-            logger.LogWarning("Request missing Signature header. Path: {Path}", context.Request.Path);
+            logger.LogWarning(
+                "Request missing Signature header. Path: {Path}",
+                context.Request.Path
+            );
             return (false, null);
         }
 
         var headerValue = signatureHeader.ToString();
         logger.LogDebug("Verifying signature. Path: {Path}", context.Request.Path);
-        
+
         HttpSignatureHeader signature;
         try
         {
             signature = HttpSignature.Parse(headerValue);
-            logger.LogDebug("Parsed signature. KeyId: {KeyId}, Algorithm: {Algorithm}, Headers: {Headers}", 
-                signature.KeyId, signature.Algorithm, string.Join(" ", signature.Headers));
+            logger.LogDebug(
+                "Parsed signature. KeyId: {KeyId}, Algorithm: {Algorithm}, Headers: {Headers}",
+                signature.KeyId,
+                signature.Algorithm,
+                string.Join(" ", signature.Headers)
+            );
         }
         catch (HttpSignatureException ex)
         {
@@ -48,8 +55,12 @@ public class ActivityPubSignatureService(
         }
 
         actorUri = signature.KeyId.Split('#')[0];
-        
-        logger.LogDebug("Extracted actorUri from keyId: {ActorUri} (from {KeyId})", actorUri, signature.KeyId);
+
+        logger.LogDebug(
+            "Extracted actorUri from keyId: {ActorUri} (from {KeyId})",
+            actorUri,
+            signature.KeyId
+        );
 
         var keyPem = await GetOrFetchPublicKeyAsync(signature.KeyId);
         if (string.IsNullOrEmpty(keyPem))
@@ -58,44 +69,66 @@ public class ActivityPubSignatureService(
             return (false, null);
         }
 
-        logger.LogDebug("Got public key for verification. Key length: {Length}", keyPem?.Length ?? 0);
+        logger.LogDebug(
+            "Got public key for verification. Key length: {Length}",
+            keyPem?.Length ?? 0
+        );
+        logger.LogDebug(
+            "Public key preview: {KeyPreview}",
+            keyPem?.Length > 50 ? keyPem[..50] + "..." : keyPem ?? "null"
+        );
 
         try
         {
             var isValid = await HttpSignature.VerifyAsync(context, signature, null, keyPem);
-            
+
             if (!isValid)
             {
-                logger.LogWarning("Signature verification failed for actor: {ActorUri} (keyId: {KeyId})", actorUri, signature.KeyId);
-                logger.LogDebug("Request details - Method: {Method}, Path: {Path}, Query: {Query}, Host: {Host}", 
-                    context.Request.Method, context.Request.Path, context.Request.QueryString, context.Request.Host);
+                logger.LogWarning(
+                    "Signature verification failed for actor: {ActorUri} (keyId: {KeyId})",
+                    actorUri,
+                    signature.KeyId
+                );
+                logger.LogDebug(
+                    "Request details - Method: {Method}, Path: {Path}, Query: {Query}, Host: {Host}",
+                    context.Request.Method,
+                    context.Request.Path,
+                    context.Request.QueryString,
+                    context.Request.Host
+                );
             }
             else
             {
-                logger.LogInformation("Signature verified successfully for actor: {ActorUri}", actorUri);
+                logger.LogInformation(
+                    "Signature verified successfully for actor: {ActorUri}",
+                    actorUri
+                );
             }
-            
+
             return (isValid, isValid ? actorUri : null);
         }
         catch (HttpSignatureException ex)
         {
-            logger.LogWarning("Signature validation error for actor {ActorUri} (keyId: {KeyId}): {Error}", 
-                actorUri, signature.KeyId, ex.Message);
+            logger.LogWarning(
+                "Signature validation error for actor {ActorUri} (keyId: {KeyId}): {Error}",
+                actorUri,
+                signature.KeyId,
+                ex.Message
+            );
             return (false, null);
         }
     }
 
-    public async Task SignOutgoingRequestAsync(
-        HttpRequestMessage request,
-        Guid publisherId
-    )
+    public async Task SignOutgoingRequestAsync(HttpRequestMessage request, Guid publisherId)
     {
-        var actor = await db.FediverseActors
-            .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
-        
+        var actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.PublisherId == publisherId);
+
         if (actor == null)
         {
-            logger.LogWarning("No actor found for publisher: {PublisherId}, falling back to server key", publisherId);
+            logger.LogWarning(
+                "No actor found for publisher: {PublisherId}, falling back to server key",
+                publisherId
+            );
             await SignOutgoingRequestWithServerKeyAsync(request);
             return;
         }
@@ -103,26 +136,29 @@ public class ActivityPubSignatureService(
         var localKey = await keyService.GetKeyForActorAsync(actor.Id);
         if (localKey == null || string.IsNullOrEmpty(localKey.PrivateKeyPem))
         {
-            logger.LogInformation("No key found for actor {ActorUri}, auto-creating key", actor.Uri);
+            logger.LogInformation(
+                "No key found for actor {ActorUri}, auto-creating key",
+                actor.Uri
+            );
             localKey = await keyService.GetOrCreateKeyForActorAsync(actor);
         }
 
         if (localKey == null || string.IsNullOrEmpty(localKey.PrivateKeyPem))
         {
-            logger.LogWarning("Still no valid key for actor {ActorUri}, falling back to server key", actor.Uri);
+            logger.LogWarning(
+                "Still no valid key for actor {ActorUri}, falling back to server key",
+                actor.Uri
+            );
             await SignOutgoingRequestWithServerKeyAsync(request);
             return;
         }
 
         var keyId = $"{actor.Uri}#main-key";
-        
+
         await HttpSignature.SignRequestAsync(request, localKey.PrivateKeyPem, keyId);
     }
 
-    public async Task SignOutgoingRequestAsync(
-        HttpRequestMessage request,
-        string actorUri
-    )
+    public async Task SignOutgoingRequestAsync(HttpRequestMessage request, string actorUri)
     {
         if (!actorUri.StartsWith("https://"))
         {
@@ -131,12 +167,14 @@ public class ActivityPubSignatureService(
             return;
         }
 
-        var actor = await db.FediverseActors
-            .FirstOrDefaultAsync(a => a.Uri == actorUri);
+        var actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.Uri == actorUri);
 
         if (actor == null || !actor.PublisherId.HasValue)
         {
-            logger.LogDebug("Actor {ActorUri} not found or has no publisher, using server key", actorUri);
+            logger.LogDebug(
+                "Actor {ActorUri} not found or has no publisher, using server key",
+                actorUri
+            );
             await SignOutgoingRequestWithServerKeyAsync(request);
             return;
         }
@@ -151,8 +189,11 @@ public class ActivityPubSignatureService(
             var (publicKey, privateKey) = await serverKeyService.GetOrCreateKeyAsync();
             var keyId = serverKeyService.KeyId;
 
-            logger.LogDebug("Signing request with server key. KeyId: {KeyId}, Target: {Url}", 
-                keyId, request.RequestUri);
+            logger.LogDebug(
+                "Signing request with server key. KeyId: {KeyId}, Target: {Url}",
+                keyId,
+                request.RequestUri
+            );
 
             await HttpSignature.SignRequestAsync(request, privateKey, keyId);
 
@@ -167,18 +208,16 @@ public class ActivityPubSignatureService(
 
     private async Task<string?> GetActorUriForPublisherAsync(Guid publisherId)
     {
-        var actor = await db.FediverseActors
-            .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
-        
+        var actor = await db.FediverseActors.FirstOrDefaultAsync(a => a.PublisherId == publisherId);
+
         return actor?.Uri;
     }
 
     private async Task<string?> GetOrFetchPublicKeyAsync(string keyId)
     {
         var actorUri = keyId.Split('#')[0];
-        
-        var cachedKey = await db.FediverseKeys
-            .FirstOrDefaultAsync(k => k.KeyId == keyId);
+
+        var cachedKey = await db.FediverseKeys.FirstOrDefaultAsync(k => k.KeyId == keyId);
 
         if (cachedKey != null && !string.IsNullOrEmpty(cachedKey.KeyPem))
         {
@@ -186,26 +225,25 @@ public class ActivityPubSignatureService(
             return cachedKey.KeyPem;
         }
 
-        logger.LogDebug("No cached key for keyId: {KeyId}, looking up actor by URI: {ActorUri}", keyId, actorUri);
+        logger.LogDebug(
+            "No cached key for keyId: {KeyId}, looking up actor by URI: {ActorUri}",
+            keyId,
+            actorUri
+        );
 
-        var actor = await db.FediverseActors
-            .IgnoreQueryFilters()
+        var actor = await db
+            .FediverseActors.IgnoreQueryFilters()
             .Include(a => a.Instance)
             .FirstOrDefaultAsync(a => a.Uri == actorUri);
 
         if (actor == null)
         {
             var domain = new Uri(actorUri).Host;
-            var instance = await db.FediverseInstances
-                .FirstOrDefaultAsync(i => i.Domain == domain);
+            var instance = await db.FediverseInstances.FirstOrDefaultAsync(i => i.Domain == domain);
 
             if (instance == null)
             {
-                instance = new SnFediverseInstance
-                {
-                    Domain = domain,
-                    Name = domain
-                };
+                instance = new SnFediverseInstance { Domain = domain, Name = domain };
                 db.FediverseInstances.Add(instance);
                 await db.SaveChangesAsync();
             }
@@ -232,16 +270,26 @@ public class ActivityPubSignatureService(
 
         if (actor != null && !string.IsNullOrEmpty(actor.PublicKey))
         {
-            logger.LogDebug("Got public key from actor {ActorUri}. Key length: {Length}", 
-                actorUri, actor.PublicKey.Length);
+            logger.LogDebug(
+                "Got public key from actor {ActorUri}. Key length: {Length}",
+                actorUri,
+                actor.PublicKey.Length
+            );
             return actor.PublicKey;
         }
 
-        logger.LogDebug("Actor {ActorUri} has no public key, trying to fetch from keyId URL: {KeyId}", actorUri, keyId);
+        logger.LogDebug(
+            "Actor {ActorUri} has no public key, trying to fetch from keyId URL: {KeyId}",
+            actorUri,
+            keyId
+        );
         var publicKey = await FetchPublicKeyFromUrlAsync(keyId);
         if (!string.IsNullOrEmpty(publicKey))
         {
-            logger.LogDebug("Got public key from keyId URL. Key length: {Length}", publicKey.Length);
+            logger.LogDebug(
+                "Got public key from keyId URL. Key length: {Length}",
+                publicKey.Length
+            );
             if (actor != null)
             {
                 actor.PublicKey = publicKey;
@@ -269,7 +317,10 @@ public class ActivityPubSignatureService(
             var publicKeyPem = ExtractPublicKeyFromKeyDocument(keyData);
             if (!string.IsNullOrEmpty(publicKeyPem))
             {
-                logger.LogDebug("Extracted public key from key document. Length: {Length}", publicKeyPem.Length);
+                logger.LogDebug(
+                    "Extracted public key from key document. Length: {Length}",
+                    publicKeyPem.Length
+                );
                 return publicKeyPem;
             }
 
@@ -278,7 +329,11 @@ public class ActivityPubSignatureService(
         }
         catch (Exception ex)
         {
-            logger.LogWarning("Failed to fetch public key from {Url}: {Error}", keyIdUrl, ex.Message);
+            logger.LogWarning(
+                "Failed to fetch public key from {Url}: {Error}",
+                keyIdUrl,
+                ex.Message
+            );
             return null;
         }
     }
@@ -291,7 +346,7 @@ public class ActivityPubSignatureService(
             {
                 JsonElement element => element.GetString(),
                 string str => str,
-                _ => pemObj?.ToString()
+                _ => pemObj?.ToString(),
             };
         }
 
@@ -299,14 +354,18 @@ public class ActivityPubSignatureService(
         {
             return pkObj switch
             {
-                JsonElement element when element.ValueKind == JsonValueKind.String => element.GetString(),
-                JsonElement element when element.ValueKind == JsonValueKind.Object => 
-                    element.TryGetProperty("publicKeyPem", out var nestedPem) ? nestedPem.GetString() : null,
+                JsonElement element when element.ValueKind == JsonValueKind.String =>
+                    element.GetString(),
+                JsonElement element when element.ValueKind == JsonValueKind.Object =>
+                    element.TryGetProperty("publicKeyPem", out var nestedPem)
+                        ? nestedPem.GetString()
+                        : null,
                 string str => str,
-                _ => pkObj?.ToString()
+                _ => pkObj?.ToString(),
             };
         }
 
         return null;
     }
 }
+
