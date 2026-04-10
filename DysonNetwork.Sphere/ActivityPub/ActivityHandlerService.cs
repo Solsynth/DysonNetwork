@@ -40,7 +40,7 @@ public class ActivityHandlerService(
         var (signatureValid, actorUri) = await signatureService.VerifyIncomingRequestAsync(context);
         if (!signatureValid || string.IsNullOrEmpty(actorUri))
         {
-            logger.LogWarning("[Inbox] Signature verification failed for {Type} from {Actor}. Type: {Type}", 
+            logger.LogWarning("[Inbox] Signature verification failed for {Type} from {Actor}", 
                 activityType, actorUri);
             return ActivityResult.Rejected;
         }
