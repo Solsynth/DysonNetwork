@@ -228,6 +228,8 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ActivityHandlerService>();
             services.AddScoped<ActivityPubDeliveryService>();
             services.AddScoped<ActivityPubDiscoveryService>();
+            services.AddScoped<UserResolver>();
+            services.AddScoped<ObjectResolver>();
             services.AddScoped<ActivityPubObjectFactory>();
             services.AddScoped<FediverseCachingService>();
             services.AddScoped<FediverseModerationService>();
