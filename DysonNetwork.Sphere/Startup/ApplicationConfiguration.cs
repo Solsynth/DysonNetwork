@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Sphere.ActivityPub;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
@@ -20,6 +21,10 @@ public static class ApplicationConfiguration
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseMiddleware<RemotePermissionMiddleware>();
+
+        app.UseInboxRateLimiting();
+        app.UseInboxValidation();
+        app.UseInboxActivityParsing();
 
         app.MapControllers();
 
