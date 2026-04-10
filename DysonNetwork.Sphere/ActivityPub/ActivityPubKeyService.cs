@@ -19,14 +19,18 @@ public class ActivityPubKeyService(
         if (existingKey != null && !string.IsNullOrEmpty(existingKey.PrivateKeyPem))
             return existingKey;
 
+        var (privateKey, publicKey) = HttpSignature.GenerateKeyPair();
+
         if (existingKey != null)
         {
-            logger.LogInformation("Existing key for actor {ActorUri} has no private key, regenerating", actor.Uri);
-            db.FediverseKeys.Remove(existingKey);
+            logger.LogInformation("Existing key for actor {ActorUri} has no private key, updating with new key", actor.Uri);
+            existingKey.KeyPem = publicKey;
+            existingKey.PrivateKeyPem = privateKey;
+            existingKey.Algorithm = algorithm;
+            existingKey.RotatedAt = SystemClock.Instance.GetCurrentInstant();
             await db.SaveChangesAsync();
+            return existingKey;
         }
-
-        var (privateKey, publicKey) = HttpSignature.GenerateKeyPair();
 
         var key = new SnFediverseKey
         {
