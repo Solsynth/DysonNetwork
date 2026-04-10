@@ -37,6 +37,8 @@ public class ActivityPubSignatureService(
         try
         {
             signature = HttpSignature.Parse(headerValue);
+            logger.LogDebug("Parsed signature. KeyId: {KeyId}, Algorithm: {Algorithm}, Headers: {Headers}", 
+                signature.KeyId, signature.Algorithm, string.Join(" ", signature.Headers));
         }
         catch (HttpSignatureException ex)
         {
@@ -46,14 +48,16 @@ public class ActivityPubSignatureService(
 
         actorUri = signature.KeyId.Split('#')[0];
         
-        logger.LogDebug("Verifying signature for actor: {ActorUri}", actorUri);
+        logger.LogDebug("Extracted actorUri from keyId: {ActorUri} (from {KeyId})", actorUri, signature.KeyId);
 
-        var keyPem = await GetOrFetchPublicKeyAsync(actorUri);
+        var keyPem = await GetOrFetchPublicKeyAsync(signature.KeyId);
         if (string.IsNullOrEmpty(keyPem))
         {
-            logger.LogWarning("Could not fetch public key for actor: {ActorUri}", actorUri);
+            logger.LogWarning("Could not fetch public key for keyId: {KeyId}", signature.KeyId);
             return (false, null);
         }
+
+        logger.LogDebug("Got public key for verification. Key length: {Length}", keyPem?.Length ?? 0);
 
         try
         {
@@ -61,7 +65,9 @@ public class ActivityPubSignatureService(
             
             if (!isValid)
             {
-                logger.LogWarning("Signature verification failed for actor: {ActorUri}", actorUri);
+                logger.LogWarning("Signature verification failed for actor: {ActorUri} (keyId: {KeyId})", actorUri, signature.KeyId);
+                logger.LogDebug("Request details - Method: {Method}, Path: {Path}, Query: {Query}, Host: {Host}", 
+                    context.Request.Method, context.Request.Path, context.Request.QueryString, context.Request.Host);
             }
             else
             {
@@ -72,7 +78,8 @@ public class ActivityPubSignatureService(
         }
         catch (HttpSignatureException ex)
         {
-            logger.LogWarning("Signature validation error for actor {ActorUri}: {Error}", actorUri, ex.Message);
+            logger.LogWarning("Signature validation error for actor {ActorUri} (keyId: {KeyId}): {Error}", 
+                actorUri, signature.KeyId, ex.Message);
             return (false, null);
         }
     }
@@ -174,8 +181,11 @@ public class ActivityPubSignatureService(
 
         if (cachedKey != null && !string.IsNullOrEmpty(cachedKey.KeyPem))
         {
+            logger.LogDebug("Found cached key for keyId: {KeyId}", keyId);
             return cachedKey.KeyPem;
         }
+
+        logger.LogDebug("No cached key for keyId: {KeyId}, looking up actor by URI: {ActorUri}", keyId, actorUri);
 
         var actor = await db.FediverseActors
             .IgnoreQueryFilters()
@@ -221,6 +231,8 @@ public class ActivityPubSignatureService(
 
         if (actor != null && !string.IsNullOrEmpty(actor.PublicKey))
         {
+            logger.LogDebug("Got public key from actor {ActorUri}. Key length: {Length}", 
+                actorUri, actor.PublicKey.Length);
             return actor.PublicKey;
         }
 
