@@ -105,6 +105,9 @@ public class SnFediverseActor : ModelBase
     [JsonPropertyName("last_activity_at")]
     public Instant? LastActivityAt { get; set; }
 
+    [JsonPropertyName("outbox_fetched_at")]
+    public Instant? OutboxFetchedAt { get; set; }
+
     [JsonPropertyName("publisher_id")]
     public Guid? PublisherId { get; set; }
 

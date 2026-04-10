@@ -100,6 +100,13 @@ public class ActivityPubQueueService(
             }
         }
     }
+
+    public async Task EnqueueOutboxBackfillAsync(ActivityPubOutboxBackfillMessage message)
+    {
+        var rawMessage = InfraObjectCoder.ConvertObjectToByteString(message).ToByteArray();
+        await nats.PublishAsync(OutboxBackfillService.QueueName, rawMessage);
+        logger.LogDebug("Enqueued outbox backfill for {ActorUri}", message.ActorUri);
+    }
 }
 
 public class ActivityPubDeliveryBatch
@@ -166,4 +173,12 @@ public class ActivityPubDeliveryBatchMessage
     public string InboxUri { get; set; } = string.Empty;
     public string ActorUri { get; set; } = string.Empty;
     public List<ActivityPubDeliveryMessage> Deliveries { get; set; } = [];
+}
+
+public class ActivityPubOutboxBackfillMessage
+{
+    public Guid ActorId { get; set; }
+    public string ActorUri { get; set; } = string.Empty;
+    public string OutboxUri { get; set; } = string.Empty;
+    public int MaxItems { get; set; } = 100;
 }

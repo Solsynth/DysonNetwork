@@ -157,7 +157,8 @@ public partial class ActivityPubDiscoveryService(
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     ILogger<ActivityPubDiscoveryService> logger,
-    ISignatureService signatureService
+    ISignatureService signatureService,
+    IFederationMetricsService? metricsService = null
 ) : IActorDiscoveryService
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
@@ -883,6 +884,9 @@ public partial class ActivityPubDiscoveryService(
             
             if (!response.IsSuccessStatusCode)
             {
+                var fetchDomain = actor.Uri != null ? new Uri(actor.Uri).Host : null;
+                metricsService?.RecordFetch(false, fetchDomain);
+
                 var responseHeaders = string.Join(", ", response.Headers.Select(h => $"{h.Key}={string.Join(",", h.Value)}"));
                 var responseBody = await response.Content.ReadAsStringAsync();
                 
@@ -901,6 +905,9 @@ public partial class ActivityPubDiscoveryService(
                     actor.Uri, response.StatusCode);
                 return;
             }
+
+            var successDomain = actor.Uri != null ? new Uri(actor.Uri).Host : null;
+            metricsService?.RecordFetch(true, successDomain);
 
             var json = await response.Content.ReadAsStringAsync();
             var actorData = JsonSerializer.Deserialize<Dictionary<string, object>>(json);

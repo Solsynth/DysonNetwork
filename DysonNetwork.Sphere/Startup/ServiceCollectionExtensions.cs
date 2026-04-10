@@ -240,6 +240,8 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<DeliveryMetricsService>();
             services.AddScoped<DeliveryDeadLetterService>();
             services.AddScoped<KeyMigrationService>();
+            services.AddSingleton<IFederationMetricsService, FederationMetricsService>();
+            services.AddSingleton<OutboxBackfillService>();
             services.AddScoped<LiveStreamService>();
             services.AddSingleton<LiveKitLivestreamService>();
 
