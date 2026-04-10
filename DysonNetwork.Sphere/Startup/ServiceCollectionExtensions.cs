@@ -224,6 +224,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<StickerService>();
             services.AddScoped<AutocompletionService>();
             services.AddScoped<ActivityPubKeyService>();
+            services.AddScoped<IKeyService, ActivityPubKeyService>();
             services.AddScoped<ISignatureService, ActivityPubSignatureService>();
             services.AddScoped<ActivityHandlerService>();
             services.AddScoped<ActivityPubDeliveryService>();
