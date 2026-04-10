@@ -78,7 +78,7 @@ public class ActivityPubDeliveryWorker(
 
     private async Task ProcessBatchAsync(ActivityPubDeliveryBatchMessage batch, CancellationToken cancellationToken)
     {
-        logger.LogDebug("Processing batch of {Count} deliveries to {Inbox}", batch.Deliveries.Count, batch.InboxUri);
+        logger.LogInformation("[Delivery] Processing batch of {Count} deliveries to {Inbox}", batch.Deliveries.Count, batch.InboxUri);
 
         using var scope = serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
@@ -177,7 +177,8 @@ public class ActivityPubDeliveryWorker(
         var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
         var signatureService = scope.ServiceProvider.GetRequiredService<ISignatureService>();
 
-        logger.LogDebug("Processing ActivityPub delivery {DeliveryId} to {Inbox}", message.DeliveryId, message.InboxUri);
+        logger.LogInformation("[Delivery] Processing {ActivityType} delivery {DeliveryId} to {Inbox}. ActivityId: {ActivityId}, Actor: {Actor}",
+            message.ActivityType, message.DeliveryId, message.InboxUri, message.ActivityId, message.ActorUri);
 
         var delivery = await db.ActivityPubDeliveries.FindAsync([message.DeliveryId], cancellationToken);
         if (delivery == null)
@@ -207,8 +208,8 @@ public class ActivityPubDeliveryWorker(
                 delivery.Status = DeliveryStatus.Sent;
                 delivery.SentAt = clock.GetCurrentInstant();
                 delivery.ResponseStatusCode = success.StatusCode.ToString();
-                logger.LogInformation("Successfully delivered activity {ActivityId} to {Inbox}",
-                    message.ActivityId, message.InboxUri);
+                logger.LogInformation("[Delivery] Successfully delivered {ActivityType} {ActivityId} to {Inbox}. Status: {Status}",
+                    message.ActivityType, message.ActivityId, message.InboxUri, success.StatusCode);
             }
             else
             {

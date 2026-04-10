@@ -31,14 +31,15 @@ public class ActivityPubDeliveryService(
 
         if (followerActor?.InboxUri == null)
         {
-            logger.LogWarning("Follower actor or inbox not found: {Uri}", followerActorUri);
+            logger.LogWarning("[Delivery] Follower actor or inbox not found: {Uri}", followerActorUri);
             return false;
         }
 
+        var activityId = $"{actorUrl}/accepts/{Guid.NewGuid()}";
         var activity = new Dictionary<string, object>
         {
             ["@context"] = "https://www.w3.org/ns/activitystreams",
-            ["id"] = $"{actorUrl}/accepts/{Guid.NewGuid()}",
+            ["id"] = activityId,
             ["type"] = "Accept",
             ["actor"] = actorUrl,
             ["object"] = new Dictionary<string, object>
@@ -49,7 +50,8 @@ public class ActivityPubDeliveryService(
             }
         };
 
-        return await EnqueueActivityDeliveryAsync("Accept", activity, actorUrl, followerActor.InboxUri);
+        logger.LogInformation("[Delivery] Sending Accept to {Inbox} from {Actor}", followerActor.InboxUri, actorUrl);
+        return await EnqueueActivityDeliveryAsync("Accept", activity, actorUrl, followerActor.InboxUri, activityId);
     }
 
     public async Task<bool> SendFollowActivityAsync(
@@ -59,16 +61,22 @@ public class ActivityPubDeliveryService(
     {
         var localActor = await objFactory.GetLocalActorAsync(publisherId);
         if (localActor == null)
+        {
+            logger.LogWarning("[Delivery] Local actor not found for publisher: {PublisherId}", publisherId);
             return false;
+        }
 
         var actorUrl = localActor.Uri;
         var targetActor = await GetOrFetchActorAsync(targetActorUri);
 
         if (targetActor?.InboxUri == null)
         {
-            logger.LogWarning("Target actor or inbox not found: {Uri}", targetActorUri);
+            logger.LogWarning("[Delivery] Target actor or inbox not found: {Uri}", targetActorUri);
             return false;
         }
+
+        logger.LogInformation("[Delivery] Sending Follow from {Actor} to {Target} inbox {Inbox}", 
+            actorUrl, targetActorUri, targetActor.InboxUri);
 
         var activityId = $"{actorUrl}/follows/{Guid.NewGuid()}";
         var activity = new Dictionary<string, object>
@@ -820,14 +828,14 @@ public class ActivityPubDeliveryService(
 
             await queueService.EnqueueDeliveryAsync(message);
 
-            logger.LogDebug("Enqueued delivery {DeliveryId} of type {ActivityType} to {Inbox}",
-                delivery.Id, activityType, inboxUri);
+            logger.LogInformation("[Delivery] Enqueued {ActivityType} delivery {DeliveryId} to {Inbox}. ActivityId: {ActivityId}",
+                activityType, delivery.Id, inboxUri, activityId);
 
             return true;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to enqueue delivery to {Inbox}", inboxUri);
+            logger.LogError(ex, "[Delivery] Failed to enqueue delivery to {Inbox}", inboxUri);
             return false;
         }
     }

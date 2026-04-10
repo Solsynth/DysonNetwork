@@ -32,15 +32,20 @@ public class ActivityHandlerService(
     {
         var activityType = GetString(activity, "type");
         var activityId = GetString(activity, "id");
+        var objectUri = GetString(activity, "object");
 
-        logger.LogInformation("Processing activity. Type: {Type}, Id: {Id}", activityType, activityId);
+        logger.LogInformation("[Inbox] Received activity. Type: {Type}, Id: {Id}, Object: {Object}", 
+            activityType, activityId, objectUri);
 
         var (signatureValid, actorUri) = await signatureService.VerifyIncomingRequestAsync(context);
         if (!signatureValid || string.IsNullOrEmpty(actorUri))
         {
-            logger.LogInformation("Signature verification failed. Type: {Type}", activityType);
+            logger.LogWarning("[Inbox] Signature verification failed for {Type} from {Actor}. Type: {Type}", 
+                activityType, actorUri);
             return ActivityResult.Rejected;
         }
+
+        logger.LogInformation("[Inbox] Signature verified for {Actor}", actorUri);
 
         var actorDomain = ExtractDomain(actorUri);
         var content = GetObjectContent(activity);
@@ -48,37 +53,77 @@ public class ActivityHandlerService(
 
         if (moderation.IsBlocked)
         {
-            logger.LogWarning("Blocked activity from {Actor}. Rule: {Rule}", actorUri, moderation.MatchedRuleName);
+            logger.LogWarning("[Inbox] Blocked activity from {Actor}. Rule: {Rule}", actorUri, moderation.MatchedRuleName);
             return ActivityResult.Rejected;
         }
 
-        logger.LogInformation("Processing {Type} from {Actor}", activityType, actorUri);
+        logger.LogInformation("[Inbox] Processing {Type} from {Actor}", activityType, actorUri);
 
         try
         {
-            return activityType switch
+            ActivityResult result;
+            switch (activityType)
             {
-                "Follow" => await HandleFollowAsync(actorUri, activity),
-                "Accept" => await HandleAcceptAsync(actorUri, activity),
-                "Reject" => await HandleRejectAsync(actorUri, activity),
-                "QuoteRequest" => await HandleQuoteRequestAsync(actorUri, activity),
-                "Undo" => await HandleUndoAsync(actorUri, activity),
-                "Create" => await HandleCreateAsync(actorUri, activity),
-                "Like" or "EmojiReact" => await HandleLikeAsync(actorUri, activity),
-                "Announce" => await HandleAnnounceAsync(actorUri, activity),
-                "Delete" => await HandleDeleteAsync(actorUri, activity),
-                "Update" => await HandleUpdateAsync(actorUri, activity),
-                "Add" => await HandleAddAsync(actorUri, activity),
-                "Remove" => await HandleRemoveAsync(actorUri, activity),
-                "Block" => await HandleBlockAsync(actorUri, activity),
-                "Move" => await HandleMoveAsync(actorUri, activity),
-                "Flag" => await HandleFlagAsync(actorUri, activity),
-                _ => ActivityResult.NotSupported
-            };
+                case "Follow":
+                    result = await HandleFollowAsync(actorUri, activity);
+                    break;
+                case "Accept":
+                    result = await HandleAcceptAsync(actorUri, activity);
+                    break;
+                case "Reject":
+                    result = await HandleRejectAsync(actorUri, activity);
+                    break;
+                case "QuoteRequest":
+                    result = await HandleQuoteRequestAsync(actorUri, activity);
+                    break;
+                case "Undo":
+                    result = await HandleUndoAsync(actorUri, activity);
+                    break;
+                case "Create":
+                    result = await HandleCreateAsync(actorUri, activity);
+                    break;
+                case "Like":
+                case "EmojiReact":
+                    result = await HandleLikeAsync(actorUri, activity);
+                    break;
+                case "Announce":
+                    result = await HandleAnnounceAsync(actorUri, activity);
+                    break;
+                case "Delete":
+                    result = await HandleDeleteAsync(actorUri, activity);
+                    break;
+                case "Update":
+                    result = await HandleUpdateAsync(actorUri, activity);
+                    break;
+                case "Add":
+                    result = await HandleAddAsync(actorUri, activity);
+                    break;
+                case "Remove":
+                    result = await HandleRemoveAsync(actorUri, activity);
+                    break;
+                case "Block":
+                    result = await HandleBlockAsync(actorUri, activity);
+                    break;
+                case "Move":
+                    result = await HandleMoveAsync(actorUri, activity);
+                    break;
+                case "Flag":
+                    result = await HandleFlagAsync(actorUri, activity);
+                    break;
+                default:
+                    logger.LogWarning("[Inbox] Unsupported activity type: {Type}", activityType);
+                    result = ActivityResult.NotSupported;
+                    break;
+            }
+
+            logger.LogInformation("[Inbox] Processed {Type} from {Actor}. Result: {Result}", 
+                activityType, actorUri, result);
+
+            return result;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error processing {Type} from {Actor}", activityType, actorUri);
+            logger.LogError(ex, "[Inbox] Error processing {Type} from {Actor}", activityType, actorUri);
             return ActivityResult.BadRequest;
         }
     }
