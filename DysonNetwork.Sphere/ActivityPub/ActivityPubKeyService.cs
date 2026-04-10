@@ -9,7 +9,7 @@ namespace DysonNetwork.Sphere.ActivityPub;
 public class ActivityPubKeyService(
     AppDatabase db,
     ILogger<ActivityPubKeyService> logger
-)
+) : IKeyService
 {
     public async Task<SnFediverseKey> GetOrCreateKeyForActorAsync(SnFediverseActor actor, string algorithm = KeyAlgorithm.RSA_SHA256)
     {
@@ -43,6 +43,35 @@ public class ActivityPubKeyService(
     {
         return await db.FediverseKeys
             .FirstOrDefaultAsync(k => k.ActorId == actorId);
+    }
+
+    public async Task<SnFediverseKey?> GetKeyForActorAsync(string actorUri)
+    {
+        return await db.FediverseKeys
+            .FirstOrDefaultAsync(k => k.KeyId == $"{actorUri}#main-key");
+    }
+
+    public async Task<SnFediverseKey> CreateKeyForActorAsync(SnFediverseActor actor, string algorithm = KeyAlgorithm.RSA_SHA256)
+    {
+        return await GetOrCreateKeyForActorAsync(actor, algorithm);
+    }
+
+    public async Task RotateKeyAsync(Guid actorId)
+    {
+        var actor = await db.FediverseActors.FindAsync(actorId);
+        if (actor == null)
+            return;
+
+        await UpdateKeyForActorAsync(actor);
+    }
+
+    public async Task<(string publicKeyPem, string privateKeyPem)?> GetKeyPairForActorAsync(Guid actorId)
+    {
+        var key = await GetKeyForActorAsync(actorId);
+        if (key == null || string.IsNullOrEmpty(key.PrivateKeyPem))
+            return null;
+
+        return (key.KeyPem, key.PrivateKeyPem);
     }
 
     public async Task<SnFediverseKey?> GetKeyByKeyIdAsync(string keyId)

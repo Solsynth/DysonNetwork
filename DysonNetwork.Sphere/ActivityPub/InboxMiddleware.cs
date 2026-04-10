@@ -2,13 +2,14 @@ using System.Text;
 using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
+using DysonNetwork.Sphere.ActivityPub;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
 public class InboxValidationMiddleware(
     RequestDelegate next,
     AppDatabase db,
-    ActivityPubSignatureService signatureService,
+    ISignatureService signatureService,
     FediverseModerationService moderationService,
     ILogger<InboxValidationMiddleware> logger
 )

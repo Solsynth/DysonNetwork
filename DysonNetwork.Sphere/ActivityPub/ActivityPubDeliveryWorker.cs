@@ -82,7 +82,7 @@ public class ActivityPubDeliveryWorker(
 
         using var scope = serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-        var signatureService = scope.ServiceProvider.GetRequiredService<ActivityPubSignatureService>();
+        var signatureService = scope.ServiceProvider.GetRequiredService<ISignatureService>();
 
         var deliveryIds = batch.Deliveries.Select(d => d.DeliveryId).ToList();
         var deliveries = await db.ActivityPubDeliveries
@@ -175,7 +175,7 @@ public class ActivityPubDeliveryWorker(
     {
         using var scope = serviceProvider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-        var signatureService = scope.ServiceProvider.GetRequiredService<ActivityPubSignatureService>();
+        var signatureService = scope.ServiceProvider.GetRequiredService<ISignatureService>();
 
         logger.LogDebug("Processing ActivityPub delivery {DeliveryId} to {Inbox}", message.DeliveryId, message.InboxUri);
 
@@ -264,7 +264,7 @@ public class ActivityPubDeliveryWorker(
         Dictionary<string, object> activity,
         string inboxUrl,
         string actorUri,
-        ActivityPubSignatureService signatureService,
+        ISignatureService signatureService,
         IHttpClientFactory httpClientFactory,
         ILogger logger,
         CancellationToken cancellationToken)
@@ -289,7 +289,7 @@ public class ActivityPubDeliveryWorker(
         string inboxUrl,
         Dictionary<string, object> activity,
         string actorUri,
-        ActivityPubSignatureService signatureService,
+        ISignatureService signatureService,
         IHttpClientFactory httpClientFactory,
         ILogger logger,
         CancellationToken cancellationToken)

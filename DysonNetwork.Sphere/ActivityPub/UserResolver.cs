@@ -16,8 +16,8 @@ public enum ResolveFlags
 
 public class UserResolver(
     AppDatabase db,
-    ActivityPubDiscoveryService discoveryService,
-    ActivityPubKeyService keyService,
+    IActorDiscoveryService discoveryService,
+    IKeyService keyService,
     FediverseCachingService cachingService,
     ILogger<UserResolver> logger
 )

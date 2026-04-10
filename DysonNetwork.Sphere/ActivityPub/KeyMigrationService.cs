@@ -7,7 +7,7 @@ namespace DysonNetwork.Sphere.ActivityPub;
 
 public class KeyMigrationService(
     AppDatabase db,
-    ActivityPubKeyService keyService,
+    IKeyService keyService,
     ILogger<KeyMigrationService> logger
 )
 {
@@ -15,7 +15,7 @@ public class KeyMigrationService(
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-        var keyService = scope.ServiceProvider.GetRequiredService<ActivityPubKeyService>();
+        var keyService = scope.ServiceProvider.GetRequiredService<IKeyService>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<KeyMigrationService>>();
         
         var migrationService = new KeyMigrationService(db, keyService, logger);

@@ -7,7 +7,7 @@ namespace DysonNetwork.Sphere.ActivityPub;
 
 public class ObjectResolver(
     AppDatabase db,
-    ActivityPubDiscoveryService discoveryService,
+    IActorDiscoveryService discoveryService,
     ILogger<ObjectResolver> logger,
     IConfiguration configuration
 )
