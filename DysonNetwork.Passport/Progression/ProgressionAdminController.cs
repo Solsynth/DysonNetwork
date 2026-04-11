@@ -131,6 +131,7 @@ public class ProgressionAdminController(
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return false;
+        if (currentUser.IsSuperuser) return true;
 
         var response = await permissionService.HasPermissionAsync(new DyHasPermissionRequest
         {
