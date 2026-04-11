@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using DysonNetwork.Shared.Models;
@@ -12,7 +13,23 @@ public class ActivityPubKeyService(
     ILogger<ActivityPubKeyService> logger
 ) : IKeyService
 {
+    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> _actorLocks = new();
+
     public async Task<SnFediverseKey> GetOrCreateKeyForActorAsync(SnFediverseActor actor, string algorithm = KeyAlgorithm.RSA_SHA256)
+    {
+        var actorLock = _actorLocks.GetOrAdd(actor.Id, _ => new SemaphoreSlim(1, 1));
+        await actorLock.WaitAsync();
+        try
+        {
+            return await GetOrCreateKeyForActorInternalAsync(actor, algorithm);
+        }
+        finally
+        {
+            actorLock.Release();
+        }
+    }
+
+    private async Task<SnFediverseKey> GetOrCreateKeyForActorInternalAsync(SnFediverseActor actor, string algorithm = KeyAlgorithm.RSA_SHA256)
     {
         for (int attempt = 0; attempt < 3; attempt++)
         {
@@ -72,6 +89,14 @@ public class ActivityPubKeyService(
                 logger.LogWarning("Race condition inserting key for actor {ActorUri}, retrying", actor.Uri);
                 if (keyToAdd != null)
                     db.Entry(keyToAdd).State = EntityState.Detached;
+
+                var conflictingKey = await db.FediverseKeys
+                    .FirstOrDefaultAsync(k => k.KeyId == $"{actor.Uri}#main-key");
+                if (conflictingKey != null && !string.IsNullOrEmpty(conflictingKey.PrivateKeyPem))
+                {
+                    logger.LogInformation("Race condition resolved: found existing key for actor {ActorUri}", actor.Uri);
+                    return conflictingKey;
+                }
                 continue;
             }
         }
@@ -132,6 +157,20 @@ public class ActivityPubKeyService(
     }
 
     public async Task UpdateKeyForActorAsync(SnFediverseActor actor)
+    {
+        var actorLock = _actorLocks.GetOrAdd(actor.Id, _ => new SemaphoreSlim(1, 1));
+        await actorLock.WaitAsync();
+        try
+        {
+            await UpdateKeyForActorInternalAsync(actor);
+        }
+        finally
+        {
+            actorLock.Release();
+        }
+    }
+
+    private async Task UpdateKeyForActorInternalAsync(SnFediverseActor actor)
     {
         var existingKey = await db.FediverseKeys
             .FirstOrDefaultAsync(k => k.ActorId == actor.Id);

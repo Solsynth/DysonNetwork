@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using Npgsql;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
@@ -12,7 +11,10 @@ public class FediverseActorWithFollowStatus : SnFediverseActor
 {
     public bool IsFollowing { get; set; }
 
-    public static FediverseActorWithFollowStatus FromActor(SnFediverseActor actor, bool isFollowing = false)
+    public static FediverseActorWithFollowStatus FromActor(
+        SnFediverseActor actor,
+        bool isFollowing = false
+    )
     {
         return new FediverseActorWithFollowStatus
         {
@@ -40,7 +42,7 @@ public class FediverseActorWithFollowStatus : SnFediverseActor
             LastFetchedAt = actor.LastFetchedAt,
             LastActivityAt = actor.LastActivityAt,
             PublisherId = actor.PublisherId,
-            IsFollowing = isFollowing
+            IsFollowing = isFollowing,
         };
     }
 }
@@ -68,8 +70,8 @@ public class ActivityPubFollowController(
         if (currentUser == null)
             return Unauthorized();
 
-        var publisher = await db.Publishers
-            .Include(p => p.Members)
+        var publisher = await db
+            .Publishers.Include(p => p.Members)
             .Where(p => p.Members.Any(m => m.AccountId == currentUser))
             .FirstOrDefaultAsync();
 
@@ -79,17 +81,16 @@ public class ActivityPubFollowController(
             return Ok(new List<FediverseActorWithFollowStatus>());
         }
 
-        var totalCount = await db.FediverseRelationships
-            .CountAsync(r =>
-                r.Actor.PublisherId == publisher.Id &&
-                r.State == RelationshipState.Accepted);
+        var totalCount = await db.FediverseRelationships.CountAsync(r =>
+            r.Actor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
+        );
 
-        var actors = await db.FediverseRelationships
-            .Include(r => r.TargetActor)
+        var actors = await db
+            .FediverseRelationships.Include(r => r.TargetActor)
             .ThenInclude(a => a.Instance)
             .Where(r =>
-                r.Actor.PublisherId == publisher.Id &&
-                r.State == RelationshipState.Accepted)
+                r.Actor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
+            )
             .OrderByDescending(r => r.FollowedAt)
             .Skip(offset)
             .Take(take)
@@ -112,8 +113,8 @@ public class ActivityPubFollowController(
         if (currentUser == null)
             return Unauthorized();
 
-        var publisher = await db.Publishers
-            .Include(p => p.Members)
+        var publisher = await db
+            .Publishers.Include(p => p.Members)
             .Where(p => p.Members.Any(m => m.AccountId == currentUser))
             .FirstOrDefaultAsync();
 
@@ -123,17 +124,16 @@ public class ActivityPubFollowController(
             return Ok(new List<FediverseActorWithFollowStatus>());
         }
 
-        var totalCount = await db.FediverseRelationships
-            .CountAsync(r =>
-                r.TargetActor.PublisherId == publisher.Id &&
-                r.State == RelationshipState.Accepted);
+        var totalCount = await db.FediverseRelationships.CountAsync(r =>
+            r.TargetActor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
+        );
 
-        var actors = await db.FediverseRelationships
-            .Include(r => r.Actor)
+        var actors = await db
+            .FediverseRelationships.Include(r => r.Actor)
             .ThenInclude(a => a.Instance)
             .Where(r =>
-                r.TargetActor.PublisherId == publisher.Id &&
-                r.State == RelationshipState.Accepted)
+                r.TargetActor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
+            )
             .OrderByDescending(r => r.FollowedAt ?? r.CreatedAt)
             .Skip(offset)
             .Take(take)
@@ -161,8 +161,8 @@ public class ActivityPubFollowController(
         if (currentUser == null)
             return Ok(actors.Select(a => FediverseActorWithFollowStatus.FromActor(a)).ToList());
 
-        var publisher = await db.Publishers
-            .Include(p => p.Members)
+        var publisher = await db
+            .Publishers.Include(p => p.Members)
             .Where(p => p.Members.Any(m => m.AccountId == currentUser))
             .FirstOrDefaultAsync();
 
@@ -181,8 +181,8 @@ public class ActivityPubFollowController(
         if (currentUser == null)
             return Unauthorized();
 
-        var publisher = await db.Publishers
-            .Include(p => p.Members)
+        var publisher = await db
+            .Publishers.Include(p => p.Members)
             .Where(p => p.Members.Any(m => m.AccountId == currentUser))
             .FirstOrDefaultAsync();
 
@@ -191,45 +191,46 @@ public class ActivityPubFollowController(
 
         var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
 
-        var followingCount = await db.FediverseRelationships
-            .CountAsync(r =>
-                r.Actor.PublisherId == publisher.Id &&
-                r.State == RelationshipState.Accepted);
+        var followingCount = await db.FediverseRelationships.CountAsync(r =>
+            r.Actor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
+        );
 
-        var followersCount = await db.FediverseRelationships
-            .CountAsync(r =>
-                r.TargetActor.PublisherId == publisher.Id &&
-                r.State == RelationshipState.Accepted);
+        var followersCount = await db.FediverseRelationships.CountAsync(r =>
+            r.TargetActor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
+        );
 
-        var pendingCount = await db.FediverseRelationships
-            .CountAsync(r =>
-                r.Actor.PublisherId == publisher.Id &&
-                r.State == RelationshipState.Pending);
+        var pendingCount = await db.FediverseRelationships.CountAsync(r =>
+            r.Actor.PublisherId == publisher.Id && r.State == RelationshipState.Pending
+        );
 
-        var relationships = await db.FediverseRelationships
-            .Include(r => r.TargetActor)
+        var relationships = await db
+            .FediverseRelationships.Include(r => r.TargetActor)
             .Where(r => r.Actor.PublisherId == publisher.Id)
             .OrderByDescending(r => r.FollowedAt ?? r.CreatedAt)
             .Take(20)
             .ToListAsync();
 
-        return Ok(new RelationshipsSummary
-        {
-            ActorUri = actorUrl,
-            FollowingCount = followingCount,
-            FollowersCount = followersCount,
-            PendingCount = pendingCount,
-            Relationships = relationships.Select(r => new RelationshipSummaryItem
+        return Ok(
+            new RelationshipsSummary
             {
-                Actor = r.TargetActor,
-                State = r.State,
-                IsFollowing = true,
-                FollowedAt = r.FollowedAt,
-                TargetActorUri = r.TargetActor.Uri,
-                Username = r.TargetActor.Username,
-                DisplayName = r.TargetActor.DisplayName
-            }).ToList()
-        });
+                ActorUri = actorUrl,
+                FollowingCount = followingCount,
+                FollowersCount = followersCount,
+                PendingCount = pendingCount,
+                Relationships = relationships
+                    .Select(r => new RelationshipSummaryItem
+                    {
+                        Actor = r.TargetActor,
+                        State = r.State,
+                        IsFollowing = true,
+                        FollowedAt = r.FollowedAt,
+                        TargetActorUri = r.TargetActor.Uri,
+                        Username = r.TargetActor.Username,
+                        DisplayName = r.TargetActor.DisplayName,
+                    })
+                    .ToList(),
+            }
+        );
     }
 
     [HttpGet("check/{username}")]
@@ -238,26 +239,28 @@ public class ActivityPubFollowController(
     {
         var actorUrl = GetActorUrl(username);
 
-        var existingActor = await db.FediverseActors
-            .Include(snFediverseActor => snFediverseActor.Instance)
+        var existingActor = await db
+            .FediverseActors.Include(snFediverseActor => snFediverseActor.Instance)
             .FirstOrDefaultAsync(a => a.Uri == actorUrl);
 
         if (existingActor != null)
         {
-            return Ok(new ActorCheckResult
-            {
-                Exists = true,
-                Actor = existingActor,
-                ActorUri = existingActor.Uri,
-                Username = existingActor.Username,
-                DisplayName = existingActor.DisplayName,
-                Bio = existingActor.Bio,
-                AvatarUrl = existingActor.AvatarUrl,
-                InstanceDomain = existingActor.Instance.Domain,
-                PublicKeyExists = !string.IsNullOrEmpty(existingActor.PublicKey),
-                LastActivityAt = existingActor.LastActivityAt,
-                IsLocal = false
-            });
+            return Ok(
+                new ActorCheckResult
+                {
+                    Exists = true,
+                    Actor = existingActor,
+                    ActorUri = existingActor.Uri,
+                    Username = existingActor.Username,
+                    DisplayName = existingActor.DisplayName,
+                    Bio = existingActor.Bio,
+                    AvatarUrl = existingActor.AvatarUrl,
+                    InstanceDomain = existingActor.Instance.Domain,
+                    PublicKeyExists = !string.IsNullOrEmpty(existingActor.PublicKey),
+                    LastActivityAt = existingActor.LastActivityAt,
+                    IsLocal = false,
+                }
+            );
         }
 
         try
@@ -267,18 +270,22 @@ public class ActivityPubFollowController(
 
             if (!response.IsSuccessStatusCode)
             {
-                return Ok(new ActorCheckResult
-                {
-                    Exists = false,
-                    ActorUri = actorUrl,
-                    Error = $"Actor not accessible: {response.StatusCode}"
-                });
+                return Ok(
+                    new ActorCheckResult
+                    {
+                        Exists = false,
+                        ActorUri = actorUrl,
+                        Error = $"Actor not accessible: {response.StatusCode}",
+                    }
+                );
             }
 
             var json = await response.Content.ReadAsStringAsync();
             var actorData = System.Text.Json.JsonDocument.Parse(json);
 
-            var preferredUsername = actorData.RootElement.GetProperty("preferredUsername").GetString();
+            var preferredUsername = actorData
+                .RootElement.GetProperty("preferredUsername")
+                .GetString();
             var displayName = actorData.RootElement.TryGetProperty("name", out var nameProp)
                 ? nameProp.GetString()
                 : null;
@@ -288,20 +295,17 @@ public class ActivityPubFollowController(
             var avatarUrl = actorData.RootElement.TryGetProperty("icon", out var iconProp)
                 ? iconProp.GetProperty("url").GetString()
                 : null;
-            var publicKeyPem = actorData.RootElement.GetProperty("publicKey")
-                .GetProperty("publicKeyPem").GetString();
+            var publicKeyPem = actorData
+                .RootElement.GetProperty("publicKey")
+                .GetProperty("publicKeyPem")
+                .GetString();
 
             var domain = ExtractDomain(actorUrl);
-            var instance = await db.FediverseInstances
-                .FirstOrDefaultAsync(i => i.Domain == domain);
+            var instance = await db.FediverseInstances.FirstOrDefaultAsync(i => i.Domain == domain);
 
             if (instance == null)
             {
-                instance = new SnFediverseInstance
-                {
-                    Domain = domain,
-                    Name = domain
-                };
+                instance = new SnFediverseInstance { Domain = domain, Name = domain };
                 db.FediverseInstances.Add(instance);
                 await db.SaveChangesAsync();
                 await discSrv.FetchInstanceMetadataAsync(instance);
@@ -322,31 +326,35 @@ public class ActivityPubFollowController(
             }
             await db.SaveChangesAsync();
 
-            return Ok(new ActorCheckResult
-            {
-                Exists = true,
-                Actor = actor,
-                ActorUri = actorUrl,
-                Username = username,
-                DisplayName = displayName,
-                Bio = bio,
-                AvatarUrl = avatarUrl,
-                InstanceDomain = domain,
-                PublicKeyExists = !string.IsNullOrEmpty(publicKeyPem),
-                IsDiscoverable = true,
-                IsLocal = false,
-                LastActivityAt = SystemClock.Instance.GetCurrentInstant()
-            });
+            return Ok(
+                new ActorCheckResult
+                {
+                    Exists = true,
+                    Actor = actor,
+                    ActorUri = actorUrl,
+                    Username = username,
+                    DisplayName = displayName,
+                    Bio = bio,
+                    AvatarUrl = avatarUrl,
+                    InstanceDomain = domain,
+                    PublicKeyExists = !string.IsNullOrEmpty(publicKeyPem),
+                    IsDiscoverable = true,
+                    IsLocal = false,
+                    LastActivityAt = SystemClock.Instance.GetCurrentInstant(),
+                }
+            );
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to check actor {ActorUri}", actorUrl);
-            return Ok(new ActorCheckResult
-            {
-                Exists = false,
-                ActorUri = actorUrl,
-                Error = ex.Message
-            });
+            return Ok(
+                new ActorCheckResult
+                {
+                    Exists = false,
+                    ActorUri = actorUrl,
+                    Error = ex.Message,
+                }
+            );
         }
     }
 
@@ -360,26 +368,29 @@ public class ActivityPubFollowController(
 
         var actorIds = actors.Select(a => a.Id).ToList();
 
-        var userActor = await db.FediverseActors
-            .Where(a => a.PublisherId == publisherId)
+        var userActor = await db
+            .FediverseActors.Where(a => a.PublisherId == publisherId)
             .FirstOrDefaultAsync();
 
         if (userActor == null)
             return actors.Select(a => FediverseActorWithFollowStatus.FromActor(a, false)).ToList();
 
-        var followingActorIds = await db.FediverseRelationships
-            .Where(r =>
-                r.ActorId == userActor.Id &&
-                actorIds.Contains(r.TargetActorId) &&
-                r.State == RelationshipState.Accepted)
+        var followingActorIds = await db
+            .FediverseRelationships.Where(r =>
+                r.ActorId == userActor.Id
+                && actorIds.Contains(r.TargetActorId)
+                && r.State == RelationshipState.Accepted
+            )
             .Select(r => r.TargetActorId)
             .ToListAsync();
 
-        var result = actors.Select(actor =>
-        {
-            var isFollowing = followingActorIds.Contains(actor.Id);
-            return FediverseActorWithFollowStatus.FromActor(actor, isFollowing);
-        }).ToList();
+        var result = actors
+            .Select(actor =>
+            {
+                var isFollowing = followingActorIds.Contains(actor.Id);
+                return FediverseActorWithFollowStatus.FromActor(actor, isFollowing);
+            })
+            .ToList();
 
         return result;
     }
@@ -387,7 +398,8 @@ public class ActivityPubFollowController(
     private Guid? GetCurrentUser()
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUser);
-        if (currentUser is not DyAccount user) return null;
+        if (currentUser is not DyAccount user)
+            return null;
         return Guid.Parse(user.Id);
     }
 
@@ -449,3 +461,4 @@ public class ActorCheckResult
     public Instant? LastActivityAt { get; set; }
     public string? Error { get; set; }
 }
+

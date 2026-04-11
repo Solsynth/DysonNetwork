@@ -1,6 +1,4 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
-using DysonNetwork.Shared.ActivityStreams;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +13,6 @@ public class ActivityPubController(
     AppDatabase db,
     IConfiguration configuration,
     ILogger<ActivityPubController> logger,
-    ISignatureService signatureService,
     ActivityHandlerService activityHandler,
     IKeyService keyService,
     ActivityPubObjectFactory objFactory
@@ -34,8 +31,8 @@ public class ActivityPubController(
     )]
     public async Task<ActionResult<ActivityPubActor>> GetActor(string username)
     {
-        var publisher = await db.Publishers
-            .Include(p => p.Members)
+        var publisher = await db
+            .Publishers.Include(p => p.Members)
             .FirstOrDefaultAsync(p => p.Name == username);
 
         if (publisher == null)
@@ -64,28 +61,30 @@ public class ActivityPubController(
             Following = followingUrl,
             Published = publisher.CreatedAt,
             Url = $"https://{Domain}/users/{publisher.Name}",
-            Icon = publisher.Picture != null
-                ? new ActivityPubImage
-                {
-                    Type = "Image",
-                    MediaType = publisher.Picture.MimeType,
-                    Url = $"{assetsBaseUrl}/{publisher.Picture.Id}"
-                }
-                : null,
-            Image = publisher.Background != null
-                ? new ActivityPubImage
-                {
-                    Type = "Image",
-                    MediaType = publisher.Background.MimeType,
-                    Url = $"{assetsBaseUrl}/{publisher.Background.Id}"
-                }
-                : null,
+            Icon =
+                publisher.Picture != null
+                    ? new ActivityPubImage
+                    {
+                        Type = "Image",
+                        MediaType = publisher.Picture.MimeType,
+                        Url = $"{assetsBaseUrl}/{publisher.Picture.Id}",
+                    }
+                    : null,
+            Image =
+                publisher.Background != null
+                    ? new ActivityPubImage
+                    {
+                        Type = "Image",
+                        MediaType = publisher.Background.MimeType,
+                        Url = $"{assetsBaseUrl}/{publisher.Background.Id}",
+                    }
+                    : null,
             PublicKey = new ActivityPubPublicKey
             {
                 Id = $"{actorUrl}#main-key",
                 Owner = actorUrl,
-                PublicKeyPem = publicKeyPem
-            }
+                PublicKeyPem = publicKeyPem,
+            },
         };
 
         return Ok(actor);
@@ -101,17 +100,26 @@ public class ActivityPubController(
         Description = "Endpoint for receiving ActivityPub activities (Create, Follow, Like, etc.) from remote servers",
         OperationId = "ReceiveActivity"
     )]
-    public async Task<IActionResult> PostInbox(string username, [FromBody] Dictionary<string, object> activity)
+    public async Task<IActionResult> PostInbox(
+        string username,
+        [FromBody] Dictionary<string, object> activity
+    )
     {
         var contentType = Request.ContentType;
         if (!IsValidActivityPubContentType(contentType))
         {
             logger.LogWarning("Invalid Content-Type for inbox: {ContentType}", contentType);
-            return StatusCode(StatusCodes.Status406NotAcceptable, new { error = $"Content-Type '{contentType}' not acceptable. Accepted types: application/activity+json, application/ld+json" });
+            return StatusCode(
+                StatusCodes.Status406NotAcceptable,
+                new
+                {
+                    error = $"Content-Type '{contentType}' not acceptable. Accepted types: application/activity+json, application/ld+json",
+                }
+            );
         }
 
         var activityType = activity.GetValueOrDefault("type")?.ToString();
-        
+
         if (string.IsNullOrEmpty(activityType))
         {
             logger.LogWarning("Missing activity type");
@@ -126,8 +134,11 @@ public class ActivityPubController(
             ActivityResult.Rejected => Unauthorized(),
             ActivityResult.BadRequest => BadRequest(),
             ActivityResult.NotFound => NotFound(),
-            ActivityResult.NotSupported => StatusCode(422, new { error = "Unsupported activity type" }),
-            _ => Accepted()
+            ActivityResult.NotSupported => StatusCode(
+                422,
+                new { error = "Unsupported activity type" }
+            ),
+            _ => Accepted(),
         };
     }
 
@@ -143,29 +154,29 @@ public class ActivityPubController(
     )]
     public async Task<IActionResult> GetOutbox(string username, [FromQuery] int? page)
     {
-        var publisher = await db.Publishers
-            .FirstOrDefaultAsync(p => p.Name == username);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
 
         if (publisher == null)
             return NotFound();
 
-        var actor = await db.FediverseActors
-            .FirstOrDefaultAsync(a => a.PublisherId == publisher.Id);
+        var actor = await db.FediverseActors.FirstOrDefaultAsync(a =>
+            a.PublisherId == publisher.Id
+        );
 
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
         var outboxUrl = $"{actorUrl}/outbox";
 
-        var posts = await db.Posts
-            .Include(p => p.Actor)
+        var posts = await db
+            .Posts.Include(p => p.Actor)
             .Where(p => p.PublisherId == publisher.Id && p.Visibility == PostVisibility.Public)
             .ToListAsync();
 
         List<SnBoost>? boosts = null;
         if (actor != null)
         {
-            boosts = await db.Boosts
-                .Include(b => b.Post)
-                    .ThenInclude(p => p.Actor)
+            boosts = await db
+                .Boosts.Include(b => b.Post)
+                .ThenInclude(p => p.Actor)
                 .Where(b => b.ActorId == actor.Id)
                 .Where(b => b.Post.DraftedAt == null)
                 .Where(b => b.Post.Visibility == PostVisibility.Public)
@@ -178,65 +189,75 @@ public class ActivityPubController(
             const int pageSize = 20;
             var skip = (page.Value - 1) * pageSize;
 
-            var createActivities = posts.Select(post => new OutboxItem
-            {
-                Id = $"https://{Domain}/activitypub/objects/{post.Id}/activity",
-                Type = "Create",
-                Actor = actorUrl,
-                Published = post.PublishedAt ?? post.CreatedAt,
-                PostId = post.Id,
-                IsBoost = false
-            }).ToList();
+            var createActivities = posts
+                .Select(post => new OutboxItem
+                {
+                    Id = $"https://{Domain}/activitypub/objects/{post.Id}/activity",
+                    Type = "Create",
+                    Actor = actorUrl,
+                    Published = post.PublishedAt ?? post.CreatedAt,
+                    PostId = post.Id,
+                    IsBoost = false,
+                })
+                .ToList();
 
-            var announceActivities = (boosts ?? []).Select(boost => new OutboxItem
-            {
-                Id = boost.ActivityPubUri ?? $"https://{Domain}/activitypub/objects/{boost.Id}/activity",
-                Type = "Announce",
-                Actor = actorUrl,
-                Published = boost.BoostedAt,
-                PostId = boost.PostId,
-                BoostId = boost.Id,
-                BoostedAt = boost.BoostedAt,
-                IsBoost = true
-            }).ToList();
+            var announceActivities = (boosts ?? [])
+                .Select(boost => new OutboxItem
+                {
+                    Id =
+                        boost.ActivityPubUri
+                        ?? $"https://{Domain}/activitypub/objects/{boost.Id}/activity",
+                    Type = "Announce",
+                    Actor = actorUrl,
+                    Published = boost.BoostedAt,
+                    PostId = boost.PostId,
+                    BoostId = boost.Id,
+                    BoostedAt = boost.BoostedAt,
+                    IsBoost = true,
+                })
+                .ToList();
 
-            var allItems = createActivities.Concat(announceActivities)
+            var allItems = createActivities
+                .Concat(announceActivities)
                 .OrderByDescending(i => i.Published)
                 .Skip(skip)
                 .Take(pageSize)
                 .ToList();
 
-            var items = await Task.WhenAll(allItems.Select(async item =>
-            {
-                var post = posts.FirstOrDefault(p => p.Id == item.PostId)
-                    ?? boosts?.FirstOrDefault(b => b.Id == item.BoostId)?.Post;
-
-                if (post == null)
-                    return (object)new Dictionary<string, object>();
-
-                var postObject = await objFactory.CreatePostObject(post, actorUrl);
-                postObject["url"] = $"https://{Domain}/posts/{post.Id}";
-
-                if (item.IsBoost)
+            var items = await Task.WhenAll(
+                allItems.Select(async item =>
                 {
-                    postObject["_boostedAt"] = item.BoostedAt?.ToDateTimeOffset().ToString("O");
-                    if (item.BoostId.HasValue)
+                    var post =
+                        posts.FirstOrDefault(p => p.Id == item.PostId)
+                        ?? boosts?.FirstOrDefault(b => b.Id == item.BoostId)?.Post;
+
+                    if (post == null)
+                        return (object)new Dictionary<string, object>();
+
+                    var postObject = await objFactory.CreatePostObject(post, actorUrl);
+                    postObject["url"] = $"https://{Domain}/posts/{post.Id}";
+
+                    if (item.IsBoost)
                     {
-                        postObject["_boostId"] = item.BoostId.Value.ToString();
+                        postObject["_boostedAt"] = item.BoostedAt?.ToDateTimeOffset().ToString("O");
+                        if (item.BoostId.HasValue)
+                        {
+                            postObject["_boostId"] = item.BoostId.Value.ToString();
+                        }
                     }
-                }
 
-                return new Dictionary<string, object>
-                {
-                    ["id"] = item.Id,
-                    ["type"] = item.Type,
-                    ["actor"] = item.Actor,
-                    ["published"] = item.Published.ToDateTimeOffset(),
-                    ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
-                    ["cc"] = new[] { $"{actorUrl}/followers" },
-                    ["@object"] = postObject
-                };
-            }));
+                    return new Dictionary<string, object>
+                    {
+                        ["id"] = item.Id,
+                        ["type"] = item.Type,
+                        ["actor"] = item.Actor,
+                        ["published"] = item.Published.ToDateTimeOffset(),
+                        ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
+                        ["cc"] = new[] { $"{actorUrl}/followers" },
+                        ["@object"] = postObject,
+                    };
+                })
+            );
 
             var collectionPage = new ActivityPubCollectionPage
             {
@@ -247,7 +268,7 @@ public class ActivityPubController(
                 PartOf = outboxUrl,
                 OrderedItems = items.ToList(),
                 Next = skip + pageSize < totalItems ? $"{outboxUrl}?page={page.Value + 1}" : null,
-                Prev = page.Value > 1 ? $"{outboxUrl}?page={page.Value - 1}" : null
+                Prev = page.Value > 1 ? $"{outboxUrl}?page={page.Value - 1}" : null,
             };
 
             return Ok(collectionPage);
@@ -260,7 +281,7 @@ public class ActivityPubController(
                 Id = outboxUrl,
                 Type = "OrderedCollection",
                 TotalItems = totalItems,
-                First = $"{outboxUrl}?page=1"
+                First = $"{outboxUrl}?page=1",
             };
 
             return Ok(collection);
@@ -279,8 +300,7 @@ public class ActivityPubController(
     )]
     public async Task<IActionResult> GetFollowers(string username, [FromQuery] int? page)
     {
-        var publisher = await db.Publishers
-            .FirstOrDefaultAsync(p => p.Name == username);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
 
         if (publisher == null)
             return NotFound();
@@ -288,9 +308,11 @@ public class ActivityPubController(
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
         var followersUrl = $"{actorUrl}/followers";
 
-        var relationshipsQuery = db.FediverseRelationships
-            .Include(r => r.Actor)
-            .Where(r => r.TargetActor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted);
+        var relationshipsQuery = db
+            .FediverseRelationships.Include(r => r.Actor)
+            .Where(r =>
+                r.TargetActor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
+            );
 
         var totalItems = await relationshipsQuery.CountAsync();
 
@@ -313,7 +335,7 @@ public class ActivityPubController(
                 Type = "OrderedCollectionPage",
                 TotalItems = totalItems,
                 PartOf = followersUrl,
-                OrderedItems = actorUris.Cast<object>().ToList()
+                OrderedItems = actorUris.Cast<object>().ToList(),
             };
 
             return Ok(collectionPage);
@@ -326,7 +348,7 @@ public class ActivityPubController(
                 Id = followersUrl,
                 Type = "OrderedCollection",
                 TotalItems = totalItems,
-                First = $"{followersUrl}?page=1"
+                First = $"{followersUrl}?page=1",
             };
 
             return Ok(collection);
@@ -345,8 +367,7 @@ public class ActivityPubController(
     )]
     public async Task<IActionResult> GetFollowing(string username, [FromQuery] int? page)
     {
-        var publisher = await db.Publishers
-            .FirstOrDefaultAsync(p => p.Name == username);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
 
         if (publisher == null)
             return NotFound();
@@ -354,9 +375,11 @@ public class ActivityPubController(
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
         var followingUrl = $"{actorUrl}/following";
 
-        var relationshipsQuery = db.FediverseRelationships
-            .Include(r => r.TargetActor)
-            .Where(r => r.Actor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted);
+        var relationshipsQuery = db
+            .FediverseRelationships.Include(r => r.TargetActor)
+            .Where(r =>
+                r.Actor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
+            );
 
         var totalItems = await relationshipsQuery.CountAsync();
 
@@ -379,7 +402,7 @@ public class ActivityPubController(
                 Type = "OrderedCollectionPage",
                 TotalItems = totalItems,
                 PartOf = followingUrl,
-                OrderedItems = actorUris.Cast<object>().ToList()
+                OrderedItems = actorUris.Cast<object>().ToList(),
             };
 
             return Ok(collectionPage);
@@ -392,7 +415,7 @@ public class ActivityPubController(
                 Id = followingUrl,
                 Type = "OrderedCollection",
                 TotalItems = totalItems,
-                First = $"{followingUrl}?page=1"
+                First = $"{followingUrl}?page=1",
             };
 
             return Ok(collection);
@@ -401,8 +424,9 @@ public class ActivityPubController(
 
     private async Task<string> GetPublicKeyAsync(SnPublisher publisher)
     {
-        var actor = await db.FediverseActors
-            .FirstOrDefaultAsync(a => a.PublisherId == publisher.Id);
+        var actor = await db.FediverseActors.FirstOrDefaultAsync(a =>
+            a.PublisherId == publisher.Id
+        );
 
         if (actor == null)
         {
@@ -417,12 +441,18 @@ public class ActivityPubController(
             return key.KeyPem;
         }
 
-        logger.LogInformation("Generating new key pair for publisher: {PublisherId} ({Name})",
-            publisher.Id, publisher.Name);
+        logger.LogInformation(
+            "Generating new key pair for publisher: {PublisherId} ({Name})",
+            publisher.Id,
+            publisher.Name
+        );
 
         var newKey = await keyService.GetOrCreateKeyForActorAsync(actor);
 
-        logger.LogInformation("Saved new key pair to database for publisher: {PublisherId}", publisher.Id);
+        logger.LogInformation(
+            "Saved new key pair to database for publisher: {PublisherId}",
+            publisher.Id
+        );
 
         return newKey.KeyPem;
     }
@@ -439,8 +469,7 @@ public class ActivityPubController(
     )]
     public async Task<IActionResult> GetFeatured(string username, [FromQuery] int? page)
     {
-        var publisher = await db.Publishers
-            .FirstOrDefaultAsync(p => p.Name == username);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
 
         if (publisher == null)
             return NotFound();
@@ -448,11 +477,14 @@ public class ActivityPubController(
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
         var featuredUrl = $"{actorUrl}/featured";
 
-        var pinnedPostsQuery = db.Posts
-            .Where(p => p.PublisherId == publisher.Id && p.PinMode == PostPinMode.PublisherPage && p.DraftedAt == null);
+        var pinnedPostsQuery = db.Posts.Where(p =>
+            p.PublisherId == publisher.Id
+            && p.PinMode == PostPinMode.PublisherPage
+            && p.DraftedAt == null
+        );
 
-        var featuredRecordsQuery = db.PostFeaturedRecords
-            .Include(r => r.Post)
+        var featuredRecordsQuery = db
+            .PostFeaturedRecords.Include(r => r.Post)
             .Where(r => r.Post.PublisherId == publisher.Id && r.Post.DraftedAt == null)
             .OrderByDescending(r => r.FeaturedAt)
             .Take(10);
@@ -462,11 +494,10 @@ public class ActivityPubController(
             .Take(10)
             .ToListAsync();
 
-        var featuredPosts = await featuredRecordsQuery
-            .Select(r => r.Post)
-            .ToListAsync();
+        var featuredPosts = await featuredRecordsQuery.Select(r => r.Post).ToListAsync();
 
-        var allFeaturedPosts = pinnedPosts.Concat(featuredPosts)
+        var allFeaturedPosts = pinnedPosts
+            .Concat(featuredPosts)
             .DistinctBy(p => p.Id)
             .OrderByDescending(p => p.PublishedAt ?? p.CreatedAt)
             .ToList();
@@ -478,17 +509,16 @@ public class ActivityPubController(
             const int pageSize = 20;
             var skip = (page.Value - 1) * pageSize;
 
-            var postsPage = allFeaturedPosts
-                .Skip(skip)
-                .Take(pageSize)
-                .ToList();
+            var postsPage = allFeaturedPosts.Skip(skip).Take(pageSize).ToList();
 
-            var items = await Task.WhenAll(postsPage.Select(async post =>
-            {
-                var postObject = await objFactory.CreatePostObject(post, actorUrl);
-                postObject["url"] = $"https://{Domain}/posts/{post.Id}";
-                return postObject;
-            }));
+            var items = await Task.WhenAll(
+                postsPage.Select(async post =>
+                {
+                    var postObject = await objFactory.CreatePostObject(post, actorUrl);
+                    postObject["url"] = $"https://{Domain}/posts/{post.Id}";
+                    return postObject;
+                })
+            );
 
             var collectionPage = new ActivityPubCollectionPage
             {
@@ -499,19 +529,21 @@ public class ActivityPubController(
                 PartOf = featuredUrl,
                 OrderedItems = items.Cast<object>().ToList(),
                 Next = skip + pageSize < totalItems ? $"{featuredUrl}?page={page.Value + 1}" : null,
-                Prev = page.Value > 1 ? $"{featuredUrl}?page={page.Value - 1}" : null
+                Prev = page.Value > 1 ? $"{featuredUrl}?page={page.Value - 1}" : null,
             };
 
             return Ok(collectionPage);
         }
         else
         {
-            var items = await Task.WhenAll(allFeaturedPosts.Select(async post =>
-            {
-                var postObject = await objFactory.CreatePostObject(post, actorUrl);
-                postObject["url"] = $"https://{Domain}/posts/{post.Id}";
-                return postObject;
-            }));
+            var items = await Task.WhenAll(
+                allFeaturedPosts.Select(async post =>
+                {
+                    var postObject = await objFactory.CreatePostObject(post, actorUrl);
+                    postObject["url"] = $"https://{Domain}/posts/{post.Id}";
+                    return postObject;
+                })
+            );
 
             var collection = new ActivityPubCollection
             {
@@ -519,7 +551,7 @@ public class ActivityPubController(
                 Id = featuredUrl,
                 Type = "OrderedCollection",
                 TotalItems = totalItems,
-                Items = items.Cast<object>().ToList()
+                Items = items.Cast<object>().ToList(),
             };
 
             return Ok(collection);
@@ -538,67 +570,129 @@ public class ActivityPubController(
             "application/ld+json" => true,
             var s when s.StartsWith("application/activity+json;") => true,
             var s when s.StartsWith("application/ld+json;") && s.Contains("profile") => true,
-            _ => false
+            _ => false,
         };
     }
 }
 
 public class ActivityPubActor
 {
-    [JsonPropertyName("@context")] public List<object> Context { get; set; } = [];
-    [JsonPropertyName("id")] public string? Id { get; set; }
-    [JsonPropertyName("type")] public string? Type { get; set; }
-    [JsonPropertyName("name")] public string? Name { get; set; }
+    [JsonPropertyName("@context")]
+    public List<object> Context { get; set; } = [];
+
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
 
     [JsonPropertyName("preferredUsername")]
     public string? PreferredUsername { get; set; }
 
-    [JsonPropertyName("summary")] public string? Summary { get; set; }
-    [JsonPropertyName("inbox")] public string? Inbox { get; set; }
-    [JsonPropertyName("outbox")] public string? Outbox { get; set; }
-    [JsonPropertyName("followers")] public string? Followers { get; set; }
-    [JsonPropertyName("following")] public string? Following { get; set; }
-    [JsonPropertyName("published")] public Instant? Published { get; set; }
-    [JsonPropertyName("url")] public string? Url { get; set; }
-    [JsonPropertyName("icon")] public ActivityPubImage? Icon { get; set; }
-    [JsonPropertyName("image")] public ActivityPubImage? Image { get; set; }
-    [JsonPropertyName("publicKey")] public ActivityPubPublicKey? PublicKey { get; set; }
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
+
+    [JsonPropertyName("inbox")]
+    public string? Inbox { get; set; }
+
+    [JsonPropertyName("outbox")]
+    public string? Outbox { get; set; }
+
+    [JsonPropertyName("followers")]
+    public string? Followers { get; set; }
+
+    [JsonPropertyName("following")]
+    public string? Following { get; set; }
+
+    [JsonPropertyName("published")]
+    public Instant? Published { get; set; }
+
+    [JsonPropertyName("url")]
+    public string? Url { get; set; }
+
+    [JsonPropertyName("icon")]
+    public ActivityPubImage? Icon { get; set; }
+
+    [JsonPropertyName("image")]
+    public ActivityPubImage? Image { get; set; }
+
+    [JsonPropertyName("publicKey")]
+    public ActivityPubPublicKey? PublicKey { get; set; }
 }
 
 public class ActivityPubPublicKey
 {
-    [JsonPropertyName("id")] public string? Id { get; set; }
-    [JsonPropertyName("owner")] public string? Owner { get; set; }
-    [JsonPropertyName("publicKeyPem")] public string? PublicKeyPem { get; set; }
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("owner")]
+    public string? Owner { get; set; }
+
+    [JsonPropertyName("publicKeyPem")]
+    public string? PublicKeyPem { get; set; }
 }
 
 public class ActivityPubImage
 {
-    [JsonPropertyName("type")] public string? Type { get; set; }
-    [JsonPropertyName("mediaType")] public string? MediaType { get; set; }
-    [JsonPropertyName("url")] public string? Url { get; set; }
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("mediaType")]
+    public string? MediaType { get; set; }
+
+    [JsonPropertyName("url")]
+    public string? Url { get; set; }
 }
 
 public class ActivityPubCollection
 {
-    [JsonPropertyName("@context")] public List<object> Context { get; set; } = [];
-    [JsonPropertyName("id")] public string? Id { get; set; }
-    [JsonPropertyName("type")] public string? Type { get; set; }
-    [JsonPropertyName("totalItems")] public int TotalItems { get; set; }
-    [JsonPropertyName("first")] public string? First { get; set; }
-    [JsonPropertyName("items")] public List<object>? Items { get; set; }
+    [JsonPropertyName("@context")]
+    public List<object> Context { get; set; } = [];
+
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("totalItems")]
+    public int TotalItems { get; set; }
+
+    [JsonPropertyName("first")]
+    public string? First { get; set; }
+
+    [JsonPropertyName("items")]
+    public List<object>? Items { get; set; }
 }
 
 public class ActivityPubCollectionPage
 {
-    [JsonPropertyName("@context")] public List<object> Context { get; set; } = [];
-    [JsonPropertyName("id")] public string? Id { get; set; }
-    [JsonPropertyName("type")] public string? Type { get; set; }
-    [JsonPropertyName("totalItems")] public int TotalItems { get; set; }
-    [JsonPropertyName("partOf")] public string? PartOf { get; set; }
-    [JsonPropertyName("orderedItems")] public List<object>? OrderedItems { get; set; }
-    [JsonPropertyName("next")] public string? Next { get; set; }
-    [JsonPropertyName("prev")] public string? Prev { get; set; }
+    [JsonPropertyName("@context")]
+    public List<object> Context { get; set; } = [];
+
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("totalItems")]
+    public int TotalItems { get; set; }
+
+    [JsonPropertyName("partOf")]
+    public string? PartOf { get; set; }
+
+    [JsonPropertyName("orderedItems")]
+    public List<object>? OrderedItems { get; set; }
+
+    [JsonPropertyName("next")]
+    public string? Next { get; set; }
+
+    [JsonPropertyName("prev")]
+    public string? Prev { get; set; }
 }
 
 public class OutboxItem
@@ -612,3 +706,4 @@ public class OutboxItem
     public Guid? BoostId { get; set; }
     public Instant? BoostedAt { get; set; }
 }
+

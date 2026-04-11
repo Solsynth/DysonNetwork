@@ -1,4 +1,3 @@
-using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -47,10 +46,7 @@ public class DeliveryStatistics
     public Dictionary<string, int> DeliveriesByType { get; set; } = [];
 }
 
-public class DeliveryMetricsService(
-    AppDatabase db,
-    ILogger<DeliveryMetricsService> logger
-)
+public class DeliveryMetricsService(AppDatabase db, ILogger<DeliveryMetricsService> logger)
 {
     private readonly Dictionary<string, List<double>> _deliveryTimes = new();
     private readonly object _lock = new();
@@ -76,15 +72,21 @@ public class DeliveryMetricsService(
 
         var stats = new DeliveryStatistics
         {
-            TotalDelivered = await db.ActivityPubDeliveries.CountAsync(d => d.Status == DeliveryStatus.Sent && d.SentAt > dayAgo),
-            TotalFailed = await db.ActivityPubDeliveries.CountAsync(d => d.Status == DeliveryStatus.Failed && d.CreatedAt > dayAgo),
-            PendingDelivery = await db.ActivityPubDeliveries.CountAsync(d => d.Status == DeliveryStatus.Pending),
+            TotalDelivered = await db.ActivityPubDeliveries.CountAsync(d =>
+                d.Status == DeliveryStatus.Sent && d.SentAt > dayAgo
+            ),
+            TotalFailed = await db.ActivityPubDeliveries.CountAsync(d =>
+                d.Status == DeliveryStatus.Failed && d.CreatedAt > dayAgo
+            ),
+            PendingDelivery = await db.ActivityPubDeliveries.CountAsync(d =>
+                d.Status == DeliveryStatus.Pending
+            ),
             DeadLetterCount = await db.DeliveryDeadLetters.CountAsync(),
-            DeliveriesByType = await db.ActivityPubDeliveries
-                .Where(d => d.SentAt > dayAgo)
+            DeliveriesByType = await db
+                .ActivityPubDeliveries.Where(d => d.SentAt > dayAgo)
                 .GroupBy(d => d.ActivityType)
                 .Select(g => new { Type = g.Key, Count = g.Count() })
-                .ToDictionaryAsync(x => x.Type, x => x.Count)
+                .ToDictionaryAsync(x => x.Type, x => x.Count),
         };
 
         lock (_lock)
@@ -111,7 +113,7 @@ public static class DeliveryRetryCalculator
         TimeSpan.FromHours(2),
         TimeSpan.FromHours(4),
         TimeSpan.FromHours(8),
-        TimeSpan.FromHours(12)
+        TimeSpan.FromHours(12),
     };
 
     public static TimeSpan GetDelayForRetry(int retryCount)
@@ -140,10 +142,7 @@ public static class DeliveryRetryCalculator
     }
 }
 
-public class DeliveryBatchService(
-    AppDatabase db,
-    ILogger<DeliveryBatchService> logger
-)
+public class DeliveryBatchService(AppDatabase db, ILogger<DeliveryBatchService> logger)
 {
     private readonly Dictionary<string, DeliveryBatch> _pendingBatches = new();
     private readonly object _lock = new();
@@ -157,11 +156,7 @@ public class DeliveryBatchService(
         {
             if (!_pendingBatches.TryGetValue(key, out var batch))
             {
-                batch = new DeliveryBatch
-                {
-                    InboxUri = inboxUri,
-                    ActorUri = actorUri
-                };
+                batch = new DeliveryBatch { InboxUri = inboxUri, ActorUri = actorUri };
                 _pendingBatches[key] = batch;
             }
 
@@ -202,3 +197,4 @@ public class DeliveryBatchService(
         }
     }
 }
+
