@@ -4,7 +4,6 @@ namespace DysonNetwork.Shared.Registry;
 
 public class RemoteWebSocketService(WebSocketService.WebSocketServiceClient client)
 {
-    
     public async Task PushWebSocketPacket(string accountId, string type, byte[] data, string? errorMessage = null)
     {
         var request = new DyPushWebSocketPacketRequest
@@ -84,13 +83,9 @@ public class RemoteWebSocketService(WebSocketService.WebSocketServiceClient clie
     {
         var request = new DyGetWebsocketConnectionStatusRequest();
         if (isUserId)
-        {
             request.UserId = deviceIdOrUserId;
-        }
         else
-        {
             request.DeviceId = deviceIdOrUserId;
-        }
 
         var response = await client.GetWebsocketConnectionStatusAsync(request);
         return response.IsConnected;

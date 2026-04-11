@@ -645,7 +645,7 @@ public class E2EeService(
 
         var userIds = memberships.Select(m => m.ToString()).ToList();
 
-        var payload = System.Text.Json.JsonSerializer.Serialize(new
+        var payload = InfraObjectCoder.ConvertObjectToByteString(new
         {
             Type = "mls.group.reset",
             GroupId = groupId,
@@ -653,7 +653,7 @@ public class E2EeService(
             Timestamp = SystemClock.Instance.GetCurrentInstant().ToString()
         });
 
-        await ws.PushWebSocketPacketToUsers(userIds, "e2ee.group.reset", System.Text.Encoding.UTF8.GetBytes(payload));
+        await ws.PushWebSocketPacketToUsers(userIds, "e2ee.group.reset", payload.ToByteArray());
     }
 
     public async Task<SnMlsGroupState> CreateMlsGroupAsync(
@@ -1136,11 +1136,11 @@ public class E2EeService(
                 envelope.Meta,
                 envelope.LegacyAccountScoped,
                 envelope.CreatedAt
-            }).ToByteArray();
+            });
             if (targetDeviceId is null)
-                await ws.PushWebSocketPacket(envelope.RecipientAccountId.ToString(), PacketType, payload);
+                await ws.PushWebSocketPacket(envelope.RecipientAccountId.ToString(), PacketType, payload.ToByteArray());
             else
-                await ws.PushWebSocketPacketToDevice(targetDeviceId, PacketType, payload);
+                await ws.PushWebSocketPacketToDevice(targetDeviceId, PacketType, payload.ToByteArray());
 
             envelope.DeliveryStatus = SnE2eeEnvelopeStatus.Delivered;
             envelope.DeliveredAt = SystemClock.Instance.GetCurrentInstant();

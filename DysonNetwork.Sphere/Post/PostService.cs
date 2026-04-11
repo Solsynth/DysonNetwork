@@ -620,7 +620,7 @@ public partial class PostService(
             var postBytes = Encoding.UTF8.GetBytes(postData);
 
             // Push to all target users
-            await scopedWs.PushWebSocketPacketToUsers(targetUserIds, eventType, Google.Protobuf.ByteString.CopyFrom(postBytes));
+            await scopedWs.PushWebSocketPacketToUsers(targetUserIds, eventType, postBytes);
         }
         catch (Exception ex)
         {
@@ -675,7 +675,7 @@ public partial class PostService(
             var reactionBytes = Encoding.UTF8.GetBytes(reactionData);
 
             // Push to all target users
-            await scopedWs.PushWebSocketPacketToUsers(targetUserIds, eventType, Google.Protobuf.ByteString.CopyFrom(reactionBytes));
+            await scopedWs.PushWebSocketPacketToUsers(targetUserIds, eventType, reactionBytes);
         }
         catch (Exception ex)
         {

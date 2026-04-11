@@ -716,7 +716,7 @@ public static class ServiceCollectionExtensions
             RemoteWebSocketService ws
         )
         {
-            await ws.PushWebSocketPacketToDevice(evt.DeviceId, "error", [], message);
+            await ws.PushWebSocketPacketToDevice(evt.DeviceId, "error", System.Text.Encoding.UTF8.GetBytes(message), message);
         }
     }
 }
