@@ -9,7 +9,7 @@ namespace DysonNetwork.Padlock.E2EE;
 [ApiController]
 [Route("/api/e2ee")]
 [Authorize]
-public class E2EeController(IGroupE2EeModule e2EeModule) : ControllerBase
+public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
 {
     private const string AbilityHeader = "X-Client-Ability";
     private const string DeviceIdHeader = "X-Device-Id";

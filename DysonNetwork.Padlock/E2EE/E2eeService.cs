@@ -12,7 +12,7 @@ public class E2EeService(
     RemoteWebSocketService ws,
     RemoteRingService ring,
     ILogger<E2EeService> logger
-) : IGroupE2EeModule
+) : IE2EeModule
 {
     private const string PacketType = "e2ee.envelope";
     private const string KpDepletedPacketType = "e2ee.kp.depleted";
@@ -116,25 +116,34 @@ public class E2EeService(
             return null;
 
         UpsertE2EeOneTimePreKey? claimedPreKey = null;
-        if (consumeOneTimePreKey)
+        if (!consumeOneTimePreKey)
+            return new E2EePublicKeyBundleResponse(
+                bundle.AccountId,
+                bundle.Algorithm,
+                bundle.IdentityKey,
+                bundle.SignedPreKeyId,
+                bundle.SignedPreKey,
+                bundle.SignedPreKeySignature,
+                bundle.SignedPreKeyExpiresAt?.ToDateTimeOffset(),
+                claimedPreKey,
+                bundle.Meta
+            );
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        var firstAvailable = await db.E2eeOneTimePreKeys
+            .Where(k => k.KeyBundleId == bundle.Id && !k.IsClaimed)
+            .OrderBy(k => k.KeyId)
+            .FirstOrDefaultAsync();
+
+        if (firstAvailable is not null)
         {
-            await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-            var firstAvailable = await db.E2eeOneTimePreKeys
-                .Where(k => k.KeyBundleId == bundle.Id && !k.IsClaimed)
-                .OrderBy(k => k.KeyId)
-                .FirstOrDefaultAsync();
-
-            if (firstAvailable is not null)
-            {
-                firstAvailable.IsClaimed = true;
-                firstAvailable.ClaimedAt = SystemClock.Instance.GetCurrentInstant();
-                firstAvailable.ClaimedByAccountId = requesterId;
-                claimedPreKey = new UpsertE2EeOneTimePreKey(firstAvailable.KeyId, firstAvailable.PublicKey);
-                await db.SaveChangesAsync();
-            }
-
-            await tx.CommitAsync();
+            firstAvailable.IsClaimed = true;
+            firstAvailable.ClaimedAt = SystemClock.Instance.GetCurrentInstant();
+            firstAvailable.ClaimedByAccountId = requesterId;
+            claimedPreKey = new UpsertE2EeOneTimePreKey(firstAvailable.KeyId, firstAvailable.PublicKey);
+            await db.SaveChangesAsync();
         }
+
+        await tx.CommitAsync();
 
         return new E2EePublicKeyBundleResponse(
             bundle.AccountId,
@@ -271,7 +280,7 @@ public class E2EeService(
 
     public async Task<List<MlsDeviceKeyPackageResponse>> ListMlsDeviceKeyPackagesAsync(
         Guid accountId,
-        Guid requesterId,
+        Guid? requesterId,
         bool consume
     )
     {
@@ -290,14 +299,10 @@ public class E2EeService(
             var package = await db.MlsKeyPackages
                 .Where(k => k.AccountId == accountId && k.DeviceId == device.DeviceId && !k.IsConsumed)
                 .OrderBy(k => k.CreatedAt)
+                .FirstOrDefaultAsync() ?? await db.MlsKeyPackages
+                .Where(k => k.AccountId == accountId && k.DeviceId == device.DeviceId)
+                .OrderByDescending(k => k.CreatedAt)
                 .FirstOrDefaultAsync();
-            if (package is null)
-            {
-                package = await db.MlsKeyPackages
-                    .Where(k => k.AccountId == accountId && k.DeviceId == device.DeviceId)
-                    .OrderByDescending(k => k.CreatedAt)
-                    .FirstOrDefaultAsync();
-            }
             if (package is null) continue;
 
             if (consume && !package.IsConsumed)
@@ -320,13 +325,11 @@ public class E2EeService(
             ));
         }
 
-        if (dirty)
+        if (!dirty) return responses;
+        await db.SaveChangesAsync();
+        if (consumedDeviceId is not null)
         {
-            await db.SaveChangesAsync();
-            if (consumedDeviceId is not null)
-            {
-                await CheckAndNotifyKpDepletedAsync(accountId, consumedDeviceId, consumedDeviceLabel);
-            }
+            await CheckAndNotifyKpDepletedAsync(accountId, consumedDeviceId, consumedDeviceLabel);
         }
 
         return responses;

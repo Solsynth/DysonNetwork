@@ -2,7 +2,7 @@ using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Padlock.E2EE;
 
-public interface Ie2EeModule
+public interface IE2EeModule
 {
     Task<SnE2eeKeyBundle> UpsertKeyBundleAsync(Guid accountId, UpsertE2EeKeyBundleRequest request);
     Task<E2EePublicKeyBundleResponse?> GetPublicBundleAsync(Guid accountId, Guid requesterId, bool consumeOneTimePreKey);
@@ -35,7 +35,7 @@ public interface Ie2EeModule
         string? deviceLabel,
         PublishMlsKeyPackageRequest request
     );
-    Task<List<MlsDeviceKeyPackageResponse>> ListMlsDeviceKeyPackagesAsync(Guid accountId, Guid requesterId, bool consume);
+    Task<List<MlsDeviceKeyPackageResponse>> ListMlsDeviceKeyPackagesAsync(Guid accountId, Guid? requesterId, bool consume);
     Task<MlsKeyPackageStatusResponse> GetMlsKeyPackageStatusAsync(Guid accountId);
     Task<SnMlsGroupState> BootstrapMlsGroupAsync(Guid accountId, BootstrapMlsGroupRequest request);
     Task<SnMlsGroupState?> CommitMlsGroupAsync(Guid accountId, CommitMlsGroupRequest request);
@@ -52,11 +52,6 @@ public interface Ie2EeModule
     Task NotifyGroupResetAsync(string groupId, string? reason);
     Task<SnMlsGroupState> CreateMlsGroupAsync(string groupId, long epoch, long stateVersion);
     Task<UploadGroupInfoResponse> UploadGroupInfoAsync(string groupId, byte[] groupInfo, byte[] ratchetTree);
-}
-
-public interface IGroupE2EeModule : Ie2EeModule
-{
-    Task<int> DistributeSenderKeyAsync(Guid senderId, DistributeSenderKeyRequest request);
 }
 
 public record UpsertE2EeOneTimePreKey(int KeyId, byte[] PublicKey);
