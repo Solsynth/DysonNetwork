@@ -28,7 +28,7 @@ public class E2EeController(IGroupE2EeModule e2EeModule) : ControllerBase
         return false;
     }
 
-    private ActionResult? EnsureMlsAbility()
+    public ActionResult? EnsureMlsAbility()
     {
         if (HasAbility(MlsAbilityToken)) return null;
         return StatusCode(409, new

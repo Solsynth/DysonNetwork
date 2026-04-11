@@ -32,7 +32,7 @@ public class E2EeService(
         if (string.IsNullOrWhiteSpace(deviceId))
             throw new InvalidOperationException("deviceId cannot be empty.");
 
-        var bundle = await db.E2EeKeyBundles
+        var bundle = await db.E2eeKeyBundles
             .Include(b => b.OneTimePreKeys)
             .FirstOrDefaultAsync(b => b.AccountId == accountId && b.DeviceId == deviceId);
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -44,10 +44,10 @@ public class E2EeService(
                 AccountId = accountId,
                 DeviceId = deviceId
             };
-            db.E2EeKeyBundles.Add(bundle);
+            db.E2eeKeyBundles.Add(bundle);
         }
 
-        var e2EeDevice = await db.E2EeDevices.FirstOrDefaultAsync(d =>
+        var e2EeDevice = await db.E2eeDevices.FirstOrDefaultAsync(d =>
             d.AccountId == accountId && d.DeviceId == deviceId);
         if (e2EeDevice is null)
         {
@@ -57,7 +57,7 @@ public class E2EeService(
                 DeviceId = deviceId,
                 DeviceLabel = deviceLabel
             };
-            db.E2EeDevices.Add(e2EeDevice);
+            db.E2eeDevices.Add(e2EeDevice);
         }
         else
         {
@@ -95,7 +95,7 @@ public class E2EeService(
                 .ToList();
 
             if (newPreKeys.Count > 0)
-                db.E2EeOneTimePreKeys.AddRange(newPreKeys);
+                db.E2eeOneTimePreKeys.AddRange(newPreKeys);
         }
 
         await db.SaveChangesAsync();
@@ -104,7 +104,7 @@ public class E2EeService(
 
     public async Task<E2EePublicKeyBundleResponse?> GetPublicBundleAsync(Guid accountId, Guid requesterId, bool consumeOneTimePreKey)
     {
-        var bundle = await db.E2EeKeyBundles
+        var bundle = await db.E2eeKeyBundles
             .Include(b => b.OneTimePreKeys)
             .Where(b => b.AccountId == accountId)
             .OrderByDescending(b => b.UpdatedAt)
@@ -116,7 +116,7 @@ public class E2EeService(
         if (consumeOneTimePreKey)
         {
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-            var firstAvailable = await db.E2EeOneTimePreKeys
+            var firstAvailable = await db.E2eeOneTimePreKeys
                 .Where(k => k.KeyBundleId == bundle.Id && !k.IsClaimed)
                 .OrderBy(k => k.KeyId)
                 .FirstOrDefaultAsync();
@@ -152,13 +152,13 @@ public class E2EeService(
         bool consumeOneTimePreKey
     )
     {
-        var devices = await db.E2EeDevices
+        var devices = await db.E2eeDevices
             .Where(d => d.AccountId == accountId && !d.IsRevoked)
             .ToListAsync();
         if (devices.Count == 0)
             return [];
 
-        var bundles = await db.E2EeKeyBundles
+        var bundles = await db.E2eeKeyBundles
             .Where(b => b.AccountId == accountId)
             .ToListAsync();
         var bundlesByDevice = bundles.ToDictionary(b => b.DeviceId, b => b);
@@ -173,7 +173,7 @@ public class E2EeService(
             if (consumeOneTimePreKey)
             {
                 await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-                var firstAvailable = await db.E2EeOneTimePreKeys
+                var firstAvailable = await db.E2eeOneTimePreKeys
                     .Where(k =>
                         k.KeyBundleId == bundle.Id &&
                         k.AccountId == accountId &&
@@ -230,7 +230,7 @@ public class E2EeService(
             throw new InvalidOperationException(
                 $"MLS key package daily upload limit exceeded. Max {MlsKeyPackageDailyLimitPerAccount} per 24h.");
 
-        var e2EeDevice = await db.E2EeDevices.FirstOrDefaultAsync(d =>
+        var e2EeDevice = await db.E2eeDevices.FirstOrDefaultAsync(d =>
             d.AccountId == accountId && d.DeviceId == deviceId);
         if (e2EeDevice is null)
         {
@@ -240,7 +240,7 @@ public class E2EeService(
                 DeviceId = deviceId,
                 DeviceLabel = deviceLabel
             };
-            db.E2EeDevices.Add(e2EeDevice);
+            db.E2eeDevices.Add(e2EeDevice);
         }
         else
         {
@@ -274,7 +274,7 @@ public class E2EeService(
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         await PurgeExpiredMlsKeyPackagesAsync(accountId, now);
-        var activeDevices = await db.E2EeDevices
+        var activeDevices = await db.E2eeDevices
             .Where(d => d.AccountId == accountId && !d.IsRevoked)
             .ToListAsync();
         var responses = new List<MlsDeviceKeyPackageResponse>();
@@ -568,7 +568,7 @@ public class E2EeService(
     {
         EnsurePairOrder(accountId, peerId, out var accountAId, out var accountBId);
 
-        var session = await db.E2EeSessions
+        var session = await db.E2eeSessions
             .FirstOrDefaultAsync(s => s.AccountAId == accountAId && s.AccountBId == accountBId);
         if (session is not null)
         {
@@ -586,7 +586,7 @@ public class E2EeService(
             Hint = request.Hint,
             Meta = request.Meta
         };
-        db.E2EeSessions.Add(session);
+        db.E2eeSessions.Add(session);
         await db.SaveChangesAsync();
         return session;
     }
@@ -597,7 +597,7 @@ public class E2EeService(
             throw new InvalidOperationException("Ciphertext cannot be empty.");
         if (!string.IsNullOrWhiteSpace(request.ClientMessageId))
         {
-            var existing = await db.E2EeEnvelopes.FirstOrDefaultAsync(e =>
+            var existing = await db.E2eeEnvelopes.FirstOrDefaultAsync(e =>
                 e.SenderId == senderId &&
                 e.RecipientAccountId == request.RecipientId &&
                 e.RecipientDeviceId == null &&
@@ -612,7 +612,7 @@ public class E2EeService(
             throw new KeyNotFoundException("Recipient not found.");
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        var nextSequence = await db.E2EeEnvelopes
+        var nextSequence = await db.E2eeEnvelopes
             .Where(m => m.RecipientAccountId == request.RecipientId && m.RecipientDeviceId == null)
             .Select(m => (long?)m.Sequence)
             .MaxAsync() ?? 0;
@@ -640,11 +640,11 @@ public class E2EeService(
             UpdatedAt = now
         };
 
-        db.E2EeEnvelopes.Add(envelope);
+        db.E2eeEnvelopes.Add(envelope);
 
         if (request.SessionId.HasValue)
         {
-            var session = await db.E2EeSessions.FirstOrDefaultAsync(s => s.Id == request.SessionId.Value);
+            var session = await db.E2eeSessions.FirstOrDefaultAsync(s => s.Id == request.SessionId.Value);
             if (session is not null)
                 session.LastMessageAt = now;
         }
@@ -673,7 +673,7 @@ public class E2EeService(
         if (!recipientExists)
             throw new KeyNotFoundException("Recipient not found.");
 
-        var activeDevices = await db.E2EeDevices
+        var activeDevices = await db.E2eeDevices
             .Where(d => d.AccountId == request.RecipientAccountId && !d.IsRevoked)
             .Select(d => d.DeviceId)
             .ToListAsync();
@@ -763,7 +763,7 @@ public class E2EeService(
 
         if (request.SessionId.HasValue)
         {
-            var session = await db.E2EeSessions.FirstOrDefaultAsync(s => s.Id == request.SessionId.Value);
+            var session = await db.E2eeSessions.FirstOrDefaultAsync(s => s.Id == request.SessionId.Value);
             session?.LastMessageAt = now;
         }
 
@@ -777,7 +777,7 @@ public class E2EeService(
     public async Task<List<SnE2eeEnvelope>> GetPendingEnvelopesAsync(Guid recipientId, int take)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        var envelopes = await db.E2EeEnvelopes
+        var envelopes = await db.E2eeEnvelopes
             .Where(e => e.RecipientAccountId == recipientId && e.RecipientDeviceId == null)
             .Where(e => e.DeliveryStatus != SnE2eeEnvelopeStatus.Acknowledged)
             .Where(e => e.ExpiresAt == null || e.ExpiresAt > now)
@@ -801,14 +801,14 @@ public class E2EeService(
 
     public async Task<List<SnE2eeEnvelope>> GetPendingEnvelopesByDeviceAsync(Guid recipientId, string deviceId, int take)
     {
-        var activeDevice = await db.E2EeDevices
+        var activeDevice = await db.E2eeDevices
             .Where(d => d.AccountId == recipientId && d.DeviceId == deviceId && !d.IsRevoked)
             .FirstOrDefaultAsync();
         if (activeDevice is null)
             return [];
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        var envelopes = await db.E2EeEnvelopes
+        var envelopes = await db.E2eeEnvelopes
             .Where(e => e.RecipientAccountId == recipientId && e.RecipientDeviceId == deviceId)
             .Where(e => e.DeliveryStatus != SnE2eeEnvelopeStatus.Acknowledged)
             .Where(e => e.ExpiresAt == null || e.ExpiresAt > now)
@@ -832,7 +832,7 @@ public class E2EeService(
 
     public async Task<SnE2eeEnvelope?> AcknowledgeEnvelopeAsync(Guid recipientId, Guid envelopeId)
     {
-        var envelope = await db.E2EeEnvelopes
+        var envelope = await db.E2eeEnvelopes
             .FirstOrDefaultAsync(e => e.Id == envelopeId && e.RecipientAccountId == recipientId && e.RecipientDeviceId == null);
         if (envelope is null)
             return null;
@@ -845,13 +845,13 @@ public class E2EeService(
 
     public async Task<SnE2eeEnvelope?> AcknowledgeEnvelopeByDeviceAsync(Guid recipientId, string deviceId, Guid envelopeId)
     {
-        var activeDevice = await db.E2EeDevices
+        var activeDevice = await db.E2eeDevices
             .Where(d => d.AccountId == recipientId && d.DeviceId == deviceId && !d.IsRevoked)
             .FirstOrDefaultAsync();
         if (activeDevice is null)
             return null;
 
-        var envelope = await db.E2EeEnvelopes
+        var envelope = await db.E2eeEnvelopes
             .FirstOrDefaultAsync(e => e.Id == envelopeId && e.RecipientAccountId == recipientId && e.RecipientDeviceId == deviceId);
         if (envelope is null)
             return null;
@@ -864,7 +864,7 @@ public class E2EeService(
 
     public async Task<bool> RevokeDeviceAsync(Guid accountId, string deviceId)
     {
-        var device = await db.E2EeDevices
+        var device = await db.E2eeDevices
             .FirstOrDefaultAsync(d => d.AccountId == accountId && d.DeviceId == deviceId);
         if (device is null)
             return false;
@@ -876,7 +876,7 @@ public class E2EeService(
         var now = SystemClock.Instance.GetCurrentInstant();
         device.RevokedAt = now;
 
-        var pending = await db.E2EeEnvelopes
+        var pending = await db.E2eeEnvelopes
             .Where(e =>
                 e.RecipientAccountId == accountId &&
                 e.RecipientDeviceId == deviceId &&
@@ -886,7 +886,7 @@ public class E2EeService(
         if (purgedCount > 0)
             db.RemoveRange(pending);
 
-        var siblingDevices = await db.E2EeDevices
+        var siblingDevices = await db.E2eeDevices
             .Where(d => d.AccountId == accountId && !d.IsRevoked && d.DeviceId != deviceId)
             .Select(d => d.DeviceId)
             .ToListAsync();
@@ -1038,7 +1038,7 @@ public class E2EeService(
 
         if (!string.IsNullOrWhiteSpace(clientMessageId))
         {
-            var existing = await db.E2EeEnvelopes.FirstOrDefaultAsync(e =>
+            var existing = await db.E2eeEnvelopes.FirstOrDefaultAsync(e =>
                 e.SenderId == senderId &&
                 e.SenderDeviceId == senderDeviceId &&
                 e.RecipientAccountId == recipientAccountId &&
@@ -1049,7 +1049,7 @@ public class E2EeService(
                 return existing;
         }
 
-        var nextSequence = await db.E2EeEnvelopes
+        var nextSequence = await db.E2eeEnvelopes
             .Where(m => m.RecipientAccountId == recipientAccountId && m.RecipientDeviceId == recipientDeviceId)
             .Select(m => (long?)m.Sequence)
             .MaxAsync() ?? 0;
@@ -1076,7 +1076,7 @@ public class E2EeService(
             CreatedAt = createdAt,
             UpdatedAt = createdAt
         };
-        db.E2EeEnvelopes.Add(envelope);
+        db.E2eeEnvelopes.Add(envelope);
         return envelope;
     }
 
