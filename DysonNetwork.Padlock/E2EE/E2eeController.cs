@@ -9,7 +9,7 @@ namespace DysonNetwork.Padlock.E2EE;
 [ApiController]
 [Route("/api/e2ee")]
 [Authorize]
-public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
+public class E2EeController(IGroupE2EeModule e2EeModule) : ControllerBase
 {
     private const string AbilityHeader = "X-Client-Ability";
     private const string MlsAbilityToken = "chat.mls.v2";
@@ -107,7 +107,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
             return Unauthorized();
 
-        var result = await e2eeModule.PublishMlsKeyPackageAsync(currentUser.Id, body.DeviceId, body.DeviceLabel,
+        var result = await e2EeModule.PublishMlsKeyPackageAsync(currentUser.Id, body.DeviceId, body.DeviceLabel,
             new PublishMlsKeyPackageRequest(body.KeyPackage, body.Ciphersuite, body.Meta));
         return Ok(result);
     }
@@ -122,7 +122,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        var result = await e2eeModule.ListMlsDeviceKeyPackagesAsync(accountId, currentUser.Id, consume);
+        var result = await e2EeModule.ListMlsDeviceKeyPackagesAsync(accountId, currentUser.Id, consume);
         return Ok(result);
     }
 
@@ -158,7 +158,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         var results = new List<MlsUserAvailability>();
         foreach (var accountId in body.AccountIds)
         {
-            var packages = await e2eeModule.ListMlsDeviceKeyPackagesAsync(accountId, currentUser.Id, consume: false);
+            var packages = await e2EeModule.ListMlsDeviceKeyPackagesAsync(accountId, currentUser.Id, consume: false);
             results.Add(new MlsUserAvailability
             {
                 AccountId = accountId,
@@ -177,7 +177,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         if (currentUser is null) return Unauthorized();
 
-        var packages = await e2eeModule.ListMlsDeviceKeyPackagesAsync(accountId, currentUser.Id, consume: false);
+        var packages = await e2EeModule.ListMlsDeviceKeyPackagesAsync(accountId, currentUser.Id, consume: false);
         return Ok(new CheckMlsReadyResponse
         {
             IsReady = packages.Count > 0,
@@ -189,7 +189,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
     public async Task<ActionResult<List<MlsDeviceKeyPackageResponse>>> GetCapableDevices(string groupId)
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        var result = await e2eeModule.GetCapableDevicesAsync(groupId);
+        var result = await e2EeModule.GetCapableDevicesAsync(groupId);
         return Ok(result);
     }
 
@@ -199,7 +199,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        var state = await e2eeModule.BootstrapMlsGroupAsync(currentUser.Id, new BootstrapMlsGroupRequest(
+        var state = await e2EeModule.BootstrapMlsGroupAsync(currentUser.Id, new BootstrapMlsGroupRequest(
             groupId, body.Epoch, body.StateVersion, body.Meta
         ));
         return Ok(state);
@@ -211,7 +211,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        var state = await e2eeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
+        var state = await e2EeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
             groupId, body.Epoch, body.Reason, body.Meta
         ));
         if (state is null) return NotFound();
@@ -230,7 +230,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         if (string.IsNullOrWhiteSpace(senderDeviceId))
             return BadRequest("Current session device id is missing.");
 
-        var result = await e2eeModule.FanoutMlsWelcomeAsync(currentUser.Id, senderDeviceId,
+        var result = await e2EeModule.FanoutMlsWelcomeAsync(currentUser.Id, senderDeviceId,
             new FanoutMlsWelcomeRequest(
                 groupId,
                 body.RecipientAccountId,
@@ -256,7 +256,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        var result = await e2eeModule.MarkMlsReshareRequiredAsync(currentUser.Id, new MarkMlsReshareRequiredRequest(
+        var result = await e2EeModule.MarkMlsReshareRequiredAsync(currentUser.Id, new MarkMlsReshareRequiredRequest(
             groupId, body.TargetAccountId, body.TargetDeviceId, body.Epoch, body.Reason
         ));
         return Ok(result);
@@ -275,8 +275,8 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
             return BadRequest("Current session device id is missing.");
 
         body.Type = SnE2eeEnvelopeType.MlsApplication;
-        var envelopes = await e2eeModule.SendFanoutEnvelopesAsync(currentUser.Id, senderDeviceId,
-            new SendE2eeFanoutRequest(
+        var envelopes = await e2EeModule.SendFanoutEnvelopesAsync(currentUser.Id, senderDeviceId,
+            new SendE2EeFanoutRequest(
                 body.RecipientAccountId,
                 body.SessionId,
                 body.Type,
@@ -316,7 +316,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         if (string.IsNullOrWhiteSpace(senderDeviceId))
             return BadRequest("Current session device id is missing.");
 
-        var currentState = await e2eeModule.GetMlsGroupStateByGroupIdAsync(groupId);
+        var currentState = await e2EeModule.GetMlsGroupStateByGroupIdAsync(groupId);
         if (currentState != null && body.Epoch != currentState.Epoch + 1)
         {
             return Conflict(new
@@ -327,7 +327,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
             });
         }
 
-        var envelopes = await e2eeModule.FanoutMlsCommitAsync(
+        var envelopes = await e2EeModule.FanoutMlsCommitAsync(
             currentUser.Id,
             senderDeviceId,
             new FanoutMlsCommitRequest(
@@ -344,7 +344,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
             )
         );
 
-        await e2eeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
+        await e2EeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
             groupId, body.Epoch, "member_add", null
         ));
 
@@ -368,7 +368,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
             return BadRequest("device_id is required.");
 
         take = Math.Clamp(take, 1, 500);
-        var envelopes = await e2eeModule.GetPendingEnvelopesByDeviceAsync(currentUser.Id, effectiveDeviceId, take);
+        var envelopes = await e2EeModule.GetPendingEnvelopesByDeviceAsync(currentUser.Id, effectiveDeviceId, take);
         return Ok(envelopes);
     }
 
@@ -389,7 +389,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         if (string.IsNullOrWhiteSpace(effectiveDeviceId))
             return BadRequest("device_id is required.");
 
-        var message = await e2eeModule.AcknowledgeEnvelopeByDeviceAsync(currentUser.Id, effectiveDeviceId, envelopeId);
+        var message = await e2EeModule.AcknowledgeEnvelopeByDeviceAsync(currentUser.Id, effectiveDeviceId, envelopeId);
         if (message is null) return NotFound();
         return Ok(message);
     }
@@ -401,7 +401,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         if (currentUser is null) return Unauthorized();
 
-        var revoked = await e2eeModule.RevokeDeviceAsync(currentUser.Id, deviceId);
+        var revoked = await e2EeModule.RevokeDeviceAsync(currentUser.Id, deviceId);
         if (!revoked) return NotFound();
         return NoContent();
     }
@@ -420,14 +420,14 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        var group = await e2eeModule.GetMlsGroupStateByGroupIdAsync(groupId);
+        var group = await e2EeModule.GetMlsGroupStateByGroupIdAsync(groupId);
         if (group is null) return NotFound();
 
-        await e2eeModule.DeleteMlsGroupAsync(groupId);
+        await e2EeModule.DeleteMlsGroupAsync(groupId);
 
-        await e2eeModule.NotifyGroupResetAsync(groupId, body.Reason);
+        await e2EeModule.NotifyGroupResetAsync(groupId, body.Reason);
 
-        var newState = await e2eeModule.CreateMlsGroupAsync(
+        var newState = await e2EeModule.CreateMlsGroupAsync(
             groupId,
             body.NewEpoch,
             body.StateVersion + 1

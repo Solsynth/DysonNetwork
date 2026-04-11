@@ -152,8 +152,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AuthService>();
         services.AddScoped<TokenAuthService>();
         services.AddScoped<E2EeService>();
-        services.AddScoped<IE2eeModule>(sp => sp.GetRequiredService<E2EeService>());
-        services.AddScoped<IGroupE2eeModule>(sp => sp.GetRequiredService<E2EeService>());
+        services.AddScoped<Ie2EeModule>(sp => sp.GetRequiredService<E2EeService>());
+        services.AddScoped<IGroupE2EeModule>(sp => sp.GetRequiredService<E2EeService>());
         services.AddGrpcClientWithSharedChannel<DyProfileService.DyProfileServiceClient>(
             "https://_grpc.passport",
             "DyProfileService");

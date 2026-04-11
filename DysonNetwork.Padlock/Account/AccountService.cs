@@ -511,7 +511,7 @@ public class AccountService(
                 return Task.FromResult(false);
 
             var signatureData = assertion.AuthenticatorData.GetSignedData(assertion.ClientDataJson);
-            using var ECDsa = System.Security.Cryptography.ECDsa.Create(new System.Security.Cryptography.ECParameters
+            using var ecDsa = System.Security.Cryptography.ECDsa.Create(new System.Security.Cryptography.ECParameters
             {
                 Curve = System.Security.Cryptography.ECCurve.NamedCurves.nistP256,
                 Q = new System.Security.Cryptography.ECPoint
@@ -521,7 +521,7 @@ public class AccountService(
                 }
             });
 
-            return Task.FromResult(ECDsa.VerifyData(signatureData, assertion.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256));
+            return Task.FromResult(ecDsa.VerifyData(signatureData, assertion.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256));
         }
         catch
         {
@@ -599,7 +599,7 @@ public class AccountService(
             if (attStmtMap.TryGetValue("sig", out var sigValue) && sigValue is byte[] signature)
                 statement.Signature = signature;
 
-            if (attStmtMap.TryGetValue("x5c", out var x5cValue) && x5cValue is List<object> x5cList && x5cList.Count > 0 && x5cList[0] is byte[] certBytes)
+            if (attStmtMap.TryGetValue("x5c", out var x5CValue) && x5CValue is List<object> x5CList && x5CList.Count > 0 && x5CList[0] is byte[] certBytes)
                 statement.AttestationCertificate = certBytes;
 
             if (attStmtMap.TryGetValue("alg", out var algValue) && algValue is int alg)
@@ -738,11 +738,11 @@ public class AccountService(
                 signedData.AddRange(statement.AuthData);
                 signedData.AddRange(clientDataHash);
 
-                using var ECDsa = System.Security.Cryptography.ECDsa.Create();
+                using var ecDsa = System.Security.Cryptography.ECDsa.Create();
                 try
                 {
-                    ECDsa.ImportSubjectPublicKeyInfo(statement.AttestationCertificate, out _);
-                    return ECDsa.VerifyData(signedData.ToArray(), statement.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256);
+                    ecDsa.ImportSubjectPublicKeyInfo(statement.AttestationCertificate, out _);
+                    return ecDsa.VerifyData(signedData.ToArray(), statement.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256);
                 }
                 catch
                 {
@@ -755,7 +755,7 @@ public class AccountService(
                 signedData.AddRange(statement.AuthData);
                 signedData.AddRange(clientDataHash);
 
-                using var ECDsa = System.Security.Cryptography.ECDsa.Create();
+                using var ecDsa = System.Security.Cryptography.ECDsa.Create();
                 try
                 {
                     var keyParams = new System.Security.Cryptography.ECParameters
@@ -767,8 +767,8 @@ public class AccountService(
                             Y = statement.PublicKeyY
                         }
                     };
-                    ECDsa.ImportParameters(keyParams);
-                    return ECDsa.VerifyData(signedData.ToArray(), statement.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256);
+                    ecDsa.ImportParameters(keyParams);
+                    return ecDsa.VerifyData(signedData.ToArray(), statement.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256);
                 }
                 catch
                 {
@@ -788,17 +788,17 @@ public class AccountService(
             signedData.AddRange(BitConverter.GetBytes(statement.Counter).Reverse());
             signedData.AddRange(clientDataHash);
 
-            using var ECDsa = System.Security.Cryptography.ECDsa.Create();
+            using var ecDsa = System.Security.Cryptography.ECDsa.Create();
             try
             {
-                ECDsa.ImportSubjectPublicKeyInfo(statement.AttestationCertificate, out _);
+                ecDsa.ImportSubjectPublicKeyInfo(statement.AttestationCertificate, out _);
             }
             catch
             {
                 return false;
             }
 
-            return ECDsa.VerifyData(signedData.ToArray(), statement.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256);
+            return ecDsa.VerifyData(signedData.ToArray(), statement.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256);
         }
 
         return false;

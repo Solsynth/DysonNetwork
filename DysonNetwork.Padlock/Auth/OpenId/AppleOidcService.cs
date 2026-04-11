@@ -203,7 +203,7 @@ public class AppleOidcService(
 
         // Create the signature
         var dataToSign = $"{headerBase64}.{payloadBase64}";
-        var signature = SignWithECDsa(dataToSign, privateKey);
+        var signature = SignWithEcDsa(dataToSign, privateKey);
 
         // Combine all parts
         return $"{headerBase64}.{payloadBase64}.{signature}";
@@ -214,7 +214,7 @@ public class AppleOidcService(
         return new DateTimeOffset(dateTime).ToUnixTimeSeconds();
     }
 
-    private string SignWithECDsa(string dataToSign, string privateKey)
+    private string SignWithEcDsa(string dataToSign, string privateKey)
     {
         using var ecdsa = ECDsa.Create();
         ecdsa.ImportFromPem(privateKey);
