@@ -14,7 +14,8 @@ public class ActivityPubDeliveryService(
     IConfiguration configuration,
     ILogger<ActivityPubDeliveryService> logger,
     ActivityRenderer objFactory,
-    FediverseCachingService cachingService
+    FediverseCachingService cachingService,
+    IHttpClientFactory httpClientFactory
 )
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
@@ -931,8 +932,8 @@ public class ActivityPubDeliveryService(
     {
         try
         {
-            activityId ??= activity.ContainsKey("id")
-                ? activity["id"].ToString()
+            activityId ??= activity.TryGetValue("id", out var value)
+                ? value?.ToString() ?? Guid.NewGuid().ToString()
                 : Guid.NewGuid().ToString();
 
             var delivery = new SnActivityPubDelivery
@@ -943,7 +944,7 @@ public class ActivityPubDeliveryService(
                 ActorUri = actorUri,
                 Status = DeliveryStatus.Pending,
                 RetryCount = 0,
-                ActivityPayload = JsonSerializer.Serialize(activity),
+                ActivityPayload = JsonSerializer.Serialize(activity)
             };
 
             db.ActivityPubDeliveries.Add(delivery);
@@ -954,33 +955,135 @@ public class ActivityPubDeliveryService(
             }
 
             await db.SaveChangesAsync();
-
-            var message = new ActivityPubDeliveryMessage
+            
+            // Attempt direct delivery immediately first
+            try
             {
-                DeliveryId = delivery.Id,
-                ActivityId = activityId,
-                ActivityType = activityType,
-                Activity = activity,
-                ActorUri = actorUri,
-                InboxUri = inboxUri,
-                CurrentRetry = 0,
-            };
+                delivery.Status = DeliveryStatus.Processing;
+                delivery.LastAttemptAt = SystemClock.Instance.GetCurrentInstant();
+                await db.SaveChangesAsync();
+                
+                var signatureService = objFactory.GetSignatureService();
 
-            await queueService.EnqueueDeliveryAsync(message);
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                var response = await ActivityPubDeliveryWorker.SendActivityToInboxAsync(
+                    activity,
+                    inboxUri,
+                    actorUri,
+                    signatureService,
+                    httpClientFactory,
+                    logger,
+                    cts.Token
+                );
 
-            logger.LogInformation(
-                "[Delivery] Enqueued {ActivityType} delivery {DeliveryId} to {Inbox}. ActivityId: {ActivityId}",
-                activityType,
-                delivery.Id,
-                inboxUri,
-                activityId
-            );
+                if (response.IsSuccessStatusCode)
+                {
+                    delivery.Status = DeliveryStatus.Sent;
+                    delivery.SentAt = SystemClock.Instance.GetCurrentInstant();
+                    delivery.ResponseStatusCode = response.StatusCode.ToString();
+                    await db.SaveChangesAsync();
+                    
+                    logger.LogInformation(
+                        "[Delivery] Successfully delivered {ActivityType} {ActivityId} to {Inbox}. Status: {Status}",
+                        activityType,
+                        activityId,
+                        inboxUri,
+                        response.StatusCode
+                    );
+                    
+                    return true;
+                }
+                else
+                {
+                    var retryAfter = response.Headers.TryGetValues("Retry-After", out var values) && 
+                                     values.FirstOrDefault() is string ra && 
+                                     double.TryParse(ra, out var seconds) 
+                        ? TimeSpan.FromSeconds(seconds) 
+                        : (TimeSpan?)null;
+                    
+                    var shouldRetry = ActivityPubDeliveryWorker.ShouldRetry(response.StatusCode, retryAfter);
+                    delivery.ResponseStatusCode = response.StatusCode.ToString();
+                    delivery.ErrorMessage = await response.Content.ReadAsStringAsync(cts.Token);
+                    
+                    if (shouldRetry && delivery.RetryCount < 5)
+                    {
+                        delivery.Status = DeliveryStatus.Failed;
+                        delivery.RetryCount++;
+                        delivery.NextRetryAt = ActivityPubDeliveryWorker.CalculateNextRetryAt(delivery.RetryCount, SystemClock.Instance, retryAfter);
+                        
+                        var message = new ActivityPubDeliveryMessage
+                        {
+                            DeliveryId = delivery.Id,
+                            ActivityId = activityId,
+                            ActivityType = activityType,
+                            Activity = activity,
+                            ActorUri = actorUri,
+                            InboxUri = inboxUri,
+                            CurrentRetry = 1
+                        };
 
-            return true;
+                        await queueService.EnqueueDeliveryAsync(message);
+                        
+                        logger.LogWarning(
+                            "[Delivery] Failed delivery {ActivityType} {ActivityId} to {Inbox}. Status: {Status}. Enqueued for retry",
+                            activityType,
+                            activityId,
+                            inboxUri,
+                            response.StatusCode
+                        );
+                    }
+                    else
+                    {
+                        delivery.Status = DeliveryStatus.ExhaustedRetries;
+                        logger.LogError(
+                            "[Delivery] Exhausted retries for {ActivityType} {ActivityId} to {Inbox}. Status: {Status}",
+                            activityType,
+                            activityId,
+                            inboxUri,
+                            response.StatusCode
+                        );
+                    }
+                    
+                    await db.SaveChangesAsync();
+                    return true;
+                }
+            }
+            catch (Exception deliveryEx)
+            {
+                delivery.Status = DeliveryStatus.Failed;
+                delivery.ErrorMessage = deliveryEx.Message;
+                delivery.RetryCount++;
+                delivery.NextRetryAt = ActivityPubDeliveryWorker.CalculateNextRetryAt(delivery.RetryCount, SystemClock.Instance);
+                await db.SaveChangesAsync();
+                
+                var message = new ActivityPubDeliveryMessage
+                {
+                    DeliveryId = delivery.Id,
+                    ActivityId = activityId,
+                    ActivityType = activityType,
+                    Activity = activity,
+                    ActorUri = actorUri,
+                    InboxUri = inboxUri,
+                    CurrentRetry = 1
+                };
+
+                await queueService.EnqueueDeliveryAsync(message);
+                
+                logger.LogWarning(deliveryEx, 
+                    "[Delivery] Exception during direct delivery {ActivityId} to {Inbox}. Enqueued for retry",
+                    activityId,
+                    inboxUri
+                );
+                
+                return true;
+            }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "[Delivery] Failed to enqueue delivery to {Inbox}", inboxUri);
+            if (logger.IsEnabled(LogLevel.Error))
+            {
+                logger.LogError(ex, "[Delivery] Failed to enqueue delivery to {Inbox}", inboxUri);
+            }
             return false;
         }
     }
