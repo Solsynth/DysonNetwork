@@ -404,9 +404,8 @@ public static class HttpSignature
         HttpRequestMessage request,
         string privateKeyPem,
         string keyId,
-        string algorithm = KeyAlgorithm.HS2019,
-        bool includeDigest = true,
-        bool useCreatedHeader = true
+        string algorithm = KeyAlgorithm.RSA_SHA256,
+        bool includeDigest = true
     )
     {
         request.Headers.Date = DateTimeOffset.UtcNow;
@@ -435,13 +434,6 @@ public static class HttpSignature
             headers.Add("digest");
         }
 
-        string? created = null;
-        if (useCreatedHeader)
-        {
-            headers.Add("(created)");
-            created = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-        }
-
         var date = DateTime.UtcNow.ToString("r");
 
         var signingString = GenerateSigningString(
@@ -450,19 +442,17 @@ public static class HttpSignature
             request.RequestUri?.AbsolutePath ?? "/",
             request.RequestUri?.Query,
             hostHeader,
-            created,
+            null,
             null,
             date
         );
-
-        var actualAlgorithm = algorithm == KeyAlgorithm.HS2019 ? KeyAlgorithm.RSA_SHA256 : algorithm;
 
         var rsa = RSA.Create();
         ImportKey(rsa, privateKeyPem, true);
 
         var signatureBytes = rsa.SignData(
             Encoding.UTF8.GetBytes(signingString),
-            actualAlgorithm == KeyAlgorithm.RSA_SHA512 ? HashAlgorithmName.SHA512 : HashAlgorithmName.SHA256,
+            algorithm == KeyAlgorithm.RSA_SHA512 ? HashAlgorithmName.SHA512 : HashAlgorithmName.SHA256,
             RSASignaturePadding.Pkcs1
         );
 
