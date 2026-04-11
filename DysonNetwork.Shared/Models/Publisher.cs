@@ -29,7 +29,7 @@ public enum PublisherShadowbanReason
     Other = 99
 }
 
-[Index(nameof(Name), IsUnique = true)]
+[Index(nameof(Name), nameof(DeletedAt), IsUnique = true)]
 public class SnPublisher : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -285,7 +285,7 @@ public enum SubscriptionEndReason
     RemovedByPublisher
 }
 
-[Index(nameof(AccountId), IsUnique = true)]
+[Index(nameof(AccountId), nameof(DeletedAt), IsUnique = true)]
 public class SnPublishingSettings : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();

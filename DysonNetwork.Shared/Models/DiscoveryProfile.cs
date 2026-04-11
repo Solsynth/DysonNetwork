@@ -17,7 +17,7 @@ public enum DiscoveryPreferenceState
     Uninterested,
 }
 
-[Index(nameof(AccountId), nameof(Kind), nameof(ReferenceId), IsUnique = true)]
+[Index(nameof(AccountId), nameof(Kind), nameof(ReferenceId), nameof(DeletedAt), IsUnique = true)]
 public class SnDiscoveryPreference : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();

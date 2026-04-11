@@ -14,7 +14,7 @@ public class AppDatabase(
     IConfiguration configuration
 ) : DbContext(options)
 {
-    public DbSet<Shared.Models.SnNotification> Notifications { get; set; } = null!;
+    public DbSet<SnNotification> Notifications { get; set; } = null!;
     public DbSet<SnNotificationPushSubscription> PushSubscriptions { get; set; } = null!;
     public DbSet<SnNotificationPreference> NotificationPreferences { get; set; } = null!;
 
@@ -36,12 +36,12 @@ public class AppDatabase(
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.Entity<SnNotificationPushSubscription>()
-            .HasIndex(s => new { s.AccountId, s.DeviceId })
+            .HasIndex(s => new { s.AccountId, s.DeviceId, s.DeletedAt })
             .HasFilter("deleted_at IS NULL AND is_activated")
             .IsUnique();
 
         modelBuilder.Entity<SnNotificationPreference>()
-            .HasIndex(p => new { p.AccountId, p.Topic })
+            .HasIndex(p => new { p.AccountId, p.Topic, p.DeletedAt })
             .HasFilter("deleted_at IS NULL")
             .IsUnique();
 

@@ -11,7 +11,7 @@ public enum PostInterestKind
     Publisher,
 }
 
-[Index(nameof(AccountId), nameof(Kind), nameof(ReferenceId), IsUnique = true)]
+[Index(nameof(AccountId), nameof(Kind), nameof(ReferenceId), nameof(DeletedAt), IsUnique = true)]
 public class SnPostInterestProfile : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();

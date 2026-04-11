@@ -9,7 +9,7 @@ using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Models;
 
-[Index(nameof(Slug), IsUnique = true)]
+[Index(nameof(Slug), nameof(DeletedAt), IsUnique = true)]
 public class SnRealm : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; }

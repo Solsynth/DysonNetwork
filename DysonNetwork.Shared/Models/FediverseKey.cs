@@ -7,7 +7,7 @@ using NodaTime;
 
 namespace DysonNetwork.Shared.Models;
 
-[Index(nameof(KeyId), IsUnique = true)]
+[Index(nameof(KeyId), nameof(DeletedAt), IsUnique = true)]
 public class SnFediverseKey : ModelBase
 {
     [JsonPropertyName("id")]

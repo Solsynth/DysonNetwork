@@ -18,7 +18,7 @@ public enum MagicSpellType
     ContactVerification
 }
 
-[Index(nameof(Spell), IsUnique = true)]
+[Index(nameof(Spell), nameof(DeletedAt), IsUnique = true)]
 public class SnMagicSpell : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -92,7 +92,7 @@ public enum AffiliationSpellType
 /// <summary>
 /// Different from the magic spell, this is for the regeneration invite and other marketing usage.
 /// </summary>
-[Index(nameof(Spell), IsUnique = true)]
+[Index(nameof(Spell), nameof(DeletedAt), IsUnique = true)]
 public class SnAffiliationSpell : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();

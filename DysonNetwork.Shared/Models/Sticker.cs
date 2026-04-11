@@ -20,7 +20,7 @@ public class SnSticker : ModelBase, IIdentifiedResource
     public string ResourceIdentifier => $"sticker:{Id}";
 }
 
-[Index(nameof(Prefix), IsUnique = true)]
+[Index(nameof(Prefix), nameof(DeletedAt), IsUnique = true)]
 public class StickerPack : ModelBase, IIdentifiedResource
 {
     public Guid Id { get; set; } = Guid.NewGuid();

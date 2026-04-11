@@ -75,7 +75,7 @@ public interface IProgressionDefinition
     SnProgressRewardDefinition Reward { get; set; }
 }
 
-[Index(nameof(Identifier), IsUnique = true)]
+[Index(nameof(Identifier), nameof(DeletedAt), IsUnique = true)]
 public class SnAchievementDefinition : ModelBase, IProgressionDefinition
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -98,7 +98,7 @@ public class SnAchievementDefinition : ModelBase, IProgressionDefinition
     [Column(TypeName = "jsonb")] public SnProgressRewardDefinition Reward { get; set; } = new();
 }
 
-[Index(nameof(Identifier), IsUnique = true)]
+[Index(nameof(Identifier), nameof(DeletedAt), IsUnique = true)]
 public class SnQuestDefinition : ModelBase, IProgressionDefinition
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -122,7 +122,7 @@ public class SnQuestDefinition : ModelBase, IProgressionDefinition
     [Column(TypeName = "jsonb")] public SnProgressRewardDefinition Reward { get; set; } = new();
 }
 
-[Index(nameof(AccountId), nameof(AchievementDefinitionId), IsUnique = true)]
+[Index(nameof(AccountId), nameof(AchievementDefinitionId), nameof(DeletedAt), IsUnique = true)]
 public class SnAccountAchievement : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -137,7 +137,7 @@ public class SnAccountAchievement : ModelBase
     [MaxLength(256)] public string? LastRewardToken { get; set; }
 }
 
-[Index(nameof(AccountId), nameof(QuestDefinitionId), nameof(PeriodKey), IsUnique = true)]
+[Index(nameof(AccountId), nameof(QuestDefinitionId), nameof(PeriodKey), nameof(DeletedAt), IsUnique = true)]
 public class SnAccountQuestProgress : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -151,7 +151,7 @@ public class SnAccountQuestProgress : ModelBase
     [MaxLength(256)] public string? LastRewardToken { get; set; }
 }
 
-[Index(nameof(RewardToken), IsUnique = true)]
+[Index(nameof(RewardToken), nameof(DeletedAt), IsUnique = true)]
 public class SnProgressRewardGrant : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -169,7 +169,7 @@ public class SnProgressRewardGrant : ModelBase
     public Instant? NotificationSentAt { get; set; }
 }
 
-[Index(nameof(EventId), nameof(DefinitionType), nameof(DefinitionIdentifier), nameof(PeriodKey), IsUnique = true)]
+[Index(nameof(EventId), nameof(DefinitionType), nameof(DefinitionIdentifier), nameof(PeriodKey), nameof(DeletedAt), IsUnique = true)]
 public class SnProgressEventReceipt : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();

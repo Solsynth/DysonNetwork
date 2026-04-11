@@ -4,7 +4,7 @@ using NodaTime;
 
 namespace DysonNetwork.Shared.Models;
 
-[Index(nameof(Slug), IsUnique = true)]
+[Index(nameof(Slug), nameof(DeletedAt), IsUnique = true)]
 public class SnFileBundle : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();

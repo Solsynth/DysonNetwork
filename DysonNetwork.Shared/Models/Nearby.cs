@@ -12,7 +12,7 @@ public enum NearbyDeviceStatus
     Disabled = 1
 }
 
-[Index(nameof(UserId), nameof(DeviceId), IsUnique = true)]
+[Index(nameof(UserId), nameof(DeviceId), nameof(DeletedAt), IsUnique = true)]
 public class SnNearbyDevice : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -28,7 +28,7 @@ public class SnNearbyDevice : ModelBase
     [JsonIgnore] public List<SnNearbyPresenceToken> PresenceTokens { get; set; } = [];
 }
 
-[Index(nameof(DeviceId), nameof(Slot), IsUnique = true)]
+[Index(nameof(DeviceId), nameof(Slot), nameof(DeletedAt), IsUnique = true)]
 [Index(nameof(TokenHash))]
 public class SnNearbyPresenceToken : ModelBase
 {

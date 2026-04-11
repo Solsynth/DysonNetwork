@@ -121,7 +121,7 @@ public class AppDatabase(
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnAuthClient>()
-            .HasIndex(c => new { c.AccountId, c.DeviceId })
+            .HasIndex(c => new { c.AccountId, c.DeviceId, c.DeletedAt })
             .IsUnique();
         modelBuilder.Entity<SnAuthClient>()
             .HasOne(c => c.Account)
@@ -130,7 +130,7 @@ public class AppDatabase(
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnE2eeDevice>()
-            .HasIndex(d => new { d.AccountId, d.DeviceId })
+            .HasIndex(d => new { d.AccountId, d.DeviceId, d.DeletedAt })
             .IsUnique();
         modelBuilder.Entity<SnE2eeDevice>()
             .HasOne(d => d.Account)
@@ -139,7 +139,7 @@ public class AppDatabase(
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnE2eeKeyBundle>()
-            .HasIndex(k => new { k.AccountId, k.DeviceId })
+            .HasIndex(k => new { k.AccountId, k.DeviceId, k.DeletedAt })
             .IsUnique();
         modelBuilder.Entity<SnE2eeKeyBundle>()
             .HasOne(k => k.Account)
@@ -153,7 +153,7 @@ public class AppDatabase(
             .HasForeignKey(k => k.KeyBundleId)
             .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<SnE2eeOneTimePreKey>()
-            .HasIndex(k => new { k.KeyBundleId, k.KeyId })
+            .HasIndex(k => new { k.KeyBundleId, k.KeyId, k.DeletedAt })
             .IsUnique();
         modelBuilder.Entity<SnE2eeOneTimePreKey>()
             .HasIndex(k => new { k.KeyBundleId, k.IsClaimed });
@@ -161,7 +161,7 @@ public class AppDatabase(
             .HasIndex(k => new { k.AccountId, k.DeviceId, k.IsClaimed });
 
         modelBuilder.Entity<SnE2eeSession>()
-            .HasIndex(s => new { s.AccountAId, s.AccountBId })
+            .HasIndex(s => new { s.AccountAId, s.AccountBId, s.DeletedAt })
             .IsUnique();
 
         modelBuilder.Entity<SnE2eeEnvelope>()
@@ -173,7 +173,8 @@ public class AppDatabase(
                 e.RecipientDeviceId,
                 e.SenderId,
                 e.SenderDeviceId,
-                e.ClientMessageId
+                e.ClientMessageId,
+                e.DeletedAt
             })
             .IsUnique()
             .HasFilter("client_message_id IS NOT NULL");
@@ -192,7 +193,7 @@ public class AppDatabase(
             .HasIndex(s => new { s.MlsGroupId, s.Epoch });
 
         modelBuilder.Entity<SnMlsDeviceMembership>()
-            .HasIndex(m => new { m.MlsGroupId, m.AccountId, m.DeviceId })
+            .HasIndex(m => new { m.MlsGroupId, m.AccountId, m.DeviceId, m.DeletedAt })
             .IsUnique();
         modelBuilder.Entity<SnMlsDeviceMembership>()
             .HasIndex(m => new { m.MlsGroupId, m.LastSeenEpoch });

@@ -10,7 +10,7 @@ using OtpNet;
 
 namespace DysonNetwork.Shared.Models;
 
-[Index(nameof(Name), IsUnique = true)]
+[Index(nameof(Name), nameof(DeletedAt), IsUnique = true)]
 public class SnAccount : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();

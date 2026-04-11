@@ -18,7 +18,7 @@ public enum AutomodRuleAction
     Flag = 3,
 }
 
-[Index(nameof(Name), IsUnique = true)]
+[Index(nameof(Name), nameof(DeletedAt), IsUnique = true)]
 public class SnAutomodRule : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Shared.Models;
 
-[Index(nameof(Identifier), IsUnique = true)]
+[Index(nameof(Identifier), nameof(DeletedAt), IsUnique = true)]
 public class SnWalletSubscriptionDefinition : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
