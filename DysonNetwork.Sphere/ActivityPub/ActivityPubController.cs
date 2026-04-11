@@ -60,7 +60,7 @@ public class ActivityPubController(
             Followers = followersUrl,
             Following = followingUrl,
             Published = publisher.CreatedAt,
-            Url = $"https://{Domain}/users/{publisher.Name}",
+            Url = $"https://{Domain}/publishers/{publisher.Name}",
             Icon =
                 publisher.Picture != null
                     ? new ActivityPubImage
