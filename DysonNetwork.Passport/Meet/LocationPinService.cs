@@ -28,7 +28,7 @@ public class LocationPinService(
     RelationshipService relationships,
     LocationPinSubscriptionHub subscriptions,
     MeetSubscriptionHub meetSubscriptions,
-    MeetService meetService,
+    MeetExpirationScheduler expirationScheduler,
     IEventBus eventBus,
     ILogger<LocationPinService> logger
 )
@@ -94,7 +94,7 @@ public class LocationPinService(
                     {
                         existingForMeet.Meet = meet;
                         await meetSubscriptions.PublishAsync("pin_updated", meet, cancellationToken);
-                        await meetService.ExtendExpirationAsync(meetId.Value, MeetActivityExtension, cancellationToken);
+                        await ExtendMeetExpirationAsync(meetId.Value, cancellationToken);
                     }
                 }
                 
@@ -160,7 +160,7 @@ public class LocationPinService(
             {
                 pin.Meet = meet;
                 await meetSubscriptions.PublishAsync("pin_created", meet, cancellationToken);
-                await meetService.ExtendExpirationAsync(meetId.Value, MeetActivityExtension, cancellationToken);
+                await ExtendMeetExpirationAsync(meetId.Value, cancellationToken);
             }
         }
 
@@ -276,7 +276,7 @@ public class LocationPinService(
             {
                 pin.Meet = meet;
                 await meetSubscriptions.PublishAsync("pin_updated", meet, cancellationToken);
-                await meetService.ExtendExpirationAsync(meetId.Value, MeetActivityExtension, cancellationToken);
+                await ExtendMeetExpirationAsync(meetId.Value, cancellationToken);
             }
         }
 
@@ -651,6 +651,27 @@ public class LocationPinService(
         foreach (var pin in pins)
         {
             await HydratePinAsync(pin, cancellationToken);
+        }
+    }
+
+    private async Task ExtendMeetExpirationAsync(Guid meetId, CancellationToken cancellationToken)
+    {
+        var meet = await db.Meets
+            .FirstOrDefaultAsync(m => m.Id == meetId && m.Status == MeetStatus.Active, cancellationToken);
+        
+        if (meet is null)
+            return;
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var newExpiresAt = now + MeetActivityExtension;
+
+        if (newExpiresAt > meet.ExpiresAt)
+        {
+            meet.ExpiresAt = newExpiresAt;
+            await db.SaveChangesAsync(cancellationToken);
+            expirationScheduler.Extend(meetId, newExpiresAt);
+            
+            logger.LogInformation("Extended meet {MeetId} expiration to {ExpiresAt} due to pin activity", meetId, newExpiresAt);
         }
     }
 }
