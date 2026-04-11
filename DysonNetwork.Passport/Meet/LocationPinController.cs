@@ -13,6 +13,7 @@ namespace DysonNetwork.Passport.Meet;
 
 [ApiController]
 [Route("/api/pins")]
+[Obsolete("Pins are now a sub-feature of Meet. Use /api/meets/{id}/pin instead.")]
 public class LocationPinController(
     LocationPinService locationPinService,
     LocationPinSubscriptionHub subscriptions,
@@ -77,6 +78,7 @@ public class LocationPinController(
             location,
             request.KeepOnDisconnect,
             request.Metadata,
+            null,
             cancellationToken
         );
 
@@ -118,6 +120,7 @@ public class LocationPinController(
             location,
             request.LocationName,
             request.LocationAddress,
+            null,
             cancellationToken
         );
 
@@ -139,7 +142,7 @@ public class LocationPinController(
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
 
-        var removed = await locationPinService.RemovePinAsync(currentUser.Id, currentSession.Id.ToString(), cancellationToken);
+        var removed = await locationPinService.RemovePinAsync(currentUser.Id, currentSession.Id.ToString(), null, cancellationToken);
         if (!removed)
         {
             return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
@@ -240,6 +243,7 @@ public class LocationPinController(
             currentUser.Id,
             currentSession.Id.ToString(),
             request.KeepOnDisconnect,
+            null,
             cancellationToken
         );
 

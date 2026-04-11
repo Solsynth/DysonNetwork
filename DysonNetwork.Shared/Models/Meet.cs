@@ -49,6 +49,7 @@ public class SnMeet : ModelBase, IIdentifiedResource
     [NotMapped] public string? LocationWkt => Location?.AsText();
     [Column(TypeName = "jsonb")] public Dictionary<string, object> Metadata { get; set; } = [];
     public List<SnMeetParticipant> Participants { get; set; } = [];
+    [NotMapped] public List<SnLocationPin> Pins { get; set; } = [];
 
     [NotMapped]
     public bool IsFinal => Status is MeetStatus.Completed or MeetStatus.Expired or MeetStatus.Cancelled;

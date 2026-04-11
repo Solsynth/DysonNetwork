@@ -16,6 +16,7 @@ namespace DysonNetwork.Passport.Meet;
 [Route("/api/meets")]
 public class MeetController(
     MeetService meetService,
+    LocationPinService locationPinService,
     MeetSubscriptionHub subscriptions,
     IOptions<JsonOptions> jsonOptions
 ) : ControllerBase
@@ -363,5 +364,120 @@ public class MeetController(
     {
         Response.Headers.ContentType = "application/json";
         await JsonSerializer.SerializeAsync(Response.Body, payload, jsonOptions.Value.JsonSerializerOptions, cancellationToken);
+    }
+
+    public class CreateOrUpdatePinRequest
+    {
+        public LocationVisibility Visibility { get; set; } = LocationVisibility.Private;
+        [MaxLength(256)] public string? LocationName { get; set; }
+        [MaxLength(1024)] public string? LocationAddress { get; set; }
+        public string? LocationWkt { get; set; }
+        public Dictionary<string, object>? Metadata { get; set; }
+        public bool KeepOnDisconnect { get; set; } = true;
+    }
+
+    [HttpPost("{id:guid}/pin")]
+    [Authorize]
+    public async Task<ActionResult<SnLocationPin>> CreateOrUpdatePin(
+        Guid id,
+        [FromBody] CreateOrUpdatePinRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
+
+        var meet = await meetService.GetMeetAsync(id, currentUser.Id, null, cancellationToken);
+        if (meet is null)
+            return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
+
+        if (!await CanAccessMeetForPinAsync(meet, currentUser.Id))
+            return StatusCode(StatusCodes.Status403Forbidden, ApiError.Unauthorized("You do not have access to this meet's pin.", forbidden: true, traceId: HttpContext.TraceIdentifier));
+
+        Geometry? location = null;
+        if (!string.IsNullOrWhiteSpace(request.LocationWkt))
+        {
+            try
+            {
+                location = new WKTReader().Read(request.LocationWkt);
+                location.SRID = 4326;
+            }
+            catch (Exception)
+            {
+                return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+                {
+                    [nameof(request.LocationWkt)] = ["Invalid WKT geometry."]
+                }, traceId: HttpContext.TraceIdentifier));
+            }
+        }
+
+        var pin = await locationPinService.CreatePinAsync(
+            currentUser.Id,
+            currentSession.Id.ToString(),
+            request.Visibility,
+            request.LocationName,
+            request.LocationAddress,
+            location,
+            request.KeepOnDisconnect,
+            request.Metadata,
+            id,
+            cancellationToken
+        );
+
+        pin.Account = currentUser;
+        return Ok(pin);
+    }
+
+    [HttpDelete("{id:guid}/pin")]
+    [Authorize]
+    public async Task<ActionResult> RemovePin(
+        Guid id,
+        CancellationToken cancellationToken
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
+            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
+
+        var meet = await meetService.GetMeetAsync(id, currentUser.Id, null, cancellationToken);
+        if (meet is null)
+            return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
+
+        if (!await CanAccessMeetForPinAsync(meet, currentUser.Id))
+            return StatusCode(StatusCodes.Status403Forbidden, ApiError.Unauthorized("You do not have access to this meet's pin.", forbidden: true, traceId: HttpContext.TraceIdentifier));
+
+        var removed = await locationPinService.RemovePinAsync(currentUser.Id, currentSession.Id.ToString(), id, cancellationToken);
+        if (!removed)
+            return NotFound(ApiError.NotFound("Pin not found.", traceId: HttpContext.TraceIdentifier));
+
+        return NoContent();
+    }
+
+    [HttpGet("{id:guid}/pins")]
+    [Authorize]
+    public async Task<ActionResult<List<SnLocationPin>>> GetTrailPins(
+        Guid id,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 50,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var meet = await meetService.GetMeetAsync(id, currentUser.Id, null, cancellationToken);
+        if (meet is null)
+            return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
+
+        if (!await CanAccessMeetForPinAsync(meet, currentUser.Id))
+            return StatusCode(StatusCodes.Status403Forbidden, ApiError.Unauthorized("You do not have access to this meet's pins.", forbidden: true, traceId: HttpContext.TraceIdentifier));
+
+        var pins = await locationPinService.ListMeetTrailPinsAsync(id, currentUser.Id, offset, take, cancellationToken);
+        return Ok(pins);
+    }
+
+    private async Task<bool> CanAccessMeetForPinAsync(SnMeet meet, Guid accountId)
+    {
+        if (meet.HostId == accountId) return true;
+        if (meet.Participants.Any(p => p.AccountId == accountId)) return true;
+        return false;
     }
 }

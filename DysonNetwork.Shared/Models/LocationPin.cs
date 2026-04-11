@@ -14,11 +14,14 @@ public enum LocationPinStatus
 }
 
 [Index(nameof(AccountId), nameof(Status))]
+[Index(nameof(MeetId), nameof(Status))]
 public class SnLocationPin : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid AccountId { get; set; }
     [NotMapped] public SnAccount? Account { get; set; }
+    public Guid? MeetId { get; set; }
+    [NotMapped] public SnMeet? Meet { get; set; }
     [MaxLength(256)] public string DeviceId { get; set; } = null!;
     [MaxLength(256)] public string? LocationName { get; set; }
     [MaxLength(1024)] public string? LocationAddress { get; set; }

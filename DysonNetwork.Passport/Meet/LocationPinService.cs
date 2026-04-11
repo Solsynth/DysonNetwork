@@ -27,6 +27,7 @@ public class LocationPinService(
     AccountService accounts,
     RelationshipService relationships,
     LocationPinSubscriptionHub subscriptions,
+    MeetSubscriptionHub meetSubscriptions,
     IEventBus eventBus,
     ILogger<LocationPinService> logger
 )
@@ -35,6 +36,8 @@ public class LocationPinService(
     private static readonly Duration OfflineHeartbeatThreshold = Duration.FromMinutes(5);
     private static readonly Duration LocationUpdateInterval = Duration.FromSeconds(30);
     private static readonly Duration RateLimitWindow = Duration.FromSeconds(5);
+    public static readonly double TrailDistanceThresholdMeters = 10.0;
+    private const double MetersPerDegreeLatitude = 111320.0;
 
     private readonly ConcurrentDictionary<(Guid AccountId, string DeviceId), LocationPinCacheEntry> _cache = new();
     private readonly ConcurrentDictionary<Guid, Instant> _lastUpdateTimes = new();
@@ -49,23 +52,63 @@ public class LocationPinService(
         Geometry? location,
         bool keepOnDisconnect,
         Dictionary<string, object>? metadata,
+        Guid? meetId = null,
         CancellationToken cancellationToken = default
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
 
-        var existingPin = await db.LocationPins
-            .FirstOrDefaultAsync(p => p.AccountId == accountId && p.Status == LocationPinStatus.Active, cancellationToken);
-
-        if (existingPin != null)
+        SnLocationPin? existingForMeet = null;
+        if (meetId.HasValue)
         {
-            await RemovePinInternalAsync(existingPin, cancellationToken);
+            existingForMeet = await db.LocationPins
+                .FirstOrDefaultAsync(p => p.MeetId == meetId && p.AccountId == accountId && p.Status == LocationPinStatus.Active, cancellationToken);
+        }
+        else
+        {
+            existingForMeet = await db.LocationPins
+                .FirstOrDefaultAsync(p => p.AccountId == accountId && p.MeetId == null && p.Status == LocationPinStatus.Active, cancellationToken);
+        }
+
+        if (existingForMeet != null && location != null && existingForMeet.Location != null)
+        {
+            var distance = CalculateDistanceMeters(location, existingForMeet.Location);
+            if (distance < TrailDistanceThresholdMeters)
+            {
+                existingForMeet.LocationName = locationName;
+                existingForMeet.LocationAddress = locationAddress;
+                existingForMeet.LastHeartbeatAt = now;
+                await db.SaveChangesAsync(cancellationToken);
+                
+                await HydratePinAsync(existingForMeet, cancellationToken);
+                await subscriptions.PublishAsync("pin_updated", existingForMeet, cancellationToken);
+                
+                if (meetId.HasValue)
+                {
+                    var meet = await db.Meets
+                        .Include(m => m.Participants)
+                        .FirstOrDefaultAsync(m => m.Id == meetId, cancellationToken);
+                    if (meet != null)
+                    {
+                        existingForMeet.Meet = meet;
+                        await meetSubscriptions.PublishAsync("pin_updated", meet, cancellationToken);
+                    }
+                }
+                
+                logger.LogInformation("Pin {PinId} updated in place (distance {Distance}m < {Threshold}m)", existingForMeet.Id, distance, TrailDistanceThresholdMeters);
+                return existingForMeet;
+            }
+
+            existingForMeet.Status = LocationPinStatus.Offline;
+            existingForMeet.ExpiresAt = now + DefaultOfflineTtl;
+            await db.SaveChangesAsync(cancellationToken);
         }
 
         var pin = new SnLocationPin
         {
             AccountId = accountId,
             DeviceId = deviceId,
+            MeetId = meetId,
             Visibility = visibility,
             LocationName = locationName,
             LocationAddress = locationAddress,
@@ -105,7 +148,19 @@ public class LocationPinService(
         await HydratePinAsync(pin, cancellationToken);
         await subscriptions.PublishAsync("pin_created", pin, cancellationToken);
 
-        logger.LogInformation("Created location pin {PinId} for account {AccountId}", pin.Id, accountId);
+        if (meetId.HasValue)
+        {
+            var meet = await db.Meets
+                .Include(m => m.Participants)
+                .FirstOrDefaultAsync(m => m.Id == meetId, cancellationToken);
+            if (meet != null)
+            {
+                pin.Meet = meet;
+                await meetSubscriptions.PublishAsync("pin_created", meet, cancellationToken);
+            }
+        }
+
+        logger.LogInformation("Created location pin {PinId} for account {AccountId} on meet {MeetId}", pin.Id, accountId, meetId);
 
         return pin;
     }
@@ -116,6 +171,7 @@ public class LocationPinService(
         Geometry? location,
         string? locationName,
         string? locationAddress,
+        Guid? meetId = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -126,12 +182,49 @@ public class LocationPinService(
             return null;
         }
 
-        var pin = await db.LocationPins
-            .FirstOrDefaultAsync(p => p.AccountId == accountId && p.Status == LocationPinStatus.Active, cancellationToken);
+        var pin = meetId.HasValue
+            ? await db.LocationPins
+                .FirstOrDefaultAsync(p => p.MeetId == meetId && p.AccountId == accountId && p.Status == LocationPinStatus.Active, cancellationToken)
+            : await db.LocationPins
+                .FirstOrDefaultAsync(p => p.AccountId == accountId && p.MeetId == null && p.Status == LocationPinStatus.Active, cancellationToken);
 
         if (pin == null)
         {
             return null;
+        }
+
+        if (location != null && pin.Location != null)
+        {
+            var distance = CalculateDistanceMeters(location, pin.Location);
+            if (distance < TrailDistanceThresholdMeters)
+            {
+                pin.LocationName = locationName;
+                pin.LocationAddress = locationAddress;
+                pin.LastHeartbeatAt = now;
+                await db.SaveChangesAsync(cancellationToken);
+                
+                await HydratePinAsync(pin, cancellationToken);
+                await subscriptions.PublishAsync("pin_updated", pin, cancellationToken);
+                
+                if (meetId.HasValue)
+                {
+                    var meet = await db.Meets
+                        .Include(m => m.Participants)
+                        .FirstOrDefaultAsync(m => m.Id == meetId, cancellationToken);
+                    if (meet != null)
+                    {
+                        pin.Meet = meet;
+                        await meetSubscriptions.PublishAsync("pin_updated", meet, cancellationToken);
+                    }
+                }
+                
+                logger.LogInformation("Pin {PinId} updated in place (distance {Distance}m < {Threshold}m)", pin.Id, distance, TrailDistanceThresholdMeters);
+                return pin;
+            }
+
+            pin.Status = LocationPinStatus.Offline;
+            pin.ExpiresAt = now + DefaultOfflineTtl;
+            await db.SaveChangesAsync(cancellationToken);
         }
 
         if (!_cache.TryGetValue((accountId, deviceId), out var cacheEntry))
@@ -170,19 +263,35 @@ public class LocationPinService(
         await HydratePinAsync(pin, cancellationToken);
         await subscriptions.PublishAsync("pin_updated", pin, cancellationToken);
 
+        if (meetId.HasValue)
+        {
+            var meet = await db.Meets
+                .Include(m => m.Participants)
+                .FirstOrDefaultAsync(m => m.Id == meetId, cancellationToken);
+            if (meet != null)
+            {
+                pin.Meet = meet;
+                await meetSubscriptions.PublishAsync("pin_updated", meet, cancellationToken);
+            }
+        }
+
         return pin;
     }
 
-    public async Task<bool> RemovePinAsync(Guid accountId, string deviceId, CancellationToken cancellationToken = default)
+    public async Task<bool> RemovePinAsync(Guid accountId, string deviceId, Guid? meetId = null, CancellationToken cancellationToken = default)
     {
-        var pin = await db.LocationPins
-            .FirstOrDefaultAsync(p => p.AccountId == accountId && p.DeviceId == deviceId && p.Status == LocationPinStatus.Active, cancellationToken);
+        var pin = meetId.HasValue
+            ? await db.LocationPins
+                .FirstOrDefaultAsync(p => p.MeetId == meetId && p.AccountId == accountId && p.Status != LocationPinStatus.Removed, cancellationToken)
+            : await db.LocationPins
+                .FirstOrDefaultAsync(p => p.AccountId == accountId && p.DeviceId == deviceId && p.MeetId == null && p.Status == LocationPinStatus.Active, cancellationToken);
 
         if (pin == null)
         {
             return false;
         }
 
+        var previousMeetId = pin.MeetId;
         _cache.TryRemove((accountId, deviceId), out _);
         _lastUpdateTimes.TryRemove(accountId, out _);
 
@@ -196,6 +305,18 @@ public class LocationPinService(
 
         await subscriptions.PublishAsync("pin_removed", pin, cancellationToken);
 
+        if (previousMeetId.HasValue)
+        {
+            var meet = await db.Meets
+                .Include(m => m.Participants)
+                .FirstOrDefaultAsync(m => m.Id == previousMeetId, cancellationToken);
+            if (meet != null)
+            {
+                pin.Meet = meet;
+                await meetSubscriptions.PublishAsync("pin_removed", meet, cancellationToken);
+            }
+        }
+
         logger.LogInformation("Removed location pin {PinId} for account {AccountId}", pin.Id, accountId);
 
         return true;
@@ -205,11 +326,15 @@ public class LocationPinService(
         Guid accountId,
         string deviceId,
         bool keepOnDisconnect,
+        Guid? meetId = null,
         CancellationToken cancellationToken = default
     )
     {
-        var pin = await db.LocationPins
-            .FirstOrDefaultAsync(p => p.AccountId == accountId && p.DeviceId == deviceId && p.Status == LocationPinStatus.Active, cancellationToken);
+        var pin = meetId.HasValue
+            ? await db.LocationPins
+                .FirstOrDefaultAsync(p => p.MeetId == meetId && p.AccountId == accountId && p.Status != LocationPinStatus.Removed, cancellationToken)
+            : await db.LocationPins
+                .FirstOrDefaultAsync(p => p.AccountId == accountId && p.DeviceId == deviceId && p.MeetId == null && p.Status == LocationPinStatus.Active, cancellationToken);
 
         if (pin == null)
         {
@@ -220,7 +345,7 @@ public class LocationPinService(
 
         if (!keepOnDisconnect)
         {
-            await RemovePinAsync(accountId, deviceId, cancellationToken);
+            await RemovePinAsync(accountId, deviceId, meetId, cancellationToken);
             return;
         }
 
@@ -239,6 +364,18 @@ public class LocationPinService(
 
         await HydratePinAsync(pin, cancellationToken);
         await subscriptions.PublishAsync("pin_offline", pin, cancellationToken);
+
+        if (meetId.HasValue)
+        {
+            var meet = await db.Meets
+                .Include(m => m.Participants)
+                .FirstOrDefaultAsync(m => m.Id == meetId, cancellationToken);
+            if (meet != null)
+            {
+                pin.Meet = meet;
+                await meetSubscriptions.PublishAsync("pin_offline", meet, cancellationToken);
+            }
+        }
 
         logger.LogInformation("Pin {PinId} went offline for account {AccountId}, keeping until {ExpiresAt}", pin.Id, accountId, pin.ExpiresAt);
     }
@@ -303,6 +440,51 @@ public class LocationPinService(
             .ToList();
 
         await HydratePinAsync(result, cancellationToken);
+
+        return result;
+    }
+
+    public async Task<List<SnLocationPin>> ListMeetPinsAsync(
+        Guid meetId,
+        Guid requesterId,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var pins = await db.LocationPins
+            .Where(p => p.MeetId == meetId && p.Status == LocationPinStatus.Active)
+            .ToListAsync(cancellationToken);
+
+        var result = new List<SnLocationPin>();
+        foreach (var pin in pins)
+        {
+            pin.Account = await accounts.GetAccount(pin.AccountId);
+            result.Add(pin);
+        }
+
+        return result;
+    }
+
+    public async Task<List<SnLocationPin>> ListMeetTrailPinsAsync(
+        Guid meetId,
+        Guid requesterId,
+        int offset = 0,
+        int take = 50,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var pins = await db.LocationPins
+            .Where(p => p.MeetId == meetId && p.Status == LocationPinStatus.Offline)
+            .OrderBy(p => p.LastHeartbeatAt)
+            .Skip(offset)
+            .Take(Math.Clamp(take, 1, 100))
+            .ToListAsync(cancellationToken);
+
+        var result = new List<SnLocationPin>();
+        foreach (var pin in pins)
+        {
+            pin.Account = await accounts.GetAccount(pin.AccountId);
+            result.Add(pin);
+        }
 
         return result;
     }
@@ -405,6 +587,22 @@ public class LocationPinService(
 
         var now = SystemClock.Instance.GetCurrentInstant();
         return now - lastUpdate >= RateLimitWindow;
+    }
+
+    private static double CalculateDistanceMeters(Geometry? from, Geometry? to)
+    {
+        if (from == null || to == null) return double.MaxValue;
+
+        var lat1 = from.Coordinate?.Y ?? 0;
+        var lon1 = from.Coordinate?.X ?? 0;
+        var lat2 = to.Coordinate?.Y ?? 0;
+        var lon2 = to.Coordinate?.X ?? 0;
+
+        var dLat = lat2 - lat1;
+        var dLon = (lon2 - lon1) * Math.Cos(lat1 * Math.PI / 180.0);
+
+        var distanceDegrees = Math.Sqrt(dLat * dLat + dLon * dLon);
+        return distanceDegrees * MetersPerDegreeLatitude;
     }
 
     private async Task<bool> CanAccessPinAsync(SnLocationPin pin, Guid requesterId, CancellationToken cancellationToken)

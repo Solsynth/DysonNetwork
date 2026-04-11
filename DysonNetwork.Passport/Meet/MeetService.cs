@@ -16,6 +16,7 @@ public class MeetService(
     DyFileService.DyFileServiceClient files,
     MeetSubscriptionHub subscriptions,
     MeetExpirationScheduler expirationScheduler,
+    LocationPinService locationPins,
     ILogger<MeetService> logger
 )
 {
@@ -415,6 +416,11 @@ public class MeetService(
         meet.Host = await accounts.GetAccount(meet.HostId);
         foreach (var participant in meet.Participants)
             participant.Account = await accounts.GetAccount(participant.AccountId);
+        
+        if (meet.Location != null)
+        {
+            meet.Pins = await locationPins.ListMeetPinsAsync(meet.Id, meet.HostId, cancellationToken);
+        }
     }
 
     private async Task<SnCloudFileReferenceObject?> LoadImageAsync(string? imageId)
