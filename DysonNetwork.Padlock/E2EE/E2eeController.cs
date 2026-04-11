@@ -87,6 +87,12 @@ public class E2EeController(IGroupE2EeModule e2EeModule) : ControllerBase
         [Required][MaxLength(128)] public string Reason { get; set; } = null!;
     }
 
+    public class UploadGroupInfoBody
+    {
+        [Required] public byte[] GroupInfo { get; set; } = [];
+        [Required] public byte[] RatchetTree { get; set; } = [];
+    }
+
 
     public class FanoutEnvelopeBody
     {
@@ -271,6 +277,39 @@ public class E2EeController(IGroupE2EeModule e2EeModule) : ControllerBase
             groupId, body.TargetAccountId, body.TargetDeviceId, body.Epoch, body.Reason
         ));
         return Ok(result);
+    }
+
+    [HttpPut("mls/groups/{groupId}/groupinfo")]
+    public async Task<ActionResult> UploadGroupInfo(string groupId, [FromBody] UploadGroupInfoBody body)
+    {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
+        if (HttpContext.Items["CurrentUser"] is not SnAccount) return Unauthorized();
+
+        var result = await e2EeModule.UploadGroupInfoAsync(groupId, body.GroupInfo, body.RatchetTree);
+        return Ok(new
+        {
+            result.Success,
+            result.GroupId,
+            result.Epoch
+        });
+    }
+
+    [HttpGet("mls/groups/{groupId}/groupinfo")]
+    public async Task<ActionResult> GetGroupInfo(string groupId)
+    {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
+        if (HttpContext.Items["CurrentUser"] is not SnAccount) return Unauthorized();
+
+        var state = await e2EeModule.GetMlsGroupStateByGroupIdAsync(groupId);
+        if (state is null) return NotFound();
+
+        return Ok(new
+        {
+            groupId = state.MlsGroupId,
+            epoch = state.Epoch,
+            groupInfo = state.GroupInfo,
+            ratchetTree = state.RatchetTree
+        });
     }
 
     [HttpPost("mls/messages/fanout")]

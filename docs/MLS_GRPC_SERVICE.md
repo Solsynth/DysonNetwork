@@ -297,6 +297,69 @@ MLS rooms emit system events for encryption state changes:
 | `chat.e2ee_legacy_mode_forbidden` | Legacy encryption modes disabled |
 | `chat.e2ee_dm_member_limit` | MLS DMs limited to 2 members |
 
+## E2EE MLS Endpoints
+
+Clients interact with E2EE Service directly for MLS operations.
+
+**Base URL:** `/api/e2ee/mls`
+
+**Required Header:** `X-Client-Ability: chat.mls.v2`
+
+### Group Info
+
+```
+PUT /api/e2ee/mls/groups/{groupId}/groupinfo
+GET /api/e2ee/mls/groups/{groupId}/groupinfo
+```
+
+**PUT Request Body:**
+```json
+{
+  "groupInfo": "<binary>",
+  "ratchetTree": "<binary>"
+}
+```
+
+**PUT Response:**
+```json
+{
+  "success": true,
+  "groupId": "room:abc123",
+  "epoch": 1
+}
+```
+
+**GET Response:**
+```json
+{
+  "groupId": "room:abc123",
+  "epoch": 1,
+  "groupInfo": "<binary>",
+  "ratchetTree": "<binary>"
+}
+```
+
+### Other E2EE MLS Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| PUT | `/api/e2ee/mls/devices/me/kps` | Publish MLS KeyPackage |
+| GET | `/api/e2ee/mls/kp/status` | Get KeyPackage status |
+| GET | `/api/e2ee/mls/keys/{accountId}/devices` | List KeyPackages by device |
+| POST | `/api/e2ee/mls/users/ready/batch` | Batch check MLS readiness |
+| GET | `/api/e2ee/mls/users/{accountId}/ready` | Check if user is MLS ready |
+| GET | `/api/e2ee/mls/groups/{groupId}/devices/capable` | Get capable devices |
+| POST | `/api/e2ee/mls/groups/{groupId}/bootstrap` | Bootstrap MLS group |
+| POST | `/api/e2ee/mls/groups/{groupId}/commit` | Commit MLS group changes |
+| POST | `/api/e2ee/mls/groups/{groupId}/welcome/fanout` | Fanout welcome messages |
+| POST | `/api/e2ee/mls/groups/{groupId}/reshare-required` | Mark re-share required |
+| POST | `/api/e2ee/mls/messages/fanout` | Send MLS message fanout |
+| POST | `/api/e2ee/mls/groups/{groupId}/commit/fanout` | Fanout commit |
+| GET | `/api/e2ee/mls/envelopes/pending` | Get pending envelopes |
+| POST | `/api/e2ee/mls/envelopes/{envelopeId}/ack` | Acknowledge envelope |
+| POST | `/api/e2ee/mls/devices/{deviceId}/revoke` | Revoke MLS device |
+| POST | `/api/e2ee/mls/groups/{groupId}/reset` | Reset MLS group |
+
 ## MLS Integration (Internal)
 
 Chat Service integrates with E2EE Service (Padlock) via gRPC for MLS operations:
@@ -330,6 +393,6 @@ Chat Service integrates with E2EE Service (Padlock) via gRPC for MLS operations:
 ### External Join Flow
 
 1. Client obtains `GroupInfo` from existing member
-2. Client uploads via `POST /api/e2ee/mls/groupinfo` → `UploadGroupInfo` RPC
+2. Client uploads via `PUT /api/e2ee/mls/groups/{groupId}/groupinfo`
 3. E2EE Service stores `GroupInfo`/`RatchetTree` in `SnMlsGroupState`
-4. Client retrieves via `GetGroupInfo` RPC to construct external commit
+4. Client retrieves via `GET /api/e2ee/mls/groups/{groupId}/groupinfo` to construct external commit
