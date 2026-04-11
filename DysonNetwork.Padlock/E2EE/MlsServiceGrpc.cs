@@ -254,4 +254,25 @@ public class MlsServiceGrpc(
             DeletedStateCount = deletedCount
         };
     }
+
+    public override async Task<AddMlsDeviceMembershipResponse> AddMlsDeviceMembership(AddMlsDeviceMembershipRequest request, ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID"));
+
+        var membership = await e2ee.AddMlsDeviceMembershipAsync(
+            accountId,
+            request.DeviceId,
+            request.GroupId,
+            request.Epoch
+        );
+
+        return new AddMlsDeviceMembershipResponse
+        {
+            Success = true,
+            GroupId = membership.MlsGroupId,
+            DeviceId = membership.DeviceId,
+            Epoch = membership.LastSeenEpoch ?? membership.JoinedEpoch
+        };
+    }
 }

@@ -99,43 +99,51 @@ namespace DysonNetwork.Shared.Proto {
             "CgV2YWx1ZRgCIAEoCVIFdmFsdWU6AjgBIjIKFURlbGV0ZU1sc0dyb3VwUmVx",
             "dWVzdBIZCghncm91cF9pZBgBIAEoCVIHZ3JvdXBJZCJiChZEZWxldGVNbHNH",
             "cm91cFJlc3BvbnNlEhgKB3N1Y2Nlc3MYASABKAhSB3N1Y2Nlc3MSLgoTZGVs",
-            "ZXRlZF9zdGF0ZV9jb3VudBgCIAEoBVIRZGVsZXRlZFN0YXRlQ291bnQinAQK",
-            "C01sc0VudmVsb3BlEg4KAmlkGAEgASgJUgJpZBIbCglzZW5kZXJfaWQYAiAB",
-            "KAlSCHNlbmRlcklkEigKEHNlbmRlcl9kZXZpY2VfaWQYAyABKAlSDnNlbmRl",
-            "ckRldmljZUlkEiEKDHJlY2lwaWVudF9pZBgEIAEoCVILcmVjaXBpZW50SWQS",
-            "LgoTcmVjaXBpZW50X2RldmljZV9pZBgFIAEoCVIRcmVjaXBpZW50RGV2aWNl",
-            "SWQSEgoEdHlwZRgGIAEoCVIEdHlwZRIZCghncm91cF9pZBgHIAEoCVIHZ3Jv",
-            "dXBJZBIqChFjbGllbnRfbWVzc2FnZV9pZBgIIAEoCVIPY2xpZW50TWVzc2Fn",
-            "ZUlkEhoKCHNlcXVlbmNlGAkgASgDUghzZXF1ZW5jZRIeCgpjaXBoZXJ0ZXh0",
-            "GAogASgMUgpjaXBoZXJ0ZXh0EhYKBmhlYWRlchgLIAEoDFIGaGVhZGVyEhwK",
-            "CXNpZ25hdHVyZRgMIAEoDFIJc2lnbmF0dXJlEisKEmNyZWF0ZWRfYXRfdW5p",
-            "eF9tcxgNIAEoA1IPY3JlYXRlZEF0VW5peE1zEjAKBG1ldGEYDiADKAsyHC5w",
-            "cm90by5NbHNFbnZlbG9wZS5NZXRhRW50cnlSBG1ldGEaNwoJTWV0YUVudHJ5",
-            "EhAKA2tleRgBIAEoCVIDa2V5EhQKBXZhbHVlGAIgASgJUgV2YWx1ZToCOAEq",
-            "cwoKQ29tbWl0VHlwZRIWChJDT01NSVRfVU5TUEVDSUZJRUQQABIOCgpDT01N",
-            "SVRfQUREEAESEQoNQ09NTUlUX1JFTU9WRRACEhEKDUNPTU1JVF9VUERBVEUQ",
-            "AxIXChNDT01NSVRfU0VMRl9SRU1PVkVEEAQy1wYKDER5TWxzU2VydmljZRJN",
-            "Cg5TZW5kTWxzTWVzc2FnZRIcLnByb3RvLlNlbmRNbHNNZXNzYWdlUmVxdWVz",
-            "dBodLnByb3RvLlNlbmRNbHNNZXNzYWdlUmVzcG9uc2USTQoMR2V0R3JvdXBJ",
-            "bmZvEh0ucHJvdG8uR2V0TWxzR3JvdXBJbmZvUmVxdWVzdBoeLnByb3RvLkdl",
-            "dE1sc0dyb3VwSW5mb1Jlc3BvbnNlElAKD1VwbG9hZEdyb3VwSW5mbxIdLnBy",
-            "b3RvLlVwbG9hZEdyb3VwSW5mb1JlcXVlc3QaHi5wcm90by5VcGxvYWRHcm91",
-            "cEluZm9SZXNwb25zZRJcChFKb2luR3JvdXBFeHRlcm5hbBIiLnByb3RvLkpv",
-            "aW5NbHNHcm91cEV4dGVybmFsUmVxdWVzdBojLnByb3RvLkpvaW5NbHNHcm91",
-            "cEV4dGVybmFsUmVzcG9uc2USWQoSQ29tbWl0R3JvdXBDaGFuZ2VzEiAucHJv",
-            "dG8uQ29tbWl0R3JvdXBDaGFuZ2VzUmVxdWVzdBohLnByb3RvLkNvbW1pdEdy",
-            "b3VwQ2hhbmdlc1Jlc3BvbnNlEk0KDlB1Ymxpc2hXZWxjb21lEhwucHJvdG8u",
-            "UHVibGlzaFdlbGNvbWVSZXF1ZXN0Gh0ucHJvdG8uUHVibGlzaFdlbGNvbWVS",
-            "ZXNwb25zZRJTCg5HZXRLZXlQYWNrYWdlcxIfLnByb3RvLkdldE1sc0tleVBh",
-            "Y2thZ2VzUmVxdWVzdBogLnByb3RvLkdldE1sc0tleVBhY2thZ2VzUmVzcG9u",
-            "c2USXAoTTWFya1Jlc2hhcmVSZXF1aXJlZBIhLnByb3RvLk1hcmtSZXNoYXJl",
-            "UmVxdWlyZWRSZXF1ZXN0GiIucHJvdG8uTWFya1Jlc2hhcmVSZXF1aXJlZFJl",
-            "c3BvbnNlElAKDUdldEdyb3VwU3RhdGUSHi5wcm90by5HZXRNbHNHcm91cFN0",
-            "YXRlUmVxdWVzdBofLnByb3RvLkdldE1sc0dyb3VwU3RhdGVSZXNwb25zZRJK",
-            "CgtEZWxldGVHcm91cBIcLnByb3RvLkRlbGV0ZU1sc0dyb3VwUmVxdWVzdBod",
-            "LnByb3RvLkRlbGV0ZU1sc0dyb3VwUmVzcG9uc2VCPVofZ2l0LnNvbHN5bnRo",
-            "LmRldi9zb3N5cy9zcGVjL2dlbqoCGUR5c29uTmV0d29yay5TaGFyZWQuUHJv",
-            "dG9iBnByb3RvMw=="));
+            "ZXRlZF9zdGF0ZV9jb3VudBgCIAEoBVIRZGVsZXRlZFN0YXRlQ291bnQijAEK",
+            "HUFkZE1sc0RldmljZU1lbWJlcnNoaXBSZXF1ZXN0EhkKCGdyb3VwX2lkGAEg",
+            "ASgJUgdncm91cElkEh0KCmFjY291bnRfaWQYAiABKAlSCWFjY291bnRJZBIb",
+            "CglkZXZpY2VfaWQYAyABKAlSCGRldmljZUlkEhQKBWVwb2NoGAQgASgDUgVl",
+            "cG9jaCKIAQoeQWRkTWxzRGV2aWNlTWVtYmVyc2hpcFJlc3BvbnNlEhgKB3N1",
+            "Y2Nlc3MYASABKAhSB3N1Y2Nlc3MSGQoIZ3JvdXBfaWQYAiABKAlSB2dyb3Vw",
+            "SWQSGwoJZGV2aWNlX2lkGAMgASgJUghkZXZpY2VJZBIUCgVlcG9jaBgEIAEo",
+            "A1IFZXBvY2ginAQKC01sc0VudmVsb3BlEg4KAmlkGAEgASgJUgJpZBIbCglz",
+            "ZW5kZXJfaWQYAiABKAlSCHNlbmRlcklkEigKEHNlbmRlcl9kZXZpY2VfaWQY",
+            "AyABKAlSDnNlbmRlckRldmljZUlkEiEKDHJlY2lwaWVudF9pZBgEIAEoCVIL",
+            "cmVjaXBpZW50SWQSLgoTcmVjaXBpZW50X2RldmljZV9pZBgFIAEoCVIRcmVj",
+            "aXBpZW50RGV2aWNlSWQSEgoEdHlwZRgGIAEoCVIEdHlwZRIZCghncm91cF9p",
+            "ZBgHIAEoCVIHZ3JvdXBJZBIqChFjbGllbnRfbWVzc2FnZV9pZBgIIAEoCVIP",
+            "Y2xpZW50TWVzc2FnZUlkEhoKCHNlcXVlbmNlGAkgASgDUghzZXF1ZW5jZRIe",
+            "CgpjaXBoZXJ0ZXh0GAogASgMUgpjaXBoZXJ0ZXh0EhYKBmhlYWRlchgLIAEo",
+            "DFIGaGVhZGVyEhwKCXNpZ25hdHVyZRgMIAEoDFIJc2lnbmF0dXJlEisKEmNy",
+            "ZWF0ZWRfYXRfdW5peF9tcxgNIAEoA1IPY3JlYXRlZEF0VW5peE1zEjAKBG1l",
+            "dGEYDiADKAsyHC5wcm90by5NbHNFbnZlbG9wZS5NZXRhRW50cnlSBG1ldGEa",
+            "NwoJTWV0YUVudHJ5EhAKA2tleRgBIAEoCVIDa2V5EhQKBXZhbHVlGAIgASgJ",
+            "UgV2YWx1ZToCOAEqcwoKQ29tbWl0VHlwZRIWChJDT01NSVRfVU5TUEVDSUZJ",
+            "RUQQABIOCgpDT01NSVRfQUREEAESEQoNQ09NTUlUX1JFTU9WRRACEhEKDUNP",
+            "TU1JVF9VUERBVEUQAxIXChNDT01NSVRfU0VMRl9SRU1PVkVEEAQyvgcKDER5",
+            "TWxzU2VydmljZRJNCg5TZW5kTWxzTWVzc2FnZRIcLnByb3RvLlNlbmRNbHNN",
+            "ZXNzYWdlUmVxdWVzdBodLnByb3RvLlNlbmRNbHNNZXNzYWdlUmVzcG9uc2US",
+            "TQoMR2V0R3JvdXBJbmZvEh0ucHJvdG8uR2V0TWxzR3JvdXBJbmZvUmVxdWVz",
+            "dBoeLnByb3RvLkdldE1sc0dyb3VwSW5mb1Jlc3BvbnNlElAKD1VwbG9hZEdy",
+            "b3VwSW5mbxIdLnByb3RvLlVwbG9hZEdyb3VwSW5mb1JlcXVlc3QaHi5wcm90",
+            "by5VcGxvYWRHcm91cEluZm9SZXNwb25zZRJcChFKb2luR3JvdXBFeHRlcm5h",
+            "bBIiLnByb3RvLkpvaW5NbHNHcm91cEV4dGVybmFsUmVxdWVzdBojLnByb3Rv",
+            "LkpvaW5NbHNHcm91cEV4dGVybmFsUmVzcG9uc2USWQoSQ29tbWl0R3JvdXBD",
+            "aGFuZ2VzEiAucHJvdG8uQ29tbWl0R3JvdXBDaGFuZ2VzUmVxdWVzdBohLnBy",
+            "b3RvLkNvbW1pdEdyb3VwQ2hhbmdlc1Jlc3BvbnNlEk0KDlB1Ymxpc2hXZWxj",
+            "b21lEhwucHJvdG8uUHVibGlzaFdlbGNvbWVSZXF1ZXN0Gh0ucHJvdG8uUHVi",
+            "bGlzaFdlbGNvbWVSZXNwb25zZRJTCg5HZXRLZXlQYWNrYWdlcxIfLnByb3Rv",
+            "LkdldE1sc0tleVBhY2thZ2VzUmVxdWVzdBogLnByb3RvLkdldE1sc0tleVBh",
+            "Y2thZ2VzUmVzcG9uc2USXAoTTWFya1Jlc2hhcmVSZXF1aXJlZBIhLnByb3Rv",
+            "Lk1hcmtSZXNoYXJlUmVxdWlyZWRSZXF1ZXN0GiIucHJvdG8uTWFya1Jlc2hh",
+            "cmVSZXF1aXJlZFJlc3BvbnNlElAKDUdldEdyb3VwU3RhdGUSHi5wcm90by5H",
+            "ZXRNbHNHcm91cFN0YXRlUmVxdWVzdBofLnByb3RvLkdldE1sc0dyb3VwU3Rh",
+            "dGVSZXNwb25zZRJKCgtEZWxldGVHcm91cBIcLnByb3RvLkRlbGV0ZU1sc0dy",
+            "b3VwUmVxdWVzdBodLnByb3RvLkRlbGV0ZU1sc0dyb3VwUmVzcG9uc2USZQoW",
+            "QWRkTWxzRGV2aWNlTWVtYmVyc2hpcBIkLnByb3RvLkFkZE1sc0RldmljZU1l",
+            "bWJlcnNoaXBSZXF1ZXN0GiUucHJvdG8uQWRkTWxzRGV2aWNlTWVtYmVyc2hp",
+            "cFJlc3BvbnNlQj1aH2dpdC5zb2xzeW50aC5kZXYvc29zeXMvc3BlYy9nZW6q",
+            "AhlEeXNvbk5ldHdvcmsuU2hhcmVkLlByb3RvYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.CommitType), }, null, new pbr::GeneratedClrTypeInfo[] {
@@ -162,6 +170,8 @@ namespace DysonNetwork.Shared.Proto {
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.GetMlsGroupStateResponse), global::DysonNetwork.Shared.Proto.GetMlsGroupStateResponse.Parser, new[]{ "GroupId", "Epoch", "StateVersion", "LastCommitAtUnixMs", "Meta" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, }),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DeleteMlsGroupRequest), global::DysonNetwork.Shared.Proto.DeleteMlsGroupRequest.Parser, new[]{ "GroupId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DeleteMlsGroupResponse), global::DysonNetwork.Shared.Proto.DeleteMlsGroupResponse.Parser, new[]{ "Success", "DeletedStateCount" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipRequest), global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipRequest.Parser, new[]{ "GroupId", "AccountId", "DeviceId", "Epoch" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipResponse), global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipResponse.Parser, new[]{ "Success", "GroupId", "DeviceId", "Epoch" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.MlsEnvelope), global::DysonNetwork.Shared.Proto.MlsEnvelope.Parser, new[]{ "Id", "SenderId", "SenderDeviceId", "RecipientId", "RecipientDeviceId", "Type", "GroupId", "ClientMessageId", "Sequence", "Ciphertext", "Header", "Signature", "CreatedAtUnixMs", "Meta" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, })
           }));
     }
@@ -6552,6 +6562,624 @@ namespace DysonNetwork.Shared.Proto {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class AddMlsDeviceMembershipRequest : pb::IMessage<AddMlsDeviceMembershipRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<AddMlsDeviceMembershipRequest> _parser = new pb::MessageParser<AddMlsDeviceMembershipRequest>(() => new AddMlsDeviceMembershipRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<AddMlsDeviceMembershipRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::DysonNetwork.Shared.Proto.E2EeReflection.Descriptor.MessageTypes[23]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public AddMlsDeviceMembershipRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public AddMlsDeviceMembershipRequest(AddMlsDeviceMembershipRequest other) : this() {
+      groupId_ = other.groupId_;
+      accountId_ = other.accountId_;
+      deviceId_ = other.deviceId_;
+      epoch_ = other.epoch_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public AddMlsDeviceMembershipRequest Clone() {
+      return new AddMlsDeviceMembershipRequest(this);
+    }
+
+    /// <summary>Field number for the "group_id" field.</summary>
+    public const int GroupIdFieldNumber = 1;
+    private string groupId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string GroupId {
+      get { return groupId_; }
+      set {
+        groupId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "account_id" field.</summary>
+    public const int AccountIdFieldNumber = 2;
+    private string accountId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string AccountId {
+      get { return accountId_; }
+      set {
+        accountId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "device_id" field.</summary>
+    public const int DeviceIdFieldNumber = 3;
+    private string deviceId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string DeviceId {
+      get { return deviceId_; }
+      set {
+        deviceId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "epoch" field.</summary>
+    public const int EpochFieldNumber = 4;
+    private long epoch_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long Epoch {
+      get { return epoch_; }
+      set {
+        epoch_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as AddMlsDeviceMembershipRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(AddMlsDeviceMembershipRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (GroupId != other.GroupId) return false;
+      if (AccountId != other.AccountId) return false;
+      if (DeviceId != other.DeviceId) return false;
+      if (Epoch != other.Epoch) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (GroupId.Length != 0) hash ^= GroupId.GetHashCode();
+      if (AccountId.Length != 0) hash ^= AccountId.GetHashCode();
+      if (DeviceId.Length != 0) hash ^= DeviceId.GetHashCode();
+      if (Epoch != 0L) hash ^= Epoch.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (GroupId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(GroupId);
+      }
+      if (AccountId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(AccountId);
+      }
+      if (DeviceId.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(DeviceId);
+      }
+      if (Epoch != 0L) {
+        output.WriteRawTag(32);
+        output.WriteInt64(Epoch);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (GroupId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(GroupId);
+      }
+      if (AccountId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(AccountId);
+      }
+      if (DeviceId.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(DeviceId);
+      }
+      if (Epoch != 0L) {
+        output.WriteRawTag(32);
+        output.WriteInt64(Epoch);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (GroupId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(GroupId);
+      }
+      if (AccountId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(AccountId);
+      }
+      if (DeviceId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(DeviceId);
+      }
+      if (Epoch != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Epoch);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(AddMlsDeviceMembershipRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.GroupId.Length != 0) {
+        GroupId = other.GroupId;
+      }
+      if (other.AccountId.Length != 0) {
+        AccountId = other.AccountId;
+      }
+      if (other.DeviceId.Length != 0) {
+        DeviceId = other.DeviceId;
+      }
+      if (other.Epoch != 0L) {
+        Epoch = other.Epoch;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            GroupId = input.ReadString();
+            break;
+          }
+          case 18: {
+            AccountId = input.ReadString();
+            break;
+          }
+          case 26: {
+            DeviceId = input.ReadString();
+            break;
+          }
+          case 32: {
+            Epoch = input.ReadInt64();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            GroupId = input.ReadString();
+            break;
+          }
+          case 18: {
+            AccountId = input.ReadString();
+            break;
+          }
+          case 26: {
+            DeviceId = input.ReadString();
+            break;
+          }
+          case 32: {
+            Epoch = input.ReadInt64();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class AddMlsDeviceMembershipResponse : pb::IMessage<AddMlsDeviceMembershipResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<AddMlsDeviceMembershipResponse> _parser = new pb::MessageParser<AddMlsDeviceMembershipResponse>(() => new AddMlsDeviceMembershipResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<AddMlsDeviceMembershipResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::DysonNetwork.Shared.Proto.E2EeReflection.Descriptor.MessageTypes[24]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public AddMlsDeviceMembershipResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public AddMlsDeviceMembershipResponse(AddMlsDeviceMembershipResponse other) : this() {
+      success_ = other.success_;
+      groupId_ = other.groupId_;
+      deviceId_ = other.deviceId_;
+      epoch_ = other.epoch_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public AddMlsDeviceMembershipResponse Clone() {
+      return new AddMlsDeviceMembershipResponse(this);
+    }
+
+    /// <summary>Field number for the "success" field.</summary>
+    public const int SuccessFieldNumber = 1;
+    private bool success_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Success {
+      get { return success_; }
+      set {
+        success_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "group_id" field.</summary>
+    public const int GroupIdFieldNumber = 2;
+    private string groupId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string GroupId {
+      get { return groupId_; }
+      set {
+        groupId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "device_id" field.</summary>
+    public const int DeviceIdFieldNumber = 3;
+    private string deviceId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string DeviceId {
+      get { return deviceId_; }
+      set {
+        deviceId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "epoch" field.</summary>
+    public const int EpochFieldNumber = 4;
+    private long epoch_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public long Epoch {
+      get { return epoch_; }
+      set {
+        epoch_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as AddMlsDeviceMembershipResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(AddMlsDeviceMembershipResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (Success != other.Success) return false;
+      if (GroupId != other.GroupId) return false;
+      if (DeviceId != other.DeviceId) return false;
+      if (Epoch != other.Epoch) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (Success != false) hash ^= Success.GetHashCode();
+      if (GroupId.Length != 0) hash ^= GroupId.GetHashCode();
+      if (DeviceId.Length != 0) hash ^= DeviceId.GetHashCode();
+      if (Epoch != 0L) hash ^= Epoch.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (Success != false) {
+        output.WriteRawTag(8);
+        output.WriteBool(Success);
+      }
+      if (GroupId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(GroupId);
+      }
+      if (DeviceId.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(DeviceId);
+      }
+      if (Epoch != 0L) {
+        output.WriteRawTag(32);
+        output.WriteInt64(Epoch);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (Success != false) {
+        output.WriteRawTag(8);
+        output.WriteBool(Success);
+      }
+      if (GroupId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(GroupId);
+      }
+      if (DeviceId.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(DeviceId);
+      }
+      if (Epoch != 0L) {
+        output.WriteRawTag(32);
+        output.WriteInt64(Epoch);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (Success != false) {
+        size += 1 + 1;
+      }
+      if (GroupId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(GroupId);
+      }
+      if (DeviceId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(DeviceId);
+      }
+      if (Epoch != 0L) {
+        size += 1 + pb::CodedOutputStream.ComputeInt64Size(Epoch);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(AddMlsDeviceMembershipResponse other) {
+      if (other == null) {
+        return;
+      }
+      if (other.Success != false) {
+        Success = other.Success;
+      }
+      if (other.GroupId.Length != 0) {
+        GroupId = other.GroupId;
+      }
+      if (other.DeviceId.Length != 0) {
+        DeviceId = other.DeviceId;
+      }
+      if (other.Epoch != 0L) {
+        Epoch = other.Epoch;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 8: {
+            Success = input.ReadBool();
+            break;
+          }
+          case 18: {
+            GroupId = input.ReadString();
+            break;
+          }
+          case 26: {
+            DeviceId = input.ReadString();
+            break;
+          }
+          case 32: {
+            Epoch = input.ReadInt64();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 8: {
+            Success = input.ReadBool();
+            break;
+          }
+          case 18: {
+            GroupId = input.ReadString();
+            break;
+          }
+          case 26: {
+            DeviceId = input.ReadString();
+            break;
+          }
+          case 32: {
+            Epoch = input.ReadInt64();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class MlsEnvelope : pb::IMessage<MlsEnvelope>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -6566,7 +7194,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.E2EeReflection.Descriptor.MessageTypes[23]; }
+      get { return global::DysonNetwork.Shared.Proto.E2EeReflection.Descriptor.MessageTypes[25]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

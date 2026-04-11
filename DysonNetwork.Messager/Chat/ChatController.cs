@@ -34,7 +34,8 @@ public partial class ChatController(
     DyPaymentService.DyPaymentServiceClient paymentClient,
     DyPollService.DyPollServiceClient pollClient,
     DyAutocompletionService.DyAutocompletionServiceClient autocompleteClient,
-    RemoteWebSocketService webSocket
+    RemoteWebSocketService webSocket,
+    RemoteMlsService mlsService
 ) : ControllerBase
 {
     private const string E2EeCapabilityHeader = "X-Client-Ability";
@@ -1235,6 +1236,40 @@ public partial class ChatController(
         }).ToList();
 
         return Ok(results);
+    }
+
+    public class DeviceJoinedRequest
+    {
+        [Required] public string MlsDeviceId { get; set; } = null!;
+        public long Epoch { get; set; }
+    }
+
+    [HttpPost("{roomId}/devices/me/joined")]
+    [Authorize]
+    public async Task<ActionResult> DeviceJoined(Guid roomId, [FromBody] DeviceJoinedRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var member = await crs.GetRoomMember(accountId, roomId);
+        if (member == null)
+            return StatusCode(403, "You need to be a member to use this endpoint.");
+
+        if (member.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.E2eeMls)
+            return BadRequest("Room is not an MLS room.");
+
+        if (string.IsNullOrWhiteSpace(member.ChatRoom.MlsGroupId))
+            return BadRequest("Room does not have MLS group configured.");
+
+        await mlsService.AddMlsDeviceMembershipAsync(
+            member.ChatRoom.MlsGroupId,
+            accountId.ToString(),
+            request.MlsDeviceId,
+            request.Epoch
+        );
+
+        return Ok();
     }
 
 }

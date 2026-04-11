@@ -101,6 +101,22 @@ One-way transition from unencrypted to MLS. Cannot be disabled.
 }
 ```
 
+### Device Joined MLS Group
+
+```
+POST /api/chat/{roomId}/devices/me/joined
+```
+
+Called by client after setting up MLS on a device. Registers the device with the room's MLS group.
+
+**Request Body:**
+```json
+{
+  "mlsDeviceId": "device-123",
+  "epoch": 1
+}
+```
+
 ## Room Membership
 
 ### List Members
@@ -393,11 +409,12 @@ POST /api/e2ee/mls/groups/{groupId}/reshare-required
 | GET | `/api/e2ee/mls/groups/{groupId}/devices/capable` | Get capable devices |
 | POST | `/api/e2ee/mls/groups/{groupId}/bootstrap` | Bootstrap MLS group |
 | POST | `/api/e2ee/mls/groups/{groupId}/commit` | Commit MLS group changes |
-| POST | `/api/e2ee/mls/groups/{groupId}/welcome/fanout` | Fanout welcome messages |
+| POST | `/api/e2ee/mls/groups/{groupId}/welcome/fanout` | Fanout welcome (to specific account or all if recipientAccountId not set) |
 | GET | `/api/e2ee/mls/devices/me/reshare-required` | Get my device re-share status |
 | POST | `/api/e2ee/mls/devices/me/reshare-required/{groupId}/complete` | Complete re-share |
 | POST | `/api/e2ee/mls/groups/{groupId}/reshare-required` | Mark re-share required |
 | POST | `/api/e2ee/mls/messages/fanout` | Send MLS message fanout |
+| POST | `/api/e2ee/mls/groups/{groupId}/messages/fanout` | Fanout to all group devices (if recipientDeviceId not set, fanout to all) |
 | POST | `/api/e2ee/mls/groups/{groupId}/commit/fanout` | Fanout commit |
 | GET | `/api/e2ee/mls/envelopes/pending` | Get pending envelopes |
 | POST | `/api/e2ee/mls/envelopes/{envelopeId}/ack` | Acknowledge envelope |

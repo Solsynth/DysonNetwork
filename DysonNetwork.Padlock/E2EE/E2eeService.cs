@@ -455,8 +455,35 @@ public class E2EeService(
         FanoutMlsWelcomeRequest request
     )
     {
-        var payloads = request.Payloads
-            .Select(p => new DeviceCiphertextEnvelope(
+        if (request.RecipientAccountId.HasValue)
+        {
+            var payloads = request.Payloads
+                .Select(p => new DeviceCiphertextEnvelope(
+                    p.RecipientDeviceId,
+                    p.ClientMessageId,
+                    p.Ciphertext,
+                    p.Header,
+                    p.Signature,
+                    p.Meta is null
+                        ? new Dictionary<string, object> { ["mls_group_id"] = request.GroupId }
+                        : new Dictionary<string, object>(p.Meta) { ["mls_group_id"] = request.GroupId }
+                ))
+                .ToList();
+
+            return await SendFanoutEnvelopesAsync(senderId, senderDeviceId, new SendE2EeFanoutRequest(
+                request.RecipientAccountId.Value,
+                null,
+                SnE2eeEnvelopeType.MlsWelcome,
+                request.GroupId,
+                request.ExpiresAt,
+                IncludeSenderCopy: false,
+                payloads
+            ));
+        }
+
+        return await FanoutMlsMessageToGroupAsync(senderId, senderDeviceId, new FanoutMlsGroupMessageRequest(
+            request.GroupId,
+            request.Payloads.Select(p => new DeviceCiphertextEnvelope(
                 p.RecipientDeviceId,
                 p.ClientMessageId,
                 p.Ciphertext,
@@ -465,18 +492,8 @@ public class E2EeService(
                 p.Meta is null
                     ? new Dictionary<string, object> { ["mls_group_id"] = request.GroupId }
                     : new Dictionary<string, object>(p.Meta) { ["mls_group_id"] = request.GroupId }
-            ))
-            .ToList();
-
-        return await SendFanoutEnvelopesAsync(senderId, senderDeviceId, new SendE2EeFanoutRequest(
-            request.RecipientAccountId,
-            null,
-            SnE2eeEnvelopeType.MlsWelcome,
-            request.GroupId,
-            request.ExpiresAt,
-            IncludeSenderCopy: false,
-            payloads
-        ));
+            )).ToList()
+        ), SnE2eeEnvelopeType.MlsWelcome);
     }
 
     public async Task<SnMlsDeviceMembership> MarkMlsReshareRequiredAsync(
@@ -505,6 +522,38 @@ public class E2EeService(
         membership.MlsGroupId = request.GroupId;
         membership.LastReshareRequiredAt = SystemClock.Instance.GetCurrentInstant();
         membership.LastSeenEpoch = request.Epoch;
+        await db.SaveChangesAsync();
+        return membership;
+    }
+
+    public async Task<SnMlsDeviceMembership> AddMlsDeviceMembershipAsync(Guid accountId, string deviceId, string groupId, long epoch)
+    {
+        var membership = await db.MlsDeviceMemberships
+            .FirstOrDefaultAsync(m =>
+                m.MlsGroupId == groupId &&
+                m.AccountId == accountId &&
+                m.DeviceId == deviceId);
+
+        if (membership is null)
+        {
+            membership = new SnMlsDeviceMembership
+            {
+                MlsGroupId = groupId,
+                AccountId = accountId,
+                DeviceId = deviceId,
+                JoinedEpoch = epoch,
+                LastSeenEpoch = epoch
+            };
+            db.MlsDeviceMemberships.Add(membership);
+        }
+        else
+        {
+            membership.LastSeenEpoch = epoch;
+        }
+
+        membership.LastReshareRequiredAt = null;
+        membership.LastReshareCompletedAt = null;
+
         await db.SaveChangesAsync();
         return membership;
     }
@@ -602,6 +651,80 @@ public class E2EeService(
             IncludeSenderCopy: false,
             payloads
         ));
+    }
+
+    public async Task<List<SnE2eeEnvelope>> FanoutMlsMessageToGroupAsync(
+        Guid senderId,
+        string senderDeviceId,
+        FanoutMlsGroupMessageRequest request,
+        SnE2eeEnvelopeType envelopeType = SnE2eeEnvelopeType.MlsApplication
+    )
+    {
+        if (request.Payloads.Count == 0)
+            throw new InvalidOperationException("payloads cannot be empty.");
+
+        var memberships = await db.MlsDeviceMemberships
+            .Where(m => m.MlsGroupId == request.GroupId)
+            .ToListAsync();
+
+        if (memberships.Count == 0)
+            throw new InvalidOperationException("No devices found in group.");
+
+        var envelopes = new List<SnE2eeEnvelope>();
+        var groupedByAccount = memberships.GroupBy(m => m.AccountId);
+
+        foreach (var accountGroup in groupedByAccount)
+        {
+            var accountId = accountGroup.Key;
+            List<DeviceCiphertextEnvelope> accountPayloads;
+
+            if (request.Payloads.Any(p => string.IsNullOrWhiteSpace(p.RecipientDeviceId)))
+            {
+                accountPayloads = request.Payloads
+                    .Select(p => new DeviceCiphertextEnvelope(
+                        p.RecipientDeviceId,
+                        p.ClientMessageId,
+                        p.Ciphertext,
+                        p.Header,
+                        p.Signature,
+                        p.Meta is null
+                            ? new Dictionary<string, object> { ["mls_group_id"] = request.GroupId }
+                            : new Dictionary<string, object>(p.Meta) { ["mls_group_id"] = request.GroupId }
+                    ))
+                    .ToList();
+            }
+            else
+            {
+                accountPayloads = request.Payloads
+                    .Where(p => accountGroup.Any(m => m.DeviceId == p.RecipientDeviceId))
+                    .Select(p => new DeviceCiphertextEnvelope(
+                        p.RecipientDeviceId,
+                        p.ClientMessageId,
+                        p.Ciphertext,
+                        p.Header,
+                        p.Signature,
+                        p.Meta is null
+                            ? new Dictionary<string, object> { ["mls_group_id"] = request.GroupId }
+                            : new Dictionary<string, object>(p.Meta) { ["mls_group_id"] = request.GroupId }
+                    ))
+                    .ToList();
+            }
+
+            if (accountPayloads.Count == 0) continue;
+
+            var result = await SendFanoutEnvelopesAsync(senderId, senderDeviceId, new SendE2EeFanoutRequest(
+                accountId,
+                null,
+                envelopeType,
+                request.GroupId,
+                null,
+                IncludeSenderCopy: false,
+                accountPayloads
+            ));
+            envelopes.AddRange(result);
+        }
+
+        return envelopes;
     }
 
     public async Task<List<MlsDeviceKeyPackageResponse>> GetCapableDevicesAsync(string groupId)

@@ -74,7 +74,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
 
     public class FanoutMlsWelcomeBody
     {
-        [Required] public Guid RecipientAccountId { get; set; }
+        public Guid? RecipientAccountId { get; set; }
         public DateTimeOffset? ExpiresAt { get; set; }
         [Required][MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
     }
@@ -388,6 +388,11 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         [Required][MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
     }
 
+    public class FanoutMlsGroupMessageBody
+    {
+        [Required][MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
+    }
+
     [HttpPost("mls/groups/{groupId}/commit/fanout")]
     public async Task<ActionResult<List<SnE2eeEnvelope>>> FanoutMlsCommit(
         string groupId,
@@ -433,6 +438,39 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         await e2EeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
             groupId, body.Epoch, "member_add", null
         ));
+
+        return Ok(envelopes);
+    }
+
+    [HttpPost("mls/groups/{groupId}/messages/fanout")]
+    public async Task<ActionResult<List<SnE2eeEnvelope>>> FanoutMlsMessageToGroup(
+        string groupId,
+        [FromBody] FanoutMlsGroupMessageBody body,
+        [FromHeader(Name = "X-Device-Id")] string? senderDeviceId
+    )
+    {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+
+        if (string.IsNullOrWhiteSpace(senderDeviceId))
+            return BadRequest("X-Device-Id header is required.");
+
+        var envelopes = await e2EeModule.FanoutMlsMessageToGroupAsync(
+            currentUser.Id,
+            senderDeviceId,
+            new FanoutMlsGroupMessageRequest(
+                groupId,
+                [.. body.Payloads.Select(x => new DeviceCiphertextEnvelope(
+                    x.RecipientDeviceId,
+                    x.ClientMessageId,
+                    x.Ciphertext,
+                    x.Header,
+                    x.Signature,
+                    x.Meta
+                ))]
+            )
+        );
 
         return Ok(envelopes);
     }
@@ -483,6 +521,31 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         var revoked = await e2EeModule.RevokeDeviceAsync(currentUser.Id, deviceId);
         if (!revoked) return NotFound();
         return NoContent();
+    }
+
+    public class AddMlsDeviceMembershipBody
+    {
+        [Required] public string GroupId { get; set; } = null!;
+        [Required] public long Epoch { get; set; }
+    }
+
+    [HttpPost("mls/devices/{deviceId}/membership")]
+    public async Task<ActionResult<SnMlsDeviceMembership>> AddMlsDeviceMembership(
+        string deviceId,
+        [FromBody] AddMlsDeviceMembershipBody body
+    )
+    {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+
+        var membership = await e2EeModule.AddMlsDeviceMembershipAsync(
+            currentUser.Id,
+            deviceId,
+            body.GroupId,
+            body.Epoch
+        );
+        return Ok(membership);
     }
 
     public class ResetMlsGroupBody

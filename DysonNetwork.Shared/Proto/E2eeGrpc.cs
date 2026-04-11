@@ -85,6 +85,10 @@ namespace DysonNetwork.Shared.Proto {
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DeleteMlsGroupRequest> __Marshaller_proto_DeleteMlsGroupRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DeleteMlsGroupRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DeleteMlsGroupResponse> __Marshaller_proto_DeleteMlsGroupResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DeleteMlsGroupResponse.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipRequest> __Marshaller_proto_AddMlsDeviceMembershipRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipResponse> __Marshaller_proto_AddMlsDeviceMembershipResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipResponse.Parser));
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::DysonNetwork.Shared.Proto.SendMlsMessageRequest, global::DysonNetwork.Shared.Proto.SendMlsMessageResponse> __Method_SendMlsMessage = new grpc::Method<global::DysonNetwork.Shared.Proto.SendMlsMessageRequest, global::DysonNetwork.Shared.Proto.SendMlsMessageResponse>(
@@ -165,6 +169,14 @@ namespace DysonNetwork.Shared.Proto {
         "DeleteGroup",
         __Marshaller_proto_DeleteMlsGroupRequest,
         __Marshaller_proto_DeleteMlsGroupResponse);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipRequest, global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipResponse> __Method_AddMlsDeviceMembership = new grpc::Method<global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipRequest, global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "AddMlsDeviceMembership",
+        __Marshaller_proto_AddMlsDeviceMembershipRequest,
+        __Marshaller_proto_AddMlsDeviceMembershipResponse);
 
     /// <summary>Service descriptor</summary>
     public static global::Google.Protobuf.Reflection.ServiceDescriptor Descriptor
@@ -292,6 +304,18 @@ namespace DysonNetwork.Shared.Proto {
       /// <returns>The response to send back to the client (wrapped by a task).</returns>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DeleteMlsGroupResponse> DeleteGroup(global::DysonNetwork.Shared.Proto.DeleteMlsGroupRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      /// <summary>
+      /// Add device membership (called when device joins MLS group after setup)
+      /// </summary>
+      /// <param name="request">The request received from the client.</param>
+      /// <param name="context">The context of the server-side call handler being invoked.</param>
+      /// <returns>The response to send back to the client (wrapped by a task).</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipResponse> AddMlsDeviceMembership(global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
@@ -805,6 +829,54 @@ namespace DysonNetwork.Shared.Proto {
       {
         return CallInvoker.AsyncUnaryCall(__Method_DeleteGroup, null, options, request);
       }
+      /// <summary>
+      /// Add device membership (called when device joins MLS group after setup)
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
+      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
+      /// <param name="cancellationToken">An optional token for canceling the call.</param>
+      /// <returns>The response received from the server.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipResponse AddMlsDeviceMembership(global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return AddMlsDeviceMembership(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      /// <summary>
+      /// Add device membership (called when device joins MLS group after setup)
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="options">The options for the call.</param>
+      /// <returns>The response received from the server.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipResponse AddMlsDeviceMembership(global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_AddMlsDeviceMembership, null, options, request);
+      }
+      /// <summary>
+      /// Add device membership (called when device joins MLS group after setup)
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
+      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
+      /// <param name="cancellationToken">An optional token for canceling the call.</param>
+      /// <returns>The call object.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipResponse> AddMlsDeviceMembershipAsync(global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return AddMlsDeviceMembershipAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      /// <summary>
+      /// Add device membership (called when device joins MLS group after setup)
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="options">The options for the call.</param>
+      /// <returns>The call object.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipResponse> AddMlsDeviceMembershipAsync(global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_AddMlsDeviceMembership, null, options, request);
+      }
       /// <summary>Creates a new instance of client from given <c>ClientBaseConfiguration</c>.</summary>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       protected override DyMlsServiceClient NewInstance(ClientBaseConfiguration configuration)
@@ -828,7 +900,8 @@ namespace DysonNetwork.Shared.Proto {
           .AddMethod(__Method_GetKeyPackages, serviceImpl.GetKeyPackages)
           .AddMethod(__Method_MarkReshareRequired, serviceImpl.MarkReshareRequired)
           .AddMethod(__Method_GetGroupState, serviceImpl.GetGroupState)
-          .AddMethod(__Method_DeleteGroup, serviceImpl.DeleteGroup).Build();
+          .AddMethod(__Method_DeleteGroup, serviceImpl.DeleteGroup)
+          .AddMethod(__Method_AddMlsDeviceMembership, serviceImpl.AddMlsDeviceMembership).Build();
     }
 
     /// <summary>Register service method with a service binder with or without implementation. Useful when customizing the service binding logic.
@@ -848,6 +921,7 @@ namespace DysonNetwork.Shared.Proto {
       serviceBinder.AddMethod(__Method_MarkReshareRequired, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.MarkReshareRequiredRequest, global::DysonNetwork.Shared.Proto.MarkReshareRequiredResponse>(serviceImpl.MarkReshareRequired));
       serviceBinder.AddMethod(__Method_GetGroupState, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.GetMlsGroupStateRequest, global::DysonNetwork.Shared.Proto.GetMlsGroupStateResponse>(serviceImpl.GetGroupState));
       serviceBinder.AddMethod(__Method_DeleteGroup, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DeleteMlsGroupRequest, global::DysonNetwork.Shared.Proto.DeleteMlsGroupResponse>(serviceImpl.DeleteGroup));
+      serviceBinder.AddMethod(__Method_AddMlsDeviceMembership, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipRequest, global::DysonNetwork.Shared.Proto.AddMlsDeviceMembershipResponse>(serviceImpl.AddMlsDeviceMembership));
     }
 
   }

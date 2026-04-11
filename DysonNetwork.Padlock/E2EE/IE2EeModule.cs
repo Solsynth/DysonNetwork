@@ -41,12 +41,14 @@ public interface IE2EeModule
     Task<SnMlsGroupState?> CommitMlsGroupAsync(Guid accountId, CommitMlsGroupRequest request);
     Task<List<SnE2eeEnvelope>> FanoutMlsWelcomeAsync(Guid senderId, string senderDeviceId, FanoutMlsWelcomeRequest request);
     Task<SnMlsDeviceMembership> MarkMlsReshareRequiredAsync(Guid accountId, MarkMlsReshareRequiredRequest request);
+    Task<SnMlsDeviceMembership> AddMlsDeviceMembershipAsync(Guid accountId, string deviceId, string groupId, long epoch);
     Task<List<SnMlsDeviceMembership>> GetMlsDevicesNeedingReshareAsync(string groupId);
     Task<List<SnMlsDeviceMembership>> GetDeviceMlsReshareStatusAsync(Guid accountId, string deviceId);
     Task<bool> CompleteMlsReshareAsync(Guid accountId, string deviceId, string groupId);
     Task<int> MarkAllDevicesReshareRequiredAsync(string groupId, string reason);
     Task<SnMlsGroupState?> GetMlsGroupStateByGroupIdAsync(string groupId);
     Task<List<SnE2eeEnvelope>> FanoutMlsCommitAsync(Guid senderId, string senderDeviceId, FanoutMlsCommitRequest request);
+    Task<List<SnE2eeEnvelope>> FanoutMlsMessageToGroupAsync(Guid senderId, string senderDeviceId, FanoutMlsGroupMessageRequest request, SnE2eeEnvelopeType envelopeType = SnE2eeEnvelopeType.MlsApplication);
     Task<List<MlsDeviceKeyPackageResponse>> GetCapableDevicesAsync(string groupId);
     Task<int> DeleteMlsGroupAsync(string groupId);
     Task NotifyGroupResetAsync(string groupId, string? reason);
@@ -176,7 +178,7 @@ public record CommitMlsGroupRequest(
 
 public record FanoutMlsWelcomeRequest(
     string GroupId,
-    Guid RecipientAccountId,
+    Guid? RecipientAccountId,
     DateTimeOffset? ExpiresAt,
     List<DeviceCiphertextEnvelope> Payloads
 );
@@ -192,6 +194,11 @@ public record MarkMlsReshareRequiredRequest(
 public record FanoutMlsCommitRequest(
     string GroupId,
     long Epoch,
+    List<DeviceCiphertextEnvelope> Payloads
+);
+
+public record FanoutMlsGroupMessageRequest(
+    string GroupId,
     List<DeviceCiphertextEnvelope> Payloads
 );
 

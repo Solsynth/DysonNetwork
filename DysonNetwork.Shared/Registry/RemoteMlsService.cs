@@ -141,4 +141,19 @@ public class RemoteMlsService(DyMlsService.DyMlsServiceClient client)
     {
         return await client.DeleteGroupAsync(new DeleteMlsGroupRequest { GroupId = groupId });
     }
+
+    public async Task<AddMlsDeviceMembershipResponse> AddMlsDeviceMembershipAsync(
+        string groupId,
+        string accountId,
+        string deviceId,
+        long epoch)
+    {
+        return await client.AddMlsDeviceMembershipAsync(new AddMlsDeviceMembershipRequest
+        {
+            GroupId = groupId,
+            AccountId = accountId,
+            DeviceId = deviceId,
+            Epoch = epoch
+        });
+    }
 }
