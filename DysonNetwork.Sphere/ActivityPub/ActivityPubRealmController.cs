@@ -120,10 +120,16 @@ public class ActivityPubRealmController(
     }
 
     [HttpPost("{slug}/inbox")]
-    [Consumes("application/activity+json")]
     [AllowAnonymous]
     public async Task<IActionResult> ReceiveCommunityActivity(string slug)
     {
+        var contentType = Request.ContentType;
+        if (!IsValidActivityPubContentType(contentType))
+        {
+            logger.LogWarning("Invalid Content-Type for realm inbox: {ContentType}", contentType);
+            return StatusCode(StatusCodes.Status406NotAcceptable, new { error = $"Content-Type '{contentType}' not acceptable. Accepted types: application/activity+json, application/ld+json" });
+        }
+
         var realm = await realmService.GetRealmBySlug(slug);
         if (realm == null || !realm.IsCommunity)
             return NotFound();
@@ -356,6 +362,22 @@ public class ActivityPubRealmController(
             ["totalItems"] = items.Count,
             ["orderedItems"] = items
         });
+    }
+
+    private static bool IsValidActivityPubContentType(string? contentType)
+    {
+        if (string.IsNullOrEmpty(contentType))
+            return false;
+
+        var normalized = contentType.ToLowerInvariant().Trim();
+        return normalized switch
+        {
+            "application/activity+json" => true,
+            "application/ld+json" => true,
+            var s when s.StartsWith("application/activity+json;") => true,
+            var s when s.StartsWith("application/ld+json;") && s.Contains("profile") => true,
+            _ => false
+        };
     }
 }
 

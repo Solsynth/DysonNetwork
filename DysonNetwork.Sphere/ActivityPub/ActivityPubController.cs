@@ -92,10 +92,10 @@ public class ActivityPubController(
     }
 
     [HttpPost("inbox")]
-    [Consumes("application/activity+json")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status406NotAcceptable)]
     [SwaggerOperation(
         Summary = "Receive ActivityPub activities",
         Description = "Endpoint for receiving ActivityPub activities (Create, Follow, Like, etc.) from remote servers",
@@ -103,6 +103,13 @@ public class ActivityPubController(
     )]
     public async Task<IActionResult> PostInbox(string username, [FromBody] Dictionary<string, object> activity)
     {
+        var contentType = Request.ContentType;
+        if (!IsValidActivityPubContentType(contentType))
+        {
+            logger.LogWarning("Invalid Content-Type for inbox: {ContentType}", contentType);
+            return StatusCode(StatusCodes.Status406NotAcceptable, new { error = $"Content-Type '{contentType}' not acceptable. Accepted types: application/activity+json, application/ld+json" });
+        }
+
         var activityType = activity.GetValueOrDefault("type")?.ToString();
         
         if (string.IsNullOrEmpty(activityType))
@@ -517,6 +524,22 @@ public class ActivityPubController(
 
             return Ok(collection);
         }
+    }
+
+    private static bool IsValidActivityPubContentType(string? contentType)
+    {
+        if (string.IsNullOrEmpty(contentType))
+            return false;
+
+        var normalized = contentType.ToLowerInvariant().Trim();
+        return normalized switch
+        {
+            "application/activity+json" => true,
+            "application/ld+json" => true,
+            var s when s.StartsWith("application/activity+json;") => true,
+            var s when s.StartsWith("application/ld+json;") && s.Contains("profile") => true,
+            _ => false
+        };
     }
 }
 
