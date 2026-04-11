@@ -41,7 +41,7 @@ public class ServerActorController(
             Id = serverKeyService.ActorUri,
             Name = configuration["ActivityPub:ServerActor:Name"] ?? "server",
             PreferredUsername =
-                configuration["ActivityPub:ServerActor:PreferredUsername"] ?? "Solar Network",
+                configuration["ActivityPub:ServerActor:PreferredUsername"] ?? "solar-network",
             Summary =
                 configuration["ActivityPub:ServerActor:Summary"] ?? $"The server node for {Domain}",
             Url = $"https://{Domain}",

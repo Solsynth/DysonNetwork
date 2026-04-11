@@ -48,6 +48,32 @@ public class WebFingerController(
         if (domain != Domain)
             return NotFound();
 
+        var serverUsername = configuration["ActivityPub:ServerActor:PreferredUsername"] ?? "solar-network";
+        if (username.Equals(serverUsername, StringComparison.OrdinalIgnoreCase))
+        {
+            var serverActorUrl = $"https://{Domain}/activitypub/actor";
+            var serverResponse = new WebFingerResponse
+            {
+                Subject = resource,
+                Links =
+                [
+                    new WebFingerLink
+                    {
+                        Rel = "self",
+                        Type = "application/activity+json",
+                        Href = serverActorUrl
+                    },
+                    new WebFingerLink
+                    {
+                        Rel = "http://webfinger.net/rel/profile-page",
+                        Type = "text/html",
+                        Href = $"https://{Domain}"
+                    }
+                ]
+            };
+            return Ok(serverResponse);
+        }
+
         var publisher = await db.Publishers
             .Include(p => p.Members)
             .FirstOrDefaultAsync(p => p.Name == username);
@@ -63,7 +89,7 @@ public class WebFingerController(
 
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
 
-        var response = new WebFingerResponse
+        var actorResponse = new WebFingerResponse
         {
             Subject = resource,
             Links =
@@ -83,7 +109,7 @@ public class WebFingerController(
             ]
         };
 
-        return Ok(response);
+        return Ok(actorResponse);
     }
 }
 
