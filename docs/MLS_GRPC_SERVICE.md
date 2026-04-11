@@ -303,7 +303,9 @@ Clients interact with E2EE Service directly for MLS operations.
 
 **Base URL:** `/api/e2ee/mls`
 
-**Required Header:** `X-Client-Ability: chat.mls.v2`
+**Required Headers:**
+- `X-Client-Ability: chat.mls.v2`
+- `X-Device-Id: <device-id>` (for device-specific endpoints)
 
 ### Group Info
 
@@ -339,6 +341,46 @@ GET /api/e2ee/mls/groups/{groupId}/groupinfo
 }
 ```
 
+### Reshare Required
+
+```
+GET /api/e2ee/mls/devices/me/reshare-required
+POST /api/e2ee/mls/devices/me/reshare-required/{groupId}/complete
+POST /api/e2ee/mls/groups/{groupId}/reshare-required
+```
+
+**GET /api/e2ee/mls/devices/me/reshare-required:** Check if current device needs re-share for any groups.
+
+**POST /api/e2ee/mls/devices/me/reshare-required/{groupId}/complete:** Mark re-share as completed for a group.
+
+**Required Header:** `X-Device-Id: <device-id>`
+
+**GET Response:**
+```json
+[
+  {
+    "id": "guid",
+    "mlsGroupId": "room:abc123",
+    "accountId": "guid",
+    "deviceId": "device-123",
+    "joinedEpoch": 1,
+    "lastSeenEpoch": 3,
+    "lastReshareRequiredAt": "2024-01-01T00:00:00Z",
+    "lastReshareCompletedAt": null
+  }
+]
+```
+
+**POST Mark Request Body:**
+```json
+{
+  "targetAccountId": "guid",
+  "targetDeviceId": "device-123",
+  "epoch": 1,
+  "reason": "device_added"
+}
+```
+
 ### Other E2EE MLS Endpoints
 
 | Method | Endpoint | Description |
@@ -352,6 +394,8 @@ GET /api/e2ee/mls/groups/{groupId}/groupinfo
 | POST | `/api/e2ee/mls/groups/{groupId}/bootstrap` | Bootstrap MLS group |
 | POST | `/api/e2ee/mls/groups/{groupId}/commit` | Commit MLS group changes |
 | POST | `/api/e2ee/mls/groups/{groupId}/welcome/fanout` | Fanout welcome messages |
+| GET | `/api/e2ee/mls/devices/me/reshare-required` | Get my device re-share status |
+| POST | `/api/e2ee/mls/devices/me/reshare-required/{groupId}/complete` | Complete re-share |
 | POST | `/api/e2ee/mls/groups/{groupId}/reshare-required` | Mark re-share required |
 | POST | `/api/e2ee/mls/messages/fanout` | Send MLS message fanout |
 | POST | `/api/e2ee/mls/groups/{groupId}/commit/fanout` | Fanout commit |

@@ -12,8 +12,8 @@ namespace DysonNetwork.Padlock.E2EE;
 public class E2EeController(IGroupE2EeModule e2EeModule) : ControllerBase
 {
     private const string AbilityHeader = "X-Client-Ability";
+    private const string DeviceIdHeader = "X-Device-Id";
     private const string MlsAbilityToken = "chat.mls.v2";
-    private static string? ResolveDeviceId(SnAuthSession session) => session.Client?.DeviceId;
     private bool HasAbility(string token)
     {
         if (!Request.Headers.TryGetValue(AbilityHeader, out var rawValue)) return false;
@@ -236,16 +236,18 @@ public class E2EeController(IGroupE2EeModule e2EeModule) : ControllerBase
     }
 
     [HttpPost("mls/groups/{groupId}/welcome/fanout")]
-    public async Task<ActionResult<List<SnE2eeEnvelope>>> FanoutMlsWelcome(string groupId, [FromBody] FanoutMlsWelcomeBody body)
+    public async Task<ActionResult<List<SnE2eeEnvelope>>> FanoutMlsWelcome(
+        string groupId,
+        [FromBody] FanoutMlsWelcomeBody body,
+        [FromHeader(Name = "X-Device-Id")] string? senderDeviceId
+    )
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        var senderDeviceId = ResolveDeviceId(currentSession);
         if (string.IsNullOrWhiteSpace(senderDeviceId))
-            return BadRequest("Current session device id is missing.");
+            return BadRequest("X-Device-Id header is required.");
 
         var result = await e2EeModule.FanoutMlsWelcomeAsync(currentUser.Id, senderDeviceId,
             new FanoutMlsWelcomeRequest(
@@ -277,6 +279,40 @@ public class E2EeController(IGroupE2EeModule e2EeModule) : ControllerBase
             groupId, body.TargetAccountId, body.TargetDeviceId, body.Epoch, body.Reason
         ));
         return Ok(result);
+    }
+
+    [HttpGet("mls/devices/me/reshare-required")]
+    public async Task<ActionResult<List<SnMlsDeviceMembership>>> GetMyDeviceReshareStatus(
+        [FromHeader(Name = "X-Device-Id")] string? deviceId
+    )
+    {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+
+        if (string.IsNullOrWhiteSpace(deviceId))
+            return BadRequest("X-Device-Id header is required.");
+
+        var result = await e2EeModule.GetDeviceMlsReshareStatusAsync(currentUser.Id, deviceId);
+        return Ok(result);
+    }
+
+    [HttpPost("mls/devices/me/reshare-required/{groupId}/complete")]
+    public async Task<ActionResult> CompleteMyDeviceReshare(
+        string groupId,
+        [FromHeader(Name = "X-Device-Id")] string? deviceId
+    )
+    {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+
+        if (string.IsNullOrWhiteSpace(deviceId))
+            return BadRequest("X-Device-Id header is required.");
+
+        var result = await e2EeModule.CompleteMlsReshareAsync(currentUser.Id, deviceId, groupId);
+        if (!result) return NotFound();
+        return NoContent();
     }
 
     [HttpPut("mls/groups/{groupId}/groupinfo")]
@@ -313,16 +349,17 @@ public class E2EeController(IGroupE2EeModule e2EeModule) : ControllerBase
     }
 
     [HttpPost("mls/messages/fanout")]
-    public async Task<ActionResult<List<SnE2eeEnvelope>>> SendMlsFanout([FromBody] FanoutEnvelopeBody body)
+    public async Task<ActionResult<List<SnE2eeEnvelope>>> SendMlsFanout(
+        [FromBody] FanoutEnvelopeBody body,
+        [FromHeader(Name = "X-Device-Id")] string? senderDeviceId
+    )
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        var senderDeviceId = ResolveDeviceId(currentSession);
         if (string.IsNullOrWhiteSpace(senderDeviceId))
-            return BadRequest("Current session device id is missing.");
+            return BadRequest("X-Device-Id header is required.");
 
         body.Type = SnE2eeEnvelopeType.MlsApplication;
         var envelopes = await e2EeModule.SendFanoutEnvelopesAsync(currentUser.Id, senderDeviceId,
@@ -354,17 +391,16 @@ public class E2EeController(IGroupE2EeModule e2EeModule) : ControllerBase
     [HttpPost("mls/groups/{groupId}/commit/fanout")]
     public async Task<ActionResult<List<SnE2eeEnvelope>>> FanoutMlsCommit(
         string groupId,
-        [FromBody] FanoutMlsCommitBody body
+        [FromBody] FanoutMlsCommitBody body,
+        [FromHeader(Name = "X-Device-Id")] string? senderDeviceId
     )
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        var senderDeviceId = ResolveDeviceId(currentSession);
         if (string.IsNullOrWhiteSpace(senderDeviceId))
-            return BadRequest("Current session device id is missing.");
+            return BadRequest("X-Device-Id header is required.");
 
         var currentState = await e2EeModule.GetMlsGroupStateByGroupIdAsync(groupId);
         if (currentState != null && body.Epoch != currentState.Epoch + 1)
@@ -403,43 +439,36 @@ public class E2EeController(IGroupE2EeModule e2EeModule) : ControllerBase
 
     [HttpGet("mls/envelopes/pending")]
     public async Task<ActionResult<List<SnE2eeEnvelope>>> GetMlsPendingByDevice(
-        [FromQuery(Name = "deviceId")] string? deviceId,
+        [FromHeader(Name = "X-Device-Id")] string? deviceId,
         [FromQuery] int take = 100
     )
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
 
-        var effectiveDeviceId = string.IsNullOrWhiteSpace(deviceId)
-            ? ResolveDeviceId(currentSession)
-            : deviceId;
-        if (string.IsNullOrWhiteSpace(effectiveDeviceId))
-            return BadRequest("device_id is required.");
+        if (string.IsNullOrWhiteSpace(deviceId))
+            return BadRequest("X-Device-Id header is required.");
 
         take = Math.Clamp(take, 1, 500);
-        var envelopes = await e2EeModule.GetPendingEnvelopesByDeviceAsync(currentUser.Id, effectiveDeviceId, take);
+        var envelopes = await e2EeModule.GetPendingEnvelopesByDeviceAsync(currentUser.Id, deviceId, take);
         return Ok(envelopes);
     }
 
     [HttpPost("mls/envelopes/{envelopeId:guid}/ack")]
     public async Task<ActionResult<SnE2eeEnvelope>> AckMlsEnvelope(
         Guid envelopeId,
-        [FromQuery(Name = "deviceId")] string? deviceId
+        [FromHeader(Name = "X-Device-Id")] string? deviceId
     )
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
-            HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        var effectiveDeviceId = string.IsNullOrWhiteSpace(deviceId)
-            ? ResolveDeviceId(currentSession)
-            : deviceId;
-        if (string.IsNullOrWhiteSpace(effectiveDeviceId))
-            return BadRequest("device_id is required.");
+        if (string.IsNullOrWhiteSpace(deviceId))
+            return BadRequest("X-Device-Id header is required.");
 
-        var message = await e2EeModule.AcknowledgeEnvelopeByDeviceAsync(currentUser.Id, effectiveDeviceId, envelopeId);
+        var message = await e2EeModule.AcknowledgeEnvelopeByDeviceAsync(currentUser.Id, deviceId, envelopeId);
         if (message is null) return NotFound();
         return Ok(message);
     }

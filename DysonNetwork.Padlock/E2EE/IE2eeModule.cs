@@ -41,6 +41,9 @@ public interface Ie2EeModule
     Task<SnMlsGroupState?> CommitMlsGroupAsync(Guid accountId, CommitMlsGroupRequest request);
     Task<List<SnE2eeEnvelope>> FanoutMlsWelcomeAsync(Guid senderId, string senderDeviceId, FanoutMlsWelcomeRequest request);
     Task<SnMlsDeviceMembership> MarkMlsReshareRequiredAsync(Guid accountId, MarkMlsReshareRequiredRequest request);
+    Task<List<SnMlsDeviceMembership>> GetMlsDevicesNeedingReshareAsync(string groupId);
+    Task<List<SnMlsDeviceMembership>> GetDeviceMlsReshareStatusAsync(Guid accountId, string deviceId);
+    Task<bool> CompleteMlsReshareAsync(Guid accountId, string deviceId, string groupId);
     Task<SnMlsGroupState?> GetMlsGroupStateByGroupIdAsync(string groupId);
     Task<List<SnE2eeEnvelope>> FanoutMlsCommitAsync(Guid senderId, string senderDeviceId, FanoutMlsCommitRequest request);
     Task<List<MlsDeviceKeyPackageResponse>> GetCapableDevicesAsync(string groupId);

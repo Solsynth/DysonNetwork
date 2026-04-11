@@ -506,6 +506,37 @@ public class E2EeService(
         return membership;
     }
 
+    public async Task<List<SnMlsDeviceMembership>> GetMlsDevicesNeedingReshareAsync(string groupId)
+    {
+        return await db.MlsDeviceMemberships
+            .Where(m => m.MlsGroupId == groupId)
+            .Where(m => m.LastReshareRequiredAt != null && m.LastReshareCompletedAt == null)
+            .ToListAsync();
+    }
+
+    public async Task<List<SnMlsDeviceMembership>> GetDeviceMlsReshareStatusAsync(Guid accountId, string deviceId)
+    {
+        return await db.MlsDeviceMemberships
+            .Where(m => m.AccountId == accountId && m.DeviceId == deviceId)
+            .Where(m => m.LastReshareRequiredAt != null && m.LastReshareCompletedAt == null)
+            .ToListAsync();
+    }
+
+    public async Task<bool> CompleteMlsReshareAsync(Guid accountId, string deviceId, string groupId)
+    {
+        var membership = await db.MlsDeviceMemberships
+            .FirstOrDefaultAsync(m =>
+                m.AccountId == accountId &&
+                m.DeviceId == deviceId &&
+                m.MlsGroupId == groupId);
+
+        if (membership is null) return false;
+
+        membership.LastReshareCompletedAt = SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync();
+        return true;
+    }
+
     public async Task<SnMlsGroupState?> GetMlsGroupStateByGroupIdAsync(string groupId)
     {
         return await db.MlsGroupStates
