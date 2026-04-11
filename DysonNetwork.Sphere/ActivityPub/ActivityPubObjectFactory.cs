@@ -6,18 +6,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
-public class ActivityPubObjectFactory(IConfiguration configuration, IDbContextFactory<AppDatabase> dbFactory, RemoteRealmService? realmService = null)
+public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase _db, RemoteRealmService? realmService = null)
 {
     public static readonly string PublicTo = "https://www.w3.org/ns/activitystreams#Public";
 
-    private readonly IDbContextFactory<AppDatabase> _dbFactory = dbFactory;
-
-    private AppDatabase CreateDbContext() => _dbFactory.CreateDbContext();
+    private readonly AppDatabase __db = _db;
 
     public async Task<SnFediverseActor?> GetLocalActorAsync(Guid publisherId)
     {
-        using var db = CreateDbContext();
-        return await db.FediverseActors
+        return await __db.FediverseActors
             .Include(a => a.Instance)
             .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
     }
@@ -27,8 +24,6 @@ public class ActivityPubObjectFactory(IConfiguration configuration, IDbContextFa
         string actorUrl
     )
     {
-        using var db = CreateDbContext();
-        
         var baseDomain = configuration["ActivityPub:Domain"] ?? "localhost";
         var assetsBaseUrl = configuration["ActivityPub:FileBaseUrl"] ?? $"https://{baseDomain}/files";
         var postUrl = $"https://{baseDomain}/posts/{post.Id}";
@@ -63,7 +58,7 @@ public class ActivityPubObjectFactory(IConfiguration configuration, IDbContextFa
 
         if (post.RepliedPostId != null)
         {
-            var repliedPost = await db.Posts
+            var repliedPost = await _db.Posts
                 .Where(p => p.Id == post.RepliedPostId)
                 .Include(p => p.Publisher)
                 .Include(p => p.Actor)
@@ -148,7 +143,7 @@ public class ActivityPubObjectFactory(IConfiguration configuration, IDbContextFa
 
         if (post.ForwardedPostId != null)
         {
-            var forwardedPost = await db.Posts
+            var forwardedPost = await _db.Posts
                 .Where(p => p.Id == post.ForwardedPostId)
                 .Include(p => p.Publisher)
                 .FirstOrDefaultAsync();
@@ -217,7 +212,7 @@ public class ActivityPubObjectFactory(IConfiguration configuration, IDbContextFa
         // Add quoteAuthorization if exists
         if (post.QuoteAuthorizationId.HasValue)
         {
-            var quoteAuth = await db.QuoteAuthorizations
+            var quoteAuth = await _db.QuoteAuthorizations
                 .FirstOrDefaultAsync(q => q.Id == post.QuoteAuthorizationId && q.IsValid);
 
             if (quoteAuth != null)
