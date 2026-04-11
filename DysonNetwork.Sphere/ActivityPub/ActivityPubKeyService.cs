@@ -14,58 +14,74 @@ public class ActivityPubKeyService(
 {
     public async Task<SnFediverseKey> GetOrCreateKeyForActorAsync(SnFediverseActor actor, string algorithm = KeyAlgorithm.RSA_SHA256)
     {
-        var existingKey = await db.FediverseKeys
-            .FirstOrDefaultAsync(k => k.ActorId == actor.Id);
-
-        if (existingKey != null && !string.IsNullOrEmpty(existingKey.PrivateKeyPem))
-            return existingKey;
-
-        var (privateKey, publicKey) = HttpSignature.GenerateKeyPair();
-
-        if (existingKey != null)
+        for (int attempt = 0; attempt < 3; attempt++)
         {
-            logger.LogInformation("Existing key for actor {ActorUri} has no private key, updating with new key", actor.Uri);
-            existingKey.KeyPem = publicKey;
-            existingKey.PrivateKeyPem = privateKey;
-            existingKey.Algorithm = algorithm;
-            existingKey.RotatedAt = SystemClock.Instance.GetCurrentInstant();
-            
-            db.Update(existingKey);
-            await db.SaveChangesAsync();
-            return existingKey;
-        }
-
-        try
-        {
-            var key = new SnFediverseKey
-            {
-                KeyId = $"{actor.Uri}#main-key",
-                KeyPem = publicKey,
-                PrivateKeyPem = privateKey,
-                Algorithm = algorithm,
-                ActorId = actor.Id,
-                PublisherId = actor.PublisherId,
-                CreatedAt = SystemClock.Instance.GetCurrentInstant()
-            };
-
-            db.FediverseKeys.Add(key);
-            await db.SaveChangesAsync();
-
-            logger.LogInformation("Generated new key pair for actor: {ActorUri} with algorithm {Algorithm}", actor.Uri, algorithm);
-            return key;
-        }
-        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx && pgEx.SqlState == "23505")
-        {
-            logger.LogWarning("Race condition: key already exists for actor {ActorUri}, fetching existing", actor.Uri);
-            var reFetchedKey = await db.FediverseKeys
+            var existingKey = await db.FediverseKeys
                 .FirstOrDefaultAsync(k => k.ActorId == actor.Id);
-            
-            if (reFetchedKey != null && !string.IsNullOrEmpty(reFetchedKey.PrivateKeyPem))
-                return reFetchedKey;
-            
-            logger.LogError("Even after race condition retry, key is invalid for actor {ActorUri}", actor.Uri);
-            throw;
+
+            if (existingKey != null && !string.IsNullOrEmpty(existingKey.PrivateKeyPem))
+                return existingKey;
+
+            var (privateKey, publicKey) = HttpSignature.GenerateKeyPair();
+
+            if (existingKey != null)
+            {
+                logger.LogInformation("Existing key for actor {ActorUri} has no private key, updating with new key", actor.Uri);
+                existingKey.KeyPem = publicKey;
+                existingKey.PrivateKeyPem = privateKey;
+                existingKey.Algorithm = algorithm;
+                existingKey.RotatedAt = SystemClock.Instance.GetCurrentInstant();
+
+                try
+                {
+                    await db.SaveChangesAsync();
+                    return existingKey;
+                }
+                catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx && pgEx.SqlState == "23505")
+                {
+                    logger.LogWarning("Race condition updating key for actor {ActorUri}, retrying", actor.Uri);
+                    await db.Entry(existingKey).ReloadAsync();
+                    if (!string.IsNullOrEmpty(existingKey.PrivateKeyPem))
+                        return existingKey;
+                    continue;
+                }
+            }
+
+            SnFediverseKey? keyToAdd = null;
+            try
+            {
+                keyToAdd = new SnFediverseKey
+                {
+                    KeyId = $"{actor.Uri}#main-key",
+                    KeyPem = publicKey,
+                    PrivateKeyPem = privateKey,
+                    Algorithm = algorithm,
+                    ActorId = actor.Id,
+                    PublisherId = actor.PublisherId,
+                    CreatedAt = SystemClock.Instance.GetCurrentInstant()
+                };
+
+                db.FediverseKeys.Add(keyToAdd);
+                await db.SaveChangesAsync();
+
+                logger.LogInformation("Generated new key pair for actor: {ActorUri} with algorithm {Algorithm}", actor.Uri, algorithm);
+                return keyToAdd;
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx && pgEx.SqlState == "23505")
+            {
+                logger.LogWarning("Race condition inserting key for actor {ActorUri}, retrying", actor.Uri);
+                if (keyToAdd != null)
+                    db.Entry(keyToAdd).State = EntityState.Detached;
+                continue;
+            }
         }
+
+        var finalKey = await db.FediverseKeys.FirstOrDefaultAsync(k => k.ActorId == actor.Id);
+        if (finalKey != null && !string.IsNullOrEmpty(finalKey.PrivateKeyPem))
+            return finalKey;
+
+        logger.LogError("Failed to create or update key for actor {ActorUri} after retries", actor.Uri);
+        throw new InvalidOperationException($"Failed to create key for actor {actor.Uri}");
     }
 
     public async Task<SnFediverseKey?> GetKeyForActorAsync(Guid actorId)
