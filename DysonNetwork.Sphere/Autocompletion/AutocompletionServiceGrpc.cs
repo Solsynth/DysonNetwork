@@ -20,7 +20,7 @@ public class AutocompletionServiceGrpc(AutocompletionService aus) : DyAutocomple
         {
             Type = r.Type,
             Keyword = r.Keyword,
-            Data = JsonSerializer.Serialize(r.Data, InfraObjectCoder.SerializerOptions)
+            Data = JsonSerializer.Serialize(r.Data, InfraObjectCoder.SerializerOptionsWithoutIgnore)
         }));
 
         return response;

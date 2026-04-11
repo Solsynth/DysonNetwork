@@ -18,7 +18,7 @@ public abstract class InfraObjectCoder
         NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
-        PropertyNameCaseInsensitive = true,
+        PropertyNameCaseInsensitive = true
     }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
 
     public static readonly JsonSerializerOptions? SerializerOptions = new JsonSerializerOptions()
