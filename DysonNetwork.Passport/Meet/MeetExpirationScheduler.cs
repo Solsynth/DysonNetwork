@@ -58,6 +58,11 @@ public class MeetExpirationScheduler(
         cts.Cancel();
         cts.Dispose();
     }
+
+    public void Extend(Guid meetId, Instant newExpiresAt)
+    {
+        Schedule(meetId, newExpiresAt);
+    }
 }
 
 public class MeetLifecycleHostedService(

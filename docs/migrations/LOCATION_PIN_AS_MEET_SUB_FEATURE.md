@@ -114,6 +114,16 @@ To create/update a pin on a meet, user must be:
 - The meet host, OR
 - A participant of the meet
 
+### Meet Auto-Extension
+
+A meet will not expire if there is pin activity (create/update) within the last 30 minutes. Each pin update extends the meet's expiration by 30 minutes from the current time.
+
+| Activity | Effect on Meet |
+|----------|---------------|
+| Pin created on meet | +30 min to expiration |
+| Pin updated on meet | +30 min to expiration |
+| No activity for 30 min | Meet expires as scheduled |
+
 ### Trail System
 
 When a user moves more than 10 meters from their current pin location, a new pin record is created and the old one becomes a trail (status: `Offline`).

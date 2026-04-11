@@ -346,6 +346,27 @@ public class MeetService(
         return true;
     }
 
+    public async Task ExtendExpirationAsync(Guid meetId, Duration extendBy, CancellationToken cancellationToken = default)
+    {
+        var meet = await db.Meets
+            .FirstOrDefaultAsync(m => m.Id == meetId && m.Status == MeetStatus.Active, cancellationToken);
+        
+        if (meet is null)
+            return;
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var newExpiresAt = now + extendBy;
+
+        if (newExpiresAt > meet.ExpiresAt)
+        {
+            meet.ExpiresAt = newExpiresAt;
+            await db.SaveChangesAsync(cancellationToken);
+            expirationScheduler.Extend(meetId, newExpiresAt);
+            
+            logger.LogInformation("Extended meet {MeetId} expiration to {ExpiresAt}", meetId, newExpiresAt);
+        }
+    }
+
     public async Task ExpireMeetsAsync(Guid accountId, CancellationToken cancellationToken = default)
     {
         var meetIds = await db.Meets

@@ -28,6 +28,7 @@ public class LocationPinService(
     RelationshipService relationships,
     LocationPinSubscriptionHub subscriptions,
     MeetSubscriptionHub meetSubscriptions,
+    MeetService meetService,
     IEventBus eventBus,
     ILogger<LocationPinService> logger
 )
@@ -36,6 +37,7 @@ public class LocationPinService(
     private static readonly Duration OfflineHeartbeatThreshold = Duration.FromMinutes(5);
     private static readonly Duration LocationUpdateInterval = Duration.FromSeconds(30);
     private static readonly Duration RateLimitWindow = Duration.FromSeconds(5);
+    public static readonly Duration MeetActivityExtension = Duration.FromMinutes(30);
     public static readonly double TrailDistanceThresholdMeters = 10.0;
     private const double MetersPerDegreeLatitude = 111320.0;
 
@@ -92,6 +94,7 @@ public class LocationPinService(
                     {
                         existingForMeet.Meet = meet;
                         await meetSubscriptions.PublishAsync("pin_updated", meet, cancellationToken);
+                        await meetService.ExtendExpirationAsync(meetId.Value, MeetActivityExtension, cancellationToken);
                     }
                 }
                 
@@ -157,6 +160,7 @@ public class LocationPinService(
             {
                 pin.Meet = meet;
                 await meetSubscriptions.PublishAsync("pin_created", meet, cancellationToken);
+                await meetService.ExtendExpirationAsync(meetId.Value, MeetActivityExtension, cancellationToken);
             }
         }
 
@@ -272,6 +276,7 @@ public class LocationPinService(
             {
                 pin.Meet = meet;
                 await meetSubscriptions.PublishAsync("pin_updated", meet, cancellationToken);
+                await meetService.ExtendExpirationAsync(meetId.Value, MeetActivityExtension, cancellationToken);
             }
         }
 
