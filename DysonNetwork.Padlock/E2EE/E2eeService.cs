@@ -10,14 +10,17 @@ namespace DysonNetwork.Padlock.E2EE;
 public class E2EeService(
     AppDatabase db,
     RemoteWebSocketService ws,
+    RemoteRingService ring,
     ILogger<E2EeService> logger
 ) : IGroupE2EeModule
 {
     private const string PacketType = "e2ee.envelope";
+    private const string KpDepletedPacketType = "e2ee.kp.depleted";
     private const string LegacyDeviceId = "legacy-account";
     private const int MlsKeyPackageDailyLimitPerAccount = 10;
     private const int MlsKeyPackageRetentionDays = 30;
     private const int MaxFanoutPayloadsPerRequest = 1000;
+    private const int MinKeyPackagesPerDevice = 3;
 
     public async Task<SnE2eeKeyBundle> UpsertKeyBundleAsync(Guid accountId, UpsertE2EeKeyBundleRequest request)
         => await UpsertDeviceBundleAsync(accountId, LegacyDeviceId, "Legacy account-scoped bundle", request);
@@ -279,6 +282,8 @@ public class E2EeService(
             .ToListAsync();
         var responses = new List<MlsDeviceKeyPackageResponse>();
         var dirty = false;
+        string? consumedDeviceId = null;
+        string? consumedDeviceLabel = null;
 
         foreach (var device in activeDevices)
         {
@@ -301,6 +306,8 @@ public class E2EeService(
                 package.ConsumedAt = now;
                 package.ConsumedByAccountId = requesterId;
                 dirty = true;
+                consumedDeviceId = device.DeviceId;
+                consumedDeviceLabel = device.DeviceLabel;
             }
 
             responses.Add(new MlsDeviceKeyPackageResponse(
@@ -314,9 +321,82 @@ public class E2EeService(
         }
 
         if (dirty)
+        {
             await db.SaveChangesAsync();
+            if (consumedDeviceId is not null)
+            {
+                await CheckAndNotifyKpDepletedAsync(accountId, consumedDeviceId, consumedDeviceLabel);
+            }
+        }
 
         return responses;
+    }
+
+    public async Task<MlsKeyPackageStatusResponse> GetMlsKeyPackageStatusAsync(Guid accountId)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        await PurgeExpiredMlsKeyPackagesAsync(accountId, now);
+        
+        var activeDevices = await db.E2eeDevices
+            .Where(d => d.AccountId == accountId && !d.IsRevoked)
+            .ToListAsync();
+        
+        var devicesNeedingKps = new List<MlsDeviceKpStatus>();
+        
+        foreach (var device in activeDevices)
+        {
+            var availableCount = await db.MlsKeyPackages
+                .Where(k => k.AccountId == accountId && k.DeviceId == device.DeviceId && !k.IsConsumed)
+                .CountAsync();
+            
+            if (availableCount < MinKeyPackagesPerDevice)
+            {
+                devicesNeedingKps.Add(new MlsDeviceKpStatus(
+                    device.DeviceId,
+                    device.DeviceLabel,
+                    availableCount
+                ));
+            }
+        }
+        
+        return new MlsKeyPackageStatusResponse(
+            NeedsMoreKps: devicesNeedingKps.Count > 0,
+            DevicesNeedingKps: devicesNeedingKps
+        );
+    }
+
+    private async Task CheckAndNotifyKpDepletedAsync(Guid accountId, string deviceId, string? deviceLabel)
+    {
+        var availableCount = await db.MlsKeyPackages
+            .Where(k => k.AccountId == accountId && k.DeviceId == deviceId && !k.IsConsumed)
+            .CountAsync();
+        
+        if (availableCount < MinKeyPackagesPerDevice)
+        {
+            await NotifyKpDepletedAsync(accountId, deviceId, deviceLabel, availableCount);
+        }
+    }
+
+    private async Task NotifyKpDepletedAsync(Guid accountId, string mlsDeviceId, string? deviceLabel, int availableCount)
+    {
+        try
+        {
+            var payload = InfraObjectCoder.ConvertObjectToByteString(new
+            {
+                mlsDeviceId,
+                deviceId = mlsDeviceId,
+                deviceLabel,
+                availableCount
+            }).ToByteArray();
+            
+            await ring.SendWebSocketPacketToUser(accountId.ToString(), KpDepletedPacketType, payload);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to send KP depleted notification for account {AccountId}, device {DeviceId}",
+                accountId, mlsDeviceId);
+        }
     }
 
     public async Task<SnMlsGroupState> BootstrapMlsGroupAsync(Guid accountId, BootstrapMlsGroupRequest request)
@@ -562,6 +642,34 @@ public class E2EeService(
         db.MlsGroupStates.Add(state);
         await db.SaveChangesAsync();
         return state;
+    }
+
+    public async Task<UploadGroupInfoResponse> UploadGroupInfoAsync(string groupId, byte[] groupInfo, byte[] ratchetTree)
+    {
+        var state = await db.MlsGroupStates
+            .FirstOrDefaultAsync(s => s.MlsGroupId == groupId);
+
+        if (state is null)
+        {
+            state = new SnMlsGroupState
+            {
+                MlsGroupId = groupId,
+                Epoch = 0,
+                StateVersion = 0,
+                GroupInfo = groupInfo,
+                RatchetTree = ratchetTree,
+                LastCommitAt = SystemClock.Instance.GetCurrentInstant()
+            };
+            db.MlsGroupStates.Add(state);
+        }
+        else
+        {
+            state.GroupInfo = groupInfo;
+            state.RatchetTree = ratchetTree;
+        }
+
+        await db.SaveChangesAsync();
+        return new UploadGroupInfoResponse(true, state.MlsGroupId, state.Epoch);
     }
 
     public async Task<SnE2eeSession> EnsureSessionAsync(Guid accountId, Guid peerId, EnsureE2EeSessionRequest request)

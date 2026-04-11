@@ -129,6 +129,8 @@ public class SnMlsGroupState : ModelBase
     public long Epoch { get; set; }
     public long StateVersion { get; set; }
     public Instant? LastCommitAt { get; set; }
+    public byte[] GroupInfo { get; set; } = [];
+    public byte[] RatchetTree { get; set; } = [];
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
 }
 

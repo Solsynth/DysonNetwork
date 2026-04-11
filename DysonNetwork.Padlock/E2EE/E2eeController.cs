@@ -112,6 +112,17 @@ public class E2EeController(IGroupE2EeModule e2EeModule) : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("mls/kp/status")]
+    public async Task<ActionResult<MlsKeyPackageStatusResponse>> GetMlsKeyPackageStatus()
+    {
+        if (EnsureMlsAbility() is { } abilityError) return abilityError;
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+
+        var result = await e2EeModule.GetMlsKeyPackageStatusAsync(currentUser.Id);
+        return Ok(result);
+    }
+
     [HttpGet("mls/keys/{accountId:guid}/devices")]
     public async Task<ActionResult<List<MlsDeviceKeyPackageResponse>>> ListMlsKeyPackagesByDevice(
         Guid accountId,

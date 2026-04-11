@@ -172,5 +172,15 @@ public static class ServiceInjectionHelper
 
             return services;
         }
+
+        public IServiceCollection AddMlsService()
+        {
+            services.AddGrpcClientWithSharedChannel<DyMlsService.DyMlsServiceClient>(
+                "https://_grpc.padlock",
+                "DyMlsService");
+            services.AddSingleton<RemoteMlsService>();
+
+            return services;
+        }
     }
 }

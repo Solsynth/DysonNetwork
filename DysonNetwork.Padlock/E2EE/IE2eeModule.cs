@@ -36,6 +36,7 @@ public interface Ie2EeModule
         PublishMlsKeyPackageRequest request
     );
     Task<List<MlsDeviceKeyPackageResponse>> ListMlsDeviceKeyPackagesAsync(Guid accountId, Guid requesterId, bool consume);
+    Task<MlsKeyPackageStatusResponse> GetMlsKeyPackageStatusAsync(Guid accountId);
     Task<SnMlsGroupState> BootstrapMlsGroupAsync(Guid accountId, BootstrapMlsGroupRequest request);
     Task<SnMlsGroupState?> CommitMlsGroupAsync(Guid accountId, CommitMlsGroupRequest request);
     Task<List<SnE2eeEnvelope>> FanoutMlsWelcomeAsync(Guid senderId, string senderDeviceId, FanoutMlsWelcomeRequest request);
@@ -46,6 +47,7 @@ public interface Ie2EeModule
     Task<int> DeleteMlsGroupAsync(string groupId);
     Task NotifyGroupResetAsync(string groupId, string? reason);
     Task<SnMlsGroupState> CreateMlsGroupAsync(string groupId, long epoch, long stateVersion);
+    Task<UploadGroupInfoResponse> UploadGroupInfoAsync(string groupId, byte[] groupInfo, byte[] ratchetTree);
 }
 
 public interface IGroupE2EeModule : Ie2EeModule
@@ -192,4 +194,21 @@ public record FanoutMlsCommitRequest(
     string GroupId,
     long Epoch,
     List<DeviceCiphertextEnvelope> Payloads
+);
+
+public record MlsKeyPackageStatusResponse(
+    bool NeedsMoreKps,
+    List<MlsDeviceKpStatus> DevicesNeedingKps
+);
+
+public record UploadGroupInfoResponse(
+    bool Success,
+    string GroupId,
+    long Epoch
+);
+
+public record MlsDeviceKpStatus(
+    string DeviceId,
+    string? DeviceLabel,
+    int AvailableCount
 );

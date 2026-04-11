@@ -25,11 +25,13 @@ Missing ability is rejected with `409` (`e2ee.mls_ability_required`).
 
 - `PUT /api/e2ee/mls/devices/me/kps`
 - `GET /api/e2ee/mls/keys/{accountId}/devices`
+- `GET /api/e2ee/mls/kp/status` - check KP status for all user devices; returns `needsMoreKps` flag and list of devices with < 3 non-consumed KPs
 
 Server guardrails:
 
 - upload rate limit: max `10` kps per account per 24h
 - auto purge: kps older than `30` days are deleted
+- low KP threshold: devices with < 3 non-consumed KPs trigger `e2ee.kp.depleted` WebSocket notification
 
 ### Group state
 

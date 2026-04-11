@@ -24,6 +24,7 @@ builder.Services.AddWalletService();
 
 builder.Services.AddAppBusinessServices(builder.Configuration);
 builder.Services.AddAppScheduledJobs(builder.Configuration);
+builder.Services.AddMlsService();
 
 builder.AddSwaggerManifest(
     "DysonNetwork.Messager",
