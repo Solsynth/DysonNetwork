@@ -384,6 +384,7 @@ public class MeetService(
 
     private async Task<bool> CanAccessMeetAsync(SnMeet meet, Guid accountId)
     {
+        if (meet.Visibility == LocationVisibility.Public) return true;
         if (meet.HostId == accountId) return true;
         if (meet.Participants.Any(p => p.AccountId == accountId)) return true;
 
@@ -399,6 +400,7 @@ public class MeetService(
 
     private async Task<bool> CanAccessMeetAsync(SnMeet meet, Guid accountId, Geometry userLocation)
     {
+        if (meet.Visibility == LocationVisibility.Public) return true;
         if (meet.HostId == accountId) return true;
         if (meet.Participants.Any(p => p.AccountId == accountId)) return true;
 
