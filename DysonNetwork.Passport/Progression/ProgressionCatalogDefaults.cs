@@ -1,5 +1,4 @@
 using DysonNetwork.Shared.Models;
-using NodaTime;
 
 namespace DysonNetwork.Passport.Progression;
 
@@ -9,7 +8,7 @@ public static class ProgressionCatalogDefaults
     {
         SourcePointCurrency = WalletCurrency.SourcePoint,
         CompletionPacketType = WebSocketPacketType.ProgressionCompleted,
-        DefaultTimeZone = "UTC"
+        DefaultTimeZone = "UTC",
     };
 
     public static readonly List<AchievementSeedDefinition> Achievements =
@@ -26,8 +25,8 @@ public static class ProgressionCatalogDefaults
             {
                 Experience = 100,
                 SourcePoints = 10,
-                SourcePointsCurrency = WalletCurrency.SourcePoint
-            }
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
         },
         new()
         {
@@ -48,8 +47,8 @@ public static class ProgressionCatalogDefaults
                     Type = "progression.post.expert",
                     Label = "Better than 陆游",
                     Caption = "Created over 9362 posts",
-                }
-            }
+                },
+            },
         },
         new()
         {
@@ -63,8 +62,8 @@ public static class ProgressionCatalogDefaults
             {
                 Experience = 50,
                 SourcePoints = 5,
-                SourcePointsCurrency = WalletCurrency.SourcePoint
-            }
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
         },
         new()
         {
@@ -80,7 +79,7 @@ public static class ProgressionCatalogDefaults
                 Experience = 100,
                 SourcePoints = 10,
                 SourcePointsCurrency = WalletCurrency.SourcePoint,
-            }
+            },
         },
         new()
         {
@@ -95,7 +94,7 @@ public static class ProgressionCatalogDefaults
                 Experience = 100,
                 SourcePoints = 10,
                 SourcePointsCurrency = WalletCurrency.SourcePoint,
-            }
+            },
         },
         new()
         {
@@ -111,7 +110,7 @@ public static class ProgressionCatalogDefaults
                 Experience = 100,
                 SourcePoints = 5,
                 SourcePointsCurrency = WalletCurrency.SourcePoint,
-            }
+            },
         },
         new()
         {
@@ -134,9 +133,9 @@ public static class ProgressionCatalogDefaults
                 {
                     Type = "progression.post.featured",
                     Label = "Editor's Pick",
-                    Caption = "Created a post that got featured."
-                }
-            }
+                    Caption = "Created a post that got featured.",
+                },
+            },
         },
         new()
         {
@@ -152,14 +151,14 @@ public static class ProgressionCatalogDefaults
             Trigger = new SnProgressTriggerDefinition
             {
                 Actions = [ActionLogType.PostCreate],
-                Mode = ProgressionTriggerMode.Streak
+                Mode = ProgressionTriggerMode.Streak,
             },
             Reward = new SnProgressRewardDefinition
             {
                 Experience = 200,
                 SourcePoints = 20,
-                SourcePointsCurrency = WalletCurrency.SourcePoint
-            }
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
         },
         new()
         {
@@ -175,14 +174,14 @@ public static class ProgressionCatalogDefaults
             Trigger = new SnProgressTriggerDefinition
             {
                 Actions = [ActionLogType.PostCreate],
-                Mode = ProgressionTriggerMode.Streak
+                Mode = ProgressionTriggerMode.Streak,
             },
             Reward = new SnProgressRewardDefinition
             {
                 Experience = 500,
                 SourcePoints = 35,
-                SourcePointsCurrency = WalletCurrency.SourcePoint
-            }
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
         },
         new()
         {
@@ -198,7 +197,7 @@ public static class ProgressionCatalogDefaults
             Trigger = new SnProgressTriggerDefinition
             {
                 Actions = [ActionLogType.PostCreate],
-                Mode = ProgressionTriggerMode.Streak
+                Mode = ProgressionTriggerMode.Streak,
             },
             Reward = new SnProgressRewardDefinition
             {
@@ -209,9 +208,9 @@ public static class ProgressionCatalogDefaults
                 {
                     Type = "progression.post.streak.30",
                     Label = "Serial Publisher",
-                    Caption = "Created posts for 30 days in a row."
-                }
-            }
+                    Caption = "Created posts for 30 days in a row.",
+                },
+            },
         },
         new()
         {
@@ -227,14 +226,14 @@ public static class ProgressionCatalogDefaults
             Trigger = new SnProgressTriggerDefinition
             {
                 Actions = [ActionLogType.AccountActive],
-                Mode = ProgressionTriggerMode.Streak
+                Mode = ProgressionTriggerMode.Streak,
             },
             Reward = new SnProgressRewardDefinition
             {
                 Experience = 250,
                 SourcePoints = 20,
-                SourcePointsCurrency = WalletCurrency.SourcePoint
-            }
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
         },
         new()
         {
@@ -250,14 +249,14 @@ public static class ProgressionCatalogDefaults
             Trigger = new SnProgressTriggerDefinition
             {
                 Actions = [ActionLogType.AccountActive],
-                Mode = ProgressionTriggerMode.Streak
+                Mode = ProgressionTriggerMode.Streak,
             },
             Reward = new SnProgressRewardDefinition
             {
                 Experience = 1200,
                 SourcePoints = 60,
-                SourcePointsCurrency = WalletCurrency.SourcePoint
-            }
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
         },
         new()
         {
@@ -273,7 +272,7 @@ public static class ProgressionCatalogDefaults
             Trigger = new SnProgressTriggerDefinition
             {
                 Actions = [ActionLogType.AccountActive],
-                Mode = ProgressionTriggerMode.Streak
+                Mode = ProgressionTriggerMode.Streak,
             },
             Reward = new SnProgressRewardDefinition
             {
@@ -284,9 +283,9 @@ public static class ProgressionCatalogDefaults
                 {
                     Type = "progression.login.streak.365",
                     Label = "Still Here",
-                    Caption = "Logged in for 365 days in a row."
-                }
-            }
+                    Caption = "Logged in for 365 days in a row.",
+                },
+            },
         },
         new()
         {
@@ -309,9 +308,9 @@ public static class ProgressionCatalogDefaults
                 {
                     Type = "progression.post.featured.expert",
                     Label = "Hall of Fame",
-                    Caption = "Created 100 featured posts."
-                }
-            }
+                    Caption = "Created 100 featured posts.",
+                },
+            },
         },
         new()
         {
@@ -324,13 +323,16 @@ public static class ProgressionCatalogDefaults
             SeriesOrder = 1,
             SortOrder = 120,
             TargetCount = 1,
-            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.StellarSupportMonth] },
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.StellarSupportMonth],
+            },
             Reward = new SnProgressRewardDefinition
             {
                 Experience = 120,
                 SourcePoints = 12,
-                SourcePointsCurrency = WalletCurrency.SourcePoint
-            }
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
         },
         new()
         {
@@ -343,13 +345,16 @@ public static class ProgressionCatalogDefaults
             SeriesOrder = 2,
             SortOrder = 121,
             TargetCount = 3,
-            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.StellarSupportMonth] },
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.StellarSupportMonth],
+            },
             Reward = new SnProgressRewardDefinition
             {
                 Experience = 360,
                 SourcePoints = 24,
-                SourcePointsCurrency = WalletCurrency.SourcePoint
-            }
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
         },
         new()
         {
@@ -362,13 +367,16 @@ public static class ProgressionCatalogDefaults
             SeriesOrder = 3,
             SortOrder = 122,
             TargetCount = 6,
-            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.StellarSupportMonth] },
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.StellarSupportMonth],
+            },
             Reward = new SnProgressRewardDefinition
             {
                 Experience = 900,
                 SourcePoints = 48,
-                SourcePointsCurrency = WalletCurrency.SourcePoint
-            }
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
         },
         new()
         {
@@ -381,13 +389,16 @@ public static class ProgressionCatalogDefaults
             SeriesOrder = 4,
             SortOrder = 123,
             TargetCount = 9,
-            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.StellarSupportMonth] },
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.StellarSupportMonth],
+            },
             Reward = new SnProgressRewardDefinition
             {
                 Experience = 1500,
                 SourcePoints = 72,
-                SourcePointsCurrency = WalletCurrency.SourcePoint
-            }
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
         },
         new()
         {
@@ -400,7 +411,10 @@ public static class ProgressionCatalogDefaults
             SeriesOrder = 5,
             SortOrder = 124,
             TargetCount = 12,
-            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.StellarSupportMonth] },
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.StellarSupportMonth],
+            },
             Reward = new SnProgressRewardDefinition
             {
                 Experience = 2400,
@@ -410,9 +424,9 @@ public static class ProgressionCatalogDefaults
                 {
                     Type = "progression.stellar.supporter.12",
                     Label = "Mega Supporter",
-                    Caption = "Purchased 12 eligible months of the Stellar Program."
-                }
-            }
+                    Caption = "Purchased 12 eligible months of the Stellar Program.",
+                },
+            },
         },
         new()
         {
@@ -432,9 +446,10 @@ public static class ProgressionCatalogDefaults
                 {
                     Type = "progression.chat.expert",
                     Label = "No-life's Otaku",
-                    Caption = "I can't believe some one spend for 10k minutes chatting on the Solar Network."
-                }
-            }
+                    Caption =
+                        "I can't believe some one spend for 10k minutes chatting on the Solar Network.",
+                },
+            },
         },
         // new()
         // {
@@ -499,7 +514,11 @@ public static class ProgressionCatalogDefaults
             Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostCreate] },
             Schedule = new SnQuestScheduleConfig { Repeatability = QuestRepeatability.Daily },
             Reward = new SnProgressRewardDefinition
-                { Experience = 25, SourcePoints = 2, SourcePointsCurrency = WalletCurrency.SourcePoint }
+            {
+                Experience = 25,
+                SourcePoints = 2,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
         },
     ];
 }
