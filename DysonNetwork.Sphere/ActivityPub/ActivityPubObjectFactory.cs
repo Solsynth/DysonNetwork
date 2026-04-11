@@ -6,12 +6,17 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
-public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase db, RemoteRealmService? realmService = null)
+public class ActivityPubObjectFactory(IConfiguration configuration, IDbContextFactory<AppDatabase> dbFactory, RemoteRealmService? realmService = null)
 {
     public static readonly string PublicTo = "https://www.w3.org/ns/activitystreams#Public";
 
+    private readonly IDbContextFactory<AppDatabase> _dbFactory = dbFactory;
+
+    private AppDatabase CreateDbContext() => _dbFactory.CreateDbContext();
+
     public async Task<SnFediverseActor?> GetLocalActorAsync(Guid publisherId)
     {
+        using var db = CreateDbContext();
         return await db.FediverseActors
             .Include(a => a.Instance)
             .FirstOrDefaultAsync(a => a.PublisherId == publisherId);
@@ -22,6 +27,8 @@ public class ActivityPubObjectFactory(IConfiguration configuration, AppDatabase 
         string actorUrl
     )
     {
+        using var db = CreateDbContext();
+        
         var baseDomain = configuration["ActivityPub:Domain"] ?? "localhost";
         var assetsBaseUrl = configuration["ActivityPub:FileBaseUrl"] ?? $"https://{baseDomain}/files";
         var postUrl = $"https://{baseDomain}/posts/{post.Id}";

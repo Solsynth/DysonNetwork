@@ -9,16 +9,36 @@ namespace DysonNetwork.Sphere.ActivityPub;
 
 [ApiController]
 [Route("activitypub/actors/{username}")]
-public class ActivityPubController(
-    AppDatabase db,
-    IConfiguration configuration,
-    ILogger<ActivityPubController> logger,
-    ActivityHandlerService activityHandler,
-    IKeyService keyService,
-    ActivityPubObjectFactory objFactory
-) : ControllerBase
+public class ActivityPubController : ControllerBase
 {
-    private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
+    private readonly IDbContextFactory<AppDatabase> _DbFactory;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<ActivityPubController> _logger;
+    private readonly ActivityHandlerService _activityHandler;
+    private readonly IKeyService keyService;
+    private readonly ActivityPubObjectFactory _objFactory;
+
+    private AppDatabase? _Db;
+    private AppDatabase Db => _Db ??= _DbFactory.CreateDbContext();
+
+    public ActivityPubController(
+        IDbContextFactory<AppDatabase> DbFactory,
+        IConfiguration configuration,
+        ILogger<ActivityPubController> logger,
+        ActivityHandlerService activityHandler,
+        IKeyService keyService,
+        ActivityPubObjectFactory objFactory
+    )
+    {
+        _DbFactory = DbFactory;
+        _configuration = configuration;
+        _logger = logger;
+        _activityHandler = activityHandler;
+        keyService = keyService;
+        _objFactory = objFactory;
+    }
+
+    private string Domain => _configuration["ActivityPub:Domain"] ?? "localhost";
 
     [HttpGet("")]
     [Produces("application/activity+json")]
@@ -31,7 +51,7 @@ public class ActivityPubController(
     )]
     public async Task<ActionResult<ActivityPubActor>> GetActor(string username)
     {
-        var publisher = await db
+        var publisher = await Db
             .Publishers.Include(p => p.Members)
             .FirstOrDefaultAsync(p => p.Name == username);
 
@@ -43,7 +63,7 @@ public class ActivityPubController(
         var outboxUrl = $"{actorUrl}/outbox";
         var followersUrl = $"{actorUrl}/followers";
         var followingUrl = $"{actorUrl}/following";
-        var assetsBaseUrl = configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
+        var assetsBaseUrl = _configuration["ActivityPub:FileBaseUrl"] ?? $"https://{Domain}/files";
 
         var publicKeyPem = await GetPublicKeyAsync(publisher);
 
@@ -108,7 +128,7 @@ public class ActivityPubController(
         var contentType = Request.ContentType;
         if (!IsValidActivityPubContentType(contentType))
         {
-            logger.LogWarning("Invalid Content-Type for inbox: {ContentType}", contentType);
+            _logger.LogWarning("Invalid Content-Type for inbox: {ContentType}", contentType);
             return StatusCode(
                 StatusCodes.Status406NotAcceptable,
                 new
@@ -122,11 +142,11 @@ public class ActivityPubController(
 
         if (string.IsNullOrEmpty(activityType))
         {
-            logger.LogWarning("Missing activity type");
+            _logger.LogWarning("Missing activity type");
             return BadRequest(new { error = "Missing activity type" });
         }
 
-        var result = await activityHandler.ProcessActivityAsync(HttpContext, username, activity);
+        var result = await _activityHandler.ProcessActivityAsync(HttpContext, username, activity);
 
         return result switch
         {
@@ -154,19 +174,19 @@ public class ActivityPubController(
     )]
     public async Task<IActionResult> GetOutbox(string username, [FromQuery] int? page)
     {
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
+        var publisher = await Db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
 
         if (publisher == null)
             return NotFound();
 
-        var actor = await db.FediverseActors.FirstOrDefaultAsync(a =>
+        var actor = await Db.FediverseActors.FirstOrDefaultAsync(a =>
             a.PublisherId == publisher.Id
         );
 
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
         var outboxUrl = $"{actorUrl}/outbox";
 
-        var posts = await db
+        var posts = await Db
             .Posts.Include(p => p.Actor)
             .Where(p => p.PublisherId == publisher.Id && p.Visibility == PostVisibility.Public)
             .ToListAsync();
@@ -174,7 +194,7 @@ public class ActivityPubController(
         List<SnBoost>? boosts = null;
         if (actor != null)
         {
-            boosts = await db
+            boosts = await Db
                 .Boosts.Include(b => b.Post)
                 .ThenInclude(p => p.Actor)
                 .Where(b => b.ActorId == actor.Id)
@@ -224,40 +244,42 @@ public class ActivityPubController(
                 .Take(pageSize)
                 .ToList();
 
-            var items = await Task.WhenAll(
-                allItems.Select(async item =>
+            var items = new List<object>();
+            foreach (var item in allItems)
+            {
+                var post =
+                    posts.FirstOrDefault(p => p.Id == item.PostId)
+                    ?? boosts?.FirstOrDefault(b => b.Id == item.BoostId)?.Post;
+
+                if (post == null)
                 {
-                    var post =
-                        posts.FirstOrDefault(p => p.Id == item.PostId)
-                        ?? boosts?.FirstOrDefault(b => b.Id == item.BoostId)?.Post;
+                    items.Add(new Dictionary<string, object>());
+                    continue;
+                }
 
-                    if (post == null)
-                        return (object)new Dictionary<string, object>();
+                var postObject = await _objFactory.CreatePostObject(post, actorUrl);
+                postObject["url"] = $"https://{Domain}/posts/{post.Id}";
 
-                    var postObject = await objFactory.CreatePostObject(post, actorUrl);
-                    postObject["url"] = $"https://{Domain}/posts/{post.Id}";
-
-                    if (item.IsBoost)
+                if (item.IsBoost)
+                {
+                    postObject["_boostedAt"] = item.BoostedAt?.ToDateTimeOffset().ToString("O");
+                    if (item.BoostId.HasValue)
                     {
-                        postObject["_boostedAt"] = item.BoostedAt?.ToDateTimeOffset().ToString("O");
-                        if (item.BoostId.HasValue)
-                        {
-                            postObject["_boostId"] = item.BoostId.Value.ToString();
-                        }
+                        postObject["_boostId"] = item.BoostId.Value.ToString();
                     }
+                }
 
-                    return new Dictionary<string, object>
-                    {
-                        ["id"] = item.Id,
-                        ["type"] = item.Type,
-                        ["actor"] = item.Actor,
-                        ["published"] = item.Published.ToDateTimeOffset(),
-                        ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
-                        ["cc"] = new[] { $"{actorUrl}/followers" },
-                        ["@object"] = postObject,
-                    };
-                })
-            );
+                items.Add(new Dictionary<string, object>
+                {
+                    ["id"] = item.Id,
+                    ["type"] = item.Type,
+                    ["actor"] = item.Actor,
+                    ["published"] = item.Published.ToDateTimeOffset(),
+                    ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
+                    ["cc"] = new[] { $"{actorUrl}/followers" },
+                    ["@object"] = postObject,
+                });
+            }
 
             var collectionPage = new ActivityPubCollectionPage
             {
@@ -266,7 +288,7 @@ public class ActivityPubController(
                 Type = "OrderedCollectionPage",
                 TotalItems = totalItems,
                 PartOf = outboxUrl,
-                OrderedItems = items.ToList(),
+                OrderedItems = items,
                 Next = skip + pageSize < totalItems ? $"{outboxUrl}?page={page.Value + 1}" : null,
                 Prev = page.Value > 1 ? $"{outboxUrl}?page={page.Value - 1}" : null,
             };
@@ -300,7 +322,7 @@ public class ActivityPubController(
     )]
     public async Task<IActionResult> GetFollowers(string username, [FromQuery] int? page)
     {
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
+        var publisher = await Db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
 
         if (publisher == null)
             return NotFound();
@@ -308,7 +330,7 @@ public class ActivityPubController(
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
         var followersUrl = $"{actorUrl}/followers";
 
-        var relationshipsQuery = db
+        var relationshipsQuery = Db
             .FediverseRelationships.Include(r => r.Actor)
             .Where(r =>
                 r.TargetActor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
@@ -367,7 +389,7 @@ public class ActivityPubController(
     )]
     public async Task<IActionResult> GetFollowing(string username, [FromQuery] int? page)
     {
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
+        var publisher = await Db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
 
         if (publisher == null)
             return NotFound();
@@ -375,7 +397,7 @@ public class ActivityPubController(
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
         var followingUrl = $"{actorUrl}/following";
 
-        var relationshipsQuery = db
+        var relationshipsQuery = Db
             .FediverseRelationships.Include(r => r.TargetActor)
             .Where(r =>
                 r.Actor.PublisherId == publisher.Id && r.State == RelationshipState.Accepted
@@ -424,24 +446,24 @@ public class ActivityPubController(
 
     private async Task<string> GetPublicKeyAsync(SnPublisher publisher)
     {
-        var actor = await db.FediverseActors.FirstOrDefaultAsync(a =>
+        var actor = await Db.FediverseActors.FirstOrDefaultAsync(a =>
             a.PublisherId == publisher.Id
         );
 
         if (actor == null)
         {
-            logger.LogWarning("No actor found for publisher: {PublisherId}", publisher.Id);
+            _logger.LogWarning("No actor found for publisher: {PublisherId}", publisher.Id);
             return string.Empty;
         }
 
         var key = await keyService.GetKeyForActorAsync(actor.Id);
         if (key != null && !string.IsNullOrEmpty(key.KeyPem))
         {
-            logger.LogInformation("Using existing key for publisher: {PublisherId}", publisher.Id);
+            _logger.LogInformation("Using existing key for publisher: {PublisherId}", publisher.Id);
             return key.KeyPem;
         }
 
-        logger.LogInformation(
+        _logger.LogInformation(
             "Generating new key pair for publisher: {PublisherId} ({Name})",
             publisher.Id,
             publisher.Name
@@ -449,7 +471,7 @@ public class ActivityPubController(
 
         var newKey = await keyService.GetOrCreateKeyForActorAsync(actor);
 
-        logger.LogInformation(
+        _logger.LogInformation(
             "Saved new key pair to database for publisher: {PublisherId}",
             publisher.Id
         );
@@ -469,7 +491,7 @@ public class ActivityPubController(
     )]
     public async Task<IActionResult> GetFeatured(string username, [FromQuery] int? page)
     {
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
+        var publisher = await Db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
 
         if (publisher == null)
             return NotFound();
@@ -477,13 +499,13 @@ public class ActivityPubController(
         var actorUrl = $"https://{Domain}/activitypub/actors/{username}";
         var featuredUrl = $"{actorUrl}/featured";
 
-        var pinnedPostsQuery = db.Posts.Where(p =>
+        var pinnedPostsQuery = Db.Posts.Where(p =>
             p.PublisherId == publisher.Id
             && p.PinMode == PostPinMode.PublisherPage
             && p.DraftedAt == null
         );
 
-        var featuredRecordsQuery = db
+        var featuredRecordsQuery = Db
             .PostFeaturedRecords.Include(r => r.Post)
             .Where(r => r.Post.PublisherId == publisher.Id && r.Post.DraftedAt == null)
             .OrderByDescending(r => r.FeaturedAt)
@@ -511,14 +533,13 @@ public class ActivityPubController(
 
             var postsPage = allFeaturedPosts.Skip(skip).Take(pageSize).ToList();
 
-            var items = await Task.WhenAll(
-                postsPage.Select(async post =>
-                {
-                    var postObject = await objFactory.CreatePostObject(post, actorUrl);
-                    postObject["url"] = $"https://{Domain}/posts/{post.Id}";
-                    return postObject;
-                })
-            );
+            var items = new List<object>();
+            foreach (var post in postsPage)
+            {
+                var postObject = await _objFactory.CreatePostObject(post, actorUrl);
+                postObject["url"] = $"https://{Domain}/posts/{post.Id}";
+                items.Add(postObject);
+            }
 
             var collectionPage = new ActivityPubCollectionPage
             {
@@ -536,14 +557,13 @@ public class ActivityPubController(
         }
         else
         {
-            var items = await Task.WhenAll(
-                allFeaturedPosts.Select(async post =>
-                {
-                    var postObject = await objFactory.CreatePostObject(post, actorUrl);
-                    postObject["url"] = $"https://{Domain}/posts/{post.Id}";
-                    return postObject;
-                })
-            );
+            var items = new List<object>();
+            foreach (var post in allFeaturedPosts)
+            {
+                var postObject = await _objFactory.CreatePostObject(post, actorUrl);
+                postObject["url"] = $"https://{Domain}/posts/{post.Id}";
+                items.Add(postObject);
+            }
 
             var collection = new ActivityPubCollection
             {
