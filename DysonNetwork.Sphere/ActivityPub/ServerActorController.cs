@@ -1,9 +1,10 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DysonNetwork.Sphere.ActivityPub;
 
-[Route("")]
+[Route("/activitypub")]
 [AllowAnonymous]
 public class ServerActorController(
     IServerSigningKeyService serverKeyService,
@@ -13,113 +14,113 @@ public class ServerActorController(
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
 
-    [HttpGet("activitypub/actor")]
+    private static readonly JsonSerializerOptions ActivityPubOptions = new()
+    {
+        PropertyNamingPolicy = null,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = false,
+    };
+
+    [HttpGet("actor")]
     [Produces("application/activity+json")]
-    public async Task<IActionResult> GetServerActor()
+    public async Task GetServerActor()
     {
         var publicKey = await serverKeyService.GetPublicKeyAsync();
         if (publicKey == null)
         {
-            return NotFound(new { error = "Server key not initialized" });
+            Response.StatusCode = 404;
+            await Response.WriteAsJsonAsync(new { error = "Server key not initialized" });
+            return;
         }
 
         logger.LogDebug("Serving server actor document for {Domain}", Domain);
 
-        return Ok(new
+        var actor = new ServerActorResponse
         {
-            @context = new[]
+            Context = ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
+            Id = serverKeyService.ActorUri,
+            Summary = $"The server node for {Domain}",
+            Url = $"https://{Domain}",
+            Inbox = $"{serverKeyService.ActorUri}/inbox",
+            Outbox = $"{serverKeyService.ActorUri}/outbox",
+            Followers = $"{serverKeyService.ActorUri}/followers",
+            PublicKey = new PublicKeyResponse
             {
-                "https://www.w3.org/ns/activitystreams",
-                "https://w3id.org/security/v1"
+                Id = serverKeyService.KeyId,
+                Owner = serverKeyService.ActorUri,
+                PublicKeyPem = publicKey,
             },
-            id = serverKeyService.ActorUri,
-            type = "Application",
-            preferredUsername = "server",
-            name = "DysonNetwork Server",
-            summary = $"The server node for {Domain}",
-            url = $"https://{Domain}",
-            inbox = $"{serverKeyService.ActorUri}/inbox",
-            outbox = $"{serverKeyService.ActorUri}/outbox",
-            followers = $"{serverKeyService.ActorUri}/followers",
-            publicKey = new
-            {
-                id = serverKeyService.KeyId,
-                owner = serverKeyService.ActorUri,
-                publicKeyPem = publicKey
-            },
-            alsoKnownAs = new[] { $"https://{Domain}/" },
-            instanceActor = true
-        });
+            AlsoKnownAs = [$"https://{Domain}/"],
+        };
+
+        Response.ContentType = "application/activity+json; charset=utf-8";
+        await Response.WriteAsync(JsonSerializer.Serialize(actor, ActivityPubOptions));
     }
 
-    [HttpGet("activitypub/actor/outbox")]
+    [HttpGet("actor/outbox")]
     [Produces("application/activity+json")]
-    public IActionResult GetServerOutbox()
+    public Task GetServerOutbox()
     {
-        return Ok(new
+        var collection = new OrderedCollectionResponse
         {
-            @context = "https://www.w3.org/ns/activitystreams",
-            id = $"{serverKeyService.ActorUri}/outbox",
-            type = "OrderedCollection",
-            totalItems = 0,
-            first = $"{serverKeyService.ActorUri}/outbox?page=true",
-            orderedItems = Array.Empty<object>()
-        });
+            Id = $"{serverKeyService.ActorUri}/outbox",
+            First = $"{serverKeyService.ActorUri}/outbox?page=true",
+        };
+
+        Response.ContentType = "application/activity+json; charset=utf-8";
+        return Response.WriteAsync(JsonSerializer.Serialize(collection, ActivityPubOptions));
     }
 
-    [HttpGet("activitypub/actor/followers")]
+    [HttpGet("actor/followers")]
     [Produces("application/activity+json")]
-    public IActionResult GetServerFollowers()
+    public Task GetServerFollowers()
     {
-        return Ok(new
+        var collection = new OrderedCollectionResponse
         {
-            @context = "https://www.w3.org/ns/activitystreams",
-            id = $"{serverKeyService.ActorUri}/followers",
-            type = "OrderedCollection",
-            totalItems = 0,
-            first = $"{serverKeyService.ActorUri}/followers?page=true",
-            orderedItems = Array.Empty<object>()
-        });
+            Id = $"{serverKeyService.ActorUri}/followers",
+            First = $"{serverKeyService.ActorUri}/followers?page=true",
+        };
+
+        Response.ContentType = "application/activity+json; charset=utf-8";
+        return Response.WriteAsync(JsonSerializer.Serialize(collection, ActivityPubOptions));
     }
 
-    [HttpGet("activitypub/actor/following")]
+    [HttpGet("actor/following")]
     [Produces("application/activity+json")]
-    public IActionResult GetServerFollowing()
+    public Task GetServerFollowing()
     {
-        return Ok(new
+        var collection = new OrderedCollectionResponse
         {
-            @context = "https://www.w3.org/ns/activitystreams",
-            id = $"{serverKeyService.ActorUri}/following",
-            type = "OrderedCollection",
-            totalItems = 0,
-            first = $"{serverKeyService.ActorUri}/following?page=true",
-            orderedItems = Array.Empty<object>()
-        });
+            Id = $"{serverKeyService.ActorUri}/following",
+            First = $"{serverKeyService.ActorUri}/following?page=true",
+        };
+
+        Response.ContentType = "application/activity+json; charset=utf-8";
+        return Response.WriteAsync(JsonSerializer.Serialize(collection, ActivityPubOptions));
     }
 
-    [HttpGet("activitypub/actor/main-key")]
+    [HttpGet("actor/main-key")]
     [Produces("application/activity+json")]
-    public async Task<IActionResult> GetServerMainKey()
+    public async Task GetServerMainKey()
     {
         var publicKey = await serverKeyService.GetPublicKeyAsync();
         if (publicKey == null)
         {
-            return NotFound(new { error = "Server key not initialized" });
+            Response.StatusCode = 404;
+            await Response.WriteAsJsonAsync(new { error = "Server key not initialized" });
+            return;
         }
 
         logger.LogDebug("Serving server main-key");
 
-        return Ok(new
+        var keyDoc = new PublicKeyDocumentResponse
         {
-            @context = new[]
-            {
-                "https://w3id.org/security/v1",
-                "https://www.w3.org/ns/activitystreams",
-            },
-            id = serverKeyService.KeyId,
-            owner = serverKeyService.ActorUri,
-            publicKeyPem = publicKey,
-            type = "RsaSignature2017",
-        });
+            Id = serverKeyService.KeyId,
+            Owner = serverKeyService.ActorUri,
+            PublicKeyPem = publicKey,
+        };
+
+        Response.ContentType = "application/activity+json; charset=utf-8";
+        await Response.WriteAsync(JsonSerializer.Serialize(keyDoc, ActivityPubOptions));
     }
 }
