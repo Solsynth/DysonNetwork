@@ -13,6 +13,20 @@ public class WebFingerController(
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
 
+    [HttpGet("host-meta")]
+    [Produces("application/xrd+xml")]
+    public IActionResult GetHostMeta()
+    {
+        var webfingerUrl = $"https://{Domain}/.well-known/webfinger?resource={{uri}}";
+        
+        var xml = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+<XRD xmlns=""http://docs.oasis-open.org/ns/xri/xrd-1.0"">
+  <Link rel=""lrdd"" template=""{webfingerUrl}""/>
+</XRD>";
+
+        return Content(xml, "application/xrd+xml");
+    }
+
     [HttpGet("webfinger")]
     [Produces("application/jrd+json")]
     public async Task<ActionResult<WebFingerResponse>> GetWebFinger([FromQuery] string resource)
