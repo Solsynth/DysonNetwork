@@ -2,9 +2,8 @@ using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using System.Text.Json.Serialization;
 
-namespace DysonNetwork.Sphere.ActivityPub;
+namespace DysonNetwork.Sphere.ActivityPub.Services;
 
 public class FediverseCachingService(
     ICacheService cache,

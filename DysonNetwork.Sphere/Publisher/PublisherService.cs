@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.ActivityPub;
+using DysonNetwork.Sphere.ActivityPub.Services;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;

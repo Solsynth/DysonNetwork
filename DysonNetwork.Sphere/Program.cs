@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere;
 using DysonNetwork.Sphere.ActivityPub;
+using DysonNetwork.Sphere.ActivityPub.Services;
 using DysonNetwork.Sphere.Startup;
 using Microsoft.EntityFrameworkCore;
 

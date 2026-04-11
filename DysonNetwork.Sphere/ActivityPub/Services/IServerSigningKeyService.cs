@@ -1,4 +1,4 @@
-namespace DysonNetwork.Sphere.ActivityPub;
+namespace DysonNetwork.Sphere.ActivityPub.Services;
 
 public interface IServerSigningKeyService
 {

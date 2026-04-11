@@ -2,6 +2,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Sphere.ActivityPub.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +17,7 @@ namespace DysonNetwork.Sphere.Account;
 public class PublishingSettingsController(
     AppDatabase db,
     RemoteAccountService remoteAccounts,
-    ActivityPub.ActivityPubObjectFactory objFactory,
+    ActivityRenderer objFactory,
     ILogger<PublishingSettingsController> logger
 ) : ControllerBase
 {

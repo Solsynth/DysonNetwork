@@ -1,12 +1,9 @@
-using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.EntityFrameworkCore;
-using NodaTime;
 
-namespace DysonNetwork.Sphere.ActivityPub;
+namespace DysonNetwork.Sphere.ActivityPub.Services;
 
 public static class HttpSignature
 {

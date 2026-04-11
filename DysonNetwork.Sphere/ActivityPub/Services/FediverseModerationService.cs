@@ -3,7 +3,7 @@ using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
-namespace DysonNetwork.Sphere.ActivityPub;
+namespace DysonNetwork.Sphere.ActivityPub.Services;
 
 public class FediverseModerationResult
 {

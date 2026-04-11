@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using NodaTime;
 
-namespace DysonNetwork.Sphere.ActivityPub;
+namespace DysonNetwork.Sphere.ActivityPub.Services;
 
 public class FederationMetrics
 {

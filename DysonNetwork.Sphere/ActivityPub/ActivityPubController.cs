@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Sphere.ActivityPub.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -16,7 +17,7 @@ public class ActivityPubController : ControllerBase
     private readonly ILogger<ActivityPubController> _logger;
     private readonly ActivityHandlerService _activityHandler;
     private readonly IKeyService _keyService;
-    private readonly ActivityPubObjectFactory _objFactory;
+    private readonly ActivityRenderer _objFactory;
 
     public ActivityPubController(
         AppDatabase db,
@@ -24,7 +25,7 @@ public class ActivityPubController : ControllerBase
         ILogger<ActivityPubController> logger,
         ActivityHandlerService activityHandler,
         IKeyService keyService,
-        ActivityPubObjectFactory objFactory
+        ActivityRenderer objFactory
     )
     {
         _db = db;
@@ -272,7 +273,7 @@ public class ActivityPubController : ControllerBase
                     ["type"] = item.Type,
                     ["actor"] = item.Actor,
                     ["published"] = item.Published.ToDateTimeOffset(),
-                    ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
+                    ["to"] = new[] { ActivityRenderer.PublicTo },
                     ["cc"] = new[] { $"{actorUrl}/followers" },
                     ["@object"] = postObject,
                 });

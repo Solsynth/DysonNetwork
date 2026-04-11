@@ -12,6 +12,7 @@ using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.ActivityPub;
+using DysonNetwork.Sphere.ActivityPub.Services;
 using DysonNetwork.Sphere.Publisher;
 using Markdig;
 using Microsoft.EntityFrameworkCore;
@@ -33,7 +34,7 @@ public partial class PostService(
     PublisherService ps,
     RemoteWebReaderService reader,
     DyProfileService.DyProfileServiceClient accounts,
-    ActivityPubObjectFactory objFactory,
+    ActivityRenderer objFactory,
     RemoteActionLogService actionLogs
 )
 {
@@ -619,7 +620,7 @@ public partial class PostService(
             var postBytes = Encoding.UTF8.GetBytes(postData);
 
             // Push to all target users
-            await scopedWs.PushWebSocketPacketToUsers(targetUserIds, eventType, postBytes);
+            await scopedWs.PushWebSocketPacketToUsers(targetUserIds, eventType, Google.Protobuf.ByteString.CopyFrom(postBytes));
         }
         catch (Exception ex)
         {
@@ -674,7 +675,7 @@ public partial class PostService(
             var reactionBytes = Encoding.UTF8.GetBytes(reactionData);
 
             // Push to all target users
-            await scopedWs.PushWebSocketPacketToUsers(targetUserIds, eventType, reactionBytes);
+            await scopedWs.PushWebSocketPacketToUsers(targetUserIds, eventType, Google.Protobuf.ByteString.CopyFrom(reactionBytes));
         }
         catch (Exception ex)
         {

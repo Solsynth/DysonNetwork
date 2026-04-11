@@ -1,47 +1,32 @@
-using DysonNetwork.Shared.Models;
-using Microsoft.EntityFrameworkCore;
+namespace DysonNetwork.Sphere.ActivityPub.Services;
 
-namespace DysonNetwork.Sphere.ActivityPub;
-
-public class AuthorizedFetchMiddleware
+public class AuthorizedFetchMiddleware(
+    RequestDelegate next,
+    AppDatabase db,
+    ILogger<AuthorizedFetchMiddleware> logger,
+    IConfiguration configuration)
 {
-    private readonly RequestDelegate _next;
-    private readonly AppDatabase _db;
-    private readonly ILogger<AuthorizedFetchMiddleware> _logger;
-    private readonly bool _enabled;
-    private readonly string _domain;
+    private readonly AppDatabase _db = db;
+    private readonly bool _enabled = configuration.GetValue<bool>("ActivityPub:AuthorizedFetch", false);
+    private readonly string _domain = configuration["ActivityPub:Domain"] ?? "localhost";
 
-    private static readonly string[] _protectedPaths = 
+    private static readonly string[] ProtectedPaths = 
     {
         "/activitypub/actors/",
         "/posts/"
     };
 
-    private static readonly string[] _excludedPaths = 
+    private static readonly string[] ExcludedPaths = 
     {
         "/activitypub/actors/",
         "/activitypub/realms/"
     };
 
-    public AuthorizedFetchMiddleware(
-        RequestDelegate next,
-        AppDatabase db,
-        ILogger<AuthorizedFetchMiddleware> logger,
-        IConfiguration configuration
-    )
-    {
-        _next = next;
-        _db = db;
-        _logger = logger;
-        _enabled = configuration.GetValue<bool>("ActivityPub:AuthorizedFetch", false);
-        _domain = configuration["ActivityPub:Domain"] ?? "localhost";
-    }
-
     public async Task InvokeAsync(HttpContext context)
     {
         if (!_enabled)
         {
-            await _next(context);
+            await next(context);
             return;
         }
 
@@ -50,41 +35,41 @@ public class AuthorizedFetchMiddleware
 
         if (method != "GET" && method != "HEAD")
         {
-            await _next(context);
+            await next(context);
             return;
         }
 
         if (!ShouldProtect(path))
         {
-            await _next(context);
+            await next(context);
             return;
         }
 
         if (context.Request.Headers.ContainsKey("Signature"))
         {
-            _logger.LogDebug("Request to {Path} has signature, allowing", path);
+            logger.LogDebug("Request to {Path} has signature, allowing", path);
             context.Items["AuthorizedFetch"] = true;
-            await _next(context);
+            await next(context);
             return;
         }
 
         if (IsLocalRequest(context))
         {
-            _logger.LogDebug("Request to {Path} is local, allowing", path);
+            logger.LogDebug("Request to {Path} is local, allowing", path);
             context.Items["AuthorizedFetch"] = true;
-            await _next(context);
+            await next(context);
             return;
         }
 
         if (await IsPublicResourceAsync(path))
         {
-            _logger.LogDebug("Request to {Path} is public resource, allowing", path);
+            logger.LogDebug("Request to {Path} is public resource, allowing", path);
             context.Items["AuthorizedFetch"] = false;
-            await _next(context);
+            await next(context);
             return;
         }
 
-        _logger.LogWarning("Unauthorized fetch attempt to {Path}", path);
+        logger.LogWarning("Unauthorized fetch attempt to {Path}", path);
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         await context.Response.WriteAsJsonAsync(new
         {
@@ -95,7 +80,7 @@ public class AuthorizedFetchMiddleware
 
     private bool ShouldProtect(string path)
     {
-        return _protectedPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+        return ProtectedPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
     }
 
     private bool IsLocalRequest(HttpContext context)

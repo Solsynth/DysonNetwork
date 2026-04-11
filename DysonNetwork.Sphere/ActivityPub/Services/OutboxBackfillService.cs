@@ -1,9 +1,8 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
-using DysonNetwork.Shared.Models;
 using NodaTime;
 
-namespace DysonNetwork.Sphere.ActivityPub;
+namespace DysonNetwork.Sphere.ActivityPub.Services;
 
 public class OutboxBackfillService(
     AppDatabase db,
@@ -12,30 +11,13 @@ public class OutboxBackfillService(
     ILogger<OutboxBackfillService> logger,
     IClock clock,
     IFederationMetricsService metricsService
-) : BackgroundService
+)
 {
     private readonly ConcurrentDictionary<string, DateTime> _actorBackfillLocks = new();
     private static readonly TimeSpan LockTimeout = TimeSpan.FromMinutes(5);
     private static readonly Duration BackfillInterval = Duration.FromHours(24);
 
     public const string QueueName = "outbox_backfill_queue";
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        logger.LogInformation("Outbox backfill service started");
-
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-        }
-    }
 
     public async Task EnqueueBackfillAsync(Guid actorId, string actorUri, string outboxUri, int maxItems = 100)
     {

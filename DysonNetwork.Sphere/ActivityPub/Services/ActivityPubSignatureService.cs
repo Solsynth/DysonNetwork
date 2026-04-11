@@ -2,7 +2,7 @@ using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace DysonNetwork.Sphere.ActivityPub;
+namespace DysonNetwork.Sphere.ActivityPub.Services;
 
 public class ActivityPubSignatureService(
     AppDatabase db,

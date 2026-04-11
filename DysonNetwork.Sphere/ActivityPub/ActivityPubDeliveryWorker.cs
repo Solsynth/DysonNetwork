@@ -7,6 +7,7 @@ using DysonNetwork.Shared.Data;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Sphere.ActivityPub.Services;
 using Google.Protobuf;
 using Microsoft.Extensions.Options;
 using NATS.Client.Core;

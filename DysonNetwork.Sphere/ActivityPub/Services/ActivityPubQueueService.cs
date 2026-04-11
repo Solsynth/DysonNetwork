@@ -1,11 +1,9 @@
 using System.Collections.Concurrent;
-using System.Text.Json;
 using DysonNetwork.Shared.Data;
-using DysonNetwork.Shared.Proto;
 using NATS.Client.Core;
 using NodaTime;
 
-namespace DysonNetwork.Sphere.ActivityPub;
+namespace DysonNetwork.Sphere.ActivityPub.Services;
 
 public class ActivityPubQueueService(
     INatsConnection nats,

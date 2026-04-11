@@ -1,4 +1,5 @@
 using DysonNetwork.Sphere.ActivityPub;
+using DysonNetwork.Sphere.ActivityPub.Services;
 using DysonNetwork.Sphere.Live;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
@@ -44,20 +45,27 @@ public static class ScheduledJobsConfiguration
                 .WithCronSchedule("0 0 0 * * ?")
             );
 
-            q.AddJob<ActivityPubDeliveryRetryJob>(opts => opts.WithIdentity("ActivityPubDeliveryRetry"));
+            q.AddJob<DeliveryRetryJob>(opts => opts.WithIdentity("DeliveryRetry"));
             q.AddTrigger(opts => opts
-                .ForJob("ActivityPubDeliveryRetry")
-                .WithIdentity("ActivityPubDeliveryRetryTrigger")
+                .ForJob("DeliveryRetry")
+                .WithIdentity("DeliveryRetryTrigger")
                 .WithSimpleSchedule(o => o
                     .WithIntervalInMinutes(1)
                     .RepeatForever())
             );
 
-            q.AddJob<ActivityPubDeliveryCleanupJob>(opts => opts.WithIdentity("ActivityPubDeliveryCleanup"));
+            q.AddJob<DeliveryCleanupJob>(opts => opts.WithIdentity("DeliveryCleanup"));
             q.AddTrigger(opts => opts
-                .ForJob("ActivityPubDeliveryCleanup")
-                .WithIdentity("ActivityPubDeliveryCleanupTrigger")
+                .ForJob("DeliveryCleanup")
+                .WithIdentity("DeliveryCleanupTrigger")
                 .WithCronSchedule("0 0 3 * * ?")
+            );
+
+            q.AddJob<DeliveryHealthCheckJob>(opts => opts.WithIdentity("DeliveryHealthCheck"));
+            q.AddTrigger(opts => opts
+                .ForJob("DeliveryHealthCheck")
+                .WithIdentity("DeliveryHealthCheckTrigger")
+                .WithCronSchedule("0 */5 * * * ?")
             );
 
             q.AddJob<FediverseActorCleanupJob>(opts => opts.WithIdentity("FediverseActorCleanup"));
@@ -81,6 +89,13 @@ public static class ScheduledJobsConfiguration
                 .ForJob("PublisherFollowRequestCleanup")
                 .WithIdentity("PublisherFollowRequestCleanupTrigger")
                 .WithCronSchedule("0 0 6 * * ?")
+            );
+
+            q.AddJob<OutboxBackfillJob>(opts => opts.WithIdentity("OutboxBackfill"));
+            q.AddTrigger(opts => opts
+                .ForJob("OutboxBackfill")
+                .WithIdentity("OutboxBackfillTrigger")
+                .WithCronSchedule("0 0 */6 * * ?")
             );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);

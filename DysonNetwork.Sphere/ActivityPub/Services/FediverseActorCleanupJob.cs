@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Quartz;
 
-namespace DysonNetwork.Sphere.ActivityPub;
+namespace DysonNetwork.Sphere.ActivityPub.Services;
 
 public class FediverseActorCleanupJob(
     AppDatabase db,

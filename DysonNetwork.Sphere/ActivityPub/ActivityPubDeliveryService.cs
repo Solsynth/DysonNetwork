@@ -1,5 +1,6 @@
 using System.Text.Json;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Sphere.ActivityPub.Services;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Npgsql;
@@ -12,7 +13,7 @@ public class ActivityPubDeliveryService(
     ActivityPubQueueService queueService,
     IConfiguration configuration,
     ILogger<ActivityPubDeliveryService> logger,
-    ActivityPubObjectFactory objFactory,
+    ActivityRenderer objFactory,
     FediverseCachingService cachingService
 )
 {
@@ -230,7 +231,7 @@ public class ActivityPubDeliveryService(
             ["type"] = "Create",
             ["actor"] = actorUrl,
             ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
-            ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
+            ["to"] = new[] { ActivityRenderer.PublicTo },
             ["cc"] = postReceivers.ToArray(),
             ["object"] = await objFactory.CreatePostObject(post, actorUrl),
         };
@@ -288,7 +289,7 @@ public class ActivityPubDeliveryService(
             ["type"] = "Update",
             ["actor"] = actorUrl,
             ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
-            ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
+            ["to"] = new[] { ActivityRenderer.PublicTo },
             ["cc"] = new[] { $"{actorUrl}/followers" },
             ["object"] = await objFactory.CreatePostObject(post, actorUrl),
         };
@@ -605,7 +606,7 @@ public class ActivityPubDeliveryService(
             ["actor"] = actorUrl,
             ["object"] = targetPostUri,
             ["url"] = targetWebUrl,
-            ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
+            ["to"] = new[] { ActivityRenderer.PublicTo },
             ["cc"] = new[] { $"{actorUrl}/followers" },
         };
 
@@ -658,7 +659,7 @@ public class ActivityPubDeliveryService(
                 ["id"] = targetPostUri,
                 ["actor"] = actorUrl,
             },
-            ["to"] = new[] { ActivityPubObjectFactory.PublicTo },
+            ["to"] = new[] { ActivityRenderer.PublicTo },
             ["cc"] = new[] { $"{actorUrl}/followers" },
         };
 

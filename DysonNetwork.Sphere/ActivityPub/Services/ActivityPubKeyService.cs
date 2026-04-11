@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Npgsql;
 
-namespace DysonNetwork.Sphere.ActivityPub;
+namespace DysonNetwork.Sphere.ActivityPub.Services;
 
 public class ActivityPubKeyService(
     AppDatabase db,

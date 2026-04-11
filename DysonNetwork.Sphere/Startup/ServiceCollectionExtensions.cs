@@ -8,6 +8,7 @@ using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Pagination;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Sphere.ActivityPub;
+using DysonNetwork.Sphere.ActivityPub.Services;
 using DysonNetwork.Sphere.Autocompletion;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Post;
@@ -230,9 +231,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ActivityHandlerService>();
             services.AddScoped<ActivityPubDeliveryService>();
             services.AddScoped<IActorDiscoveryService, ActivityPubDiscoveryService>();
-            services.AddScoped<UserResolver>();
-            services.AddScoped<ObjectResolver>();
-            services.AddScoped<ActivityPubObjectFactory>();
+            services.AddScoped<ActivityRenderer>();
             services.AddScoped<FediverseCachingService>();
             services.AddScoped<FediverseModerationService>();
             services.AddSingleton<ActivityPubQueueService>();

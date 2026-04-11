@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Sphere.ActivityPub;
+using DysonNetwork.Sphere.ActivityPub.Services;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;

@@ -1,10 +1,7 @@
 using System.Text;
 using System.Text.Json;
-using DysonNetwork.Shared.Models;
-using Microsoft.EntityFrameworkCore;
-using DysonNetwork.Sphere.ActivityPub;
 
-namespace DysonNetwork.Sphere.ActivityPub;
+namespace DysonNetwork.Sphere.ActivityPub.Services;
 
 public class InboxValidationMiddleware(
     RequestDelegate next,
