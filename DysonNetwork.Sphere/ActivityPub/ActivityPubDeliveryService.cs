@@ -13,6 +13,7 @@ public class ActivityPubDeliveryService(
     ActivityPubQueueService queueService,
     IConfiguration configuration,
     ILogger<ActivityPubDeliveryService> logger,
+    ISignatureService signatureService,
     ActivityRenderer objFactory,
     FediverseCachingService cachingService,
     IHttpClientFactory httpClientFactory
@@ -963,8 +964,6 @@ public class ActivityPubDeliveryService(
                 delivery.LastAttemptAt = SystemClock.Instance.GetCurrentInstant();
                 await db.SaveChangesAsync();
                 
-                var signatureService = objFactory.GetSignatureService();
-
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                 var response = await ActivityPubDeliveryWorker.SendActivityToInboxAsync(
                     activity,
@@ -996,7 +995,7 @@ public class ActivityPubDeliveryService(
                 else
                 {
                     var retryAfter = response.Headers.TryGetValues("Retry-After", out var values) && 
-                                     values.FirstOrDefault() is string ra && 
+                                     values.FirstOrDefault() is { } ra && 
                                      double.TryParse(ra, out var seconds) 
                         ? TimeSpan.FromSeconds(seconds) 
                         : (TimeSpan?)null;

@@ -262,7 +262,7 @@ public class ActivityPubDeliveryWorker(
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    private static async Task<HttpResponseMessage> SendActivityToInboxAsync(
+    public static async Task<HttpResponseMessage> SendActivityToInboxAsync(
         Dictionary<string, object> activity,
         string inboxUrl,
         string actorUri,
@@ -331,7 +331,7 @@ public class ActivityPubDeliveryWorker(
         return response;
     }
 
-    private static bool ShouldRetry(HttpStatusCode statusCode, TimeSpan? retryAfter = null)
+    public static bool ShouldRetry(HttpStatusCode statusCode, TimeSpan? retryAfter = null)
     {
         if (statusCode == (HttpStatusCode)429 && retryAfter.HasValue)
             return true;
@@ -344,7 +344,7 @@ public class ActivityPubDeliveryWorker(
                statusCode == (HttpStatusCode)429;
     }
 
-    private static Instant CalculateNextRetryAt(int retryCount, IClock clock, TimeSpan? retryAfter = null)
+    public static Instant CalculateNextRetryAt(int retryCount, IClock clock, TimeSpan? retryAfter = null)
     {
         const int maxDelaySeconds = 900;
         double delaySec;
