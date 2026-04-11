@@ -13,11 +13,11 @@ public class ActivityPubKeyService(
     ILogger<ActivityPubKeyService> logger
 ) : IKeyService
 {
-    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> _actorLocks = new();
+    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> ActorLocks = new();
 
     public async Task<SnFediverseKey> GetOrCreateKeyForActorAsync(SnFediverseActor actor, string algorithm = KeyAlgorithm.RSA_SHA256)
     {
-        var actorLock = _actorLocks.GetOrAdd(actor.Id, _ => new SemaphoreSlim(1, 1));
+        var actorLock = ActorLocks.GetOrAdd(actor.Id, _ => new SemaphoreSlim(1, 1));
         await actorLock.WaitAsync();
         try
         {
@@ -31,9 +31,10 @@ public class ActivityPubKeyService(
 
     private async Task<SnFediverseKey> GetOrCreateKeyForActorInternalAsync(SnFediverseActor actor, string algorithm = KeyAlgorithm.RSA_SHA256)
     {
-        for (int attempt = 0; attempt < 3; attempt++)
+        for (var attempt = 0; attempt < 3; attempt++)
         {
             var existingKey = await db.FediverseKeys
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(k => k.ActorId == actor.Id);
 
             if (existingKey != null && !string.IsNullOrEmpty(existingKey.PrivateKeyPem))
@@ -48,6 +49,7 @@ public class ActivityPubKeyService(
                 existingKey.PrivateKeyPem = privateKey;
                 existingKey.Algorithm = algorithm;
                 existingKey.RotatedAt = SystemClock.Instance.GetCurrentInstant();
+                existingKey.DeletedAt = null;
 
                 try
                 {
@@ -84,13 +86,14 @@ public class ActivityPubKeyService(
                 logger.LogInformation("Generated new key pair for actor: {ActorUri} with algorithm {Algorithm}", actor.Uri, algorithm);
                 return keyToAdd;
             }
-            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx && pgEx.SqlState == "23505")
+            catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: "23505" })
             {
                 logger.LogWarning("Race condition inserting key for actor {ActorUri}, retrying", actor.Uri);
                 if (keyToAdd != null)
                     db.Entry(keyToAdd).State = EntityState.Detached;
 
                 var conflictingKey = await db.FediverseKeys
+                    .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(k => k.KeyId == $"{actor.Uri}#main-key");
                 if (conflictingKey != null && !string.IsNullOrEmpty(conflictingKey.PrivateKeyPem))
                 {
@@ -158,7 +161,7 @@ public class ActivityPubKeyService(
 
     public async Task UpdateKeyForActorAsync(SnFediverseActor actor)
     {
-        var actorLock = _actorLocks.GetOrAdd(actor.Id, _ => new SemaphoreSlim(1, 1));
+        var actorLock = ActorLocks.GetOrAdd(actor.Id, _ => new SemaphoreSlim(1, 1));
         await actorLock.WaitAsync();
         try
         {
