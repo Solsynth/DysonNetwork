@@ -502,6 +502,8 @@ public class E2EeController(IGroupE2EeModule e2EeModule) : ControllerBase
         var group = await e2EeModule.GetMlsGroupStateByGroupIdAsync(groupId);
         if (group is null) return NotFound();
 
+        await e2EeModule.MarkAllDevicesReshareRequiredAsync(groupId, body.Reason ?? "group_reset");
+
         await e2EeModule.DeleteMlsGroupAsync(groupId);
 
         await e2EeModule.NotifyGroupResetAsync(groupId, body.Reason);

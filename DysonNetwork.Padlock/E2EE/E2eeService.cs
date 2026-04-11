@@ -537,6 +537,23 @@ public class E2EeService(
         return true;
     }
 
+    public async Task<int> MarkAllDevicesReshareRequiredAsync(string groupId, string reason)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var memberships = await db.MlsDeviceMemberships
+            .Where(m => m.MlsGroupId == groupId)
+            .ToListAsync();
+
+        foreach (var membership in memberships)
+        {
+            membership.LastReshareRequiredAt = now;
+            membership.LastReshareCompletedAt = null;
+        }
+
+        await db.SaveChangesAsync();
+        return memberships.Count;
+    }
+
     public async Task<SnMlsGroupState?> GetMlsGroupStateByGroupIdAsync(string groupId)
     {
         return await db.MlsGroupStates

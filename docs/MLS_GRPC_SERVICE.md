@@ -402,7 +402,7 @@ POST /api/e2ee/mls/groups/{groupId}/reshare-required
 | GET | `/api/e2ee/mls/envelopes/pending` | Get pending envelopes |
 | POST | `/api/e2ee/mls/envelopes/{envelopeId}/ack` | Acknowledge envelope |
 | POST | `/api/e2ee/mls/devices/{deviceId}/revoke` | Revoke MLS device |
-| POST | `/api/e2ee/mls/groups/{groupId}/reset` | Reset MLS group |
+| POST | `/api/e2ee/mls/groups/{groupId}/reset` | Reset MLS group (marks all devices for reshare) |
 
 ## MLS Integration (Internal)
 
