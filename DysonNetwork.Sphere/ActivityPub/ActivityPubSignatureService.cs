@@ -79,8 +79,15 @@ public class ActivityPubSignatureService(
         );
 
         var dateHeader = context.Request.Headers.Date.FirstOrDefault();
-        var digestHeader = context.Request.Headers.TryGetValue("digest", out var digestValues) ? digestValues.FirstOrDefault() : null;
-        var contentTypeHeader = context.Request.Headers.TryGetValue("Content-Type", out var ctValues) ? ctValues.FirstOrDefault() : null;
+        var digestHeader = context.Request.Headers.TryGetValue("digest", out var digestValues)
+            ? digestValues.FirstOrDefault()
+            : null;
+        var contentTypeHeader = context.Request.Headers.TryGetValue(
+            "Content-Type",
+            out var ctValues
+        )
+            ? ctValues.FirstOrDefault()
+            : null;
         var hostHeader = context.Request.Headers.Host.ToString();
         logger.LogDebug(
             "Request headers for signing - Date: {Date}, Digest: {Digest}, ContentType: {ContentType}, Host: {Host}",
@@ -89,10 +96,7 @@ public class ActivityPubSignatureService(
             contentTypeHeader ?? "NULL",
             hostHeader
         );
-        logger.LogDebug(
-            "Using domain for signature verification: {Domain}",
-            Domain
-        );
+        logger.LogDebug("Using domain for signature verification: {Domain}", Domain);
 
         try
         {
@@ -171,7 +175,12 @@ public class ActivityPubSignatureService(
 
         var keyId = $"{actor.Uri}#main-key";
 
-        await HttpSignature.SignRequestAsync(request, localKey.PrivateKeyPem, keyId);
+        await HttpSignature.SignRequestAsync(
+            request,
+            localKey.PrivateKeyPem,
+            keyId,
+            includeDigest: request.Method != HttpMethod.Get
+        );
     }
 
     public async Task SignOutgoingRequestAsync(HttpRequestMessage request, string actorUri)
@@ -211,7 +220,12 @@ public class ActivityPubSignatureService(
                 request.RequestUri
             );
 
-            await HttpSignature.SignRequestAsync(request, privateKey, keyId);
+            await HttpSignature.SignRequestAsync(
+                request,
+                privateKey,
+                keyId,
+                includeDigest: request.Method != HttpMethod.Get
+            );
 
             logger.LogDebug("Request signed successfully with server key: {KeyId}", keyId);
         }
@@ -384,4 +398,3 @@ public class ActivityPubSignatureService(
         return null;
     }
 }
-

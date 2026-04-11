@@ -39,7 +39,11 @@ public class ServerActorController(
         {
             Context = ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
             Id = serverKeyService.ActorUri,
-            Summary = $"The server node for {Domain}",
+            Name = configuration["ActivityPub:ServerActor:Name"] ?? "server",
+            PreferredUsername =
+                configuration["ActivityPub:ServerActor:PreferredUsername"] ?? "Solar Network",
+            Summary =
+                configuration["ActivityPub:ServerActor:Summary"] ?? $"The server node for {Domain}",
             Url = $"https://{Domain}",
             Inbox = $"{serverKeyService.ActorUri}/inbox",
             Outbox = $"{serverKeyService.ActorUri}/outbox",
