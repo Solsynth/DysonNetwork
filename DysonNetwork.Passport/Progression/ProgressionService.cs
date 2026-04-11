@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Leveling;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -25,6 +26,24 @@ public class ProgressionService(
     ILogger<ProgressionService> logger
 )
 {
+    public async Task SendTestPacketAsync(Guid accountId, string kind, string identifier, string title, CancellationToken cancellationToken = default)
+    {
+        var packet = new ProgressionCompletionPacket
+        {
+            Kind = kind,
+            Identifier = identifier,
+            Title = title,
+            PeriodKey = string.Empty,
+            Reward = new SnProgressRewardDefinition()
+        };
+        var payload = InfraObjectCoder.ConvertObjectToByteString(packet).ToByteArray();
+        await ring.SendWebSocketPacketToUser(
+            accountId.ToString(),
+            seedService.GetSettings().CompletionPacketType,
+            payload
+        );
+    }
+
     public async Task HandleActionLogAsync(ActionLogTriggeredEvent evt, CancellationToken cancellationToken = default)
     {
         var zone = await ResolveAccountZoneAsync(evt.AccountId, cancellationToken);
@@ -406,7 +425,7 @@ public class ProgressionService(
                 PeriodKey = grant.PeriodKey,
                 Reward = grant.Reward
             };
-            var payload = JsonSerializer.SerializeToUtf8Bytes(packet);
+            var payload = InfraObjectCoder.ConvertObjectToByteString(packet).ToByteArray();
             await ring.SendWebSocketPacketToUser(
                 grant.AccountId.ToString(),
                 seedService.GetSettings().CompletionPacketType,

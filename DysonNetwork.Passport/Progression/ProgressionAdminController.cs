@@ -1,8 +1,6 @@
-using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +13,7 @@ namespace DysonNetwork.Passport.Progression;
 public class ProgressionAdminController(
     AppDatabase db,
     ProgressionSeedService seedService,
-    RemoteRingService ring,
+    ProgressionService progressionService,
     DyPermissionService.DyPermissionServiceClient permissionService
 ) : ControllerBase
 {
@@ -114,16 +112,7 @@ public class ProgressionAdminController(
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         var userId = accountId is not null ? Guid.Parse(accountId) : currentUser?.Id;
         if (userId is null) return BadRequest("No account specified and no current user");
-        var packet = new ProgressionCompletionPacket
-        {
-            Kind = kind,
-            Identifier = identifier ?? "test",
-            Title = title ?? "Test Packet",
-            PeriodKey = string.Empty,
-            Reward = new SnProgressRewardDefinition()
-        };
-        var payload = JsonSerializer.SerializeToUtf8Bytes(packet);
-        await ring.SendWebSocketPacketToUser(userId.Value.ToString(), "progression.completed", payload);
+        await progressionService.SendTestPacketAsync(userId.Value, kind, identifier ?? "test", title ?? "Test Packet");
         return Ok();
     }
 
