@@ -44,13 +44,16 @@ public static class HttpSignature
         var actualAlgorithm = algorithm ?? KeyAlgorithm.GetActualAlgorithm(signature.Algorithm);
         result.ActualAlgorithm = actualAlgorithm;
 
-        var headersToVerify = requiredHeaders?.ToList() ?? GetDefaultHeaders(context.Request.Method);
+        var headersToVerify =
+            requiredHeaders?.ToList() ?? GetDefaultHeaders(context.Request.Method);
 
         try
         {
             if (!headersToVerify.All(h => signature.Headers.Contains(h.ToLowerInvariant())))
             {
-                var missing = headersToVerify.Where(h => !signature.Headers.Contains(h.ToLowerInvariant())).ToList();
+                var missing = headersToVerify
+                    .Where(h => !signature.Headers.Contains(h.ToLowerInvariant()))
+                    .ToList();
                 result.Error = $"Missing required headers: {string.Join(", ", missing)}";
                 return result;
             }
@@ -119,9 +122,10 @@ public static class HttpSignature
 
         var rawTarget = GetRawRequestTarget(context);
         var requestPath = rawTarget ?? context.Request.Path.Value ?? "/";
-        var requestQuery = rawTarget == null && context.Request.QueryString.HasValue
-            ? context.Request.QueryString.Value
-            : null;
+        var requestQuery =
+            rawTarget == null && context.Request.QueryString.HasValue
+                ? context.Request.QueryString.Value
+                : null;
         var hostHeader = hostOverride ?? context.Request.Headers.Host.ToString();
         var dateHeader = context.Request.Headers["Date"].ToString();
         var digestHeader = context.Request.Headers["Digest"].ToString();
@@ -254,7 +258,12 @@ public static class HttpSignature
         return string.IsNullOrWhiteSpace(rawTarget) ? null : rawTarget;
     }
 
-    public static async Task<bool> VerifySignatureAsync(string keyPem, string signingString, byte[] signatureBytes, string algorithm = KeyAlgorithm.RSA_SHA256)
+    public static async Task<bool> VerifySignatureAsync(
+        string keyPem,
+        string signingString,
+        byte[] signatureBytes,
+        string algorithm = KeyAlgorithm.RSA_SHA256
+    )
     {
         return await Task.Run(() =>
         {
@@ -264,7 +273,7 @@ public static class HttpSignature
             var hashAlgorithm = algorithm switch
             {
                 KeyAlgorithm.RSA_SHA512 => HashAlgorithmName.SHA512,
-                _ => HashAlgorithmName.SHA256
+                _ => HashAlgorithmName.SHA256,
             };
 
             return rsa.VerifyData(
@@ -278,14 +287,18 @@ public static class HttpSignature
 
     public static HttpSignatureHeader Parse(string header)
     {
-        var parts = header.Split(',')
+        var parts = header
+            .Split(',')
             .Select(s => s.Split('=', 2))
             .ToDictionary(
                 p => p[0].Trim().ToLowerInvariant(),
                 p => p.Length > 1 ? p[1].Trim('"').Trim() : string.Empty
             );
 
-        if (!parts.TryGetValue("signature", out var signatureB64) || string.IsNullOrEmpty(signatureB64))
+        if (
+            !parts.TryGetValue("signature", out var signatureB64)
+            || string.IsNullOrEmpty(signatureB64)
+        )
         {
             throw new HttpSignatureException("Signature string is missing the signature field");
         }
@@ -300,20 +313,30 @@ public static class HttpSignature
             throw new HttpSignatureException("Signature string is missing the keyId field");
         }
 
-        var algorithm = parts.TryGetValue("algorithm", out var algo) && !string.IsNullOrEmpty(algo)
-            ? algo
-            : "rsa-sha256";
+        var algorithm =
+            parts.TryGetValue("algorithm", out var algo) && !string.IsNullOrEmpty(algo)
+                ? algo
+                : "rsa-sha256";
 
         var created = parts.GetValueOrDefault("created");
         var expires = parts.GetValueOrDefault("expires");
         var opaque = parts.GetValueOrDefault("opaque");
 
         var signature = Convert.FromBase64String(signatureB64);
-        var headers = headersStr.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        var headers = headersStr
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Select(h => h.ToLowerInvariant())
             .ToArray();
 
-        return new HttpSignatureHeader(keyId, algorithm, signature, headers, created, expires, opaque);
+        return new HttpSignatureHeader(
+            keyId,
+            algorithm,
+            signature,
+            headers,
+            created,
+            expires,
+            opaque
+        );
     }
 
     public static string GenerateSigningString(
@@ -336,17 +359,23 @@ public static class HttpSignature
         {
             var header = headersList[i].ToLowerInvariant();
             sb.Append($"{header}: ");
-            sb.Append(header switch
-            {
-                "(request-target)" => $"{requestMethod.ToLowerInvariant()} {requestPath}{requestQuery ?? ""}",
-                "host" => host ?? "",
-                "(created)" => created ?? throw new HttpSignatureException("Signature is missing created param"),
-                "(expires)" => expires ?? throw new HttpSignatureException("Signature is missing expires param"),
-                "date" => date ?? throw new HttpSignatureException("Signature is missing date header"),
-                "digest" => digest ?? "",
-                "content-type" => contentType ?? "",
-                _ => ""
-            });
+            sb.Append(
+                header switch
+                {
+                    "(request-target)" =>
+                        $"{requestMethod.ToLowerInvariant()} {requestPath}{requestQuery ?? ""}",
+                    "host" => host ?? "",
+                    "(created)" => created
+                        ?? throw new HttpSignatureException("Signature is missing created param"),
+                    "(expires)" => expires
+                        ?? throw new HttpSignatureException("Signature is missing expires param"),
+                    "date" => date
+                        ?? throw new HttpSignatureException("Signature is missing date header"),
+                    "digest" => digest ?? "",
+                    "content-type" => contentType ?? "",
+                    _ => "",
+                }
+            );
 
             if (i < headersList.Count - 1)
             {
@@ -434,7 +463,7 @@ public static class HttpSignature
             headers.Add("digest");
         }
 
-        var date = DateTime.UtcNow.ToString("r");
+        var date = request.Headers.Date?.UtcDateTime.ToString("r") ?? DateTime.UtcNow.ToString("r");
 
         var signingString = GenerateSigningString(
             headers,
@@ -452,13 +481,16 @@ public static class HttpSignature
 
         var signatureBytes = rsa.SignData(
             Encoding.UTF8.GetBytes(signingString),
-            algorithm == KeyAlgorithm.RSA_SHA512 ? HashAlgorithmName.SHA512 : HashAlgorithmName.SHA256,
+            algorithm == KeyAlgorithm.RSA_SHA512
+                ? HashAlgorithmName.SHA512
+                : HashAlgorithmName.SHA256,
             RSASignaturePadding.Pkcs1
         );
 
         var signatureBase64 = Convert.ToBase64String(signatureBytes);
 
-        var signatureHeader = $"keyId=\"{keyId}\",algorithm=\"{algorithm.ToLowerInvariant()}\",headers=\"{string.Join(" ", headers)}\",signature=\"{signatureBase64}\"";
+        var signatureHeader =
+            $"keyId=\"{keyId}\",algorithm=\"{algorithm.ToLowerInvariant()}\",headers=\"{string.Join(" ", headers)}\",signature=\"{signatureBase64}\"";
 
         request.Headers.Remove("Signature");
         request.Headers.Add("Signature", signatureHeader);
@@ -473,7 +505,8 @@ public static class HttpSignature
 
     private static void ImportKey(RSA rsa, string keyPem, bool isPrivate)
     {
-        var lines = keyPem.Split('\n')
+        var lines = keyPem
+            .Split('\n')
             .Where(line => !line.StartsWith("-----") && !string.IsNullOrWhiteSpace(line))
             .ToArray();
 
@@ -522,8 +555,10 @@ public static class HttpSignature
     {
         var headers = new List<string> { "(request-target)", "host", "date" };
 
-        if (method.Equals("POST", StringComparison.OrdinalIgnoreCase) ||
-            method.Equals("PUT", StringComparison.OrdinalIgnoreCase))
+        if (
+            method.Equals("POST", StringComparison.OrdinalIgnoreCase)
+            || method.Equals("PUT", StringComparison.OrdinalIgnoreCase)
+        )
         {
             headers.Add("digest");
         }
@@ -544,7 +579,8 @@ public record HttpSignatureHeader(
 
 public class HttpSignatureException : Exception
 {
-    public HttpSignatureException(string message) : base(message) { }
+    public HttpSignatureException(string message)
+        : base(message) { }
 }
 
 public class SignatureVerificationResult
