@@ -13,7 +13,7 @@ public class ServerActorController(
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
 
-    [HttpGet("actor")]
+    [HttpGet("activitypub/actor")]
     [Produces("application/activity+json")]
     public async Task<IActionResult> GetServerActor()
     {
@@ -38,9 +38,9 @@ public class ServerActorController(
             name = "DysonNetwork Server",
             summary = $"The server node for {Domain}",
             url = $"https://{Domain}",
-            inbox = $"https://{Domain}/api/inbox",
-            outbox = $"https://{Domain}/actor/outbox",
-            followers = $"https://{Domain}/actor/followers",
+            inbox = $"{serverKeyService.ActorUri}/inbox",
+            outbox = $"{serverKeyService.ActorUri}/outbox",
+            followers = $"{serverKeyService.ActorUri}/followers",
             publicKey = new
             {
                 id = serverKeyService.KeyId,
@@ -52,7 +52,7 @@ public class ServerActorController(
         });
     }
 
-    [HttpGet("actor/outbox")]
+    [HttpGet("activitypub/actor/outbox")]
     [Produces("application/activity+json")]
     public IActionResult GetServerOutbox()
     {
@@ -67,7 +67,7 @@ public class ServerActorController(
         });
     }
 
-    [HttpGet("actor/followers")]
+    [HttpGet("activitypub/actor/followers")]
     [Produces("application/activity+json")]
     public IActionResult GetServerFollowers()
     {
@@ -82,7 +82,7 @@ public class ServerActorController(
         });
     }
 
-    [HttpGet("actor/following")]
+    [HttpGet("activitypub/actor/following")]
     [Produces("application/activity+json")]
     public IActionResult GetServerFollowing()
     {
@@ -94,6 +94,32 @@ public class ServerActorController(
             totalItems = 0,
             first = $"{serverKeyService.ActorUri}/following?page=true",
             orderedItems = Array.Empty<object>()
+        });
+    }
+
+    [HttpGet("activitypub/actor/main-key")]
+    [Produces("application/activity+json")]
+    public async Task<IActionResult> GetServerMainKey()
+    {
+        var publicKey = await serverKeyService.GetPublicKeyAsync();
+        if (publicKey == null)
+        {
+            return NotFound(new { error = "Server key not initialized" });
+        }
+
+        logger.LogDebug("Serving server main-key");
+
+        return Ok(new
+        {
+            @context = new[]
+            {
+                "https://w3id.org/security/v1",
+                "https://www.w3.org/ns/activitystreams",
+            },
+            id = serverKeyService.KeyId,
+            owner = serverKeyService.ActorUri,
+            publicKeyPem = publicKey,
+            type = "RsaSignature2017",
         });
     }
 }

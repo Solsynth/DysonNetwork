@@ -23,16 +23,19 @@ public class ServerSigningKeyService : IServerSigningKeyService
     private readonly ILogger<ServerSigningKeyService> _logger;
     private ServerSigningKeyData? _cachedKey;
 
-    public ServerSigningKeyService(IConfiguration configuration, ILogger<ServerSigningKeyService> logger)
+    public ServerSigningKeyService(
+        IConfiguration configuration,
+        ILogger<ServerSigningKeyService> logger
+    )
     {
         _logger = logger;
         _domain = configuration["ActivityPub:Domain"] ?? "localhost";
         _keyPath = configuration["ActivityPub:ServerKeyPath"] ?? "./Keys/server-key.json";
-        _keyId = $"https://{_domain}/actor#main-key";
+        _keyId = $"https://{_domain}/activitypub/actor#main-key";
     }
 
     public string KeyId => _keyId;
-    public string ActorUri => $"https://{_domain}/actor";
+    public string ActorUri => $"https://{_domain}/activitypub/actor";
 
     public async Task<(string publicKey, string privateKey)> GetOrCreateKeyAsync()
     {
@@ -46,7 +49,10 @@ public class ServerSigningKeyService : IServerSigningKeyService
             return (key.PublicKeyPem, key.PrivateKeyPem);
         }
 
-        _logger.LogInformation("No server signing key found, generating new one at {Path}", _keyPath);
+        _logger.LogInformation(
+            "No server signing key found, generating new one at {Path}",
+            _keyPath
+        );
 
         var (privateKey, publicKey) = HttpSignature.GenerateKeyPair();
 
@@ -56,7 +62,7 @@ public class ServerSigningKeyService : IServerSigningKeyService
             PublicKeyPem = publicKey,
             PrivateKeyPem = privateKey,
             Algorithm = KeyAlgorithm.RSA_SHA256,
-            CreatedAt = SystemClock.Instance.GetCurrentInstant()
+            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
         };
 
         await SaveKeyAsync(key);
@@ -72,9 +78,10 @@ public class ServerSigningKeyService : IServerSigningKeyService
         return key?.PublicKeyPem;
     }
 
-    public async Task InvalidateCacheAsync()
+    public Task InvalidateCacheAsync()
     {
         _cachedKey = null;
+        return Task.CompletedTask;
     }
 
     public async Task RotateKeyAsync()
@@ -89,7 +96,7 @@ public class ServerSigningKeyService : IServerSigningKeyService
             PublicKeyPem = publicKey,
             PrivateKeyPem = privateKey,
             Algorithm = KeyAlgorithm.RSA_SHA256,
-            CreatedAt = SystemClock.Instance.GetCurrentInstant()
+            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
         };
 
         await SaveKeyAsync(key);
@@ -106,7 +113,10 @@ public class ServerSigningKeyService : IServerSigningKeyService
                 return null;
 
             var json = await File.ReadAllTextAsync(_keyPath);
-            return JsonSerializer.Deserialize<ServerSigningKeyData>(json, InfraObjectCoder.SerializerOptions);
+            return JsonSerializer.Deserialize<ServerSigningKeyData>(
+                json,
+                InfraObjectCoder.SerializerOptions
+            );
         }
         catch (Exception ex)
         {

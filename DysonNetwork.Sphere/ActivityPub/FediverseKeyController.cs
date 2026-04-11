@@ -1,4 +1,3 @@
-using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,14 +19,14 @@ public class FediverseKeyController(
     [Produces("application/activity+json")]
     public async Task<IActionResult> GetMainKey(string username)
     {
-        var publisher = await db.Publishers
-            .FirstOrDefaultAsync(p => p.Name == username);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
 
         if (publisher == null)
             return NotFound();
 
-        var actor = await db.FediverseActors
-            .FirstOrDefaultAsync(a => a.PublisherId == publisher.Id);
+        var actor = await db.FediverseActors.FirstOrDefaultAsync(a =>
+            a.PublisherId == publisher.Id
+        );
 
         if (actor == null)
             return NotFound();
@@ -41,14 +40,20 @@ public class FediverseKeyController(
 
         logger.LogDebug("Serving main-key for {Username}: {KeyId}", username, keyId);
 
-        return Ok(new
-        {
-            @context = new[] { "https://w3id.org/security/v1", "https://www.w3.org/ns/activitystreams" },
-            id = keyId,
-            owner = actorUrl,
-            publicKeyPem = key.KeyPem,
-            type = "RsaSignature2017"
-        });
+        return Ok(
+            new
+            {
+                @context = new[]
+                {
+                    "https://w3id.org/security/v1",
+                    "https://www.w3.org/ns/activitystreams",
+                },
+                id = keyId,
+                owner = actorUrl,
+                publicKeyPem = key.KeyPem,
+                type = "RsaSignature2017",
+            }
+        );
     }
 
     [HttpGet("publickey")]
@@ -67,3 +72,4 @@ public class PublicKeyDocument
     public string PublicKeyPem { get; set; } = null!;
     public string Type { get; set; } = "RsaSignature2017";
 }
+
