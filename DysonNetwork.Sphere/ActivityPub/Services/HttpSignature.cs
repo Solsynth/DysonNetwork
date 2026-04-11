@@ -442,22 +442,28 @@ public static class HttpSignature
             request.Headers.Host = hostHeader;
         }
 
-        string? digestHash = null;
+        string? digestHeader = null;
         if (includeDigest && request.Content != null)
         {
             var content = await request.Content!.ReadAsStringAsync();
             if (!string.IsNullOrEmpty(content))
             {
-                digestHash = ComputeDigest(content);
+                var digestHash = ComputeDigest(content);
+                digestHeader = $"SHA-256={digestHash}";
                 request.Headers.Remove("Digest");
-                request.Headers.Add("Digest", $"SHA-256={digestHash}");
+                request.Headers.Add("Digest", digestHeader);
             }
         }
 
         var headers = new List<string> { "(request-target)", "host", "date" };
-        if (includeDigest)
+        if (!string.IsNullOrEmpty(digestHeader))
         {
             headers.Add("digest");
+        }
+        var contentType = request.Content?.Headers.ContentType?.ToString();
+        if (!string.IsNullOrEmpty(contentType))
+        {
+            headers.Add("content-type");
         }
 
         var date = request.Headers.Date?.UtcDateTime.ToString("r") ?? DateTime.UtcNow.ToString("r");
@@ -470,7 +476,9 @@ public static class HttpSignature
             hostHeader,
             null,
             null,
-            date
+            date,
+            digestHeader,
+            contentType
         );
 
         var rsa = RSA.Create();
