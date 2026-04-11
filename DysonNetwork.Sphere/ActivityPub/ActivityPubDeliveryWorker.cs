@@ -316,7 +316,16 @@ public class ActivityPubDeliveryWorker(
         }
 
         var response = await client.SendAsync(request, cancellationToken);
-        logger.LogDebug("Response from {Inbox}. Status: {Status}", inboxUrl, response.StatusCode);
+        
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        logger.LogInformation(
+            "[Delivery] Response from {Inbox}. Status: {StatusCode}, Body: {Body}",
+            inboxUrl,
+            response.StatusCode,
+            responseBody.Length > 500 ? responseBody[..500] + "..." : responseBody
+        );
+
+        response.Content = new StringContent(responseBody, Encoding.UTF8, response.Content.Headers.ContentType?.MediaType);
 
         return response;
     }
