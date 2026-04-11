@@ -42,7 +42,7 @@ Missing ability returns `409` with error code `e2ee.mls_ability_required`.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| PUT | `/mls/devices/me/key-packages` | Publish key package for current device |
+| PUT | `/mls/devices/me/kps` | Publish key package for current device |
 | GET | `/mls/keys/{accountId}/devices` | Get key packages for a client (with consume option) |
 | GET | `/mls/users/{accountId}/ready` | Check if user has available key packages |
 | GET | `/mls/groups/{groupId}/devices/capable` | Get MLS capable devices for a group |
@@ -82,9 +82,9 @@ Missing ability returns `409` with error code `e2ee.mls_ability_required`.
 ### Publish Key Package
 
 ```json
-PUT /mls/devices/me/key-packages
+PUT /mls/devices/me/kps
 {
-  "keyPackage": "base64-encoded-key-package",
+  "keyPackage": "base64-encoded-kp",
   "ciphersuite": "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519",
   "deviceId": "device-uuid",
   "deviceLabel": "optional-label"
@@ -149,7 +149,7 @@ The DS handles the following envelope types:
 ### Registering a Device
 
 1. Client creates MLS key packages
-2. Client sends key package to `PUT /mls/devices/me/key-packages`
+2. Client sends key package to `PUT /mls/devices/me/kps`
 3. DS stores the key package for distribution
 
 ### Creating a Group

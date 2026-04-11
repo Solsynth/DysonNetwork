@@ -23,13 +23,13 @@ Missing ability is rejected with `409` (`e2ee.mls_ability_required`).
 
 ### Key packages
 
-- `PUT /api/e2ee/mls/devices/me/key-packages`
+- `PUT /api/e2ee/mls/devices/me/kps`
 - `GET /api/e2ee/mls/keys/{accountId}/devices`
 
 Server guardrails:
 
-- upload rate limit: max `10` key-packages per account per 24h
-- auto purge: key-packages older than `30` days are deleted
+- upload rate limit: max `10` kps per account per 24h
+- auto purge: kps older than `30` days are deleted
 
 ### Group state
 

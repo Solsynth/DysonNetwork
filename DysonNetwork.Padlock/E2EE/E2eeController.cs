@@ -99,7 +99,7 @@ public class E2eeController(IGroupE2eeModule e2eeModule) : ControllerBase
         [Required][MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
     }
 
-    [HttpPut("mls/devices/me/key-packages")]
+    [HttpPut("mls/devices/me/kps")]
     public async Task<ActionResult<SnMlsKeyPackage>> PublishMlsKeyPackage([FromBody] PublishMlsKeyPackageBody body)
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
