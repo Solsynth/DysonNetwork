@@ -253,7 +253,7 @@ public partial class ChatService(
         {
             Packet = new DyWebSocketPacket
             {
-                Type = type,
+                Type = "messages.new",
                 Data = InfraObjectCoder.ConvertObjectToByteString(message),
             },
         };
