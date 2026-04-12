@@ -163,7 +163,7 @@ public class PostController(
 
         var accountId = currentUser is null ? Guid.Empty : Guid.Parse(currentUser.Id);
         var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(accountId);
-        var userRealms = currentUser is null ? new List<Guid>() : await rs.GetUserRealms(accountId);
+        var userRealms = currentUser is null ? [] : await rs.GetUserRealms(accountId);
         var publicRealms = await rs.GetPublicRealms();
         var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
         var visibleRealmIds = userRealms.Concat(publicRealmIds).Distinct().ToList();
@@ -172,7 +172,7 @@ public class PostController(
             pubName == null
                 ? null
                 : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
-        var realm = realmName == null ? null : (await rs.GetRealmBySlug(realmName));
+        var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
 
         var query = db
             .Posts.Include(e => e.Categories)
@@ -194,9 +194,12 @@ public class PostController(
         if (!showFediverse)
             query = query.Where(p => p.FediverseUri == null);
 
+        // If user set the realm, return realm's post only
         if (realm != null)
             query = query.Where(p => p.RealmId == realm.Id);
-        else
+        // If user didn't, return the user joined realms post as well and non-realm related post
+        // But if user set publisher filter, also include all posts as well
+        else if (string.IsNullOrWhiteSpace(pubName))
             query = query.Where(p =>
                 p.RealmId == null || visibleRealmIds.Contains(p.RealmId.Value)
             );
