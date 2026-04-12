@@ -8,7 +8,6 @@ public class WorkoutService(AppDatabase db, ILogger<WorkoutService> logger)
     public async Task<SnWorkout?> GetWorkoutByIdAsync(Guid id)
     {
         return await db.Workouts
-            .Include(w => w.Exercises)
             .FirstOrDefaultAsync(w => w.Id == id && w.DeletedAt == null);
     }
 
@@ -19,7 +18,6 @@ public class WorkoutService(AppDatabase db, ILogger<WorkoutService> logger)
             .OrderByDescending(w => w.StartTime)
             .Skip(skip)
             .Take(take)
-            .Include(w => w.Exercises)
             .ToListAsync();
     }
 

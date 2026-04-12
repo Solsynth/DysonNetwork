@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +10,11 @@ namespace DysonNetwork.Fitness.Workouts;
 [ApiController]
 [Route("/api/workouts")]
 [Authorize]
-public class WorkoutController(AppDatabase db, WorkoutService workoutService, GoalService goalService, ILogger<WorkoutController> logger) : ControllerBase
+public class WorkoutController(
+    AppDatabase db,
+    WorkoutService workoutService,
+    GoalService goalService,
+    ILogger<WorkoutController> logger) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<SnWorkout>>> ListWorkouts([FromQuery] int skip = 0, [FromQuery] int take = 20)
@@ -19,7 +24,7 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
 
         var workouts = await workoutService.GetWorkoutsByAccountAsync(accountId, skip, take);
         var totalCount = await db.Workouts.CountAsync(w => w.AccountId == accountId && w.DeletedAt == null);
-        
+
         Response.Headers.Append("X-Total", totalCount.ToString());
         return Ok(workouts);
     }
@@ -28,13 +33,13 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
     public async Task<ActionResult<SnWorkout>> GetWorkout(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-        
+
         var workout = await workoutService.GetWorkoutByIdAsync(id);
         if (workout is null) return NotFound();
-        
+
         // Verify ownership
         if (workout.AccountId != Guid.Parse(currentUser.Id)) return Forbid();
-        
+
         return Ok(workout);
     }
 
@@ -56,19 +61,22 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
             CaloriesBurned = request.CaloriesBurned,
             Notes = request.Notes,
             Visibility = request.Visibility ?? FitnessVisibility.Private,
+            Distance = request.Distance,
+            DistanceUnit = request.DistanceUnit,
+            AverageSpeed = request.AverageSpeed,
+            AverageHeartRate = request.AverageHeartRate,
+            MaxHeartRate = request.MaxHeartRate,
+            ElevationGain = request.ElevationGain,
+            MaxSpeed = request.MaxSpeed,
+            Meta =  request.Meta,
             CreatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow),
             UpdatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
         };
 
-        if (request.Meta != null)
-        {
-            workout.Meta = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(request.Meta));
-        }
-
         var created = await workoutService.CreateWorkoutAsync(workout);
-        
+
         await goalService.RecalculateGoalsForWorkoutTypeAsync(accountId, request.Type);
-        
+
         return CreatedAtAction(nameof(GetWorkout), new { id = created.Id }, created);
     }
 
@@ -76,7 +84,7 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
     public async Task<ActionResult<SnWorkout>> UpdateWorkout(Guid id, [FromBody] UpdateWorkoutRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-        
+
         var existing = await workoutService.GetWorkoutByIdAsync(id);
         if (existing is null) return NotFound();
         if (existing.AccountId != Guid.Parse(currentUser.Id)) return Forbid();
@@ -91,13 +99,16 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
             Duration = request.Duration,
             CaloriesBurned = request.CaloriesBurned,
             Notes = request.Notes,
-            Visibility = request.Visibility ?? FitnessVisibility.Private
+            Visibility = request.Visibility ?? FitnessVisibility.Private,
+            Distance = request.Distance,
+            DistanceUnit = request.DistanceUnit,
+            AverageSpeed = request.AverageSpeed,
+            AverageHeartRate = request.AverageHeartRate,
+            MaxHeartRate = request.MaxHeartRate,
+            ElevationGain = request.ElevationGain,
+            MaxSpeed = request.MaxSpeed,
+            Meta =  request.Meta
         };
-
-        if (request.Meta != null)
-        {
-            updated.Meta = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(request.Meta));
-        }
 
         var result = await workoutService.UpdateWorkoutAsync(id, updated);
         return Ok(result);
@@ -107,7 +118,7 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
     public async Task<IActionResult> DeleteWorkout(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-        
+
         var workout = await workoutService.GetWorkoutByIdAsync(id);
         if (workout is null) return NotFound();
         if (workout.AccountId != Guid.Parse(currentUser.Id)) return Forbid();
@@ -144,29 +155,39 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
                 CaloriesBurned = w.CaloriesBurned,
                 Notes = w.Notes,
                 Visibility = w.Visibility ?? FitnessVisibility.Private,
+                Distance = w.Distance,
+                DistanceUnit = w.DistanceUnit,
+                AverageSpeed = w.AverageSpeed,
+                AverageHeartRate = w.AverageHeartRate,
+                MaxHeartRate = w.MaxHeartRate,
+                ElevationGain = w.ElevationGain,
+                MaxSpeed = w.MaxSpeed,
+                Meta = w.Meta,
                 CreatedAt = now,
                 UpdatedAt = now
             };
         });
 
         var created = await workoutService.CreateWorkoutsBatchAsync(workouts);
-        
+
         var workoutTypes = request.Workouts.Select(w => w.Type).Distinct();
         foreach (var type in workoutTypes)
         {
             await goalService.RecalculateGoalsForWorkoutTypeAsync(accountId, type);
         }
-        
+
         return Ok(created);
     }
 
     [HttpPatch("batch/visibility")]
-    public async Task<ActionResult<int>> UpdateWorkoutsVisibility([FromBody] UpdateWorkoutsVisibilityBatchRequest request)
+    public async Task<ActionResult<int>> UpdateWorkoutsVisibility(
+        [FromBody] UpdateWorkoutsVisibilityBatchRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var updated = await workoutService.UpdateWorkoutsVisibilityAsync(accountId, request.WorkoutIds, request.Visibility);
+        var updated =
+            await workoutService.UpdateWorkoutsVisibilityAsync(accountId, request.WorkoutIds, request.Visibility);
         return Ok(updated);
     }
 
@@ -182,7 +203,14 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
         string? Notes = null,
         string? ExternalId = null,
         FitnessVisibility? Visibility = null,
-        Dictionary<string, object>? Meta = null
+        decimal? Distance = null,
+        string? DistanceUnit = null,
+        decimal? AverageSpeed = null,
+        int? AverageHeartRate = null,
+        int? MaxHeartRate = null,
+        decimal? ElevationGain = null,
+        decimal? MaxSpeed = null,
+        JsonDocument? Meta = null
     );
 
     public record UpdateWorkoutRequest(
@@ -195,27 +223,14 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
         int? CaloriesBurned = null,
         string? Notes = null,
         FitnessVisibility? Visibility = null,
-        Dictionary<string, object>? Meta = null
-    );
-
-    public record CreateExerciseRequest(
-        string ExerciseName,
-        int? Sets = null,
-        int? Reps = null,
-        decimal? Weight = null,
-        NodaTime.Duration? Duration = null,
-        string? Notes = null,
-        int OrderIndex = 0
-    );
-
-    public record UpdateExerciseRequest(
-        string ExerciseName,
-        int? Sets = null,
-        int? Reps = null,
-        decimal? Weight = null,
-        NodaTime.Duration? Duration = null,
-        string? Notes = null,
-        int OrderIndex = 0
+        decimal? Distance = null,
+        string? DistanceUnit = null,
+        decimal? AverageSpeed = null,
+        int? AverageHeartRate = null,
+        int? MaxHeartRate = null,
+        decimal? ElevationGain = null,
+        decimal? MaxSpeed = null,
+        JsonDocument? Meta = null
     );
 
     public record CreateWorkoutsBatchRequest(List<CreateWorkoutRequestItem> Workouts);
@@ -230,7 +245,15 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
         int? CaloriesBurned = null,
         string? Notes = null,
         string? ExternalId = null,
-        FitnessVisibility? Visibility = null
+        FitnessVisibility? Visibility = null,
+        decimal? Distance = null,
+        string? DistanceUnit = null,
+        decimal? AverageSpeed = null,
+        int? AverageHeartRate = null,
+        int? MaxHeartRate = null,
+        decimal? ElevationGain = null,
+        decimal? MaxSpeed = null,
+        JsonDocument? Meta = null
     );
 
     public record UpdateWorkoutsVisibilityBatchRequest(List<Guid> WorkoutIds, FitnessVisibility Visibility);

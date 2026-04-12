@@ -40,13 +40,6 @@ public class AppDatabase(
         base.OnModelCreating(modelBuilder);
         
         modelBuilder.ApplySoftDeleteFilters();
-        
-        // Configure relationships
-        modelBuilder.Entity<SnWorkoutExercise>()
-            .HasOne(e => e.Workout)
-            .WithMany(w => w.Exercises)
-            .HasForeignKey(e => e.WorkoutId)
-            .OnDelete(DeleteBehavior.Cascade);
     }
 }
 

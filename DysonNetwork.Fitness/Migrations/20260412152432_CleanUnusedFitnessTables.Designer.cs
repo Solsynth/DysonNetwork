@@ -14,8 +14,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Fitness.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20260412102131_CleanUnusedFitness")]
-    partial class CleanUnusedFitness
+    [Migration("20260412152432_CleanUnusedFitnessTables")]
+    partial class CleanUnusedFitnessTables
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -214,6 +214,14 @@ namespace DysonNetwork.Fitness.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
+                    b.Property<int?>("AverageHeartRate")
+                        .HasColumnType("integer")
+                        .HasColumnName("average_heart_rate");
+
+                    b.Property<decimal?>("AverageSpeed")
+                        .HasColumnType("numeric")
+                        .HasColumnName("average_speed");
+
                     b.Property<int?>("CaloriesBurned")
                         .HasColumnType("integer")
                         .HasColumnName("calories_burned");
@@ -231,9 +239,22 @@ namespace DysonNetwork.Fitness.Migrations
                         .HasColumnType("character varying(4096)")
                         .HasColumnName("description");
 
+                    b.Property<decimal?>("Distance")
+                        .HasColumnType("numeric")
+                        .HasColumnName("distance");
+
+                    b.Property<string>("DistanceUnit")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("distance_unit");
+
                     b.Property<Duration?>("Duration")
                         .HasColumnType("interval")
                         .HasColumnName("duration");
+
+                    b.Property<decimal?>("ElevationGain")
+                        .HasColumnType("numeric")
+                        .HasColumnName("elevation_gain");
 
                     b.Property<Instant?>("EndTime")
                         .HasColumnType("timestamp with time zone")
@@ -243,6 +264,14 @@ namespace DysonNetwork.Fitness.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("external_id");
+
+                    b.Property<int?>("MaxHeartRate")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_heart_rate");
+
+                    b.Property<decimal?>("MaxSpeed")
+                        .HasColumnType("numeric")
+                        .HasColumnName("max_speed");
 
                     b.Property<JsonDocument>("Meta")
                         .HasColumnType("jsonb")
@@ -279,86 +308,6 @@ namespace DysonNetwork.Fitness.Migrations
                         .HasName("pk_workouts");
 
                     b.ToTable("workouts", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Fitness.Workouts.SnWorkoutExercise", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Duration?>("Duration")
-                        .HasColumnType("interval")
-                        .HasColumnName("duration");
-
-                    b.Property<string>("ExerciseName")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("exercise_name");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("notes");
-
-                    b.Property<int>("OrderIndex")
-                        .HasColumnType("integer")
-                        .HasColumnName("order_index");
-
-                    b.Property<int?>("Reps")
-                        .HasColumnType("integer")
-                        .HasColumnName("reps");
-
-                    b.Property<int?>("Sets")
-                        .HasColumnType("integer")
-                        .HasColumnName("sets");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<decimal?>("Weight")
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("weight");
-
-                    b.Property<Guid>("WorkoutId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("workout_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_sn_workout_exercise");
-
-                    b.HasIndex("WorkoutId")
-                        .HasDatabaseName("ix_sn_workout_exercise_workout_id");
-
-                    b.ToTable("sn_workout_exercise", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Fitness.Workouts.SnWorkoutExercise", b =>
-                {
-                    b.HasOne("DysonNetwork.Fitness.Workouts.SnWorkout", "Workout")
-                        .WithMany("Exercises")
-                        .HasForeignKey("WorkoutId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_sn_workout_exercise_workouts_workout_id");
-
-                    b.Navigation("Workout");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Fitness.Workouts.SnWorkout", b =>
-                {
-                    b.Navigation("Exercises");
                 });
 #pragma warning restore 612, 618
         }
