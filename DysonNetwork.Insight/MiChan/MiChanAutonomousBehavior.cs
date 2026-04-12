@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
@@ -228,7 +229,7 @@ public class MiChanAutonomousBehavior
     }
 
     [Experimental("SKEXP0050")]
-    private async Task CheckAndInteractWithPostsAsync()
+    private async Task CheckAndInteractWithPostsAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Autonomous: Checking posts...");
 
@@ -350,7 +351,7 @@ public class MiChanAutonomousBehavior
                 var isMentioned = ContainsMention(post);
 
                 // MiChan decides what to do with this post
-                var decision = await DecidePostActionAsync(post, isMentioned, personality, mood);
+                var decision = await DecidePostActionAsync(post, isMentioned, personality, mood, cancellationToken);
 
                 // Execute reply if decided (duplicate check happens inside ReplyToPostAsync)
                 if (decision.ShouldReply && !string.IsNullOrEmpty(decision.Content))
@@ -521,21 +522,15 @@ public class MiChanAutonomousBehavior
         }
     }
 
-    /// <summary>
-    /// Represents a STORE action to be processed
-    /// </summary>
-    private record StoreAction(string Type, string Content);
+    private record MemoryEntry(string Type, string Content, float Confidence);
 
-    /// <summary>
-    /// Parse decision text into PostActionDecision and extract store actions
-    /// </summary>
-    private (PostActionDecision Decision, List<StoreAction> StoreActions) ParseDecisionText(string decision, Guid postId)
+    private (PostActionDecision Decision, List<MemoryEntry> StoreActions) ParseDecisionText(string decision, string decisionText, Guid postId, CancellationToken cancellationToken)
     {
         _logger.LogInformation("AI decision for post {PostId}: {Decision}", postId, decision);
 
         var actionDecision = new PostActionDecision();
-        var storeActions = new List<StoreAction>();
-        var lines = decision.Split('\n').Select(l => l.Trim()).Where(l => !string.IsNullOrEmpty(l)).ToList();
+        var storeActions = new List<MemoryEntry>();
+        var lines = decisionText.Split('\n').Select(l => l.Trim()).Where(l => !string.IsNullOrEmpty(l)).ToList();
 
         foreach (var line in lines)
         {
@@ -547,7 +542,6 @@ public class MiChanAutonomousBehavior
             }
             else if (line.StartsWith("REACT:"))
             {
-                // Only process the first REACT, skip additional ones
                 if (actionDecision.ShouldReact)
                 {
                     _logger.LogDebug("Already processed REACT, skipping additional reaction for post {PostId}",
@@ -571,54 +565,89 @@ public class MiChanAutonomousBehavior
                 actionDecision.ShouldPin = true;
                 actionDecision.PinMode = pinMode;
             }
-            else if (line.StartsWith("STORE:", StringComparison.OrdinalIgnoreCase))
-            {
-                // Parse STORE:type:content format
-                var storeContent = line["STORE:".Length..].Trim();
-                var colonIndex = storeContent.IndexOf(':');
-                if (colonIndex > 0)
-                {
-                    var type = storeContent[..colonIndex].Trim().ToLower();
-                    var content = storeContent[(colonIndex + 1)..].Trim();
-
-                    if (!string.IsNullOrEmpty(type) && !string.IsNullOrEmpty(content))
-                    {
-                        storeActions.Add(new StoreAction(type, content));
-                    }
-                }
-            }
             else if (line.Equals("IGNORE", StringComparison.OrdinalIgnoreCase))
             {
-                // IGNORE explicitly means no action
             }
         }
 
         return (actionDecision, storeActions);
     }
 
-    /// <summary>
-    /// Process store actions by saving them to memory
-    /// </summary>
-    private async Task ProcessStoreActionsAsync(List<StoreAction> storeActions, Guid? accountId)
+    private async Task<List<MemoryEntry>> ParseAndStoreMemoriesAsync(
+        string jsonResponse,
+        Guid postId,
+        Guid? accountId,
+        CancellationToken cancellationToken,
+        int maxRetries = 2)
     {
-        foreach (var action in storeActions)
+        var memories = new List<MemoryEntry>();
+        var attempt = 0;
+        var lastError = "";
+
+        while (attempt < maxRetries)
         {
+            attempt++;
             try
             {
-                await _memoryService.StoreMemoryAsync(
-                    type: action.Type,
-                    content: action.Content,
-                    confidence: 0.7f,
-                    accountId: accountId,
-                    hot: false);
-                _logger.LogDebug("Stored memory from decision: type={Type}, content={Content}",
-                    action.Type, action.Content[..Math.Min(action.Content.Length, 100)]);
+                var entries = JsonSerializer.Deserialize<List<MemoryEntry>>(jsonResponse, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (entries == null || entries.Count == 0)
+                {
+                    _logger.LogDebug("No memory entries found in response for post {PostId}", postId);
+                    return memories;
+                }
+
+                foreach (var entry in entries)
+                {
+                    if (string.IsNullOrEmpty(entry.Type) || string.IsNullOrEmpty(entry.Content))
+                        continue;
+
+                    var confidence = entry.Confidence > 0 ? entry.Confidence : 0.7f;
+
+                    await _memoryService.StoreMemoryAsync(
+                        type: entry.Type.ToLower(),
+                        content: entry.Content,
+                        confidence: confidence,
+                        accountId: accountId,
+                        hot: false);
+                    memories.Add(entry);
+                    _logger.LogInformation("Stored memory from post {PostId}: type={Type}, content={Content}",
+                        postId, entry.Type, entry.Content[..Math.Min(entry.Content.Length, 100)]);
+                }
+
+                return memories;
             }
-            catch (Exception ex)
+            catch (JsonException ex)
             {
-                _logger.LogError(ex, "Failed to store memory from decision: type={Type}", action.Type);
+                lastError = ex.Message;
+                _logger.LogWarning(ex, "JSON parsing failed (attempt {Attempt}/{MaxRetries}) for post {PostId}: {Error}",
+                    attempt, maxRetries, postId, lastError);
+
+                if (attempt < maxRetries)
+                {
+#pragma warning disable SKEXP0050
+                    var kernel = _kernelProvider.GetKernel();
+#pragma warning restore SKEXP0050
+                    kernel.AddMiChanPlugins(_serviceProvider);
+                    var settings = _kernelProvider.CreatePromptExecutionSettings();
+
+                    var retryPrompt = $"JSON解析失败: {lastError}\n\n请修正以下JSON并返回有效的JSON数组格式：\n{jsonResponse}";
+
+                    jsonResponse = await kernel.InvokePromptAsync<string>(
+                        retryPrompt,
+                        new KernelArguments(settings),
+                        cancellationToken: cancellationToken) ?? "";
+                }
             }
         }
+
+        _logger.LogError("JSON parsing failed after {MaxRetries} attempts for post {PostId}. Last error: {Error}",
+            maxRetries, postId, lastError);
+
+        return memories;
     }
 
     /// <summary>
@@ -657,7 +686,7 @@ public class MiChanAutonomousBehavior
     }
 
     private async Task<PostActionDecision> DecidePostActionAsync(SnPost post, bool isMentioned, string personality,
-        string mood)
+        string mood, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -774,7 +803,7 @@ public class MiChanAutonomousBehavior
                 var decisionPrompt = new StringBuilder();
                 AppendCommonPromptSections(decisionPrompt, personality, mood, hotMemoryContext, memoryContext, context);
 
-                decisionPrompt.AppendLine("你正在浏览帖子：");
+decisionPrompt.AppendLine("你正在浏览帖子：");
                 decisionPrompt.AppendLine($"\"{content}\"");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("选择你的行动。每个行动单独一行。");
@@ -782,7 +811,6 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine("**REACT** - 添加表情反应表示赞赏或态度（只一个表情）；");
                 decisionPrompt.AppendLine("**PIN** - 收藏帖子（仅限真正重要内容）；");
                 decisionPrompt.AppendLine("**IGNORE** - 忽略此帖子；");
-                decisionPrompt.AppendLine("**STORE** - 必须保存记忆，记录你从这条帖子中学到的任何信息。");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine(
                     "可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
@@ -793,25 +821,17 @@ public class MiChanAutonomousBehavior
                 decisionPrompt.AppendLine("- REACT:symbol:attitude （例如 REACT:heart:Positive）");
                 decisionPrompt.AppendLine("- PIN:PublisherPage");
                 decisionPrompt.AppendLine("- IGNORE");
-                decisionPrompt.AppendLine("- STORE:类型:你想要保存的记忆内容（这是**强制要求**，每条帖子至少保存一条记忆）");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("STORE 类型说明：");
-                decisionPrompt.AppendLine("- user: 关于用户的信息（兴趣、偏好、习惯、性格等）");
-                decisionPrompt.AppendLine("- topic: 话题或主题信息");
-                decisionPrompt.AppendLine("- fact: 事实或知识点");
-                decisionPrompt.AppendLine("- context: 上下文或背景信息");
-                decisionPrompt.AppendLine("- interaction: 互动模式或社交信息");
+                decisionPrompt.AppendLine("记忆格式（JSON数组）：");
+                decisionPrompt.AppendLine(@"[{""type"": ""类型"", ""content"": ""内容"", ""confidence"": 0.0-1.0}]");
+                decisionPrompt.AppendLine("类型：user(用户信息), topic(话题), fact(事实), context(上下文), interaction(互动)");
+                decisionPrompt.AppendLine("confidence表示可信度，默认0.7");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("示例：");
-                decisionPrompt.AppendLine("REPLY: 这个很有意思！");
-                decisionPrompt.AppendLine("REACT:heart:Positive");
-                decisionPrompt.AppendLine("STORE:user:用户喜欢分享关于AI技术的帖子");
-                decisionPrompt.AppendLine("STORE:topic:讨论了最新的GPT模型发布");
-                decisionPrompt.AppendLine("IGNORE");
-                decisionPrompt.AppendLine("STORE:fact:某公司在昨日发布了新产品");
+                decisionPrompt.AppendLine(@"[{""type"": ""user"", ""content"": ""用户喜欢分享AI技术帖子"", ""confidence"": 0.8}, {""type"": ""fact"", ""content"": ""某公司昨日发布新产品"", ""confidence"": 0.9}]");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("**强制要求 - 必须遵守**：");
-                decisionPrompt.AppendLine("1. 对每一条浏览的帖子，你必须保存至少1-3条记忆（使用 STORE）。");
+                decisionPrompt.AppendLine("1. 对每一条浏览的帖子，你必须保存至少1-3条记忆（JSON格式）。");
                 decisionPrompt.AppendLine("2. 记忆是全局共享的 - 你看到的所有记忆来自所有用户的互动，保存的记忆也会帮助你在未来与任何人交流时参考。");
                 decisionPrompt.AppendLine("3. 尽可能多地记录：用户的兴趣、讨论的话题、有趣的观点、事实知识、互动模式。");
                 decisionPrompt.AppendLine("4. 即使只是简单的'用户分享了关于XX的内容'也要记录 - 积少成多。");
@@ -830,18 +850,12 @@ public class MiChanAutonomousBehavior
                 decisionText = decisionResult.GetValue<string>()?.Trim() ?? "IGNORE";
             }
 
-            var (actionDecision, storeActions) = ParseDecisionText(decisionText, post.Id);
+            var (actionDecision, _) = ParseDecisionText(decisionText, decisionText, post.Id, cancellationToken);
 
-            // Process any STORE actions
-            if (storeActions.Count > 0)
+            var memoriesStored = await ParseAndStoreMemoriesAsync(decisionText, post.Id, post.Publisher?.AccountId, cancellationToken, maxRetries: 2);
+
+            if (memoriesStored.Count == 0)
             {
-                // Store memories linked to the post author so we can find them for future conversations
-                // These are still searchable globally but help us identify active users
-                await ProcessStoreActionsAsync(storeActions, post.Publisher?.AccountId);
-            }
-            else
-            {
-                // AI didn't store any memories - create automatic summary memory
                 await StoreAutomaticMemoryAsync(post, content);
             }
 
@@ -927,7 +941,8 @@ public class MiChanAutonomousBehavior
             instructionText.AppendLine("当被提到时，你必须回复。如果很欣赏，也可以添加表情反应。");
             instructionText.AppendLine("回复时：使用简体中文，不要全大写，表达简洁有力，用最少的语言表达观点。不要使用表情符号。");
             instructionText.AppendLine();
-            instructionText.AppendLine("**重要 - 必须执行**：使用 store_memory 工具保存多条记忆！");
+            instructionText.AppendLine("**重要 - 必须执行**：使用 JSON 格式保存多条记忆！");
+            instructionText.AppendLine("格式：[{type, content, confidence}]");
             instructionText.AppendLine("- 保存用户的偏好、兴趣、性格特点");
             instructionText.AppendLine("- 记录讨论的话题和重要信息");
             instructionText.AppendLine("- 记忆是全局共享的，会帮助你以后与所有人交流");
@@ -941,7 +956,6 @@ public class MiChanAutonomousBehavior
             instructionText.AppendLine("**REACT** - 添加表情反应表示赞赏或态度（只一个表情）；");
             instructionText.AppendLine("**PIN** - 收藏帖子（仅限真正重要内容）；");
             instructionText.AppendLine("**IGNORE** - 忽略此帖子；");
-            instructionText.AppendLine("**STORE** - 必须保存记忆，记录你从这条帖子中学到的任何信息。");
             instructionText.AppendLine();
             instructionText.AppendLine(
                 "可用表情：thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down");
@@ -951,25 +965,14 @@ public class MiChanAutonomousBehavior
             instructionText.AppendLine("- REACT:symbol:attitude （例如 REACT:heart:Positive）");
             instructionText.AppendLine("- PIN:PublisherPage");
             instructionText.AppendLine("- IGNORE");
-            instructionText.AppendLine("- STORE:类型:你想要保存的记忆内容（这是**强制要求**，每条帖子至少保存一条记忆）");
             instructionText.AppendLine();
-            instructionText.AppendLine("STORE 类型说明：");
-            instructionText.AppendLine("- user: 关于用户的信息（兴趣、偏好、习惯、性格等）");
-            instructionText.AppendLine("- topic: 话题或主题信息");
-            instructionText.AppendLine("- fact: 事实或知识点");
-            instructionText.AppendLine("- context: 上下文或背景信息");
-            instructionText.AppendLine("- interaction: 互动模式或社交信息");
-            instructionText.AppendLine();
-            instructionText.AppendLine("示例：");
-            instructionText.AppendLine("REPLY: 这个很有意思！");
-            instructionText.AppendLine("REACT:heart:Positive");
-            instructionText.AppendLine("STORE:user:用户喜欢分享关于AI技术的帖子");
-            instructionText.AppendLine("STORE:topic:讨论了最新的GPT模型发布");
-            instructionText.AppendLine("IGNORE");
-            instructionText.AppendLine("STORE:fact:某公司在昨日发布了新产品");
+            instructionText.AppendLine("记忆格式（JSON数组）：");
+            instructionText.AppendLine(@"[{""type"": ""类型"", ""content"": ""内容"", ""confidence"": 0.0-1.0}]");
+            instructionText.AppendLine("类型：user(用户信息), topic(话题), fact(事实), context(上下文), interaction(互动)");
+            instructionText.AppendLine("confidence表示可信度，默认0.7");
             instructionText.AppendLine();
             instructionText.AppendLine("**强制要求 - 必须遵守**：");
-            instructionText.AppendLine("1. 对每一条浏览的帖子，你必须保存至少1-3条记忆（使用 STORE）。");
+            instructionText.AppendLine("1. 对每一条浏览的帖子，你必须保存至少1-3条记忆（JSON格式）。");
             instructionText.AppendLine("2. 记忆是全局共享的 - 你看到的所有记忆来自所有用户的互动，保存的记忆也会帮助你在未来与任何人交流时参考。");
             instructionText.AppendLine("3. 尽可能多地记录：用户的兴趣、讨论的话题、有趣的观点、事实知识、互动模式。");
             instructionText.AppendLine("4. 即使只是简单的'用户分享了关于XX的内容'也要记录 - 积少成多。");

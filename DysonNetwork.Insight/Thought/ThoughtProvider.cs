@@ -167,6 +167,8 @@ public class ThoughtProvider
         return _defaultServiceId;
     }
 
+    private record MemoryEntry(string Type, string Content, float Confidence);
+
 #pragma warning disable SKEXP0050
     public PromptExecutionSettings CreatePromptExecutionSettings(string? serviceId = null)
     {
@@ -211,13 +213,13 @@ public class ThoughtProvider
             conversationBuilder.AppendLine(personality);
             conversationBuilder.AppendLine($"以下是你与用户 {accountId} 对话历史。请阅读并判断有什么重要信息、关键事实或用户偏好值得记住。");
             conversationBuilder.AppendLine();
-            conversationBuilder.AppendLine("请用以下格式输出要保存的记忆（每条一行）：");
-            conversationBuilder.AppendLine("STORE:类型:内容");
+            conversationBuilder.AppendLine("请以JSON数组格式输出要保存的记忆：");
+            conversationBuilder.AppendLine(@"[{""type"": ""类型"", ""content"": ""内容"", ""confidence"": 0.0-1.0}]");
             conversationBuilder.AppendLine("类型可以是：fact(事实)、user(用户偏好)、context(上下文)、summary(总结)");
+            conversationBuilder.AppendLine("confidence表示记忆的可信度(0.0-1.0)，默认为0.7");
             conversationBuilder.AppendLine();
             conversationBuilder.AppendLine("示例：");
-            conversationBuilder.AppendLine("STORE:fact:用户喜欢猫咪");
-            conversationBuilder.AppendLine("STORE:user:用户的工作是程序员");
+            conversationBuilder.AppendLine(@"[{""type"": ""fact"", ""content"": ""用户喜欢猫咪"", ""confidence"": 0.9}, {""type"": ""user"", ""content"": ""用户的工作是程序员"", ""confidence"": 0.8}]");
             conversationBuilder.AppendLine();
             conversationBuilder.AppendLine("=== 对话历史 ===");
             conversationBuilder.AppendLine();
@@ -257,42 +259,7 @@ public class ThoughtProvider
 
             _logger.LogDebug("Agent response for memory storage:\n{Response}", response);
 
-            var memoriesStored = 0;
-            var lines = response.Split('\n').Select(l => l.Trim()).Where(l => !string.IsNullOrEmpty(l));
-
-            foreach (var line in lines)
-            {
-                if (line.StartsWith("STORE:", StringComparison.OrdinalIgnoreCase))
-                {
-                    var storeContent = line.Substring("STORE:".Length).Trim();
-                    var colonIndex = storeContent.IndexOf(':');
-                    if (colonIndex > 0)
-                    {
-                        var type = storeContent.Substring(0, colonIndex).Trim().ToLower();
-                        var content = storeContent.Substring(colonIndex + 1).Trim();
-
-                        if (!string.IsNullOrEmpty(type) && !string.IsNullOrEmpty(content))
-                        {
-                            try
-                            {
-                                await _memoryService.StoreMemoryAsync(
-                                    type: type,
-                                    content: content,
-                                    confidence: 0.7f,
-                                    accountId: accountId,
-                                    hot: false);
-                                memoriesStored++;
-                                _logger.LogInformation("Stored memory from sequence {SequenceId}: type={Type}, content={Content}",
-                                    sequenceId, type, content[..Math.Min(content.Length, 100)]);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Failed to store memory from sequence {SequenceId}", sequenceId);
-                            }
-                        }
-                    }
-                }
-            }
+            var memoriesStored = await ParseAndStoreMemoriesAsync(response, accountId, sequenceId, cancellationToken, maxRetries: 2);
 
             var summary = memoriesStored > 0
                 ? $"Stored {memoriesStored} memory(ies). {response}"
@@ -309,6 +276,83 @@ public class ThoughtProvider
             _logger.LogError(ex, "Error memorizing sequence {SequenceId}", sequenceId);
             return (false, $"Error: {ex.Message}");
         }
+    }
+
+    private async Task<int> ParseAndStoreMemoriesAsync(
+        string jsonResponse,
+        Guid accountId,
+        Guid sequenceId,
+        CancellationToken cancellationToken,
+        int maxRetries = 2)
+    {
+        var memoriesStored = 0;
+        var attempt = 0;
+        var lastError = "";
+
+        while (attempt < maxRetries)
+        {
+            attempt++;
+            try
+            {
+                var entries = JsonSerializer.Deserialize<List<MemoryEntry>>(jsonResponse, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (entries == null || entries.Count == 0)
+                {
+                    _logger.LogDebug("No memory entries found in response for sequence {SequenceId}", sequenceId);
+                    return memoriesStored;
+                }
+
+                foreach (var entry in entries)
+                {
+                    if (string.IsNullOrEmpty(entry.Type) || string.IsNullOrEmpty(entry.Content))
+                        continue;
+
+                    var confidence = entry.Confidence > 0 ? entry.Confidence : 0.7f;
+
+                    await _memoryService.StoreMemoryAsync(
+                        type: entry.Type.ToLower(),
+                        content: entry.Content,
+                        confidence: confidence,
+                        accountId: accountId,
+                        hot: false);
+                    memoriesStored++;
+                    _logger.LogInformation("Stored memory from sequence {SequenceId}: type={Type}, content={Content}",
+                        sequenceId, entry.Type, entry.Content[..Math.Min(entry.Content.Length, 100)]);
+                }
+
+                return memoriesStored;
+            }
+            catch (JsonException ex)
+            {
+                lastError = ex.Message;
+                _logger.LogWarning(ex, "JSON parsing failed (attempt {Attempt}/{MaxRetries}) for sequence {SequenceId}: {Error}",
+                    attempt, maxRetries, sequenceId, lastError);
+
+                if (attempt < maxRetries)
+                {
+#pragma warning disable SKEXP0050
+                    var kernel = _miChanKernelProvider.GetKernel();
+#pragma warning restore SKEXP0050
+                    kernel.AddMiChanPlugins(_serviceProvider);
+                    var settings = _miChanKernelProvider.CreatePromptExecutionSettings(0.7);
+
+                    var retryPrompt = $"JSON解析失败: {lastError}\n\n请修正以下JSON并返回有效的JSON数组格式：\n{jsonResponse}";
+
+                    jsonResponse = await kernel.InvokePromptAsync<string>(
+                        retryPrompt,
+                        new KernelArguments(settings),
+                        cancellationToken: cancellationToken) ?? "";
+                }
+            }
+        }
+
+        _logger.LogError("JSON parsing failed after {MaxRetries} attempts for sequence {SequenceId}. Last error: {Error}",
+            maxRetries, sequenceId, lastError);
+
+        return memoriesStored;
     }
 
     private static string ExtractThoughtContent(SnThinkingThought thought)
