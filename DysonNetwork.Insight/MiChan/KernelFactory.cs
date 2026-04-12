@@ -284,13 +284,12 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
                 Temperature = (float)temp
             },
-            "deepseek" or "openrouter" or "aliyun" or "bigmodel" => new OpenAIPromptExecutionSettings
+            _ => new OpenAIPromptExecutionSettings
             {
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
                 ModelId = serviceName,
                 Temperature = (float)temp
             },
-            _ => throw new InvalidOperationException($"Unknown provider: {providerType}")
         };
     }
 
