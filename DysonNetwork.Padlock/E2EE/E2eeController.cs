@@ -385,7 +385,11 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     public class FanoutMlsCommitBody
     {
         [Required] public long Epoch { get; set; }
-        [Required][MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
+        [Required] public byte[] Ciphertext { get; set; } = [];
+        public byte[]? Header { get; set; }
+        public byte[]? Signature { get; set; }
+        [MaxLength(128)] public string? ClientMessageId { get; set; }
+        public Dictionary<string, object>? Meta { get; set; }
     }
 
     public class FanoutMlsGroupMessageBody
@@ -428,14 +432,11 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
             new FanoutMlsCommitRequest(
                 groupId,
                 body.Epoch,
-                [.. body.Payloads.Select(x => new DeviceCiphertextEnvelope(
-                    x.RecipientDeviceId,
-                    x.ClientMessageId,
-                    x.Ciphertext,
-                    x.Header,
-                    x.Signature,
-                    x.Meta
-                ))]
+                body.Ciphertext,
+                body.Header,
+                body.Signature,
+                body.ClientMessageId,
+                body.Meta
             )
         );
 

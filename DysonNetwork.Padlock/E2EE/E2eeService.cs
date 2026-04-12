@@ -619,39 +619,47 @@ public class E2EeService(
         FanoutMlsCommitRequest request
     )
     {
-        if (request.Payloads.Count == 0)
-            throw new InvalidOperationException("payloads cannot be empty.");
+        var memberships = await db.MlsDeviceMemberships
+            .Where(m => m.MlsGroupId == request.GroupId)
+            .ToListAsync();
 
-        var payloads = request.Payloads
-            .Select(p => new DeviceCiphertextEnvelope(
-                p.RecipientDeviceId,
-                p.ClientMessageId,
-                p.Ciphertext,
-                p.Header,
-                p.Signature,
-                p.Meta is null
-                    ? new Dictionary<string, object> { ["mls_group_id"] = request.GroupId }
-                    : new Dictionary<string, object>(p.Meta) { ["mls_group_id"] = request.GroupId }
-            ))
-            .ToList();
+        if (memberships.Count == 0)
+            throw new InvalidOperationException("No devices found in group.");
 
-        var recipientAccountId = await db.MlsDeviceMemberships
-            .Where(m => m.MlsGroupId == request.GroupId && m.DeviceId == request.Payloads.First().RecipientDeviceId)
-            .Select(m => m.AccountId)
-            .FirstOrDefaultAsync();
+        var envelopes = new List<SnE2eeEnvelope>();
+        var groupedByAccount = memberships.GroupBy(m => m.AccountId);
 
-        if (recipientAccountId == Guid.Empty)
-            throw new KeyNotFoundException("Recipient account not found in group membership.");
+        foreach (var accountGroup in groupedByAccount)
+        {
+            var accountId = accountGroup.Key;
+            var accountPayloads = accountGroup
+                .Select(m => new DeviceCiphertextEnvelope(
+                    m.DeviceId,
+                    request.ClientMessageId,
+                    request.Ciphertext,
+                    request.Header,
+                    request.Signature,
+                    request.Meta is null
+                        ? new Dictionary<string, object> { ["mls_group_id"] = request.GroupId }
+                        : new Dictionary<string, object>(request.Meta) { ["mls_group_id"] = request.GroupId }
+                ))
+                .ToList();
 
-        return await SendFanoutEnvelopesAsync(senderId, senderDeviceId, new SendE2EeFanoutRequest(
-            recipientAccountId,
-            null,
-            SnE2eeEnvelopeType.MlsCommit,
-            request.GroupId,
-            null,
-            IncludeSenderCopy: false,
-            payloads
-        ));
+            if (accountPayloads.Count == 0) continue;
+
+            var result = await SendFanoutEnvelopesAsync(senderId, senderDeviceId, new SendE2EeFanoutRequest(
+                accountId,
+                null,
+                SnE2eeEnvelopeType.MlsCommit,
+                request.GroupId,
+                null,
+                IncludeSenderCopy: false,
+                accountPayloads
+            ));
+            envelopes.AddRange(result);
+        }
+
+        return envelopes;
     }
 
     public async Task<List<SnE2eeEnvelope>> FanoutMlsMessageToGroupAsync(

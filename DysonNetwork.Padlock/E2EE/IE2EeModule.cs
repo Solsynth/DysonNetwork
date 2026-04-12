@@ -194,7 +194,11 @@ public record MarkMlsReshareRequiredRequest(
 public record FanoutMlsCommitRequest(
     string GroupId,
     long Epoch,
-    List<DeviceCiphertextEnvelope> Payloads
+    byte[] Ciphertext,
+    byte[]? Header,
+    byte[]? Signature,
+    string? ClientMessageId,
+    Dictionary<string, object>? Meta
 );
 
 public record FanoutMlsGroupMessageRequest(
