@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using NodaTime;
+using NodaTime.Extensions;
 
 #pragma warning disable SKEXP0050
 
@@ -1193,6 +1194,9 @@ public class ThoughtService(
 
         chatHistoryBuilder.AppendLine($"你正在与 {currentUser.Nick} (@{currentUser.Name}) ID 为 {currentUser.Id} 交谈。");
 
+        var userTimeZone = currentUser.Profile?.TimeZone;
+        AppendTimeContext(chatHistoryBuilder, userTimeZone);
+
         chatHistoryBuilder.AppendLine(isSuperuser ? "该用户是管理员，你应该更积极的考虑处理该用户的请求。" : "你有拒绝用户请求的权利。");
         chatHistoryBuilder.AppendLine();
         chatHistoryBuilder.AppendLine("核心行为要求：");
@@ -1914,11 +1918,47 @@ public class ThoughtService(
             };
         }
         catch
-        {
+{
             return null;
         }
+
     }
 
+    private static void AppendTimeContext(StringBuilder builder, string? userTimeZone)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var serverZone = DateTimeZoneProviders.Tzdb.GetSystemDefault();
+        var serverNow = now.InZone(serverZone);
+
+        builder.AppendLine($"当前时间（服务器时间）: {serverNow:yyyy年MM月dd日 HH:mm:ss}");
+
+        if (!string.IsNullOrEmpty(userTimeZone))
+        {
+            try
+            {
+                var tz = DateTimeZoneProviders.Tzdb.GetZoneOrNull(userTimeZone);
+                if (tz != null)
+                {
+                    var local = now.InZone(tz);
+                    builder.AppendLine($"用户当地时间: {local:yyyy年MM月dd日 HH:mm:ss} ({userTimeZone})");
+                }
+                else
+                {
+                    builder.AppendLine($"（用户时区 {userTimeZone} 无法识别）");
+                }
+            }
+            catch
+            {
+                builder.AppendLine($"（用户时区 {userTimeZone} 无效）");
+            }
+        }
+        else
+        {
+            builder.AppendLine("（用户未设置时区）");
+        }
+
+        builder.AppendLine();
+    }
     #endregion
 }
 
