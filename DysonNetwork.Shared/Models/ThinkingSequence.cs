@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using NodaTime;
+using NodaTime.Extensions;
 
 namespace DysonNetwork.Shared.Models;
 
@@ -15,6 +16,9 @@ public class SnThinkingSequence : ModelBase
     public long FreeTokens { get; set; }
 
     public bool IsPublic { get; set; } = false;
+
+    public Instant? LastFreeQuotaResetAt { get; set; }
+    public long DailyFreeTokensUsed { get; set; }
 
     public Guid AccountId { get; set; }
 

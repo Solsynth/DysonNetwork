@@ -88,12 +88,16 @@ public static class ServiceCollectionExtensions
         {
             // Shared kernel factory for AI service creation
             services.AddSingleton<KernelFactory>();
-            
+
+            var freeQuotaConfig = configuration.GetSection("Thinking:FreeQuota").Get<FreeQuotaConfig>() ?? new FreeQuotaConfig();
+            services.AddSingleton(freeQuotaConfig);
+
             services.AddScoped<ThoughtProvider>();
             services.AddScoped<ThoughtService>();
+            services.AddScoped<FreeQuotaService>();
             services.AddScoped<Reader.WebFeedService>();
             services.AddScoped<Reader.WebReaderService>();
-            
+
             // Register token counting service for accurate AI token counting
             services.AddSingleton<TokenCountingService>();
 

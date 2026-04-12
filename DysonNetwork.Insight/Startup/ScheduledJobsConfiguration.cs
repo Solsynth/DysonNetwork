@@ -20,7 +20,14 @@ public static class ScheduledJobsConfiguration
                     .WithIntervalInMinutes(5)
                     .RepeatForever())
             );
-            
+
+            q.AddJob<FreeQuotaResetJob>(opts => opts.WithIdentity("FreeQuotaReset").StoreDurably());
+            q.AddTrigger(opts => opts
+                .ForJob("FreeQuotaReset")
+                .WithIdentity("FreeQuotaResetTrigger")
+                .WithCronSchedule("0 0 0 * * ?")
+            );
+
             q.AddJob<WebFeedScraperJob>(opts => opts.WithIdentity("WebFeedScraper").StoreDurably());
             q.AddTrigger(opts => opts
                 .ForJob("WebFeedScraper")

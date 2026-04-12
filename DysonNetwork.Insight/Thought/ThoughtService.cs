@@ -35,6 +35,7 @@ public class ThoughtService(
     ILocalizationService localizer,
     UserProfileService userProfileService,
     TokenCountingService tokenCounter,
+    FreeQuotaService freeQuotaService,
     ILogger<ThoughtService> logger,
     RemoteAccountService accounts
 )
@@ -204,7 +205,8 @@ public class ThoughtService(
         {
             AccountId = accountId,
             Topic = topic,
-            LastMessageAt = now
+            LastMessageAt = now,
+            LastFreeQuotaResetAt = now
         };
 
         db.ThinkingSequences.Add(sequence);
@@ -275,6 +277,7 @@ public class ThoughtService(
                 sourceSequence.TotalToken = 0;
                 sourceSequence.PaidToken = 0;
                 sourceSequence.FreeTokens = 0;
+                sourceSequence.DailyFreeTokensUsed = 0;
                 sourceSequence.DeletedAt = SystemClock.Instance.GetCurrentInstant();
 
                 mergedSequenceCount++;
@@ -308,7 +311,6 @@ public class ThoughtService(
         string? botName = null
     )
     {
-        // Calculate token count using accurate tokenizer
         var tokenCount = CalculateTokenCount(parts, model);
 
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -324,24 +326,30 @@ public class ThoughtService(
         };
         db.ThinkingThoughts.Add(thought);
 
-        // Update sequence total tokens only for assistant responses
         if (role == ThinkingThoughtRole.Assistant)
             sequence.TotalToken += tokenCount;
 
-        // Set free tokens for the first bot thought in agent-initiated conversations
-        if (role == ThinkingThoughtRole.Assistant && sequence.AgentInitiated && sequence.FreeTokens == 0)
-            sequence.FreeTokens = tokenCount;
+        if (role == ThinkingThoughtRole.Assistant && tokenCount > 0)
+        {
+            var consumedFromFree = await freeQuotaService.ConsumeFreeTokensAsync(
+                sequence.AccountId, tokenCount);
 
-        // Update LastMessageAt timestamp
+            if (consumedFromFree > 0)
+            {
+                sequence.PaidToken += consumedFromFree;
+                sequence.FreeTokens += consumedFromFree;
+                logger.LogDebug("Consumed {Tokens} tokens from free quota for account {AccountId}",
+                    consumedFromFree, sequence.AccountId);
+            }
+        }
+
         sequence.LastMessageAt = now;
 
-        // Update UserLastReadAt when user sends a message (not for agent messages)
         if (role == ThinkingThoughtRole.User)
             sequence.UserLastReadAt = now;
 
         await db.SaveChangesAsync();
 
-        // Invalidate cache for this sequence's thoughts
         await cache.RemoveGroupAsync($"sequence:{sequence.Id}");
 
         return thought;
@@ -810,6 +818,7 @@ public class ThoughtService(
                 Topic = topic,
                 AgentInitiated = true,
                 LastMessageAt = now,
+                LastFreeQuotaResetAt = now,
                 CreatedAt = now,
                 UpdatedAt = now
             };
