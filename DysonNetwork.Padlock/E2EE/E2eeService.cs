@@ -530,6 +530,7 @@ public class E2EeService(
     public async Task<SnMlsDeviceMembership> AddMlsDeviceMembershipAsync(Guid accountId, string deviceId, string groupId, long epoch)
     {
         var membership = await db.MlsDeviceMemberships
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(m =>
                 m.MlsGroupId == groupId &&
                 m.AccountId == accountId &&
@@ -549,6 +550,7 @@ public class E2EeService(
         }
         else
         {
+            membership.DeletedAt = null;
             membership.LastSeenEpoch = epoch;
         }
 
