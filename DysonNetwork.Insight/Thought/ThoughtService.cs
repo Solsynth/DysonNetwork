@@ -994,6 +994,12 @@ public class ThoughtService(
         systemPromptBuilder.AppendLine("不要告诉用户你正在搜索记忆或保存记忆，直接根据记忆自然地回复。");
         systemPromptBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
         systemPromptBuilder.AppendLine("非常重要：在读取记忆后，认清楚记忆是不是属于该用户的，再做出答复。");
+        systemPromptBuilder.AppendLine();
+        systemPromptBuilder.AppendLine("你可以使用以下网络搜索工具获取最新信息：");
+        systemPromptBuilder.AppendLine("- webSearch.fetch_url: 获取指定 URL 的页面内容和标题（适合获取文章、文档的完整内容）");
+        systemPromptBuilder.AppendLine("- webSearch.duckduckgo_instant_search: DuckDuckGo 即时搜索，适合快速获取事实、定义、摘要");
+        systemPromptBuilder.AppendLine("- webSearch.duckduckgo_search: DuckDuckGo 完整搜索，返回完整链接和摘要（适合查找特定网站）");
+        systemPromptBuilder.AppendLine("当你需要获取最新信息、验证事实、了解不熟悉的主题、或用户询问需要实时数据的问题时，主动使用网络搜索。");
 
         var systemPromptFile = configuration.GetValue<string>("Thinking:SystemPromptFile");
         var systemPrompt =
@@ -1230,6 +1236,12 @@ public class ThoughtService(
         chatHistoryBuilder.AppendLine("你可以使用 userProfile.get_user_profile 查看当前用户档案。");
         chatHistoryBuilder.AppendLine("当你对用户形成更稳定的印象、关系判断、好感度变化或重要标签时，优先使用 userProfile.update_user_profile 或 userProfile.adjust_relationship 立即更新。");
         chatHistoryBuilder.AppendLine("favorability、trust、intimacy 的取值范围是 -100 到 100。只有在确实有依据时才调整这些值。");
+        chatHistoryBuilder.AppendLine();
+        chatHistoryBuilder.AppendLine("你可以使用以下网络搜索工具获取最新信息：");
+        chatHistoryBuilder.AppendLine("- webSearch.fetch_url: 获取指定 URL 的页面内容和标题（适合获取文章、文档的完整内容）");
+        chatHistoryBuilder.AppendLine("- webSearch.duckduckgo_instant_search: DuckDuckGo 即时搜索，适合快速获取事实、定义、摘要");
+        chatHistoryBuilder.AppendLine("- webSearch.duckduckgo_search: DuckDuckGo 完整搜索，返回完整链接和摘要（适合查找特定网站）");
+        chatHistoryBuilder.AppendLine("当你需要获取最新信息、验证事实、了解不熟悉的主题、或用户询问需要实时数据的问题时，主动使用网络搜索。");
         
         var chatHistory = new ChatHistory(chatHistoryBuilder.ToString());
 
