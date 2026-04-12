@@ -64,49 +64,6 @@ public class WorkoutService(AppDatabase db, ILogger<WorkoutService> logger)
         return true;
     }
 
-    public async Task<SnWorkoutExercise> AddExerciseToWorkoutAsync(Guid workoutId, SnWorkoutExercise exercise)
-    {
-        exercise.WorkoutId = workoutId;
-        db.WorkoutExercises.Add(exercise);
-        await db.SaveChangesAsync();
-        logger.LogInformation("Added exercise {ExerciseId} to workout {WorkoutId}", exercise.Id, workoutId);
-        return exercise;
-    }
-
-    public async Task<bool> RemoveExerciseFromWorkoutAsync(Guid exerciseId)
-    {
-        var exercise = await db.WorkoutExercises
-            .Include(e => e.Workout)
-            .FirstOrDefaultAsync(e => e.Id == exerciseId && e.DeletedAt == null);
-        
-        if (exercise is null) return false;
-
-        exercise.DeletedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
-        await db.SaveChangesAsync();
-        logger.LogInformation("Removed exercise {ExerciseId} from workout {ExerciseId}", exerciseId, exercise.WorkoutId);
-        return true;
-    }
-
-    public async Task<SnWorkoutExercise?> UpdateExerciseAsync(Guid exerciseId, SnWorkoutExercise updated)
-    {
-        var exercise = await db.WorkoutExercises
-            .FirstOrDefaultAsync(e => e.Id == exerciseId && e.DeletedAt == null);
-        
-        if (exercise is null) return null;
-
-        exercise.ExerciseName = updated.ExerciseName;
-        exercise.Sets = updated.Sets;
-        exercise.Reps = updated.Reps;
-        exercise.Weight = updated.Weight;
-        exercise.Duration = updated.Duration;
-        exercise.Notes = updated.Notes;
-        exercise.OrderIndex = updated.OrderIndex;
-        exercise.UpdatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);
-
-        await db.SaveChangesAsync();
-        return exercise;
-    }
-
     public async Task<List<SnWorkout>> CreateWorkoutsBatchAsync(IEnumerable<SnWorkout> workouts)
     {
         var now = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow);

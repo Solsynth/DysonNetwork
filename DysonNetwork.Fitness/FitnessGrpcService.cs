@@ -3,7 +3,6 @@ using Grpc.Core;
 using DysonNetwork.Fitness.Workouts;
 using DysonNetwork.Fitness.Metrics;
 using DysonNetwork.Fitness.Goals;
-using DysonNetwork.Fitness.ExerciseLibrary;
 
 namespace DysonNetwork.Fitness;
 
@@ -12,20 +11,17 @@ public class FitnessGrpcService : DyFitnessService.DyFitnessServiceBase
     private readonly WorkoutService _workoutService;
     private readonly MetricService _metricService;
     private readonly GoalService _goalService;
-    private readonly ExerciseLibraryService _exerciseLibraryService;
     private readonly ILogger<FitnessGrpcService> _logger;
 
     public FitnessGrpcService(
         WorkoutService workoutService,
         MetricService metricService,
         GoalService goalService,
-        ExerciseLibraryService exerciseLibraryService,
         ILogger<FitnessGrpcService> logger)
     {
         _workoutService = workoutService;
         _metricService = metricService;
         _goalService = goalService;
-        _exerciseLibraryService = exerciseLibraryService;
         _logger = logger;
     }
 

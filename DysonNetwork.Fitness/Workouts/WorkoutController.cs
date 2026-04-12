@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Fitness.Goals;
 
@@ -115,75 +113,6 @@ public class WorkoutController(AppDatabase db, WorkoutService workoutService, Go
         if (workout.AccountId != Guid.Parse(currentUser.Id)) return Forbid();
 
         var success = await workoutService.DeleteWorkoutAsync(id);
-        return success ? NoContent() : NotFound();
-    }
-
-    [HttpPost("{workoutId:guid}/exercises")]
-    public async Task<ActionResult<SnWorkoutExercise>> AddExercise(Guid workoutId, [FromBody] CreateExerciseRequest request)
-    {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-        
-        var workout = await workoutService.GetWorkoutByIdAsync(workoutId);
-        if (workout is null) return NotFound();
-        if (workout.AccountId != Guid.Parse(currentUser.Id)) return Forbid();
-
-        var exercise = new SnWorkoutExercise
-        {
-            ExerciseName = request.ExerciseName,
-            Sets = request.Sets,
-            Reps = request.Reps,
-            Weight = request.Weight,
-            Duration = request.Duration,
-            Notes = request.Notes,
-            OrderIndex = request.OrderIndex,
-            CreatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow),
-            UpdatedAt = NodaTime.Instant.FromDateTimeUtc(DateTime.UtcNow)
-        };
-
-        var created = await workoutService.AddExerciseToWorkoutAsync(workoutId, exercise);
-        return Ok(created);
-    }
-
-    [HttpPut("exercises/{exerciseId:guid}")]
-    public async Task<ActionResult<SnWorkoutExercise>> UpdateExercise(Guid exerciseId, [FromBody] UpdateExerciseRequest request)
-    {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-
-        var exercise = await db.WorkoutExercises
-            .Include(e => e.Workout)
-            .FirstOrDefaultAsync(e => e.Id == exerciseId && e.DeletedAt == null);
-        
-        if (exercise is null) return NotFound();
-        if (exercise.Workout.AccountId != Guid.Parse(currentUser.Id)) return Forbid();
-
-        var updated = new SnWorkoutExercise
-        {
-            ExerciseName = request.ExerciseName,
-            Sets = request.Sets,
-            Reps = request.Reps,
-            Weight = request.Weight,
-            Duration = request.Duration,
-            Notes = request.Notes,
-            OrderIndex = request.OrderIndex
-        };
-
-        var result = await workoutService.UpdateExerciseAsync(exerciseId, updated);
-        return Ok(result);
-    }
-
-    [HttpDelete("exercises/{exerciseId:guid}")]
-    public async Task<IActionResult> RemoveExercise(Guid exerciseId)
-    {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-
-        var exercise = await db.WorkoutExercises
-            .Include(e => e.Workout)
-            .FirstOrDefaultAsync(e => e.Id == exerciseId && e.DeletedAt == null);
-        
-        if (exercise is null) return NotFound();
-        if (exercise.Workout.AccountId != Guid.Parse(currentUser.Id)) return Forbid();
-
-        var success = await workoutService.RemoveExerciseFromWorkoutAsync(exerciseId);
         return success ? NoContent() : NotFound();
     }
 

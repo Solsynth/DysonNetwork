@@ -1,4 +1,3 @@
-using DysonNetwork.Fitness.ExerciseLibrary;
 using DysonNetwork.Fitness.Goals;
 using DysonNetwork.Fitness.Metrics;
 using DysonNetwork.Fitness.Workouts;
@@ -14,10 +13,8 @@ public class AppDatabase(
 ) : DbContext(options)
 {
     public DbSet<SnWorkout> Workouts { get; set; } = null!;
-    public DbSet<SnWorkoutExercise> WorkoutExercises { get; set; } = null!;
     public DbSet<SnFitnessMetric> FitnessMetrics { get; set; } = null!;
     public DbSet<SnFitnessGoal> FitnessGoals { get; set; } = null!;
-    public DbSet<SnExerciseLibrary> ExerciseLibrary { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

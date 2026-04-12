@@ -3,11 +3,9 @@ using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using DysonNetwork.Fitness.ExerciseLibrary;
 using DysonNetwork.Fitness.Goals;
 using DysonNetwork.Fitness.Metrics;
 using DysonNetwork.Fitness.Workouts;
-using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Pagination;
 
 namespace DysonNetwork.Fitness.Startup;
@@ -64,7 +62,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WorkoutService>();
         services.AddScoped<MetricService>();
         services.AddScoped<GoalService>();
-        services.AddScoped<ExerciseLibraryService>();
         services.AddScoped<FitnessGrpcService>();
 
         return services;
