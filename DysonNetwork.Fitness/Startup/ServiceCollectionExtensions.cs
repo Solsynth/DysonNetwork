@@ -16,6 +16,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddLocalization();
 
+        services.Configure<FitnessOptions>(configuration.GetSection("Fitness"));
         services.AddDbContext<AppDatabase>();
         services.AddHttpContextAccessor();
 

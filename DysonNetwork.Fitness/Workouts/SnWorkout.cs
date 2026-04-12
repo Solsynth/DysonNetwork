@@ -16,6 +16,9 @@ public class SnWorkout : ModelBase
     [MaxLength(64)]
     public string? ExternalId { get; set; }
 
+    [MaxLength(256)]
+    public string? Source { get; set; }
+
     [Required]
     public Guid AccountId { get; set; }
 
