@@ -64,7 +64,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
 
     public class FanoutEnvelopeItemBody
     {
-        [Required][MaxLength(512)] public string RecipientDeviceId { get; set; } = null!;
+        [MaxLength(512)] public string? RecipientDeviceId { get; set; }
         [MaxLength(128)] public string? ClientMessageId { get; set; }
         [Required] public byte[] Ciphertext { get; set; } = [];
         public byte[]? Header { get; set; }
