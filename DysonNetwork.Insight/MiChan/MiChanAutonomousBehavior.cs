@@ -8,6 +8,8 @@ using System.Text.RegularExpressions;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Shared.Models;
+using NodaTime;
+using NodaTime.Extensions;
 using DysonNetwork.Shared.Proto;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -467,11 +469,14 @@ public class MiChanAutonomousBehavior
         string mood,
         string? hotMemoryContext,
         string? memoryContext,
-        string? context)
+        string? context,
+        string? userTimeZone = null)
     {
         builder.AppendLine(personality);
         builder.AppendLine();
         builder.AppendLine($"当前心情: {mood}");
+        builder.AppendLine();
+        builder.AppendLine(GetCurrentTimeContext(userTimeZone));
         builder.AppendLine();
 
         if (!string.IsNullOrEmpty(hotMemoryContext))
@@ -488,6 +493,46 @@ public class MiChanAutonomousBehavior
         builder.AppendLine("上下文（回复从旧到新，转发从旧到新）：");
         builder.AppendLine(context);
         builder.AppendLine();
+    }
+
+    /// <summary>
+    /// Get current time context string for prompt
+    /// </summary>
+    private static string GetCurrentTimeContext(string? userTimeZone)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var serverTimeZone = DateTimeZoneProviders.Tzdb.GetSystemDefault();
+        var serverNow = now.InZone(serverTimeZone);
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"当前时间（服务器时间）: {serverNow:yyyy年MM月dd日 HH:mm:ss}");
+
+        if (!string.IsNullOrEmpty(userTimeZone))
+        {
+            try
+            {
+                var tz = DateTimeZoneProviders.Tzdb.GetZoneOrNull(userTimeZone);
+                if (tz != null)
+                {
+                    var localNow = now.InZone(tz);
+                    sb.AppendLine($"用户当地时间: {localNow:yyyy年MM月dd日 HH:mm:ss} ({userTimeZone})");
+                }
+                else
+                {
+                    sb.AppendLine($"（用户时区 {userTimeZone} 无法识别，使用服务器时间）");
+                }
+            }
+            catch
+            {
+                sb.AppendLine($"（用户时区 {userTimeZone} 无效，使用服务器时间）");
+            }
+        }
+        else
+        {
+            sb.AppendLine("（用户未设置时区）");
+        }
+
+        return sb.ToString().TrimEnd();
     }
 
     /// <summary>
