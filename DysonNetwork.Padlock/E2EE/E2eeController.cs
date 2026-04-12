@@ -390,7 +390,11 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
 
     public class FanoutMlsGroupMessageBody
     {
-        [Required][MinLength(1)] public List<FanoutEnvelopeItemBody> Payloads { get; set; } = [];
+        [Required] public byte[] Ciphertext { get; set; } = [];
+        public byte[]? Header { get; set; }
+        public byte[]? Signature { get; set; }
+        [MaxLength(128)] public string? ClientMessageId { get; set; }
+        public Dictionary<string, object>? Meta { get; set; }
     }
 
     [HttpPost("mls/groups/{groupId}/commit/fanout")]
@@ -461,14 +465,11 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
             senderDeviceId,
             new FanoutMlsGroupMessageRequest(
                 groupId,
-                [.. body.Payloads.Select(x => new DeviceCiphertextEnvelope(
-                    x.RecipientDeviceId,
-                    x.ClientMessageId,
-                    x.Ciphertext,
-                    x.Header,
-                    x.Signature,
-                    x.Meta
-                ))]
+                body.Ciphertext,
+                body.Header,
+                body.Signature,
+                body.ClientMessageId,
+                body.Meta
             )
         );
 

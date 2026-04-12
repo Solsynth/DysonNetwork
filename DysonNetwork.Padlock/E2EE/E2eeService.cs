@@ -481,18 +481,19 @@ public class E2EeService(
             ));
         }
 
+        if (request.Payloads.Count == 0)
+            throw new InvalidOperationException("No payloads provided for all-fanout welcome.");
+
+        var firstPayload = request.Payloads.First();
         return await FanoutMlsMessageToGroupAsync(senderId, senderDeviceId, new FanoutMlsGroupMessageRequest(
             request.GroupId,
-            request.Payloads.Select(p => new DeviceCiphertextEnvelope(
-                p.RecipientDeviceId,
-                p.ClientMessageId,
-                p.Ciphertext,
-                p.Header,
-                p.Signature,
-                p.Meta is null
-                    ? new Dictionary<string, object> { ["mls_group_id"] = request.GroupId }
-                    : new Dictionary<string, object>(p.Meta) { ["mls_group_id"] = request.GroupId }
-            )).ToList()
+            firstPayload.Ciphertext,
+            firstPayload.Header,
+            firstPayload.Signature,
+            firstPayload.ClientMessageId,
+            firstPayload.Meta is null
+                ? new Dictionary<string, object> { ["mls_group_id"] = request.GroupId }
+                : new Dictionary<string, object>(firstPayload.Meta) { ["mls_group_id"] = request.GroupId }
         ), SnE2eeEnvelopeType.MlsWelcome);
     }
 
@@ -660,9 +661,6 @@ public class E2EeService(
         SnE2eeEnvelopeType envelopeType = SnE2eeEnvelopeType.MlsApplication
     )
     {
-        if (request.Payloads.Count == 0)
-            throw new InvalidOperationException("payloads cannot be empty.");
-
         var memberships = await db.MlsDeviceMemberships
             .Where(m => m.MlsGroupId == request.GroupId)
             .ToListAsync();
@@ -676,39 +674,18 @@ public class E2EeService(
         foreach (var accountGroup in groupedByAccount)
         {
             var accountId = accountGroup.Key;
-            List<DeviceCiphertextEnvelope> accountPayloads;
-
-            if (request.Payloads.Any(p => string.IsNullOrWhiteSpace(p.RecipientDeviceId)))
-            {
-                accountPayloads = request.Payloads
-                    .Select(p => new DeviceCiphertextEnvelope(
-                        p.RecipientDeviceId,
-                        p.ClientMessageId,
-                        p.Ciphertext,
-                        p.Header,
-                        p.Signature,
-                        p.Meta is null
-                            ? new Dictionary<string, object> { ["mls_group_id"] = request.GroupId }
-                            : new Dictionary<string, object>(p.Meta) { ["mls_group_id"] = request.GroupId }
-                    ))
-                    .ToList();
-            }
-            else
-            {
-                accountPayloads = request.Payloads
-                    .Where(p => accountGroup.Any(m => m.DeviceId == p.RecipientDeviceId))
-                    .Select(p => new DeviceCiphertextEnvelope(
-                        p.RecipientDeviceId,
-                        p.ClientMessageId,
-                        p.Ciphertext,
-                        p.Header,
-                        p.Signature,
-                        p.Meta is null
-                            ? new Dictionary<string, object> { ["mls_group_id"] = request.GroupId }
-                            : new Dictionary<string, object>(p.Meta) { ["mls_group_id"] = request.GroupId }
-                    ))
-                    .ToList();
-            }
+            var accountPayloads = accountGroup
+                .Select(m => new DeviceCiphertextEnvelope(
+                    m.DeviceId,
+                    request.ClientMessageId,
+                    request.Ciphertext,
+                    request.Header,
+                    request.Signature,
+                    request.Meta is null
+                        ? new Dictionary<string, object> { ["mls_group_id"] = request.GroupId }
+                        : new Dictionary<string, object>(request.Meta) { ["mls_group_id"] = request.GroupId }
+                ))
+                .ToList();
 
             if (accountPayloads.Count == 0) continue;
 

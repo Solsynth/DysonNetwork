@@ -199,7 +199,11 @@ public record FanoutMlsCommitRequest(
 
 public record FanoutMlsGroupMessageRequest(
     string GroupId,
-    List<DeviceCiphertextEnvelope> Payloads
+    byte[] Ciphertext,
+    byte[]? Header,
+    byte[]? Signature,
+    string? ClientMessageId,
+    Dictionary<string, object>? Meta
 );
 
 public record MlsKeyPackageStatusResponse(
