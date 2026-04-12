@@ -23,6 +23,7 @@ public class ThoughtController(
     MiChanConfig miChanConfig,
     IServiceProvider serviceProvider,
     DyFileService.DyFileServiceClient files,
+    FreeQuotaService freeQuotaService,
     ILogger<ThoughtController> logger
 ) : ControllerBase
 {
@@ -836,6 +837,77 @@ public class ThoughtController(
         }
 
         return Ok(new { success, summary, sequenceId });
+    }
+
+    /// <summary>
+    /// Get current user's free token quota status
+    /// </summary>
+    [HttpGet("quota")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult> GetQuotaStatus()
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        if (!freeQuotaService.IsEnabled)
+        {
+            return Ok(new
+            {
+                enabled = false,
+                message = "Free quota is not enabled"
+            });
+        }
+
+        var (freeRemaining, freeUsed) = await freeQuotaService.GetFreeQuotaStatusAsync(accountId);
+
+        return Ok(new
+        {
+            enabled = true,
+            tokensPerDay = freeQuotaService.TokensPerDay,
+            resetPeriodHours = freeQuotaService.ResetPeriodHours,
+            freeRemaining,
+            freeUsed,
+            freeTotal = freeQuotaService.TokensPerDay
+        });
+    }
+
+    /// <summary>
+    /// Reset free quota for current user (admin only)
+    /// </summary>
+    [HttpPost("quota/reset")]
+    [AskPermission("michan.admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult> ResetQuota()
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        if (!freeQuotaService.IsEnabled)
+        {
+            return BadRequest(new { error = "Free quota is not enabled" });
+        }
+
+        await freeQuotaService.ResetQuotasForAccountAsync(accountId);
+
+        return Ok(new { success = true, message = "Quota reset successfully" });
+    }
+
+    /// <summary>
+    /// Reset all users' free quotas (admin only)
+    /// </summary>
+    [HttpPost("quota/reset-all")]
+    [AskPermission("michan.admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult> ResetAllQuotas()
+    {
+        if (!freeQuotaService.IsEnabled)
+        {
+            return BadRequest(new { error = "Free quota is not enabled" });
+        }
+
+        await freeQuotaService.ResetAllQuotasAsync();
+
+        return Ok(new { success = true, message = "All quotas reset successfully" });
     }
 }
 
