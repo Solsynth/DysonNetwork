@@ -15,7 +15,8 @@ public class AccountPublicController(
     AccountService accountService,
     SocialCreditService socialCreditService,
     RemoteSubscriptionService remoteSubscription,
-    DyAccountService.DyAccountServiceClient accountGrpc
+    DyAccountService.DyAccountServiceClient accountGrpc,
+    IConfiguration configuration
 ) : ControllerBase
 {
     [HttpGet("{name}")]
@@ -63,6 +64,58 @@ public class AccountPublicController(
         }
 
         return account;
+    }
+
+    [HttpGet("{name}/picture")]
+    [ProducesResponseType(StatusCodes.Status302Found)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> GetAccountPicture(string name)
+    {
+        SnAccount? account = null;
+        if (Guid.TryParse(name, out var guid))
+        {
+            account = await accountService.GetAccount(guid);
+        }
+        else
+        {
+            var candidates = (await accountGrpc.SearchAccountAsync(new DySearchAccountRequest { Query = name })).Accounts;
+            var hit = candidates.FirstOrDefault(a => string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (hit is not null)
+                account = SnAccount.FromProtoValue(hit);
+        }
+
+        if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
+        await EnsureProfileAsync(account);
+
+        if (account.Profile?.Picture is null) return NotFound();
+        
+        return Redirect($"{configuration["FileUrl"]}/{account.Profile.Picture.Id}");
+    }
+    
+    [HttpGet("{name}/background")]
+    [ProducesResponseType(StatusCodes.Status302Found)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> GetAccountBackground(string name)
+    {
+        SnAccount? account = null;
+        if (Guid.TryParse(name, out var guid))
+        {
+            account = await accountService.GetAccount(guid);
+        }
+        else
+        {
+            var candidates = (await accountGrpc.SearchAccountAsync(new DySearchAccountRequest { Query = name })).Accounts;
+            var hit = candidates.FirstOrDefault(a => string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (hit is not null)
+                account = SnAccount.FromProtoValue(hit);
+        }
+
+        if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
+        await EnsureProfileAsync(account);
+
+        if (account.Profile?.Background is null) return NotFound();
+        
+        return Redirect($"{configuration["FileUrl"]}/{account.Profile.Background.Id}");
     }
 
     [HttpGet("{name}/badges")]
