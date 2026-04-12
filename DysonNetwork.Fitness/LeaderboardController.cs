@@ -14,9 +14,9 @@ namespace DysonNetwork.Fitness;
 [Authorize]
 public class LeaderboardController(
     AppDatabase db,
-    GoalService goalService,
     DyProfileService.DyProfileServiceClient profileClient,
-    ILogger<LeaderboardController> logger) : ControllerBase
+    ILogger<LeaderboardController> logger
+) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<LeaderboardResponse>> GetLeaderboard(
@@ -35,10 +35,13 @@ public class LeaderboardController(
 
         var entries = type switch
         {
-            LeaderboardType.Calories => await GetCaloriesLeaderboardAsync(allIds, userId, startDate, endDate, skip, take),
-            LeaderboardType.Workouts => await GetWorkoutsLeaderboardAsync(allIds, userId, startDate, endDate, skip, take),
+            LeaderboardType.Calories => await GetCaloriesLeaderboardAsync(allIds, userId, startDate, endDate, skip,
+                take),
+            LeaderboardType.Workouts => await GetWorkoutsLeaderboardAsync(allIds, userId, startDate, endDate, skip,
+                take),
             LeaderboardType.Goals => await GetGoalsLeaderboardAsync(allIds, userId, startDate, endDate, skip, take),
-            _ => new List<LeaderboardEntry>()
+            LeaderboardType.Distance => await GetDistanceLeaderboardAsync(allIds, userId, startDate, endDate, skip, take),
+            _ => []
         };
 
         entries = await EnrichWithAccountDataAsync(entries);
@@ -74,8 +77,10 @@ public class LeaderboardController(
         {
             LeaderboardPeriod.Daily => (Instant.FromDateTimeUtc(nowUtc.Date), now),
             LeaderboardPeriod.Weekly => (Instant.FromDateTimeUtc(GetStartOfWeek(nowUtc)), now),
-            LeaderboardPeriod.Monthly => (Instant.FromDateTimeUtc(new DateTime(nowUtc.Year, nowUtc.Month, 1, 0, 0, 0, DateTimeKind.Utc)), now),
-            LeaderboardPeriod.AllTime => (Instant.FromDateTimeUtc(DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc)), now),
+            LeaderboardPeriod.Monthly => (
+                Instant.FromDateTimeUtc(new DateTime(nowUtc.Year, nowUtc.Month, 1, 0, 0, 0, DateTimeKind.Utc)), now),
+            LeaderboardPeriod.AllTime => (
+                Instant.FromDateTimeUtc(DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc)), now),
             _ => (Instant.FromDateTimeUtc(GetStartOfWeek(nowUtc)), now)
         };
     }
@@ -115,7 +120,7 @@ public class LeaderboardController(
             .Where(w => accountIds.Contains(w.AccountId) && w.DeletedAt == null)
             .Where(w => w.StartTime >= startDate && w.StartTime <= endDate)
             .GroupBy(w => w.AccountId)
-            .Select(g => new { AccountId = g.Key, Total = g.Count() })
+            .Select(g => new { AccountId = g.Key, Total = g.Sum(w => w.Duration == null ? 0L : w.Duration.Value.ToInt64Nanoseconds() / 60_000_000_000L) })
             .OrderByDescending(x => x.Total)
             .Skip(skip)
             .Take(take)
@@ -126,7 +131,29 @@ public class LeaderboardController(
         {
             Rank = rank++,
             AccountId = x.AccountId,
-            Value = x.Total
+            Value = (int)x.Total
+        }).ToList();
+    }
+
+    private async Task<List<LeaderboardEntry>> GetDistanceLeaderboardAsync(
+        List<Guid> accountIds, Guid userId, Instant startDate, Instant endDate, int skip, int take)
+    {
+        var data = await db.Workouts
+            .Where(w => accountIds.Contains(w.AccountId) && w.DeletedAt == null)
+            .Where(w => w.StartTime >= startDate && w.StartTime <= endDate)
+            .GroupBy(w => w.AccountId)
+            .Select(g => new { AccountId = g.Key, Total = g.Sum(w => w.Distance ?? 0) })
+            .OrderByDescending(x => x.Total)
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync();
+
+        var rank = skip + 1;
+        return data.Select(x => new LeaderboardEntry
+        {
+            Rank = rank++,
+            AccountId = x.AccountId,
+            Value = (int)x.Total
         }).ToList();
     }
 
@@ -166,7 +193,7 @@ public class LeaderboardController(
             .Select(SnAccount.FromProtoValue)
             .ToDictionary(a => a.Id);
 
-        return entries.Select(e => 
+        return entries.Select(e =>
         {
             accountsById.TryGetValue(e.AccountId, out var account);
             return e with { Account = account };

@@ -65,7 +65,8 @@ public enum LeaderboardType
 {
     Calories = 0,
     Workouts = 1,
-    Goals = 2
+    Goals = 2,
+    Distance = 3
 }
 
 public enum LeaderboardPeriod
