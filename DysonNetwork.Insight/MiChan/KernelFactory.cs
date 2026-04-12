@@ -81,6 +81,15 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
                 builder.AddOpenAIChatCompletion(model!, bigmodelClient);
                 logger.LogInformation("Kernel configured with BigModel model: {Model}", model);
                 break;
+            
+            case "longcat":
+                var longcatClient = new OpenAIClient(
+                    new ApiKeyCredential(apiKey!),
+                    new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://api.longcat.chat/openai") }
+                );
+                builder.AddOpenAIChatCompletion(model!, longcatClient);
+                logger.LogInformation("Kernel configured with BigModel model: {Model}", model);
+                break;
 
             default:
                 throw new InvalidOperationException($"Unknown provider: {providerType}");
