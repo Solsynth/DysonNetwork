@@ -1871,9 +1871,9 @@ public class ThoughtService(
         return thoughtProvider.GetKernel();
     }
 
-    public PromptExecutionSettings? CreateSnChanExecutionSettings()
+    public PromptExecutionSettings? CreateSnChanExecutionSettings(string? reasoningEffort = null)
     {
-        return thoughtProvider.CreatePromptExecutionSettings();
+        return thoughtProvider.CreatePromptExecutionSettings(reasoningEffort: reasoningEffort);
     }
 
     public ThoughtServiceModel? GetSnChanServiceInfo()
@@ -1889,9 +1889,9 @@ public class ThoughtService(
     public Kernel GetMiChanVisionKernel()
         => miChanKernelProvider.GetVisionKernel();
 
-    public PromptExecutionSettings CreateMiChanExecutionSettings()
+    public PromptExecutionSettings CreateMiChanExecutionSettings(string? reasoningEffort = null)
     {
-        return miChanKernelProvider.CreatePromptExecutionSettings();
+        return miChanKernelProvider.CreatePromptExecutionSettings(reasoningEffort: reasoningEffort);
     }
 
     public ThoughtServiceModel? GetMiChanServiceInfo(bool withFiles)

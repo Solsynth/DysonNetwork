@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.SemanticKernel;
@@ -8,22 +9,33 @@ using NodaTime.Text;
 
 namespace DysonNetwork.Insight.Thought.Plugins;
 
+public static class KernelPluginUtils
+{
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true
+    };
+
+    public static string ToJson<T>(T obj) => JsonSerializer.Serialize(obj, JsonOptions);
+}
+
 public class SnPostKernelPlugin(
     DyPostService.DyPostServiceClient postClient,
     DyPublisherService.DyPublisherServiceClient publisherClient
 )
 {
     [KernelFunction("get_post")]
-    public async Task<SnPost?> GetPost(string postId)
+    public async Task<string> GetPost(string postId)
     {
         var request = new DyGetPostRequest { Id = postId };
         var response = await postClient.GetPostAsync(request);
-        return response is null ? null : SnPost.FromProtoValue(response);
+        return response is null ? KernelPluginUtils.ToJson(new { error = "Post not found" }) : KernelPluginUtils.ToJson(SnPost.FromProtoValue(response));
     }
 
     [KernelFunction("search_posts")]
     [Description("Perform a full-text search in all Solar Network posts.")]
-    public async Task<List<SnPost>> SearchPostsContent(string contentQuery, int pageSize = 10, int page = 1)
+    public async Task<string> SearchPostsContent(string contentQuery, int pageSize = 10, int page = 1)
     {
         var request = new DySearchPostsRequest
         {
@@ -32,7 +44,7 @@ public class SnPostKernelPlugin(
             PageToken = ((page - 1) * pageSize).ToString()
         };
         var response = await postClient.SearchPostsAsync(request);
-        return response.Posts.Select(SnPost.FromProtoValue).ToList();
+        return KernelPluginUtils.ToJson(new { count = response.Posts.Count, posts = response.Posts.Select(SnPost.FromProtoValue).ToList() });
     }
 
     public class KernelPostListResult
@@ -43,7 +55,7 @@ public class SnPostKernelPlugin(
 
     [KernelFunction("list_posts")]
     [Description("List all posts on the Solar Network without filters, orderBy can be date or popularity")]
-    public async Task<KernelPostListResult> ListPosts(
+    public async Task<string> ListPosts(
         string orderBy = "date",
         bool orderDesc = true,
         int pageSize = 10,
@@ -58,17 +70,17 @@ public class SnPostKernelPlugin(
             PageToken = ((page - 1) * pageSize).ToString()
         };
         var response = await postClient.ListPostsAsync(request);
-        return new KernelPostListResult
+        return KernelPluginUtils.ToJson(new
         {
-            Posts = response.Posts.Select(SnPost.FromProtoValue).ToList(),
-            TotalCount = response.TotalSize,
-        };
+            totalCount = response.TotalSize,
+            posts = response.Posts.Select(SnPost.FromProtoValue).ToList()
+        });
     }
 
     [KernelFunction("list_posts_within_time")]
     [Description(
         "List posts in a period of time, the time requires ISO-8601 format, one of the start and end must be provided.")]
-    public async Task<KernelPostListResult> ListPostsWithinTime(
+    public async Task<string> ListPostsWithinTime(
         string? beforeTime,
         string? afterTime,
         int pageSize = 10,
@@ -90,16 +102,16 @@ public class SnPostKernelPlugin(
             PageToken = ((page - 1) * pageSize).ToString()
         };
         var response = await postClient.ListPostsAsync(request);
-        return new KernelPostListResult
+        return KernelPluginUtils.ToJson(new
         {
-            Posts = response.Posts.Select(SnPost.FromProtoValue).ToList(),
-            TotalCount = response.TotalSize,
-        };
+            totalCount = response.TotalSize,
+            posts = response.Posts.Select(SnPost.FromProtoValue).ToList()
+        });
     }
 
     [KernelFunction("list_publisher_posts")]
     [Description("Get the specific publisher's posts.")]
-    public async Task<KernelPostListResult> ListPublisherPosts(
+    public async Task<string> ListPublisherPosts(
         [Description("The id of publisher")] string pubId,
         int pageSize = 10,
         int page = 1
@@ -112,33 +124,33 @@ public class SnPostKernelPlugin(
             PageToken = ((page - 1) * pageSize).ToString()
         };
         var response = await postClient.ListPostsAsync(request);
-        return new KernelPostListResult
+        return KernelPluginUtils.ToJson(new
         {
-            Posts = response.Posts.Select(SnPost.FromProtoValue).ToList(),
-            TotalCount = response.TotalSize,
-        };
+            totalCount = response.TotalSize,
+            posts = response.Posts.Select(SnPost.FromProtoValue).ToList()
+        });
     }
 
     [KernelFunction("get_publisher")]
     [Description("Get the publisher information.")]
-    public async Task<SnPublisher?> GetPublisher(
+    public async Task<string> GetPublisher(
         [Description("The name of publisher")] string name
     )
     {
         var request = new DyGetPublisherRequest { Name = name };
         var result = await publisherClient.GetPublisherAsync(request);
-        return result is not null ? SnPublisher.FromProtoValue(result.Publisher) : null;
+        return result is not null ? KernelPluginUtils.ToJson(SnPublisher.FromProtoValue(result.Publisher)) : KernelPluginUtils.ToJson(new { error = $"Publisher {name} not found" });
     }
 
     [KernelFunction("get_publisher_by_id")]
     [Description("Get the publisher information.")]
-    public async Task<SnPublisher?> GetPublisherById(
+    public async Task<string> GetPublisherById(
         [Description("The id of publisher, must be well formatted GUID")]
         string id
     )
     {
         var request = new DyGetPublisherRequest { Id = id };
         var result = await publisherClient.GetPublisherAsync(request);
-        return result is not null ? SnPublisher.FromProtoValue(result.Publisher) : null;
+        return result is not null ? KernelPluginUtils.ToJson(SnPublisher.FromProtoValue(result.Publisher)) : KernelPluginUtils.ToJson(new { error = $"Publisher {id} not found" });
     }
 }
