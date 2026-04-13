@@ -70,13 +70,18 @@ public class WebSearchPlugin(
     [Description("Quick search using DuckDuckGo Instant Answer API. Best for getting quick facts, definitions, or summaries. Returns abstract information when available.")]
     public async Task<string> DuckDuckGoInstantSearch(
         [Description("Search query")] string query,
-        [Description("Maximum number of related topics to return")] int maxResults = 5)
+        [Description("Maximum number of related topics to return")] string maxResults = "5")
     {
         try
         {
+            int.TryParse(maxResults, out var limit);
+            if (limit <= 0) limit = 5;
+            
             var httpClient = httpClientFactory.CreateClient("DuckDuckGo");
-            var searchUrl = $"https://api.duckduckgo.com/api?q={Uri.EscapeDataString(query)}&format=json";
+            var searchUrl = $"https://api.duckduckgo.com/api?q={Uri.EscapeDataString(query)}&format=json&no_html=1&skip_disambig=1";
 
+            logger.LogInformation("DuckDuckGo instant search URL: {Url}", searchUrl);
+            
             var response = await httpClient.GetStringAsync(searchUrl);
             var data = JsonSerializer.Deserialize<DuckDuckGoInstantResult>(response, JsonOptions);
 
@@ -84,6 +89,11 @@ public class WebSearchPlugin(
             {
                 return JsonSerializer.Serialize(new { success = false, error = "Failed to parse response" }, JsonOptions);
             }
+
+            logger.LogInformation("DuckDuckGo instant search response: AbstractText={HasAbstract}, Answer={HasAnswer}, Definition={HasDefinition}", 
+                !string.IsNullOrWhiteSpace(data.AbstractText),
+                !string.IsNullOrWhiteSpace(data.Answer),
+                !string.IsNullOrWhiteSpace(data.Definition));
 
             var results = new List<object>();
 
@@ -123,7 +133,7 @@ public class WebSearchPlugin(
             }
 
             var relatedTopics = data.RelatedTopics?
-                .Take(maxResults)
+                .Take(limit)
                 .Select(rt => new
                 {
                     type = "related",
@@ -155,12 +165,17 @@ public class WebSearchPlugin(
     [Description("Full search using DuckDuckGo HTML results. Best for finding specific URLs and links. Returns full result entries with titles, snippets, and complete URLs.")]
     public async Task<string> DuckDuckGoSearch(
         [Description("Search query")] string query,
-        [Description("Maximum number of results to return")] int maxResults = 5)
+        [Description("Maximum number of results to return")] string maxResults = "5")
     {
         try
         {
+            int.TryParse(maxResults, out var limit);
+            if (limit <= 0) limit = 5;
+            
             var httpClient = httpClientFactory.CreateClient("DuckDuckGo");
             var searchUrl = $"https://html.duckduckgo.com/html/?q={Uri.EscapeDataString(query)}";
+
+            logger.LogInformation("DuckDuckGo search URL: {Url}", searchUrl);
 
             var response = await httpClient.GetStringAsync(searchUrl);
 
@@ -168,14 +183,16 @@ public class WebSearchPlugin(
             var context = BrowsingContext.New(config);
             var document = await context.OpenAsync(req => req.Content(response));
 
+            logger.LogInformation("DuckDuckGo search parsed HTML, results found: {Count}", document.QuerySelectorAll(".result").Length);
+
             var results = new List<object>();
             int count = 0;
 
             foreach (var result in document.QuerySelectorAll(".result"))
             {
-                if (count >= maxResults) break;
+                if (count >= limit) break;
 
-                var titleElement = result.QuerySelector(".result__title a");
+                var titleElement = result.QuerySelector(".result__title");
                 var snippetElement = result.QuerySelector(".result__snippet");
 
                 var title = titleElement?.TextContent?.Trim() ?? "No title";
@@ -185,7 +202,7 @@ public class WebSearchPlugin(
                 if (link.StartsWith("//"))
                     link = "https:" + link;
 
-                if (string.IsNullOrWhiteSpace(link) || link.Contains("duckduckgo.com"))
+                if (string.IsNullOrWhiteSpace(link) || link.Contains("duckduckgo.com") || !link.StartsWith("http"))
                     continue;
 
                 results.Add(new
@@ -201,7 +218,7 @@ public class WebSearchPlugin(
 
             if (results.Count == 0)
             {
-                return JsonSerializer.Serialize(new { success = false, error = "No results found" }, JsonOptions);
+                return JsonSerializer.Serialize(new { success = false, error = "No results found", debug = $"HTML length: {response.Length}" }, JsonOptions);
             }
 
             return JsonSerializer.Serialize(new
