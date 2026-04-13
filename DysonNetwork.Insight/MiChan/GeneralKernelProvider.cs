@@ -67,11 +67,12 @@ public class GeneralKernelProvider : IKernelProvider
     /// Creates prompt execution settings for the configured service.
     /// </summary>
     /// <param name="temperature">Optional temperature override (default: 0.7)</param>
+    /// <param name="reasoningEffort">Optional reasoning effort (low/medium/high)</param>
     /// <returns>Configured PromptExecutionSettings</returns>
     [Experimental("SKEXP0050")]
-    public PromptExecutionSettings CreatePromptExecutionSettings(double? temperature = null)
+    public PromptExecutionSettings CreatePromptExecutionSettings(double? temperature = null, string? reasoningEffort = null)
     {
-        return _kernelFactory.CreatePromptExecutionSettings(_serviceId, temperature ?? 0.7);
+        return _kernelFactory.CreatePromptExecutionSettings(_serviceId, temperature ?? 0.7, reasoningEffort);
     }
 
     /// <summary>

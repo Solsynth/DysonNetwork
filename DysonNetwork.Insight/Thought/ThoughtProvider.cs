@@ -170,10 +170,10 @@ public class ThoughtProvider
     private record MemoryEntry(string Type, string Content, float Confidence);
 
 #pragma warning disable SKEXP0050
-    public PromptExecutionSettings CreatePromptExecutionSettings(string? serviceId = null)
+    public PromptExecutionSettings CreatePromptExecutionSettings(string? serviceId = null, string? reasoningEffort = null)
     {
         serviceId ??= _defaultServiceId;
-        return _kernelFactory.CreatePromptExecutionSettings(serviceId);
+        return _kernelFactory.CreatePromptExecutionSettings(serviceId, reasoningEffort: reasoningEffort);
     }
 #pragma warning restore SKEXP0050
 

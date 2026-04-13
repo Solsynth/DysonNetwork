@@ -41,6 +41,7 @@ public class ThoughtController(
         public List<string>? AttachedFiles { get; set; } = [];
         public List<Dictionary<string, dynamic>>? AttachedMessages { get; set; }
         public List<string> AcceptProposals { get; set; } = [];
+        public string? ReasoningEffort { get; set; } // "low", "medium", "high"
     }
 
     public class UpdateSharingRequest
@@ -181,10 +182,12 @@ public class ThoughtController(
         Response.StatusCode = 200;
 
         var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
-        var executionSettings = service.CreateSnChanExecutionSettings();
+        var executionSettings = service.CreateSnChanExecutionSettings(request.ReasoningEffort);
 
         var assistantParts = new List<SnThinkingMessagePart>();
         var fullResponse = new StringBuilder();
+        var reasoningBuilder = new StringBuilder();
+        var hasReasoning = false;
 
         const int maxMiChanToolRounds = 8;
         var toolRound = 0;
@@ -214,6 +217,44 @@ public class ThoughtController(
                     await Response.Body.FlushAsync();
                 }
 
+                if (streamingContent.Metadata != null)
+                {
+                    object? reasoningContent = null;
+                    if (streamingContent.Metadata.TryGetValue("reasoning_content", out reasoningContent) ||
+                        streamingContent.Metadata.TryGetValue("thinking", out reasoningContent))
+                    {
+                        var reasoningText = reasoningContent?.ToString();
+                        if (!string.IsNullOrEmpty(reasoningText))
+                        {
+                            hasReasoning = true;
+                            reasoningBuilder.Append(reasoningText);
+                            var reasoningJson = JsonSerializer.Serialize(new
+                                { type = "reasoning", data = reasoningText });
+                            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {reasoningJson}\n\n"));
+                            await Response.Body.FlushAsync();
+                        }
+                    }
+                }
+
+                if (streamingContent.InnerContent is { } innerContent)
+                {
+                    var innerTypeName = innerContent.GetType().Name;
+                    if (innerTypeName.Contains("Reasoning"))
+                    {
+                        var prop = innerContent.GetType().GetProperty("Thinking");
+                        var reasoningText = prop?.GetValue(innerContent)?.ToString();
+                        if (!string.IsNullOrEmpty(reasoningText))
+                        {
+                            hasReasoning = true;
+                            reasoningBuilder.Append(reasoningText);
+                            var reasoningJson = JsonSerializer.Serialize(new
+                                { type = "reasoning", data = reasoningText });
+                            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {reasoningJson}\n\n"));
+                            await Response.Body.FlushAsync();
+                        }
+                    }
+                }
+
                 functionCallBuilder.Append(streamingContent);
             }
 
@@ -222,6 +263,15 @@ public class ThoughtController(
             {
                 assistantParts.Add(new SnThinkingMessagePart
                     { Type = ThinkingMessagePartType.Text, Text = finalMessageText });
+            }
+
+            if (hasReasoning)
+            {
+                assistantParts.Add(new SnThinkingMessagePart
+                {
+                    Type = ThinkingMessagePartType.Reasoning,
+                    Reasoning = reasoningBuilder.ToString()
+                });
             }
 
             var functionCalls = functionCallBuilder.Build()
@@ -493,10 +543,12 @@ public class ThoughtController(
         kernel.AddMiChanPlugins(serviceProvider);
 
         var chatService = kernel.GetRequiredService<IChatCompletionService>();
-        var executionSettings = service.CreateMiChanExecutionSettings();
+        var executionSettings = service.CreateMiChanExecutionSettings(request.ReasoningEffort);
 
         var assistantParts = new List<SnThinkingMessagePart>();
         var fullResponse = new StringBuilder();
+        var reasoningBuilder = new StringBuilder();
+        var hasReasoning = false;
 
         var firstChunkStopwatch = Stopwatch.StartNew();
         var streamedAnyContent = false;
@@ -534,6 +586,44 @@ public class ThoughtController(
                     await Response.Body.FlushAsync();
                 }
 
+                if (streamingContent.Metadata != null)
+                {
+                    object? reasoningContent = null;
+                    if (streamingContent.Metadata.TryGetValue("reasoning_content", out reasoningContent) ||
+                        streamingContent.Metadata.TryGetValue("thinking", out reasoningContent))
+                    {
+                        var reasoningText = reasoningContent?.ToString();
+                        if (!string.IsNullOrEmpty(reasoningText))
+                        {
+                            hasReasoning = true;
+                            reasoningBuilder.Append(reasoningText);
+                            var reasoningJson = JsonSerializer.Serialize(new
+                                { type = "reasoning", data = reasoningText });
+                            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {reasoningJson}\n\n"));
+                            await Response.Body.FlushAsync();
+                        }
+                    }
+                }
+
+                if (streamingContent.InnerContent is { } innerContent)
+                {
+                    var innerTypeName = innerContent.GetType().Name;
+                    if (innerTypeName.Contains("Reasoning"))
+                    {
+                        var prop = innerContent.GetType().GetProperty("Thinking");
+                        var reasoningText = prop?.GetValue(innerContent)?.ToString();
+                        if (!string.IsNullOrEmpty(reasoningText))
+                        {
+                            hasReasoning = true;
+                            reasoningBuilder.Append(reasoningText);
+                            var reasoningJson = JsonSerializer.Serialize(new
+                                { type = "reasoning", data = reasoningText });
+                            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {reasoningJson}\n\n"));
+                            await Response.Body.FlushAsync();
+                        }
+                    }
+                }
+
                 functionCallBuilder.Append(streamingContent);
             }
 
@@ -544,6 +634,15 @@ public class ThoughtController(
                 {
                     Type = ThinkingMessagePartType.Text,
                     Text = finalMessageText
+                });
+            }
+
+            if (hasReasoning)
+            {
+                assistantParts.Add(new SnThinkingMessagePart
+                {
+                    Type = ThinkingMessagePartType.Reasoning,
+                    Reasoning = reasoningBuilder.ToString()
                 });
             }
 

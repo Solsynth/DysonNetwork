@@ -19,7 +19,8 @@ public interface IKernelProvider
     /// Creates prompt execution settings for the kernel.
     /// </summary>
     /// <param name="temperature">Optional temperature override</param>
+    /// <param name="reasoningEffort">Optional reasoning effort (low/medium/high)</param>
     /// <returns>Configured PromptExecutionSettings</returns>
     [Experimental("SKEXP0050")]
-    PromptExecutionSettings CreatePromptExecutionSettings(double? temperature = null);
+    PromptExecutionSettings CreatePromptExecutionSettings(double? temperature = null, string? reasoningEffort = null);
 }

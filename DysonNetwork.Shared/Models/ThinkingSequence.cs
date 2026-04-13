@@ -48,7 +48,8 @@ public enum ThinkingMessagePartType
 {
     Text,
     FunctionCall,
-    FunctionResult
+    FunctionResult,
+    Reasoning
 }
 
 public class SnThinkingMessagePart
@@ -59,6 +60,7 @@ public class SnThinkingMessagePart
     public List<SnCloudFileReferenceObject>? Files { get; set; }
     public SnFunctionCall? FunctionCall { get; set; }
     public SnFunctionResult? FunctionResult { get; set; }
+    public string? Reasoning { get; set; }
 }
 
 public class SnFunctionCall

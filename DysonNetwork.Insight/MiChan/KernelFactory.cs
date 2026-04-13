@@ -268,14 +268,19 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
     /// </summary>
     /// <param name="serviceName">The service ID from configuration</param>
     /// <param name="temperature">Optional temperature override</param>
+    /// <param name="reasoningEffort">Optional reasoning effort override (low/medium/high)</param>
     /// <returns>Configured PromptExecutionSettings</returns>
     [Experimental("SKEXP0050")]
-    public PromptExecutionSettings CreatePromptExecutionSettings(string serviceName, double? temperature = null)
+    public PromptExecutionSettings CreatePromptExecutionSettings(
+        string serviceName,
+        double? temperature = null,
+        string? reasoningEffort = null)
     {
         var thinkingConfig = configuration.GetSection("Thinking");
         var serviceConfig = thinkingConfig.GetSection($"Services:{serviceName}");
         var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
         var temp = temperature ?? 0.7;
+        var effort = reasoningEffort ?? serviceConfig.GetValue<string>("ReasoningEffort");
 
         return providerType switch
         {
@@ -288,7 +293,8 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
             {
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
                 ModelId = serviceName,
-                Temperature = (float)temp
+                Temperature = (float)temp,
+                ReasoningEffort = effort
             },
         };
     }

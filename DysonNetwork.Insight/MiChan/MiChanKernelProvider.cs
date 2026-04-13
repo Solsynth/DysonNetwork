@@ -50,14 +50,14 @@ public class MiChanKernelProvider(
         }
     }
 
-    public PromptExecutionSettings CreatePromptExecutionSettings(double? temperature = null)
+    public PromptExecutionSettings CreatePromptExecutionSettings(double? temperature = null, string? reasoningEffort = null)
     {
-        return kernelFactory.CreatePromptExecutionSettings(config.ThinkingService, temperature ?? 0.6);
+        return kernelFactory.CreatePromptExecutionSettings(config.ThinkingService, temperature ?? 0.6, reasoningEffort);
     }
 
-    public PromptExecutionSettings CreateVisionPromptExecutionSettings(double? temperature = null)
+    public PromptExecutionSettings CreateVisionPromptExecutionSettings(double? temperature = null, string? reasoningEffort = null)
     {
-        return kernelFactory.CreatePromptExecutionSettings(config.Vision.VisionThinkingService, temperature ?? 0.7);
+        return kernelFactory.CreatePromptExecutionSettings(config.Vision.VisionThinkingService, temperature ?? 0.7, reasoningEffort);
     }
 
     public PromptExecutionSettings CreateScheduledTaskPromptExecutionSettings(double? temperature = null)
