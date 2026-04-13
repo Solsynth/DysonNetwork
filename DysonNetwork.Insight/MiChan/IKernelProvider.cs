@@ -23,4 +23,16 @@ public interface IKernelProvider
     /// <returns>Configured PromptExecutionSettings</returns>
     [Experimental("SKEXP0050")]
     PromptExecutionSettings CreatePromptExecutionSettings(double? temperature = null, string? reasoningEffort = null);
+
+    /// <summary>
+    /// Gets the kernel for autonomous behavior (may use different model).
+    /// </summary>
+    [Experimental("SKEXP0050")]
+    Kernel GetAutonomousKernel();
+
+    /// <summary>
+    /// Creates prompt execution settings for autonomous behavior.
+    /// </summary>
+    [Experimental("SKEXP0050")]
+    PromptExecutionSettings CreateAutonomousPromptExecutionSettings(double? temperature = null, string? reasoningEffort = null);
 }

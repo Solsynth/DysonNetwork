@@ -9,6 +9,7 @@ public class MiChanConfig
     public string BotAccountId { get; set; } = "";
     public string BotPublisherId { get; set; } = ""; // Publisher ID for posting (different from AccountId)
     public string ThinkingService { get; set; } = "deepseek-chat";
+    public string AutonomousThinkingService { get; set; } = ""; // Optional: separate service for autonomous behavior (defaults to ThinkingService if empty)
     public string Personality { get; set; } = "";
     public string? PersonalityFile { get; set; }
     public MiChanAutoRespondConfig AutoRespond { get; set; } = new();

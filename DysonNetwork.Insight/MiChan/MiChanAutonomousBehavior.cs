@@ -674,10 +674,10 @@ public class MiChanAutonomousBehavior
                 if (attempt < maxRetries)
                 {
 #pragma warning disable SKEXP0050
-                    var kernel = _kernelProvider.GetKernel();
+                    var kernel = _kernelProvider.GetAutonomousKernel();
 #pragma warning restore SKEXP0050
                     kernel.AddMiChanPlugins(_serviceProvider);
-                    var settings = _kernelProvider.CreatePromptExecutionSettings();
+                    var settings = _kernelProvider.CreateAutonomousPromptExecutionSettings();
 
                     var retryPrompt = $"JSON解析失败: {lastError}\n\n请修正以下JSON并返回有效的JSON数组格式：\n{jsonResponse}";
 

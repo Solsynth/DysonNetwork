@@ -13,10 +13,24 @@ public class MiChanKernelProvider(
     IConfiguration configuration
 ) : IKernelProvider
 {
+    private string GetAutonomousServiceName()
+        => string.IsNullOrEmpty(config.AutonomousThinkingService) 
+            ? config.ThinkingService 
+            : config.AutonomousThinkingService;
+
     [Experimental("SKEXP0050")]
     public Kernel GetKernel()
     {
         var kernel = kernelFactory.CreateKernel(config.ThinkingService, addEmbeddings: true);
+        InitializeHelperFunctions(kernel);
+        return kernel;
+    }
+
+    [Experimental("SKEXP0050")]
+    public Kernel GetAutonomousKernel()
+    {
+        var serviceName = GetAutonomousServiceName();
+        var kernel = kernelFactory.CreateKernel(serviceName, addEmbeddings: true);
         InitializeHelperFunctions(kernel);
         return kernel;
     }
@@ -53,6 +67,13 @@ public class MiChanKernelProvider(
     public PromptExecutionSettings CreatePromptExecutionSettings(double? temperature = null, string? reasoningEffort = null)
     {
         return kernelFactory.CreatePromptExecutionSettings(config.ThinkingService, temperature ?? 0.6, reasoningEffort);
+    }
+
+    public PromptExecutionSettings CreateAutonomousPromptExecutionSettings(double? temperature = null, string? reasoningEffort = null)
+    {
+        var serviceName = GetAutonomousServiceName();
+        var defaultEffort = serviceName != config.ThinkingService ? "high" : null;
+        return kernelFactory.CreatePromptExecutionSettings(serviceName, temperature ?? 0.6, reasoningEffort ?? defaultEffort);
     }
 
     public PromptExecutionSettings CreateVisionPromptExecutionSettings(double? temperature = null, string? reasoningEffort = null)

@@ -76,6 +76,21 @@ public class GeneralKernelProvider : IKernelProvider
     }
 
     /// <summary>
+    /// Gets the kernel for autonomous behavior (same as regular for GeneralKernelProvider).
+    /// </summary>
+    [Experimental("SKEXP0050")]
+    public Kernel GetAutonomousKernel() => GetKernel();
+
+    /// <summary>
+    /// Creates prompt execution settings for autonomous behavior (same as regular for GeneralKernelProvider).
+    /// </summary>
+    [Experimental("SKEXP0050")]
+    public PromptExecutionSettings CreateAutonomousPromptExecutionSettings(double? temperature = null, string? reasoningEffort = null)
+    {
+        return CreatePromptExecutionSettings(temperature, reasoningEffort);
+    }
+
+    /// <summary>
     /// Initializes helper functions (web search plugins) on the kernel.
     /// </summary>
     [Experimental("SKEXP0050")]
