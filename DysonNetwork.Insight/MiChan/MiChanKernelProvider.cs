@@ -66,14 +66,14 @@ public class MiChanKernelProvider(
 
     public PromptExecutionSettings CreatePromptExecutionSettings(double? temperature = null, string? reasoningEffort = null)
     {
-        return kernelFactory.CreatePromptExecutionSettings(config.ThinkingService, temperature ?? 0.6, reasoningEffort);
+        return kernelFactory.CreatePromptExecutionSettings(config.ThinkingService, temperature ?? 0.75, reasoningEffort);
     }
 
     public PromptExecutionSettings CreateAutonomousPromptExecutionSettings(double? temperature = null, string? reasoningEffort = null)
     {
         var serviceName = GetAutonomousServiceName();
         var defaultEffort = serviceName != config.ThinkingService ? "high" : null;
-        return kernelFactory.CreatePromptExecutionSettings(serviceName, temperature ?? 0.6, reasoningEffort ?? defaultEffort);
+        return kernelFactory.CreatePromptExecutionSettings(serviceName, temperature ?? 0.7, reasoningEffort ?? defaultEffort);
     }
 
     public PromptExecutionSettings CreateVisionPromptExecutionSettings(double? temperature = null, string? reasoningEffort = null)

@@ -279,7 +279,7 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
         var thinkingConfig = configuration.GetSection("Thinking");
         var serviceConfig = thinkingConfig.GetSection($"Services:{serviceName}");
         var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
-        var temp = temperature ?? 0.7;
+        var temp = temperature ?? serviceConfig.GetValue<double?>("Temperature") ?? 0.7;
         var effort = reasoningEffort ?? serviceConfig.GetValue<string>("ReasoningEffort");
 
         return providerType switch

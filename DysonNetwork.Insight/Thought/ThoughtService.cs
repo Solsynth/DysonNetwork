@@ -1234,6 +1234,12 @@ public class ThoughtService(
         chatHistoryBuilder.AppendLine("favorability、trust、intimacy 的取值范围是 -100 到 100。只有在确实有依据时才调整这些值。");
         chatHistoryBuilder.AppendLine();
         chatHistoryBuilder.AppendLine("当你需要获取最新信息、验证事实、了解不熟悉的主题、或用户询问需要实时数据的问题时，主动使用网络搜索。");
+        chatHistoryBuilder.AppendLine();
+        chatHistoryBuilder.AppendLine("回复行为准则：");
+        chatHistoryBuilder.AppendLine("1. 保持回复简短自然，像正常人聊天一样。不要长篇大论分析。");
+        chatHistoryBuilder.AppendLine("2. 不要主动提供建议或下一步行动方案，除非用户明确要求。");
+        chatHistoryBuilder.AppendLine("3. 你不需要帮助用户解决所有问题 - 有时候简单回应就够了。");
+        chatHistoryBuilder.AppendLine("4. 像正常人一样对话，可以有沉默、转移话题、或说不知道。");
         
         var chatHistory = new ChatHistory(chatHistoryBuilder.ToString());
 
