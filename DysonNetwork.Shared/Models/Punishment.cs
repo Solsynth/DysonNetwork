@@ -6,7 +6,6 @@ namespace DysonNetwork.Shared.Models;
 
 public enum PunishmentType
 {
-    // TODO: impl the permission modification
     PermissionModification,
     BlockLogin,
     DisableAccount,

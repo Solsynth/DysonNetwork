@@ -5,6 +5,7 @@ using System.Text.Json;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Padlock.Account;
 
 namespace DysonNetwork.Padlock.Permission;
 
@@ -36,6 +37,45 @@ public class PermissionService(
 
     private static string GetPermissionGroupKey(string actor) =>
         PermissionGroupPrefix + actor;
+
+    public async Task<HashSet<string>> GetBlockedPermissionsAsync(string actor)
+    {
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name == actor);
+        if (account is null)
+            return new HashSet<string>();
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var blockedPermissions = await db.Punishments
+            .Where(p => p.AccountId == account.Id)
+            .Where(p => p.Type == PunishmentType.PermissionModification)
+            .Where(p => p.ExpiredAt == null || p.ExpiredAt > now)
+            .SelectMany(p => p.BlockedPermissions == null 
+                ? Enumerable.Empty<string>() 
+                : p.BlockedPermissions)
+            .ToHashSetAsync();
+
+        return blockedPermissions;
+    }
+
+    private bool IsPermissionBlocked(HashSet<string> blockedPermissions, string key)
+    {
+        foreach (var blocked in blockedPermissions)
+        {
+            if (key == blocked)
+                return true;
+            if (blocked.Contains('*') && MatchesWildcard(blocked, key))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool MatchesWildcard(string pattern, string target)
+    {
+        var regexPattern = "^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*") + "$";
+        var regex = new System.Text.RegularExpressions.Regex(regexPattern,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return regex.IsMatch(target);
+    }
 
     public async Task<bool> HasPermissionAsync(
         string actor,
@@ -74,6 +114,19 @@ public class PermissionService(
             var groupsId = await GetOrCacheUserGroupsAsync(actor, now);
 
             var permission = await FindPermissionNodeAsync(type, actor, key, groupsId);
+            if (type == PermissionNodeActorType.Account)
+            {
+                var blockedPermissions = await GetBlockedPermissionsAsync(actor);
+                if (IsPermissionBlocked(blockedPermissions, key))
+                {
+                    logger.LogDebug("Permission {Key} is blocked by punishment for {Actor}", key, actor);
+                    await cache.SetWithGroupsAsync<T>(cacheKey, default!,
+                        [GetPermissionGroupKey(actor)],
+                        _options.CacheExpiration);
+                    return default!;
+                }
+            }
+
             var result = permission != null ? DeserializePermissionValue<T>(permission.Value) : default;
 
             await cache.SetWithGroupsAsync(cacheKey, result,
