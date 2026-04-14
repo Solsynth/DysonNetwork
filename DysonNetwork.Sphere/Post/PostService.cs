@@ -824,6 +824,7 @@ public partial class PostService(
             }
 
             using var scope = factory.CreateScope();
+            var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
             var nty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
             var accountsClient =
                 scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
@@ -835,7 +836,7 @@ public partial class PostService(
                 try
                 {
                     // Find publisher by name/username
-                    var mentionedPublisher = await db
+                    var mentionedPublisher = await scopedDb
                         .Publishers.Include(p => p.Members)
                         .FirstOrDefaultAsync(p => p.Name == username);
 
