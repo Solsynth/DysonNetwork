@@ -292,7 +292,8 @@ public class ThoughtService(
 
         if (mergedSequenceCount > 0)
         {
-            logger.LogInformation("Merged {Count} historic MiChan sequences into canonical threads.", mergedSequenceCount);
+            logger.LogInformation("Merged {Count} historic MiChan sequences into canonical threads.",
+                mergedSequenceCount);
         }
 
         return mergedSequenceCount;
@@ -1182,6 +1183,7 @@ public class ThoughtService(
         chatHistoryBuilder.AppendLine();
 
         // Add hot memories context
+        var recentMemories = await memoryService.GetRecentMemoriesAsync(Guid.Parse(currentUser.Id), 8);
         if (hotMemories.Count > 0)
         {
             chatHistoryBuilder.AppendLine("与你相关的热点记忆（回复前优先复用这些上下文）：");
@@ -1193,6 +1195,15 @@ public class ThoughtService(
         else
         {
             chatHistoryBuilder.AppendLine("当前没有命中的热点记忆。遇到需要背景、偏好、长期关系判断的问题时，先主动搜索记忆。");
+            chatHistoryBuilder.AppendLine();
+        }
+
+        if (recentMemories.Count > 0)
+        {
+            chatHistoryBuilder.AppendLine("最近的新记忆（来自之前的对话或自动行为）：");
+            foreach (var memory in recentMemories.Take(8))
+                chatHistoryBuilder.AppendLine($"- {memory.ToPrompt()}");
+
             chatHistoryBuilder.AppendLine();
         }
 
@@ -1232,7 +1243,8 @@ public class ThoughtService(
         chatHistoryBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
         chatHistoryBuilder.AppendLine("非常重要：在读取记忆后，认清楚记忆是不是属于该用户的，再做出答复。");
         chatHistoryBuilder.AppendLine("你可以使用 userProfile.get_user_profile 查看当前用户档案。");
-        chatHistoryBuilder.AppendLine("当你对用户形成更稳定的印象、关系判断、好感度变化或重要标签时，优先使用 userProfile.update_user_profile 或 userProfile.adjust_relationship 立即更新。");
+        chatHistoryBuilder.AppendLine(
+            "当你对用户形成更稳定的印象、关系判断、好感度变化或重要标签时，优先使用 userProfile.update_user_profile 或 userProfile.adjust_relationship 立即更新。");
         chatHistoryBuilder.AppendLine("favorability、trust、intimacy 的取值范围是 -100 到 100。只有在确实有依据时才调整这些值。");
         chatHistoryBuilder.AppendLine();
         chatHistoryBuilder.AppendLine("当你需要获取最新信息、验证事实、了解不熟悉的主题、或用户询问需要实时数据的问题时，主动使用网络搜索。");
@@ -1242,7 +1254,7 @@ public class ThoughtService(
         chatHistoryBuilder.AppendLine("2. 不要主动提供建议或下一步行动方案，除非用户明确要求。");
         chatHistoryBuilder.AppendLine("3. 你不需要帮助用户解决所有问题 - 有时候简单回应就够了。");
         chatHistoryBuilder.AppendLine("4. 像正常人一样对话，可以有沉默、转移话题、或说不知道。");
-        
+
         var chatHistory = new ChatHistory(chatHistoryBuilder.ToString());
 
         var orderedPreviousThoughts = await LoadMiChanHistoryForPromptAsync(sequence, currentThoughtId);
@@ -1426,7 +1438,8 @@ public class ThoughtService(
         Guid accountId)
     {
         var stopwatch = Stopwatch.StartNew();
-        var (latestSummaryThought, rawThoughts, uncoveredThoughts) = ProjectMiChanHistoryWindowInternal(orderedThoughts);
+        var (latestSummaryThought, rawThoughts, uncoveredThoughts) =
+            ProjectMiChanHistoryWindowInternal(orderedThoughts);
         var latestSummaryText = GetThoughtText(latestSummaryThought);
         var originalCoveredThoughtId = GetCoveredThoughtId(latestSummaryThought);
         Guid? coveredThroughThoughtId = originalCoveredThoughtId;
@@ -1452,7 +1465,8 @@ public class ThoughtService(
                     compactPrefix.Count,
                     compactPrefixTokens
                 );
-                var compactedSummary = await GenerateMiChanCompactionSummaryAsync(accountId, latestSummaryText, compactPrefix);
+                var compactedSummary =
+                    await GenerateMiChanCompactionSummaryAsync(accountId, latestSummaryText, compactPrefix);
                 if (!string.IsNullOrWhiteSpace(compactedSummary))
                 {
                     latestSummaryText = compactedSummary;
@@ -1516,7 +1530,8 @@ public class ThoughtService(
         return ClampMiChanThoughtWindow(thoughts, tokenBudget);
     }
 
-    private (SnThinkingThought? latestSummaryThought, List<SnThinkingThought> rawThoughts, List<SnThinkingThought> uncoveredThoughts)
+    private (SnThinkingThought? latestSummaryThought, List<SnThinkingThought> rawThoughts, List<SnThinkingThought>
+        uncoveredThoughts)
         ProjectMiChanHistoryWindowInternal(List<SnThinkingThought> orderedThoughts)
     {
         var latestSummaryThought = orderedThoughts.LastOrDefault(IsMiChanCompactionThought);
@@ -1552,7 +1567,8 @@ public class ThoughtService(
         }
 
         var textPart = latestSummaryThought.Parts.FirstOrDefault(part => part.Type == ThinkingMessagePartType.Text);
-        if (!TryGetMetadataString(textPart?.Metadata, MiChanCoveredThroughThoughtIdMetadataKey, out var coveredThoughtIdText) ||
+        if (!TryGetMetadataString(textPart?.Metadata, MiChanCoveredThroughThoughtIdMetadataKey,
+                out var coveredThoughtIdText) ||
             !Guid.TryParse(coveredThoughtIdText, out var coveredThoughtId))
         {
             var fullThoughts = await GetPreviousThoughtsAsync(sequence);
@@ -1823,7 +1839,8 @@ public class ThoughtService(
         }
 
         var textPart = summaryThought.Parts.FirstOrDefault(part => part.Type == ThinkingMessagePartType.Text);
-        if (!TryGetMetadataString(textPart?.Metadata, MiChanCoveredThroughThoughtIdMetadataKey, out var thoughtIdText) ||
+        if (!TryGetMetadataString(textPart?.Metadata, MiChanCoveredThroughThoughtIdMetadataKey,
+                out var thoughtIdText) ||
             !Guid.TryParse(thoughtIdText, out var thoughtId))
         {
             return null;
@@ -1930,10 +1947,9 @@ public class ThoughtService(
             };
         }
         catch
-{
+        {
             return null;
         }
-
     }
 
     private static void AppendTimeContext(StringBuilder builder, string? userTimeZone)
@@ -1971,6 +1987,7 @@ public class ThoughtService(
 
         builder.AppendLine();
     }
+
     #endregion
 
     #region Conversation Management Commands
@@ -1979,17 +1996,19 @@ public class ThoughtService(
     {
         public Guid NewSequenceId { get; set; }
         public string Summary { get; set; } = null!;
+        public int ArchivedCount { get; set; }
     }
 
     public class CompactResult
     {
         public string Summary { get; set; } = null!;
+        public int ArchivedCount { get; set; }
     }
 
     public async Task<ClearResult> ClearConversationAsync(Guid accountId, Guid? existingSequenceId)
     {
         var stopwatch = Stopwatch.StartNew();
-        
+
         var sequence = existingSequenceId.HasValue
             ? await GetSequenceAsync(existingSequenceId.Value)
             : await GetCanonicalMiChanSequenceAsync(accountId);
@@ -2023,17 +2042,25 @@ public class ThoughtService(
         newSequence.IsPublic = sequence.IsPublic;
         await UpdateSequenceAsync(newSequence);
 
-        await SaveThoughtAsync(newSequence, [new SnThinkingMessagePart
-        {
-            Type = ThinkingMessagePartType.Text,
-            Text = $"你是刚和该用户开始新对话。用户想要换个话题，不需要提及之前的对话。\n\n之前对话的要点（仅供参考）：\n{summary}"
-        }], ThinkingThoughtRole.System, configGlobal.GetValue<string>("MiChan:ThinkingService") ?? "deepseek-chat", "michan");
+        await SaveThoughtAsync(newSequence, [
+                new SnThinkingMessagePart
+                {
+                    Type = ThinkingMessagePartType.Text,
+                    Text = $"你是刚和该用户开始新对话。用户想要换个话题，不需要提及之前的对话。\n\n之前对话的要点（仅供参考）：\n{summary}",
+                    Metadata = new Dictionary<string, object>
+                    {
+                        [SnThinkingMessagePart.MetadataKeys.CompactionSummary] = true,
+                        [SnThinkingMessagePart.MetadataKeys.CompactionArchivedCount] = allThoughts.Count
+                    }
+                }
+            ], ThinkingThoughtRole.System, configGlobal.GetValue<string>("MiChan:ThinkingService") ?? "deepseek-chat",
+            "michan");
 
         logger.LogInformation(
             "Cleared conversation for user {AccountId}. oldSequence={OldSequenceId}, newSequence={NewSequenceId}, summaryLength={SummaryLength}, elapsedMs={ElapsedMs}",
             accountId, sequence.Id, newSequence.Id, summary.Length, stopwatch.ElapsedMilliseconds);
 
-        return new ClearResult { NewSequenceId = newSequence.Id, Summary = summary };
+        return new ClearResult { NewSequenceId = newSequence.Id, Summary = summary, ArchivedCount = allThoughts.Count };
     }
 
     public async Task<bool> CheckAndAutoCompactAsync(Guid sequenceId, Guid accountId)
@@ -2106,17 +2133,20 @@ public class ThoughtService(
         olderThoughts.ForEach(t => t.IsArchived = true);
         await db.SaveChangesAsync();
 
-        await SaveThoughtAsync(sequence, [new SnThinkingMessagePart
-        {
-            Type = ThinkingMessagePartType.Text,
-            Text = $"以下是你们之前对话的摘要：\n{summary}\n\n继续当前对话。"
-        }], ThinkingThoughtRole.System, configGlobal.GetValue<string>("MiChan:ThinkingService") ?? "deepseek-chat", "michan");
+        await SaveThoughtAsync(sequence, [
+                new SnThinkingMessagePart
+                {
+                    Type = ThinkingMessagePartType.Text,
+                    Text = $"以下是你们之前对话的摘要：\n{summary}\n\n继续当前对话。"
+                }
+            ], ThinkingThoughtRole.System, configGlobal.GetValue<string>("MiChan:ThinkingService") ?? "deepseek-chat",
+            "michan");
 
         logger.LogInformation(
             "Compacted conversation for sequence {SequenceId}. summaryLength={SummaryLength}, elapsedMs={ElapsedMs}",
             sequenceId, summary.Length, stopwatch.ElapsedMilliseconds);
 
-        return new CompactResult { Summary = summary };
+        return new CompactResult { Summary = summary, ArchivedCount = olderThoughts.Count };
     }
 
     private string BuildConversationText(List<SnThinkingThought> thoughts)
@@ -2133,6 +2163,7 @@ public class ThoughtService(
                 }
             }
         }
+
         return builder.ToString();
     }
 
@@ -2150,9 +2181,9 @@ public class ThoughtService(
 
         var kernel = GetMiChanKernel();
         var settings = miChanKernelProvider.CreatePromptExecutionSettings(0.5);
-        
+
         var result = await kernel.InvokePromptAsync<string>(prompt, new KernelArguments(settings));
-        
+
         return result ?? "";
     }
 

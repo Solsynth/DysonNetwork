@@ -382,6 +382,37 @@ public class MemoryService(
     }
 
     /// <summary>
+    /// Get recently created memories (e.g., from autonomous job) for the current user.
+    /// Useful to mix recent context with hot memories.
+    /// </summary>
+    public async Task<List<MiChanMemoryRecord>> GetRecentMemoriesAsync(
+        Guid? accountId,
+        int limit = 8,
+        TimeSpan? maxAge = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!accountId.HasValue)
+            return [];
+
+        maxAge ??= TimeSpan.FromHours(24);
+
+        var cutoffTime = SystemClock.Instance.GetCurrentInstant() - Duration.FromHours(maxAge.Value.TotalHours);
+
+        var memories = await database.MemoryRecords
+            .Where(r => r.AccountId == accountId.Value)
+            .Where(r => r.IsActive)
+            .Where(r => r.CreatedAt >= cutoffTime)
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        logger.LogDebug("Retrieved {Count} recent memories for account {AccountId} (within {Hours}h)",
+            memories.Count, accountId, maxAge.Value.TotalHours);
+
+        return memories;
+    }
+
+    /// <summary>
     /// Get random memories from the database to add variety and serendipity.
     /// </summary>
     public async Task<List<MiChanMemoryRecord>> GetRandomMemoriesAsync(

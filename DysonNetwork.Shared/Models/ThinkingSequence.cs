@@ -62,6 +62,12 @@ public class SnThinkingMessagePart
     public SnFunctionCall? FunctionCall { get; set; }
     public SnFunctionResult? FunctionResult { get; set; }
     public string? Reasoning { get; set; }
+
+    public static class MetadataKeys
+    {
+        public const string CompactionSummary = "compaction_summary";
+        public const string CompactionArchivedCount = "compaction_archived_count";
+    }
 }
 
 public class SnFunctionCall

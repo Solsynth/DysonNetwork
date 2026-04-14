@@ -559,8 +559,17 @@ public class ThoughtController(
             {
                 var compactResult = await service.CompactHistoryAsync(sequence.Id, accountId);
                 logger.LogInformation(
-                    "Auto-compacted for user {AccountId}, sequence {SequenceId} in {ElapsedMs}ms",
-                    accountId, sequence.Id, autoCompactStopwatch.ElapsedMilliseconds);
+                    "Auto-compacted for user {AccountId}, sequence {SequenceId} in {ElapsedMs}ms, archivedCount={ArchivedCount}",
+                    accountId, sequence.Id, autoCompactStopwatch.ElapsedMilliseconds, compactResult.ArchivedCount);
+
+                var compactedJson = JsonSerializer.Serialize(new
+                {
+                    type = "auto_compacted",
+                    summary = compactResult.Summary,
+                    archived_count = compactResult.ArchivedCount
+                });
+                await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {compactedJson}\n\n"));
+                await Response.Body.FlushAsync();
             }
             catch (Exception ex)
             {
@@ -1090,7 +1099,8 @@ public class ThoughtController(
             {
                 type = "context_cleared",
                 newSequenceId = result.NewSequenceId,
-                summary = result.Summary
+                summary = result.Summary,
+                archived_count = result.ArchivedCount
             });
             await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {resultJson}\n\n"));
             await Response.Body.FlushAsync();
@@ -1131,7 +1141,8 @@ public class ThoughtController(
             var resultJson = JsonSerializer.Serialize(new
             {
                 type = "compacted",
-                summary = result.Summary
+                summary = result.Summary,
+                archived_count = result.ArchivedCount
             });
             await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {resultJson}\n\n"));
             await Response.Body.FlushAsync();
