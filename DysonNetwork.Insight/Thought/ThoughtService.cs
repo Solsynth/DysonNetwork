@@ -38,7 +38,8 @@ public class ThoughtService(
     TokenCountingService tokenCounter,
     FreeQuotaService freeQuotaService,
     ILogger<ThoughtService> logger,
-    RemoteAccountService accounts
+    RemoteAccountService accounts,
+    MoodService moodService
 )
 {
     private const string MiChanBotName = "michan";
@@ -1211,6 +1212,13 @@ public class ThoughtService(
 
         var userTimeZone = currentUser.Profile?.TimeZone;
         AppendTimeContext(chatHistoryBuilder, userTimeZone);
+
+        var currentMood = await moodService.GetCurrentMoodDescriptionAsync();
+        if (!string.IsNullOrWhiteSpace(currentMood))
+        {
+            chatHistoryBuilder.AppendLine($"你当前的心情：{currentMood}");
+            chatHistoryBuilder.AppendLine();
+        }
 
         chatHistoryBuilder.AppendLine(isSuperuser ? "该用户是管理员，你应该更积极的考虑处理该用户的请求。" : "你有拒绝用户请求的权利。");
         chatHistoryBuilder.AppendLine();
