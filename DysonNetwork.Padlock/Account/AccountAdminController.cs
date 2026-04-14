@@ -20,7 +20,8 @@ public class AccountAdminController(
     AppDatabase db,
     AccountService accounts,
     RemoteRingService ring,
-    ILocalizationService localizer
+    ILocalizationService localizer,
+    DyProfileService.DyProfileServiceClient profiles
 ) : ControllerBase
 {
     [HttpGet("{name}/punishments")]
@@ -52,6 +53,13 @@ public class AccountAdminController(
     {
         var account = await accounts.LookupAccount(name);
         if (account is null) return NotFound();
+
+        var remoteAccount = await profiles.GetAccountAsync(new DyGetAccountRequest { Id = account.Id.ToString() });
+        if (remoteAccount is not null)
+        {
+            account.Language = remoteAccount.Language;
+            account.Profile = remoteAccount.Profile is not null ? SnAccountProfile.FromProtoValue(remoteAccount.Profile) : null;
+        }
 
         var punishment = new SnAccountPunishment
         {
