@@ -122,5 +122,14 @@
   "ticketNewMessageTitle": "New Ticket Reply",
   "ticketNewMessageBody": "{senderName} replied to ticket \"{ticketTitle}\"",
   "ticketCreatedTitle": "New Ticket Created",
-  "ticketCreatedBody": "{creatorName} created a new ticket \"{ticketTitle}\""
+  "ticketCreatedBody": "{creatorName} created a new ticket \"{ticketTitle}\"",
+  "punishmentTitle": "Your account has a new action",
+  "punishmentTitlePermissionModification": "Permissions Restricted",
+  "punishmentTitleBlockLogin": "Login Blocked",
+  "punishmentTitleDisableAccount": "Account Disabled",
+  "punishmentTitleStrike": "Warning Issued",
+  "punishmentBody": "Reason: {reason}",
+  "punishmentBodyWithExpiry": "Reason: {reason}\nExpires: {expiredAt}",
+  "punishmentLiftedTitle": "Restriction Lifted",
+  "punishmentLiftedBody": "Your {type} restriction has been lifted"
 }

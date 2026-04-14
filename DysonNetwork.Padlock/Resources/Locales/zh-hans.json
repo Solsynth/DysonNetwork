@@ -122,5 +122,14 @@
   "ticketNewMessageTitle": "新工单回复",
   "ticketNewMessageBody": "{senderName} 回复了工单 \"{ticketTitle}\"",
   "ticketCreatedTitle": "新工单已创建",
-  "ticketCreatedBody": "{creatorName} 创建了新工单 \"{ticketTitle}\""
+  "ticketCreatedBody": "{creatorName} 创建了新工单 \"{ticketTitle}\"",
+  "punishmentTitle": "您的账户有一条新的处罚",
+  "punishmentTitlePermissionModification": "权限受限",
+  "punishmentTitleBlockLogin": "登陆已禁用",
+  "punishmentTitleDisableAccount": "账户已停用",
+  "punishmentTitleStrike": "警告已发出",
+  "punishmentBody": "原因：{reason}",
+  "punishmentBodyWithExpiry": "原因：{reason}\n过期时间：{expiredAt}",
+  "punishmentLiftedTitle": "限制已解除",
+  "punishmentLiftedBody": "您的 {type} 限制已被解除"
 }

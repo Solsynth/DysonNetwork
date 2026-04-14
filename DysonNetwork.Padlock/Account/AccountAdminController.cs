@@ -1,6 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
+using SnAccountPunishment = DysonNetwork.Shared.Models.SnAccountPunishment;
+using PunishmentType = DysonNetwork.Shared.Models.PunishmentType;
+using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +18,9 @@ namespace DysonNetwork.Padlock.Account;
 [Authorize]
 public class AccountAdminController(
     AppDatabase db,
-    AccountService accounts
+    AccountService accounts,
+    RemoteRingService ring,
+    ILocalizationService localizer
 ) : ControllerBase
 {
     [HttpGet("{name}/punishments")]
@@ -57,6 +64,38 @@ public class AccountAdminController(
 
         db.Punishments.Add(punishment);
         await db.SaveChangesAsync();
+
+        if (request.Type == PunishmentType.BlockLogin || request.Type == PunishmentType.DisableAccount)
+        {
+            await accounts.DeleteAllSessions(account);
+        }
+
+        var title = request.Type switch
+        {
+            PunishmentType.PermissionModification => localizer.Get("punishmentTitlePermissionModification", account.Language),
+            PunishmentType.BlockLogin => localizer.Get("punishmentTitleBlockLogin", account.Language),
+            PunishmentType.DisableAccount => localizer.Get("punishmentTitleDisableAccount", account.Language),
+            PunishmentType.Strike => localizer.Get("punishmentTitleStrike", account.Language),
+            _ => localizer.Get("punishmentTitle", account.Language)
+        };
+        var body = request.ExpiredAt.HasValue
+            ? localizer.Get("punishmentBodyWithExpiry", locale: account.Language, args: new { reason = request.Reason, expiredAt = request.ExpiredAt.Value.ToString() })
+            : localizer.Get("punishmentBody", locale: account.Language, args: new { reason = request.Reason });
+
+        try
+        {
+            await ring.SendPushNotificationToUser(
+                account.Id.ToString(),
+                "account.punishment",
+                title,
+                null,
+                body,
+                isSavable: true
+            );
+        }
+        catch
+        {
+        }
 
         var punishments = await db.Punishments
             .Where(p => p.AccountId == account.Id)
@@ -109,6 +148,25 @@ public class AccountAdminController(
 
         db.Punishments.Remove(punishment);
         await db.SaveChangesAsync();
+
+        var title = localizer.Get("punishmentLiftedTitle", account.Language);
+        var body = localizer.Get("punishmentLiftedBody", locale: account.Language, args: new { type = punishment.Type.ToString() });
+
+        try
+        {
+            await ring.SendPushNotificationToUser(
+                account.Id.ToString(),
+                "account.punishment.lifted",
+                title,
+                null,
+                body,
+                isSavable: true
+            );
+        }
+        catch
+        {
+        }
+
         return Ok();
     }
     

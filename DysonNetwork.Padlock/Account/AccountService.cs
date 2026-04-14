@@ -868,6 +868,35 @@ public class AccountService(
         );
     }
 
+    public async Task DeleteAllSessions(SnAccount account)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var sessions = await db.AuthSessions
+            .Where(s => s.AccountId == account.Id)
+            .Where(s => s.ExpiredAt == null)
+            .ToListAsync();
+
+        foreach (var session in sessions)
+        {
+            session.ExpiredAt = now;
+            await cache.SetAsync(
+                AuthCacheKeys.RevokedJti(session.Id.ToString()),
+                true,
+                TimeSpan.FromDays(AuthCacheKeys.RevokedJtiTtlDays)
+            );
+        }
+
+        if (sessions.Count > 0)
+        {
+            await db.SaveChangesAsync();
+            await CreateAccountActionLogAsync(
+                account.Id,
+                ActionLogType.SessionRevoke,
+                new Dictionary<string, object> { ["count"] = sessions.Count, ["reason"] = "account_punishment" }
+            );
+        }
+    }
+
     public async Task DeleteDevice(SnAccount account, string deviceId)
     {
         var client = await db.AuthClients.FirstOrDefaultAsync(c => c.AccountId == account.Id && c.DeviceId == deviceId);

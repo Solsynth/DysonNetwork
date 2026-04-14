@@ -130,3 +130,28 @@ Requires permission: `accounts.deletion`
 | Update Punishment | `punishments.update` |
 | Delete Punishment | `punishments.delete` |
 | Delete Account | `accounts.deletion` |
+
+## Notifications
+
+When a punishment is created or deleted, the system sends a push notification to the affected user.
+
+### Punishment Created
+- **Topic:** `account.punishment`
+- **Title:** Based on punishment type
+- **Body:** Includes reason and optional expiration date
+
+### Punishment Lifted
+- **Topic:** `account.punishment.lifted`
+- **Title:** "punishmentLiftedTitle"
+- **Body:** "punishmentLiftedBody" (includes the punishment type that was lifted)
+
+### Localization Keys
+- `punishmentTitle`
+- `punishmentTitlePermissionModification`
+- `punishmentTitleBlockLogin`
+- `punishmentTitleDisableAccount`
+- `punishmentTitleStrike`
+- `punishmentBody` (includes `{reason}`)
+- `punishmentBodyWithExpiry` (includes `{reason}`, `{expiredAt}`)
+- `punishmentLiftedTitle`
+- `punishmentLiftedBody` (includes `{type}`)
