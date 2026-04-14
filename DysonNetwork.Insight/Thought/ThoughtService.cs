@@ -462,6 +462,7 @@ public class ThoughtService(
 
         var thoughts = await db
             .ThinkingThoughts.Where(t => t.SequenceId == sequence.Id)
+            .Where(t => !t.IsArchived)
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
@@ -491,6 +492,7 @@ public class ThoughtService(
         {
             var batch = await db.ThinkingThoughts
                 .Where(t => t.SequenceId == sequence.Id)
+                .Where(t => !t.IsArchived)
                 .OrderByDescending(t => t.CreatedAt)
                 .ThenByDescending(t => t.Id)
                 .Skip(rawOffset)
@@ -1969,6 +1971,191 @@ public class ThoughtService(
 
         builder.AppendLine();
     }
+    #endregion
+
+    #region Conversation Management Commands
+
+    public class ClearResult
+    {
+        public Guid NewSequenceId { get; set; }
+        public string Summary { get; set; } = null!;
+    }
+
+    public class CompactResult
+    {
+        public string Summary { get; set; } = null!;
+    }
+
+    public async Task<ClearResult> ClearConversationAsync(Guid accountId, Guid? existingSequenceId)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        
+        var sequence = existingSequenceId.HasValue
+            ? await GetSequenceAsync(existingSequenceId.Value)
+            : await GetCanonicalMiChanSequenceAsync(accountId);
+
+        if (sequence == null)
+        {
+            return new ClearResult { NewSequenceId = Guid.Empty, Summary = "" };
+        }
+
+        var thoughts = await GetVisibleThoughtsPageAsync(sequence, 0, 500);
+        var allThoughts = thoughts.thoughts;
+
+        var conversationText = BuildConversationText(allThoughts);
+        if (string.IsNullOrWhiteSpace(conversationText) || allThoughts.Count < 4)
+        {
+            return new ClearResult { NewSequenceId = sequence.Id, Summary = "对话历史太短，无需清理" };
+        }
+
+        var summary = await GenerateConversationSummaryAsync(accountId, conversationText);
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            throw new InvalidOperationException("无法生成对话摘要，请稍后重试");
+        }
+
+        var newSequence = await GetOrCreateSequenceAsync(accountId, null, $"新对话 - {DateTime.UtcNow:yyyy-MM-dd}");
+        if (newSequence == null)
+        {
+            throw new InvalidOperationException("无法创建新对话");
+        }
+
+        newSequence.IsPublic = sequence.IsPublic;
+        await UpdateSequenceAsync(newSequence);
+
+        await SaveThoughtAsync(newSequence, [new SnThinkingMessagePart
+        {
+            Type = ThinkingMessagePartType.Text,
+            Text = $"你是刚和该用户开始新对话。用户想要换个话题，不需要提及之前的对话。\n\n之前对话的要点（仅供参考）：\n{summary}"
+        }], ThinkingThoughtRole.System, configGlobal.GetValue<string>("MiChan:ThinkingService") ?? "deepseek-chat", "michan");
+
+        logger.LogInformation(
+            "Cleared conversation for user {AccountId}. oldSequence={OldSequenceId}, newSequence={NewSequenceId}, summaryLength={SummaryLength}, elapsedMs={ElapsedMs}",
+            accountId, sequence.Id, newSequence.Id, summary.Length, stopwatch.ElapsedMilliseconds);
+
+        return new ClearResult { NewSequenceId = newSequence.Id, Summary = summary };
+    }
+
+    public async Task<bool> CheckAndAutoCompactAsync(Guid sequenceId, Guid accountId)
+    {
+        const int autoCompactThresholdTokens = 5000;
+
+        var sequence = await GetSequenceAsync(sequenceId);
+        if (sequence == null || sequence.AccountId != accountId)
+        {
+            return false;
+        }
+
+        var thoughts = await GetVisibleThoughtsPageAsync(sequence, 0, 200);
+        var allThoughts = thoughts.thoughts;
+
+        if (allThoughts.Count < 4)
+        {
+            return false;
+        }
+
+        var totalTokens = allThoughts.Sum(t => EstimateThoughtTokensForPrompt(t));
+        return totalTokens > autoCompactThresholdTokens;
+    }
+
+    public async Task<CompactResult> CompactHistoryAsync(Guid sequenceId, Guid accountId)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        const int compactThresholdTokens = 5000;
+
+        var sequence = await GetSequenceAsync(sequenceId);
+        if (sequence == null || sequence.AccountId != accountId)
+        {
+            return new CompactResult { Summary = "" };
+        }
+
+        var thoughts = await GetVisibleThoughtsPageAsync(sequence, 0, 200);
+        var allThoughts = thoughts.thoughts;
+
+        var userThoughts = allThoughts.Where(t => t.Role == ThinkingThoughtRole.User).ToList();
+        if (userThoughts.Count < 4)
+        {
+            return new CompactResult { Summary = "对话历史太短，无需整理" };
+        }
+
+        var totalTokens = allThoughts.Sum(t => EstimateThoughtTokensForPrompt(t));
+        if (totalTokens < compactThresholdTokens)
+        {
+            return new CompactResult { Summary = "对话历史较短，无需整理" };
+        }
+
+        var olderThoughts = allThoughts.Take(allThoughts.Count / 2).ToList();
+        var olderTokens = olderThoughts.Sum(EstimateThoughtTokensForPrompt);
+        if (olderTokens > compactThresholdTokens)
+        {
+            olderThoughts = ClampMiChanThoughtWindow(olderThoughts, compactThresholdTokens / 2);
+        }
+
+        var conversationText = BuildConversationText(olderThoughts);
+        if (string.IsNullOrWhiteSpace(conversationText))
+        {
+            return new CompactResult { Summary = "对话内容为空，无需整理" };
+        }
+
+        var summary = await GenerateConversationSummaryAsync(accountId, conversationText);
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            throw new InvalidOperationException("无法生成对话摘要，请稍后重试");
+        }
+
+        olderThoughts.ForEach(t => t.IsArchived = true);
+        await db.SaveChangesAsync();
+
+        await SaveThoughtAsync(sequence, [new SnThinkingMessagePart
+        {
+            Type = ThinkingMessagePartType.Text,
+            Text = $"以下是你们之前对话的摘要：\n{summary}\n\n继续当前对话。"
+        }], ThinkingThoughtRole.System, configGlobal.GetValue<string>("MiChan:ThinkingService") ?? "deepseek-chat", "michan");
+
+        logger.LogInformation(
+            "Compacted conversation for sequence {SequenceId}. summaryLength={SummaryLength}, elapsedMs={ElapsedMs}",
+            sequenceId, summary.Length, stopwatch.ElapsedMilliseconds);
+
+        return new CompactResult { Summary = summary };
+    }
+
+    private string BuildConversationText(List<SnThinkingThought> thoughts)
+    {
+        var builder = new StringBuilder();
+        foreach (var thought in thoughts)
+        {
+            var role = thought.Role == ThinkingThoughtRole.User ? "用户" : "MiChan";
+            foreach (var part in thought.Parts)
+            {
+                if (part.Type == ThinkingMessagePartType.Text && !string.IsNullOrWhiteSpace(part.Text))
+                {
+                    builder.AppendLine($"{role}: {part.Text}");
+                }
+            }
+        }
+        return builder.ToString();
+    }
+
+    private async Task<string> GenerateConversationSummaryAsync(Guid accountId, string conversationText)
+    {
+        var prompt = $@"请用简洁的中文总结以下对话要点（不超过500字）：
+
+{conversationText}
+
+摘要格式：
+- 讨论的话题
+- 用户的兴趣或偏好
+- 重要的决定或结论
+- 下次可以继续的内容";
+
+        var kernel = GetMiChanKernel();
+        var settings = miChanKernelProvider.CreatePromptExecutionSettings(0.5);
+        
+        var result = await kernel.InvokePromptAsync<string>(prompt, new KernelArguments(settings));
+        
+        return result ?? "";
+    }
+
     #endregion
 }
 

@@ -41,7 +41,8 @@ public class SnThinkingSequence : ModelBase
 public enum ThinkingThoughtRole
 {
     Assistant,
-    User
+    User,
+    System
 }
 
 public enum ThinkingMessagePartType
@@ -95,4 +96,5 @@ public class SnThinkingThought : ModelBase
 
     public Guid SequenceId { get; set; }
     [JsonIgnore] public SnThinkingSequence Sequence { get; set; } = null!;
+    public bool IsArchived { get; set; } = false;
 }

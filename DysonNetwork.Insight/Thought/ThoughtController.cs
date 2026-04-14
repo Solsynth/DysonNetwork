@@ -29,6 +29,18 @@ public class ThoughtController(
 {
     public static readonly List<string> AvailableProposals = ["post_create"];
     public static readonly List<string> AvailableBots = ["snchan", "michan"];
+    public static readonly List<string> AvailableCommands = ["/clear", "/compact", "/reset"];
+
+    public class CommandResponse
+    {
+        public string Command { get; set; } = null!;
+        public string Description { get; set; } = null!;
+    }
+
+    public class CommandsListResponse
+    {
+        public List<CommandResponse> Commands { get; set; } = [];
+    }
 
     public class StreamThinkingRequest
     {
@@ -87,6 +99,20 @@ public class ThoughtController(
             DefaultBot = "snchan",
             Bots = bots
         });
+    }
+
+    [HttpGet("commands")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<CommandsListResponse> GetAvailableCommands()
+    {
+        var commands = new List<CommandResponse>
+        {
+            new() { Command = "/clear", Description = "Clear conversation context, summarize history as memory, start fresh" },
+            new() { Command = "/compact", Description = "Summarize old messages, keep recent context" },
+            new() { Command = "/reset", Description = "Alias for /clear" }
+        };
+
+        return Ok(new CommandsListResponse { Commands = commands });
     }
 
     [HttpPost]
@@ -439,6 +465,19 @@ public class ThoughtController(
             if (currentUser.PerkLevel < serviceInfo.PerkLevel)
                 return StatusCode(403, "Not enough perk level");
 
+        if (!string.IsNullOrWhiteSpace(request.UserMessage))
+        {
+            var message = request.UserMessage.Trim();
+            if (message.StartsWith("/clear") || message.StartsWith("/reset"))
+            {
+                return await HandleClearCommandAsync(request, currentUser, accountId);
+            }
+            if (message.StartsWith("/compact"))
+            {
+                return await HandleCompactCommandAsync(request, currentUser, accountId);
+            }
+        }
+
         var canonicalSequence = await service.GetCanonicalMiChanSequenceAsync(accountId);
         if (canonicalSequence != null &&
             request.SequenceId.HasValue &&
@@ -507,6 +546,29 @@ public class ThoughtController(
 
         Response.Headers.Append("Content-Type", "text/event-stream");
         Response.StatusCode = 200;
+
+        var autoCompactStopwatch = Stopwatch.StartNew();
+        var needsAutoCompact = await service.CheckAndAutoCompactAsync(sequence.Id, accountId);
+        if (needsAutoCompact)
+        {
+            var compactingJson = JsonSerializer.Serialize(new { type = "status", data = "compacting" });
+            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {compactingJson}\n\n"));
+            await Response.Body.FlushAsync();
+
+            try
+            {
+                var compactResult = await service.CompactHistoryAsync(sequence.Id, accountId);
+                logger.LogInformation(
+                    "Auto-compacted for user {AccountId}, sequence {SequenceId} in {ElapsedMs}ms",
+                    accountId, sequence.Id, autoCompactStopwatch.ElapsedMilliseconds);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Auto-compact failed for user {AccountId}, sequence {SequenceId}", accountId, sequence.Id);
+                return BadRequest(new { error = "对话整理失败，请稍后重试" });
+            }
+        }
+
         var preparingJson = JsonSerializer.Serialize(new { type = "status", data = "preparing_context" });
         await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {preparingJson}\n\n"));
         await Response.Body.FlushAsync();
@@ -1007,6 +1069,84 @@ public class ThoughtController(
         await freeQuotaService.ResetAllQuotasAsync();
 
         return Ok(new { success = true, message = "All quotas reset successfully" });
+    }
+
+    private async Task<ActionResult> HandleClearCommandAsync(StreamThinkingRequest request, DyAccount currentUser, Guid accountId)
+    {
+        Response.Headers.Append("Content-Type", "text/event-stream");
+        Response.StatusCode = 200;
+
+        try
+        {
+            var sequenceId = request.SequenceId;
+            var result = await service.ClearConversationAsync(accountId, sequenceId);
+
+            if (result.NewSequenceId == Guid.Empty)
+            {
+                return BadRequest(new { error = "无法清理对话" });
+            }
+
+            var resultJson = JsonSerializer.Serialize(new
+            {
+                type = "context_cleared",
+                newSequenceId = result.NewSequenceId,
+                summary = result.Summary
+            });
+            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {resultJson}\n\n"));
+            await Response.Body.FlushAsync();
+
+            var doneJson = JsonSerializer.Serialize(new { type = "DONE" });
+            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {doneJson}\n\n"));
+            await Response.Body.FlushAsync();
+
+            return new EmptyResult();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to handle /clear command for user {AccountId}", accountId);
+            return BadRequest(new { error = "清理对话失败，请稍后重试" });
+        }
+    }
+
+    private async Task<ActionResult> HandleCompactCommandAsync(StreamThinkingRequest request, DyAccount currentUser, Guid accountId)
+    {
+        Response.Headers.Append("Content-Type", "text/event-stream");
+        Response.StatusCode = 200;
+
+        try
+        {
+            var sequence = await service.GetCanonicalMiChanSequenceAsync(accountId);
+            if (sequence == null)
+            {
+                return BadRequest(new { error = "没有找到对话" });
+            }
+
+            var result = await service.CompactHistoryAsync(sequence.Id, accountId);
+
+            if (string.IsNullOrWhiteSpace(result.Summary) || result.Summary == "对话历史太短，无需整理")
+            {
+                return BadRequest(new { error = result.Summary });
+            }
+
+            var resultJson = JsonSerializer.Serialize(new
+            {
+                type = "compacted",
+                summary = result.Summary
+            });
+            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {resultJson}\n\n"));
+            await Response.Body.FlushAsync();
+
+            var doneJson = JsonSerializer.Serialize(new { type = "DONE" });
+            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {doneJson}\n\n"));
+            await Response.Body.FlushAsync();
+
+            return new EmptyResult();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to handle /compact command for user {AccountId}", accountId);
+            return BadRequest(new { error = "整理对话失败，请稍后重试" });
+        }
     }
 }
 
