@@ -5,9 +5,6 @@ namespace DysonNetwork.Padlock.Permission;
 
 public class LocalPermissionMiddleware(RequestDelegate next, ILogger<LocalPermissionMiddleware> logger)
 {
-    private const string ForbiddenMessage = "Insufficient permissions";
-    private const string UnauthorizedMessage = "Authentication required";
-
     public async Task InvokeAsync(HttpContext httpContext, PermissionService pm)
     {
         var endpoint = httpContext.GetEndpoint();
@@ -18,20 +15,17 @@ public class LocalPermissionMiddleware(RequestDelegate next, ILogger<LocalPermis
 
         if (attr != null)
         {
-            // Validate permission attributes
+            if (httpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            {
+                await next(httpContext);
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(attr.Key))
             {
                 logger.LogWarning("Invalid permission attribute: Key='{Key}'", attr.Key);
                 httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
                 await httpContext.Response.WriteAsync("Server configuration error");
-                return;
-            }
-
-            if (httpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            {
-                logger.LogWarning("Permission check failed: No authenticated user for {Key}", attr.Key);
-                httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                await httpContext.Response.WriteAsync(UnauthorizedMessage);
                 return;
             }
 
@@ -52,7 +46,7 @@ public class LocalPermissionMiddleware(RequestDelegate next, ILogger<LocalPermis
                 {
                     logger.LogWarning("Permission denied for user {UserId}: {Key}", currentUser.Id, attr.Key);
                     httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
-                    await httpContext.Response.WriteAsync(ForbiddenMessage);
+                    await httpContext.Response.WriteAsync("Insufficient permissions");
                     return;
                 }
 
