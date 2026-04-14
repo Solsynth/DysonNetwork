@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using SnAccountPunishment = DysonNetwork.Shared.Models.SnAccountPunishment;
+using SnAccountProfile = DysonNetwork.Shared.Models.SnAccountProfile;
 using PunishmentType = DysonNetwork.Shared.Models.PunishmentType;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -25,15 +26,22 @@ public class AccountAdminController(
 ) : ControllerBase
 {
     [HttpGet("{name}/punishments")]
-    public async Task<ActionResult<List<SnAccountPunishment>>> GetPunishments(string name)
+    public async Task<ActionResult<AccountPunishmentResponse>> GetPunishments(string name)
     {
         var account = await accounts.LookupAccount(name);
         if (account is null) return NotFound();
 
+        var remoteAccount = await profiles.GetAccountAsync(new DyGetAccountRequest { Id = account.Id.ToString() });
+        if (remoteAccount is not null)
+        {
+            account.Language = remoteAccount.Language;
+            account.Profile = remoteAccount.Profile is not null ? SnAccountProfile.FromProtoValue(remoteAccount.Profile) : null;
+        }
+
         var punishments = await db.Punishments
             .Where(a => a.AccountId == account.Id)
             .ToListAsync();
-        return Ok(punishments);
+        return Ok(new AccountPunishmentResponse { Account = account, Punishments = punishments });
     }
 
     public class CreatePunishmentRequest
@@ -44,9 +52,15 @@ public class AccountAdminController(
         public List<string>? BlockedPermissions { get; set; }
     }
 
+    public class AccountPunishmentResponse
+    {
+        public SnAccount? Account { get; set; }
+        public List<SnAccountPunishment> Punishments { get; set; } = [];
+    }
+
     [HttpPost("{name}/punishments")]
     [AskPermission("punishments.create")]
-    public async Task<ActionResult<List<SnAccountPunishment>>> CreatePunishment(
+    public async Task<ActionResult<AccountPunishmentResponse>> CreatePunishment(
         string name,
         [FromBody] CreatePunishmentRequest request
     )
@@ -108,7 +122,7 @@ public class AccountAdminController(
         var punishments = await db.Punishments
             .Where(p => p.AccountId == account.Id)
             .ToListAsync();
-        return Ok(punishments);
+        return Ok(new AccountPunishmentResponse { Account = account, Punishments = punishments });
     }
 
     public class UpdatePunishmentRequest
@@ -121,7 +135,7 @@ public class AccountAdminController(
 
     [HttpPatch("{name}/punishments/{punishmentId}")]
     [AskPermission("punishments.update")]
-    public async Task<ActionResult<SnAccountPunishment>> UpdatePunishment(
+    public async Task<ActionResult<AccountPunishmentResponse>> UpdatePunishment(
         string name,
         Guid punishmentId,
         [FromBody] UpdatePunishmentRequest request
@@ -129,6 +143,13 @@ public class AccountAdminController(
     {
         var account = await accounts.LookupAccount(name);
         if (account is null) return NotFound();
+
+        var remoteAccount = await profiles.GetAccountAsync(new DyGetAccountRequest { Id = account.Id.ToString() });
+        if (remoteAccount is not null)
+        {
+            account.Language = remoteAccount.Language;
+            account.Profile = remoteAccount.Profile is not null ? SnAccountProfile.FromProtoValue(remoteAccount.Profile) : null;
+        }
 
         var punishment = await db.Punishments
             .FirstOrDefaultAsync(p => p.Id == punishmentId && p.AccountId == account.Id);
@@ -140,25 +161,37 @@ public class AccountAdminController(
         if (request.BlockedPermissions is not null) punishment.BlockedPermissions = request.BlockedPermissions;
 
         await db.SaveChangesAsync();
-        return Ok(punishment);
+
+        var punishments = await db.Punishments
+            .Where(p => p.AccountId == account.Id)
+            .ToListAsync();
+        return Ok(new AccountPunishmentResponse { Account = account, Punishments = punishments });
     }
 
     [HttpDelete("{name}/punishments/{punishmentId}")]
     [AskPermission("punishments.delete")]
-    public async Task<ActionResult> DeletePunishment(string name, Guid punishmentId)
+    public async Task<ActionResult<AccountPunishmentResponse>> DeletePunishment(string name, Guid punishmentId)
     {
         var account = await accounts.LookupAccount(name);
         if (account is null) return NotFound();
+
+        var remoteAccount = await profiles.GetAccountAsync(new DyGetAccountRequest { Id = account.Id.ToString() });
+        if (remoteAccount is not null)
+        {
+            account.Language = remoteAccount.Language;
+            account.Profile = remoteAccount.Profile is not null ? SnAccountProfile.FromProtoValue(remoteAccount.Profile) : null;
+        }
 
         var punishment = await db.Punishments
             .FirstOrDefaultAsync(p => p.Id == punishmentId && p.AccountId == account.Id);
         if (punishment is null) return NotFound();
 
+        var punishmentType = punishment.Type;
         db.Punishments.Remove(punishment);
         await db.SaveChangesAsync();
 
         var title = localizer.Get("punishmentLiftedTitle", account.Language);
-        var body = localizer.Get("punishmentLiftedBody", locale: account.Language, args: new { type = punishment.Type.ToString() });
+        var body = localizer.Get("punishmentLiftedBody", locale: account.Language, args: new { type = punishmentType.ToString() });
 
         try
         {
@@ -175,7 +208,10 @@ public class AccountAdminController(
         {
         }
 
-        return Ok();
+        var punishments = await db.Punishments
+            .Where(p => p.AccountId == account.Id)
+            .ToListAsync();
+        return Ok(new AccountPunishmentResponse { Account = account, Punishments = punishments });
     }
     
     [HttpDelete("{name}")]
