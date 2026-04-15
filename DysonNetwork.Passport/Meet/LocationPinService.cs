@@ -83,7 +83,6 @@ public class LocationPinService(
                 await db.SaveChangesAsync(cancellationToken);
                 
                 await HydratePinAsync(existingForMeet, cancellationToken);
-                await subscriptions.PublishAsync("pin_updated", existingForMeet, cancellationToken);
                 
                 if (meetId.HasValue)
                 {
@@ -96,6 +95,10 @@ public class LocationPinService(
                         await meetSubscriptions.PublishAsync("pin_updated", meet, cancellationToken);
                         await ExtendMeetExpirationAsync(meetId.Value, cancellationToken);
                     }
+                }
+                else
+                {
+                    await subscriptions.PublishAsync("pin_updated", existingForMeet, cancellationToken);
                 }
                 
                 logger.LogInformation("Pin {PinId} updated in place (distance {Distance}m < {Threshold}m)", existingForMeet.Id, distance, TrailDistanceThresholdMeters);
@@ -149,7 +152,6 @@ public class LocationPinService(
         }, cancellationToken);
 
         await HydratePinAsync(pin, cancellationToken);
-        await subscriptions.PublishAsync("pin_created", pin, cancellationToken);
 
         if (meetId.HasValue)
         {
@@ -162,6 +164,10 @@ public class LocationPinService(
                 await meetSubscriptions.PublishAsync("pin_created", meet, cancellationToken);
                 await ExtendMeetExpirationAsync(meetId.Value, cancellationToken);
             }
+        }
+        else
+        {
+            await subscriptions.PublishAsync("pin_created", pin, cancellationToken);
         }
 
         logger.LogInformation("Created location pin {PinId} for account {AccountId} on meet {MeetId}", pin.Id, accountId, meetId);
@@ -208,7 +214,6 @@ public class LocationPinService(
                 await db.SaveChangesAsync(cancellationToken);
                 
                 await HydratePinAsync(pin, cancellationToken);
-                await subscriptions.PublishAsync("pin_updated", pin, cancellationToken);
                 
                 if (meetId.HasValue)
                 {
@@ -220,6 +225,10 @@ public class LocationPinService(
                         pin.Meet = meet;
                         await meetSubscriptions.PublishAsync("pin_updated", meet, cancellationToken);
                     }
+                }
+                else
+                {
+                    await subscriptions.PublishAsync("pin_updated", pin, cancellationToken);
                 }
                 
                 logger.LogInformation("Pin {PinId} updated in place (distance {Distance}m < {Threshold}m)", pin.Id, distance, TrailDistanceThresholdMeters);
@@ -265,7 +274,6 @@ public class LocationPinService(
         }, cancellationToken);
 
         await HydratePinAsync(pin, cancellationToken);
-        await subscriptions.PublishAsync("pin_updated", pin, cancellationToken);
 
         if (meetId.HasValue)
         {
@@ -278,6 +286,10 @@ public class LocationPinService(
                 await meetSubscriptions.PublishAsync("pin_updated", meet, cancellationToken);
                 await ExtendMeetExpirationAsync(meetId.Value, cancellationToken);
             }
+        }
+        else
+        {
+            await subscriptions.PublishAsync("pin_updated", pin, cancellationToken);
         }
 
         return pin;
@@ -308,8 +320,6 @@ public class LocationPinService(
             AccountId = accountId
         }, cancellationToken);
 
-        await subscriptions.PublishAsync("pin_removed", pin, cancellationToken);
-
         if (previousMeetId.HasValue)
         {
             var meet = await db.Meets
@@ -320,6 +330,10 @@ public class LocationPinService(
                 pin.Meet = meet;
                 await meetSubscriptions.PublishAsync("pin_removed", meet, cancellationToken);
             }
+        }
+        else
+        {
+            await subscriptions.PublishAsync("pin_removed", pin, cancellationToken);
         }
 
         logger.LogInformation("Removed location pin {PinId} for account {AccountId}", pin.Id, accountId);
@@ -368,7 +382,6 @@ public class LocationPinService(
         }, cancellationToken);
 
         await HydratePinAsync(pin, cancellationToken);
-        await subscriptions.PublishAsync("pin_offline", pin, cancellationToken);
 
         if (meetId.HasValue)
         {
@@ -380,6 +393,10 @@ public class LocationPinService(
                 pin.Meet = meet;
                 await meetSubscriptions.PublishAsync("pin_offline", meet, cancellationToken);
             }
+        }
+        else
+        {
+            await subscriptions.PublishAsync("pin_offline", pin, cancellationToken);
         }
 
         logger.LogInformation("Pin {PinId} went offline for account {AccountId}, keeping until {ExpiresAt}", pin.Id, accountId, pin.ExpiresAt);

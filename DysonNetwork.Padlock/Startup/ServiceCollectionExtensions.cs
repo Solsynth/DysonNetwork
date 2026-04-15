@@ -157,6 +157,9 @@ public static class ServiceCollectionExtensions
         services.AddGrpcClientWithSharedChannel<DyProfileService.DyProfileServiceClient>(
             "https://_grpc.passport",
             "DyProfileService");
+        services.AddGrpcClientWithSharedChannel<DySocialCreditService.DySocialCreditServiceClient>(
+            "https://_grpc.passport",
+            "DySocialCreditService");
         services.AddGrpcClientWithSharedChannel<DyMagicSpellService.DyMagicSpellServiceClient>(
             "https://_grpc.passport",
             "DyMagicSpellService");
