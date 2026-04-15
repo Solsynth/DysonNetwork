@@ -1303,12 +1303,7 @@ public class AccountService(
             { PunishmentType.Strike, 3 }
         };
 
-        var mostSevere = punishments.MinBy(p => priority.GetValueOrDefault(p.Type, 99));
-        if (mostSevere != null)
-        {
-            await HydratePunishmentAccountBatch([mostSevere]);
-        }
-        return mostSevere;
+        return punishments.MinBy(p => priority.GetValueOrDefault(p.Type, 99));
     }
 
     /// <summary>
