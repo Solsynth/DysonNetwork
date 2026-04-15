@@ -1283,6 +1283,34 @@ public class AccountService(
         DeviceBound = 1 << 6
     }
 
+    public async Task<SnAccountPunishment?> GetActivePunishmentOverview(Guid accountId)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var punishments = await db.Punishments
+            .Where(p => p.AccountId == accountId)
+            .Where(p => p.ExpiredAt == null || p.ExpiredAt > now)
+            .OrderByDescending(p => p.Type)
+            .ToListAsync();
+
+        if (punishments.Count == 0)
+            return null;
+
+        var priority = new Dictionary<PunishmentType, int>
+        {
+            { PunishmentType.DisableAccount, 0 },
+            { PunishmentType.BlockLogin, 1 },
+            { PunishmentType.PermissionModification, 2 },
+            { PunishmentType.Strike, 3 }
+        };
+
+        var mostSevere = punishments.MinBy(p => priority.GetValueOrDefault(p.Type, 99));
+        if (mostSevere != null)
+        {
+            await HydratePunishmentAccountBatch([mostSevere]);
+        }
+        return mostSevere;
+    }
+
     /// <summary>
     /// Hydrates multiple accounts in a single batch request to minimize network overhead and allocations
     /// </summary>

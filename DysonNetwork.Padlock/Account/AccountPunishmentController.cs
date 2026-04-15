@@ -50,6 +50,17 @@ public class AccountPunishmentController(
         return Ok(punishments);
     }
 
+    [HttpGet("{name}/punishments/overview")]
+    public async Task<ActionResult<SnAccountPunishment>> GetPunishmentOverview(string name)
+    {
+        var account = await accounts.LookupAccount(name);
+        if (account is null)
+            return NotFound();
+
+        var overview = await accounts.GetActivePunishmentOverview(account.Id);
+        return Ok(overview);
+    }
+
     [HttpGet("me/punishments")]
     [Authorize]
     public async Task<ActionResult<AccountPunishmentResponse>> GetMyPunishments(

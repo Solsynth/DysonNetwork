@@ -31,7 +31,7 @@ public class AuthController(
 
     public class ChallengeRequest
     {
-        [Required] public Shared.Models.ClientPlatform Platform { get; set; }
+        [Required] public ClientPlatform Platform { get; set; }
         [Required] [MaxLength(256)] public string Account { get; set; } = null!;
         [Required] [MaxLength(512)] public string DeviceId { get; set; } = null!;
         [MaxLength(1024)] public string? DeviceName { get; set; }
@@ -44,6 +44,17 @@ public class AuthController(
     {
         var account = await accounts.LookupAccount(request.Account);
         if (account is null) return NotFound("Account was not found.");
+
+        var punishment = await accounts.GetActivePunishmentOverview(account.Id);
+        if (punishment is { Type: PunishmentType.DisableAccount or PunishmentType.BlockLogin })
+            return StatusCode(423, new ApiError
+            {
+                Code = "ACCOUNT_LOCKED",
+                Message = "Account is locked due to a punishment.",
+                Detail = punishment.Reason,
+                Status = 423,
+                TraceId = HttpContext.TraceIdentifier
+            });
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var ipAddress = HttpContext.GetClientIpAddress();
@@ -247,6 +258,17 @@ public class AuthController(
                     .FirstOrDefaultAsync();
                 if (challenge is null)
                     return BadRequest("Authorization code not found or expired.");
+
+                var punishment = await accounts.GetActivePunishmentOverview(challenge.AccountId);
+                if (punishment is { Type: PunishmentType.DisableAccount or PunishmentType.BlockLogin })
+                    return StatusCode(423, new ApiError
+                    {
+                        Code = "ACCOUNT_LOCKED",
+                        Message = "Account is locked due to a punishment.",
+                        Detail = punishment.Reason,
+                        Status = 423,
+                        TraceId = HttpContext.TraceIdentifier
+                    });
 
                 try
                 {
