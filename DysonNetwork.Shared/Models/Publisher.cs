@@ -44,9 +44,6 @@ public class SnPublisher : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public SnVerificationMark? Verification { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object>? Meta { get; set; }
 
-    [MaxLength(8192)][JsonIgnore] public string? PrivateKeyPem { get; set; }
-    [MaxLength(8192)] public string? PublicKeyPem { get; set; }
-
     [IgnoreMember][JsonIgnore] public List<SnPost> Posts { get; set; } = [];
     [IgnoreMember][JsonIgnore] public List<SnPoll> Polls { get; set; } = [];
     [IgnoreMember][JsonIgnore] public List<SnPostCollection> Collections { get; set; } = [];

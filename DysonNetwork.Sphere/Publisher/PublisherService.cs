@@ -936,11 +936,7 @@ public class PublisherService(
             .FirstOrDefaultAsync(p => p.Id == publisherId);
 
         if (publisher != null)
-        {
-            publisher.PrivateKeyPem = null;
-            publisher.PublicKeyPem = null;
             db.Update(publisher);
-        }
 
         db.FediverseActors.Remove(actor);
         await db.SaveChangesAsync();
