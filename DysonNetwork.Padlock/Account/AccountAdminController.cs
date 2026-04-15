@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Padlock.Account;
 
@@ -22,7 +23,8 @@ public class AccountAdminController(
     AccountService accounts,
     RemoteRingService ring,
     ILocalizationService localizer,
-    DyProfileService.DyProfileServiceClient profiles
+    DyProfileService.DyProfileServiceClient profiles,
+    DySocialCreditService.DySocialCreditServiceClient socialCredits
 ) : ControllerBase
 {
     [HttpGet("punishments/created")]
@@ -60,6 +62,7 @@ public class AccountAdminController(
         public Instant? ExpiredAt { get; set; }
         public PunishmentType Type { get; set; }
         public List<string>? BlockedPermissions { get; set; }
+        public double? SocialCreditReduction { get; set; }
     }
 
     [HttpPost("{name}/punishments")]
@@ -102,6 +105,19 @@ public class AccountAdminController(
             ? localizer.Get("punishmentBodyWithExpiry", locale: account.Language,
                 args: new { reason = request.Reason, expiredAt = request.ExpiredAt.Value.ToString() })
             : localizer.Get("punishmentBody", locale: account.Language, args: new { reason = request.Reason });
+
+        if (request.SocialCreditReduction is > 0)
+        {
+            await socialCredits.AddRecordAsync(new DyAddSocialCreditRecordRequest
+            {
+                AccountId = account.Id.ToString(),
+                Delta = -request.SocialCreditReduction.Value,
+                Reason = $"{title} {request.Reason}",
+                ReasonType = "punishments",
+                ExpiredAt = request.ExpiredAt?.ToTimestamp() ?? SystemClock.Instance.GetCurrentInstant()
+                    .Plus(Duration.FromDays(365)).ToTimestamp(),
+            });
+        }
 
         try
         {
