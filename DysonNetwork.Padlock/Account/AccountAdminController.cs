@@ -28,19 +28,28 @@ public class AccountAdminController(
     [HttpGet("punishments/created")]
     [Authorize]
     [AskPermission("punishments.view")]
-    public async Task<ActionResult<List<SnAccountPunishment>>> GetCreatedPunishments()
+    public async Task<ActionResult<List<SnAccountPunishment>>> GetCreatedPunishments(
+        [FromQuery] int take = 50,
+        [FromQuery] int offset = 0
+    )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        // Capture userId as local variable once outside expression tree will be cached by EF Core
         var userId = currentUser.Id;
 
-        var punishments = await db.Punishments
-            .Where(a => a.CreatorId == userId)
+        var query = db.Punishments
+            .Where(a => a.CreatorId == userId);
+
+        var total = await query.CountAsync();
+        Response.Headers.Append("X-Total", total.ToString());
+
+        var punishments = await query
+            .OrderByDescending(p => p.CreatedAt)
+            .Skip(offset)
+            .Take(take)
             .ToListAsync();
 
-        // Hydrate all accounts with single batch request
         await accounts.HydratePunishmentAccountBatch(punishments);
         return Ok(punishments);
     }

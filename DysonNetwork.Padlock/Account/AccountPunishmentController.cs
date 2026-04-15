@@ -21,16 +21,29 @@ public class AccountPunishmentController(
 ) : ControllerBase
 {
     [HttpGet("{name}/punishments")]
-    public async Task<ActionResult<List<SnAccountPunishment>>> GetActivePunishments(string name)
+    public async Task<ActionResult<List<SnAccountPunishment>>> GetActivePunishments(
+        string name,
+        [FromQuery] int take = 50,
+        [FromQuery] int offset = 0
+    )
     {
         var account = await accounts.LookupAccount(name);
         if (account is null)
             return NotFound();
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        var punishments = await db
+
+        var query = db
             .Punishments.Where(p => p.AccountId == account.Id)
-            .Where(p => p.ExpiredAt == null || p.ExpiredAt > now)
+            .Where(p => p.ExpiredAt == null || p.ExpiredAt > now);
+
+        var total = await query.CountAsync();
+        Response.Headers.Append("X-Total", total.ToString());
+
+        var punishments = await query
+            .OrderByDescending(p => p.CreatedAt)
+            .Skip(offset)
+            .Take(take)
             .ToListAsync();
         
         await accounts.HydratePunishmentAccountBatch(punishments);
@@ -39,14 +52,24 @@ public class AccountPunishmentController(
 
     [HttpGet("me/punishments")]
     [Authorize]
-    public async Task<ActionResult<AccountPunishmentResponse>> GetMyPunishments()
+    public async Task<ActionResult<AccountPunishmentResponse>> GetMyPunishments(
+        [FromQuery] int take = 50,
+        [FromQuery] int offset = 0
+    )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        var punishments = await db.Punishments
-            .Where(p => p.AccountId == currentUser.Id)
+        var query = db.Punishments
+            .Where(p => p.AccountId == currentUser.Id);
+
+        var total = await query.CountAsync();
+        Response.Headers.Append("X-Total", total.ToString());
+
+        var punishments = await query
             .OrderByDescending(p => p.CreatedAt)
+            .Skip(offset)
+            .Take(take)
             .ToListAsync();
         await accounts.HydratePunishmentAccountBatch(punishments);
         return Ok(
