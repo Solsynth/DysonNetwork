@@ -60,12 +60,15 @@ public class AccountAdminController(
         [FromBody] CreatePunishmentRequest request
     )
     {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
         var account = await accounts.LookupAccount(name);
         if (account is null) return NotFound();
 
         var punishment = new SnAccountPunishment
         {
             AccountId = account.Id,
+            CreatorId = currentUser.Id,
             Reason = request.Reason,
             ExpiredAt = request.ExpiredAt,
             Type = request.Type,
@@ -128,6 +131,8 @@ public class AccountAdminController(
         [FromBody] UpdatePunishmentRequest request
     )
     {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
         var account = await accounts.LookupAccount(name);
         if (account is null) return NotFound();
 
@@ -139,6 +144,7 @@ public class AccountAdminController(
         if (request.ExpiredAt is not null) punishment.ExpiredAt = request.ExpiredAt;
         if (request.Type is not null) punishment.Type = request.Type.Value;
         if (request.BlockedPermissions is not null) punishment.BlockedPermissions = request.BlockedPermissions;
+        if (punishment.CreatorId != currentUser.Id) punishment.CreatorId = currentUser.Id;
 
         await db.SaveChangesAsync();
 
