@@ -1287,6 +1287,7 @@ public class AccountService(
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var punishments = await db.Punishments
+            .AsNoTracking()
             .Where(p => p.AccountId == accountId)
             .Where(p => p.ExpiredAt == null || p.ExpiredAt > now)
             .OrderByDescending(p => p.Type)
@@ -1303,7 +1304,12 @@ public class AccountService(
             { PunishmentType.Strike, 3 }
         };
 
-        return punishments.MinBy(p => priority.GetValueOrDefault(p.Type, 99));
+        var mostSevere = punishments.MinBy(p => priority.GetValueOrDefault(p.Type, 99));
+        if (mostSevere != null)
+        {
+            await HydratePunishmentAccountBatch([mostSevere]);
+        }
+        return mostSevere;
     }
 
     /// <summary>
