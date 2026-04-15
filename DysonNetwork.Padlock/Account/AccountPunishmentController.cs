@@ -32,6 +32,8 @@ public class AccountPunishmentController(
             .Punishments.Where(p => p.AccountId == account.Id)
             .Where(p => p.ExpiredAt == null || p.ExpiredAt > now)
             .ToListAsync();
+        
+        await accounts.HydratePunishmentAccountBatch(punishments);
         return Ok(punishments);
     }
 
@@ -42,21 +44,11 @@ public class AccountPunishmentController(
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        var remoteAccount = await profiles.GetAccountAsync(
-            new DyGetAccountRequest { Id = currentUser.Id.ToString() }
-        );
-        if (remoteAccount is not null)
-        {
-            currentUser.Language = remoteAccount.Language;
-            currentUser.Profile = remoteAccount.Profile is not null
-                ? SnAccountProfile.FromProtoValue(remoteAccount.Profile)
-                : null;
-        }
-
-        var punishments = await db
-            .Punishments.Where(p => p.AccountId == currentUser.Id)
+        var punishments = await db.Punishments
+            .Where(p => p.AccountId == currentUser.Id)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync();
+        await accounts.HydratePunishmentAccountBatch(punishments);
         return Ok(
             new AccountPunishmentResponse { Account = currentUser, Punishments = punishments }
         );

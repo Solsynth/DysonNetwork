@@ -25,23 +25,24 @@ public class AccountAdminController(
     DyProfileService.DyProfileServiceClient profiles
 ) : ControllerBase
 {
-    [HttpGet("{name}/punishments")]
-    public async Task<ActionResult<AccountPunishmentResponse>> GetPunishments(string name)
+    [HttpGet("punishments/created")]
+    [Authorize]
+    [AskPermission("punishments.view")]
+    public async Task<ActionResult<List<SnAccountPunishment>>> GetCreatedPunishments()
     {
-        var account = await accounts.LookupAccount(name);
-        if (account is null) return NotFound();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
 
-        var remoteAccount = await profiles.GetAccountAsync(new DyGetAccountRequest { Id = account.Id.ToString() });
-        if (remoteAccount is not null)
-        {
-            account.Language = remoteAccount.Language;
-            account.Profile = remoteAccount.Profile is not null ? SnAccountProfile.FromProtoValue(remoteAccount.Profile) : null;
-        }
+        // Capture userId as local variable once outside expression tree will be cached by EF Core
+        var userId = currentUser.Id;
 
         var punishments = await db.Punishments
-            .Where(a => a.AccountId == account.Id)
+            .Where(a => a.CreatorId == userId)
             .ToListAsync();
-        return Ok(new AccountPunishmentResponse { Account = account, Punishments = punishments });
+
+        // Hydrate all accounts with single batch request
+        await accounts.HydratePunishmentAccountBatch(punishments);
+        return Ok(punishments);
     }
 
     public class CreatePunishmentRequest
@@ -52,28 +53,15 @@ public class AccountAdminController(
         public List<string>? BlockedPermissions { get; set; }
     }
 
-    public class AccountPunishmentResponse
-    {
-        public SnAccount? Account { get; set; }
-        public List<SnAccountPunishment> Punishments { get; set; } = [];
-    }
-
     [HttpPost("{name}/punishments")]
     [AskPermission("punishments.create")]
-    public async Task<ActionResult<AccountPunishmentResponse>> CreatePunishment(
+    public async Task<ActionResult<SnAccountPunishment>> CreatePunishment(
         string name,
         [FromBody] CreatePunishmentRequest request
     )
     {
         var account = await accounts.LookupAccount(name);
         if (account is null) return NotFound();
-
-        var remoteAccount = await profiles.GetAccountAsync(new DyGetAccountRequest { Id = account.Id.ToString() });
-        if (remoteAccount is not null)
-        {
-            account.Language = remoteAccount.Language;
-            account.Profile = remoteAccount.Profile is not null ? SnAccountProfile.FromProtoValue(remoteAccount.Profile) : null;
-        }
 
         var punishment = new SnAccountPunishment
         {
@@ -87,21 +75,20 @@ public class AccountAdminController(
         db.Punishments.Add(punishment);
         await db.SaveChangesAsync();
 
-        if (request.Type == PunishmentType.BlockLogin || request.Type == PunishmentType.DisableAccount)
-        {
+        if (request.Type is PunishmentType.BlockLogin or PunishmentType.DisableAccount)
             await accounts.DeleteAllSessions(account);
-        }
 
         var title = request.Type switch
         {
-            PunishmentType.PermissionModification => localizer.Get("punishmentTitlePermissionModification", account.Language),
+            PunishmentType.PermissionModification => localizer.Get("punishmentTitlePermissionModification",
+                account.Language),
             PunishmentType.BlockLogin => localizer.Get("punishmentTitleBlockLogin", account.Language),
             PunishmentType.DisableAccount => localizer.Get("punishmentTitleDisableAccount", account.Language),
-            PunishmentType.Strike => localizer.Get("punishmentTitleStrike", account.Language),
-            _ => localizer.Get("punishmentTitle", account.Language)
+            _ => localizer.Get("punishmentTitleStrike", account.Language)
         };
         var body = request.ExpiredAt.HasValue
-            ? localizer.Get("punishmentBodyWithExpiry", locale: account.Language, args: new { reason = request.Reason, expiredAt = request.ExpiredAt.Value.ToString() })
+            ? localizer.Get("punishmentBodyWithExpiry", locale: account.Language,
+                args: new { reason = request.Reason, expiredAt = request.ExpiredAt.Value.ToString() })
             : localizer.Get("punishmentBody", locale: account.Language, args: new { reason = request.Reason });
 
         try
@@ -110,19 +97,19 @@ public class AccountAdminController(
                 account.Id.ToString(),
                 "account.punishment",
                 title,
-                null,
+                localizer.Get("punishmentTitle", account.Language),
                 body,
                 isSavable: true
             );
         }
         catch
         {
+            // ignored
         }
 
-        var punishments = await db.Punishments
-            .Where(p => p.AccountId == account.Id)
-            .ToListAsync();
-        return Ok(new AccountPunishmentResponse { Account = account, Punishments = punishments });
+        var data = new List<SnAccountPunishment> { punishment };
+        await accounts.HydratePunishmentAccountBatch(data);
+        return Ok(data.First());
     }
 
     public class UpdatePunishmentRequest
@@ -135,7 +122,7 @@ public class AccountAdminController(
 
     [HttpPatch("{name}/punishments/{punishmentId}")]
     [AskPermission("punishments.update")]
-    public async Task<ActionResult<AccountPunishmentResponse>> UpdatePunishment(
+    public async Task<ActionResult<SnAccountPunishment>> UpdatePunishment(
         string name,
         Guid punishmentId,
         [FromBody] UpdatePunishmentRequest request
@@ -143,13 +130,6 @@ public class AccountAdminController(
     {
         var account = await accounts.LookupAccount(name);
         if (account is null) return NotFound();
-
-        var remoteAccount = await profiles.GetAccountAsync(new DyGetAccountRequest { Id = account.Id.ToString() });
-        if (remoteAccount is not null)
-        {
-            account.Language = remoteAccount.Language;
-            account.Profile = remoteAccount.Profile is not null ? SnAccountProfile.FromProtoValue(remoteAccount.Profile) : null;
-        }
 
         var punishment = await db.Punishments
             .FirstOrDefaultAsync(p => p.Id == punishmentId && p.AccountId == account.Id);
@@ -162,15 +142,14 @@ public class AccountAdminController(
 
         await db.SaveChangesAsync();
 
-        var punishments = await db.Punishments
-            .Where(p => p.AccountId == account.Id)
-            .ToListAsync();
-        return Ok(new AccountPunishmentResponse { Account = account, Punishments = punishments });
+        var data = new List<SnAccountPunishment> { punishment };
+        await accounts.HydratePunishmentAccountBatch(data);
+        return Ok(data.First());
     }
 
-    [HttpDelete("{name}/punishments/{punishmentId}")]
+    [HttpDelete("{name}/punishments/{punishmentId:guid}")]
     [AskPermission("punishments.delete")]
-    public async Task<ActionResult<AccountPunishmentResponse>> DeletePunishment(string name, Guid punishmentId)
+    public async Task<ActionResult> DeletePunishment(string name, Guid punishmentId)
     {
         var account = await accounts.LookupAccount(name);
         if (account is null) return NotFound();
@@ -179,7 +158,9 @@ public class AccountAdminController(
         if (remoteAccount is not null)
         {
             account.Language = remoteAccount.Language;
-            account.Profile = remoteAccount.Profile is not null ? SnAccountProfile.FromProtoValue(remoteAccount.Profile) : null;
+            account.Profile = remoteAccount.Profile is not null
+                ? SnAccountProfile.FromProtoValue(remoteAccount.Profile)
+                : null;
         }
 
         var punishment = await db.Punishments
@@ -191,7 +172,8 @@ public class AccountAdminController(
         await db.SaveChangesAsync();
 
         var title = localizer.Get("punishmentLiftedTitle", account.Language);
-        var body = localizer.Get("punishmentLiftedBody", locale: account.Language, args: new { type = punishmentType.ToString() });
+        var body = localizer.Get("punishmentLiftedBody", locale: account.Language,
+            args: new { type = punishmentType.ToString() });
 
         try
         {
@@ -206,14 +188,12 @@ public class AccountAdminController(
         }
         catch
         {
+            // ignored
         }
 
-        var punishments = await db.Punishments
-            .Where(p => p.AccountId == account.Id)
-            .ToListAsync();
-        return Ok(new AccountPunishmentResponse { Account = account, Punishments = punishments });
+        return Ok();
     }
-    
+
     [HttpDelete("{name}")]
     [AskPermission("accounts.deletion")]
     public async Task<IActionResult> AdminDeleteAccount(string name)

@@ -23,4 +23,7 @@ public class SnAccountPunishment : ModelBase
 
     public Guid AccountId { get; set; }
     public SnAccount Account { get; set; } = null!;
+    
+    public Guid? CreatorId { get; set; }
+    public SnAccount? Creator { get; set; }
 }

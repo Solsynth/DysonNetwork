@@ -29,7 +29,8 @@ public class AccountService(
     ILogger<AccountService> logger,
     IHttpContextAccessor httpContextAccessor,
     ActionLogService actionLogs,
-    DyMagicSpellService.DyMagicSpellServiceClient magicSpells
+    DyMagicSpellService.DyMagicSpellServiceClient magicSpells,
+    DyProfileService.DyProfileServiceClient profiles
 )
 {
     private const string AuthFactorCachePrefix = "authfactor:";
@@ -145,7 +146,8 @@ public class AccountService(
             .AnyAsync();
     }
 
-    public async Task<SnAccountAuthFactor?> CreateAuthFactor(SnAccount account, AccountAuthFactorType type, string? secret)
+    public async Task<SnAccountAuthFactor?> CreateAuthFactor(SnAccount account, AccountAuthFactorType type,
+        string? secret)
     {
         if (type == AccountAuthFactorType.RecoveryCode)
         {
@@ -217,10 +219,12 @@ public class AccountService(
                 Trustworthy = 1,
                 AccountId = account.Id,
                 Secret = null, // Verification is delegated to Passport via gRPC
-                Config = !string.IsNullOrEmpty(secret) ? new Dictionary<string, object>
-                {
-                    ["tag_id"] = secret
-                } : null,
+                Config = !string.IsNullOrEmpty(secret)
+                    ? new Dictionary<string, object>
+                    {
+                        ["tag_id"] = secret
+                    }
+                    : null,
                 EnabledAt = SystemClock.Instance.GetCurrentInstant(),
             },
             AccountAuthFactorType.Passkey when !string.IsNullOrWhiteSpace(secret) => new SnAccountAuthFactor
@@ -446,8 +450,10 @@ public class AccountService(
     {
         return factor.Type switch
         {
-            AccountAuthFactorType.EmailCode or AccountAuthFactorType.InAppCode => await VerifyCachedFactorCode(factor, code),
-            AccountAuthFactorType.Password or AccountAuthFactorType.PinCode => BCrypt.Net.BCrypt.Verify(code, factor.Secret),
+            AccountAuthFactorType.EmailCode or AccountAuthFactorType.InAppCode => await VerifyCachedFactorCode(factor,
+                code),
+            AccountAuthFactorType.Password or AccountAuthFactorType.PinCode => BCrypt.Net.BCrypt.Verify(code,
+                factor.Secret),
             AccountAuthFactorType.TimedCode => factor.VerifyPassword(code),
             AccountAuthFactorType.NfcToken => await VerifyNfcToken(code),
             AccountAuthFactorType.Passkey => await VerifyPasskey(factor, code),
@@ -521,7 +527,8 @@ public class AccountService(
                 }
             });
 
-            return Task.FromResult(ecDsa.VerifyData(signatureData, assertion.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256));
+            return Task.FromResult(ecDsa.VerifyData(signatureData, assertion.Signature,
+                System.Security.Cryptography.HashAlgorithmName.SHA256));
         }
         catch
         {
@@ -599,7 +606,8 @@ public class AccountService(
             if (attStmtMap.TryGetValue("sig", out var sigValue) && sigValue is byte[] signature)
                 statement.Signature = signature;
 
-            if (attStmtMap.TryGetValue("x5c", out var x5CValue) && x5CValue is List<object> x5CList && x5CList.Count > 0 && x5CList[0] is byte[] certBytes)
+            if (attStmtMap.TryGetValue("x5c", out var x5CValue) && x5CValue is List<object> x5CList &&
+                x5CList.Count > 0 && x5CList[0] is byte[] certBytes)
                 statement.AttestationCertificate = certBytes;
 
             if (attStmtMap.TryGetValue("alg", out var algValue) && algValue is int alg)
@@ -681,6 +689,7 @@ public class AccountService(
             var len = initialByte - 0x60 + 1;
             return reader.ReadBytes(len);
         }
+
         if (initialByte >= 0x80 && initialByte <= 0x97)
         {
             var count = initialByte - 0x80 + 1;
@@ -689,6 +698,7 @@ public class AccountService(
                 items.Add(ReadCbor(reader)!);
             return items;
         }
+
         if (initialByte == 0xA0)
         {
             var map = new Dictionary<object, object>();
@@ -699,8 +709,10 @@ public class AccountService(
                 var v = ReadCbor(reader);
                 if (k != null) map[k] = v!;
             }
+
             return map;
         }
+
         if (initialByte == 0x20 || initialByte == 0x21 || initialByte == 0x22 || initialByte == 0x23)
             return reader.ReadBytes(initialByte - 0x20 + 1);
         if (initialByte == 0x58)
@@ -711,7 +723,8 @@ public class AccountService(
         return null;
     }
 
-    private static bool VerifyAttestationStatement(AttestationStatement statement, string clientDataJson, string expectedChallenge)
+    private static bool VerifyAttestationStatement(AttestationStatement statement, string clientDataJson,
+        string expectedChallenge)
     {
         if (!statement.UserPresent)
             return false;
@@ -722,10 +735,12 @@ public class AccountService(
         if (root.TryGetProperty("type", out var typeElement) && typeElement.GetString() != "webauthn.create")
             return false;
 
-        if (root.TryGetProperty("challenge", out var challengeElement) && challengeElement.GetString() != expectedChallenge)
+        if (root.TryGetProperty("challenge", out var challengeElement) &&
+            challengeElement.GetString() != expectedChallenge)
             return false;
 
-        var clientDataHash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(clientDataJson));
+        var clientDataHash =
+            System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(clientDataJson));
 
         if (statement.Format == "packed")
         {
@@ -742,7 +757,8 @@ public class AccountService(
                 try
                 {
                     ecDsa.ImportSubjectPublicKeyInfo(statement.AttestationCertificate, out _);
-                    return ecDsa.VerifyData(signedData.ToArray(), statement.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256);
+                    return ecDsa.VerifyData(signedData.ToArray(), statement.Signature,
+                        System.Security.Cryptography.HashAlgorithmName.SHA256);
                 }
                 catch
                 {
@@ -768,7 +784,8 @@ public class AccountService(
                         }
                     };
                     ecDsa.ImportParameters(keyParams);
-                    return ecDsa.VerifyData(signedData.ToArray(), statement.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256);
+                    return ecDsa.VerifyData(signedData.ToArray(), statement.Signature,
+                        System.Security.Cryptography.HashAlgorithmName.SHA256);
                 }
                 catch
                 {
@@ -798,7 +815,8 @@ public class AccountService(
                 return false;
             }
 
-            return ecDsa.VerifyData(signedData.ToArray(), statement.Signature, System.Security.Cryptography.HashAlgorithmName.SHA256);
+            return ecDsa.VerifyData(signedData.ToArray(), statement.Signature,
+                System.Security.Cryptography.HashAlgorithmName.SHA256);
         }
 
         return false;
@@ -829,6 +847,7 @@ public class AccountService(
             if (key != null)
                 map[key] = value!;
         }
+
         reader.ReadByte();
         return map;
     }
@@ -997,7 +1016,8 @@ public class AccountService(
         return contact;
     }
 
-    public async Task<SnAccountContact> SetContactMethodPublic(SnAccount account, SnAccountContact contact, bool isPublic)
+    public async Task<SnAccountContact> SetContactMethodPublic(SnAccount account, SnAccountContact contact,
+        bool isPublic)
     {
         contact.IsPublic = isPublic;
         db.Update(contact);
@@ -1087,12 +1107,13 @@ public class AccountService(
 
         return candidate;
     }
+
     public async Task<SnAccount> CreateBotAccount(
-       SnAccount account,
-       Guid automatedId,
-       string? pictureId,
-       string? backgroundId
-   )
+        SnAccount account,
+        Guid automatedId,
+        string? pictureId,
+        string? backgroundId
+    )
     {
         var dupeAutomateCount = await db.Set<SnAccount>().Where(a => a.AutomatedId == automatedId).CountAsync();
         if (dupeAutomateCount > 0)
@@ -1238,7 +1259,8 @@ public class AccountService(
 
         public byte[] GetSignedData(string clientDataJson)
         {
-            var clientDataHash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(clientDataJson));
+            var clientDataHash =
+                System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(clientDataJson));
             var signedData = new byte[37 + clientDataHash.Length];
             Buffer.BlockCopy(RpIdHash, 0, signedData, 0, 32);
             signedData[32] = (byte)Flags;
@@ -1259,5 +1281,38 @@ public class AccountService(
         BackupEligibility = 1 << 2,
         BackupState = 1 << 3,
         DeviceBound = 1 << 6
+    }
+
+    /// <summary>
+    /// Hydrates multiple accounts in a single batch request to minimize network overhead and allocations
+    /// </summary>
+    public async Task HydratePunishmentAccountBatch(List<SnAccountPunishment> punishments)
+    {
+        var accountIds = punishments
+            .SelectMany(p => p.CreatorId.HasValue ? new[] { p.AccountId, p.CreatorId.Value } : new[] { p.AccountId })
+            .Distinct()
+            .Select(id => id.ToString())
+            .ToList();
+
+        if (accountIds.Count == 0)
+            return;
+
+        // Batch request - single gRPC call instead of N separate calls
+        var request = new DyGetAccountBatchRequest();
+        request.Id.AddRange(accountIds);
+        var response = await profiles.GetAccountBatchAsync(request);
+
+        // Build lookup dictionary for O(1) access
+        var accountLookup = response.Accounts
+            .ToDictionary(a => Guid.Parse(a.Id), SnAccount.FromProtoValue);
+
+        // Assign hydrated accounts back to punishments
+        foreach (var punishment in punishments)
+        {
+            if (accountLookup.TryGetValue(punishment.AccountId, out var account))
+                punishment.Account = account;
+            if (punishment.CreatorId.HasValue && accountLookup.TryGetValue(punishment.CreatorId.Value, out var creator))
+                punishment.Creator = creator;
+        }
     }
 }
