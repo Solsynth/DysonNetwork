@@ -248,11 +248,17 @@ public class PostController(
 
         HashSet<Guid>? gatekeptPublisherIds = null;
         HashSet<Guid>? subscriberPublisherIds = null;
+        HashSet<Guid>? shadowbannedPublisherIds = null;
 
         if (publisherIdsInQuery.Count > 0)
         {
             gatekeptPublisherIds = (await db.Publishers
                 .Where(p => publisherIdsInQuery.Contains(p.Id) && p.GatekeptFollows == true)
+                .Select(p => p.Id)
+                .ToListAsync()).ToHashSet();
+
+            shadowbannedPublisherIds = (await db.Publishers
+                .Where(p => publisherIdsInQuery.Contains(p.Id) && p.IsShadowbanned)
                 .Select(p => p.Id)
                 .ToListAsync()).ToHashSet();
 
@@ -281,6 +287,11 @@ public class PostController(
             gatekeptPublisherIds,
             subscriberPublisherIds
         );
+
+        if (shadowbannedPublisherIds != null && shadowbannedPublisherIds.Count > 0)
+        {
+            query = query.Where(p => !shadowbannedPublisherIds.Contains(p.PublisherId!.Value) && !p.IsShadowbanned);
+        }
 
         if (shuffle)
         {

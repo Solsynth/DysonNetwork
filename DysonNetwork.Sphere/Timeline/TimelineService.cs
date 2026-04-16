@@ -33,9 +33,6 @@ public class TimelineService(
     private const int RecentServedPostLimit = 100;
     private const double AutomatedPostPenalty = 2.5d;
     private const double SubscriptionBoostBonus = 1.5d;
-    private const double PublisherShadowbanPenalty = 50.0d;
-    private const double PostShadowbanPenalty = 40.0d;
-    private const double ShadowbanHideThreshold = -10.0d;
     private static readonly TimeSpan DiscoveryProfileCacheTtl = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan FriendIdsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan UserRealmsCacheTtl = TimeSpan.FromMinutes(2);
@@ -432,7 +429,7 @@ public class TimelineService(
         var subscriptionBoost = currentUser is null
             ? new Dictionary<Guid, double>()
             : await GetSubscriptionBoostMap(posts, Guid.Parse(currentUser.Id));
-        var shadowbanPenalty = await GetShadowbanPenaltyMap(posts);
+        var shadowbanStatus = await GetShadowbanStatusMap(posts);
         var automodPenalties = await automodService.GetAutomodPenaltiesAsync(posts);
 
         const double PersonalizationBoostMultiplier = 3.0d;
@@ -446,7 +443,7 @@ public class TimelineService(
             .Select(p =>
             {
                 var (automodPenaltyValue, shouldHide) = automodPenalties.GetValueOrDefault(p.Id, (0d, false));
-                var shadowbanPenaltyValue = shadowbanPenalty.GetValueOrDefault(p.Id, 0d);
+                var (isShadowbanned, isShadowbannedForListing) = shadowbanStatus.GetValueOrDefault(p.Id, (false, false));
                 var persoBonus = personalizationBonus.GetValueOrDefault(p.Id, 0d) * PersonalizationBoostMultiplier;
                 var baseRank = CalculateBaseRank(p, now)
                     - recentServedPenalty.GetValueOrDefault(p.Id, 0d)
@@ -454,19 +451,18 @@ public class TimelineService(
                     + publisherLevelBonus.GetValueOrDefault(p.Id, 0d)
                     - automatedPenalty.GetValueOrDefault(p.Id, 0d)
                     + subscriptionBoost.GetValueOrDefault(p.Id, 0d)
-                    - shadowbanPenaltyValue
                     - automodPenaltyValue;
 
                 logger.LogTrace(
-                    "Post {PostId}: baseRank={BaseRank}, persoBonus={PersoBonus}, shadowbanPenalty={ShadowbanPenalty}, automodPenalty={AutomodPenalty}, finalRank={FinalRank}, shouldHide={ShouldHide}",
-                    p.Id, CalculateBaseRank(p, now), persoBonus, shadowbanPenaltyValue, automodPenaltyValue, baseRank, shouldHide
+                    "Post {PostId}: baseRank={BaseRank}, persoBonus={PersoBonus}, shadowbanForListing={ShadowbanForListing}, automodPenalty={AutomodPenalty}, finalRank={FinalRank}, shouldHide={ShouldHide}",
+                    p.Id, CalculateBaseRank(p, now), persoBonus, isShadowbannedForListing, automodPenaltyValue, baseRank, shouldHide || isShadowbannedForListing
                 );
 
                 return new RankedPostCandidate
                 {
                     Post = p,
                     Rank = baseRank,
-                    ShouldHide = shouldHide
+                    ShouldHide = shouldHide || isShadowbannedForListing
                 };
             })
             .Where(x => !x.ShouldHide)
@@ -664,7 +660,9 @@ public class TimelineService(
         );
     }
 
-    private async Task<Dictionary<Guid, double>> GetShadowbanPenaltyMap(List<SnPost> posts)
+    private async Task<Dictionary<Guid, (bool IsShadowbanned, bool IsShadowbannedForListing)>> GetShadowbanStatusMap(
+        List<SnPost> posts
+    )
     {
         var publisherIds = posts
             .Where(p => p.PublisherId.HasValue)
@@ -672,7 +670,7 @@ public class TimelineService(
             .Distinct()
             .ToList();
 
-        Dictionary<Guid, (bool IsShadowbanned, double Penalty)> publisherShadowbanStatus;
+        Dictionary<Guid, bool> publisherShadowbanStatus;
         if (publisherIds.Count == 0)
         {
             publisherShadowbanStatus = [];
@@ -683,33 +681,26 @@ public class TimelineService(
                 .Where(p => publisherIds.Contains(p.Id))
                 .Select(p => new { p.Id, p.IsShadowbanned })
                 .ToListAsync();
-            publisherShadowbanStatus = shadowbanData.ToDictionary(
-                x => x.Id,
-                x => (x.IsShadowbanned, x.IsShadowbanned ? PublisherShadowbanPenalty : 0d)
-            );
+            publisherShadowbanStatus = shadowbanData.ToDictionary(x => x.Id, x => x.IsShadowbanned);
         }
 
         var result = posts.ToDictionary(
             p => p.Id,
             p =>
             {
-                double penalty = 0d;
-                if (p.PublisherId.HasValue && publisherShadowbanStatus.TryGetValue(p.PublisherId.Value, out var pubStatus))
-                {
-                    penalty += pubStatus.Penalty;
-                }
-                if (p.IsShadowbanned)
-                {
-                    penalty += PostShadowbanPenalty;
-                }
-                return penalty;
+                var isPublisherShadowbanned = p.PublisherId.HasValue &&
+                    publisherShadowbanStatus.GetValueOrDefault(p.PublisherId.Value, false);
+                var isPostShadowbanned = p.IsShadowbanned;
+                var isShadowbannedForListing = isPublisherShadowbanned || isPostShadowbanned;
+                return (isShadowbanned: isPublisherShadowbanned || isPostShadowbanned, isShadowbannedForListing);
             }
         );
 
-        var shadowbannedCount = result.Count(r => r.Value > 0);
         logger.LogDebug(
-            "GetShadowbanPenaltyMap: posts={PostCount}, shadowbannedPublishers={ShadowbannedPubCount}, shadowbannedPosts={ShadowbannedPostCount}",
-            posts.Count, publisherShadowbanStatus.Count(r => r.Value.IsShadowbanned), shadowbannedCount
+            "GetShadowbanStatusMap: posts={PostCount}, shadowbannedPublishers={ShadowbannedPubCount}, shadowbannedPosts={ShadowbannedPostCount}",
+            posts.Count,
+            publisherShadowbanStatus.Count(x => x.Value),
+            result.Count(x => x.Value.Item1)
         );
 
         return result;

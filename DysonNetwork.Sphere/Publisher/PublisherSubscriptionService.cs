@@ -81,6 +81,8 @@ public class PublisherSubscriptionService(
             return 0;
         if (post.Visibility != Shared.Models.PostVisibility.Public)
             return 0;
+        if (post.Publisher.IsShadowbanned)
+            return 0;
 
         var postsRequireFollow = await pub.HasPostsRequireFollowFlag(post.PublisherId.Value);
         if (postsRequireFollow)

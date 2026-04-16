@@ -842,6 +842,8 @@ public partial class PostService(
 
                     if (mentionedPublisher == null)
                         continue;
+                    if (mentionedPublisher.IsShadowbanned)
+                        continue;
 
                     // Get all member accounts of the mentioned publisher
                     var memberIds = mentionedPublisher
@@ -2175,7 +2177,8 @@ public partial class PostService(
                 .Posts.Where(e => e.Visibility == PostVisibility.Public)
                 .Where(e => e.CreatedAt >= periodStart && e.CreatedAt < periodEnd)
                 .Where(e => e.FediverseUri == null)
-                .Where(e => e.Publisher == null || e.Publisher.GatekeptFollows != true)
+                .Where(e => e.Publisher == null || (e.Publisher.GatekeptFollows != true && e.Publisher.IsShadowbanned != true))
+                .Where(e => e.IsShadowbanned != true)
                 .Select(e => e.Id)
                 .ToListAsync();
 
