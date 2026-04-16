@@ -1658,6 +1658,9 @@ public class TimelineService(
     )
     {
         return posts
+            .Where(p =>
+                !(p.PublisherId.HasValue && p.Publisher?.IsShadowbanned == true) &&
+                !p.IsShadowbanned)
             .OrderByDescending(GetPostTimelineInstant)
             .Take(take)
             .Select(post =>
