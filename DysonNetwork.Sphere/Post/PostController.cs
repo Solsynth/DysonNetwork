@@ -290,7 +290,9 @@ public class PostController(
 
         if (shadowbannedPublisherIds != null && shadowbannedPublisherIds.Count > 0)
         {
-            query = query.Where(p => !shadowbannedPublisherIds.Contains(p.PublisherId!.Value) && !p.IsShadowbanned);
+            query = query.Where(p =>
+                !shadowbannedPublisherIds.Contains(p.PublisherId!.Value) &&
+                (p.ShadowbanReason == null || p.ShadowbanReason == PostShadowbanReason.None));
         }
 
         if (shuffle)
