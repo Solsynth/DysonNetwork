@@ -258,7 +258,7 @@ public class PostController(
                 .ToListAsync()).ToHashSet();
 
             shadowbannedPublisherIds = (await db.Publishers
-                .Where(p => publisherIdsInQuery.Contains(p.Id) && p.IsShadowbanned)
+                .Where(p => publisherIdsInQuery.Contains(p.Id) && p.ShadowbanReason != null && p.ShadowbanReason != PublisherShadowbanReason.None)
                 .Select(p => p.Id)
                 .ToListAsync()).ToHashSet();
 

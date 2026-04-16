@@ -2177,8 +2177,8 @@ public partial class PostService(
                 .Posts.Where(e => e.Visibility == PostVisibility.Public)
                 .Where(e => e.CreatedAt >= periodStart && e.CreatedAt < periodEnd)
                 .Where(e => e.FediverseUri == null)
-                .Where(e => e.Publisher == null || (e.Publisher.GatekeptFollows != true && e.Publisher.IsShadowbanned != true))
-                .Where(e => e.IsShadowbanned != true)
+                .Where(e => e.Publisher == null || (e.Publisher.GatekeptFollows != true && (e.Publisher.ShadowbanReason == null || e.Publisher.ShadowbanReason == PublisherShadowbanReason.None)))
+                .Where(e => e.ShadowbanReason == null || e.ShadowbanReason == PostShadowbanReason.None)
                 .Select(e => e.Id)
                 .ToListAsync();
 

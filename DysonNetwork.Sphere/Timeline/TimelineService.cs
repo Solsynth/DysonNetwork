@@ -679,9 +679,12 @@ public class TimelineService(
         {
             var shadowbanData = await db.Publishers
                 .Where(p => publisherIds.Contains(p.Id))
-                .Select(p => new { p.Id, p.IsShadowbanned })
+                .Select(p => new { p.Id, p.ShadowbanReason })
                 .ToListAsync();
-            publisherShadowbanStatus = shadowbanData.ToDictionary(x => x.Id, x => x.IsShadowbanned);
+            publisherShadowbanStatus = shadowbanData.ToDictionary(
+                x => x.Id,
+                x => x.ShadowbanReason.HasValue && x.ShadowbanReason != PublisherShadowbanReason.None
+            );
         }
 
         var result = posts.ToDictionary(
