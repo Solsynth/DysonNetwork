@@ -1405,9 +1405,10 @@ public partial class ChatService(
             notify: false
         );
 
-        // Explicitly mark message as updated to ensure ReactionsCount change is persisted
-        db.Update(message);
-        await db.SaveChangesAsync();
+        // Explicitly update ReactionsCount in database to avoid entity tracking issues
+        await db.ChatMessages
+            .Where(m => m.Id == message.Id)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(m => m.ReactionsCount, message.ReactionsCount));
 
         await HydrateMessageReactionsAsync([message], sender.AccountId);
 
@@ -1491,9 +1492,10 @@ public partial class ChatService(
             notify: false
         );
 
-        // Explicitly mark message as updated to ensure ReactionsCount change is persisted
-        db.Update(message);
-        await db.SaveChangesAsync();
+        // Explicitly update ReactionsCount in database to avoid entity tracking issues
+        await db.ChatMessages
+            .Where(m => m.Id == message.Id)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(m => m.ReactionsCount, message.ReactionsCount));
 
         await HydrateMessageReactionsAsync([message], sender.AccountId);
 
