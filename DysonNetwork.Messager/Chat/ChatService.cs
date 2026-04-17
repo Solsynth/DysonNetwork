@@ -1368,7 +1368,7 @@ public partial class ChatService(
         
         var syncMessage = new SnChatMessage
         {
-            Type = WebSocketPacketType.MessageReactionAdded,
+            Type = WebSocketPacketType.MessageNew,
             ChatRoomId = message.ChatRoomId,
             SenderId = sender.Id,
             Nonce = Guid.NewGuid().ToString(),
@@ -1401,9 +1401,13 @@ public partial class ChatService(
             syncMessage,
             syncMessage.Sender,
             syncMessage.ChatRoom,
-            type: WebSocketPacketType.MessageReactionAdded,
+            type: WebSocketPacketType.MessageNew,
             notify: false
         );
+
+        // Explicitly mark message as updated to ensure ReactionsCount change is persisted
+        db.Update(message);
+        await db.SaveChangesAsync();
 
         await HydrateMessageReactionsAsync([message], sender.AccountId);
 
@@ -1420,7 +1424,7 @@ public partial class ChatService(
             message,
             message.Sender,
             room,
-            type: WebSocketPacketType.MessageUpdate,
+            type: WebSocketPacketType.MessageNew,
             notify: false
         );
 
@@ -1458,7 +1462,7 @@ public partial class ChatService(
 
         var syncMessage = new SnChatMessage
         {
-            Type = WebSocketPacketType.MessageReactionRemoved,
+            Type = WebSocketPacketType.MessageNew,
             ChatRoomId = message.ChatRoomId,
             SenderId = sender.Id,
             Nonce = Guid.NewGuid().ToString(),
@@ -1483,9 +1487,13 @@ public partial class ChatService(
             syncMessage,
             syncMessage.Sender,
             syncMessage.ChatRoom,
-            type: WebSocketPacketType.MessageReactionRemoved,
+            type: WebSocketPacketType.MessageNew,
             notify: false
         );
+
+        // Explicitly mark message as updated to ensure ReactionsCount change is persisted
+        db.Update(message);
+        await db.SaveChangesAsync();
 
         await HydrateMessageReactionsAsync([message], sender.AccountId);
 
@@ -1504,7 +1512,7 @@ public partial class ChatService(
             message,
             message.Sender,
             room,
-            type: WebSocketPacketType.MessageUpdate,
+            type: WebSocketPacketType.MessageNew,
             notify: false
         );
 
