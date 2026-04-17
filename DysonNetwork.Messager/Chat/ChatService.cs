@@ -1368,7 +1368,7 @@ public partial class ChatService(
         
         var syncMessage = new SnChatMessage
         {
-            Type = WebSocketPacketType.MessageNew,
+            Type = WebSocketPacketType.MessageReactionAdded,
             ChatRoomId = message.ChatRoomId,
             SenderId = sender.Id,
             Nonce = Guid.NewGuid().ToString(),
@@ -1462,7 +1462,7 @@ public partial class ChatService(
 
         var syncMessage = new SnChatMessage
         {
-            Type = WebSocketPacketType.MessageNew,
+            Type = WebSocketPacketType.MessageReactionRemoved,
             ChatRoomId = message.ChatRoomId,
             SenderId = sender.Id,
             Nonce = Guid.NewGuid().ToString(),
