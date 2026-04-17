@@ -610,6 +610,9 @@ public partial class ChatService(
         using var scope = scopeFactory.CreateScope();
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
 
+        // Reload sender within the new scope to avoid disposed context issues
+        sender = await scopedCrs.LoadMemberAccount(sender);
+
         if (room.RealmId != null)
             sender = await scopedCrs.HydrateRealmIdentity(sender, room.Id);
 
@@ -1412,14 +1415,9 @@ public partial class ChatService(
 
         await HydrateMessageReactionsAsync([message], sender.AccountId);
 
-        if (message.Sender.Id != message.SenderId)
-        {
-            var originalSender = await db.ChatMembers
-                .Where(m => m.Id == message.SenderId)
-                .FirstOrDefaultAsync();
-            if (originalSender is not null)
-                message.Sender = await crs.LoadMemberAccount(originalSender);
-        }
+        // Ensure the original message sender has Account loaded before delivery
+        if (message.Sender.Account is null)
+            message.Sender = await crs.LoadMemberAccount(message.Sender);
         message.ChatRoom = room;
         await DeliverMessageAsync(
             message,
@@ -1499,14 +1497,9 @@ public partial class ChatService(
 
         await HydrateMessageReactionsAsync([message], sender.AccountId);
 
-        if (message.Sender.Id != message.SenderId)
-        {
-            var originalSender = await db.ChatMembers
-                .Where(m => m.Id == message.SenderId)
-                .FirstOrDefaultAsync();
-            if (originalSender is not null)
-                message.Sender = await crs.LoadMemberAccount(originalSender);
-        }
+        // Ensure the original message sender has Account loaded before delivery
+        if (message.Sender.Account is null)
+            message.Sender = await crs.LoadMemberAccount(message.Sender);
         message.ChatRoom = room;
         if (message.Sender is null)
             return;
