@@ -12,13 +12,12 @@ using DysonNetwork.Messager.Chat.Voice;
 using DysonNetwork.Shared.Models.Embed;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.Extensions;
+using DysonNetwork.Shared.Pagination;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using System.Text.Json.Serialization;
-using NodaTime.Serialization.SystemTextJson;
 
 namespace DysonNetwork.Messager.Chat;
 
@@ -293,6 +292,7 @@ public partial class ChatController(
     }
 
     [HttpGet("{roomId:guid}/messages")]
+    [PaginationMaxTake(1000)]
     public async Task<ActionResult<List<SnChatMessage>>> ListMessages(Guid roomId, [FromQuery] int offset,
         [FromQuery] int take = 20)
     {
@@ -359,24 +359,12 @@ public partial class ChatController(
         var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
         if (room is null) return NotFound();
 
-        if (room.EncryptionMode != ChatRoomEncryptionMode.None)
+        if (room.EncryptionMode != ChatRoomEncryptionMode.None || !room.IsPublic)
         {
             if (currentUser is null) return Unauthorized();
             var accountId = Guid.Parse(currentUser.Id);
             var member = await db.ChatMembers
                 .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
-                .FirstOrDefaultAsync();
-            if (member == null)
-                return StatusCode(403, "You are not a member of this chat room.");
-        }
-        else if (!room.IsPublic)
-        {
-            if (currentUser is null) return Unauthorized();
-
-            var accountId = Guid.Parse(currentUser.Id);
-            var member = await db.ChatMembers
-                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null &&
-                            m.LeaveAt == null)
                 .FirstOrDefaultAsync();
             if (member == null)
                 return StatusCode(403, "You are not a member of this chat room.");
@@ -434,7 +422,7 @@ public partial class ChatController(
         }
 
         // Extract mentions from content using regex
-        if (!string.IsNullOrWhiteSpace(content))
+        if (string.IsNullOrWhiteSpace(content)) return mentionedUsers.Distinct().ToList();
         {
             var mentionedNames = MentionRegex()
                 .Matches(content)
@@ -442,23 +430,21 @@ public partial class ChatController(
                 .Distinct()
                 .ToList();
 
-            if (mentionedNames.Count > 0)
+            if (mentionedNames.Count <= 0) return mentionedUsers.Distinct().ToList();
             {
                 var queryRequest = new DyLookupAccountBatchRequest();
                 queryRequest.Names.AddRange(mentionedNames);
                 var queryResponse = (await accounts.LookupAccountBatchAsync(queryRequest)).Accounts;
                 var mentionedIds = queryResponse.Select(a => Guid.Parse(a.Id)).ToList();
 
-                if (mentionedIds.Count > 0)
-                {
-                    var mentionedMembers = await db.ChatMembers
-                        .Where(m => m.ChatRoomId == roomId && mentionedIds.Contains(m.AccountId))
-                        .Where(m => m.JoinedAt != null && m.LeaveAt == null)
-                        .Where(m => excludeSenderId == null || m.AccountId != excludeSenderId.Value)
-                        .Select(m => m.AccountId)
-                        .ToListAsync();
-                    mentionedUsers.AddRange(mentionedMembers);
-                }
+                if (mentionedIds.Count <= 0) return mentionedUsers.Distinct().ToList();
+                var mentionedMembers = await db.ChatMembers
+                    .Where(m => m.ChatRoomId == roomId && mentionedIds.Contains(m.AccountId))
+                    .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+                    .Where(m => excludeSenderId == null || m.AccountId != excludeSenderId.Value)
+                    .Select(m => m.AccountId)
+                    .ToListAsync();
+                mentionedUsers.AddRange(mentionedMembers);
             }
         }
 
@@ -1148,7 +1134,7 @@ public partial class ChatController(
         if (!isMember)
             return StatusCode(403, "You are not a member of this chat room.");
 
-        var response = await cs.GetSyncDataAsync(roomId, accountId, request.LastSyncTimestamp, 500);
+        var response = await cs.GetSyncDataAsync(roomId, accountId, request.LastSyncTimestamp, 1000);
         Response.Headers["X-Total"] = response.TotalCount.ToString();
         return Ok(response);
     }
