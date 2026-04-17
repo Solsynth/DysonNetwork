@@ -616,13 +616,20 @@ public partial class ChatService(
         if (room.RealmId != null)
             sender = await scopedCrs.HydrateRealmIdentity(sender, room.Id);
 
+        // Ensure sender has Account loaded
+        if (sender.Account is null)
+        {
+            logger.LogError("DeliverMessageAsync: sender.Account is null after LoadMemberAccount! senderId={senderId}", sender.Id);
+            throw new InvalidOperationException($"Sender account could not be loaded for sender {sender.Id}");
+        }
+
         message.Sender = sender;
         message.ChatRoom = room;
 
         var members = await scopedCrs.ListRoomMembers(room.Id);
 
-        logger.LogWarning("DeliverMessageAsync: roomId={roomId}, messageId={messageId}, memberCount={memberCount}, type={type}",
-            room.Id, message.Id, members.Count, type);
+        logger.LogWarning("DeliverMessageAsync: roomId={roomId}, messageId={messageId}, senderId={senderId}, senderAccountId={senderAccountId}, memberCount={memberCount}, type={type}",
+            room.Id, message.Id, sender.Id, sender.AccountId, members.Count, type);
 
         await DeliverWebSocketMessage(message, type, members, scope);
 
@@ -1395,10 +1402,22 @@ public partial class ChatService(
         await db.SaveChangesAsync();
 
         if (sender.Account is null)
+        {
+            logger.LogWarning("AddReactionAsync: sender.Account is null, loading account for senderId={senderId}", sender.Id);
             sender = await crs.LoadMemberAccount(sender);
+        }
+
+        if (sender.Account is null)
+        {
+            logger.LogError("AddReactionAsync: sender.Account is still null after LoadMemberAccount! senderId={senderId}", sender.Id);
+            throw new InvalidOperationException($"Sender account could not be loaded for sender {sender.Id}");
+        }
 
         syncMessage.Sender = sender;
         syncMessage.ChatRoom = room;
+
+        logger.LogWarning("AddReactionAsync: delivering reaction sync message, syncMessageId={syncMessageId}, senderId={senderId}, senderAccountId={senderAccountId}",
+            syncMessage.Id, sender.Id, sender.AccountId);
 
         await DeliverMessageAsync(
             syncMessage,
@@ -1477,10 +1496,22 @@ public partial class ChatService(
         await db.SaveChangesAsync();
         
         if (sender.Account is null)
+        {
+            logger.LogWarning("RemoveReactionAsync: sender.Account is null, loading account for senderId={senderId}", sender.Id);
             sender = await crs.LoadMemberAccount(sender);
+        }
+
+        if (sender.Account is null)
+        {
+            logger.LogError("RemoveReactionAsync: sender.Account is still null after LoadMemberAccount! senderId={senderId}", sender.Id);
+            throw new InvalidOperationException($"Sender account could not be loaded for sender {sender.Id}");
+        }
 
         syncMessage.Sender = sender;
         syncMessage.ChatRoom = room;
+
+        logger.LogWarning("RemoveReactionAsync: delivering reaction sync message, syncMessageId={syncMessageId}, senderId={senderId}, senderAccountId={senderAccountId}",
+            syncMessage.Id, sender.Id, sender.AccountId);
 
         await DeliverMessageAsync(
             syncMessage,
