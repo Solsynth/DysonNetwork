@@ -123,16 +123,20 @@ public class LeaderboardController(
         List<Guid> accountIds, Guid userId, Instant startDate, Instant endDate, int skip, int take)
     {
         var trustedSources = new HashSet<string>(_fitnessOptions.TrustedWorkoutSources, StringComparer.OrdinalIgnoreCase);
-        var data = await db.Workouts
+        var workouts = await db.Workouts
             .Where(w => accountIds.Contains(w.AccountId) && w.DeletedAt == null)
             .Where(w => w.StartTime >= startDate && w.StartTime <= endDate)
             .Where(w => w.Source != null && trustedSources.Contains(w.Source!))
+            .Select(w => new { w.AccountId, w.Duration })
+            .ToListAsync();
+
+        var data = workouts
             .GroupBy(w => w.AccountId)
             .Select(g => new { AccountId = g.Key, Total = g.Sum(w => w.Duration == null ? 0L : w.Duration.Value.ToInt64Nanoseconds() / 60_000_000_000L) })
             .OrderByDescending(x => x.Total)
             .Skip(skip)
             .Take(take)
-            .ToListAsync();
+            .ToList();
 
         var rank = skip + 1;
         return data.Select(x => new LeaderboardEntry
