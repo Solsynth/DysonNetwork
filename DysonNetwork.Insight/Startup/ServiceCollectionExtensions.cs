@@ -118,12 +118,8 @@ public static class ServiceCollectionExtensions
             var snChanConfig = configuration.GetSection("SnChan").Get<SnChanConfig>() ?? new SnChanConfig();
             services.AddSingleton(snChanConfig);
 
-            // Register SnChan-specific model selector if it has its own config
-            if (snChanConfig.UseModelSelection)
-            {
-                // Create a separate model selector for SnChan with its own configuration
-                services.AddSingleton<SnChanModelSelector>();
-            }
+            // Always register SnChanModelSelector - it checks UseModelSelection internally
+            services.AddSingleton<SnChanModelSelector>();
 
             return services;
         }

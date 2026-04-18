@@ -167,11 +167,24 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
 
     /// <summary>
     /// Adds the configured embedding service to the kernel builder.
-    /// This is independent of the chat completion provider.
+    /// Supports two configuration modes:
+    /// 1. Direct configuration in Thinking:Embeddings with Provider/Endpoint/ApiKey/Model
+    /// 2. Reference to Thinking:Services by ModelId (embeddings lookup service details from there)
     /// </summary>
     private void AddEmbeddingService(IKernelBuilder builder, string chatProviderType)
     {
         var embeddingConfig = configuration.GetSection("Thinking:Embeddings");
+        var modelId = embeddingConfig.GetValue<string>("Model");
+        
+        // If Model looks like a service reference (no slashes), look up in Thinking:Services
+        if (!string.IsNullOrEmpty(modelId) && !modelId.Contains('/'))
+        {
+            // Treat as service reference - look up in Thinking:Services
+            ConfigureEmbeddingFromService(builder, modelId, chatProviderType);
+            return;
+        }
+        
+        // Fall back to legacy direct configuration
         var provider = embeddingConfig.GetValue<string>("Provider")?.ToLower() ?? "openrouter";
         
         logger.LogInformation("Configuring embedding service with provider: {Provider} (chat provider: {ChatProvider})", 
@@ -182,9 +195,7 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
             case "ollama":
                 var ollamaEndpoint = embeddingConfig.GetValue<string>("Endpoint") 
                     ?? "http://localhost:11434/api";
-                var ollamaModel = embeddingConfig.GetValue<string>("Model") 
-                    ?? "nomic-embed-text";
-                // Use builder.Services to register with DI
+                var ollamaModel = modelId ?? "nomic-embed-text";
                 builder.Services.AddOllamaEmbeddingGenerator(
                     endpoint: new Uri(ollamaEndpoint),
                     modelId: ollamaModel
@@ -197,8 +208,7 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
                 var openRouterApiKey = embeddingConfig.GetValue<string>("ApiKey");
                 var openRouterEndpoint = embeddingConfig.GetValue<string>("Endpoint") 
                     ?? "https://openrouter.ai/api/v1";
-                var openRouterModel = embeddingConfig.GetValue<string>("Model") 
-                    ?? "qwen/qwen3-embedding-8b";
+                var openRouterModel = modelId ?? "qwen/qwen3-embedding-8b";
 
                 if (string.IsNullOrEmpty(openRouterApiKey))
                 {
@@ -212,7 +222,6 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
                         new ApiKeyCredential(openRouterApiKey),
                         new OpenAIClientOptions { Endpoint = new Uri(openRouterEndpoint) }
                     );
-                    // Use builder.Services to register with DI - this registers IEmbeddingGenerator<string, Embedding<float>>
                     builder.Services.AddOpenAIEmbeddingGenerator(
                         modelId: openRouterModel,
                         openAIClient: openRouterClient,
@@ -231,8 +240,7 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
                 var aliyunApiKey = embeddingConfig.GetValue<string>("ApiKey");
                 var aliyunEndpoint = embeddingConfig.GetValue<string>("Endpoint") 
                     ?? "https://dashscope.aliyuncs.com/compatible-mode/v1";
-                var aliyunModel = embeddingConfig.GetValue<string>("Model") 
-                    ?? "text-embedding-v3";
+                var aliyunModel = modelId ?? "text-embedding-v3";
 
                 if (string.IsNullOrEmpty(aliyunApiKey))
                 {
@@ -260,36 +268,35 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
                 }
                 break;
 
-            case "openai":
-                var openaiApiKey = embeddingConfig.GetValue<string>("ApiKey");
-                var openaiEndpoint = embeddingConfig.GetValue<string>("Endpoint") 
-                    ?? "https://api.openai.com/v1";
-                var openaiModel = embeddingConfig.GetValue<string>("Model") 
-                    ?? "text-embedding-3-small";
+            case "bigmodel":
+                var bigmodelApiKey = embeddingConfig.GetValue<string>("ApiKey");
+                var bigmodelEndpoint = embeddingConfig.GetValue<string>("Endpoint") 
+                    ?? "https://open.bigmodel.cn/api/paas/v4";
+                var bigmodelEmbeddingModel = modelId ?? "embedding-3";
 
-                if (string.IsNullOrEmpty(openaiApiKey))
+                if (string.IsNullOrEmpty(bigmodelApiKey))
                 {
-                    logger.LogWarning("OpenAI API key not configured. Embeddings will not be available.");
+                    logger.LogWarning("BigModel API key not configured. Embeddings will not be available.");
                     break;
                 }
 
                 try
                 {
-                    var openaiClient = new OpenAIClient(
-                        new ApiKeyCredential(openaiApiKey),
-                        new OpenAIClientOptions { Endpoint = new Uri(openaiEndpoint) }
+                    var bigmodelClient = new OpenAIClient(
+                        new ApiKeyCredential(bigmodelApiKey),
+                        new OpenAIClientOptions { Endpoint = new Uri(bigmodelEndpoint) }
                     );
                     builder.Services.AddOpenAIEmbeddingGenerator(
-                        modelId: openaiModel,
-                        openAIClient: openaiClient,
+                        modelId: bigmodelEmbeddingModel,
+                        openAIClient: bigmodelClient,
                         dimensions: 1536
                     );
-                    logger.LogInformation("OpenAI embedding configured with model {Model} for {ChatProvider}", 
-                        openaiModel, chatProviderType);
+                    logger.LogInformation("BigModel embedding configured with model {Model} for {ChatProvider}", 
+                        bigmodelEmbeddingModel, chatProviderType);
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Could not configure OpenAI embedding service.");
+                    logger.LogWarning(ex, "Could not configure BigModel embedding service.");
                 }
                 break;
 
@@ -300,65 +307,105 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
     }
 
     /// <summary>
-    /// Creates prompt execution settings for scheduled tasks with autoInvoke enabled for tool calls.
+    /// Configures embedding service by looking up service details from Thinking:Services
     /// </summary>
-    public PromptExecutionSettings CreateScheduledTaskPromptExecutionSettings(string serviceName, double? temperature = null)
+    private void ConfigureEmbeddingFromService(IKernelBuilder builder, string serviceId, string chatProviderType)
     {
-        var thinkingConfig = configuration.GetSection("Thinking");
-        var serviceConfig = thinkingConfig.GetSection($"Services:{serviceName}");
-        var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
-        var temp = temperature ?? 0.7;
-
-        return providerType switch
+        var serviceConfig = configuration.GetSection($"Thinking:Services:{serviceId}");
+        
+        if (!serviceConfig.Exists())
         {
-            "ollama" => new OllamaPromptExecutionSettings
-            {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
-                Temperature = (float)temp
-            },
-            "deepseek" or "openrouter" or "aliyun" or "bigmodel" => new OpenAIPromptExecutionSettings
-            {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
-                ModelId = serviceName,
-                Temperature = (float)temp
-            },
-            _ => throw new InvalidOperationException($"Unknown provider: {providerType}")
-        };
+            logger.LogWarning("Embedding service '{ServiceId}' not found in Thinking:Services", serviceId);
+            return;
+        }
+
+        var provider = serviceConfig.GetValue<string>("Provider")?.ToLower();
+        var endpoint = serviceConfig.GetValue<string>("Endpoint");
+        var apiKey = serviceConfig.GetValue<string>("ApiKey");
+        var model = serviceConfig.GetValue<string>("Model");
+
+        if (string.IsNullOrEmpty(provider))
+        {
+            logger.LogWarning("Embedding service '{ServiceId}' has no Provider configured", serviceId);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            logger.LogWarning("Embedding service '{ServiceId}' has no ApiKey configured", serviceId);
+            return;
+        }
+
+        logger.LogInformation("Configuring embedding service from Thinking:Services/{ServiceId} (provider: {Provider}, model: {Model})", 
+            serviceId, provider, model);
+
+        try
+        {
+            var client = new OpenAIClient(
+                new ApiKeyCredential(apiKey),
+                new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? GetDefaultEndpoint(provider)) }
+            );
+
+            builder.Services.AddOpenAIEmbeddingGenerator(
+                modelId: model ?? GetDefaultEmbeddingModel(provider),
+                openAIClient: client,
+                dimensions: 1536
+            );
+
+            logger.LogInformation("Embedding service configured from Thinking:Services/{ServiceId} for {ChatProvider}", 
+                serviceId, chatProviderType);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not configure embedding service from Thinking:Services/{ServiceId}", serviceId);
+        }
     }
 
     /// <summary>
-    /// Creates prompt execution settings for a specific service
+    /// Gets the default endpoint for a provider
     /// </summary>
-    /// <param name="serviceName">The service ID from configuration</param>
-    /// <param name="temperature">Optional temperature override</param>
-    /// <param name="reasoningEffort">Optional reasoning effort override (low/medium/high)</param>
-    /// <returns>Configured PromptExecutionSettings</returns>
-    [Experimental("SKEXP0050")]
-    public PromptExecutionSettings CreatePromptExecutionSettings(
-        string serviceName,
-        double? temperature = null,
-        string? reasoningEffort = null)
+    private static string GetDefaultEndpoint(string provider) => provider.ToLower() switch
     {
-        var thinkingConfig = configuration.GetSection("Thinking");
-        var serviceConfig = thinkingConfig.GetSection($"Services:{serviceName}");
-        var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
-        var temp = temperature ?? serviceConfig.GetValue<double?>("Temperature") ?? 0.7;
-        var effort = reasoningEffort ?? serviceConfig.GetValue<string>("ReasoningEffort");
+        "openrouter" => "https://openrouter.ai/api/v1",
+        "aliyun" => "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "bigmodel" => "https://open.bigmodel.cn/api/paas/v4",
+        "deepseek" => "https://api.deepseek.com/v1",
+        _ => throw new ArgumentException($"Unknown provider: {provider}")
+    };
 
-        return providerType switch
+    /// <summary>
+    /// Gets the default embedding model for a provider
+    /// </summary>
+    private static string GetDefaultEmbeddingModel(string provider) => provider.ToLower() switch
+    {
+        "openrouter" => "qwen/qwen3-embedding-8b",
+        "aliyun" => "text-embedding-v3",
+        "bigmodel" => "embedding-3",
+        "deepseek" => "text-embedding",
+        _ => "text-embedding"
+    };
+
+    /// <summary>
+    /// Creates prompt execution settings for a service
+    /// </summary>
+    public PromptExecutionSettings CreatePromptExecutionSettings(string serviceName, double temperature = 0.7, string? reasoningEffort = null)
+    {
+        var serviceConfig = configuration.GetSection($"Thinking:Services:{serviceName}");
+        var provider = serviceConfig.GetValue<string>("Provider")?.ToLower() ?? "openrouter";
+        var model = serviceConfig.GetValue<string>("Model") ?? serviceName;
+
+        return provider switch
         {
             "ollama" => new OllamaPromptExecutionSettings
             {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
-                Temperature = (float)temp
+                Temperature = (float)temperature
             },
             _ => new OpenAIPromptExecutionSettings
             {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(autoInvoke: false),
-                ModelId = serviceName,
-                Temperature = (float)temp,
-                ReasoningEffort = effort
-            },
+                ModelId = model,
+                Temperature = (float)temperature,
+                ReasoningEffort = reasoningEffort
+            }
         };
     }
 
