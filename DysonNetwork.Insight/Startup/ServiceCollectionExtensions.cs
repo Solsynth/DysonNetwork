@@ -6,6 +6,7 @@ using DysonNetwork.Insight.Thought;
 using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.MiChan.KernelBuilding;
 using DysonNetwork.Insight.MiChan.Plugins;
+using DysonNetwork.Insight.SnChan;
 using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Insight.Agent.Models;
 using DysonNetwork.Shared.Cache;
@@ -108,6 +109,21 @@ public static class ServiceCollectionExtensions
 
             // Register token counting service for accurate AI token counting
             services.AddSingleton<TokenCountingService>();
+
+            return services;
+        }
+
+        public IServiceCollection AddSnChanServices(IConfiguration configuration)
+        {
+            var snChanConfig = configuration.GetSection("SnChan").Get<SnChanConfig>() ?? new SnChanConfig();
+            services.AddSingleton(snChanConfig);
+
+            // Register SnChan-specific model selector if it has its own config
+            if (snChanConfig.UseModelSelection)
+            {
+                // Create a separate model selector for SnChan with its own configuration
+                services.AddSingleton<SnChanModelSelector>();
+            }
 
             return services;
         }

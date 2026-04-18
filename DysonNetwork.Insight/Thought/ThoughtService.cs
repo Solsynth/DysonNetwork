@@ -6,6 +6,7 @@ using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.Services;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
+using DysonNetwork.Insight.Agent.Models;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
@@ -1899,8 +1900,14 @@ public class ThoughtService(
 
     #region Kernel and Plugin Helpers
 
-    public Kernel? GetSnChanKernel()
+    public Kernel? GetSnChanKernel(string? modelId = null)
     {
+        if (!string.IsNullOrEmpty(modelId))
+        {
+            // Use custom model
+            var modelConfig = new ModelConfiguration { ModelId = modelId };
+            return thoughtProvider.GetKernelForModel(modelConfig);
+        }
         return thoughtProvider.GetKernel();
     }
 
@@ -1916,11 +1923,26 @@ public class ThoughtService(
         return serviceInfo;
     }
 
-    public Kernel GetMiChanKernel()
-        => miChanKernelProvider.GetKernel();
+    public Kernel GetMiChanKernel(string? modelId = null, int? userPerkLevel = null)
+    {
+        if (!string.IsNullOrEmpty(modelId))
+        {
+            // Use custom model with PerkLevel-based selection
+            return miChanKernelProvider.GetKernel(userPerkLevel, modelId);
+        }
+        return miChanKernelProvider.GetKernel(userPerkLevel);
+    }
 
-    public Kernel GetMiChanVisionKernel()
-        => miChanKernelProvider.GetVisionKernel();
+    public Kernel GetMiChanVisionKernel(string? modelId = null, int? userPerkLevel = null)
+    {
+        if (!string.IsNullOrEmpty(modelId))
+        {
+            // Vision doesn't support custom model override in current implementation
+            // Could be extended to support vision-specific models
+            return miChanKernelProvider.GetVisionKernel(userPerkLevel);
+        }
+        return miChanKernelProvider.GetVisionKernel(userPerkLevel);
+    }
 
     public PromptExecutionSettings CreateMiChanExecutionSettings(string? reasoningEffort = null)
     {

@@ -6,6 +6,8 @@ using System.Text;
 using System.Text.Json;
 using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.MiChan.Plugins;
+using DysonNetwork.Insight.SnChan;
+using DysonNetwork.Insight.Agent.Models;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
@@ -21,9 +23,12 @@ namespace DysonNetwork.Insight.Thought;
 public class ThoughtController(
     ThoughtService service,
     MiChanConfig miChanConfig,
+    SnChanConfig snChanConfig,
     IServiceProvider serviceProvider,
     DyFileService.DyFileServiceClient files,
     FreeQuotaService freeQuotaService,
+    MiChanKernelProvider miChanKernelProvider,
+    SnChanModelSelector? snChanModelSelector,
     ILogger<ThoughtController> logger
 ) : ControllerBase
 {
@@ -54,6 +59,7 @@ public class ThoughtController(
         public List<Dictionary<string, dynamic>>? AttachedMessages { get; set; }
         public List<string> AcceptProposals { get; set; } = [];
         public string? ReasoningEffort { get; set; } // "low", "medium", "high"
+        public string? Model { get; set; } // Custom model ID to use (optional)
     }
 
     public class UpdateSharingRequest
@@ -61,11 +67,21 @@ public class ThoughtController(
         public bool IsPublic { get; set; }
     }
 
+    public class BotModelInfo
+    {
+        public string Id { get; set; } = null!;
+        public string DisplayName { get; set; } = null!;
+        public string? Description { get; set; }
+        public int MinPerkLevel { get; set; }
+        public bool IsDefault { get; set; }
+    }
+
     public class BotInfo
     {
         public string Id { get; set; } = null!;
         public string Name { get; set; } = null!;
         public string Description { get; set; } = null!;
+        public List<BotModelInfo> AvailableModels { get; set; } = [];
     }
 
     public class ThoughtServicesResponse
@@ -78,21 +94,80 @@ public class ThoughtController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<ThoughtServicesResponse> GetAvailableServices()
     {
-        var bots = new List<BotInfo>
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
+        var perkLevel = currentUser?.PerkLevel ?? 0;
+
+        var bots = new List<BotInfo>();
+
+        // SN-chan bot with available models
+        var snChanModels = new List<BotModelInfo>();
+        if (snChanConfig.UseModelSelection && snChanModelSelector != null)
         {
-            new()
+            var availableModels = snChanModelSelector.GetAvailableModels(ModelUseCase.SnChanChat, perkLevel);
+            snChanModels = availableModels.Select(m => new BotModelInfo
             {
-                Id = "snchan",
-                Name = "SN Chan",
-                Description = "The helpful assistant who have ability to solve problems for you on the Solar Network."
-            },
-            new()
+                Id = m.ModelId,
+                DisplayName = m.DisplayName ?? m.ModelId,
+                Description = m.Description,
+                MinPerkLevel = m.MinPerkLevel,
+                IsDefault = m.IsDefault
+            }).ToList();
+        }
+        else
+        {
+            // Fallback to all registered models when model selection is disabled
+            snChanModels = ModelRegistry.All.Select(m => new BotModelInfo
             {
-                Id = "michan",
-                Name = "Mi Chan",
-                Description = "A mysterious girl"
-            }
-        };
+                Id = m.Id,
+                DisplayName = m.DisplayName,
+                Description = $"Provider: {m.Provider}",
+                MinPerkLevel = 0,
+                IsDefault = m.Id == ModelRegistry.DeepSeekChat.Id
+            }).ToList();
+        }
+
+        bots.Add(new()
+        {
+            Id = "snchan",
+            Name = "SN Chan",
+            Description = "The helpful assistant who have ability to solve problems for you on the Solar Network.",
+            AvailableModels = snChanModels
+        });
+
+        // Mi-chan bot with available models
+        var miChanModels = new List<BotModelInfo>();
+        if (miChanConfig.UseModelSelection)
+        {
+            var availableModels = miChanKernelProvider.GetAvailableModelsForUseCase(ModelUseCase.MiChanChat, perkLevel);
+            miChanModels = availableModels.Select(m => new BotModelInfo
+            {
+                Id = m.ModelId,
+                DisplayName = m.DisplayName ?? m.ModelId,
+                Description = m.Description,
+                MinPerkLevel = m.MinPerkLevel,
+                IsDefault = m.IsDefault
+            }).ToList();
+        }
+        else
+        {
+            // Fallback to all registered models when model selection is disabled
+            miChanModels = ModelRegistry.All.Select(m => new BotModelInfo
+            {
+                Id = m.Id,
+                DisplayName = m.DisplayName,
+                Description = $"Provider: {m.Provider}",
+                MinPerkLevel = 0,
+                IsDefault = m.Id == ModelRegistry.DeepSeekChat.Id
+            }).ToList();
+        }
+
+        bots.Add(new()
+        {
+            Id = "michan",
+            Name = "Mi Chan",
+            Description = "A mysterious girl",
+            AvailableModels = miChanModels
+        });
 
         return Ok(new ThoughtServicesResponse
         {
@@ -151,6 +226,19 @@ public class ThoughtController(
         if (request.AttachedFiles is { Count: > 0 })
             return BadRequest("Sorry, SN-chan currently does not support requests with files attached.");
 
+        // Check if user can access the requested custom model
+        if (!string.IsNullOrEmpty(request.Model))
+        {
+            var canUseModel = snChanConfig.UseModelSelection && snChanModelSelector != null
+                ? snChanModelSelector.CanAccessModel(ModelUseCase.SnChanChat, request.Model, currentUser.PerkLevel)
+                : true; // If model selection is disabled, allow any model
+
+            if (!canUseModel)
+            {
+                return StatusCode(403, $"You don't have access to model '{request.Model}'");
+            }
+        }
+
         if (serviceInfo.PerkLevel > 0 && !currentUser.IsSuperuser)
             if (currentUser.PerkLevel < serviceInfo.PerkLevel)
                 return StatusCode(403, "Not enough perk level");
@@ -161,7 +249,8 @@ public class ThoughtController(
             return BadRequest("SnChan cannot use MiChan's unified conversation. Start a new SnChan thread instead.");
         }
 
-        var kernel = service.GetSnChanKernel();
+        // Get kernel with custom model if specified
+        var kernel = service.GetSnChanKernel(request.Model);
         if (kernel is null)
         {
             return BadRequest("Service not found or configured.");
@@ -461,6 +550,20 @@ public class ThoughtController(
         if (serviceInfo is null)
             return BadRequest("Service not found or configured.");
 
+        // Check if user can access the requested custom model
+        if (!string.IsNullOrEmpty(request.Model))
+        {
+            var canUseModel = miChanConfig.UseModelSelection
+                ? miChanKernelProvider.GetAvailableModelsForUseCase(ModelUseCase.MiChanChat, currentUser.PerkLevel)
+                    .Any(m => m.ModelId == request.Model)
+                : true; // If model selection is disabled, allow any model
+
+            if (!canUseModel)
+            {
+                return StatusCode(403, $"You don't have access to model '{request.Model}'");
+            }
+        }
+
         if (serviceInfo.PerkLevel > 0 && !currentUser.IsSuperuser)
             if (currentUser.PerkLevel < serviceInfo.PerkLevel)
                 return StatusCode(403, "Not enough perk level");
@@ -608,7 +711,9 @@ public class ThoughtController(
             chatHistory.Count
         );
 
-        var kernel = useVisionKernel ? service.GetMiChanVisionKernel() : service.GetMiChanKernel();
+        var kernel = useVisionKernel
+            ? service.GetMiChanVisionKernel(request.Model, currentUser.PerkLevel)
+            : service.GetMiChanKernel(request.Model, currentUser.PerkLevel);
 
         // Register plugins using centralized extension method
         kernel.AddMiChanPlugins(serviceProvider);
