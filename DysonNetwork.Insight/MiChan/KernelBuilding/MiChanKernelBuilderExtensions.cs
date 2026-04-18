@@ -52,7 +52,11 @@ public static class MiChanKernelBuilderExtensions
     {
         return builder.WithPlugins(kernel =>
         {
-            kernel.AddMiChanPlugins(serviceProvider);
+            // Add MiChan plugins only if not already added
+            if (!kernel.Plugins.Any(p => p.Name == "MiChan"))
+            {
+                kernel.AddMiChanPlugins(serviceProvider);
+            }
         });
     }
 
@@ -64,13 +68,20 @@ public static class MiChanKernelBuilderExtensions
     {
         return builder.WithPlugins(kernel =>
         {
-            // Add SN-chan specific plugins
+            // Add SN-chan specific plugins only if not already added
             var accountClient = serviceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
             var postClient = serviceProvider.GetRequiredService<DyPostService.DyPostServiceClient>();
             var publisherClient = serviceProvider.GetRequiredService<DyPublisherService.DyPublisherServiceClient>();
 
-            kernel.Plugins.AddFromObject(new SnAccountKernelPlugin(accountClient));
-            kernel.Plugins.AddFromObject(new SnPostKernelPlugin(postClient, publisherClient));
+            // Check if plugins already exist to avoid duplicates
+            if (!kernel.Plugins.Any(p => p.Name == "SnAccountKernel"))
+            {
+                kernel.Plugins.AddFromObject(new SnAccountKernelPlugin(accountClient), "SnAccountKernel");
+            }
+            if (!kernel.Plugins.Any(p => p.Name == "SnPostKernel"))
+            {
+                kernel.Plugins.AddFromObject(new SnPostKernelPlugin(postClient, publisherClient), "SnPostKernel");
+            }
         });
     }
 

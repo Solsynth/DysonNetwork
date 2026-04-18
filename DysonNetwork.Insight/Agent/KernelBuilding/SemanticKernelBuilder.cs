@@ -102,38 +102,45 @@ public class SemanticKernelBuilder : IKernelBuilder
     [Experimental("SKEXP0050")]
     public Kernel Build()
     {
+        // Clone options to avoid accumulating state across multiple builds
+        // This is important because the builder is registered as a singleton
+        var options = _options.Clone();
+        
         Kernel kernel;
 
         // Check if using custom provider configuration (BaseUrl, ApiKey, etc.)
-        var hasCustomConfig = !string.IsNullOrEmpty(_options.Model.BaseUrl) ||
-                              !string.IsNullOrEmpty(_options.Model.ApiKey) ||
-                              !string.IsNullOrEmpty(_options.Model.Provider) ||
-                              !string.IsNullOrEmpty(_options.Model.CustomModelName);
+        var hasCustomConfig = !string.IsNullOrEmpty(options.Model.BaseUrl) ||
+                              !string.IsNullOrEmpty(options.Model.ApiKey) ||
+                              !string.IsNullOrEmpty(options.Model.Provider) ||
+                              !string.IsNullOrEmpty(options.Model.CustomModelName);
 
         if (hasCustomConfig)
         {
             // Use ModelConfiguration-based creation for custom providers
-            kernel = _kernelFactory.CreateKernel(_options.Model, _options.IncludeEmbeddings);
+            kernel = _kernelFactory.CreateKernel(options.Model, options.IncludeEmbeddings);
         }
         else
         {
             // Use service name-based creation for standard providers
             kernel = _kernelFactory.CreateKernel(
-                _options.Model.ModelId,
-                _options.IncludeEmbeddings);
+                options.Model.ModelId,
+                options.IncludeEmbeddings);
         }
 
         // Add web search if requested
-        if (_options.IncludeWebSearch)
+        if (options.IncludeWebSearch)
         {
             AddWebSearchPlugins(kernel);
         }
 
         // Apply custom plugin setups
-        foreach (var setup in _options.PluginSetups)
+        foreach (var setup in options.PluginSetups)
         {
             setup(kernel);
         }
+
+        // Reset the builder state to prevent accumulation across builds
+        _options = new KernelBuildOptions { Model = new Models.ModelConfiguration() };
 
         return kernel;
     }
