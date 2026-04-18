@@ -87,10 +87,7 @@ public class MiChanAutonomousBehavior
     [Experimental("SKEXP0050")]
     public Task InitializeAsync()
     {
-        _kernel = _kernelProvider.GetKernel();
-
-        // Register plugins using centralized extension method
-        _kernel.AddMiChanPlugins(_serviceProvider);
+        _kernel = _kernelProvider.GetAutonomousKernel();
 
         _logger.LogInformation("MiChan autonomous behavior initialized");
 
