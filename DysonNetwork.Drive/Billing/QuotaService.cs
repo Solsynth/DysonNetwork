@@ -16,7 +16,7 @@ public class QuotaService(
     public async Task<(bool ok, long billable, long quota)> IsFileAcceptable(Guid accountId, double costMultiplier, long newFileSize)
     {
         // The billable unit is MiB
-        var billableUnit = (long)Math.Ceiling(newFileSize / 1024.0 / 1024.0 * costMultiplier);
+        var billableUnit = (long)Math.Ceiling(newFileSize * costMultiplier / 1024.0 / 1024.0);
         var totalBillableUsage = await usage.GetTotalBillableUsage(accountId);
         var quota = await GetQuota(accountId);
         return (totalBillableUsage + billableUnit <= quota, billableUnit, quota);
