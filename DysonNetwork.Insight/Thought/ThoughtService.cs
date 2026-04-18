@@ -2163,6 +2163,9 @@ public class ThoughtService(
         olderThoughts.ForEach(t => t.IsArchived = true);
         await db.SaveChangesAsync();
 
+        // Invalidate cache to ensure archived thoughts are not returned
+        await cache.RemoveGroupAsync($"sequence:{sequence.Id}");
+
         await SaveThoughtAsync(sequence, [
                 new SnThinkingMessagePart
                 {
