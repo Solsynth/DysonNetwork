@@ -493,9 +493,9 @@ public class ThoughtService(
 
         while (visibleThoughts.Count <= take)
         {
+            // Note: Archived thoughts are included for user viewing, but excluded from agent context
             var batch = await db.ThinkingThoughts
                 .Where(t => t.SequenceId == sequence.Id)
-                .Where(t => !t.IsArchived)
                 .OrderByDescending(t => t.CreatedAt)
                 .ThenByDescending(t => t.Id)
                 .Skip(rawOffset)
