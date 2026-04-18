@@ -73,6 +73,13 @@ public static class MiChanPluginExtensions
             var moodPlugin = serviceProvider.GetRequiredService<MoodPlugin>();
             kernel.Plugins.AddFromObject(moodPlugin, "mood");
         }
+
+        // Fitness plugin
+        if (!kernel.Plugins.Contains("fitness"))
+        {
+            var fitnessPlugin = serviceProvider.GetRequiredService<FitnessPlugin>();
+            kernel.Plugins.AddFromObject(fitnessPlugin, "fitness");
+        }
     }
 
     /// <summary>
@@ -143,6 +150,13 @@ public static class MiChanPluginExtensions
             var moodPlugin = serviceProvider.GetRequiredService<MoodPlugin>();
             kernel.Plugins.AddFromObject(moodPlugin, "mood");
         }
+
+        // Fitness plugin
+        if (!excludedSet.Contains("fitness") && !kernel.Plugins.Contains("fitness"))
+        {
+            var fitnessPlugin = serviceProvider.GetRequiredService<FitnessPlugin>();
+            kernel.Plugins.AddFromObject(fitnessPlugin, "fitness");
+        }
     }
 
     /// <summary>
@@ -157,7 +171,8 @@ public static class MiChanPluginExtensions
                kernel.Plugins.Contains("userProfile") &&
                kernel.Plugins.Contains("scheduledTasks") &&
                kernel.Plugins.Contains("conversation") &&
-               kernel.Plugins.Contains("mood");
+               kernel.Plugins.Contains("mood") &&
+               kernel.Plugins.Contains("fitness");
     }
 
     /// <summary>
@@ -183,6 +198,8 @@ public static class MiChanPluginExtensions
             missing.Add("conversation");
         if (!kernel.Plugins.Contains("mood"))
             missing.Add("mood");
+        if (!kernel.Plugins.Contains("fitness"))
+            missing.Add("fitness");
 
         return missing;
     }
