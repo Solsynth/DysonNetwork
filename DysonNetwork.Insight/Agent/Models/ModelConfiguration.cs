@@ -1,10 +1,12 @@
 using System.ComponentModel.DataAnnotations;
+using System.Collections.Generic;
 
 namespace DysonNetwork.Insight.Agent.Models;
 
 /// <summary>
 /// Configuration for a specific model instance.
 /// Allows per-use overrides of model parameters while maintaining a reference to the base model.
+/// Supports custom providers with custom base URLs for OpenAI-compatible APIs.
 /// </summary>
 public class ModelConfiguration
 {
@@ -40,6 +42,30 @@ public class ModelConfiguration
     public bool AllowRuntimeSwitch { get; set; } = true;
 
     /// <summary>
+    /// Custom provider name (e.g., "together", "fireworks", "custom").
+    /// Overrides the provider from ModelRegistry. Use for custom OpenAI-compatible providers.
+    /// </summary>
+    public string? Provider { get; set; }
+
+    /// <summary>
+    /// Custom base URL for the API endpoint (e.g., "https://api.together.xyz/v1").
+    /// Overrides the base URL from ModelRegistry. Use for custom OpenAI-compatible providers.
+    /// </summary>
+    public string? BaseUrl { get; set; }
+
+    /// <summary>
+    /// Custom API key for the provider.
+    /// If set, overrides the API key from configuration or ModelRegistry.
+    /// </summary>
+    public string? ApiKey { get; set; }
+
+    /// <summary>
+    /// Custom model name to use with the provider.
+    /// If set, overrides the model name from ModelRegistry.
+    /// </summary>
+    public string? CustomModelName { get; set; }
+
+    /// <summary>
     /// Custom parameters specific to this configuration
     /// </summary>
     public Dictionary<string, object> Parameters { get; set; } = new();
@@ -69,9 +95,69 @@ public class ModelConfiguration
     }
 
     /// <summary>
-    /// Gets the ModelRef for this configuration
+    /// Gets the ModelRef for this configuration with custom overrides applied
     /// </summary>
-    public ModelRef? GetModelRef() => ModelRegistry.GetById(ModelId);
+    public ModelRef? GetModelRef()
+    {
+        var modelRef = ModelRegistry.GetById(ModelId);
+        if (modelRef == null) return null;
+
+        // Apply custom overrides if specified
+        if (!string.IsNullOrEmpty(BaseUrl))
+            modelRef = modelRef.WithBaseUrl(BaseUrl);
+        if (!string.IsNullOrEmpty(ApiKey))
+            modelRef = modelRef.WithApiKey(ApiKey);
+
+        return modelRef;
+    }
+
+    /// <summary>
+    /// Gets the effective provider name (custom override or from ModelRegistry)
+    /// </summary>
+    public string GetEffectiveProvider()
+    {
+        if (!string.IsNullOrEmpty(Provider))
+            return Provider;
+
+        var modelRef = ModelRegistry.GetById(ModelId);
+        return modelRef?.Provider ?? "openrouter";
+    }
+
+    /// <summary>
+    /// Gets the effective model name (custom override or from ModelRegistry)
+    /// </summary>
+    public string GetEffectiveModelName()
+    {
+        if (!string.IsNullOrEmpty(CustomModelName))
+            return CustomModelName;
+
+        var modelRef = ModelRegistry.GetById(ModelId);
+        return modelRef?.ModelName ?? ModelId;
+    }
+
+    /// <summary>
+    /// Gets the effective base URL (custom override or from ModelRegistry)
+    /// </summary>
+    public string? GetEffectiveBaseUrl()
+    {
+        if (!string.IsNullOrEmpty(BaseUrl))
+            return BaseUrl;
+
+        var modelRef = ModelRegistry.GetById(ModelId);
+        return modelRef?.BaseUrl;
+    }
+
+    /// <summary>
+    /// Gets the effective API key (custom override or from ModelRegistry)
+    /// </summary>
+    public string? GetEffectiveApiKey()
+    {
+        if (!string.IsNullOrEmpty(ApiKey))
+            return ApiKey;
+
+        var modelRef = ModelRegistry.GetById(ModelId);
+        return modelRef?.ApiKey;
+    }
 
     /// <summary>
     /// Validates this configuration
@@ -125,6 +211,10 @@ public class ModelConfiguration
             MaxTokens = MaxTokens,
             EnableFunctions = EnableFunctions,
             AllowRuntimeSwitch = AllowRuntimeSwitch,
+            Provider = Provider,
+            BaseUrl = BaseUrl,
+            ApiKey = ApiKey,
+            CustomModelName = CustomModelName,
             Parameters = new Dictionary<string, object>(Parameters)
         };
 
@@ -144,8 +234,19 @@ public class ModelConfiguration
     public static implicit operator ModelConfiguration(ModelRef modelRef) =>
         new() { ModelId = modelRef.Id };
 
-    public override string ToString() =>
-        $"{ModelId}" + (Temperature.HasValue ? $" (temp: {Temperature.Value})" : "");
+    public override string ToString()
+    {
+        var parts = new List<string> { ModelId };
+
+        if (Temperature.HasValue)
+            parts.Add($"temp: {Temperature.Value}");
+        if (!string.IsNullOrEmpty(Provider))
+            parts.Add($"provider: {Provider}");
+        if (!string.IsNullOrEmpty(BaseUrl))
+            parts.Add($"url: {BaseUrl}");
+
+        return string.Join(" | ", parts);
+    }
 }
 
 /// <summary>
@@ -223,6 +324,61 @@ public static class ModelConfigurationExtensions
     public static ModelConfiguration WithParameter(this ModelConfiguration config, string key, object value)
     {
         config.Parameters[key] = value;
+        return config;
+    }
+
+    /// <summary>
+    /// Sets a custom provider fluently (for OpenAI-compatible APIs)
+    /// </summary>
+    public static ModelConfiguration WithProvider(this ModelConfiguration config, string provider)
+    {
+        config.Provider = provider;
+        return config;
+    }
+
+    /// <summary>
+    /// Sets a custom base URL fluently (for OpenAI-compatible APIs)
+    /// </summary>
+    public static ModelConfiguration WithBaseUrl(this ModelConfiguration config, string baseUrl)
+    {
+        config.BaseUrl = baseUrl;
+        return config;
+    }
+
+    /// <summary>
+    /// Sets a custom API key fluently (for OpenAI-compatible APIs)
+    /// </summary>
+    public static ModelConfiguration WithApiKey(this ModelConfiguration config, string apiKey)
+    {
+        config.ApiKey = apiKey;
+        return config;
+    }
+
+    /// <summary>
+    /// Sets a custom model name fluently (overrides the model name from ModelRegistry)
+    /// </summary>
+    public static ModelConfiguration WithCustomModelName(this ModelConfiguration config, string modelName)
+    {
+        config.CustomModelName = modelName;
+        return config;
+    }
+
+    /// <summary>
+    /// Configures this model to use a custom OpenAI-compatible provider
+    /// </summary>
+    public static ModelConfiguration WithCustomProvider(
+        this ModelConfiguration config,
+        string baseUrl,
+        string? apiKey = null,
+        string? providerName = "custom",
+        string? modelName = null)
+    {
+        config.Provider = providerName;
+        config.BaseUrl = baseUrl;
+        if (apiKey != null)
+            config.ApiKey = apiKey;
+        if (modelName != null)
+            config.CustomModelName = modelName;
         return config;
     }
 }

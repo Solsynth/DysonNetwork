@@ -34,7 +34,11 @@ DysonNetwork.Insight/
 ├── Agent/                          # Global AI Agent infrastructure
 │   ├── Models/
 │   │   ├── ModelRef.cs            # Strongly-typed model references
-│   │   └── ModelConfiguration.cs  # Model configuration with validation
+│   │   ├── ModelConfiguration.cs  # Model configuration with validation
+│   │   ├── ModelUseCase.cs        # Use case enum (MiChanChat, SnChanChat, etc.)
+│   │   ├── ModelUseCaseMapping.cs # PerkLevel-based model mappings
+│   │   ├── IModelSelector.cs      # Model selection interface
+│   │   └── ModelSelector.cs       # PerkLevel-aware model selector
 │   └── KernelBuilding/
 │       ├── IKernelBuilder.cs      # Fluent builder interface
 │       ├── SemanticKernelBuilder.cs
@@ -42,8 +46,8 @@ DysonNetwork.Insight/
 ├── MiChan/
 │   ├── KernelBuilding/
 │   │   └── MiChanKernelBuilderExtensions.cs
-│   ├── MiChanKernelProvider.cs
-│   └── MiChanConfig.cs
+│   ├── MiChanKernelProvider.cs    # Updated with PerkLevel support
+│   └── MiChanConfig.cs            # Updated with ModelSelection config
 └── Thought/
     └── ThoughtProvider.cs
 ```
@@ -153,6 +157,83 @@ public static class MiChanKernelBuilderExtensions
 }
 ```
 
+#### 6. ModelUseCase (Agent.Models)
+
+Defines different use cases for model selection:
+
+```csharp
+public enum ModelUseCase
+{
+    Default = 0,
+    MiChanChat = 1,           // MiChan interactive chat
+    MiChanAutonomous = 2,     // MiChan self-directed actions
+    MiChanVision = 3,         // MiChan image analysis
+    MiChanScheduledTask = 4,  // MiChan background tasks
+    MiChanCompaction = 5,     // MiChan conversation summarization
+    MiChanTopicGeneration = 6,// MiChan topic generation
+    SnChanChat = 10,          // SN-chan user chat
+    SnChanReasoning = 11,     // SN-chan complex reasoning
+    SnChanVision = 12,        // SN-chan image analysis
+    SystemTask = 20,          // Internal system operations
+    Embedding = 30            // Vector embedding generation
+}
+```
+
+#### 7. ModelUseCaseMapping (Agent.Models)
+
+Maps models to use cases with PerkLevel requirements:
+
+```csharp
+public class ModelUseCaseMapping
+{
+    public ModelUseCase UseCase { get; set; }
+    public string ModelId { get; set; }
+    public int MinPerkLevel { get; set; } = 0
+    public int? MaxPerkLevel { get; set; }
+    public bool IsDefault { get; set; }
+    public int Priority { get; set; }
+    public string? DisplayName { get; set; }
+    public string? Description { get; set; }
+    public bool Enabled { get; set; } = true
+    
+    public bool CanUse(int userPerkLevel) => 
+        Enabled && 
+        userPerkLevel >= MinPerkLevel &&
+        (!MaxPerkLevel.HasValue || userPerkLevel <= MaxPerkLevel.Value);
+}
+```
+
+#### 8. IModelSelector (Agent.Models)
+
+Service for PerkLevel-aware model selection:
+
+```csharp
+public interface IModelSelector
+{
+    ModelSelectionResult SelectModel(UserModelContext context);
+    ModelSelectionResult SelectModel(ModelUseCase useCase, int perkLevel = 0, string? preferredModelId = null);
+    IEnumerable<ModelUseCaseMapping> GetAvailableModels(ModelUseCase useCase, int perkLevel);
+    bool CanAccessModel(ModelUseCase useCase, string modelId, int perkLevel);
+    ModelConfiguration GetDefaultConfiguration(ModelUseCase useCase, int perkLevel = 0);
+}
+```
+
+#### 9. MiChanModelSelectionConfig (MiChan)
+
+MiChan-specific model selection configuration:
+
+```csharp
+public class MiChanModelSelectionConfig
+{
+    public string DefaultModelId { get; set; } = ModelRegistry.DeepSeekChat.Id;
+    public List<MiChanModelMapping> Mappings { get; set; } = new();
+    public bool AllowUserOverride { get; set; } = true;
+    
+    public IEnumerable<MiChanModelMapping> GetAvailableModels(ModelUseCase useCase, int perkLevel);
+    public MiChanModelMapping? GetDefaultMapping(ModelUseCase useCase, int perkLevel);
+}
+```
+
 ## Configuration Format
 
 ### appsettings.json
@@ -220,6 +301,7 @@ public class MiChanKernelProvider
 {
     private readonly IKernelBuilder _kernelBuilder;
     
+    // Basic usage (uses default configuration)
     public Kernel GetKernel()
     {
         return _kernelBuilder
@@ -227,18 +309,34 @@ public class MiChanKernelProvider
             .Build();
     }
     
-    public Kernel GetAutonomousKernel()
+    // With PerkLevel-based model selection
+    public Kernel GetKernel(int? userPerkLevel = null, string? preferredModelId = null)
+    {
+        return _kernelBuilder
+            .ForMiChanChat(_config, _serviceProvider)
+            .Build();
+    }
+    
+    public Kernel GetAutonomousKernel(int? userPerkLevel = null)
     {
         return _kernelBuilder
             .ForMiChanAutonomous(_config, _serviceProvider)
             .Build();
     }
     
-    public Kernel GetVisionKernel()
+    public Kernel GetVisionKernel(int? userPerkLevel = null)
     {
         return _kernelBuilder
             .ForMiChanVision(_config)
             .Build();
+    }
+    
+    // Get available models for UI display
+    public IEnumerable<MiChanModelMapping> GetAvailableModelsForUseCase(
+        ModelUseCase useCase, 
+        int userPerkLevel)
+    {
+        // Returns models the user can access based on PerkLevel
     }
 }
 ```
@@ -375,7 +473,7 @@ var kernel = kernelBuilder
   }
 }
 
-// New
+// New - Basic configuration
 {
   "MiChan": {
     "ThinkingModel": {
@@ -385,6 +483,32 @@ var kernel = kernelBuilder
     "AutonomousModel": {
       "ModelId": "deepseek-reasoner",
       "Temperature": 0.7
+    }
+  }
+}
+
+// New - With PerkLevel-based model selection
+{
+  "MiChan": {
+    "UseModelSelection": true,
+    "ModelSelection": {
+      "DefaultModelId": "deepseek-chat",
+      "AllowUserOverride": true,
+      "Mappings": [
+        {
+          "UseCase": "MiChanChat",
+          "ModelId": "deepseek-chat",
+          "MinPerkLevel": 0,
+          "IsDefault": true,
+          "DisplayName": "DeepSeek Chat"
+        },
+        {
+          "UseCase": "MiChanChat",
+          "ModelId": "deepseek-reasoner",
+          "MinPerkLevel": 1,
+          "DisplayName": "DeepSeek Reasoner"
+        }
+      ]
     }
   }
 }
@@ -406,6 +530,274 @@ var kernel = kernelBuilder
        AutonomousModel ?? ThinkingModel;
    ```
 
+6. **PerkLevel-Based Access**: Configure `MinPerkLevel` appropriately for tiered access:
+   - PerkLevel 0: Free tier - basic models
+   - PerkLevel 1: Standard tier - better models
+   - PerkLevel 2+: Premium tier - best models
+
+7. **Use Priority for Model Selection**: Set higher priority for preferred models within the same tier:
+   ```json
+   {
+     "Priority": 200,  // Higher priority
+     "MinPerkLevel": 1
+   }
+   ```
+
+8. **Enable User Override**: Allow users to choose from available models in their tier:
+   ```json
+   { "AllowUserOverride": true }
+   ```
+
+9. **Set Default Models**: Always mark one model as `IsDefault` for each use case to ensure fallback:
+   ```json
+   { "IsDefault": true }
+   ```
+
+10. **Custom Providers**: When using custom providers, always specify `BaseUrl` and `ApiKey`:
+    ```json
+    {
+      "Provider": "custom",
+      "BaseUrl": "https://api.together.xyz/v1",
+      "ApiKey": "sk-your-api-key"
+    }
+    ```
+
+## Custom Model Providers
+
+The system supports custom OpenAI-compatible API providers with configurable base URLs.
+
+### Configuration
+
+```json
+{
+  "MiChan": {
+    "ThinkingModel": {
+      "ModelId": "deepseek-chat",
+      "Provider": "custom",
+      "BaseUrl": "https://api.together.xyz/v1",
+      "ApiKey": "sk-your-api-key",
+      "CustomModelName": "meta-llama/Llama-3.1-70B-Instruct-Turbo",
+      "Temperature": 0.75
+    }
+  }
+}
+```
+
+### Using Custom Providers in Code
+
+```csharp
+// Using fluent API
+var modelConfig = new ModelConfiguration { ModelId = "deepseek-chat" }
+    .WithCustomProvider(
+        baseUrl: "https://api.together.xyz/v1",
+        apiKey: "sk-your-api-key",
+        modelName: "meta-llama/Llama-3.1-70B-Instruct-Turbo"
+    );
+
+var kernel = kernelBuilder
+    .WithModel(modelConfig)
+    .Build();
+```
+
+### ModelRef with Custom Base URL
+
+```csharp
+// Create a custom model reference
+var customModel = ModelRef.CreateCustom(
+    id: "together-llama",
+    modelName: "meta-llama/Llama-3.1-70B-Instruct-Turbo",
+    baseUrl: "https://api.together.xyz/v1",
+    apiKey: "sk-your-api-key",
+    displayName: "Llama 3.1 70B (Together)"
+);
+
+// Register at runtime
+ModelRegistry.Register(customModel);
+```
+
+## Multi-Model Configuration with PerkLevel Support
+
+The system supports use-case based model selection with PerkLevel-based access control. Different users can access different models based on their subscription tier.
+
+### ModelUseCase Enum
+
+```csharp
+public enum ModelUseCase
+{
+    Default = 0,
+    MiChanChat = 1,
+    MiChanAutonomous = 2,
+    MiChanVision = 3,
+    MiChanScheduledTask = 4,
+    MiChanCompaction = 5,
+    MiChanTopicGeneration = 6,
+    SnChanChat = 10,
+    SnChanReasoning = 11,
+    SnChanVision = 12,
+    SystemTask = 20,
+    Embedding = 30
+}
+```
+
+### Configuration
+
+```json
+{
+  "MiChan": {
+    "UseModelSelection": true,
+    "ModelSelection": {
+      "DefaultModelId": "deepseek-chat",
+      "AllowUserOverride": true,
+      "Mappings": [
+        {
+          "UseCase": "MiChanChat",
+          "ModelId": "deepseek-chat",
+          "MinPerkLevel": 0,
+          "IsDefault": true,
+          "Priority": 100,
+          "DisplayName": "DeepSeek Chat",
+          "Description": "Fast and efficient for everyday conversations"
+        },
+        {
+          "UseCase": "MiChanChat",
+          "ModelId": "deepseek-reasoner",
+          "MinPerkLevel": 1,
+          "Priority": 200,
+          "DisplayName": "DeepSeek Reasoner",
+          "Description": "Advanced reasoning for complex discussions"
+        },
+        {
+          "UseCase": "MiChanChat",
+          "ModelId": "claude-sonnet",
+          "MinPerkLevel": 2,
+          "Priority": 300,
+          "DisplayName": "Claude 3 Sonnet",
+          "Description": "Premium model with enhanced capabilities"
+        },
+        {
+          "UseCase": "MiChanVision",
+          "ModelId": "vision-aliyun",
+          "MinPerkLevel": 0,
+          "IsDefault": true,
+          "DisplayName": "Qwen Vision"
+        },
+        {
+          "UseCase": "MiChanVision",
+          "ModelId": "vision-openrouter",
+          "MinPerkLevel": 2,
+          "Priority": 200,
+          "DisplayName": "Claude 3 Opus"
+        }
+      ]
+    }
+  }
+}
+```
+
+### Using IModelSelector
+
+```csharp
+public class MyService
+{
+    private readonly IModelSelector _modelSelector;
+    
+    public MyService(IModelSelector modelSelector)
+    {
+        _modelSelector = modelSelector;
+    }
+    
+    public async Task ProcessWithModel(int userPerkLevel)
+    {
+        // Select model based on use case and PerkLevel
+        var result = _modelSelector.SelectModel(
+            ModelUseCase.MiChanChat, 
+            userPerkLevel,
+            preferredModelId: "deepseek-reasoner"
+        );
+        
+        if (result.Success)
+        {
+            var modelConfig = result.Configuration;
+            var availableModels = result.AvailableModels; // For UI display
+            
+            // Use the selected model
+            var kernel = kernelBuilder
+                .WithModel(modelConfig)
+                .Build();
+        }
+    }
+}
+```
+
+### MiChanKernelProvider with PerkLevel
+
+```csharp
+// Get kernel for specific user with PerkLevel
+var kernel = miChanKernelProvider.GetKernel(
+    userPerkLevel: 2, 
+    preferredModelId: "claude-sonnet"
+);
+
+// Get available models for UI
+var availableModels = miChanKernelProvider.GetAvailableModelsForUseCase(
+    ModelUseCase.MiChanChat, 
+    userPerkLevel: 1
+);
+
+// Returns: deepseek-chat (Perk 0), deepseek-reasoner (Perk 1)
+// Excludes: claude-sonnet (requires Perk 2)
+```
+
+### UserModelContext
+
+```csharp
+// Create context for model selection
+var context = new UserModelContext
+{
+    AccountId = userId,
+    PerkLevel = 2,
+    IsSuperuser = false,
+    UseCase = ModelUseCase.MiChanChat,
+    PreferredModelId = "claude-sonnet",
+    UseBestAvailable = true
+};
+
+var result = modelSelector.SelectModel(context);
+```
+
+### MiChanModelMapping Properties
+
+| Property | Description |
+|----------|-------------|
+| `UseCase` | The use case this mapping applies to |
+| `ModelId` | Reference to Thinking:Services or ModelRegistry |
+| `MinPerkLevel` | Minimum PerkLevel required (0 = available to all) |
+| `MaxPerkLevel` | Maximum PerkLevel allowed (null = no limit) |
+| `IsDefault` | Whether this is the default model for the use case |
+| `Priority` | Selection priority (higher = preferred) |
+| `DisplayName` | Human-readable name for UI |
+| `Description` | Help text for UI |
+| `Enabled` | Whether this mapping is active |
+
+## Model Selection Flow
+
+1. **User Request** → System receives request with user's PerkLevel
+2. **Use Case Detection** → Determines the use case (MiChanChat, SnChanChat, etc.)
+3. **Filter by PerkLevel** → Gets mappings where `MinPerkLevel <= userPerkLevel`
+4. **Check Preference** → If user has preferred model and `AllowUserOverride` is true, use it
+5. **Select Best Model** → Choose highest priority available model
+6. **Apply Overrides** → Apply temperature, reasoning effort from context
+7. **Create Kernel** → Build kernel with selected model configuration
+
+## Benefits of Multi-Model Configuration
+
+1. **Tiered Access**: Different subscription levels get different model quality
+2. **Cost Control**: Free users use cheaper models, premium users get better models
+3. **User Choice**: Users can select from available models within their tier
+4. **Dynamic Scaling**: Easy to add/remove models from tiers without code changes
+5. **A/B Testing**: Different models can be tested with different user groups
+6. **Fallback Chain**: Automatic fallback if a model is unavailable
+
 ## Future Enhancements
 
 - Dynamic model discovery from configuration
@@ -413,3 +805,5 @@ var kernel = kernelBuilder
 - A/B testing different models
 - Model fallback chains
 - Cost-aware model selection
+- Real-time model performance monitoring
+- Automatic model degradation on errors

@@ -17,6 +17,7 @@ public class MiChanConfig : IValidatableObject
 
     /// <summary>
     /// Primary model for chat conversations. Defaults to deepseek-chat.
+    /// Note: When UseModelSelection is true, this serves as the fallback default.
     /// </summary>
     public ModelConfiguration ThinkingModel { get; set; } = ModelRegistry.DeepSeekChat;
 
@@ -39,6 +40,18 @@ public class MiChanConfig : IValidatableObject
     /// Model for topic generation. Falls back to ThinkingModel if not set.
     /// </summary>
     public ModelConfiguration? TopicGenerationModel { get; set; }
+
+    /// <summary>
+    /// Whether to use the new model selection system based on use cases and PerkLevel.
+    /// When enabled, ModelSelection configuration is used instead of direct model properties.
+    /// </summary>
+    public bool UseModelSelection { get; set; } = false;
+
+    /// <summary>
+    /// Model selection configuration for different use cases.
+    /// Only used when UseModelSelection is true.
+    /// </summary>
+    public MiChanModelSelectionConfig ModelSelection { get; set; } = new();
 
     public string Personality { get; set; } = "";
     public string? PersonalityFile { get; set; }
@@ -206,4 +219,134 @@ public class MiChanVisionConfig
     /// Whether to fallback to text-only model if vision model is unavailable
     /// </summary>
     public bool FallbackToTextModel { get; set; } = true;
+}
+
+/// <summary>
+/// Model selection configuration for MiChan with PerkLevel-based access control
+/// </summary>
+public class MiChanModelSelectionConfig
+{
+    /// <summary>
+    /// Default model for users with PerkLevel 0
+    /// </summary>
+    public string DefaultModelId { get; set; } = ModelRegistry.DeepSeekChat.Id;
+
+    /// <summary>
+    /// Model mappings for different use cases and PerkLevels
+    /// </summary>
+    public List<MiChanModelMapping> Mappings { get; set; } = new()
+    {
+        // Default mappings - MiChan Chat
+        new MiChanModelMapping
+        {
+            UseCase = ModelUseCase.MiChanChat,
+            ModelId = ModelRegistry.DeepSeekChat.Id,
+            MinPerkLevel = 0,
+            IsDefault = true,
+            DisplayName = "DeepSeek Chat",
+            Description = "Fast and efficient for everyday conversations"
+        },
+        new MiChanModelMapping
+        {
+            UseCase = ModelUseCase.MiChanChat,
+            ModelId = ModelRegistry.DeepSeekReasoner.Id,
+            MinPerkLevel = 1,
+            DisplayName = "DeepSeek Reasoner",
+            Description = "Advanced reasoning capabilities for complex discussions"
+        },
+
+        // MiChan Autonomous
+        new MiChanModelMapping
+        {
+            UseCase = ModelUseCase.MiChanAutonomous,
+            ModelId = ModelRegistry.DeepSeekReasoner.Id,
+            MinPerkLevel = 0,
+            IsDefault = true,
+            DisplayName = "DeepSeek Reasoner",
+            Description = "Optimized for autonomous decision making"
+        },
+
+        // MiChan Vision
+        new MiChanModelMapping
+        {
+            UseCase = ModelUseCase.MiChanVision,
+            ModelId = ModelRegistry.QwenVision.Id,
+            MinPerkLevel = 0,
+            IsDefault = true,
+            DisplayName = "Qwen Vision",
+            Description = "Vision analysis with Aliyun Qwen"
+        },
+        new MiChanModelMapping
+        {
+            UseCase = ModelUseCase.MiChanVision,
+            ModelId = ModelRegistry.ClaudeOpus.Id,
+            MinPerkLevel = 2,
+            DisplayName = "Claude 3 Opus",
+            Description = "Premium vision analysis with Claude"
+        },
+
+        // System tasks
+        new MiChanModelMapping
+        {
+            UseCase = ModelUseCase.MiChanScheduledTask,
+            ModelId = ModelRegistry.DeepSeekChat.Id,
+            MinPerkLevel = 0,
+            IsDefault = true
+        },
+        new MiChanModelMapping
+        {
+            UseCase = ModelUseCase.MiChanCompaction,
+            ModelId = ModelRegistry.DeepSeekChat.Id,
+            MinPerkLevel = 0,
+            IsDefault = true
+        },
+        new MiChanModelMapping
+        {
+            UseCase = ModelUseCase.MiChanTopicGeneration,
+            ModelId = ModelRegistry.DeepSeekChat.Id,
+            MinPerkLevel = 0,
+            IsDefault = true
+        }
+    };
+
+    /// <summary>
+    /// Whether to allow runtime model switching by users
+    /// </summary>
+    public bool AllowUserOverride { get; set; } = true;
+
+    /// <summary>
+    /// Gets available models for a use case and PerkLevel
+    /// </summary>
+    public IEnumerable<MiChanModelMapping> GetAvailableModels(ModelUseCase useCase, int perkLevel)
+    {
+        return Mappings
+            .Where(m => m.UseCase == useCase && m.MinPerkLevel <= perkLevel)
+            .OrderByDescending(m => m.Priority)
+            .ThenBy(m => m.MinPerkLevel);
+    }
+
+    /// <summary>
+    /// Gets the default model for a use case
+    /// </summary>
+    public MiChanModelMapping? GetDefaultMapping(ModelUseCase useCase, int perkLevel)
+    {
+        var available = GetAvailableModels(useCase, perkLevel);
+        return available.FirstOrDefault(m => m.IsDefault) ?? available.FirstOrDefault();
+    }
+}
+
+/// <summary>
+/// Maps a model to a use case with PerkLevel requirements for MiChan
+/// </summary>
+public class MiChanModelMapping
+{
+    public ModelUseCase UseCase { get; set; }
+    public string ModelId { get; set; } = "";
+    public int MinPerkLevel { get; set; } = 0;
+    public int? MaxPerkLevel { get; set; }
+    public bool IsDefault { get; set; } = false;
+    public int Priority { get; set; } = 0;
+    public string? DisplayName { get; set; }
+    public string? Description { get; set; }
+    public bool Enabled { get; set; } = true;
 }

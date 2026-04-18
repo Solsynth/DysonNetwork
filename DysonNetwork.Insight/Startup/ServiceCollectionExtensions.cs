@@ -7,6 +7,7 @@ using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.MiChan.KernelBuilding;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
+using DysonNetwork.Insight.Agent.Models;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Pagination;
 using DysonNetwork.Shared.Localization;
@@ -116,6 +117,32 @@ public static class ServiceCollectionExtensions
             var miChanConfig = configuration.GetSection("MiChan").Get<MiChanConfig>() ?? new MiChanConfig();
             services.AddSingleton(miChanConfig);
 
+            // Register model selection configuration
+            services.Configure<ModelSelectionConfig>(options =>
+            {
+                // Copy mappings from MiChan config if using model selection
+                if (miChanConfig.UseModelSelection && miChanConfig.ModelSelection?.Mappings != null)
+                {
+                    options.Mappings = miChanConfig.ModelSelection.Mappings.Select(m => new ModelUseCaseMapping
+                    {
+                        UseCase = m.UseCase,
+                        ModelId = m.ModelId,
+                        MinPerkLevel = m.MinPerkLevel,
+                        MaxPerkLevel = m.MaxPerkLevel,
+                        IsDefault = m.IsDefault,
+                        Priority = m.Priority,
+                        DisplayName = m.DisplayName,
+                        Description = m.Description,
+                        Enabled = m.Enabled
+                    }).ToList();
+                    options.DefaultModelId = miChanConfig.ModelSelection.DefaultModelId;
+                    options.AllowUserOverride = miChanConfig.ModelSelection.AllowUserOverride;
+                }
+            });
+
+            // Register model selector service for PerkLevel-based model selection
+            services.AddSingleton<IModelSelector, ModelSelector>();
+
             // Always register MiChan services for dependency injection (needed by ThoughtController)
             // Core services
             services.AddSingleton<KernelFactory>();
@@ -128,7 +155,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<MiChanKernelProvider>();
             services.AddSingleton<GeneralKernelProvider>();
             services.AddSingleton<IKernelProvider>(sp => sp.GetRequiredService<GeneralKernelProvider>());
-            
+
             // Plugins
             services.AddSingleton<PostPlugin>();
             services.AddSingleton<AccountPlugin>();
@@ -138,7 +165,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ScheduledTaskPlugin>();
             services.AddScoped<ConversationPlugin>();
             services.AddScoped<MoodPlugin>();
-            
+
             // Memory and behavior services
             services.AddScoped<ScheduledTaskService>();
             services.AddScoped<ScheduledTaskJob>();
@@ -150,7 +177,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<MiChanAutonomousBehavior>();
             services.AddScoped<MoodService>();
             services.AddHostedService<MiChanSequenceUnificationHostedService>();
-            
+
             // Only start the hosted service when enabled
             if (miChanConfig.Enabled)
                 services.AddHostedService<MiChanService>();

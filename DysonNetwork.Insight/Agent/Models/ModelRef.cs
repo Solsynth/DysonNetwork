@@ -3,6 +3,7 @@ namespace DysonNetwork.Insight.Agent.Models;
 /// <summary>
 /// Strongly-typed reference to an AI model configuration.
 /// Eliminates magic strings and provides compile-time safety for model selection.
+/// Supports custom providers with custom base URLs for OpenAI-compatible APIs.
 /// </summary>
 public sealed record ModelRef
 {
@@ -12,7 +13,7 @@ public sealed record ModelRef
     public string Id { get; }
 
     /// <summary>
-    /// The provider type (e.g., "deepseek", "openrouter", "aliyun")
+    /// The provider type (e.g., "deepseek", "openrouter", "aliyun", "custom")
     /// </summary>
     public string Provider { get; }
 
@@ -46,6 +47,21 @@ public sealed record ModelRef
     /// </summary>
     public string? DefaultReasoningEffort { get; }
 
+    /// <summary>
+    /// Custom base URL for the API endpoint (for custom providers)
+    /// </summary>
+    public string? BaseUrl { get; }
+
+    /// <summary>
+    /// API key for the provider (for custom providers, null means use config)
+    /// </summary>
+    public string? ApiKey { get; }
+
+    /// <summary>
+    /// Whether this is a custom provider (not a built-in provider)
+    /// </summary>
+    public bool IsCustomProvider => Provider == "custom" || !string.IsNullOrEmpty(BaseUrl);
+
     public ModelRef(
         string id,
         string provider,
@@ -54,7 +70,9 @@ public sealed record ModelRef
         bool supportsVision = false,
         bool supportsReasoning = false,
         double defaultTemperature = 0.7,
-        string? defaultReasoningEffort = null)
+        string? defaultReasoningEffort = null,
+        string? baseUrl = null,
+        string? apiKey = null)
     {
         Id = id;
         Provider = provider;
@@ -64,7 +82,38 @@ public sealed record ModelRef
         SupportsReasoning = supportsReasoning;
         DefaultTemperature = defaultTemperature;
         DefaultReasoningEffort = defaultReasoningEffort;
+        BaseUrl = baseUrl;
+        ApiKey = apiKey;
     }
+
+    /// <summary>
+    /// Creates a copy of this ModelRef with a custom base URL
+    /// </summary>
+    public ModelRef WithBaseUrl(string baseUrl) =>
+        new(Id, Provider, ModelName, DisplayName, SupportsVision, SupportsReasoning,
+            DefaultTemperature, DefaultReasoningEffort, baseUrl, ApiKey);
+
+    /// <summary>
+    /// Creates a copy of this ModelRef with a custom API key
+    /// </summary>
+    public ModelRef WithApiKey(string apiKey) =>
+        new(Id, Provider, ModelName, DisplayName, SupportsVision, SupportsReasoning,
+            DefaultTemperature, DefaultReasoningEffort, BaseUrl, apiKey);
+
+    /// <summary>
+    /// Creates a custom provider model reference
+    /// </summary>
+    public static ModelRef CreateCustom(
+        string id,
+        string modelName,
+        string baseUrl,
+        string? apiKey = null,
+        string? displayName = null,
+        bool supportsVision = false,
+        bool supportsReasoning = false,
+        double defaultTemperature = 0.7) =>
+        new(id, "custom", modelName, displayName ?? id, supportsVision, supportsReasoning,
+            defaultTemperature, null, baseUrl, apiKey);
 
     public override string ToString() => Id;
 

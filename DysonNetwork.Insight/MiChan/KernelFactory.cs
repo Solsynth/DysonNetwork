@@ -5,12 +5,13 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.Ollama;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using OpenAI;
+using DysonNetwork.Insight.Agent.Models;
 
 namespace DysonNetwork.Insight.MiChan;
 
 /// <summary>
 /// Factory for creating Semantic Kernel instances with various AI providers.
-/// Supports Ollama, DeepSeek, OpenRouter, Aliyun DashScope, and BigModel.
+/// Supports Ollama, DeepSeek, OpenRouter, Aliyun DashScope, BigModel, and custom OpenAI-compatible providers.
 /// </summary>
 #pragma warning disable SKEXP0010
 public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> logger)
@@ -25,7 +26,7 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
     {
         var thinkingConfig = configuration.GetSection("Thinking");
         var serviceConfig = thinkingConfig.GetSection($"Services:{serviceName}");
-        
+
         var providerType = serviceConfig.GetValue<string>("Provider")?.ToLower();
         var model = serviceConfig.GetValue<string>("Model");
         var endpoint = serviceConfig.GetValue<string>("Endpoint");
@@ -39,6 +40,50 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
         var builder = Kernel.CreateBuilder();
 
         // Add chat completion service based on provider
+        AddChatCompletionService(builder, providerType, model, endpoint, apiKey);
+
+        // Add embedding service - always uses the configured embedding provider (independent of chat provider)
+        if (addEmbeddings)
+            AddEmbeddingService(builder, providerType);
+
+        return builder.Build();
+    }
+
+    /// <summary>
+    /// Creates a kernel from a ModelConfiguration, supporting custom providers with custom base URLs
+    /// </summary>
+    /// <param name="modelConfig">The model configuration</param>
+    /// <param name="addEmbeddings">Whether to add embedding services</param>
+    /// <returns>A configured Kernel instance</returns>
+    public Kernel CreateKernel(ModelConfiguration modelConfig, bool addEmbeddings = true)
+    {
+        var providerType = modelConfig.GetEffectiveProvider().ToLower();
+        var modelName = modelConfig.GetEffectiveModelName();
+        var baseUrl = modelConfig.GetEffectiveBaseUrl();
+        var apiKey = modelConfig.GetEffectiveApiKey();
+
+        var builder = Kernel.CreateBuilder();
+
+        // Add chat completion service
+        AddChatCompletionService(builder, providerType, modelName, baseUrl, apiKey);
+
+        // Add embedding service
+        if (addEmbeddings)
+            AddEmbeddingService(builder, providerType);
+
+        return builder.Build();
+    }
+
+    /// <summary>
+    /// Adds a chat completion service to the kernel builder based on provider type
+    /// </summary>
+    private void AddChatCompletionService(
+        IKernelBuilder builder,
+        string providerType,
+        string? model,
+        string? endpoint,
+        string? apiKey)
+    {
         switch (providerType)
         {
             case "ollama":
@@ -81,25 +126,43 @@ public class KernelFactory(IConfiguration configuration, ILogger<KernelFactory> 
                 builder.AddOpenAIChatCompletion(model!, bigmodelClient);
                 logger.LogInformation("Kernel configured with BigModel model: {Model}", model);
                 break;
-            
+
             case "longcat":
                 var longcatClient = new OpenAIClient(
                     new ApiKeyCredential(apiKey!),
                     new OpenAIClientOptions { Endpoint = new Uri(endpoint ?? "https://api.longcat.chat/openai") }
                 );
                 builder.AddOpenAIChatCompletion(model!, longcatClient);
-                logger.LogInformation("Kernel configured with BigModel model: {Model}", model);
+                logger.LogInformation("Kernel configured with Longcat model: {Model}", model);
                 break;
 
+            case "custom":
             default:
-                throw new InvalidOperationException($"Unknown provider: {providerType}");
+                // For custom providers or unknown providers, use OpenAI-compatible API
+                // This allows any OpenAI-compatible endpoint to be used
+                if (string.IsNullOrEmpty(endpoint))
+                {
+                    throw new InvalidOperationException(
+                        $"Custom provider '{providerType}' requires a BaseUrl/Endpoint to be specified. " +
+                        "Please provide the endpoint in the configuration.");
+                }
+
+                if (string.IsNullOrEmpty(apiKey))
+                {
+                    throw new InvalidOperationException(
+                        $"Custom provider '{providerType}' requires an API key. " +
+                        "Please provide the ApiKey in the configuration.");
+                }
+
+                var customClient = new OpenAIClient(
+                    new ApiKeyCredential(apiKey),
+                    new OpenAIClientOptions { Endpoint = new Uri(endpoint) }
+                );
+                builder.AddOpenAIChatCompletion(model!, customClient);
+                logger.LogInformation("Kernel configured with custom provider '{Provider}' model: {Model} at {Endpoint}",
+                    providerType, model, endpoint);
+                break;
         }
-
-        // Add embedding service - always uses the configured embedding provider (independent of chat provider)
-        if (addEmbeddings)
-            AddEmbeddingService(builder, providerType);
-
-        return builder.Build();
     }
 
     /// <summary>

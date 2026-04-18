@@ -102,10 +102,26 @@ public class SemanticKernelBuilder : IKernelBuilder
     [Experimental("SKEXP0050")]
     public Kernel Build()
     {
-        // Create base kernel
-        var kernel = _kernelFactory.CreateKernel(
-            _options.Model.ModelId,
-            _options.IncludeEmbeddings);
+        Kernel kernel;
+
+        // Check if using custom provider configuration (BaseUrl, ApiKey, etc.)
+        var hasCustomConfig = !string.IsNullOrEmpty(_options.Model.BaseUrl) ||
+                              !string.IsNullOrEmpty(_options.Model.ApiKey) ||
+                              !string.IsNullOrEmpty(_options.Model.Provider) ||
+                              !string.IsNullOrEmpty(_options.Model.CustomModelName);
+
+        if (hasCustomConfig)
+        {
+            // Use ModelConfiguration-based creation for custom providers
+            kernel = _kernelFactory.CreateKernel(_options.Model, _options.IncludeEmbeddings);
+        }
+        else
+        {
+            // Use service name-based creation for standard providers
+            kernel = _kernelFactory.CreateKernel(
+                _options.Model.ModelId,
+                _options.IncludeEmbeddings);
+        }
 
         // Add web search if requested
         if (_options.IncludeWebSearch)
@@ -127,10 +143,11 @@ public class SemanticKernelBuilder : IKernelBuilder
         var temp = temperature ?? _options.Temperature ?? _options.Model.GetEffectiveTemperature();
         var effort = reasoningEffort ?? _options.ReasoningEffort ?? _options.Model.GetEffectiveReasoningEffort();
 
-        var modelRef = _options.Model.GetModelRef();
-        var provider = modelRef?.Provider ?? "openrouter";
+        // Use effective provider from ModelConfiguration (supports custom providers)
+        var provider = _options.Model.GetEffectiveProvider().ToLower();
+        var modelName = _options.Model.GetEffectiveModelName();
 
-        return provider.ToLower() switch
+        return provider switch
         {
             "ollama" => new OllamaPromptExecutionSettings
             {
@@ -144,7 +161,7 @@ public class SemanticKernelBuilder : IKernelBuilder
                 FunctionChoiceBehavior = _options.Model.EnableFunctions
                     ? FunctionChoiceBehavior.Auto(autoInvoke: _options.AutoInvokeFunctions)
                     : null,
-                ModelId = _options.Model.ModelId,
+                ModelId = modelName,
                 Temperature = (float)temp,
                 ReasoningEffort = effort,
                 MaxTokens = _options.MaxTokens ?? _options.Model.MaxTokens
