@@ -1000,6 +1000,13 @@ public class ThoughtService(
         systemPromptBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
         systemPromptBuilder.AppendLine("非常重要：在读取记忆后，认清楚记忆是不是属于该用户的，再做出答复。");
         systemPromptBuilder.AppendLine();
+        systemPromptBuilder.AppendLine("回复行为准则：");
+        systemPromptBuilder.AppendLine("1. 保持回复简短自然，像正常人聊天一样。不要长篇大论分析。");
+        systemPromptBuilder.AppendLine("2. 不要主动提供建议或下一步行动方案，除非用户明确要求。");
+        systemPromptBuilder.AppendLine("3. 不要主动建议接下来聊什么话题，让对话自然结束或等待用户发起新话题。");
+        systemPromptBuilder.AppendLine("4. 你不需要帮助用户解决所有问题 - 有时候简单回应就够了。");
+        systemPromptBuilder.AppendLine("5. 像正常人一样对话，可以有沉默、转移话题、或说不知道。");
+        systemPromptBuilder.AppendLine();
         systemPromptBuilder.AppendLine("当你需要获取最新信息、验证事实、了解不熟悉的主题、或用户询问需要实时数据的问题时，主动使用网络搜索。");
 
         var systemPromptFile = configuration.GetValue<string>("Thinking:SystemPromptFile");
@@ -1261,8 +1268,9 @@ public class ThoughtService(
         chatHistoryBuilder.AppendLine("回复行为准则：");
         chatHistoryBuilder.AppendLine("1. 保持回复简短自然，像正常人聊天一样。不要长篇大论分析。");
         chatHistoryBuilder.AppendLine("2. 不要主动提供建议或下一步行动方案，除非用户明确要求。");
-        chatHistoryBuilder.AppendLine("3. 你不需要帮助用户解决所有问题 - 有时候简单回应就够了。");
-        chatHistoryBuilder.AppendLine("4. 像正常人一样对话，可以有沉默、转移话题、或说不知道。");
+        chatHistoryBuilder.AppendLine("3. 不要主动建议接下来聊什么话题，让对话自然结束或等待用户发起新话题。");
+        chatHistoryBuilder.AppendLine("4. 你不需要帮助用户解决所有问题 - 有时候简单回应就够了。");
+        chatHistoryBuilder.AppendLine("5. 像正常人一样对话，可以有沉默、转移话题、或说不知道。");
 
         var chatHistory = new ChatHistory(chatHistoryBuilder.ToString());
 
