@@ -62,6 +62,22 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyWorkout> __Marshaller_proto_DyWorkout = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyWorkout.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyCreateWorkoutRequest> __Marshaller_proto_DyCreateWorkoutRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyCreateWorkoutRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyUpdateWorkoutRequest> __Marshaller_proto_DyUpdateWorkoutRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyUpdateWorkoutRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyDeleteWorkoutRequest> __Marshaller_proto_DyDeleteWorkoutRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyDeleteWorkoutRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyDeleteWorkoutResponse> __Marshaller_proto_DyDeleteWorkoutResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyDeleteWorkoutResponse.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsRequest> __Marshaller_proto_DyBatchCreateWorkoutsRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsResponse> __Marshaller_proto_DyBatchCreateWorkoutsResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsResponse.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyUpdateWorkoutsVisibilityRequest> __Marshaller_proto_DyUpdateWorkoutsVisibilityRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyUpdateWorkoutsVisibilityRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse> __Marshaller_proto_DyUpdateVisibilityResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListMetricsRequest> __Marshaller_proto_DyListMetricsRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListMetricsRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListMetricsResponse> __Marshaller_proto_DyListMetricsResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListMetricsResponse.Parser));
@@ -73,6 +89,20 @@ namespace DysonNetwork.Shared.Proto {
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetMetricRequest> __Marshaller_proto_DyGetMetricRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetMetricRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyFitnessMetric> __Marshaller_proto_DyFitnessMetric = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyFitnessMetric.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyCreateMetricRequest> __Marshaller_proto_DyCreateMetricRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyCreateMetricRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyUpdateMetricRequest> __Marshaller_proto_DyUpdateMetricRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyUpdateMetricRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyDeleteMetricRequest> __Marshaller_proto_DyDeleteMetricRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyDeleteMetricRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyDeleteMetricResponse> __Marshaller_proto_DyDeleteMetricResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyDeleteMetricResponse.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsRequest> __Marshaller_proto_DyBatchCreateMetricsRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsResponse> __Marshaller_proto_DyBatchCreateMetricsResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsResponse.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyUpdateMetricsVisibilityRequest> __Marshaller_proto_DyUpdateMetricsVisibilityRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyUpdateMetricsVisibilityRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListGoalsRequest> __Marshaller_proto_DyListGoalsRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListGoalsRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
@@ -90,6 +120,20 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetGoalHistoryResponse> __Marshaller_proto_DyGetGoalHistoryResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetGoalHistoryResponse.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyCreateGoalRequest> __Marshaller_proto_DyCreateGoalRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyCreateGoalRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyUpdateGoalRequest> __Marshaller_proto_DyUpdateGoalRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyUpdateGoalRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyUpdateGoalProgressRequest> __Marshaller_proto_DyUpdateGoalProgressRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyUpdateGoalProgressRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyDeleteGoalRequest> __Marshaller_proto_DyDeleteGoalRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyDeleteGoalRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyDeleteGoalResponse> __Marshaller_proto_DyDeleteGoalResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyDeleteGoalResponse.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyCreateNextRepeatingGoalRequest> __Marshaller_proto_DyCreateNextRepeatingGoalRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyCreateNextRepeatingGoalRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyUpdateGoalsVisibilityRequest> __Marshaller_proto_DyUpdateGoalsVisibilityRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyUpdateGoalsVisibilityRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListExercisesRequest> __Marshaller_proto_DyListExercisesRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListExercisesRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListExercisesResponse> __Marshaller_proto_DyListExercisesResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListExercisesResponse.Parser));
@@ -97,6 +141,14 @@ namespace DysonNetwork.Shared.Proto {
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetExerciseRequest> __Marshaller_proto_DyGetExerciseRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetExerciseRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyExerciseLibrary> __Marshaller_proto_DyExerciseLibrary = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyExerciseLibrary.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyCreateExerciseRequest> __Marshaller_proto_DyCreateExerciseRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyCreateExerciseRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyUpdateExerciseRequest> __Marshaller_proto_DyUpdateExerciseRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyUpdateExerciseRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyDeleteExerciseRequest> __Marshaller_proto_DyDeleteExerciseRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyDeleteExerciseRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyDeleteExerciseResponse> __Marshaller_proto_DyDeleteExerciseResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyDeleteExerciseResponse.Parser));
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetFitnessAccountDataRequest, global::DysonNetwork.Shared.Proto.DyFitnessAccountDataSummary> __Method_GetFitnessAccountData = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetFitnessAccountDataRequest, global::DysonNetwork.Shared.Proto.DyFitnessAccountDataSummary>(
@@ -131,6 +183,46 @@ namespace DysonNetwork.Shared.Proto {
         __Marshaller_proto_DyWorkout);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateWorkoutRequest, global::DysonNetwork.Shared.Proto.DyWorkout> __Method_CreateWorkout = new grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateWorkoutRequest, global::DysonNetwork.Shared.Proto.DyWorkout>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "CreateWorkout",
+        __Marshaller_proto_DyCreateWorkoutRequest,
+        __Marshaller_proto_DyWorkout);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateWorkoutRequest, global::DysonNetwork.Shared.Proto.DyWorkout> __Method_UpdateWorkout = new grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateWorkoutRequest, global::DysonNetwork.Shared.Proto.DyWorkout>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "UpdateWorkout",
+        __Marshaller_proto_DyUpdateWorkoutRequest,
+        __Marshaller_proto_DyWorkout);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyDeleteWorkoutRequest, global::DysonNetwork.Shared.Proto.DyDeleteWorkoutResponse> __Method_DeleteWorkout = new grpc::Method<global::DysonNetwork.Shared.Proto.DyDeleteWorkoutRequest, global::DysonNetwork.Shared.Proto.DyDeleteWorkoutResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "DeleteWorkout",
+        __Marshaller_proto_DyDeleteWorkoutRequest,
+        __Marshaller_proto_DyDeleteWorkoutResponse);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsRequest, global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsResponse> __Method_BatchCreateWorkouts = new grpc::Method<global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsRequest, global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "BatchCreateWorkouts",
+        __Marshaller_proto_DyBatchCreateWorkoutsRequest,
+        __Marshaller_proto_DyBatchCreateWorkoutsResponse);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateWorkoutsVisibilityRequest, global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse> __Method_UpdateWorkoutsVisibility = new grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateWorkoutsVisibilityRequest, global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "UpdateWorkoutsVisibility",
+        __Marshaller_proto_DyUpdateWorkoutsVisibilityRequest,
+        __Marshaller_proto_DyUpdateVisibilityResponse);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyListMetricsRequest, global::DysonNetwork.Shared.Proto.DyListMetricsResponse> __Method_ListMetrics = new grpc::Method<global::DysonNetwork.Shared.Proto.DyListMetricsRequest, global::DysonNetwork.Shared.Proto.DyListMetricsResponse>(
         grpc::MethodType.Unary,
         __ServiceName,
@@ -153,6 +245,46 @@ namespace DysonNetwork.Shared.Proto {
         "GetMetric",
         __Marshaller_proto_DyGetMetricRequest,
         __Marshaller_proto_DyFitnessMetric);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateMetricRequest, global::DysonNetwork.Shared.Proto.DyFitnessMetric> __Method_CreateMetric = new grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateMetricRequest, global::DysonNetwork.Shared.Proto.DyFitnessMetric>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "CreateMetric",
+        __Marshaller_proto_DyCreateMetricRequest,
+        __Marshaller_proto_DyFitnessMetric);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateMetricRequest, global::DysonNetwork.Shared.Proto.DyFitnessMetric> __Method_UpdateMetric = new grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateMetricRequest, global::DysonNetwork.Shared.Proto.DyFitnessMetric>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "UpdateMetric",
+        __Marshaller_proto_DyUpdateMetricRequest,
+        __Marshaller_proto_DyFitnessMetric);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyDeleteMetricRequest, global::DysonNetwork.Shared.Proto.DyDeleteMetricResponse> __Method_DeleteMetric = new grpc::Method<global::DysonNetwork.Shared.Proto.DyDeleteMetricRequest, global::DysonNetwork.Shared.Proto.DyDeleteMetricResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "DeleteMetric",
+        __Marshaller_proto_DyDeleteMetricRequest,
+        __Marshaller_proto_DyDeleteMetricResponse);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsRequest, global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsResponse> __Method_BatchCreateMetrics = new grpc::Method<global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsRequest, global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "BatchCreateMetrics",
+        __Marshaller_proto_DyBatchCreateMetricsRequest,
+        __Marshaller_proto_DyBatchCreateMetricsResponse);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateMetricsVisibilityRequest, global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse> __Method_UpdateMetricsVisibility = new grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateMetricsVisibilityRequest, global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "UpdateMetricsVisibility",
+        __Marshaller_proto_DyUpdateMetricsVisibilityRequest,
+        __Marshaller_proto_DyUpdateVisibilityResponse);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyListGoalsRequest, global::DysonNetwork.Shared.Proto.DyListGoalsResponse> __Method_ListGoals = new grpc::Method<global::DysonNetwork.Shared.Proto.DyListGoalsRequest, global::DysonNetwork.Shared.Proto.DyListGoalsResponse>(
@@ -187,6 +319,54 @@ namespace DysonNetwork.Shared.Proto {
         __Marshaller_proto_DyGetGoalHistoryResponse);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateGoalRequest, global::DysonNetwork.Shared.Proto.DyFitnessGoal> __Method_CreateGoal = new grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateGoalRequest, global::DysonNetwork.Shared.Proto.DyFitnessGoal>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "CreateGoal",
+        __Marshaller_proto_DyCreateGoalRequest,
+        __Marshaller_proto_DyFitnessGoal);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateGoalRequest, global::DysonNetwork.Shared.Proto.DyFitnessGoal> __Method_UpdateGoal = new grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateGoalRequest, global::DysonNetwork.Shared.Proto.DyFitnessGoal>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "UpdateGoal",
+        __Marshaller_proto_DyUpdateGoalRequest,
+        __Marshaller_proto_DyFitnessGoal);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateGoalProgressRequest, global::DysonNetwork.Shared.Proto.DyFitnessGoal> __Method_UpdateGoalProgress = new grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateGoalProgressRequest, global::DysonNetwork.Shared.Proto.DyFitnessGoal>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "UpdateGoalProgress",
+        __Marshaller_proto_DyUpdateGoalProgressRequest,
+        __Marshaller_proto_DyFitnessGoal);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyDeleteGoalRequest, global::DysonNetwork.Shared.Proto.DyDeleteGoalResponse> __Method_DeleteGoal = new grpc::Method<global::DysonNetwork.Shared.Proto.DyDeleteGoalRequest, global::DysonNetwork.Shared.Proto.DyDeleteGoalResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "DeleteGoal",
+        __Marshaller_proto_DyDeleteGoalRequest,
+        __Marshaller_proto_DyDeleteGoalResponse);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateNextRepeatingGoalRequest, global::DysonNetwork.Shared.Proto.DyFitnessGoal> __Method_CreateNextRepeatingGoal = new grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateNextRepeatingGoalRequest, global::DysonNetwork.Shared.Proto.DyFitnessGoal>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "CreateNextRepeatingGoal",
+        __Marshaller_proto_DyCreateNextRepeatingGoalRequest,
+        __Marshaller_proto_DyFitnessGoal);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateGoalsVisibilityRequest, global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse> __Method_UpdateGoalsVisibility = new grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateGoalsVisibilityRequest, global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "UpdateGoalsVisibility",
+        __Marshaller_proto_DyUpdateGoalsVisibilityRequest,
+        __Marshaller_proto_DyUpdateVisibilityResponse);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyListExercisesRequest, global::DysonNetwork.Shared.Proto.DyListExercisesResponse> __Method_ListExercises = new grpc::Method<global::DysonNetwork.Shared.Proto.DyListExercisesRequest, global::DysonNetwork.Shared.Proto.DyListExercisesResponse>(
         grpc::MethodType.Unary,
         __ServiceName,
@@ -201,6 +381,30 @@ namespace DysonNetwork.Shared.Proto {
         "GetExercise",
         __Marshaller_proto_DyGetExerciseRequest,
         __Marshaller_proto_DyExerciseLibrary);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateExerciseRequest, global::DysonNetwork.Shared.Proto.DyExerciseLibrary> __Method_CreateExercise = new grpc::Method<global::DysonNetwork.Shared.Proto.DyCreateExerciseRequest, global::DysonNetwork.Shared.Proto.DyExerciseLibrary>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "CreateExercise",
+        __Marshaller_proto_DyCreateExerciseRequest,
+        __Marshaller_proto_DyExerciseLibrary);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateExerciseRequest, global::DysonNetwork.Shared.Proto.DyExerciseLibrary> __Method_UpdateExercise = new grpc::Method<global::DysonNetwork.Shared.Proto.DyUpdateExerciseRequest, global::DysonNetwork.Shared.Proto.DyExerciseLibrary>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "UpdateExercise",
+        __Marshaller_proto_DyUpdateExerciseRequest,
+        __Marshaller_proto_DyExerciseLibrary);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyDeleteExerciseRequest, global::DysonNetwork.Shared.Proto.DyDeleteExerciseResponse> __Method_DeleteExercise = new grpc::Method<global::DysonNetwork.Shared.Proto.DyDeleteExerciseRequest, global::DysonNetwork.Shared.Proto.DyDeleteExerciseResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "DeleteExercise",
+        __Marshaller_proto_DyDeleteExerciseRequest,
+        __Marshaller_proto_DyDeleteExerciseResponse);
 
     /// <summary>Service descriptor</summary>
     public static global::Google.Protobuf.Reflection.ServiceDescriptor Descriptor
@@ -248,6 +452,36 @@ namespace DysonNetwork.Shared.Proto {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
 
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyWorkout> CreateWorkout(global::DysonNetwork.Shared.Proto.DyCreateWorkoutRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyWorkout> UpdateWorkout(global::DysonNetwork.Shared.Proto.DyUpdateWorkoutRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyDeleteWorkoutResponse> DeleteWorkout(global::DysonNetwork.Shared.Proto.DyDeleteWorkoutRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsResponse> BatchCreateWorkouts(global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse> UpdateWorkoutsVisibility(global::DysonNetwork.Shared.Proto.DyUpdateWorkoutsVisibilityRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
       /// <summary>
       /// Metrics
       /// </summary>
@@ -268,6 +502,36 @@ namespace DysonNetwork.Shared.Proto {
 
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyFitnessMetric> GetMetric(global::DysonNetwork.Shared.Proto.DyGetMetricRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyFitnessMetric> CreateMetric(global::DysonNetwork.Shared.Proto.DyCreateMetricRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyFitnessMetric> UpdateMetric(global::DysonNetwork.Shared.Proto.DyUpdateMetricRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyDeleteMetricResponse> DeleteMetric(global::DysonNetwork.Shared.Proto.DyDeleteMetricRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsResponse> BatchCreateMetrics(global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse> UpdateMetricsVisibility(global::DysonNetwork.Shared.Proto.DyUpdateMetricsVisibilityRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
@@ -302,6 +566,42 @@ namespace DysonNetwork.Shared.Proto {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
 
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyFitnessGoal> CreateGoal(global::DysonNetwork.Shared.Proto.DyCreateGoalRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyFitnessGoal> UpdateGoal(global::DysonNetwork.Shared.Proto.DyUpdateGoalRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyFitnessGoal> UpdateGoalProgress(global::DysonNetwork.Shared.Proto.DyUpdateGoalProgressRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyDeleteGoalResponse> DeleteGoal(global::DysonNetwork.Shared.Proto.DyDeleteGoalRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyFitnessGoal> CreateNextRepeatingGoal(global::DysonNetwork.Shared.Proto.DyCreateNextRepeatingGoalRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse> UpdateGoalsVisibility(global::DysonNetwork.Shared.Proto.DyUpdateGoalsVisibilityRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
       /// <summary>
       /// Exercise Library
       /// </summary>
@@ -316,6 +616,24 @@ namespace DysonNetwork.Shared.Proto {
 
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyExerciseLibrary> GetExercise(global::DysonNetwork.Shared.Proto.DyGetExerciseRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyExerciseLibrary> CreateExercise(global::DysonNetwork.Shared.Proto.DyCreateExerciseRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyExerciseLibrary> UpdateExercise(global::DysonNetwork.Shared.Proto.DyUpdateExerciseRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyDeleteExerciseResponse> DeleteExercise(global::DysonNetwork.Shared.Proto.DyDeleteExerciseRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
@@ -485,6 +803,106 @@ namespace DysonNetwork.Shared.Proto {
       {
         return CallInvoker.AsyncUnaryCall(__Method_GetWorkout, null, options, request);
       }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyWorkout CreateWorkout(global::DysonNetwork.Shared.Proto.DyCreateWorkoutRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return CreateWorkout(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyWorkout CreateWorkout(global::DysonNetwork.Shared.Proto.DyCreateWorkoutRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_CreateWorkout, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyWorkout> CreateWorkoutAsync(global::DysonNetwork.Shared.Proto.DyCreateWorkoutRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return CreateWorkoutAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyWorkout> CreateWorkoutAsync(global::DysonNetwork.Shared.Proto.DyCreateWorkoutRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_CreateWorkout, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyWorkout UpdateWorkout(global::DysonNetwork.Shared.Proto.DyUpdateWorkoutRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateWorkout(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyWorkout UpdateWorkout(global::DysonNetwork.Shared.Proto.DyUpdateWorkoutRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_UpdateWorkout, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyWorkout> UpdateWorkoutAsync(global::DysonNetwork.Shared.Proto.DyUpdateWorkoutRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateWorkoutAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyWorkout> UpdateWorkoutAsync(global::DysonNetwork.Shared.Proto.DyUpdateWorkoutRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_UpdateWorkout, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyDeleteWorkoutResponse DeleteWorkout(global::DysonNetwork.Shared.Proto.DyDeleteWorkoutRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return DeleteWorkout(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyDeleteWorkoutResponse DeleteWorkout(global::DysonNetwork.Shared.Proto.DyDeleteWorkoutRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_DeleteWorkout, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyDeleteWorkoutResponse> DeleteWorkoutAsync(global::DysonNetwork.Shared.Proto.DyDeleteWorkoutRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return DeleteWorkoutAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyDeleteWorkoutResponse> DeleteWorkoutAsync(global::DysonNetwork.Shared.Proto.DyDeleteWorkoutRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_DeleteWorkout, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsResponse BatchCreateWorkouts(global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return BatchCreateWorkouts(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsResponse BatchCreateWorkouts(global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_BatchCreateWorkouts, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsResponse> BatchCreateWorkoutsAsync(global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return BatchCreateWorkoutsAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsResponse> BatchCreateWorkoutsAsync(global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_BatchCreateWorkouts, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse UpdateWorkoutsVisibility(global::DysonNetwork.Shared.Proto.DyUpdateWorkoutsVisibilityRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateWorkoutsVisibility(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse UpdateWorkoutsVisibility(global::DysonNetwork.Shared.Proto.DyUpdateWorkoutsVisibilityRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_UpdateWorkoutsVisibility, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse> UpdateWorkoutsVisibilityAsync(global::DysonNetwork.Shared.Proto.DyUpdateWorkoutsVisibilityRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateWorkoutsVisibilityAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse> UpdateWorkoutsVisibilityAsync(global::DysonNetwork.Shared.Proto.DyUpdateWorkoutsVisibilityRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_UpdateWorkoutsVisibility, null, options, request);
+      }
       /// <summary>
       /// Metrics
       /// </summary>
@@ -572,6 +990,106 @@ namespace DysonNetwork.Shared.Proto {
       public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyFitnessMetric> GetMetricAsync(global::DysonNetwork.Shared.Proto.DyGetMetricRequest request, grpc::CallOptions options)
       {
         return CallInvoker.AsyncUnaryCall(__Method_GetMetric, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyFitnessMetric CreateMetric(global::DysonNetwork.Shared.Proto.DyCreateMetricRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return CreateMetric(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyFitnessMetric CreateMetric(global::DysonNetwork.Shared.Proto.DyCreateMetricRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_CreateMetric, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyFitnessMetric> CreateMetricAsync(global::DysonNetwork.Shared.Proto.DyCreateMetricRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return CreateMetricAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyFitnessMetric> CreateMetricAsync(global::DysonNetwork.Shared.Proto.DyCreateMetricRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_CreateMetric, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyFitnessMetric UpdateMetric(global::DysonNetwork.Shared.Proto.DyUpdateMetricRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateMetric(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyFitnessMetric UpdateMetric(global::DysonNetwork.Shared.Proto.DyUpdateMetricRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_UpdateMetric, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyFitnessMetric> UpdateMetricAsync(global::DysonNetwork.Shared.Proto.DyUpdateMetricRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateMetricAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyFitnessMetric> UpdateMetricAsync(global::DysonNetwork.Shared.Proto.DyUpdateMetricRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_UpdateMetric, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyDeleteMetricResponse DeleteMetric(global::DysonNetwork.Shared.Proto.DyDeleteMetricRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return DeleteMetric(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyDeleteMetricResponse DeleteMetric(global::DysonNetwork.Shared.Proto.DyDeleteMetricRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_DeleteMetric, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyDeleteMetricResponse> DeleteMetricAsync(global::DysonNetwork.Shared.Proto.DyDeleteMetricRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return DeleteMetricAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyDeleteMetricResponse> DeleteMetricAsync(global::DysonNetwork.Shared.Proto.DyDeleteMetricRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_DeleteMetric, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsResponse BatchCreateMetrics(global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return BatchCreateMetrics(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsResponse BatchCreateMetrics(global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_BatchCreateMetrics, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsResponse> BatchCreateMetricsAsync(global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return BatchCreateMetricsAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsResponse> BatchCreateMetricsAsync(global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_BatchCreateMetrics, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse UpdateMetricsVisibility(global::DysonNetwork.Shared.Proto.DyUpdateMetricsVisibilityRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateMetricsVisibility(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse UpdateMetricsVisibility(global::DysonNetwork.Shared.Proto.DyUpdateMetricsVisibilityRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_UpdateMetricsVisibility, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse> UpdateMetricsVisibilityAsync(global::DysonNetwork.Shared.Proto.DyUpdateMetricsVisibilityRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateMetricsVisibilityAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse> UpdateMetricsVisibilityAsync(global::DysonNetwork.Shared.Proto.DyUpdateMetricsVisibilityRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_UpdateMetricsVisibility, null, options, request);
       }
       /// <summary>
       /// Goals
@@ -681,6 +1199,126 @@ namespace DysonNetwork.Shared.Proto {
       {
         return CallInvoker.AsyncUnaryCall(__Method_GetGoalHistory, null, options, request);
       }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyFitnessGoal CreateGoal(global::DysonNetwork.Shared.Proto.DyCreateGoalRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return CreateGoal(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyFitnessGoal CreateGoal(global::DysonNetwork.Shared.Proto.DyCreateGoalRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_CreateGoal, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyFitnessGoal> CreateGoalAsync(global::DysonNetwork.Shared.Proto.DyCreateGoalRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return CreateGoalAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyFitnessGoal> CreateGoalAsync(global::DysonNetwork.Shared.Proto.DyCreateGoalRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_CreateGoal, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyFitnessGoal UpdateGoal(global::DysonNetwork.Shared.Proto.DyUpdateGoalRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateGoal(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyFitnessGoal UpdateGoal(global::DysonNetwork.Shared.Proto.DyUpdateGoalRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_UpdateGoal, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyFitnessGoal> UpdateGoalAsync(global::DysonNetwork.Shared.Proto.DyUpdateGoalRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateGoalAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyFitnessGoal> UpdateGoalAsync(global::DysonNetwork.Shared.Proto.DyUpdateGoalRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_UpdateGoal, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyFitnessGoal UpdateGoalProgress(global::DysonNetwork.Shared.Proto.DyUpdateGoalProgressRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateGoalProgress(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyFitnessGoal UpdateGoalProgress(global::DysonNetwork.Shared.Proto.DyUpdateGoalProgressRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_UpdateGoalProgress, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyFitnessGoal> UpdateGoalProgressAsync(global::DysonNetwork.Shared.Proto.DyUpdateGoalProgressRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateGoalProgressAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyFitnessGoal> UpdateGoalProgressAsync(global::DysonNetwork.Shared.Proto.DyUpdateGoalProgressRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_UpdateGoalProgress, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyDeleteGoalResponse DeleteGoal(global::DysonNetwork.Shared.Proto.DyDeleteGoalRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return DeleteGoal(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyDeleteGoalResponse DeleteGoal(global::DysonNetwork.Shared.Proto.DyDeleteGoalRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_DeleteGoal, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyDeleteGoalResponse> DeleteGoalAsync(global::DysonNetwork.Shared.Proto.DyDeleteGoalRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return DeleteGoalAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyDeleteGoalResponse> DeleteGoalAsync(global::DysonNetwork.Shared.Proto.DyDeleteGoalRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_DeleteGoal, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyFitnessGoal CreateNextRepeatingGoal(global::DysonNetwork.Shared.Proto.DyCreateNextRepeatingGoalRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return CreateNextRepeatingGoal(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyFitnessGoal CreateNextRepeatingGoal(global::DysonNetwork.Shared.Proto.DyCreateNextRepeatingGoalRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_CreateNextRepeatingGoal, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyFitnessGoal> CreateNextRepeatingGoalAsync(global::DysonNetwork.Shared.Proto.DyCreateNextRepeatingGoalRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return CreateNextRepeatingGoalAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyFitnessGoal> CreateNextRepeatingGoalAsync(global::DysonNetwork.Shared.Proto.DyCreateNextRepeatingGoalRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_CreateNextRepeatingGoal, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse UpdateGoalsVisibility(global::DysonNetwork.Shared.Proto.DyUpdateGoalsVisibilityRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateGoalsVisibility(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse UpdateGoalsVisibility(global::DysonNetwork.Shared.Proto.DyUpdateGoalsVisibilityRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_UpdateGoalsVisibility, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse> UpdateGoalsVisibilityAsync(global::DysonNetwork.Shared.Proto.DyUpdateGoalsVisibilityRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateGoalsVisibilityAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse> UpdateGoalsVisibilityAsync(global::DysonNetwork.Shared.Proto.DyUpdateGoalsVisibilityRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_UpdateGoalsVisibility, null, options, request);
+      }
       /// <summary>
       /// Exercise Library
       /// </summary>
@@ -749,6 +1387,66 @@ namespace DysonNetwork.Shared.Proto {
       {
         return CallInvoker.AsyncUnaryCall(__Method_GetExercise, null, options, request);
       }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyExerciseLibrary CreateExercise(global::DysonNetwork.Shared.Proto.DyCreateExerciseRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return CreateExercise(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyExerciseLibrary CreateExercise(global::DysonNetwork.Shared.Proto.DyCreateExerciseRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_CreateExercise, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyExerciseLibrary> CreateExerciseAsync(global::DysonNetwork.Shared.Proto.DyCreateExerciseRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return CreateExerciseAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyExerciseLibrary> CreateExerciseAsync(global::DysonNetwork.Shared.Proto.DyCreateExerciseRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_CreateExercise, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyExerciseLibrary UpdateExercise(global::DysonNetwork.Shared.Proto.DyUpdateExerciseRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateExercise(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyExerciseLibrary UpdateExercise(global::DysonNetwork.Shared.Proto.DyUpdateExerciseRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_UpdateExercise, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyExerciseLibrary> UpdateExerciseAsync(global::DysonNetwork.Shared.Proto.DyUpdateExerciseRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return UpdateExerciseAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyExerciseLibrary> UpdateExerciseAsync(global::DysonNetwork.Shared.Proto.DyUpdateExerciseRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_UpdateExercise, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyDeleteExerciseResponse DeleteExercise(global::DysonNetwork.Shared.Proto.DyDeleteExerciseRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return DeleteExercise(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyDeleteExerciseResponse DeleteExercise(global::DysonNetwork.Shared.Proto.DyDeleteExerciseRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_DeleteExercise, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyDeleteExerciseResponse> DeleteExerciseAsync(global::DysonNetwork.Shared.Proto.DyDeleteExerciseRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return DeleteExerciseAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyDeleteExerciseResponse> DeleteExerciseAsync(global::DysonNetwork.Shared.Proto.DyDeleteExerciseRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_DeleteExercise, null, options, request);
+      }
       /// <summary>Creates a new instance of client from given <c>ClientBaseConfiguration</c>.</summary>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       protected override DyFitnessServiceClient NewInstance(ClientBaseConfiguration configuration)
@@ -767,15 +1465,34 @@ namespace DysonNetwork.Shared.Proto {
           .AddMethod(__Method_DeleteFitnessAccountData, serviceImpl.DeleteFitnessAccountData)
           .AddMethod(__Method_ListWorkouts, serviceImpl.ListWorkouts)
           .AddMethod(__Method_GetWorkout, serviceImpl.GetWorkout)
+          .AddMethod(__Method_CreateWorkout, serviceImpl.CreateWorkout)
+          .AddMethod(__Method_UpdateWorkout, serviceImpl.UpdateWorkout)
+          .AddMethod(__Method_DeleteWorkout, serviceImpl.DeleteWorkout)
+          .AddMethod(__Method_BatchCreateWorkouts, serviceImpl.BatchCreateWorkouts)
+          .AddMethod(__Method_UpdateWorkoutsVisibility, serviceImpl.UpdateWorkoutsVisibility)
           .AddMethod(__Method_ListMetrics, serviceImpl.ListMetrics)
           .AddMethod(__Method_GetLatestMetrics, serviceImpl.GetLatestMetrics)
           .AddMethod(__Method_GetMetric, serviceImpl.GetMetric)
+          .AddMethod(__Method_CreateMetric, serviceImpl.CreateMetric)
+          .AddMethod(__Method_UpdateMetric, serviceImpl.UpdateMetric)
+          .AddMethod(__Method_DeleteMetric, serviceImpl.DeleteMetric)
+          .AddMethod(__Method_BatchCreateMetrics, serviceImpl.BatchCreateMetrics)
+          .AddMethod(__Method_UpdateMetricsVisibility, serviceImpl.UpdateMetricsVisibility)
           .AddMethod(__Method_ListGoals, serviceImpl.ListGoals)
           .AddMethod(__Method_GetGoal, serviceImpl.GetGoal)
           .AddMethod(__Method_GetGoalStats, serviceImpl.GetGoalStats)
           .AddMethod(__Method_GetGoalHistory, serviceImpl.GetGoalHistory)
+          .AddMethod(__Method_CreateGoal, serviceImpl.CreateGoal)
+          .AddMethod(__Method_UpdateGoal, serviceImpl.UpdateGoal)
+          .AddMethod(__Method_UpdateGoalProgress, serviceImpl.UpdateGoalProgress)
+          .AddMethod(__Method_DeleteGoal, serviceImpl.DeleteGoal)
+          .AddMethod(__Method_CreateNextRepeatingGoal, serviceImpl.CreateNextRepeatingGoal)
+          .AddMethod(__Method_UpdateGoalsVisibility, serviceImpl.UpdateGoalsVisibility)
           .AddMethod(__Method_ListExercises, serviceImpl.ListExercises)
-          .AddMethod(__Method_GetExercise, serviceImpl.GetExercise).Build();
+          .AddMethod(__Method_GetExercise, serviceImpl.GetExercise)
+          .AddMethod(__Method_CreateExercise, serviceImpl.CreateExercise)
+          .AddMethod(__Method_UpdateExercise, serviceImpl.UpdateExercise)
+          .AddMethod(__Method_DeleteExercise, serviceImpl.DeleteExercise).Build();
     }
 
     /// <summary>Register service method with a service binder with or without implementation. Useful when customizing the service binding logic.
@@ -789,15 +1506,34 @@ namespace DysonNetwork.Shared.Proto {
       serviceBinder.AddMethod(__Method_DeleteFitnessAccountData, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyDeleteFitnessAccountDataRequest, global::DysonNetwork.Shared.Proto.DyDeleteFitnessAccountDataResponse>(serviceImpl.DeleteFitnessAccountData));
       serviceBinder.AddMethod(__Method_ListWorkouts, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListWorkoutsRequest, global::DysonNetwork.Shared.Proto.DyListWorkoutsResponse>(serviceImpl.ListWorkouts));
       serviceBinder.AddMethod(__Method_GetWorkout, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetWorkoutRequest, global::DysonNetwork.Shared.Proto.DyWorkout>(serviceImpl.GetWorkout));
+      serviceBinder.AddMethod(__Method_CreateWorkout, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyCreateWorkoutRequest, global::DysonNetwork.Shared.Proto.DyWorkout>(serviceImpl.CreateWorkout));
+      serviceBinder.AddMethod(__Method_UpdateWorkout, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyUpdateWorkoutRequest, global::DysonNetwork.Shared.Proto.DyWorkout>(serviceImpl.UpdateWorkout));
+      serviceBinder.AddMethod(__Method_DeleteWorkout, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyDeleteWorkoutRequest, global::DysonNetwork.Shared.Proto.DyDeleteWorkoutResponse>(serviceImpl.DeleteWorkout));
+      serviceBinder.AddMethod(__Method_BatchCreateWorkouts, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsRequest, global::DysonNetwork.Shared.Proto.DyBatchCreateWorkoutsResponse>(serviceImpl.BatchCreateWorkouts));
+      serviceBinder.AddMethod(__Method_UpdateWorkoutsVisibility, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyUpdateWorkoutsVisibilityRequest, global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse>(serviceImpl.UpdateWorkoutsVisibility));
       serviceBinder.AddMethod(__Method_ListMetrics, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListMetricsRequest, global::DysonNetwork.Shared.Proto.DyListMetricsResponse>(serviceImpl.ListMetrics));
       serviceBinder.AddMethod(__Method_GetLatestMetrics, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetLatestMetricsRequest, global::DysonNetwork.Shared.Proto.DyGetLatestMetricsResponse>(serviceImpl.GetLatestMetrics));
       serviceBinder.AddMethod(__Method_GetMetric, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetMetricRequest, global::DysonNetwork.Shared.Proto.DyFitnessMetric>(serviceImpl.GetMetric));
+      serviceBinder.AddMethod(__Method_CreateMetric, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyCreateMetricRequest, global::DysonNetwork.Shared.Proto.DyFitnessMetric>(serviceImpl.CreateMetric));
+      serviceBinder.AddMethod(__Method_UpdateMetric, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyUpdateMetricRequest, global::DysonNetwork.Shared.Proto.DyFitnessMetric>(serviceImpl.UpdateMetric));
+      serviceBinder.AddMethod(__Method_DeleteMetric, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyDeleteMetricRequest, global::DysonNetwork.Shared.Proto.DyDeleteMetricResponse>(serviceImpl.DeleteMetric));
+      serviceBinder.AddMethod(__Method_BatchCreateMetrics, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsRequest, global::DysonNetwork.Shared.Proto.DyBatchCreateMetricsResponse>(serviceImpl.BatchCreateMetrics));
+      serviceBinder.AddMethod(__Method_UpdateMetricsVisibility, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyUpdateMetricsVisibilityRequest, global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse>(serviceImpl.UpdateMetricsVisibility));
       serviceBinder.AddMethod(__Method_ListGoals, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListGoalsRequest, global::DysonNetwork.Shared.Proto.DyListGoalsResponse>(serviceImpl.ListGoals));
       serviceBinder.AddMethod(__Method_GetGoal, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetGoalRequest, global::DysonNetwork.Shared.Proto.DyFitnessGoal>(serviceImpl.GetGoal));
       serviceBinder.AddMethod(__Method_GetGoalStats, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetGoalStatsRequest, global::DysonNetwork.Shared.Proto.DyGoalStats>(serviceImpl.GetGoalStats));
       serviceBinder.AddMethod(__Method_GetGoalHistory, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetGoalHistoryRequest, global::DysonNetwork.Shared.Proto.DyGetGoalHistoryResponse>(serviceImpl.GetGoalHistory));
+      serviceBinder.AddMethod(__Method_CreateGoal, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyCreateGoalRequest, global::DysonNetwork.Shared.Proto.DyFitnessGoal>(serviceImpl.CreateGoal));
+      serviceBinder.AddMethod(__Method_UpdateGoal, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyUpdateGoalRequest, global::DysonNetwork.Shared.Proto.DyFitnessGoal>(serviceImpl.UpdateGoal));
+      serviceBinder.AddMethod(__Method_UpdateGoalProgress, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyUpdateGoalProgressRequest, global::DysonNetwork.Shared.Proto.DyFitnessGoal>(serviceImpl.UpdateGoalProgress));
+      serviceBinder.AddMethod(__Method_DeleteGoal, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyDeleteGoalRequest, global::DysonNetwork.Shared.Proto.DyDeleteGoalResponse>(serviceImpl.DeleteGoal));
+      serviceBinder.AddMethod(__Method_CreateNextRepeatingGoal, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyCreateNextRepeatingGoalRequest, global::DysonNetwork.Shared.Proto.DyFitnessGoal>(serviceImpl.CreateNextRepeatingGoal));
+      serviceBinder.AddMethod(__Method_UpdateGoalsVisibility, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyUpdateGoalsVisibilityRequest, global::DysonNetwork.Shared.Proto.DyUpdateVisibilityResponse>(serviceImpl.UpdateGoalsVisibility));
       serviceBinder.AddMethod(__Method_ListExercises, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListExercisesRequest, global::DysonNetwork.Shared.Proto.DyListExercisesResponse>(serviceImpl.ListExercises));
       serviceBinder.AddMethod(__Method_GetExercise, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetExerciseRequest, global::DysonNetwork.Shared.Proto.DyExerciseLibrary>(serviceImpl.GetExercise));
+      serviceBinder.AddMethod(__Method_CreateExercise, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyCreateExerciseRequest, global::DysonNetwork.Shared.Proto.DyExerciseLibrary>(serviceImpl.CreateExercise));
+      serviceBinder.AddMethod(__Method_UpdateExercise, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyUpdateExerciseRequest, global::DysonNetwork.Shared.Proto.DyExerciseLibrary>(serviceImpl.UpdateExercise));
+      serviceBinder.AddMethod(__Method_DeleteExercise, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyDeleteExerciseRequest, global::DysonNetwork.Shared.Proto.DyDeleteExerciseResponse>(serviceImpl.DeleteExercise));
     }
 
   }
