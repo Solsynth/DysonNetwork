@@ -2103,7 +2103,7 @@ public class ThoughtService(
 
     public async Task<bool> CheckAndAutoCompactAsync(Guid sequenceId, Guid accountId)
     {
-        const int autoCompactThresholdTokens = 5000;
+        const int autoCompactThresholdTokens = 10000;
 
         var sequence = await GetSequenceAsync(sequenceId);
         if (sequence == null || sequence.AccountId != accountId)
@@ -2111,8 +2111,8 @@ public class ThoughtService(
             return false;
         }
 
-        var thoughts = await GetVisibleThoughtsPageAsync(sequence, 0, 200);
-        var allThoughts = thoughts.thoughts;
+        // Use GetPreviousThoughtsAsync to exclude archived thoughts from token counting
+        var allThoughts = await GetPreviousThoughtsAsync(sequence);
 
         if (allThoughts.Count < 4)
         {
@@ -2126,7 +2126,7 @@ public class ThoughtService(
     public async Task<CompactResult> CompactHistoryAsync(Guid sequenceId, Guid accountId)
     {
         var stopwatch = Stopwatch.StartNew();
-        const int compactThresholdTokens = 5000;
+        const int compactThresholdTokens = 10000;
 
         var sequence = await GetSequenceAsync(sequenceId);
         if (sequence == null || sequence.AccountId != accountId)
@@ -2134,8 +2134,8 @@ public class ThoughtService(
             return new CompactResult { Summary = "" };
         }
 
-        var thoughts = await GetVisibleThoughtsPageAsync(sequence, 0, 200);
-        var allThoughts = thoughts.thoughts;
+        // Use GetPreviousThoughtsAsync to exclude archived thoughts from compaction
+        var allThoughts = await GetPreviousThoughtsAsync(sequence);
 
         var userThoughts = allThoughts.Where(t => t.Role == ThinkingThoughtRole.User).ToList();
         if (userThoughts.Count < 4)
@@ -2153,7 +2153,7 @@ public class ThoughtService(
         var olderTokens = olderThoughts.Sum(EstimateThoughtTokensForPrompt);
         if (olderTokens > compactThresholdTokens)
         {
-            olderThoughts = ClampMiChanThoughtWindow(olderThoughts, compactThresholdTokens / 2);
+            olderThoughts = ClampMiChanThoughtWindow(olderThoughts, 5000);
         }
 
         var conversationText = BuildConversationText(olderThoughts);
