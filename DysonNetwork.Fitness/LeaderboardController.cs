@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -16,11 +15,9 @@ namespace DysonNetwork.Fitness;
 public class LeaderboardController(
     AppDatabase db,
     DyProfileService.DyProfileServiceClient profileClient,
-    ILogger<LeaderboardController> logger,
-    IOptions<FitnessOptions> fitnessOptions
+    ILogger<LeaderboardController> logger
 ) : ControllerBase
 {
-    private readonly FitnessOptions _fitnessOptions = fitnessOptions.Value;
 
     [HttpGet]
     public async Task<ActionResult<LeaderboardResponse>> GetLeaderboard(
@@ -98,11 +95,9 @@ public class LeaderboardController(
     private async Task<List<LeaderboardEntry>> GetCaloriesLeaderboardAsync(
         List<Guid> accountIds, Guid userId, Instant startDate, Instant endDate, int skip, int take)
     {
-        var trustedSources = new HashSet<string>(_fitnessOptions.TrustedWorkoutSources, StringComparer.OrdinalIgnoreCase);
         var data = await db.Workouts
             .Where(w => accountIds.Contains(w.AccountId) && w.DeletedAt == null)
             .Where(w => w.StartTime >= startDate && w.StartTime <= endDate)
-            .Where(w => w.Source != null && trustedSources.Contains(w.Source!))
             .GroupBy(w => w.AccountId)
             .Select(g => new { AccountId = g.Key, Total = g.Sum(w => w.CaloriesBurned ?? 0) })
             .OrderByDescending(x => x.Total)
@@ -122,11 +117,9 @@ public class LeaderboardController(
     private async Task<List<LeaderboardEntry>> GetWorkoutsLeaderboardAsync(
         List<Guid> accountIds, Guid userId, Instant startDate, Instant endDate, int skip, int take)
     {
-        var trustedSources = new HashSet<string>(_fitnessOptions.TrustedWorkoutSources, StringComparer.OrdinalIgnoreCase);
         var workouts = await db.Workouts
             .Where(w => accountIds.Contains(w.AccountId) && w.DeletedAt == null)
             .Where(w => w.StartTime >= startDate && w.StartTime <= endDate)
-            .Where(w => w.Source != null && trustedSources.Contains(w.Source!))
             .Select(w => new { w.AccountId, w.Duration })
             .ToListAsync();
 
@@ -150,11 +143,9 @@ public class LeaderboardController(
     private async Task<List<LeaderboardEntry>> GetDistanceLeaderboardAsync(
         List<Guid> accountIds, Guid userId, Instant startDate, Instant endDate, int skip, int take)
     {
-        var trustedSources = new HashSet<string>(_fitnessOptions.TrustedWorkoutSources, StringComparer.OrdinalIgnoreCase);
         var data = await db.Workouts
             .Where(w => accountIds.Contains(w.AccountId) && w.DeletedAt == null)
             .Where(w => w.StartTime >= startDate && w.StartTime <= endDate)
-            .Where(w => w.Source != null && trustedSources.Contains(w.Source!))
             .GroupBy(w => w.AccountId)
             .Select(g => new { AccountId = g.Key, Total = g.Sum(w => w.Distance ?? 0) })
             .OrderByDescending(x => x.Total)
