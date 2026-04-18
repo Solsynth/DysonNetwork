@@ -4,6 +4,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 using DysonNetwork.Insight.MiChan;
+using DysonNetwork.Insight.Agent.KernelBuilding;
+using DysonNetwork.Insight.Agent.Models;
+using DysonNetwork.Insight.MiChan.KernelBuilding;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Insight.Thought.Plugins;
@@ -12,12 +15,12 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Plugins.Web;
-using Microsoft.SemanticKernel.Plugins.Web.Bing;
-using Microsoft.SemanticKernel.Plugins.Web.Google;
 
 namespace DysonNetwork.Insight.Thought;
 
+/// <summary>
+/// Service model information for thought services
+/// </summary>
 public class ThoughtServiceModel
 {
     public string ServiceId { get; set; } = null!;
@@ -27,12 +30,16 @@ public class ThoughtServiceModel
     public int PerkLevel { get; set; }
 }
 
+/// <summary>
+/// Provider for SN-chan (Thought) AI services.
+/// Uses the fluent kernel builder for consistent kernel construction.
+/// </summary>
 public class ThoughtProvider
 {
     private readonly DyPostService.DyPostServiceClient _postClient;
     private readonly DyAccountService.DyAccountServiceClient _accountClient;
     private readonly DyPublisherService.DyPublisherServiceClient _publisherClient;
-    private readonly KernelFactory _kernelFactory;
+    private readonly Agent.KernelBuilding.IKernelBuilder _kernelBuilder;
     private readonly MiChanKernelProvider _miChanKernelProvider;
     private readonly IConfiguration _configuration;
     private readonly ILogger<ThoughtProvider> _logger;
@@ -43,11 +50,11 @@ public class ThoughtProvider
 
     private readonly Dictionary<string, Kernel> _kernels = new();
     private readonly Dictionary<string, ThoughtServiceModel> _serviceModels = new();
-    private readonly string _defaultServiceId;
+    private readonly ModelConfiguration _defaultModel;
 
     [Experimental("SKEXP0050")]
     public ThoughtProvider(
-        KernelFactory kernelFactory,
+        Agent.KernelBuilding.IKernelBuilder kernelBuilder,
         IConfiguration configuration,
         DyPostService.DyPostServiceClient postServiceClient,
         DyAccountService.DyAccountServiceClient accountServiceClient,
@@ -55,10 +62,12 @@ public class ThoughtProvider
         ILogger<ThoughtProvider> logger,
         AppDatabase db,
         MemoryService memoryService,
-        MiChanKernelProvider miChanKernelProvider, IServiceProvider serviceProvider, MiChanConfig miChanConfig)
+        MiChanKernelProvider miChanKernelProvider,
+        IServiceProvider serviceProvider,
+        MiChanConfig miChanConfig)
     {
         _logger = logger;
-        _kernelFactory = kernelFactory;
+        _kernelBuilder = kernelBuilder;
         _postClient = postServiceClient;
         _accountClient = accountServiceClient;
         _publisherClient = publisherClient;
@@ -70,7 +79,7 @@ public class ThoughtProvider
         _miChanConfig = miChanConfig;
 
         var cfg = configuration.GetSection("Thinking");
-        _defaultServiceId = cfg.GetValue<string>("DefaultService")!;
+        var defaultServiceId = cfg.GetValue<string>("DefaultService") ?? ModelRegistry.DeepSeekChat.Id;
         var services = cfg.GetSection("Services").GetChildren();
 
         foreach (var service in services)
@@ -89,61 +98,66 @@ public class ThoughtProvider
             var providerType = service.GetValue<string>("Provider")?.ToLower();
             if (providerType is null) continue;
 
+            // Initialize kernel using the fluent builder
             var kernel = InitializeThinkingService(serviceId);
             _kernels[serviceId] = kernel;
         }
+
+        // Set default model configuration
+        _defaultModel = new ModelConfiguration
+        {
+            ModelId = defaultServiceId,
+            Temperature = cfg.GetValue<double?>("DefaultTemperature") ?? 0.7,
+            EnableFunctions = true
+        };
     }
 
     [Experimental("SKEXP0050")]
     private Kernel InitializeThinkingService(string serviceId)
     {
-        // Create base kernel using factory (no embeddings needed for thought provider)
-        var kernel = _kernelFactory.CreateKernel(serviceId, addEmbeddings: false);
-
-        // Add Thought-specific plugins (gRPC clients are already injected)
-        // The plugin is specific for SN-chan
-        kernel.Plugins.AddFromObject(new SnAccountKernelPlugin(_accountClient));
-        kernel.Plugins.AddFromObject(new SnPostKernelPlugin(_postClient, _publisherClient));
-
-        // Add helper functions (web search)
-        InitializeHelperFunctions(kernel);
-
-        return kernel;
+        return _kernelBuilder
+            .WithModel(serviceId)
+            .WithEmbeddings(false)
+            .WithWebSearch(true)
+            .WithSnChanPlugins(_serviceProvider)
+            .WithServiceProvider(_serviceProvider)
+            .Build();
     }
 
-    [Experimental("SKEXP0050")]
-    private void InitializeHelperFunctions(Kernel kernel)
-    {
-        // Add web search plugins if configured
-        var bingApiKey = _configuration.GetValue<string>("Thinking:BingApiKey");
-        if (!string.IsNullOrEmpty(bingApiKey))
-        {
-            var bingConnector = new BingConnector(bingApiKey);
-            var bing = new WebSearchEnginePlugin(bingConnector);
-            kernel.ImportPluginFromObject(bing, "bing");
-        }
-
-        var googleApiKey = _configuration.GetValue<string>("Thinking:GoogleApiKey");
-        var googleCx = _configuration.GetValue<string>("Thinking:GoogleCx");
-        if (!string.IsNullOrEmpty(googleApiKey) && !string.IsNullOrEmpty(googleCx))
-        {
-            var googleConnector = new GoogleConnector(
-                apiKey: googleApiKey,
-                searchEngineId: googleCx);
-            var google = new WebSearchEnginePlugin(googleConnector);
-            kernel.ImportPluginFromObject(google, "google");
-        }
-    }
-
+    /// <summary>
+    /// Gets a kernel for the specified service ID
+    /// </summary>
     public Kernel? GetKernel(string? serviceId = null)
     {
-        serviceId ??= _defaultServiceId;
+        serviceId ??= _defaultModel.ModelId;
         return _kernels.GetValueOrDefault(serviceId);
+    }
+
+    /// <summary>
+    /// Gets the default kernel using the fluent builder
+    /// </summary>
+    [Experimental("SKEXP0050")]
+    public Kernel GetDefaultKernel()
+    {
+        return _kernelBuilder
+            .ForSnChanChat(_defaultModel, _serviceProvider)
+            .Build();
+    }
+
+    /// <summary>
+    /// Gets a kernel for a specific model configuration
+    /// </summary>
+    [Experimental("SKEXP0050")]
+    public Kernel GetKernelForModel(ModelConfiguration modelConfig)
+    {
+        return _kernelBuilder
+            .ForSnChanChat(modelConfig, _serviceProvider)
+            .Build();
     }
 
     public string GetServiceId(string? serviceId = null)
     {
-        return serviceId ?? _defaultServiceId;
+        return serviceId ?? _defaultModel.ModelId;
     }
 
     public IEnumerable<string> GetAvailableServices()
@@ -158,22 +172,48 @@ public class ThoughtProvider
 
     public ThoughtServiceModel? GetServiceInfo(string? serviceId)
     {
-        serviceId ??= _defaultServiceId;
+        serviceId ??= _defaultModel.ModelId;
         return _serviceModels.GetValueOrDefault(serviceId);
     }
 
     public string GetDefaultServiceId()
     {
-        return _defaultServiceId;
+        return _defaultModel.ModelId;
     }
+
+    /// <summary>
+    /// Gets the default model configuration
+    /// </summary>
+    public ModelConfiguration GetDefaultModel() => _defaultModel;
 
     private record MemoryEntry(string Type, string Content, float Confidence);
 
+    /// <summary>
+    /// Creates prompt execution settings for a service
+    /// </summary>
 #pragma warning disable SKEXP0050
     public PromptExecutionSettings CreatePromptExecutionSettings(string? serviceId = null, string? reasoningEffort = null)
     {
-        serviceId ??= _defaultServiceId;
-        return _kernelFactory.CreatePromptExecutionSettings(serviceId, reasoningEffort: reasoningEffort);
+        serviceId ??= _defaultModel.ModelId;
+
+        return _kernelBuilder
+            .WithModel(serviceId)
+            .WithReasoningEffort(reasoningEffort ?? _defaultModel.GetEffectiveReasoningEffort()!)
+            .CreatePromptExecutionSettings();
+    }
+#pragma warning restore SKEXP0050
+
+    /// <summary>
+    /// Creates prompt execution settings for a model configuration
+    /// </summary>
+#pragma warning disable SKEXP0050
+    public PromptExecutionSettings CreatePromptExecutionSettings(Agent.Models.ModelConfiguration modelConfig, string? reasoningEffort = null)
+    {
+        return _kernelBuilder
+            .WithModel(modelConfig)
+            .WithTemperature(modelConfig.GetEffectiveTemperature())
+            .WithReasoningEffort(reasoningEffort ?? modelConfig.GetEffectiveReasoningEffort()!)
+            .CreatePromptExecutionSettings();
     }
 #pragma warning restore SKEXP0050
 
@@ -242,10 +282,14 @@ public class ThoughtProvider
 
             var conversationHistory = conversationBuilder.ToString();
 
-            var kernel = _miChanKernelProvider.GetKernel();
-
-            // Register plugins using centralized extension method
-            kernel.AddMiChanPlugins(_serviceProvider);
+            // Use the new kernel builder for consistent kernel creation
+            var kernel = _kernelBuilder
+                .WithMiChanModel(_miChanConfig)
+                .WithEmbeddings(true)
+                .WithWebSearch(true)
+                .WithMiChanPlugins(_serviceProvider)
+                .WithServiceProvider(_serviceProvider)
+                .Build();
 
             var settings = _miChanKernelProvider.CreatePromptExecutionSettings(0.7);
 
@@ -334,9 +378,15 @@ public class ThoughtProvider
                 if (attempt < maxRetries)
                 {
 #pragma warning disable SKEXP0050
-                    var kernel = _miChanKernelProvider.GetKernel();
+                    var kernel = _kernelBuilder
+                        .WithMiChanModel(_miChanConfig)
+                        .WithEmbeddings(true)
+                        .WithWebSearch(true)
+                        .WithMiChanPlugins(_serviceProvider)
+                        .WithServiceProvider(_serviceProvider)
+                        .Build();
 #pragma warning restore SKEXP0050
-                    kernel.AddMiChanPlugins(_serviceProvider);
+
                     var settings = _miChanKernelProvider.CreatePromptExecutionSettings(0.7);
 
                     var retryPrompt = $"JSON解析失败: {lastError}\n\n请修正以下JSON并返回有效的JSON数组格式：\n{jsonResponse}";

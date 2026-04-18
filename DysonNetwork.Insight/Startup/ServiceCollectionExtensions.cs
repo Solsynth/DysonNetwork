@@ -4,6 +4,7 @@ using DysonNetwork.Insight.Reader;
 using DysonNetwork.Insight.Services;
 using DysonNetwork.Insight.Thought;
 using DysonNetwork.Insight.MiChan;
+using DysonNetwork.Insight.MiChan.KernelBuilding;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Shared.Cache;
@@ -14,6 +15,7 @@ using DysonNetwork.Shared.Registry;
 using Microsoft.SemanticKernel;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
+using SemanticKernelBuilder = DysonNetwork.Insight.Agent.KernelBuilding.SemanticKernelBuilder;
 
 namespace DysonNetwork.Insight.Startup;
 
@@ -118,6 +120,11 @@ public static class ServiceCollectionExtensions
             // Core services
             services.AddSingleton<KernelFactory>();
             services.AddSingleton<SolarNetworkApiClient>();
+
+            // Kernel building infrastructure
+            services.AddSingleton<SemanticKernelBuilder>();
+            services.AddSingleton<DysonNetwork.Insight.Agent.KernelBuilding.IKernelBuilder>(sp => sp.GetRequiredService<SemanticKernelBuilder>());
+
             services.AddSingleton<MiChanKernelProvider>();
             services.AddSingleton<GeneralKernelProvider>();
             services.AddSingleton<IKernelProvider>(sp => sp.GetRequiredService<GeneralKernelProvider>());

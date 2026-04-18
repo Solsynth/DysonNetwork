@@ -416,7 +416,7 @@ public class ThoughtController(
             sequence,
             assistantParts,
             ThinkingThoughtRole.Assistant,
-            miChanConfig.ThinkingService,
+            miChanConfig.ThinkingModel.ModelId,
             botName: "snchan"
         );
 
@@ -810,7 +810,7 @@ public class ThoughtController(
             sequence,
             assistantParts,
             ThinkingThoughtRole.Assistant,
-            useVisionKernel ? miChanConfig.Vision.VisionThinkingService : miChanConfig.ThinkingService,
+            useVisionKernel ? miChanConfig.Vision.VisionThinkingService : miChanConfig.ThinkingModel.ModelId,
             botName: "michan"
         );
         logger.LogInformation(

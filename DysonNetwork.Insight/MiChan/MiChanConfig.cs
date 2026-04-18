@@ -1,6 +1,12 @@
+using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Insight.Agent.Models;
+
 namespace DysonNetwork.Insight.MiChan;
 
-public class MiChanConfig
+/// <summary>
+/// Configuration for MiChan AI agent
+/// </summary>
+public class MiChanConfig : IValidatableObject
 {
     public bool Enabled { get; set; } = false;
     public string GatewayUrl { get; set; } = "http://localhost:5070";
@@ -8,8 +14,32 @@ public class MiChanConfig
     public string AccessToken { get; set; } = "";
     public string BotAccountId { get; set; } = "";
     public string BotPublisherId { get; set; } = ""; // Publisher ID for posting (different from AccountId)
-    public string ThinkingService { get; set; } = "deepseek-chat";
-    public string AutonomousThinkingService { get; set; } = ""; // Optional: separate service for autonomous behavior (defaults to ThinkingService if empty)
+
+    /// <summary>
+    /// Primary model for chat conversations. Defaults to deepseek-chat.
+    /// </summary>
+    public ModelConfiguration ThinkingModel { get; set; } = ModelRegistry.DeepSeekChat;
+
+    /// <summary>
+    /// Model for autonomous behavior. Falls back to ThinkingModel if not set.
+    /// </summary>
+    public ModelConfiguration? AutonomousModel { get; set; }
+
+    /// <summary>
+    /// Model for scheduled tasks. Falls back to ThinkingModel if not set.
+    /// </summary>
+    public ModelConfiguration? ScheduledTaskModel { get; set; }
+
+    /// <summary>
+    /// Model for conversation compaction/summarization. Falls back to ThinkingModel if not set.
+    /// </summary>
+    public ModelConfiguration? CompactionModel { get; set; }
+
+    /// <summary>
+    /// Model for topic generation. Falls back to ThinkingModel if not set.
+    /// </summary>
+    public ModelConfiguration? TopicGenerationModel { get; set; }
+
     public string Personality { get; set; } = "";
     public string? PersonalityFile { get; set; }
     public MiChanAutoRespondConfig AutoRespond { get; set; } = new();
@@ -17,6 +47,87 @@ public class MiChanConfig
     public MiChanPostMonitoringConfig PostMonitoring { get; set; } = new();
     public MiChanMemoryConfig Memory { get; set; } = new();
     public MiChanVisionConfig Vision { get; set; } = new();
+
+    /// <summary>
+    /// Gets the effective autonomous model (falls back to ThinkingModel)
+    /// </summary>
+    public ModelConfiguration GetAutonomousModel() =>
+        AutonomousModel ?? ThinkingModel;
+
+    /// <summary>
+    /// Gets the effective scheduled task model (falls back to ThinkingModel)
+    /// </summary>
+    public ModelConfiguration GetScheduledTaskModel() =>
+        ScheduledTaskModel ?? ThinkingModel;
+
+    /// <summary>
+    /// Gets the effective compaction model (falls back to ThinkingModel)
+    /// </summary>
+    public ModelConfiguration GetCompactionModel() =>
+        CompactionModel ?? ThinkingModel;
+
+    /// <summary>
+    /// Gets the effective topic generation model (falls back to ThinkingModel)
+    /// </summary>
+    public ModelConfiguration GetTopicGenerationModel() =>
+        TopicGenerationModel ?? ThinkingModel;
+
+    /// <summary>
+    /// Gets the vision model configuration
+    /// </summary>
+    public ModelConfiguration GetVisionModel() =>
+        new ModelConfiguration
+        {
+            ModelId = Vision.VisionThinkingService,
+            Temperature = 0.7,
+            EnableFunctions = false
+        };
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        var results = new List<ValidationResult>();
+
+        if (Enabled)
+        {
+            // Validate ThinkingModel
+            var thinkingResults = ThinkingModel.Validate(validationContext).ToList();
+            results.AddRange(thinkingResults.Select(r =>
+                new ValidationResult($"[ThinkingModel] {r.ErrorMessage}", r.MemberNames)));
+
+            // Validate optional models if set
+            if (AutonomousModel != null)
+            {
+                var autonomousResults = AutonomousModel.Validate(validationContext).ToList();
+                results.AddRange(autonomousResults.Select(r =>
+                    new ValidationResult($"[AutonomousModel] {r.ErrorMessage}", r.MemberNames)));
+            }
+
+            // Validate required credentials
+            if (string.IsNullOrEmpty(AccessToken))
+            {
+                results.Add(new ValidationResult(
+                    "AccessToken is required when MiChan is enabled",
+                    new[] { nameof(AccessToken) }));
+            }
+
+            if (string.IsNullOrEmpty(BotAccountId))
+            {
+                results.Add(new ValidationResult(
+                    "BotAccountId is required when MiChan is enabled",
+                    new[] { nameof(BotAccountId) }));
+            }
+
+            // Validate vision model
+            if (Vision.EnableVisionAnalysis && !ModelRegistry.IsValid(Vision.VisionThinkingService))
+            {
+                results.Add(new ValidationResult(
+                    $"Vision model '{Vision.VisionThinkingService}' is not registered",
+                    new[] { nameof(Vision) + "." + nameof(Vision.VisionThinkingService) }));
+            }
+        }
+
+        return results;
+    }
 }
 
 public class MiChanAutoRespondConfig
@@ -76,6 +187,23 @@ public class MiChanMemoryConfig
 
 public class MiChanVisionConfig
 {
-    public string VisionThinkingService { get; set; } = "vision-openrouter";
+    /// <summary>
+    /// Vision model ID from ModelRegistry (e.g., "vision-openrouter", "vision-aliyun")
+    /// </summary>
+    public string VisionThinkingService { get; set; } = ModelRegistry.ClaudeOpus.Id;
+
+    /// <summary>
+    /// Whether to enable image analysis capabilities
+    /// </summary>
     public bool EnableVisionAnalysis { get; set; } = true;
+
+    /// <summary>
+    /// Maximum number of images to process in a single request
+    /// </summary>
+    public int MaxImagesPerRequest { get; set; } = 10;
+
+    /// <summary>
+    /// Whether to fallback to text-only model if vision model is unavailable
+    /// </summary>
+    public bool FallbackToTextModel { get; set; } = true;
 }
