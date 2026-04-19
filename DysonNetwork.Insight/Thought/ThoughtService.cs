@@ -531,6 +531,9 @@ public class ThoughtService(
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
+        // Filter out compaction thoughts - they should not appear in chat history
+        thoughts = thoughts.Where(t => !IsMiChanCompactionThought(t)).ToList();
+
         // Cache for 10 minutes
         await cache.SetWithGroupsAsync(
             cacheKey,
@@ -2269,6 +2272,19 @@ public class ThoughtService(
         if (string.IsNullOrWhiteSpace(summary))
         {
             throw new InvalidOperationException("无法生成对话摘要，请稍后重试");
+        }
+
+        // Validate summary - reject if too short or contains placeholder text
+        if (summary.Length < 50 ||
+            summary.Contains("我来总结") ||
+            summary.Contains("以下是") ||
+            summary.Contains("为您总结") ||
+            summary.Contains("总结这段对话"))
+        {
+            logger.LogWarning(
+                "Generated summary is invalid or placeholder text for sequence {SequenceId}. Length={Length}, Content={Content}",
+                sequenceId, summary.Length, summary[..Math.Min(summary.Length, 200)]);
+            return new CompactResult { Summary = "无法生成有效摘要", ArchivedCount = 0 };
         }
 
         olderThoughts.ForEach(t => t.IsArchived = true);
