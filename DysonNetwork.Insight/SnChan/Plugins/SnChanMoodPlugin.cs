@@ -100,6 +100,30 @@ public class SnChanMoodPlugin(
         }, JsonOptions);
     }
 
+    [KernelFunction("reflect_and_update_mood")]
+    [Description("Trigger AI self-reflection to update SnChan's mood based on recent experiences. Use this when you want to reflect on your emotional state.")]
+    public async Task<string> ReflectAndUpdateMood()
+    {
+        var success = await moodService.TryUpdateMoodAsync();
+        
+        if (success)
+        {
+            var mood = await moodService.GetCurrentMoodAsync();
+            return JsonSerializer.Serialize(new 
+            { 
+                success = true, 
+                message = "Mood reflection completed",
+                currentMood = mood.ToMoodPrompt()
+            }, JsonOptions);
+        }
+        
+        return JsonSerializer.Serialize(new 
+        { 
+            success = false, 
+            message = "Mood reflection skipped (cooldown active or insufficient interactions)" 
+        }, JsonOptions);
+    }
+
     private float? ClampDelta(float? delta)
     {
         if (!delta.HasValue) return null;

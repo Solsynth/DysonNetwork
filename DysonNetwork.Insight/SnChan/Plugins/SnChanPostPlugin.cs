@@ -9,7 +9,10 @@ namespace DysonNetwork.Insight.SnChan.Plugins;
 /// Plugin for SnChan to interact with posts
 /// Uses separate bot account authentication
 /// </summary>
-public class SnChanPostPlugin(SnChanApiClient apiClient, ILogger<SnChanPostPlugin> logger)
+public class SnChanPostPlugin(
+    SnChanApiClient apiClient, 
+    SnChanMoodService moodService,
+    ILogger<SnChanPostPlugin> logger)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -46,6 +49,11 @@ public class SnChanPostPlugin(SnChanApiClient apiClient, ILogger<SnChanPostPlugi
             var result = await apiClient.PostAsync<object>("sphere", "/posts", request);
 
             logger.LogInformation("SnChan created new post");
+            
+            // Record emotional event and trigger mood update
+            await moodService.RecordInteractionAsync("created_post");
+            await moodService.TryUpdateMoodAsync();
+            
             return JsonSerializer.Serialize(new { success = true, message = "Post created successfully", data = result }, JsonOptions);
         }
         catch (Exception ex)
@@ -75,6 +83,11 @@ public class SnChanPostPlugin(SnChanApiClient apiClient, ILogger<SnChanPostPlugi
             var result = await apiClient.PostAsync<object>("sphere", "/posts", request);
 
             logger.LogInformation("SnChan replied to post {PostId}", postId);
+            
+            // Record emotional event and trigger mood update
+            await moodService.RecordInteractionAsync("replied_to_post");
+            await moodService.TryUpdateMoodAsync();
+            
             return JsonSerializer.Serialize(new { success = true, message = "Reply created successfully", data = result }, JsonOptions);
         }
         catch (Exception ex)

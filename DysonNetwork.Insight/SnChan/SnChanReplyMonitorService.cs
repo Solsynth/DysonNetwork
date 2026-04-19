@@ -12,6 +12,7 @@ public class SnChanReplyMonitorService(
     ThoughtService thoughtService,
     SnChanConfig config,
     RemoteRingService remoteRingService,
+    SnChanMoodService moodService,
     ILogger<SnChanReplyMonitorService> logger)
 {
     private static readonly Regex SnChanMentionRegex = new(@"@snchan\b", RegexOptions.IgnoreCase);
@@ -131,6 +132,10 @@ public class SnChanReplyMonitorService(
             {
                 logger.LogInformation("Created mention response sequence {SequenceId} for account {AccountId}",
                     sequence.Id, accountId);
+                
+                // Record emotional event and trigger mood update
+                await moodService.RecordInteractionAsync("mentioned_by_user");
+                await moodService.TryUpdateMoodAsync(cancellationToken);
             }
         }
         catch (Exception ex)
@@ -183,6 +188,10 @@ public class SnChanReplyMonitorService(
                         isSavable: false
                     );
                 }
+                
+                // Record emotional event and trigger mood update
+                await moodService.RecordInteractionAsync("received_reply");
+                await moodService.TryUpdateMoodAsync(cancellationToken);
             }
         }
         catch (Exception ex)

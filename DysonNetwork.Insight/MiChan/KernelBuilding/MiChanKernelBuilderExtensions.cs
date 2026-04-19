@@ -97,8 +97,9 @@ public static class MiChanKernelBuilderExtensions
             if (!kernel.Plugins.Any(p => p.Name == "SnChanPost"))
             {
                 var snChanApiClient = serviceProvider.GetRequiredService<SnChan.SnChanApiClient>();
+                var snChanMoodService = serviceProvider.GetService<SnChan.SnChanMoodService>();
                 var logger = serviceProvider.GetRequiredService<ILogger<SnChan.Plugins.SnChanPostPlugin>>();
-                kernel.Plugins.AddFromObject(new SnChan.Plugins.SnChanPostPlugin(snChanApiClient, logger), "SnChanPost");
+                kernel.Plugins.AddFromObject(new SnChan.Plugins.SnChanPostPlugin(snChanApiClient, snChanMoodService, logger), "SnChanPost");
             }
 
             // Add SnChan Swagger plugin for API documentation

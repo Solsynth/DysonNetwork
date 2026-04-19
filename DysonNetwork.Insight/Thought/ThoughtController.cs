@@ -29,15 +29,12 @@ public class ThoughtController(
     FreeQuotaService freeQuotaService,
     MiChanKernelProvider miChanKernelProvider,
     SnChanModelSelector? snChanModelSelector,
-    SnChanMoodService? snChanMoodService,
     ILogger<ThoughtController> logger
 ) : ControllerBase
 {
     public static readonly List<string> AvailableProposals = ["post_create"];
     public static readonly List<string> AvailableBots = ["snchan", "michan"];
     public static readonly List<string> AvailableCommands = ["/clear", "/compact", "/reset"];
-    private readonly SnChanMoodService? _snChanMoodService;
-    private const string SnChanBotName = "snchan";
 
     public class CommandResponse
     {
