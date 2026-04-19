@@ -139,7 +139,8 @@ public class PostController(
         [FromQuery(Name = "orderDesc")] bool orderDesc = true,
         [FromQuery(Name = "periodStart")] int? periodStartTime = null,
         [FromQuery(Name = "periodEnd")] int? periodEndTime = null,
-        [FromQuery] bool showFediverse = false
+        [FromQuery] bool showFediverse = false,
+        [FromQuery(Name = "mentioned")] string? mentioned = null
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -239,6 +240,16 @@ public class PostController(
                 (p.Title != null && EF.Functions.ILike(p.Title, $"%{queryTerm}%"))
                 || (p.Description != null && EF.Functions.ILike(p.Description, $"%{queryTerm}%"))
                 || (p.Content != null && EF.Functions.ILike(p.Content, $"%{queryTerm}%"))
+            );
+        }
+
+        if (!string.IsNullOrWhiteSpace(mentioned))
+        {
+            query = query.Where(p =>
+                p.Content != null && (
+                    EF.Functions.ILike(p.Content, $"%@{mentioned}%") ||
+                    p.Mentions != null && p.Mentions.Any(m => m.Username != null && m.Username.ToLower() == mentioned.ToLower())
+                )
             );
         }
 
