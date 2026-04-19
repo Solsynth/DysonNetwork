@@ -312,12 +312,10 @@ public class AuthService(
         foreach (var sessionIdToClear in sessions.Select(s => s.Id))
         {
             await MarkRevokedJtiAsync(sessionIdToClear.ToString(), now.Plus(Duration.FromDays(30)));
-            await cache.RemoveAsync($"{AuthCachePrefix}{sessionIdToClear}");
         }
         foreach (var accountId in sessions.Select(s => s.AccountId).Distinct())
         {
             await BumpAccountVersion(accountId);
-            await cache.RemoveAsync($"{AuthCachePrefix}{accountId}");
         }
 
         return true;
@@ -357,10 +355,8 @@ public class AuthService(
         foreach (var sessionIdToClear in sessions)
         {
             await MarkRevokedJtiAsync(sessionIdToClear.ToString(), now.Plus(Duration.FromDays(30)));
-            await cache.RemoveAsync($"{AuthCachePrefix}{sessionIdToClear}");
         }
         await BumpAccountVersion(accountId);
-        await cache.RemoveAsync($"{AuthCachePrefix}{accountId}");
 
         return sessions.Count;
     }
@@ -533,8 +529,6 @@ public class AuthService(
         db.AuthSessions.Update(session);
         await db.SaveChangesAsync();
 
-        await cache.RemoveAsync($"{AuthCachePrefix}{session.Id}");
-        await cache.RemoveAsync($"{AuthCachePrefix}{session.AccountId}");
         return await CreateTokenPair(session);
     }
 
@@ -838,9 +832,6 @@ public class AuthService(
             db.ApiKeys.Update(key);
             await db.SaveChangesAsync();
 
-            await cache.RemoveAsync($"{AuthCachePrefix}{oldSession.Id}");
-            await cache.RemoveAsync($"{AuthCachePrefix}{newSession.Id}");
-            await cache.RemoveAsync($"{AuthCachePrefix}{key.AccountId}");
             await BumpAccountVersion(key.AccountId);
 
             await transaction.CommitAsync();

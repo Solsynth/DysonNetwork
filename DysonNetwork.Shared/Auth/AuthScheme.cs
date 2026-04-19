@@ -1,6 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Text.Encodings.Web;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Extensions;
@@ -12,7 +10,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 
 namespace DysonNetwork.Shared.Auth;
 
@@ -28,21 +25,11 @@ public class DysonTokenAuthHandler(
     IConfiguration config
 ) : AuthenticationHandler<DysonTokenAuthOptions>(options, logger, encoder)
 {
-    private static readonly DateTime LegacyDefaultCutoffUtc = DateTime.UtcNow.AddDays(14);
-    private const string AccountVersionPrefix = "auth:account_ver:";
+    private const string SessionCachePrefix = "auth:session:";
     private const string ProfileCachePrefix = "auth:profile:";
+    private static readonly TimeSpan SessionCacheTtl = TimeSpan.FromHours(1);
     private static readonly TimeSpan ProfileCacheTtl = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan LastSeenTouchThrottle = TimeSpan.FromMinutes(1);
-
-    private readonly Lazy<RSA> _publicKey = new(() =>
-    {
-        var path = config["AuthToken:PublicKeyPath"] ??
-                   throw new InvalidOperationException("AuthToken:PublicKeyPath is not configured.");
-        var pem = File.ReadAllText(path);
-        var rsa = RSA.Create();
-        rsa.ImportFromPem(pem);
-        return rsa;
-    }, LazyThreadSafetyMode.ExecutionAndPublication);
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
@@ -61,75 +48,60 @@ public class DysonTokenAuthHandler(
 
         try
         {
-            if (TryValidateJwtLocally(tokenInfo.Token, out var jwt, out var failMessage) && jwt != null)
+            // Generate cache key from token hash
+            var cacheKey = $"{SessionCachePrefix}{GetTokenHash(tokenInfo.Token)}";
+
+            // Check cache first
+            var cachedSession = await cache.GetAsync<DyAuthSession>(cacheKey);
+            if (cachedSession is not null)
             {
-                var tokenUse = jwt.Claims.FirstOrDefault(c => c.Type == "type")?.Value
-                               ?? jwt.Claims.FirstOrDefault(c => c.Type == "token_use")?.Value;
-                if (string.IsNullOrWhiteSpace(tokenUse))
-                    tokenUse = tokenInfo.Type == TokenType.ApiKey ? "api_key" : "user";
-                if (tokenUse == "refresh")
-                    return AuthenticateResult.Fail("Refresh token cannot be used as bearer token.");
-
-                if (tokenInfo.Type == TokenType.ApiKey && tokenUse != "api_key")
-                    return AuthenticateResult.Fail("Bot auth scheme requires API key token.");
-
-                if (tokenInfo.Type == TokenType.AuthKey && tokenUse == "api_key")
-                    return AuthenticateResult.Fail("API key token must use Bot auth scheme.");
-
-                var jti = jwt.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
-                var accountId = jwt.Claims.FirstOrDefault(c => c.Type == "sub")?.Value
-                                ?? jwt.Claims.FirstOrDefault(c => c.Type == "account_id")?.Value;
-                var tokenVer = jwt.Claims.FirstOrDefault(c => c.Type == "ver")?.Value;
-
-                if (string.IsNullOrWhiteSpace(jti) || string.IsNullOrWhiteSpace(accountId))
-                    return AuthenticateResult.Fail("Missing required token claims.");
-
-                if (await IsRevokedJti(jti))
-                    return AuthenticateResult.Fail("Token has been revoked.");
-
-                if (!await ValidateAccountVersion(accountId, tokenVer))
-                    return AuthenticateResult.Fail("Token version is stale.");
-
-                var session = BuildSessionFromClaims(jwt, tokenUse);
-                await HydrateProfileAsync(session, Context.RequestAborted);
-                await TouchProfileLastSeenAsync(session, Context.RequestAborted);
-                return BuildAuthResult(tokenInfo.Type, session);
+                Logger.LogDebug("Auth cache hit for path={Path}", Request.Path);
+                await HydrateProfileAsync(cachedSession, Context.RequestAborted);
+                await TouchProfileLastSeenAsync(cachedSession, Context.RequestAborted);
+                return BuildAuthResult(tokenInfo.Type, cachedSession);
             }
 
-            if (!ShouldUseLegacyFallback(config))
-            {
-                Logger.LogInformation("Auth failed: local JWT validation failed and legacy fallback disabled. path={Path} reason={Reason}",
-                    Request.Path, failMessage ?? "unknown");
-                return AuthenticateResult.Fail(failMessage ?? "Token validation failed.");
-            }
+            // Cache miss - validate via gRPC to Padlock
+            Logger.LogDebug("Auth cache miss, validating via gRPC for path={Path}", Request.Path);
 
-            // Compatibility path for old compact/legacy tokens during grace window.
-            DyAuthSession legacySession;
+            DyAuthSession session;
             try
             {
-                legacySession = await ValidateViaGrpc(tokenInfo.Token, Request.HttpContext.GetClientIpAddress());
+                session = await ValidateViaGrpc(tokenInfo.Token, Request.HttpContext.GetClientIpAddress());
             }
             catch (InvalidOperationException ex)
             {
-                Logger.LogInformation("Auth failed via gRPC fallback. path={Path} reason={Reason}", Request.Path, ex.Message);
+                Logger.LogInformation("Auth failed via gRPC. path={Path} reason={Reason}", Request.Path, ex.Message);
                 return AuthenticateResult.Fail(ex.Message);
             }
             catch (RpcException ex)
             {
-                Logger.LogInformation("Auth failed via gRPC fallback rpc. path={Path} code={Code} detail={Detail}",
+                Logger.LogInformation("Auth failed via gRPC rpc. path={Path} code={Code} detail={Detail}",
                     Request.Path, ex.Status.StatusCode, ex.Status.Detail);
                 return AuthenticateResult.Fail($"Remote error: {ex.Status.StatusCode} - {ex.Status.Detail}");
             }
 
-            await HydrateProfileAsync(legacySession, Context.RequestAborted);
-            await TouchProfileLastSeenAsync(legacySession, Context.RequestAborted);
-            return BuildAuthResult(tokenInfo.Type, legacySession);
+            // Cache the validated session
+            await cache.SetAsync(cacheKey, session, SessionCacheTtl);
+            Logger.LogDebug("Auth session cached for 1h, sessionId={SessionId}", session.Id);
+
+            await HydrateProfileAsync(session, Context.RequestAborted);
+            await TouchProfileLastSeenAsync(session, Context.RequestAborted);
+            return BuildAuthResult(tokenInfo.Type, session);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Authentication failed unexpectedly. path={Path}", Request.Path);
             return AuthenticateResult.Fail($"Authentication failed: {ex.Message}");
         }
+    }
+
+    private static string GetTokenHash(string token)
+    {
+        // Use a simple hash for cache key - SHA256 for uniqueness
+        var bytes = System.Text.Encoding.UTF8.GetBytes(token);
+        var hash = System.Security.Cryptography.SHA256.HashData(bytes);
+        return Convert.ToHexString(hash);
     }
 
     private AuthenticateResult BuildAuthResult(TokenType tokenType, DyAuthSession session)
@@ -154,81 +126,6 @@ public class DysonTokenAuthHandler(
         return AuthenticateResult.Success(ticket);
     }
 
-    private DyAuthSession BuildSessionFromClaims(JwtSecurityToken jwt, string tokenUse)
-    {
-        var sessionId = jwt.Claims.FirstOrDefault(c => c.Type == "sid")?.Value
-                        ?? jwt.Claims.FirstOrDefault(c => c.Type == "jti")?.Value
-                        ?? string.Empty;
-        var accountId = jwt.Claims.FirstOrDefault(c => c.Type == "sub")?.Value
-                        ?? jwt.Claims.FirstOrDefault(c => c.Type == "account_id")?.Value
-                        ?? string.Empty;
-        var name = jwt.Claims.FirstOrDefault(c => c.Type == "name")?.Value ?? string.Empty;
-        var nick = jwt.Claims.FirstOrDefault(c => c.Type == "nick")?.Value ?? string.Empty;
-        var region = jwt.Claims.FirstOrDefault(c => c.Type == "region")?.Value ?? string.Empty;
-        var isSuperuser = jwt.Claims.FirstOrDefault(c => c.Type == "is_superuser")?.Value == "1";
-        var perkLevelRaw = jwt.Claims.FirstOrDefault(c => c.Type == "perk_level")?.Value;
-        _ = int.TryParse(perkLevelRaw, out var perkLevel);
-
-        var proto = new DyAuthSession
-        {
-            Id = sessionId,
-            AccountId = accountId,
-            Account = new DyAccount
-            {
-                Id = accountId,
-                Name = name,
-                Nick = nick,
-                Region = region,
-                IsSuperuser = isSuperuser,
-                PerkLevel = perkLevel
-            }
-        };
-        proto.Scopes.AddRange(jwt.Claims.Where(c => c.Type == "scope").Select(c => c.Value));
-        if (tokenUse == "api_key") proto.Type = DySessionType.DyLogin;
-
-        return proto;
-    }
-
-    private bool TryValidateJwtLocally(string token, out JwtSecurityToken? jwt, out string? failMessage)
-    {
-        jwt = null;
-        failMessage = null;
-        try
-        {
-            var handler = new JwtSecurityTokenHandler();
-            var issuer = config["Authentication:Schemes:Bearer:ValidIssuer"] ?? "solar-network";
-            var audience = config.GetSection("Authentication:Schemes:Bearer:ValidAudiences").Get<string[]>()?.FirstOrDefault()
-                           ?? "solar-network";
-
-            var parameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidIssuer = issuer,
-                ValidateAudience = true,
-                ValidAudience = audience,
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new RsaSecurityKey(_publicKey.Value),
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.FromMinutes(1),
-                ValidAlgorithms = [SecurityAlgorithms.RsaSha256]
-            };
-
-            handler.ValidateToken(token, parameters, out var validatedToken);
-            jwt = validatedToken as JwtSecurityToken;
-            if (jwt == null)
-            {
-                failMessage = "Token is not a valid JWT.";
-                return false;
-            }
-            return true;
-        }
-        catch (Exception ex)
-        {
-            failMessage = ex.Message;
-            return false;
-        }
-    }
-
     private async Task<DyAuthSession> ValidateViaGrpc(string token, string? ipAddress)
     {
         var resp = await auth.AuthenticateAsync(new DyAuthenticateRequest
@@ -238,21 +135,6 @@ public class DysonTokenAuthHandler(
         });
         if (!resp.Valid) throw new InvalidOperationException(resp.Message);
         return resp.Session ?? throw new InvalidOperationException("Session not found.");
-    }
-
-    private async Task<bool> IsRevokedJti(string jti)
-    {
-        var (found, _) = await cache.GetAsyncWithStatus<bool>(AuthCacheKeys.RevokedJti(jti));
-        return found;
-    }
-
-    private async Task<bool> ValidateAccountVersion(string accountId, string? tokenVer)
-    {
-        if (!Guid.TryParse(accountId, out var parsedAccountId)) return false;
-        var (found, currentVersion) = await cache.GetAsyncWithStatus<int>($"{AccountVersionPrefix}{parsedAccountId}");
-        if (!found) return true;
-        if (!int.TryParse(tokenVer, out var tokenVersion)) tokenVersion = 0;
-        return tokenVersion >= currentVersion;
     }
 
     private async Task HydrateProfileAsync(DyAuthSession session, CancellationToken cancellationToken)
@@ -334,17 +216,6 @@ public class DysonTokenAuthHandler(
         }
     }
 
-    private static bool ShouldUseLegacyFallback(IConfiguration config)
-    {
-        var useFallback = config.GetValue("Auth:Validation:UseGrpcFallbackForLegacy", true);
-        if (!useFallback) return false;
-
-        var acceptUntil = config["Auth:LegacyTokens:AcceptUntil"];
-        if (DateTime.TryParse(acceptUntil, out var cutoff))
-            return DateTime.UtcNow <= cutoff.ToUniversalTime();
-        return DateTime.UtcNow <= LegacyDefaultCutoffUtc;
-    }
-
     private static TokenInfo? ExtractToken(HttpRequest request, IConfiguration config)
     {
         if (request.Query.TryGetValue(AuthConstants.TokenQueryParamName, out var queryToken))
@@ -360,13 +231,6 @@ public class DysonTokenAuthHandler(
 
             if (authHeader.StartsWith("Bot ", StringComparison.OrdinalIgnoreCase))
                 return new TokenInfo { Token = authHeader["Bot ".Length..].Trim(), Type = TokenType.ApiKey };
-
-            var acceptLegacySchemes = config.GetValue("Auth:Headers:AcceptLegacySchemes", true) &&
-                                      ShouldUseLegacyFallback(config);
-            if (acceptLegacySchemes && authHeader.StartsWith("AtField ", StringComparison.OrdinalIgnoreCase))
-                return new TokenInfo { Token = authHeader["AtField ".Length..].Trim(), Type = TokenType.AuthKey };
-            if (acceptLegacySchemes && authHeader.StartsWith("AkField ", StringComparison.OrdinalIgnoreCase))
-                return new TokenInfo { Token = authHeader["AkField ".Length..].Trim(), Type = TokenType.ApiKey };
         }
 
         if (request.Cookies.TryGetValue(AuthConstants.CookieTokenName, out var cookieToken))
