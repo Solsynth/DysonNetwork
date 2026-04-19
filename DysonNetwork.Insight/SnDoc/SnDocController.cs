@@ -133,9 +133,10 @@ public class SnDocController(
 
     /// <summary>
     /// Get a documentation page by slug.
+    /// Slug can contain slashes (e.g., "api/v2/authentication").
     /// Public endpoint - no authentication required for reading.
     /// </summary>
-    [HttpGet("pages/slug/{slug}")]
+    [HttpGet("pages/slug/{**slug}")]
     [ProducesResponseType(typeof(PageDetailResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PageDetailResponse>> GetPageBySlug(
@@ -210,9 +211,10 @@ public class SnDocController(
 
     /// <summary>
     /// Delete a documentation page by slug.
+    /// Slug can contain slashes (e.g., "api/v2/authentication").
     /// Requires 'docs.write' permission.
     /// </summary>
-    [HttpDelete("pages/slug/{slug}")]
+    [HttpDelete("pages/slug/{**slug}")]
     [AskPermission("docs.write")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -224,6 +226,34 @@ public class SnDocController(
         if (!deleted)
         {
             return NotFound(new { Error = $"Documentation page '{slug}' not found" });
+        }
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Delete a documentation page by ID.
+    /// Requires 'docs.write' permission.
+    /// </summary>
+    [HttpDelete("pages/{id:guid}")]
+    [AskPermission("docs.write")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> DeletePageById(Guid id, CancellationToken ct)
+    {
+        // Get page by ID to find its slug
+        var page = await docService.GetPageByIdAsync(id, ct);
+        if (page == null)
+        {
+            return NotFound(new { Error = $"Documentation page '{id}' not found" });
+        }
+
+        var deleted = await docService.DeletePageAsync(page.Slug, ct);
+
+        if (!deleted)
+        {
+            return NotFound(new { Error = $"Documentation page '{id}' not found" });
         }
 
         return NoContent();

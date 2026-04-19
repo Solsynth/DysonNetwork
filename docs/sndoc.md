@@ -52,6 +52,21 @@ SnDoc provides:
 - **Write operations** (`POST`, `DELETE`): Requires `docs.write` permission via `Authorization: Bearer <token>` header
 - **Read operations** (`GET`, `POST /search`): Public access
 
+### Endpoint Summary
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| **POST** | `/api/docs/pages` | `docs.write` | Create or update page (upsert) |
+| **GET** | `/api/docs/pages` | Public | List all pages (summary) |
+| **GET** | `/api/docs/pages/slug/{**slug}` | Public | Get page by slug (supports slashes like `api/v2/auth`) |
+| **GET** | `/api/docs/pages/{id:guid}` | Public | Get page by ID |
+| **GET** | `/api/docs/pages/{id:guid}/content` | Public | Read content with pagination |
+| **DELETE** | `/api/docs/pages/slug/{**slug}` | `docs.write` | Delete by slug (supports slashes) |
+| **DELETE** | `/api/docs/pages/{id:guid}` | `docs.write` | Delete by ID |
+| **POST** | `/api/docs/search` | Public | Semantic search |
+
+> **Note**: The `{**slug}` syntax is a catch-all parameter that allows slugs to contain forward slashes (e.g., `api/v2/authentication`, `guides/getting-started/setup`).
+
 ### Endpoints
 
 #### Create or Update Document
@@ -80,6 +95,11 @@ GET /api/docs/pages?limit=20&offset=0
 #### Get Document by Slug
 ```http
 GET /api/docs/pages/slug/getting-started
+```
+
+Slug can contain slashes for hierarchical organization:
+```http
+GET /api/docs/pages/slug/api/v2/authentication
 ```
 
 #### Get Document by ID
@@ -130,9 +150,20 @@ Content-Type: application/json
 }
 ```
 
-#### Delete Document
+#### Delete Document by Slug
 ```http
 DELETE /api/docs/pages/slug/getting-started
+Authorization: Bearer <token>
+```
+
+Supports slashes:
+```http
+DELETE /api/docs/pages/slug/api/v2/authentication
+```
+
+#### Delete Document by ID
+```http
+DELETE /api/docs/pages/550e8400-e29b-41d4-a716-446655440000
 Authorization: Bearer <token>
 ```
 
@@ -147,10 +178,10 @@ curl -X POST https://api.solarnetwork.io/api/docs/pages \
   -H "Content-Type: application/json" \
   -d @- << 'EOF'
 {
-  "slug": "api-reference",
-  "title": "API Reference",
+  "slug": "api/v2/reference",
+  "title": "API v2 Reference",
   "description": "Complete API documentation",
-  "content": "# API Reference\n\n## Authentication\nAll API requests require..."
+  "content": "# API v2 Reference\n\n## Authentication\nAll API requests require..."
 }
 EOF
 ```
@@ -168,7 +199,7 @@ curl -X POST https://api.solarnetwork.io/api/docs/search \
 
 ```bash
 # Get doc by slug
-curl https://api.solarnetwork.io/api/docs/pages/slug/api-reference
+curl https://api.solarnetwork.io/api/docs/pages/slug/api/v2/reference
 
 # Or read with pagination (for large docs)
 curl "https://api.solarnetwork.io/api/docs/pages/{page-id}/content?offset=0&take=4000"
@@ -222,7 +253,7 @@ Get a document by its slug identifier.
 
 ```
 get_doc_by_slug(
-  slug: "getting-started",
+  slug: "api/v2/reference",
   preview_length: 500
 )
 ```
@@ -245,6 +276,22 @@ Description: {page_description}
 Content:
 {chunk_content}
 ```
+
+## Slug Best Practices
+
+SnDoc supports hierarchical slugs with slashes:
+
+**Good examples**:
+- `getting-started`
+- `api/authentication`
+- `api/v2/posts/create`
+- `guides/mobile/ios/setup`
+
+**Structure**:
+- Use lowercase letters, numbers, and hyphens
+- Use slashes for hierarchy: `category/subcategory/page`
+- Keep it descriptive but concise
+- Avoid special characters except `-` and `/`
 
 ## Implementation Details
 
@@ -279,7 +326,7 @@ No additional configuration required. Uses existing:
 
 ### Writing Good Documentation
 
-1. **Use descriptive slugs**: `getting-started` not `doc-1`
+1. **Use descriptive slugs**: `api/v2/authentication` not `doc-1`
 2. **Include a description**: Helps with search relevance
 3. **Structure content**: Use headers for better chunk boundaries
 4. **Keep sections focused**: Each chunk should cover one topic
@@ -292,7 +339,7 @@ No additional configuration required. Uses existing:
 
 ### For CLI Tools
 
-1. Use `slug` for human-friendly references
+1. Use `slug` for human-friendly references (supports slashes)
 2. Use `page_id` returned from search for subsequent reads
 3. Implement pagination for documents > 4000 chars
 4. Cache search results briefly to reduce API calls
@@ -302,8 +349,8 @@ No additional configuration required. Uses existing:
 ### Complete CLI Workflow
 
 ```bash
-# 1. Upload documentation
-SLUG="encryption-guide"
+# 1. Upload hierarchical documentation
+SLUG="api/v2/encryption-guide"
 curl -X POST /api/docs/pages \
   -H "Authorization: Bearer $TOKEN" \
   -d "{
@@ -320,6 +367,19 @@ PAGE_ID=$(echo $RESULT | jq -r '.results[0].page_id')
 
 # 3. Read the full document
 curl "/api/docs/pages/$PAGE_ID/content"
+
+# 4. Update the doc
+curl -X POST /api/docs/pages \
+  -H "Authorization: Bearer $TOKEN" \
+  -d "{
+    \"slug\": \"$SLUG\",
+    \"title\": \"Updated Encryption Guide\",
+    \"content\": \"# Updated Content...\"
+  }"
+
+# 5. Delete by slug
+curl -X DELETE "/api/docs/pages/slug/$SLUG" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ### Agent Interaction Example
@@ -331,12 +391,12 @@ Agent: [Calls search_docs]
 Found 2 relevant documentation pages:
 
 1. Page ID: xxx
-   Slug: security-settings
-   Title: Security Settings
+   Slug: security/2fa-setup
+   Title: Two-Factor Authentication Setup
    Relevance: 92%
 
 2. Page ID: yyy
-   Slug: account-setup
+   Slug: guides/account-setup
    Title: Account Setup Guide
    Relevance: 78%
 
@@ -364,6 +424,10 @@ To enable two-factor authentication:
 - Use the `/content` endpoint with pagination
 - Default `take` limit is 8000 characters
 - Check `has_more` flag for continuation
+
+### Slug with slashes not working
+- Ensure URL encoding: `/` becomes `%2F` in query strings
+- When using curl, quote the URL: `curl "/api/docs/pages/slug/api/v2/auth"`
 
 ## Future Enhancements
 
