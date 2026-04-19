@@ -12,6 +12,7 @@ public class SnChanPublisherService
     private readonly ILogger<SnChanPublisherService> _logger;
 
     private bool _initialized = false;
+    private readonly SemaphoreSlim _initLock = new(1, 1);
 
     public SnChanPublisherService(
         SnChanApiClient apiClient,
@@ -110,6 +111,30 @@ public class SnChanPublisherService
         {
             _logger.LogError(ex, "Failed to initialize SnChan publisher service");
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Ensures the service is initialized before use. Thread-safe.
+    /// </summary>
+    public async Task EnsureInitializedAsync(CancellationToken cancellationToken = default)
+    {
+        if (_initialized)
+        {
+            return;
+        }
+
+        await _initLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (!_initialized)
+            {
+                await InitializeAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            _initLock.Release();
         }
     }
 

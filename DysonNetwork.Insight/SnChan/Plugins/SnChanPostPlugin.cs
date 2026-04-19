@@ -40,6 +40,9 @@ public class SnChanPostPlugin(
     {
         try
         {
+            // Ensure publisher service is initialized
+            await publisherService.EnsureInitializedAsync();
+
             var request = new Dictionary<string, object>()
             {
                 ["content"] = content,
@@ -56,6 +59,8 @@ public class SnChanPostPlugin(
                 ["pub"] = publisherName
             };
 
+            logger.LogInformation("SnChan attempting to create post as publisher '{PublisherName}'", publisherName);
+
             var result = await apiClient.PostAsync<object>("sphere", "/posts", request, queryParams);
 
             logger.LogInformation("SnChan created new post as {Publisher}", publisherName);
@@ -65,6 +70,16 @@ public class SnChanPostPlugin(
             await moodService.TryUpdateMoodAsync();
 
             return JsonSerializer.Serialize(new { success = true, message = $"Post created successfully as {publisherName}", data = result }, JsonOptions);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+        {
+            logger.LogError(ex, "Failed to create post - 403 Forbidden. This usually means the bot account is not an editor of the publisher.");
+            return JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = "403 Forbidden - The bot account needs to be an editor of the publisher to post. Please check publisher membership settings.",
+                details = ex.Message
+            }, JsonOptions);
         }
         catch (Exception ex)
         {
@@ -86,6 +101,9 @@ public class SnChanPostPlugin(
     {
         try
         {
+            // Ensure publisher service is initialized
+            await publisherService.EnsureInitializedAsync();
+
             var request = new Dictionary<string, object>
             {
                 ["content"] = content,
@@ -99,6 +117,8 @@ public class SnChanPostPlugin(
                 ["pub"] = publisherName
             };
 
+            logger.LogInformation("SnChan attempting to reply to post {PostId} as publisher '{PublisherName}'", postId, publisherName);
+
             var result = await apiClient.PostAsync<object>("sphere", "/posts", request, queryParams);
 
             logger.LogInformation("SnChan replied to post {PostId} as {Publisher}", postId, publisherName);
@@ -108,6 +128,16 @@ public class SnChanPostPlugin(
             await moodService.TryUpdateMoodAsync();
 
             return JsonSerializer.Serialize(new { success = true, message = $"Reply created successfully as {publisherName}", data = result }, JsonOptions);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+        {
+            logger.LogError(ex, "Failed to reply to post {PostId} - 403 Forbidden", postId);
+            return JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = "403 Forbidden - The bot account needs to be an editor of the publisher to post. Please check publisher membership settings.",
+                details = ex.Message
+            }, JsonOptions);
         }
         catch (Exception ex)
         {
