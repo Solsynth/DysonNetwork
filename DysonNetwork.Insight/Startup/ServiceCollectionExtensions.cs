@@ -8,6 +8,7 @@ using DysonNetwork.Insight.MiChan.KernelBuilding;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.SnChan;
 using DysonNetwork.Insight.Thought.Memory;
+using DysonNetwork.Insight.SnDoc;
 using DysonNetwork.Insight.Agent.Models;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Pagination;
@@ -192,6 +193,11 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<PostAnalysisService>();
             services.AddScoped<MiChanAutonomousBehavior>();
             services.AddScoped<MoodService>();
+
+            // SnDoc services
+            services.AddScoped<SnDocService>();
+            services.AddScoped<SnDocPlugin>();
+
             services.AddHostedService<MiChanSequenceUnificationHostedService>();
 
             // Only start the hosted service when enabled

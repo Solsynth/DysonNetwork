@@ -1,4 +1,5 @@
 using DysonNetwork.Insight.MiChan;
+using DysonNetwork.Insight.SnDoc;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
@@ -24,7 +25,10 @@ public class AppDatabase(
     public DbSet<MiChanScheduledTask> ScheduledTasks { get; set; }
     public DbSet<MiChanInteractiveHistory> InteractiveHistories { get; set; }
     public DbSet<MiChanMoodState> MoodStates { get; set; }
-    
+
+    public DbSet<SnDocPage> SnDocPages { get; set; }
+    public DbSet<SnDocChunk> SnDocChunks { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         if (!optionsBuilder.IsConfigured)
@@ -69,6 +73,21 @@ public class AppDatabase(
             .HasIndex(p => new { p.AccountId, p.BotName })
             .IsUnique()
             .HasDatabaseName("ix_user_profiles_account_id_bot_name");
+
+        // SnDoc indexes
+        modelBuilder.Entity<SnDocPage>()
+            .HasIndex(p => p.Slug)
+            .IsUnique()
+            .HasDatabaseName("ix_sn_doc_pages_slug")
+            .HasFilter("deleted_at IS NULL");
+
+        modelBuilder.Entity<SnDocChunk>()
+            .HasIndex(c => new { c.PageId, c.ChunkIndex })
+            .HasDatabaseName("ix_sn_doc_chunks_page_id_chunk_index");
+
+        modelBuilder.Entity<SnDocChunk>()
+            .HasIndex(c => c.IsFirstChunk)
+            .HasDatabaseName("ix_sn_doc_chunks_is_first_chunk");
     }
 }
 

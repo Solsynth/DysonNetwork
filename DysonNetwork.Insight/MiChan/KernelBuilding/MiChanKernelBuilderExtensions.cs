@@ -3,6 +3,7 @@
 using System.Diagnostics.CodeAnalysis;
 using DysonNetwork.Insight.Agent.Models;
 using DysonNetwork.Insight.MiChan.Plugins;
+using DysonNetwork.Insight.SnDoc;
 using DysonNetwork.Insight.Thought.Plugins;
 using DysonNetwork.Shared.Proto;
 using Microsoft.SemanticKernel;
@@ -89,6 +90,13 @@ public static class MiChanKernelBuilderExtensions
                 var snChanApiClient = serviceProvider.GetRequiredService<SnChan.SnChanApiClient>();
                 var logger = serviceProvider.GetRequiredService<ILogger<SnChan.Plugins.SnChanPostPlugin>>();
                 kernel.Plugins.AddFromObject(new SnChan.Plugins.SnChanPostPlugin(snChanApiClient, logger), "SnChanPost");
+            }
+
+            // Add SnDoc plugin for documentation search
+            if (!kernel.Plugins.Any(p => p.Name == "SnDoc"))
+            {
+                var snDocPlugin = serviceProvider.GetRequiredService<SnDocPlugin>();
+                kernel.Plugins.AddFromObject(snDocPlugin, "SnDoc");
             }
         });
     }
