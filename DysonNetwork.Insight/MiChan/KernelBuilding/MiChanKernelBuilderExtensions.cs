@@ -58,6 +58,13 @@ public static class MiChanKernelBuilderExtensions
             {
                 kernel.AddMiChanPlugins(serviceProvider);
             }
+
+            // Add SnDoc plugin for documentation search
+            if (!kernel.Plugins.Any(p => p.Name == "SnDoc"))
+            {
+                var snDocPlugin = serviceProvider.GetRequiredService<SnDocPlugin>();
+                kernel.Plugins.AddFromObject(snDocPlugin, "SnDoc");
+            }
         });
     }
 
