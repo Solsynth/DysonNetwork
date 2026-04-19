@@ -1052,10 +1052,15 @@ public class ThoughtService(
         List<SnCloudFileReferenceObject> attachments)
     {
         // Load personality from file or configuration
-        var personality = PersonalityLoader.LoadPersonality(
-            configuration.GetValue<string>("SnChan:PersonalityFile"),
-            configuration.GetValue<string>("SnChan:Personality") ?? "",
-            logger);
+        var personalityFile = configuration.GetValue<string>("SnChan:PersonalityFile");
+        var personalityConfig = configuration.GetValue<string>("SnChan:Personality") ?? "";
+        logger.LogInformation("SnChan config - PersonalityFile: '{PersonalityFile}', Personality config: '{PersonalityConfig}'", 
+            personalityFile, 
+            personalityConfig);
+        var personality = PersonalityLoader.LoadPersonality(personalityFile, personalityConfig, logger);
+        logger.LogInformation("SnChan personality loaded ({Length} chars): {PersonalityPrefix}...", 
+            personality.Length, 
+            string.IsNullOrEmpty(personality) ? "(empty)" : personality[..Math.Min(personality.Length, 100)]);
 
         // Build system prompt using StringBuilder
         var systemPromptBuilder = new StringBuilder();
