@@ -1,5 +1,6 @@
 using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.Reader;
+using DysonNetwork.Insight.SnChan;
 using DysonNetwork.Insight.Thought;
 using Quartz;
 
@@ -48,6 +49,15 @@ public static class ScheduledJobsConfiguration
                 .WithIdentity("ScheduledTaskTrigger")
                 .WithSimpleSchedule(o => o
                     .WithIntervalInMinutes(1)
+                    .RepeatForever())
+            );
+
+            q.AddJob<SnChanReplyMonitorJob>(opts => opts.WithIdentity("SnChanReplyMonitor").StoreDurably());
+            q.AddTrigger(opts => opts
+                .ForJob("SnChanReplyMonitor")
+                .WithIdentity("SnChanReplyMonitorTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(10)
                     .RepeatForever())
             );
         });

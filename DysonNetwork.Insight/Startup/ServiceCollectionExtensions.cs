@@ -125,6 +125,13 @@ public static class ServiceCollectionExtensions
             // Register SnChan API client for bot operations
             services.AddSingleton<SnChanApiClient>();
 
+            // Register reply monitor service and job (only when enabled)
+            if (snChanConfig.ReplyMonitoring.Enabled)
+            {
+                services.AddScoped<SnChanReplyMonitorService>();
+                services.AddScoped<SnChanReplyMonitorJob>();
+            }
+
             return services;
         }
 

@@ -65,6 +65,11 @@ public class SnChanConfig : IValidatableObject
     public bool FallbackToTextModel { get; set; } = true;
 
     /// <summary>
+    /// Reply/Mention monitoring configuration
+    /// </summary>
+    public SnChanReplyMonitoringConfig ReplyMonitoring { get; set; } = new();
+
+    /// <summary>
     /// Gets the effective default chat model
     /// </summary>
     public ModelConfiguration GetDefaultChatModel(string? defaultServiceId = null) =>
@@ -303,4 +308,30 @@ public class SnChanModelMapping
         if (MaxPerkLevel.HasValue && userPerkLevel > MaxPerkLevel.Value) return false;
         return true;
     }
+}
+
+/// <summary>
+/// Reply/Mention monitoring configuration for SnChan
+/// </summary>
+public class SnChanReplyMonitoringConfig
+{
+    /// <summary>
+    /// Whether to enable reply/mention monitoring
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Poll interval in minutes
+    /// </summary>
+    public int PollIntervalMinutes { get; set; } = 10;
+
+    /// <summary>
+    /// Timeout in seconds to respond to mentions
+    /// </summary>
+    public int MentionResponseTimeoutSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// Whether to notify when SnChan receives a reply
+    /// </summary>
+    public bool ReplyNotificationEnabled { get; set; } = true;
 }
