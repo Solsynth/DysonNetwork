@@ -107,147 +107,264 @@ public class NfcService(
     }
 
     /// <summary>
-    /// Validate encrypted SDM scan data.
-    /// Decrypts the PICCData using each tag's SDMFileReadKey, extracts UID and counter,
-    /// matches the UID to find the tag, and performs claim logic.
+    /// Validate encrypted SDM scan data using NTAG 424 DNA SDM protocol.
+    /// Decrypts the PICCData using SDMMetaReadKey, extracts UID and counter,
+    /// matches the UID to find the tag, verifies CMAC, and performs claim logic.
+    ///
+    /// URL format: solian://phpass?picc_data=...&e=...&cmac=...
     /// </summary>
-    /// <param name="uidHex">Full hex-encoded SDM data from the NFC scan URL.</param>
+    /// <param name="piccDataHex">Encrypted PICCData hex (16 bytes, from picc_data parameter).</param>
+    /// <param name="encDataHex">Encrypted file data hex (from e parameter), optional.</param>
+    /// <param name="cmacHex">Truncated SDM CMAC hex (8 bytes, from cmac parameter), optional.</param>
     /// <param name="observerUserId">Optional authenticated user ID.</param>
     public async Task<NfcValidationResult?> ValidateSunAsync(
-        string uidHex,
-        string tagUid,
+        string piccDataHex,
+        string? encDataHex,
+        string? cmacHex,
         Guid? observerUserId = null,
         CancellationToken cancellationToken = default
     )
     {
-        logger.LogInformation("SUN scan: uidHex={Length} chars, first 32={Preview}",
-            uidHex.Length, uidHex.Length >= 32 ? uidHex[..32] : uidHex);
+        logger.LogInformation("SUN scan: picc_data={PiccData}, e={EncData}, cmac={Cmac}",
+            piccDataHex, encDataHex ?? "(none)", cmacHex ?? "(none)");
 
-        // Parse the full hex data
-        var fullData = NfcCrypto.ParseFullUidData(uidHex, logger);
-        if (fullData is null)
+        // Parse hex inputs
+        byte[] encryptedPiccData;
+        try
         {
-            logger.LogWarning("SUN scan: invalid uid_hex format: {Length} chars", uidHex.Length);
+            encryptedPiccData = Convert.FromHexString(piccDataHex);
+        }
+        catch (FormatException)
+        {
+            logger.LogWarning("SUN scan: invalid picc_data hex format");
             return null;
         }
 
-        // Extract the first 16 bytes as the encrypted PICCData block
-        var encryptedPiccData = NfcCrypto.ExtractPiccDataBlock(fullData, logger);
-        if (encryptedPiccData is null)
+        if (encryptedPiccData.Length != 16)
         {
-            logger.LogWarning("SUN scan: data too short ({Len} bytes)", fullData.Length);
+            logger.LogWarning("SUN scan: picc_data must be exactly 16 bytes, got {Len}", encryptedPiccData.Length);
             return null;
         }
 
-        // Load all active encrypted tags
-        var tag = await db.NfcTags
-            .Where(t => t.IsActive && t.IsEncrypted && t.Uid == tagUid.ToUpper() && t.SunKey != null)
-            .FirstOrDefaultAsync(cancellationToken);
-        if (tag is null) return null;
-
-        logger.LogInformation("SUN scan: trying tag {TagId} (DB UID: {TagUid}, key={KeyLen}B)",
-            tag.Id, tag.Uid, tag.SunKey!.Length);
-
-        // Try decrypting with this tag's key
-        var result = NfcCrypto.DecryptPiccData(tag.SunKey!, encryptedPiccData, logger);
-        if (result is null)
+        byte[]? encData = null;
+        if (!string.IsNullOrEmpty(encDataHex))
         {
-            logger.LogInformation("SUN scan: tag {TagId} key did not match", tag.Id);
-            return null;
-        }
-
-        // Check if the decrypted UID matches this tag
-        var decryptedUid = NfcCrypto.FormatUid(result.Uid);
-        logger.LogInformation("SUN scan: decrypted UID={Decrypted}, DB UID={TagUid}, match={Match}",
-            decryptedUid, tag.Uid, decryptedUid == tag.Uid);
-
-        var readCtr = result.ReadCtr;
-
-        // Counter replay check: must be strictly greater than last known counter
-        if (tag.Counter.HasValue && readCtr < tag.Counter.Value)
-        {
-            logger.LogWarning(
-                "SUN replay detected: counter {Counter} <= last counter {LastCounter} for tag {TagId}",
-                readCtr, tag.Counter.Value, tag.Id);
-            throw new InvalidOperationException(
-                $"Replay detected: counter {readCtr} is not greater than last seen counter {tag.Counter.Value}.");
-        }
-
-        // Update counter and last seen
-        tag.Counter = readCtr;
-        tag.LastSeenAt = SystemClock.Instance.GetCurrentInstant();
-        await db.SaveChangesAsync(cancellationToken);
-
-        logger.LogInformation(
-            "SUN validated for tag {TagId}, UID {Uid}, counter {Counter}",
-            tag.Id, tag.Uid, readCtr);
-
-        // --- Handle tag ownership / claiming ---
-
-        var isClaimed = false;
-        var claimStatus = NfcTagClaimStatus.HasOwner;
-        SnAccount? account = null;
-        SnAccountProfile? profile = null;
-        var isFriend = false;
-        var actions = new List<string>();
-
-        if (!tag.AccountId.HasValue)
-        {
-            // Tag is unclaimed — do NOT auto-claim.
-            // User must explicitly claim via POST /api/nfc/tags/claim
-            if (observerUserId.HasValue)
+            try
             {
-                // Authenticated user scanned unclaimed tag — return unclaimed status
-                return new NfcValidationResult(tag, null, null, false, false, NfcTagClaimStatus.Unclaimed, ["claim_tag"]);
+                encData = Convert.FromHexString(encDataHex);
+                if (encData.Length % 16 != 0)
+                {
+                    logger.LogWarning("SUN scan: enc data length must be multiple of 16");
+                    return null;
+                }
             }
-            else
+            catch (FormatException)
             {
-                // No authenticated user — return needs auth status
-                return new NfcValidationResult(tag, null, null, false, false, NfcTagClaimStatus.NeedsAuth, []);
+                logger.LogWarning("SUN scan: invalid e hex format");
+                return null;
             }
         }
-        else if (observerUserId.HasValue && observerUserId.Value != tag.AccountId)
+
+        byte[]? cmac = null;
+        if (!string.IsNullOrEmpty(cmacHex))
         {
-            // Observer is different from tag owner
-            claimStatus = NfcTagClaimStatus.PreAssignedMismatch;
-        }
-
-        // Build result — fetch the tag owner's account
-        if (!tag.AccountId.HasValue)
-        {
-            return new NfcValidationResult(tag, null, null, false, isClaimed, claimStatus, []);
-        }
-
-        account = await accounts.GetAccount(tag.AccountId.Value);
-        if (account is null)
-        {
-            return new NfcValidationResult(tag, null, null, false, isClaimed, claimStatus, []);
-        }
-
-        profile = account.Profile;
-        actions = ["view_profile"];
-
-        if (observerUserId.HasValue && observerUserId.Value != tag.AccountId.Value)
-        {
-            // Check if blocked
-            var blocked =
-                await relationships.HasRelationshipWithStatus(observerUserId.Value, tag.AccountId!.Value,
-                    RelationshipStatus.Blocked) ||
-                await relationships.HasRelationshipWithStatus(tag.AccountId!.Value, observerUserId.Value,
-                    RelationshipStatus.Blocked);
-
-            if (blocked)
+            try
             {
-                // Blocked — don't return profile, but still return tag info for the gRPC login path
-                return new NfcValidationResult(tag, account, profile, false, isClaimed, claimStatus, []);
+                cmac = Convert.FromHexString(cmacHex);
+                if (cmac.Length != 8)
+                {
+                    logger.LogWarning("SUN scan: cmac must be exactly 8 bytes, got {Len}", cmac.Length);
+                    return null;
+                }
+            }
+            catch (FormatException)
+            {
+                logger.LogWarning("SUN scan: invalid cmac hex format");
+                return null;
+            }
+        }
+
+        // Load all active encrypted tags to try decryption
+        // We need to try each tag's key since we don't know which tag until we decrypt
+        var encryptedTags = await db.NfcTags
+            .Where(t => t.IsActive && t.IsEncrypted && t.SunKey != null)
+            .ToListAsync(cancellationToken);
+
+        logger.LogInformation("SUN scan: trying {Count} encrypted tags", encryptedTags.Count);
+
+        foreach (var tag in encryptedTags)
+        {
+            // For now, use SunKey as both MetaKey and FileKey
+            // TODO: Add separate MetaKey field to SnNfcTag if keys are different
+            var metaKey = tag.SunKey!;
+            var fileKey = tag.SunKey!;
+
+            // Step 1: Decrypt PICCData with SDMMetaReadKey using AES-CBC with zero IV
+            var piccPlain = NfcCrypto.DecryptPiccDataWithMetaKey(metaKey, encryptedPiccData, logger);
+            if (piccPlain is null)
+            {
+                logger.LogDebug("SUN scan: tag {TagId} meta key did not match", tag.Id);
+                continue;
             }
 
-            isFriend = await relationships.HasRelationshipWithStatus(
-                observerUserId.Value, tag.AccountId!.Value);
-            actions.Add("add_friend");
+            // Step 2: Parse PICCData to extract UID and SDMReadCtr
+            var piccData = NfcCrypto.ParsePiccData(piccPlain, logger);
+            if (piccData is null)
+            {
+                logger.LogWarning("SUN scan: failed to parse PICCData for tag {TagId}", tag.Id);
+                continue;
+            }
+
+            if (piccData.Uid is null || piccData.ReadCtrLsb is null || piccData.ReadCtrInt is null)
+            {
+                logger.LogWarning("SUN scan: PICCData missing UID or counter for tag {TagId}", tag.Id);
+                continue;
+            }
+
+            var decryptedUid = NfcCrypto.FormatUid(piccData.Uid);
+            var readCtr = piccData.ReadCtrInt.Value;
+
+            logger.LogInformation("SUN scan: tag {TagId} decrypted UID={Uid}, counter={Ctr}",
+                tag.Id, decryptedUid, readCtr);
+
+            // Check if the decrypted UID matches this tag's UID
+            if (!string.Equals(decryptedUid, tag.Uid, StringComparison.OrdinalIgnoreCase))
+            {
+                logger.LogWarning("SUN scan: decrypted UID {DecryptedUid} doesn't match tag UID {TagUid}",
+                    decryptedUid, tag.Uid);
+                continue;
+            }
+
+            // Step 3: Derive session keys from SDMFileReadKey + UID + SDMReadCtr
+            var (ksesEnc, ksesMac) = NfcCrypto.DeriveSessionKeys(fileKey, piccData.Uid, piccData.ReadCtrLsb, logger);
+
+            // Step 4: Verify CMAC if provided
+            if (cmac is not null)
+            {
+                // Build MAC input: enc_hex + "&cmac="
+                // This is the default configuration where MAC covers data between SDMMACInputOffset and SDMMACOffset
+                var macInputStr = $"{encDataHex!.ToUpperInvariant()}&cmac=";
+                var macInput = System.Text.Encoding.ASCII.GetBytes(macInputStr);
+
+                var cmacValid = NfcCrypto.VerifyCmac(ksesMac, macInput, cmac, logger);
+                if (!cmacValid)
+                {
+                    logger.LogWarning("SUN scan: CMAC verification failed for tag {TagId}", tag.Id);
+                    continue;
+                }
+                logger.LogInformation("SUN scan: CMAC verified for tag {TagId}", tag.Id);
+            }
+
+            // Step 5: Decrypt file data if provided (optional - for debugging/info)
+            if (encData is not null)
+            {
+                var ive = NfcCrypto.BuildIve(ksesEnc, piccData.ReadCtrLsb, logger);
+                var decryptedFileData = NfcCrypto.DecryptFileData(ksesEnc, encData, ive, logger);
+                if (decryptedFileData is not null)
+                {
+                    try
+                    {
+                        var asciiData = System.Text.Encoding.UTF8.GetString(decryptedFileData);
+                        logger.LogInformation("SUN scan: decrypted file data (UTF-8): {Data}", asciiData);
+                    }
+                    catch
+                    {
+                        logger.LogInformation("SUN scan: decrypted file data (hex): {Data}",
+                            Convert.ToHexString(decryptedFileData));
+                    }
+                }
+            }
+
+            // Counter replay check: must be strictly greater than last known counter
+            if (tag.Counter.HasValue && readCtr < tag.Counter.Value)
+            {
+                logger.LogWarning(
+                    "SUN replay detected: counter {Counter} <= last counter {LastCounter} for tag {TagId}",
+                    readCtr, tag.Counter.Value, tag.Id);
+                throw new InvalidOperationException(
+                    $"Replay detected: counter {readCtr} is not greater than last seen counter {tag.Counter.Value}.");
+            }
+
+            // Update counter and last seen
+            tag.Counter = readCtr;
+            tag.LastSeenAt = SystemClock.Instance.GetCurrentInstant();
+            await db.SaveChangesAsync(cancellationToken);
+
+            logger.LogInformation(
+                "SUN validated for tag {TagId}, UID {Uid}, counter {Counter}",
+                tag.Id, tag.Uid, readCtr);
+
+            // --- Handle tag ownership / claiming ---
+
+            var isClaimed = false;
+            var claimStatus = NfcTagClaimStatus.HasOwner;
+            SnAccount? account = null;
+            SnAccountProfile? profile = null;
+            var isFriend = false;
+            var actions = new List<string>();
+
+            if (!tag.AccountId.HasValue)
+            {
+                // Tag is unclaimed — do NOT auto-claim.
+                // User must explicitly claim via POST /api/nfc/tags/claim
+                if (observerUserId.HasValue)
+                {
+                    // Authenticated user scanned unclaimed tag — return unclaimed status
+                    return new NfcValidationResult(tag, null, null, false, false, NfcTagClaimStatus.Unclaimed, ["claim_tag"]);
+                }
+                else
+                {
+                    // No authenticated user — return needs auth status
+                    return new NfcValidationResult(tag, null, null, false, false, NfcTagClaimStatus.NeedsAuth, []);
+                }
+            }
+            else if (observerUserId.HasValue && observerUserId.Value != tag.AccountId)
+            {
+                // Observer is different from tag owner - this is pre-assigned to someone else
+                claimStatus = NfcTagClaimStatus.PreAssignedMismatch;
+            }
+            // If observerUserId matches tag.AccountId, claimStatus stays as HasOwner (normal case)
+
+            // Build result — fetch the tag owner's account
+            if (!tag.AccountId.HasValue)
+            {
+                return new NfcValidationResult(tag, null, null, false, isClaimed, claimStatus, []);
+            }
+
+            account = await accounts.GetAccount(tag.AccountId.Value);
+            if (account is null)
+            {
+                return new NfcValidationResult(tag, null, null, false, isClaimed, claimStatus, []);
+            }
+
+            profile = account.Profile;
+            actions = ["view_profile"];
+
+            if (observerUserId.HasValue && observerUserId.Value != tag.AccountId.Value)
+            {
+                // Check if blocked
+                var blocked =
+                    await relationships.HasRelationshipWithStatus(observerUserId.Value, tag.AccountId!.Value,
+                        RelationshipStatus.Blocked) ||
+                    await relationships.HasRelationshipWithStatus(tag.AccountId!.Value, observerUserId.Value,
+                        RelationshipStatus.Blocked);
+
+                if (blocked)
+                {
+                    // Blocked — don't return profile, but still return tag info for the gRPC login path
+                    return new NfcValidationResult(tag, account, profile, false, isClaimed, claimStatus, []);
+                }
+
+                isFriend = await relationships.HasRelationshipWithStatus(
+                    observerUserId.Value, tag.AccountId!.Value);
+                actions.Add("add_friend");
+            }
+
+            return new NfcValidationResult(tag, account, profile, isFriend, isClaimed, claimStatus, actions);
         }
 
-        return new NfcValidationResult(tag, account, profile, isFriend, isClaimed, claimStatus, actions);
+        logger.LogWarning("SUN scan: no matching tag found");
+        return null;
     }
 
     /// <summary>

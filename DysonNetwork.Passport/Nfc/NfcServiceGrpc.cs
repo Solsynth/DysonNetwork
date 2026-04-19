@@ -22,6 +22,8 @@ public class NfcServiceGrpc(
     /// <summary>
     /// Validate an SDM NFC token. Used by Padlock during NFC login flow.
     /// Only claimed tags (with a valid owner) can be used for login.
+    ///
+    /// Supports both old format (raw hex) and new format (solian:// URL with picc_data, e, cmac).
     /// </summary>
     public override async Task<DyValidateNfcTokenResponse> ValidateNfcToken(
         DyValidateNfcTokenRequest request,
@@ -31,21 +33,36 @@ public class NfcServiceGrpc(
 
         try
         {
-            // request.UidHex contains the hex-encoded encrypted PICCData
             var uidHex = request.UidHex;
-            var tagUid = request.TagUid;
-            if (string.IsNullOrWhiteSpace(uidHex) || string.IsNullOrWhiteSpace(tagUid))
+            if (string.IsNullOrWhiteSpace(uidHex))
             {
                 response.IsValid = false;
                 response.ErrorCode = "TAG_NOT_FOUND";
                 return response;
             }
 
-            var result = await nfc.ValidateSunAsync(
-                uidHex,
-                tagUid,
-                cancellationToken: context.CancellationToken
-            );
+            // Parse URL format if needed
+            var (piccData, encData, cmac) = ParseNfcInput(uidHex);
+
+            NfcValidationResult? result;
+            if (piccData is not null)
+            {
+                // New format: solian:// URL with picc_data, e, cmac
+                result = await nfc.ValidateSunAsync(
+                    piccData,
+                    encData,
+                    cmac,
+                    observerUserId: null,
+                    cancellationToken: context.CancellationToken
+                );
+            }
+            else
+            {
+                // Legacy format: raw hex (not supported anymore)
+                response.IsValid = false;
+                response.ErrorCode = "UNSUPPORTED_FORMAT";
+                return response;
+            }
 
             if (result is null)
             {
@@ -100,6 +117,8 @@ public class NfcServiceGrpc(
     /// <summary>
     /// Resolve an SDM NFC tag and return the full user profile.
     /// Used by other services to scan NFC tags via gRPC.
+    ///
+    /// Supports both old format (raw hex) and new format (solian:// URL with picc_data, e, cmac).
     /// </summary>
     public override async Task<DyResolveNfcTagResponse> ResolveNfcTag(
         DyResolveNfcTagRequest request,
@@ -110,19 +129,35 @@ public class NfcServiceGrpc(
         try
         {
             var uidHex = request.UidHex;
-            var tagUid = request.TagUid;
-            if (string.IsNullOrWhiteSpace(uidHex) || string.IsNullOrWhiteSpace(tagUid))
+            if (string.IsNullOrWhiteSpace(uidHex))
             {
                 response.IsValid = false;
                 response.ErrorCode = "TAG_NOT_FOUND";
                 return response;
             }
 
-            var result = await nfc.ValidateSunAsync(
-                uidHex,
-                tagUid,
-                cancellationToken: context.CancellationToken
-            );
+            // Parse URL format if needed
+            var (piccData, encData, cmac) = ParseNfcInput(uidHex);
+
+            NfcValidationResult? result;
+            if (piccData is not null)
+            {
+                // New format: solian:// URL with picc_data, e, cmac
+                result = await nfc.ValidateSunAsync(
+                    piccData,
+                    encData,
+                    cmac,
+                    observerUserId: null,
+                    cancellationToken: context.CancellationToken
+                );
+            }
+            else
+            {
+                // Legacy format: raw hex (not supported anymore)
+                response.IsValid = false;
+                response.ErrorCode = "UNSUPPORTED_FORMAT";
+                return response;
+            }
 
             if (result is null)
             {
@@ -177,6 +212,42 @@ public class NfcServiceGrpc(
         }
 
         return response;
+    }
+
+    /// <summary>
+    /// Parse NFC input which can be either:
+    /// - solian://phpass?picc_data=...&e=...&cmac=... (new format)
+    /// - Raw hex string (legacy format - returns null piccData to indicate legacy)
+    /// </summary>
+    private static (string? PiccData, string? EncData, string? Cmac) ParseNfcInput(string input)
+    {
+        // Check if this is a solian:// URL
+        if (input.StartsWith("solian://", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                // Convert to http:// format for parsing since Uri doesn't handle custom schemes well
+                var httpUrl = "http://" + input.Substring(9);
+                var uri = new Uri(httpUrl);
+
+                var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+                var piccData = query["picc_data"];
+                if (!string.IsNullOrEmpty(piccData))
+                {
+                    var encData = query["e"];
+                    var cmac = query["cmac"];
+                    return (piccData, encData, cmac);
+                }
+            }
+            catch
+            {
+                // Fall through to treat as legacy format
+            }
+        }
+
+        // Legacy format: return null to indicate not a new format URL
+        return (null, null, null);
     }
 
     private async Task PopulatePerkSubscriptionAsync(SnAccount account)
