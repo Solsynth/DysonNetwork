@@ -8,6 +8,7 @@ using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Insight.Agent.Models;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -452,20 +453,21 @@ public class ThoughtService(
         await Task.CompletedTask;
     }
 
-    public async Task<List<SnThinkingThought>> GetPreviousThoughtsAsync(SnThinkingSequence sequence)
+    public async Task<List<SnThinkingThought>> GetPreviousThoughtsAsync(
+        SnThinkingSequence sequence,
+        bool inclArchived = false
+    )
     {
         var cacheKey = $"thoughts:{sequence.Id}";
         var (found, cachedThoughts) = await cache.GetAsyncWithStatus<List<SnThinkingThought>>(
             cacheKey
         );
         if (found && cachedThoughts != null)
-        {
             return cachedThoughts;
-        }
 
-        var thoughts = await db
-            .ThinkingThoughts.Where(t => t.SequenceId == sequence.Id)
-            .Where(t => !t.IsArchived)
+        var thoughts = await db.ThinkingThoughts
+            .Where(t => t.SequenceId == sequence.Id)
+            .If(!inclArchived, q => q.Where(t => !t.IsArchived))
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
@@ -1495,18 +1497,14 @@ public class ThoughtService(
                         stopwatch.ElapsedMilliseconds,
                         uncoveredThoughts.Count
                     );
+
+                    // Save the compaction summary thought only when compaction actually happened
+                    await SaveMiChanCompactionThoughtAsync(sequence, latestSummaryText, coveredThroughThoughtId.Value);
                 }
             }
         }
 
         uncoveredThoughts = ClampMiChanThoughtWindow(uncoveredThoughts, MiChanMaxThoughtWindowTokens);
-
-        if (!string.IsNullOrWhiteSpace(latestSummaryText) &&
-            coveredThroughThoughtId.HasValue &&
-            coveredThroughThoughtId != originalCoveredThoughtId)
-        {
-            await SaveMiChanCompactionThoughtAsync(sequence, latestSummaryText, coveredThroughThoughtId.Value);
-        }
 
         logger.LogInformation(
             "Prepared MiChan history for sequence {SequenceId} in {ElapsedMs}ms. finalThoughts={FinalThoughtCount}, finalTokens={FinalTokens}, savedSummary={SavedSummary}",
@@ -1658,7 +1656,7 @@ public class ThoughtService(
         }
 
         var recentThoughts = new List<SnThinkingThought>();
-        var recentTokens = 0;
+        var recentTokens = 0L;
 
         for (var i = thoughts.Count - 1; i >= 0; i--)
         {
@@ -1686,7 +1684,7 @@ public class ThoughtService(
         }
 
         var chunk = new List<SnThinkingThought>();
-        var chunkTokens = 0;
+        var chunkTokens = 0L;
 
         foreach (var thought in compactableThoughts)
         {
@@ -1718,14 +1716,14 @@ public class ThoughtService(
 
         var transcript = BuildThoughtTranscript(thoughtsToCompact);
         var promptBuilder = new StringBuilder();
-        promptBuilder.AppendLine("你正在为 MiChan 维护与单个用户的长期对话压缩摘要。");
-        promptBuilder.AppendLine("请将较早的对话整理成紧凑、准确、面向未来对话可复用的摘要。");
+        promptBuilder.AppendLine("为以下对话生成压缩摘要。直接输出摘要内容，不要添加任何标题、引言或元话语。");
         promptBuilder.AppendLine("要求：");
-        promptBuilder.AppendLine("- 保留用户长期偏好、背景事实、未完成事项、重要上下文。");
-        promptBuilder.AppendLine("- 记录 MiChan 已做过的重要承诺、决定和工具结果。");
-        promptBuilder.AppendLine("- 不要虚构，不要加入摘要中不存在的新信息。");
-        promptBuilder.AppendLine("- 用简洁中文输出，最多 12 条短项目符号。");
-        promptBuilder.AppendLine("- 这份摘要是内部上下文，不要写成对用户说的话。");
+        promptBuilder.AppendLine("- 保留用户长期偏好、背景事实、未完成事项");
+        promptBuilder.AppendLine("- 记录重要承诺、决定和工具结果");
+        promptBuilder.AppendLine("- 不要虚构，不要加入不存在的新信息");
+        promptBuilder.AppendLine("- 用简洁中文输出，最多12条短项目符号");
+        promptBuilder.AppendLine("- 内部上下文,不要写成对用户说的话");
+        promptBuilder.AppendLine("- 禁止输出过渡语句,直接给摘要内容");
 
         var summaryHistory = new ChatHistory(promptBuilder.ToString());
         var userPayload = new StringBuilder();
@@ -1734,17 +1732,31 @@ public class ThoughtService(
         if (!string.IsNullOrWhiteSpace(previousSummary))
         {
             userPayload.AppendLine();
-            userPayload.AppendLine("现有压缩摘要：");
+            userPayload.AppendLine("现有摘要：");
             userPayload.AppendLine(previousSummary);
         }
 
         userPayload.AppendLine();
-        userPayload.AppendLine("请把以下新增较早对话合并进压缩摘要：");
+        userPayload.AppendLine("新增对话：");
         userPayload.AppendLine(transcript);
         summaryHistory.AddUserMessage(userPayload.ToString());
 
         var result = await kernel.GetRequiredService<IChatCompletionService>()
             .GetChatMessageContentAsync(summaryHistory);
+
+        var summary = result.Content?.Trim() ?? "";
+
+        // Validate summary - reject if too short or contains placeholder text
+        if (summary.Length < 50 ||
+            summary.Contains("我来总结") ||
+            summary.Contains("以下是") ||
+            summary.Contains("摘要") && summary.Length < 100)
+        {
+            logger.LogWarning(
+                "Generated compaction summary is invalid or too short for account {AccountId}. Length={Length}, Content={Content}",
+                accountId, summary.Length, summary[..Math.Min(summary.Length, 200)]);
+            return null;
+        }
 
         logger.LogInformation(
             "Generated MiChan compaction summary in {ElapsedMs}ms. thoughtCount={ThoughtCount}, transcriptTokens={TranscriptTokens}, previousSummaryChars={PreviousSummaryLength}, summaryChars={SummaryLength}",
@@ -1752,10 +1764,10 @@ public class ThoughtService(
             thoughtsToCompact.Count,
             tokenCounter.CountTokens(transcript),
             previousSummary?.Length ?? 0,
-            result.Content?.Length ?? 0
+            summary.Length
         );
 
-        return result.Content?.Trim();
+        return summary;
     }
 
     private string BuildThoughtTranscript(IEnumerable<SnThinkingThought> thoughts)
@@ -1770,8 +1782,9 @@ public class ThoughtService(
         return builder.ToString();
     }
 
-    private int EstimateThoughtTokensForPrompt(SnThinkingThought thought)
+    private long EstimateThoughtTokensForPrompt(SnThinkingThought thought)
     {
+        if (thought.TokenCount > 0) return thought.TokenCount;
         return tokenCounter.CountTokens(SerializeThoughtForPrompt(thought), thought.ModelName);
     }
 
@@ -1783,7 +1796,7 @@ public class ThoughtService(
         }
 
         var keptThoughts = new List<SnThinkingThought>();
-        var totalTokens = 0;
+        var totalTokens = 0L;
 
         for (var i = thoughts.Count - 1; i >= 0; i--)
         {
@@ -1916,6 +1929,7 @@ public class ThoughtService(
             var modelConfig = new ModelConfiguration { ModelId = modelId };
             return thoughtProvider.GetKernelForModel(modelConfig);
         }
+
         return thoughtProvider.GetKernel();
     }
 
@@ -1938,6 +1952,7 @@ public class ThoughtService(
             // Use custom model with PerkLevel-based selection
             return miChanKernelProvider.GetKernel(userPerkLevel, modelId);
         }
+
         return miChanKernelProvider.GetKernel(userPerkLevel);
     }
 
@@ -1949,6 +1964,7 @@ public class ThoughtService(
             // Could be extended to support vision-specific models
             return miChanKernelProvider.GetVisionKernel(userPerkLevel);
         }
+
         return miChanKernelProvider.GetVisionKernel(userPerkLevel);
     }
 
@@ -2103,30 +2119,31 @@ public class ThoughtService(
 
     public async Task<bool> CheckAndAutoCompactAsync(Guid sequenceId, Guid accountId)
     {
-        const int autoCompactThresholdTokens = 10000;
+        const int autoCompactThresholdTokens = 15000;
 
         var sequence = await GetSequenceAsync(sequenceId);
         if (sequence == null || sequence.AccountId != accountId)
-        {
             return false;
-        }
 
         // Use GetPreviousThoughtsAsync to exclude archived thoughts from token counting
         var allThoughts = await GetPreviousThoughtsAsync(sequence);
 
-        if (allThoughts.Count < 4)
-        {
+        if (allThoughts.Count < 6)
             return false;
-        }
 
-        var totalTokens = allThoughts.Sum(t => EstimateThoughtTokensForPrompt(t));
+        var totalTokens = allThoughts.Sum(EstimateThoughtTokensForPrompt);
+
+        logger.LogInformation(
+            "Auto-compact check for sequence {SequenceId}: thoughts={ThoughtCount}, tokens={TotalTokens}, threshold={Threshold}, needsCompact={NeedsCompact}",
+            sequenceId, allThoughts.Count, totalTokens, autoCompactThresholdTokens, totalTokens > autoCompactThresholdTokens);
+
         return totalTokens > autoCompactThresholdTokens;
     }
 
     public async Task<CompactResult> CompactHistoryAsync(Guid sequenceId, Guid accountId)
     {
         var stopwatch = Stopwatch.StartNew();
-        const int compactThresholdTokens = 10000;
+        const int compactThresholdTokens = 15000;
 
         var sequence = await GetSequenceAsync(sequenceId);
         if (sequence == null || sequence.AccountId != accountId)
@@ -2210,20 +2227,24 @@ public class ThoughtService(
 
     private async Task<string> GenerateConversationSummaryAsync(Guid accountId, string conversationText)
     {
-        var prompt = $@"请用简洁的中文总结以下对话要点（不超过500字）：
-
-{conversationText}
-
-摘要格式：
-- 讨论的话题
-- 用户的兴趣或偏好
-- 重要的决定或结论
-- 下次可以继续的内容";
+        var promptBuilder = new StringBuilder();
+        promptBuilder.AppendLine("请总结以下对话的核心内容。输出必须是纯文本摘要,300-500字左右,不要包含任何标题、编号或元话语。");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("对话内容:");
+        promptBuilder.AppendLine(conversationText);
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("要求:");
+        promptBuilder.AppendLine("1. 用第三人称客观总结讨论的主要内容");
+        promptBuilder.AppendLine("2. 提取用户表现出的兴趣、偏好或重要观点");
+        promptBuilder.AppendLine("3. 记录任何达成的共识或决定");
+        promptBuilder.AppendLine("4. 直接输出总结段落,不要加【摘要:】等前缀");
+        promptBuilder.AppendLine("5. 不要输出【以下是总结】【我来总结】等过渡语");
+        promptBuilder.AppendLine("6. 只输出总结内容本身");
 
         var kernel = GetMiChanKernel();
         var settings = miChanKernelProvider.CreatePromptExecutionSettings(0.5);
 
-        var result = await kernel.InvokePromptAsync<string>(prompt, new KernelArguments(settings));
+        var result = await kernel.InvokePromptAsync<string>(promptBuilder.ToString(), new KernelArguments(settings));
 
         return result ?? "";
     }
