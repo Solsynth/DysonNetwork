@@ -99,6 +99,14 @@ public static class MiChanKernelBuilderExtensions
                 kernel.Plugins.AddFromObject(new SnChan.Plugins.SnChanPostPlugin(snChanApiClient, logger), "SnChanPost");
             }
 
+            // Add SnChan Swagger plugin for API documentation
+            if (!kernel.Plugins.Any(p => p.Name == "SnChanSwagger"))
+            {
+                var snChanApiClient = serviceProvider.GetRequiredService<SnChan.SnChanApiClient>();
+                var logger = serviceProvider.GetRequiredService<ILogger<SnChan.Plugins.SnChanSwaggerPlugin>>();
+                kernel.Plugins.AddFromObject(new SnChan.Plugins.SnChanSwaggerPlugin(snChanApiClient, logger), "SnChanSwagger");
+            }
+
             // Add SnDoc plugin for documentation search
             if (!kernel.Plugins.Any(p => p.Name == "SnDoc"))
             {
