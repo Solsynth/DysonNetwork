@@ -181,9 +181,8 @@ public class SnChanPostPlugin(
     {
         try
         {
-            // Get the bot's publisher info to filter out its own replies
-            var botPublisher = await apiClient.GetAsync<SnPublisher>("sphere", "/publishers/me");
-            var botPublisherId = botPublisher?.Id;
+            // Ensure publisher service is initialized to get publisher IDs
+            await publisherService.EnsureInitializedAsync();
 
             // Get all posts that are replies to this post
             var posts = await apiClient.GetAsync<List<SnPost>>(
@@ -196,10 +195,10 @@ public class SnChanPostPlugin(
                 return JsonSerializer.Serialize(new { count = 0, replies = new List<SnPost>() }, JsonOptions);
             }
 
-            // Filter out SnChan's own replies
+            // Filter out SnChan's own replies using the publisher service
             var filteredReplies = posts
                 .Where(p => p.RepliedPostId != null && p.RepliedPostId.Value.ToString() == postId)
-                .Where(p => botPublisherId == null || p.Publisher == null || p.Publisher.Id != botPublisherId)
+                .Where(p => !publisherService.IsOwnPost(p))
                 .Take(limit)
                 .ToList();
 

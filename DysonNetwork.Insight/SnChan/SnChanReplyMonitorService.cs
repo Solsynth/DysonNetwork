@@ -77,10 +77,11 @@ public class SnChanReplyMonitorService(
 
         try
         {
-            var botPublisher = await apiClient.GetAsync<SnPublisher>("sphere", "/publishers/me");
+            // Get bot publisher by name instead of /me endpoint
+            var botPublisher = await apiClient.GetAsync<SnPublisher>("sphere", $"/publishers/{config.PersonalPublisherName}");
             if (botPublisher == null)
             {
-                logger.LogDebug("SnChan publisher not found");
+                logger.LogDebug("SnChan publisher '{PublisherName}' not found", config.PersonalPublisherName);
                 return;
             }
 

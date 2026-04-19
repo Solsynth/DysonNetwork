@@ -245,10 +245,12 @@ public class PostController(
 
         if (!string.IsNullOrWhiteSpace(mentioned))
         {
+            // Normalize mentioned username for comparison
+            var normalizedMentioned = mentioned.ToLowerInvariant();
             query = query.Where(p =>
                 p.Content != null && (
                     EF.Functions.ILike(p.Content, $"%@{mentioned}%") ||
-                    p.Mentions != null && p.Mentions.Any(m => m.Username != null && m.Username.ToLower() == mentioned.ToLower())
+                    p.Mentions != null && p.Mentions.Any(m => m.Username != null && EF.Functions.ILike(m.Username, normalizedMentioned))
                 )
             );
         }
