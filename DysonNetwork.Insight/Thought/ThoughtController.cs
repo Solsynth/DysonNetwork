@@ -60,8 +60,7 @@ public class ThoughtController(
         public List<string> AcceptProposals { get; set; } = [];
         public string? ReasoningEffort { get; set; } // "low", "medium", "high"
         public string? Model { get; set; } // Custom model ID to use (optional)
-        public bool AllowNewThread { get; set; } = false; // Allow creating a new thread instead of using unified thread
-        public string? Topic { get; set; } // Topic for new thread creation
+        public string? Topic { get; set; } // Topic for new thread creation (when no sequenceId provided)
     }
 
     public class UpdateSharingRequest
@@ -587,17 +586,18 @@ public class ThoughtController(
         if (string.IsNullOrWhiteSpace(topic) && !string.IsNullOrWhiteSpace(request.UserMessage))
         {
             topic = await service.GenerateTopicAsync(request.UserMessage, useMiChan: true);
-            if (topic is null)
-            {
-                return BadRequest("Default service not found or configured.");
-            }
         }
+
+        // Auto-create new thread when:
+        // 1. No sequenceId is provided AND
+        // 2. A topic is provided (either from request or generated)
+        bool shouldCreateNewThread = !request.SequenceId.HasValue && !string.IsNullOrWhiteSpace(topic);
 
         var resolution = await service.ResolveMiChanSequenceAsync(
             accountId,
             request.SequenceId,
             topic,
-            request.AllowNewThread,
+            shouldCreateNewThread,
             "michan");
         if (resolution.ErrorMessage != null)
         {
