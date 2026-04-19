@@ -28,6 +28,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         return false;
     }
 
+    [NonAction]
     public ActionResult? EnsureMlsAbility()
     {
         if (HasAbility(MlsAbilityToken)) return null;
