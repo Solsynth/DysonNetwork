@@ -10,7 +10,8 @@ namespace DysonNetwork.Develop.Identity;
 public class BotAccountService(
     AppDatabase db,
     DyBotAccountReceiverService.DyBotAccountReceiverServiceClient accountReceiver,
-    RemoteAccountService remoteAccounts
+    RemoteAccountService remoteAccounts,
+    DyProfileService.DyProfileServiceClient profiles
 )
 {
     public async Task<SnBotAccount?> GetBotByIdAsync(Guid id)
@@ -100,7 +101,6 @@ public class BotAccountService(
 
         try
         {
-            // Update the bot account in the Pass service
             var updateRequest = new DyUpdateBotAccountRequest
             {
                 AutomatedId = bot.Id.ToString(),
@@ -112,10 +112,19 @@ public class BotAccountService(
             var updateResponse = await accountReceiver.UpdateBotAccountAsync(updateRequest);
             var updatedBot = updateResponse.Bot;
 
-            // Update local bot account
             bot.UpdatedAt = updatedBot.UpdatedAt.ToInstant();
             bot.IsActive = updatedBot.IsActive;
             await db.SaveChangesAsync();
+
+            if (account.Profile is not null)
+            {
+                var profileUpdateRequest = new DyUpdateProfileRequest
+                {
+                    AccountId = account.Id,
+                    Profile = account.Profile
+                };
+                await profiles.UpdateProfileAsync(profileUpdateRequest);
+            }
         }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
         {
