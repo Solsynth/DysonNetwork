@@ -293,9 +293,6 @@ public class OidcProviderService(
         var jti = jwt.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
         if (string.IsNullOrWhiteSpace(jti))
             throw new InvalidOperationException("Invalid refresh token");
-        var (revoked, _) = await cache.GetAsyncWithStatus<bool>(AuthCacheKeys.RevokedJti(jti));
-        if (revoked)
-            throw new InvalidOperationException("Refresh token has been revoked");
 
         var sessionIdText = jwt.Claims.FirstOrDefault(c => c.Type == "sid")?.Value ?? jti;
         if (!Guid.TryParse(sessionIdText, out var sessionId))
@@ -323,12 +320,17 @@ public class OidcProviderService(
         if (session.AppId != clientId || session.AccountId != accountId || session.Type != SessionType.OAuth)
             throw new InvalidOperationException("Refresh token does not match client");
 
+        // Validate epoch
+        var tokenEpochText = jwt.Claims.FirstOrDefault(c => c.Type == "epoch")?.Value;
+        if (int.TryParse(tokenEpochText, out var tokenEpoch) && tokenEpoch != session.Epoch)
+            throw new InvalidOperationException("Refresh token has been revoked");
+
         session.LastGrantedAt = now;
         session.ExpiredAt = now.Plus(Duration.FromSeconds(_options.RefreshTokenLifetime.TotalSeconds));
+        session.Epoch++; // Increment epoch on refresh
         db.AuthSessions.Update(session);
         await db.SaveChangesAsync();
-        await cache.RemoveAsync($"auth:{session.Id}");
-        await cache.RemoveAsync($"auth:{session.AccountId}");
+        await cache.RemoveAsync($"auth:session:{session.Id}");
 
         return (session, null, null);
     }

@@ -872,14 +872,13 @@ public class AccountService(
     {
         var session = await db.AuthSessions.FirstOrDefaultAsync(s => s.AccountId == account.Id && s.Id == sessionId);
         if (session == null) throw new InvalidOperationException("Session not found.");
-        session.ExpiredAt = SystemClock.Instance.GetCurrentInstant();
+        var now = SystemClock.Instance.GetCurrentInstant();
+        session.ExpiredAt = now;
+        session.Epoch++; // Increment epoch to invalidate tokens
         db.Update(session);
         await db.SaveChangesAsync();
-        await cache.SetAsync(
-            AuthCacheKeys.RevokedJti(sessionId.ToString()),
-            true,
-            TimeSpan.FromDays(AuthCacheKeys.RevokedJtiTtlDays)
-        );
+        // Clear session cache so external services pick up the new epoch
+        await cache.RemoveAsync($"auth:session:{sessionId}");
         await CreateAccountActionLogAsync(
             account.Id,
             ActionLogType.SessionRevoke,
@@ -898,11 +897,9 @@ public class AccountService(
         foreach (var session in sessions)
         {
             session.ExpiredAt = now;
-            await cache.SetAsync(
-                AuthCacheKeys.RevokedJti(session.Id.ToString()),
-                true,
-                TimeSpan.FromDays(AuthCacheKeys.RevokedJtiTtlDays)
-            );
+            session.Epoch++; // Increment epoch to invalidate tokens
+            // Clear session cache so external services pick up the new epoch
+            await cache.RemoveAsync($"auth:session:{session.Id}");
         }
 
         if (sessions.Count > 0)

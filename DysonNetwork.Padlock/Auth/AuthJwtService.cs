@@ -58,6 +58,7 @@ public sealed class AuthJwtService(IConfiguration config)
             new("sid", session.Id.ToString()),
             new(ClaimType, "user"),
             new("ver", accountVersion.ToString()),
+            new("epoch", session.Epoch.ToString()),
             new("is_superuser", account.IsSuperuser ? "1" : "0"),
             new("name", account.Name),
             new("nick", account.Nick),
@@ -82,7 +83,8 @@ public sealed class AuthJwtService(IConfiguration config)
             new(JwtRegisteredClaimNames.Jti, session.Id.ToString()),
             new("sid", session.Id.ToString()),
             new(ClaimType, "refresh"),
-            new("ver", accountVersion.ToString())
+            new("ver", accountVersion.ToString()),
+            new("epoch", session.Epoch.ToString())
         };
 
         return CreateJwt(claims, now, expiresAt);
@@ -101,7 +103,8 @@ public sealed class AuthJwtService(IConfiguration config)
             new(ClaimType, "api_key"),
             new("api_key_id", key.Id.ToString()),
             new("account_id", key.AccountId.ToString()),
-            new("ver", accountVersion.ToString())
+            new("ver", accountVersion.ToString()),
+            new("epoch", session.Epoch.ToString())
         };
 
         return CreateJwt(claims, now, expiresAt);

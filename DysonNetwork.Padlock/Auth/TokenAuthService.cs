@@ -48,7 +48,7 @@ public class TokenAuthService(
             };
             logger.LogDebug("AuthenticateTokenAsync: token format detected: {Format} (fp={TokenFp})", format, tokenFp);
 
-            if (!ValidateToken(token, out var sessionId, out var tokenUse))
+            if (!ValidateToken(token, out var sessionId, out var tokenUse, out var tokenEpoch))
             {
                 logger.LogInformation("AuthenticateTokenAsync: token validation failed (format={Format}, fp={TokenFp})", format, tokenFp);
                 return (false, null, "Invalid token.", null);
@@ -64,6 +64,17 @@ public class TokenAuthService(
             {
                 logger.LogDebug("AuthenticateTokenAsync: cache hit for {CacheKey}", cacheKey);
                 var cachedSnSession = SnAuthSession.FromProtoValue(cachedSession);
+
+                // Validate epoch (treat missing epoch as 0 for backward compatibility)
+                var effectiveTokenEpoch = tokenEpoch ?? 0;
+                if (cachedSnSession.Epoch != effectiveTokenEpoch)
+                {
+                    logger.LogInformation("AuthenticateTokenAsync: epoch mismatch (sessionId={SessionId}, tokenEpoch={TokenEpoch}, sessionEpoch={SessionEpoch})",
+                        sessionId, effectiveTokenEpoch, cachedSnSession.Epoch);
+                    await cache.RemoveAsync(cacheKey);
+                    return (false, null, "Token has been invalidated.", null);
+                }
+
                 var nowHit = SystemClock.Instance.GetCurrentInstant();
                 if (cachedSnSession.ExpiredAt.HasValue && cachedSnSession.ExpiredAt < nowHit)
                 {
@@ -93,6 +104,15 @@ public class TokenAuthService(
             {
                 logger.LogInformation("AuthenticateTokenAsync: session not found (sessionId={SessionId})", sessionId);
                 return (false, null, "Session was not found.", null);
+            }
+
+            // Validate epoch (treat missing epoch as 0 for backward compatibility)
+            var effectiveTokenEpoch2 = tokenEpoch ?? 0;
+            if (session.Epoch != effectiveTokenEpoch2)
+            {
+                logger.LogInformation("AuthenticateTokenAsync: epoch mismatch (sessionId={SessionId}, tokenEpoch={TokenEpoch}, sessionEpoch={SessionEpoch})",
+                    sessionId, effectiveTokenEpoch2, session.Epoch);
+                return (false, null, "Token has been invalidated.", null);
             }
 
             var now = SystemClock.Instance.GetCurrentInstant();
@@ -138,10 +158,11 @@ public class TokenAuthService(
         }
     }
 
-    public bool ValidateToken(string token, out Guid sessionId, out string? tokenUse)
+    public bool ValidateToken(string token, out Guid sessionId, out string? tokenUse, out int? epoch)
     {
         sessionId = Guid.Empty;
         tokenUse = null;
+        epoch = null;
 
         try
         {
@@ -157,6 +178,9 @@ public class TokenAuthService(
                         tokenUse = jwtResult?.Claims.FirstOrDefault(c => c.Type == AuthJwtService.ClaimType)?.Value
                                    ?? jwtResult?.Claims.FirstOrDefault(c => c.Type == AuthJwtService.LegacyClaimTokenUse)?.Value
                                    ?? "user";
+                        var epochClaim = jwtResult?.Claims.FirstOrDefault(c => c.Type == "epoch")?.Value;
+                        if (int.TryParse(epochClaim, out var parsedEpoch))
+                            epoch = parsedEpoch;
                         if (jti is null) return false;
                         return Guid.TryParse(jti, out sessionId);
                     }
@@ -168,6 +192,7 @@ public class TokenAuthService(
                         if (string.IsNullOrWhiteSpace(acceptUntil) && DateTime.UtcNow > LegacyDefaultCutoffUtc)
                             return false;
                         tokenUse = "user";
+                        epoch = 0; // Legacy tokens use epoch 0
                         return tokenKeyProvider.TryValidateCompactToken(token, out sessionId);
                     }
                 default:

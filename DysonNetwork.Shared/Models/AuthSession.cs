@@ -49,6 +49,9 @@ public class SnAuthSession : ModelBase
     // Indicates the session is for an OIDC connection
     public Guid? AppId { get; set; }
 
+    // Session epoch for token invalidation (incremented on refresh/revoke)
+    public int Epoch { get; set; } = 0;
+
     public DyAuthSession ToProtoValue()
     {
         var proto = new DyAuthSession
@@ -71,7 +74,8 @@ public class SnAuthSession : ModelBase
             ClientId = ClientId.ToString(),
             Client = Client?.ToProtoValue(),
             ParentSessionId = ParentSessionId.ToString(),
-            AppId = AppId?.ToString()
+            AppId = AppId?.ToString(),
+            Epoch = Epoch
         };
         
         proto.Audiences.AddRange(Audiences);
@@ -102,7 +106,8 @@ public class SnAuthSession : ModelBase
             ParentSessionId = string.IsNullOrEmpty(proto.ParentSessionId) ? null : Guid.Parse(proto.ParentSessionId),
             AppId = string.IsNullOrEmpty(proto.AppId) ? null : Guid.Parse(proto.AppId),
             Audiences = proto.Audiences.ToList(),
-            Scopes = proto.Scopes.ToList()
+            Scopes = proto.Scopes.ToList(),
+            Epoch = proto.Epoch
         };
 
         if (proto.Account != null)

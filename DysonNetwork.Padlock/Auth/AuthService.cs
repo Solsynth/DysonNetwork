@@ -305,14 +305,16 @@ public class AuthService(
             .ToListAsync();
         if (sessions.Count == 0) return false;
 
+        // Increment epoch and set expired_at for all sessions to revoke
         await db.AuthSessions
             .Where(s => sessionsToRevokeIds.Contains(s.Id))
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.ExpiredAt, now));
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.ExpiredAt, now)
+                .SetProperty(x => x.Epoch, x => x.Epoch + 1));
 
         foreach (var sessionIdToClear in sessions.Select(s => s.Id))
         {
-            await MarkRevokedJtiAsync(sessionIdToClear.ToString(), now.Plus(Duration.FromDays(30)));
-            // Invalidate AuthScheme's session cache
+            // Invalidate AuthScheme's session cache (epoch increment invalidates tokens)
             await cache.RemoveAsync(AuthCacheConstants.Session(sessionIdToClear.ToString()));
         }
         foreach (var accountId in sessions.Select(s => s.AccountId).Distinct())
@@ -352,12 +354,13 @@ public class AuthService(
         var now = SystemClock.Instance.GetCurrentInstant();
         await db.AuthSessions
             .Where(s => sessions.Contains(s.Id))
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.ExpiredAt, now));
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.ExpiredAt, now)
+                .SetProperty(x => x.Epoch, x => x.Epoch + 1));
 
         foreach (var sessionIdToClear in sessions)
         {
-            await MarkRevokedJtiAsync(sessionIdToClear.ToString(), now.Plus(Duration.FromDays(30)));
-            // Invalidate AuthScheme's session cache
+            // Invalidate AuthScheme's session cache (epoch increment invalidates tokens)
             await cache.RemoveAsync(AuthCacheConstants.Session(sessionIdToClear.ToString()));
         }
         await BumpAccountVersion(accountId);
@@ -502,9 +505,6 @@ public class AuthService(
         var jti = jwt.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
         if (string.IsNullOrWhiteSpace(jti))
             throw new ArgumentException("Invalid refresh token.");
-        var (revoked, _) = await cache.GetAsyncWithStatus<bool>(AuthCacheKeys.RevokedJti(jti));
-        if (revoked)
-            throw new ArgumentException("Refresh token has been revoked.");
 
         var sessionIdText = jwt.Claims.FirstOrDefault(c => c.Type == "sid")?.Value ?? jti;
         if (!Guid.TryParse(sessionIdText, out var sessionId))
@@ -528,8 +528,14 @@ public class AuthService(
         if (session.ExpiredAt.HasValue && session.ExpiredAt.Value <= now)
             throw new ArgumentException("Session has been expired.");
 
+        // Validate epoch (replace JTI revocation check)
+        var tokenEpochText = jwt.Claims.FirstOrDefault(c => c.Type == "epoch")?.Value;
+        if (int.TryParse(tokenEpochText, out var tokenEpoch) && tokenEpoch != session.Epoch)
+            throw new ArgumentException("Refresh token has been revoked.");
+
         session.LastGrantedAt = now;
         session.ExpiredAt = now.Plus(GetRefreshTokenLifetime());
+        session.Epoch++; // Increment epoch on refresh
         db.AuthSessions.Update(session);
         await db.SaveChangesAsync();
 
@@ -792,7 +798,7 @@ public class AuthService(
         db.ApiKeys.Update(key);
         await db.SaveChangesAsync();
 
-        await MarkRevokedJtiAsync(key.SessionId.ToString(), now.Plus(Duration.FromDays(30)));
+        // Increment epoch to revoke existing tokens (RevokeSessionAsync handles this)
         await BumpAccountVersion(key.AccountId);
         await RevokeSessionAsync(key.SessionId);
         await transaction.CommitAsync();
@@ -813,8 +819,8 @@ public class AuthService(
             var originalExpiry = oldSession.ExpiredAt;
             oldSession.ExpiredAt = now;
             oldSession.LastGrantedAt = now;
+            oldSession.Epoch++; // Increment epoch to revoke old tokens
             db.AuthSessions.Update(oldSession);
-            await MarkRevokedJtiAsync(oldSession.Id.ToString(), now.Plus(Duration.FromDays(30)));
 
             var newSession = new SnAuthSession
             {
@@ -1004,15 +1010,6 @@ public class AuthService(
         db.AuthSessions.Add(session);
         await db.SaveChangesAsync();
         return session;
-    }
-
-    private async Task MarkRevokedJtiAsync(string jti, Instant? expiresAt = null)
-    {
-        var ttl = expiresAt.HasValue
-            ? expiresAt.Value.ToDateTimeUtc() - DateTime.UtcNow
-            : TimeSpan.FromDays(30);
-        if (ttl <= TimeSpan.Zero) ttl = TimeSpan.FromHours(1);
-        await cache.SetAsync(AuthCacheKeys.RevokedJti(jti), true, ttl);
     }
 
     private async Task<int> GetAccountVersion(Guid accountId)
