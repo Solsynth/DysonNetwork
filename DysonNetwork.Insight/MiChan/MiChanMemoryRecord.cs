@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text;
 using DysonNetwork.Shared.Models;
@@ -53,6 +54,11 @@ public class MiChanMemoryRecord : ModelBase
     /// Last time the memory is accessed by the model.
     /// </summary>
     public Instant? LastAccessedAt { get; set; }
+
+    /// <summary>
+    /// The bot name that created this memory (e.g., "michan")
+    /// </summary>
+    [MaxLength(50)] public string? BotName { get; set; }
 
     public string ToPrompt()
     {

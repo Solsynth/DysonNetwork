@@ -51,10 +51,24 @@ public class AppDatabase(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        
+
         modelBuilder.HasPostgresExtension("vector");
-        
+
         modelBuilder.ApplySoftDeleteFilters();
+
+        // Add indexes on BotName columns for better query performance
+        modelBuilder.Entity<SnThinkingSequence>()
+            .HasIndex(s => s.BotName)
+            .HasDatabaseName("ix_thinking_sequences_bot_name");
+
+        modelBuilder.Entity<MiChanMemoryRecord>()
+            .HasIndex(m => m.BotName)
+            .HasDatabaseName("ix_memory_records_bot_name");
+
+        modelBuilder.Entity<MiChanUserProfile>()
+            .HasIndex(p => new { p.AccountId, p.BotName })
+            .IsUnique()
+            .HasDatabaseName("ix_user_profiles_account_id_bot_name");
     }
 }
 

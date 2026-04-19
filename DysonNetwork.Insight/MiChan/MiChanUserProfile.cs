@@ -39,6 +39,11 @@ public class MiChanUserProfile : ModelBase
 
     public Instant? LastProfileUpdateAt { get; set; }
 
+    /// <summary>
+    /// The bot name that owns this profile (e.g., "michan")
+    /// </summary>
+    [MaxLength(50)] public string? BotName { get; set; }
+
     public string ToPrompt()
     {
         var builder = new StringBuilder();

@@ -11,39 +11,66 @@ public class UserProfileService(
 {
     public async Task<MiChanUserProfile> GetOrCreateAsync(
         Guid accountId,
+        string? botName = null,
         CancellationToken cancellationToken = default)
     {
-        var profile = await database.UserProfiles
-            .FirstOrDefaultAsync(p => p.AccountId == accountId, cancellationToken);
+        // Build query with optional bot name filter
+        var query = database.UserProfiles.AsQueryable();
+
+        if (string.IsNullOrEmpty(botName))
+        {
+            // If no bot name specified, look for profiles with no bot name assigned (backward compatible)
+            query = query.Where(p => p.AccountId == accountId && p.BotName == null);
+        }
+        else
+        {
+            // Look for bot-specific profile
+            query = query.Where(p => p.AccountId == accountId && p.BotName == botName);
+        }
+
+        var profile = await query.FirstOrDefaultAsync(cancellationToken);
 
         if (profile != null)
             return profile;
 
         profile = new MiChanUserProfile
         {
-            AccountId = accountId
+            AccountId = accountId,
+            BotName = botName
         };
 
         database.UserProfiles.Add(profile);
         await database.SaveChangesAsync(cancellationToken);
 
-        logger.LogDebug("Created MiChan user profile for account {AccountId}", accountId);
+        logger.LogDebug("Created MiChan user profile for account {AccountId}, bot: {BotName}", accountId, botName ?? "none");
         return profile;
     }
 
     public async Task<MiChanUserProfile?> GetAsync(
         Guid accountId,
+        string? botName = null,
         CancellationToken cancellationToken = default)
     {
-        return await database.UserProfiles
-            .FirstOrDefaultAsync(p => p.AccountId == accountId, cancellationToken);
+        var query = database.UserProfiles.AsQueryable();
+
+        if (string.IsNullOrEmpty(botName))
+        {
+            query = query.Where(p => p.AccountId == accountId && p.BotName == null);
+        }
+        else
+        {
+            query = query.Where(p => p.AccountId == accountId && p.BotName == botName);
+        }
+
+        return await query.FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<MiChanUserProfile> TouchInteractionAsync(
         Guid accountId,
+        string? botName = null,
         CancellationToken cancellationToken = default)
     {
-        var profile = await GetOrCreateAsync(accountId, cancellationToken);
+        var profile = await GetOrCreateAsync(accountId, botName, cancellationToken);
         profile.InteractionCount += 1;
         profile.LastInteractionAt = SystemClock.Instance.GetCurrentInstant();
         await database.SaveChangesAsync(cancellationToken);
@@ -59,9 +86,10 @@ public class UserProfileService(
         int? favorability = null,
         int? trustLevel = null,
         int? intimacyLevel = null,
+        string? botName = null,
         CancellationToken cancellationToken = default)
     {
-        var profile = await GetOrCreateAsync(accountId, cancellationToken);
+        var profile = await GetOrCreateAsync(accountId, botName, cancellationToken);
 
         if (profileSummary != null)
             profile.ProfileSummary = NullIfWhiteSpace(profileSummary);
@@ -85,7 +113,7 @@ public class UserProfileService(
         profile.LastProfileUpdateAt = SystemClock.Instance.GetCurrentInstant();
         await database.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation("Updated MiChan user profile for account {AccountId}", accountId);
+        logger.LogInformation("Updated MiChan user profile for account {AccountId}, bot: {BotName}", accountId, botName ?? "none");
         return profile;
     }
 
@@ -95,9 +123,10 @@ public class UserProfileService(
         int trustDelta = 0,
         int intimacyDelta = 0,
         string? relationshipNote = null,
+        string? botName = null,
         CancellationToken cancellationToken = default)
     {
-        var profile = await GetOrCreateAsync(accountId, cancellationToken);
+        var profile = await GetOrCreateAsync(accountId, botName, cancellationToken);
 
         profile.Favorability = ClampRelationshipValue(profile.Favorability + favorabilityDelta);
         profile.TrustLevel = ClampRelationshipValue(profile.TrustLevel + trustDelta);
@@ -112,8 +141,8 @@ public class UserProfileService(
         await database.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation(
-            "Adjusted MiChan relationship for account {AccountId}: favorability={Favorability}, trust={Trust}, intimacy={Intimacy}",
-            accountId, profile.Favorability, profile.TrustLevel, profile.IntimacyLevel);
+            "Adjusted MiChan relationship for account {AccountId}, bot: {BotName}: favorability={Favorability}, trust={Trust}, intimacy={Intimacy}",
+            accountId, botName ?? "none", profile.Favorability, profile.TrustLevel, profile.IntimacyLevel);
 
         return profile;
     }

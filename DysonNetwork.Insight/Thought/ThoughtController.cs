@@ -60,6 +60,8 @@ public class ThoughtController(
         public List<string> AcceptProposals { get; set; } = [];
         public string? ReasoningEffort { get; set; } // "low", "medium", "high"
         public string? Model { get; set; } // Custom model ID to use (optional)
+        public bool AllowNewThread { get; set; } = false; // Allow creating a new thread instead of using unified thread
+        public string? Topic { get; set; } // Topic for new thread creation
     }
 
     public class UpdateSharingRequest
@@ -581,22 +583,9 @@ public class ThoughtController(
             }
         }
 
-        var canonicalSequence = await service.GetCanonicalMiChanSequenceAsync(accountId);
-        if (canonicalSequence != null &&
-            request.SequenceId.HasValue &&
-            request.SequenceId.Value != canonicalSequence.Id)
+        string? topic = request.Topic;
+        if (string.IsNullOrWhiteSpace(topic) && !string.IsNullOrWhiteSpace(request.UserMessage))
         {
-            return BadRequest("MiChan now uses a unified conversation. Please continue with the canonical MiChan sequence.");
-        }
-
-        string? topic = null;
-        if (canonicalSequence == null)
-        {
-            if (request.SequenceId.HasValue)
-            {
-                return BadRequest("MiChan now uses a unified conversation. Start without sequenceId to create the canonical MiChan thread.");
-            }
-
             topic = await service.GenerateTopicAsync(request.UserMessage, useMiChan: true);
             if (topic is null)
             {
@@ -604,7 +593,12 @@ public class ThoughtController(
             }
         }
 
-        var resolution = await service.ResolveMiChanSequenceAsync(accountId, request.SequenceId, topic);
+        var resolution = await service.ResolveMiChanSequenceAsync(
+            accountId,
+            request.SequenceId,
+            topic,
+            request.AllowNewThread,
+            "michan");
         if (resolution.ErrorMessage != null)
         {
             return BadRequest(resolution.ErrorMessage);
@@ -645,7 +639,7 @@ public class ThoughtController(
             userPart.Files = filesData.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
         var userThought = await service.SaveThoughtAsync(sequence, [userPart], ThinkingThoughtRole.User, botName: "michan");
 
-        await service.TouchMiChanUserProfileAsync(accountId);
+        await service.TouchMiChanUserProfileAsync(accountId, "michan");
 
         Response.Headers.Append("Content-Type", "text/event-stream");
         Response.StatusCode = 200;
@@ -952,13 +946,14 @@ public class ThoughtController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<ActionResult<List<SnThinkingSequence>>> ListSequences(
         [FromQuery] int offset = 0,
-        [FromQuery] int take = 20
+        [FromQuery] int take = 20,
+        [FromQuery] string? botName = null
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var (totalCount, sequences) = await service.ListSequencesAsync(accountId, offset, take);
+        var (totalCount, sequences) = await service.ListSequencesAsync(accountId, offset, take, botName);
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
@@ -973,7 +968,8 @@ public class ThoughtController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var sequence = await service.GetCanonicalMiChanSequenceAsync(accountId);
+        // Get the last active MiChan sequence (canonical or most recent)
+        var sequence = await service.GetLastActiveSequenceAsync(accountId, "michan");
         if (sequence == null)
         {
             return NotFound();

@@ -36,6 +36,11 @@ public class SnThinkingSequence : ModelBase
     /// The timestamp of the last message in this sequence (for sorting)
     /// </summary>
     public Instant LastMessageAt { get; set; }
+
+    /// <summary>
+    /// The bot name that owns this sequence (e.g., "michan", "snchan")
+    /// </summary>
+    [MaxLength(50)] public string? BotName { get; set; }
 }
 
 public enum ThinkingThoughtRole

@@ -77,7 +77,8 @@ public class ThoughtService(
     public async Task<SnThinkingSequence?> GetOrCreateSequenceAsync(
         Guid accountId,
         Guid? sequenceId = null,
-        string? topic = null)
+        string? topic = null,
+        string? botName = null)
     {
         if (sequenceId.HasValue)
         {
@@ -93,7 +94,8 @@ public class ThoughtService(
             {
                 AccountId = accountId,
                 Topic = topic,
-                LastMessageAt = now
+                LastMessageAt = now,
+                BotName = botName
             };
             db.ThinkingSequences.Add(seq);
             await db.SaveChangesAsync();
@@ -153,70 +155,126 @@ public class ThoughtService(
         return await GetCanonicalMiChanSequenceAsync(accountId);
     }
 
-    public async Task<MiChanUserProfile> TouchMiChanUserProfileAsync(Guid accountId)
+    public async Task<MiChanUserProfile> TouchMiChanUserProfileAsync(Guid accountId, string? botName = null)
     {
-        return await userProfileService.TouchInteractionAsync(accountId);
+        return await userProfileService.TouchInteractionAsync(accountId, botName);
     }
 
-    public async Task<SnThinkingSequence?> GetCanonicalMiChanSequenceAsync(Guid accountId)
+    public async Task<SnThinkingSequence?> GetCanonicalMiChanSequenceAsync(Guid accountId, string? botName = null)
     {
-        return await db.ThinkingSequences
+        var query = db.ThinkingSequences
             .Where(s => s.AccountId == accountId)
-            .Where(s => db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == MiChanBotName))
+            .Where(s => db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == MiChanBotName));
+
+        // Filter by bot name if specified, otherwise default to "michan"
+        var targetBotName = botName ?? MiChanBotName;
+        query = query.Where(s => s.BotName == null || s.BotName == targetBotName);
+
+        return await query
             .OrderByDescending(s => s.LastMessageAt != default ? s.LastMessageAt : s.CreatedAt)
             .ThenByDescending(s => s.CreatedAt)
             .FirstOrDefaultAsync();
     }
 
-    public async Task<bool> IsCanonicalMiChanSequenceAsync(Guid accountId, Guid sequenceId)
+    public async Task<bool> IsCanonicalMiChanSequenceAsync(Guid accountId, Guid sequenceId, string? botName = null)
     {
-        var canonicalSequence = await GetCanonicalMiChanSequenceAsync(accountId);
+        var canonicalSequence = await GetCanonicalMiChanSequenceAsync(accountId, botName);
         return canonicalSequence?.Id == sequenceId;
     }
 
     public async Task<MiChanSequenceResolutionResult> ResolveMiChanSequenceAsync(
         Guid accountId,
         Guid? requestedSequenceId = null,
-        string? topic = null)
+        string? topic = null,
+        bool allowNewThread = false,
+        string? botName = null)
     {
-        var canonicalSequence = await GetCanonicalMiChanSequenceAsync(accountId);
+        var targetBotName = botName ?? MiChanBotName;
+
+        // If a specific sequence is requested, validate it belongs to this bot
+        if (requestedSequenceId.HasValue)
+        {
+            var requestedSequence = await db.ThinkingSequences.FindAsync(requestedSequenceId.Value);
+            if (requestedSequence != null && requestedSequence.AccountId == accountId)
+            {
+                // Check if the sequence has thoughts from the requesting bot
+                var hasBotThoughts = await db.ThinkingThoughts
+                    .AnyAsync(t => t.SequenceId == requestedSequenceId.Value && t.BotName == targetBotName);
+
+                if (hasBotThoughts)
+                {
+                    return new MiChanSequenceResolutionResult(requestedSequence, false);
+                }
+
+                // Check if sequence is empty/new (no BotName set yet)
+                if (string.IsNullOrEmpty(requestedSequence.BotName))
+                {
+                    requestedSequence.BotName = targetBotName;
+                    await db.SaveChangesAsync();
+                    return new MiChanSequenceResolutionResult(requestedSequence, false);
+                }
+            }
+        }
+
+        // Check if multi-threading is allowed and a topic is provided
+        if (allowNewThread && !string.IsNullOrWhiteSpace(topic))
+        {
+            // Create a new thread for this topic
+            var now = SystemClock.Instance.GetCurrentInstant();
+            var sequence = new SnThinkingSequence
+            {
+                AccountId = accountId,
+                Topic = topic,
+                LastMessageAt = now,
+                LastFreeQuotaResetAt = now,
+                BotName = targetBotName
+            };
+
+            db.ThinkingSequences.Add(sequence);
+            await db.SaveChangesAsync();
+
+            return new MiChanSequenceResolutionResult(sequence, true);
+        }
+
+        // Fall back to unified thread behavior
+        var canonicalSequence = await GetCanonicalMiChanSequenceAsync(accountId, targetBotName);
 
         if (canonicalSequence != null)
         {
-            if (requestedSequenceId.HasValue && requestedSequenceId.Value != canonicalSequence.Id)
-            {
-                return new MiChanSequenceResolutionResult(
-                    null,
-                    false,
-                    "MiChan now uses a unified conversation. Please continue with the canonical MiChan sequence."
-                );
-            }
-
             return new MiChanSequenceResolutionResult(canonicalSequence, false);
         }
 
-        if (requestedSequenceId.HasValue)
-        {
-            return new MiChanSequenceResolutionResult(
-                null,
-                false,
-                "MiChan now uses a unified conversation. Start without sequenceId to create the canonical MiChan thread."
-            );
-        }
-
-        var now = SystemClock.Instance.GetCurrentInstant();
-        var sequence = new SnThinkingSequence
+        // Create the canonical sequence
+        var canonicalNow = SystemClock.Instance.GetCurrentInstant();
+        var canonicalNewSequence = new SnThinkingSequence
         {
             AccountId = accountId,
             Topic = topic,
-            LastMessageAt = now,
-            LastFreeQuotaResetAt = now
+            LastMessageAt = canonicalNow,
+            LastFreeQuotaResetAt = canonicalNow,
+            BotName = targetBotName
         };
 
-        db.ThinkingSequences.Add(sequence);
+        db.ThinkingSequences.Add(canonicalNewSequence);
         await db.SaveChangesAsync();
 
-        return new MiChanSequenceResolutionResult(sequence, true);
+        return new MiChanSequenceResolutionResult(canonicalNewSequence, true);
+    }
+
+    /// <summary>
+    /// Gets the last active sequence for a specific bot.
+    /// </summary>
+    public async Task<SnThinkingSequence?> GetLastActiveSequenceAsync(Guid accountId, string? botName = null)
+    {
+        var targetBotName = botName ?? MiChanBotName;
+
+        return await db.ThinkingSequences
+            .Where(s => s.AccountId == accountId)
+            .Where(s => s.BotName == targetBotName || s.BotName == null)
+            .Where(s => db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == targetBotName))
+            .OrderByDescending(s => s.LastMessageAt != default ? s.LastMessageAt : s.CreatedAt)
+            .ThenByDescending(s => s.CreatedAt)
+            .FirstOrDefaultAsync();
     }
 
     public async Task<int> MergeHistoricMiChanSequencesAsync(CancellationToken cancellationToken = default)
@@ -225,13 +283,14 @@ public class ThoughtService(
 
         var candidateAccountIds = await db.ThinkingSequences
             .Where(s => db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == MiChanBotName))
+            .Where(s => s.BotName == null || s.BotName == MiChanBotName)
             .Select(s => s.AccountId)
             .Distinct()
             .ToListAsync(cancellationToken);
 
         foreach (var accountId in candidateAccountIds)
         {
-            var canonicalSequence = await GetCanonicalMiChanSequenceAsync(accountId);
+            var canonicalSequence = await GetCanonicalMiChanSequenceAsync(accountId, MiChanBotName);
             if (canonicalSequence == null)
                 continue;
 
@@ -239,6 +298,7 @@ public class ThoughtService(
                 .Where(s => s.AccountId == accountId && s.Id != canonicalSequence.Id)
                 .Where(s => db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == MiChanBotName))
                 .Where(s => !db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == "snchan"))
+                .Where(s => s.BotName == null || s.BotName == MiChanBotName)
                 .OrderBy(s => s.CreatedAt)
                 .ToListAsync(cancellationToken);
 
@@ -580,10 +640,18 @@ public class ThoughtService(
     public async Task<(int total, List<SnThinkingSequence> sequences)> ListSequencesAsync(
         Guid accountId,
         int offset,
-        int take
+        int take,
+        string? botName = null
     )
     {
         var query = db.ThinkingSequences.Where(s => s.AccountId == accountId);
+
+        // Filter by bot name if specified
+        if (!string.IsNullOrEmpty(botName))
+        {
+            query = query.Where(s => s.BotName == botName || s.BotName == null);
+        }
+
         var totalCount = await query.CountAsync();
         var sequences = await query
             .OrderByDescending(s => s.LastMessageAt != default ? s.LastMessageAt : s.CreatedAt)
@@ -796,7 +864,8 @@ public class ThoughtService(
 
         if (isMiChan)
         {
-            var resolution = await ResolveMiChanSequenceAsync(accountId, topic: topic);
+            // For agent-initiated sequences, use unified thread by default
+            var resolution = await ResolveMiChanSequenceAsync(accountId, topic: topic, botName: botName);
             if (resolution.Sequence == null)
             {
                 return null;
@@ -810,6 +879,7 @@ public class ThoughtService(
                 sequence.AgentInitiated = true;
                 sequence.Topic = topic;
                 sequence.LastMessageAt = now;
+                sequence.BotName = botName;
                 await db.SaveChangesAsync();
             }
             else if (string.IsNullOrWhiteSpace(sequence.Topic) && !string.IsNullOrWhiteSpace(topic))
@@ -828,7 +898,8 @@ public class ThoughtService(
                 LastMessageAt = now,
                 LastFreeQuotaResetAt = now,
                 CreatedAt = now,
-                UpdatedAt = now
+                UpdatedAt = now,
+                BotName = botName
             };
 
             db.ThinkingSequences.Add(sequence);
@@ -1174,12 +1245,13 @@ public class ThoughtService(
             configuration.GetValue<string>("MiChan:Personality") ?? "",
             logger);
 
-        // Retrieve hot memories for context
+        // Retrieve hot memories for context (filtered by bot)
         var hotMemories = await memoryService.GetHotMemory(
             Guid.Parse(currentUser.Id),
             userMessage ?? "",
-            10);
-        var userProfile = await userProfileService.GetOrCreateAsync(Guid.Parse(currentUser.Id));
+            10,
+            MiChanBotName);
+        var userProfile = await userProfileService.GetOrCreateAsync(Guid.Parse(currentUser.Id), MiChanBotName);
 
         // For non-superusers, MiChan decides whether to execute actions
         var isSuperuser = currentUser.IsSuperuser;
@@ -1194,7 +1266,7 @@ public class ThoughtService(
         chatHistoryBuilder.AppendLine();
 
         // Add hot memories context
-        var recentMemories = await memoryService.GetRecentMemoriesAsync(Guid.Parse(currentUser.Id), 8);
+        var recentMemories = await memoryService.GetRecentMemoriesAsync(Guid.Parse(currentUser.Id), 8, botName: MiChanBotName);
         if (hotMemories.Count > 0)
         {
             chatHistoryBuilder.AppendLine("与你相关的热点记忆（回复前优先复用这些上下文）：");
@@ -2087,13 +2159,14 @@ public class ThoughtService(
             throw new InvalidOperationException("无法生成对话摘要，请稍后重试");
         }
 
-        var newSequence = await GetOrCreateSequenceAsync(accountId, null, $"新对话 - {DateTime.UtcNow:yyyy-MM-dd}");
+        var newSequence = await GetOrCreateSequenceAsync(accountId, null, $"新对话 - {DateTime.UtcNow:yyyy-MM-dd}", sequence.BotName);
         if (newSequence == null)
         {
             throw new InvalidOperationException("无法创建新对话");
         }
 
         newSequence.IsPublic = sequence.IsPublic;
+        newSequence.BotName = sequence.BotName;
         await UpdateSequenceAsync(newSequence);
 
         await SaveThoughtAsync(newSequence, [

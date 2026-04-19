@@ -27,6 +27,7 @@ public class MemoryService(
         float? confidence = 0.7f,
         bool hot = false,
         Guid? accountId = null,
+        string? botName = null,
         CancellationToken cancellationToken = default)
     {
         if (!embeddingService.IsAvailable)
@@ -42,6 +43,7 @@ public class MemoryService(
             IsActive = true,
             Confidence = confidence,
             AccountId = accountId,
+            BotName = botName,
             LastAccessedAt = SystemClock.Instance.GetCurrentInstant()
         };
 
@@ -49,8 +51,8 @@ public class MemoryService(
         await database.SaveChangesAsync(cancellationToken);
 
         logger.LogDebug(
-            "Stored memory {Type} with {ContextId} in database (embedding: {HasEmbedding})",
-            type, record.Id, embedding != null
+            "Stored memory {Type} with {ContextId} in database (embedding: {HasEmbedding}, bot: {BotName})",
+            type, record.Id, embedding != null, botName ?? "none"
         );
 
         return record;
@@ -69,6 +71,7 @@ public class MemoryService(
         float? minConfidence = null,
         int limit = 10,
         double? minSimilarity = null,
+        string? botName = null,
         CancellationToken cancellationToken = default)
     {
         if (!embeddingService.IsAvailable)
@@ -102,6 +105,12 @@ public class MemoryService(
         if (minConfidence.HasValue)
             queryable = queryable.Where(r => r.Confidence >= minConfidence);
 
+        // Filter by bot name if specified - include bot-specific and global (null) memories
+        if (!string.IsNullOrEmpty(botName))
+        {
+            queryable = queryable.Where(r => r.BotName == botName || r.BotName == null);
+        }
+
         // Order by cosine distance and select with distance
         var results = await queryable
             .Select(r => new { Record = r, Distance = r.Embedding!.CosineDistance(queryEmbedding) })
@@ -128,8 +137,8 @@ public class MemoryService(
         }
 
         logger.LogDebug(
-            "Found {Count} memories for query (type: {Type}, accountId: {AccountId})",
-            records.Count, type, accountId);
+            "Found {Count} memories for query (type: {Type}, accountId: {AccountId}, botName: {BotName})",
+            records.Count, type, accountId, botName ?? "any");
 
         return records;
     }
@@ -175,6 +184,7 @@ public class MemoryService(
         int take = 50,
         string? orderBy = "createdAt",
         bool descending = true,
+        string? botName = null,
         CancellationToken cancellationToken = default)
     {
         var query = database.MemoryRecords.AsQueryable();
@@ -190,6 +200,12 @@ public class MemoryService(
             query = query.Where(r => r.IsActive == isActive);
         if (minConfidence.HasValue)
             query = query.Where(r => r.Confidence >= minConfidence);
+
+        // Filter by bot name if specified - include bot-specific and global (null) memories
+        if (!string.IsNullOrEmpty(botName))
+        {
+            query = query.Where(r => r.BotName == botName || r.BotName == null);
+        }
 
         // Apply ordering
         query = orderBy?.ToLowerInvariant() switch
@@ -223,8 +239,8 @@ public class MemoryService(
         }
 
         logger.LogDebug(
-            "Retrieved {Count} memories by filter (type: {Type}, accountId: {AccountId})",
-            records.Count, type, accountId);
+            "Retrieved {Count} memories by filter (type: {Type}, accountId: {AccountId}, botName: {BotName})",
+            records.Count, type, accountId, botName ?? "any");
 
         return records;
     }
@@ -314,6 +330,7 @@ public class MemoryService(
         Guid? accountId,
         string prompt,
         int limit = 20,
+        string? botName = null,
         CancellationToken cancellationToken = default)
     {
         if (!embeddingService.IsAvailable)
@@ -334,6 +351,12 @@ public class MemoryService(
 
         var hotQuery = database.MemoryRecords
             .Where(r => r.IsHot && r.IsActive);
+
+        // Filter by bot name if specified - include bot-specific and global (null) memories
+        if (!string.IsNullOrEmpty(botName))
+        {
+            hotQuery = hotQuery.Where(r => r.BotName == botName || r.BotName == null);
+        }
 
         var globalHotMemories = await hotQuery
             .Where(r => r.AccountId == null)
@@ -375,8 +398,8 @@ public class MemoryService(
         }
 
         logger.LogDebug(
-            "Retrieved {TotalCount} hot memories (user hot: {UserCount}, global+personal: {OtherCount}) for account {AccountId}",
-            result.Count, userHotMemories.Count, otherHotMemories.Count, accountId);
+            "Retrieved {TotalCount} hot memories (user hot: {UserCount}, global+personal: {OtherCount}) for account {AccountId}, bot: {BotName}",
+            result.Count, userHotMemories.Count, otherHotMemories.Count, accountId, botName ?? "any");
 
         return result;
     }
@@ -389,6 +412,7 @@ public class MemoryService(
         Guid? accountId,
         int limit = 8,
         TimeSpan? maxAge = null,
+        string? botName = null,
         CancellationToken cancellationToken = default)
     {
         if (!accountId.HasValue)
@@ -398,16 +422,24 @@ public class MemoryService(
 
         var cutoffTime = SystemClock.Instance.GetCurrentInstant() - Duration.FromHours(maxAge.Value.TotalHours);
 
-        var memories = await database.MemoryRecords
+        var query = database.MemoryRecords
             .Where(r => r.AccountId == accountId.Value)
             .Where(r => r.IsActive)
-            .Where(r => r.CreatedAt >= cutoffTime)
+            .Where(r => r.CreatedAt >= cutoffTime);
+
+        // Filter by bot name if specified - include bot-specific and global (null) memories
+        if (!string.IsNullOrEmpty(botName))
+        {
+            query = query.Where(r => r.BotName == botName || r.BotName == null);
+        }
+
+        var memories = await query
             .OrderByDescending(r => r.CreatedAt)
             .Take(limit)
             .ToListAsync(cancellationToken);
 
-        logger.LogDebug("Retrieved {Count} recent memories for account {AccountId} (within {Hours}h)",
-            memories.Count, accountId, maxAge.Value.TotalHours);
+        logger.LogDebug("Retrieved {Count} recent memories for account {AccountId}, bot: {BotName} (within {Hours}h)",
+            memories.Count, accountId, botName ?? "any", maxAge.Value.TotalHours);
 
         return memories;
     }

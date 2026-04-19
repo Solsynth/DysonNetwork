@@ -12,6 +12,8 @@ public class MemoryPlugin(
     MemoryService memoryService,
     ILogger<MemoryPlugin> logger)
 {
+    private const string DefaultBotName = "michan";
+
     /// <summary>
     /// Search through MiChan's memory for information related to a query.
     /// This searches ALL shared memories by default - use this often to recall what you know!
@@ -20,14 +22,10 @@ public class MemoryPlugin(
     [Description(
         "Search your memory database for relevant information. USE THIS FREQUENTLY before responding - you have access to shared memories from ALL conversations! By default (no accountId), this searches global memories visible to everyone. Use this to recall user preferences, past topics, facts, and context to make your responses more personal and consistent.")]
     public async Task<string> SearchMemoryAsync(
-        [Description("What to search for. Be specific: 'user's favorite color', 'discussions about AI', 'Alice's job'")]
-        string query,
-        [Description("Optional: Filter by memory type ('user', 'topic', 'fact', 'context', 'interaction'). Leave empty to search all.")]
-        string? memoryType = null,
-        [Description("Optional: Account ID to include that user's specific memories too. Leave EMPTY to search only global shared memories (recommended for most searches).")]
-        Guid? accountId = null,
-        [Description("Maximum results to return (default: 10)")]
-        int limit = 10)
+        [Description("What to search for. Be specific: 'user's favorite color', 'discussions about AI', 'Alice's job'")] string query,
+        [Description("Optional: Filter by memory type ('user', 'topic', 'fact', 'context', 'interaction'). Leave empty to search all.")] string? memoryType = null,
+        [Description("Optional: Account ID to include that user's specific memories too. Leave EMPTY to search only global shared memories (recommended for most searches).")] Guid? accountId = null,
+        [Description("Maximum results to return (default: 10)")] int limit = 10)
     {
         try
         {
@@ -38,7 +36,8 @@ public class MemoryPlugin(
                 type: memoryType,
                 accountId: accountId,
                 limit: limit,
-                minSimilarity: 0.6);
+                minSimilarity: 0.6,
+                botName: DefaultBotName);
 
             if (memories.Count == 0)
             {
@@ -89,7 +88,8 @@ public class MemoryPlugin(
                 take: count,
                 orderBy: "createdAt",
                 accountId: accountId is not null ? Guid.Parse(accountId) : Guid.Empty,
-                descending: true
+                descending: true,
+                botName: DefaultBotName
             );
 
             if (memories.Count == 0)
@@ -146,7 +146,8 @@ public class MemoryPlugin(
                     type: memoryType,
                     accountId: accountId,
                     limit: limit,
-                    minSimilarity: 0.6);
+                    minSimilarity: 0.6,
+                    botName: DefaultBotName);
             }
             else
             {
@@ -155,7 +156,8 @@ public class MemoryPlugin(
                     accountId: accountId,
                     take: limit,
                     orderBy: "createdAt",
-                    descending: true);
+                    descending: true,
+                    botName: DefaultBotName);
             }
 
             if (memories.Count == 0)
@@ -227,7 +229,8 @@ public class MemoryPlugin(
                 content: content,
                 confidence: confidence ?? 0.7f,
                 accountId: accountId,
-                hot: isHot ?? false
+                hot: isHot ?? false,
+                botName: DefaultBotName
             );
 
             logger.LogInformation("Successfully stored memory with ID: {MemoryId}", record.Id);

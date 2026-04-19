@@ -8,6 +8,8 @@ public class UserProfilePlugin(
     UserProfileService userProfileService,
     ILogger<UserProfilePlugin> logger)
 {
+    private const string DefaultBotName = "michan";
+
     [KernelFunction("get_user_profile")]
     [Description("Get MiChan's structured profile and relationship state for a specific user.")]
     public async Task<string> GetUserProfileAsync(
@@ -16,7 +18,7 @@ public class UserProfilePlugin(
     {
         try
         {
-            var profile = await userProfileService.GetOrCreateAsync(accountId);
+            var profile = await userProfileService.GetOrCreateAsync(accountId, DefaultBotName);
             return profile.ToPrompt();
         }
         catch (Exception ex)
@@ -60,7 +62,8 @@ public class UserProfilePlugin(
                 parsedTags,
                 favorability,
                 trustLevel,
-                intimacyLevel);
+                intimacyLevel,
+                DefaultBotName);
 
             return $"User profile updated.\n{profile.ToPrompt()}";
         }
@@ -92,7 +95,8 @@ public class UserProfilePlugin(
                 favorabilityDelta,
                 trustDelta,
                 intimacyDelta,
-                relationshipNote);
+                relationshipNote,
+                DefaultBotName);
 
             return $"Relationship updated.\n{profile.ToPrompt()}";
         }

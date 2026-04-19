@@ -6,6 +6,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Models.Embed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -16,9 +17,11 @@ using Pgvector;
 namespace DysonNetwork.Insight.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20260419041507_AddBotNameToModels")]
+    partial class AddBotNameToModels
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -135,9 +138,6 @@ namespace DysonNetwork.Insight.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_memory_records");
-
-                    b.HasIndex("BotName")
-                        .HasDatabaseName("ix_memory_records_bot_name");
 
                     b.ToTable("memory_records", (string)null);
                 });
@@ -352,10 +352,6 @@ namespace DysonNetwork.Insight.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_user_profiles_account_id");
 
-                    b.HasIndex("AccountId", "BotName")
-                        .IsUnique()
-                        .HasDatabaseName("ix_user_profiles_account_id_bot_name");
-
                     b.ToTable("user_profiles", (string)null);
                 });
 
@@ -430,9 +426,6 @@ namespace DysonNetwork.Insight.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_thinking_sequences");
-
-                    b.HasIndex("BotName")
-                        .HasDatabaseName("ix_thinking_sequences_bot_name");
 
                     b.ToTable("thinking_sequences", (string)null);
                 });
