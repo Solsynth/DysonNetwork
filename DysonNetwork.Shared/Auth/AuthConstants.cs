@@ -15,6 +15,9 @@ public static class AuthCacheKeys
     public const string RevokedJtiPrefix = "auth:revoked:jti:";
     public static string RevokedJti(string jti) => $"{RevokedJtiPrefix}{jti}";
     public const int RevokedJtiTtlDays = 30;
+
+    public const string SessionPrefix = "auth:session:";
+    public static string Session(string sessionId) => $"{SessionPrefix}{sessionId}";
 }
 
 public enum TokenType

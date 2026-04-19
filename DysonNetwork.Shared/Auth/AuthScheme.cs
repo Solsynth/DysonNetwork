@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using DysonNetwork.Shared.Cache;
@@ -25,7 +26,6 @@ public class DysonTokenAuthHandler(
     IConfiguration config
 ) : AuthenticationHandler<DysonTokenAuthOptions>(options, logger, encoder)
 {
-    private const string SessionCachePrefix = "auth:session:";
     private const string ProfileCachePrefix = "auth:profile:";
     private static readonly TimeSpan SessionCacheTtl = TimeSpan.FromHours(1);
     private static readonly TimeSpan ProfileCacheTtl = TimeSpan.FromMinutes(5);
@@ -48,14 +48,20 @@ public class DysonTokenAuthHandler(
 
         try
         {
-            // Generate cache key from token hash
-            var cacheKey = $"{SessionCachePrefix}{GetTokenHash(tokenInfo.Token)}";
+            // Extract session ID from JWT for cache key
+            var sessionId = TryExtractSessionIdFromJwt(tokenInfo.Token);
+            if (string.IsNullOrEmpty(sessionId))
+            {
+                // Fallback to token hash for non-JWT tokens (legacy/compact tokens)
+                sessionId = GetTokenHash(tokenInfo.Token);
+            }
+            var cacheKey = AuthCacheKeys.Session(sessionId);
 
             // Check cache first
             var cachedSession = await cache.GetAsync<DyAuthSession>(cacheKey);
             if (cachedSession is not null)
             {
-                Logger.LogDebug("Auth cache hit for path={Path}", Request.Path);
+                Logger.LogDebug("Auth cache hit for path={Path} sessionId={SessionId}", Request.Path, cachedSession.Id);
                 await HydrateProfileAsync(cachedSession, Context.RequestAborted);
                 await TouchProfileLastSeenAsync(cachedSession, Context.RequestAborted);
                 return BuildAuthResult(tokenInfo.Type, cachedSession);
@@ -81,8 +87,9 @@ public class DysonTokenAuthHandler(
                 return AuthenticateResult.Fail($"Remote error: {ex.Status.StatusCode} - {ex.Status.Detail}");
             }
 
-            // Cache the validated session
-            await cache.SetAsync(cacheKey, session, SessionCacheTtl);
+            // Cache the validated session using session ID
+            var sessionCacheKey = AuthCacheKeys.Session(session.Id);
+            await cache.SetAsync(sessionCacheKey, session, SessionCacheTtl);
             Logger.LogDebug("Auth session cached for 1h, sessionId={SessionId}", session.Id);
 
             await HydrateProfileAsync(session, Context.RequestAborted);
@@ -93,6 +100,31 @@ public class DysonTokenAuthHandler(
         {
             Logger.LogError(ex, "Authentication failed unexpectedly. path={Path}", Request.Path);
             return AuthenticateResult.Fail($"Authentication failed: {ex.Message}");
+        }
+    }
+
+    private static string? TryExtractSessionIdFromJwt(string token)
+    {
+        try
+        {
+            // JWT tokens have 3 parts separated by dots
+            var parts = token.Split('.');
+            if (parts.Length != 3)
+                return null;
+
+            var handler = new JwtSecurityTokenHandler();
+            var jwt = handler.ReadJwtToken(token);
+
+            // Session ID can be in "jti" (JWT ID) or "sid" claim
+            var sessionId = jwt.Claims.FirstOrDefault(c => c.Type == "jti")?.Value
+                            ?? jwt.Claims.FirstOrDefault(c => c.Type == "sid")?.Value;
+
+            return sessionId;
+        }
+        catch
+        {
+            // Not a valid JWT or can't be parsed
+            return null;
         }
     }
 

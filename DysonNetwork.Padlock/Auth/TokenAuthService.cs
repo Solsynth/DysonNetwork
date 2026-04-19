@@ -56,7 +56,7 @@ public class TokenAuthService(
 
             logger.LogDebug("AuthenticateTokenAsync: token validated, sessionId={SessionId} (fp={TokenFp})", sessionId, tokenFp);
 
-            var cacheKey = $"{AuthCacheConstants.Prefix}{sessionId}";
+            var cacheKey = AuthCacheConstants.Session(sessionId.ToString());
             var session = await cache.GetAsync<SnAuthSession>(cacheKey);
             if (session is not null)
             {
@@ -113,12 +113,12 @@ public class TokenAuthService(
             await cache.SetWithGroupsAsync(
                 cacheKey,
                 session,
-                [$"{AuthCacheConstants.Prefix}{session.Account.Id}"],
+                [$"auth:account_sessions:{session.Account.Id}"],
                 TimeSpan.FromHours(1)
             );
             logger.LogDebug("AuthenticateTokenAsync: cached session with key {CacheKey} (groups=[{GroupKey}])",
                 cacheKey,
-                $"{AuthCacheConstants.Prefix}{session.Account.Id}");
+                $"auth:account_sessions:{session.Account.Id}");
 
             logger.LogInformation(
                 "AuthenticateTokenAsync: success via DB (sessionId={SessionId}, accountId={AccountId}, clientId={ClientId})",

@@ -312,6 +312,8 @@ public class AuthService(
         foreach (var sessionIdToClear in sessions.Select(s => s.Id))
         {
             await MarkRevokedJtiAsync(sessionIdToClear.ToString(), now.Plus(Duration.FromDays(30)));
+            // Invalidate AuthScheme's session cache
+            await cache.RemoveAsync(AuthCacheConstants.Session(sessionIdToClear.ToString()));
         }
         foreach (var accountId in sessions.Select(s => s.AccountId).Distinct())
         {
@@ -355,6 +357,8 @@ public class AuthService(
         foreach (var sessionIdToClear in sessions)
         {
             await MarkRevokedJtiAsync(sessionIdToClear.ToString(), now.Plus(Duration.FromDays(30)));
+            // Invalidate AuthScheme's session cache
+            await cache.RemoveAsync(AuthCacheConstants.Session(sessionIdToClear.ToString()));
         }
         await BumpAccountVersion(accountId);
 
@@ -528,6 +532,9 @@ public class AuthService(
         session.ExpiredAt = now.Plus(GetRefreshTokenLifetime());
         db.AuthSessions.Update(session);
         await db.SaveChangesAsync();
+
+        // Invalidate AuthScheme's session cache since expiration changed
+        await cache.RemoveAsync(AuthCacheConstants.Session(session.Id.ToString()));
 
         return await CreateTokenPair(session);
     }
@@ -833,6 +840,9 @@ public class AuthService(
             await db.SaveChangesAsync();
 
             await BumpAccountVersion(key.AccountId);
+
+            // Invalidate AuthScheme's cache for the old session
+            await cache.RemoveAsync(AuthCacheConstants.Session(oldSession.Id.ToString()));
 
             await transaction.CommitAsync();
             return key;
