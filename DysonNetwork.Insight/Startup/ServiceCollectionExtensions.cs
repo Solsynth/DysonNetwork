@@ -125,6 +125,9 @@ public static class ServiceCollectionExtensions
             // Register SnChan API client for bot operations
             services.AddSingleton<SnChanApiClient>();
 
+            // Register publisher service for dual publisher management
+            services.AddSingleton<SnChanPublisherService>();
+
             // Register reply monitor service and job (only when enabled)
             if (snChanConfig.ReplyMonitoring.Enabled)
             {
@@ -136,6 +139,12 @@ public static class ServiceCollectionExtensions
             if (snChanConfig.DynamicMood.Enabled)
             {
                 services.AddScoped<SnChanMoodService>();
+            }
+
+            // Register diary job (only when enabled)
+            if (snChanConfig.Diary.Enabled)
+            {
+                services.AddScoped<SnChanDiaryJob>();
             }
 
             return services;

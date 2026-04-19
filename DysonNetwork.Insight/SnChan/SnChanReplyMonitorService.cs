@@ -13,6 +13,7 @@ public class SnChanReplyMonitorService(
     SnChanConfig config,
     RemoteRingService remoteRingService,
     SnChanMoodService moodService,
+    SnChanPublisherService publisherService,
     ILogger<SnChanReplyMonitorService> logger)
 {
     private static readonly Regex SnChanMentionRegex = new(@"@snchan\b", RegexOptions.IgnoreCase);
@@ -120,9 +121,28 @@ public class SnChanReplyMonitorService(
             }
 
             var accountId = publisher.AccountId.Value;
+
+            // Build context with publisher information to help AI decide
+            var isOfficialPost = publisherService.IsOfficialPost(post);
+            var publisherContext = publisherService.GetPublisherContext();
+
+            var message = $"""
+你被提到了！
+
+{publisherContext}
+
+原始帖子信息：
+- 帖子作者: @{publisher.Name}
+- 是否官方帖子: {(isOfficialPost ? "是" : "否")}
+- 帖子内容:
+{post.Content}
+
+请根据上下文决定使用哪个发布者来回复。如果用户询问关于 Solar Network 的问题或寻求支持，考虑使用官方发布者；否则使用个人发布者。
+""";
+
             var sequence = await thoughtService.CreateAgentInitiatedSequenceAsync(
                 accountId,
-                $"你被提到了！\n\n{post.Content}",
+                message,
                 topic: $"来自 @{publisher.Name} 的提及",
                 locale: "en",
                 botName: "snchan"
@@ -132,7 +152,7 @@ public class SnChanReplyMonitorService(
             {
                 logger.LogInformation("Created mention response sequence {SequenceId} for account {AccountId}",
                     sequence.Id, accountId);
-                
+
                 // Record emotional event and trigger mood update
                 await moodService.RecordInteractionAsync("mentioned_by_user");
                 await moodService.TryUpdateMoodAsync(cancellationToken);

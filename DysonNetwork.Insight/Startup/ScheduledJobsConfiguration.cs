@@ -60,6 +60,14 @@ public static class ScheduledJobsConfiguration
                     .WithIntervalInMinutes(10)
                     .RepeatForever())
             );
+
+            // SnChan Diary Job - runs at 02:00 daily
+            q.AddJob<SnChanDiaryJob>(opts => opts.WithIdentity("SnChanDiary").StoreDurably());
+            q.AddTrigger(opts => opts
+                .ForJob("SnChanDiary")
+                .WithIdentity("SnChanDiaryTrigger")
+                .WithCronSchedule("0 0 2 * * ?")
+            );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

@@ -10,8 +10,9 @@ namespace DysonNetwork.Insight.SnChan.Plugins;
 /// Uses separate bot account authentication
 /// </summary>
 public class SnChanPostPlugin(
-    SnChanApiClient apiClient, 
+    SnChanApiClient apiClient,
     SnChanMoodService moodService,
+    SnChanPublisherService publisherService,
     ILogger<SnChanPostPlugin> logger)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -32,7 +33,9 @@ public class SnChanPostPlugin(
         [Description("The tags of the post, splitted by comma, optional")]
         string? tags = null,
         [Description("List of attachment IDs to include with the post, optional")]
-        List<string>? attachments = null
+        List<string>? attachments = null,
+        [Description("Whether to post as official publisher (solsynth). Default false (personal). Use true for official announcements, support responses, or formal statements.")]
+        bool asOfficial = false
     )
     {
         try
@@ -46,15 +49,22 @@ public class SnChanPostPlugin(
             if (!string.IsNullOrWhiteSpace(tags)) request["tags"] = tags.Split(',').Select(x => x.Trim()).ToArray();
             if (attachments is { Count: > 0 }) request["attachment_ids"] = attachments;
 
-            var result = await apiClient.PostAsync<object>("sphere", "/posts", request);
+            // Determine publisher and add query parameter
+            var publisherName = publisherService.GetPublisherNameForPost(asOfficial);
+            var queryParams = new Dictionary<string, string>
+            {
+                ["pub"] = publisherName
+            };
 
-            logger.LogInformation("SnChan created new post");
-            
+            var result = await apiClient.PostAsync<object>("sphere", "/posts", request, queryParams);
+
+            logger.LogInformation("SnChan created new post as {Publisher}", publisherName);
+
             // Record emotional event and trigger mood update
             await moodService.RecordInteractionAsync("created_post");
             await moodService.TryUpdateMoodAsync();
-            
-            return JsonSerializer.Serialize(new { success = true, message = "Post created successfully", data = result }, JsonOptions);
+
+            return JsonSerializer.Serialize(new { success = true, message = $"Post created successfully as {publisherName}", data = result }, JsonOptions);
         }
         catch (Exception ex)
         {
@@ -64,12 +74,14 @@ public class SnChanPostPlugin(
     }
 
     [KernelFunction("reply_to_post")]
-    [Description("Reply to a post. Returns JSON with success status and created reply data.")]
+    [Description("Reply to a post. Returns JSON with success status and created reply data. AI should decide whether to use official or personal publisher based on context.")]
     public async Task<string> ReplyToPost(
         [Description("The ID of the post to reply to")]
         string postId,
         [Description("The content of the reply")]
-        string content
+        string content,
+        [Description("Whether to reply as official publisher (solsynth). Default false (personal). Consider using true when: 1) The original post is from official publisher, 2) User is asking about Solar Network issues or support, 3) A formal/official response is appropriate.")]
+        bool asOfficial = false
     )
     {
         try
@@ -80,15 +92,22 @@ public class SnChanPostPlugin(
                 ["replied_post_id"] = postId
             };
 
-            var result = await apiClient.PostAsync<object>("sphere", "/posts", request);
+            // Determine publisher and add query parameter
+            var publisherName = publisherService.GetPublisherNameForPost(asOfficial);
+            var queryParams = new Dictionary<string, string>
+            {
+                ["pub"] = publisherName
+            };
 
-            logger.LogInformation("SnChan replied to post {PostId}", postId);
-            
+            var result = await apiClient.PostAsync<object>("sphere", "/posts", request, queryParams);
+
+            logger.LogInformation("SnChan replied to post {PostId} as {Publisher}", postId, publisherName);
+
             // Record emotional event and trigger mood update
             await moodService.RecordInteractionAsync("replied_to_post");
             await moodService.TryUpdateMoodAsync();
-            
-            return JsonSerializer.Serialize(new { success = true, message = "Reply created successfully", data = result }, JsonOptions);
+
+            return JsonSerializer.Serialize(new { success = true, message = $"Reply created successfully as {publisherName}", data = result }, JsonOptions);
         }
         catch (Exception ex)
         {
@@ -224,5 +243,12 @@ public class SnChanPostPlugin(
             logger.LogError(ex, "Failed to search posts with query: {Query}", query);
             return JsonSerializer.Serialize(new { error = ex.Message }, JsonOptions);
         }
+    }
+
+    [KernelFunction("get_publisher_context")]
+    [Description("Get context about SnChan's available publishers to help decide which one to use. Returns guidance on when to use personal vs official publisher.")]
+    public string GetPublisherContext()
+    {
+        return publisherService.GetPublisherContext();
     }
 }

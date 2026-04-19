@@ -26,11 +26,20 @@ public class SnChanApiClient
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("AtField", config.AccessToken);
     }
 
-    private static string BuildUrl(string serviceName, string path)
+    private static string BuildUrl(string serviceName, string path, Dictionary<string, string>? queryParams = null)
     {
         // Remove leading slashes and normalize double slashes
         var normalizedPath = path.TrimStart('/').Replace("//", "/");
-        return $"/{serviceName}/{normalizedPath}";
+        var url = $"/{serviceName}/{normalizedPath}";
+
+        // Add query parameters if provided
+        if (queryParams != null && queryParams.Count > 0)
+        {
+            var queryString = string.Join("&", queryParams.Select(kvp => $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value)}"));
+            url = $"{url}?{queryString}";
+        }
+
+        return url;
     }
 
     public async Task<T?> GetAsync<T>(string serviceName, string path)
@@ -66,11 +75,15 @@ public class SnChanApiClient
         }
     }
 
-    public async Task<TResponse?> PostAsync<TRequest, TResponse>(string serviceName, string path, TRequest data)
+    public async Task<TResponse?> PostAsync<TRequest, TResponse>(
+        string serviceName,
+        string path,
+        TRequest data,
+        Dictionary<string, string>? queryParams = null)
     {
         try
         {
-            var url = BuildUrl(serviceName, path);
+            var url = BuildUrl(serviceName, path, queryParams);
             var json = JsonSerializer.Serialize(data, InfraObjectCoder.SerializerOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var response = await _httpClient.PostAsync(url, content);
@@ -85,16 +98,20 @@ public class SnChanApiClient
         }
     }
 
-    public async Task<TResponse?> PostAsync<TResponse>(string serviceName, string path, object data)
+    public async Task<TResponse?> PostAsync<TResponse>(
+        string serviceName,
+        string path,
+        object data,
+        Dictionary<string, string>? queryParams = null)
     {
-        return await PostAsync<object, TResponse>(serviceName, path, data);
+        return await PostAsync<object, TResponse>(serviceName, path, data, queryParams);
     }
 
-    public async Task PostAsync(string serviceName, string path, object data)
+    public async Task PostAsync(string serviceName, string path, object data, Dictionary<string, string>? queryParams = null)
     {
         try
         {
-            var url = BuildUrl(serviceName, path);
+            var url = BuildUrl(serviceName, path, queryParams);
             var json = JsonSerializer.Serialize(data, InfraObjectCoder.SerializerOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var response = await _httpClient.PostAsync(url, content);

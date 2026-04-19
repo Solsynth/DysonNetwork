@@ -80,6 +80,33 @@ public class SnChanConfig : IValidatableObject
     public SnChanDynamicMoodConfig DynamicMood { get; set; } = new();
 
     /// <summary>
+    /// Name of the personal publisher (e.g., "snchan")
+    /// Used for: casual posts, diary entries, most replies
+    /// </summary>
+    public string PersonalPublisherName { get; set; } = "snchan";
+
+    /// <summary>
+    /// Name of the official publisher (e.g., "solsynth")
+    /// Used for: announcements, support replies, official statements
+    /// </summary>
+    public string OfficialPublisherName { get; set; } = "solsynth";
+
+    /// <summary>
+    /// Cached personal publisher ID (loaded at runtime from API)
+    /// </summary>
+    public string? PersonalPublisherId { get; set; }
+
+    /// <summary>
+    /// Cached official publisher ID (loaded at runtime from API)
+    /// </summary>
+    public string? OfficialPublisherId { get; set; }
+
+    /// <summary>
+    /// Diary configuration
+    /// </summary>
+    public SnChanDiaryConfig Diary { get; set; } = new();
+
+    /// <summary>
     /// Gets the effective default chat model
     /// </summary>
     public ModelConfiguration GetDefaultChatModel(string? defaultServiceId = null) =>
@@ -401,4 +428,45 @@ public class SnChanDynamicMoodConfig
     /// Base personality description
     /// </summary>
     public string BasePersonality { get; set; } = "cheerful, helpful, enthusiastic";
+}
+
+/// <summary>
+/// Diary configuration for SnChan
+/// </summary>
+public class SnChanDiaryConfig
+{
+    /// <summary>
+    /// Whether to enable diary writing
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Hour to run the diary job (0-23)
+    /// </summary>
+    public int ScheduleHour { get; set; } = 2;
+
+    /// <summary>
+    /// Minute to run the diary job (0-59)
+    /// </summary>
+    public int ScheduleMinute { get; set; } = 0;
+
+    /// <summary>
+    /// Maximum number of recent conversations to include
+    /// </summary>
+    public int MaxRecentConversations { get; set; } = 5;
+
+    /// <summary>
+    /// Maximum number of recent user profile updates to include
+    /// </summary>
+    public int MaxRecentProfileUpdates { get; set; } = 3;
+
+    /// <summary>
+    /// Maximum number of recent memories to include
+    /// </summary>
+    public int MaxRecentMemories { get; set; } = 5;
+
+    /// <summary>
+    /// Time window in hours to look back for recent activity
+    /// </summary>
+    public int ActivityWindowHours { get; set; } = 24;
 }
