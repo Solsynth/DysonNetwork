@@ -325,7 +325,8 @@ public class AccountSecurityController(
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0,
         [FromQuery] SessionType? type = null,
-        [FromQuery] Guid? clientId = null
+        [FromQuery] Guid? clientId = null,
+        [FromQuery] bool includeChildren = false
     )
     {
         if (
@@ -336,6 +337,11 @@ public class AccountSecurityController(
 
         var query = db
             .AuthSessions.Where(session => session.AccountId == currentUser.Id);
+
+        // By default (includeChildren not specified), show all sessions
+        // Set includeChildren=false to show only root sessions (no parent)
+        if (includeChildren == false)
+            query = query.Where(session => session.ParentSessionId == null);
 
         if (type.HasValue)
             query = query.Where(session => session.Type == type.Value);
