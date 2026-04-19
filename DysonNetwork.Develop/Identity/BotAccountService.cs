@@ -112,10 +112,18 @@ public class BotAccountService(
             var updateRequest = new DyUpdateBotAccountRequest
             {
                 AutomatedId = bot.Id.ToString(),
-                Account = account,
-                PictureId = pictureId,
-                BackgroundId = backgroundId
+                Account = account
             };
+
+            if (pictureId is not null)
+                updateRequest.PictureId = pictureId;
+            else
+                updateRequest.ClearPictureId();
+
+            if (backgroundId is not null)
+                updateRequest.BackgroundId = backgroundId;
+            else
+                updateRequest.ClearBackgroundId();
 
             var updateResponse = await accountReceiver.UpdateBotAccountAsync(updateRequest);
             var updatedBot = updateResponse.Bot;
