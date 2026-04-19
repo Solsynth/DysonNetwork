@@ -352,7 +352,74 @@ public class AccountSecurityController(
             .Skip(offset)
             .Take(take)
             .ToListAsync();
+
+        // Compute children count for each session
+        var sessionIds = sessions.Select(s => s.Id).ToList();
+        if (sessionIds.Count > 0)
+        {
+            var childrenCounts = await db.AuthSessions
+                .Where(s => s.ParentSessionId.HasValue && sessionIds.Contains(s.ParentSessionId.Value))
+                .GroupBy(s => s.ParentSessionId!.Value)
+                .ToDictionaryAsync(g => g.Key, g => g.Count());
+
+            foreach (var session in sessions)
+            {
+                session.ChildrenCount = childrenCounts.GetValueOrDefault(session.Id, 0);
+            }
+        }
+
         return Ok(sessions);
+    }
+
+    [HttpGet("sessions/{id:guid}/children")]
+    public async Task<ActionResult<List<SnAuthSession>>> GetSessionChildren(
+        [FromRoute] Guid id,
+        [FromQuery] int take = 20,
+        [FromQuery] int offset = 0
+    )
+    {
+        if (
+            HttpContext.Items["CurrentUser"] is not SnAccount currentUser
+            || HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession
+        )
+            return Unauthorized();
+
+        // Verify the session belongs to current user
+        var parentSession = await db.AuthSessions
+            .FirstOrDefaultAsync(s => s.Id == id && s.AccountId == currentUser.Id);
+
+        if (parentSession is null)
+            return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
+
+        var query = db.AuthSessions
+            .Where(s => s.ParentSessionId == id && s.AccountId == currentUser.Id);
+
+        var total = await query.CountAsync();
+        Response.Headers.Append("X-Total", total.ToString());
+        Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
+
+        var children = await query
+            .OrderByDescending(x => x.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        // Compute children count for each child session
+        var childIds = children.Select(s => s.Id).ToList();
+        if (childIds.Count > 0)
+        {
+            var grandChildrenCounts = await db.AuthSessions
+                .Where(s => s.ParentSessionId.HasValue && childIds.Contains(s.ParentSessionId.Value))
+                .GroupBy(s => s.ParentSessionId!.Value)
+                .ToDictionaryAsync(g => g.Key, g => g.Count());
+
+            foreach (var child in children)
+            {
+                child.ChildrenCount = grandChildrenCounts.GetValueOrDefault(child.Id, 0);
+            }
+        }
+
+        return Ok(children);
     }
 
     [HttpDelete("sessions/{id:guid}")]

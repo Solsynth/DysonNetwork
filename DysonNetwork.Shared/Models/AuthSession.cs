@@ -39,6 +39,9 @@ public class SnAuthSession : ModelBase
     public Guid? ParentSessionId { get; set; }
     public SnAuthSession? ParentSession { get; set; }
 
+    // Computed: number of child sessions (not mapped to database)
+    [NotMapped] public int ChildrenCount { get; set; }
+
     // The origin challenge for this session
     public Guid? ChallengeId { get; set; }
 
