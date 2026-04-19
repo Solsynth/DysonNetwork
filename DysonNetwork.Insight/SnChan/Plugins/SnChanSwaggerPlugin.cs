@@ -59,7 +59,7 @@ public class SnChanSwaggerPlugin(
             logger.LogDebug("Fetching swagger docs for service: {ServiceName}", normalizedService);
             
             var swaggerUrl = $"/swagger/{normalizedService}/v1/swagger.json";
-            var result = await apiClient.GetAsync<object>("", swaggerUrl);
+            var result = await apiClient.GetRawAsync<object>(swaggerUrl);
 
             if (result == null)
             {

@@ -50,6 +50,22 @@ public class SnChanApiClient
         }
     }
 
+    public async Task<T?> GetRawAsync<T>(string path)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync(path);
+            response.EnsureSuccessStatusCode();
+            var content = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<T>(content, InfraObjectCoder.SerializerOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error calling GET {Path}", path);
+            throw;
+        }
+    }
+
     public async Task<TResponse?> PostAsync<TRequest, TResponse>(string serviceName, string path, TRequest data)
     {
         try
