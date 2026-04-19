@@ -28,9 +28,14 @@ public class SnChanApiClient
 
     private static string BuildUrl(string serviceName, string path, Dictionary<string, string>? queryParams = null)
     {
-        // Remove leading slashes and normalize double slashes
+        // Normalize service name (remove leading/trailing slashes)
+        var normalizedService = serviceName.Trim('/');
+
+        // Normalize path: remove leading slash and ensure no double slashes
         var normalizedPath = path.TrimStart('/').Replace("//", "/");
-        var url = $"/{serviceName}/{normalizedPath}";
+
+        // Build the URL ensuring single slashes only
+        var url = $"/{normalizedService}/{normalizedPath}";
 
         // Add query parameters if provided
         if (queryParams != null && queryParams.Count > 0)
@@ -44,9 +49,9 @@ public class SnChanApiClient
 
     public async Task<T?> GetAsync<T>(string serviceName, string path)
     {
+        var url = BuildUrl(serviceName, path);
         try
         {
-            var url = BuildUrl(serviceName, path);
             var response = await _httpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
@@ -54,7 +59,7 @@ public class SnChanApiClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error calling GET {Service}/{Path}", serviceName, path);
+            _logger.LogError(ex, "Error calling GET {Url}", url);
             throw;
         }
     }
@@ -81,9 +86,9 @@ public class SnChanApiClient
         TRequest data,
         Dictionary<string, string>? queryParams = null)
     {
+        var url = BuildUrl(serviceName, path, queryParams);
         try
         {
-            var url = BuildUrl(serviceName, path, queryParams);
             var json = JsonSerializer.Serialize(data, InfraObjectCoder.SerializerOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var response = await _httpClient.PostAsync(url, content);
@@ -93,7 +98,7 @@ public class SnChanApiClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error calling POST {Service}/{Path}", serviceName, path);
+            _logger.LogError(ex, "Error calling POST {Url}", url);
             throw;
         }
     }
@@ -109,9 +114,9 @@ public class SnChanApiClient
 
     public async Task PostAsync(string serviceName, string path, object data, Dictionary<string, string>? queryParams = null)
     {
+        var url = BuildUrl(serviceName, path, queryParams);
         try
         {
-            var url = BuildUrl(serviceName, path, queryParams);
             var json = JsonSerializer.Serialize(data, InfraObjectCoder.SerializerOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var response = await _httpClient.PostAsync(url, content);
@@ -119,22 +124,22 @@ public class SnChanApiClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error calling POST {Service}/{Path}", serviceName, path);
+            _logger.LogError(ex, "Error calling POST {Url}", url);
             throw;
         }
     }
 
     public async Task DeleteAsync(string serviceName, string path)
     {
+        var url = BuildUrl(serviceName, path);
         try
         {
-            var url = BuildUrl(serviceName, path);
             var response = await _httpClient.DeleteAsync(url);
             response.EnsureSuccessStatusCode();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error calling DELETE {Service}/{Path}", serviceName, path);
+            _logger.LogError(ex, "Error calling DELETE {Url}", url);
             throw;
         }
     }
