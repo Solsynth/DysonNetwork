@@ -116,12 +116,12 @@ public class BotAccountService(
             bot.IsActive = updatedBot.IsActive;
             await db.SaveChangesAsync();
 
-            if (account.Profile is not null)
+            if (updatedBot.Account.Profile is not null)
             {
                 var profileUpdateRequest = new DyUpdateProfileRequest
                 {
-                    AccountId = account.Id,
-                    Profile = account.Profile
+                    AccountId = updatedBot.Account.Id,
+                    Profile = updatedBot.Account.Profile
                 };
                 await profiles.UpdateProfileAsync(profileUpdateRequest);
             }
