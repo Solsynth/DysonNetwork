@@ -1,5 +1,8 @@
 {
     "chatInviteTitle": "聊天邀请",
     "chatInviteBodyDirectMessage": "{senderNick} 向您发送了一条私信",
-    "chatInviteBodyGroupInvite": "您已被邀请加入 {roomName}"
+    "chatInviteBodyGroupInvite": "您已被邀请加入 {roomName}",
+    "chatReactionNotificationTitle": "{senderNick} 对您的消息作出了回应（{roomSubject}）",
+    "chatReactionNotificationBodyAdded": "回应了 {symbol}",
+    "chatReactionNotificationBodyRemoved": "移除了回应 {symbol}"
 }

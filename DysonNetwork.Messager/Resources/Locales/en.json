@@ -1,5 +1,8 @@
 {
     "chatInviteTitle": "Chat Invite",
     "chatInviteBodyDirectMessage": "{senderNick} sent you a direct message",
-    "chatInviteBodyGroupInvite": "You have been invited to {roomName}"
+    "chatInviteBodyGroupInvite": "You have been invited to {roomName}",
+    "chatReactionNotificationTitle": "{senderNick} reacted to your message ({roomSubject})",
+    "chatReactionNotificationBodyAdded": "Reacted with {symbol}",
+    "chatReactionNotificationBodyRemoved": "Removed reaction {symbol}"
 }

@@ -10,6 +10,7 @@ using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
@@ -28,7 +29,8 @@ public partial class ChatService(
     IEventBus eventBus,
     ICacheService cache,
     RemoteActionLogService actionLogs,
-    IHttpContextAccessor httpContextAccessor
+    IHttpContextAccessor httpContextAccessor,
+    ILocalizationService localization
 )
 {
     private const string ChatUseCooldownCacheKey = "actionlog:chat.use:";
@@ -242,7 +244,6 @@ public partial class ChatService(
 
     private async Task DeliverWebSocketMessage(
         SnChatMessage message,
-        string type,
         List<SnChatMember> members,
         IServiceScope scope
     )
@@ -631,7 +632,7 @@ public partial class ChatService(
         logger.LogWarning("DeliverMessageAsync: roomId={roomId}, messageId={messageId}, senderId={senderId}, senderAccountId={senderAccountId}, memberCount={memberCount}, type={type}",
             room.Id, message.Id, sender.Id, sender.AccountId, members.Count, type);
 
-        await DeliverWebSocketMessage(message, type, members, scope);
+        await DeliverWebSocketMessage(message, members, scope);
 
         if (notify)
             await SendPushNotificationsAsync(message, sender, room, type, members, scope);
@@ -695,7 +696,8 @@ public partial class ChatService(
         SnChatMessage message,
         SnChatMember reactor,
         SnChatRoom room,
-        bool isAdded
+        bool isAdded,
+        string symbol
     )
     {
         using var scope = scopeFactory.CreateScope();
@@ -723,14 +725,18 @@ public partial class ChatService(
         if (messageAuthor.Account is null)
             return;
 
+        var locale = messageAuthor.Account.Language;
         var roomSubject = room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM" :
             room.Realm is not null ? $"{room.Name ?? "Unknown"}, {room.Realm.Name}" : room.Name ?? "Unknown";
 
-        var symbol = message.Meta is not null && message.Meta.TryGetValue("symbol", out var s) ? s?.ToString() : null;
         var notification = new DyPushNotification
         {
             Topic = isAdded ? "messages.reaction.added" : "messages.reaction.removed",
-            Title = $"{reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick} reacted to your message ({roomSubject})",
+            Title = localization.Get("chatReactionNotificationTitle", locale, new
+            {
+                senderNick = reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick ?? "Someone",
+                roomSubject
+            }),
             Meta = InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
             {
                 ["user_id"] = reactor.AccountId,
@@ -742,7 +748,9 @@ public partial class ChatService(
             }),
             ActionUri = $"/chat/{room.Id}",
             IsSavable = false,
-            Body = isAdded ? $"Reacted with {symbol}" : "Removed reaction"
+            Body = isAdded
+                ? localization.Get("chatReactionNotificationBodyAdded", locale, new { symbol })
+                : localization.Get("chatReactionNotificationBodyRemoved", locale, new { symbol })
         };
 
         var ntyRequest = new DySendPushNotificationToUsersRequest { Notification = notification };
@@ -1446,7 +1454,7 @@ public partial class ChatService(
             notify: false
         );
 
-        _ = SendReactionNotificationAsync(message, sender, room, isAdded: true);
+        _ = SendReactionNotificationAsync(message, sender, room, isAdded: true, reaction.Symbol);
 
         return reaction;
     }
@@ -1542,7 +1550,7 @@ public partial class ChatService(
             notify: false
         );
 
-        _ = SendReactionNotificationAsync(message, sender, room, isAdded: false);
+        _ = SendReactionNotificationAsync(message, sender, room, isAdded: false, symbol);
     }
 
     public async Task HydrateMessageReactionsAsync(List<SnChatMessage> messages, Guid? accountId = null)
