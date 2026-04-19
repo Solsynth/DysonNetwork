@@ -57,7 +57,8 @@ public class SnDocService(
 
             // Re-chunk and create new embeddings
             var chunks = await CreateChunksAsync(existingPage.Id, title, description, content, ct);
-            existingPage.Chunks = chunks;
+            existingPage.Chunks.Clear();
+            existingPage.Chunks.AddRange(chunks);
             existingPage.ChunkCount = chunks.Count;
 
             await database.SaveChangesAsync(ct);
