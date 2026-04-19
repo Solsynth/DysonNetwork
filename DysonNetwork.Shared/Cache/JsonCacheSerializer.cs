@@ -21,6 +21,8 @@ public class JsonCacheSerializer : ICacheSerializer
             },
             ReferenceHandler = ReferenceHandler.IgnoreCycles,
             NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+            DefaultIgnoreCondition = JsonIgnoreCondition.Never,
             Converters = { new ByteStringConverter() }
         };
         _options.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
