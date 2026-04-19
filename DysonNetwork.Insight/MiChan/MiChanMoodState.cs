@@ -14,6 +14,12 @@ public class MiChanMoodState : ModelBase
     public Guid Id { get; set; } = Guid.NewGuid();
 
     /// <summary>
+    /// Bot name to isolate mood states per bot (e.g., "michan", "snchan")
+    /// If null, the record is for MiChan (backward compatible)
+    /// </summary>
+    public string? BotName { get; set; }
+
+    /// <summary>
     /// Energy level: 0.0 (exhausted) to 1.0 (bursting with energy)
     /// Affects activity level and enthusiasm
     /// </summary>

@@ -45,6 +45,7 @@ public class ThoughtService(
 )
 {
     private const string MiChanBotName = "michan";
+    private const string SnChanBotName = "snchan";
     private const string MiChanCompactionSummaryKind = "compaction";
     private const string MiChanSummaryKindMetadataKey = "summary_kind";
     private const string MiChanCoveredThroughThoughtIdMetadataKey = "covered_through_thought_id";
@@ -1062,9 +1063,16 @@ public class ThoughtService(
             personality.Length, 
             string.IsNullOrEmpty(personality) ? "(empty)" : personality[..Math.Min(personality.Length, 100)]);
 
+        var snChanUserProfile = await userProfileService.GetOrCreateAsync(Guid.Parse(currentUser.Id), SnChanBotName);
+
         // Build system prompt using StringBuilder
         var systemPromptBuilder = new StringBuilder();
         systemPromptBuilder.AppendLine(personality);
+        systemPromptBuilder.AppendLine();
+        systemPromptBuilder.AppendLine($"你当前的心情：cheerful and enthusiastic");
+        systemPromptBuilder.AppendLine();
+        systemPromptBuilder.AppendLine("你对该用户的结构化档案（优先级高于零散记忆，回复前先参考）：");
+        systemPromptBuilder.AppendLine(snChanUserProfile.ToPrompt());
         systemPromptBuilder.AppendLine();
         systemPromptBuilder.AppendLine("Solar Network 上的 ID 是 UUID，通常很难阅读，所以除非用户要求或必要，否则不要向用户显示 ID。");
         systemPromptBuilder.AppendLine();

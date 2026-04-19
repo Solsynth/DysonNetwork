@@ -3,7 +3,9 @@
 using System.Diagnostics.CodeAnalysis;
 using DysonNetwork.Insight.Agent.Models;
 using DysonNetwork.Insight.MiChan.Plugins;
+using DysonNetwork.Insight.SnChan.Plugins;
 using DysonNetwork.Insight.SnDoc;
+using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Insight.Thought.Plugins;
 using DysonNetwork.Shared.Proto;
 using Microsoft.SemanticKernel;
@@ -105,6 +107,22 @@ public static class MiChanKernelBuilderExtensions
                 var snChanApiClient = serviceProvider.GetRequiredService<SnChan.SnChanApiClient>();
                 var logger = serviceProvider.GetRequiredService<ILogger<SnChan.Plugins.SnChanSwaggerPlugin>>();
                 kernel.Plugins.AddFromObject(new SnChan.Plugins.SnChanSwaggerPlugin(snChanApiClient, logger), "SnChanSwagger");
+            }
+
+            // Add SnChan mood plugin
+            if (!kernel.Plugins.Any(p => p.Name == "SnChanMood"))
+            {
+                var snChanMoodService = serviceProvider.GetRequiredService<SnChan.SnChanMoodService>();
+                var logger = serviceProvider.GetRequiredService<ILogger<SnChan.Plugins.SnChanMoodPlugin>>();
+                kernel.Plugins.AddFromObject(new SnChan.Plugins.SnChanMoodPlugin(snChanMoodService, logger), "SnChanMood");
+            }
+
+            // Add SnChan user profile plugin
+            if (!kernel.Plugins.Any(p => p.Name == "SnChanUserProfile"))
+            {
+                var userProfileService = serviceProvider.GetRequiredService<UserProfileService>();
+                var logger = serviceProvider.GetRequiredService<ILogger<SnChan.Plugins.SnChanUserProfilePlugin>>();
+                kernel.Plugins.AddFromObject(new SnChan.Plugins.SnChanUserProfilePlugin(userProfileService, logger), "SnChanUserProfile");
             }
 
             // Add SnDoc plugin for documentation search

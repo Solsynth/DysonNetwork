@@ -70,6 +70,16 @@ public class SnChanConfig : IValidatableObject
     public SnChanReplyMonitoringConfig ReplyMonitoring { get; set; } = new();
 
     /// <summary>
+    /// User profile configuration
+    /// </summary>
+    public SnChanUserProfileConfig UserProfile { get; set; } = new();
+
+    /// <summary>
+    /// Dynamic mood configuration
+    /// </summary>
+    public SnChanDynamicMoodConfig DynamicMood { get; set; } = new();
+
+    /// <summary>
     /// Gets the effective default chat model
     /// </summary>
     public ModelConfiguration GetDefaultChatModel(string? defaultServiceId = null) =>
@@ -334,4 +344,61 @@ public class SnChanReplyMonitoringConfig
     /// Whether to notify when SnChan receives a reply
     /// </summary>
     public bool ReplyNotificationEnabled { get; set; } = true;
+}
+
+/// <summary>
+/// User profile configuration for SnChan
+/// </summary>
+public class SnChanUserProfileConfig
+{
+    /// <summary>
+    /// Whether to enable user profiles
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Maximum context length for profile in prompt
+    /// </summary>
+    public int MaxContextLength { get; set; } = 100;
+
+    /// <summary>
+    /// Whether to enable semantic search
+    /// </summary>
+    public bool EnableSemanticSearch { get; set; } = true;
+
+    /// <summary>
+    /// Minimum similarity threshold for semantic search
+    /// </summary>
+    public double MinSimilarityThreshold { get; set; } = 0.7;
+}
+
+/// <summary>
+/// Dynamic mood configuration for SnChan
+/// </summary>
+public class SnChanDynamicMoodConfig
+{
+    /// <summary>
+    /// Whether to enable dynamic mood
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Update interval in minutes
+    /// </summary>
+    public int UpdateIntervalMinutes { get; set; } = 30;
+
+    /// <summary>
+    /// Minimum interval between updates
+    /// </summary>
+    public int MinUpdateIntervalMinutes { get; set; } = 15;
+
+    /// <summary>
+    /// Minimum interactions before mood update
+    /// </summary>
+    public int MinInteractionsForUpdate { get; set; } = 5;
+
+    /// <summary>
+    /// Base personality description
+    /// </summary>
+    public string BasePersonality { get; set; } = "cheerful, helpful, enthusiastic";
 }

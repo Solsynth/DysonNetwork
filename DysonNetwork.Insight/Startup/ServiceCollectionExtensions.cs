@@ -132,6 +132,12 @@ public static class ServiceCollectionExtensions
                 services.AddScoped<SnChanReplyMonitorJob>();
             }
 
+            // Register mood service
+            if (snChanConfig.DynamicMood.Enabled)
+            {
+                services.AddScoped<SnChanMoodService>();
+            }
+
             return services;
         }
 
