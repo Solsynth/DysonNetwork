@@ -750,7 +750,7 @@ public class AuthService(
             Session = new SnAuthSession
             {
                 AccountId = accountId,
-                Type = parentSession?.Type ?? SessionType.Login,
+                Type = SessionType.ApiKey,
                 AppId = parentSession?.AppId,
                 ExpiredAt = expiredAt,
                 LastGrantedAt = now,

@@ -97,6 +97,7 @@ public sealed class DyAuthModelProjectionMiddleware(
             {
                 DySessionType.DyOauth => SessionType.OAuth,
                 DySessionType.DyOidc => SessionType.Oidc,
+                DySessionType.DyApiKey => SessionType.ApiKey,
                 _ => SessionType.Login
             },
             LastGrantedAt = proto.LastGrantedAt?.ToInstant(),

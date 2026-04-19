@@ -12,7 +12,8 @@ public enum SessionType
 {
     Login,
     OAuth, // Trying to authorize other platforms
-    Oidc // Trying to connect other platforms
+    Oidc, // Trying to connect other platforms
+    ApiKey // API key session for bot/automated access
 }
 
 public class SnAuthSession : ModelBase
@@ -59,6 +60,7 @@ public class SnAuthSession : ModelBase
                 SessionType.Login => DySessionType.DyLogin,
                 SessionType.OAuth => DySessionType.DyOauth,
                 SessionType.Oidc => DySessionType.DyOidc,
+                SessionType.ApiKey => DySessionType.DyApiKey,
                 _ => DySessionType.DyChallengeTypeUnspecified
             },
             IpAddress = IpAddress,
