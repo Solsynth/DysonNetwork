@@ -58,11 +58,14 @@ public class DysonTokenAuthHandler(
             if (!valid || session is null)
                 return AuthenticateResult.Fail(message ?? "Authentication failed.");
 
-            if (tokenInfo.Type == TokenType.ApiKey && tokenUse != "api_key")
-                return AuthenticateResult.Fail("Bot auth scheme requires API key token.");
-
-            if ((tokenInfo.Type == TokenType.AuthKey || tokenInfo.Type == TokenType.OidcKey) && tokenUse == "api_key")
-                return AuthenticateResult.Fail("API key token must use Bot auth scheme.");
+            // Token type validation: use tokenUse from JWT as authoritative source
+            // rather than the extraction method (Bearer vs Bot header)
+            var isApiKeyToken = tokenUse == "api_key";
+            if (isApiKeyToken)
+            {
+                // For API keys, update token type to ApiKey regardless of how it was extracted
+                tokenInfo.Type = TokenType.ApiKey;
+            }
 
             Context.Items["CurrentUser"] = session.Account;
             Context.Items["CurrentSession"] = session;
