@@ -32,37 +32,51 @@ public class SnDocService(
         // Normalize slug
         slug = slug.ToLowerInvariant().Trim();
 
-        // Check if page exists
+        // Check if page exists (no tracking to avoid EF Core concurrency issues)
         var existingPage = await database.SnDocPages
-            .AsTracking()
-            .Include(p => p.Chunks)
+            .AsNoTracking()
+            .Include(p => p.Chunks.Where(c => c.DeletedAt == null))
             .FirstOrDefaultAsync(p => p.Slug == slug && p.DeletedAt == null, ct);
 
         if (existingPage != null)
         {
             logger.LogInformation("Updating existing doc page: {Slug}", slug);
 
-            // Soft delete existing chunks
-            foreach (var chunk in existingPage.Chunks)
+            var now = SystemClock.Instance.GetCurrentInstant();
+
+            // Soft delete old chunks directly in database
+            var oldChunkIds = existingPage.Chunks.Select(c => c.Id).ToList();
+            if (oldChunkIds.Count > 0)
             {
-                chunk.DeletedAt = SystemClock.Instance.GetCurrentInstant();
+                await database.SnDocChunks
+                    .Where(c => oldChunkIds.Contains(c.Id))
+                    .ExecuteUpdateAsync(setters =>
+                        setters.SetProperty(c => c.DeletedAt, now), ct);
             }
 
-            // Update page metadata
-            existingPage.Title = title;
-            existingPage.Description = description;
-            existingPage.Content = content;
-            existingPage.ContentLength = content.Length;
-            existingPage.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
-
-            // Re-chunk and create new embeddings
+            // Create new chunks
             var chunks = await CreateChunksAsync(existingPage.Id, title, description, content, ct);
-            existingPage.Chunks.Clear();
-            existingPage.Chunks.AddRange(chunks);
-            existingPage.ChunkCount = chunks.Count;
 
+            // Update page metadata using ExecuteUpdate for atomic operation
+            await database.SnDocPages
+                .Where(p => p.Id == existingPage.Id)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(p => p.Title, title)
+                    .SetProperty(p => p.Description, description)
+                    .SetProperty(p => p.Content, content)
+                    .SetProperty(p => p.ContentLength, content.Length)
+                    .SetProperty(p => p.ChunkCount, chunks.Count)
+                    .SetProperty(p => p.UpdatedAt, now), ct);
+
+            // Add new chunks
+            database.SnDocChunks.AddRange(chunks);
             await database.SaveChangesAsync(ct);
-            return existingPage;
+
+            // Return updated page
+            return await database.SnDocPages
+                .AsNoTracking()
+                .Include(p => p.Chunks.Where(c => c.DeletedAt == null))
+                .FirstAsync(p => p.Id == existingPage.Id, ct);
         }
         else
         {
@@ -397,9 +411,14 @@ public class SnDocService(
                 EndOffset = end
             });
 
-            // Move start with overlap
-            start = end - overlap;
-            if (start >= end) start = end; // Safety check
+            // Move start with overlap, ensuring we always make progress
+            var nextStart = end - overlap;
+            if (nextStart <= start)
+            {
+                // Force progress to avoid infinite loop
+                nextStart = end;
+            }
+            start = nextStart;
         }
 
         return chunks;
