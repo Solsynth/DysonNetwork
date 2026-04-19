@@ -63,15 +63,23 @@ public class FreeQuotaService(
         var remaining = tokens;
         var sequencesToUpdate = new List<SnThinkingSequence>();
 
+        // Check if any free quota is available across all sequences
+        var totalFreeQuotaAvailable = accountSequences.Sum(s =>
+        {
+            ResetIfNeeded(s, now);
+            return Math.Max(0, _config.TokensPerDay - s.DailyFreeTokensUsed);
+        });
+
+        if (totalFreeQuotaAvailable <= 0)
+            return 0;
+
         foreach (var seq in accountSequences)
         {
             if (remaining <= 0)
                 break;
 
-            ResetIfNeeded(seq, now);
-
             var dailyFreeUsed = seq.DailyFreeTokensUsed;
-            var dailyFreeRemaining = _config.TokensPerDay - dailyFreeUsed;
+            var dailyFreeRemaining = Math.Max(0, _config.TokensPerDay - dailyFreeUsed);
 
             if (dailyFreeRemaining <= 0)
                 continue;
