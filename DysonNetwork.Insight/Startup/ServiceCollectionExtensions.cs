@@ -121,6 +121,9 @@ public static class ServiceCollectionExtensions
             // Always register SnChanModelSelector - it checks UseModelSelection internally
             services.AddSingleton<SnChanModelSelector>();
 
+            // Register SnChan API client for bot operations
+            services.AddSingleton<SnChanApiClient>();
+
             return services;
         }
 

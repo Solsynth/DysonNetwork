@@ -82,6 +82,14 @@ public static class MiChanKernelBuilderExtensions
             {
                 kernel.Plugins.AddFromObject(new SnPostKernelPlugin(postClient, publisherClient), "SnPostKernel");
             }
+
+            // Add SnChan bot-specific plugins for post creation (uses separate bot authentication)
+            if (!kernel.Plugins.Any(p => p.Name == "SnChanPost"))
+            {
+                var snChanApiClient = serviceProvider.GetRequiredService<SnChan.SnChanApiClient>();
+                var logger = serviceProvider.GetRequiredService<ILogger<SnChan.Plugins.SnChanPostPlugin>>();
+                kernel.Plugins.AddFromObject(new SnChan.Plugins.SnChanPostPlugin(snChanApiClient, logger), "SnChanPost");
+            }
         });
     }
 

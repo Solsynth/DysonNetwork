@@ -9,6 +9,17 @@ namespace DysonNetwork.Insight.SnChan;
 public class SnChanConfig : IValidatableObject
 {
     /// <summary>
+    /// Gateway URL for API calls (e.g., http://gateway:8080)
+    /// </summary>
+    public string GatewayUrl { get; set; } = "http://gateway:8080";
+
+    /// <summary>
+    /// Access token for SnChan bot account (AtField authentication)
+    /// This should be a separate bot account, not the user's account
+    /// </summary>
+    public string AccessToken { get; set; } = "";
+
+    /// <summary>
     /// Whether to use the new model selection system based on use cases and PerkLevel.
     /// When enabled, ModelSelection configuration is used instead of direct model properties.
     /// </summary>

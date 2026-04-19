@@ -205,6 +205,21 @@ public class ThoughtController(
         if (request.AcceptProposals.Any(e => !AvailableProposals.Contains(e)))
             return BadRequest("Request contains unavailable proposal");
 
+        // Early validation: Check bot ownership if sequenceId is provided
+        if (request.SequenceId.HasValue)
+        {
+            var sequence = await service.GetSequenceAsync(request.SequenceId.Value);
+            if (sequence != null && sequence.AccountId == accountId)
+            {
+                // If sequence has a BotName, validate it matches the requested bot
+                if (!string.IsNullOrEmpty(sequence.BotName) &&
+                    !sequence.BotName.Equals(request.Bot, StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest($"This sequence belongs to '{sequence.BotName}' and cannot be accessed by '{request.Bot}'.");
+                }
+            }
+        }
+
         return request.Bot.ToLower() switch
         {
             // Route to appropriate bot
@@ -214,18 +229,48 @@ public class ThoughtController(
         };
     }
 
+    /// <summary>
+    /// Validates that the sequence belongs to the requesting bot.
+    /// Returns null if valid, otherwise returns an ActionResult with the error.
+    /// </summary>
+    private async Task<ActionResult?> ValidateSequenceBotOwnershipAsync(
+        Guid accountId,
+        Guid? sequenceId,
+        string requestedBot)
+    {
+        if (!sequenceId.HasValue)
+            return null;
+
+        var sequence = await service.GetSequenceAsync(sequenceId.Value);
+        if (sequence == null || sequence.AccountId != accountId)
+            return Forbid();
+
+        // If sequence has no BotName, it's a legacy sequence - allow any bot
+        if (string.IsNullOrEmpty(sequence.BotName))
+            return null;
+
+        // Check if sequence belongs to a different bot
+        if (!sequence.BotName.Equals(requestedBot, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest($"This sequence belongs to '{sequence.BotName}' and cannot be accessed by '{requestedBot}'.");
+        }
+
+        return null;
+    }
+
     private async Task<ActionResult> ThinkWithSnChanAsync(
         StreamThinkingRequest request,
         DyAccount currentUser,
         Guid accountId
     )
     {
+        const string targetBot = "snchan";
+
         var serviceInfo = service.GetSnChanServiceInfo();
         if (serviceInfo is null)
             return BadRequest("Service not found or configured.");
 
-        if (request.AttachedFiles is { Count: > 0 })
-            return BadRequest("Sorry, SN-chan currently does not support requests with files attached.");
+        // File attachments are now supported for SnChan
 
         // Check if user can access the requested custom model
         if (!string.IsNullOrEmpty(request.Model))
@@ -244,10 +289,18 @@ public class ThoughtController(
             if (currentUser.PerkLevel < serviceInfo.PerkLevel)
                 return StatusCode(403, "Not enough perk level");
 
-        if (request.SequenceId.HasValue &&
-            await service.IsCanonicalMiChanSequenceAsync(accountId, request.SequenceId.Value))
+        // Validate bot ownership of the sequence
+        if (request.SequenceId.HasValue)
         {
-            return BadRequest("SnChan cannot use MiChan's unified conversation. Start a new SnChan thread instead.");
+            var ownershipError = await ValidateSequenceBotOwnershipAsync(accountId, request.SequenceId, targetBot);
+            if (ownershipError != null)
+                return ownershipError;
+
+            // Additional check: SnChan cannot use MiChan's canonical sequence
+            if (await service.IsCanonicalMiChanSequenceAsync(accountId, request.SequenceId.Value))
+            {
+                return BadRequest("SnChan cannot use MiChan's unified conversation. Start a new SnChan thread instead.");
+            }
         }
 
         // Get kernel with custom model if specified
@@ -269,10 +322,18 @@ public class ThoughtController(
         }
 
         // Handle sequence (creates if new)
-        var sequence = await service.GetOrCreateSequenceAsync(accountId, request.SequenceId, topic);
+        var sequence = await service.GetOrCreateSequenceAsync(accountId, request.SequenceId, topic, "snchan");
         if (sequence == null) return Forbid();
 
-        // Save user thought with bot identifier
+        // Fetch attached files if any
+        var filesRetrieveRequest = new DyGetFileBatchRequest();
+        if (request.AttachedFiles is { Count: > 0 })
+            filesRetrieveRequest.Ids.AddRange(request.AttachedFiles);
+        var filesData = request.AttachedFiles is { Count: > 0 }
+            ? (await files.GetFileBatchAsync(filesRetrieveRequest)).Files.ToList()
+            : null;
+
+        // Save user thought with bot identifier and files
         var userPart = new SnThinkingMessagePart
         {
             Type = ThinkingMessagePartType.Text,
@@ -281,16 +342,19 @@ public class ThoughtController(
         };
         if (request.AttachedMessages is not null) userPart.Metadata.Add("attached_messages", request.AttachedMessages);
         if (request.AttachedPosts is not null) userPart.Metadata.Add("attached_posts", request.AttachedPosts);
+        if (filesData is not null)
+            userPart.Files = filesData.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
         await service.SaveThoughtAsync(sequence, [userPart], ThinkingThoughtRole.User, botName: "snchan");
 
         // Build chat history using service
-        var chatHistory = await service.BuildSnChanChatHistoryAsync(
+        var (chatHistory, _) = await service.BuildSnChanChatHistoryAsync(
             sequence,
             currentUser,
             request.UserMessage,
             request.AttachedPosts,
             request.AttachedMessages,
-            request.AcceptProposals
+            request.AcceptProposals,
+            userPart.Files ?? []
         );
 
         // Set response for streaming
@@ -537,6 +601,8 @@ public class ThoughtController(
         Guid accountId
     )
     {
+        const string targetBot = "michan";
+
         var overallStopwatch = Stopwatch.StartNew();
         logger.LogInformation(
             "Received MiChan thought request from user {AccountId}. sequenceId={SequenceId}, attachedPosts={AttachedPostsCount}, attachedFiles={AttachedFilesCount}, attachedMessages={AttachedMessagesCount}",
@@ -568,6 +634,14 @@ public class ThoughtController(
         if (serviceInfo.PerkLevel > 0 && !currentUser.IsSuperuser)
             if (currentUser.PerkLevel < serviceInfo.PerkLevel)
                 return StatusCode(403, "Not enough perk level");
+
+        // Validate bot ownership of the sequence
+        if (request.SequenceId.HasValue)
+        {
+            var ownershipError = await ValidateSequenceBotOwnershipAsync(accountId, request.SequenceId, targetBot);
+            if (ownershipError != null)
+                return ownershipError;
+        }
 
         if (!string.IsNullOrWhiteSpace(request.UserMessage))
         {

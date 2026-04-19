@@ -1039,13 +1039,14 @@ public class ThoughtService(
 
     #region Sn-chan Chat History Building
 
-    public async Task<ChatHistory> BuildSnChanChatHistoryAsync(
+    public async Task<(ChatHistory chatHistory, bool useVisionKernel)> BuildSnChanChatHistoryAsync(
         SnThinkingSequence sequence,
         DyAccount currentUser,
         string? userMessage,
         List<string>? attachedPosts,
         List<Dictionary<string, dynamic>>? attachedMessages,
-        List<string> acceptProposals)
+        List<string> acceptProposals,
+        List<SnCloudFileReferenceObject> attachments)
     {
         // Build system prompt using StringBuilder
         var systemPromptBuilder = new StringBuilder();
@@ -1217,9 +1218,21 @@ public class ThoughtService(
             }
         }
 
-        chatHistory.AddUserMessage(userMessage ?? "用户只添加了文件没有文字说明。");
+        // Handle file attachments if provided
+        var useVisionKernel = false;
+        if (attachments is { Count: > 0 })
+        {
+            // For now, just add file references as text
+            // Vision support can be added later when vision model is configured for SnChan
+            var fileInfo = string.Join("\n", attachments.Select(f => $"[File: {f.Name} ({f.MimeType}) - ID: {f.Id}]"));
+            chatHistory.AddUserMessage($"Attached files:\n{fileInfo}\n\n{userMessage ?? "Please analyze these files."}");
+        }
+        else
+        {
+            chatHistory.AddUserMessage(userMessage ?? "用户只添加了文件没有文字说明。");
+        }
 
-        return chatHistory;
+        return (chatHistory, useVisionKernel);
     }
 
     #endregion
