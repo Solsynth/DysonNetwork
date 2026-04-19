@@ -46,6 +46,13 @@ public class SnChanReplyMonitorService(
             {
                 if (cancellationToken.IsCancellationRequested) break;
 
+                // Skip posts created by SnChan herself
+                if (publisherService.IsOwnPost(post))
+                {
+                    logger.LogDebug("Skipping post {PostId} - created by SnChan", post.Id);
+                    continue;
+                }
+
                 var isMentioned = ContainsMention(post);
                 if (isMentioned)
                 {
@@ -179,7 +186,7 @@ public class SnChanReplyMonitorService(
             }
 
             var newReplies = replies
-                .Where(r => r.Publisher != null && r.Publisher.Id != botPublisherId)
+                .Where(r => r.Publisher != null && !publisherService.IsOwnPost(r))
                 .ToList();
 
             if (newReplies.Count > 0)
