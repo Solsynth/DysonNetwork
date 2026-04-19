@@ -13,7 +13,9 @@ public class MiChanConfig : IValidatableObject
     public string WebSocketUrl { get; set; } = "ws://localhost:5070/ws";
     public string AccessToken { get; set; } = "";
     public string BotAccountId { get; set; } = "";
-    public string BotPublisherId { get; set; } = ""; // Publisher ID for posting (different from AccountId)
+    public string BotAccountName { get; set; } = ""; // Account username for identifying MiChan (e.g., "michan")
+    public string BotPublisherId { get; set; } = ""; // Publisher ID for posting (different from AccountId) - deprecated, prefer BotPublisherName
+    public string BotPublisherName { get; set; } = ""; // Publisher name for posting (e.g., "michan") - preferred over ID
 
     /// <summary>
     /// Primary model for chat conversations. Defaults to deepseek-chat.

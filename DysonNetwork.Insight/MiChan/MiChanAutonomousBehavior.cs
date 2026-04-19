@@ -164,7 +164,21 @@ public class MiChanAutonomousBehavior
     /// </summary>
     private bool IsOwnPost(SnPost post)
     {
-        // Check by PublisherId
+        // Check by PublisherName (preferred method)
+        if (!string.IsNullOrEmpty(_config.BotPublisherName) &&
+            post.Publisher?.Name?.Equals(_config.BotPublisherName, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return true;
+        }
+
+        // Check by AccountName through Publisher (if available)
+        if (!string.IsNullOrEmpty(_config.BotAccountName) &&
+            post.Publisher?.Account?.Name?.Equals(_config.BotAccountName, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return true;
+        }
+
+        // Check by PublisherId (fallback for backward compatibility)
         if (!string.IsNullOrEmpty(_config.BotPublisherId) &&
             post.PublisherId?.ToString() == _config.BotPublisherId)
         {
@@ -1166,7 +1180,7 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
         try
         {
             // Only pin posts from our own publisher
-            if (post.PublisherId?.ToString() != _config.BotPublisherId)
+            if (!IsOwnPost(post))
             {
                 _logger.LogDebug("Cannot pin post {PostId} - not owned by bot", post.Id);
                 return;
@@ -1198,7 +1212,7 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
         try
         {
             // Only unpin posts from our own publisher
-            if (post.Publisher?.AccountId?.ToString() != _config.BotAccountId)
+            if (!IsOwnPost(post))
             {
                 return;
             }
@@ -1238,12 +1252,32 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
                 return false;
 
             // Check if any reply is from MiChan's publisher
+            var botPublisherName = _config.BotPublisherName;
+            var botAccountName = _config.BotAccountName;
             var botPublisherId = _config.BotPublisherId;
             var botAccountId = _config.BotAccountId;
 
             foreach (var reply in replies)
             {
-                // Check by publisher ID (most reliable)
+                // Check by publisher name (preferred method)
+                if (!string.IsNullOrEmpty(botPublisherName) &&
+                    reply.Publisher?.Name?.Equals(botPublisherName, StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    _logger.LogDebug("Found existing reply from MiChan's publisher {PublisherName} on post {PostId}",
+                        botPublisherName, post.Id);
+                    return true;
+                }
+
+                // Check by account name through publisher
+                if (!string.IsNullOrEmpty(botAccountName) &&
+                    reply.Publisher?.Account?.Name?.Equals(botAccountName, StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    _logger.LogDebug("Found existing reply from MiChan's account {AccountName} on post {PostId}",
+                        botAccountName, post.Id);
+                    return true;
+                }
+
+                // Fallback: check by publisher ID
                 if (!string.IsNullOrEmpty(botPublisherId) && reply.PublisherId?.ToString() == botPublisherId)
                 {
                     _logger.LogDebug("Found existing reply from MiChan's publisher {PublisherId} on post {PostId}",
