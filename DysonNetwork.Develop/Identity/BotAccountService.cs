@@ -36,7 +36,6 @@ public class BotAccountService(
         string? backgroundId
     )
     {
-        // First, check if a bot with this slug already exists in this project
         var existingBot = await db.BotAccounts
             .FirstOrDefaultAsync(b => b.ProjectId == project.Id && b.Slug == slug);
 
@@ -57,7 +56,6 @@ public class BotAccountService(
             var createResponse = await accountReceiver.CreateBotAccountAsync(createRequest);
             var botAccount = createResponse.Bot;
 
-            // Then create the local bot account
             var bot = new SnBotAccount
             {
                 Id = automatedId,
@@ -71,6 +69,16 @@ public class BotAccountService(
 
             db.BotAccounts.Add(bot);
             await db.SaveChangesAsync();
+
+            if (botAccount.Account.Profile is not null)
+            {
+                var profileUpdateRequest = new DyUpdateProfileRequest
+                {
+                    AccountId = botAccount.Account.Id,
+                    Profile = botAccount.Account.Profile
+                };
+                await profiles.UpdateProfileAsync(profileUpdateRequest);
+            }
 
             return bot;
         }
