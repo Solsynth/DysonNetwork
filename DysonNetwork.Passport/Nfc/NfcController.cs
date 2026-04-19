@@ -122,22 +122,47 @@ public class NfcController(
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<NfcResolveResponse>> Resolve(
-        [FromQuery] string uid,
-        CancellationToken cancellationToken
+        [FromQuery] string? uid = null,
+        [FromQuery] string? picc_data = null,
+        [FromQuery] string? e = null,
+        [FromQuery] string? cmac = null,
+        CancellationToken cancellationToken = default
     )
     {
-        if (string.IsNullOrWhiteSpace(uid))
-            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
-            {
-                ["uid"] = ["Parameter 'uid' is required."]
-            }));
-
         Guid? observerUserId = null;
         if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
             observerUserId = currentUser.Id;
 
+        // Check if picc_data is provided directly (new format with individual query params)
+        if (!string.IsNullOrWhiteSpace(picc_data))
+        {
+            try
+            {
+                var result = await nfc.ValidateSunAsync(
+                    picc_data,
+                    e,
+                    cmac,
+                    observerUserId,
+                    cancellationToken);
+
+                if (result is not null)
+                {
+                    return await HandleValidationResultAsync(result, observerUserId, cancellationToken);
+                }
+                // If no matching tag found, fall through to return not found
+                return NotFound(ApiError.NotFound("nfc_tag", "NFC tag not found or invalid CMAC."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+                {
+                    ["counter"] = [ex.Message]
+                }));
+            }
+        }
+
         // Check if this is the new solian://phpass URL format
-        if (uid.StartsWith("solian://", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(uid) && uid.StartsWith("solian://", StringComparison.OrdinalIgnoreCase))
         {
             var parsedUrl = ParseSolianUrl(uid);
             if (parsedUrl is null)
@@ -180,6 +205,12 @@ public class NfcController(
                 }));
             }
         }
+
+        if (string.IsNullOrWhiteSpace(uid))
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                ["uid"] = ["Parameter 'uid' or 'picc_data' is required."]
+            }));
 
         // Check if this looks like encrypted PICCData (32+ hex chars) - legacy format
         if (uid.Length >= 32 && IsHexString(uid))
