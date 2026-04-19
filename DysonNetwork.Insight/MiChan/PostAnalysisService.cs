@@ -28,7 +28,7 @@ public class PostAnalysisService
         _postPlugin = postPlugin;
         var httpClient = new HttpClient();
         httpClient.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("AtField", config.AccessToken);
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.AccessToken);
     }
 
     /// <summary>

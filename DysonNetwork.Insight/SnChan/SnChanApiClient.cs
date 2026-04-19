@@ -23,7 +23,7 @@ public class SnChanApiClient
         {
             BaseAddress = new Uri(config.GatewayUrl)
         };
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("AtField", config.AccessToken);
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", config.AccessToken);
     }
 
     private static string BuildUrl(string serviceName, string path, Dictionary<string, string>? queryParams = null)
