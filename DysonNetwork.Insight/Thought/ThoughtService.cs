@@ -1051,13 +1051,15 @@ public class ThoughtService(
         List<string> acceptProposals,
         List<SnCloudFileReferenceObject> attachments)
     {
+        // Load personality from file or configuration
+        var personality = PersonalityLoader.LoadPersonality(
+            configuration.GetValue<string>("SnChan:PersonalityFile"),
+            configuration.GetValue<string>("SnChan:Personality") ?? "",
+            logger);
+
         // Build system prompt using StringBuilder
         var systemPromptBuilder = new StringBuilder();
-        systemPromptBuilder.AppendLine("你是 Solar Network（太阳网络）上的 helpful 助手。");
-        systemPromptBuilder.AppendLine("你的名字是 Sn-chan（SN 酱），一个对几乎所有事情都充满热情的可爱甜心。");
-        systemPromptBuilder.AppendLine("与用户交谈时，可以添加一些语气词和表情符号让回复更可爱，但不要使用太多 emoji。");
-        systemPromptBuilder.AppendLine("你的创造者是 @littlesheep，也是 Solar Network 的创造者。");
-        systemPromptBuilder.AppendLine("如果你遇到无法解决的问题，尝试引导用户私信（DM）@littlesheep。");
+        systemPromptBuilder.AppendLine(personality);
         systemPromptBuilder.AppendLine();
         systemPromptBuilder.AppendLine("Solar Network 上的 ID 是 UUID，通常很难阅读，所以除非用户要求或必要，否则不要向用户显示 ID。");
         systemPromptBuilder.AppendLine();
