@@ -2,9 +2,11 @@ using System.Text;
 using System.Security.Cryptography;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Padlock.Auth;
 
@@ -57,12 +59,13 @@ public class TokenAuthService(
             logger.LogDebug("AuthenticateTokenAsync: token validated, sessionId={SessionId} (fp={TokenFp})", sessionId, tokenFp);
 
             var cacheKey = AuthCacheConstants.Session(sessionId.ToString());
-            var session = await cache.GetAsync<SnAuthSession>(cacheKey);
-            if (session is not null)
+            var cachedSession = await cache.GetAsync<DyAuthSession>(cacheKey);
+            if (cachedSession is not null)
             {
                 logger.LogDebug("AuthenticateTokenAsync: cache hit for {CacheKey}", cacheKey);
+                var cachedSnSession = SnAuthSession.FromProtoValue(cachedSession);
                 var nowHit = SystemClock.Instance.GetCurrentInstant();
-                if (session.ExpiredAt.HasValue && session.ExpiredAt < nowHit)
+                if (cachedSnSession.ExpiredAt.HasValue && cachedSnSession.ExpiredAt < nowHit)
                 {
                     logger.LogInformation("AuthenticateTokenAsync: cached session expired (sessionId={SessionId})", sessionId);
                     await cache.RemoveAsync(cacheKey);
@@ -71,16 +74,16 @@ public class TokenAuthService(
                 logger.LogInformation(
                     "AuthenticateTokenAsync: success via cache (sessionId={SessionId}, accountId={AccountId}, scopes={ScopeCount}, expiresAt={ExpiresAt})",
                     sessionId,
-                    session.AccountId,
-                    session.Scopes.Count,
-                    session.ExpiredAt
+                    cachedSnSession.AccountId,
+                    cachedSnSession.Scopes.Count,
+                    cachedSnSession.ExpiredAt
                 );
-                return (true, session, null, tokenUse);
+                return (true, cachedSnSession, null, tokenUse);
             }
 
             logger.LogDebug("AuthenticateTokenAsync: cache miss for {CacheKey}, loading from DB", cacheKey);
 
-            session = await db.AuthSessions
+            var session = await db.AuthSessions
                 .AsNoTracking()
                 .Include(e => e.Client)
                 .Include(e => e.Account)
@@ -106,13 +109,13 @@ public class TokenAuthService(
                 session.ClientId,
                 session.AppId,
                 session.Scopes.Count,
-                session.IpAddress,
+                session.IpAddress ?? "null",
                 (session.UserAgent ?? string.Empty).Length
             );
 
             await cache.SetWithGroupsAsync(
                 cacheKey,
-                session,
+                session.ToProtoValue(),
                 [$"auth:account_sessions:{session.Account.Id}"],
                 TimeSpan.FromHours(1)
             );

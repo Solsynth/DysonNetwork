@@ -79,6 +79,43 @@ public class SnAuthSession : ModelBase
 
         return proto;
     }
+
+    public static SnAuthSession FromProtoValue(DyAuthSession proto)
+    {
+        var session = new SnAuthSession
+        {
+            Id = Guid.Parse(proto.Id),
+            LastGrantedAt = proto.LastGrantedAt?.ToInstant(),
+            Type = proto.Type switch
+            {
+                DySessionType.DyLogin => SessionType.Login,
+                DySessionType.DyOauth => SessionType.OAuth,
+                DySessionType.DyOidc => SessionType.Oidc,
+                DySessionType.DyApiKey => SessionType.ApiKey,
+                _ => SessionType.Login
+            },
+            IpAddress = proto.IpAddress,
+            UserAgent = proto.UserAgent,
+            ExpiredAt = proto.ExpiredAt?.ToInstant(),
+            AccountId = Guid.Parse(proto.AccountId),
+            ClientId = string.IsNullOrEmpty(proto.ClientId) ? null : Guid.Parse(proto.ClientId),
+            ParentSessionId = string.IsNullOrEmpty(proto.ParentSessionId) ? null : Guid.Parse(proto.ParentSessionId),
+            AppId = string.IsNullOrEmpty(proto.AppId) ? null : Guid.Parse(proto.AppId),
+            Audiences = proto.Audiences.ToList(),
+            Scopes = proto.Scopes.ToList()
+        };
+
+        if (proto.Account != null)
+        {
+            session.Account = SnAccount.FromProtoValue(proto.Account);
+        }
+        if (proto.Client != null)
+        {
+            session.Client = SnAuthClient.FromProtoValue(proto.Client);
+        }
+
+        return session;
+    }
 }
 
 public enum ClientPlatform
@@ -157,6 +194,19 @@ public class SnAuthClient : ModelBase
         DeviceId = DeviceId,
         AccountId = AccountId.ToString()
     };
+
+    public static SnAuthClient FromProtoValue(DyAuthClient proto)
+    {
+        return new SnAuthClient
+        {
+            Id = Guid.Parse(proto.Id),
+            Platform = (ClientPlatform)proto.Platform,
+            DeviceName = proto.DeviceName,
+            DeviceLabel = proto.DeviceLabel,
+            DeviceId = proto.DeviceId,
+            AccountId = Guid.Parse(proto.AccountId)
+        };
+    }
 }
 
 public class SnAuthClientWithSessions : SnAuthClient
