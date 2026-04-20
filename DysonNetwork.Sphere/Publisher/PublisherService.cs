@@ -30,6 +30,7 @@ public class PublisherService(
     ICacheService cache,
     ILocalizationService localization,
     RemoteAccountService remoteAccounts,
+    RemoteRealmService remoteRealms,
     IKeyService keyService,
     IActorDiscoveryService discoveryService,
     IConfiguration configuration,
@@ -613,6 +614,15 @@ public class PublisherService(
         ];
     }
 
+    public async Task<List<SnPublisherMember>> HydrateMemberPublisherRealms(ICollection<SnPublisherMember> members)
+    {
+        var publishers = members.Select(m => m.Publisher).Where(p => p != null).ToList();
+        if (publishers.Count == 0) return members.ToList();
+
+        await HydratePublisherRealm(publishers);
+        return members.ToList();
+    }
+
     public async Task<List<SnPublisher>> LoadIndividualPublisherAccounts(ICollection<SnPublisher> publishers)
     {
         var accountIds = publishers
@@ -628,6 +638,27 @@ public class PublisherService(
         {
             if (p.AccountId.HasValue && accounts.TryGetValue(p.AccountId.Value, out var account))
                 p.Account = SnAccount.FromProtoValue(account);
+            return p;
+        }).ToList();
+    }
+
+    public async Task<List<SnPublisher>> HydratePublisherRealm(ICollection<SnPublisher> publishers)
+    {
+        var realmIds = publishers
+            .Where(p => p.RealmId.HasValue)
+            .Select(p => p.RealmId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (realmIds.Count == 0) return publishers.ToList();
+
+        var realms = await remoteRealms.GetRealmBatch(realmIds.Select(id => id.ToString()).ToList());
+        var realmDict = realms.ToDictionary(r => r.Id);
+
+        return publishers.Select(p =>
+        {
+            if (p.RealmId.HasValue && realmDict.TryGetValue(p.RealmId.Value, out var realm))
+                p.Realm = realm;
             return p;
         }).ToList();
     }

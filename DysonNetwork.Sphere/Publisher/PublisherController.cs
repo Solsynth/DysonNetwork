@@ -53,7 +53,10 @@ public class PublisherController(
             .Include(e => e.Publisher)
             .ToListAsync();
 
-        return members.Select(m => m.Publisher).ToList();
+        var publishers = members.Select(m => m.Publisher).ToList();
+        publishers = await ps.HydratePublisherRealm(publishers);
+
+        return publishers;
     }
 
     [HttpGet("invites")]
@@ -70,7 +73,9 @@ public class PublisherController(
             .Include(e => e.Publisher)
             .ToListAsync();
 
-        return await ps.LoadMemberAccounts(members);
+        var result = await ps.LoadMemberAccounts(members);
+        result = await ps.HydrateMemberPublisherRealms(result);
+        return result;
     }
 
     public class PublisherMemberRequest
@@ -163,7 +168,8 @@ public class PublisherController(
             ipAddress: Request.GetClientIpAddress()
         );
 
-        return Ok(member);
+        var publisher = await ps.HydratePublisherRealm([member.Publisher]);
+        return Ok(publisher.First());
     }
 
     [HttpPost("invites/{name}/decline")]
@@ -391,6 +397,8 @@ public class PublisherController(
             ipAddress: Request.GetClientIpAddress()
         );
 
+        publisher = (await ps.HydratePublisherRealm([publisher])).First();
+
         return Ok(publisher);
     }
 
@@ -487,6 +495,7 @@ public class PublisherController(
             ipAddress: Request.GetClientIpAddress()
         );
 
+        publisher.Realm = realm;
         return Ok(publisher);
     }
 
@@ -612,6 +621,7 @@ public class PublisherController(
             });
         }
 
+        publisher = (await ps.HydratePublisherRealm([publisher])).First();
         return Ok(publisher);
     }
 
@@ -677,6 +687,7 @@ public class PublisherController(
 
         var members = await query.OrderBy(m => m.CreatedAt).Skip(offset).Take(take).ToListAsync();
         members = await ps.LoadMemberAccounts(members);
+        members = await ps.HydrateMemberPublisherRealms(members);
 
         return Ok(members.Where(m => m.Account is not null).ToList());
     }
@@ -700,7 +711,10 @@ public class PublisherController(
 
         if (member is null)
             return NotFound();
-        return Ok(await ps.LoadMemberAccount(member));
+
+        var result = await ps.LoadMemberAccount(member);
+        await ps.HydrateMemberPublisherRealms([result]);
+        return Ok(result);
     }
 
     [HttpGet("{name}/features")]
