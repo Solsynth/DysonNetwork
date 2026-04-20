@@ -1,8 +1,6 @@
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using DysonNetwork.Insight.Thought;
 using DysonNetwork.Shared.Models;
-using DysonNetwork.Shared.Registry;
 using Quartz;
 
 namespace DysonNetwork.Insight.SnChan;
@@ -11,7 +9,6 @@ public class SnChanReplyMonitorService(
     SnChanApiClient apiClient,
     ThoughtService thoughtService,
     SnChanConfig config,
-    RemoteRingService remoteRingService,
     SnChanMoodService moodService,
     SnChanPublisherService publisherService,
     ILogger<SnChanReplyMonitorService> logger)
@@ -172,6 +169,71 @@ public class SnChanReplyMonitorService(
         }
     }
 
+    private async Task HandleReplyAsync(SnPost originalPost, SnPost reply, CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Handling reply {ReplyId} to post {PostId}", reply.Id, originalPost.Id);
+
+        try
+        {
+            var publisher = reply.Publisher;
+            if (publisher == null)
+            {
+                logger.LogWarning("Reply has no publisher, skipping");
+                return;
+            }
+
+            if (!publisher.AccountId.HasValue)
+            {
+                logger.LogWarning("Reply publisher has no account ID, skipping");
+                return;
+            }
+
+            var accountId = publisher.AccountId.Value;
+            var isOfficialPost = publisherService.IsOfficialPost(reply);
+            var publisherContext = publisherService.GetPublisherContext();
+
+            var message = $"""
+有人回复了你的帖子！
+
+{publisherContext}
+
+原始帖子信息：
+- 你的帖子内容：
+{originalPost.Content}
+
+回复信息：
+- 回复者: @{publisher.Name}
+- 是否官方帖子: {(isOfficialPost ? "是" : "否")}
+- 回复内容：
+{reply.Content}
+
+请根据上下文决定是否回复。如果回复是恶意的、无意义的，或者你已经充分回答了问题，可以选择忽略。否则，生成一个恰当的回复。
+""";
+
+            var sequence = await thoughtService.CreateAgentInitiatedSequenceAsync(
+                accountId,
+                message,
+                topic: $"来自 @{publisher.Name} 的回复",
+                locale: "en",
+                botName: "snchan"
+            );
+
+            if (sequence != null)
+            {
+                logger.LogInformation("Created reply response sequence {SequenceId} for account {AccountId}",
+                    sequence.Id, accountId);
+
+                // Record emotional event and trigger mood update
+                await moodService.RecordInteractionAsync("received_reply");
+                await moodService.TryUpdateMoodAsync(cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error handling reply {ReplyId} for post {PostId}", reply.Id, originalPost.Id);
+        }
+    }
+
     private async Task CheckRepliesAsync(SnPost post, Guid botPublisherId, CancellationToken cancellationToken)
     {
         try
@@ -190,36 +252,11 @@ public class SnChanReplyMonitorService(
                 .Where(r => r.Publisher != null && !publisherService.IsOwnPost(r))
                 .ToList();
 
-            if (newReplies.Count > 0)
+            foreach (var reply in newReplies)
             {
-                logger.LogInformation("Post {PostId} has {ReplyCount} new replies", post.Id, newReplies.Count);
+                if (cancellationToken.IsCancellationRequested) break;
 
-                var firstReply = newReplies.First();
-                if (firstReply.Publisher?.AccountId.HasValue == true)
-                {
-                    var accountId = firstReply.Publisher.AccountId.Value;
-
-                    var meta = new Dictionary<string, object?>
-                    {
-                        ["original_post_id"] = post.Id.ToString(),
-                        ["type"] = "insight.snchan.reply"
-                    };
-
-                    await remoteRingService.SendPushNotificationToUser(
-                        accountId.ToString(),
-                        "insight.snchan.reply",
-                        "Someone replied to your post",
-                        null,
-                        firstReply.Content,
-                        JsonSerializer.SerializeToUtf8Bytes(meta),
-                        isSilent: true,
-                        isSavable: false
-                    );
-                }
-                
-                // Record emotional event and trigger mood update
-                await moodService.RecordInteractionAsync("received_reply");
-                await moodService.TryUpdateMoodAsync(cancellationToken);
+                await HandleReplyAsync(post, reply, cancellationToken);
             }
         }
         catch (Exception ex)
