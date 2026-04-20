@@ -107,6 +107,7 @@ public class StickerController(
     public async Task<ActionResult<StickerPack>> GetStickerPack(Guid id)
     {
         var pack = await db.StickerPacks
+            .Include(e => e.Publisher)
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (pack is null) return NotFound();
