@@ -537,45 +537,6 @@ public class PublisherSubscriptionController(
         return NoContent();
     }
 
-    [HttpPatch("{name}/subscribers/{accountId:guid}/notify")]
-    [Authorize]
-    public async Task<ActionResult<SnPublisherSubscription>> UpdateSubscriberNotify(
-        string name,
-        Guid accountId,
-        [FromBody] UpdateNotifyRequest request
-    )
-    {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
-
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
-        if (publisher == null)
-            return NotFound("Publisher not found");
-
-        var subscriberAccountId = Guid.Parse(currentUser.Id);
-        if (subscriberAccountId != accountId)
-        {
-            if (
-                !await pub.IsMemberWithRole(
-                    publisher.Id,
-                    subscriberAccountId,
-                    PublisherMemberRole.Manager
-                )
-            )
-                return Forbid();
-        }
-
-        var subscription = await subs.UpdateSubscriberNotifyAsync(
-            accountId,
-            publisher.Id,
-            request.Notify
-        );
-        if (subscription == null)
-            return NotFound("Subscription not found");
-
-        return Ok(subscription);
-    }
-
     [HttpPatch("{name}/subscription/me/notify")]
     [Authorize]
     public async Task<ActionResult<SnPublisherSubscription>> UpdateMySubscriptionNotify(
