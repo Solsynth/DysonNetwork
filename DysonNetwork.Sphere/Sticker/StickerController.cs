@@ -77,6 +77,7 @@ public class StickerController(
             .Skip(offset)
             .Take(take)
             .Include(e => e.Stickers.OrderByDescending(s => s.CreatedAt).Take(8))
+            .Include(e => e.Publisher)
             .ToListAsync();
 
         Response.Headers["X-Total"] = totalCount.ToString();
