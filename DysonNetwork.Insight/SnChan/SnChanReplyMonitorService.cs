@@ -188,45 +188,11 @@ public class SnChanReplyMonitorService(
                 return;
             }
 
-            var accountId = publisher.AccountId.Value;
-            var isOfficialPost = publisherService.IsOfficialPost(reply);
-            var publisherContext = publisherService.GetPublisherContext();
+            logger.LogDebug("Reply from @{Publisher} to post {PostId}: {Content}",
+                publisher.Name, originalPost.Id, reply.Content);
 
-            var message = $"""
-有人回复了你的帖子！
-
-{publisherContext}
-
-原始帖子信息：
-- 你的帖子内容：
-{originalPost.Content}
-
-回复信息：
-- 回复者: @{publisher.Name}
-- 是否官方帖子: {(isOfficialPost ? "是" : "否")}
-- 回复内容：
-{reply.Content}
-
-请根据上下文决定是否回复。如果回复是恶意的、无意义的，或者你已经充分回答了问题，可以选择忽略。否则，生成一个恰当的回复。
-""";
-
-            var sequence = await thoughtService.CreateAgentInitiatedSequenceAsync(
-                accountId,
-                message,
-                topic: $"来自 @{publisher.Name} 的回复",
-                locale: "en",
-                botName: "snchan"
-            );
-
-            if (sequence != null)
-            {
-                logger.LogInformation("Created reply response sequence {SequenceId} for account {AccountId}",
-                    sequence.Id, accountId);
-
-                // Record emotional event and trigger mood update
-                await moodService.RecordInteractionAsync("received_reply");
-                await moodService.TryUpdateMoodAsync(cancellationToken);
-            }
+            await moodService.RecordInteractionAsync("received_reply");
+            await moodService.TryUpdateMoodAsync(cancellationToken);
         }
         catch (Exception ex)
         {
