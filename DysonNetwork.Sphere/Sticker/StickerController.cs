@@ -114,6 +114,17 @@ public class StickerController(
         return Ok(pack);
     }
 
+    [HttpGet("by-prefix/{prefix}")]
+    public async Task<ActionResult<StickerPack>> GetStickerPackByPrefix(string prefix)
+    {
+        var pack = await db.StickerPacks
+            .Include(e => e.Publisher)
+            .FirstOrDefaultAsync(p => p.Prefix == prefix);
+
+        if (pack is null) return NotFound();
+        return Ok(pack);
+    }
+
     public class StickerPackRequest
     {
         public string? IconId { get; set; }
