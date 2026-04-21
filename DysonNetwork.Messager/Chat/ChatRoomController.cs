@@ -704,6 +704,27 @@ public class ChatRoomController(
         return Ok(await crs.LoadMemberAccount(member));
     }
 
+    [HttpDelete("{roomId:guid}/members/me/profile")]
+    [Authorize]
+    public async Task<ActionResult<SnChatMember>> ClearRoomIdentity(Guid roomId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var member = await db.ChatMembers
+            .Where(m => m.AccountId == Guid.Parse(currentUser.Id) && m.ChatRoomId == roomId)
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+            .FirstOrDefaultAsync();
+
+        if (member == null)
+            return NotFound();
+
+        member.Nick = null;
+        await db.SaveChangesAsync();
+
+        return Ok(await crs.LoadMemberAccount(member));
+    }
+
     [HttpGet("{roomId:guid}/members/online")]
     public async Task<ActionResult<OnlineMembersResponse>> GetOnlineUsersCount(Guid roomId)
     {
