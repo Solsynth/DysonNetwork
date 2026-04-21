@@ -61,8 +61,18 @@ public class NotableDaysService(ICacheService cache)
         }
         catch (HolidayClientException)
         {
-            // Invalid or unknown region code - just use global holidays
-            days = [];
+            // Invalid or unknown region code - try fallback to US
+            try
+            {
+                using var holidayClient = new HolidayClient();
+                var holidays = await holidayClient.GetHolidaysAsync(year.Value, "US");
+                days = holidays?.Select(NotableDayExtensions.FromNagerHoliday).ToList() ?? [];
+            }
+            catch
+            {
+                // If even US fails, just use global holidays
+                days = [];
+            }
         }
 
         // Add global holidays that are available for all regions
