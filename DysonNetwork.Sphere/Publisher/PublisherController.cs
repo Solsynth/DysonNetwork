@@ -35,7 +35,9 @@ public class PublisherController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var account = SnAccount.FromProtoValue(await remoteAccounts.GetAccount(Guid.Parse(currentUser.Id)));
+        var account = SnAccount.FromProtoValue(
+            await remoteAccounts.GetAccount(Guid.Parse(currentUser.Id))
+        );
         return Ok(await quotaService.GetQuotaAsync(account));
     }
 
@@ -127,7 +129,7 @@ public class PublisherController(
             new Dictionary<string, object>
             {
                 { "publisher_id", publisher.Id.ToString() },
-                { "account_id", relatedUser.Id.ToString() }
+                { "account_id", relatedUser.Id.ToString() },
             },
             userAgent: Request.Headers.UserAgent,
             ipAddress: Request.GetClientIpAddress()
@@ -162,7 +164,7 @@ public class PublisherController(
             new Dictionary<string, object>
             {
                 { "publisher_id", member.PublisherId.ToString() },
-                { "account_id", member.AccountId.ToString() }
+                { "account_id", member.AccountId.ToString() },
             },
             userAgent: Request.Headers.UserAgent,
             ipAddress: Request.GetClientIpAddress()
@@ -197,7 +199,7 @@ public class PublisherController(
             new Dictionary<string, object>
             {
                 { "publisher_id", member.PublisherId.ToString() },
-                { "account_id", member.AccountId.ToString() }
+                { "account_id", member.AccountId.ToString() },
             },
             userAgent: Request.Headers.UserAgent,
             ipAddress: Request.GetClientIpAddress()
@@ -224,13 +226,7 @@ public class PublisherController(
         var accountId = Guid.Parse(currentUser.Id);
         if (member is null)
             return NotFound("Member was not found");
-        if (
-            !await ps.IsMemberWithRole(
-                publisher.Id,
-                accountId,
-                PublisherMemberRole.Manager
-            )
-        )
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
             return StatusCode(
                 403,
                 "You need at least be a manager to remove members from this publisher."
@@ -246,7 +242,7 @@ public class PublisherController(
             {
                 { "publisher_id", publisher.Id.ToString() },
                 { "account_id", memberId.ToString() },
-                { "kicked_by", currentUser.Id }
+                { "kicked_by", currentUser.Id },
             },
             userAgent: Request.Headers.UserAgent,
             ipAddress: Request.GetClientIpAddress()
@@ -257,24 +253,44 @@ public class PublisherController(
 
     [HttpPatch("{name}/members/{memberId:guid}/role")]
     [Authorize]
-    public async Task<ActionResult<SnPublisherMember>> UpdateMemberRole(string name, Guid memberId, [FromBody] int newRole)
+    public async Task<ActionResult<SnPublisherMember>> UpdateMemberRole(
+        string name,
+        Guid memberId,
+        [FromBody] int newRole
+    )
     {
-        if (newRole >= (int)PublisherMemberRole.Owner) return BadRequest("Unable to set publisher member to owner or greater role.");
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (newRole >= (int)PublisherMemberRole.Owner)
+            return BadRequest("Unable to set publisher member to owner or greater role.");
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
 
-        var publisher = await db.Publishers
-            .Where(p => p.Name == name)
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+
+        var member = await db
+            .PublisherMembers.Where(m =>
+                m.AccountId == memberId && m.PublisherId == publisher.Id && m.JoinedAt != null
+            )
             .FirstOrDefaultAsync();
-        if (publisher is null) return NotFound();
+        if (member is null)
+            return NotFound();
 
-        var member = await db.PublisherMembers
-            .Where(m => m.AccountId == memberId && m.PublisherId == publisher.Id && m.JoinedAt != null)
-            .FirstOrDefaultAsync();
-        if (member is null) return NotFound();
-
-        var requiredRole = Math.Max((int)PublisherMemberRole.Manager, Math.Max((int)member.Role, newRole));
-        if (!await ps.IsMemberWithRole(publisher.Id, Guid.Parse(currentUser.Id), (PublisherMemberRole)requiredRole))
-            return StatusCode(403, "You do not have permission to update member roles in this publisher.");
+        var requiredRole = Math.Max(
+            (int)PublisherMemberRole.Manager,
+            Math.Max((int)member.Role, newRole)
+        );
+        if (
+            !await ps.IsMemberWithRole(
+                publisher.Id,
+                Guid.Parse(currentUser.Id),
+                (PublisherMemberRole)requiredRole
+            )
+        )
+            return StatusCode(
+                403,
+                "You do not have permission to update member roles in this publisher."
+            );
 
         member.Role = (PublisherMemberRole)newRole;
         db.PublisherMembers.Update(member);
@@ -288,7 +304,7 @@ public class PublisherController(
                 { "publisher_id", publisher.Id.ToString() },
                 { "account_id", memberId.ToString() },
                 { "new_role", newRole },
-                { "updater_id", currentUser.Id }
+                { "updater_id", currentUser.Id },
             },
             userAgent: Request.Headers.UserAgent,
             ipAddress: Request.GetClientIpAddress()
@@ -359,7 +375,6 @@ public class PublisherController(
                     "Invalid picture id, unable to find the file on cloud."
                 );
             picture = SnCloudFileReferenceObject.FromProtoValue(queryResult);
-
         }
 
         if (request.BackgroundId is not null)
@@ -372,7 +387,6 @@ public class PublisherController(
                     "Invalid background id, unable to find the file on cloud."
                 );
             background = SnCloudFileReferenceObject.FromProtoValue(queryResult);
-
         }
 
         var publisher = await ps.CreateIndividualPublisher(
@@ -391,7 +405,7 @@ public class PublisherController(
             {
                 { "publisher_id", publisher.Id.ToString() },
                 { "publisher_name", publisher.Name },
-                { "publisher_type", "Individual" }
+                { "publisher_type", "Individual" },
             },
             userAgent: Request.Headers.UserAgent,
             ipAddress: Request.GetClientIpAddress()
@@ -455,7 +469,6 @@ public class PublisherController(
                     "Invalid picture id, unable to find the file on cloud."
                 );
             picture = SnCloudFileReferenceObject.FromProtoValue(queryResult);
-
         }
 
         if (request.BackgroundId is not null)
@@ -468,7 +481,6 @@ public class PublisherController(
                     "Invalid background id, unable to find the file on cloud."
                 );
             background = SnCloudFileReferenceObject.FromProtoValue(queryResult);
-
         }
 
         var publisher = await ps.CreateOrganizationPublisher(
@@ -489,7 +501,7 @@ public class PublisherController(
                 { "publisher_id", publisher.Id.ToString() },
                 { "publisher_name", publisher.Name },
                 { "publisher_type", "Organization" },
-                { "realm_slug", realm.Slug }
+                { "realm_slug", realm.Slug },
             },
             userAgent: Request.Headers.UserAgent,
             ipAddress: Request.GetClientIpAddress()
@@ -565,15 +577,15 @@ public class PublisherController(
             publisher.Meta ??= new Dictionary<string, object>();
 
             if (request.DefaultPostTags is not null)
-                publisher.Meta["default_post_tags"] = request.DefaultPostTags
-                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                publisher.Meta["default_post_tags"] = request
+                    .DefaultPostTags.Where(x => !string.IsNullOrWhiteSpace(x))
                     .Select(x => x.Trim().ToLowerInvariant())
                     .Distinct()
                     .ToList();
 
             if (request.DefaultPostCategories is not null)
-                publisher.Meta["default_post_categories"] = request.DefaultPostCategories
-                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                publisher.Meta["default_post_categories"] = request
+                    .DefaultPostCategories.Where(x => !string.IsNullOrWhiteSpace(x))
                     .Select(x => x.Trim().ToLowerInvariant())
                     .Distinct()
                     .ToList();
@@ -592,15 +604,16 @@ public class PublisherController(
                 { "nick_updated", !string.IsNullOrEmpty(request.Nick) },
                 { "bio_updated", !string.IsNullOrEmpty(request.Bio) },
                 { "picture_updated", request.PictureId != null },
-                { "background_updated", request.BackgroundId != null }
+                { "background_updated", request.BackgroundId != null },
             },
             userAgent: Request.Headers.UserAgent,
             ipAddress: Request.GetClientIpAddress()
         );
 
         // Send ActivityPub Update activity if actor exists
-        var actor = await db.FediverseActors
-            .FirstOrDefaultAsync(a => a.PublisherId == publisher.Id);
+        var actor = await db.FediverseActors.FirstOrDefaultAsync(a =>
+            a.PublisherId == publisher.Id
+        );
 
         if (actor != null)
         {
@@ -609,14 +622,21 @@ public class PublisherController(
                 try
                 {
                     using var scope = factory.CreateScope();
-                    var deliveryService = scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
+                    var deliveryService =
+                        scope.ServiceProvider.GetRequiredService<ActivityPubDeliveryService>();
                     await deliveryService.SendUpdateActorActivityAsync(actor);
                 }
                 catch (Exception ex)
                 {
                     using var errorScope = factory.CreateScope();
-                    var errorLogger = errorScope.ServiceProvider.GetRequiredService<ILogger<ActivityPubDeliveryService>>();
-                    errorLogger.LogError(ex, "Error sending ActivityPub Update actor activity for publisher {PublisherId}", publisher.Id);
+                    var errorLogger = errorScope.ServiceProvider.GetRequiredService<
+                        ILogger<ActivityPubDeliveryService>
+                    >();
+                    errorLogger.LogError(
+                        ex,
+                        "Error sending ActivityPub Update actor activity for publisher {PublisherId}",
+                        publisher.Id
+                    );
                 }
             });
         }
@@ -658,7 +678,7 @@ public class PublisherController(
             {
                 { "publisher_id", publisher.Id.ToString() },
                 { "publisher_name", publisher.Name },
-                { "publisher_type", publisher.Type.ToString() }
+                { "publisher_type", publisher.Type.ToString() },
             },
             userAgent: Request.Headers.UserAgent,
             ipAddress: Request.GetClientIpAddress()
@@ -728,7 +748,7 @@ public class PublisherController(
         var dict = new Dictionary<string, bool>
         {
             [PublisherFeatureFlag.FollowRequiresApproval] = publisher.IsModerateSubscription,
-            [PublisherFeatureFlag.PostsRequireFollow] = publisher.IsGatekept
+            [PublisherFeatureFlag.PostsRequireFollow] = publisher.IsGatekept,
         };
 
         return Ok(dict);
@@ -774,15 +794,23 @@ public class PublisherController(
             return NotFound();
 
         if (PublisherFeatureFlag.SystemOnlyFlags.Contains(request.Flag))
-            return BadRequest($"Flag '{request.Flag}' is a system flag and cannot be enabled manually");
+            return BadRequest(
+                $"Flag '{request.Flag}' is a system flag and cannot be enabled manually"
+            );
 
         if (request.Flag == PublisherFeatureFlag.FollowRequiresApproval)
         {
             if (publisher.AccountId.HasValue)
             {
                 var publisherAccount = await remoteAccounts.GetAccount(publisher.AccountId.Value);
-                if (publisherAccount != null && publisherAccount.PerkLevel < PublisherFeatureFlag.MinimumPerkLevel)
-                    return StatusCode(403, $"This feature requires PerkLevel >= {PublisherFeatureFlag.MinimumPerkLevel}");
+                if (
+                    publisherAccount != null
+                    && publisherAccount.PerkLevel < PublisherFeatureFlag.MinimumPerkLevel
+                )
+                    return StatusCode(
+                        403,
+                        $"This feature requires PerkLevel >= {PublisherFeatureFlag.MinimumPerkLevel}"
+                    );
             }
             publisher.ModerateSubscription = true;
             db.Publishers.Update(publisher);
@@ -795,8 +823,14 @@ public class PublisherController(
             if (publisher.AccountId.HasValue)
             {
                 var publisherAccount = await remoteAccounts.GetAccount(publisher.AccountId.Value);
-                if (publisherAccount != null && publisherAccount.PerkLevel < PublisherFeatureFlag.MinimumPerkLevel)
-                    return StatusCode(403, $"This feature requires PerkLevel >= {PublisherFeatureFlag.MinimumPerkLevel}");
+                if (
+                    publisherAccount != null
+                    && publisherAccount.PerkLevel < PublisherFeatureFlag.MinimumPerkLevel
+                )
+                    return StatusCode(
+                        403,
+                        $"This feature requires PerkLevel >= {PublisherFeatureFlag.MinimumPerkLevel}"
+                    );
             }
             publisher.GatekeptFollows = true;
             db.Publishers.Update(publisher);
@@ -817,11 +851,13 @@ public class PublisherController(
         return Ok(feature);
     }
 
-    [HttpDelete("{name}/features/{flag?}")]
+    [HttpDelete("{name}/features")]
     [Authorize]
-    public async Task<ActionResult> RemovePublisherFeature(string name, string? flag, [FromQuery] string? f)
+    public async Task<ActionResult> RemovePublisherFeature(
+        string name,
+        [FromQuery(Name = "flag")] string? flag
+    )
     {
-        flag ??= f;
         if (string.IsNullOrEmpty(flag))
             return BadRequest("Flag is required");
 
@@ -896,7 +932,10 @@ public class PublisherController(
             return NotFound();
 
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
-            return StatusCode(403, "You need at least be manager to enable fediverse for this publisher.");
+            return StatusCode(
+                403,
+                "You need at least be manager to enable fediverse for this publisher."
+            );
 
         try
         {
@@ -924,7 +963,10 @@ public class PublisherController(
             return NotFound();
 
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
-            return StatusCode(403, "You need at least be manager to disable fediverse for this publisher.");
+            return StatusCode(
+                403,
+                "You need at least be manager to disable fediverse for this publisher."
+            );
 
         try
         {
