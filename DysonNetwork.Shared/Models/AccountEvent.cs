@@ -164,6 +164,71 @@ public class DailyEventResponse
     public Instant Date { get; set; }
     public SnCheckInResult? CheckInResult { get; set; }
     public List<SnAccountStatus> Statuses { get; set; } = new List<SnAccountStatus>();
+    public List<UserCalendarEventDto> UserEvents { get; set; } = new List<UserCalendarEventDto>();
+    public List<NotableDay> NotableDays { get; set; } = new List<NotableDay>();
+}
+
+/// <summary>
+/// Notable day/holiday for calendar display
+/// </summary>
+public class NotableDay
+{
+    public Instant Date { get; set; }
+    public string? LocalName { get; set; }
+    public string? GlobalName { get; set; }
+    public string? LocalizableKey { get; set; }
+    public string? CountryCode { get; set; }
+    public NotableHolidayType[] Holidays { get; set; } = [];
+}
+
+/// <summary>
+/// Represents a calendar event with merged data from multiple sources
+/// </summary>
+public class MergedCalendarEvent
+{
+    public Guid? Id { get; set; }
+    public CalendarEventType Type { get; set; }
+    public string Title { get; set; } = null!;
+    public string? Description { get; set; }
+    public string? Location { get; set; }
+    public Instant StartTime { get; set; }
+    public Instant EndTime { get; set; }
+    public bool IsAllDay { get; set; }
+    public Dictionary<string, object>? Meta { get; set; }
+}
+
+public enum CalendarEventType
+{
+    UserEvent,
+    CheckIn,
+    Status,
+    NotableDay,
+}
+
+/// <summary>
+/// Type of notable holiday
+/// </summary>
+public enum NotableHolidayType
+{
+    Public,
+    Bank,
+    School,
+    Authorities,
+    Optional,
+    Observance,
+}
+
+/// <summary>
+/// Extended daily response that includes merged events
+/// </summary>
+public class MergedDailyEventResponse
+{
+    public Instant Date { get; set; }
+    public SnCheckInResult? CheckInResult { get; set; }
+    public List<SnAccountStatus> Statuses { get; set; } = new List<SnAccountStatus>();
+    public List<UserCalendarEventDto> UserEvents { get; set; } = new List<UserCalendarEventDto>();
+    public List<NotableDay> NotableDays { get; set; } = new List<NotableDay>();
+    public List<MergedCalendarEvent> MergedEvents { get; set; } = new List<MergedCalendarEvent>();
 }
 
 public enum PresenceType
@@ -226,4 +291,103 @@ public class AccountTimelineItem
     public TimelineEventType EventType { get; set; }
     public SnAccountStatus? Status { get; set; }
     public SnPresenceActivity? Activity { get; set; }
+}
+
+public enum EventVisibility
+{
+    Private = 0,
+    Friends = 100,
+    Public = 200,
+}
+
+public enum RecurrenceFrequency
+{
+    None,
+    Daily,
+    Weekly,
+    Monthly,
+    Yearly,
+}
+
+public class RecurrencePattern
+{
+    public RecurrenceFrequency Frequency { get; set; } = RecurrenceFrequency.None;
+    public int Interval { get; set; } = 1;
+    public Instant? EndDate { get; set; }
+    public int? Occurrences { get; set; }
+    public List<IsoDayOfWeek>? DaysOfWeek { get; set; }
+    public int? DayOfMonth { get; set; }
+    public int? MonthOfYear { get; set; }
+}
+
+public class SnUserCalendarEvent : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    [MaxLength(256)]
+    public string Title { get; set; } = null!;
+
+    [MaxLength(4096)]
+    public string? Description { get; set; }
+
+    [MaxLength(512)]
+    public string? Location { get; set; }
+
+    public Instant StartTime { get; set; }
+    public Instant EndTime { get; set; }
+    public bool IsAllDay { get; set; }
+
+    public EventVisibility Visibility { get; set; } = EventVisibility.Private;
+
+    [Column(TypeName = "jsonb")]
+    public RecurrencePattern? Recurrence { get; set; }
+
+    [Column(TypeName = "jsonb")]
+    public Dictionary<string, object>? Meta { get; set; }
+
+    public Guid AccountId { get; set; }
+    [NotMapped] public SnAccount Account { get; set; } = null!;
+}
+
+public class UserCalendarEventDto
+{
+    public Guid Id { get; set; }
+    public string Title { get; set; } = null!;
+    public string? Description { get; set; }
+    public string? Location { get; set; }
+    public Instant StartTime { get; set; }
+    public Instant EndTime { get; set; }
+    public bool IsAllDay { get; set; }
+    public EventVisibility Visibility { get; set; }
+    public RecurrencePattern? Recurrence { get; set; }
+    public Dictionary<string, object>? Meta { get; set; }
+    public Guid AccountId { get; set; }
+    public Instant CreatedAt { get; set; }
+    public Instant UpdatedAt { get; set; }
+}
+
+public class CreateCalendarEventRequest
+{
+    public string Title { get; set; } = null!;
+    public string? Description { get; set; }
+    public string? Location { get; set; }
+    public Instant StartTime { get; set; }
+    public Instant EndTime { get; set; }
+    public bool IsAllDay { get; set; }
+    public EventVisibility Visibility { get; set; } = EventVisibility.Private;
+    public RecurrencePattern? Recurrence { get; set; }
+    public Dictionary<string, object>? Meta { get; set; }
+}
+
+public class UpdateCalendarEventRequest
+{
+    public string? Title { get; set; }
+    public string? Description { get; set; }
+    public string? Location { get; set; }
+    public Instant? StartTime { get; set; }
+    public Instant? EndTime { get; set; }
+    public bool? IsAllDay { get; set; }
+    public EventVisibility? Visibility { get; set; }
+    public RecurrencePattern? Recurrence { get; set; }
+    public Dictionary<string, object>? Meta { get; set; }
 }

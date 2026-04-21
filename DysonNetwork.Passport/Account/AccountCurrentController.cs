@@ -395,8 +395,11 @@ public class AccountCurrentController(
     }
 
     [HttpGet("calendar")]
-    public async Task<ActionResult<List<DailyEventResponse>>> GetEventCalendar([FromQuery] int? month,
-        [FromQuery] int? year)
+    public async Task<ActionResult<List<DailyEventResponse>>> GetEventCalendar(
+        [FromQuery] int? month,
+        [FromQuery] int? year,
+        [FromQuery] bool includeNotableDays = false,
+        [FromServices] NotableDaysService? notableDaysService = null)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
@@ -415,9 +418,191 @@ public class AccountCurrentController(
                 [nameof(year)] = new[] { "Year must be a positive integer." }
             }, traceId: HttpContext.TraceIdentifier));
 
-        var calendar = await events.GetEventCalendar(currentUser, month.Value, year.Value);
+        // Get user's profile for region code
+        var profile = await db.AccountProfiles
+            .Where(p => p.AccountId == currentUser.Id)
+            .Select(p => new { p.Location })
+            .FirstOrDefaultAsync();
+
+        var regionCode = profile?.Location;
+
+        var calendar = await events.GetEventCalendar(
+            currentUser,
+            month.Value,
+            year.Value,
+            false,
+            currentUser.Id,
+            includeNotableDays ? regionCode : null);
+
+        // If notable days were requested and we have a region code, fetch them
+        if (includeNotableDays && !string.IsNullOrWhiteSpace(regionCode) && notableDaysService != null)
+        {
+            var notableDays = await notableDaysService.GetNotableDays(year.Value, regionCode);
+            var notableDaysByDate = notableDays
+                .Where(d => d.Date.InUtc().Month == month.Value && d.Date.InUtc().Year == year.Value)
+                .GroupBy(d => d.Date.InUtc().Date)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var day in calendar)
+            {
+                var utcDate = day.Date.InUtc().Date;
+                if (notableDaysByDate.TryGetValue(utcDate, out var days))
+                {
+                    day.NotableDays = days;
+                }
+            }
+        }
+
         return Ok(calendar);
     }
+
+    [HttpGet("calendar/merged")]
+    public async Task<ActionResult<MergedDailyEventResponse>> GetMergedEventCalendar(
+        [FromQuery] int? month,
+        [FromQuery] int? year,
+        [FromServices] NotableDaysService? notableDaysService = null)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var currentDate = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
+        month ??= currentDate.Month;
+        year ??= currentDate.Year;
+
+        if (month is < 1 or > 12)
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(month)] = new[] { "Month must be between 1 and 12." }
+            }, traceId: HttpContext.TraceIdentifier));
+        if (year < 1)
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(year)] = new[] { "Year must be a positive integer." }
+            }, traceId: HttpContext.TraceIdentifier));
+
+        // Get user's profile for region code
+        var profile = await db.AccountProfiles
+            .Where(p => p.AccountId == currentUser.Id)
+            .Select(p => new { p.Location })
+            .FirstOrDefaultAsync();
+
+        var regionCode = profile?.Location;
+
+        var calendar = await events.GetMergedEventCalendar(
+            currentUser,
+            month.Value,
+            year.Value,
+            false,
+            currentUser.Id,
+            regionCode,
+            notableDaysService);
+
+        return Ok(calendar);
+    }
+
+    #region Calendar Events
+
+    [HttpGet("calendar/events")]
+    [ProducesResponseType<List<SnUserCalendarEvent>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<SnUserCalendarEvent>>> GetCalendarEvents(
+        [FromQuery] Instant? startTime,
+        [FromQuery] Instant? endTime,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 50)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var (userEvents, totalCount) = await events.GetUserCalendarEventsAsync(
+            currentUser.Id,
+            currentUser.Id,
+            startTime,
+            endTime,
+            offset,
+            take);
+
+        Response.Headers.Append("X-Total", totalCount.ToString());
+        return Ok(userEvents);
+    }
+
+    [HttpPost("calendar/events")]
+    [ProducesResponseType<SnUserCalendarEvent>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ApiError>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<SnUserCalendarEvent>> CreateCalendarEvent([FromBody] CreateCalendarEventRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        try
+        {
+            var calendarEvent = await events.CreateCalendarEventAsync(currentUser.Id, request);
+            return Created($"/api/accounts/me/calendar/events/{calendarEvent.Id}", calendarEvent);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                ["request"] = new[] { ex.Message }
+            }, traceId: HttpContext.TraceIdentifier));
+        }
+    }
+
+    [HttpGet("calendar/events/{id:guid}")]
+    [ProducesResponseType<SnUserCalendarEvent>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SnUserCalendarEvent>> GetCalendarEvent(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var calendarEvent = await events.GetCalendarEventAsync(id, currentUser.Id);
+
+        if (calendarEvent == null)
+            return NotFound(ApiError.NotFound("calendar event", traceId: HttpContext.TraceIdentifier));
+
+        return Ok(calendarEvent);
+    }
+
+    [HttpPut("calendar/events/{id:guid}")]
+    [ProducesResponseType<SnUserCalendarEvent>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ApiError>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<SnUserCalendarEvent>> UpdateCalendarEvent(
+        Guid id,
+        [FromBody] UpdateCalendarEventRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        try
+        {
+            var calendarEvent = await events.UpdateCalendarEventAsync(currentUser.Id, id, request);
+            return Ok(calendarEvent);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(ApiError.NotFound("calendar event", traceId: HttpContext.TraceIdentifier));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                ["request"] = new[] { ex.Message }
+            }, traceId: HttpContext.TraceIdentifier));
+        }
+    }
+
+    [HttpDelete("calendar/events/{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> DeleteCalendarEvent(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var deleted = await events.DeleteCalendarEventAsync(currentUser.Id, id);
+
+        if (!deleted)
+            return NotFound(ApiError.NotFound("calendar event", traceId: HttpContext.TraceIdentifier));
+
+        return NoContent();
+    }
+
+    #endregion
 
     [HttpGet("actions")]
     [ProducesResponseType<List<SnActionLog>>(StatusCodes.Status200OK)]

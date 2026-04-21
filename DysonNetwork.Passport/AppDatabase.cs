@@ -26,6 +26,7 @@ public class AppDatabase(
     public DbSet<SnAccountStatus> AccountStatuses { get; set; } = null!;
     public DbSet<SnCheckInResult> AccountCheckInResults { get; set; } = null!;
     public DbSet<SnPresenceActivity> PresenceActivities { get; set; } = null!;
+    public DbSet<SnUserCalendarEvent> UserCalendarEvents { get; set; } = null!;
     public DbSet<SnAccountBadge> Badges { get; set; } = null!;
     
     public DbSet<SnRealm> Realms { get; set; } = null!;

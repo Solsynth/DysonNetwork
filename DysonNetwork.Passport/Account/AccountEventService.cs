@@ -420,64 +420,6 @@ public class AccountEventService(
         return result;
     }
 
-    public async Task<List<DailyEventResponse>> GetEventCalendar(SnAccount user, int month, int year = 0,
-        bool replaceInvisible = false)
-    {
-        if (year == 0)
-            year = SystemClock.Instance.GetCurrentInstant().InUtc().Date.Year;
-
-        // Create start and end dates for the specified month
-        var startOfMonth = new LocalDate(year, month, 1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
-        var endOfMonth = startOfMonth.Plus(Duration.FromDays(DateTime.DaysInMonth(year, month)));
-
-        var statuses = await db.AccountStatuses
-            .AsNoTracking()
-            .TagWith("eventcal:statuses")
-            .Where(x => x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth)
-            .Select(x => new SnAccountStatus
-            {
-                Id = x.Id,
-                Attitude = x.Attitude,
-                Type = replaceInvisible && x.Type == StatusType.Invisible ? StatusType.Default : x.Type,
-                Label = x.Label,
-                Symbol = x.Symbol,
-                ClearedAt = x.ClearedAt,
-                AccountId = x.AccountId,
-                CreatedAt = x.CreatedAt
-            })
-            .OrderBy(x => x.CreatedAt)
-            .ToListAsync();
-
-        var checkIn = await db.AccountCheckInResults
-            .AsNoTracking()
-            .TagWith("eventcal:checkin")
-            .Where(x => x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth)
-            .ToListAsync();
-
-        var dates = Enumerable.Range(1, DateTime.DaysInMonth(year, month))
-            .Select(day => new LocalDate(year, month, day).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant())
-            .ToList();
-
-        var statusesByDate = statuses
-            .GroupBy(s => s.CreatedAt.InUtc().Date)
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        var checkInByDate = checkIn
-            .GroupBy(c => c.CreatedAt.InUtc().Date)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.CreatedAt).First());
-
-        return dates.Select(date =>
-        {
-            var utcDate = date.InUtc().Date;
-            return new DailyEventResponse
-            {
-                Date = date,
-                CheckInResult = checkInByDate.GetValueOrDefault(utcDate),
-                Statuses = statusesByDate.GetValueOrDefault(utcDate, new List<SnAccountStatus>())
-            };
-        }).ToList();
-    }
-
     public async Task<List<SnPresenceActivity>> GetActiveActivities(Guid userId)
     {
         var cacheKey = $"{ActivityCacheKey}{userId}";
@@ -793,4 +735,725 @@ public class AccountEventService(
 
         return connected;
     }
+
+    #region User Calendar Events
+
+    private const string CalendarEventCacheKeyPrefix = "account:calendar:events:";
+    private static readonly TimeSpan CalendarEventCacheDuration = TimeSpan.FromHours(24);
+
+    private string GetCalendarEventCacheKey(Guid accountId, int year, int month)
+    {
+        return $"{CalendarEventCacheKeyPrefix}{accountId}:{year}:{month}";
+    }
+
+    public void PurgeCalendarEventCache(Guid accountId, int? year = null, int? month = null)
+    {
+        if (year.HasValue && month.HasValue)
+        {
+            var cacheKey = GetCalendarEventCacheKey(accountId, year.Value, month.Value);
+            cache.RemoveAsync(cacheKey);
+        }
+        else
+        {
+            // Purge all months for this account (pattern-based removal would require cache support)
+            // For now, we'll rely on the specific key pattern when known
+            var currentYear = SystemClock.Instance.GetCurrentInstant().InUtc().Year;
+            var currentMonth = SystemClock.Instance.GetCurrentInstant().InUtc().Month;
+            for (var m = 1; m <= 12; m++)
+            {
+                cache.RemoveAsync(GetCalendarEventCacheKey(accountId, currentYear, m));
+                cache.RemoveAsync(GetCalendarEventCacheKey(accountId, currentYear - 1, m));
+                cache.RemoveAsync(GetCalendarEventCacheKey(accountId, currentYear + 1, m));
+            }
+        }
+    }
+
+    public async Task<SnUserCalendarEvent> CreateCalendarEventAsync(
+        Guid accountId,
+        CreateCalendarEventRequest request)
+    {
+        // Validate request
+        if (string.IsNullOrWhiteSpace(request.Title))
+            throw new ArgumentException("Title is required");
+
+        if (request.EndTime <= request.StartTime)
+            throw new ArgumentException("End time must be after start time");
+
+        // Default all-day events to 24 hours if not specified
+        var endTime = request.EndTime;
+        if (request.IsAllDay && request.EndTime == request.StartTime)
+        {
+            endTime = request.StartTime.Plus(Duration.FromHours(24));
+        }
+
+        var calendarEvent = new SnUserCalendarEvent
+        {
+            Title = request.Title.Trim(),
+            Description = request.Description?.Trim(),
+            Location = request.Location?.Trim(),
+            StartTime = request.StartTime,
+            EndTime = endTime,
+            IsAllDay = request.IsAllDay,
+            Visibility = request.Visibility,
+            Recurrence = request.Recurrence,
+            Meta = request.Meta,
+            AccountId = accountId
+        };
+
+        db.UserCalendarEvents.Add(calendarEvent);
+        await db.SaveChangesAsync();
+
+        // Purge cache for affected months
+        var startMonth = calendarEvent.StartTime.InUtc().Date;
+        var endMonth = calendarEvent.EndTime.InUtc().Date;
+        PurgeCalendarEventCache(accountId, startMonth.Year, startMonth.Month);
+        if (startMonth.Month != endMonth.Month || startMonth.Year != endMonth.Year)
+        {
+            PurgeCalendarEventCache(accountId, endMonth.Year, endMonth.Month);
+        }
+
+        return calendarEvent;
+    }
+
+    public async Task<SnUserCalendarEvent> UpdateCalendarEventAsync(
+        Guid accountId,
+        Guid eventId,
+        UpdateCalendarEventRequest request)
+    {
+        var calendarEvent = await db.UserCalendarEvents
+            .Where(e => e.Id == eventId && e.DeletedAt == null)
+            .FirstOrDefaultAsync();
+
+        if (calendarEvent == null)
+            throw new KeyNotFoundException("Calendar event not found");
+
+        if (calendarEvent.AccountId != accountId)
+            throw new UnauthorizedAccessException("Calendar event does not belong to user");
+
+        var oldStartTime = calendarEvent.StartTime;
+        var oldEndTime = calendarEvent.EndTime;
+
+        // Update properties
+        if (request.Title != null)
+            calendarEvent.Title = request.Title.Trim();
+
+        if (request.Description != null)
+            calendarEvent.Description = string.IsNullOrEmpty(request.Description) ? null : request.Description.Trim();
+
+        if (request.Location != null)
+            calendarEvent.Location = string.IsNullOrEmpty(request.Location) ? null : request.Location.Trim();
+
+        if (request.StartTime.HasValue)
+            calendarEvent.StartTime = request.StartTime.Value;
+
+        if (request.EndTime.HasValue)
+            calendarEvent.EndTime = request.EndTime.Value;
+
+        if (request.IsAllDay.HasValue)
+            calendarEvent.IsAllDay = request.IsAllDay.Value;
+
+        if (request.Visibility.HasValue)
+            calendarEvent.Visibility = request.Visibility.Value;
+
+        if (request.Recurrence != null)
+            calendarEvent.Recurrence = request.Recurrence;
+
+        if (request.Meta != null)
+            calendarEvent.Meta = request.Meta;
+
+        // Validate times
+        if (calendarEvent.EndTime <= calendarEvent.StartTime)
+            throw new ArgumentException("End time must be after start time");
+
+        // Default all-day events
+        if (calendarEvent.IsAllDay && calendarEvent.EndTime == calendarEvent.StartTime)
+        {
+            calendarEvent.EndTime = calendarEvent.StartTime.Plus(Duration.FromHours(24));
+        }
+
+        calendarEvent.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync();
+
+        // Purge cache for affected months (old and new)
+        var oldStartMonth = oldStartTime.InUtc().Date;
+        var oldEndMonth = oldEndTime.InUtc().Date;
+        var newStartMonth = calendarEvent.StartTime.InUtc().Date;
+        var newEndMonth = calendarEvent.EndTime.InUtc().Date;
+
+        PurgeCalendarEventCache(accountId, oldStartMonth.Year, oldStartMonth.Month);
+        if (oldStartMonth.Month != oldEndMonth.Month || oldStartMonth.Year != oldEndMonth.Year)
+        {
+            PurgeCalendarEventCache(accountId, oldEndMonth.Year, oldEndMonth.Month);
+        }
+
+        if (newStartMonth.Year != oldStartMonth.Year || newStartMonth.Month != oldStartMonth.Month)
+        {
+            PurgeCalendarEventCache(accountId, newStartMonth.Year, newStartMonth.Month);
+        }
+        if ((newEndMonth.Year != oldEndMonth.Year || newEndMonth.Month != oldEndMonth.Month) &&
+            (newEndMonth.Year != newStartMonth.Year || newEndMonth.Month != newStartMonth.Month))
+        {
+            PurgeCalendarEventCache(accountId, newEndMonth.Year, newEndMonth.Month);
+        }
+
+        return calendarEvent;
+    }
+
+    public async Task<bool> DeleteCalendarEventAsync(Guid accountId, Guid eventId)
+    {
+        var calendarEvent = await db.UserCalendarEvents
+            .Where(e => e.Id == eventId && e.DeletedAt == null)
+            .FirstOrDefaultAsync();
+
+        if (calendarEvent == null)
+            return false;
+
+        if (calendarEvent.AccountId != accountId)
+            throw new UnauthorizedAccessException("Calendar event does not belong to user");
+
+        calendarEvent.DeletedAt = SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync();
+
+        // Purge cache
+        var startMonth = calendarEvent.StartTime.InUtc().Date;
+        var endMonth = calendarEvent.EndTime.InUtc().Date;
+        PurgeCalendarEventCache(accountId, startMonth.Year, startMonth.Month);
+        if (startMonth.Month != endMonth.Month || startMonth.Year != endMonth.Year)
+        {
+            PurgeCalendarEventCache(accountId, endMonth.Year, endMonth.Month);
+        }
+
+        return true;
+    }
+
+    public async Task<SnUserCalendarEvent?> GetCalendarEventAsync(Guid eventId, Guid? viewerId = null)
+    {
+        var calendarEvent = await db.UserCalendarEvents
+            .Where(e => e.Id == eventId && e.DeletedAt == null)
+            .FirstOrDefaultAsync();
+
+        if (calendarEvent == null)
+            return null;
+
+        // Check visibility
+        if (viewerId.HasValue && viewerId.Value != calendarEvent.AccountId)
+        {
+            var isVisible = await IsEventVisibleToUserAsync(calendarEvent, viewerId.Value);
+            if (!isVisible)
+                return null;
+        }
+
+        return calendarEvent;
+    }
+
+    public async Task<(List<SnUserCalendarEvent>, int)> GetUserCalendarEventsAsync(
+        Guid accountId,
+        Guid? viewerId = null,
+        Instant? startTime = null,
+        Instant? endTime = null,
+        int offset = 0,
+        int take = 50)
+    {
+        var isOwner = viewerId == accountId;
+
+        var query = db.UserCalendarEvents
+            .Where(e => e.AccountId == accountId && e.DeletedAt == null);
+
+        // Apply visibility filter if viewer is not the owner
+        if (!isOwner && viewerId.HasValue)
+        {
+            query = query.Where(e => e.Visibility == EventVisibility.Public ||
+                                     e.Visibility == EventVisibility.Friends);
+        }
+        else if (!isOwner)
+        {
+            // Anonymous viewer - only public events
+            query = query.Where(e => e.Visibility == EventVisibility.Public);
+        }
+
+        // Apply time range filter
+        if (startTime.HasValue)
+            query = query.Where(e => e.EndTime >= startTime.Value);
+
+        if (endTime.HasValue)
+            query = query.Where(e => e.StartTime <= endTime.Value);
+
+        var totalCount = await query.CountAsync();
+
+        var events = await query
+            .OrderBy(e => e.StartTime)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        // For Friends visibility, we need to check if viewer is actually a friend
+        if (!isOwner && viewerId.HasValue)
+        {
+            var friendIds = await db.AccountRelationships
+                .Where(r => r.AccountId == accountId &&
+                           r.RelatedId == viewerId.Value &&
+                           r.Status == RelationshipStatus.Friends)
+                .Select(r => r.RelatedId)
+                .ToListAsync();
+
+            var isFriend = friendIds.Contains(viewerId.Value);
+
+            // Filter out Friends-only events if not a friend
+            events = events.Where(e =>
+                e.Visibility == EventVisibility.Public ||
+                (e.Visibility == EventVisibility.Friends && isFriend)
+            ).ToList();
+        }
+
+        return (events, totalCount);
+    }
+
+    private async Task<bool> IsEventVisibleToUserAsync(SnUserCalendarEvent calendarEvent, Guid viewerId)
+    {
+        if (calendarEvent.AccountId == viewerId)
+            return true;
+
+        if (calendarEvent.Visibility == EventVisibility.Public)
+            return true;
+
+        if (calendarEvent.Visibility == EventVisibility.Friends)
+        {
+            // Check if viewer is a friend
+            var isFriend = await db.AccountRelationships
+                .AnyAsync(r => r.AccountId == calendarEvent.AccountId &&
+                              r.RelatedId == viewerId &&
+                              r.Status == RelationshipStatus.Friends);
+            return isFriend;
+        }
+
+        return false;
+    }
+
+    private List<SnUserCalendarEvent> ExpandRecurringEvents(
+        List<SnUserCalendarEvent> events,
+        Instant rangeStart,
+        Instant rangeEnd)
+    {
+        var expandedEvents = new List<SnUserCalendarEvent>();
+
+        foreach (var evt in events)
+        {
+            if (evt.Recurrence == null || evt.Recurrence.Frequency == RecurrenceFrequency.None)
+            {
+                // Non-recurring event - check if in range
+                if (evt.EndTime >= rangeStart && evt.StartTime <= rangeEnd)
+                {
+                    expandedEvents.Add(evt);
+                }
+                continue;
+            }
+
+            // Expand recurring events
+            var occurrences = GetRecurringEventOccurrences(evt, rangeStart, rangeEnd);
+            expandedEvents.AddRange(occurrences);
+        }
+
+        return expandedEvents;
+    }
+
+    private List<SnUserCalendarEvent> GetRecurringEventOccurrences(
+        SnUserCalendarEvent evt,
+        Instant rangeStart,
+        Instant rangeEnd)
+    {
+        var occurrences = new List<SnUserCalendarEvent>();
+        var recurrence = evt.Recurrence!;
+
+        var maxOccurrences = recurrence.Occurrences ?? 365; // Default max 1 year of daily events
+        var endDate = recurrence.EndDate ?? rangeEnd;
+        var actualEnd = Instant.Min(endDate, rangeEnd);
+
+        var currentStart = evt.StartTime;
+        var currentEnd = evt.EndTime;
+        var occurrenceCount = 0;
+
+        while (currentStart < actualEnd && occurrenceCount < maxOccurrences)
+        {
+            // Check if this occurrence falls within the range
+            if (currentEnd >= rangeStart && currentStart <= rangeEnd)
+            {
+                var occurrence = new SnUserCalendarEvent
+                {
+                    Id = evt.Id,
+                    Title = evt.Title,
+                    Description = evt.Description,
+                    Location = evt.Location,
+                    StartTime = currentStart,
+                    EndTime = currentEnd,
+                    IsAllDay = evt.IsAllDay,
+                    Visibility = evt.Visibility,
+                    Recurrence = null, // Mark as instance, not recurring
+                    Meta = evt.Meta,
+                    AccountId = evt.AccountId,
+                    CreatedAt = evt.CreatedAt,
+                    UpdatedAt = evt.UpdatedAt
+                };
+                occurrences.Add(occurrence);
+            }
+
+            occurrenceCount++;
+
+            // Calculate next occurrence
+            (currentStart, currentEnd) = CalculateNextOccurrence(
+                currentStart, currentEnd, recurrence);
+
+            if (currentStart == default)
+                break;
+        }
+
+        return occurrences;
+    }
+
+    private (Instant start, Instant end) CalculateNextOccurrence(
+        Instant currentStart,
+        Instant currentEnd,
+        RecurrencePattern recurrence)
+    {
+        var duration = currentEnd - currentStart;
+        Instant nextStart;
+
+        switch (recurrence.Frequency)
+        {
+            case RecurrenceFrequency.Daily:
+                nextStart = currentStart.Plus(Duration.FromDays(recurrence.Interval));
+                break;
+
+            case RecurrenceFrequency.Weekly:
+                if (recurrence.DaysOfWeek?.Any() == true)
+                {
+                    // Find next day of week
+                    var currentDay = currentStart.InUtc().DayOfWeek;
+                    var daysOfWeek = recurrence.DaysOfWeek.OrderBy(d => d).ToList();
+
+                    // Find next day in the list
+                    var nextDay = daysOfWeek.FirstOrDefault(d => d > currentDay);
+                    if (nextDay == default)
+                    {
+                        // Wrap to next week
+                        nextDay = daysOfWeek.First();
+                        var daysUntilNext = (7 - (int)currentDay) + (int)nextDay;
+                        nextStart = currentStart.Plus(Duration.FromDays(daysUntilNext));
+                    }
+                    else
+                    {
+                        var daysUntilNext = (int)nextDay - (int)currentDay;
+                        nextStart = currentStart.Plus(Duration.FromDays(daysUntilNext));
+                    }
+                }
+                else
+                {
+                    nextStart = currentStart.Plus(Duration.FromDays(7 * recurrence.Interval));
+                }
+                break;
+
+            case RecurrenceFrequency.Monthly:
+                var currentDate = currentStart.InUtc().Date;
+                var nextMonth = currentDate.PlusMonths(recurrence.Interval);
+                var dayOfMonth = recurrence.DayOfMonth ?? currentDate.Day;
+                var maxDay = DateTime.DaysInMonth(nextMonth.Year, nextMonth.Month);
+                dayOfMonth = Math.Min(dayOfMonth, maxDay);
+                var nextLocalDate = new LocalDate(nextMonth.Year, nextMonth.Month, dayOfMonth);
+                nextStart = nextLocalDate.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+                break;
+
+            case RecurrenceFrequency.Yearly:
+                var currentYearDate = currentStart.InUtc().Date;
+                var nextYear = currentYearDate.PlusYears(recurrence.Interval);
+                var targetMonth = recurrence.MonthOfYear ?? currentYearDate.Month;
+                var targetDay = recurrence.DayOfMonth ?? currentYearDate.Day;
+                var maxDayOfMonth = DateTime.DaysInMonth(nextYear.Year, targetMonth);
+                targetDay = Math.Min(targetDay, maxDayOfMonth);
+                var nextYearLocalDate = new LocalDate(nextYear.Year, targetMonth, targetDay);
+                nextStart = nextYearLocalDate.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+                break;
+
+            default:
+                return (default, default);
+        }
+
+        var nextEnd = nextStart.Plus(duration);
+        return (nextStart, nextEnd);
+    }
+
+    public async Task<List<DailyEventResponse>> GetEventCalendar(
+        SnAccount user,
+        int month,
+        int year = 0,
+        bool replaceInvisible = false,
+        Guid? viewerId = null,
+        string? regionCode = null)
+    {
+        if (year == 0)
+            year = SystemClock.Instance.GetCurrentInstant().InUtc().Date.Year;
+
+        // Create start and end dates for the specified month
+        var startOfMonth = new LocalDate(year, month, 1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+        var endOfMonth = startOfMonth.Plus(Duration.FromDays(DateTime.DaysInMonth(year, month)));
+
+        // Determine the effective viewer
+        var effectiveViewerId = viewerId ?? user.Id;
+        var isOwner = effectiveViewerId == user.Id;
+
+        // Fetch statuses
+        var statuses = await db.AccountStatuses
+            .AsNoTracking()
+            .TagWith("eventcal:statuses")
+            .Where(x => x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth)
+            .Select(x => new SnAccountStatus
+            {
+                Id = x.Id,
+                Attitude = x.Attitude,
+                Type = replaceInvisible && x.Type == StatusType.Invisible ? StatusType.Default : x.Type,
+                Label = x.Label,
+                Symbol = x.Symbol,
+                ClearedAt = x.ClearedAt,
+                AccountId = x.AccountId,
+                CreatedAt = x.CreatedAt
+            })
+            .OrderBy(x => x.CreatedAt)
+            .ToListAsync();
+
+        // Fetch check-ins
+        var checkIn = await db.AccountCheckInResults
+            .AsNoTracking()
+            .TagWith("eventcal:checkin")
+            .Where(x => x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth)
+            .ToListAsync();
+
+        // Fetch user calendar events with visibility filtering
+        var userEventsQuery = db.UserCalendarEvents
+            .AsNoTracking()
+            .TagWith("eventcal:userevents")
+            .Where(x => x.AccountId == user.Id &&
+                       x.DeletedAt == null &&
+                       x.EndTime >= startOfMonth &&
+                       x.StartTime < endOfMonth);
+
+        // Apply visibility filter
+        if (!isOwner)
+        {
+            userEventsQuery = userEventsQuery.Where(x =>
+                x.Visibility == EventVisibility.Public ||
+                x.Visibility == EventVisibility.Friends);
+        }
+
+        var userEvents = await userEventsQuery.ToListAsync();
+
+        // For Friends visibility, check friendship status
+        if (!isOwner)
+        {
+            var isFriend = await db.AccountRelationships
+                .AnyAsync(r => r.AccountId == user.Id &&
+                              r.RelatedId == effectiveViewerId &&
+                              r.Status == RelationshipStatus.Friends);
+
+            userEvents = userEvents.Where(e =>
+                e.Visibility == EventVisibility.Public ||
+                (e.Visibility == EventVisibility.Friends && isFriend)
+            ).ToList();
+        }
+
+        // Expand recurring events
+        var expandedEvents = ExpandRecurringEvents(userEvents, startOfMonth, endOfMonth);
+
+        // Map to DTOs
+        var userEventDtos = expandedEvents.Select(e => new UserCalendarEventDto
+        {
+            Id = e.Id,
+            Title = e.Title,
+            Description = e.Description,
+            Location = e.Location,
+            StartTime = e.StartTime,
+            EndTime = e.EndTime,
+            IsAllDay = e.IsAllDay,
+            Visibility = e.Visibility,
+            Recurrence = e.Recurrence,
+            Meta = e.Meta,
+            AccountId = e.AccountId,
+            CreatedAt = e.CreatedAt,
+            UpdatedAt = e.UpdatedAt
+        }).ToList();
+
+        // Fetch notable days
+        var notableDays = new List<NotableDay>();
+        if (!string.IsNullOrWhiteSpace(regionCode))
+        {
+            // This will be populated by the caller using NotableDaysService
+            // We return empty here and the controller will merge
+        }
+
+        // Group data by date
+        var dates = Enumerable.Range(1, DateTime.DaysInMonth(year, month))
+            .Select(day => new LocalDate(year, month, day).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant())
+            .ToList();
+
+        var statusesByDate = statuses
+            .GroupBy(s => s.CreatedAt.InUtc().Date)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var checkInByDate = checkIn
+            .GroupBy(c => c.CreatedAt.InUtc().Date)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.CreatedAt).First());
+
+        var eventsByDate = userEventDtos
+            .GroupBy(e => e.StartTime.InUtc().Date)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        return dates.Select(date =>
+        {
+            var utcDate = date.InUtc().Date;
+            return new DailyEventResponse
+            {
+                Date = date,
+                CheckInResult = checkInByDate.GetValueOrDefault(utcDate),
+                Statuses = statusesByDate.GetValueOrDefault(utcDate, new List<SnAccountStatus>()),
+                UserEvents = eventsByDate.GetValueOrDefault(utcDate, new List<UserCalendarEventDto>()),
+                NotableDays = new List<DysonNetwork.Shared.Models.NotableDay>() // Populated by caller
+            };
+        }).ToList();
+    }
+
+    public async Task<MergedDailyEventResponse> GetMergedEventCalendar(
+        SnAccount user,
+        int month,
+        int year = 0,
+        bool replaceInvisible = false,
+        Guid? viewerId = null,
+        string? regionCode = null,
+        NotableDaysService? notableDaysService = null)
+    {
+        if (year == 0)
+            year = SystemClock.Instance.GetCurrentInstant().InUtc().Date.Year;
+
+        // Get the base calendar
+        var calendar = await GetEventCalendar(user, month, year, replaceInvisible, viewerId, regionCode);
+
+        // Fetch notable days if region code and service provided
+        var notableDays = new List<Shared.Models.NotableDay>();
+        if (!string.IsNullOrWhiteSpace(regionCode) && notableDaysService != null)
+        {
+            var fetchedDays = await notableDaysService.GetNotableDays(year, regionCode);
+            // Filter to current month
+            notableDays = fetchedDays
+                .Where(d => d.Date.InUtc().Month == month && d.Date.InUtc().Year == year)
+                .ToList();
+        }
+
+        // Group notable days by date
+        var notableDaysByDate = notableDays
+            .GroupBy(d => d.Date.InUtc().Date)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Create merged response
+        var mergedResponse = new MergedDailyEventResponse
+        {
+            Date = calendar.FirstOrDefault()?.Date ?? new LocalDate(year, month, 1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant(),
+            CheckInResult = calendar.FirstOrDefault()?.CheckInResult,
+            Statuses = calendar.SelectMany(c => c.Statuses).ToList(),
+            UserEvents = calendar.SelectMany(c => c.UserEvents).ToList(),
+            NotableDays = notableDays,
+            MergedEvents = new List<MergedCalendarEvent>()
+        };
+
+        // Merge all events into a flat list
+        var allMergedEvents = new List<MergedCalendarEvent>();
+
+        foreach (var day in calendar)
+        {
+            var utcDate = day.Date.InUtc().Date;
+
+            // Add check-in as merged event
+            if (day.CheckInResult != null)
+            {
+                allMergedEvents.Add(new MergedCalendarEvent
+                {
+                    Id = day.CheckInResult.Id,
+                    Type = CalendarEventType.CheckIn,
+                    Title = $"Check-in: {day.CheckInResult.Level}",
+                    Description = $"Daily check-in result: {day.CheckInResult.Level}",
+                    StartTime = day.CheckInResult.CreatedAt,
+                    EndTime = day.CheckInResult.CreatedAt,
+                    IsAllDay = true,
+                    Meta = new Dictionary<string, object>
+                    {
+                        ["level"] = day.CheckInResult.Level.ToString(),
+                        ["rewardPoints"] = day.CheckInResult.RewardPoints ?? 0,
+                        ["rewardExperience"] = day.CheckInResult.RewardExperience ?? 0
+                    }
+                });
+            }
+
+            // Add statuses as merged events
+            foreach (var status in day.Statuses)
+            {
+                allMergedEvents.Add(new MergedCalendarEvent
+                {
+                    Id = status.Id,
+                    Type = CalendarEventType.Status,
+                    Title = status.Label ?? "Status Update",
+                    Description = $"Status: {status.Attitude} - {status.Type}",
+                    StartTime = status.CreatedAt,
+                    EndTime = status.ClearedAt ?? status.CreatedAt.Plus(Duration.FromHours(24)),
+                    IsAllDay = false,
+                    Meta = new Dictionary<string, object>
+                    {
+                        ["attitude"] = status.Attitude.ToString(),
+                        ["type"] = status.Type.ToString(),
+                        ["symbol"] = status.Symbol ?? ""
+                    }
+                });
+            }
+
+            // Add user events as merged events
+            foreach (var evt in day.UserEvents)
+            {
+                allMergedEvents.Add(new MergedCalendarEvent
+                {
+                    Id = evt.Id,
+                    Type = CalendarEventType.UserEvent,
+                    Title = evt.Title,
+                    Description = evt.Description ?? "",
+                    Location = evt.Location,
+                    StartTime = evt.StartTime,
+                    EndTime = evt.EndTime,
+                    IsAllDay = evt.IsAllDay,
+                    Meta = evt.Meta ?? new Dictionary<string, object>()
+                });
+            }
+
+            // Add notable days
+            if (notableDaysByDate.TryGetValue(utcDate, out var days))
+            {
+                foreach (var notableDay in days)
+                {
+                    allMergedEvents.Add(new MergedCalendarEvent
+                    {
+                        Type = CalendarEventType.NotableDay,
+                        Title = notableDay.GlobalName ?? notableDay.LocalName ?? "Holiday",
+                        Description = notableDay.LocalName ?? "",
+                        StartTime = notableDay.Date,
+                        EndTime = notableDay.Date.Plus(Duration.FromHours(24)),
+                        IsAllDay = true,
+                        Meta = new Dictionary<string, object>
+                        {
+                            ["localName"] = notableDay.LocalName ?? "",
+                            ["countryCode"] = notableDay.CountryCode ?? "",
+                            ["holidayTypes"] = notableDay.Holidays.Select(h => h.ToString()).ToList()
+                        }
+                    });
+                }
+            }
+        }
+
+        mergedResponse.MergedEvents = allMergedEvents.OrderBy(e => e.StartTime).ToList();
+
+        return mergedResponse;
+    }
+
+    #endregion
 }

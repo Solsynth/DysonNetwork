@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Passport.Account;
@@ -12,7 +13,9 @@ namespace DysonNetwork.Passport.Account;
 public class AccountController(
     DyAuthService.DyAuthServiceClient auth,
     AccountService accounts,
-    AccountEventService events
+    AccountEventService events,
+    AppDatabase db,
+    NotableDaysService notableDaysService
 ) : ControllerBase
 {
     public class RecoveryPasswordRequest
@@ -96,6 +99,88 @@ public class AccountController(
     public async Task<ActionResult<List<DailyEventResponse>>> GetOtherEventCalendar(
         string name,
         [FromQuery] int? month,
+        [FromQuery] int? year,
+        [FromQuery] bool includeNotableDays = false
+    )
+    {
+        var currentDate = SystemClock.Instance.GetCurrentInstant().InUtc().Date;
+        month ??= currentDate.Month;
+        year ??= currentDate.Year;
+
+        if (month is < 1 or > 12)
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(month)] = new[] { "Month must be between 1 and 12." }
+            }, traceId: HttpContext.TraceIdentifier));
+        if (year < 1)
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                [nameof(year)] = new[] { "Year must be a positive integer." }
+            }, traceId: HttpContext.TraceIdentifier));
+
+        var account = await accounts.LookupAccount(name);
+        if (account is null)
+            return BadRequest(new ApiError
+            {
+                Code = "not_found",
+                Message = "Account not found.",
+                Detail = name,
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
+
+        // Get viewer ID from current user if authenticated
+        Guid? viewerId = null;
+        if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
+        {
+            viewerId = currentUser.Id;
+        }
+
+        // Get region code for notable days
+        string? regionCode = null;
+        if (includeNotableDays)
+        {
+            var profile = await db.AccountProfiles
+                .Where(p => p.AccountId == account.Id)
+                .Select(p => new { p.Location })
+                .FirstOrDefaultAsync();
+            regionCode = profile?.Location;
+        }
+
+        var calendar = await events.GetEventCalendar(
+            account,
+            month.Value,
+            year.Value,
+            replaceInvisible: true,
+            viewerId,
+            includeNotableDays ? regionCode : null);
+
+        // Add notable days if requested
+        if (includeNotableDays && !string.IsNullOrWhiteSpace(regionCode))
+        {
+            var notableDays = await notableDaysService.GetNotableDays(year.Value, regionCode);
+            var notableDaysByDate = notableDays
+                .Where(d => d.Date.InUtc().Month == month.Value && d.Date.InUtc().Year == year.Value)
+                .GroupBy(d => d.Date.InUtc().Date)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var day in calendar)
+            {
+                var utcDate = day.Date.InUtc().Date;
+                if (notableDaysByDate.TryGetValue(utcDate, out var days))
+                {
+                    day.NotableDays = days;
+                }
+            }
+        }
+
+        return Ok(calendar);
+    }
+
+    [HttpGet("{name}/calendar/merged")]
+    public async Task<ActionResult<MergedDailyEventResponse>> GetOtherMergedEventCalendar(
+        string name,
+        [FromQuery] int? month,
         [FromQuery] int? year
     )
     {
@@ -125,7 +210,29 @@ public class AccountController(
                 TraceId = HttpContext.TraceIdentifier
             });
 
-        var calendar = await events.GetEventCalendar(account, month.Value, year.Value, replaceInvisible: true);
+        // Get viewer ID from current user if authenticated
+        Guid? viewerId = null;
+        if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
+        {
+            viewerId = currentUser.Id;
+        }
+
+        // Get region code for notable days
+        var profile = await db.AccountProfiles
+            .Where(p => p.AccountId == account.Id)
+            .Select(p => new { p.Location })
+            .FirstOrDefaultAsync();
+        var regionCode = profile?.Location;
+
+        var calendar = await events.GetMergedEventCalendar(
+            account,
+            month.Value,
+            year.Value,
+            replaceInvisible: true,
+            viewerId,
+            regionCode,
+            notableDaysService);
+
         return Ok(calendar);
     }
 
