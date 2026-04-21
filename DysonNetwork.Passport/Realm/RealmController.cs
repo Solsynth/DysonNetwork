@@ -382,6 +382,25 @@ public class RealmController(
         return Ok(await rs.LoadMemberAccount(member));
     }
 
+    [HttpDelete("{slug}/members/me/profile")]
+    [Authorize]
+    public async Task<ActionResult<SnRealmMember>> DeleteCurrentIdentity(string slug)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+
+        var member = await rs.GetActiveMember(realm.Id, currentUser.Id);
+        if (member is null) return NotFound();
+
+        member.Nick = null;
+        member.Bio = null;
+        await db.SaveChangesAsync();
+
+        return Ok(await rs.LoadMemberAccount(member));
+    }
+
     [HttpGet("{slug}/labels")]
     public async Task<ActionResult<List<SnRealmLabel>>> ListLabels(string slug)
     {
