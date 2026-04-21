@@ -174,7 +174,7 @@ public class RealmService(
             .Include(m => m.Realm)
             .Where(m => groupedRealmIds.Contains(m.RealmId))
             .Where(m => accountIds.Contains(m.AccountId))
-            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+            .Where(m => m.LeaveAt == null)
             .ToListAsync();
         var dbMemberMap = dbMembers.ToDictionary(m => (m.RealmId, m.AccountId), m => m);
 
