@@ -817,10 +817,14 @@ public class PublisherController(
         return Ok(feature);
     }
 
-    [HttpDelete("{name}/features/{flag}")]
+    [HttpDelete("{name}/features/{flag?}")]
     [Authorize]
-    public async Task<ActionResult> RemovePublisherFeature(string name, string flag)
+    public async Task<ActionResult> RemovePublisherFeature(string name, string? flag, [FromQuery] string? f)
     {
+        flag ??= f;
+        if (string.IsNullOrEmpty(flag))
+            return BadRequest("Flag is required");
+
         var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
