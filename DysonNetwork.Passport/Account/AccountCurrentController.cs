@@ -418,13 +418,9 @@ public class AccountCurrentController(
                 [nameof(year)] = new[] { "Year must be a positive integer." }
             }, traceId: HttpContext.TraceIdentifier));
 
-        // Get user's profile for region code
-        var profile = await db.AccountProfiles
-            .Where(p => p.AccountId == currentUser.Id)
-            .Select(p => new { p.Location })
-            .FirstOrDefaultAsync();
-
-        var regionCode = profile?.Location;
+        // Use user's region with fallback to "us"
+        var regionCode = currentUser.Region;
+        if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
 
         var calendar = await events.GetEventCalendar(
             currentUser,
@@ -435,7 +431,7 @@ public class AccountCurrentController(
             includeNotableDays ? regionCode : null);
 
         // If notable days were requested and we have a region code, fetch them
-        if (includeNotableDays && !string.IsNullOrWhiteSpace(regionCode) && notableDaysService != null)
+        if (includeNotableDays && notableDaysService != null)
         {
             var notableDays = await notableDaysService.GetNotableDays(year.Value, regionCode);
             var notableDaysByDate = notableDays
@@ -479,13 +475,9 @@ public class AccountCurrentController(
                 [nameof(year)] = new[] { "Year must be a positive integer." }
             }, traceId: HttpContext.TraceIdentifier));
 
-        // Get user's profile for region code
-        var profile = await db.AccountProfiles
-            .Where(p => p.AccountId == currentUser.Id)
-            .Select(p => new { p.Location })
-            .FirstOrDefaultAsync();
-
-        var regionCode = profile?.Location;
+        // Use user's region with fallback to "us"
+        var regionCode = currentUser.Region;
+        if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
 
         var calendar = await events.GetMergedEventCalendar(
             currentUser,
@@ -600,6 +592,28 @@ public class AccountCurrentController(
             return NotFound(ApiError.NotFound("calendar event", traceId: HttpContext.TraceIdentifier));
 
         return NoContent();
+    }
+
+    [HttpGet("calendar/countdown")]
+    [ProducesResponseType<List<EventCountdownItem>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<EventCountdownItem>>> GetCountdown(
+        [FromQuery] int take = 5,
+        [FromServices] NotableDaysService? notableDaysService = null)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        // Use user's region with fallback to "us"
+        var regionCode = currentUser.Region;
+        if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
+
+        var countdownItems = await events.GetUpcomingEventsAsync(
+            currentUser,
+            currentUser.Id,
+            regionCode,
+            notableDaysService,
+            take);
+
+        return Ok(countdownItems);
     }
 
     #endregion

@@ -136,16 +136,9 @@ public class AccountController(
             viewerId = currentUser.Id;
         }
 
-        // Get region code for notable days
-        string? regionCode = null;
-        if (includeNotableDays)
-        {
-            var profile = await db.AccountProfiles
-                .Where(p => p.AccountId == account.Id)
-                .Select(p => new { p.Location })
-                .FirstOrDefaultAsync();
-            regionCode = profile?.Location;
-        }
+        // Use account's region with fallback to "us"
+        var regionCode = account.Region;
+        if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
 
         var calendar = await events.GetEventCalendar(
             account,
@@ -156,7 +149,7 @@ public class AccountController(
             includeNotableDays ? regionCode : null);
 
         // Add notable days if requested
-        if (includeNotableDays && !string.IsNullOrWhiteSpace(regionCode))
+        if (includeNotableDays)
         {
             var notableDays = await notableDaysService.GetNotableDays(year.Value, regionCode);
             var notableDaysByDate = notableDays
@@ -217,12 +210,9 @@ public class AccountController(
             viewerId = currentUser.Id;
         }
 
-        // Get region code for notable days
-        var profile = await db.AccountProfiles
-            .Where(p => p.AccountId == account.Id)
-            .Select(p => new { p.Location })
-            .FirstOrDefaultAsync();
-        var regionCode = profile?.Location;
+        // Use account's region with fallback to "us"
+        var regionCode = account.Region;
+        if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
 
         var calendar = await events.GetMergedEventCalendar(
             account,
@@ -234,6 +224,43 @@ public class AccountController(
             notableDaysService);
 
         return Ok(calendar);
+    }
+
+    [HttpGet("{name}/calendar/countdown")]
+    public async Task<ActionResult<List<EventCountdownItem>>> GetOtherCountdown(
+        string name,
+        [FromQuery] int take = 5)
+    {
+        var account = await accounts.LookupAccount(name);
+        if (account is null)
+            return BadRequest(new ApiError
+            {
+                Code = "not_found",
+                Message = "Account not found.",
+                Detail = name,
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
+
+        // Get viewer ID from current user if authenticated
+        Guid? viewerId = null;
+        if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
+        {
+            viewerId = currentUser.Id;
+        }
+
+        // Use account's region with fallback to "us"
+        var regionCode = account.Region;
+        if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
+
+        var countdownItems = await events.GetUpcomingEventsAsync(
+            account,
+            viewerId,
+            regionCode,
+            notableDaysService,
+            take);
+
+        return Ok(countdownItems);
     }
 
     [HttpGet("{name}/timeline")]

@@ -391,3 +391,23 @@ public class UpdateCalendarEventRequest
     public RecurrencePattern? Recurrence { get; set; }
     public Dictionary<string, object>? Meta { get; set; }
 }
+
+/// <summary>
+/// Countdown item for upcoming events
+/// </summary>
+public class EventCountdownItem
+{
+    public Guid? EventId { get; set; }
+    public CalendarEventType EventType { get; set; }
+    public string Title { get; set; } = null!;
+    public string? Description { get; set; }
+    public string? Location { get; set; }
+    public Instant StartTime { get; set; }
+    public Instant EndTime { get; set; }
+    public bool IsAllDay { get; set; }
+    public int DaysRemaining { get; set; }
+    public int HoursRemaining { get; set; }
+    public bool IsOngoing { get; set; }
+    public Dictionary<string, object>? Meta { get; set; }
+    public Guid? AccountId { get; set; }
+}

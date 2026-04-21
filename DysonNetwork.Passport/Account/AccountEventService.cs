@@ -1455,5 +1455,226 @@ public class AccountEventService(
         return mergedResponse;
     }
 
+    /// <summary>
+    /// Gets upcoming events for countdown, including user events and notable days.
+    /// No time limit - includes all future events.
+    /// </summary>
+    public async Task<List<EventCountdownItem>> GetUpcomingEventsAsync(
+        SnAccount user,
+        Guid? viewerId = null,
+        string? regionCode = null,
+        NotableDaysService? notableDaysService = null,
+        int take = 5)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var isOwner = viewerId == user.Id;
+
+        // Get user events (respecting visibility)
+        var userEventsQuery = db.UserCalendarEvents
+            .AsNoTracking()
+            .Where(e => e.AccountId == user.Id &&
+                       e.DeletedAt == null &&
+                       e.EndTime > now);
+
+        if (!isOwner && viewerId.HasValue)
+        {
+            userEventsQuery = userEventsQuery.Where(e =>
+                e.Visibility == EventVisibility.Public ||
+                e.Visibility == EventVisibility.Friends);
+        }
+        else if (!isOwner)
+        {
+            userEventsQuery = userEventsQuery.Where(e =>
+                e.Visibility == EventVisibility.Public);
+        }
+
+        var userEvents = await userEventsQuery.ToListAsync();
+
+        // Check friendship for Friends visibility
+        bool isFriend = false;
+        if (!isOwner && viewerId.HasValue)
+        {
+            isFriend = await db.AccountRelationships
+                .AnyAsync(r => r.AccountId == user.Id &&
+                              r.RelatedId == viewerId.Value &&
+                              r.Status == RelationshipStatus.Friends);
+
+            if (!isFriend)
+            {
+                userEvents = userEvents
+                    .Where(e => e.Visibility == EventVisibility.Public)
+                    .ToList();
+            }
+        }
+
+        // Expand recurring events
+        var expandedUserEvents = ExpandRecurringEventsForCountdown(userEvents, now);
+
+        // Get notable days if region code provided
+        var notableDayItems = new List<EventCountdownItem>();
+        if (!string.IsNullOrWhiteSpace(regionCode) && notableDaysService != null)
+        {
+            var currentYear = now.InUtc().Year;
+            // Get holidays for current year and next few years to cover future events
+            var holidays = await notableDaysService.GetNotableDays(currentYear, regionCode);
+            holidays.AddRange(await notableDaysService.GetNotableDays(currentYear + 1, regionCode));
+            holidays.AddRange(await notableDaysService.GetNotableDays(currentYear + 2, regionCode));
+
+            notableDayItems = holidays
+                .Where(h => h.Date > now)
+                .Select(h => CreateCountdownItemFromNotableDay(h, now))
+                .ToList();
+        }
+
+        // Combine and sort all events
+        var allEvents = expandedUserEvents
+            .Select(e => CreateCountdownItemFromUserEvent(e, now))
+            .Concat(notableDayItems)
+            .OrderBy(e => e.StartTime)
+            .Take(take)
+            .ToList();
+
+        return allEvents;
+    }
+
+    private List<SnUserCalendarEvent> ExpandRecurringEventsForCountdown(
+        List<SnUserCalendarEvent> events,
+        Instant fromTime)
+    {
+        var expandedEvents = new List<SnUserCalendarEvent>();
+
+        foreach (var evt in events)
+        {
+            if (evt.Recurrence == null || evt.Recurrence.Frequency == RecurrenceFrequency.None)
+            {
+                // Non-recurring event - include if in future
+                if (evt.EndTime > fromTime)
+                {
+                    expandedEvents.Add(evt);
+                }
+                continue;
+            }
+
+            // Expand recurring events for countdown (next 10 occurrences max)
+            var occurrences = GetRecurringEventOccurrencesForCountdown(evt, fromTime, 10);
+            expandedEvents.AddRange(occurrences);
+        }
+
+        return expandedEvents;
+    }
+
+    private List<SnUserCalendarEvent> GetRecurringEventOccurrencesForCountdown(
+        SnUserCalendarEvent evt,
+        Instant fromTime,
+        int maxOccurrences)
+    {
+        var occurrences = new List<SnUserCalendarEvent>();
+        var recurrence = evt.Recurrence!;
+
+        var maxOccurrencesLimit = recurrence.Occurrences ?? maxOccurrences;
+        var endDate = recurrence.EndDate;
+
+        var currentStart = evt.StartTime;
+        var currentEnd = evt.EndTime;
+        var occurrenceCount = 0;
+
+        // Skip past occurrences
+        while (currentEnd <= fromTime && occurrenceCount < maxOccurrencesLimit)
+        {
+            occurrenceCount++;
+            (currentStart, currentEnd) = CalculateNextOccurrence(currentStart, currentEnd, recurrence);
+            if (currentStart == default) break;
+            if (endDate.HasValue && currentStart > endDate.Value) break;
+        }
+
+        // Generate future occurrences
+        while (occurrenceCount < maxOccurrencesLimit &&
+               occurrenceCount < maxOccurrences &&
+               (!endDate.HasValue || currentStart <= endDate.Value))
+        {
+            if (currentEnd > fromTime)
+            {
+                var occurrence = new SnUserCalendarEvent
+                {
+                    Id = evt.Id,
+                    Title = evt.Title,
+                    Description = evt.Description,
+                    Location = evt.Location,
+                    StartTime = currentStart,
+                    EndTime = currentEnd,
+                    IsAllDay = evt.IsAllDay,
+                    Visibility = evt.Visibility,
+                    Recurrence = null,
+                    Meta = evt.Meta,
+                    AccountId = evt.AccountId,
+                    CreatedAt = evt.CreatedAt,
+                    UpdatedAt = evt.UpdatedAt
+                };
+                occurrences.Add(occurrence);
+            }
+
+            occurrenceCount++;
+            (currentStart, currentEnd) = CalculateNextOccurrence(currentStart, currentEnd, recurrence);
+            if (currentStart == default) break;
+        }
+
+        return occurrences;
+    }
+
+    private EventCountdownItem CreateCountdownItemFromUserEvent(SnUserCalendarEvent evt, Instant now)
+    {
+        var timeUntil = evt.StartTime - now;
+        var daysRemaining = (int)timeUntil.TotalDays;
+        var hoursRemaining = (int)timeUntil.TotalHours % 24;
+        var isOngoing = evt.StartTime <= now && evt.EndTime > now;
+
+        return new EventCountdownItem
+        {
+            EventId = evt.Id,
+            EventType = CalendarEventType.UserEvent,
+            Title = evt.Title,
+            Description = evt.Description,
+            Location = evt.Location,
+            StartTime = evt.StartTime,
+            EndTime = evt.EndTime,
+            IsAllDay = evt.IsAllDay,
+            DaysRemaining = Math.Max(0, daysRemaining),
+            HoursRemaining = Math.Max(0, hoursRemaining),
+            IsOngoing = isOngoing,
+            Meta = evt.Meta,
+            AccountId = evt.AccountId
+        };
+    }
+
+    private EventCountdownItem CreateCountdownItemFromNotableDay(DysonNetwork.Shared.Models.NotableDay day, Instant now)
+    {
+        var timeUntil = day.Date - now;
+        var daysRemaining = (int)timeUntil.TotalDays;
+        var hoursRemaining = (int)timeUntil.TotalHours % 24;
+        var isOngoing = day.Date.InUtc().Date == now.InUtc().Date;
+
+        return new EventCountdownItem
+        {
+            EventId = null,
+            EventType = CalendarEventType.NotableDay,
+            Title = day.GlobalName ?? day.LocalName ?? "Holiday",
+            Description = day.LocalName,
+            Location = null,
+            StartTime = day.Date,
+            EndTime = day.Date.Plus(Duration.FromHours(24)),
+            IsAllDay = true,
+            DaysRemaining = Math.Max(0, daysRemaining),
+            HoursRemaining = Math.Max(0, hoursRemaining),
+            IsOngoing = isOngoing,
+            Meta = new Dictionary<string, object>
+            {
+                ["localName"] = day.LocalName ?? "",
+                ["countryCode"] = day.CountryCode ?? "",
+                ["holidayTypes"] = day.Holidays.Select(h => h.ToString()).ToList()
+            },
+            AccountId = null
+        };
+    }
+
     #endregion
 }
