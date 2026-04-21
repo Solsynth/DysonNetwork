@@ -5,6 +5,11 @@ using NodaTime;
 
 namespace DysonNetwork.Passport.Account;
 
+public class InvalidRegionCodeException : Exception
+{
+    public InvalidRegionCodeException(string regionCode) : base($"Invalid or unknown region code: {regionCode}") { }
+}
+
 public static class NotableDayExtensions
 {
     public static DysonNetwork.Shared.Models.NotableDay FromNagerHoliday(PublicHoliday holiday)
@@ -47,9 +52,18 @@ public class NotableDaysService(ICacheService cache)
         }
 
         // If not in cache, fetch from API
-        using var holidayClient = new HolidayClient();
-        var holidays = await holidayClient.GetHolidaysAsync(year.Value, regionCode);
-        var days = holidays?.Select(NotableDayExtensions.FromNagerHoliday).ToList() ?? [];
+        List<DysonNetwork.Shared.Models.NotableDay> days = [];
+        try
+        {
+            using var holidayClient = new HolidayClient();
+            var holidays = await holidayClient.GetHolidaysAsync(year.Value, regionCode);
+            days = holidays?.Select(NotableDayExtensions.FromNagerHoliday).ToList() ?? [];
+        }
+        catch (HolidayClientException)
+        {
+            // Invalid or unknown region code - just use global holidays
+            days = [];
+        }
 
         // Add global holidays that are available for all regions
         var globalDays = GetGlobalHolidays(year.Value);
