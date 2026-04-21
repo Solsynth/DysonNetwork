@@ -17,6 +17,7 @@ public class TokenAuthService(
     OidcProvider.Services.OidcProviderService oidc,
     AuthTokenKeyProvider tokenKeyProvider,
     AuthJwtService authJwt,
+    RemoteSubscriptionService subscriptions,
     IConfiguration config
 ) 
 {
@@ -133,6 +134,9 @@ public class TokenAuthService(
                 (session.UserAgent ?? string.Empty).Length
             );
 
+            // Hydrate PerkLevel for the account
+            await HydratePerkAsync(session.Account);
+
             await cache.SetWithGroupsAsync(
                 cacheKey,
                 session.ToProtoValue(),
@@ -202,6 +206,30 @@ public class TokenAuthService(
         catch
         {
             return false;
+        }
+    }
+
+    private async Task HydratePerkAsync(SnAccount account)
+    {
+        try
+        {
+            var subscription = await subscriptions.GetPerkSubscription(account.Id);
+            if (subscription is null)
+            {
+                account.PerkSubscription = null;
+                account.PerkLevel = 0;
+                return;
+            }
+
+            var perk = SnWalletSubscription.FromProtoValue(subscription).ToReference();
+            account.PerkSubscription = perk;
+            account.PerkLevel = perk.PerkLevel;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to hydrate perk for account {AccountId}", account.Id);
+            account.PerkSubscription = null;
+            account.PerkLevel = 0;
         }
     }
 }
