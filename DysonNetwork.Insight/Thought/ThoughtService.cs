@@ -1349,7 +1349,14 @@ public class ThoughtService(
         chatHistoryBuilder.AppendLine("- 若用户正在延续之前的话题、提到'之前'、'上次'、'还记得吗'、偏好、习惯、关系感受，先 search_memory。");
         chatHistoryBuilder.AppendLine("- 若用户画像为空或过于粗糙，但当前对话提供了稳定新信息，使用 userProfile.update_user_profile 补全。");
         chatHistoryBuilder.AppendLine("- 若只是短期波动或瞬时情绪，不要过度修改长期画像。");
-        chatHistoryBuilder.AppendLine("- relationship 的变化要谨慎，只有在互动明显支持时才调整 favorability、trust、intimacy。");
+        chatHistoryBuilder.AppendLine();
+        chatHistoryBuilder.AppendLine("关系调整策略（重要）：");
+        chatHistoryBuilder.AppendLine("- 每次对话后，根据用户互动质量主动调整关系分数，使用 userProfile.adjust_relationship。");
+        chatHistoryBuilder.AppendLine("- 用户友好互动、分享个人信息、表达好感时，适当增加 favorability、trust、intimacy。");
+        chatHistoryBuilder.AppendLine("- 用户冷淡、敷衍、负面反馈时，适当降低关系分数。");
+        chatHistoryBuilder.AppendLine("- 小幅调整即可（±5 到 ±15），无需等到明显变化才调整。");
+        chatHistoryBuilder.AppendLine("- favorability、trust、intimacy 的取值范围是 -100 到 100。");
+        chatHistoryBuilder.AppendLine("- **关键：每次对话都应考虑调整关系，保持关系分数的动态更新。**");
         chatHistoryBuilder.AppendLine();
         chatHistoryBuilder.AppendLine("当且仅当存在有价值的信息时，你可以调用 store_memory 工具保存记忆。");
         chatHistoryBuilder.AppendLine("调用 store_memory 时：");
@@ -1364,9 +1371,7 @@ public class ThoughtService(
         chatHistoryBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
         chatHistoryBuilder.AppendLine("非常重要：在读取记忆后，认清楚记忆是不是属于该用户的，再做出答复。");
         chatHistoryBuilder.AppendLine("你可以使用 userProfile.get_user_profile 查看当前用户档案。");
-        chatHistoryBuilder.AppendLine(
-            "当你对用户形成更稳定的印象、关系判断、好感度变化或重要标签时，优先使用 userProfile.update_user_profile 或 userProfile.adjust_relationship 立即更新。");
-        chatHistoryBuilder.AppendLine("favorability、trust、intimacy 的取值范围是 -100 到 100。只有在确实有依据时才调整这些值。");
+        chatHistoryBuilder.AppendLine("当你对用户形成更稳定的印象、关系判断、好感度变化或重要标签时，优先使用 userProfile.update_user_profile 或 userProfile.adjust_relationship 立即更新。");
         chatHistoryBuilder.AppendLine();
         chatHistoryBuilder.AppendLine("当你需要获取最新信息、验证事实、了解不熟悉的主题、或用户询问需要实时数据的问题时，主动使用网络搜索。");
         chatHistoryBuilder.AppendLine();
