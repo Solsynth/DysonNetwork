@@ -1418,6 +1418,7 @@ public class ThoughtService(
         systemPromptBuilder.AppendLine("3. 不要主动建议接下来聊什么话题，让对话自然结束或等待用户发起新话题。");
         systemPromptBuilder.AppendLine("4. 你不需要帮助用户解决所有问题 - 有时候简单回应就够了。");
         systemPromptBuilder.AppendLine("5. 像正常人一样对话，可以有沉默、转移话题、或说不知道。");
+        systemPromptBuilder.AppendLine("6. 历史消息里可能包含 message_meta 时间标记，仅用于理解上下文时间先后；除非用户明确询问，不要在回复中复述时间戳或标签。");
         systemPromptBuilder.AppendLine();
         systemPromptBuilder.AppendLine("当你需要获取最新信息、验证事实、了解不熟悉的主题、或用户询问需要实时数据的问题时，主动使用网络搜索。");
 
@@ -1542,7 +1543,7 @@ public class ThoughtService(
             .ToList();
 
         var content = string.Join("\n", textParts.Select(p => p.Text ?? ""));
-        var timestampPrefix = $"[Time: {FormatThoughtTimestamp(thought.CreatedAt)}]";
+        var timestampMeta = $"<message_meta sent_at_utc=\"{FormatThoughtTimestamp(thought.CreatedAt)}\" />";
         if (attachmentFiles.Count > 0)
         {
             var attachmentContext = BuildAttachmentContextText(attachmentFiles, 8);
@@ -1556,9 +1557,10 @@ public class ThoughtService(
 
         if (thought.Role == ThinkingThoughtRole.User)
         {
-            builder.AddUserMessage(string.IsNullOrWhiteSpace(content)
-                ? timestampPrefix
-                : $"{timestampPrefix}\n{content}");
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                builder.AddUserMessage($"{content}\n{timestampMeta}");
+            }
             return;
         }
 
@@ -1572,8 +1574,8 @@ public class ThoughtService(
         }).ToList();
 
         var assistantContent = string.IsNullOrWhiteSpace(content)
-            ? timestampPrefix
-            : $"{timestampPrefix}\n{content}";
+            ? timestampMeta
+            : $"{content}\n{timestampMeta}";
 
         builder.AddAssistantMessage(assistantContent, agentToolCalls.Count > 0 ? agentToolCalls : null);
 
@@ -1713,6 +1715,7 @@ public class ThoughtService(
         systemPromptBuilder.AppendLine("3. 不要主动建议接下来聊什么话题，让对话自然结束或等待用户发起新话题。");
         systemPromptBuilder.AppendLine("4. 你不需要帮助用户解决所有问题 - 有时候简单回应就够了。");
         systemPromptBuilder.AppendLine("5. 像正常人一样对话，可以有沉默、转移话题、或说不知道。");
+        systemPromptBuilder.AppendLine("6. 历史消息里可能包含 message_meta 时间标记，仅用于理解上下文时间先后；除非用户明确询问，不要在回复中复述时间戳或标签。");
 
         var builder = new ConversationBuilder();
         builder.AddSystemMessage(systemPromptBuilder.ToString());
