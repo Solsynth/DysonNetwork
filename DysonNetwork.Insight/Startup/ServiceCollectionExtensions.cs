@@ -6,6 +6,7 @@ using DysonNetwork.Insight.Thought;
 using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.SnChan;
+using DysonNetwork.Insight.SnChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Insight.SnDoc;
 using DysonNetwork.Insight.Agent.Models;
@@ -120,6 +121,11 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<SnChanModelSelector>();
             services.AddSingleton<SnChanApiClient>();
             services.AddSingleton<SnChanPublisherService>();
+            services.AddScoped<SnChanPostPlugin>();
+            services.AddScoped<SnChanSwaggerPlugin>();
+            services.AddScoped<SnChanMoodPlugin>();
+            services.AddScoped<SnChanUserProfilePlugin>();
+            services.AddScoped<SnChanMemoryPlugin>();
 
             if (snChanConfig.ReplyMonitoring.Enabled)
             {
