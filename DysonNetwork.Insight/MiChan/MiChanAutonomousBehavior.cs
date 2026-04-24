@@ -13,7 +13,6 @@ using DysonNetwork.Shared.Models;
 using NodaTime;
 using NodaTime.Extensions;
 using DysonNetwork.Shared.Proto;
-using Microsoft.SemanticKernel;
 using PostPinMode = DysonNetwork.Shared.Models.PostPinMode;
 
 namespace DysonNetwork.Insight.MiChan;
@@ -24,7 +23,6 @@ public class MiChanAutonomousBehavior
     private readonly MiChanConfig _config;
     private readonly ILogger<MiChanAutonomousBehavior> _logger;
     private readonly SolarNetworkApiClient _apiClient;
-    private readonly MiChanKernelProvider _kernelProvider;
     private readonly IServiceProvider _serviceProvider;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly PostAnalysisService _postAnalysisService;
@@ -34,7 +32,6 @@ public class MiChanAutonomousBehavior
     private readonly IAgentToolRegistry _toolRegistry;
     private readonly FoundationChatStreamingService _streamingService;
     private readonly IMiChanFoundationProvider _foundationProvider;
-    private Kernel? _kernel;
 
     private readonly Random _random = new();
     private DateTime _lastActionTime = DateTime.MinValue;
@@ -62,7 +59,6 @@ public class MiChanAutonomousBehavior
         MiChanConfig config,
         ILogger<MiChanAutonomousBehavior> logger,
         SolarNetworkApiClient apiClient,
-        MiChanKernelProvider kernelProvider,
         IServiceProvider serviceProvider,
         IServiceScopeFactory scopeFactory,
         PostAnalysisService postAnalysisService,
@@ -78,7 +74,6 @@ public class MiChanAutonomousBehavior
         _config = config;
         _logger = logger;
         _apiClient = apiClient;
-        _kernelProvider = kernelProvider;
         _serviceProvider = serviceProvider;
         _scopeFactory = scopeFactory;
         _postAnalysisService = postAnalysisService;
@@ -95,10 +90,7 @@ public class MiChanAutonomousBehavior
 
     public Task InitializeAsync()
     {
-        _kernel = _kernelProvider.GetAutonomousKernel();
-
         _logger.LogInformation("MiChan autonomous behavior initialized");
-
         return Task.CompletedTask;
     }
 

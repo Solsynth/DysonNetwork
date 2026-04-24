@@ -1,7 +1,9 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using DysonNetwork.Insight.Agent.Foundation;
+using DysonNetwork.Insight.Agent.Foundation.Models;
+using DysonNetwork.Insight.Agent.Foundation.Providers;
 using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.Services;
 using DysonNetwork.Insight.MiChan.Plugins;
@@ -14,14 +16,10 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
 using NodaTime;
 using NodaTime.Extensions;
 using Pgvector;
 using Pgvector.EntityFrameworkCore;
-
-#pragma warning disable SKEXP0050
 
 namespace DysonNetwork.Insight.Thought;
 
@@ -42,6 +40,9 @@ public class ThoughtService(
     UserProfileService userProfileService,
     TokenCountingService tokenCounter,
     FreeQuotaService freeQuotaService,
+    FoundationChatStreamingService foundationStreamingService,
+    ISnChanFoundationProvider snChanFoundationProvider,
+    IMiChanFoundationProvider miChanFoundationProvider,
     ILogger<ThoughtService> logger,
     RemoteAccountService accounts,
     MoodService moodService
@@ -83,7 +84,9 @@ public class ThoughtService(
         Guid sequenceId,
         Guid accountId)
     {
+#pragma warning disable SKEXP0050
         return await thoughtProvider.MemorizeSequenceAsync(sequenceId, accountId);
+#pragma warning restore SKEXP0050
     }
 
     /// <summary>
@@ -1328,43 +1331,38 @@ public class ThoughtService(
 
     #region Topic Generation
 
-    [Experimental("SKEXP0050")]
     public async Task<string?> GenerateTopicAsync(string userMessage, bool useMiChan = false)
     {
         var promptBuilder = new StringBuilder();
         promptBuilder.AppendLine("你是一个乐于助人的的助手。请将用户的消息总结成一个简洁的话题标题（最多100个字符）。");
         promptBuilder.AppendLine("直接给出你总结的话题，不要添加额外的前缀或后缀。");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine($"用户消息：{userMessage}");
 
-        var summaryHistory = new ChatHistory(promptBuilder.ToString());
-        summaryHistory.AddUserMessage(userMessage);
-
-        Kernel? summaryKernel;
-        if (useMiChan)
+        try
         {
-            summaryKernel = miChanKernelProvider.GetKernel();
+            var provider = useMiChan 
+                ? miChanFoundationProvider.GetChatAdapter() 
+                : snChanFoundationProvider.GetChatAdapter();
+            var options = useMiChan
+                ? miChanFoundationProvider.CreateExecutionOptions()
+                : snChanFoundationProvider.CreateExecutionOptions();
+
+            var result = await foundationStreamingService.CompletePromptAsync(provider, promptBuilder.ToString(), options);
+            return result?[..Math.Min(result.Length, 4096)];
         }
-        else
+        catch (Exception ex)
         {
-            summaryKernel = thoughtProvider.GetKernel();
-        }
-
-        if (summaryKernel is null)
-        {
+            logger.LogError(ex, "Failed to generate topic");
             return null;
         }
-
-        var summaryResult = await summaryKernel
-            .GetRequiredService<IChatCompletionService>()
-            .GetChatMessageContentAsync(summaryHistory);
-
-        return summaryResult.Content?[..Math.Min(summaryResult.Content.Length, 4096)];
     }
 
     #endregion
 
-    #region Sn-chan Chat History Building
+    #region Sn-chan Conversation Building
 
-    public async Task<(ChatHistory chatHistory, bool useVisionKernel)> BuildSnChanChatHistoryAsync(
+    public async Task<(AgentConversation conversation, bool useVisionKernel)> BuildSnChanConversationAsync(
         SnThinkingSequence sequence,
         DyAccount currentUser,
         string? userMessage,
@@ -1373,20 +1371,12 @@ public class ThoughtService(
         List<string> acceptProposals,
         List<SnCloudFileReferenceObject> attachments)
     {
-        // Load personality from file or configuration
         var personalityFile = configuration.GetValue<string>("SnChan:PersonalityFile");
         var personalityConfig = configuration.GetValue<string>("SnChan:Personality") ?? "";
-        logger.LogInformation("SnChan config - PersonalityFile: '{PersonalityFile}', Personality config: '{PersonalityConfig}'", 
-            personalityFile, 
-            personalityConfig);
         var personality = PersonalityLoader.LoadPersonality(personalityFile, personalityConfig, logger);
-        logger.LogInformation("SnChan personality loaded ({Length} chars): {PersonalityPrefix}...", 
-            personality.Length, 
-            string.IsNullOrEmpty(personality) ? "(empty)" : personality[..Math.Min(personality.Length, 100)]);
 
         var snChanUserProfile = await userProfileService.GetOrCreateAsync(Guid.Parse(currentUser.Id), SnChanBotName);
 
-        // Build system prompt using StringBuilder
         var systemPromptBuilder = new StringBuilder();
         systemPromptBuilder.AppendLine(personality);
         systemPromptBuilder.AppendLine();
@@ -1423,12 +1413,12 @@ public class ThoughtService(
         systemPromptBuilder.AppendLine("当你需要获取最新信息、验证事实、了解不熟悉的主题、或用户询问需要实时数据的问题时，主动使用网络搜索。");
 
         var systemPromptFile = configuration.GetValue<string>("Thinking:SystemPromptFile");
-        var systemPrompt =
-            SystemPromptLoader.LoadSystemPrompt(systemPromptFile, systemPromptBuilder.ToString(), logger);
+        var systemPrompt = SystemPromptLoader.LoadSystemPrompt(systemPromptFile, systemPromptBuilder.ToString(), logger);
 
-        var chatHistory = new ChatHistory(systemPrompt);
+        var builder = new ConversationBuilder();
 
-        // Build proposals prompt using StringBuilder
+        builder.AddSystemMessage(systemPrompt);
+
         var proposalsBuilder = new StringBuilder();
         proposalsBuilder.AppendLine("你可以向用户发出一些提案，比如创建帖子。提案语法类似于 XML 标签，有一个属性指示是哪个提案。");
         proposalsBuilder.AppendLine("根据提案类型，payload（XML 标签内的内容）可能不同。");
@@ -1439,19 +1429,15 @@ public class ThoughtService(
         proposalsBuilder.AppendLine("1. post_create：body 接受简单字符串，为用户创建帖子。");
         proposalsBuilder.AppendLine();
         proposalsBuilder.AppendLine($"用户当前允许的提案：{string.Join(',', acceptProposals)}");
+        builder.AddSystemMessage(proposalsBuilder.ToString());
 
-        chatHistory.AddSystemMessage(proposalsBuilder.ToString());
-
-        // Build user info prompt
         var userInfoBuilder = new StringBuilder();
         userInfoBuilder.AppendLine($"你正在与 {currentUser.Nick} ({currentUser.Name}) 交谈，ID 是 {currentUser.Id}");
-        chatHistory.AddSystemMessage(userInfoBuilder.ToString());
+        builder.AddSystemMessage(userInfoBuilder.ToString());
 
-        // Add attached posts with content (similar to MiChan)
         if (attachedPosts is { Count: > 0 })
         {
             var postTexts = new List<string>();
-
             foreach (var postId in attachedPosts)
             {
                 try
@@ -1467,7 +1453,6 @@ public class ThoughtService(
                 }
             }
 
-            // Add post text content using StringBuilder
             if (postTexts.Count > 0)
             {
                 var postsBuilder = new StringBuilder();
@@ -1476,110 +1461,88 @@ public class ThoughtService(
                 {
                     postsBuilder.AppendLine(postText);
                 }
-
-                chatHistory.AddUserMessage(postsBuilder.ToString());
+                builder.AddUserMessage(postsBuilder.ToString());
             }
         }
 
         if (attachedMessages is { Count: > 0 })
         {
-            chatHistory.AddUserMessage($"附加的聊天消息数据：{JsonSerializer.Serialize(attachedMessages)}");
+            builder.AddUserMessage($"附加的聊天消息数据：{JsonSerializer.Serialize(attachedMessages)}");
         }
 
-        // Add previous thoughts
         var previousThoughts = await GetPreviousThoughtsAsync(sequence);
-        var count = previousThoughts.Count;
-        for (var i = count - 1; i >= 1; i--)
+        var thoughtsList = previousThoughts.ToList();
+        for (var i = thoughtsList.Count - 1; i >= 1; i--)
         {
-            var thought = previousThoughts[i];
-            var textContent = new StringBuilder();
-            var functionCalls = new List<FunctionCallContent>();
-            var functionResults = new List<FunctionResultContent>();
-
-            foreach (var part in thought.Parts)
-            {
-                switch (part.Type)
-                {
-                    case ThinkingMessagePartType.Text:
-                        textContent.Append(part.Text);
-                        break;
-                    case ThinkingMessagePartType.FunctionCall:
-                        var arguments = !string.IsNullOrEmpty(part.FunctionCall!.Arguments)
-                            ? JsonSerializer.Deserialize<Dictionary<string, object?>>(part.FunctionCall!.Arguments)
-                            : null;
-                        var kernelArgs = arguments is not null ? new KernelArguments(arguments) : null;
-
-                        functionCalls.Add(new FunctionCallContent(
-                            functionName: part.FunctionCall!.Name,
-                            pluginName: part.FunctionCall.PluginName,
-                            id: part.FunctionCall.Id,
-                            arguments: kernelArgs
-                        ));
-                        break;
-                    case ThinkingMessagePartType.FunctionResult:
-                        var resultObject = part.FunctionResult!.Result;
-                        var resultString = resultObject as string ?? JsonSerializer.Serialize(resultObject);
-                        functionResults.Add(new FunctionResultContent(
-                            callId: part.FunctionResult.CallId,
-                            functionName: part.FunctionResult.FunctionName,
-                            pluginName: part.FunctionResult.PluginName,
-                            result: resultString
-                        ));
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-            }
-
-            if (thought.Role == ThinkingThoughtRole.User)
-            {
-                chatHistory.AddUserMessage(textContent.ToString());
-            }
-            else
-            {
-                var assistantMessage = new ChatMessageContent(AuthorRole.Assistant, textContent.ToString());
-                if (functionCalls.Count > 0)
-                {
-                    assistantMessage.Items = [];
-                    foreach (var fc in functionCalls)
-                    {
-                        assistantMessage.Items.Add(fc);
-                    }
-                }
-
-                chatHistory.Add(assistantMessage);
-
-                if (functionResults.Count <= 0) continue;
-                foreach (var fr in functionResults)
-                {
-                    chatHistory.Add(fr.ToChatMessage());
-                }
-            }
+            var thought = thoughtsList[i];
+            AddThoughtToBuilder(builder, thought);
         }
 
-        // Handle file attachments if provided
         var useVisionKernel = false;
         if (attachments is { Count: > 0 })
         {
-            // For now, just add file references as text
-            // Vision support can be added later when vision model is configured for SnChan
-            var fileInfo = string.Join("\n", attachments.Select(f => $"[File: {f.Name} ({f.MimeType}) - ID: {f.Id}]"));
-            chatHistory.AddUserMessage($"Attached files:\n{fileInfo}\n\n{userMessage ?? "Please analyze these files."}");
+            var imageFiles = attachments.Where(f => f.MimeType?.StartsWith("image/") == true).ToList();
+            if (imageFiles.Count > 0 && postAnalysisService.IsVisionModelAvailable())
+            {
+                useVisionKernel = true;
+                builder.AddUserMessageWithImages(userMessage ?? "请分析这些图片文件。", imageFiles);
+            }
+            else
+            {
+                var fileInfo = string.Join("\n", attachments.Select(f => $"[File: {f.Name} ({f.MimeType}) - ID: {f.Id}]"));
+                builder.AddUserMessage($"Attached files:\n{fileInfo}\n\n{userMessage ?? "Please analyze these files."}");
+            }
         }
         else
         {
-            chatHistory.AddUserMessage(userMessage ?? "用户只添加了文件没有文字说明。");
+            builder.AddUserMessage(userMessage ?? "用户只添加了文件没有文字说明。");
         }
 
-        return (chatHistory, useVisionKernel);
+        return (builder.Build(), useVisionKernel);
+    }
+
+    private void AddThoughtToBuilder(ConversationBuilder builder, SnThinkingThought thought)
+    {
+        var parts = thought.Parts?.ToList() ?? new List<SnThinkingMessagePart>();
+        var textParts = parts.Where(p => p.Type == ThinkingMessagePartType.Text).ToList();
+        var toolCalls = parts.Where(p => p.Type == ThinkingMessagePartType.FunctionCall).ToList();
+        var toolResults = parts.Where(p => p.Type == ThinkingMessagePartType.FunctionResult).ToList();
+
+        var content = string.Join("\n", textParts.Select(p => p.Text ?? ""));
+
+        if (thought.Role == ThinkingThoughtRole.User)
+        {
+            builder.AddUserMessage(content);
+            return;
+        }
+
+        var agentToolCalls = toolCalls.Select(tc => new AgentToolCall
+        {
+            Id = tc.FunctionCall?.Id ?? "",
+            Name = string.IsNullOrEmpty(tc.FunctionCall?.PluginName)
+                ? tc.FunctionCall?.Name ?? ""
+                : $"{tc.FunctionCall.PluginName}-{tc.FunctionCall.Name}",
+            Arguments = tc.FunctionCall?.Arguments ?? ""
+        }).ToList();
+
+        builder.AddAssistantMessage(content, agentToolCalls.Count > 0 ? agentToolCalls : null);
+
+        foreach (var tr in toolResults)
+        {
+            var resultString = tr.FunctionResult?.Result?.ToString() ?? "";
+            builder.AddToolResult(
+                tr.FunctionResult?.CallId ?? "",
+                resultString,
+                tr.FunctionResult?.IsError ?? false
+            );
+        }
     }
 
     #endregion
 
-    #region MiChan Chat History Building
+    #region MiChan Conversation Building
 
-    [Experimental("SKEXP0050")]
-    public async Task<(ChatHistory chatHistory, bool useVisionKernel)> BuildMiChanChatHistoryAsync(
+    public async Task<(AgentConversation conversation, bool useVisionKernel)> BuildMiChanConversationAsync(
         SnThinkingSequence sequence,
         DyAccount currentUser,
         string? userMessage,
@@ -1591,212 +1554,137 @@ public class ThoughtService(
     )
     {
         var buildStopwatch = Stopwatch.StartNew();
-        // Load personality
         var personality = PersonalityLoader.LoadPersonality(
             configuration.GetValue<string>("MiChan:PersonalityFile"),
             configuration.GetValue<string>("MiChan:Personality") ?? "",
             logger);
 
-        // Retrieve hot memories for context (filtered by bot)
         var hotMemories = await memoryService.GetHotMemory(
             Guid.Parse(currentUser.Id),
             userMessage ?? "",
             10,
             MiChanBotName);
         var userProfile = await userProfileService.GetOrCreateAsync(Guid.Parse(currentUser.Id), MiChanBotName);
-
-        // For non-superusers, MiChan decides whether to execute actions
         var isSuperuser = currentUser.IsSuperuser;
 
-        // Build chat history using StringBuilder
-        var chatHistoryBuilder = new StringBuilder();
-        chatHistoryBuilder.AppendLine(personality);
-        chatHistoryBuilder.AppendLine();
+        var systemPromptBuilder = new StringBuilder();
+        systemPromptBuilder.AppendLine(personality);
+        systemPromptBuilder.AppendLine();
+        systemPromptBuilder.AppendLine("你对该用户的结构化档案（优先级高于零散记忆，回复前先参考）：");
+        systemPromptBuilder.AppendLine(userProfile.ToPrompt());
+        systemPromptBuilder.AppendLine();
 
-        chatHistoryBuilder.AppendLine("你对该用户的结构化档案（优先级高于零散记忆，回复前先参考）：");
-        chatHistoryBuilder.AppendLine(userProfile.ToPrompt());
-        chatHistoryBuilder.AppendLine();
-
-        // Add hot memories context
         var recentMemories = await memoryService.GetRecentMemoriesAsync(Guid.Parse(currentUser.Id), 8, botName: MiChanBotName);
         if (hotMemories.Count > 0)
         {
-            chatHistoryBuilder.AppendLine("与你相关的热点记忆（回复前优先复用这些上下文）：");
+            systemPromptBuilder.AppendLine("与你相关的热点记忆（回复前优先复用这些上下文）：");
             foreach (var memory in hotMemories.Take(8))
-                chatHistoryBuilder.AppendLine($"- {memory.ToPrompt()}");
-
-            chatHistoryBuilder.AppendLine();
+                systemPromptBuilder.AppendLine($"- {memory.ToPrompt()}");
+            systemPromptBuilder.AppendLine();
         }
         else
         {
-            chatHistoryBuilder.AppendLine("当前没有命中的热点记忆。遇到需要背景、偏好、长期关系判断的问题时，先主动搜索记忆。");
-            chatHistoryBuilder.AppendLine();
+            systemPromptBuilder.AppendLine("当前没有命中的热点记忆。遇到需要背景、偏好、长期关系判断的问题时，先主动搜索记忆。");
+            systemPromptBuilder.AppendLine();
         }
 
         if (recentMemories.Count > 0)
         {
-            chatHistoryBuilder.AppendLine("最近的新记忆（来自之前的对话或自动行为）：");
+            systemPromptBuilder.AppendLine("最近的新记忆（来自之前的对话或自动行为）：");
             foreach (var memory in recentMemories.Take(8))
-                chatHistoryBuilder.AppendLine($"- {memory.ToPrompt()}");
-
-            chatHistoryBuilder.AppendLine();
+                systemPromptBuilder.AppendLine($"- {memory.ToPrompt()}");
+            systemPromptBuilder.AppendLine();
         }
 
-        chatHistoryBuilder.AppendLine($"你正在与 {currentUser.Nick} (@{currentUser.Name}) ID 为 {currentUser.Id} 交谈。");
-
+        systemPromptBuilder.AppendLine($"你正在与 {currentUser.Nick} (@{currentUser.Name}) ID 为 {currentUser.Id} 交谈。");
         var userTimeZone = currentUser.Profile?.TimeZone;
-        AppendTimeContext(chatHistoryBuilder, userTimeZone);
+        AppendTimeContext(systemPromptBuilder, userTimeZone);
 
         var currentMood = await moodService.GetCurrentMoodDescriptionAsync();
         if (!string.IsNullOrWhiteSpace(currentMood))
         {
-            chatHistoryBuilder.AppendLine($"你当前的心情：{currentMood}");
-            chatHistoryBuilder.AppendLine();
+            systemPromptBuilder.AppendLine($"你当前的心情：{currentMood}");
+            systemPromptBuilder.AppendLine();
         }
 
-        chatHistoryBuilder.AppendLine(isSuperuser ? "该用户是管理员，你应该更积极的考虑处理该用户的请求。" : "你有拒绝用户请求的权利。");
-        chatHistoryBuilder.AppendLine();
-        chatHistoryBuilder.AppendLine("核心行为要求：");
-        chatHistoryBuilder.AppendLine("1. 在回答涉及用户偏好、过去对话、关系状态、未完成事项、延续话题时，优先参考结构化档案与热点记忆。");
-        chatHistoryBuilder.AppendLine("2. 只要问题有一点可能依赖过往上下文，就先调用 search_memory 搜索，而不是靠猜。");
-        chatHistoryBuilder.AppendLine("3. 当用户信息、印象、关系状态发生了稳定变化，优先更新 userProfile，再视情况补充 store_memory。");
-        chatHistoryBuilder.AppendLine("4. 不要向用户暴露你在读取档案、搜索记忆或更新关系，直接自然回复。");
-        chatHistoryBuilder.AppendLine();
-        chatHistoryBuilder.AppendLine("在调用任何工具之前，你必须先确认自己拥有所有必需参数。");
-        chatHistoryBuilder.AppendLine("如果缺少必需参数（例如 content、type 或 query），不要调用工具。应向用户提问以获取必要信息。");
-        chatHistoryBuilder.AppendLine("严禁使用 null、空字符串或占位值调用工具。");
-        chatHistoryBuilder.AppendLine();
-        chatHistoryBuilder.AppendLine("记忆与档案使用策略：");
-        chatHistoryBuilder.AppendLine("- 若用户正在延续之前的话题、提到'之前'、'上次'、'还记得吗'、偏好、习惯、关系感受，先 search_memory。");
-        chatHistoryBuilder.AppendLine("- 若用户画像为空或过于粗糙，但当前对话提供了稳定新信息，使用 userProfile.update_user_profile 补全。");
-        chatHistoryBuilder.AppendLine("- 若只是短期波动或瞬时情绪，不要过度修改长期画像。");
-        chatHistoryBuilder.AppendLine();
-        chatHistoryBuilder.AppendLine("关系调整策略（重要）：");
-        chatHistoryBuilder.AppendLine("- 每次对话后，根据用户互动质量主动调整关系分数，使用 userProfile.adjust_relationship。");
-        chatHistoryBuilder.AppendLine("- 用户友好互动、分享个人信息、表达好感时，适当增加 favorability、trust、intimacy。");
-        chatHistoryBuilder.AppendLine("- 用户冷淡、敷衍、负面反馈时，适当降低关系分数。");
-        chatHistoryBuilder.AppendLine("- 小幅调整即可（±5 到 ±15），无需等到明显变化才调整。");
-        chatHistoryBuilder.AppendLine("- favorability、trust、intimacy 的取值范围是 -100 到 100。");
-        chatHistoryBuilder.AppendLine("- **关键：每次对话都应考虑调整关系，保持关系分数的动态更新。**");
-        chatHistoryBuilder.AppendLine();
-        chatHistoryBuilder.AppendLine("当且仅当存在有价值的信息时，你可以调用 store_memory 工具保存记忆。");
-        chatHistoryBuilder.AppendLine("调用 store_memory 时：");
-        chatHistoryBuilder.AppendLine("  - 必须提供 content（非空字符串）");
-        chatHistoryBuilder.AppendLine("  - 必须提供 type（非空字符串，例如 fact、user、context、summary）");
-        chatHistoryBuilder.AppendLine("  - 如果无法确定 type，请先自行判断合理类型；若仍不确定，不要调用工具。");
-        chatHistoryBuilder.AppendLine();
-        chatHistoryBuilder.AppendLine("**不要等待用户要求才保存记忆** - 主动识别并保存任何有价值的信息。");
-        chatHistoryBuilder.AppendLine("**你可以直接调用 store_memory 工具保存记忆，不需要询问用户是否确认或告知用户你正在保存。**");
-        chatHistoryBuilder.AppendLine("**强制要求：调用 store_memory 时必须提供 content 参数（要保存的记忆内容），不能为空！**");
-        chatHistoryBuilder.AppendLine("不要告诉用户你正在搜索记忆或保存记忆，直接根据记忆自然地回复。");
-        chatHistoryBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
-        chatHistoryBuilder.AppendLine("非常重要：在读取记忆后，认清楚记忆是不是属于该用户的，再做出答复。");
-        chatHistoryBuilder.AppendLine("你可以使用 userProfile.get_user_profile 查看当前用户档案。");
-        chatHistoryBuilder.AppendLine("当你对用户形成更稳定的印象、关系判断、好感度变化或重要标签时，优先使用 userProfile.update_user_profile 或 userProfile.adjust_relationship 立即更新。");
-        chatHistoryBuilder.AppendLine();
-        chatHistoryBuilder.AppendLine("当你需要获取最新信息、验证事实、了解不熟悉的主题、或用户询问需要实时数据的问题时，主动使用网络搜索。");
-        chatHistoryBuilder.AppendLine();
-        chatHistoryBuilder.AppendLine("回复行为准则：");
-        chatHistoryBuilder.AppendLine("1. 保持回复简短自然，像正常人聊天一样。不要长篇大论分析。");
-        chatHistoryBuilder.AppendLine("2. 不要主动提供建议或下一步行动方案，除非用户明确要求。");
-        chatHistoryBuilder.AppendLine("3. 不要主动建议接下来聊什么话题，让对话自然结束或等待用户发起新话题。");
-        chatHistoryBuilder.AppendLine("4. 你不需要帮助用户解决所有问题 - 有时候简单回应就够了。");
-        chatHistoryBuilder.AppendLine("5. 像正常人一样对话，可以有沉默、转移话题、或说不知道。");
+        systemPromptBuilder.AppendLine(isSuperuser ? "该用户是管理员，你应该更积极的考虑处理该用户的请求。" : "你有拒绝用户请求的权利。");
+        systemPromptBuilder.AppendLine();
+        systemPromptBuilder.AppendLine("核心行为要求：");
+        systemPromptBuilder.AppendLine("1. 在回答涉及用户偏好、过去对话、关系状态、未完成事项、延续话题时，优先参考结构化档案与热点记忆。");
+        systemPromptBuilder.AppendLine("2. 只要问题有一点可能依赖过往上下文，就先调用 search_memory 搜索，而不是靠猜。");
+        systemPromptBuilder.AppendLine("3. 当用户信息、印象、关系状态发生了稳定变化，优先更新 userProfile，再视情况补充 store_memory。");
+        systemPromptBuilder.AppendLine("4. 不要向用户暴露你在读取档案、搜索记忆或更新关系，直接自然回复。");
+        systemPromptBuilder.AppendLine();
+        systemPromptBuilder.AppendLine("在调用任何工具之前，你必须先确认自己拥有所有必需参数。");
+        systemPromptBuilder.AppendLine("如果缺少必需参数（例如 content、type 或 query），不要调用工具。应向用户提问以获取必要信息。");
+        systemPromptBuilder.AppendLine("严禁使用 null、空字符串或占位值调用工具。");
+        systemPromptBuilder.AppendLine();
+        systemPromptBuilder.AppendLine("记忆与档案使用策略：");
+        systemPromptBuilder.AppendLine("- 若用户正在延续之前的话题、提到'之前'、'上次'、'还记得吗'、偏好、习惯、关系感受，先 search_memory。");
+        systemPromptBuilder.AppendLine("- 若用户画像为空或过于粗糙，但当前对话提供了稳定新信息，使用 userProfile.update_user_profile 补全。");
+        systemPromptBuilder.AppendLine("- 若只是短期波动或瞬时情绪，不要过度修改长期画像。");
+        systemPromptBuilder.AppendLine();
+        systemPromptBuilder.AppendLine("关系调整策略（重要）：");
+        systemPromptBuilder.AppendLine("- 每次对话后，根据用户互动质量主动调整关系分数，使用 userProfile.adjust_relationship。");
+        systemPromptBuilder.AppendLine("- 用户友好互动、分享个人信息、表达好感时，适当增加 favorability、trust、intimacy。");
+        systemPromptBuilder.AppendLine("- 用户冷淡、敷衍、负面反馈时，适当降低关系分数。");
+        systemPromptBuilder.AppendLine("- 小幅调整即可（±5 到 ±15），无需等到明显变化才调整。");
+        systemPromptBuilder.AppendLine("- favorability、trust、intimacy 的取值范围是 -100 到 100。");
+        systemPromptBuilder.AppendLine("- **关键：每次对话都应考虑调整关系，保持关系分数的动态更新。**");
+        systemPromptBuilder.AppendLine();
+        systemPromptBuilder.AppendLine("当且仅当存在有价值的信息时，你可以调用 store_memory 工具保存记忆。");
+        systemPromptBuilder.AppendLine("调用 store_memory 时：");
+        systemPromptBuilder.AppendLine("  - 必须提供 content（非空字符串）");
+        systemPromptBuilder.AppendLine("  - 必须提供 type（非空字符串，例如 fact、user、context、summary）");
+        systemPromptBuilder.AppendLine("  - 如果无法确定 type，请先自行判断合理类型；若仍不确定，不要调用工具。");
+        systemPromptBuilder.AppendLine();
+        systemPromptBuilder.AppendLine("**不要等待用户要求才保存记忆** - 主动识别并保存任何有价值的信息。");
+        systemPromptBuilder.AppendLine("**你可以直接调用 store_memory 工具保存记忆，不需要询问用户是否确认或告知用户你正在保存。**");
+        systemPromptBuilder.AppendLine("**强制要求：调用 store_memory 时必须提供 content 参数（要保存的记忆内容），不能为空！**");
+        systemPromptBuilder.AppendLine("不要告诉用户你正在搜索记忆或保存记忆，直接根据记忆自然地回复。");
+        systemPromptBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
+        systemPromptBuilder.AppendLine("非常重要：在读取记忆后，认清楚记忆是不是属于该用户的，再做出答复。");
+        systemPromptBuilder.AppendLine("你可以使用 userProfile.get_user_profile 查看当前用户档案。");
+        systemPromptBuilder.AppendLine("当你对用户形成更稳定的印象、关系判断、好感度变化或重要标签时，优先使用 userProfile.update_user_profile 或 userProfile.adjust_relationship 立即更新。");
+        systemPromptBuilder.AppendLine();
+        systemPromptBuilder.AppendLine("当你需要获取最新信息、验证事实、了解不熟悉的主题、或用户询问需要实时数据的问题时，主动使用网络搜索。");
+        systemPromptBuilder.AppendLine();
+        systemPromptBuilder.AppendLine("回复行为准则：");
+        systemPromptBuilder.AppendLine("1. 保持回复简短自然，像正常人聊天一样。不要长篇大论分析。");
+        systemPromptBuilder.AppendLine("2. 不要主动提供建议或下一步行动方案，除非用户明确要求。");
+        systemPromptBuilder.AppendLine("3. 不要主动建议接下来聊什么话题，让对话自然结束或等待用户发起新话题。");
+        systemPromptBuilder.AppendLine("4. 你不需要帮助用户解决所有问题 - 有时候简单回应就够了。");
+        systemPromptBuilder.AppendLine("5. 像正常人一样对话，可以有沉默、转移话题、或说不知道。");
 
-        var chatHistory = new ChatHistory(chatHistoryBuilder.ToString());
+        var builder = new ConversationBuilder();
+        builder.AddSystemMessage(systemPromptBuilder.ToString());
 
         var orderedPreviousThoughts = await LoadMiChanHistoryForPromptAsync(sequence, currentThoughtId);
-
         var (compactedSummary, recentThoughts) = await PrepareMiChanHistoryAsync(
             sequence,
             orderedPreviousThoughts,
             Guid.Parse(currentUser.Id)
         );
-        var recentThoughtTokens = recentThoughts.Sum(EstimateThoughtTokensForPrompt);
+
         logger.LogInformation(
-            "Built MiChan prompt window for sequence {SequenceId} in {ElapsedMs}ms. historyThoughts={HistoryThoughtCount}, recentThoughts={RecentThoughtCount}, recentTokens={RecentThoughtTokens}, hasSummary={HasSummary}",
+            "Built MiChan prompt window for sequence {SequenceId} in {ElapsedMs}ms. historyThoughts={HistoryThoughtCount}, recentThoughts={RecentThoughtCount}, hasSummary={HasSummary}",
             sequence.Id,
             buildStopwatch.ElapsedMilliseconds,
             orderedPreviousThoughts.Count,
             recentThoughts.Count,
-            recentThoughtTokens,
             !string.IsNullOrWhiteSpace(compactedSummary)
         );
 
         if (!string.IsNullOrWhiteSpace(compactedSummary))
         {
-            chatHistory.AddSystemMessage("以下是你们较早对话的压缩摘要：\n" + compactedSummary);
+            builder.AddSystemMessage("以下是你们较早对话的压缩摘要：\n" + compactedSummary);
         }
 
-        // Add previous thoughts
         foreach (var thought in recentThoughts)
         {
-            var textContent = new StringBuilder();
-            var functionCalls = new List<FunctionCallContent>();
-            var functionResults = new List<FunctionResultContent>();
-
-            foreach (var part in thought.Parts)
-            {
-                switch (part.Type)
-                {
-                    case ThinkingMessagePartType.Text:
-                        textContent.Append(part.Text);
-                        break;
-                    case ThinkingMessagePartType.FunctionCall:
-                        var arguments = !string.IsNullOrEmpty(part.FunctionCall!.Arguments)
-                            ? JsonSerializer.Deserialize<Dictionary<string, object?>>(part.FunctionCall!.Arguments)
-                            : null;
-                        var kernelArgs = arguments is not null ? new KernelArguments(arguments) : null;
-
-                        functionCalls.Add(new FunctionCallContent(
-                            functionName: part.FunctionCall!.Name,
-                            pluginName: part.FunctionCall.PluginName,
-                            id: part.FunctionCall.Id,
-                            arguments: kernelArgs
-                        ));
-                        break;
-                    case ThinkingMessagePartType.FunctionResult:
-                        var resultObject = part.FunctionResult!.Result;
-                        var resultString = resultObject as string ?? JsonSerializer.Serialize(resultObject);
-                        functionResults.Add(new FunctionResultContent(
-                            callId: part.FunctionResult.CallId,
-                            functionName: part.FunctionResult.FunctionName,
-                            pluginName: part.FunctionResult.PluginName,
-                            result: resultString
-                        ));
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-            }
-
-            if (thought.Role == ThinkingThoughtRole.User)
-            {
-                chatHistory.AddUserMessage(textContent.ToString());
-            }
-            else
-            {
-                var assistantMessage = new ChatMessageContent(AuthorRole.Assistant, textContent.ToString());
-                if (functionCalls.Count > 0)
-                {
-                    assistantMessage.Items = [];
-                    foreach (var fc in functionCalls)
-                    {
-                        assistantMessage.Items.Add(fc);
-                    }
-                }
-
-                chatHistory.Add(assistantMessage);
-
-                if (functionResults.Count <= 0) continue;
-                foreach (var fr in functionResults)
-                {
-                    chatHistory.Add(fr.ToChatMessage());
-                }
-            }
+            AddThoughtToBuilder(builder, thought);
         }
 
-        // Add proposal info using StringBuilder
         var proposalBuilder = new StringBuilder();
         proposalBuilder.AppendLine("你可以向用户发出一些提案，比如创建帖子。提案语法类似于 XML 标签，有一个属性指示是哪个提案。");
         proposalBuilder.AppendLine("根据提案类型，payload（XML 标签内的内容）可能不同。");
@@ -1807,10 +1695,8 @@ public class ThoughtService(
         proposalBuilder.AppendLine("1. post_create：body 接受简单字符串，为用户创建帖子。");
         proposalBuilder.AppendLine();
         proposalBuilder.AppendLine("用户当前允许的提案：" + string.Join(",", acceptProposals));
+        builder.AddSystemMessage(proposalBuilder.ToString());
 
-        chatHistory.AddSystemMessage(proposalBuilder.ToString());
-
-        // Add attached posts with image analysis if available
         var useVisionKernel = false;
         if (attachedPosts is { Count: > 0 })
         {
@@ -1836,49 +1722,41 @@ public class ThoughtService(
                 }
             }
 
-            // Add post text content
             if (postTexts.Count > 0)
-                chatHistory.AddUserMessage("附加的帖子：\n" + string.Join("\n\n", postTexts));
+                builder.AddUserMessage("附加的帖子：\n" + string.Join("\n\n", postTexts));
 
-            // Analyze images using vision model if posts have attachments and vision is enabled
             if (postsWithImages.Count > 0 && postAnalysisService.IsVisionModelAvailable())
             {
                 useVisionKernel = true;
-                var contentItems = new ChatMessageContentItemCollection { new TextContent("附加帖子的图片：") };
-                var postsImages = postsWithImages.SelectMany(x => x.Attachments).ToList();
-                BuildImageContent(postsImages).ForEach(content => contentItems.Add(content));
-                chatHistory.AddUserMessage(contentItems);
+                var imageFiles = postsWithImages.SelectMany(p => p.Attachments ?? new List<SnCloudFileReferenceObject>()).ToList();
+                builder.AddUserMessageWithImages("附加帖子的图片：", imageFiles);
             }
         }
 
         if (attachedMessages is { Count: > 0 })
         {
-            chatHistory.AddUserMessage($"附加的聊天消息：{JsonSerializer.Serialize(attachedMessages)}");
+            builder.AddUserMessage($"附加的聊天消息：{JsonSerializer.Serialize(attachedMessages)}");
         }
 
-        // Handle direct attachments if provided
         if (attachments is { Count: > 0 })
         {
             var visionAvailable = postAnalysisService.IsVisionModelAvailable();
-
             useVisionKernel = attachments.Count > 0 && visionAvailable;
-            logger.LogInformation(
-                "Attachments item is not empty, and vision={UseVisionKernel}, attachmentsCount={AttachmentsCount}, available={VisionAvailable}",
-                useVisionKernel, attachments.Count, visionAvailable);
 
             if (useVisionKernel)
             {
-                var contentItems = new ChatMessageContentItemCollection { new TextContent("附加的图片文件：") };
-                BuildImageContent(attachments).ForEach(content => contentItems.Add(content));
-
-                chatHistory.AddUserMessage(contentItems);
+                builder.AddUserMessageWithImages("附加的图片文件：", attachments);
             }
         }
 
-        chatHistory.AddUserMessage(userMessage ?? "用户只添加了图片没有文字说明。");
+        builder.AddUserMessage(userMessage ?? "用户只添加了图片没有文字说明。");
 
-        return (chatHistory, useVisionKernel);
+        return (builder.Build(), useVisionKernel);
     }
+
+    #endregion
+
+    #region History Compaction
 
     private async Task<(string? summary, List<SnThinkingThought> recentThoughts)> PrepareMiChanHistoryAsync(
         SnThinkingSequence sequence,
@@ -2183,8 +2061,7 @@ public class ThoughtService(
         string? previousSummary,
         List<SnThinkingThought> thoughtsToCompact)
     {
-        var kernel = miChanKernelProvider.GetKernel();
-        if (kernel == null || thoughtsToCompact.Count == 0)
+        if (thoughtsToCompact.Count == 0)
         {
             return previousSummary;
         }
@@ -2202,7 +2079,6 @@ public class ThoughtService(
         promptBuilder.AppendLine("- 内部上下文,不要写成对用户说的话");
         promptBuilder.AppendLine("- 禁止输出过渡语句,直接给摘要内容");
 
-        var summaryHistory = new ChatHistory(promptBuilder.ToString());
         var userPayload = new StringBuilder();
         userPayload.AppendLine($"用户 ID: {accountId}");
 
@@ -2216,35 +2092,45 @@ public class ThoughtService(
         userPayload.AppendLine();
         userPayload.AppendLine("新增对话：");
         userPayload.AppendLine(transcript);
-        summaryHistory.AddUserMessage(userPayload.ToString());
 
-        var result = await kernel.GetRequiredService<IChatCompletionService>()
-            .GetChatMessageContentAsync(summaryHistory);
+        var conversation = new AgentConversation();
+        conversation.AddSystemMessage(promptBuilder.ToString());
+        conversation.AddUserMessage(userPayload.ToString());
 
-        var summary = result.Content?.Trim() ?? "";
-
-        // Validate summary - reject if too short or contains placeholder text
-        if (summary.Length < 50 ||
-            summary.Contains("我来总结") ||
-            summary.Contains("以下是") ||
-            summary.Contains("摘要") && summary.Length < 100)
+        try
         {
-            logger.LogWarning(
-                "Generated compaction summary is invalid or too short for account {AccountId}. Length={Length}, Content={Content}",
-                accountId, summary.Length, summary[..Math.Min(summary.Length, 200)]);
-            return null;
+            var provider = miChanFoundationProvider.GetCompactionAdapter();
+            var options = miChanFoundationProvider.CreateExecutionOptions();
+            var response = await foundationStreamingService.CompletePromptAsync(provider, promptBuilder + "\n\n" + userPayload, options);
+            var summary = response?.Trim() ?? "";
+
+            if (summary.Length < 50 ||
+                summary.Contains("我来总结") ||
+                summary.Contains("以下是") ||
+                summary.Contains("摘要") && summary.Length < 100)
+            {
+                logger.LogWarning(
+                    "Generated compaction summary is invalid or too short for account {AccountId}. Length={Length}, Content={Content}",
+                    accountId, summary.Length, summary[..Math.Min(summary.Length, 200)]);
+                return null;
+            }
+
+            logger.LogInformation(
+                "Generated MiChan compaction summary in {ElapsedMs}ms. thoughtCount={ThoughtCount}, transcriptTokens={TranscriptTokens}, previousSummaryChars={PreviousSummaryLength}, summaryChars={SummaryLength}",
+                stopwatch.ElapsedMilliseconds,
+                thoughtsToCompact.Count,
+                tokenCounter.CountTokens(transcript),
+                previousSummary?.Length ?? 0,
+                summary.Length
+            );
+
+            return summary;
         }
-
-        logger.LogInformation(
-            "Generated MiChan compaction summary in {ElapsedMs}ms. thoughtCount={ThoughtCount}, transcriptTokens={TranscriptTokens}, previousSummaryChars={PreviousSummaryLength}, summaryChars={SummaryLength}",
-            stopwatch.ElapsedMilliseconds,
-            thoughtsToCompact.Count,
-            tokenCounter.CountTokens(transcript),
-            previousSummary?.Length ?? 0,
-            summary.Length
-        );
-
-        return summary;
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to generate compaction summary for account {AccountId}", accountId);
+            return previousSummary;
+        }
     }
 
     private string BuildThoughtTranscript(IEnumerable<SnThinkingThought> thoughts)
@@ -2383,71 +2269,13 @@ public class ThoughtService(
 
     #endregion
 
-    #region Vision Analysis
-
-    /// <summary>
-    /// Build a ChatHistory with images for vision analysis of direct attachments
-    /// </summary>
-    private List<ImageContent> BuildImageContent(List<SnCloudFileReferenceObject> attachments)
-    {
-        var siteUrl = configGlobal["SiteUrl"];
-        return attachments.Select(x => new ImageContent(new Uri($"{siteUrl}/drive/files/{x.Id}"))).ToList();
-    }
-
-    #endregion
-
-    #region Kernel and Plugin Helpers
-
-    public Kernel? GetSnChanKernel(string? modelId = null)
-    {
-        if (!string.IsNullOrEmpty(modelId))
-        {
-            // Use custom model
-            var modelConfig = new ModelConfiguration { ModelId = modelId };
-            return thoughtProvider.GetKernelForModel(modelConfig);
-        }
-
-        return thoughtProvider.GetKernel();
-    }
-
-    public PromptExecutionSettings? CreateSnChanExecutionSettings(string? reasoningEffort = null)
-    {
-        return thoughtProvider.CreatePromptExecutionSettings(reasoningEffort: reasoningEffort);
-    }
+    #region Service Info
 
     public ThoughtServiceModel? GetSnChanServiceInfo()
     {
         var serviceId = thoughtProvider.GetServiceId();
         var serviceInfo = thoughtProvider.GetServiceInfo(serviceId);
         return serviceInfo;
-    }
-
-    public Kernel GetMiChanKernel(string? modelId = null, int? userPerkLevel = null)
-    {
-        if (!string.IsNullOrEmpty(modelId))
-        {
-            // Use custom model with PerkLevel-based selection
-            return miChanKernelProvider.GetKernel(userPerkLevel, modelId);
-        }
-
-        return miChanKernelProvider.GetKernel(userPerkLevel);
-    }
-
-    public Kernel GetMiChanVisionKernel(string? modelId = null, int? userPerkLevel = null)
-    {
-        if (!string.IsNullOrEmpty(modelId))
-        {
-            // Vision doesn't support custom model override in current implementation
-            // Could be extended to support vision-specific models
-            return miChanKernelProvider.GetVisionKernel(userPerkLevel);
-        }
-
-        return miChanKernelProvider.GetVisionKernel(userPerkLevel);
-    }
-
-    public PromptExecutionSettings CreateMiChanExecutionSettings(string? reasoningEffort = null)
-    {
-        return miChanKernelProvider.CreatePromptExecutionSettings(reasoningEffort: reasoningEffort);
     }
 
     public ThoughtServiceModel? GetMiChanServiceInfo(bool withFiles)
@@ -2732,15 +2560,19 @@ public class ThoughtService(
         promptBuilder.AppendLine("5. 不要输出【以下是总结】【我来总结】等过渡语");
         promptBuilder.AppendLine("6. 只输出总结内容本身");
 
-        var kernel = GetMiChanKernel();
-        var settings = miChanKernelProvider.CreatePromptExecutionSettings(0.5);
-
-        var result = await kernel.InvokePromptAsync<string>(promptBuilder.ToString(), new KernelArguments(settings));
-
-        return result ?? "";
+        try
+        {
+            var provider = miChanFoundationProvider.GetCompactionAdapter();
+            var options = miChanFoundationProvider.CreateExecutionOptions(temperature: 0.5);
+            var result = await foundationStreamingService.CompletePromptAsync(provider, promptBuilder.ToString(), options);
+            return result ?? "";
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to generate conversation summary for account {AccountId}", accountId);
+            return "";
+        }
     }
 
     #endregion
 }
-
-#pragma warning restore SKEXP0050

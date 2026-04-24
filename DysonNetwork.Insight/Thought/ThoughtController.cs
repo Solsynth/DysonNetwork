@@ -1,7 +1,5 @@
-#pragma warning disable SKEXP0050
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 using DysonNetwork.Insight.MiChan;
@@ -31,9 +29,7 @@ public class ThoughtController(
     MiChanKernelProvider miChanKernelProvider,
     SnChanModelSelector? snChanModelSelector,
     IAgentToolRegistry toolRegistry,
-    IAgentProviderRegistry providerRegistry,
     FoundationChatStreamingService streamingService,
-    FoundationChatHistoryBuilder historyBuilder,
     ISnChanFoundationProvider snChanFoundationProvider,
     IMiChanFoundationProvider miChanFoundationProvider,
     ILogger<ThoughtController> logger
@@ -214,7 +210,6 @@ public class ThoughtController(
     }
 
     [HttpPost]
-    [Experimental("SKEXP0110")]
     public async Task<ActionResult> Think([FromBody] StreamThinkingRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -352,7 +347,7 @@ public class ThoughtController(
             userPart.Files = filesData.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
         await service.SaveThoughtAsync(sequence, [userPart], ThinkingThoughtRole.User, botName: "snchan");
 
-        var (chatHistory, _) = await service.BuildSnChanChatHistoryAsync(
+        var (conversation, _) = await service.BuildSnChanConversationAsync(
             sequence,
             currentUser,
             request.UserMessage,
@@ -367,7 +362,6 @@ public class ThoughtController(
 
         toolRegistry.RegisterMiChanPlugins(serviceProvider);
 
-        var conversation = historyBuilder.ConvertFromChatHistory(chatHistory);
         var provider = snChanFoundationProvider.GetChatAdapter(request.Model);
         var options = snChanFoundationProvider.CreateExecutionOptions(
             reasoningEffort: request.ReasoningEffort);
@@ -675,7 +669,7 @@ public class ThoughtController(
         );
 
         var historyStopwatch = Stopwatch.StartNew();
-        var (chatHistory, useVisionKernel) = await service.BuildMiChanChatHistoryAsync(
+        var (conversation, useVisionKernel) = await service.BuildMiChanConversationAsync(
             sequence,
             currentUser,
             request.UserMessage,
@@ -686,21 +680,16 @@ public class ThoughtController(
             userThought.Id
         );
         logger.LogInformation(
-            "MiChan context prepared for user {AccountId}, sequence {SequenceId} in {ElapsedMs}ms. useVisionKernel={UseVisionKernel}, chatMessages={ChatMessagesCount}",
+            "MiChan context prepared for user {AccountId}, sequence {SequenceId} in {ElapsedMs}ms. useVisionKernel={UseVisionKernel}, messageCount={MessageCount}",
             accountId,
             sequence.Id,
             historyStopwatch.ElapsedMilliseconds,
             useVisionKernel,
-            chatHistory.Count
+            conversation.Messages.Count
         );
-
-        var kernel = useVisionKernel
-            ? service.GetMiChanVisionKernel(request.Model, currentUser.PerkLevel)
-            : service.GetMiChanKernel(request.Model, currentUser.PerkLevel);
 
         toolRegistry.RegisterMiChanPlugins(serviceProvider);
 
-        var conversation = historyBuilder.ConvertFromChatHistory(chatHistory);
         var provider = useVisionKernel
             ? miChanFoundationProvider.GetVisionAdapter(currentUser.PerkLevel)
             : miChanFoundationProvider.GetChatAdapter(currentUser.PerkLevel, request.Model);

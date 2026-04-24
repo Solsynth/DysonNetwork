@@ -1,11 +1,12 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
-using DysonNetwork.Insight.MiChan;
+using DysonNetwork.Insight.Agent.Foundation;
+using DysonNetwork.Insight.Agent.Foundation.Providers;
 using DysonNetwork.Insight.Agent.KernelBuilding;
 using DysonNetwork.Insight.Agent.Models;
+using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.MiChan.KernelBuilding;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
@@ -14,13 +15,9 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.SemanticKernel;
 
 namespace DysonNetwork.Insight.Thought;
 
-/// <summary>
-/// Service model information for thought services
-/// </summary>
 public class ThoughtServiceModel
 {
     public string ServiceId { get; set; } = null!;
@@ -30,10 +27,6 @@ public class ThoughtServiceModel
     public int PerkLevel { get; set; }
 }
 
-/// <summary>
-/// Provider for SN-chan (Thought) AI services.
-/// Uses the fluent kernel builder for consistent kernel construction.
-/// </summary>
 public class ThoughtProvider
 {
     private readonly DyPostService.DyPostServiceClient _postClient;
@@ -47,12 +40,12 @@ public class ThoughtProvider
     private readonly MemoryService _memoryService;
     private readonly MiChanConfig _miChanConfig;
     private readonly IServiceProvider _serviceProvider;
+    private readonly FoundationChatStreamingService _streamingService;
+    private readonly IMiChanFoundationProvider _miChanFoundationProvider;
 
-    private readonly Dictionary<string, Kernel> _kernels = new();
     private readonly Dictionary<string, ThoughtServiceModel> _serviceModels = new();
     private readonly ModelConfiguration _defaultModel;
 
-    [Experimental("SKEXP0050")]
     public ThoughtProvider(
         Agent.KernelBuilding.IKernelBuilder kernelBuilder,
         IConfiguration configuration,
@@ -64,7 +57,9 @@ public class ThoughtProvider
         MemoryService memoryService,
         MiChanKernelProvider miChanKernelProvider,
         IServiceProvider serviceProvider,
-        MiChanConfig miChanConfig)
+        MiChanConfig miChanConfig,
+        FoundationChatStreamingService streamingService,
+        IMiChanFoundationProvider miChanFoundationProvider)
     {
         _logger = logger;
         _kernelBuilder = kernelBuilder;
@@ -77,6 +72,8 @@ public class ThoughtProvider
         _miChanKernelProvider = miChanKernelProvider;
         _serviceProvider = serviceProvider;
         _miChanConfig = miChanConfig;
+        _streamingService = streamingService;
+        _miChanFoundationProvider = miChanFoundationProvider;
 
         var cfg = configuration.GetSection("Thinking");
         var defaultServiceId = cfg.GetValue<string>("DefaultService") ?? ModelRegistry.DeepSeekChat.Id;
@@ -94,65 +91,14 @@ public class ThoughtProvider
                 PerkLevel = service.GetValue("PerkLevel", 0)
             };
             _serviceModels[serviceId] = serviceModel;
-
-            var providerType = service.GetValue<string>("Provider")?.ToLower();
-            if (providerType is null) continue;
-
-            // Initialize kernel using the fluent builder
-            var kernel = InitializeThinkingService(serviceId);
-            _kernels[serviceId] = kernel;
         }
 
-        // Set default model configuration
         _defaultModel = new ModelConfiguration
         {
             ModelId = defaultServiceId,
             Temperature = cfg.GetValue<double?>("DefaultTemperature") ?? 0.7,
             EnableFunctions = true
         };
-    }
-
-    [Experimental("SKEXP0050")]
-    private Kernel InitializeThinkingService(string serviceId)
-    {
-        return _kernelBuilder
-            .WithModel(serviceId)
-            .WithEmbeddings(false)
-            .WithWebSearch(true)
-            .WithSnChanPlugins(_serviceProvider)
-            .WithServiceProvider(_serviceProvider)
-            .Build();
-    }
-
-    /// <summary>
-    /// Gets a kernel for the specified service ID
-    /// </summary>
-    public Kernel? GetKernel(string? serviceId = null)
-    {
-        serviceId ??= _defaultModel.ModelId;
-        return _kernels.GetValueOrDefault(serviceId);
-    }
-
-    /// <summary>
-    /// Gets the default kernel using the fluent builder
-    /// </summary>
-    [Experimental("SKEXP0050")]
-    public Kernel GetDefaultKernel()
-    {
-        return _kernelBuilder
-            .ForSnChanChat(_defaultModel, _serviceProvider)
-            .Build();
-    }
-
-    /// <summary>
-    /// Gets a kernel for a specific model configuration
-    /// </summary>
-    [Experimental("SKEXP0050")]
-    public Kernel GetKernelForModel(ModelConfiguration modelConfig)
-    {
-        return _kernelBuilder
-            .ForSnChanChat(modelConfig, _serviceProvider)
-            .Build();
     }
 
     public string GetServiceId(string? serviceId = null)
@@ -162,7 +108,7 @@ public class ThoughtProvider
 
     public IEnumerable<string> GetAvailableServices()
     {
-        return _kernels.Keys;
+        return _serviceModels.Keys;
     }
 
     public IEnumerable<ThoughtServiceModel> GetAvailableServicesInfo()
@@ -181,43 +127,10 @@ public class ThoughtProvider
         return _defaultModel.ModelId;
     }
 
-    /// <summary>
-    /// Gets the default model configuration
-    /// </summary>
     public ModelConfiguration GetDefaultModel() => _defaultModel;
 
     private record MemoryEntry(string Type, string Content, float Confidence);
 
-    /// <summary>
-    /// Creates prompt execution settings for a service
-    /// </summary>
-#pragma warning disable SKEXP0050
-    public PromptExecutionSettings CreatePromptExecutionSettings(string? serviceId = null, string? reasoningEffort = null)
-    {
-        serviceId ??= _defaultModel.ModelId;
-
-        return _kernelBuilder
-            .WithModel(serviceId)
-            .WithReasoningEffort(reasoningEffort ?? _defaultModel.GetEffectiveReasoningEffort()!)
-            .CreatePromptExecutionSettings();
-    }
-#pragma warning restore SKEXP0050
-
-    /// <summary>
-    /// Creates prompt execution settings for a model configuration
-    /// </summary>
-#pragma warning disable SKEXP0050
-    public PromptExecutionSettings CreatePromptExecutionSettings(Agent.Models.ModelConfiguration modelConfig, string? reasoningEffort = null)
-    {
-        return _kernelBuilder
-            .WithModel(modelConfig)
-            .WithTemperature(modelConfig.GetEffectiveTemperature())
-            .WithReasoningEffort(reasoningEffort ?? modelConfig.GetEffectiveReasoningEffort()!)
-            .CreatePromptExecutionSettings();
-    }
-#pragma warning restore SKEXP0050
-
-    [Experimental("SKEXP0050")]
     public async Task<(bool success, string summary)> MemorizeSequenceAsync(
         Guid sequenceId,
         Guid accountId,
@@ -314,36 +227,25 @@ public class ThoughtProvider
 
             var conversationHistory = conversationBuilder.ToString();
 
-            // Use the new kernel builder for consistent kernel creation
-            var kernel = _kernelBuilder
-                .WithMiChanModel(_miChanConfig)
-                .WithEmbeddings(true)
-                .WithWebSearch(true)
-                .WithMiChanPlugins(_serviceProvider)
-                .WithServiceProvider(_serviceProvider)
-                .Build();
-
-            var settings = _miChanKernelProvider.CreatePromptExecutionSettings(0.7);
-
-            var result = await kernel.InvokePromptAsync<string>(
+            var response = await _streamingService.CompletePromptAsync(
+                _miChanFoundationProvider.GetChatAdapter(),
                 conversationHistory,
-                new KernelArguments(settings),
-                cancellationToken: cancellationToken
-            );
+                _miChanFoundationProvider.CreateExecutionOptions(0.7),
+                cancellationToken);
 
-            var response = result?.Trim() ?? "";
+            var resultText = response?.Trim() ?? "";
 
-            _logger.LogDebug("Agent response for memory storage:\n{Response}", response);
+            _logger.LogDebug("Agent response for memory storage:\n{Response}", resultText);
 
-            var memoriesStored = await ParseAndStoreMemoriesAsync(response, accountId, sequenceId, cancellationToken, maxRetries: 2);
+            var memoriesStored = await ParseAndStoreMemoriesAsync(resultText, accountId, sequenceId, cancellationToken, maxRetries: 2);
 
             var summary = memoriesStored > 0
-                ? $"Stored {memoriesStored} memory(ies). {response}"
-                : response;
+                ? $"Stored {memoriesStored} memory(ies). {resultText}"
+                : resultText;
 
             _logger.LogInformation(
                 "Memory summarization completed for sequence {SequenceId}. Stored {Count} memories. Response: {Response}",
-                sequenceId, memoriesStored, response);
+                sequenceId, memoriesStored, resultText);
 
             return (true, summary);
         }
@@ -409,24 +311,13 @@ public class ThoughtProvider
 
                 if (attempt < maxRetries)
                 {
-#pragma warning disable SKEXP0050
-                    var kernel = _kernelBuilder
-                        .WithMiChanModel(_miChanConfig)
-                        .WithEmbeddings(true)
-                        .WithWebSearch(true)
-                        .WithMiChanPlugins(_serviceProvider)
-                        .WithServiceProvider(_serviceProvider)
-                        .Build();
-#pragma warning restore SKEXP0050
-
-                    var settings = _miChanKernelProvider.CreatePromptExecutionSettings(0.7);
-
                     var retryPrompt = $"JSON解析失败: {lastError}\n\n请修正以下JSON并返回有效的JSON数组格式：\n{jsonResponse}";
 
-                    jsonResponse = await kernel.InvokePromptAsync<string>(
+                    jsonResponse = await _streamingService.CompletePromptAsync(
+                        _miChanFoundationProvider.GetChatAdapter(),
                         retryPrompt,
-                        new KernelArguments(settings),
-                        cancellationToken: cancellationToken) ?? "";
+                        _miChanFoundationProvider.CreateExecutionOptions(0.7),
+                        cancellationToken) ?? "";
                 }
             }
         }

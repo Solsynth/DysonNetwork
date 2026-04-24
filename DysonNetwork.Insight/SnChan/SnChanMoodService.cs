@@ -1,16 +1,14 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Insight.Agent.Foundation;
+using DysonNetwork.Insight.Agent.Foundation.Providers;
 using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.Thought;
 using DysonNetwork.Insight.Thought.Memory;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
 using NodaTime;
 using NodaTime.Extensions;
 
-#pragma warning disable SKEXP0050
 namespace DysonNetwork.Insight.SnChan;
 
 public class SnChanMoodService
@@ -19,7 +17,8 @@ public class SnChanMoodService
     private readonly ILogger<SnChanMoodService> _logger;
     private readonly SnChanConfig _config;
     private readonly MemoryService _memoryService;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly FoundationChatStreamingService _streamingService;
+    private readonly ISnChanFoundationProvider _foundationProvider;
     private readonly Lock _moodLock = new();
     private const string SnChanBotName = "snchan";
 
@@ -33,13 +32,15 @@ public class SnChanMoodService
         ILogger<SnChanMoodService> logger,
         SnChanConfig config,
         MemoryService memoryService,
-        IServiceProvider serviceProvider)
+        FoundationChatStreamingService streamingService,
+        ISnChanFoundationProvider foundationProvider)
     {
         _database = database;
         _logger = logger;
         _config = config;
         _memoryService = memoryService;
-        _serviceProvider = serviceProvider;
+        _streamingService = streamingService;
+        _foundationProvider = foundationProvider;
     }
 
     public async Task<MiChanMoodState> GetCurrentMoodAsync(CancellationToken cancellationToken = default)
@@ -125,9 +126,6 @@ public class SnChanMoodService
         }
     }
 
-    /// <summary>
-    /// Attempts to update mood through AI self-reflection if conditions are met.
-    /// </summary>
     public async Task<bool> TryUpdateMoodAsync(CancellationToken cancellationToken = default)
     {
         if (!_config.DynamicMood.Enabled)
@@ -141,7 +139,6 @@ public class SnChanMoodService
         var timeSinceUpdate = now - mood.LastMoodUpdate;
         var timeSinceAttempt = now - _lastMoodUpdateAttempt;
 
-        // Check cooldown
         var minInterval = Duration.FromMinutes(_config.DynamicMood.MinUpdateIntervalMinutes);
         if (timeSinceAttempt < minInterval)
         {
@@ -150,7 +147,6 @@ public class SnChanMoodService
             return false;
         }
 
-        // Check if enough interactions or enough time has passed
         var updateInterval = Duration.FromMinutes(_config.DynamicMood.UpdateIntervalMinutes);
         var hasEnoughInteractions = mood.InteractionsSinceUpdate >= _config.DynamicMood.MinInteractionsForUpdate;
         var hasEnoughTime = timeSinceUpdate >= updateInterval;
@@ -177,21 +173,15 @@ public class SnChanMoodService
         }
     }
 
-    /// <summary>
-    /// Performs AI-driven self-reflection to update mood based on recent experiences.
-    /// </summary>
-    [Experimental("SKEXP0050")]
     private async Task PerformMoodReflectionAsync(CancellationToken cancellationToken = default)
     {
         var mood = await GetCurrentMoodAsync(cancellationToken);
         var now = SystemClock.Instance.GetCurrentInstant();
         
-        // Build time context
         var timeContext = GetTimeContext(now);
         
-        // Get recent memories for context (SnChan-specific, last 10)
         var recentMemories = await _memoryService.GetRecentMemoriesAsync(
-            Guid.Empty, // No specific account for global mood
+            Guid.Empty,
             10,
             botName: SnChanBotName);
         
@@ -231,20 +221,13 @@ public class SnChanMoodService
             $"Be authentic - SnChan's moods can stay the same or shift gradually based on experiences." +
             $"Keep your cheerful, enthusiastic personality in mind.";
 
-        var chatHistory = new ChatHistory();
-        chatHistory.AddSystemMessage("You are SnChan, reflecting on your emotional state. Be honest and natural.");
-        chatHistory.AddUserMessage(prompt);
+        var response = await _streamingService.CompletePromptAsync(
+            _foundationProvider.GetChatAdapter(),
+            prompt,
+            _foundationProvider.CreateExecutionOptions(0.7),
+            cancellationToken);
 
-        // Get kernel for mood reflection
-        var kernel = GetKernelForMoodReflection();
-        var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
-        
-        var response = await chatCompletionService.GetChatMessageContentAsync(
-            chatHistory,
-            cancellationToken: cancellationToken);
-
-        // Parse JSON response
-        var responseText = response.Content ?? "";
+        var responseText = response ?? "";
         var jsonStart = responseText.IndexOf('{');
         var jsonEnd = responseText.LastIndexOf('}');
         
@@ -258,20 +241,17 @@ public class SnChanMoodService
                 
                 if (moodResponse != null)
                 {
-                    // Apply deltas with clamping
                     mood.AdjustLevels(
                         ClampDelta(moodResponse.EnergyDelta),
                         ClampDelta(moodResponse.PositivityDelta),
                         ClampDelta(moodResponse.SociabilityDelta),
                         ClampDelta(moodResponse.CuriosityDelta));
                     
-                    // Update description
                     if (!string.IsNullOrWhiteSpace(moodResponse.MoodDescription))
                     {
                         mood.CurrentMoodDescription = moodResponse.MoodDescription;
                     }
                     
-                    // Reset interaction counter
                     mood.ResetInteractionCounter();
                     
                     await _database.SaveChangesAsync(cancellationToken);
@@ -292,13 +272,6 @@ public class SnChanMoodService
         {
             _logger.LogWarning("Mood reflection response did not contain valid JSON: {Response}", responseText);
         }
-    }
-
-    private Kernel GetKernelForMoodReflection()
-    {
-        // Get kernel from ThoughtProvider
-        var thoughtProvider = _serviceProvider.GetRequiredService<ThoughtProvider>();
-        return thoughtProvider.GetKernel() ?? thoughtProvider.GetDefaultKernel();
     }
 
     private static string GetTimeContext(Instant now)

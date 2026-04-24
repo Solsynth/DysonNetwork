@@ -1,56 +1,48 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using DysonNetwork.Insight.Agent.Foundation;
+using DysonNetwork.Insight.Agent.Foundation.Providers;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
-using Microsoft.SemanticKernel;
 using NodaTime;
 
-#pragma warning disable SKEXP0050
 namespace DysonNetwork.Insight.MiChan;
 
-/// <summary>
-/// Manages MiChan's dynamic mood state.
-/// Provides mood for AI prompts and handles mood updates based on interactions and time.
-/// </summary>
 public class MoodService
 {
     private readonly AppDatabase _database;
     private readonly ILogger<MoodService> _logger;
     private readonly MiChanConfig _config;
-    private readonly MiChanKernelProvider _kernelProvider;
+    private readonly FoundationChatStreamingService _streamingService;
+    private readonly IMiChanFoundationProvider _foundationProvider;
     private readonly MemoryService _memoryService;
     private readonly Lock _moodLock = new();
 
-    // Cached mood state to avoid frequent database queries
     private MiChanMoodState? _cachedMood;
     private Instant _lastCacheTime;
     private static readonly Duration CacheDuration = Duration.FromMinutes(5);
 
-    // Mood update cooldown
     private Instant _lastMoodUpdateAttempt = Instant.MinValue;
 
     public MoodService(
         AppDatabase database,
         ILogger<MoodService> logger,
         MiChanConfig config,
-        MiChanKernelProvider kernelProvider,
+        FoundationChatStreamingService streamingService,
+        IMiChanFoundationProvider foundationProvider,
         MemoryService memoryService)
     {
         _database = database;
         _logger = logger;
         _config = config;
-        _kernelProvider = kernelProvider;
+        _streamingService = streamingService;
+        _foundationProvider = foundationProvider;
         _memoryService = memoryService;
     }
 
-    /// <summary>
-    /// Gets the current mood state, initializing if necessary
-    /// </summary>
     public async Task<MiChanMoodState> GetCurrentMoodAsync(CancellationToken cancellationToken = default)
     {
         lock (_moodLock)
         {
-            // Return cached mood if still valid
             if (_cachedMood != null && 
                 SystemClock.Instance.GetCurrentInstant() - _lastCacheTime < CacheDuration)
             {
@@ -58,10 +50,7 @@ public class MoodService
             }
         }
 
-        // Load from database or create new
         var mood = await LoadOrCreateMoodAsync(cancellationToken);
-        
-        // Apply time-based decay
         ApplyTimeBasedDecay(mood);
 
         lock (_moodLock)
@@ -73,14 +62,10 @@ public class MoodService
         return mood;
     }
 
-    /// <summary>
-    /// Gets the current mood as a natural language string for AI prompts
-    /// </summary>
     public async Task<string> GetCurrentMoodDescriptionAsync(CancellationToken cancellationToken = default)
     {
         if (!_config.AutonomousBehavior.DynamicMood.Enabled)
         {
-            // Fall back to static configuration
             return _config.AutonomousBehavior.PersonalityMood;
         }
 
@@ -88,9 +73,6 @@ public class MoodService
         return mood.ToMoodPrompt();
     }
 
-    /// <summary>
-    /// Records an emotional event that may influence future mood updates
-    /// </summary>
     public async Task RecordEmotionalEventAsync(string eventType, CancellationToken cancellationToken = default)
     {
         if (!_config.AutonomousBehavior.DynamicMood.Enabled)
@@ -105,11 +87,6 @@ public class MoodService
             eventType, mood.InteractionsSinceUpdate);
     }
 
-    /// <summary>
-    /// Attempts to update mood based on AI self-reflection.
-    /// Returns true if mood was updated.
-    /// </summary>
-    [Experimental("SKEXP0050")]
     public async Task<bool> TryUpdateMoodAsync(CancellationToken cancellationToken = default)
     {
         if (!_config.AutonomousBehavior.DynamicMood.Enabled)
@@ -118,7 +95,6 @@ public class MoodService
         var now = SystemClock.Instance.GetCurrentInstant();
         var minInterval = Duration.FromMinutes(_config.AutonomousBehavior.DynamicMood.MinUpdateIntervalMinutes);
 
-        // Check cooldown
         if (now - _lastMoodUpdateAttempt < minInterval)
         {
             _logger.LogDebug("Mood update skipped - too soon since last attempt");
@@ -130,7 +106,6 @@ public class MoodService
         var mood = await GetCurrentMoodAsync(cancellationToken);
         var config = _config.AutonomousBehavior.DynamicMood;
 
-        // Check if we have enough interactions or time has passed
         var timeSinceUpdate = now - mood.LastMoodUpdate;
         var shouldUpdate = mood.InteractionsSinceUpdate >= config.MinInteractionsForUpdate ||
                           timeSinceUpdate >= Duration.FromMinutes(config.UpdateIntervalMinutes);
@@ -174,15 +149,8 @@ public class MoodService
         return false;
     }
 
-    /// <summary>
-    /// Performs AI-driven self-reflection to update mood based on recent experiences
-    /// </summary>
-    [Experimental("SKEXP0050")]
     private async Task<bool> PerformMoodReflectionAsync(MiChanMoodState currentMood, CancellationToken cancellationToken)
     {
-        var kernel = _kernelProvider.GetKernel();
-        
-        // Get recent memories to inform mood update
         var recentMemories = await _memoryService.GetByFiltersAsync(
             take: 20,
             orderBy: "createdAt",
@@ -193,7 +161,6 @@ public class MoodService
             ? string.Join("\n", recentMemories.Select(m => $"- [{m.Type}] {m.Content}"))
             : "No recent memories";
 
-        // Get current time for context
         var now = SystemClock.Instance.GetCurrentInstant();
         var timeOfDay = now.InZone(DateTimeZoneProviders.Tzdb.GetSystemDefault()).TimeOfDay;
         var hour = timeOfDay.Hour;
@@ -239,9 +206,11 @@ public class MoodService
             $"Consider: time of day, quality of recent interactions, interesting topics, social engagement.\n" +
             $"Be authentic - moods can stay the same or shift gradually based on experiences.";
 
-        var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
-        var result = await kernel.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
-        var response = result.GetValue<string>()?.Trim();
+        var response = await _streamingService.CompletePromptAsync(
+            _foundationProvider.GetChatAdapter(),
+            prompt,
+            _foundationProvider.CreateExecutionOptions(0.7),
+            cancellationToken);
 
         if (string.IsNullOrEmpty(response))
         {
@@ -251,7 +220,6 @@ public class MoodService
 
         try
         {
-            // Extract JSON from response (in case there's any extra text)
             var jsonStart = response.IndexOf('{');
             var jsonEnd = response.LastIndexOf('}');
             if (jsonStart >= 0 && jsonEnd > jsonStart)
@@ -270,7 +238,6 @@ public class MoodService
                 return false;
             }
 
-            // Apply the changes
             currentMood.CurrentMoodDescription = moodUpdate.MoodDescription;
             currentMood.AdjustLevels(
                 energyDelta: moodUpdate.EnergyDelta,
@@ -279,7 +246,6 @@ public class MoodService
                 curiosityDelta: moodUpdate.CuriosityDelta
             );
 
-            // Clear recent events after processing
             currentMood.RecentEmotionalEvents = null;
 
             _logger.LogDebug("Mood reflection reasoning: {Reasoning}", moodUpdate.Reasoning);
@@ -292,35 +258,25 @@ public class MoodService
         }
     }
 
-    /// <summary>
-    /// Applies natural time-based decay to mood (energy naturally decreases, etc.)
-    /// </summary>
     private void ApplyTimeBasedDecay(MiChanMoodState mood)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var hoursSinceUpdate = (now - mood.LastMoodUpdate).TotalHours;
 
-        if (hoursSinceUpdate < 0.5) return; // Don't decay too frequently
+        if (hoursSinceUpdate < 0.5) return;
 
-        // Energy naturally decreases over time (people get tired)
-        var energyDecay = (float)(hoursSinceUpdate * 0.02); // 2% per hour
+        var energyDecay = (float)(hoursSinceUpdate * 0.02);
         
-        // Positivity slowly returns to baseline (0.6) - mood normalization
         var positivityBaseline = 0.6f;
         var positivityDrift = (positivityBaseline - mood.PositivityLevel) * (float)(hoursSinceUpdate * 0.05);
 
-        // Apply changes
         mood.EnergyLevel = Math.Max(0.3f, mood.EnergyLevel - energyDecay);
         mood.PositivityLevel += positivityDrift;
 
-        // Ensure bounds
         mood.EnergyLevel = Math.Clamp(mood.EnergyLevel, 0f, 1f);
         mood.PositivityLevel = Math.Clamp(mood.PositivityLevel, 0f, 1f);
     }
 
-    /// <summary>
-    /// Loads existing mood from database or creates a new one
-    /// </summary>
     private async Task<MiChanMoodState> LoadOrCreateMoodAsync(CancellationToken cancellationToken)
     {
         var existing = _database.MoodStates
@@ -333,7 +289,6 @@ public class MoodService
             return existing;
         }
 
-        // Create new mood with default values
         var newMood = new MiChanMoodState
         {
             CurrentMoodDescription = _config.AutonomousBehavior.DynamicMood.BasePersonality,
@@ -347,9 +302,6 @@ public class MoodService
         return newMood;
     }
 
-    /// <summary>
-    /// Saves the mood state to database
-    /// </summary>
     private async Task SaveMoodAsync(MiChanMoodState mood, CancellationToken cancellationToken)
     {
         if (_database.Entry(mood).State == Microsoft.EntityFrameworkCore.EntityState.Detached)
@@ -360,27 +312,16 @@ public class MoodService
         await _database.SaveChangesAsync(cancellationToken);
     }
 
-    /// <summary>
-    /// Public method for plugins to save mood state
-    /// </summary>
     public async Task SaveMoodStateAsync(MiChanMoodState mood, CancellationToken cancellationToken = default)
     {
         await SaveMoodAsync(mood, cancellationToken);
     }
 
-    /// <summary>
-    /// Performs deep self-reflection to update mood based on recent experiences.
-    /// This is called by the MoodPlugin for comprehensive mood updates.
-    /// </summary>
-    [Experimental("SKEXP0050")]
     public async Task<bool> PerformDeepReflectionAsync(CancellationToken cancellationToken = default)
     {
         return await PerformMoodReflectionAsync(await GetCurrentMoodAsync(cancellationToken), cancellationToken);
     }
 
-    /// <summary>
-    /// JSON response structure for mood updates
-    /// </summary>
     private class MoodUpdateResponse
     {
         public string MoodDescription { get; set; } = "";
@@ -391,4 +332,3 @@ public class MoodService
         public string Reasoning { get; set; } = "";
     }
 }
-#pragma warning restore SKEXP0050
