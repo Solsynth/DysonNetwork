@@ -180,6 +180,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ScheduledTaskService>();
             services.AddScoped<ScheduledTaskJob>();
             services.AddScoped<MemoryService>();
+            services.AddScoped<EmbeddingService>();
             services.AddScoped<InteractiveHistoryService>();
             services.AddScoped<UserProfileService>();
             services.AddSingleton<PostAnalysisService>();
