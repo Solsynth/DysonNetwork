@@ -333,6 +333,18 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
             chatOptions.MaxOutputTokenCount = options.MaxTokens.Value;
         }
 
+        if (!string.IsNullOrWhiteSpace(options?.ReasoningEffort)
+            && TryMapReasoningEffort(options.ReasoningEffort!, out var reasoningEffortLevel))
+        {
+            chatOptions.ReasoningEffortLevel = reasoningEffortLevel;
+        }
+        else if (!string.IsNullOrWhiteSpace(options?.ReasoningEffort))
+        {
+            _logger?.LogWarning(
+                "Ignoring unsupported reasoning effort value '{ReasoningEffort}'. Expected low|medium|high.",
+                options.ReasoningEffort);
+        }
+
         if (options?.EnableTools == true && tools != null && tools.Count > 0)
         {
             foreach (var tool in tools)
@@ -355,6 +367,25 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         }
 
         return chatOptions;
+    }
+
+    private static bool TryMapReasoningEffort(string value, out ChatReasoningEffortLevel level)
+    {
+        switch (value.Trim().ToLowerInvariant())
+        {
+            case "low":
+                level = ChatReasoningEffortLevel.Low;
+                return true;
+            case "medium":
+                level = ChatReasoningEffortLevel.Medium;
+                return true;
+            case "high":
+                level = ChatReasoningEffortLevel.High;
+                return true;
+            default:
+                level = default;
+                return false;
+        }
     }
 
     private AgentChatResponse ConvertResponse(ChatCompletion completion)
