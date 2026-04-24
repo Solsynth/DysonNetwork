@@ -1870,6 +1870,29 @@ public class ThoughtService(
             var compactPrefix = SelectCompactionChunkPrefix(uncoveredThoughts);
             if (compactPrefix.Count > 0)
             {
+                var proposedCoveredThoughtId = compactPrefix[^1].Id;
+                if (originalCoveredThoughtId.HasValue && originalCoveredThoughtId.Value == proposedCoveredThoughtId)
+                {
+                    logger.LogDebug(
+                        "Skipping MiChan history compaction for sequence {SequenceId} because covered thought did not advance. coveredThoughtId={CoveredThoughtId}",
+                        sequence.Id,
+                        proposedCoveredThoughtId
+                    );
+
+                    uncoveredThoughts = ClampMiChanThoughtWindow(uncoveredThoughts, MiChanMaxThoughtWindowTokens);
+
+                    logger.LogInformation(
+                        "Prepared MiChan history for sequence {SequenceId} in {ElapsedMs}ms. finalThoughts={FinalThoughtCount}, finalTokens={FinalTokens}, savedSummary={SavedSummary}",
+                        sequence.Id,
+                        stopwatch.ElapsedMilliseconds,
+                        uncoveredThoughts.Count,
+                        uncoveredThoughts.Sum(EstimateThoughtTokensForPrompt),
+                        false
+                    );
+
+                    return (latestSummaryText, uncoveredThoughts);
+                }
+
                 var compactPrefixTokens = compactPrefix.Sum(EstimateThoughtTokensForPrompt);
                 logger.LogInformation(
                     "Compacting MiChan history for sequence {SequenceId}. compactThoughts={CompactThoughtCount}, compactTokens={CompactTokens}",
@@ -1882,7 +1905,7 @@ public class ThoughtService(
                 if (!string.IsNullOrWhiteSpace(compactedSummary))
                 {
                     latestSummaryText = compactedSummary;
-                    coveredThroughThoughtId = compactPrefix[^1].Id;
+                    coveredThroughThoughtId = proposedCoveredThoughtId;
                     uncoveredThoughts = uncoveredThoughts.Skip(compactPrefix.Count).ToList();
                     logger.LogInformation(
                         "Compacted MiChan history for sequence {SequenceId} in {ElapsedMs}ms. remainingThoughts={RemainingThoughtCount}",
