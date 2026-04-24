@@ -9,6 +9,8 @@ namespace DysonNetwork.Insight.Thought.Memory;
 /// </summary>
 public class EmbeddingService(AgentChatClientFactory chatClientFactory, ILogger<EmbeddingService> logger)
 {
+    private const int DefaultExpectedDimensions = 1536;
+
     /// <summary>
     /// Generate embedding for a single text
     /// </summary>
@@ -25,7 +27,17 @@ public class EmbeddingService(AgentChatClientFactory chatClientFactory, ILogger<
 
             var response = await client.GenerateEmbeddingAsync(text, cancellationToken: cancellationToken);
             var vector = response.Value.ToFloats();
-            return new Vector(vector.ToArray());
+            var values = vector.ToArray();
+            if (values.Length != DefaultExpectedDimensions)
+            {
+                logger.LogWarning(
+                    "Embedding dimension mismatch. Expected {Expected}, got {Actual}. Skipping embedding write to avoid DB vector errors.",
+                    DefaultExpectedDimensions,
+                    values.Length);
+                return null;
+            }
+
+            return new Vector(values);
         }
         catch (Exception ex)
         {

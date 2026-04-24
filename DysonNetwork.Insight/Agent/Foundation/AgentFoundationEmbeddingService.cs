@@ -6,6 +6,8 @@ using Pgvector;
 
 public class AgentFoundationEmbeddingService
 {
+    private const int DefaultExpectedDimensions = 1536;
+
     private readonly IAgentProviderRegistry _providerRegistry;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AgentFoundationEmbeddingService> _logger;
@@ -55,8 +57,17 @@ public class AgentFoundationEmbeddingService
             }
 
             var response = await provider.GenerateEmbeddingAsync(text, cancellationToken);
+            var values = response.Embedding.ToArray();
+            if (values.Length != DefaultExpectedDimensions)
+            {
+                _logger.LogWarning(
+                    "Embedding dimension mismatch. Expected {Expected}, got {Actual}. Skipping embedding write to avoid DB vector errors.",
+                    DefaultExpectedDimensions,
+                    values.Length);
+                return null;
+            }
 
-            return new Vector(response.Embedding.ToArray());
+            return new Vector(values);
         }
         catch (Exception ex)
         {
