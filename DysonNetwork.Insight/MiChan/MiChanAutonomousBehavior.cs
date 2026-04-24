@@ -1,4 +1,3 @@
-#pragma warning disable SKEXP0050
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
@@ -1861,5 +1860,3 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
         public PostPinMode? PinMode { get; set; } // For pins: ProfilePage, RealmPage
     }
 }
-
-#pragma warning restore SKEXP0050

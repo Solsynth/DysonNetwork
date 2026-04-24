@@ -405,4 +405,3 @@ public class PostAnalysisService
         return _config.Vision.EnableVisionAnalysis && _agentClientProvider.IsVisionModelAvailable();
     }
 }
-#pragma warning restore SKEXP0050

@@ -1,5 +1,3 @@
-#pragma warning disable SKEXP0050
-
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using DysonNetwork.Shared.Auth;
@@ -265,5 +263,3 @@ public class ScheduledTaskController(
         }
     }
 }
-
-#pragma warning restore SKEXP0050

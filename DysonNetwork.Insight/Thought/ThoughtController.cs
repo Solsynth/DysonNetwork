@@ -1247,5 +1247,3 @@ public class ThoughtController(
         }
     }
 }
-
-#pragma warning restore SKEXP0050

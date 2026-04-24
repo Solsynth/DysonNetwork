@@ -244,7 +244,6 @@ public class FoundationChatHistoryBuilder
         return "object";
     }
 
-#pragma warning disable SKEXP0001
     public AgentConversation ConvertFromChatHistory(object chatHistory, List<AgentToolDefinition>? tools = null)
     {
         var conversation = new AgentConversation { Tools = tools };
@@ -367,5 +366,4 @@ public class FoundationChatHistoryBuilder
         
         return conversation;
     }
-#pragma warning restore SKEXP0001
 }

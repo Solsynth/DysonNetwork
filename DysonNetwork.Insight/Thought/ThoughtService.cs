@@ -84,9 +84,7 @@ public class ThoughtService(
         Guid sequenceId,
         Guid accountId)
     {
-#pragma warning disable SKEXP0050
         return await thoughtProvider.MemorizeSequenceAsync(sequenceId, accountId);
-#pragma warning restore SKEXP0050
     }
 
     /// <summary>
