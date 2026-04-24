@@ -1906,6 +1906,17 @@ public class ThoughtService(
                 {
                     latestSummaryText = compactedSummary;
                     coveredThroughThoughtId = proposedCoveredThoughtId;
+
+                    var compactedThoughtIds = compactPrefix
+                        .Select(thought => thought.Id)
+                        .ToList();
+                    if (compactedThoughtIds.Count > 0)
+                    {
+                        await db.ThinkingThoughts
+                            .Where(thought => compactedThoughtIds.Contains(thought.Id))
+                            .ExecuteUpdateAsync(update => update.SetProperty(thought => thought.IsArchived, true));
+                    }
+
                     uncoveredThoughts = uncoveredThoughts.Skip(compactPrefix.Count).ToList();
                     logger.LogInformation(
                         "Compacted MiChan history for sequence {SequenceId} in {ElapsedMs}ms. remainingThoughts={RemainingThoughtCount}",
@@ -2037,13 +2048,14 @@ public class ThoughtService(
 
         await HydrateThoughtPartsAsync(candidateThoughts);
 
-        var visibleCandidates = candidateThoughts
+        var coveredIndex = candidateThoughts.FindIndex(thought => thought.Id == coveredThought.Id);
+        var thoughtsAfterCoverage = coveredIndex >= 0
+            ? candidateThoughts.Skip(coveredIndex + 1).ToList()
+            : candidateThoughts;
+        var recentThoughts = thoughtsAfterCoverage
+            .Where(thought => !thought.IsArchived)
             .Where(thought => !IsMiChanCompactionThought(thought))
             .ToList();
-        var coveredIndex = visibleCandidates.FindIndex(thought => thought.Id == coveredThought.Id);
-        var recentThoughts = coveredIndex >= 0
-            ? visibleCandidates.Skip(coveredIndex + 1).ToList()
-            : visibleCandidates;
 
         logger.LogDebug(
             "Loaded MiChan prompt history for sequence {SequenceId} in {ElapsedMs}ms. latestSummaryFound={HasSummary}, candidateThoughts={CandidateThoughtCount}, recentThoughts={RecentThoughtCount}",
