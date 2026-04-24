@@ -549,6 +549,10 @@ public class ThoughtController(
         Response.StatusCode = 200;
 
         toolRegistry.RegisterMiChanPlugins(serviceProvider);
+        conversation = new AgentConversation(conversation.Messages)
+        {
+            Tools = toolRegistry.GetAllDefinitions().ToList()
+        };
 
         var provider = snChanFoundationProvider.GetChatAdapter(request.Model);
         var options = snChanFoundationProvider.CreateExecutionOptions(
@@ -1004,6 +1008,10 @@ public class ThoughtController(
         );
 
         toolRegistry.RegisterMiChanPlugins(serviceProvider);
+        conversation = new AgentConversation(conversation.Messages)
+        {
+            Tools = toolRegistry.GetAllDefinitions().ToList()
+        };
 
         var provider = useVisionKernel
             ? miChanFoundationProvider.GetVisionAdapter(currentUser.PerkLevel)
