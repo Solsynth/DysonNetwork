@@ -55,6 +55,65 @@ public class ConversationBuilder
         return this;
     }
 
+    public ConversationBuilder AddUserMessageWithFiles(string text, List<SnCloudFileReferenceObject> files)
+    {
+        var parts = new List<AgentMessageContentPart>
+        {
+            new() { Type = AgentContentPartType.Text, Text = text }
+        };
+
+        foreach (var file in files)
+        {
+            if (!string.IsNullOrWhiteSpace(file.Url))
+            {
+                parts.Add(new AgentMessageContentPart
+                {
+                    Type = AgentContentPartType.FileUrl,
+                    FileUrl = file.Url,
+                    FileMediaType = file.MimeType,
+                    FileName = file.Name
+                });
+            }
+        }
+
+        _messages.Add(new AgentMessage
+        {
+            Role = AgentMessageRole.User,
+            ContentParts = parts
+        });
+
+        return this;
+    }
+
+    public ConversationBuilder AddUserMessageWithInlineFiles(
+        string text,
+        List<(string fileName, string? mediaType, byte[] data)> files)
+    {
+        var parts = new List<AgentMessageContentPart>
+        {
+            new() { Type = AgentContentPartType.Text, Text = text }
+        };
+
+        foreach (var file in files.Where(f => f.data.Length > 0))
+        {
+            parts.Add(new AgentMessageContentPart
+            {
+                Type = AgentContentPartType.FileData,
+                FileData = file.data,
+                FileName = file.fileName,
+                FileMediaType = file.mediaType
+            });
+        }
+
+        _messages.Add(new AgentMessage
+        {
+            Role = AgentMessageRole.User,
+            ContentParts = parts
+        });
+
+        return this;
+    }
+
     public ConversationBuilder AddAssistantMessage(string content, List<AgentToolCall>? toolCalls = null)
     {
         _messages.Add(new AgentMessage

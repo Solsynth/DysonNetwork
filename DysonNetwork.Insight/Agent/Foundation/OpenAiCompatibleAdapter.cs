@@ -252,6 +252,35 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
                                 case AgentContentPartType.ImageData:
                                     parts.Add(ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(part.ImageData!), part.ImageMediaType));
                                     break;
+                                case AgentContentPartType.FileUrl:
+                                    if (!string.IsNullOrWhiteSpace(part.FileUrl))
+                                    {
+                                        parts.Add(ChatMessageContentPart.CreateTextPart(
+                                            $"[Attached File URL] {part.FileName ?? "file"} ({part.FileMediaType ?? "unknown"}) {part.FileUrl}"));
+                                    }
+
+                                    break;
+                                case AgentContentPartType.FileData:
+                                    if (part.FileData != null)
+                                    {
+                                        try
+                                        {
+                                            parts.Add(ChatMessageContentPart.CreateFilePart(
+                                                BinaryData.FromBytes(part.FileData),
+                                                part.FileName ?? "attachment",
+                                                part.FileMediaType));
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            _logger?.LogWarning(ex,
+                                                "Failed to create inline file part for {FileName}; falling back to text notice.",
+                                                part.FileName ?? "attachment");
+                                            parts.Add(ChatMessageContentPart.CreateTextPart(
+                                                $"[Attached File] {part.FileName ?? "file"} ({part.FileMediaType ?? "unknown"})"));
+                                        }
+                                    }
+
+                                    break;
                             }
                         }
                         result.Add(new UserChatMessage(parts));

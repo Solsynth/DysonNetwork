@@ -43,6 +43,7 @@ public class ThoughtService(
     FoundationChatStreamingService foundationStreamingService,
     ISnChanFoundationProvider snChanFoundationProvider,
     IMiChanFoundationProvider miChanFoundationProvider,
+    IHttpClientFactory httpClientFactory,
     ILogger<ThoughtService> logger,
     RemoteAccountService accounts,
     MoodService moodService
@@ -1479,16 +1480,35 @@ public class ThoughtService(
         var useVisionKernel = false;
         if (attachments is { Count: > 0 })
         {
-            var imageFiles = attachments.Where(f => f.MimeType?.StartsWith("image/") == true).ToList();
+            var imageFiles = attachments.Where(IsImageFile).ToList();
+            var nonImageFiles = attachments.Where(f => !IsImageFile(f)).ToList();
+            var rawTextFiles = attachments.Where(IsRawTextFile).ToList();
             if (imageFiles.Count > 0 && postAnalysisService.IsVisionModelAvailable())
             {
                 useVisionKernel = true;
                 builder.AddUserMessageWithImages(userMessage ?? "请分析这些图片文件。", imageFiles);
             }
-            else
+
+            if (imageFiles.Count > 0 && !useVisionKernel)
             {
-                var fileInfo = string.Join("\n", attachments.Select(f => $"[File: {f.Name} ({f.MimeType}) - ID: {f.Id}]"));
-                builder.AddUserMessage($"Attached files:\n{fileInfo}\n\n{userMessage ?? "Please analyze these files."}");
+                builder.AddUserMessage(
+                    "附加了图片文件，但当前视觉分析不可用。请基于文件信息给出建议：\n" +
+                    BuildAttachmentContextText(imageFiles, 8)
+                );
+            }
+
+            if (nonImageFiles.Count > 0)
+            {
+                builder.AddUserMessage(
+                    "附加了非图片文件（如文档、文本、视频）。请结合以下文件信息进行分析：\n" +
+                    BuildAttachmentContextText(nonImageFiles, 12)
+                );
+            }
+
+            var rawTextContext = await BuildRawTextAttachmentContextAsync(rawTextFiles);
+            if (!string.IsNullOrWhiteSpace(rawTextContext))
+            {
+                builder.AddUserMessage(rawTextContext);
             }
         }
         else
@@ -1505,9 +1525,24 @@ public class ThoughtService(
         var textParts = parts.Where(p => p.Type == ThinkingMessagePartType.Text).ToList();
         var toolCalls = parts.Where(p => p.Type == ThinkingMessagePartType.FunctionCall).ToList();
         var toolResults = parts.Where(p => p.Type == ThinkingMessagePartType.FunctionResult).ToList();
+        var attachmentFiles = parts
+            .Where(p => p.Files is { Count: > 0 })
+            .SelectMany(p => p.Files!)
+            .Where(f => f != null)
+            .ToList();
 
         var content = string.Join("\n", textParts.Select(p => p.Text ?? ""));
         var timestampPrefix = $"[Time: {FormatThoughtTimestamp(thought.CreatedAt)}]";
+        if (attachmentFiles.Count > 0)
+        {
+            var attachmentContext = BuildAttachmentContextText(attachmentFiles, 8);
+            if (!string.IsNullOrWhiteSpace(attachmentContext))
+            {
+                content = string.IsNullOrWhiteSpace(content)
+                    ? attachmentContext
+                    : $"{content}\n\n{attachmentContext}";
+            }
+        }
 
         if (thought.Role == ThinkingThoughtRole.User)
         {
@@ -1746,11 +1781,36 @@ public class ThoughtService(
         if (attachments is { Count: > 0 })
         {
             var visionAvailable = postAnalysisService.IsVisionModelAvailable();
-            useVisionKernel = attachments.Count > 0 && visionAvailable;
+            var imageFiles = attachments.Where(IsImageFile).ToList();
+            var nonImageFiles = attachments.Where(f => !IsImageFile(f)).ToList();
+            var rawTextFiles = attachments.Where(IsRawTextFile).ToList();
+            useVisionKernel = imageFiles.Count > 0 && visionAvailable;
 
             if (useVisionKernel)
             {
-                builder.AddUserMessageWithImages("附加的图片文件：", attachments);
+                builder.AddUserMessageWithImages("附加的图片文件：", imageFiles);
+            }
+
+            if (imageFiles.Count > 0 && !useVisionKernel)
+            {
+                builder.AddUserMessage(
+                    "附加了图片文件，但当前视觉分析不可用。请先根据文件元数据和上下文回答：\n" +
+                    BuildAttachmentContextText(imageFiles, 8)
+                );
+            }
+
+            if (nonImageFiles.Count > 0)
+            {
+                builder.AddUserMessage(
+                    "附加了非图片文件（如文本、PDF、视频）。请优先基于文件名、类型、URL 和上下文进行分析：\n" +
+                    BuildAttachmentContextText(nonImageFiles, 12)
+                );
+            }
+
+            var rawTextContext = await BuildRawTextAttachmentContextAsync(rawTextFiles);
+            if (!string.IsNullOrWhiteSpace(rawTextContext))
+            {
+                builder.AddUserMessage(rawTextContext);
             }
         }
 
@@ -2245,6 +2305,146 @@ public class ThoughtService(
         }
 
         return timestamp.ToDateTimeUtc().ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
+    }
+
+    private static bool IsImageFile(SnCloudFileReferenceObject file)
+    {
+        return file.MimeType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private static bool IsVideoFile(SnCloudFileReferenceObject file)
+    {
+        return file.MimeType?.StartsWith("video/", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private static bool IsPdfFile(SnCloudFileReferenceObject file)
+    {
+        return string.Equals(file.MimeType, "application/pdf", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsTextLikeFile(SnCloudFileReferenceObject file)
+    {
+        if (file.MimeType?.StartsWith("text/", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return true;
+        }
+
+        return file.MimeType is "application/json" or "application/xml";
+    }
+
+    private static bool IsRawTextFile(SnCloudFileReferenceObject file)
+    {
+        var mime = file.MimeType;
+        if (string.Equals(mime, "text/plain", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(mime, "text/markdown", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var name = file.Name ?? string.Empty;
+        return name.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) ||
+               name.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ||
+               name.EndsWith(".markdown", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<string> BuildRawTextAttachmentContextAsync(
+        IEnumerable<SnCloudFileReferenceObject> files,
+        int maxFiles = 4,
+        int maxCharsPerFile = 4000)
+    {
+        var candidates = files
+            .Where(f => !string.IsNullOrWhiteSpace(f.Url))
+            .Take(maxFiles)
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var client = httpClientFactory.CreateClient();
+        var builder = new StringBuilder();
+        var appended = 0;
+
+        foreach (var file in candidates)
+        {
+            try
+            {
+                using var response = await client.GetAsync(file.Url!, HttpCompletionOption.ResponseHeadersRead);
+                if (!response.IsSuccessStatusCode)
+                {
+                    logger.LogDebug("Skip raw text attachment {FileId}: HTTP {StatusCode}", file.Id,
+                        (int)response.StatusCode);
+                    continue;
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    continue;
+                }
+
+                if (content.Length > maxCharsPerFile)
+                {
+                    content = content[..maxCharsPerFile] + "\n...[truncated]";
+                }
+
+                if (appended == 0)
+                {
+                    builder.AppendLine("[Attachment Raw Text]");
+                    builder.AppendLine("以下是附加的 txt/md 文件内容，可直接作为上下文使用：");
+                }
+
+                builder.AppendLine($"--- {file.Name} ({file.MimeType ?? "unknown"}) ---");
+                builder.AppendLine(content.Trim());
+                builder.AppendLine();
+                appended++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to load raw text attachment {FileId}", file.Id);
+            }
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string BuildAttachmentContextText(IEnumerable<SnCloudFileReferenceObject> files, int maxFiles)
+    {
+        var selected = files.Take(maxFiles).ToList();
+        if (selected.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder();
+        builder.AppendLine("[Attachment Context]");
+
+        foreach (var file in selected)
+        {
+            var category = IsPdfFile(file)
+                ? "pdf"
+                : IsTextLikeFile(file)
+                    ? "text"
+                    : IsVideoFile(file)
+                        ? "video"
+                        : IsImageFile(file)
+                            ? "image"
+                            : "file";
+
+            builder.Append("- ");
+            builder.Append($"{file.Name} ({file.MimeType ?? "unknown"}, {category})");
+            builder.Append($", id={file.Id}");
+
+            if (!string.IsNullOrWhiteSpace(file.Url))
+            {
+                builder.Append($", url={file.Url}");
+            }
+
+            builder.AppendLine();
+        }
+
+        return builder.ToString().TrimEnd();
     }
 
     private int FindCoveredThoughtIndex(List<SnThinkingThought> rawThoughts, SnThinkingThought? summaryThought)

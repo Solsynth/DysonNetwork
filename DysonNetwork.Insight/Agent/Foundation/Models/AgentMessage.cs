@@ -45,11 +45,17 @@ public class AgentMessageContentPart
     public string? ImageUrl { get; set; }
     public byte[]? ImageData { get; set; }
     public string? ImageMediaType { get; set; }
+    public string? FileUrl { get; set; }
+    public byte[]? FileData { get; set; }
+    public string? FileMediaType { get; set; }
+    public string? FileName { get; set; }
 }
 
 public enum AgentContentPartType
 {
     Text,
     ImageUrl,
-    ImageData
+    ImageData,
+    FileUrl,
+    FileData
 }
