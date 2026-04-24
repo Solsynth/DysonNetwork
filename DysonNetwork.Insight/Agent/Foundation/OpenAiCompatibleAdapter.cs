@@ -333,16 +333,24 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
             chatOptions.MaxOutputTokenCount = options.MaxTokens.Value;
         }
 
-        if (!string.IsNullOrWhiteSpace(options?.ReasoningEffort)
-            && TryMapReasoningEffort(options.ReasoningEffort!, out var reasoningEffortLevel))
+        if (!string.IsNullOrWhiteSpace(options?.ReasoningEffort))
         {
-            chatOptions.ReasoningEffortLevel = reasoningEffortLevel;
-        }
-        else if (!string.IsNullOrWhiteSpace(options?.ReasoningEffort))
-        {
-            _logger?.LogWarning(
-                "Ignoring unsupported reasoning effort value '{ReasoningEffort}'. Expected low|medium|high.",
-                options.ReasoningEffort);
+            if (ProviderId.StartsWith("deepseek", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger?.LogInformation(
+                    "Skipping reasoning effort for provider '{ProviderId}' to avoid reasoning_content replay requirement.",
+                    ProviderId);
+            }
+            else if (TryMapReasoningEffort(options.ReasoningEffort!, out var reasoningEffortLevel))
+            {
+                chatOptions.ReasoningEffortLevel = reasoningEffortLevel;
+            }
+            else
+            {
+                _logger?.LogWarning(
+                    "Ignoring unsupported reasoning effort value '{ReasoningEffort}'. Expected low|medium|high.",
+                    options.ReasoningEffort);
+            }
         }
 
         if (options?.EnableTools == true && tools != null && tools.Count > 0)
