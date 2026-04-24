@@ -33,6 +33,7 @@
         <PackageReference Include="Quartz.Extensions.Hosting" Version="3.17.1" />
         <PackageReference Include="System.ServiceModel.Syndication" Version="10.0.5" />
         <PackageReference Include="TiktokenSharp" Version="1.2.1" />
+        <PackageReference Include="OpenAI" Version="2.9.1" />
     </ItemGroup>
 
     <ItemGroup>

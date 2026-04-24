@@ -1,0 +1,109 @@
+namespace DysonNetwork.Insight.Agent.Foundation.Providers;
+
+using DysonNetwork.Insight.Agent.Foundation;
+using DysonNetwork.Insight.Agent.Foundation.Models;
+using DysonNetwork.Insight.Agent.Models;
+using DysonNetwork.Insight.MiChan;
+
+public interface IMiChanFoundationProvider
+{
+    IAgentProviderAdapter GetChatAdapter(int? userPerkLevel = null, string? preferredModelId = null);
+    IAgentProviderAdapter GetAutonomousAdapter(int? userPerkLevel = null);
+    IAgentProviderAdapter GetVisionAdapter(int? userPerkLevel = null);
+    IAgentProviderAdapter GetCompactionAdapter(int? userPerkLevel = null);
+    AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null);
+    AgentExecutionOptions CreateAutonomousExecutionOptions(double? temperature = null, string? reasoningEffort = null);
+    AgentExecutionOptions CreateVisionExecutionOptions(double? temperature = null, string? reasoningEffort = null);
+}
+
+public class MiChanFoundationProvider : IMiChanFoundationProvider
+{
+    private readonly IAgentProviderRegistry _providerRegistry;
+    private readonly MiChanConfig _config;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<MiChanFoundationProvider> _logger;
+
+    public MiChanFoundationProvider(
+        IAgentProviderRegistry providerRegistry,
+        MiChanConfig config,
+        IConfiguration configuration,
+        ILogger<MiChanFoundationProvider> logger)
+    {
+        _providerRegistry = providerRegistry;
+        _config = config;
+        _configuration = configuration;
+        _logger = logger;
+    }
+
+    public IAgentProviderAdapter GetChatAdapter(int? userPerkLevel = null, string? preferredModelId = null)
+    {
+        var modelConfig = _config.ThinkingModel;
+        var providerId = GetProviderId(modelConfig);
+        return _providerRegistry.GetProvider(providerId);
+    }
+
+    public IAgentProviderAdapter GetAutonomousAdapter(int? userPerkLevel = null)
+    {
+        var modelConfig = _config.GetAutonomousModel();
+        var providerId = GetProviderId(modelConfig);
+        return _providerRegistry.GetProvider(providerId);
+    }
+
+    public IAgentProviderAdapter GetVisionAdapter(int? userPerkLevel = null)
+    {
+        var modelConfig = _config.GetVisionModel();
+        var providerId = GetProviderId(modelConfig);
+        return _providerRegistry.GetProvider(providerId);
+    }
+
+    public IAgentProviderAdapter GetCompactionAdapter(int? userPerkLevel = null)
+    {
+        var modelConfig = _config.GetCompactionModel();
+        var providerId = GetProviderId(modelConfig);
+        return _providerRegistry.GetProvider(providerId);
+    }
+
+    public AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null)
+    {
+        return new AgentExecutionOptions
+        {
+            Temperature = temperature ?? _config.ThinkingModel.GetEffectiveTemperature(),
+            ReasoningEffort = reasoningEffort ?? _config.ThinkingModel.GetEffectiveReasoningEffort(),
+            EnableTools = _config.ThinkingModel.EnableFunctions,
+            AutoInvokeTools = false,
+            MaxToolRounds = 10
+        };
+    }
+
+    public AgentExecutionOptions CreateAutonomousExecutionOptions(double? temperature = null, string? reasoningEffort = null)
+    {
+        var model = _config.GetAutonomousModel();
+        return new AgentExecutionOptions
+        {
+            Temperature = temperature ?? model.GetEffectiveTemperature(),
+            ReasoningEffort = reasoningEffort ?? model.GetEffectiveReasoningEffort(),
+            EnableTools = model.EnableFunctions,
+            AutoInvokeTools = false,
+            MaxToolRounds = 10
+        };
+    }
+
+    public AgentExecutionOptions CreateVisionExecutionOptions(double? temperature = null, string? reasoningEffort = null)
+    {
+        var model = _config.GetVisionModel();
+        return new AgentExecutionOptions
+        {
+            Temperature = temperature ?? model.GetEffectiveTemperature(),
+            ReasoningEffort = reasoningEffort ?? model.GetEffectiveReasoningEffort(),
+            EnableTools = false,
+            AutoInvokeTools = false
+        };
+    }
+
+    private string GetProviderId(ModelConfiguration modelConfig)
+    {
+        var provider = modelConfig.GetEffectiveProvider().ToLower();
+        var modelName = modelConfig.GetEffectiveModelName();
+        return $"{provider}:{modelName}";
+    }
+}

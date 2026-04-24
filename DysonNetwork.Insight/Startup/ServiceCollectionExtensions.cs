@@ -4,21 +4,20 @@ using DysonNetwork.Insight.Reader;
 using DysonNetwork.Insight.Services;
 using DysonNetwork.Insight.Thought;
 using DysonNetwork.Insight.MiChan;
-using DysonNetwork.Insight.MiChan.KernelBuilding;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.SnChan;
 using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Insight.SnDoc;
 using DysonNetwork.Insight.Agent.Models;
+using DysonNetwork.Insight.Agent.Foundation;
+using DysonNetwork.Insight.Agent.Foundation.Providers;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Pagination;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using Microsoft.SemanticKernel;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
-using SemanticKernelBuilder = DysonNetwork.Insight.Agent.KernelBuilding.SemanticKernelBuilder;
 
 namespace DysonNetwork.Insight.Startup;
 
@@ -35,7 +34,7 @@ public static class ServiceCollectionExtensions
             services.AddHttpClient("WebReader", client =>
             {
                 client.Timeout = TimeSpan.FromSeconds(3);
-                client.MaxResponseContentBufferSize = 10 * 1024 * 1024; // 10MB
+                client.MaxResponseContentBufferSize = 10 * 1024 * 1024;
                 client.DefaultRequestHeaders.Add("User-Agent", "facebookexternalhit/1.1");
             });
             services.AddHttpClient("DuckDuckGo", client =>
@@ -44,24 +43,19 @@ public static class ServiceCollectionExtensions
                 client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
             });
 
-            // Register gRPC services
             services.AddGrpc(options =>
             {
-                options.EnableDetailedErrors = true; // Will be adjusted in Program.cs
-                options.MaxReceiveMessageSize = 16 * 1024 * 1024; // 16MB
-                options.MaxSendMessageSize = 16 * 1024 * 1024; // 16MB
+                options.EnableDetailedErrors = true;
+                options.MaxReceiveMessageSize = 16 * 1024 * 1024;
+                options.MaxSendMessageSize = 16 * 1024 * 1024;
             });
             services.AddGrpcReflection();
 
-            // Register gRPC services
-
-            // Register OIDC services
             services.AddControllers().AddPaginationValidationFilter().AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals;
                 options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
                 options.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
-
                 options.JsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
             });
 
@@ -77,13 +71,11 @@ public static class ServiceCollectionExtensions
         public IServiceCollection AddAppFlushHandlers()
         {
             services.AddSingleton<FlushBufferService>();
-
             return services;
         }
 
         public IServiceCollection AddAppBusinessServices()
         {
-            // Register localization service
             services.AddSingleton<DysonNetwork.Shared.Localization.ILocalizationService, DysonNetwork.Shared.Localization.JsonLocalizationService>(sp =>
             {
                 var assembly = System.Reflection.Assembly.GetExecutingAssembly();
@@ -96,8 +88,10 @@ public static class ServiceCollectionExtensions
 
         public IServiceCollection AddThinkingServices(IConfiguration configuration)
         {
-            // Shared kernel factory for AI service creation
-            services.AddSingleton<KernelFactory>();
+            services.AddAgentFoundation();
+            services.AddAgentFoundationProviders(configuration);
+            services.AddMiChanFoundationProvider();
+            services.AddSnChanFoundationProvider();
 
             var freeQuotaConfig = configuration.GetSection("Thinking:FreeQuota").Get<FreeQuotaConfig>() ?? new FreeQuotaConfig();
             services.AddSingleton(freeQuotaConfig);
@@ -110,7 +104,6 @@ public static class ServiceCollectionExtensions
             services.AddHostedService<SequenceSummaryRefreshHostedService>();
             services.AddHostedService<ThoughtPartBackfillHostedService>();
 
-            // Register token counting service for accurate AI token counting
             services.AddSingleton<TokenCountingService>();
 
             return services;
@@ -121,29 +114,21 @@ public static class ServiceCollectionExtensions
             var snChanConfig = configuration.GetSection("SnChan").Get<SnChanConfig>() ?? new SnChanConfig();
             services.AddSingleton(snChanConfig);
 
-            // Always register SnChanModelSelector - it checks UseModelSelection internally
             services.AddSingleton<SnChanModelSelector>();
-
-            // Register SnChan API client for bot operations
             services.AddSingleton<SnChanApiClient>();
-
-            // Register publisher service for dual publisher management
             services.AddSingleton<SnChanPublisherService>();
 
-            // Register reply monitor service and job (only when enabled)
             if (snChanConfig.ReplyMonitoring.Enabled)
             {
                 services.AddScoped<SnChanReplyMonitorService>();
                 services.AddScoped<SnChanReplyMonitorJob>();
             }
 
-            // Register mood service
             if (snChanConfig.DynamicMood.Enabled)
             {
                 services.AddScoped<SnChanMoodService>();
             }
 
-            // Register diary job (only when enabled)
             if (snChanConfig.Diary.Enabled)
             {
                 services.AddScoped<SnChanDiaryJob>();
@@ -157,10 +142,8 @@ public static class ServiceCollectionExtensions
             var miChanConfig = configuration.GetSection("MiChan").Get<MiChanConfig>() ?? new MiChanConfig();
             services.AddSingleton(miChanConfig);
 
-            // Register model selection configuration
             services.Configure<ModelSelectionConfig>(options =>
             {
-                // Copy mappings from MiChan config if using model selection
                 if (miChanConfig.UseModelSelection && miChanConfig.ModelSelection?.Mappings != null)
                 {
                     options.Mappings = miChanConfig.ModelSelection.Mappings.Select(m => new ModelUseCaseMapping
@@ -180,23 +163,9 @@ public static class ServiceCollectionExtensions
                 }
             });
 
-            // Register model selector service for PerkLevel-based model selection
             services.AddSingleton<IModelSelector, ModelSelector>();
-
-            // Always register MiChan services for dependency injection (needed by ThoughtController)
-            // Core services
-            services.AddSingleton<KernelFactory>();
             services.AddSingleton<SolarNetworkApiClient>();
 
-            // Kernel building infrastructure
-            services.AddSingleton<SemanticKernelBuilder>();
-            services.AddSingleton<DysonNetwork.Insight.Agent.KernelBuilding.IKernelBuilder>(sp => sp.GetRequiredService<SemanticKernelBuilder>());
-
-            services.AddSingleton<MiChanKernelProvider>();
-            services.AddSingleton<GeneralKernelProvider>();
-            services.AddSingleton<IKernelProvider>(sp => sp.GetRequiredService<GeneralKernelProvider>());
-
-            // Plugins
             services.AddSingleton<PostPlugin>();
             services.AddSingleton<AccountPlugin>();
             services.AddSingleton<WebSearchPlugin>();
@@ -208,10 +177,8 @@ public static class ServiceCollectionExtensions
             services.AddScoped<MoodPlugin>();
             services.AddScoped<FitnessPlugin>();
 
-            // Memory and behavior services
             services.AddScoped<ScheduledTaskService>();
             services.AddScoped<ScheduledTaskJob>();
-            services.AddSingleton<EmbeddingService>();
             services.AddScoped<MemoryService>();
             services.AddScoped<InteractiveHistoryService>();
             services.AddScoped<UserProfileService>();
@@ -219,13 +186,11 @@ public static class ServiceCollectionExtensions
             services.AddScoped<MiChanAutonomousBehavior>();
             services.AddScoped<MoodService>();
 
-            // SnDoc services
             services.AddScoped<SnDocService>();
             services.AddScoped<SnDocPlugin>();
 
             services.AddHostedService<MiChanSequenceUnificationHostedService>();
 
-            // Only start the hosted service when enabled
             if (miChanConfig.Enabled)
                 services.AddHostedService<MiChanService>();
 
