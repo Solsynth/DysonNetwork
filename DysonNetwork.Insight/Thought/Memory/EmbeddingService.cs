@@ -25,9 +25,12 @@ public class EmbeddingService(AgentChatClientFactory chatClientFactory, ILogger<
                 return null;
             }
 
-            var response = await client.GenerateEmbeddingAsync(text, cancellationToken: cancellationToken);
-            var vector = response.Value.ToFloats();
-            var values = vector.ToArray();
+            var values = await GenerateEmbeddingValuesAsync(client, text, cancellationToken);
+            if (values == null)
+            {
+                return null;
+            }
+
             if (values.Length != DefaultExpectedDimensions)
             {
                 logger.LogWarning(
@@ -43,6 +46,33 @@ public class EmbeddingService(AgentChatClientFactory chatClientFactory, ILogger<
         {
             logger.LogWarning(ex, "Failed to generate embedding.");
             return null;
+        }
+    }
+
+    private async Task<float[]?> GenerateEmbeddingValuesAsync(
+        EmbeddingClient client,
+        string text,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await client.GenerateEmbeddingAsync(text, cancellationToken: cancellationToken);
+            return response.Value.ToFloats().ToArray();
+        }
+        catch (ArgumentNullException ex)
+        {
+            logger.LogWarning(ex,
+                "Embedding provider returned an empty single-embedding payload. Retrying via batch endpoint.");
+
+            var batchResponse = await client.GenerateEmbeddingsAsync([text], cancellationToken: cancellationToken);
+            var first = batchResponse.Value.FirstOrDefault();
+            if (first == null)
+            {
+                logger.LogWarning("Batch embedding response was empty.");
+                return null;
+            }
+
+            return first.ToFloats().ToArray();
         }
     }
 
