@@ -1,7 +1,5 @@
-#pragma warning disable SKEXP0050
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
-using Microsoft.SemanticKernel;
 
 namespace DysonNetwork.Insight.MiChan;
 
@@ -17,7 +15,6 @@ public class MiChanService(
     private MemoryService? _memoryService;
     private MiChanAutonomousBehavior? _autonomousBehavior;
     private SolarNetworkApiClient? _apiClient;
-    private Kernel? _kernel;
     private string? _cachedPersonality;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -80,12 +77,8 @@ public class MiChanService(
             // Create memory service
             _memoryService = serviceProvider.GetRequiredService<MemoryService>();
 
-            // Create kernel provider and get kernel
+            // Create kernel provider (kept for compatibility)
             _kernelProvider = serviceProvider.GetRequiredService<MiChanKernelProvider>();
-            _kernel = _kernelProvider.GetKernel();
-
-            // Register plugins using centralized extension method
-            _kernel.AddMiChanPlugins(serviceProvider);
 
             // Create autonomous behavior (includes post checking)
             _autonomousBehavior = serviceProvider.GetRequiredService<MiChanAutonomousBehavior>();

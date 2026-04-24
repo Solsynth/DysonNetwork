@@ -1,8 +1,9 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using DysonNetwork.Insight.Agent.Foundation;
+using DysonNetwork.Insight.Agent.Foundation.Models;
+using DysonNetwork.Insight.Agent.Foundation.Providers;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
-using Microsoft.SemanticKernel;
 using Quartz;
 
 namespace DysonNetwork.Insight.MiChan;
@@ -14,10 +15,12 @@ public class ScheduledTaskJob(
     MemoryService memoryService,
     MiChanConfig config,
     IServiceProvider serviceProvider,
+    IAgentToolRegistry toolRegistry,
+    FoundationChatStreamingService streamingService,
+    IMiChanFoundationProvider foundationProvider,
     ILogger<ScheduledTaskJob> logger
 ) : IJob
 {
-    [Experimental("SKEXP0050")]
     public async Task Execute(IJobExecutionContext context)
     {
         logger.LogInformation("Starting scheduled task execution job.");
@@ -38,7 +41,6 @@ public class ScheduledTaskJob(
         logger.LogInformation("Scheduled task execution job finished.");
     }
 
-    [Experimental("SKEXP0050")]
     public async Task ExecuteTaskDirectlyAsync(MiChanScheduledTask task, CancellationToken cancellationToken)
     {
         logger.LogInformation("Executing scheduled task {TaskId} for account {AccountId}",
@@ -48,16 +50,19 @@ public class ScheduledTaskJob(
         {
             await taskService.MarkAsRunningAsync(task, cancellationToken);
 
-            var kernel = kernelProvider.GetKernel();
-            RegisterPlugins(kernel);
+            toolRegistry.RegisterMiChanPlugins(serviceProvider);
 
             var prompt = await BuildPromptAsync(task, cancellationToken);
 
-            var settings = kernelProvider.CreateScheduledTaskPromptExecutionSettings(0.7);
-            var result = await kernel.InvokePromptAsync<string>(
+            var provider = foundationProvider.GetAutonomousAdapter();
+            var options = foundationProvider.CreateAutonomousExecutionOptions(temperature: 0.7);
+
+            var result = await streamingService.CompletePromptWithToolsAsync(
+                provider,
                 prompt,
-                new KernelArguments(settings),
-                cancellationToken: cancellationToken
+                toolRegistry,
+                options,
+                cancellationToken
             );
 
             logger.LogInformation("Task {TaskId} completed with result: {Result}",
@@ -70,11 +75,6 @@ public class ScheduledTaskJob(
             logger.LogError(ex, "Failed to execute scheduled task {TaskId}", task.Id);
             await taskService.MarkAsFailedAsync(task, ex.Message, cancellationToken);
         }
-    }
-
-    private void RegisterPlugins(Kernel kernel)
-    {
-        kernel.AddMiChanPlugins(serviceProvider);
     }
 
     private async Task<string> BuildPromptAsync(MiChanScheduledTask task, CancellationToken cancellationToken)

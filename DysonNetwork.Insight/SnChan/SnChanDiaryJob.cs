@@ -1,19 +1,15 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using DysonNetwork.Insight.Agent.Foundation;
+using DysonNetwork.Insight.Agent.Foundation.Providers;
 using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.SnChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Shared.Models;
-using Microsoft.SemanticKernel;
 using NodaTime;
 using Quartz;
 
 namespace DysonNetwork.Insight.SnChan;
 
-/// <summary>
-/// Scheduled job for SnChan to write a diary entry.
-/// Runs at 02:00 daily and creates a reflective post about the day's events.
-/// </summary>
 [DisallowConcurrentExecution]
 public class SnChanDiaryJob(
     SnChanConfig config,
@@ -22,12 +18,13 @@ public class SnChanDiaryJob(
     MemoryService memoryService,
     SnChanMoodService moodService,
     Thought.ThoughtService thoughtService,
+    FoundationChatStreamingService streamingService,
+    ISnChanFoundationProvider foundationProvider,
     ILogger<SnChanDiaryJob> logger
 ) : IJob
 {
     private static bool _publisherInitialized = false;
 
-    [Experimental("SKEXP0050")]
     public async Task Execute(IJobExecutionContext context)
     {
         if (!config.Diary.Enabled)
@@ -186,27 +183,20 @@ public class SnChanDiaryJob(
     /// <summary>
     /// Generate diary content using AI
     /// </summary>
-    [Experimental("SKEXP0050")]
     private async Task<string?> GenerateDiaryContentAsync(DiaryContext context, CancellationToken cancellationToken)
     {
         var prompt = BuildDiaryPrompt(context);
 
         try
         {
-            // Get SnChan kernel and execution settings from ThoughtService
-            var kernel = thoughtService.GetSnChanKernel();
-            if (kernel == null)
-            {
-                logger.LogError("Failed to get SnChan kernel for diary generation");
-                return null;
-            }
+            var provider = foundationProvider.GetChatAdapter();
+            var options = foundationProvider.CreateExecutionOptions();
 
-            var executionSettings = thoughtService.CreateSnChanExecutionSettings();
-
-            var result = await kernel.InvokePromptAsync<string>(
+            var result = await streamingService.CompletePromptAsync(
+                provider,
                 prompt,
-                new KernelArguments(executionSettings),
-                cancellationToken: cancellationToken
+                options,
+                cancellationToken
             );
 
             return result?.Trim();

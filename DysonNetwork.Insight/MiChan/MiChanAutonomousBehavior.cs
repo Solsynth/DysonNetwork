@@ -1,19 +1,19 @@
 #pragma warning disable SKEXP0050
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
+using DysonNetwork.Insight.Agent.Foundation;
+using DysonNetwork.Insight.Agent.Foundation.Models;
+using DysonNetwork.Insight.Agent.Foundation.Providers;
 using DysonNetwork.Shared.Models;
 using NodaTime;
 using NodaTime.Extensions;
 using DysonNetwork.Shared.Proto;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
-using NodaTime;
 using PostPinMode = DysonNetwork.Shared.Models.PostPinMode;
 
 namespace DysonNetwork.Insight.MiChan;
@@ -31,6 +31,9 @@ public class MiChanAutonomousBehavior
     private readonly MemoryService _memoryService;
     private readonly InteractiveHistoryService _interactiveHistoryService;
     private readonly MoodService _moodService;
+    private readonly IAgentToolRegistry _toolRegistry;
+    private readonly FoundationChatStreamingService _streamingService;
+    private readonly IMiChanFoundationProvider _foundationProvider;
     private Kernel? _kernel;
 
     private readonly Random _random = new();
@@ -66,7 +69,10 @@ public class MiChanAutonomousBehavior
         IConfiguration configGlobal,
         MemoryService memoryService,
         InteractiveHistoryService interactiveHistoryService,
-        MoodService moodService
+        MoodService moodService,
+        IAgentToolRegistry toolRegistry,
+        FoundationChatStreamingService streamingService,
+        IMiChanFoundationProvider foundationProvider
     )
     {
         _config = config;
@@ -80,11 +86,13 @@ public class MiChanAutonomousBehavior
         _memoryService = memoryService;
         _interactiveHistoryService = interactiveHistoryService;
         _moodService = moodService;
+        _toolRegistry = toolRegistry;
+        _streamingService = streamingService;
+        _foundationProvider = foundationProvider;
         _nextInterval = CalculateNextInterval();
         _mentionRegex = new Regex("@michan\\b", RegexOptions.IgnoreCase);
     }
 
-    [Experimental("SKEXP0050")]
     public Task InitializeAsync()
     {
         _kernel = _kernelProvider.GetAutonomousKernel();
@@ -241,7 +249,6 @@ public class MiChanAutonomousBehavior
         }
     }
 
-    [Experimental("SKEXP0050")]
     private async Task CheckAndInteractWithPostsAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Autonomous: Checking posts...");
@@ -546,34 +553,30 @@ public class MiChanAutonomousBehavior
         return sb.ToString().TrimEnd();
     }
 
-    /// <summary>
-    /// Get vision model response with error handling
-    /// </summary>
     private async Task<string> GetVisionResponseAsync(
-        ChatHistory chatHistory,
+        AgentConversation conversation,
         Guid postId)
     {
         try
         {
-            var visionKernel = _kernelProvider.GetVisionKernel();
-            var visionSettings = _kernelProvider.CreateVisionPromptExecutionSettings();
-            var chatCompletionService = visionKernel.GetRequiredService<IChatCompletionService>();
+            var provider = _foundationProvider.GetVisionAdapter();
+            var options = _foundationProvider.CreateVisionExecutionOptions();
 
             var stopwatch = Stopwatch.StartNew();
-            var reply = await chatCompletionService.GetChatMessageContentAsync(chatHistory, visionSettings);
+            var reply = await _streamingService.CompletePromptAsync(provider, conversation.Messages.FirstOrDefault()?.Content ?? "", options);
             stopwatch.Stop();
 
             _logger.LogInformation("Vision model response for post {PostId} completed in {ElapsedMs}ms", postId, stopwatch.ElapsedMilliseconds);
 
-            return reply.Content?.Trim() ?? "IGNORE";
+            return reply.Trim();
         }
-        catch (HttpOperationException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Vision model service '{VisionService}' not found. Check that the service is configured in Thinking:Services configuration. Post {PostId}",
-                _config.Vision.VisionThinkingService, postId);
+                "Vision model error for post {PostId}. Check that the service is configured in Thinking:Services configuration.",
+                postId);
             throw new InvalidOperationException(
-                $"Vision model service '{_config.Vision.VisionThinkingService}' not found. Ensure it is configured in Thinking:Services with correct endpoint, model name, and API key.",
+                $"Vision model error for post {postId}. Ensure it is configured in Thinking:Services with correct endpoint, model name, and API key.",
                 ex);
         }
     }
@@ -684,18 +687,13 @@ public class MiChanAutonomousBehavior
 
                 if (attempt < maxRetries)
                 {
-#pragma warning disable SKEXP0050
-                    var kernel = _kernelProvider.GetAutonomousKernel();
-#pragma warning restore SKEXP0050
-                    kernel.AddMiChanPlugins(_serviceProvider);
-                    var settings = _kernelProvider.CreateAutonomousPromptExecutionSettings();
+                    _toolRegistry.RegisterMiChanPlugins(_serviceProvider);
+                    var provider = _foundationProvider.GetAutonomousAdapter();
+                    var options = _foundationProvider.CreateAutonomousExecutionOptions();
 
                     var retryPrompt = $"JSON解析失败: {lastError}\n\n请修正以下JSON并返回有效的JSON数组格式：\n{jsonResponse}";
 
-                    jsonResponse = await kernel.InvokePromptAsync<string>(
-                        retryPrompt,
-                        new KernelArguments(settings),
-                        cancellationToken: cancellationToken) ?? "";
+                    jsonResponse = await _streamingService.CompletePromptAsync(provider, retryPrompt, options);
                 }
             }
         }
@@ -821,18 +819,17 @@ public class MiChanAutonomousBehavior
                 promptBuilder.AppendLine();
                 promptBuilder.AppendLine("如果发现重要信息或用户偏好，请使用 store_memory 工具保存到记忆中。必须提供 content 参数（要保存的记忆内容），不能为空！");
 
-                var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
-                var kernelArgs = new KernelArguments(executionSettings);
+                _toolRegistry.RegisterMiChanPlugins(_serviceProvider);
+                var provider = _foundationProvider.GetAutonomousAdapter();
+                var options = _foundationProvider.CreateAutonomousExecutionOptions();
 
                 var stopwatch = Stopwatch.StartNew();
-                var result = await _kernel!.InvokePromptAsync(promptBuilder.ToString(), kernelArgs);
+                var textReplyContent = await _streamingService.CompletePromptWithToolsAsync(provider, promptBuilder.ToString(), _toolRegistry, options);
                 stopwatch.Stop();
 
                 _logger.LogInformation("AI reply generation for mentioned post {PostId} completed in {ElapsedMs}ms", post.Id, stopwatch.ElapsedMilliseconds);
 
-                var textReplyContent = result.GetValue<string>()?.Trim();
-
-                return new PostActionDecision { ShouldReply = true, Content = textReplyContent };
+                return new PostActionDecision { ShouldReply = true, Content = textReplyContent.Trim() };
             }
 
             // Otherwise, decide whether to interact
@@ -895,15 +892,18 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("**注意**：回复应谨慎，仅在确实想互动时才使用 REPLY。大多数情况下使用 REACT 或 STORE 即可。多保存记忆比回复更重要！");
 
-                var decisionSettings = _kernelProvider.CreatePromptExecutionSettings();
+                var provider = _foundationProvider.GetAutonomousAdapter();
+                var options = _foundationProvider.CreateAutonomousExecutionOptions();
 
                 var stopwatch = Stopwatch.StartNew();
-                var decisionResult = await _kernel!.InvokePromptAsync(decisionPrompt.ToString(), new KernelArguments(decisionSettings));
+                decisionText = await _streamingService.CompletePromptAsync(provider, decisionPrompt.ToString(), options);
                 stopwatch.Stop();
 
                 _logger.LogInformation("AI decision generation for post {PostId} completed in {ElapsedMs}ms", post.Id, stopwatch.ElapsedMilliseconds);
 
-                decisionText = decisionResult.GetValue<string>()?.Trim() ?? "IGNORE";
+                decisionText = decisionText.Trim();
+                if (string.IsNullOrEmpty(decisionText))
+                    decisionText = "IGNORE";
             }
 
             var (actionDecision, _) = ParseDecisionText(decisionText, decisionText, post.Id, cancellationToken);
@@ -924,10 +924,7 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
         }
     }
 
-    /// <summary>
-    /// Build a ChatHistory with images for vision analysis
-    /// </summary>
-    private Task<ChatHistory> BuildVisionChatHistoryAsync(
+    private Task<AgentConversation> BuildVisionChatHistoryAsync(
         string personality,
         string mood,
         string content,
@@ -938,13 +935,12 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
         string? memoryContext = null
     )
     {
-        var chatHistory = new ChatHistory(personality);
-        chatHistory.AddSystemMessage($"当前心情: {mood}");
+        var conversation = new AgentConversation();
+        conversation.AddSystemMessage(personality);
+        conversation.AddSystemMessage($"当前心情: {mood}");
 
-        // Build the text part of the message
         var textBuilder = new StringBuilder();
 
-        // Add relevant memories
         if (!string.IsNullOrEmpty(memoryContext))
         {
             textBuilder.AppendLine(memoryContext);
@@ -965,17 +961,18 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
         textBuilder.AppendLine($"内容：\"{content}\"");
         textBuilder.AppendLine();
 
-        // Create a collection to hold all content items (text + images)
-        var contentItems = new ChatMessageContentItemCollection { new TextContent(textBuilder.ToString()) };
+        var contentParts = new List<AgentMessageContentPart>
+        {
+            new() { Type = AgentContentPartType.Text, Text = textBuilder.ToString() }
+        };
 
-        // Download and add images
         foreach (var attachment in imageAttachments)
         {
             try
             {
-                var imageContext = BuildImageContent(attachment);
-                if (imageContext is not null)
-                    contentItems.Add(imageContext);
+                var imageUrl = BuildImageUrl(attachment);
+                if (imageUrl is not null)
+                    contentParts.Add(new AgentMessageContentPart { Type = AgentContentPartType.ImageUrl, ImageUrl = imageUrl });
             }
             catch (Exception ex)
             {
@@ -983,7 +980,6 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
             }
         }
 
-        // Add instruction text after images
         var instructionText = new StringBuilder();
         if (imageAttachments.Count > 0)
         {
@@ -1037,46 +1033,38 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
             instructionText.AppendLine("**注意**：回复应谨慎，仅在确实想互动时才使用 REPLY。大多数情况下使用 REACT 或 STORE 即可。多保存记忆比回复更重要！");
         }
 
-        contentItems.Add(new TextContent(instructionText.ToString()));
+        contentParts.Add(new AgentMessageContentPart { Type = AgentContentPartType.Text, Text = instructionText.ToString() });
 
-        // Create a ChatMessageContent with all items and add it to history
-        var userMessage = new ChatMessageContent
+        var userMessage = new AgentMessage
         {
-            Role = AuthorRole.User,
-            Items = contentItems
+            Role = AgentMessageRole.User,
+            ContentParts = contentParts
         };
-        chatHistory.Add(userMessage);
+        conversation.Messages.Add(userMessage);
 
-        return Task.FromResult(chatHistory);
+        return Task.FromResult(conversation);
     }
 
-    /// <summary>
-    /// Download image bytes from the drive service
-    /// </summary>
-    private ImageContent? BuildImageContent(SnCloudFileReferenceObject attachment)
+    private string? BuildImageUrl(SnCloudFileReferenceObject attachment)
     {
         try
         {
-            string url;
             if (!string.IsNullOrEmpty(attachment.Url))
             {
-                url = attachment.Url;
+                return attachment.Url;
             }
             else if (!string.IsNullOrEmpty(attachment.Id))
             {
-                // Build URL from gateway + file ID
-                url = $"{_configGlobal["SiteUrl"]}/drive/files/{attachment.Id}";
+                return $"{_configGlobal["SiteUrl"]}/drive/files/{attachment.Id}";
             }
             else
             {
                 return null;
             }
-
-            return new ImageContent(new Uri(url));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to create image context from {Url}",
+            _logger.LogError(ex, "Failed to create image URL from {Url}",
                 attachment.Url ?? $"/drive/files/{attachment.Id}");
             return null;
         }
@@ -1303,7 +1291,6 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
         }
     }
 
-    [Experimental("SKEXP0050")]
     private async Task CreateAutonomousPostAsync()
     {
         // Check probability of creating a post
@@ -1346,9 +1333,12 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
                       如果在创作过程中发现重要信息或有趣的话题，请使用 store_memory 工具保存到记忆中。必须提供 content 参数（要保存的记忆内容），不能为空！
                       """;
 
-        var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
-        var result = await _kernel!.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
-        var content = result.GetValue<string>()?.Trim();
+        _toolRegistry.RegisterMiChanPlugins(_serviceProvider);
+        var provider = _foundationProvider.GetAutonomousAdapter();
+        var options = _foundationProvider.CreateAutonomousExecutionOptions();
+
+        var content = await _streamingService.CompletePromptWithToolsAsync(provider, prompt, _toolRegistry, options);
+        content = content.Trim();
 
         if (!string.IsNullOrEmpty(content))
         {
@@ -1372,7 +1362,6 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
         }
     }
 
-    [Experimental("SKEXP0050")]
     private async Task CheckAndRepostInterestingContentAsync()
     {
         // Check probability of checking for reposts
@@ -1458,7 +1447,6 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
         }
     }
 
-    [Experimental("SKEXP0050")]
     private async Task<bool> IsPostVeryInterestingAsync(SnPost post, string personality, string mood)
     {
         try
@@ -1512,9 +1500,13 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
             promptBuilder.Append("仅回复一个词：YES 或 NO。");
             var prompt = promptBuilder.ToString();
 
-            var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
-            var result = await _kernel!.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
-            var decision = result.GetValue<string>()?.Trim() ?? "NO";
+            var provider = _foundationProvider.GetAutonomousAdapter();
+            var options = _foundationProvider.CreateAutonomousExecutionOptions();
+
+            var decision = await _streamingService.CompletePromptAsync(provider, prompt, options);
+            decision = decision.Trim();
+            if (string.IsNullOrEmpty(decision))
+                decision = "NO";
 
             var isInteresting = decision.StartsWith("YES", StringComparison.OrdinalIgnoreCase);
             _logger.LogInformation("Post {PostId} very interesting check: {Decision}", post.Id,
@@ -1573,9 +1565,11 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
             promptBuilder.Append("不要使用表情符号。");
             var prompt = promptBuilder.ToString();
 
-            var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
-            var result = await _kernel!.InvokePromptAsync(prompt, new KernelArguments(executionSettings));
-            var comment = result.GetValue<string>()?.Trim();
+            var provider = _foundationProvider.GetAutonomousAdapter();
+            var options = _foundationProvider.CreateAutonomousExecutionOptions();
+
+            var comment = await _streamingService.CompletePromptAsync(provider, prompt, options);
+            comment = comment.Trim();
 
             if (comment?.Equals("NO_COMMENT", StringComparison.OrdinalIgnoreCase) == true)
             {
@@ -1616,7 +1610,6 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
     /// Randomly start a conversation with a user based on stored memories.
     /// This allows MiChan to proactively reach out to users with personalized messages.
     /// </summary>
-    [Experimental("SKEXP0050")]
     private async Task StartConversationWithUserAsync()
     {
         try
@@ -1784,9 +1777,11 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
             promptBuilder.AppendLine();
             promptBuilder.AppendLine("直接输出你要发送的消息内容，不要添加任何前缀或格式。");
 
-            var executionSettings = _kernelProvider.CreatePromptExecutionSettings();
-            var result = await _kernel!.InvokePromptAsync(promptBuilder.ToString(), new KernelArguments(executionSettings));
-            var message = result.GetValue<string>()?.Trim();
+            var provider = _foundationProvider.GetAutonomousAdapter();
+            var options = _foundationProvider.CreateAutonomousExecutionOptions();
+
+            var message = await _streamingService.CompletePromptAsync(provider, promptBuilder.ToString(), options);
+            message = message.Trim();
 
             if (string.IsNullOrEmpty(message))
             {
@@ -1807,8 +1802,10 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
                 - 直接输出标题，不要加引号或其他格式
                 """;
 
-            var topicResult = await _kernel!.InvokePromptAsync(topicPrompt, new KernelArguments(executionSettings));
-            var topic = topicResult.GetValue<string>()?.Trim() ?? "闲聊";
+            var topic = await _streamingService.CompletePromptAsync(provider, topicPrompt, options);
+            topic = topic.Trim();
+            if (string.IsNullOrEmpty(topic))
+                topic = "闲聊";
 
             if (_config.AutonomousBehavior.DryRun)
             {

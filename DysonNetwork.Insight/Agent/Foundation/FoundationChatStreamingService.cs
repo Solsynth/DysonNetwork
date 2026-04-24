@@ -163,6 +163,50 @@ public class FoundationChatStreamingService
         _logger.LogWarning("Max tool rounds ({MaxRounds}) reached in non-streaming chat", maxRounds);
         return new AgentChatResponse { Content = "", FinishReason = AgentFinishReason.Length };
     }
+
+    public async Task<string> CompletePromptAsync(
+        IAgentProviderAdapter provider,
+        string prompt,
+        AgentExecutionOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        var conversation = new AgentConversation();
+        conversation.AddSystemMessage(prompt);
+
+        var effectiveOptions = options ?? new AgentExecutionOptions
+        {
+            EnableTools = false,
+            AutoInvokeTools = false,
+            MaxToolRounds = 1
+        };
+
+        var response = await provider.CompleteChatAsync(conversation, effectiveOptions, cancellationToken);
+        return response.Content ?? "";
+    }
+
+    public async Task<string> CompletePromptWithToolsAsync(
+        IAgentProviderAdapter provider,
+        string prompt,
+        IAgentToolRegistry toolRegistry,
+        AgentExecutionOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        var conversation = new AgentConversation
+        {
+            Tools = toolRegistry.GetAllDefinitions().ToList()
+        };
+        conversation.AddSystemMessage(prompt);
+
+        var effectiveOptions = options ?? new AgentExecutionOptions
+        {
+            EnableTools = true,
+            AutoInvokeTools = true,
+            MaxToolRounds = 10
+        };
+
+        var response = await CompleteChatAsync(provider, conversation, effectiveOptions, cancellationToken);
+        return response.Content ?? "";
+    }
 }
 
 public abstract record StreamingChatEvent
