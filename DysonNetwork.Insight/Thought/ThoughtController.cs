@@ -9,6 +9,7 @@ using DysonNetwork.Insight.Agent.Models;
 using DysonNetwork.Insight.Agent.Foundation;
 using DysonNetwork.Insight.Agent.Foundation.Models;
 using DysonNetwork.Insight.Agent.Foundation.Providers;
+using DysonNetwork.Insight.Thought.Voice;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
@@ -25,6 +26,7 @@ public class ThoughtController(
     SnChanConfig snChanConfig,
     IServiceProvider serviceProvider,
     DyFileService.DyFileServiceClient files,
+    ThinkingVoiceService voiceService,
     FreeQuotaService freeQuotaService,
     IAgentClientProvider agentClientProvider,
     SnChanModelSelector? snChanModelSelector,
@@ -74,6 +76,7 @@ public class ThoughtController(
         public Guid? SequenceId { get; set; }
         public List<string>? AttachedPosts { get; set; } = [];
         public List<string>? AttachedFiles { get; set; } = [];
+        public List<string>? AttachedVoices { get; set; } = [];
         public List<Dictionary<string, dynamic>>? AttachedMessages { get; set; }
         public List<string> AcceptProposals { get; set; } = [];
         public string? ReasoningEffort { get; set; } // "low", "medium", "high"
@@ -84,6 +87,14 @@ public class ThoughtController(
     public class UpdateSharingRequest
     {
         public bool IsPublic { get; set; }
+    }
+
+    public class SendVoiceThinkingRequest
+    {
+        [Required] public IFormFile File { get; set; } = null!;
+        public Guid? SequenceId { get; set; }
+        public string Bot { get; set; } = "michan";
+        public int? DurationMs { get; set; }
     }
 
     public class BotModelInfo
@@ -246,6 +257,95 @@ public class ThoughtController(
         };
     }
 
+    [HttpPost("voice")]
+    [AskPermission("michan.think")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult> UploadVoice([FromForm] SendVoiceThinkingRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var bot = (request.Bot ?? "michan").ToLowerInvariant();
+        if (!AvailableBots.Contains(bot))
+        {
+            return BadRequest($"Invalid bot. Available bots: {string.Join(", ", AvailableBots)}");
+        }
+
+        if (request.SequenceId.HasValue)
+        {
+            var ownershipError = await ValidateSequenceBotOwnershipAsync(accountId, request.SequenceId, bot);
+            if (ownershipError != null)
+            {
+                return ownershipError;
+            }
+        }
+
+        SnThinkingVoiceClip clip;
+        try
+        {
+            clip = await voiceService.SaveVoiceClipAsync(
+                accountId,
+                request.SequenceId,
+                request.File,
+                request.DurationMs,
+                HttpContext.RequestAborted);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+
+        return Ok(new
+        {
+            id = clip.Id,
+            mimeType = clip.MimeType,
+            durationMs = clip.DurationMs,
+            size = clip.Size,
+            expiresAt = clip.ExpiresAt,
+            url = voiceService.BuildStreamUrl(clip.Id, clip.AccessToken)
+        });
+    }
+
+    [HttpGet("voice/{voiceId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> GetVoice(Guid voiceId, [FromQuery] string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return Unauthorized();
+        }
+
+        var clip = await voiceService.GetVoiceClipAsync(voiceId, HttpContext.RequestAborted);
+        if (clip == null)
+        {
+            return NotFound();
+        }
+
+        if (!string.Equals(clip.AccessToken, token, StringComparison.Ordinal))
+        {
+            return Unauthorized();
+        }
+
+        if (clip.ExpiresAt <= NodaTime.SystemClock.Instance.GetCurrentInstant())
+        {
+            return NotFound();
+        }
+
+        var file = await voiceService.OpenVoiceClipAsync(clip, HttpContext.RequestAborted);
+        if (file == null)
+        {
+            return NotFound();
+        }
+
+        if (file.ContentLength.HasValue)
+        {
+            Response.ContentLength = file.ContentLength.Value;
+        }
+
+        return File(file.Stream, clip.MimeType);
+    }
+
     /// <summary>
     /// Validates that the sequence belongs to the requesting bot.
     /// Returns null if valid, otherwise returns an ActionResult with the error.
@@ -334,6 +434,15 @@ public class ThoughtController(
         var filesData = request.AttachedFiles is { Count: > 0 }
             ? (await files.GetFileBatchAsync(filesRetrieveRequest)).Files.ToList()
             : null;
+        var attachedVoices = request.AttachedVoices is { Count: > 0 }
+            ? request.AttachedVoices
+                .Select(id => Guid.TryParse(id, out var parsed) ? parsed : Guid.Empty)
+                .Where(id => id != Guid.Empty)
+                .ToList()
+            : [];
+        var voiceFiles = attachedVoices.Count > 0
+            ? await voiceService.GetAccessibleVoiceClipsAsync(accountId, attachedVoices, HttpContext.RequestAborted)
+            : [];
 
         var userPart = new SnThinkingMessagePart
         {
@@ -343,8 +452,13 @@ public class ThoughtController(
         };
         if (request.AttachedMessages is not null) userPart.Metadata.Add("attached_messages", request.AttachedMessages);
         if (request.AttachedPosts is not null) userPart.Metadata.Add("attached_posts", request.AttachedPosts);
+        var mergedFiles = new List<SnCloudFileReferenceObject>();
         if (filesData is not null)
-            userPart.Files = filesData.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
+            mergedFiles.AddRange(filesData.Select(SnCloudFileReferenceObject.FromProtoValue));
+        if (voiceFiles.Count > 0)
+            mergedFiles.AddRange(voiceFiles.Select(voiceService.ToFileReference));
+        if (mergedFiles.Count > 0)
+            userPart.Files = mergedFiles;
         await service.SaveThoughtAsync(sequence, [userPart], ThinkingThoughtRole.User, botName: "snchan");
 
         var (conversation, _) = await service.BuildSnChanConversationAsync(
@@ -603,9 +717,19 @@ public class ThoughtController(
         var filesData = request.AttachedFiles is { Count: > 0 }
             ? (await files.GetFileBatchAsync(filesRetrieveRequest)).Files.ToList()
             : null;
+        var attachedVoices = request.AttachedVoices is { Count: > 0 }
+            ? request.AttachedVoices
+                .Select(id => Guid.TryParse(id, out var parsed) ? parsed : Guid.Empty)
+                .Where(id => id != Guid.Empty)
+                .ToList()
+            : [];
+        var voiceFiles = attachedVoices.Count > 0
+            ? await voiceService.GetAccessibleVoiceClipsAsync(accountId, attachedVoices, HttpContext.RequestAborted)
+            : [];
         logger.LogDebug(
-            "MiChan request fetched {FilesCount} attached files for sequence {SequenceId} in {ElapsedMs}ms",
+            "MiChan request fetched {FilesCount} attached files and {VoicesCount} attached voices for sequence {SequenceId} in {ElapsedMs}ms",
             filesData?.Count ?? 0,
+            voiceFiles.Count,
             sequence.Id,
             overallStopwatch.ElapsedMilliseconds
         );
@@ -618,8 +742,13 @@ public class ThoughtController(
         };
         if (request.AttachedMessages is not null) userPart.Metadata.Add("attached_messages", request.AttachedMessages);
         if (request.AttachedPosts is not null) userPart.Metadata.Add("attached_posts", request.AttachedPosts);
+        var mergedFiles = new List<SnCloudFileReferenceObject>();
         if (filesData is not null)
-            userPart.Files = filesData.Select(SnCloudFileReferenceObject.FromProtoValue).ToList();
+            mergedFiles.AddRange(filesData.Select(SnCloudFileReferenceObject.FromProtoValue));
+        if (voiceFiles.Count > 0)
+            mergedFiles.AddRange(voiceFiles.Select(voiceService.ToFileReference));
+        if (mergedFiles.Count > 0)
+            userPart.Files = mergedFiles;
         var userThought = await service.SaveThoughtAsync(sequence, [userPart], ThinkingThoughtRole.User, botName: "michan");
 
         await service.TouchMiChanUserProfileAsync(accountId, "michan");

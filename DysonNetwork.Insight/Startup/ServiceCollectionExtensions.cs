@@ -11,6 +11,7 @@ using DysonNetwork.Insight.SnDoc;
 using DysonNetwork.Insight.Agent.Models;
 using DysonNetwork.Insight.Agent.Foundation;
 using DysonNetwork.Insight.Agent.Foundation.Providers;
+using DysonNetwork.Insight.Thought.Voice;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Pagination;
 using DysonNetwork.Shared.Localization;
@@ -101,8 +102,10 @@ public static class ServiceCollectionExtensions
             services.AddScoped<FreeQuotaService>();
             services.AddScoped<Reader.WebFeedService>();
             services.AddScoped<Reader.WebReaderService>();
+            services.AddScoped<ThinkingVoiceService>();
             services.AddHostedService<SequenceSummaryRefreshHostedService>();
             services.AddHostedService<ThoughtPartBackfillHostedService>();
+            services.AddHostedService<ThinkingVoiceCleanupHostedService>();
 
             services.AddSingleton<TokenCountingService>();
 

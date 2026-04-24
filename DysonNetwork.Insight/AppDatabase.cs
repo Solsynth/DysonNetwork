@@ -1,5 +1,6 @@
 using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.SnDoc;
+using DysonNetwork.Insight.Thought.Voice;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,7 @@ public class AppDatabase(
     public DbSet<SnThinkingSequence> ThinkingSequences { get; set; }
     public DbSet<SnThinkingThought> ThinkingThoughts { get; set; }
     public DbSet<SnThinkingThoughtPart> ThinkingThoughtParts { get; set; }
+    public DbSet<SnThinkingVoiceClip> ThinkingVoiceClips { get; set; }
     public DbSet<SnUnpaidAccount> UnpaidAccounts { get; set; }
     
     public DbSet<SnWebArticle> FeedArticles { get; set; }
@@ -87,6 +89,10 @@ public class AppDatabase(
         modelBuilder.Entity<SnThinkingThoughtPart>()
             .HasIndex(p => new { p.SequenceId, p.CreatedAt })
             .HasDatabaseName("ix_thinking_thought_parts_sequence_id_created_at");
+
+        modelBuilder.Entity<SnThinkingVoiceClip>()
+            .HasIndex(v => new { v.AccountId, v.CreatedAt })
+            .HasDatabaseName("ix_thinking_voice_clips_account_id_created_at");
 
         modelBuilder.Entity<MiChanMemoryRecord>()
             .HasIndex(m => m.BotName)
