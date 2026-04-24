@@ -11,7 +11,6 @@ namespace DysonNetwork.Insight.MiChan;
 [DisallowConcurrentExecution]
 public class ScheduledTaskJob(
     ScheduledTaskService taskService,
-    MiChanKernelProvider kernelProvider,
     MemoryService memoryService,
     MiChanConfig config,
     IServiceProvider serviceProvider,

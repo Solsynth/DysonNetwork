@@ -28,7 +28,7 @@ public class ThoughtService(
     ICacheService cache,
     DyPaymentService.DyPaymentServiceClient paymentService,
     ThoughtProvider thoughtProvider,
-    MiChanKernelProvider miChanKernelProvider,
+    IAgentClientProvider agentClientProvider,
     SolarNetworkApiClient apiClient,
     PostAnalysisService postAnalysisService,
     IConfiguration configuration,
@@ -2280,7 +2280,7 @@ public class ThoughtService(
 
     public ThoughtServiceModel? GetMiChanServiceInfo(bool withFiles)
     {
-        var serviceId = miChanKernelProvider.GetServiceId();
+        var serviceId = agentClientProvider.GetServiceId();
         var serviceInfo = GetServiceInfoFromConfig(serviceId);
         return serviceInfo;
     }

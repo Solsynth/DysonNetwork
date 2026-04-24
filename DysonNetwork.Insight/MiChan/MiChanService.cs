@@ -11,7 +11,6 @@ public class MiChanService(
 )
     : BackgroundService
 {
-    private MiChanKernelProvider? _kernelProvider;
     private MemoryService? _memoryService;
     private MiChanAutonomousBehavior? _autonomousBehavior;
     private SolarNetworkApiClient? _apiClient;
@@ -76,9 +75,6 @@ public class MiChanService(
 
             // Create memory service
             _memoryService = serviceProvider.GetRequiredService<MemoryService>();
-
-            // Create kernel provider (kept for compatibility)
-            _kernelProvider = serviceProvider.GetRequiredService<MiChanKernelProvider>();
 
             // Create autonomous behavior (includes post checking)
             _autonomousBehavior = serviceProvider.GetRequiredService<MiChanAutonomousBehavior>();

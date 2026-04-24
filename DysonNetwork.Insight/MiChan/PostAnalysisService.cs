@@ -1,30 +1,27 @@
-#pragma warning disable SKEXP0050
 using System.Text;
 using System.Text.Json;
+using DysonNetwork.Insight.Agent.Foundation.Providers;
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Shared.Models;
 
 namespace DysonNetwork.Insight.MiChan;
 
-/// <summary>
-/// Service for analyzing posts with vision and context support
-/// </summary>
 public class PostAnalysisService
 {
     private readonly MiChanConfig _config;
     private readonly ILogger<PostAnalysisService> _logger;
-    private readonly MiChanKernelProvider _kernelProvider;
+    private readonly IAgentClientProvider _agentClientProvider;
     private readonly PostPlugin _postPlugin;
 
     public PostAnalysisService(
         MiChanConfig config,
         ILogger<PostAnalysisService> logger,
-        MiChanKernelProvider kernelProvider,
+        IAgentClientProvider agentClientProvider,
         PostPlugin postPlugin)
     {
         _config = config;
         _logger = logger;
-        _kernelProvider = kernelProvider;
+        _agentClientProvider = agentClientProvider;
         _postPlugin = postPlugin;
         var httpClient = new HttpClient();
         httpClient.DefaultRequestHeaders.Authorization =
@@ -405,7 +402,7 @@ public class PostAnalysisService
     /// </summary>
     public bool IsVisionModelAvailable()
     {
-        return _config.Vision.EnableVisionAnalysis && _kernelProvider.IsVisionModelAvailable();
+        return _config.Vision.EnableVisionAnalysis && _agentClientProvider.IsVisionModelAvailable();
     }
 }
 #pragma warning restore SKEXP0050

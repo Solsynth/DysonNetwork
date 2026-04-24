@@ -26,7 +26,7 @@ public class ThoughtController(
     IServiceProvider serviceProvider,
     DyFileService.DyFileServiceClient files,
     FreeQuotaService freeQuotaService,
-    MiChanKernelProvider miChanKernelProvider,
+    IAgentClientProvider agentClientProvider,
     SnChanModelSelector? snChanModelSelector,
     IAgentToolRegistry toolRegistry,
     FoundationChatStreamingService streamingService,
@@ -157,7 +157,7 @@ public class ThoughtController(
         var miChanModels = new List<BotModelInfo>();
         if (miChanConfig.UseModelSelection)
         {
-            var availableModels = miChanKernelProvider.GetAvailableModelsForUseCase(ModelUseCase.MiChanChat, perkLevel);
+            var availableModels = agentClientProvider.GetAvailableModelsForUseCase(ModelUseCase.MiChanChat, perkLevel);
             miChanModels = availableModels.Select(m => new BotModelInfo
             {
                 Id = m.ModelId,
@@ -530,7 +530,7 @@ public class ThoughtController(
         if (!string.IsNullOrEmpty(request.Model))
         {
             var canUseModel = miChanConfig.UseModelSelection
-                ? miChanKernelProvider.GetAvailableModelsForUseCase(ModelUseCase.MiChanChat, currentUser.PerkLevel)
+                ? agentClientProvider.GetAvailableModelsForUseCase(ModelUseCase.MiChanChat, currentUser.PerkLevel)
                     .Any(m => m.ModelId == request.Model)
                 : true; // If model selection is disabled, allow any model
 

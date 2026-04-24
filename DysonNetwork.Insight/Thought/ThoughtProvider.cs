@@ -1,16 +1,10 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
 using DysonNetwork.Insight.Agent.Foundation;
 using DysonNetwork.Insight.Agent.Foundation.Providers;
-using DysonNetwork.Insight.Agent.KernelBuilding;
 using DysonNetwork.Insight.Agent.Models;
 using DysonNetwork.Insight.MiChan;
-using DysonNetwork.Insight.MiChan.KernelBuilding;
-using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
-using DysonNetwork.Insight.Thought.Plugins;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -32,8 +26,6 @@ public class ThoughtProvider
     private readonly DyPostService.DyPostServiceClient _postClient;
     private readonly DyAccountService.DyAccountServiceClient _accountClient;
     private readonly DyPublisherService.DyPublisherServiceClient _publisherClient;
-    private readonly Agent.KernelBuilding.IKernelBuilder _kernelBuilder;
-    private readonly MiChanKernelProvider _miChanKernelProvider;
     private readonly IConfiguration _configuration;
     private readonly ILogger<ThoughtProvider> _logger;
     private readonly AppDatabase _db;
@@ -47,7 +39,6 @@ public class ThoughtProvider
     private readonly ModelConfiguration _defaultModel;
 
     public ThoughtProvider(
-        Agent.KernelBuilding.IKernelBuilder kernelBuilder,
         IConfiguration configuration,
         DyPostService.DyPostServiceClient postServiceClient,
         DyAccountService.DyAccountServiceClient accountServiceClient,
@@ -55,21 +46,18 @@ public class ThoughtProvider
         ILogger<ThoughtProvider> logger,
         AppDatabase db,
         MemoryService memoryService,
-        MiChanKernelProvider miChanKernelProvider,
         IServiceProvider serviceProvider,
         MiChanConfig miChanConfig,
         FoundationChatStreamingService streamingService,
         IMiChanFoundationProvider miChanFoundationProvider)
     {
         _logger = logger;
-        _kernelBuilder = kernelBuilder;
         _postClient = postServiceClient;
         _accountClient = accountServiceClient;
         _publisherClient = publisherClient;
         _configuration = configuration;
         _db = db;
         _memoryService = memoryService;
-        _miChanKernelProvider = miChanKernelProvider;
         _serviceProvider = serviceProvider;
         _miChanConfig = miChanConfig;
         _streamingService = streamingService;

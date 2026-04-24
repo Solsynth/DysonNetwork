@@ -19,6 +19,7 @@ public static class AgentFoundationServiceCollectionExtensions
         services.AddSingleton<AgentFoundationEmbeddingService>();
         services.AddSingleton<IAgentRuntimeSelector, AgentRuntimeSelector>();
         services.AddSingleton<FoundationChatStreamingService>();
+        services.AddSingleton<AgentChatClientFactory>();
 
         return services;
     }
@@ -114,12 +115,16 @@ public static class AgentFoundationServiceCollectionExtensions
     public static IServiceCollection AddMiChanFoundationProvider(this IServiceCollection services)
     {
         services.AddSingleton<IMiChanFoundationProvider, MiChanFoundationProvider>();
+        services.AddSingleton<IMiChanClientProvider, MiChanClientProvider>();
+        services.AddSingleton<IAgentClientProvider>(sp => sp.GetRequiredService<IMiChanClientProvider>());
         return services;
     }
 
     public static IServiceCollection AddSnChanFoundationProvider(this IServiceCollection services)
     {
         services.AddSingleton<ISnChanFoundationProvider, SnChanFoundationProvider>();
+        services.AddSingleton<ISnChanClientProvider, SnChanClientProvider>();
+        services.AddSingleton<IAgentClientProvider>(sp => sp.GetRequiredService<ISnChanClientProvider>());
         return services;
     }
 
