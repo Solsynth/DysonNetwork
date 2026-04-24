@@ -18,6 +18,8 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using NodaTime;
 using NodaTime.Extensions;
+using Pgvector;
+using Pgvector.EntityFrameworkCore;
 
 #pragma warning disable SKEXP0050
 
@@ -33,6 +35,7 @@ public class ThoughtService(
     PostAnalysisService postAnalysisService,
     IConfiguration configuration,
     MemoryService memoryService,
+    EmbeddingService embeddingService,
     RemoteRingService remoteRingService,
     IConfiguration configGlobal,
     ILocalizationService localizer,
@@ -54,11 +57,23 @@ public class ThoughtService(
     private const int MiChanMinRecentThoughts = 8;
     private const int MiChanCompactionChunkTokenBudget = 3000;
     private const int MiChanMaxThoughtWindowTokens = 6000;
+    private const int SequenceSummaryMaxLength = 8192;
 
     public sealed record MiChanSequenceResolutionResult(
         SnThinkingSequence? Sequence,
         bool Created,
         string? ErrorMessage = null
+    );
+
+    public sealed record SequenceMemoryHit(
+        Guid SequenceId,
+        Guid AccountId,
+        string? Topic,
+        string? Summary,
+        Instant LastMessageAt,
+        string MatchType,
+        double? Similarity,
+        string? TextSnippet
     );
 
     /// <summary>
@@ -391,6 +406,7 @@ public class ThoughtService(
             BotName = botName,
         };
         db.ThinkingThoughts.Add(thought);
+        PersistThoughtPartRows(thought, parts, now);
 
         if (role == ThinkingThoughtRole.Assistant)
             sequence.TotalToken += tokenCount;
@@ -421,6 +437,41 @@ public class ThoughtService(
         return thought;
     }
 
+    private void PersistThoughtPartRows(
+        SnThinkingThought thought,
+        List<SnThinkingMessagePart> parts,
+        Instant now)
+    {
+        if (parts.Count == 0)
+        {
+            return;
+        }
+
+        var rows = new List<SnThinkingThoughtPart>(parts.Count);
+        for (var i = 0; i < parts.Count; i++)
+        {
+            var part = parts[i];
+            rows.Add(new SnThinkingThoughtPart
+            {
+                ThoughtId = thought.Id,
+                SequenceId = thought.SequenceId,
+                PartIndex = i,
+                Type = part.Type,
+                Text = part.Text,
+                Metadata = part.Metadata,
+                Files = part.Files,
+                FunctionCall = part.FunctionCall,
+                FunctionResult = part.FunctionResult,
+                Reasoning = part.Reasoning,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        }
+
+        db.ThinkingThoughtParts.AddRange(rows);
+        thought.PartRows = rows;
+    }
+
     public async Task<SnThinkingThought> SaveMiChanCompactionThoughtAsync(
         SnThinkingSequence sequence,
         string summary,
@@ -449,6 +500,8 @@ public class ThoughtService(
         };
 
         db.ThinkingThoughts.Add(thought);
+        var now = SystemClock.Instance.GetCurrentInstant();
+        PersistThoughtPartRows(thought, thought.Parts, now);
         await db.SaveChangesAsync();
         await cache.RemoveGroupAsync($"sequence:{sequence.Id}");
 
@@ -532,6 +585,8 @@ public class ThoughtService(
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
+        await HydrateThoughtPartsAsync(thoughts);
+
         // Filter out compaction thoughts - they should not appear in chat history
         thoughts = thoughts.Where(t => !IsMiChanCompactionThought(t)).ToList();
 
@@ -567,6 +622,8 @@ public class ThoughtService(
                 .Skip(rawOffset)
                 .Take(batchSize)
                 .ToListAsync();
+
+            await HydrateThoughtPartsAsync(batch);
 
             if (batch.Count == 0)
             {
@@ -665,6 +722,270 @@ public class ThoughtService(
             .ToListAsync();
 
         return (totalCount, sequences);
+    }
+
+    public async Task<int> RefreshHistoricSequenceSummariesAsync(
+        int batchSize = 16,
+        CancellationToken cancellationToken = default)
+    {
+        var candidates = await db.ThinkingSequences
+            .Where(s => s.LastMessageAt != default)
+            .Where(s => s.SummaryLastAt == null || s.LastMessageAt > s.SummaryLastAt)
+            .OrderBy(s => s.SummaryLastAt ?? s.CreatedAt)
+            .Take(batchSize)
+            .ToListAsync(cancellationToken);
+
+        if (candidates.Count == 0)
+        {
+            return 0;
+        }
+
+        var updated = 0;
+        foreach (var sequence in candidates)
+        {
+            try
+            {
+                if (await RefreshSequenceSummaryAsync(sequence, cancellationToken))
+                {
+                    updated++;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex,
+                    "Failed refreshing summary for sequence {SequenceId}", sequence.Id);
+            }
+        }
+
+        return updated;
+    }
+
+    public async Task<int> BackfillThoughtPartRowsAsync(
+        int batchSize = 200,
+        CancellationToken cancellationToken = default)
+    {
+        var thoughts = await db.ThinkingThoughts
+            .Where(t => !db.ThinkingThoughtParts.Any(p => p.ThoughtId == t.Id))
+            .OrderBy(t => t.CreatedAt)
+            .Take(batchSize)
+            .ToListAsync(cancellationToken);
+
+        if (thoughts.Count == 0)
+        {
+            return 0;
+        }
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var inserted = 0;
+        foreach (var thought in thoughts)
+        {
+            if (thought.Parts.Count == 0)
+            {
+                continue;
+            }
+
+            PersistThoughtPartRows(thought, thought.Parts, now);
+            inserted += thought.Parts.Count;
+        }
+
+        if (inserted > 0)
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return inserted;
+    }
+
+    public async Task<List<SequenceMemoryHit>> SearchSequenceMemoryAsync(
+        string query,
+        Guid? accountId = null,
+        int limit = 10,
+        double minSimilarity = 0.6,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return [];
+        }
+
+        limit = Math.Clamp(limit, 1, 50);
+        var hits = new List<SequenceMemoryHit>(limit * 2);
+        var includedSequences = new HashSet<Guid>();
+
+        var sequenceQuery = db.ThinkingSequences
+            .Where(s => s.DeletedAt == null)
+            .AsQueryable();
+        if (accountId.HasValue)
+        {
+            sequenceQuery = sequenceQuery.Where(s => s.AccountId == accountId.Value || s.IsPublic);
+        }
+
+        var queryEmbedding = await embeddingService.GenerateEmbeddingAsync(query, cancellationToken);
+        if (queryEmbedding != null)
+        {
+            var semanticMatches = await sequenceQuery
+                .Where(s => s.SummaryEmbedding != null)
+                .Select(s => new
+                {
+                    s.Id,
+                    s.AccountId,
+                    s.Topic,
+                    s.Summary,
+                    s.LastMessageAt,
+                    Distance = s.SummaryEmbedding!.CosineDistance(queryEmbedding)
+                })
+                .OrderBy(x => x.Distance)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+
+            foreach (var hit in semanticMatches)
+            {
+                var similarity = 1.0 - hit.Distance;
+                if (similarity < minSimilarity)
+                {
+                    continue;
+                }
+
+                if (!includedSequences.Add(hit.Id))
+                {
+                    continue;
+                }
+
+                hits.Add(new SequenceMemoryHit(
+                    hit.Id,
+                    hit.AccountId,
+                    hit.Topic,
+                    hit.Summary,
+                    hit.LastMessageAt,
+                    "semantic_summary",
+                    similarity,
+                    null
+                ));
+            }
+        }
+
+        var pattern = $"%{query.Trim()}%";
+        var textMatches = await db.ThinkingThoughtParts
+            .Where(p => p.DeletedAt == null)
+            .Where(p => p.Text != null)
+            .Where(p => EF.Functions.ILike(p.Text!, pattern))
+            .Join(
+                sequenceQuery,
+                part => part.SequenceId,
+                sequence => sequence.Id,
+                (part, sequence) => new
+                {
+                    sequence.Id,
+                    sequence.AccountId,
+                    sequence.Topic,
+                    sequence.Summary,
+                    sequence.LastMessageAt,
+                    part.Text,
+                    part.CreatedAt
+                })
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(limit * 10)
+            .ToListAsync(cancellationToken);
+
+        foreach (var hit in textMatches)
+        {
+            if (!includedSequences.Add(hit.Id))
+            {
+                continue;
+            }
+
+            hits.Add(new SequenceMemoryHit(
+                hit.Id,
+                hit.AccountId,
+                hit.Topic,
+                hit.Summary,
+                hit.LastMessageAt,
+                "keyword_part",
+                null,
+                BuildSnippet(hit.Text, query)
+            ));
+
+            if (hits.Count >= limit)
+            {
+                break;
+            }
+        }
+
+        return hits
+            .OrderByDescending(h => h.Similarity ?? 0)
+            .ThenByDescending(h => h.LastMessageAt)
+            .Take(limit)
+            .ToList();
+    }
+
+    private static string? BuildSnippet(string? source, string query)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return source;
+        }
+
+        var normalized = source.Trim();
+        if (normalized.Length <= 300)
+        {
+            return normalized;
+        }
+
+        var index = normalized.IndexOf(query, StringComparison.OrdinalIgnoreCase);
+        if (index < 0)
+        {
+            return normalized[..300];
+        }
+
+        var start = Math.Max(0, index - 80);
+        var length = Math.Min(300, normalized.Length - start);
+        return normalized.Substring(start, length);
+    }
+
+    private async Task<bool> RefreshSequenceSummaryAsync(
+        SnThinkingSequence sequence,
+        CancellationToken cancellationToken = default)
+    {
+        var thoughts = await db.ThinkingThoughts
+            .Where(t => t.SequenceId == sequence.Id)
+            .Where(t => !t.IsArchived)
+            .OrderBy(t => t.CreatedAt)
+            .ThenBy(t => t.Id)
+            .ToListAsync(cancellationToken);
+
+        await HydrateThoughtPartsAsync(thoughts, cancellationToken);
+
+        if (thoughts.Count < 6)
+        {
+            return false;
+        }
+
+        var conversationText = BuildConversationText(thoughts);
+        if (string.IsNullOrWhiteSpace(conversationText))
+        {
+            return false;
+        }
+
+        var summary = await GenerateConversationSummaryAsync(sequence.AccountId, conversationText);
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            return false;
+        }
+
+        if (summary.Length > SequenceSummaryMaxLength)
+        {
+            summary = summary[..SequenceSummaryMaxLength];
+        }
+
+        var embedding = await embeddingService.GenerateEmbeddingAsync(summary, cancellationToken);
+        sequence.Summary = summary;
+        sequence.SummaryEmbedding = embedding;
+        sequence.SummaryLastAt = SystemClock.Instance.GetCurrentInstant();
+
+        await db.SaveChangesAsync(cancellationToken);
+        await cache.RemoveGroupAsync($"sequence:{sequence.Id}");
+
+        return true;
     }
 
     public async Task SettleThoughtBills(ILogger logger)
@@ -1689,6 +2010,8 @@ public class ThoughtService(
                 .ToList();
         }
 
+        await HydrateThoughtPartsAsync([latestSummaryThought]);
+
         var textPart = latestSummaryThought.Parts.FirstOrDefault(part => part.Type == ThinkingMessagePartType.Text);
         if (!TryGetMetadataString(textPart?.Metadata, MiChanCoveredThroughThoughtIdMetadataKey,
                 out var coveredThoughtIdText) ||
@@ -1725,6 +2048,8 @@ public class ThoughtService(
             .ThenBy(t => t.Id)
             .ToListAsync();
 
+        await HydrateThoughtPartsAsync(candidateThoughts);
+
         var visibleCandidates = candidateThoughts
             .Where(thought => !IsMiChanCompactionThought(thought))
             .ToList();
@@ -1743,6 +2068,50 @@ public class ThoughtService(
         );
 
         return [latestSummaryThought, .. recentThoughts];
+    }
+
+    private async Task HydrateThoughtPartsAsync(
+        List<SnThinkingThought> thoughts,
+        CancellationToken cancellationToken = default)
+    {
+        if (thoughts.Count == 0)
+        {
+            return;
+        }
+
+        var thoughtIds = thoughts.Select(t => t.Id).ToList();
+        var partRows = await db.ThinkingThoughtParts
+            .Where(p => thoughtIds.Contains(p.ThoughtId))
+            .OrderBy(p => p.PartIndex)
+            .ToListAsync(cancellationToken);
+
+        if (partRows.Count == 0)
+        {
+            return;
+        }
+
+        var groupedParts = partRows
+            .GroupBy(p => p.ThoughtId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(row => new SnThinkingMessagePart
+                {
+                    Type = row.Type,
+                    Text = row.Text,
+                    Metadata = row.Metadata,
+                    Files = row.Files,
+                    FunctionCall = row.FunctionCall,
+                    FunctionResult = row.FunctionResult,
+                    Reasoning = row.Reasoning
+                }).ToList());
+
+        foreach (var thought in thoughts)
+        {
+            if (groupedParts.TryGetValue(thought.Id, out var parts))
+            {
+                thought.Parts = parts;
+            }
+        }
     }
 
     private bool ShouldCompactMiChanHistory(List<SnThinkingThought> thoughts)

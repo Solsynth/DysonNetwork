@@ -47,6 +47,21 @@ public class ThoughtController(
         public List<CommandResponse> Commands { get; set; } = [];
     }
 
+    public class SequenceMemorySearchResponse
+    {
+        public int Total { get; set; }
+        public List<ThoughtService.SequenceMemoryHit> Results { get; set; } = [];
+    }
+
+    public class MemoryMaintenanceResponse
+    {
+        public bool Success { get; set; }
+        public int RoundsExecuted { get; set; }
+        public int BackfilledRows { get; set; }
+        public int SummarizedSequences { get; set; }
+        public bool HasMoreWork { get; set; }
+    }
+
     public class StreamThinkingRequest
     {
         public string? UserMessage { get; set; }
@@ -1182,6 +1197,94 @@ public class ThoughtController(
         }
 
         return Ok(new { success, summary, sequenceId });
+    }
+
+    [HttpGet("memory/search")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<SequenceMemorySearchResponse>> SearchSequenceMemory(
+        [FromQuery] string q,
+        [FromQuery] int limit = 10,
+        [FromQuery] double minSimilarity = 0.6,
+        [FromQuery] Guid? accountId = null)
+    {
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
+        if (currentUser == null)
+        {
+            return Unauthorized();
+        }
+
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            return BadRequest(new { error = "Query cannot be empty." });
+        }
+
+        limit = Math.Clamp(limit, 1, 50);
+        minSimilarity = Math.Clamp(minSimilarity, 0.0, 1.0);
+
+        var currentAccountId = Guid.Parse(currentUser.Id);
+        var effectiveAccountId = accountId.HasValue && accountId.Value == currentAccountId
+            ? accountId
+            : currentAccountId;
+
+        var results = await service.SearchSequenceMemoryAsync(q, effectiveAccountId, limit, minSimilarity);
+        return Ok(new SequenceMemorySearchResponse
+        {
+            Total = results.Count,
+            Results = results
+        });
+    }
+
+    /// <summary>
+    /// Manually trigger conversation memory maintenance (backfill part rows and refresh summaries).
+    /// </summary>
+    [HttpPost("admin/memory/maintenance")]
+    [AskPermission("michan.admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<MemoryMaintenanceResponse>> RunMemoryMaintenance(
+        [FromQuery] int backfillBatch = 300,
+        [FromQuery] int summaryBatch = 16,
+        [FromQuery] int maxRounds = 5)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount)
+        {
+            return Unauthorized();
+        }
+
+        backfillBatch = Math.Clamp(backfillBatch, 50, 5000);
+        summaryBatch = Math.Clamp(summaryBatch, 5, 200);
+        maxRounds = Math.Clamp(maxRounds, 1, 30);
+
+        var roundsExecuted = 0;
+        var totalBackfilledRows = 0;
+        var totalSummarizedSequences = 0;
+        var hasMoreWork = false;
+
+        for (var round = 0; round < maxRounds; round++)
+        {
+            var backfilled = await service.BackfillThoughtPartRowsAsync(backfillBatch, HttpContext.RequestAborted);
+            var summarized = await service.RefreshHistoricSequenceSummariesAsync(summaryBatch, HttpContext.RequestAborted);
+
+            roundsExecuted++;
+            totalBackfilledRows += backfilled;
+            totalSummarizedSequences += summarized;
+
+            if (backfilled == 0 && summarized == 0)
+            {
+                hasMoreWork = false;
+                break;
+            }
+
+            hasMoreWork = round == maxRounds - 1;
+        }
+
+        return Ok(new MemoryMaintenanceResponse
+        {
+            Success = true,
+            RoundsExecuted = roundsExecuted,
+            BackfilledRows = totalBackfilledRows,
+            SummarizedSequences = totalSummarizedSequences,
+            HasMoreWork = hasMoreWork
+        });
     }
 
     /// <summary>

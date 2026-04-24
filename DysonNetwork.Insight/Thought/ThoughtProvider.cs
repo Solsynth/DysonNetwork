@@ -241,6 +241,38 @@ public class ThoughtProvider
                 .OrderBy(t => t.CreatedAt)
                 .ToListAsync(cancellationToken);
 
+            var thoughtIds = thoughts.Select(t => t.Id).ToList();
+            if (thoughtIds.Count > 0)
+            {
+                var rows = await _db.ThinkingThoughtParts
+                    .Where(p => thoughtIds.Contains(p.ThoughtId))
+                    .OrderBy(p => p.PartIndex)
+                    .ToListAsync(cancellationToken);
+
+                var grouped = rows
+                    .GroupBy(p => p.ThoughtId)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.Select(row => new SnThinkingMessagePart
+                        {
+                            Type = row.Type,
+                            Text = row.Text,
+                            Metadata = row.Metadata,
+                            Files = row.Files,
+                            FunctionCall = row.FunctionCall,
+                            FunctionResult = row.FunctionResult,
+                            Reasoning = row.Reasoning
+                        }).ToList());
+
+                foreach (var thought in thoughts)
+                {
+                    if (grouped.TryGetValue(thought.Id, out var parts))
+                    {
+                        thought.Parts = parts;
+                    }
+                }
+            }
+
             if (!thoughts.Any())
             {
                 _logger.LogWarning("Sequence {SequenceId} has no thoughts to summarize", sequenceId);

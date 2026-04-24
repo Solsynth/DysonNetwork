@@ -46,6 +46,12 @@ public static class MiChanPluginExtensions
             kernel.Plugins.AddFromObject(memoryPlugin, "memory");
         }
 
+        if (!kernel.Plugins.Contains("sequenceMemory"))
+        {
+            var sequenceMemoryPlugin = serviceProvider.GetRequiredService<SequenceMemoryPlugin>();
+            kernel.Plugins.AddFromObject(sequenceMemoryPlugin, "sequenceMemory");
+        }
+
         // User profile plugin
         if (!kernel.Plugins.Contains("userProfile"))
         {
@@ -124,6 +130,12 @@ public static class MiChanPluginExtensions
             kernel.Plugins.AddFromObject(memoryPlugin, "memory");
         }
 
+        if (!excludedSet.Contains("sequenceMemory") && !kernel.Plugins.Contains("sequenceMemory"))
+        {
+            var sequenceMemoryPlugin = serviceProvider.GetRequiredService<SequenceMemoryPlugin>();
+            kernel.Plugins.AddFromObject(sequenceMemoryPlugin, "sequenceMemory");
+        }
+
         if (!excludedSet.Contains("userProfile") && !kernel.Plugins.Contains("userProfile"))
         {
             var userProfilePlugin = serviceProvider.GetRequiredService<UserProfilePlugin>();
@@ -168,6 +180,7 @@ public static class MiChanPluginExtensions
                kernel.Plugins.Contains("account") &&
                kernel.Plugins.Contains("webSearch") &&
                kernel.Plugins.Contains("memory") &&
+               kernel.Plugins.Contains("sequenceMemory") &&
                kernel.Plugins.Contains("userProfile") &&
                kernel.Plugins.Contains("scheduledTasks") &&
                kernel.Plugins.Contains("conversation") &&
@@ -190,6 +203,8 @@ public static class MiChanPluginExtensions
             missing.Add("webSearch");
         if (!kernel.Plugins.Contains("memory"))
             missing.Add("memory");
+        if (!kernel.Plugins.Contains("sequenceMemory"))
+            missing.Add("sequenceMemory");
         if (!kernel.Plugins.Contains("userProfile"))
             missing.Add("userProfile");
         if (!kernel.Plugins.Contains("scheduledTasks"))

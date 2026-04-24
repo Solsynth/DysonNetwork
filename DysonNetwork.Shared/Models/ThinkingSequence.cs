@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using NodaTime;
 using NodaTime.Extensions;
+using Pgvector;
 
 namespace DysonNetwork.Shared.Models;
 
@@ -41,6 +42,11 @@ public class SnThinkingSequence : ModelBase
     /// The bot name that owns this sequence (e.g., "michan", "snchan")
     /// </summary>
     [MaxLength(50)] public string? BotName { get; set; }
+
+    [MaxLength(8192)] public string? Summary { get; set; }
+    public Instant? SummaryLastAt { get; set; }
+
+    [Column(TypeName = "vector(1536)")] public Vector? SummaryEmbedding { get; set; }
 }
 
 public enum ThinkingThoughtRole
@@ -108,4 +114,27 @@ public class SnThinkingThought : ModelBase
     public Guid SequenceId { get; set; }
     [JsonIgnore] public SnThinkingSequence Sequence { get; set; } = null!;
     public bool IsArchived { get; set; } = false;
+
+    [JsonIgnore] public List<SnThinkingThoughtPart> PartRows { get; set; } = [];
+}
+
+public class SnThinkingThoughtPart : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    public Guid ThoughtId { get; set; }
+    [JsonIgnore] public SnThinkingThought Thought { get; set; } = null!;
+
+    public Guid SequenceId { get; set; }
+    [JsonIgnore] public SnThinkingSequence Sequence { get; set; } = null!;
+
+    public int PartIndex { get; set; }
+    public ThinkingMessagePartType Type { get; set; }
+
+    [Column(TypeName = "text")] public string? Text { get; set; }
+    [Column(TypeName = "jsonb")] public Dictionary<string, object>? Metadata { get; set; }
+    [Column(TypeName = "jsonb")] public List<SnCloudFileReferenceObject>? Files { get; set; }
+    [Column(TypeName = "jsonb")] public SnFunctionCall? FunctionCall { get; set; }
+    [Column(TypeName = "jsonb")] public SnFunctionResult? FunctionResult { get; set; }
+    [Column(TypeName = "text")] public string? Reasoning { get; set; }
 }

@@ -107,6 +107,8 @@ public static class ServiceCollectionExtensions
             services.AddScoped<FreeQuotaService>();
             services.AddScoped<Reader.WebFeedService>();
             services.AddScoped<Reader.WebReaderService>();
+            services.AddHostedService<SequenceSummaryRefreshHostedService>();
+            services.AddHostedService<ThoughtPartBackfillHostedService>();
 
             // Register token counting service for accurate AI token counting
             services.AddSingleton<TokenCountingService>();
@@ -199,6 +201,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<AccountPlugin>();
             services.AddSingleton<WebSearchPlugin>();
             services.AddScoped<MemoryPlugin>();
+            services.AddScoped<SequenceMemoryPlugin>();
             services.AddScoped<UserProfilePlugin>();
             services.AddScoped<ScheduledTaskPlugin>();
             services.AddScoped<ConversationPlugin>();

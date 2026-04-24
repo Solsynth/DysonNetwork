@@ -14,6 +14,7 @@ public class AppDatabase(
 {
     public DbSet<SnThinkingSequence> ThinkingSequences { get; set; }
     public DbSet<SnThinkingThought> ThinkingThoughts { get; set; }
+    public DbSet<SnThinkingThoughtPart> ThinkingThoughtParts { get; set; }
     public DbSet<SnUnpaidAccount> UnpaidAccounts { get; set; }
     
     public DbSet<SnWebArticle> FeedArticles { get; set; }
@@ -64,6 +65,28 @@ public class AppDatabase(
         modelBuilder.Entity<SnThinkingSequence>()
             .HasIndex(s => s.BotName)
             .HasDatabaseName("ix_thinking_sequences_bot_name");
+
+        modelBuilder.Entity<SnThinkingSequence>()
+            .HasIndex(s => s.SummaryLastAt)
+            .HasDatabaseName("ix_thinking_sequences_summary_last_at");
+
+        modelBuilder.Entity<SnThinkingThought>()
+            .HasMany(t => t.PartRows)
+            .WithOne(p => p.Thought)
+            .HasForeignKey(p => p.ThoughtId);
+
+        modelBuilder.Entity<SnThinkingThoughtPart>()
+            .HasOne(p => p.Sequence)
+            .WithMany()
+            .HasForeignKey(p => p.SequenceId);
+
+        modelBuilder.Entity<SnThinkingThoughtPart>()
+            .HasIndex(p => new { p.ThoughtId, p.PartIndex })
+            .HasDatabaseName("ix_thinking_thought_parts_thought_id_part_index");
+
+        modelBuilder.Entity<SnThinkingThoughtPart>()
+            .HasIndex(p => new { p.SequenceId, p.CreatedAt })
+            .HasDatabaseName("ix_thinking_thought_parts_sequence_id_created_at");
 
         modelBuilder.Entity<MiChanMemoryRecord>()
             .HasIndex(m => m.BotName)
