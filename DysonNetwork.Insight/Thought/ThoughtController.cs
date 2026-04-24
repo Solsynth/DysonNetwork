@@ -494,7 +494,7 @@ public class ThoughtController(
             }
 
             var thoughtJson = JsonSerializer.Serialize(new { type = "thought", data = savedThought },
-                InfraObjectCoder.SerializerOptions);
+                InfraObjectCoder.SerializerOptionsWithoutIgnore);
             await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"thought: {thoughtJson}\n\n"));
             var outputBytes = streamBuilder.ToArray();
             await Response.Body.WriteAsync(outputBytes);
@@ -830,7 +830,7 @@ public class ThoughtController(
             }
 
             var thoughtJson = JsonSerializer.Serialize(new { type = "thought", data = savedThought },
-                InfraObjectCoder.SerializerOptions);
+                InfraObjectCoder.SerializerOptionsWithoutIgnore);
             await streamBuilder.WriteAsync(Encoding.UTF8.GetBytes($"thought: {thoughtJson}\n\n"));
             var outputBytes = streamBuilder.ToArray();
             await Response.Body.WriteAsync(outputBytes);
