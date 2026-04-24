@@ -143,7 +143,7 @@ public class ThoughtController(
                 {
                     Id = m.ModelId,
                     DisplayName = m.DisplayName ?? m.ModelId,
-                    Description = m.Description ?? "",
+                    Description = m.Description ?? $"Usage: {m.UseCase}",
                     MinPerkLevel = m.MinPerkLevel,
                     IsDefault = m.IsDefault,
                 })
@@ -188,7 +188,7 @@ public class ThoughtController(
                 {
                     Id = m.ModelId,
                     DisplayName = m.DisplayName ?? m.ModelId,
-                    Description = m.Description,
+                    Description = m.Description ?? $"Usage: {m.UseCase}",
                     MinPerkLevel = m.MinPerkLevel,
                     IsDefault = m.IsDefault,
                 })
