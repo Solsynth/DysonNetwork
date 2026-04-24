@@ -1,6 +1,7 @@
 namespace DysonNetwork.Insight.Agent.Foundation;
 
 using DysonNetwork.Insight.MiChan.Plugins;
+using DysonNetwork.Insight.SnDoc;
 
 public static class FoundationPluginExtensions
 {
@@ -70,6 +71,12 @@ public static class FoundationPluginExtensions
             var fitnessPlugin = serviceProvider.GetRequiredService<FitnessPlugin>();
             registry.RegisterPluginTools(fitnessPlugin, "fitness");
         }
+
+        if (!excludedSet.Contains("docs"))
+        {
+            var snDocPlugin = serviceProvider.GetRequiredService<SnDocPlugin>();
+            registry.RegisterPluginTools(snDocPlugin, "docs");
+        }
     }
 
     public static List<string> GetMiChanPluginToolNames()
@@ -98,7 +105,11 @@ public static class FoundationPluginExtensions
             "mood-get_mood",
             "mood-update_mood",
             "fitness-get_fitness_data",
-            "fitness-log_fitness"
+            "fitness-log_fitness",
+            "docs-search_docs",
+            "docs-read_doc",
+            "docs-list_docs",
+            "docs-get_doc_by_slug"
         ];
     }
 }
