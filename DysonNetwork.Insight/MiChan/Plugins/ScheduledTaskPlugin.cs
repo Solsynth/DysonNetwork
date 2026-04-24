@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Text;
+using DysonNetwork.Insight.Agent.Foundation;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.SemanticKernel;
 using NodaTime;
 
 namespace DysonNetwork.Insight.MiChan.Plugins;
@@ -16,8 +16,7 @@ public class ScheduledTaskPlugin(
     /// <summary>
     /// Get the current time
     /// </summary>
-    [KernelFunction("get_current_time")]
-    [Description("Get the current date and time. Use this when you need to know what time it is now for scheduling or time-related decisions.")]
+    [AgentTool("get_current_time", Description = "Get the current date and time. Use this when you need to know what time it is now for scheduling or time-related decisions.")]
     public string GetCurrentTime()
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -29,16 +28,15 @@ public class ScheduledTaskPlugin(
     /// <summary>
     /// List scheduled tasks for an account
     /// </summary>
-    [KernelFunction("list_scheduled_tasks")]
-    [Description("List all scheduled tasks for a specific account. Use this to see what tasks are scheduled.")]
+    [AgentTool("list_scheduled_tasks", Description = "List all scheduled tasks for a specific account. Use this to see what tasks are scheduled.")]
     public async Task<string> ListScheduledTasksAsync(
-        [Description("The account ID (Guid) to list tasks for")]
+        [AgentToolParameter("The account ID (Guid) to list tasks for")]
         Guid accountId,
-        [Description("Optional: Filter by active status (true/false). Leave empty for all.")]
+        [AgentToolParameter("Optional: Filter by active status (true/false). Leave empty for all.")]
         bool? isActive = null,
-        [Description("Optional: Filter by status (pending/running/completed/failed/cancelled). Leave empty for all.")]
+        [AgentToolParameter("Optional: Filter by status (pending/running/completed/failed/cancelled). Leave empty for all.")]
         string? status = null,
-        [Description("Maximum number of tasks to return (default: 20)")]
+        [AgentToolParameter("Maximum number of tasks to return (default: 20)")]
         int limit = 20)
     {
         using var scope = serviceProvider.CreateScope();
@@ -102,20 +100,19 @@ public class ScheduledTaskPlugin(
     /// <summary>
     /// Create a new scheduled task
     /// </summary>
-    [KernelFunction("create_scheduled_task")]
-    [Description("Create a new scheduled task. Use this to schedule something to be done at a specific time in the future. Time should be in UTC format (e.g., '2026-02-15 10:00:00').")]
+    [AgentTool("create_scheduled_task", Description = "Create a new scheduled task. Use this to schedule something to be done at a specific time in the future. Time should be in UTC format (e.g., '2026-02-15 10:00:00').")]
     public async Task<string> CreateScheduledTaskAsync(
-        [Description("The account ID (Guid) that owns this task")]
+        [AgentToolParameter("The account ID (Guid) that owns this task")]
         Guid accountId,
-        [Description("The prompt/instruction for what to do when the task runs")]
+        [AgentToolParameter("The prompt/instruction for what to do when the task runs")]
         string prompt,
-        [Description("When to execute the task (UTC datetime, e.g., '2026-02-15 10:00:00')")]
+        [AgentToolParameter("When to execute the task (UTC datetime, e.g., '2026-02-15 10:00:00')")]
         string scheduledAt,
-        [Description("Optional: Recurrence interval in hours (e.g., 24 for daily). Leave empty for one-time tasks.")]
+        [AgentToolParameter("Optional: Recurrence interval in hours (e.g., 24 for daily). Leave empty for one-time tasks.")]
         double? recurrenceHours = null,
-        [Description("Optional: When the recurring task should end (UTC datetime). Leave empty for no end date.")]
+        [AgentToolParameter("Optional: When the recurring task should end (UTC datetime). Leave empty for no end date.")]
         string? recurrenceEndAt = null,
-        [Description("Optional: Additional context or notes for the task")]
+        [AgentToolParameter("Optional: Additional context or notes for the task")]
         string? context = null)
     {
         using var scope = serviceProvider.CreateScope();
@@ -188,10 +185,9 @@ public class ScheduledTaskPlugin(
     /// <summary>
     /// Get details of a specific scheduled task
     /// </summary>
-    [KernelFunction("get_scheduled_task")]
-    [Description("Get detailed information about a specific scheduled task by its ID.")]
+    [AgentTool("get_scheduled_task", Description = "Get detailed information about a specific scheduled task by its ID.")]
     public async Task<string> GetScheduledTaskAsync(
-        [Description("The ID of the task to retrieve")]
+        [AgentToolParameter("The ID of the task to retrieve")]
         string taskId)
     {
         using var scope = serviceProvider.CreateScope();
@@ -267,20 +263,19 @@ public class ScheduledTaskPlugin(
     /// <summary>
     /// Update an existing scheduled task
     /// </summary>
-    [KernelFunction("update_scheduled_task")]
-    [Description("Update an existing scheduled task. Only provide the fields you want to change. Can only update tasks that are still pending.")]
+    [AgentTool("update_scheduled_task", Description = "Update an existing scheduled task. Only provide the fields you want to change. Can only update tasks that are still pending.")]
     public async Task<string> UpdateScheduledTaskAsync(
-        [Description("The ID of the task to update")]
+        [AgentToolParameter("The ID of the task to update")]
         string taskId,
-        [Description("Optional: New prompt/instruction")]
+        [AgentToolParameter("Optional: New prompt/instruction")]
         string? prompt = null,
-        [Description("Optional: New scheduled time (UTC datetime, e.g., '2026-02-15 10:00:00')")]
+        [AgentToolParameter("Optional: New scheduled time (UTC datetime, e.g., '2026-02-15 10:00:00')")]
         string? scheduledAt = null,
-        [Description("Optional: New recurrence interval in hours (e.g., 24 for daily). Set to 0 to remove recurrence.")]
+        [AgentToolParameter("Optional: New recurrence interval in hours (e.g., 24 for daily). Set to 0 to remove recurrence.")]
         double? recurrenceHours = null,
-        [Description("Optional: New recurrence end time (UTC datetime). Leave empty to remove end date.")]
+        [AgentToolParameter("Optional: New recurrence end time (UTC datetime). Leave empty to remove end date.")]
         string? recurrenceEndAt = null,
-        [Description("Optional: New context/notes")]
+        [AgentToolParameter("Optional: New context/notes")]
         string? context = null)
     {
         using var scope = serviceProvider.CreateScope();
@@ -354,10 +349,9 @@ public class ScheduledTaskPlugin(
     /// <summary>
     /// Cancel a scheduled task
     /// </summary>
-    [KernelFunction("cancel_scheduled_task")]
-    [Description("Cancel a pending scheduled task. Only tasks with 'pending' status can be cancelled.")]
+    [AgentTool("cancel_scheduled_task", Description = "Cancel a pending scheduled task. Only tasks with 'pending' status can be cancelled.")]
     public async Task<string> CancelScheduledTaskAsync(
-        [Description("The ID of the task to cancel")]
+        [AgentToolParameter("The ID of the task to cancel")]
         string taskId)
     {
         using var scope = serviceProvider.CreateScope();
@@ -391,10 +385,9 @@ public class ScheduledTaskPlugin(
     /// <summary>
     /// Delete a scheduled task
     /// </summary>
-    [KernelFunction("delete_scheduled_task")]
-    [Description("Delete a scheduled task permanently. This removes the task from the system.")]
+    [AgentTool("delete_scheduled_task", Description = "Delete a scheduled task permanently. This removes the task from the system.")]
     public async Task<string> DeleteScheduledTaskAsync(
-        [Description("The ID of the task to delete")]
+        [AgentToolParameter("The ID of the task to delete")]
         string taskId)
     {
         using var scope = serviceProvider.CreateScope();

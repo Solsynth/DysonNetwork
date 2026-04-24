@@ -1,6 +1,6 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using Microsoft.SemanticKernel;
+using DysonNetwork.Insight.Agent.Foundation;
 
 namespace DysonNetwork.Insight.Thought.Plugins;
 
@@ -8,7 +8,7 @@ public class SnAccountKernelPlugin(
     DyAccountService.DyAccountServiceClient accountClient
 )
 {
-    [KernelFunction("get_account")]
+    [AgentTool("get_account")]
     public async Task<string> GetAccount(string userId)
     {
         var request = new DyGetAccountRequest { Id = userId };
@@ -17,7 +17,7 @@ public class SnAccountKernelPlugin(
         return KernelPluginUtils.ToJson(SnAccount.FromProtoValue(response));
     }
 
-    [KernelFunction("get_account_by_name")]
+    [AgentTool("get_account_by_name")]
     public async Task<string> GetAccountByName(string username)
     {
         var request = new DyLookupAccountBatchRequest();

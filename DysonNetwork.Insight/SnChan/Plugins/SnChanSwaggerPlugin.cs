@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Microsoft.SemanticKernel;
+using DysonNetwork.Insight.Agent.Foundation;
 
 namespace DysonNetwork.Insight.SnChan.Plugins;
 
@@ -30,18 +30,16 @@ public class SnChanSwaggerPlugin(
 
     private static readonly Dictionary<string, JsonObject> _swaggerCache = new();
 
-    [KernelFunction("list_services")]
-    [Description("List all available services that have Swagger API documentation. Returns JSON array of service names.")]
+    [AgentTool("list_services", Description = "List all available services that have Swagger API documentation. Returns JSON array of service names.")]
     public async Task<string> ListServices()
     {
         logger.LogDebug("Listing available services");
         return JsonSerializer.Serialize(new { services = AvailableServices }, JsonOptions);
     }
 
-    [KernelFunction("get_swagger_docs")]
-    [Description("Get summarized Swagger API documentation for a service. Returns a compact summary with service info and list of operations.")]
+    [AgentTool("get_swagger_docs", Description = "Get summarized Swagger API documentation for a service. Returns a compact summary with service info and list of operations.")]
     public async Task<string> GetSwaggerDocs(
-        [Description("The service name to get Swagger docs for (e.g., 'sphere', 'passport', 'messager', 'drive', 'wallet', 'ring', 'padlock', 'fitness', 'zone')")]
+        [AgentToolParameter("The service name to get Swagger docs for (e.g., 'sphere', 'passport', 'messager', 'drive', 'wallet', 'ring', 'padlock', 'fitness', 'zone')")]
         string serviceName
     )
     {
@@ -102,14 +100,13 @@ public class SnChanSwaggerPlugin(
         }
     }
 
-    [KernelFunction("get_swagger_operation")]
-    [Description("Get detailed API specification for a specific operation. Parameters: service name, HTTP path, and HTTP method.")]
+    [AgentTool("get_swagger_operation", Description = "Get detailed API specification for a specific operation. Parameters: service name, HTTP path, and HTTP method.")]
     public async Task<string> GetSwaggerOperation(
-        [Description("The service name (e.g., 'sphere', 'passport', 'ring')")]
+        [AgentToolParameter("The service name (e.g., 'sphere', 'passport', 'ring')")]
         string serviceName,
-        [Description("The API path (e.g., '/posts', '/notifications/{id}')")]
+        [AgentToolParameter("The API path (e.g., '/posts', '/notifications/{id}')")]
         string path,
-        [Description("The HTTP method (e.g., 'get', 'post', 'put', 'delete')")]
+        [AgentToolParameter("The HTTP method (e.g., 'get', 'post', 'put', 'delete')")]
         string method = "get"
     )
     {

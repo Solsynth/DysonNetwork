@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Text.Json;
 using DysonNetwork.Shared.Models;
-using Microsoft.SemanticKernel;
+using DysonNetwork.Insight.Agent.Foundation;
 
 namespace DysonNetwork.Insight.MiChan.Plugins;
 
@@ -13,10 +13,9 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
         WriteIndented = true
     };
 
-    [KernelFunction("get_post")]
-    [Description("Get a specific post by its ID. Returns JSON with post details including content, author, reactions, etc.")]
+    [AgentTool("get_post", Description = "Get a specific post by its ID. Returns JSON with post details including content, author, reactions, etc.")]
     public async Task<string> GetPost(
-        [Description("The ID of the post")] string postId
+        [AgentToolParameter("The ID of the post")] string postId
     )
     {
         try
@@ -37,18 +36,17 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
         }
     }
 
-    [KernelFunction("create_post")]
-    [Description("Create and publish a new post. Returns JSON with success status and created post data.")]
+    [AgentTool("create_post", Description = "Create and publish a new post. Returns JSON with success status and created post data.")]
     public async Task<string> CreatePost(
-        [Description("The content of the post")]
+        [AgentToolParameter("The content of the post")]
         string content,
-        [Description("The title of the post, optional")]
+        [AgentToolParameter("The title of the post, optional")]
         string? title,
-        [Description("The description of the post, optional")]
+        [AgentToolParameter("The description of the post, optional")]
         string? description,
-        [Description("The tags of the post, splitted by comma, optional")]
+        [AgentToolParameter("The tags of the post, splitted by comma, optional")]
         string? tags,
-        [Description("List of attachment IDs to include with the post, optional")]
+        [AgentToolParameter("List of attachment IDs to include with the post, optional")]
         List<string>? attachments
     )
     {
@@ -75,15 +73,14 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
         }
     }
 
-    [KernelFunction("react_to_post")]
-    [Description("React to a post with an emoji symbol. Returns JSON with success status.")]
+    [AgentTool("react_to_post", Description = "React to a post with an emoji symbol. Returns JSON with success status.")]
     public async Task<string> ReactToPost(
-        [Description("The ID of the post to react to")]
+        [AgentToolParameter("The ID of the post to react to")]
         string postId,
-        [Description(
+        [AgentToolParameter(
             "The reaction symbol (thumb_up, heart, clap, laugh, party, pray, cry, confuse, angry, just_okay, thumb_down)")]
         string symbol = "thumb_up",
-        [Description("The attitude: Positive, Negative, or Neutral")]
+        [AgentToolParameter("The attitude: Positive, Negative, or Neutral")]
         string attitude = "Positive"
     )
     {
@@ -129,12 +126,11 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
         }
     }
 
-    [KernelFunction("pin_post")]
-    [Description("Pin a post to the profile or realm page. Returns JSON with success status.")]
+    [AgentTool("pin_post", Description = "Pin a post to the profile or realm page. Returns JSON with success status.")]
     public async Task<string> PinPost(
-        [Description("The ID of the post to pin")]
+        [AgentToolParameter("The ID of the post to pin")]
         string postId,
-        [Description("Pin mode: ProfilePage or RealmPage")]
+        [AgentToolParameter("Pin mode: ProfilePage or RealmPage")]
         string mode = "ProfilePage"
     )
     {
@@ -157,10 +153,9 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
         }
     }
 
-    [KernelFunction("unpin_post")]
-    [Description("Unpin a post from the profile or realm page. Returns JSON with success status.")]
+    [AgentTool("unpin_post", Description = "Unpin a post from the profile or realm page. Returns JSON with success status.")]
     public async Task<string> UnpinPost(
-        [Description("The ID of the post to unpin")]
+        [AgentToolParameter("The ID of the post to unpin")]
         string postId
     )
     {
@@ -178,12 +173,11 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
         }
     }
 
-    [KernelFunction("reply_to_post")]
-    [Description("Reply to a post. Returns JSON with success status and created reply data.")]
+    [AgentTool("reply_to_post", Description = "Reply to a post. Returns JSON with success status and created reply data.")]
     public async Task<string> ReplyToPost(
-        [Description("The ID of the post to reply to")]
+        [AgentToolParameter("The ID of the post to reply to")]
         string postId,
-        [Description("The content of the reply")]
+        [AgentToolParameter("The content of the reply")]
         string content
     )
     {
@@ -207,12 +201,11 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
         }
     }
 
-    [KernelFunction("repost_post")]
-    [Description("Repost (share) a post. Returns JSON with success status and created repost data.")]
+    [AgentTool("repost_post", Description = "Repost (share) a post. Returns JSON with success status and created repost data.")]
     public async Task<string> RepostPost(
-        [Description("The ID of the post to repost")]
+        [AgentToolParameter("The ID of the post to repost")]
         string postId,
-        [Description("Optional comment to add with the repost")]
+        [AgentToolParameter("Optional comment to add with the repost")]
         string? comment = null
     )
     {
@@ -236,11 +229,10 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
         }
     }
 
-    [KernelFunction("search_posts")]
-    [Description("Search for posts containing specific content. Returns JSON array of matching posts.")]
+    [AgentTool("search_posts", Description = "Search for posts containing specific content. Returns JSON array of matching posts.")]
     public async Task<string> SearchPosts(
-        [Description("Search query")] string query,
-        [Description("Maximum number of results")]
+        [AgentToolParameter("Search query")] string query,
+        [AgentToolParameter("Maximum number of results")]
         int limit = 20
     )
     {
@@ -265,12 +257,11 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
         }
     }
 
-    [KernelFunction("list_posts")]
-    [Description("Get the newest posts. Returns JSON array of posts.")]
+    [AgentTool("list_posts", Description = "Get the newest posts. Returns JSON array of posts.")]
     public async Task<string> ListPosts(
-        [Description("Maximum number of posts")]
+        [AgentToolParameter("Maximum number of posts")]
         int limit = 20,
-        [Description("Skip how many posts already saw in recent queries")]
+        [AgentToolParameter("Skip how many posts already saw in recent queries")]
         int offset = 0
     )
     {
@@ -291,10 +282,9 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
         }
     }
 
-    [KernelFunction("shuffle_posts")]
-    [Description("Get random posts. Returns JSON array of random posts.")]
+    [AgentTool("shuffle_posts", Description = "Get random posts. Returns JSON array of random posts.")]
     public async Task<string> ShufflePosts(
-        [Description("Maximum number of posts")]
+        [AgentToolParameter("Maximum number of posts")]
         int limit = 20
     )
     {
@@ -319,13 +309,12 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
         }
     }
 
-    [KernelFunction("list_publisher_posts")]
-    [Description("Get the specific publisher's posts. Returns JSON array of posts.")]
+    [AgentTool("list_publisher_posts", Description = "Get the specific publisher's posts. Returns JSON array of posts.")]
     public async Task<string> ListPublisherPosts(
-        [Description("The name of publisher")] string name,
-        [Description("Maximum number of posts")]
+        [AgentToolParameter("The name of publisher")] string name,
+        [AgentToolParameter("Maximum number of posts")]
         int limit = 20,
-        [Description("Skip how many posts already saw in recent queries")]
+        [AgentToolParameter("Skip how many posts already saw in recent queries")]
         int offset = 0
     )
     {
@@ -350,10 +339,9 @@ public class PostPlugin(SolarNetworkApiClient apiClient, ILogger<PostPlugin> log
         }
     }
 
-    [KernelFunction("get_publisher")]
-    [Description("Get the publisher information. Returns JSON with publisher details.")]
+    [AgentTool("get_publisher", Description = "Get the publisher information. Returns JSON with publisher details.")]
     public async Task<string> GetPublisher(
-        [Description("The name of publisher")] string name
+        [AgentToolParameter("The name of publisher")] string name
     )
     {
         try

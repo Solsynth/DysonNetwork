@@ -1,14 +1,5 @@
-#pragma warning disable SKEXP0050
-using System.ComponentModel.DataAnnotations;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
-using System.Text.Json;
-using DysonNetwork.Insight.MiChan.Plugins;
-using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace DysonNetwork.Insight.MiChan.Controllers;
 
@@ -24,7 +15,6 @@ public class MiChanAdminController(
     /// Test a personality prompt without changing the config
     /// </summary>
     [HttpGet("personality")]
-    [Experimental("SKEXP0050")]
     [AskPermission("michan.admin")]
     public async Task<ActionResult> GetPersonality()
     {
@@ -86,5 +76,3 @@ public class MiChanAdminController(
         }
     }
 }
-
-#pragma warning restore SKEXP0050

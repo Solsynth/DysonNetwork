@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using Microsoft.SemanticKernel;
+using DysonNetwork.Insight.Agent.Foundation;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 using NodaTime.Text;
@@ -25,7 +25,7 @@ public class SnPostKernelPlugin(
     DyPublisherService.DyPublisherServiceClient publisherClient
 )
 {
-    [KernelFunction("get_post")]
+    [AgentTool("get_post")]
     public async Task<string> GetPost(string postId)
     {
         var request = new DyGetPostRequest { Id = postId };
@@ -33,8 +33,7 @@ public class SnPostKernelPlugin(
         return response is null ? KernelPluginUtils.ToJson(new { error = "Post not found" }) : KernelPluginUtils.ToJson(SnPost.FromProtoValue(response));
     }
 
-    [KernelFunction("search_posts")]
-    [Description("Perform a full-text search in all Solar Network posts.")]
+    [AgentTool("search_posts", Description = "Perform a full-text search in all Solar Network posts.")]
     public async Task<string> SearchPostsContent(string contentQuery, int pageSize = 10, int page = 1)
     {
         var request = new DySearchPostsRequest
@@ -53,8 +52,7 @@ public class SnPostKernelPlugin(
         public int TotalCount { get; set; }
     }
 
-    [KernelFunction("list_posts")]
-    [Description("List all posts on the Solar Network without filters, orderBy can be date or popularity")]
+    [AgentTool("list_posts", Description = "List all posts on the Solar Network without filters, orderBy can be date or popularity")]
     public async Task<string> ListPosts(
         string orderBy = "date",
         bool orderDesc = true,
@@ -77,8 +75,7 @@ public class SnPostKernelPlugin(
         });
     }
 
-    [KernelFunction("list_posts_within_time")]
-    [Description(
+    [AgentTool("list_posts_within_time", Description =
         "List posts in a period of time, the time requires ISO-8601 format, one of the start and end must be provided.")]
     public async Task<string> ListPostsWithinTime(
         string? beforeTime,
@@ -109,10 +106,9 @@ public class SnPostKernelPlugin(
         });
     }
 
-    [KernelFunction("list_publisher_posts")]
-    [Description("Get the specific publisher's posts.")]
+    [AgentTool("list_publisher_posts", Description = "Get the specific publisher's posts.")]
     public async Task<string> ListPublisherPosts(
-        [Description("The id of publisher")] string pubId,
+        [AgentToolParameter("The id of publisher")] string pubId,
         int pageSize = 10,
         int page = 1
     )
@@ -131,10 +127,9 @@ public class SnPostKernelPlugin(
         });
     }
 
-    [KernelFunction("get_publisher")]
-    [Description("Get the publisher information.")]
+    [AgentTool("get_publisher", Description = "Get the publisher information.")]
     public async Task<string> GetPublisher(
-        [Description("The name of publisher")] string name
+        [AgentToolParameter("The name of publisher")] string name
     )
     {
         var request = new DyGetPublisherRequest { Name = name };
@@ -142,11 +137,9 @@ public class SnPostKernelPlugin(
         return result is not null ? KernelPluginUtils.ToJson(SnPublisher.FromProtoValue(result.Publisher)) : KernelPluginUtils.ToJson(new { error = $"Publisher {name} not found" });
     }
 
-    [KernelFunction("get_publisher_by_id")]
-    [Description("Get the publisher information.")]
+    [AgentTool("get_publisher_by_id", Description = "Get the publisher information.")]
     public async Task<string> GetPublisherById(
-        [Description("The id of publisher, must be well formatted GUID")]
-        string id
+        [AgentToolParameter("The id of publisher, must be well formatted GUID")] string id
     )
     {
         var request = new DyGetPublisherRequest { Id = id };

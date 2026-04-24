@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using AngleSharp;
 using AngleSharp.Dom;
-using Microsoft.SemanticKernel;
+using DysonNetwork.Insight.Agent.Foundation;
 
 namespace DysonNetwork.Insight.MiChan.Plugins;
 
@@ -16,11 +16,10 @@ public class WebSearchPlugin(
         WriteIndented = false
     };
 
-    [KernelFunction("fetch_url")]
-    [Description("Fetch a URL and extract its readable text content. Use this when you need to get the full content of a specific webpage. Returns the page title and main text content.")]
+    [AgentTool("fetch_url", Description = "Fetch a URL and extract its readable text content. Use this when you need to get the full content of a specific webpage. Returns the page title and main text content.")]
     public async Task<string> FetchUrl(
-        [Description("The absolute URL to fetch")] string url,
-        [Description("Maximum length of content to return")] int maxLength = 5000)
+        [AgentToolParameter("The absolute URL to fetch")] string url,
+        [AgentToolParameter("Maximum length of content to return")] int maxLength = 5000)
     {
         try
         {
@@ -66,11 +65,10 @@ public class WebSearchPlugin(
         }
     }
 
-    [KernelFunction("duckduckgo_instant_search")]
-    [Description("Quick search using DuckDuckGo Instant Answer API. Best for getting quick facts, definitions, or summaries. Returns abstract information when available.")]
+    [AgentTool("duckduckgo_instant_search", Description = "Quick search using DuckDuckGo Instant Answer API. Best for getting quick facts, definitions, or summaries. Returns abstract information when available.")]
     public async Task<string> DuckDuckGoInstantSearch(
-        [Description("Search query")] string query,
-        [Description("Maximum number of related topics to return")] string maxResults = "5")
+        [AgentToolParameter("Search query")] string query,
+        [AgentToolParameter("Maximum number of related topics to return")] string maxResults = "5")
     {
         try
         {
@@ -161,11 +159,10 @@ public class WebSearchPlugin(
         }
     }
 
-    [KernelFunction("duckduckgo_search")]
-    [Description("Full search using DuckDuckGo HTML results. Best for finding specific URLs and links. Returns full result entries with titles, snippets, and complete URLs.")]
+    [AgentTool("duckduckgo_search", Description = "Full search using DuckDuckGo HTML results. Best for finding specific URLs and links. Returns full result entries with titles, snippets, and complete URLs.")]
     public async Task<string> DuckDuckGoSearch(
-        [Description("Search query")] string query,
-        [Description("Maximum number of results to return")] string maxResults = "5")
+        [AgentToolParameter("Search query")] string query,
+        [AgentToolParameter("Maximum number of results to return")] string maxResults = "5")
     {
         try
         {

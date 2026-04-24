@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Text.Json;
 using DysonNetwork.Shared.Models;
-using Microsoft.SemanticKernel;
+using DysonNetwork.Insight.Agent.Foundation;
 
 namespace DysonNetwork.Insight.SnChan.Plugins;
 
@@ -21,20 +21,19 @@ public class SnChanPostPlugin(
         WriteIndented = true
     };
 
-    [KernelFunction("create_post")]
-    [Description("Create and publish a new post on Solar Network. Returns JSON with success status and created post data.")]
+    [AgentTool("create_post", Description = "Create and publish a new post on Solar Network. Returns JSON with success status and created post data.")]
     public async Task<string> CreatePost(
-        [Description("The content of the post")]
+        [AgentToolParameter("The content of the post")]
         string content,
-        [Description("The title of the post, optional")]
+        [AgentToolParameter("The title of the post, optional")]
         string? title = null,
-        [Description("The description of the post, optional")]
+        [AgentToolParameter("The description of the post, optional")]
         string? description = null,
-        [Description("The tags of the post, splitted by comma, optional")]
+        [AgentToolParameter("The tags of the post, splitted by comma, optional")]
         string? tags = null,
-        [Description("List of attachment IDs to include with the post, optional")]
+        [AgentToolParameter("List of attachment IDs to include with the post, optional")]
         List<string>? attachments = null,
-        [Description("Whether to post as official publisher (solsynth). Default false (personal). Use true for official announcements, support responses, or formal statements.")]
+        [AgentToolParameter("Whether to post as official publisher (solsynth). Default false (personal). Use true for official announcements, support responses, or formal statements.")]
         bool asOfficial = false
     )
     {
@@ -88,14 +87,13 @@ public class SnChanPostPlugin(
         }
     }
 
-    [KernelFunction("reply_to_post")]
-    [Description("Reply to a post. Returns JSON with success status and created reply data. AI should decide whether to use official or personal publisher based on context.")]
+    [AgentTool("reply_to_post", Description = "Reply to a post. Returns JSON with success status and created reply data. AI should decide whether to use official or personal publisher based on context.")]
     public async Task<string> ReplyToPost(
-        [Description("The ID of the post to reply to")]
+        [AgentToolParameter("The ID of the post to reply to")]
         string postId,
-        [Description("The content of the reply")]
+        [AgentToolParameter("The content of the reply")]
         string content,
-        [Description("Whether to reply as official publisher (solsynth). Default false (personal). Consider using true when: 1) The original post is from official publisher, 2) User is asking about Solar Network issues or support, 3) A formal/official response is appropriate.")]
+        [AgentToolParameter("Whether to reply as official publisher (solsynth). Default false (personal). Consider using true when: 1) The original post is from official publisher, 2) User is asking about Solar Network issues or support, 3) A formal/official response is appropriate.")]
         bool asOfficial = false
     )
     {
@@ -146,10 +144,9 @@ public class SnChanPostPlugin(
         }
     }
 
-    [KernelFunction("get_post")]
-    [Description("Get a specific post by its ID. Returns JSON with post details.")]
+    [AgentTool("get_post", Description = "Get a specific post by its ID. Returns JSON with post details.")]
     public async Task<string> GetPost(
-        [Description("The ID of the post")] string postId
+        [AgentToolParameter("The ID of the post")] string postId
     )
     {
         try
@@ -170,12 +167,11 @@ public class SnChanPostPlugin(
         }
     }
 
-    [KernelFunction("get_replies")]
-    [Description("Get replies to a specific post. Only returns replies from other users (filters out SnChan's own replies).")]
+    [AgentTool("get_replies", Description = "Get replies to a specific post. Only returns replies from other users (filters out SnChan's own replies).")]
     public async Task<string> GetReplies(
-        [Description("The ID of the post to get replies for")]
+        [AgentToolParameter("The ID of the post to get replies for")]
         string postId,
-        [Description("Maximum number of replies (default 20)")]
+        [AgentToolParameter("Maximum number of replies (default 20)")]
         int limit = 20
     )
     {
@@ -219,12 +215,11 @@ public class SnChanPostPlugin(
         }
     }
 
-    [KernelFunction("get_my_posts")]
-    [Description("Get posts created by SnChan bot account.")]
+    [AgentTool("get_my_posts", Description = "Get posts created by SnChan bot account.")]
     public async Task<string> GetMyPosts(
-        [Description("Maximum number of posts (default 20)")]
+        [AgentToolParameter("Maximum number of posts (default 20)")]
         int limit = 20,
-        [Description("Skip how many posts")]
+        [AgentToolParameter("Skip how many posts")]
         int offset = 0
     )
     {
@@ -245,11 +240,10 @@ public class SnChanPostPlugin(
         }
     }
 
-    [KernelFunction("search_posts")]
-    [Description("Search for posts containing specific content. Returns JSON array of matching posts.")]
+    [AgentTool("search_posts", Description = "Search for posts containing specific content. Returns JSON array of matching posts.")]
     public async Task<string> SearchPosts(
-        [Description("Search query")] string query,
-        [Description("Maximum number of results")]
+        [AgentToolParameter("Search query")] string query,
+        [AgentToolParameter("Maximum number of results")]
         int limit = 20
     )
     {
@@ -274,8 +268,7 @@ public class SnChanPostPlugin(
         }
     }
 
-    [KernelFunction("get_publisher_context")]
-    [Description("Get context about SnChan's available publishers to help decide which one to use. Returns guidance on when to use personal vs official publisher.")]
+    [AgentTool("get_publisher_context", Description = "Get context about SnChan's available publishers to help decide which one to use. Returns guidance on when to use personal vs official publisher.")]
     public string GetPublisherContext()
     {
         return publisherService.GetPublisherContext();

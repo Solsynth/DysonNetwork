@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using Microsoft.SemanticKernel;
+using DysonNetwork.Insight.Agent.Foundation;
 
 namespace DysonNetwork.Insight.MiChan.Plugins;
 
@@ -27,11 +27,10 @@ public class FitnessPlugin(RemoteFitnessService fitnessService, ILogger<FitnessP
         return client ?? throw new InvalidOperationException("Unable to access fitness service client");
     }
 
-    [KernelFunction("get_workout")]
-    [Description("Get a specific workout by ID for an account. Returns workout details including name, type, duration, calories burned, and other metrics.")]
+    [AgentTool("get_workout", Description = "Get a specific workout by ID for an account. Returns workout details including name, type, duration, calories burned, and other metrics.")]
     public async Task<string> GetWorkout(
-        [Description("The account ID of the user")] string accountId,
-        [Description("The ID of the workout to retrieve")] string workoutId
+        [AgentToolParameter("The account ID of the user")] string accountId,
+        [AgentToolParameter("The ID of the workout to retrieve")] string workoutId
     )
     {
         try
@@ -57,11 +56,10 @@ public class FitnessPlugin(RemoteFitnessService fitnessService, ILogger<FitnessP
         }
     }
 
-    [KernelFunction("get_metric")]
-    [Description("Get a specific fitness metric by ID for an account. Returns metric details including type, value, unit, and recorded time.")]
+    [AgentTool("get_metric", Description = "Get a specific fitness metric by ID for an account. Returns metric details including type, value, unit, and recorded time.")]
     public async Task<string> GetMetric(
-        [Description("The account ID of the user")] string accountId,
-        [Description("The ID of the metric to retrieve")] string metricId
+        [AgentToolParameter("The account ID of the user")] string accountId,
+        [AgentToolParameter("The ID of the metric to retrieve")] string metricId
     )
     {
         try
@@ -87,11 +85,10 @@ public class FitnessPlugin(RemoteFitnessService fitnessService, ILogger<FitnessP
         }
     }
 
-    [KernelFunction("get_goal")]
-    [Description("Get a specific fitness goal by ID for an account. Returns goal details including title, target value, current progress, status, and deadlines.")]
+    [AgentTool("get_goal", Description = "Get a specific fitness goal by ID for an account. Returns goal details including title, target value, current progress, status, and deadlines.")]
     public async Task<string> GetGoal(
-        [Description("The account ID of the user")] string accountId,
-        [Description("The ID of the goal to retrieve")] string goalId
+        [AgentToolParameter("The account ID of the user")] string accountId,
+        [AgentToolParameter("The ID of the goal to retrieve")] string goalId
     )
     {
         try
@@ -117,12 +114,11 @@ public class FitnessPlugin(RemoteFitnessService fitnessService, ILogger<FitnessP
         }
     }
 
-    [KernelFunction("list_workouts")]
-    [Description("List workouts for an account with pagination. Returns a list of workouts sorted by start time.")]
+    [AgentTool("list_workouts", Description = "List workouts for an account with pagination. Returns a list of workouts sorted by start time.")]
     public async Task<string> ListWorkouts(
-        [Description("The account ID of the user")] string accountId,
-        [Description("Number of workouts to skip (for pagination)")] int skip = 0,
-        [Description("Maximum number of workouts to return")] int take = 20
+        [AgentToolParameter("The account ID of the user")] string accountId,
+        [AgentToolParameter("Number of workouts to skip (for pagination)")] int skip = 0,
+        [AgentToolParameter("Maximum number of workouts to return")] int take = 20
     )
     {
         try
@@ -150,13 +146,12 @@ public class FitnessPlugin(RemoteFitnessService fitnessService, ILogger<FitnessP
         }
     }
 
-    [KernelFunction("list_metrics")]
-    [Description("List fitness metrics for an account with optional type filtering and pagination.")]
+    [AgentTool("list_metrics", Description = "List fitness metrics for an account with optional type filtering and pagination.")]
     public async Task<string> ListMetrics(
-        [Description("The account ID of the user")] string accountId,
-        [Description("Optional metric type filter (e.g., Weight, Steps, HeartRate, Calories, etc.)")] string? metricType = null,
-        [Description("Number of metrics to skip (for pagination)")] int skip = 0,
-        [Description("Maximum number of metrics to return")] int take = 50
+        [AgentToolParameter("The account ID of the user")] string accountId,
+        [AgentToolParameter("Optional metric type filter (e.g., Weight, Steps, HeartRate, Calories, etc.)")] string? metricType = null,
+        [AgentToolParameter("Number of metrics to skip (for pagination)")] int skip = 0,
+        [AgentToolParameter("Maximum number of metrics to return")] int take = 50
     )
     {
         try
@@ -191,13 +186,12 @@ public class FitnessPlugin(RemoteFitnessService fitnessService, ILogger<FitnessP
         }
     }
 
-    [KernelFunction("list_goals")]
-    [Description("List fitness goals for an account with optional status filtering and pagination.")]
+    [AgentTool("list_goals", Description = "List fitness goals for an account with optional status filtering and pagination.")]
     public async Task<string> ListGoals(
-        [Description("The account ID of the user")] string accountId,
-        [Description("Optional status filter (Active, Completed, Paused, Cancelled)")] string? status = null,
-        [Description("Number of goals to skip (for pagination)")] int skip = 0,
-        [Description("Maximum number of goals to return")] int take = 20
+        [AgentToolParameter("The account ID of the user")] string accountId,
+        [AgentToolParameter("Optional status filter (Active, Completed, Paused, Cancelled)")] string? status = null,
+        [AgentToolParameter("Number of goals to skip (for pagination)")] int skip = 0,
+        [AgentToolParameter("Maximum number of goals to return")] int take = 20
     )
     {
         try
@@ -232,10 +226,9 @@ public class FitnessPlugin(RemoteFitnessService fitnessService, ILogger<FitnessP
         }
     }
 
-    [KernelFunction("get_latest_metrics")]
-    [Description("Get the latest metrics of each type for an account. Useful for getting current fitness snapshot.")]
+    [AgentTool("get_latest_metrics", Description = "Get the latest metrics of each type for an account. Useful for getting current fitness snapshot.")]
     public async Task<string> GetLatestMetrics(
-        [Description("The account ID of the user")] string accountId
+        [AgentToolParameter("The account ID of the user")] string accountId
     )
     {
         try
@@ -266,10 +259,9 @@ public class FitnessPlugin(RemoteFitnessService fitnessService, ILogger<FitnessP
         }
     }
 
-    [KernelFunction("get_goal_stats")]
-    [Description("Get statistics about a user's goals including active and completed counts.")]
+    [AgentTool("get_goal_stats", Description = "Get statistics about a user's goals including active and completed counts.")]
     public async Task<string> GetGoalStats(
-        [Description("The account ID of the user")] string accountId
+        [AgentToolParameter("The account ID of the user")] string accountId
     )
     {
         try
@@ -295,10 +287,9 @@ public class FitnessPlugin(RemoteFitnessService fitnessService, ILogger<FitnessP
         }
     }
 
-    [KernelFunction("get_fitness_summary")]
-    [Description("Get a summary of all fitness data for an account including counts of workouts, metrics, and goals.")]
+    [AgentTool("get_fitness_summary", Description = "Get a summary of all fitness data for an account including counts of workouts, metrics, and goals.")]
     public async Task<string> GetFitnessSummary(
-        [Description("The account ID of the user")] string accountId
+        [AgentToolParameter("The account ID of the user")] string accountId
     )
     {
         try
@@ -331,22 +322,21 @@ public class FitnessPlugin(RemoteFitnessService fitnessService, ILogger<FitnessP
         }
     }
 
-    [KernelFunction("create_workout")]
-    [Description("Create a new workout for an account. Returns the created workout details.")]
+    [AgentTool("create_workout", Description = "Create a new workout for an account. Returns the created workout details.")]
     public async Task<string> CreateWorkout(
-        [Description("The account ID of the user")] string accountId,
-        [Description("The name of the workout")] string name,
-        [Description("The type of workout (Strength, Cardio, Flexibility, Mixed, Other)")] string type,
-        [Description("The start time of the workout (ISO 8601 format)")] string startTime,
-        [Description("Optional end time of the workout (ISO 8601 format)")] string? endTime = null,
-        [Description("Optional duration in ISO 8601 duration format (e.g., PT1H30M)")] string? duration = null,
-        [Description("Optional calories burned")] int? caloriesBurned = null,
-        [Description("Optional notes about the workout")] string? notes = null,
-        [Description("Visibility (Private or Public)")] string visibility = "Private",
-        [Description("Optional distance traveled")] double? distance = null,
-        [Description("Optional distance unit (e.g., km, miles)")] string? distanceUnit = null,
-        [Description("Optional average heart rate")] int? averageHeartRate = null,
-        [Description("Optional max heart rate")] int? maxHeartRate = null
+        [AgentToolParameter("The account ID of the user")] string accountId,
+        [AgentToolParameter("The name of the workout")] string name,
+        [AgentToolParameter("The type of workout (Strength, Cardio, Flexibility, Mixed, Other)")] string type,
+        [AgentToolParameter("The start time of the workout (ISO 8601 format)")] string startTime,
+        [AgentToolParameter("Optional end time of the workout (ISO 8601 format)")] string? endTime = null,
+        [AgentToolParameter("Optional duration in ISO 8601 duration format (e.g., PT1H30M)")] string? duration = null,
+        [AgentToolParameter("Optional calories burned")] int? caloriesBurned = null,
+        [AgentToolParameter("Optional notes about the workout")] string? notes = null,
+        [AgentToolParameter("Visibility (Private or Public)")] string visibility = "Private",
+        [AgentToolParameter("Optional distance traveled")] double? distance = null,
+        [AgentToolParameter("Optional distance unit (e.g., km, miles)")] string? distanceUnit = null,
+        [AgentToolParameter("Optional average heart rate")] int? averageHeartRate = null,
+        [AgentToolParameter("Optional max heart rate")] int? maxHeartRate = null
     )
     {
         try
@@ -433,16 +423,15 @@ public class FitnessPlugin(RemoteFitnessService fitnessService, ILogger<FitnessP
         }
     }
 
-    [KernelFunction("create_metric")]
-    [Description("Create a new fitness metric for an account. Returns the created metric details.")]
+    [AgentTool("create_metric", Description = "Create a new fitness metric for an account. Returns the created metric details.")]
     public async Task<string> CreateMetric(
-        [Description("The account ID of the user")] string accountId,
-        [Description("The type of metric (Weight, Steps, HeartRate, Calories, Distance, Duration, etc.)")] string metricType,
-        [Description("The value of the metric")] double value,
-        [Description("The unit of measurement (e.g., kg, lbs, steps, km, miles, minutes)")] string unit,
-        [Description("The time the metric was recorded (ISO 8601 format)")] string? recordedAt = null,
-        [Description("Optional notes about the metric")] string? notes = null,
-        [Description("Visibility (Private or Public)")] string visibility = "Private"
+        [AgentToolParameter("The account ID of the user")] string accountId,
+        [AgentToolParameter("The type of metric (Weight, Steps, HeartRate, Calories, Distance, Duration, etc.)")] string metricType,
+        [AgentToolParameter("The value of the metric")] double value,
+        [AgentToolParameter("The unit of measurement (e.g., kg, lbs, steps, km, miles, minutes)")] string unit,
+        [AgentToolParameter("The time the metric was recorded (ISO 8601 format)")] string? recordedAt = null,
+        [AgentToolParameter("Optional notes about the metric")] string? notes = null,
+        [AgentToolParameter("Visibility (Private or Public)")] string visibility = "Private"
     )
     {
         try
@@ -499,12 +488,11 @@ public class FitnessPlugin(RemoteFitnessService fitnessService, ILogger<FitnessP
         }
     }
 
-    [KernelFunction("update_goal_progress")]
-    [Description("Update the progress of a fitness goal. Returns the updated goal details.")]
+    [AgentTool("update_goal_progress", Description = "Update the progress of a fitness goal. Returns the updated goal details.")]
     public async Task<string> UpdateGoalProgress(
-        [Description("The account ID of the user")] string accountId,
-        [Description("The ID of the goal to update")] string goalId,
-        [Description("The new current value/progress")] double currentValue
+        [AgentToolParameter("The account ID of the user")] string accountId,
+        [AgentToolParameter("The ID of the goal to update")] string goalId,
+        [AgentToolParameter("The new current value/progress")] double currentValue
     )
     {
         try

@@ -1,5 +1,6 @@
 namespace DysonNetwork.Insight.Agent.Foundation;
 
+using System.ComponentModel;
 using System.Reflection;
 using System.Text.Json;
 using DysonNetwork.Insight.Agent.Foundation.Models;
@@ -16,21 +17,17 @@ public static class AgentToolReflectionHelper
 
         foreach (var method in methods)
         {
-            var kernelFunctionAttr = method.GetCustomAttributes()
-                .FirstOrDefault(a => a.GetType().Name == "KernelFunctionAttribute");
+            var agentToolAttr = method.GetCustomAttribute<AgentToolAttribute>();
 
-            if (kernelFunctionAttr == null) continue;
+            if (agentToolAttr == null) continue;
 
-            var functionName = kernelFunctionAttr.GetType().GetProperty("Name")?.GetValue(kernelFunctionAttr) as string
-                               ?? method.Name;
+            var functionName = agentToolAttr.Name ?? method.Name;
 
             var toolName = !string.IsNullOrEmpty(pluginName)
                 ? $"{pluginName}-{functionName}"
                 : functionName;
 
-            var descriptionAttr = method.GetCustomAttributes()
-                .FirstOrDefault(a => a.GetType().Name == "DescriptionAttribute");
-            var description = descriptionAttr?.GetType().GetProperty("Description")?.GetValue(descriptionAttr)?.ToString() ?? "";
+            var description = agentToolAttr.Description ?? "";
 
             var parameters = BuildParametersSchema(method);
 
@@ -52,15 +49,12 @@ public static class AgentToolReflectionHelper
 
         foreach (var method in methods)
         {
-            var kernelFunctionAttr = method.GetCustomAttributes()
-                .FirstOrDefault(a => a.GetType().Name == "KernelFunctionAttribute");
+            var agentToolAttr = method.GetCustomAttribute<AgentToolAttribute>();
 
-            if (kernelFunctionAttr == null) continue;
+            if (agentToolAttr == null) continue;
 
-            var name = method.Name;
-            var descriptionAttr = method.GetCustomAttributes()
-                .FirstOrDefault(a => a.GetType().Name == "DescriptionAttribute");
-            var description = descriptionAttr?.GetType().GetProperty("Description")?.GetValue(descriptionAttr)?.ToString() ?? "";
+            var name = agentToolAttr.Name ?? method.Name;
+            var description = agentToolAttr.Description ?? "";
 
             var parameters = BuildParametersSchema(method);
 
@@ -148,13 +142,18 @@ public static class AgentToolReflectionHelper
                 ["type"] = MapTypeToSchema(param.ParameterType)
             };
 
-            var descAttr = param.GetCustomAttributes()
-                .FirstOrDefault(a => a.GetType().Name == "DescriptionAttribute");
-            if (descAttr != null)
+            var agentToolParamAttr = param.GetCustomAttribute<AgentToolParameterAttribute>();
+            if (agentToolParamAttr != null)
             {
-                var desc = descAttr.GetType().GetProperty("Description")?.GetValue(descAttr)?.ToString();
-                if (!string.IsNullOrEmpty(desc))
-                    propDef["description"] = desc;
+                propDef["description"] = agentToolParamAttr.Description;
+            }
+            else
+            {
+                var descAttr = param.GetCustomAttribute<DescriptionAttribute>();
+                if (descAttr != null)
+                {
+                    propDef["description"] = descAttr.Description;
+                }
             }
 
             props[param.Name ?? $"arg{Array.IndexOf(parameters, param)}"] = propDef;

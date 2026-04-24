@@ -1,8 +1,8 @@
 using System.ComponentModel;
+using DysonNetwork.Insight.Agent.Foundation;
 using DysonNetwork.Insight.Thought;
 using DysonNetwork.Shared.Registry;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.SemanticKernel;
 
 namespace DysonNetwork.Insight.MiChan.Plugins;
 
@@ -19,17 +19,16 @@ public class ConversationPlugin(
     /// Start a conversation with a user by creating an agent-initiated thought sequence.
     /// This allows you to proactively reach out to a user with a message.
     /// </summary>
-    [KernelFunction("start_conversation")]
-    [Description("Start a new conversation with a user by creating an agent-initiated message. " +
+    [AgentTool("start_conversation", Description = "Start a new conversation with a user by creating an agent-initiated message. " +
                  "Use this when you want to proactively reach out to a user, share something interesting, " +
                  "follow up on a previous conversation, or start a new discussion. " +
                  "Available ONLY in scheduled task context.")]
     public async Task<string> StartConversationAsync(
-        [Description("The account ID (Guid) of the user you want to talk to")]
+        [AgentToolParameter("The account ID (Guid) of the user you want to talk to")]
         Guid accountId,
-        [Description("The initial message you want to send to the user")]
+        [AgentToolParameter("The initial message you want to send to the user")]
         string message,
-        [Description("Optional: A topic/title for this conversation (e.g., 'Daily Check-in', 'Interesting Discovery')")]
+        [AgentToolParameter("Optional: A topic/title for this conversation (e.g., 'Daily Check-in', 'Interesting Discovery')")]
         string? topic = null)
     {
         using var scope = serviceProvider.CreateScope();

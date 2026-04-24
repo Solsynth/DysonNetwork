@@ -1,5 +1,5 @@
+using DysonNetwork.Insight.Agent.Foundation;
 using Microsoft.Extensions.Logging;
-using Microsoft.SemanticKernel;
 using System.ComponentModel;
 using System.Text;
 
@@ -17,12 +17,11 @@ public class SnDocPlugin(
     /// Search the Solar Network documentation for relevant pages.
     /// Returns a list of matching page IDs with relevance scores.
     /// </summary>
-    [KernelFunction("search_docs")]
-    [Description("Search the Solar Network documentation for relevant pages using semantic search. Returns page IDs and relevance scores.")]
+    [AgentTool("search_docs", Description = "Search the Solar Network documentation for relevant pages using semantic search. Returns page IDs and relevance scores.")]
     public async Task<string> SearchDocsAsync(
-        [Description("The search query. Be specific about what you're looking for.")] string query,
-        [Description("Maximum number of results to return (default: 5)")] int limit = 5,
-        [Description("Minimum similarity threshold from 0.0 to 1.0 (default: 0.6)")] double minSimilarity = 0.6,
+        [AgentToolParameter("The search query. Be specific about what you're looking for.")] string query,
+        [AgentToolParameter("Maximum number of results to return (default: 5)")] int limit = 5,
+        [AgentToolParameter("Minimum similarity threshold from 0.0 to 1.0 (default: 0.6)")] double minSimilarity = 0.6,
         CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Searching docs for query: {Query}", query);
@@ -85,12 +84,11 @@ public class SnDocPlugin(
     /// <summary>
     /// Read a documentation page by ID with optional pagination.
     /// </summary>
-    [KernelFunction("read_doc")]
-    [Description("Read a documentation page by its ID. Supports pagination for large documents.")]
+    [AgentTool("read_doc", Description = "Read a documentation page by its ID. Supports pagination for large documents.")]
     public async Task<string> ReadDocAsync(
-        [Description("The Page ID returned from search_docs")] string pageId,
-        [Description("Character offset to start reading from (default: 0)")] int offset = 0,
-        [Description("Number of characters to read (default: 4000, max: 8000)")] int take = 4000,
+        [AgentToolParameter("The Page ID returned from search_docs")] string pageId,
+        [AgentToolParameter("Character offset to start reading from (default: 0)")] int offset = 0,
+        [AgentToolParameter("Number of characters to read (default: 4000, max: 8000)")] int take = 4000,
         CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Reading doc page: {PageId}, offset: {Offset}, take: {Take}", pageId, offset, take);
@@ -144,10 +142,9 @@ public class SnDocPlugin(
     /// <summary>
     /// Get a quick summary of all available documentation pages.
     /// </summary>
-    [KernelFunction("list_docs")]
-    [Description("List all available documentation pages with their basic information.")]
+    [AgentTool("list_docs", Description = "List all available documentation pages with their basic information.")]
     public async Task<string> ListDocsAsync(
-        [Description("Maximum number of pages to list (default: 20)")] int limit = 20,
+        [AgentToolParameter("Maximum number of pages to list (default: 20)")] int limit = 20,
         CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Listing docs with limit: {Limit}", limit);
@@ -196,11 +193,10 @@ public class SnDocPlugin(
     /// <summary>
     /// Get a documentation page by its slug.
     /// </summary>
-    [KernelFunction("get_doc_by_slug")]
-    [Description("Get a documentation page by its slug (URL-friendly identifier). Returns basic info and a preview.")]
+    [AgentTool("get_doc_by_slug", Description = "Get a documentation page by its slug (URL-friendly identifier). Returns basic info and a preview.")]
     public async Task<string> GetDocBySlugAsync(
-        [Description("The slug of the documentation page (e.g., 'getting-started')")] string slug,
-        [Description("Number of characters to include in the preview (default: 500)")] int previewLength = 500,
+        [AgentToolParameter("The slug of the documentation page (e.g., 'getting-started')")] string slug,
+        [AgentToolParameter("Number of characters to include in the preview (default: 500)")] int previewLength = 500,
         CancellationToken cancellationToken = default)
     {
         logger.LogInformation("Getting doc by slug: {Slug}", slug);

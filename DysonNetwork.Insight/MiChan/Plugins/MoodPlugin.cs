@@ -1,7 +1,7 @@
 #pragma warning disable SKEXP0050
 using System.ComponentModel;
+using DysonNetwork.Insight.Agent.Foundation;
 using DysonNetwork.Insight.Thought.Memory;
-using Microsoft.SemanticKernel;
 
 namespace DysonNetwork.Insight.MiChan.Plugins;
 
@@ -31,15 +31,14 @@ public class MoodPlugin
     /// <param name="curiosityChange">Change in curiosity: -0.3 (less interested) to +0.3 (more curious), 0 for no change</param>
     /// <param name="reasoning">Brief explanation of why her mood changed (for self-reflection and memory)</param>
     /// <returns>A string confirming the mood update</returns>
-    [KernelFunction("update_mood")]
-    [Description("Update MiChan's emotional state based on her experiences. Call this after significant interactions to reflect her feelings.")]
+    [AgentTool("update_mood", Description = "Update MiChan's emotional state based on her experiences. Call this after significant interactions to reflect her feelings.")]
     public async Task<string> UpdateMoodAsync(
-        [Description("Natural description of current mood (e.g., 'excited and curious', 'tired but content')")] string moodDescription,
-        [Description("Energy change: -0.3 to +0.3 (0 = no change)")] float energyChange = 0,
-        [Description("Positivity change: -0.3 to +0.3 (0 = no change)")] float positivityChange = 0,
-        [Description("Sociability change: -0.3 to +0.3 (0 = no change)")] float sociabilityChange = 0,
-        [Description("Curiosity change: -0.3 to +0.3 (0 = no change)")] float curiosityChange = 0,
-        [Description("Why the mood changed - for self-reflection")] string? reasoning = null)
+        [AgentToolParameter("Natural description of current mood (e.g., 'excited and curious', 'tired but content')")] string moodDescription,
+        [AgentToolParameter("Energy change: -0.3 to +0.3 (0 = no change)")] float energyChange = 0,
+        [AgentToolParameter("Positivity change: -0.3 to +0.3 (0 = no change)")] float positivityChange = 0,
+        [AgentToolParameter("Sociability change: -0.3 to +0.3 (0 = no change)")] float sociabilityChange = 0,
+        [AgentToolParameter("Curiosity change: -0.3 to +0.3 (0 = no change)")] float curiosityChange = 0,
+        [AgentToolParameter("Why the mood changed - for self-reflection")] string? reasoning = null)
     {
         try
         {
@@ -99,8 +98,7 @@ public class MoodPlugin
     /// Use this to check how she's feeling before responding or taking action.
     /// </summary>
     /// <returns>A description of MiChan's current mood and emotional levels</returns>
-    [KernelFunction("get_current_mood")]
-    [Description("Get MiChan's current emotional state. Use this to understand how she's feeling before responding.")]
+    [AgentTool("get_current_mood", Description = "Get MiChan's current emotional state. Use this to understand how she's feeling before responding.")]
     public async Task<string> GetCurrentMoodAsync()
     {
         try
@@ -129,11 +127,10 @@ public class MoodPlugin
     /// <param name="eventDescription">Description of the emotional event (e.g., "had a deep philosophical discussion", "user was very supportive")</param>
     /// <param name="emotionalImpact">The emotional impact: positive, negative, or neutral</param>
     /// <returns>Confirmation that the event was recorded</returns>
-    [KernelFunction("record_emotional_event")]
-    [Description("Record an emotional event that happened. Use this to remember significant moments that may influence future mood updates.")]
+    [AgentTool("record_emotional_event", Description = "Record an emotional event that happened. Use this to remember significant moments that may influence future mood updates.")]
     public async Task<string> RecordEmotionalEventAsync(
-        [Description("Description of what happened (e.g., 'had a deep discussion about AI consciousness')")] string eventDescription,
-        [Description("The emotional impact: 'positive', 'negative', or 'neutral'")] string emotionalImpact = "neutral")
+        [AgentToolParameter("Description of what happened (e.g., 'had a deep discussion about AI consciousness')")] string eventDescription,
+        [AgentToolParameter("The emotional impact: 'positive', 'negative', or 'neutral'")] string emotionalImpact = "neutral")
     {
         try
         {
@@ -157,8 +154,7 @@ public class MoodPlugin
     /// This is more comprehensive than a simple mood update - it considers memories, time, and context.
     /// </summary>
     /// <returns>The result of the reflection and updated mood</returns>
-    [KernelFunction("reflect_and_update_mood")]
-    [Description("Perform deep self-reflection to update mood based on recent experiences. Use this when you want to thoughtfully consider how you feel.")]
+    [AgentTool("reflect_and_update_mood", Description = "Perform deep self-reflection to update mood based on recent experiences. Use this when you want to thoughtfully consider how you feel.")]
     public async Task<string> ReflectAndUpdateMoodAsync()
     {
         try

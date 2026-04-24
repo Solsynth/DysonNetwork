@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Text.Json;
 using DysonNetwork.Insight.Thought.Memory;
-using Microsoft.SemanticKernel;
+using DysonNetwork.Insight.Agent.Foundation;
 
 namespace DysonNetwork.Insight.SnChan.Plugins;
 
@@ -16,10 +16,9 @@ public class SnChanUserProfilePlugin(
     };
     private const string BotName = "snchan";
 
-    [KernelFunction("get_user_profile")]
-    [Description("Get SnChan's structured profile for the current user")]
+    [AgentTool("get_user_profile", Description = "Get SnChan's structured profile for the current user")]
     public async Task<string> GetUserProfileAsync(
-        [Description("The account ID of the user. Must be a Guid.")]
+        [AgentToolParameter("The account ID of the user. Must be a Guid.")]
         Guid accountId)
     {
         try
@@ -34,24 +33,23 @@ public class SnChanUserProfilePlugin(
         }
     }
 
-    [KernelFunction("update_user_profile")]
-    [Description("Update SnChan's structured profile for a user, including profile summary, impression, relationship summary, tags, and relationship stats.")]
+    [AgentTool("update_user_profile", Description = "Update SnChan's structured profile for a user, including profile summary, impression, relationship summary, tags, and relationship stats.")]
     public async Task<string> UpdateUserProfileAsync(
-        [Description("The account ID of the user. Must be a Guid.")]
+        [AgentToolParameter("The account ID of the user. Must be a Guid.")]
         Guid accountId,
-        [Description("Optional: concise summary of the user's stable profile, background, or preferences.")]
+        [AgentToolParameter("Optional: concise summary of the user's stable profile, background, or preferences.")]
         string? profileSummary = null,
-        [Description("Optional: SnChan's current impression of the user.")]
+        [AgentToolParameter("Optional: SnChan's current impression of the user.")]
         string? impressionSummary = null,
-        [Description("Optional: summary of SnChan's relationship with the user.")]
+        [AgentToolParameter("Optional: summary of SnChan's relationship with the user.")]
         string? relationshipSummary = null,
-        [Description("Optional: comma-separated tags describing the user, such as interests or traits.")]
+        [AgentToolParameter("Optional: comma-separated tags describing the user, such as interests or traits.")]
         string? tags = null,
-        [Description("Optional: relationship score from -100 to 100.")]
+        [AgentToolParameter("Optional: relationship score from -100 to 100.")]
         int? favorability = null,
-        [Description("Optional: trust score from -100 to 100.")]
+        [AgentToolParameter("Optional: trust score from -100 to 100.")]
         int? trustLevel = null,
-        [Description("Optional: intimacy score from -100 to 100.")]
+        [AgentToolParameter("Optional: intimacy score from -100 to 100.")]
         int? intimacyLevel = null)
     {
         try
@@ -89,16 +87,15 @@ public class SnChanUserProfilePlugin(
         }
     }
 
-    [KernelFunction("adjust_relationship")]
-    [Description("Adjust SnChan's relationship scores for a user by the given deltas.")]
+    [AgentTool("adjust_relationship", Description = "Adjust SnChan's relationship scores for a user by the given deltas.")]
     public async Task<string> AdjustRelationshipAsync(
-        [Description("The account ID of the user. Must be a Guid.")]
+        [AgentToolParameter("The account ID of the user. Must be a Guid.")]
         Guid accountId,
-        [Description("Favorability delta from -100 to 100 (positive = more liked)")]
+        [AgentToolParameter("Favorability delta from -100 to 100 (positive = more liked)")]
         int? favorabilityDelta = null,
-        [Description("Trust level delta from -100 to 100 (positive = more trusted)")]
+        [AgentToolParameter("Trust level delta from -100 to 100 (positive = more trusted)")]
         int? trustDelta = null,
-        [Description("Intimacy delta from -100 to 100 (positive = more intimate)")]
+        [AgentToolParameter("Intimacy delta from -100 to 100 (positive = more intimate)")]
         int? intimacyDelta = null)
     {
         try

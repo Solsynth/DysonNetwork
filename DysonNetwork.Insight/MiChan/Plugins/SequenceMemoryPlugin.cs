@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Text;
+using DysonNetwork.Insight.Agent.Foundation;
 using DysonNetwork.Insight.Thought;
-using Microsoft.SemanticKernel;
 
 namespace DysonNetwork.Insight.MiChan.Plugins;
 
@@ -12,14 +12,13 @@ public class SequenceMemoryPlugin(
     ThoughtService thoughtService,
     ILogger<SequenceMemoryPlugin> logger)
 {
-    [KernelFunction("search_sequence_memory")]
-    [Description(
+    [AgentTool("search_sequence_memory", Description =
         "Search historic conversation memory from thought sequences. Uses semantic summary search plus keyword part search. Use this when users reference prior conversations, topics, preferences, or long-term context.")]
     public async Task<string> SearchSequenceMemoryAsync(
-        [Description("What to search for in historic conversations.")] string query,
-        [Description("Optional account id. If provided, searches that account plus public sequences.")] Guid? accountId = null,
-        [Description("Maximum results to return (default: 8, max: 20)")] int limit = 8,
-        [Description("Minimum semantic similarity threshold (default: 0.6)")] double minSimilarity = 0.6)
+        [AgentToolParameter("What to search for in historic conversations.")] string query,
+        [AgentToolParameter("Optional account id. If provided, searches that account plus public sequences.")] Guid? accountId = null,
+        [AgentToolParameter("Maximum results to return (default: 8, max: 20)")] int limit = 8,
+        [AgentToolParameter("Minimum semantic similarity threshold (default: 0.6)")] double minSimilarity = 0.6)
     {
         try
         {

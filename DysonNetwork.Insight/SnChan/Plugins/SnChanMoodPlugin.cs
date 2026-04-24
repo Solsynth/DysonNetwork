@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.Thought.Memory;
-using Microsoft.SemanticKernel;
+using DysonNetwork.Insight.Agent.Foundation;
 
 namespace DysonNetwork.Insight.SnChan.Plugins;
 
@@ -17,10 +17,9 @@ public class SnChanMoodPlugin(
     };
     private const string BotName = "snchan";
 
-    [KernelFunction("get_current_mood")]
-    [Description("Get SnChan's current mood state as a description")]
+    [AgentTool("get_current_mood", Description = "Get SnChan's current mood state as a description")]
     public async Task<string> GetCurrentMood(
-        [Description("Include detailed metrics (energy, positivity, sociability, curiosity levels)")]
+        [AgentToolParameter("Include detailed metrics (energy, positivity, sociability, curiosity levels)")]
         bool includeMetrics = false
     )
     {
@@ -42,16 +41,15 @@ public class SnChanMoodPlugin(
         return mood.ToMoodPrompt();
     }
 
-    [KernelFunction("update_mood")]
-    [Description("Update SnChan's mood by adjusting levels. Use small deltas (-0.3 to +0.3) for each mood dimension.")]
+    [AgentTool("update_mood", Description = "Update SnChan's mood by adjusting levels. Use small deltas (-0.3 to +0.3) for each mood dimension.")]
     public async Task<string> UpdateMood(
-        [Description("Energy delta: -0.3 (tired) to +0.3 (energetic)")]
+        [AgentToolParameter("Energy delta: -0.3 (tired) to +0.3 (energetic)")]
         float? energyDelta = null,
-        [Description("Positivity delta: -0.3 (negative) to +0.3 (positive)")]
+        [AgentToolParameter("Positivity delta: -0.3 (negative) to +0.3 (positive)")]
         float? positivityDelta = null,
-        [Description("Sociability delta: -0.3 (withdrawn) to +0.3 (social)")]
+        [AgentToolParameter("Sociability delta: -0.3 (withdrawn) to +0.3 (social)")]
         float? sociabilityDelta = null,
-        [Description("Curiosity delta: -0.3 (indifferent) to +0.3 (curious)")]
+        [AgentToolParameter("Curiosity delta: -0.3 (indifferent) to +0.3 (curious)")]
         float? curiosityDelta = null
     )
     {
@@ -84,10 +82,9 @@ public class SnChanMoodPlugin(
         }, JsonOptions);
     }
 
-    [KernelFunction("record_emotional_event")]
-    [Description("Record an emotional event that may influence future mood. Events are recorded for AI self-reflection.")]
+    [AgentTool("record_emotional_event", Description = "Record an emotional event that may influence future mood. Events are recorded for AI self-reflection.")]
     public async Task<string> RecordEmotionalEvent(
-        [Description("The event type: 'positive_interaction', 'negative_interaction', 'mentioned', 'replied', 'helped_user', 'confused', etc.")]
+        [AgentToolParameter("The event type: 'positive_interaction', 'negative_interaction', 'mentioned', 'replied', 'helped_user', 'confused', etc.")]
         string eventType
     )
     {
@@ -100,8 +97,7 @@ public class SnChanMoodPlugin(
         }, JsonOptions);
     }
 
-    [KernelFunction("reflect_and_update_mood")]
-    [Description("Trigger AI self-reflection to update SnChan's mood based on recent experiences. Use this when you want to reflect on your emotional state.")]
+    [AgentTool("reflect_and_update_mood", Description = "Trigger AI self-reflection to update SnChan's mood based on recent experiences. Use this when you want to reflect on your emotional state.")]
     public async Task<string> ReflectAndUpdateMood()
     {
         var success = await moodService.TryUpdateMoodAsync();

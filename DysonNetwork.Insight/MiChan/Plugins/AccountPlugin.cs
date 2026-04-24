@@ -1,7 +1,6 @@
-using System.ComponentModel;
 using System.Text.Json;
+using DysonNetwork.Insight.Agent.Foundation;
 using DysonNetwork.Shared.Models;
-using Microsoft.SemanticKernel;
 
 namespace DysonNetwork.Insight.MiChan.Plugins;
 
@@ -13,17 +12,15 @@ public class AccountPlugin(SolarNetworkApiClient apiClient, ILogger<AccountPlugi
         WriteIndented = true
     };
 
-    [KernelFunction("get_account_info")]
-    [Description("Get information about a user account. Returns JSON string with account details.")]
+    [AgentTool("get_account_info", Description = "Get information about a user account. Returns JSON string with account details.")]
     public async Task<string> GetAccountInfo(
-        [Description("The ID or username of the account")] string accountIdOrUsername
+        [AgentToolParameter("The ID or username of the account")] string accountIdOrUsername
     )
     {
         try
         {
             SnAccount? account;
             
-            // Try to parse as Guid first (ID), otherwise treat as username
             if (Guid.TryParse(accountIdOrUsername, out _))
             {
                 account = await apiClient.GetAsync<SnAccount>("passport", $"/accounts/{accountIdOrUsername}");
@@ -51,11 +48,10 @@ public class AccountPlugin(SolarNetworkApiClient apiClient, ILogger<AccountPlugi
         }
     }
 
-    [KernelFunction("search_accounts")]
-    [Description("Search for user accounts. Returns JSON array of matching accounts.")]
+    [AgentTool("search_accounts", Description = "Search for user accounts. Returns JSON array of matching accounts.")]
     public async Task<string> SearchAccounts(
-        [Description("Search query")] string query,
-        [Description("Maximum number of results")] int limit = 20
+        [AgentToolParameter("Search query")] string query,
+        [AgentToolParameter("Maximum number of results")] int limit = 20
     )
     {
         try
@@ -75,8 +71,7 @@ public class AccountPlugin(SolarNetworkApiClient apiClient, ILogger<AccountPlugi
         }
     }
 
-    [KernelFunction("get_bot_profile")]
-    [Description("Get the bot's own profile information. Returns JSON with account details.")]
+    [AgentTool("get_bot_profile", Description = "Get the bot's own profile information. Returns JSON with account details.")]
     public async Task<string> GetBotProfile()
     {
         try
