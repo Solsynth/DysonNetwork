@@ -1985,9 +1985,35 @@ public class ThoughtService(
         {
             if (groupedParts.TryGetValue(thought.Id, out var parts))
             {
-                thought.Parts = parts;
+                if (HasMeaningfulPartContent(parts))
+                {
+                    thought.Parts = parts;
+                }
             }
         }
+    }
+
+    private static bool HasMeaningfulPartContent(List<SnThinkingMessagePart> parts)
+    {
+        if (parts.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var part in parts)
+        {
+            if (!string.IsNullOrWhiteSpace(part.Text) ||
+                !string.IsNullOrWhiteSpace(part.Reasoning) ||
+                part.FunctionCall != null ||
+                part.FunctionResult != null ||
+                (part.Metadata != null && part.Metadata.Count > 0) ||
+                (part.Files != null && part.Files.Count > 0))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool ShouldCompactMiChanHistory(List<SnThinkingThought> thoughts)
