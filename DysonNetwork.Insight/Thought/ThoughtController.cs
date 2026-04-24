@@ -751,7 +751,20 @@ public class ThoughtController(
             userPart.Files = mergedFiles;
         var userThought = await service.SaveThoughtAsync(sequence, [userPart], ThinkingThoughtRole.User, botName: "michan");
 
-        await service.TouchMiChanUserProfileAsync(accountId, "michan");
+        try
+        {
+            await service.TouchMiChanUserProfileAsync(accountId, "michan");
+            await service.RecordMiChanMoodEventAsync("user_interaction", HttpContext.RequestAborted);
+            if (userPart.Files is { Count: > 0 })
+            {
+                await service.RecordMiChanMoodEventAsync("shared_media", HttpContext.RequestAborted);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to record mood events for user turn. accountId={AccountId}, sequenceId={SequenceId}",
+                accountId, sequence.Id);
+        }
 
         Response.Headers.Append("Content-Type", "text/event-stream");
         Response.StatusCode = 200;
@@ -940,6 +953,18 @@ public class ThoughtController(
             useVisionKernel ? miChanConfig.Vision.VisionThinkingService : miChanConfig.ThinkingModel.ModelId,
             botName: "michan"
         );
+
+        try
+        {
+            await service.RecordMiChanMoodEventAsync("assistant_response", HttpContext.RequestAborted);
+            await service.TryUpdateMiChanMoodAsync(HttpContext.RequestAborted);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to update mood after assistant turn. accountId={AccountId}, sequenceId={SequenceId}",
+                accountId, sequence.Id);
+        }
         logger.LogInformation(
             "MiChan completed thought request for user {AccountId}, sequence {SequenceId} in {ElapsedMs}ms. assistantParts={AssistantPartsCount}, responseChars={ResponseLength}",
             accountId,

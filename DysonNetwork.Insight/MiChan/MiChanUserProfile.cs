@@ -24,6 +24,18 @@ public class MiChanUserProfile : ModelBase
     [Column(TypeName = "text")]
     public string? RelationshipSummary { get; set; }
 
+    [Column(TypeName = "text")]
+    public string? UserAttitudeSummary { get; set; }
+
+    [Column(TypeName = "text")]
+    public string? UserAttitudeTrend { get; set; }
+
+    public int UserWarmth { get; set; } = 0;
+    public int UserRespect { get; set; } = 0;
+    public int UserEngagement { get; set; } = 0;
+
+    public Instant? LastAttitudeUpdateAt { get; set; }
+
     [Column(TypeName = "jsonb")]
     public List<string> Tags { get; set; } = [];
 
@@ -49,6 +61,7 @@ public class MiChanUserProfile : ModelBase
         var builder = new StringBuilder();
         builder.AppendLine($"accountId={AccountId}");
         builder.AppendLine($"favorability={Favorability}; trust={TrustLevel}; intimacy={IntimacyLevel}; interactions={InteractionCount}");
+        builder.AppendLine($"attitude:warmth={UserWarmth}; respect={UserRespect}; engagement={UserEngagement}");
 
         if (Tags.Count > 0)
             builder.AppendLine($"tags={string.Join(", ", Tags)}");
@@ -61,6 +74,15 @@ public class MiChanUserProfile : ModelBase
 
         if (!string.IsNullOrWhiteSpace(RelationshipSummary))
             builder.AppendLine($"relationship={RelationshipSummary.Trim()}");
+
+        if (!string.IsNullOrWhiteSpace(UserAttitudeSummary))
+            builder.AppendLine($"attitude_summary={UserAttitudeSummary.Trim()}");
+
+        if (!string.IsNullOrWhiteSpace(UserAttitudeTrend))
+            builder.AppendLine($"attitude_trend={UserAttitudeTrend.Trim()}");
+
+        if (LastAttitudeUpdateAt.HasValue)
+            builder.AppendLine($"attitude_updated_at={LastAttitudeUpdateAt.Value.ToDateTimeUtc():yyyy-MM-dd HH:mm:ss} UTC");
 
         return builder.ToString().TrimEnd();
     }

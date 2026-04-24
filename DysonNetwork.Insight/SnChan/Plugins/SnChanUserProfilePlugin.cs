@@ -59,15 +59,15 @@ public class SnChanUserProfilePlugin(
                 : tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             var profile = await userProfileService.UpdateProfileAsync(
-                accountId,
-                profileSummary,
-                impressionSummary,
-                relationshipSummary,
-                parsedTags?.ToList(),
-                favorability,
-                trustLevel,
-                intimacyLevel,
-                BotName);
+                accountId: accountId,
+                profileSummary: profileSummary,
+                impressionSummary: impressionSummary,
+                relationshipSummary: relationshipSummary,
+                tags: parsedTags?.ToList(),
+                favorability: favorability,
+                trustLevel: trustLevel,
+                intimacyLevel: intimacyLevel,
+                botName: BotName);
 
             return JsonSerializer.Serialize(new 
             { 
@@ -101,12 +101,12 @@ public class SnChanUserProfilePlugin(
         try
         {
             await userProfileService.AdjustRelationshipAsync(
-                accountId,
-                favorabilityDelta ?? 0,
-                trustDelta ?? 0,
-                intimacyDelta ?? 0,
-                null,
-                BotName);
+                accountId: accountId,
+                favorabilityDelta: favorabilityDelta ?? 0,
+                trustDelta: trustDelta ?? 0,
+                intimacyDelta: intimacyDelta ?? 0,
+                relationshipNote: null,
+                botName: BotName);
 
             var profile = await userProfileService.GetOrCreateAsync(accountId, BotName);
 

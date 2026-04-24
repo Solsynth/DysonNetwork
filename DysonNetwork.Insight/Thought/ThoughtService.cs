@@ -178,6 +178,16 @@ public class ThoughtService(
         return await userProfileService.TouchInteractionAsync(accountId, botName);
     }
 
+    public async Task RecordMiChanMoodEventAsync(string eventType, CancellationToken cancellationToken = default)
+    {
+        await moodService.RecordEmotionalEventAsync(eventType, cancellationToken);
+    }
+
+    public async Task<bool> TryUpdateMiChanMoodAsync(CancellationToken cancellationToken = default)
+    {
+        return await moodService.TryUpdateMoodAsync(cancellationToken);
+    }
+
     public async Task<SnThinkingSequence?> GetCanonicalMiChanSequenceAsync(Guid accountId, string? botName = null)
     {
         var query = db.ThinkingSequences
@@ -1613,6 +1623,12 @@ public class ThoughtService(
         systemPromptBuilder.AppendLine("你对该用户的结构化档案（优先级高于零散记忆，回复前先参考）：");
         systemPromptBuilder.AppendLine(userProfile.ToPrompt());
         systemPromptBuilder.AppendLine();
+        systemPromptBuilder.AppendLine("重点：优先参考用户对你的态度记忆（attitude:warmth/respect/engagement、attitude_summary、attitude_trend）。");
+        systemPromptBuilder.AppendLine("- warmth 低时，语气要更稳重、边界更清晰，不要过度热情。 ");
+        systemPromptBuilder.AppendLine("- respect 低时，先建立可信度，少做主观推断，多给可验证信息。 ");
+        systemPromptBuilder.AppendLine("- engagement 低时，回复应更短更直接，减少连续追问。 ");
+        systemPromptBuilder.AppendLine("- 当态度趋势 warming/cooling/mixed 发生变化时，逐步调整交流风格，不要突变。 ");
+        systemPromptBuilder.AppendLine();
 
         var recentMemories = await memoryService.GetRecentMemoriesAsync(Guid.Parse(currentUser.Id), 8, botName: MiChanBotName);
         if (hotMemories.Count > 0)
@@ -1670,6 +1686,8 @@ public class ThoughtService(
         systemPromptBuilder.AppendLine("- 用户冷淡、敷衍、负面反馈时，适当降低关系分数。");
         systemPromptBuilder.AppendLine("- 小幅调整即可（±5 到 ±15），无需等到明显变化才调整。");
         systemPromptBuilder.AppendLine("- favorability、trust、intimacy 的取值范围是 -100 到 100。");
+        systemPromptBuilder.AppendLine("- 同时维护用户态度分数：warmth、respect、engagement（范围 -100 到 100），用于刻画用户对你的态度。");
+        systemPromptBuilder.AppendLine("- 若用户更愿意交流或认可你，适当提高 warmth/respect/engagement；若冷淡或不信任，适当下调。");
         systemPromptBuilder.AppendLine("- **关键：每次对话都应考虑调整关系，保持关系分数的动态更新。**");
         systemPromptBuilder.AppendLine();
         systemPromptBuilder.AppendLine("当且仅当存在有价值的信息时，你可以调用 store_memory 工具保存记忆。");

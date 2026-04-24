@@ -82,10 +82,15 @@ public class UserProfileService(
         string? profileSummary = null,
         string? impressionSummary = null,
         string? relationshipSummary = null,
+        string? attitudeSummary = null,
+        string? attitudeTrend = null,
         IEnumerable<string>? tags = null,
         int? favorability = null,
         int? trustLevel = null,
         int? intimacyLevel = null,
+        int? userWarmth = null,
+        int? userRespect = null,
+        int? userEngagement = null,
         string? botName = null,
         CancellationToken cancellationToken = default)
     {
@@ -97,6 +102,10 @@ public class UserProfileService(
             profile.ImpressionSummary = NullIfWhiteSpace(impressionSummary);
         if (relationshipSummary != null)
             profile.RelationshipSummary = NullIfWhiteSpace(relationshipSummary);
+        if (attitudeSummary != null)
+            profile.UserAttitudeSummary = NullIfWhiteSpace(attitudeSummary);
+        if (attitudeTrend != null)
+            profile.UserAttitudeTrend = NullIfWhiteSpace(attitudeTrend);
         if (tags != null)
             profile.Tags = tags
                 .Select(tag => tag.Trim())
@@ -109,6 +118,18 @@ public class UserProfileService(
             profile.TrustLevel = ClampRelationshipValue(trustLevel.Value);
         if (intimacyLevel.HasValue)
             profile.IntimacyLevel = ClampRelationshipValue(intimacyLevel.Value);
+        if (userWarmth.HasValue)
+            profile.UserWarmth = ClampRelationshipValue(userWarmth.Value);
+        if (userRespect.HasValue)
+            profile.UserRespect = ClampRelationshipValue(userRespect.Value);
+        if (userEngagement.HasValue)
+            profile.UserEngagement = ClampRelationshipValue(userEngagement.Value);
+
+        if (attitudeSummary != null || attitudeTrend != null || userWarmth.HasValue || userRespect.HasValue ||
+            userEngagement.HasValue)
+        {
+            profile.LastAttitudeUpdateAt = SystemClock.Instance.GetCurrentInstant();
+        }
 
         profile.LastProfileUpdateAt = SystemClock.Instance.GetCurrentInstant();
         await database.SaveChangesAsync(cancellationToken);
@@ -122,7 +143,12 @@ public class UserProfileService(
         int favorabilityDelta = 0,
         int trustDelta = 0,
         int intimacyDelta = 0,
+        int userWarmthDelta = 0,
+        int userRespectDelta = 0,
+        int userEngagementDelta = 0,
         string? relationshipNote = null,
+        string? attitudeNote = null,
+        string? attitudeTrend = null,
         string? botName = null,
         CancellationToken cancellationToken = default)
     {
@@ -131,18 +157,39 @@ public class UserProfileService(
         profile.Favorability = ClampRelationshipValue(profile.Favorability + favorabilityDelta);
         profile.TrustLevel = ClampRelationshipValue(profile.TrustLevel + trustDelta);
         profile.IntimacyLevel = ClampRelationshipValue(profile.IntimacyLevel + intimacyDelta);
+        profile.UserWarmth = ClampRelationshipValue(profile.UserWarmth + userWarmthDelta);
+        profile.UserRespect = ClampRelationshipValue(profile.UserRespect + userRespectDelta);
+        profile.UserEngagement = ClampRelationshipValue(profile.UserEngagement + userEngagementDelta);
 
         if (!string.IsNullOrWhiteSpace(relationshipNote))
         {
             profile.RelationshipSummary = MergeSummary(profile.RelationshipSummary, relationshipNote);
         }
 
+        if (!string.IsNullOrWhiteSpace(attitudeNote))
+        {
+            profile.UserAttitudeSummary = MergeSummary(profile.UserAttitudeSummary, attitudeNote);
+            profile.LastAttitudeUpdateAt = SystemClock.Instance.GetCurrentInstant();
+        }
+
+        if (!string.IsNullOrWhiteSpace(attitudeTrend))
+        {
+            profile.UserAttitudeTrend = attitudeTrend.Trim();
+            profile.LastAttitudeUpdateAt = SystemClock.Instance.GetCurrentInstant();
+        }
+
+        if (userWarmthDelta != 0 || userRespectDelta != 0 || userEngagementDelta != 0)
+        {
+            profile.LastAttitudeUpdateAt = SystemClock.Instance.GetCurrentInstant();
+        }
+
         profile.LastProfileUpdateAt = SystemClock.Instance.GetCurrentInstant();
         await database.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation(
-            "Adjusted MiChan relationship for account {AccountId}, bot: {BotName}: favorability={Favorability}, trust={Trust}, intimacy={Intimacy}",
-            accountId, botName ?? "none", profile.Favorability, profile.TrustLevel, profile.IntimacyLevel);
+            "Adjusted MiChan relationship for account {AccountId}, bot: {BotName}: favorability={Favorability}, trust={Trust}, intimacy={Intimacy}, warmth={Warmth}, respect={Respect}, engagement={Engagement}",
+            accountId, botName ?? "none", profile.Favorability, profile.TrustLevel, profile.IntimacyLevel,
+            profile.UserWarmth, profile.UserRespect, profile.UserEngagement);
 
         return profile;
     }

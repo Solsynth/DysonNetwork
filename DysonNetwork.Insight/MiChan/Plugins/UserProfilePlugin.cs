@@ -27,7 +27,7 @@ public class UserProfilePlugin(
         }
     }
 
-    [AgentTool("update_user_profile", Description = "Create or update MiChan's structured profile for a user, including profile summary, impression, relationship summary, tags, and relationship stats.")]
+    [AgentTool("update_user_profile", Description = "Create or update MiChan's structured profile for a user, including profile summary, impression, relationship summary, user attitude memory, tags, and relationship stats.")]
     public async Task<string> UpdateUserProfileAsync(
         [AgentToolParameter("The account ID of the user. Must be a Guid.")]
         Guid accountId,
@@ -37,6 +37,10 @@ public class UserProfilePlugin(
         string? impressionSummary = null,
         [AgentToolParameter("Optional: summary of MiChan's relationship with the user.")]
         string? relationshipSummary = null,
+        [AgentToolParameter("Optional: summary of this user's attitude toward MiChan in recent interactions.")]
+        string? attitudeSummary = null,
+        [AgentToolParameter("Optional: attitude trend label such as warming, stable, cooling, mixed.")]
+        string? attitudeTrend = null,
         [AgentToolParameter("Optional: comma-separated tags describing the user, such as interests or traits.")]
         string? tags = null,
         [AgentToolParameter("Optional: relationship score from -100 to 100.")]
@@ -44,7 +48,13 @@ public class UserProfilePlugin(
         [AgentToolParameter("Optional: trust score from -100 to 100.")]
         int? trustLevel = null,
         [AgentToolParameter("Optional: intimacy score from -100 to 100.")]
-        int? intimacyLevel = null)
+        int? intimacyLevel = null,
+        [AgentToolParameter("Optional: user's warmth score toward MiChan from -100 to 100.")]
+        int? userWarmth = null,
+        [AgentToolParameter("Optional: user's respect score toward MiChan from -100 to 100.")]
+        int? userRespect = null,
+        [AgentToolParameter("Optional: user's engagement score with MiChan from -100 to 100.")]
+        int? userEngagement = null)
     {
         try
         {
@@ -53,15 +63,20 @@ public class UserProfilePlugin(
                 : tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             var profile = await userProfileService.UpdateProfileAsync(
-                accountId,
-                profileSummary,
-                impressionSummary,
-                relationshipSummary,
-                parsedTags,
-                favorability,
-                trustLevel,
-                intimacyLevel,
-                DefaultBotName);
+                accountId: accountId,
+                profileSummary: profileSummary,
+                impressionSummary: impressionSummary,
+                relationshipSummary: relationshipSummary,
+                attitudeSummary: attitudeSummary,
+                attitudeTrend: attitudeTrend,
+                tags: parsedTags,
+                favorability: favorability,
+                trustLevel: trustLevel,
+                intimacyLevel: intimacyLevel,
+                userWarmth: userWarmth,
+                userRespect: userRespect,
+                userEngagement: userEngagement,
+                botName: DefaultBotName);
 
             return $"User profile updated.\n{profile.ToPrompt()}";
         }
@@ -72,7 +87,7 @@ public class UserProfilePlugin(
         }
     }
 
-    [AgentTool("adjust_relationship", Description = "Adjust MiChan's relationship values for a user after an interaction, including favorability, trust, and intimacy deltas.")]
+    [AgentTool("adjust_relationship", Description = "Adjust MiChan's relationship and user-attitude values after an interaction, including favorability/trust/intimacy and warmth/respect/engagement deltas.")]
     public async Task<string> AdjustRelationshipAsync(
         [AgentToolParameter("The account ID of the user. Must be a Guid.")]
         Guid accountId,
@@ -82,18 +97,33 @@ public class UserProfilePlugin(
         int trustDelta = 0,
         [AgentToolParameter("Delta for intimacy from -100 to 100.")]
         int intimacyDelta = 0,
+        [AgentToolParameter("Delta for user's warmth toward MiChan from -100 to 100.")]
+        int userWarmthDelta = 0,
+        [AgentToolParameter("Delta for user's respect toward MiChan from -100 to 100.")]
+        int userRespectDelta = 0,
+        [AgentToolParameter("Delta for user's engagement with MiChan from -100 to 100.")]
+        int userEngagementDelta = 0,
         [AgentToolParameter("Optional: short note describing why the relationship changed.")]
-        string? relationshipNote = null)
+        string? relationshipNote = null,
+        [AgentToolParameter("Optional: short note describing the user's attitude change toward MiChan.")]
+        string? attitudeNote = null,
+        [AgentToolParameter("Optional: attitude trend label such as warming, stable, cooling, mixed.")]
+        string? attitudeTrend = null)
     {
         try
         {
             var profile = await userProfileService.AdjustRelationshipAsync(
-                accountId,
-                favorabilityDelta,
-                trustDelta,
-                intimacyDelta,
-                relationshipNote,
-                DefaultBotName);
+                accountId: accountId,
+                favorabilityDelta: favorabilityDelta,
+                trustDelta: trustDelta,
+                intimacyDelta: intimacyDelta,
+                userWarmthDelta: userWarmthDelta,
+                userRespectDelta: userRespectDelta,
+                userEngagementDelta: userEngagementDelta,
+                relationshipNote: relationshipNote,
+                attitudeNote: attitudeNote,
+                attitudeTrend: attitudeTrend,
+                botName: DefaultBotName);
 
             return $"Relationship updated.\n{profile.ToPrompt()}";
         }

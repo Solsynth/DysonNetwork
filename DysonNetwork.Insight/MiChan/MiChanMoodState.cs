@@ -165,9 +165,9 @@ public class MiChanMoodState : ModelBase
         
         events.Add(eventType);
         
-        // Keep only last 10 events
-        if (events.Count > 10)
-            events = events.Skip(events.Count - 10).ToList();
+        // Keep only last 20 events
+        if (events.Count > 20)
+            events = events.Skip(events.Count - 20).ToList();
         
         RecentEmotionalEvents = string.Join(",", events);
     }
