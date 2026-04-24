@@ -1507,10 +1507,13 @@ public class ThoughtService(
         var toolResults = parts.Where(p => p.Type == ThinkingMessagePartType.FunctionResult).ToList();
 
         var content = string.Join("\n", textParts.Select(p => p.Text ?? ""));
+        var timestampPrefix = $"[Time: {FormatThoughtTimestamp(thought.CreatedAt)}]";
 
         if (thought.Role == ThinkingThoughtRole.User)
         {
-            builder.AddUserMessage(content);
+            builder.AddUserMessage(string.IsNullOrWhiteSpace(content)
+                ? timestampPrefix
+                : $"{timestampPrefix}\n{content}");
             return;
         }
 
@@ -1523,7 +1526,11 @@ public class ThoughtService(
             Arguments = tc.FunctionCall?.Arguments ?? ""
         }).ToList();
 
-        builder.AddAssistantMessage(content, agentToolCalls.Count > 0 ? agentToolCalls : null);
+        var assistantContent = string.IsNullOrWhiteSpace(content)
+            ? timestampPrefix
+            : $"{timestampPrefix}\n{content}";
+
+        builder.AddAssistantMessage(assistantContent, agentToolCalls.Count > 0 ? agentToolCalls : null);
 
         foreach (var tr in toolResults)
         {
@@ -2204,7 +2211,8 @@ public class ThoughtService(
     private string SerializeThoughtForPrompt(SnThinkingThought thought)
     {
         var builder = new StringBuilder();
-        builder.AppendLine(thought.Role == ThinkingThoughtRole.User ? "[User]" : "[MiChan]");
+        var role = thought.Role == ThinkingThoughtRole.User ? "User" : "MiChan";
+        builder.AppendLine($"[{role}] [Time: {FormatThoughtTimestamp(thought.CreatedAt)}]");
 
         foreach (var part in thought.Parts)
         {
@@ -2227,6 +2235,16 @@ public class ThoughtService(
         }
 
         return builder.ToString().TrimEnd();
+    }
+
+    private static string FormatThoughtTimestamp(Instant timestamp)
+    {
+        if (timestamp == default)
+        {
+            return "unknown";
+        }
+
+        return timestamp.ToDateTimeUtc().ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
     }
 
     private int FindCoveredThoughtIndex(List<SnThinkingThought> rawThoughts, SnThinkingThought? summaryThought)
@@ -2556,11 +2574,12 @@ public class ThoughtService(
         foreach (var thought in thoughts)
         {
             var role = thought.Role == ThinkingThoughtRole.User ? "用户" : "MiChan";
+            var timestamp = FormatThoughtTimestamp(thought.CreatedAt);
             foreach (var part in thought.Parts)
             {
                 if (part.Type == ThinkingMessagePartType.Text && !string.IsNullOrWhiteSpace(part.Text))
                 {
-                    builder.AppendLine($"{role}: {part.Text}");
+                    builder.AppendLine($"[{timestamp}] {role}: {part.Text}");
                 }
             }
         }
