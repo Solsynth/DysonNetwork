@@ -48,6 +48,10 @@ public static class AgentFoundationServiceCollectionExtensions
         }
 
         var embeddingConfig = thinkingConfig.GetSection("Embeddings");
+        if (!embeddingConfig.Exists())
+        {
+            embeddingConfig = configuration.GetSection("Embeddings");
+        }
         var embeddingModel = embeddingConfig.GetValue<string>("Model");
         if (!string.IsNullOrEmpty(embeddingModel))
         {

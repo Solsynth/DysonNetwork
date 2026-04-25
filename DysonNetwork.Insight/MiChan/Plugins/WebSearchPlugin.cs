@@ -23,6 +23,11 @@ public class WebSearchPlugin(
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return JsonSerializer.Serialize(new { success = false, error = "URL cannot be empty" }, JsonOptions);
+            }
+
             if (!Uri.TryCreate(url, UriKind.Absolute, out _))
             {
                 return JsonSerializer.Serialize(new { success = false, error = "Invalid URL format" }, JsonOptions);
@@ -72,6 +77,12 @@ public class WebSearchPlugin(
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return JsonSerializer.Serialize(new { success = false, error = "Search query cannot be empty" }, JsonOptions);
+            }
+
+            query = query.Trim();
             int.TryParse(maxResults, out var limit);
             if (limit <= 0) limit = 5;
             
@@ -166,6 +177,12 @@ public class WebSearchPlugin(
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return JsonSerializer.Serialize(new { success = false, error = "Search query cannot be empty" }, JsonOptions);
+            }
+
+            query = query.Trim();
             int.TryParse(maxResults, out var limit);
             if (limit <= 0) limit = 5;
             

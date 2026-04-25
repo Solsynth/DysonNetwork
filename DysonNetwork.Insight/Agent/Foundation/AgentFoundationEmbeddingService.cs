@@ -33,6 +33,10 @@ public class AgentFoundationEmbeddingService
             }
 
             var embeddingConfig = _configuration.GetSection("Thinking:Embeddings");
+            if (!embeddingConfig.Exists())
+            {
+                embeddingConfig = _configuration.GetSection("Embeddings");
+            }
             var modelId = embeddingConfig.GetValue<string>("Model");
 
             string providerId;
@@ -97,6 +101,10 @@ public class AgentFoundationEmbeddingService
             try
             {
                 var embeddingConfig = _configuration.GetSection("Thinking:Embeddings");
+                if (!embeddingConfig.Exists())
+                {
+                    embeddingConfig = _configuration.GetSection("Embeddings");
+                }
                 var modelId = embeddingConfig.GetValue<string>("Model");
                 return !string.IsNullOrEmpty(modelId);
             }

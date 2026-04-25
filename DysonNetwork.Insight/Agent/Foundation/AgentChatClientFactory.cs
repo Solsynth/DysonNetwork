@@ -117,6 +117,10 @@ public class AgentChatClientFactory
     public EmbeddingClient? CreateEmbeddingClient()
     {
         var embeddingConfig = _configuration.GetSection("Thinking:Embeddings");
+        if (!embeddingConfig.Exists())
+        {
+            embeddingConfig = _configuration.GetSection("Embeddings");
+        }
         var modelId = embeddingConfig.GetValue<string>("Model");
 
         // If Model looks like a service reference, look up in Thinking:Services

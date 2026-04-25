@@ -18,6 +18,12 @@ public class EmbeddingService(AgentChatClientFactory chatClientFactory, ILogger<
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                logger.LogWarning("Embedding text was null or empty. Skipping embedding generation.");
+                return null;
+            }
+
             var client = chatClientFactory.CreateEmbeddingClient();
             if (client == null)
             {
@@ -54,6 +60,12 @@ public class EmbeddingService(AgentChatClientFactory chatClientFactory, ILogger<
         string text,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            logger.LogWarning("Embedding text was null or empty. Skipping provider call.");
+            return null;
+        }
+
         try
         {
             var response = await client.GenerateEmbeddingAsync(text, cancellationToken: cancellationToken);

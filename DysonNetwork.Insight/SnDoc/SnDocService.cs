@@ -116,6 +116,14 @@ public class SnDocService(
         double? minSimilarity = 0.6,
         CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            logger.LogWarning("Search query was null or empty.");
+            return [];
+        }
+
+        query = query.Trim();
+
         // Generate query embedding
         var queryEmbedding = await embeddingService.GenerateEmbeddingAsync(query, ct);
         if (queryEmbedding == null)
