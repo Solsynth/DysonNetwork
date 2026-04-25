@@ -155,10 +155,11 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
             var toolCallMessages = new List<ChatToolCall>();
             foreach (var (id, name, args) in toolCalls)
             {
+                var normalizedArgs = NormalizeToolArguments(args);
                 toolCallMessages.Add(ChatToolCall.CreateFunctionToolCall(
                     id,
                     NormalizeToolNameForProvider(name),
-                    BinaryData.FromString(args)));
+                    BinaryData.FromString(normalizedArgs)));
             }
 
             var assistantMessage = new AssistantChatMessage(toolCallMessages);
@@ -172,7 +173,7 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
             {
                 foreach (var (id, name, args) in toolCalls)
                 {
-                    var toolCall = new AgentToolCall { Id = id, Name = name, Arguments = args };
+                    var toolCall = new AgentToolCall { Id = id, Name = name, Arguments = NormalizeToolArguments(args) };
                     var result = await _toolExecutor.ExecuteToolAsync(toolCall, cancellationToken);
 
                     yield return new AgentStreamEvent.ToolResultReady(id, name, result.Result, result.IsError);
@@ -424,7 +425,7 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
                 {
                     Id = tc.Id,
                     Name = DenormalizeToolNameFromProvider(tc.FunctionName),
-                    Arguments = tc.FunctionArguments?.ToString() ?? ""
+                    Arguments = NormalizeToolArguments(tc.FunctionArguments?.ToString())
                 })
                 .ToList();
         }
@@ -453,6 +454,11 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         return string.IsNullOrEmpty(name)
             ? name
             : name.Replace(ToolNameDotEscape, ".", StringComparison.Ordinal);
+    }
+
+    private static string NormalizeToolArguments(string? arguments)
+    {
+        return string.IsNullOrWhiteSpace(arguments) ? "{}" : arguments;
     }
 }
 

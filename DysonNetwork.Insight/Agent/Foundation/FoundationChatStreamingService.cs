@@ -108,6 +108,7 @@ public class FoundationChatStreamingService
 
             foreach (var toolCall in toolCalls)
             {
+                toolCall.Arguments = string.IsNullOrWhiteSpace(toolCall.Arguments) ? "{}" : toolCall.Arguments;
                 var result = await _toolExecutor.ExecuteToolAsync(toolCall, cancellationToken);
                 
                 yield return new StreamingChatEvent.ToolResult(toolCall.Id, toolCall.Name, result.Result, result.IsError);
@@ -155,6 +156,7 @@ public class FoundationChatStreamingService
 
             foreach (var toolCall in response.ToolCalls)
             {
+                toolCall.Arguments = string.IsNullOrWhiteSpace(toolCall.Arguments) ? "{}" : toolCall.Arguments;
                 var result = await _toolExecutor.ExecuteToolAsync(toolCall, cancellationToken);
                 currentConversation.Messages.Add(AgentMessage.FromToolResult(toolCall.Id, result.Result, result.IsError));
             }

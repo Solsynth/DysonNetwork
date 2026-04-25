@@ -100,6 +100,10 @@ public static class AgentToolReflectionHelper
                         if (root.TryGetProperty(param.Name ?? $"arg{i}", out var elem))
                         {
                             args[i] = JsonSerializer.Deserialize(elem.GetRawText(), param.ParameterType);
+                            if (args[i] == null && !param.HasDefaultValue && !param.IsOptional)
+                            {
+                                throw new ArgumentException($"Missing required argument '{param.Name}'");
+                            }
                         }
                         else if (param.HasDefaultValue)
                         {
@@ -107,7 +111,7 @@ public static class AgentToolReflectionHelper
                         }
                         else
                         {
-                            args[i] = param.ParameterType.IsValueType ? Activator.CreateInstance(param.ParameterType) : null;
+                            throw new ArgumentException($"Missing required argument '{param.Name}'");
                         }
                     }
                 }
