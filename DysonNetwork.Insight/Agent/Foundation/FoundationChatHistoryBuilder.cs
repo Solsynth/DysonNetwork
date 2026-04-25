@@ -310,7 +310,7 @@ public class FoundationChatHistoryBuilder
                         var argsString = args?.ToString() ?? "";
                         
                         var toolName = !string.IsNullOrEmpty(pluginName) 
-                            ? $"{pluginName}-{functionName}" 
+                            ? $"{pluginName}.{functionName}" 
                             : functionName;
                         
                         toolCalls.Add(new AgentToolCall

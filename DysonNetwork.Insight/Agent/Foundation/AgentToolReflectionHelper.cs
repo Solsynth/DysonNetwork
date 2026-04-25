@@ -24,7 +24,7 @@ public static class AgentToolReflectionHelper
             var functionName = agentToolAttr.Name ?? method.Name;
 
             var toolName = !string.IsNullOrEmpty(pluginName)
-                ? $"{pluginName}-{functionName}"
+                ? $"{pluginName}.{functionName}"
                 : functionName;
 
             var description = agentToolAttr.Description ?? "";
