@@ -535,183 +535,277 @@ public class ThoughtController(
             botName: "snchan"
         );
 
-        var (conversation, _) = await service.BuildSnChanConversationAsync(
-            sequence,
-            currentUser,
-            request.UserMessage,
-            request.AttachedPosts,
-            request.AttachedMessages,
-            request.AcceptProposals,
-            userPart.Files ?? []
-        );
-
         Response.Headers.Append("Content-Type", "text/event-stream");
         Response.StatusCode = 200;
 
-        toolRegistry.RegisterMiChanPlugins(serviceProvider);
-        conversation = new AgentConversation(conversation.Messages)
+        List<SnThinkingMessagePart>? assistantParts = null;
+        const int maxStreamingAttempts = 2;
+        for (var attempt = 0; attempt < maxStreamingAttempts; attempt++)
         {
-            Tools = toolRegistry.GetAllDefinitions().ToList()
-        };
+            var preparingJson = JsonSerializer.Serialize(
+                new { type = "status", data = attempt == 0 ? "preparing_context" : "retrying_with_compaction" }
+            );
+            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {preparingJson}\n\n"));
+            await Response.Body.FlushAsync();
 
-        var provider = snChanFoundationProvider.GetChatAdapter(request.Model);
-        var options = snChanFoundationProvider.CreateExecutionOptions(
-            reasoningEffort: request.ReasoningEffort
-        );
+            var (conversation, _) = await service.BuildSnChanConversationAsync(
+                sequence,
+                currentUser,
+                request.UserMessage,
+                request.AttachedPosts,
+                request.AttachedMessages,
+                request.AcceptProposals,
+                userPart.Files ?? []
+            );
 
-        var assistantParts = new List<SnThinkingMessagePart>();
-        var fullResponse = new StringBuilder();
-        var reasoningBuilder = new StringBuilder();
-        var currentToolCalls = new List<(string Id, string Name, string Arguments)>();
-
-        await foreach (
-            var evt in streamingService.StreamChatAsync(
-                provider,
-                conversation,
-                options,
-                HttpContext.RequestAborted
-            )
-        )
-        {
-            switch (evt)
+            toolRegistry.RegisterMiChanPlugins(serviceProvider);
+            conversation = new AgentConversation(conversation.Messages)
             {
-                case StreamingChatEvent.Text text:
-                    fullResponse.Append(text.Delta);
-                    var textJson = JsonSerializer.Serialize(
-                        new { type = "text", data = text.Delta }
-                    );
-                    await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {textJson}\n\n"));
-                    await Response.Body.FlushAsync();
-                    break;
+                Tools = toolRegistry.GetAllDefinitions().ToList()
+            };
 
-                case StreamingChatEvent.Reasoning reasoning:
-                    reasoningBuilder.Append(reasoning.Delta);
-                    var reasoningJson = JsonSerializer.Serialize(
-                        new { type = "reasoning", data = reasoning.Delta }
-                    );
-                    await Response.Body.WriteAsync(
-                        Encoding.UTF8.GetBytes($"data: {reasoningJson}\n\n")
-                    );
-                    await Response.Body.FlushAsync();
-                    break;
+            var provider = snChanFoundationProvider.GetChatAdapter(request.Model);
+            var options = snChanFoundationProvider.CreateExecutionOptions(
+                reasoningEffort: request.ReasoningEffort
+            );
 
-                case StreamingChatEvent.ToolCallStarted toolStarted:
-                    currentToolCalls.Add((toolStarted.Id, toolStarted.Name, ""));
-                    var startedJson = JsonSerializer.Serialize(
+            var attemptAssistantParts = new List<SnThinkingMessagePart>();
+            var attemptFullResponse = new StringBuilder();
+            var currentToolCalls = new List<(string Id, string Name, string Arguments)>();
+            var streamErrorMessage = (string?)null;
+            var shouldRetryWithCompaction = false;
+
+            await foreach (
+                var evt in streamingService.StreamChatAsync(
+                    provider,
+                    conversation,
+                    options,
+                    HttpContext.RequestAborted
+                )
+            )
+            {
+                switch (evt)
+                {
+                    case StreamingChatEvent.Text text:
+                        attemptFullResponse.Append(text.Delta);
+                        var textJson = JsonSerializer.Serialize(
+                            new { type = "text", data = text.Delta }
+                        );
+                        await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {textJson}\n\n"));
+                        await Response.Body.FlushAsync();
+                        break;
+
+                    case StreamingChatEvent.Reasoning reasoning:
+                        var reasoningJson = JsonSerializer.Serialize(
+                            new { type = "reasoning", data = reasoning.Delta }
+                        );
+                        await Response.Body.WriteAsync(
+                            Encoding.UTF8.GetBytes($"data: {reasoningJson}\n\n")
+                        );
+                        await Response.Body.FlushAsync();
+                        break;
+
+                    case StreamingChatEvent.ToolCallStarted toolStarted:
+                        currentToolCalls.Add((toolStarted.Id, toolStarted.Name, ""));
+                        var startedJson = JsonSerializer.Serialize(
+                            new
+                            {
+                                type = "tool_call_started",
+                                id = toolStarted.Id,
+                                name = toolStarted.Name,
+                            }
+                        );
+                        await Response.Body.WriteAsync(
+                            Encoding.UTF8.GetBytes($"data: {startedJson}\n\n")
+                        );
+                        await Response.Body.FlushAsync();
+                        break;
+
+                    case StreamingChatEvent.ToolCallDelta toolDelta:
+                        var call = currentToolCalls.FirstOrDefault(c => c.Id == toolDelta.Id);
+                        if (call != default)
+                        {
+                            var idx = currentToolCalls.IndexOf(call);
+                            currentToolCalls[idx] = (
+                                call.Id,
+                                call.Name,
+                                call.Arguments + (toolDelta.ArgumentsDelta ?? "")
+                            );
+                        }
+                        break;
+
+                    case StreamingChatEvent.ToolResult toolResult:
+                        var functionCallPart = new SnThinkingMessagePart
+                        {
+                            Type = ThinkingMessagePartType.FunctionCall,
+                            FunctionCall = new SnFunctionCall
+                            {
+                                Id = toolResult.Id,
+                                Name = toolResult.Name,
+                                Arguments =
+                                    currentToolCalls
+                                        .FirstOrDefault(c => c.Id == toolResult.Id)
+                                        .Arguments ?? "",
+                            },
+                        };
+                        attemptAssistantParts.Add(functionCallPart);
+
+                        var callJson = JsonSerializer.Serialize(
+                            new { type = "function_call", data = functionCallPart.FunctionCall }
+                        );
+                        await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {callJson}\n\n"));
+                        await Response.Body.FlushAsync();
+
+                        var resultPart = new SnThinkingMessagePart
+                        {
+                            Type = ThinkingMessagePartType.FunctionResult,
+                            FunctionResult = new SnFunctionResult
+                            {
+                                CallId = toolResult.Id,
+                                FunctionName = toolResult.Name,
+                                Result = toolResult.Result,
+                                IsError = toolResult.IsError,
+                            },
+                        };
+                        attemptAssistantParts.Add(resultPart);
+
+                        var resultJson = JsonSerializer.Serialize(
+                            new { type = "function_result", data = resultPart.FunctionResult }
+                        );
+                        await Response.Body.WriteAsync(
+                            Encoding.UTF8.GetBytes($"data: {resultJson}\n\n")
+                        );
+                        await Response.Body.FlushAsync();
+                        break;
+
+                    case StreamingChatEvent.Finished finished:
+                        if (!string.IsNullOrEmpty(finished.FinalText))
+                        {
+                            attemptAssistantParts.Add(
+                                new SnThinkingMessagePart
+                                {
+                                    Type = ThinkingMessagePartType.Text,
+                                    Text = finished.FinalText,
+                                }
+                            );
+                        }
+                        if (!string.IsNullOrEmpty(finished.FinalReasoning))
+                        {
+                            attemptAssistantParts.Add(
+                                new SnThinkingMessagePart
+                                {
+                                    Type = ThinkingMessagePartType.Reasoning,
+                                    Reasoning = finished.FinalReasoning,
+                                }
+                            );
+                        }
+                        break;
+
+                    case StreamingChatEvent.Error error:
+                        streamErrorMessage = error.Message;
+                        if (attempt == 0 && IsContextTooLargeError(error.Message))
+                        {
+                            shouldRetryWithCompaction = true;
+                            logger.LogWarning(
+                                "SnChan streaming hit context limit for user {AccountId}, sequence {SequenceId}. Triggering one-time compaction retry. error={Error}",
+                                accountId,
+                                sequence.Id,
+                                error.Message
+                            );
+                        }
+                        else
+                        {
+                            var errorJson = JsonSerializer.Serialize(
+                                new { type = "error", data = error.Message }
+                            );
+                            await Response.Body.WriteAsync(
+                                Encoding.UTF8.GetBytes($"data: {errorJson}\n\n")
+                            );
+                            await Response.Body.FlushAsync();
+                        }
+
+                        break;
+                }
+            }
+
+            if (shouldRetryWithCompaction)
+            {
+                var compactingJson = JsonSerializer.Serialize(
+                    new { type = "status", data = "compacting" }
+                );
+                await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {compactingJson}\n\n"));
+                await Response.Body.FlushAsync();
+
+                try
+                {
+                    var compactResult = await service.CompactHistoryAsync(sequence.Id, accountId);
+                    logger.LogInformation(
+                        "Auto-compacted SnChan after context-limit error for user {AccountId}, sequence {SequenceId}, archivedCount={ArchivedCount}",
+                        accountId,
+                        sequence.Id,
+                        compactResult.ArchivedCount
+                    );
+
+                    var compactedJson = JsonSerializer.Serialize(
                         new
                         {
-                            type = "tool_call_started",
-                            id = toolStarted.Id,
-                            name = toolStarted.Name,
+                            type = "auto_compacted",
+                            summary = compactResult.Summary,
+                            archived_count = compactResult.ArchivedCount,
                         }
                     );
                     await Response.Body.WriteAsync(
-                        Encoding.UTF8.GetBytes($"data: {startedJson}\n\n")
+                        Encoding.UTF8.GetBytes($"data: {compactedJson}\n\n")
                     );
                     await Response.Body.FlushAsync();
-                    break;
-
-                case StreamingChatEvent.ToolCallDelta toolDelta:
-                    var call = currentToolCalls.FirstOrDefault(c => c.Id == toolDelta.Id);
-                    if (call != default)
-                    {
-                        var idx = currentToolCalls.IndexOf(call);
-                        currentToolCalls[idx] = (
-                            call.Id,
-                            call.Name,
-                            call.Arguments + (toolDelta.ArgumentsDelta ?? "")
-                        );
-                    }
-                    break;
-
-                case StreamingChatEvent.ToolResult toolResult:
-                    var functionCallPart = new SnThinkingMessagePart
-                    {
-                        Type = ThinkingMessagePartType.FunctionCall,
-                        FunctionCall = new SnFunctionCall
-                        {
-                            Id = toolResult.Id,
-                            Name = toolResult.Name,
-                            Arguments =
-                                currentToolCalls
-                                    .FirstOrDefault(c => c.Id == toolResult.Id)
-                                    .Arguments ?? "",
-                        },
-                    };
-                    assistantParts.Add(functionCallPart);
-
-                    var callJson = JsonSerializer.Serialize(
-                        new { type = "function_call", data = functionCallPart.FunctionCall }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(
+                        ex,
+                        "Auto-compact on SnChan context-limit retry failed for user {AccountId}, sequence {SequenceId}",
+                        accountId,
+                        sequence.Id
                     );
-                    await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {callJson}\n\n"));
-                    await Response.Body.FlushAsync();
-
-                    var resultPart = new SnThinkingMessagePart
-                    {
-                        Type = ThinkingMessagePartType.FunctionResult,
-                        FunctionResult = new SnFunctionResult
-                        {
-                            CallId = toolResult.Id,
-                            FunctionName = toolResult.Name,
-                            Result = toolResult.Result,
-                            IsError = toolResult.IsError,
-                        },
-                    };
-                    assistantParts.Add(resultPart);
-
-                    var resultJson = JsonSerializer.Serialize(
-                        new { type = "function_result", data = resultPart.FunctionResult }
-                    );
-                    await Response.Body.WriteAsync(
-                        Encoding.UTF8.GetBytes($"data: {resultJson}\n\n")
-                    );
-                    await Response.Body.FlushAsync();
-                    break;
-
-                case StreamingChatEvent.Finished finished:
-                    if (!string.IsNullOrEmpty(finished.FinalText))
-                    {
-                        assistantParts.Add(
-                            new SnThinkingMessagePart
-                            {
-                                Type = ThinkingMessagePartType.Text,
-                                Text = finished.FinalText,
-                            }
-                        );
-                    }
-                    if (!string.IsNullOrEmpty(finished.FinalReasoning))
-                    {
-                        assistantParts.Add(
-                            new SnThinkingMessagePart
-                            {
-                                Type = ThinkingMessagePartType.Reasoning,
-                                Reasoning = finished.FinalReasoning,
-                            }
-                        );
-                    }
-                    break;
-
-                case StreamingChatEvent.Error error:
                     var errorJson = JsonSerializer.Serialize(
-                        new { type = "error", data = error.Message }
+                        new { type = "error", data = "对话整理失败，请稍后重试" }
                     );
-                    await Response.Body.WriteAsync(
-                        Encoding.UTF8.GetBytes($"data: {errorJson}\n\n")
-                    );
+                    await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {errorJson}\n\n"));
                     await Response.Body.FlushAsync();
-                    break;
+                    return new EmptyResult();
+                }
+
+                continue;
             }
+
+            if (!string.IsNullOrWhiteSpace(streamErrorMessage))
+            {
+                return new EmptyResult();
+            }
+
+            if (attemptAssistantParts.Count == 0 && attemptFullResponse.Length > 0)
+            {
+                attemptAssistantParts.Add(
+                    new SnThinkingMessagePart
+                    {
+                        Type = ThinkingMessagePartType.Text,
+                        Text = attemptFullResponse.ToString(),
+                    }
+                );
+            }
+
+            assistantParts = attemptAssistantParts;
+            break;
         }
 
-        if (assistantParts.Count == 0 && fullResponse.Length > 0)
+        if (assistantParts == null)
         {
-            assistantParts.Add(
-                new SnThinkingMessagePart
-                {
-                    Type = ThinkingMessagePartType.Text,
-                    Text = fullResponse.ToString(),
-                }
+            var errorJson = JsonSerializer.Serialize(
+                new { type = "error", data = "对话生成失败，请稍后重试" }
             );
+            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {errorJson}\n\n"));
+            await Response.Body.FlushAsync();
+            return new EmptyResult();
         }
 
         var savedThought = await service.SaveThoughtAsync(
@@ -929,57 +1023,6 @@ public class ThoughtController(
         Response.Headers.Append("Content-Type", "text/event-stream");
         Response.StatusCode = 200;
 
-        var autoCompactStopwatch = Stopwatch.StartNew();
-        var needsAutoCompact = await service.CheckAndAutoCompactAsync(sequence.Id, accountId);
-        if (needsAutoCompact)
-        {
-            var compactingJson = JsonSerializer.Serialize(
-                new { type = "status", data = "compacting" }
-            );
-            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {compactingJson}\n\n"));
-            await Response.Body.FlushAsync();
-
-            try
-            {
-                var compactResult = await service.CompactHistoryAsync(sequence.Id, accountId);
-                logger.LogInformation(
-                    "Auto-compacted for user {AccountId}, sequence {SequenceId} in {ElapsedMs}ms, archivedCount={ArchivedCount}",
-                    accountId,
-                    sequence.Id,
-                    autoCompactStopwatch.ElapsedMilliseconds,
-                    compactResult.ArchivedCount
-                );
-
-                var compactedJson = JsonSerializer.Serialize(
-                    new
-                    {
-                        type = "auto_compacted",
-                        summary = compactResult.Summary,
-                        archived_count = compactResult.ArchivedCount,
-                    }
-                );
-                await Response.Body.WriteAsync(
-                    Encoding.UTF8.GetBytes($"data: {compactedJson}\n\n")
-                );
-                await Response.Body.FlushAsync();
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(
-                    ex,
-                    "Auto-compact failed for user {AccountId}, sequence {SequenceId}",
-                    accountId,
-                    sequence.Id
-                );
-                return BadRequest(new { error = "对话整理失败，请稍后重试" });
-            }
-        }
-
-        var preparingJson = JsonSerializer.Serialize(
-            new { type = "status", data = "preparing_context" }
-        );
-        await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {preparingJson}\n\n"));
-        await Response.Body.FlushAsync();
         logger.LogInformation(
             "MiChan SSE stream opened for user {AccountId}, sequence {SequenceId} at {ElapsedMs}ms",
             accountId,
@@ -987,193 +1030,298 @@ public class ThoughtController(
             overallStopwatch.ElapsedMilliseconds
         );
 
-        var historyStopwatch = Stopwatch.StartNew();
-        var (conversation, useVisionKernel) = await service.BuildMiChanConversationAsync(
-            sequence,
-            currentUser,
-            request.UserMessage,
-            request.AttachedPosts,
-            request.AttachedMessages,
-            request.AcceptProposals,
-            userPart.Files ?? [],
-            userThought.Id
-        );
-        logger.LogInformation(
-            "MiChan context prepared for user {AccountId}, sequence {SequenceId} in {ElapsedMs}ms. useVisionKernel={UseVisionKernel}, messageCount={MessageCount}",
-            accountId,
-            sequence.Id,
-            historyStopwatch.ElapsedMilliseconds,
-            useVisionKernel,
-            conversation.Messages.Count
-        );
+        List<SnThinkingMessagePart>? assistantParts = null;
+        var finalResponseLength = 0;
+        var completedSuccessfully = false;
+        var finalModelName = miChanConfig.ThinkingModel.ModelId;
 
-        toolRegistry.RegisterMiChanPlugins(serviceProvider);
-        conversation = new AgentConversation(conversation.Messages)
+        const int maxStreamingAttempts = 2;
+        for (var attempt = 0; attempt < maxStreamingAttempts; attempt++)
         {
-            Tools = toolRegistry.GetAllDefinitions().ToList()
-        };
+            var preparingJson = JsonSerializer.Serialize(
+                new { type = "status", data = attempt == 0 ? "preparing_context" : "retrying_with_compaction" }
+            );
+            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {preparingJson}\n\n"));
+            await Response.Body.FlushAsync();
 
-        var provider = useVisionKernel
-            ? miChanFoundationProvider.GetVisionAdapter(currentUser.PerkLevel)
-            : miChanFoundationProvider.GetChatAdapter(currentUser.PerkLevel, request.Model);
-        var options = useVisionKernel
-            ? miChanFoundationProvider.CreateVisionExecutionOptions(
-                reasoningEffort: request.ReasoningEffort
-            )
-            : miChanFoundationProvider.CreateExecutionOptions(
-                reasoningEffort: request.ReasoningEffort
+            var historyStopwatch = Stopwatch.StartNew();
+            var (conversation, useVisionKernel) = await service.BuildMiChanConversationAsync(
+                sequence,
+                currentUser,
+                request.UserMessage,
+                request.AttachedPosts,
+                request.AttachedMessages,
+                request.AcceptProposals,
+                userPart.Files ?? [],
+                userThought.Id
+            );
+            logger.LogInformation(
+                "MiChan context prepared for user {AccountId}, sequence {SequenceId} in {ElapsedMs}ms. useVisionKernel={UseVisionKernel}, messageCount={MessageCount}, attempt={Attempt}",
+                accountId,
+                sequence.Id,
+                historyStopwatch.ElapsedMilliseconds,
+                useVisionKernel,
+                conversation.Messages.Count,
+                attempt + 1
             );
 
-        var assistantParts = new List<SnThinkingMessagePart>();
-        var fullResponse = new StringBuilder();
-        var reasoningBuilder = new StringBuilder();
-        var currentToolCalls = new List<(string Id, string Name, string Arguments)>();
-
-        await foreach (
-            var evt in streamingService.StreamChatAsync(
-                provider,
-                conversation,
-                options,
-                HttpContext.RequestAborted
-            )
-        )
-        {
-            switch (evt)
+            toolRegistry.RegisterMiChanPlugins(serviceProvider);
+            conversation = new AgentConversation(conversation.Messages)
             {
-                case StreamingChatEvent.Text text:
-                    fullResponse.Append(text.Delta);
-                    var textJson = JsonSerializer.Serialize(
-                        new { type = "text", data = text.Delta }
-                    );
-                    await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {textJson}\n\n"));
-                    await Response.Body.FlushAsync();
-                    break;
+                Tools = toolRegistry.GetAllDefinitions().ToList()
+            };
 
-                case StreamingChatEvent.Reasoning reasoning:
-                    reasoningBuilder.Append(reasoning.Delta);
-                    var reasoningJson = JsonSerializer.Serialize(
-                        new { type = "reasoning", data = reasoning.Delta }
-                    );
-                    await Response.Body.WriteAsync(
-                        Encoding.UTF8.GetBytes($"data: {reasoningJson}\n\n")
-                    );
-                    await Response.Body.FlushAsync();
-                    break;
+            var provider = useVisionKernel
+                ? miChanFoundationProvider.GetVisionAdapter(currentUser.PerkLevel)
+                : miChanFoundationProvider.GetChatAdapter(currentUser.PerkLevel, request.Model);
+            var options = useVisionKernel
+                ? miChanFoundationProvider.CreateVisionExecutionOptions(
+                    reasoningEffort: request.ReasoningEffort
+                )
+                : miChanFoundationProvider.CreateExecutionOptions(
+                    reasoningEffort: request.ReasoningEffort
+                );
+            var modelNameForAttempt = useVisionKernel
+                ? miChanConfig.Vision.VisionThinkingService
+                : miChanConfig.ThinkingModel.ModelId;
 
-                case StreamingChatEvent.ToolCallStarted toolStarted:
-                    currentToolCalls.Add((toolStarted.Id, toolStarted.Name, ""));
-                    break;
+            var attemptAssistantParts = new List<SnThinkingMessagePart>();
+            var attemptFullResponse = new StringBuilder();
+            var currentToolCalls = new List<(string Id, string Name, string Arguments)>();
+            var streamErrorMessage = (string?)null;
+            var shouldRetryWithCompaction = false;
 
-                case StreamingChatEvent.ToolCallDelta toolDelta:
-                    var call = currentToolCalls.FirstOrDefault(c => c.Id == toolDelta.Id);
-                    if (call != default)
-                    {
-                        var idx = currentToolCalls.IndexOf(call);
-                        currentToolCalls[idx] = (
-                            call.Id,
-                            call.Name,
-                            call.Arguments + (toolDelta.ArgumentsDelta ?? "")
+            await foreach (
+                var evt in streamingService.StreamChatAsync(
+                    provider,
+                    conversation,
+                    options,
+                    HttpContext.RequestAborted
+                )
+            )
+            {
+                switch (evt)
+                {
+                    case StreamingChatEvent.Text text:
+                        attemptFullResponse.Append(text.Delta);
+                        var textJson = JsonSerializer.Serialize(
+                            new { type = "text", data = text.Delta }
                         );
-                    }
-                    break;
+                        await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {textJson}\n\n"));
+                        await Response.Body.FlushAsync();
+                        break;
 
-                case StreamingChatEvent.ToolResult toolResult:
-                    var functionCallPart = new SnThinkingMessagePart
-                    {
-                        Type = ThinkingMessagePartType.FunctionCall,
-                        FunctionCall = new SnFunctionCall
+                    case StreamingChatEvent.Reasoning reasoning:
+                        var reasoningJson = JsonSerializer.Serialize(
+                            new { type = "reasoning", data = reasoning.Delta }
+                        );
+                        await Response.Body.WriteAsync(
+                            Encoding.UTF8.GetBytes($"data: {reasoningJson}\n\n")
+                        );
+                        await Response.Body.FlushAsync();
+                        break;
+
+                    case StreamingChatEvent.ToolCallStarted toolStarted:
+                        currentToolCalls.Add((toolStarted.Id, toolStarted.Name, ""));
+                        break;
+
+                    case StreamingChatEvent.ToolCallDelta toolDelta:
+                        var call = currentToolCalls.FirstOrDefault(c => c.Id == toolDelta.Id);
+                        if (call != default)
                         {
-                            Id = toolResult.Id,
-                            Name = toolResult.Name,
-                            Arguments =
-                                currentToolCalls
-                                    .FirstOrDefault(c => c.Id == toolResult.Id)
-                                    .Arguments ?? "",
-                        },
-                    };
-                    assistantParts.Add(functionCallPart);
+                            var idx = currentToolCalls.IndexOf(call);
+                            currentToolCalls[idx] = (
+                                call.Id,
+                                call.Name,
+                                call.Arguments + (toolDelta.ArgumentsDelta ?? "")
+                            );
+                        }
+                        break;
 
-                    var callJson = JsonSerializer.Serialize(
-                        new { type = "function_call", data = functionCallPart.FunctionCall }
-                    );
-                    await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {callJson}\n\n"));
-                    await Response.Body.FlushAsync();
-
-                    var resultPart = new SnThinkingMessagePart
-                    {
-                        Type = ThinkingMessagePartType.FunctionResult,
-                        FunctionResult = new SnFunctionResult
+                    case StreamingChatEvent.ToolResult toolResult:
+                        var functionCallPart = new SnThinkingMessagePart
                         {
-                            CallId = toolResult.Id,
-                            FunctionName = toolResult.Name,
-                            Result = toolResult.Result,
-                            IsError = toolResult.IsError,
-                        },
-                    };
-                    assistantParts.Add(resultPart);
-
-                    var resultJson = JsonSerializer.Serialize(
-                        new { type = "function_result", data = resultPart.FunctionResult }
-                    );
-                    await Response.Body.WriteAsync(
-                        Encoding.UTF8.GetBytes($"data: {resultJson}\n\n")
-                    );
-                    await Response.Body.FlushAsync();
-                    break;
-
-                case StreamingChatEvent.Finished finished:
-                    if (!string.IsNullOrEmpty(finished.FinalText))
-                    {
-                        assistantParts.Add(
-                            new SnThinkingMessagePart
+                            Type = ThinkingMessagePartType.FunctionCall,
+                            FunctionCall = new SnFunctionCall
                             {
-                                Type = ThinkingMessagePartType.Text,
-                                Text = finished.FinalText,
-                            }
-                        );
-                    }
-                    if (!string.IsNullOrEmpty(finished.FinalReasoning))
-                    {
-                        assistantParts.Add(
-                            new SnThinkingMessagePart
-                            {
-                                Type = ThinkingMessagePartType.Reasoning,
-                                Reasoning = finished.FinalReasoning,
-                            }
-                        );
-                    }
-                    break;
+                                Id = toolResult.Id,
+                                Name = toolResult.Name,
+                                Arguments =
+                                    currentToolCalls
+                                        .FirstOrDefault(c => c.Id == toolResult.Id)
+                                        .Arguments ?? "",
+                            },
+                        };
+                        attemptAssistantParts.Add(functionCallPart);
 
-                case StreamingChatEvent.Error error:
-                    var errorJson = JsonSerializer.Serialize(
-                        new { type = "error", data = error.Message }
-                    );
-                    await Response.Body.WriteAsync(
-                        Encoding.UTF8.GetBytes($"data: {errorJson}\n\n")
-                    );
-                    await Response.Body.FlushAsync();
-                    break;
+                        var callJson = JsonSerializer.Serialize(
+                            new { type = "function_call", data = functionCallPart.FunctionCall }
+                        );
+                        await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {callJson}\n\n"));
+                        await Response.Body.FlushAsync();
+
+                        var resultPart = new SnThinkingMessagePart
+                        {
+                            Type = ThinkingMessagePartType.FunctionResult,
+                            FunctionResult = new SnFunctionResult
+                            {
+                                CallId = toolResult.Id,
+                                FunctionName = toolResult.Name,
+                                Result = toolResult.Result,
+                                IsError = toolResult.IsError,
+                            },
+                        };
+                        attemptAssistantParts.Add(resultPart);
+
+                        var resultJson = JsonSerializer.Serialize(
+                            new { type = "function_result", data = resultPart.FunctionResult }
+                        );
+                        await Response.Body.WriteAsync(
+                            Encoding.UTF8.GetBytes($"data: {resultJson}\n\n")
+                        );
+                        await Response.Body.FlushAsync();
+                        break;
+
+                    case StreamingChatEvent.Finished finished:
+                        if (!string.IsNullOrEmpty(finished.FinalText))
+                        {
+                            attemptAssistantParts.Add(
+                                new SnThinkingMessagePart
+                                {
+                                    Type = ThinkingMessagePartType.Text,
+                                    Text = finished.FinalText,
+                                }
+                            );
+                        }
+                        if (!string.IsNullOrEmpty(finished.FinalReasoning))
+                        {
+                            attemptAssistantParts.Add(
+                                new SnThinkingMessagePart
+                                {
+                                    Type = ThinkingMessagePartType.Reasoning,
+                                    Reasoning = finished.FinalReasoning,
+                                }
+                            );
+                        }
+                        break;
+
+                    case StreamingChatEvent.Error error:
+                        streamErrorMessage = error.Message;
+                        if (attempt == 0 && IsContextTooLargeError(error.Message))
+                        {
+                            shouldRetryWithCompaction = true;
+                            logger.LogWarning(
+                                "MiChan streaming hit context limit for user {AccountId}, sequence {SequenceId}. Triggering one-time compaction retry. error={Error}",
+                                accountId,
+                                sequence.Id,
+                                error.Message
+                            );
+                        }
+                        else
+                        {
+                            var errorJson = JsonSerializer.Serialize(
+                                new { type = "error", data = error.Message }
+                            );
+                            await Response.Body.WriteAsync(
+                                Encoding.UTF8.GetBytes($"data: {errorJson}\n\n")
+                            );
+                            await Response.Body.FlushAsync();
+                        }
+
+                        break;
+                }
             }
+
+            if (shouldRetryWithCompaction)
+            {
+                var compactingJson = JsonSerializer.Serialize(
+                    new { type = "status", data = "compacting" }
+                );
+                await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {compactingJson}\n\n"));
+                await Response.Body.FlushAsync();
+
+                try
+                {
+                    var autoCompactStopwatch = Stopwatch.StartNew();
+                    var compactResult = await service.CompactHistoryAsync(sequence.Id, accountId);
+                    logger.LogInformation(
+                        "Auto-compacted after context-limit error for user {AccountId}, sequence {SequenceId} in {ElapsedMs}ms, archivedCount={ArchivedCount}",
+                        accountId,
+                        sequence.Id,
+                        autoCompactStopwatch.ElapsedMilliseconds,
+                        compactResult.ArchivedCount
+                    );
+
+                    var compactedJson = JsonSerializer.Serialize(
+                        new
+                        {
+                            type = "auto_compacted",
+                            summary = compactResult.Summary,
+                            archived_count = compactResult.ArchivedCount,
+                        }
+                    );
+                    await Response.Body.WriteAsync(
+                        Encoding.UTF8.GetBytes($"data: {compactedJson}\n\n")
+                    );
+                    await Response.Body.FlushAsync();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(
+                        ex,
+                        "Auto-compact on context-limit retry failed for user {AccountId}, sequence {SequenceId}",
+                        accountId,
+                        sequence.Id
+                    );
+                    var errorJson = JsonSerializer.Serialize(
+                        new { type = "error", data = "对话整理失败，请稍后重试" }
+                    );
+                    await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {errorJson}\n\n"));
+                    await Response.Body.FlushAsync();
+                    return new EmptyResult();
+                }
+
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(streamErrorMessage))
+            {
+                return new EmptyResult();
+            }
+
+            if (attemptAssistantParts.Count == 0 && attemptFullResponse.Length > 0)
+            {
+                attemptAssistantParts.Add(
+                    new SnThinkingMessagePart
+                    {
+                        Type = ThinkingMessagePartType.Text,
+                        Text = attemptFullResponse.ToString(),
+                    }
+                );
+            }
+
+            assistantParts = attemptAssistantParts;
+            finalResponseLength = attemptFullResponse.Length;
+            finalModelName = modelNameForAttempt;
+            completedSuccessfully = true;
+            break;
         }
 
-        if (assistantParts.Count == 0 && fullResponse.Length > 0)
+        if (!completedSuccessfully || assistantParts == null)
         {
-            assistantParts.Add(
-                new SnThinkingMessagePart
-                {
-                    Type = ThinkingMessagePartType.Text,
-                    Text = fullResponse.ToString(),
-                }
+            var errorJson = JsonSerializer.Serialize(
+                new { type = "error", data = "对话生成失败，请稍后重试" }
             );
+            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {errorJson}\n\n"));
+            await Response.Body.FlushAsync();
+            return new EmptyResult();
         }
 
         var savedThought = await service.SaveThoughtAsync(
             sequence,
             assistantParts,
             ThinkingThoughtRole.Assistant,
-            useVisionKernel
-                ? miChanConfig.Vision.VisionThinkingService
-                : miChanConfig.ThinkingModel.ModelId,
+            finalModelName,
             botName: "michan"
         );
 
@@ -1200,7 +1348,7 @@ public class ThoughtController(
             sequence.Id,
             overallStopwatch.ElapsedMilliseconds,
             assistantParts.Count,
-            fullResponse.Length
+            finalResponseLength
         );
 
         using (var streamBuilder = new MemoryStream())
@@ -1697,5 +1845,24 @@ public class ThoughtController(
             );
             return BadRequest(new { error = "整理对话失败，请稍后重试" });
         }
+    }
+
+    private static bool IsContextTooLargeError(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return false;
+        }
+
+        var text = message.ToLowerInvariant();
+        return text.Contains("context") &&
+               (
+                   text.Contains("too large") ||
+                   text.Contains("length") ||
+                   text.Contains("window") ||
+                   text.Contains("maximum") ||
+                   text.Contains("limit") ||
+                   text.Contains("exceed")
+               );
     }
 }

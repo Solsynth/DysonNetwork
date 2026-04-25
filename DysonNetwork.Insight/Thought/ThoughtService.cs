@@ -1482,10 +1482,11 @@ public class ThoughtService(
 
         var previousThoughts = await GetPreviousThoughtsAsync(sequence);
         var thoughtsList = previousThoughts.ToList();
+        var userTimeZone = currentUser.Profile?.TimeZone;
         for (var i = thoughtsList.Count - 1; i >= 1; i--)
         {
             var thought = thoughtsList[i];
-            AddThoughtToBuilder(builder, thought);
+            AddThoughtToBuilder(builder, thought, userTimeZone);
         }
 
         var useVisionKernel = false;
@@ -1530,7 +1531,7 @@ public class ThoughtService(
         return (builder.Build(), useVisionKernel);
     }
 
-    private void AddThoughtToBuilder(ConversationBuilder builder, SnThinkingThought thought)
+    private void AddThoughtToBuilder(ConversationBuilder builder, SnThinkingThought thought, string? userTimeZone)
     {
         var parts = thought.Parts?.ToList() ?? new List<SnThinkingMessagePart>();
         var textParts = parts.Where(p => p.Type == ThinkingMessagePartType.Text).ToList();
@@ -1543,7 +1544,11 @@ public class ThoughtService(
             .ToList();
 
         var content = string.Join("\n", textParts.Select(p => p.Text ?? ""));
-        var timestampMeta = $"<message_meta sent_at_utc=\"{FormatThoughtTimestamp(thought.CreatedAt)}\" />";
+        var utcTimestamp = FormatThoughtTimestamp(thought.CreatedAt);
+        var localTimestamp = FormatThoughtTimestamp(thought.CreatedAt, userTimeZone);
+        var timestampMeta = string.Equals(utcTimestamp, localTimestamp, StringComparison.Ordinal)
+            ? $"<message_meta sent_at_utc=\"{utcTimestamp}\" />"
+            : $"<message_meta sent_at_local=\"{localTimestamp}\" sent_at_utc=\"{utcTimestamp}\" />";
         if (attachmentFiles.Count > 0)
         {
             var attachmentContext = BuildAttachmentContextText(attachmentFiles, 8);
@@ -1743,7 +1748,7 @@ public class ThoughtService(
 
         foreach (var thought in recentThoughts)
         {
-            AddThoughtToBuilder(builder, thought);
+            AddThoughtToBuilder(builder, thought, currentUser.Profile?.TimeZone);
         }
 
         var proposalBuilder = new StringBuilder();
@@ -2353,11 +2358,28 @@ public class ThoughtService(
         return builder.ToString().TrimEnd();
     }
 
-    private static string FormatThoughtTimestamp(Instant timestamp)
+    private static string FormatThoughtTimestamp(Instant timestamp, string? userTimeZone = null)
     {
         if (timestamp == default)
         {
             return "unknown";
+        }
+
+        if (!string.IsNullOrWhiteSpace(userTimeZone))
+        {
+            try
+            {
+                var zone = DateTimeZoneProviders.Tzdb.GetZoneOrNull(userTimeZone);
+                if (zone != null)
+                {
+                    var local = timestamp.InZone(zone);
+                    return $"{local:yyyy-MM-dd HH:mm:ss} ({zone.Id})";
+                }
+            }
+            catch
+            {
+                // Fall back to UTC below.
+            }
         }
 
         return timestamp.ToDateTimeUtc().ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
