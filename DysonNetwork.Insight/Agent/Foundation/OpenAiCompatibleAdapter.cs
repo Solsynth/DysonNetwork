@@ -12,6 +12,8 @@ using OpenAI.Embeddings;
 
 public class OpenAiCompatibleAdapter : IAgentProviderAdapter
 {
+    private const string ToolNameDotEscape = "__dot__";
+
     private readonly ChatClient _chatClient;
     private readonly EmbeddingClient? _embeddingClient;
     private readonly IAgentToolExecutor? _toolExecutor;
@@ -113,16 +115,17 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
                             if (existingCall == default)
                             {
                                 var args = toolUpdate.FunctionArgumentsUpdate?.ToString() ?? "";
-                                var newCall = (toolUpdate.ToolCallId, toolUpdate.FunctionName ?? "", args);
+                                var toolName = DenormalizeToolNameFromProvider(toolUpdate.FunctionName ?? "");
+                                var newCall = (toolUpdate.ToolCallId, toolName, args);
                                 toolCalls.Add(newCall);
-                                yield return new AgentStreamEvent.ToolCallStarted(toolUpdate.ToolCallId, toolUpdate.FunctionName ?? "");
+                                yield return new AgentStreamEvent.ToolCallStarted(toolUpdate.ToolCallId, toolName);
                             }
                             else if (toolUpdate.FunctionArgumentsUpdate != null)
                             {
                                 var index = toolCalls.IndexOf(existingCall);
                                 var argsUpdate = toolUpdate.FunctionArgumentsUpdate.ToString() ?? "";
                                 toolCalls[index] = (existingCall.Id, existingCall.Name, existingCall.Arguments + argsUpdate);
-                                yield return new AgentStreamEvent.ToolCallDelta(toolUpdate.ToolCallId, toolUpdate.FunctionName ?? "", argsUpdate);
+                                yield return new AgentStreamEvent.ToolCallDelta(toolUpdate.ToolCallId, existingCall.Name, argsUpdate);
                             }
                         }
                     }
@@ -152,7 +155,10 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
             var toolCallMessages = new List<ChatToolCall>();
             foreach (var (id, name, args) in toolCalls)
             {
-                toolCallMessages.Add(ChatToolCall.CreateFunctionToolCall(id, name, BinaryData.FromString(args)));
+                toolCallMessages.Add(ChatToolCall.CreateFunctionToolCall(
+                    id,
+                    NormalizeToolNameForProvider(name),
+                    BinaryData.FromString(args)));
             }
 
             var assistantMessage = new AssistantChatMessage(toolCallMessages);
@@ -295,7 +301,10 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
                     if (msg.ToolCalls != null && msg.ToolCalls.Count > 0)
                     {
                         var toolCalls = msg.ToolCalls
-                            .Select(tc => ChatToolCall.CreateFunctionToolCall(tc.Id, tc.Name, BinaryData.FromString(tc.Arguments)))
+                            .Select(tc => ChatToolCall.CreateFunctionToolCall(
+                                tc.Id,
+                                NormalizeToolNameForProvider(tc.Name),
+                                BinaryData.FromString(tc.Arguments)))
                             .ToList();
                         var assistantMsg = new AssistantChatMessage(toolCalls);
                         if (!string.IsNullOrEmpty(msg.Content))
@@ -360,12 +369,14 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
                 ChatTool chatTool;
                 if (string.IsNullOrEmpty(tool.ParametersJsonSchema))
                 {
-                    chatTool = ChatTool.CreateFunctionTool(tool.Name, tool.Description);
+                    chatTool = ChatTool.CreateFunctionTool(
+                        NormalizeToolNameForProvider(tool.Name),
+                        tool.Description);
                 }
                 else
                 {
                     chatTool = ChatTool.CreateFunctionTool(
-                        tool.Name,
+                        NormalizeToolNameForProvider(tool.Name),
                         tool.Description,
                         BinaryData.FromString(tool.ParametersJsonSchema));
                 }
@@ -412,7 +423,7 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
                 .Select(tc => new AgentToolCall
                 {
                     Id = tc.Id,
-                    Name = tc.FunctionName,
+                    Name = DenormalizeToolNameFromProvider(tc.FunctionName),
                     Arguments = tc.FunctionArguments?.ToString() ?? ""
                 })
                 .ToList();
@@ -429,6 +440,20 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         ChatFinishReason.ContentFilter => AgentFinishReason.ContentFilter,
         _ => AgentFinishReason.Unknown
     };
+
+    private static string NormalizeToolNameForProvider(string name)
+    {
+        return string.IsNullOrEmpty(name)
+            ? name
+            : name.Replace(".", ToolNameDotEscape, StringComparison.Ordinal);
+    }
+
+    private static string DenormalizeToolNameFromProvider(string name)
+    {
+        return string.IsNullOrEmpty(name)
+            ? name
+            : name.Replace(ToolNameDotEscape, ".", StringComparison.Ordinal);
+    }
 }
 
 #pragma warning restore OPENAI001
