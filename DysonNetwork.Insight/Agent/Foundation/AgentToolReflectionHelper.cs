@@ -76,17 +76,27 @@ public static class AgentToolReflectionHelper
             try
             {
                 var parameters = method.GetParameters();
+                var bindableParameters = parameters
+                    .Where(param => param.ParameterType != typeof(CancellationToken))
+                    .ToArray();
                 object?[]? args = null;
 
                 if (parameters.Length > 0)
                 {
                     args = new object?[parameters.Length];
-                    using var doc = JsonDocument.Parse(argsJson);
+                    var normalizedArgsJson = string.IsNullOrWhiteSpace(argsJson) ? "{}" : argsJson;
+                    using var doc = JsonDocument.Parse(normalizedArgsJson);
                     var root = doc.RootElement;
 
                     for (int i = 0; i < parameters.Length; i++)
                     {
                         var param = parameters[i];
+                        if (param.ParameterType == typeof(CancellationToken))
+                        {
+                            args[i] = CancellationToken.None;
+                            continue;
+                        }
+
                         if (root.TryGetProperty(param.Name ?? $"arg{i}", out var elem))
                         {
                             args[i] = JsonSerializer.Deserialize(elem.GetRawText(), param.ParameterType);
@@ -129,7 +139,9 @@ public static class AgentToolReflectionHelper
 
     private static string? BuildParametersSchema(MethodInfo method)
     {
-        var parameters = method.GetParameters();
+        var parameters = method.GetParameters()
+            .Where(param => param.ParameterType != typeof(CancellationToken))
+            .ToArray();
         if (parameters.Length == 0) return null;
 
         var props = new Dictionary<string, object>();
