@@ -83,7 +83,7 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         {
             round++;
             var hasToolCalls = false;
-            var toolCalls = new List<(string Id, string Name, string Arguments)>();
+            var toolCalls = new List<StreamingToolCallAccumulator>();
             var textBuilder = new StringBuilder();
             ChatFinishReason finishReason = ChatFinishReason.Stop;
             int? inputTokens = null;
@@ -109,23 +109,52 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
                     {
                         hasToolCalls = true;
 
+                        var toolCall = toolCalls.FirstOrDefault(t => t.Index == toolUpdate.Index);
+                        if (toolCall == null)
+                        {
+                            toolCall = new StreamingToolCallAccumulator
+                            {
+                                Index = toolUpdate.Index,
+                                Id = toolUpdate.ToolCallId ?? "",
+                                Name = DenormalizeToolNameFromProvider(toolUpdate.FunctionName ?? "")
+                            };
+                            toolCalls.Add(toolCall);
+                        }
+
                         if (!string.IsNullOrEmpty(toolUpdate.ToolCallId))
                         {
-                            var existingCall = toolCalls.FirstOrDefault(t => t.Id == toolUpdate.ToolCallId);
-                            if (existingCall == default)
+                            toolCall.Id = toolUpdate.ToolCallId;
+                        }
+
+                        if (!string.IsNullOrEmpty(toolUpdate.FunctionName))
+                        {
+                            toolCall.Name = DenormalizeToolNameFromProvider(toolUpdate.FunctionName);
+                        }
+
+                        if (!toolCall.Started &&
+                            !string.IsNullOrEmpty(toolCall.Id) &&
+                            !string.IsNullOrEmpty(toolCall.Name))
+                        {
+                            toolCall.Started = true;
+                            yield return new AgentStreamEvent.ToolCallStarted(toolCall.Id, toolCall.Name);
+
+                            if (toolCall.Arguments.Length > 0)
                             {
-                                var args = toolUpdate.FunctionArgumentsUpdate?.ToString() ?? "";
-                                var toolName = DenormalizeToolNameFromProvider(toolUpdate.FunctionName ?? "");
-                                var newCall = (toolUpdate.ToolCallId, toolName, args);
-                                toolCalls.Add(newCall);
-                                yield return new AgentStreamEvent.ToolCallStarted(toolUpdate.ToolCallId, toolName);
+                                yield return new AgentStreamEvent.ToolCallDelta(
+                                    toolCall.Id,
+                                    toolCall.Name,
+                                    toolCall.Arguments.ToString());
                             }
-                            else if (toolUpdate.FunctionArgumentsUpdate != null)
+                        }
+
+                        if (toolUpdate.FunctionArgumentsUpdate != null)
+                        {
+                            var argsUpdate = toolUpdate.FunctionArgumentsUpdate.ToString() ?? "";
+                            toolCall.Arguments.Append(argsUpdate);
+
+                            if (toolCall.Started)
                             {
-                                var index = toolCalls.IndexOf(existingCall);
-                                var argsUpdate = toolUpdate.FunctionArgumentsUpdate.ToString() ?? "";
-                                toolCalls[index] = (existingCall.Id, existingCall.Name, existingCall.Arguments + argsUpdate);
-                                yield return new AgentStreamEvent.ToolCallDelta(toolUpdate.ToolCallId, existingCall.Name, argsUpdate);
+                                yield return new AgentStreamEvent.ToolCallDelta(toolCall.Id, toolCall.Name, argsUpdate);
                             }
                         }
                     }
@@ -153,12 +182,13 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
             }
 
             var toolCallMessages = new List<ChatToolCall>();
-            foreach (var (id, name, args) in toolCalls)
+            foreach (var toolCall in toolCalls)
             {
-                var normalizedArgs = NormalizeToolArguments(args);
+                var normalizedArgs = NormalizeToolArguments(toolCall.Arguments.ToString());
+                yield return new AgentStreamEvent.ToolCallCompleted(toolCall.Id, toolCall.Name, normalizedArgs);
                 toolCallMessages.Add(ChatToolCall.CreateFunctionToolCall(
-                    id,
-                    NormalizeToolNameForProvider(name),
+                    toolCall.Id,
+                    NormalizeToolNameForProvider(toolCall.Name),
                     BinaryData.FromString(normalizedArgs)));
             }
 
@@ -171,13 +201,18 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
 
             if (options?.AutoInvokeTools == true && _toolExecutor != null)
             {
-                foreach (var (id, name, args) in toolCalls)
+                foreach (var toolCall in toolCalls)
                 {
-                    var toolCall = new AgentToolCall { Id = id, Name = name, Arguments = NormalizeToolArguments(args) };
-                    var result = await _toolExecutor.ExecuteToolAsync(toolCall, cancellationToken);
+                    var agentToolCall = new AgentToolCall
+                    {
+                        Id = toolCall.Id,
+                        Name = toolCall.Name,
+                        Arguments = NormalizeToolArguments(toolCall.Arguments.ToString())
+                    };
+                    var result = await _toolExecutor.ExecuteToolAsync(agentToolCall, cancellationToken);
 
-                    yield return new AgentStreamEvent.ToolResultReady(id, name, result.Result, result.IsError);
-                    currentMessages.Add(new ToolChatMessage(id, result.Result));
+                    yield return new AgentStreamEvent.ToolResultReady(toolCall.Id, toolCall.Name, result.Result, result.IsError);
+                    currentMessages.Add(new ToolChatMessage(toolCall.Id, result.Result));
                 }
             }
             else
@@ -459,6 +494,15 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
     private static string NormalizeToolArguments(string? arguments)
     {
         return string.IsNullOrWhiteSpace(arguments) ? "{}" : arguments;
+    }
+
+    private sealed class StreamingToolCallAccumulator
+    {
+        public int Index { get; init; }
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public StringBuilder Arguments { get; } = new();
+        public bool Started { get; set; }
     }
 }
 
