@@ -38,7 +38,9 @@ public class MiChanFoundationProvider : IMiChanFoundationProvider
     public IAgentProviderAdapter GetChatAdapter(int? userPerkLevel = null, string? preferredModelId = null)
     {
         var modelConfig = _config.ThinkingModel;
-        var providerId = GetProviderId(modelConfig);
+        var providerId = !string.IsNullOrWhiteSpace(preferredModelId)
+            ? GetProviderIdFromService(preferredModelId)
+            : GetProviderId(modelConfig);
         return _providerRegistry.GetProvider(providerId);
     }
 
@@ -102,8 +104,28 @@ public class MiChanFoundationProvider : IMiChanFoundationProvider
 
     private string GetProviderId(ModelConfiguration modelConfig)
     {
+        if (string.IsNullOrWhiteSpace(modelConfig.Provider) &&
+            string.IsNullOrWhiteSpace(modelConfig.CustomModelName) &&
+            string.IsNullOrWhiteSpace(modelConfig.BaseUrl) &&
+            string.IsNullOrWhiteSpace(modelConfig.ApiKey))
+        {
+            var serviceConfig = _configuration.GetSection($"Thinking:Services:{modelConfig.ModelId}");
+            if (serviceConfig.Exists())
+            {
+                return GetProviderIdFromService(modelConfig.ModelId);
+            }
+        }
+
         var provider = modelConfig.GetEffectiveProvider().ToLower();
         var modelName = modelConfig.GetEffectiveModelName();
         return $"{provider}:{modelName}";
+    }
+
+    private string GetProviderIdFromService(string serviceId)
+    {
+        var serviceConfig = _configuration.GetSection($"Thinking:Services:{serviceId}");
+        var provider = serviceConfig.GetValue<string>("Provider")?.ToLower() ?? "openrouter";
+        var model = serviceConfig.GetValue<string>("Model") ?? serviceId;
+        return $"{provider}:{model}";
     }
 }
