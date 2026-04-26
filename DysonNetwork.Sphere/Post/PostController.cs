@@ -275,21 +275,22 @@ public class PostController(
                 .Select(p => p.Id)
                 .ToListAsync()).ToHashSet();
 
-            if (gatekeptPublisherIds.Count > 0 && currentUser != null)
+            if (gatekeptPublisherIds.Count > 0)
             {
-                var currentAccountId = Guid.Parse(currentUser.Id);
-                var activeSubscriptions = await db.PublisherSubscriptions
-                    .Where(s => s.AccountId == currentAccountId && s.EndedAt == null && publisherIdsInQuery.Contains(s.PublisherId))
-                    .Select(s => s.PublisherId)
-                    .ToListAsync();
-                subscriberPublisherIds = activeSubscriptions.ToHashSet();
+                if (currentUser != null)
+                {
+                    var currentAccountId = Guid.Parse(currentUser.Id);
+                    var activeSubscriptions = await db.PublisherSubscriptions
+                        .Where(s => s.AccountId == currentAccountId && s.EndedAt == null && publisherIdsInQuery.Contains(s.PublisherId))
+                        .Select(s => s.PublisherId)
+                        .ToListAsync();
+                    subscriberPublisherIds = activeSubscriptions.ToHashSet();
+                }
+                else
+                {
+                    subscriberPublisherIds = [];
+                }
             }
-        }
-
-        if (gatekeptPublisherIds != null && gatekeptPublisherIds.Count > 0 && currentUser != null)
-        {
-            gatekeptPublisherIds ??= [];
-            subscriberPublisherIds ??= [];
         }
 
         query = query.FilterWithVisibility(
