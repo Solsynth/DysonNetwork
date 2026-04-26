@@ -32,6 +32,7 @@ public class FoundationChatStreamingService
         {
             Tools = conversation.Tools
         };
+        var providerRequiresReasoningReplay = ProviderRequiresReasoningReplay(provider);
 
         while (round < maxRounds)
         {
@@ -41,8 +42,41 @@ public class FoundationChatStreamingService
             var toolCalls = new List<AgentToolCall>();
             var hasToolCalls = false;
 
-            await foreach (var evt in provider.CompleteChatStreamingAsync(currentConversation, options, cancellationToken))
+            var stream = provider.CompleteChatStreamingAsync(currentConversation, options, cancellationToken)
+                .GetAsyncEnumerator(cancellationToken);
+
+            while (true)
             {
+                AgentStreamEvent? evt = null;
+                Exception? streamException = null;
+                var hasNext = false;
+
+                try
+                {
+                    hasNext = await stream.MoveNextAsync();
+                    if (hasNext)
+                    {
+                        evt = stream.Current;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    streamException = ex;
+                }
+
+                if (streamException != null)
+                {
+                    await stream.DisposeAsync();
+                    _logger.LogError(streamException, "Error during streaming chat");
+                    yield return new StreamingChatEvent.Error(streamException.Message);
+                    yield break;
+                }
+
+                if (!hasNext)
+                {
+                    break;
+                }
+
                 switch (evt)
                 {
                     case AgentStreamEvent.TextDelta textDelta:
@@ -86,11 +120,13 @@ public class FoundationChatStreamingService
                         break;
 
                     case AgentStreamEvent.Error error:
+                        await stream.DisposeAsync();
                         _logger.LogError(error.Exception, "Error during streaming chat");
                         yield return new StreamingChatEvent.Error(error.Exception.Message);
                         yield break;
                 }
             }
+            await stream.DisposeAsync();
 
             if (!hasToolCalls || toolCalls.Count == 0)
             {
@@ -117,6 +153,17 @@ public class FoundationChatStreamingService
             }
 
             yield return new StreamingChatEvent.ToolRoundCompleted(toolCalls.Count);
+
+            if (providerRequiresReasoningReplay)
+            {
+                _logger.LogWarning(
+                    "Provider {ProviderId} requires reasoning_content replay after tool calls. Stopping after one tool round because the current OpenAI SDK adapter cannot replay provider-specific reasoning_content.",
+                    provider.ProviderId);
+                yield return new StreamingChatEvent.Finished(
+                    textBuilder.ToString(),
+                    reasoningBuilder.Length > 0 ? reasoningBuilder.ToString() : null);
+                yield break;
+            }
         }
 
         _logger.LogWarning("Max tool rounds ({MaxRounds}) reached", maxRounds);
@@ -208,6 +255,11 @@ public class FoundationChatStreamingService
 
         var response = await CompleteChatAsync(provider, conversation, effectiveOptions, cancellationToken);
         return response.Content ?? "";
+    }
+
+    private static bool ProviderRequiresReasoningReplay(IAgentProviderAdapter provider)
+    {
+        return provider.ProviderId.StartsWith("deepseek:", StringComparison.OrdinalIgnoreCase);
     }
 }
 
