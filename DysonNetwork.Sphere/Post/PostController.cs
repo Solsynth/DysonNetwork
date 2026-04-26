@@ -479,6 +479,120 @@ public class PostController(
         return Ok(post);
     }
 
+    [HttpGet("{id:guid}/prev")]
+    public async Task<ActionResult<SnPost>> GetPrevPost(Guid id)
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var currentUser = currentUserValue as DyAccount;
+        List<Guid> userFriends = [];
+        if (currentUser != null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(
+                new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
+            );
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        }
+
+        var userPublishers = currentUser is null
+            ? []
+            : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+
+        var currentPost = await db.Posts.Where(e => e.Id == id).FirstOrDefaultAsync();
+        if (currentPost is null)
+            return NotFound("Current post not found");
+
+        var currentTime = currentPost.PublishedAt ?? currentPost.CreatedAt;
+
+        var prevPost = await db.Posts
+            .Where(e => (e.PublishedAt ?? e.CreatedAt) < currentTime)
+            .Include(e => e.Publisher)
+            .Include(e => e.Tags)
+            .Include(e => e.Categories)
+            .Include(e => e.RepliedPost)
+            .Include(e => e.ForwardedPost)
+            .Include(e => e.FeaturedRecords)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers)
+            .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
+            .FirstOrDefaultAsync();
+
+        if (prevPost is null)
+            return NotFound("No previous post found");
+
+        if (prevPost.PublisherId.HasValue && prevPost.Publisher?.GatekeptFollows == true)
+        {
+            if (currentUser == null)
+                return StatusCode(403, "Subscriber access required");
+            var currentAccountId = Guid.Parse(currentUser.Id);
+            var isSubscriber = await db.PublisherSubscriptions
+                .AnyAsync(s => s.PublisherId == prevPost.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
+            if (!isSubscriber && !userPublishers.Any(p => p.Id == prevPost.PublisherId.Value))
+                return StatusCode(403, "Subscriber access required");
+        }
+
+        prevPost = await ps.LoadPostInfo(prevPost, currentUser);
+        if (prevPost.RealmId != null)
+            prevPost.Realm = await rs.GetRealm(prevPost.RealmId.Value.ToString());
+
+        return Ok(prevPost);
+    }
+
+    [HttpGet("{id:guid}/next")]
+    public async Task<ActionResult<SnPost>> GetNextPost(Guid id)
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var currentUser = currentUserValue as DyAccount;
+        List<Guid> userFriends = [];
+        if (currentUser != null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(
+                new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
+            );
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        }
+
+        var userPublishers = currentUser is null
+            ? []
+            : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+
+        var currentPost = await db.Posts.Where(e => e.Id == id).FirstOrDefaultAsync();
+        if (currentPost is null)
+            return NotFound("Current post not found");
+
+        var currentTime = currentPost.PublishedAt ?? currentPost.CreatedAt;
+
+        var nextPost = await db.Posts
+            .Where(e => (e.PublishedAt ?? e.CreatedAt) > currentTime)
+            .Include(e => e.Publisher)
+            .Include(e => e.Tags)
+            .Include(e => e.Categories)
+            .Include(e => e.RepliedPost)
+            .Include(e => e.ForwardedPost)
+            .Include(e => e.FeaturedRecords)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers)
+            .OrderBy(e => e.PublishedAt ?? e.CreatedAt)
+            .FirstOrDefaultAsync();
+
+        if (nextPost is null)
+            return NotFound("No next post found");
+
+        if (nextPost.PublisherId.HasValue && nextPost.Publisher?.GatekeptFollows == true)
+        {
+            if (currentUser == null)
+                return StatusCode(403, "Subscriber access required");
+            var currentAccountId = Guid.Parse(currentUser.Id);
+            var isSubscriber = await db.PublisherSubscriptions
+                .AnyAsync(s => s.PublisherId == nextPost.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
+            if (!isSubscriber && !userPublishers.Any(p => p.Id == nextPost.PublisherId.Value))
+                return StatusCode(403, "Subscriber access required");
+        }
+
+        nextPost = await ps.LoadPostInfo(nextPost, currentUser);
+        if (nextPost.RealmId != null)
+            nextPost.Realm = await rs.GetRealm(nextPost.RealmId.Value.ToString());
+
+        return Ok(nextPost);
+    }
+
     [HttpGet("{id:guid}/reactions")]
     public async Task<ActionResult<List<SnPostReaction>>> GetReactions(
         Guid id,
