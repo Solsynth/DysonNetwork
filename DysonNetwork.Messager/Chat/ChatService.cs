@@ -249,20 +249,28 @@ public partial class ChatService(
     )
     {
         var scopedWs = scope.ServiceProvider.GetRequiredService<WebSocketService.WebSocketServiceClient>();
+        var payload = InfraObjectCoder.ConvertObjectToByteString(message);
 
         var request = new DyPushWebSocketPacketToUsersRequest
         {
             Packet = new DyWebSocketPacket
             {
                 Type = "messages.new",
-                Data = InfraObjectCoder.ConvertObjectToByteString(message),
+                Data = payload,
             },
         };
         var memberAccounts = members.Select(a => a.Account).Where(a => a is not null).ToList();
         request.UserIds.AddRange(memberAccounts.Select(a => a!.Id.ToString()));
         
-        logger.LogWarning("DeliverWebSocketMessage: messageId={messageId}, targetUserCount={targetUserCount}, userIds={userIds}",
-            message.Id, request.UserIds.Count, string.Join(",", request.UserIds.Take(10)));
+        logger.LogWarning(
+            "DeliverWebSocketMessage: messageId={messageId}, type={type}, targetUserCount={targetUserCount}, attachmentCount={attachmentCount}, payloadBytes={payloadBytes}, userIds={userIds}",
+            message.Id,
+            message.Type,
+            request.UserIds.Count,
+            message.Attachments.Count,
+            payload.Length,
+            string.Join(",", request.UserIds.Take(10))
+        );
         
         await scopedWs.PushWebSocketPacketToUsersAsync(request);
 
