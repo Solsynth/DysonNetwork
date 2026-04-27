@@ -46,6 +46,24 @@ public class PostActionController(
     IEventBus eventBus
 ) : ControllerBase
 {
+    private async Task<bool> IsBlockedByUserAsync(Guid blockerId, Guid blockedId)
+    {
+        try
+        {
+            var relationship = await accounts.GetRelationshipAsync(new DyGetRelationshipRequest
+            {
+                AccountId = blockerId.ToString(),
+                RelatedId = blockedId.ToString(),
+            });
+            return relationship.Relationship is not null && relationship.Relationship.Status <= -100;
+        }
+        catch
+        {
+            logger.LogError("Unable to get relationship status, skipping...");
+            return false;
+        }
+    }
+
     public class PostRequest
     {
         [MaxLength(1024)] public string? Title { get; set; }
@@ -182,20 +200,8 @@ public class PostActionController(
 
             if (repliedPost.Publisher?.AccountId != null)
             {
-                try
-                {
-                    var relationship = await accounts.GetRelationshipAsync(new DyGetRelationshipRequest
-                    {
-                        AccountId = repliedPost.Publisher.AccountId.ToString(),
-                        RelatedId = accountId.ToString(),
-                    });
-                    if (relationship.Relationship is not null && relationship.Relationship.Status <= -100)
-                        return BadRequest("You cannot reply who blocked you.");
-                }
-                catch
-                {
-                    logger.LogError("Unable to get relationship status, skipping...");
-                }
+                if (await IsBlockedByUserAsync(repliedPost.Publisher.AccountId, accountId))
+                    return BadRequest("You cannot reply to a post from a user who blocked you.");
             }
             
             post.RepliedPost = repliedPost;
@@ -440,6 +446,13 @@ public class PostActionController(
             return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
+
+        if (post.Publisher?.AccountId != null && post.Publisher.AccountId != accountId)
+        {
+            if (await IsBlockedByUserAsync(post.Publisher.AccountId, accountId))
+                return BadRequest("You cannot react to this post.");
+        }
+        
         var isSelfReact =
             post.Publisher?.AccountId is not null && post.Publisher.AccountId == accountId;
 
@@ -536,6 +549,12 @@ public class PostActionController(
             return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
+
+        if (post.Publisher?.AccountId != null && post.Publisher.AccountId != accountId)
+        {
+            if (await IsBlockedByUserAsync(post.Publisher.AccountId, accountId))
+                return BadRequest("You cannot award this post.");
+        }
 
         var orderRemark = string.IsNullOrWhiteSpace(post.Title)
             ? "from @" + post.Publisher.Name
@@ -1071,6 +1090,12 @@ public class PostActionController(
             .FirstOrDefaultAsync();
         if (post is null)
             return NotFound();
+
+        if (post.Publisher?.AccountId != null && post.Publisher.AccountId != accountId)
+        {
+            if (await IsBlockedByUserAsync(post.Publisher.AccountId, accountId))
+                return BadRequest("You cannot boost this post.");
+        }
 
         SnPublisher? userPublisher = null;
         var settings = await db.PublishingSettings
