@@ -6,6 +6,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
 
@@ -211,7 +212,21 @@ public class TokenAuthService(
     {
         var (isValid, jwt) = oidc.ValidateToken(token);
         if (!isValid || jwt is null)
-            return (false, null, null, null, null);
+        {
+            var (relaxedValid, relaxedJwt, reason) = ValidateOidcTokenRelaxed(token);
+            if (!relaxedValid || relaxedJwt is null)
+            {
+                logger.LogInformation("AuthenticateTokenAsync: OIDC fallback validation failed. reason={Reason}", reason ?? "unknown");
+                return (false, null, null, null, null);
+            }
+
+            jwt = relaxedJwt;
+            logger.LogWarning(
+                "AuthenticateTokenAsync: accepted OIDC token with relaxed issuer validation. iss={Issuer} aud={Audience}",
+                jwt.Issuer,
+                string.Join(",", jwt.Audiences)
+            );
+        }
 
         var jti = jwt.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
         var sessionIdText = jwt.Claims.FirstOrDefault(c => c.Type == "sid")?.Value ?? jti;
@@ -228,6 +243,42 @@ public class TokenAuthService(
             epoch = parsedEpoch;
 
         return (true, jwt, sessionId, tokenUse, epoch);
+    }
+
+    private (bool IsValid, JwtSecurityToken? Token, string? Reason) ValidateOidcTokenRelaxed(string token)
+    {
+        try
+        {
+            var keyPath = config["OidcProvider:PublicKeyPath"] ?? config["AuthToken:PublicKeyPath"];
+            if (string.IsNullOrWhiteSpace(keyPath))
+                return (false, null, "OIDC public key path is not configured");
+
+            if (!File.Exists(keyPath))
+                return (false, null, $"OIDC public key not found at {keyPath}");
+
+            var pem = File.ReadAllText(keyPath);
+            using var rsa = RSA.Create();
+            rsa.ImportFromPem(pem);
+
+            var handler = new JwtSecurityTokenHandler();
+            var parameters = new TokenValidationParameters
+            {
+                ValidateIssuer = false,
+                ValidateAudience = false,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new RsaSecurityKey(rsa),
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromMinutes(1),
+                ValidAlgorithms = [SecurityAlgorithms.RsaSha256]
+            };
+
+            handler.ValidateToken(token, parameters, out var validatedToken);
+            return (true, validatedToken as JwtSecurityToken, null);
+        }
+        catch (Exception ex)
+        {
+            return (false, null, ex.Message);
+        }
     }
 
     private async Task<(bool Valid, string? Message)> ValidateOidcBindingAsync(SnAuthSession session, JwtSecurityToken jwt)
