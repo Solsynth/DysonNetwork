@@ -27,7 +27,41 @@ public class AuthController(
     ILogger<AuthController> logger
 ) : ControllerBase
 {
-    private readonly string _cookieDomain = configuration["AuthToken:CookieDomain"]!;
+    private readonly string? _cookieDomain = configuration["AuthToken:CookieDomain"];
+
+    private CookieOptions CreateCookieOptions(Instant expiresAt)
+    {
+        var options = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Expires = expiresAt.ToDateTimeOffset()
+        };
+        if (!string.IsNullOrEmpty(_cookieDomain))
+            options.Domain = _cookieDomain;
+        return options;
+    }
+
+    private void SetAuthCookies(string accessToken, Instant accessExpiresAt, string refreshToken, Instant refreshExpiresAt)
+    {
+        Response.Cookies.Append(AuthConstants.CookieTokenName, accessToken, CreateCookieOptions(accessExpiresAt));
+        Response.Cookies.Append(AuthConstants.RefreshCookieTokenName, refreshToken, CreateCookieOptions(refreshExpiresAt));
+    }
+
+    private void ClearAuthCookies()
+    {
+        var options = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax
+        };
+        if (!string.IsNullOrEmpty(_cookieDomain))
+            options.Domain = _cookieDomain;
+        Response.Cookies.Delete(AuthConstants.CookieTokenName, options);
+        Response.Cookies.Delete(AuthConstants.RefreshCookieTokenName, options);
+    }
 
     public class ChallengeRequest
     {
@@ -273,23 +307,7 @@ public class AuthController(
                 try
                 {
                     var pair = await auth.CreateSessionAndIssueTokens(challenge);
-
-                    HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, pair.AccessToken, new CookieOptions
-                    {
-                        HttpOnly = true,
-                        Secure = true,
-                        SameSite = SameSiteMode.Lax,
-                        Domain = _cookieDomain,
-                        Expires = pair.AccessTokenExpiresAt.ToDateTimeOffset()
-                    });
-                    HttpContext.Response.Cookies.Append(AuthConstants.RefreshCookieTokenName, pair.RefreshToken, new CookieOptions
-                    {
-                        HttpOnly = true,
-                        Secure = true,
-                        SameSite = SameSiteMode.Lax,
-                        Domain = _cookieDomain,
-                        Expires = pair.RefreshTokenExpiresAt.ToDateTimeOffset()
-                    });
+                    SetAuthCookies(pair.AccessToken, pair.AccessTokenExpiresAt, pair.RefreshToken, pair.RefreshTokenExpiresAt);
 
                     var now = SystemClock.Instance.GetCurrentInstant();
                     return Ok(new TokenExchangeResponse
@@ -314,23 +332,7 @@ public class AuthController(
                 try
                 {
                     var pair = await auth.RefreshSessionAndIssueTokens(submittedRefresh);
-
-                    HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, pair.AccessToken, new CookieOptions
-                    {
-                        HttpOnly = true,
-                        Secure = true,
-                        SameSite = SameSiteMode.Lax,
-                        Domain = _cookieDomain,
-                        Expires = pair.AccessTokenExpiresAt.ToDateTimeOffset()
-                    });
-                    HttpContext.Response.Cookies.Append(AuthConstants.RefreshCookieTokenName, pair.RefreshToken, new CookieOptions
-                    {
-                        HttpOnly = true,
-                        Secure = true,
-                        SameSite = SameSiteMode.Lax,
-                        Domain = _cookieDomain,
-                        Expires = pair.RefreshTokenExpiresAt.ToDateTimeOffset()
-                    });
+                    SetAuthCookies(pair.AccessToken, pair.AccessTokenExpiresAt, pair.RefreshToken, pair.RefreshTokenExpiresAt);
 
                     var now = SystemClock.Instance.GetCurrentInstant();
                     return Ok(new TokenExchangeResponse
@@ -347,6 +349,33 @@ public class AuthController(
                 }
             default:
                 return BadRequest("Unsupported grant type.");
+        }
+    }
+
+    [HttpPost("refresh")]
+    public async Task<ActionResult<TokenExchangeResponse>> RefreshToken()
+    {
+        if (!Request.Cookies.TryGetValue(AuthConstants.RefreshCookieTokenName, out var refreshToken) ||
+            string.IsNullOrWhiteSpace(refreshToken))
+            return BadRequest("Missing refresh token.");
+
+        try
+        {
+            var pair = await auth.RefreshSessionAndIssueTokens(refreshToken);
+            SetAuthCookies(pair.AccessToken, pair.AccessTokenExpiresAt, pair.RefreshToken, pair.RefreshTokenExpiresAt);
+
+            var now = SystemClock.Instance.GetCurrentInstant();
+            return Ok(new TokenExchangeResponse
+            {
+                Token = pair.AccessToken,
+                RefreshToken = pair.RefreshToken,
+                ExpiresIn = (long)Math.Max(0, (pair.AccessTokenExpiresAt - now).TotalSeconds),
+                RefreshExpiresIn = (long)Math.Max(0, (pair.RefreshTokenExpiresAt - now).TotalSeconds)
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
         }
     }
 
@@ -398,29 +427,15 @@ public class AuthController(
                 request.DeviceName
             );
 
-            HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, pair.AccessToken, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Lax,
-                Domain = _cookieDomain,
-                Expires = pair.AccessTokenExpiresAt.ToDateTimeOffset()
-            });
-            HttpContext.Response.Cookies.Append(AuthConstants.RefreshCookieTokenName, pair.RefreshToken, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Lax,
-                Domain = _cookieDomain,
-                Expires = pair.RefreshTokenExpiresAt.ToDateTimeOffset()
-            });
+            SetAuthCookies(pair.AccessToken, pair.AccessTokenExpiresAt, pair.RefreshToken, pair.RefreshTokenExpiresAt);
 
+            var now = SystemClock.Instance.GetCurrentInstant();
             return Ok(new TokenExchangeResponse
             {
                 Token = pair.AccessToken,
                 RefreshToken = pair.RefreshToken,
-                ExpiresIn = (long)Math.Max(0, (pair.AccessTokenExpiresAt - SystemClock.Instance.GetCurrentInstant()).TotalSeconds),
-                RefreshExpiresIn = (long)Math.Max(0, (pair.RefreshTokenExpiresAt - SystemClock.Instance.GetCurrentInstant()).TotalSeconds)
+                ExpiresIn = (long)Math.Max(0, (pair.AccessTokenExpiresAt - now).TotalSeconds),
+                RefreshExpiresIn = (long)Math.Max(0, (pair.RefreshTokenExpiresAt - now).TotalSeconds)
             });
         }
         catch (ArgumentException ex)
@@ -443,20 +458,7 @@ public class AuthController(
         if (HttpContext.Items["CurrentSession"] is SnAuthSession currentSession)
             await auth.RevokeSessionAsync(currentSession.Id);
 
-        Response.Cookies.Delete(AuthConstants.CookieTokenName, new CookieOptions
-        {
-            Domain = _cookieDomain,
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Lax
-        });
-        Response.Cookies.Delete(AuthConstants.RefreshCookieTokenName, new CookieOptions
-        {
-            Domain = _cookieDomain,
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Lax
-        });
+        ClearAuthCookies();
         return Ok();
     }
 
@@ -480,25 +482,9 @@ public class AuthController(
             );
 
             var pair = await auth.CreateTokenPair(newSession);
+            SetAuthCookies(pair.AccessToken, pair.AccessTokenExpiresAt, pair.RefreshToken, pair.RefreshTokenExpiresAt);
+
             var now = SystemClock.Instance.GetCurrentInstant();
-
-            HttpContext.Response.Cookies.Append(AuthConstants.CookieTokenName, pair.AccessToken, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Lax,
-                Domain = _cookieDomain,
-                Expires = pair.AccessTokenExpiresAt.ToDateTimeOffset()
-            });
-            HttpContext.Response.Cookies.Append(AuthConstants.RefreshCookieTokenName, pair.RefreshToken, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Lax,
-                Domain = _cookieDomain,
-                Expires = pair.RefreshTokenExpiresAt.ToDateTimeOffset()
-            });
-
             return Ok(new TokenExchangeResponse
             {
                 Token = pair.AccessToken,
