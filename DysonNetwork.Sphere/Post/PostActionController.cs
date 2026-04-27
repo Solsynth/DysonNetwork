@@ -200,7 +200,7 @@ public class PostActionController(
 
             if (repliedPost.Publisher?.AccountId != null)
             {
-                if (await IsBlockedByUserAsync(repliedPost.Publisher.AccountId, accountId))
+                if (await IsBlockedByUserAsync(repliedPost.Publisher.AccountId.Value, accountId))
                     return BadRequest("You cannot reply to a post from a user who blocked you.");
             }
             
@@ -449,7 +449,7 @@ public class PostActionController(
 
         if (post.Publisher?.AccountId != null && post.Publisher.AccountId != accountId)
         {
-            if (await IsBlockedByUserAsync(post.Publisher.AccountId, accountId))
+            if (await IsBlockedByUserAsync(post.Publisher.AccountId.Value, accountId))
                 return BadRequest("You cannot react to this post.");
         }
         
@@ -552,7 +552,7 @@ public class PostActionController(
 
         if (post.Publisher?.AccountId != null && post.Publisher.AccountId != accountId)
         {
-            if (await IsBlockedByUserAsync(post.Publisher.AccountId, accountId))
+            if (await IsBlockedByUserAsync(post.Publisher.AccountId.Value, accountId))
                 return BadRequest("You cannot award this post.");
         }
 
@@ -1093,7 +1093,7 @@ public class PostActionController(
 
         if (post.Publisher?.AccountId != null && post.Publisher.AccountId != accountId)
         {
-            if (await IsBlockedByUserAsync(post.Publisher.AccountId, accountId))
+            if (await IsBlockedByUserAsync(post.Publisher.AccountId.Value, accountId))
                 return BadRequest("You cannot boost this post.");
         }
 
