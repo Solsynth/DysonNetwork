@@ -36,6 +36,12 @@ public class RemotePermissionMiddleware(RequestDelegate next)
                 return;
             }
 
+            if (HasFullScope(httpContext))
+            {
+                await next(httpContext);
+                return;
+            }
+
             // Superuser will bypass all the permission check
             if (currentUser.IsSuperuser)
             {
@@ -71,5 +77,14 @@ public class RemotePermissionMiddleware(RequestDelegate next)
         }
 
         await next(httpContext);
+    }
+
+    private static bool HasFullScope(HttpContext httpContext)
+    {
+        return httpContext.Items["CurrentSession"] switch
+        {
+            DyAuthSession dySession => dySession.Scopes.Contains("*"),
+            _ => false
+        };
     }
 }

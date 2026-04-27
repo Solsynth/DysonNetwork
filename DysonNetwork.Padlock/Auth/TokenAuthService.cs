@@ -1,5 +1,6 @@
 using System.Text;
 using System.Security.Cryptography;
+using System.IdentityModel.Tokens.Jwt;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -49,10 +50,20 @@ public class TokenAuthService(
             };
             logger.LogDebug("AuthenticateTokenAsync: token format detected: {Format} (fp={TokenFp})", format, tokenFp);
 
+            JwtSecurityToken? oidcJwt = null;
             if (!ValidateToken(token, out var sessionId, out var tokenUse, out var tokenEpoch))
             {
-                logger.LogInformation("AuthenticateTokenAsync: token validation failed (format={Format}, fp={TokenFp})", format, tokenFp);
-                return (false, null, "Invalid token.", null);
+                var (isOidcToken, oidcToken, oidcSessionId, oidcTokenUse, oidcEpoch) = ValidateOidcToken(token);
+                if (!isOidcToken || oidcToken is null || !oidcSessionId.HasValue)
+                {
+                    logger.LogInformation("AuthenticateTokenAsync: token validation failed (format={Format}, fp={TokenFp})", format, tokenFp);
+                    return (false, null, "Invalid token.", null);
+                }
+
+                oidcJwt = oidcToken;
+                sessionId = oidcSessionId.Value;
+                tokenUse = oidcTokenUse;
+                tokenEpoch = oidcEpoch;
             }
             if (string.Equals(tokenUse, "refresh", StringComparison.Ordinal))
                 return (false, null, "Refresh token cannot be used for authentication.", tokenUse);
@@ -90,6 +101,21 @@ public class TokenAuthService(
                     cachedSnSession.Scopes.Count,
                     cachedSnSession.ExpiredAt
                 );
+
+                if (oidcJwt is not null)
+                {
+                    var (bound, message) = await ValidateOidcBindingAsync(cachedSnSession, oidcJwt);
+                    if (!bound)
+                    {
+                        logger.LogInformation(
+                            "AuthenticateTokenAsync: OIDC token binding failed for cached session (sessionId={SessionId}, reason={Reason})",
+                            sessionId,
+                            message
+                        );
+                        return (false, null, message, tokenUse);
+                    }
+                }
+
                 return (true, cachedSnSession, null, tokenUse);
             }
 
@@ -153,6 +179,21 @@ public class TokenAuthService(
                 session.AccountId,
                 session.ClientId
             );
+
+            if (oidcJwt is not null)
+            {
+                var (bound, message) = await ValidateOidcBindingAsync(session, oidcJwt);
+                if (!bound)
+                {
+                    logger.LogInformation(
+                        "AuthenticateTokenAsync: OIDC token binding failed for DB session (sessionId={SessionId}, reason={Reason})",
+                        sessionId,
+                        message
+                    );
+                    return (false, null, message, tokenUse);
+                }
+            }
+
             return (true, session, null, tokenUse);
         }
         catch (Exception ex)
@@ -160,6 +201,49 @@ public class TokenAuthService(
             logger.LogError(ex, "AuthenticateTokenAsync: unexpected error");
             return (false, null, "Authentication error.", null);
         }
+    }
+
+    private (bool IsValid, JwtSecurityToken? Token, Guid? SessionId, string? TokenUse, int? Epoch) ValidateOidcToken(string token)
+    {
+        var (isValid, jwt) = oidc.ValidateToken(token);
+        if (!isValid || jwt is null)
+            return (false, null, null, null, null);
+
+        var jti = jwt.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
+        var sessionIdText = jwt.Claims.FirstOrDefault(c => c.Type == "sid")?.Value ?? jti;
+        if (!Guid.TryParse(sessionIdText, out var sessionId))
+            return (false, null, null, null, null);
+
+        var tokenUse = jwt.Claims.FirstOrDefault(c => c.Type == AuthJwtService.ClaimType)?.Value
+                       ?? jwt.Claims.FirstOrDefault(c => c.Type == AuthJwtService.LegacyClaimTokenUse)?.Value
+                       ?? "user";
+
+        int? epoch = null;
+        var epochClaim = jwt.Claims.FirstOrDefault(c => c.Type == "epoch")?.Value;
+        if (int.TryParse(epochClaim, out var parsedEpoch))
+            epoch = parsedEpoch;
+
+        return (true, jwt, sessionId, tokenUse, epoch);
+    }
+
+    private async Task<(bool Valid, string? Message)> ValidateOidcBindingAsync(SnAuthSession session, JwtSecurityToken jwt)
+    {
+        if (!session.AppId.HasValue || session.Type != SessionType.OAuth)
+            return (false, "OIDC token is not bound to an OAuth session.");
+
+        var app = await oidc.FindClientByIdAsync(session.AppId.Value);
+        if (app is null || string.IsNullOrWhiteSpace(app.Slug))
+            return (false, "OIDC client is not found for this session.");
+
+        var audienceMatched = jwt.Audiences.Any(aud => string.Equals(aud, app.Slug, StringComparison.Ordinal));
+        if (!audienceMatched)
+            return (false, "OIDC token audience mismatch.");
+
+        var azp = jwt.Claims.FirstOrDefault(c => c.Type == "azp")?.Value;
+        if (!string.IsNullOrWhiteSpace(azp) && !string.Equals(azp, app.Slug, StringComparison.Ordinal))
+            return (false, "OIDC token authorized party mismatch.");
+
+        return (true, null);
     }
 
     public bool ValidateToken(string token, out Guid sessionId, out string? tokenUse, out int? epoch)

@@ -29,6 +29,12 @@ public class LocalPermissionMiddleware(RequestDelegate next, ILogger<LocalPermis
                 return;
             }
 
+            if (HasFullScope(httpContext))
+            {
+                await next(httpContext);
+                return;
+            }
+
             if (currentUser.IsSuperuser)
             {
                 // Bypass the permission check for performance
@@ -62,5 +68,14 @@ public class LocalPermissionMiddleware(RequestDelegate next, ILogger<LocalPermis
         }
 
         await next(httpContext);
+    }
+
+    private static bool HasFullScope(HttpContext httpContext)
+    {
+        return httpContext.Items["CurrentSession"] switch
+        {
+            SnAuthSession snSession => snSession.Scopes.Contains("*"),
+            _ => false
+        };
     }
 }
