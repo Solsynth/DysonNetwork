@@ -40,7 +40,8 @@ public class CloudFileUnusedRecyclingJob(
         var processedCount = 0;
         var markedCount = 0;
         var totalFiles = await db.Files
-            .Where(f => f.FileIndexes.Count == 0)
+            .Where(f => !f.Indexed)
+            .Where(f => !f.IsFolder)
             .Where(f => f.Object!.FileReplicas.Any(r => r.PoolId.HasValue && recyclablePools.Contains(r.PoolId.Value)))
             .Where(f => !f.IsMarkedRecycle)
             .Include(f => f.Object)

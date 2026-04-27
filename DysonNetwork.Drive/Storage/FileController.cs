@@ -1,12 +1,15 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Minio.DataModel.Args;
+using NanoidDotNet;
 
 namespace DysonNetwork.Drive.Storage;
 
@@ -485,6 +488,210 @@ public class FileController(
         await fs._PurgeCacheAsync(file.Id);
 
         return file;
+    }
+
+    [Authorize]
+    [HttpGet("root/children")]
+    public async Task<ActionResult<List<SnCloudFile>>> GetRootChildren(
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 50,
+        [FromQuery] string? query = null,
+        [FromQuery] string order = "date",
+        [FromQuery] bool orderDesc = true
+    )
+    {
+        return await GetChildrenInternal(null, offset, take, query, order, orderDesc);
+    }
+
+    [Authorize]
+    [HttpGet("{parentId}/children")]
+    public async Task<ActionResult<List<SnCloudFile>>> GetChildren(
+        string parentId,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 50,
+        [FromQuery] string? query = null,
+        [FromQuery] string order = "date",
+        [FromQuery] bool orderDesc = true
+    )
+    {
+        return await GetChildrenInternal(parentId, offset, take, query, order, orderDesc);
+    }
+
+    private async Task<ActionResult<List<SnCloudFile>>> GetChildrenInternal(
+        string? parentId,
+        int offset,
+        int take,
+        string? query,
+        string order,
+        bool orderDesc
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        if (!string.IsNullOrWhiteSpace(parentId))
+        {
+            var parent = await db.Files
+                .AsNoTracking()
+                .FirstOrDefaultAsync(f => f.Id == parentId && f.AccountId == accountId);
+            if (parent is null) return NotFound("Parent not found.");
+        }
+
+        var filesQuery = db.Files
+            .AsNoTracking()
+            .Where(f => f.AccountId == accountId)
+            .Where(f => f.Indexed)
+            .Where(f => f.ParentId == parentId)
+            .Include(f => f.Object)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(query))
+            filesQuery = filesQuery.Where(f => f.Name.Contains(query));
+
+        filesQuery = order.ToLower() switch
+        {
+            "name" => orderDesc ? filesQuery.OrderByDescending(f => f.Name) : filesQuery.OrderBy(f => f.Name),
+            "size" => orderDesc ? filesQuery.OrderByDescending(f => f.Size) : filesQuery.OrderBy(f => f.Size),
+            _ => orderDesc ? filesQuery.OrderByDescending(f => f.CreatedAt) : filesQuery.OrderBy(f => f.CreatedAt)
+        };
+
+        var total = await filesQuery.CountAsync();
+        Response.Headers.Append("X-Total", total.ToString());
+
+        var files = await filesQuery
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        return Ok(files);
+    }
+
+    public class CreateFolderRequest
+    {
+        [Required] [MaxLength(1024)] public string Name { get; set; } = null!;
+        [MaxLength(32)] public string? ParentId { get; set; }
+    }
+
+    [Authorize]
+    [HttpPost("folders")]
+    public async Task<ActionResult<SnCloudFile>> CreateFolder([FromBody] CreateFolderRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]> { { "name", ["Name is required"] } }));
+
+        if (!string.IsNullOrWhiteSpace(request.ParentId))
+        {
+            var parent = await db.Files.FirstOrDefaultAsync(f =>
+                f.Id == request.ParentId && f.AccountId == accountId && f.Indexed);
+            if (parent is null)
+                return NotFound("Parent not found.");
+            if (!parent.IsFolder)
+                return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+                {
+                    { "parent_id", ["Folders can only be created under a folder"] }
+                }));
+        }
+
+        var folder = new SnCloudFile
+        {
+            Id = await Nanoid.GenerateAsync(),
+            Name = request.Name,
+            AccountId = accountId,
+            IsFolder = true,
+            Indexed = true,
+            ParentId = request.ParentId,
+            UploadedAt = null,
+            ObjectId = null,
+            StorageId = null,
+            StorageUrl = null
+        };
+
+        db.Files.Add(folder);
+        await db.SaveChangesAsync();
+        return Ok(folder);
+    }
+
+    [Authorize]
+    [HttpGet("unindexed")]
+    public async Task<ActionResult<List<SnCloudFile>>> GetUnindexedFiles(
+        [FromQuery] Guid? pool,
+        [FromQuery] bool recycled = false,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20,
+        [FromQuery] string? query = null,
+        [FromQuery] string order = "date",
+        [FromQuery] bool orderDesc = true
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var baseQuery = db.Files
+            .AsNoTracking()
+            .Where(f => f.AccountId == accountId)
+            .Where(f => f.IsMarkedRecycle == recycled)
+            .Where(f => !f.Indexed)
+            .Where(f => !f.IsFolder)
+            .Include(f => f.Object)
+            .AsQueryable();
+
+        if (pool.HasValue) baseQuery = baseQuery.Where(f => f.Object!.FileReplicas.Any(r => r.PoolId == pool.Value));
+        if (!string.IsNullOrWhiteSpace(query)) baseQuery = baseQuery.Where(f => f.Name.Contains(query));
+
+        var filesQuery = order.ToLower() switch
+        {
+            "name" => orderDesc ? baseQuery.OrderByDescending(f => f.Name) : baseQuery.OrderBy(f => f.Name),
+            "size" => orderDesc ? baseQuery.OrderByDescending(f => f.Object.Size) : baseQuery.OrderBy(f => f.Object.Size),
+            _ => orderDesc ? baseQuery.OrderByDescending(f => f.CreatedAt) : baseQuery.OrderBy(f => f.CreatedAt)
+        };
+
+        var totalCount = await filesQuery.CountAsync();
+        Response.Headers.Append("X-Total", totalCount.ToString());
+
+        var unindexedFiles = await filesQuery
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        return Ok(unindexedFiles);
+    }
+
+    [Authorize]
+    [HttpPatch("{id}/hierarchy")]
+    public async Task<ActionResult<SnCloudFile>> UpdateFileHierarchy(string id, [FromBody] UpdateHierarchyRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var file = await db.Files.FirstOrDefaultAsync(f => f.Id == id && f.AccountId == accountId);
+        if (file is null) return NotFound();
+
+        if (request.ParentId == id)
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]> { { "parent_id", ["Cannot parent to itself"] } }));
+
+        if (request.ParentId != null)
+        {
+            var parent = await db.Files.FirstOrDefaultAsync(f => f.Id == request.ParentId && f.AccountId == accountId);
+            if (parent is null)
+                return NotFound("Parent not found.");
+        }
+
+        file.ParentId = request.ParentId;
+        if (request.Indexed.HasValue)
+            file.Indexed = request.Indexed.Value;
+
+        await db.SaveChangesAsync();
+        await fs._PurgeCacheAsync(file.Id);
+        return Ok(file);
+    }
+
+    public class UpdateHierarchyRequest
+    {
+        [MaxLength(32)] public string? ParentId { get; set; }
+        public bool? Indexed { get; set; }
     }
 
     [Authorize]

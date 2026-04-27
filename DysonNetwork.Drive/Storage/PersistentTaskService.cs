@@ -621,7 +621,7 @@ public class PersistentTaskService(
             EncryptionSignature = request.EncryptionSignature,
             ExpiredAt = request.ExpiredAt,
             Hash = request.Hash,
-            Path = request.Path,
+            ParentId = request.ParentId,
             AccountId = accountId,
             Status = TaskStatus.InProgress,
             UploadedChunks = [],

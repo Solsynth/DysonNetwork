@@ -104,6 +104,8 @@ public class FileService(
         string? encryptionHeader,
         string? encryptionSignature,
         Instant? expiredAt,
+        string? parentId = null,
+        bool indexed = false,
         string? taskId = null
     )
     {
@@ -117,7 +119,7 @@ public class FileService(
 
         var fileObject = CreateFileObject(fileId, accountId, finalContentType, fileSize);
 
-        var file = CreateCloudFile(fileId, fileName, fileObject, finalExpiredAt, bundle, accountId);
+        var file = CreateCloudFile(fileId, fileName, fileObject, finalExpiredAt, bundle, accountId, parentId, indexed);
 
         if (!pool.PolicyConfig.NoMetadata)
         {
@@ -241,7 +243,9 @@ public class FileService(
         SnFileObject fileObject,
         Instant? expiredAt,
         SnFileBundle? bundle,
-        Guid accountId
+        Guid accountId,
+        string? parentId,
+        bool indexed
     )
     {
         return new SnCloudFile
@@ -253,6 +257,9 @@ public class FileService(
             ExpiredAt = expiredAt,
             BundleId = bundle?.Id,
             AccountId = accountId,
+            ParentId = parentId,
+            Indexed = indexed,
+            IsFolder = false,
         };
     }
 

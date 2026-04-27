@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Drive.Billing;
-using DysonNetwork.Drive.Index;
 using DysonNetwork.Drive.Storage.Model;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
@@ -26,7 +25,6 @@ public class FileUploadController(
     DyPermissionService.DyPermissionServiceClient permission,
     QuotaService quotaService,
     PersistentTaskService persistentTaskService,
-    FileIndexService fileIndexService,
     IServiceScopeFactory scopeFactory,
     ILogger<FileUploadController> logger
 )
@@ -74,24 +72,18 @@ public class FileUploadController(
             .FirstOrDefaultAsync();
         if (existingFile != null)
         {
-            // Create the file index if a path is provided, even for existing files
-            if (string.IsNullOrEmpty(request.Path))
+            if (string.IsNullOrEmpty(request.ParentId))
                 return Ok(new CreateUploadTaskResponse
                 {
                     FileExists = true,
                     File = existingFile
                 });
-            try
+
+            if (existingFile.AccountId == accountId)
             {
-                await fileIndexService.CreateAsync(request.Path, existingFile.Id, accountId);
-                logger.LogInformation("Created file index for existing file {FileId} at path {Path}",
-                    existingFile.Id, request.Path);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to create file index for existing file {FileId} at path {Path}",
-                    existingFile.Id, request.Path);
-                // Don't fail the request if index creation fails, just log it
+                existingFile.ParentId = request.ParentId;
+                existingFile.Indexed = true;
+                await db.SaveChangesAsync();
             }
 
             return Ok(new CreateUploadTaskResponse
@@ -125,7 +117,7 @@ public class FileUploadController(
         public string? EncryptionHeader { get; set; }
         public string? EncryptionSignature { get; set; }
         public DateTimeOffset? ExpiredAt { get; set; }
-        public string? Path { get; set; }
+        [MaxLength(32)] public string? ParentId { get; set; }
     }
 
     [HttpPost("direct")]
@@ -168,7 +160,7 @@ public class FileUploadController(
             FileSize = request.File.Length,
             FileName = request.File.FileName,
             Hash = string.Empty,
-            Path = request.Path
+            ParentId = request.ParentId
         });
         if (poolValidation is not null) return poolValidation;
 
@@ -183,7 +175,7 @@ public class FileUploadController(
             FileSize = request.File.Length,
             FileName = request.File.FileName,
             Hash = string.Empty,
-            Path = request.Path
+            ParentId = request.ParentId
         });
         if (policyValidation is not null) return policyValidation;
 
@@ -213,22 +205,10 @@ public class FileUploadController(
                 request.EncryptionScheme,
                 request.EncryptionHeader,
                 request.EncryptionSignature,
-                request.ExpiredAt.HasValue ? Instant.FromDateTimeOffset(request.ExpiredAt.Value) : null
+                request.ExpiredAt.HasValue ? Instant.FromDateTimeOffset(request.ExpiredAt.Value) : null,
+                request.ParentId,
+                !string.IsNullOrEmpty(request.ParentId)
             );
-
-            if (!string.IsNullOrEmpty(request.Path))
-            {
-                try
-                {
-                    var accountId = Guid.Parse(currentUser.Id);
-                    await fileIndexService.CreateAsync(request.Path, fileId, accountId);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Failed to create file index for direct upload file {FileId} at path {Path}",
-                        fileId, request.Path);
-                }
-            }
 
             await fileService.PublishUploadCompletedEventAsync(fileEvent);
 
@@ -486,23 +466,10 @@ public class FileUploadController(
                 persistentTask.EncryptionHeader,
                 persistentTask.EncryptionSignature,
                 persistentTask.ExpiredAt,
+                persistentTask.ParentId,
+                !string.IsNullOrEmpty(persistentTask.ParentId),
                 taskId
             );
-
-            if (!string.IsNullOrEmpty(persistentTask.Path))
-            {
-                try
-                {
-                    await fileIndexService.CreateAsync(persistentTask.Path, fileId, accountId);
-                    logger.LogInformation("Created file index for file {FileId} at path {Path}", fileId,
-                        persistentTask.Path);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Failed to create file index for file {FileId} at path {Path}", fileId,
-                        persistentTask.Path);
-                }
-            }
 
             await persistentTaskService.UpdateTaskProgressAsync(taskId, 0.55, "Uploading to remote storage...");
 

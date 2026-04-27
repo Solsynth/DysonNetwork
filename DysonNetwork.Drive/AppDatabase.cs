@@ -26,8 +26,6 @@ public class AppDatabase(
     public DbSet<SnFileObject> FileObjects { get; set; } = null!;
     public DbSet<SnFileReplica> FileReplicas { get; set; } = null!;
     public DbSet<SnFilePermission> FilePermissions { get; set; } = null!;
-    public DbSet<SnCloudFileIndex> FileIndexes { get; set; }
-
     public DbSet<PersistentTask> Tasks { get; set; } = null!;
     
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -46,6 +44,18 @@ public class AppDatabase(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<SnCloudFile>(entity =>
+        {
+            entity.HasOne(e => e.Parent)
+                .WithMany(e => e.Children)
+                .HasForeignKey(e => e.ParentId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(e => e.ParentId);
+            entity.HasIndex(e => new { e.AccountId, e.ParentId, e.Indexed, e.DeletedAt });
+            entity.HasIndex(e => new { e.AccountId, e.Indexed, e.IsMarkedRecycle, e.DeletedAt });
+        });
+
         modelBuilder.ApplySoftDeleteFilters();
     }
 

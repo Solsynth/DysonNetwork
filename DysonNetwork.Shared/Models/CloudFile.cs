@@ -33,9 +33,15 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
     [MaxLength(32)] public string? ObjectId { get; set; }
     public SnFileObject? Object { get; set; }
 
+    [MaxLength(32)] public string? ParentId { get; set; }
+    [JsonIgnore] public SnCloudFile? Parent { get; set; }
+    [JsonIgnore] public List<SnCloudFile> Children { get; set; } = [];
+
+    public bool Indexed { get; set; } = false;
+    public bool IsFolder { get; set; } = false;
+
     [JsonIgnore] public SnFileBundle? Bundle { get; set; }
     public Guid? BundleId { get; set; }
-    [JsonIgnore] public List<SnCloudFileIndex> FileIndexes { get; set; } = [];
 
     /// <summary>
     /// The field is set to true if the recycling job plans to delete the file.

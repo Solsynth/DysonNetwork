@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using DysonNetwork.Drive.Index;
 using DysonNetwork.Drive.Storage;
 using DysonNetwork.Drive.Storage.Model;
 using DysonNetwork.Shared.Cache;
@@ -68,7 +67,6 @@ public static class ServiceCollectionExtensions
             services.AddScoped<Storage.FileService>();
             services.AddScoped<Storage.FileReanalysisService>();
             services.AddScoped<Storage.PersistentTaskService>();
-            services.AddScoped<FileIndexService>();
             services.AddScoped<Billing.UsageService>();
             services.AddScoped<Billing.QuotaService>();
 
