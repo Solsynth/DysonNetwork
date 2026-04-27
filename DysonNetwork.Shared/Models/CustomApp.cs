@@ -80,7 +80,8 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
                 AllowedScopes = { OauthConfig.AllowedScopes ?? [] },
                 AllowedGrantTypes = { OauthConfig.AllowedGrantTypes ?? [] },
                 RequirePkce = OauthConfig.RequirePkce,
-                AllowOfflineAccess = OauthConfig.AllowOfflineAccess
+                AllowOfflineAccess = OauthConfig.AllowOfflineAccess,
+                IsPublicClient = OauthConfig.IsPublicClient
             },
             ProjectId = ProjectId.ToString(),
             CreatedAt = CreatedAt.ToTimestamp(),
@@ -121,6 +122,20 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
                 TermsOfService = string.IsNullOrEmpty(p.Links.TermsOfService) ? null : p.Links.TermsOfService
             };
         }
+        if (p.OauthConfig is not null)
+        {
+            obj.OauthConfig = new SnCustomAppOauthConfig
+            {
+                ClientUri = string.IsNullOrEmpty(p.OauthConfig.ClientUri) ? null : p.OauthConfig.ClientUri,
+                RedirectUris = p.OauthConfig.RedirectUris.ToArray(),
+                PostLogoutRedirectUris = p.OauthConfig.PostLogoutRedirectUris.ToArray(),
+                AllowedScopes = p.OauthConfig.AllowedScopes.ToArray(),
+                AllowedGrantTypes = p.OauthConfig.AllowedGrantTypes.ToArray(),
+                RequirePkce = p.OauthConfig.RequirePkce,
+                AllowOfflineAccess = p.OauthConfig.AllowOfflineAccess,
+                IsPublicClient = p.OauthConfig.IsPublicClient
+            };
+        }
 
         return obj;
     }
@@ -142,6 +157,7 @@ public class SnCustomAppOauthConfig
     [MaxLength(256)] public string[] AllowedGrantTypes { get; set; } = ["authorization_code", "refresh_token"];
     public bool RequirePkce { get; set; } = true;
     public bool AllowOfflineAccess { get; set; } = false;
+    public bool IsPublicClient { get; set; } = false;
 }
 
 public class SnCustomAppSecret : ModelBase

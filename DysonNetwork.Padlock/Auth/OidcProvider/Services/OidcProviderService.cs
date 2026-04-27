@@ -99,6 +99,11 @@ public class OidcProviderService(
         return resp.Valid;
     }
 
+    public bool IsPublicClient(SnCustomApp client)
+    {
+        return client.OauthConfig?.IsPublicClient ?? false;
+    }
+
     private static bool IsWildcardRedirectUriMatch(string allowedUri, string redirectUri)
     {
         if (string.IsNullOrEmpty(allowedUri) || string.IsNullOrEmpty(redirectUri))
@@ -340,7 +345,8 @@ public class OidcProviderService(
         string? authorizationCode = null,
         string? redirectUri = null,
         string? codeVerifier = null,
-        string? refreshToken = null
+        string? refreshToken = null,
+        bool isPublicClient = false
     )
     {
         if (clientId == Guid.Empty) throw new ArgumentException("Client ID cannot be empty", nameof(clientId));
@@ -349,7 +355,7 @@ public class OidcProviderService(
 
         if (authorizationCode != null)
         {
-            var authCode = await ValidateAuthorizationCodeAsync(authorizationCode, clientId, redirectUri, codeVerifier);
+            var authCode = await ValidateAuthorizationCodeAsync(authorizationCode, clientId, redirectUri, codeVerifier, isPublicClient);
             if (authCode == null)
             {
                 throw new InvalidOperationException("Invalid authorization code");
@@ -620,7 +626,8 @@ public class OidcProviderService(
         string code,
         Guid clientId,
         string? redirectUri = null,
-        string? codeVerifier = null
+        string? codeVerifier = null,
+        bool isPublicClient = false
     )
     {
         var cacheKey = $"{CacheKeyPrefixAuthCode}{code}";
@@ -645,6 +652,13 @@ public class OidcProviderService(
         if (!string.IsNullOrEmpty(redirectUri) && authCode.RedirectUri != redirectUri)
         {
             logger.LogWarning("Redirect URI mismatch for code {Code}", code);
+            return null;
+        }
+
+        // Public clients must use PKCE
+        if (isPublicClient && string.IsNullOrEmpty(authCode.CodeChallenge))
+        {
+            logger.LogWarning("Public client must use PKCE, but no code_challenge was provided for code {Code}", code);
             return null;
         }
 

@@ -141,6 +141,17 @@ public class OidcProviderController(
             });
         }
 
+        // Public clients must use PKCE
+        var isPublicClient = oidcService.IsPublicClient(client);
+        if (isPublicClient && string.IsNullOrEmpty(codeChallenge))
+        {
+            return BadRequest(new ErrorResponse
+            {
+                Error = "invalid_request",
+                ErrorDescription = "PKCE is required for public clients. Please provide code_challenge."
+            });
+        }
+
         // If user denied the request
         if (string.IsNullOrEmpty(authorize) || !bool.TryParse(authorize, out var isAuthorized) || !isAuthorized)
         {
@@ -214,44 +225,48 @@ public class OidcProviderController(
     [Consumes("application/x-www-form-urlencoded")]
     public async Task<IActionResult> Token([FromForm] TokenRequest request)
     {
+        if (request.ClientId == null)
+            return BadRequest(new ErrorResponse { Error = "invalid_request", ErrorDescription = "client_id is required" });
+
+        var client = await oidcService.FindClientBySlugAsync(request.ClientId);
+        if (client == null)
+            return BadRequest(new ErrorResponse { Error = "unauthorized_client", ErrorDescription = "Client not found" });
+
+        var isPublicClient = oidcService.IsPublicClient(client);
+
         switch (request.GrantType)
         {
-            // Validate client credentials
-            case "authorization_code" when request.ClientId == null || string.IsNullOrEmpty(request.ClientSecret):
-                return BadRequest("Client credentials are required");
             case "authorization_code" when request.Code == null:
-                return BadRequest("Authorization code is required");
+                return BadRequest(new ErrorResponse { Error = "invalid_request", ErrorDescription = "Authorization code is required" });
             case "authorization_code":
                 {
-                    var client = await oidcService.FindClientBySlugAsync(request.ClientId);
-                    if (client == null ||
-                        !await oidcService.ValidateClientCredentialsAsync(client.Id, request.ClientSecret))
-                        return BadRequest(new ErrorResponse
-                        { Error = "invalid_client", ErrorDescription = "Invalid client credentials" });
+                    if (!isPublicClient)
+                    {
+                        if (string.IsNullOrEmpty(request.ClientSecret) ||
+                            !await oidcService.ValidateClientCredentialsAsync(client.Id, request.ClientSecret))
+                            return BadRequest(new ErrorResponse { Error = "invalid_client", ErrorDescription = "Invalid client credentials" });
+                    }
 
-                    // Generate tokens
                     var tokenResponse = await oidcService.GenerateTokenResponseAsync(
                         clientId: client.Id,
                         authorizationCode: request.Code!,
                         redirectUri: request.RedirectUri,
-                        codeVerifier: request.CodeVerifier
+                        codeVerifier: request.CodeVerifier,
+                        isPublicClient: isPublicClient
                     );
 
                     return Ok(tokenResponse);
                 }
-            case "refresh_token" when request.ClientId == null || string.IsNullOrEmpty(request.ClientSecret):
-                return BadRequest(new ErrorResponse
-                { Error = "invalid_request", ErrorDescription = "Client credentials are required" });
             case "refresh_token" when string.IsNullOrEmpty(request.RefreshToken):
-                return BadRequest(new ErrorResponse
-                { Error = "invalid_request", ErrorDescription = "Refresh token is required" });
+                return BadRequest(new ErrorResponse { Error = "invalid_request", ErrorDescription = "Refresh token is required" });
             case "refresh_token":
                 {
-                    var client = await oidcService.FindClientBySlugAsync(request.ClientId!);
-                    if (client == null ||
-                        !await oidcService.ValidateClientCredentialsAsync(client.Id, request.ClientSecret!))
-                        return BadRequest(new ErrorResponse
-                            { Error = "invalid_client", ErrorDescription = "Invalid client credentials" });
+                    if (!isPublicClient)
+                    {
+                        if (string.IsNullOrEmpty(request.ClientSecret) ||
+                            !await oidcService.ValidateClientCredentialsAsync(client.Id, request.ClientSecret!))
+                            return BadRequest(new ErrorResponse { Error = "invalid_client", ErrorDescription = "Invalid client credentials" });
+                    }
 
                     try
                     {
@@ -366,7 +381,7 @@ public class OidcProviderController(
             response_types_supported = new[]
                 { "code", "token", "id_token", "code token", "code id_token", "token id_token", "code token id_token" },
             grant_types_supported = new[] { "authorization_code", "refresh_token" },
-            token_endpoint_auth_methods_supported = new[] { "client_secret_basic", "client_secret_post" },
+            token_endpoint_auth_methods_supported = new[] { "client_secret_basic", "client_secret_post", "none" },
             id_token_signing_alg_values_supported = new[] { "HS256", "RS256" },
             subject_types_supported = new[] { "public" },
             claims_supported = new[] { "sub", "name", "email", "email_verified" },
