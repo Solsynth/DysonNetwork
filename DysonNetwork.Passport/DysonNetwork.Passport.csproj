@@ -23,7 +23,6 @@
         <PackageReference Include="Quartz.AspNetCore" Version="3.17.1" />
         <PackageReference Include="Quartz.Extensions.Hosting" Version="3.17.1" />
         <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
-        <PackageReference Include="SpotifyAPI.Web" Version="7.4.2" />
         <PackageReference Include="SteamWebAPI2" Version="5.0.0" />
     </ItemGroup>
 

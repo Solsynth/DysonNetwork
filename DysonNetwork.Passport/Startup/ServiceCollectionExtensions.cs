@@ -137,9 +137,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ProgressionSeedService>();
         services.AddScoped<ProgressionService>();
 
-        services.AddScoped<SpotifyPresenceService>();
         services.AddScoped<SteamPresenceService>();
-        services.AddScoped<IPresenceService, SpotifyPresenceService>();
         services.AddScoped<IPresenceService, SteamPresenceService>();
         
         services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(

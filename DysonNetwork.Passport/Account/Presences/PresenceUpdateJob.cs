@@ -98,6 +98,6 @@ public class PresenceUpdateJob(
 
     private async Task<List<Guid>> GetAllUsersWithPresenceConnectionsAsync()
     {
-        return await accountEventService.GetPresenceConnectedUsersAsync("spotify", "steam");
+        return await accountEventService.GetPresenceConnectedUsersAsync("steam");
     }
 }
