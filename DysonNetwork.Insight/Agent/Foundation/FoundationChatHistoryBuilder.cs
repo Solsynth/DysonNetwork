@@ -79,6 +79,7 @@ public class FoundationChatHistoryBuilder
         var textParts = parts.Where(p => p.Type == ThinkingMessagePartType.Text).ToList();
         var toolCalls = parts.Where(p => p.Type == ThinkingMessagePartType.FunctionCall).ToList();
         var toolResults = parts.Where(p => p.Type == ThinkingMessagePartType.FunctionResult).ToList();
+        var reasoningParts = parts.Where(p => p.Type == ThinkingMessagePartType.Reasoning).ToList();
 
         if (role == AgentMessageRole.Tool && toolResults.Count > 0)
         {
@@ -93,11 +94,13 @@ public class FoundationChatHistoryBuilder
         var content = string.Join("\n", textParts.Select(p => p.Text ?? ""));
         var hasImages = attachedFiles?.Any(f => f.MimeType?.StartsWith("image/") == true) == true ||
                         parts.Any(p => p.Files?.Any() == true);
+        var reasoningContent = string.Join("\n", reasoningParts.Select(p => p.Reasoning ?? ""));
 
         var message = new AgentMessage
         {
             Role = role,
-            Content = content
+            Content = content,
+            ReasoningContent = string.IsNullOrWhiteSpace(reasoningContent) ? null : reasoningContent
         };
 
         if (hasImages && role == AgentMessageRole.User)

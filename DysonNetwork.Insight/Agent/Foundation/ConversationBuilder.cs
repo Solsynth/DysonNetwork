@@ -163,6 +163,7 @@ public class ConversationBuilder
         var textParts = parts.Where(p => p.Type == ThinkingMessagePartType.Text).ToList();
         var toolCalls = parts.Where(p => p.Type == ThinkingMessagePartType.FunctionCall).ToList();
         var toolResults = parts.Where(p => p.Type == ThinkingMessagePartType.FunctionResult).ToList();
+        var reasoningParts = parts.Where(p => p.Type == ThinkingMessagePartType.Reasoning).ToList();
 
         if (role == AgentMessageRole.Assistant && toolResults.Count > 0)
         {
@@ -176,10 +177,13 @@ public class ConversationBuilder
 
         var content = string.Join("\n", textParts.Select(p => p.Text ?? ""));
 
+        var reasoningContent = string.Join("\n", reasoningParts.Select(p => p.Reasoning ?? ""));
+
         var message = new AgentMessage
         {
             Role = role,
-            Content = content
+            Content = content,
+            ReasoningContent = string.IsNullOrWhiteSpace(reasoningContent) ? null : reasoningContent
         };
 
         if (toolCalls.Count > 0 && role == AgentMessageRole.Assistant)

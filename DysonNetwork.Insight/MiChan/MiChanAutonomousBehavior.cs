@@ -99,11 +99,14 @@ public class MiChanAutonomousBehavior
     public async Task<bool> TryExecuteAutonomousActionAsync()
     {
         if (!_config.AutonomousBehavior.Enabled)
+        {
+            _logger.LogInformation("Autonomous behavior is disabled by configuration");
             return false;
+        }
 
         if (DateTime.UtcNow - _lastActionTime < _nextInterval)
         {
-            _logger.LogDebug("Skipping autonomous action - next run at {NextRun:HH:mm:ss}",
+            _logger.LogInformation("Skipping autonomous action - next run at {NextRun:HH:mm:ss}",
                 _lastActionTime.Add(_nextInterval));
             return false;
         }
@@ -254,6 +257,13 @@ public class MiChanAutonomousBehavior
         _currentPageIndex = 0;
         var totalProcessedCount = 0;
         var totalMentionFound = false;
+        var skippedOwnPostCount = 0;
+        var skippedBlockedUserCount = 0;
+        var skippedAlreadyInteractedCount = 0;
+        var skippedAlreadyRepliedCount = 0;
+        var skippedAlreadyReactedCount = 0;
+        var skippedAlreadySeenCount = 0;
+        var skippedDuplicateInCycleCount = 0;
 
         // Paginate through posts
         while (_currentPageIndex <= MaxPageIndex)
@@ -283,6 +293,11 @@ public class MiChanAutonomousBehavior
                 {
                     _logger.LogInformation("Autonomous: Reached checkpoint at post {PostId}, stopping pagination",
                         _checkpointOldestPostId.Value);
+                    if (totalProcessedCount == 0)
+                    {
+                        _logger.LogInformation(
+                            "Autonomous: Stopped at checkpoint before processing new posts. This usually means there are not enough new posts since last cycle.");
+                    }
                     break;
                 }
             }
@@ -299,6 +314,7 @@ public class MiChanAutonomousBehavior
                 // Skip already processed posts in this cycle
                 if (!_processedPostIds.Add(post.Id.ToString()))
                 {
+                    skippedDuplicateInCycleCount++;
                     continue;
                 }
 
@@ -314,6 +330,7 @@ public class MiChanAutonomousBehavior
                 if (IsOwnPost(post))
                 {
                     _logger.LogDebug("Skipping post {PostId} - created by MiChan", post.Id);
+                    skippedOwnPostCount++;
                     continue;
                 }
 
@@ -323,6 +340,7 @@ public class MiChanAutonomousBehavior
                 {
                     _logger.LogInformation("Skipping post {PostId} from user {UserId} - user has blocked MiChan",
                         post.Id, authorAccountId);
+                    skippedBlockedUserCount++;
                     continue;
                 }
 
@@ -332,6 +350,7 @@ public class MiChanAutonomousBehavior
                 if (alreadyInteracted)
                 {
                     _logger.LogDebug("Skipping post {PostId} - already in interaction history", post.Id);
+                    skippedAlreadyInteractedCount++;
                     continue;
                 }
 
@@ -340,6 +359,7 @@ public class MiChanAutonomousBehavior
                 if (alreadyReplied)
                 {
                     _logger.LogDebug("Skipping post {PostId} - already replied by MiChan", post.Id);
+                    skippedAlreadyRepliedCount++;
                     continue;
                 }
 
@@ -347,6 +367,7 @@ public class MiChanAutonomousBehavior
                 if (post.ReactionsMade != null && post.ReactionsMade.Any(r => r.Value))
                 {
                     _logger.LogDebug("Skipping post {PostId} - already reacted by MiChan", post.Id);
+                    skippedAlreadyReactedCount++;
                     continue;
                 }
 
@@ -355,6 +376,7 @@ public class MiChanAutonomousBehavior
                 if (alreadySeen)
                 {
                     _logger.LogDebug("Skipping post {PostId} - already seen", post.Id);
+                    skippedAlreadySeenCount++;
                     continue;
                 }
 
@@ -424,6 +446,17 @@ public class MiChanAutonomousBehavior
         }
 
         _logger.LogInformation("Autonomous: Finished checking posts across {PageCount} pages", _currentPageIndex);
+        _logger.LogInformation(
+            "Autonomous: Cycle stats - processed={Processed}, mention_found={MentionFound}, skipped_own={SkippedOwn}, skipped_blocked={SkippedBlocked}, skipped_interacted={SkippedInteracted}, skipped_replied={SkippedReplied}, skipped_reacted={SkippedReacted}, skipped_seen={SkippedSeen}, skipped_duplicate={SkippedDuplicate}",
+            totalProcessedCount,
+            totalMentionFound,
+            skippedOwnPostCount,
+            skippedBlockedUserCount,
+            skippedAlreadyInteractedCount,
+            skippedAlreadyRepliedCount,
+            skippedAlreadyReactedCount,
+            skippedAlreadySeenCount,
+            skippedDuplicateInCycleCount);
         
         // Record mood events based on interactions and try to update mood
         if (totalProcessedCount > 0)

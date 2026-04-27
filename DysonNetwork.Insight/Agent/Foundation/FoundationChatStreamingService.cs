@@ -32,8 +32,6 @@ public class FoundationChatStreamingService
         {
             Tools = conversation.Tools
         };
-        var providerRequiresReasoningReplay = ProviderRequiresReasoningReplay(provider);
-
         while (round < maxRounds)
         {
             round++;
@@ -138,6 +136,7 @@ public class FoundationChatStreamingService
             {
                 Role = AgentMessageRole.Assistant,
                 Content = textBuilder.ToString(),
+                ReasoningContent = reasoningBuilder.Length > 0 ? reasoningBuilder.ToString() : null,
                 ToolCalls = toolCalls
             };
             currentConversation.Messages.Add(assistantMessage);
@@ -154,16 +153,6 @@ public class FoundationChatStreamingService
 
             yield return new StreamingChatEvent.ToolRoundCompleted(toolCalls.Count);
 
-            if (providerRequiresReasoningReplay)
-            {
-                _logger.LogWarning(
-                    "Provider {ProviderId} requires reasoning_content replay after tool calls. Stopping after one tool round because the current OpenAI SDK adapter cannot replay provider-specific reasoning_content.",
-                    provider.ProviderId);
-                yield return new StreamingChatEvent.Finished(
-                    textBuilder.ToString(),
-                    reasoningBuilder.Length > 0 ? reasoningBuilder.ToString() : null);
-                yield break;
-            }
         }
 
         _logger.LogWarning("Max tool rounds ({MaxRounds}) reached", maxRounds);
@@ -197,6 +186,7 @@ public class FoundationChatStreamingService
             {
                 Role = AgentMessageRole.Assistant,
                 Content = response.Content,
+                ReasoningContent = response.Reasoning,
                 ToolCalls = response.ToolCalls
             };
             currentConversation.Messages.Add(assistantMessage);
@@ -257,10 +247,6 @@ public class FoundationChatStreamingService
         return response.Content ?? "";
     }
 
-    private static bool ProviderRequiresReasoningReplay(IAgentProviderAdapter provider)
-    {
-        return provider.ProviderId.StartsWith("deepseek:", StringComparison.OrdinalIgnoreCase);
-    }
 }
 
 public abstract record StreamingChatEvent

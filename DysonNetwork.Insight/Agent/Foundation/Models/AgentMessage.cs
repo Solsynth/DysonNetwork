@@ -4,6 +4,7 @@ public class AgentMessage
 {
     public AgentMessageRole Role { get; set; }
     public string? Content { get; set; }
+    public string? ReasoningContent { get; set; }
     public List<AgentMessageContentPart>? ContentParts { get; set; }
     public string? Name { get; set; }
     public List<AgentToolCall>? ToolCalls { get; set; }
