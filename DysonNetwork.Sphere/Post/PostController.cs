@@ -22,6 +22,40 @@ public class PostController(
     RemoteRealmService rs
 ) : ControllerBase
 {
+    private async Task<(HashSet<Guid>? gatekeptPublisherIds, HashSet<Guid>? subscriberPublisherIds)> GetGatekeepInfoAsync(
+        IQueryable<Guid> publisherIdsInQuery,
+        DyAccount? currentUser)
+    {
+        var publisherIds = await publisherIdsInQuery.Distinct().ToListAsync();
+        if (publisherIds.Count == 0)
+            return (null, null);
+
+        var gatekeptPublisherIds = (await db.Publishers
+            .Where(p => publisherIds.Contains(p.Id) && p.GatekeptFollows == true)
+            .Select(p => p.Id)
+            .ToListAsync()).ToHashSet();
+
+        HashSet<Guid>? subscriberPublisherIds = null;
+        if (gatekeptPublisherIds.Count > 0)
+        {
+            if (currentUser != null)
+            {
+                var currentAccountId = Guid.Parse(currentUser.Id);
+                var activeSubscriptions = await db.PublisherSubscriptions
+                    .Where(s => s.AccountId == currentAccountId && s.EndedAt == null && publisherIds.Contains(s.PublisherId))
+                    .Select(s => s.PublisherId)
+                    .ToListAsync();
+                subscriberPublisherIds = activeSubscriptions.ToHashSet();
+            }
+            else
+            {
+                subscriberPublisherIds = [];
+            }
+        }
+
+        return (gatekeptPublisherIds.Count > 0 ? gatekeptPublisherIds : null, subscriberPublisherIds);
+    }
+
     public class ThreadedReplyNode
     {
         public required SnPost Post { get; set; }
@@ -655,13 +689,18 @@ public class PostController(
             ? []
             : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
+        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+            db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
+            currentUser
+        );
+
         var now = SystemClock.Instance.GetCurrentInstant();
         var post = await db
             .Posts.Where(e => e.RepliedPostId == id)
             .OrderByDescending(p =>
                 p.Upvotes * 2 - p.Downvotes + ((p.CreatedAt - now).TotalMinutes < 60 ? 5 : 0)
             )
-            .FilterWithVisibility(currentUser, userFriends, userPublishers)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, gatekeptPublisherIds: gatekeptPublisherIds, followerPublisherIds: subscriberPublisherIds)
             .FirstOrDefaultAsync();
         if (post is null)
             return NotFound();
@@ -688,12 +727,17 @@ public class PostController(
             ? []
             : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
+        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+            db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
+            currentUser
+        );
+
         var posts = await db.Posts
             .Where(e =>
                 e.RepliedPostId == id && e.PinMode == Shared.Models.PostPinMode.ReplyPage
             )
             .OrderByDescending(p => p.CreatedAt)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, gatekeptPublisherIds: gatekeptPublisherIds, followerPublisherIds: subscriberPublisherIds)
             .ToListAsync();
         posts = await ps.LoadPostInfo(posts, currentUser);
 
@@ -727,9 +771,14 @@ public class PostController(
         if (parent is null)
             return NotFound();
 
+        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+            db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
+            currentUser
+        );
+
         var totalCount = await db
             .Posts.Where(e => e.RepliedPostId == parent.Id)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
             .CountAsync();
         var posts = await db
             .Posts.Where(e => e.RepliedPostId == id)
@@ -737,7 +786,7 @@ public class PostController(
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .Include(e => e.FeaturedRecords)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(take)
@@ -783,9 +832,14 @@ public class PostController(
         if (parent is null)
             return NotFound();
 
+        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+            db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
+            currentUser
+        );
+
         var totalCount = await db
             .Posts.Where(e => e.RepliedPostId == parent.Id)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
             .CountAsync();
 
         var rootReplies = await db
@@ -795,7 +849,7 @@ public class PostController(
             .Include(e => e.Tags)
             .Include(e => e.FeaturedRecords)
             .AsNoTracking()
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(take)
@@ -821,7 +875,7 @@ public class PostController(
                 .Include(e => e.Tags)
                 .Include(e => e.FeaturedRecords)
                 .AsNoTracking()
-                .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
+                .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
                 .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
                 .ToListAsync();
 
@@ -881,9 +935,14 @@ public class PostController(
         if (parent is null)
             return NotFound();
 
+        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+            db.Posts.Where(e => e.ForwardedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
+            currentUser
+        );
+
         var totalCount = await db
             .Posts.Where(e => e.ForwardedPostId == parent.Id)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
             .CountAsync();
 
         var posts = await db
@@ -892,7 +951,7 @@ public class PostController(
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .Include(e => e.FeaturedRecords)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(take)
