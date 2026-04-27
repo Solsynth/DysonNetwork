@@ -51,6 +51,7 @@ public class TokenAuthService(
             logger.LogDebug("AuthenticateTokenAsync: token format detected: {Format} (fp={TokenFp})", format, tokenFp);
 
             JwtSecurityToken? oidcJwt = null;
+            var authPath = "primary";
             if (!ValidateToken(token, out var sessionId, out var tokenUse, out var tokenEpoch))
             {
                 var (isOidcToken, oidcToken, oidcSessionId, oidcTokenUse, oidcEpoch) = ValidateOidcToken(token);
@@ -61,6 +62,7 @@ public class TokenAuthService(
                 }
 
                 oidcJwt = oidcToken;
+                authPath = "oidc_fallback";
                 sessionId = oidcSessionId.Value;
                 tokenUse = oidcTokenUse;
                 tokenEpoch = oidcEpoch;
@@ -95,11 +97,12 @@ public class TokenAuthService(
                     return (false, null, "Session has been expired.", null);
                 }
                 logger.LogInformation(
-                    "AuthenticateTokenAsync: success via cache (sessionId={SessionId}, accountId={AccountId}, scopes={ScopeCount}, expiresAt={ExpiresAt})",
+                    "AuthenticateTokenAsync: success via cache (sessionId={SessionId}, accountId={AccountId}, scopes={ScopeCount}, expiresAt={ExpiresAt}, path={Path})",
                     sessionId,
                     cachedSnSession.AccountId,
                     cachedSnSession.Scopes.Count,
-                    cachedSnSession.ExpiredAt
+                    cachedSnSession.ExpiredAt,
+                    authPath
                 );
 
                 if (oidcJwt is not null)
@@ -174,10 +177,11 @@ public class TokenAuthService(
                 $"auth:account_sessions:{session.Account.Id}");
 
             logger.LogInformation(
-                "AuthenticateTokenAsync: success via DB (sessionId={SessionId}, accountId={AccountId}, clientId={ClientId})",
+                "AuthenticateTokenAsync: success via DB (sessionId={SessionId}, accountId={AccountId}, clientId={ClientId}, path={Path})",
                 sessionId,
                 session.AccountId,
-                session.ClientId
+                session.ClientId,
+                authPath
             );
 
             if (oidcJwt is not null)

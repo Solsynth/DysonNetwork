@@ -36,9 +36,25 @@ public class RemotePermissionMiddleware(RequestDelegate next)
                 return;
             }
 
-            if (HasFullScope(httpContext))
+            var currentSession = httpContext.Items["CurrentSession"] as DyAuthSession;
+
+            if (PermissionScopeGate.HasFullScope(currentSession))
             {
                 await next(httpContext);
+                return;
+            }
+
+            if (PermissionScopeGate.ShouldEnforcePermissionScope(currentSession) &&
+                !PermissionScopeGate.IsPermissionEnabled(currentSession!.Scopes, attr.Key))
+            {
+                logger.LogWarning(
+                    "Permission omitted by token scope for actor {Actor}: required_key={RequiredKey}, matched_scope={MatchedScope}",
+                    currentUser.Id,
+                    attr.Key,
+                    PermissionScopeGate.GetMatchedPermissionScope(currentSession.Scopes, attr.Key) ?? "<none>"
+                );
+                httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await httpContext.Response.WriteAsync($"Permission {attr.Key} was omitted by token scope.");
                 return;
             }
 
@@ -59,6 +75,14 @@ public class RemotePermissionMiddleware(RequestDelegate next)
 
                 if (!permResp.HasPermission)
                 {
+                    logger.LogWarning(
+                        "Permission denied by permission service for actor {Actor}: required_key={RequiredKey}, matched_scope={MatchedScope}",
+                        currentUser.Id,
+                        attr.Key,
+                        currentSession is not null
+                            ? PermissionScopeGate.GetMatchedPermissionScope(currentSession.Scopes, attr.Key) ?? "<none>"
+                            : "<session-unavailable>"
+                    );
                     httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
                     await httpContext.Response.WriteAsync($"Permission {attr.Key} was required.");
                     return;
@@ -77,14 +101,5 @@ public class RemotePermissionMiddleware(RequestDelegate next)
         }
 
         await next(httpContext);
-    }
-
-    private static bool HasFullScope(HttpContext httpContext)
-    {
-        return httpContext.Items["CurrentSession"] switch
-        {
-            DyAuthSession dySession => dySession.Scopes.Contains("*"),
-            _ => false
-        };
     }
 }
