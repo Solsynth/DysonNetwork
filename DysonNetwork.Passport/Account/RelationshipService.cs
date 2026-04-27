@@ -89,9 +89,23 @@ public class RelationshipService(
 
     public async Task<SnAccountRelationship> BlockAccount(SnAccount sender, SnAccount target)
     {
-        var relationship = await HasExistingRelationship(sender.Id, target.Id)
-            ? await UpdateRelationship(sender.Id, target.Id, RelationshipStatus.Blocked)
-            : await CreateRelationship(sender, target, RelationshipStatus.Blocked);
+        var outgoingRelationship = await GetRelationship(sender.Id, target.Id, ignoreExpired: true);
+
+        SnAccountRelationship relationship;
+        if (outgoingRelationship is not null)
+        {
+            relationship = await UpdateRelationship(sender.Id, target.Id, RelationshipStatus.Blocked);
+        }
+        else
+        {
+            var incomingRelationship = await GetRelationship(target.Id, sender.Id, ignoreExpired: true);
+            if (incomingRelationship is not null)
+            {
+                db.Remove(incomingRelationship);
+                await db.SaveChangesAsync();
+            }
+            relationship = await CreateRelationship(sender, target, RelationshipStatus.Blocked);
+        }
 
         CreateActionLog(
             sender.Id,
