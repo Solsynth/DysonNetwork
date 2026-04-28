@@ -117,15 +117,17 @@ public class MiChanFoundationProvider : IMiChanFoundationProvider
         }
 
         var provider = modelConfig.GetEffectiveProvider().ToLower();
+        var apiMode = modelConfig.GetEffectiveApiMode();
         var modelName = modelConfig.GetEffectiveModelName();
-        return $"{provider}:{modelName}";
+        return $"{provider}:{apiMode}:{modelName}";
     }
 
     private string GetProviderIdFromService(string serviceId)
     {
         var serviceConfig = _configuration.GetSection($"Thinking:Services:{serviceId}");
         var provider = serviceConfig.GetValue<string>("Provider")?.ToLower() ?? "openrouter";
+        var apiMode = serviceConfig.GetValue<string>("ApiMode")?.Trim().ToLowerInvariant() ?? "responses";
         var model = serviceConfig.GetValue<string>("Model") ?? serviceId;
-        return $"{provider}:{model}";
+        return $"{provider}:{apiMode}:{model}";
     }
 }

@@ -46,6 +46,7 @@ public class AgentRuntimeSelector : IAgentRuntimeSelector
         var serviceConfig = thinkingConfig.GetSection($"Services:{modelId}");
 
         var provider = serviceConfig.GetValue<string>("Provider")?.ToLower();
+        var apiMode = serviceConfig.GetValue<string>("ApiMode")?.Trim().ToLowerInvariant() ?? "responses";
         var model = serviceConfig.GetValue<string>("Model") ?? modelId;
 
         if (string.IsNullOrEmpty(provider))
@@ -53,7 +54,7 @@ public class AgentRuntimeSelector : IAgentRuntimeSelector
             provider = "openrouter";
         }
 
-        var providerId = $"{provider}:{model}";
+        var providerId = $"{provider}:{apiMode}:{model}";
 
         if (_providerRegistry.TryGetProvider(providerId, out var adapter))
         {

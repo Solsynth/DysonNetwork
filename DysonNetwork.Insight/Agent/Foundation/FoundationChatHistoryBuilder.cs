@@ -28,8 +28,7 @@ public class FoundationChatHistoryBuilder
 
         foreach (var thought in thoughts)
         {
-            var message = ConvertThoughtToMessage(thought);
-            if (message != null)
+            foreach (var message in ConvertThoughtToMessages(thought))
             {
                 conversation.Messages.Add(message);
             }
@@ -53,8 +52,7 @@ public class FoundationChatHistoryBuilder
 
         foreach (var thought in thoughts)
         {
-            var message = ConvertThoughtToMessage(thought, attachedFiles);
-            if (message != null)
+            foreach (var message in ConvertThoughtToMessages(thought, attachedFiles))
             {
                 conversation.Messages.Add(message);
             }
@@ -67,6 +65,13 @@ public class FoundationChatHistoryBuilder
         SnThinkingThought thought,
         List<SnCloudFileReferenceObject>? attachedFiles = null)
     {
+        return ConvertThoughtToMessages(thought, attachedFiles).FirstOrDefault();
+    }
+
+    private List<AgentMessage> ConvertThoughtToMessages(
+        SnThinkingThought thought,
+        List<SnCloudFileReferenceObject>? attachedFiles = null)
+    {
         var role = thought.Role switch
         {
             ThinkingThoughtRole.User => AgentMessageRole.User,
@@ -75,21 +80,12 @@ public class FoundationChatHistoryBuilder
             _ => AgentMessageRole.User
         };
 
+        var messages = new List<AgentMessage>();
         var parts = thought.Parts?.ToList() ?? new List<SnThinkingMessagePart>();
         var textParts = parts.Where(p => p.Type == ThinkingMessagePartType.Text).ToList();
         var toolCalls = parts.Where(p => p.Type == ThinkingMessagePartType.FunctionCall).ToList();
         var toolResults = parts.Where(p => p.Type == ThinkingMessagePartType.FunctionResult).ToList();
         var reasoningParts = parts.Where(p => p.Type == ThinkingMessagePartType.Reasoning).ToList();
-
-        if (role == AgentMessageRole.Tool && toolResults.Count > 0)
-        {
-            var toolResult = toolResults.First();
-            return AgentMessage.FromToolResult(
-                toolResult.FunctionResult?.CallId ?? "",
-                toolResult.FunctionResult?.Result?.ToString() ?? "",
-                toolResult.FunctionResult?.IsError ?? false
-            );
-        }
 
         var content = string.Join("\n", textParts.Select(p => p.Text ?? ""));
         var hasImages = attachedFiles?.Any(f => f.MimeType?.StartsWith("image/") == true) == true ||
@@ -154,7 +150,32 @@ public class FoundationChatHistoryBuilder
             }).ToList();
         }
 
-        return message;
+        var hasAssistantEnvelope = role != AgentMessageRole.Assistant ||
+                                   !string.IsNullOrWhiteSpace(message.Content) ||
+                                   !string.IsNullOrWhiteSpace(message.ReasoningContent) ||
+                                   (message.ToolCalls?.Count > 0);
+
+        if (hasAssistantEnvelope)
+        {
+            messages.Add(message);
+        }
+
+        if (role == AgentMessageRole.Assistant)
+        {
+            foreach (var toolResult in toolResults)
+            {
+                var resultText = toolResult.FunctionResult?.Result as string
+                                 ?? (toolResult.FunctionResult?.Result != null
+                                     ? JsonSerializer.Serialize(toolResult.FunctionResult.Result)
+                                     : "");
+                messages.Add(AgentMessage.FromToolResult(
+                    toolResult.FunctionResult?.CallId ?? "",
+                    resultText,
+                    toolResult.FunctionResult?.IsError ?? false));
+            }
+        }
+
+        return messages;
     }
 
     public static List<AgentToolDefinition> ExtractToolDefinitionsFromPlugins(IEnumerable<object> plugins)

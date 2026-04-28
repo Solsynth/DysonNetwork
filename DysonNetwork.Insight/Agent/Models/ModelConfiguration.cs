@@ -66,6 +66,12 @@ public class ModelConfiguration
     public string? CustomModelName { get; set; }
 
     /// <summary>
+    /// Transport API mode. Supported values: "responses" and "chat".
+    /// Defaults to "responses".
+    /// </summary>
+    public string? ApiMode { get; set; }
+
+    /// <summary>
     /// Custom parameters specific to this configuration
     /// </summary>
     public Dictionary<string, object> Parameters { get; set; } = new();
@@ -160,6 +166,14 @@ public class ModelConfiguration
     }
 
     /// <summary>
+    /// Gets the effective API mode (override or default).
+    /// </summary>
+    public string GetEffectiveApiMode()
+    {
+        return string.IsNullOrWhiteSpace(ApiMode) ? "responses" : ApiMode.Trim().ToLowerInvariant();
+    }
+
+    /// <summary>
     /// Validates this configuration
     /// </summary>
     public virtual IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
@@ -186,6 +200,17 @@ public class ModelConfiguration
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(ApiMode))
+        {
+            var validApiModes = new[] { "responses", "chat" };
+            if (!validApiModes.Contains(ApiMode.Trim().ToLowerInvariant()))
+            {
+                results.Add(new ValidationResult(
+                    "ApiMode must be one of: responses, chat",
+                    new[] { nameof(ApiMode) }));
+            }
+        }
+
         return results;
     }
 
@@ -206,6 +231,7 @@ public class ModelConfiguration
             BaseUrl = BaseUrl,
             ApiKey = ApiKey,
             CustomModelName = CustomModelName,
+            ApiMode = ApiMode,
             Parameters = new Dictionary<string, object>(Parameters)
         };
 

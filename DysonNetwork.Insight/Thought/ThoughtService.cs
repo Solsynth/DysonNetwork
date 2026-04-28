@@ -1537,6 +1537,7 @@ public class ThoughtService(
         var textParts = parts.Where(p => p.Type == ThinkingMessagePartType.Text).ToList();
         var toolCalls = parts.Where(p => p.Type == ThinkingMessagePartType.FunctionCall).ToList();
         var toolResults = parts.Where(p => p.Type == ThinkingMessagePartType.FunctionResult).ToList();
+        var reasoningParts = parts.Where(p => p.Type == ThinkingMessagePartType.Reasoning).ToList();
         var attachmentFiles = parts
             .Where(p => p.Files is { Count: > 0 })
             .SelectMany(p => p.Files!)
@@ -1577,16 +1578,28 @@ public class ThoughtService(
                 : $"{tc.FunctionCall.PluginName}-{tc.FunctionCall.Name}",
             Arguments = tc.FunctionCall?.Arguments ?? ""
         }).ToList();
+        var reasoningContent = string.Join("\n", reasoningParts.Select(p => p.Reasoning ?? ""));
 
         var assistantContent = string.IsNullOrWhiteSpace(content)
             ? timestampMeta
             : $"{content}\n{timestampMeta}";
 
-        builder.AddAssistantMessage(assistantContent, agentToolCalls.Count > 0 ? agentToolCalls : null);
+        if (!string.IsNullOrWhiteSpace(assistantContent) ||
+            !string.IsNullOrWhiteSpace(reasoningContent) ||
+            agentToolCalls.Count > 0)
+        {
+            builder.AddAssistantMessage(
+                assistantContent,
+                agentToolCalls.Count > 0 ? agentToolCalls : null,
+                string.IsNullOrWhiteSpace(reasoningContent) ? null : reasoningContent);
+        }
 
         foreach (var tr in toolResults)
         {
-            var resultString = tr.FunctionResult?.Result?.ToString() ?? "";
+            var resultString = tr.FunctionResult?.Result as string
+                               ?? (tr.FunctionResult?.Result != null
+                                   ? JsonSerializer.Serialize(tr.FunctionResult.Result)
+                                   : "");
             builder.AddToolResult(
                 tr.FunctionResult?.CallId ?? "",
                 resultString,

@@ -4,10 +4,14 @@ using System.ClientModel;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using DeepSeek.Core;
+using DeepSeek.Core.Models;
 using DysonNetwork.Insight.Agent.Foundation.Models;
 using OpenAI;
 using OpenAI.Chat;
 using OpenAI.Embeddings;
+using OpenAI.Responses;
 
 #pragma warning disable OPENAI001 
 
@@ -16,12 +20,16 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
     private const string ToolNameDotEscape = "__dot__";
 
     private readonly ChatClient _chatClient;
+    private readonly ResponsesClient _responsesClient;
+    private readonly DeepSeekClient? _deepSeekClient;
     private readonly EmbeddingClient? _embeddingClient;
     private readonly IAgentToolExecutor? _toolExecutor;
     private readonly ILogger<OpenAiCompatibleAdapter>? _logger;
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
     private readonly Uri _endpoint;
+    private readonly string _apiMode;
+    private readonly string _providerName;
     private readonly string _modelId;
     private readonly string? _embeddingModelId;
 
@@ -31,13 +39,16 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         string providerId,
         string modelId,
         string apiKey,
+        string apiMode,
         string? baseUrl = null,
         string? embeddingModelId = null,
         IAgentToolExecutor? toolExecutor = null,
         ILogger<OpenAiCompatibleAdapter>? logger = null)
     {
         ProviderId = providerId;
+        _providerName = providerId.Split(':', 2)[0];
         _apiKey = apiKey;
+        _apiMode = string.IsNullOrWhiteSpace(apiMode) ? "responses" : apiMode.Trim().ToLowerInvariant();
         _modelId = modelId;
         _embeddingModelId = embeddingModelId;
         _toolExecutor = toolExecutor;
@@ -55,11 +66,22 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
 
         var client = new OpenAIClient(new ApiKeyCredential(apiKey), options);
         _chatClient = client.GetChatClient(modelId);
+        _responsesClient = client.GetResponsesClient();
         _endpoint = options.Endpoint ?? new Uri("https://api.openai.com/v1");
         _httpClient = new HttpClient
         {
             BaseAddress = _endpoint
         };
+
+        if (UsesDeepSeekSdk())
+        {
+            var deepSeekHttpClient = new HttpClient
+            {
+                BaseAddress = NormalizeDeepSeekEndpoint(_endpoint),
+                Timeout = TimeSpan.FromSeconds(300)
+            };
+            _deepSeekClient = new DeepSeekClient(deepSeekHttpClient, apiKey);
+        }
 
         if (!string.IsNullOrEmpty(embeddingModelId))
         {
@@ -72,6 +94,16 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         AgentExecutionOptions? options = null,
         CancellationToken cancellationToken = default)
     {
+        if (UsesDeepSeekSdk())
+        {
+            return await CompleteWithDeepSeekSdkAsync(conversation, options, cancellationToken);
+        }
+
+        if (UsesResponsesApi())
+        {
+            return await CompleteWithResponsesApiAsync(conversation, options, cancellationToken);
+        }
+
         if (RequiresReasoningReplay())
         {
             return await CompleteChatWithReasoningReplayAsync(conversation, options, cancellationToken);
@@ -90,6 +122,26 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         AgentExecutionOptions? options = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        if (UsesDeepSeekSdk())
+        {
+            await foreach (var evt in CompleteStreamingWithDeepSeekSdkAsync(conversation, options, cancellationToken))
+            {
+                yield return evt;
+            }
+
+            yield break;
+        }
+
+        if (UsesResponsesApi())
+        {
+            await foreach (var evt in CompleteStreamingWithResponsesApiAsync(conversation, options, cancellationToken))
+            {
+                yield return evt;
+            }
+
+            yield break;
+        }
+
         if (RequiresReasoningReplay())
         {
             await foreach (var evt in CompleteChatStreamingWithReasoningReplayAsync(conversation, options, cancellationToken))
@@ -292,6 +344,781 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
                 InputTokens = 0
             };
         }).ToList();
+    }
+
+    private async Task<AgentChatResponse> CompleteWithResponsesApiAsync(
+        AgentConversation conversation,
+        AgentExecutionOptions? options,
+        CancellationToken cancellationToken)
+    {
+        var maxRounds = options?.MaxToolRounds ?? 10;
+        var round = 0;
+        var currentConversation = new AgentConversation(conversation.Messages.ToList())
+        {
+            Tools = conversation.Tools
+        };
+
+        while (round < maxRounds)
+        {
+            round++;
+            var request = BuildResponsesRequest(currentConversation, options, false);
+            var response = (await _responsesClient.CreateResponseAsync(request, cancellationToken)).Value;
+            var agentResponse = ConvertResponsesResult(response);
+
+            if (agentResponse.FinishReason != AgentFinishReason.ToolCalls || agentResponse.ToolCalls == null || agentResponse.ToolCalls.Count == 0)
+            {
+                return agentResponse;
+            }
+
+            currentConversation.Messages.Add(new AgentMessage
+            {
+                Role = AgentMessageRole.Assistant,
+                Content = agentResponse.Content,
+                ReasoningContent = agentResponse.Reasoning,
+                ToolCalls = agentResponse.ToolCalls
+            });
+
+            if (_toolExecutor == null)
+            {
+                return agentResponse;
+            }
+
+            foreach (var toolCall in agentResponse.ToolCalls)
+            {
+                toolCall.Arguments = NormalizeToolArguments(toolCall.Arguments);
+                var result = await _toolExecutor.ExecuteToolAsync(toolCall, cancellationToken);
+                currentConversation.Messages.Add(AgentMessage.FromToolResult(toolCall.Id, result.Result, result.IsError));
+            }
+        }
+
+        _logger?.LogWarning("Max tool rounds ({MaxRounds}) reached in responses chat", maxRounds);
+        return new AgentChatResponse { Content = "", FinishReason = AgentFinishReason.Length };
+    }
+
+    private async Task<AgentChatResponse> CompleteWithDeepSeekSdkAsync(
+        AgentConversation conversation,
+        AgentExecutionOptions? options,
+        CancellationToken cancellationToken)
+    {
+        if (_deepSeekClient == null)
+        {
+            throw new InvalidOperationException("DeepSeek client is not initialized.");
+        }
+
+        var maxRounds = options?.MaxToolRounds ?? 10;
+        var round = 0;
+        var currentConversation = new AgentConversation(conversation.Messages.ToList())
+        {
+            Tools = conversation.Tools
+        };
+
+        while (round < maxRounds)
+        {
+            round++;
+            var request = BuildDeepSeekRequest(currentConversation, options, false);
+            var response = await _deepSeekClient.ChatAsync(request, cancellationToken);
+            var agentResponse = ConvertDeepSeekResponse(response);
+
+            if (agentResponse.FinishReason != AgentFinishReason.ToolCalls || agentResponse.ToolCalls == null || agentResponse.ToolCalls.Count == 0)
+            {
+                return agentResponse;
+            }
+
+            currentConversation.Messages.Add(new AgentMessage
+            {
+                Role = AgentMessageRole.Assistant,
+                Content = agentResponse.Content,
+                ReasoningContent = agentResponse.Reasoning,
+                ToolCalls = agentResponse.ToolCalls
+            });
+
+            if (_toolExecutor == null)
+            {
+                return agentResponse;
+            }
+
+            foreach (var toolCall in agentResponse.ToolCalls)
+            {
+                toolCall.Arguments = NormalizeToolArguments(toolCall.Arguments);
+                var result = await _toolExecutor.ExecuteToolAsync(toolCall, cancellationToken);
+                currentConversation.Messages.Add(AgentMessage.FromToolResult(toolCall.Id, result.Result, result.IsError));
+            }
+        }
+
+        _logger?.LogWarning("Max tool rounds ({MaxRounds}) reached in DeepSeek SDK chat", maxRounds);
+        return new AgentChatResponse { Content = "", FinishReason = AgentFinishReason.Length };
+    }
+
+    private async IAsyncEnumerable<AgentStreamEvent> CompleteStreamingWithDeepSeekSdkAsync(
+        AgentConversation conversation,
+        AgentExecutionOptions? options,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        if (_deepSeekClient == null)
+        {
+            throw new InvalidOperationException("DeepSeek client is not initialized.");
+        }
+
+        var maxRounds = options?.MaxToolRounds ?? 10;
+        var round = 0;
+        var currentConversation = new AgentConversation(conversation.Messages.ToList())
+        {
+            Tools = conversation.Tools
+        };
+
+        while (round < maxRounds)
+        {
+            round++;
+            var request = BuildDeepSeekRequest(currentConversation, options, true);
+            var stream = _deepSeekClient.ChatStreamAsync(request, cancellationToken);
+            if (stream == null)
+            {
+                throw new InvalidOperationException("DeepSeek returned a null chat stream.");
+            }
+
+            var textBuilder = new StringBuilder();
+            var reasoningBuilder = new StringBuilder();
+            var toolCalls = new List<StreamingToolCallAccumulator>();
+
+            await foreach (var choice in stream.WithCancellation(cancellationToken))
+            {
+                var delta = choice.Delta;
+                if (delta == null)
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(delta.ReasoningContent))
+                {
+                    reasoningBuilder.Append(delta.ReasoningContent);
+                    yield return new AgentStreamEvent.ReasoningDelta(delta.ReasoningContent);
+                }
+
+                if (!string.IsNullOrWhiteSpace(delta.Content))
+                {
+                    textBuilder.Append(delta.Content);
+                    yield return new AgentStreamEvent.TextDelta(delta.Content);
+                }
+
+                if (delta.ToolCalls == null)
+                {
+                    continue;
+                }
+
+                for (var toolDeltaIndex = 0; toolDeltaIndex < delta.ToolCalls.Count; toolDeltaIndex++)
+                {
+                    var toolDelta = delta.ToolCalls[toolDeltaIndex];
+                    var index = toolDeltaIndex;
+                    var toolCall = toolCalls.FirstOrDefault(t => t.Index == index);
+                    if (toolCall == null)
+                    {
+                        toolCall = new StreamingToolCallAccumulator { Index = index };
+                        toolCalls.Add(toolCall);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(toolDelta.Id))
+                    {
+                        toolCall.Id = toolDelta.Id;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(toolDelta.Function?.Name))
+                    {
+                        toolCall.Name = DenormalizeToolNameFromProvider(toolDelta.Function.Name);
+                    }
+
+                    if (!toolCall.Started &&
+                        !string.IsNullOrWhiteSpace(toolCall.Id) &&
+                        !string.IsNullOrWhiteSpace(toolCall.Name))
+                    {
+                        toolCall.Started = true;
+                        yield return new AgentStreamEvent.ToolCallStarted(toolCall.Id, toolCall.Name);
+                    }
+
+                    var argumentsDelta = toolDelta.Function?.Arguments?.ToString();
+                    if (!string.IsNullOrWhiteSpace(argumentsDelta))
+                    {
+                        toolCall.Arguments.Append(argumentsDelta);
+                        if (toolCall.Started)
+                        {
+                            yield return new AgentStreamEvent.ToolCallDelta(toolCall.Id, toolCall.Name, argumentsDelta);
+                        }
+                    }
+                }
+            }
+
+            if (toolCalls.Count == 0)
+            {
+                yield return new AgentStreamEvent.Completed(AgentFinishReason.Stop, null, null);
+                yield break;
+            }
+
+            var finalizedToolCalls = toolCalls
+                .Where(toolCall => !string.IsNullOrWhiteSpace(toolCall.Id) && !string.IsNullOrWhiteSpace(toolCall.Name))
+                .Select(toolCall => new AgentToolCall
+                {
+                    Id = toolCall.Id,
+                    Name = toolCall.Name,
+                    Arguments = NormalizeToolArguments(toolCall.Arguments.ToString())
+                })
+                .ToList();
+
+            foreach (var toolCall in finalizedToolCalls)
+            {
+                yield return new AgentStreamEvent.ToolCallCompleted(toolCall.Id, toolCall.Name, toolCall.Arguments);
+            }
+
+            currentConversation.Messages.Add(new AgentMessage
+            {
+                Role = AgentMessageRole.Assistant,
+                Content = textBuilder.ToString(),
+                ReasoningContent = reasoningBuilder.Length > 0 ? reasoningBuilder.ToString() : null,
+                ToolCalls = finalizedToolCalls
+            });
+
+            if (options?.AutoInvokeTools == true && _toolExecutor != null)
+            {
+                foreach (var toolCall in finalizedToolCalls)
+                {
+                    var result = await _toolExecutor.ExecuteToolAsync(toolCall, cancellationToken);
+                    yield return new AgentStreamEvent.ToolResultReady(toolCall.Id, toolCall.Name, result.Result, result.IsError);
+                    currentConversation.Messages.Add(AgentMessage.FromToolResult(toolCall.Id, result.Result, result.IsError));
+                }
+            }
+            else
+            {
+                yield return new AgentStreamEvent.Completed(AgentFinishReason.ToolCalls, null, null);
+                yield break;
+            }
+        }
+
+        _logger?.LogWarning("Max tool rounds ({MaxRounds}) reached in DeepSeek SDK streaming chat", maxRounds);
+        yield return new AgentStreamEvent.Completed(AgentFinishReason.Length, null, null);
+    }
+
+    private async IAsyncEnumerable<AgentStreamEvent> CompleteStreamingWithResponsesApiAsync(
+        AgentConversation conversation,
+        AgentExecutionOptions? options,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var maxRounds = options?.MaxToolRounds ?? 10;
+        var round = 0;
+        var currentConversation = new AgentConversation(conversation.Messages.ToList())
+        {
+            Tools = conversation.Tools
+        };
+
+        while (round < maxRounds)
+        {
+            round++;
+            var request = BuildResponsesRequest(currentConversation, options, true);
+            var toolCallsByItemId = new Dictionary<string, ResponsesStreamingToolCallAccumulator>(StringComparer.Ordinal);
+            var toolCalls = new List<ResponsesStreamingToolCallAccumulator>();
+            var textBuilder = new StringBuilder();
+            var reasoningReplay = (string?)null;
+            ResponseResult? finalResponse = null;
+
+            await foreach (var update in _responsesClient.CreateResponseStreamingAsync(request, cancellationToken))
+            {
+                switch (update)
+                {
+                    case StreamingResponseOutputTextDeltaUpdate textDelta:
+                        if (!string.IsNullOrEmpty(textDelta.Delta))
+                        {
+                            textBuilder.Append(textDelta.Delta);
+                            yield return new AgentStreamEvent.TextDelta(textDelta.Delta);
+                        }
+                        break;
+
+                    case StreamingResponseReasoningSummaryTextDeltaUpdate reasoningSummaryDelta:
+                        if (!string.IsNullOrEmpty(reasoningSummaryDelta.Delta))
+                        {
+                            yield return new AgentStreamEvent.ReasoningDelta(reasoningSummaryDelta.Delta);
+                        }
+                        break;
+
+                    case StreamingResponseReasoningTextDeltaUpdate reasoningTextDelta:
+                        if (!string.IsNullOrEmpty(reasoningTextDelta.Delta))
+                        {
+                            yield return new AgentStreamEvent.ReasoningDelta(reasoningTextDelta.Delta);
+                        }
+                        break;
+
+                    case StreamingResponseOutputItemAddedUpdate itemAddedUpdate when itemAddedUpdate.Item is FunctionCallResponseItem functionCallItem:
+                        var addedCall = new ResponsesStreamingToolCallAccumulator
+                        {
+                            ItemId = functionCallItem.Id ?? itemAddedUpdate.Item.Id ?? "",
+                            ToolCallId = functionCallItem.CallId ?? "",
+                            ToolName = DenormalizeToolNameFromProvider(functionCallItem.FunctionName ?? "")
+                        };
+                        toolCalls.Add(addedCall);
+                        if (!string.IsNullOrEmpty(addedCall.ItemId))
+                        {
+                            toolCallsByItemId[addedCall.ItemId] = addedCall;
+                        }
+                        if (!string.IsNullOrWhiteSpace(addedCall.ToolCallId) && !string.IsNullOrWhiteSpace(addedCall.ToolName))
+                        {
+                            addedCall.Started = true;
+                            yield return new AgentStreamEvent.ToolCallStarted(addedCall.ToolCallId, addedCall.ToolName);
+                        }
+                        break;
+
+                    case StreamingResponseOutputItemAddedUpdate itemAddedUpdate when itemAddedUpdate.Item is ReasoningResponseItem reasoningItem:
+                        if (!string.IsNullOrWhiteSpace(reasoningItem.EncryptedContent))
+                        {
+                            reasoningReplay = reasoningItem.EncryptedContent;
+                        }
+                        break;
+
+                    case StreamingResponseOutputItemDoneUpdate itemDoneUpdate when itemDoneUpdate.Item is FunctionCallResponseItem functionCallItem:
+                        var doneCall = GetOrCreateStreamingToolCall(toolCalls, toolCallsByItemId, functionCallItem.Id ?? itemDoneUpdate.Item.Id ?? "");
+                        doneCall.ToolCallId = string.IsNullOrWhiteSpace(doneCall.ToolCallId) ? functionCallItem.CallId ?? "" : doneCall.ToolCallId;
+                        doneCall.ToolName = string.IsNullOrWhiteSpace(doneCall.ToolName) ? DenormalizeToolNameFromProvider(functionCallItem.FunctionName ?? "") : doneCall.ToolName;
+                        doneCall.Arguments.Clear();
+                        doneCall.Arguments.Append(functionCallItem.FunctionArguments?.ToString() ?? "");
+                        if (!doneCall.Started && !string.IsNullOrWhiteSpace(doneCall.ToolCallId) && !string.IsNullOrWhiteSpace(doneCall.ToolName))
+                        {
+                            doneCall.Started = true;
+                            yield return new AgentStreamEvent.ToolCallStarted(doneCall.ToolCallId, doneCall.ToolName);
+                        }
+                        break;
+
+                    case StreamingResponseOutputItemDoneUpdate itemDoneUpdate when itemDoneUpdate.Item is ReasoningResponseItem reasoningItem:
+                        if (!string.IsNullOrWhiteSpace(reasoningItem.EncryptedContent))
+                        {
+                            reasoningReplay = reasoningItem.EncryptedContent;
+                        }
+                        break;
+
+                    case StreamingResponseFunctionCallArgumentsDeltaUpdate argumentsDeltaUpdate:
+                        if (toolCallsByItemId.TryGetValue(argumentsDeltaUpdate.ItemId ?? "", out var streamingCall))
+                        {
+                            var delta = argumentsDeltaUpdate.Delta?.ToString() ?? "";
+                            if (!string.IsNullOrEmpty(delta))
+                            {
+                                streamingCall.Arguments.Append(delta);
+                                if (streamingCall.Started)
+                                {
+                                    yield return new AgentStreamEvent.ToolCallDelta(streamingCall.ToolCallId, streamingCall.ToolName, delta);
+                                }
+                            }
+                        }
+                        break;
+
+                    case StreamingResponseFunctionCallArgumentsDoneUpdate argumentsDoneUpdate:
+                        if (toolCallsByItemId.TryGetValue(argumentsDoneUpdate.ItemId ?? "", out var completedCall))
+                        {
+                            completedCall.Arguments.Clear();
+                            completedCall.Arguments.Append(argumentsDoneUpdate.FunctionArguments?.ToString() ?? "");
+                        }
+                        break;
+
+                    case StreamingResponseCompletedUpdate completedUpdate:
+                        finalResponse = completedUpdate.Response;
+                        break;
+                }
+            }
+
+            var finalizedToolCalls = toolCalls
+                .Where(toolCall => !string.IsNullOrWhiteSpace(toolCall.ToolCallId) && !string.IsNullOrWhiteSpace(toolCall.ToolName))
+                .Select(toolCall => new AgentToolCall
+                {
+                    Id = toolCall.ToolCallId,
+                    Name = toolCall.ToolName,
+                    Arguments = NormalizeToolArguments(toolCall.Arguments.ToString())
+                })
+                .ToList();
+
+            if (finalizedToolCalls.Count == 0)
+            {
+                if (finalResponse != null)
+                {
+                    var completedResponse = ConvertResponsesResult(finalResponse);
+                    yield return new AgentStreamEvent.Completed(completedResponse.FinishReason, completedResponse.InputTokens, completedResponse.OutputTokens);
+                }
+                else
+                {
+                    yield return new AgentStreamEvent.Completed(AgentFinishReason.Stop, null, null);
+                }
+
+                yield break;
+            }
+
+            foreach (var toolCall in finalizedToolCalls)
+            {
+                yield return new AgentStreamEvent.ToolCallCompleted(toolCall.Id, toolCall.Name, toolCall.Arguments);
+            }
+
+            currentConversation.Messages.Add(new AgentMessage
+            {
+                Role = AgentMessageRole.Assistant,
+                Content = textBuilder.ToString(),
+                ReasoningContent = reasoningReplay,
+                ToolCalls = finalizedToolCalls
+            });
+
+            if (options?.AutoInvokeTools == true && _toolExecutor != null)
+            {
+                foreach (var toolCall in finalizedToolCalls)
+                {
+                    var result = await _toolExecutor.ExecuteToolAsync(toolCall, cancellationToken);
+                    yield return new AgentStreamEvent.ToolResultReady(toolCall.Id, toolCall.Name, result.Result, result.IsError);
+                    currentConversation.Messages.Add(AgentMessage.FromToolResult(toolCall.Id, result.Result, result.IsError));
+                }
+            }
+            else
+            {
+                yield return new AgentStreamEvent.Completed(AgentFinishReason.ToolCalls, null, null);
+                yield break;
+            }
+        }
+
+        _logger?.LogWarning("Max tool rounds ({MaxRounds}) reached in responses streaming chat", maxRounds);
+        yield return new AgentStreamEvent.Completed(AgentFinishReason.Length, null, null);
+    }
+
+    private CreateResponseOptions BuildResponsesRequest(
+        AgentConversation conversation,
+        AgentExecutionOptions? options,
+        bool streaming)
+    {
+        var request = new CreateResponseOptions
+        {
+            Model = _modelId,
+            StreamingEnabled = streaming,
+            ParallelToolCallsEnabled = true
+        };
+
+        if (options?.Temperature.HasValue == true)
+        {
+            request.Temperature = (float)options.Temperature.Value;
+        }
+
+        if (options?.MaxTokens.HasValue == true)
+        {
+            request.MaxOutputTokenCount = options.MaxTokens.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(options?.ReasoningEffort) &&
+            TryMapResponseReasoningEffort(options.ReasoningEffort!, out var responseReasoningEffort))
+        {
+            request.ReasoningOptions = new ResponseReasoningOptions
+            {
+                ReasoningEffortLevel = responseReasoningEffort
+            };
+        }
+
+        foreach (var item in ConvertMessagesToResponseItems(conversation.Messages))
+        {
+            request.InputItems.Add(item);
+        }
+
+        if (options?.EnableTools == true && conversation.Tools != null)
+        {
+            foreach (var tool in conversation.Tools)
+            {
+                var parameters = BinaryData.FromString(tool.ParametersJsonSchema ?? "{\"type\":\"object\",\"properties\":{}}");
+                request.Tools.Add(ResponseTool.CreateFunctionTool(
+                    NormalizeToolNameForProvider(tool.Name),
+                    parameters,
+                    tool.Required,
+                    tool.Description));
+            }
+        }
+
+        return request;
+    }
+
+    private ChatRequest BuildDeepSeekRequest(
+        AgentConversation conversation,
+        AgentExecutionOptions? options,
+        bool streaming)
+    {
+        var request = new ChatRequest
+        {
+            Model = _modelId,
+            Stream = streaming,
+            Messages = ConvertMessagesToDeepSeekMessages(conversation.Messages)
+        };
+
+        if (options?.Temperature.HasValue == true)
+        {
+            request.Temperature = options.Temperature.Value;
+        }
+
+        if (options?.MaxTokens.HasValue == true)
+        {
+            request.MaxTokens = options.MaxTokens.Value;
+        }
+
+        if (options?.EnableTools == true && conversation.Tools != null && conversation.Tools.Count > 0)
+        {
+            request.Tools = conversation.Tools.Select(tool => new Tool
+            {
+                Function = new RequestFunction
+                {
+                    Name = NormalizeToolNameForProvider(tool.Name),
+                    Description = tool.Description,
+                    Parameters = string.IsNullOrWhiteSpace(tool.ParametersJsonSchema)
+                        ? null
+                        : JsonNode.Parse(tool.ParametersJsonSchema)
+                }
+            }).ToList();
+        }
+
+        return request;
+    }
+
+    private List<Message> ConvertMessagesToDeepSeekMessages(IEnumerable<AgentMessage> messages)
+    {
+        var result = new List<Message>();
+
+        foreach (var message in messages)
+        {
+            switch (message.Role)
+            {
+                case AgentMessageRole.System:
+                    result.Add(Message.NewSystemMessage(message.Content ?? ""));
+                    break;
+
+                case AgentMessageRole.User:
+                    result.Add(Message.NewUserMessage(BuildDeepSeekUserContent(message)));
+                    break;
+
+                case AgentMessageRole.Assistant:
+                    var assistantMessage = Message.NewAssistantMessage(message.Content ?? "");
+                    assistantMessage.ReasoningContent = message.ReasoningContent;
+                    assistantMessage.ToolCalls = message.ToolCalls?.Select(toolCall => new ToolCalls
+                    {
+                        Id = toolCall.Id,
+                        Type = "function",
+                        Function = new ToolCalls.ToolCallsFunction
+                        {
+                            Name = NormalizeToolNameForProvider(toolCall.Name),
+                            Arguments = NormalizeToolArguments(toolCall.Arguments)
+                        }
+                    }).ToList();
+                    result.Add(assistantMessage);
+                    break;
+
+                case AgentMessageRole.Tool:
+                    result.Add(Message.NewToolMessage(
+                        message.ToolResultContent ?? "",
+                        message.ToolCallId ?? ""));
+                    break;
+            }
+        }
+
+        return result;
+    }
+
+    private string BuildDeepSeekUserContent(AgentMessage message)
+    {
+        if (message.ContentParts == null || message.ContentParts.Count == 0)
+        {
+            return message.Content ?? "";
+        }
+
+        var text = new StringBuilder();
+        foreach (var part in message.ContentParts)
+        {
+            switch (part.Type)
+            {
+                case AgentContentPartType.Text:
+                    text.Append(part.Text);
+                    break;
+                case AgentContentPartType.ImageUrl:
+                    text.AppendLine($"[Image URL] {part.ImageUrl}");
+                    break;
+                case AgentContentPartType.ImageData:
+                    text.AppendLine($"[Image Attachment] {part.FileName ?? "image"}");
+                    break;
+                case AgentContentPartType.FileUrl:
+                    text.AppendLine($"[File URL] {part.FileName ?? "file"} {part.FileUrl}");
+                    break;
+                case AgentContentPartType.FileData:
+                    text.AppendLine($"[File Attachment] {part.FileName ?? "file"}");
+                    break;
+            }
+        }
+
+        return text.ToString();
+    }
+
+    private List<ResponseItem> ConvertMessagesToResponseItems(List<AgentMessage> messages)
+    {
+        var result = new List<ResponseItem>();
+
+        foreach (var message in messages)
+        {
+            switch (message.Role)
+            {
+                case AgentMessageRole.System:
+                    result.Add(ResponseItem.CreateSystemMessageItem(message.Content ?? ""));
+                    break;
+
+                case AgentMessageRole.User:
+                    if (message.ContentParts != null && message.ContentParts.Count > 0)
+                    {
+                        result.Add(ResponseItem.CreateUserMessageItem(ConvertUserContentParts(message.ContentParts)));
+                    }
+                    else
+                    {
+                        result.Add(ResponseItem.CreateUserMessageItem(message.Content ?? ""));
+                    }
+                    break;
+
+                case AgentMessageRole.Assistant:
+                    if (!string.IsNullOrWhiteSpace(message.Content))
+                    {
+                        result.Add(ResponseItem.CreateAssistantMessageItem(
+                            new[] { ResponseContentPart.CreateOutputTextPart(message.Content, []) }));
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(message.ReasoningContent))
+                    {
+                        result.Add(ResponseItem.CreateReasoningItem(message.ReasoningContent));
+                    }
+
+                    if (message.ToolCalls != null)
+                    {
+                        foreach (var toolCall in message.ToolCalls)
+                        {
+                            result.Add(ResponseItem.CreateFunctionCallItem(
+                                toolCall.Id,
+                                NormalizeToolNameForProvider(toolCall.Name),
+                                BinaryData.FromString(NormalizeToolArguments(toolCall.Arguments))));
+                        }
+                    }
+
+                    break;
+
+                case AgentMessageRole.Tool:
+                    result.Add(ResponseItem.CreateFunctionCallOutputItem(
+                        message.ToolCallId ?? "",
+                        message.ToolResultContent ?? ""));
+                    break;
+            }
+        }
+
+        return result;
+    }
+
+    private AgentChatResponse ConvertDeepSeekResponse(ChatResponse? response)
+    {
+        if (response?.Choices == null || response.Choices.Count == 0)
+        {
+            return new AgentChatResponse { FinishReason = AgentFinishReason.Stop, Content = "" };
+        }
+
+        var choice = response.Choices[0];
+        var message = choice.Message;
+        var toolCalls = message?.ToolCalls?
+            .Select(toolCall => new AgentToolCall
+            {
+                Id = toolCall.Id ?? "",
+                Name = DenormalizeToolNameFromProvider(toolCall.Function?.Name ?? ""),
+                Arguments = NormalizeToolArguments(toolCall.Function?.Arguments?.ToString())
+            })
+            .Where(toolCall => !string.IsNullOrWhiteSpace(toolCall.Id) && !string.IsNullOrWhiteSpace(toolCall.Name))
+            .ToList();
+
+        return new AgentChatResponse
+        {
+            Content = message?.Content ?? "",
+            Reasoning = message?.ReasoningContent,
+            ToolCalls = toolCalls?.Count > 0 ? toolCalls : null,
+            FinishReason = toolCalls?.Count > 0 ? AgentFinishReason.ToolCalls : ParseRawFinishReason(choice.FinishReason)
+        };
+    }
+
+    private static List<ResponseContentPart> ConvertUserContentParts(List<AgentMessageContentPart> parts)
+    {
+        var contentParts = new List<ResponseContentPart>();
+
+        foreach (var part in parts)
+        {
+            switch (part.Type)
+            {
+                case AgentContentPartType.Text:
+                    contentParts.Add(ResponseContentPart.CreateInputTextPart(part.Text ?? ""));
+                    break;
+                case AgentContentPartType.ImageUrl when !string.IsNullOrWhiteSpace(part.ImageUrl):
+                    contentParts.Add(ResponseContentPart.CreateInputImagePart(new Uri(part.ImageUrl!)));
+                    break;
+                case AgentContentPartType.ImageData when part.ImageData != null:
+                    var dataUrl = BuildDataUrl(part.ImageData, part.ImageMediaType);
+                    if (!string.IsNullOrWhiteSpace(dataUrl))
+                    {
+                        contentParts.Add(ResponseContentPart.CreateInputImagePart(dataUrl));
+                    }
+                    break;
+                case AgentContentPartType.FileData when part.FileData != null:
+                    contentParts.Add(ResponseContentPart.CreateInputFilePart(
+                        BinaryData.FromBytes(part.FileData),
+                        part.FileName ?? "attachment",
+                        part.FileMediaType ?? "application/octet-stream"));
+                    break;
+                case AgentContentPartType.FileUrl when !string.IsNullOrWhiteSpace(part.FileUrl):
+                    contentParts.Add(ResponseContentPart.CreateInputTextPart(
+                        $"[Attached File URL] {part.FileName ?? "file"} ({part.FileMediaType ?? "unknown"}) {part.FileUrl}"));
+                    break;
+            }
+        }
+
+        return contentParts;
+    }
+
+    private AgentChatResponse ConvertResponsesResult(ResponseResult response)
+    {
+        var result = new AgentChatResponse
+        {
+            FinishReason = AgentFinishReason.Stop
+        };
+
+        var toolCalls = new List<AgentToolCall>();
+        var contentBuilder = new StringBuilder();
+
+        foreach (var item in response.OutputItems)
+        {
+            switch (item)
+            {
+                case MessageResponseItem messageItem when messageItem.Role == MessageRole.Assistant:
+                    foreach (var part in messageItem.Content)
+                    {
+                        if (!string.IsNullOrEmpty(part.Text))
+                        {
+                            contentBuilder.Append(part.Text);
+                        }
+                        else if (!string.IsNullOrEmpty(part.Refusal))
+                        {
+                            contentBuilder.Append(part.Refusal);
+                        }
+                    }
+                    break;
+
+                case ReasoningResponseItem reasoningItem when !string.IsNullOrWhiteSpace(reasoningItem.EncryptedContent):
+                    result.Reasoning = reasoningItem.EncryptedContent;
+                    break;
+
+                case FunctionCallResponseItem functionCallItem:
+                    toolCalls.Add(new AgentToolCall
+                    {
+                        Id = functionCallItem.CallId ?? "",
+                        Name = DenormalizeToolNameFromProvider(functionCallItem.FunctionName ?? ""),
+                        Arguments = NormalizeToolArguments(functionCallItem.FunctionArguments?.ToString())
+                    });
+                    break;
+            }
+        }
+
+        result.Content = contentBuilder.ToString();
+        if (toolCalls.Count > 0)
+        {
+            result.ToolCalls = toolCalls;
+            result.FinishReason = AgentFinishReason.ToolCalls;
+        }
+
+        return result;
     }
 
     private async Task<AgentChatResponse> CompleteChatWithReasoningReplayAsync(
@@ -1150,6 +1977,25 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         }
     }
 
+    private static bool TryMapResponseReasoningEffort(string value, out ResponseReasoningEffortLevel level)
+    {
+        switch (value.Trim().ToLowerInvariant())
+        {
+            case "low":
+                level = ResponseReasoningEffortLevel.Low;
+                return true;
+            case "medium":
+                level = ResponseReasoningEffortLevel.Medium;
+                return true;
+            case "high":
+                level = ResponseReasoningEffortLevel.High;
+                return true;
+            default:
+                level = default;
+                return false;
+        }
+    }
+
     private AgentChatResponse ConvertResponse(ChatCompletion completion)
     {
         var response = new AgentChatResponse
@@ -1205,7 +2051,30 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
 
     private bool RequiresReasoningReplay()
     {
-        return ProviderId.StartsWith("deepseek", StringComparison.OrdinalIgnoreCase);
+        return !UsesDeepSeekSdk() &&
+               !UsesResponsesApi() &&
+               ProviderId.StartsWith("deepseek", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool UsesResponsesApi()
+    {
+        return !UsesDeepSeekSdk() && string.Equals(_apiMode, "responses", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool UsesDeepSeekSdk()
+    {
+        return string.Equals(_providerName, "deepseek", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static Uri NormalizeDeepSeekEndpoint(Uri endpoint)
+    {
+        var endpointText = endpoint.ToString().TrimEnd('/');
+        if (endpointText.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+        {
+            endpointText = endpointText[..^3];
+        }
+
+        return new Uri($"{endpointText}/", UriKind.Absolute);
     }
 
     private abstract record RawStreamUpdate
@@ -1223,6 +2092,38 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         public string Name { get; set; } = string.Empty;
         public StringBuilder Arguments { get; } = new();
         public bool Started { get; set; }
+    }
+
+    private sealed class ResponsesStreamingToolCallAccumulator
+    {
+        public string ItemId { get; set; } = string.Empty;
+        public string ToolCallId { get; set; } = string.Empty;
+        public string ToolName { get; set; } = string.Empty;
+        public StringBuilder Arguments { get; } = new();
+        public bool Started { get; set; }
+    }
+
+    private static ResponsesStreamingToolCallAccumulator GetOrCreateStreamingToolCall(
+        List<ResponsesStreamingToolCallAccumulator> toolCalls,
+        Dictionary<string, ResponsesStreamingToolCallAccumulator> toolCallsByItemId,
+        string itemId)
+    {
+        if (!string.IsNullOrWhiteSpace(itemId) && toolCallsByItemId.TryGetValue(itemId, out var existing))
+        {
+            return existing;
+        }
+
+        var created = new ResponsesStreamingToolCallAccumulator
+        {
+            ItemId = itemId
+        };
+        toolCalls.Add(created);
+        if (!string.IsNullOrWhiteSpace(itemId))
+        {
+            toolCallsByItemId[itemId] = created;
+        }
+
+        return created;
     }
 }
 

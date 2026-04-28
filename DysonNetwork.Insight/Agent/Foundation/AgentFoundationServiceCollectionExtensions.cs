@@ -31,20 +31,21 @@ public static class AgentFoundationServiceCollectionExtensions
         var thinkingConfig = configuration.GetSection("Thinking");
         var servicesConfig = thinkingConfig.GetSection("Services");
 
-        var providerRegistry = new Dictionary<string, (string Model, string? Endpoint, string? ApiKey, string? EmbeddingModel)>();
+        var providerRegistry = new Dictionary<string, (string Model, string ApiMode, string? Endpoint, string? ApiKey, string? EmbeddingModel)>();
 
         foreach (var serviceConfig in servicesConfig.GetChildren())
         {
             var serviceId = serviceConfig.Key;
             var provider = serviceConfig.GetValue<string>("Provider")?.ToLower() ?? "openrouter";
             var model = serviceConfig.GetValue<string>("Model");
+            var apiMode = serviceConfig.GetValue<string>("ApiMode")?.Trim().ToLowerInvariant() ?? "responses";
             var endpoint = serviceConfig.GetValue<string>("Endpoint");
             var apiKey = serviceConfig.GetValue<string>("ApiKey");
 
             if (string.IsNullOrEmpty(model)) continue;
 
-            var providerId = $"{provider}:{model}";
-            providerRegistry[providerId] = (model, endpoint, apiKey, null);
+            var providerId = $"{provider}:{apiMode}:{model}";
+            providerRegistry[providerId] = (model, apiMode, endpoint, apiKey, null);
         }
 
         var embeddingConfig = thinkingConfig.GetSection("Embeddings");
@@ -63,16 +64,16 @@ public static class AgentFoundationServiceCollectionExtensions
                 var embeddingEndpoint = embeddingServiceConfig.GetValue<string>("Endpoint");
                 var embeddingApiKey = embeddingServiceConfig.GetValue<string>("ApiKey");
 
-                var embeddingProviderId = $"{embeddingProvider}:{embeddingActualModel}";
-                providerRegistry[embeddingProviderId] = (embeddingActualModel, embeddingEndpoint, embeddingApiKey, embeddingActualModel);
+                var embeddingProviderId = $"{embeddingProvider}:responses:{embeddingActualModel}";
+                providerRegistry[embeddingProviderId] = (embeddingActualModel, "responses", embeddingEndpoint, embeddingApiKey, embeddingActualModel);
             }
             else
             {
                 var embeddingProvider = embeddingConfig.GetValue<string>("Provider")?.ToLower() ?? "openrouter";
-                var embeddingProviderId = $"{embeddingProvider}:{embeddingModel}";
+                var embeddingProviderId = $"{embeddingProvider}:responses:{embeddingModel}";
                 var embeddingApiKey = embeddingConfig.GetValue<string>("ApiKey");
                 var embeddingEndpoint = embeddingConfig.GetValue<string>("Endpoint");
-                providerRegistry[embeddingProviderId] = (embeddingModel, embeddingEndpoint, embeddingApiKey, embeddingModel);
+                providerRegistry[embeddingProviderId] = (embeddingModel, "responses", embeddingEndpoint, embeddingApiKey, embeddingModel);
             }
         }
 
@@ -82,7 +83,7 @@ public static class AgentFoundationServiceCollectionExtensions
             var logger = sp.GetService<ILogger<OpenAiCompatibleAdapter>>();
             var adapters = new List<IAgentProviderAdapter>();
 
-            foreach (var (providerId, (model, endpoint, apiKey, embeddingModel)) in providerRegistry)
+            foreach (var (providerId, (model, apiMode, endpoint, apiKey, embeddingModel)) in providerRegistry)
             {
                 var effectiveApiKey = apiKey;
                 if (string.IsNullOrEmpty(effectiveApiKey))
@@ -100,6 +101,7 @@ public static class AgentFoundationServiceCollectionExtensions
                     providerId,
                     model,
                     effectiveApiKey,
+                    apiMode,
                     finalEndpoint,
                     embeddingModel,
                     toolExecutor,
