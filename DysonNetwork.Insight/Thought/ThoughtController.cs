@@ -529,7 +529,7 @@ public class ThoughtController(
             mergedFiles.AddRange(voiceFiles.Select(voiceService.ToFileReference));
         if (mergedFiles.Count > 0)
             userPart.Files = mergedFiles;
-        await service.SaveThoughtAsync(
+        var userThought = await service.SaveThoughtAsync(
             sequence,
             [userPart],
             ThinkingThoughtRole.User,
@@ -556,7 +556,8 @@ public class ThoughtController(
                 request.AttachedPosts,
                 request.AttachedMessages,
                 request.AcceptProposals,
-                userPart.Files ?? []
+                userPart.Files ?? [],
+                userThought.Id
             );
 
             toolRegistry.RegisterMiChanPlugins(serviceProvider);

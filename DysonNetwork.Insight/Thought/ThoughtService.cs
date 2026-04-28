@@ -54,6 +54,9 @@ public class ThoughtService(
     private const string MiChanCompactionSummaryKind = "compaction";
     private const string MiChanSummaryKindMetadataKey = "summary_kind";
     private const string MiChanCoveredThroughThoughtIdMetadataKey = "covered_through_thought_id";
+    private const string HiddenContextKindMetadataKey = "hidden_context_kind";
+    private const string HiddenContextSourceThoughtIdMetadataKey = "hidden_context_source_thought_id";
+    private const string HiddenImageDescriptionContextKind = "image_description";
     private const int MiChanCompactionThresholdTokens = 8000;
     private const int MiChanRecentHistoryTokenBudget = 2500;
     private const int MiChanMinRecentThoughts = 8;
@@ -689,7 +692,9 @@ public class ThoughtService(
 
     public List<SnThinkingThought> FilterVisibleThoughts(IEnumerable<SnThinkingThought> thoughts)
     {
-        return thoughts.Where(thought => !IsMiChanCompactionThought(thought)).ToList();
+        return thoughts.Where(thought =>
+            !IsMiChanCompactionThought(thought) &&
+            !IsHiddenImageContextThought(thought)).ToList();
     }
 
     internal (List<SnThinkingThought> thoughts, bool hasMore) SliceVisibleThoughtsForTests(
@@ -1378,7 +1383,8 @@ public class ThoughtService(
         List<string>? attachedPosts,
         List<Dictionary<string, dynamic>>? attachedMessages,
         List<string> acceptProposals,
-        List<SnCloudFileReferenceObject> attachments)
+        List<SnCloudFileReferenceObject> attachments,
+        Guid? currentThoughtId = null)
     {
         var personalityFile = configuration.GetValue<string>("SnChan:PersonalityFile");
         var personalityConfig = configuration.GetValue<string>("SnChan:Personality") ?? "";
@@ -1497,8 +1503,18 @@ public class ThoughtService(
             var rawTextFiles = attachments.Where(IsRawTextFile).ToList();
             if (imageFiles.Count > 0 && postAnalysisService.IsVisionModelAvailable())
             {
-                useVisionKernel = true;
-                builder.AddUserMessageWithImages(userMessage ?? "请分析这些图片文件。", imageFiles);
+                var (imageContextText, alreadyPersisted) = await EnsureImageContextThoughtAsync(
+                    sequence,
+                    SnChanBotName,
+                    currentThoughtId,
+                    userMessage,
+                    imageFiles,
+                    currentUser.PerkLevel,
+                    useMiChan: false);
+                if (!alreadyPersisted && !string.IsNullOrWhiteSpace(imageContextText))
+                {
+                    builder.AddSystemMessage(imageContextText);
+                }
             }
 
             if (imageFiles.Count > 0 && !useVisionKernel)
@@ -1570,6 +1586,15 @@ public class ThoughtService(
             return;
         }
 
+        if (thought.Role == ThinkingThoughtRole.System)
+        {
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                builder.AddSystemMessage(content);
+            }
+            return;
+        }
+
         var agentToolCalls = toolCalls.Select(tc => new AgentToolCall
         {
             Id = tc.FunctionCall?.Id ?? "",
@@ -1606,6 +1631,115 @@ public class ThoughtService(
                 tr.FunctionResult?.IsError ?? false
             );
         }
+    }
+
+    private bool IsHiddenImageContextThought(SnThinkingThought thought)
+    {
+        if (thought.Role != ThinkingThoughtRole.System)
+        {
+            return false;
+        }
+
+        var textPart = thought.Parts.FirstOrDefault(p => p.Type == ThinkingMessagePartType.Text);
+        return TryGetMetadataString(textPart?.Metadata, HiddenContextKindMetadataKey, out var kind) &&
+               string.Equals(kind, HiddenImageDescriptionContextKind, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<(string? ContextText, bool AlreadyPersisted)> EnsureImageContextThoughtAsync(
+        SnThinkingSequence sequence,
+        string botName,
+        Guid? sourceThoughtId,
+        string? userMessage,
+        List<SnCloudFileReferenceObject> imageFiles,
+        int? userPerkLevel,
+        bool useMiChan,
+        CancellationToken cancellationToken = default)
+    {
+        if (sourceThoughtId == null || imageFiles.Count == 0)
+        {
+            return (null, false);
+        }
+
+        var sourceThoughtIdText = sourceThoughtId.Value.ToString();
+        var existingContextThoughts = await db.ThinkingThoughts
+            .Where(t => t.SequenceId == sequence.Id)
+            .Where(t => t.Role == ThinkingThoughtRole.System)
+            .Where(t => t.BotName == botName)
+            .ToListAsync(cancellationToken);
+
+        await HydrateThoughtPartsAsync(existingContextThoughts, cancellationToken);
+
+        if (existingContextThoughts.Any(thought =>
+                thought.Parts.Any(part =>
+                    part.Type == ThinkingMessagePartType.Text &&
+                    TryGetMetadataString(part.Metadata, HiddenContextKindMetadataKey, out var kind) &&
+                    string.Equals(kind, HiddenImageDescriptionContextKind, StringComparison.OrdinalIgnoreCase) &&
+                    TryGetMetadataString(part.Metadata, HiddenContextSourceThoughtIdMetadataKey, out var thoughtIdValue) &&
+                    string.Equals(thoughtIdValue, sourceThoughtIdText, StringComparison.OrdinalIgnoreCase))))
+        {
+            var existingText = existingContextThoughts
+                .SelectMany(thought => thought.Parts)
+                .FirstOrDefault(part =>
+                    part.Type == ThinkingMessagePartType.Text &&
+                    TryGetMetadataString(part.Metadata, HiddenContextKindMetadataKey, out var kind) &&
+                    string.Equals(kind, HiddenImageDescriptionContextKind, StringComparison.OrdinalIgnoreCase) &&
+                    TryGetMetadataString(part.Metadata, HiddenContextSourceThoughtIdMetadataKey, out var thoughtIdValue) &&
+                    string.Equals(thoughtIdValue, sourceThoughtIdText, StringComparison.OrdinalIgnoreCase))
+                ?.Text;
+            return (existingText, true);
+        }
+
+        var provider = useMiChan
+            ? miChanFoundationProvider.GetVisionAdapter(userPerkLevel)
+            : snChanFoundationProvider.GetVisionAdapter(userPerkLevel);
+        var options = useMiChan
+            ? miChanFoundationProvider.CreateVisionExecutionOptions(temperature: 0.2)
+            : snChanFoundationProvider.CreateVisionExecutionOptions(temperature: 0.2);
+
+        var prompt = new StringBuilder();
+        prompt.AppendLine("You are generating hidden internal context for a later text-only assistant reply.");
+        prompt.AppendLine("Describe the attached images factually and concisely.");
+        prompt.AppendLine("Include visible objects, text in the image, scene details, and anything relevant to the user's request.");
+        prompt.AppendLine("Do not address the user. Do not speculate beyond what is visible. Output plain text only.");
+        if (!string.IsNullOrWhiteSpace(userMessage))
+        {
+            prompt.AppendLine();
+            prompt.AppendLine("User request:");
+            prompt.AppendLine(userMessage);
+        }
+
+        var conversation = new ConversationBuilder()
+            .AddSystemMessage(prompt.ToString())
+            .AddUserMessageWithImages("Describe these images for internal assistant context.", imageFiles)
+            .Build();
+
+        var response = await foundationStreamingService.CompleteChatAsync(provider, conversation, options, cancellationToken);
+        if (string.IsNullOrWhiteSpace(response.Content))
+        {
+            return (null, false);
+        }
+
+        var contextText = "Image context for this conversation:\n" + response.Content.Trim();
+        await SaveThoughtAsync(
+            sequence,
+            [
+                new SnThinkingMessagePart
+                {
+                    Type = ThinkingMessagePartType.Text,
+                    Text = contextText,
+                    Metadata = new Dictionary<string, object>
+                    {
+                        [HiddenContextKindMetadataKey] = HiddenImageDescriptionContextKind,
+                        [HiddenContextSourceThoughtIdMetadataKey] = sourceThoughtIdText
+                    }
+                }
+            ],
+            ThinkingThoughtRole.System,
+            model: useMiChan ? "michan-vision-context" : "snchan-vision-context",
+            botName: botName
+        );
+
+        return (contextText, false);
     }
 
     #endregion
@@ -1777,6 +1911,7 @@ public class ThoughtService(
         builder.AddSystemMessage(proposalBuilder.ToString());
 
         var useVisionKernel = false;
+        var currentTurnImageFiles = new List<SnCloudFileReferenceObject>();
         if (attachedPosts is { Count: > 0 })
         {
             var postsWithImages = new List<SnPost>();
@@ -1804,11 +1939,9 @@ public class ThoughtService(
             if (postTexts.Count > 0)
                 builder.AddUserMessage("附加的帖子：\n" + string.Join("\n\n", postTexts));
 
-            if (postsWithImages.Count > 0 && postAnalysisService.IsVisionModelAvailable())
+            if (postsWithImages.Count > 0)
             {
-                useVisionKernel = true;
-                var imageFiles = postsWithImages.SelectMany(p => p.Attachments ?? new List<SnCloudFileReferenceObject>()).ToList();
-                builder.AddUserMessageWithImages("附加帖子的图片：", imageFiles);
+                currentTurnImageFiles.AddRange(postsWithImages.SelectMany(p => p.Attachments ?? new List<SnCloudFileReferenceObject>()));
             }
         }
 
@@ -1823,12 +1956,7 @@ public class ThoughtService(
             var imageFiles = attachments.Where(IsImageFile).ToList();
             var nonImageFiles = attachments.Where(f => !IsImageFile(f)).ToList();
             var rawTextFiles = attachments.Where(IsRawTextFile).ToList();
-            useVisionKernel = imageFiles.Count > 0 && visionAvailable;
-
-            if (useVisionKernel)
-            {
-                builder.AddUserMessageWithImages("附加的图片文件：", imageFiles);
-            }
+            currentTurnImageFiles.AddRange(imageFiles);
 
             if (imageFiles.Count > 0 && !useVisionKernel)
             {
@@ -1850,6 +1978,25 @@ public class ThoughtService(
             if (!string.IsNullOrWhiteSpace(rawTextContext))
             {
                 builder.AddUserMessage(rawTextContext);
+            }
+        }
+
+        if (currentTurnImageFiles.Count > 0 && postAnalysisService.IsVisionModelAvailable())
+        {
+            var (imageContextText, alreadyPersisted) = await EnsureImageContextThoughtAsync(
+                sequence,
+                MiChanBotName,
+                currentThoughtId,
+                userMessage,
+                currentTurnImageFiles
+                    .Where(file => IsImageFile(file))
+                    .DistinctBy(file => file.Id)
+                    .ToList(),
+                currentUser.PerkLevel,
+                useMiChan: true);
+            if (!alreadyPersisted && !string.IsNullOrWhiteSpace(imageContextText))
+            {
+                builder.AddSystemMessage(imageContextText);
             }
         }
 

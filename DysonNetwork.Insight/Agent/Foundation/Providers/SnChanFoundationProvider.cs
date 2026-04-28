@@ -7,7 +7,9 @@ using DysonNetwork.Insight.Agent.Models;
 public interface ISnChanFoundationProvider
 {
     IAgentProviderAdapter GetChatAdapter(string? modelId = null);
+    IAgentProviderAdapter GetVisionAdapter(int? userPerkLevel = null);
     AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null);
+    AgentExecutionOptions CreateVisionExecutionOptions(double? temperature = null, string? reasoningEffort = null);
 }
 
 public class SnChanFoundationProvider : ISnChanFoundationProvider
@@ -60,6 +62,38 @@ public class SnChanFoundationProvider : ISnChanFoundationProvider
             EnableTools = _defaultModel.EnableFunctions,
             AutoInvokeTools = false,
             MaxToolRounds = 10
+        };
+    }
+
+    public IAgentProviderAdapter GetVisionAdapter(int? userPerkLevel = null)
+    {
+        var serviceId = _configuration.GetValue<string>("SnChan:VisionModel:ModelId")
+                        ?? _configuration.GetValue<string>("Thinking:DefaultService")
+                        ?? _defaultModel.ModelId;
+        var providerId = GetProviderIdFromConfig(serviceId);
+        return _providerRegistry.GetProvider(providerId);
+    }
+
+    public AgentExecutionOptions CreateVisionExecutionOptions(double? temperature = null, string? reasoningEffort = null)
+    {
+        var serviceId = _configuration.GetValue<string>("SnChan:VisionModel:ModelId")
+                        ?? _configuration.GetValue<string>("Thinking:DefaultService")
+                        ?? _defaultModel.ModelId;
+        var serviceConfig = _configuration.GetSection($"Thinking:Services:{serviceId}");
+        var defaultTemperature = _configuration.GetValue<double?>("SnChan:VisionModel:Temperature")
+                                 ?? serviceConfig.GetValue<double?>("Temperature")
+                                 ?? _defaultModel.GetEffectiveTemperature();
+        var defaultReasoningEffort = reasoningEffort
+                                     ?? _configuration.GetValue<string>("SnChan:VisionModel:ReasoningEffort")
+                                     ?? serviceConfig.GetValue<string>("ReasoningEffort");
+
+        return new AgentExecutionOptions
+        {
+            Temperature = temperature ?? defaultTemperature,
+            ReasoningEffort = defaultReasoningEffort,
+            EnableTools = false,
+            AutoInvokeTools = false,
+            MaxToolRounds = 1
         };
     }
 

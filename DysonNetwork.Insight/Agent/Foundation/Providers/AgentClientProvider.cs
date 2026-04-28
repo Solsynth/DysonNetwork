@@ -220,7 +220,7 @@ public class MiChanClientProvider : IMiChanClientProvider
 
     public bool IsVisionModelAvailable()
     {
-        var modelRef = _config.GetVisionModel().GetModelRef();
+        var modelRef = _config.GetVisionModel().GetModelRef(_modelRegistry);
         if (modelRef == null) return false;
         return !string.IsNullOrEmpty(modelRef.ModelName);
     }
@@ -291,5 +291,18 @@ public class SnChanClientProvider : ISnChanClientProvider
         });
     }
 
-    public bool IsVisionModelAvailable() => false;
+    public bool IsVisionModelAvailable()
+    {
+        if (!_configuration.GetValue<bool?>("SnChan:EnableVision").GetValueOrDefault(true))
+        {
+            return false;
+        }
+
+        var serviceId = _configuration.GetValue<string>("SnChan:VisionModel:ModelId")
+                        ?? _configuration.GetValue<string>("SnChan:DefaultChatModel:ModelId")
+                        ?? _configuration.GetValue<string>("Thinking:DefaultService")
+                        ?? "deepseek-chat";
+        var modelRef = _modelRegistry.GetById(serviceId);
+        return modelRef != null && !string.IsNullOrEmpty(modelRef.ModelName);
+    }
 }
