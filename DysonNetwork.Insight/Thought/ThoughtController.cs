@@ -1085,7 +1085,14 @@ public class ThoughtController(
                 );
             var modelNameForAttempt = useVisionKernel
                 ? miChanConfig.Vision.VisionThinkingService
-                : miChanConfig.ThinkingModel.ModelId;
+                : request.Model ?? miChanConfig.ThinkingModel.ModelId;
+            logger.LogInformation(
+                "MiChan selected provider {ProviderId} with model label {ModelName} for sequence {SequenceId}, attempt={Attempt}",
+                provider.ProviderId,
+                modelNameForAttempt,
+                sequence.Id,
+                attempt + 1
+            );
 
             var attemptAssistantParts = new List<SnThinkingMessagePart>();
             var attemptFullResponse = new StringBuilder();
@@ -1300,6 +1307,23 @@ public class ThoughtController(
                         Text = attemptFullResponse.ToString(),
                     }
                 );
+            }
+
+            if (attemptAssistantParts.Count == 0)
+            {
+                logger.LogWarning(
+                    "MiChan returned an empty response for user {AccountId}, sequence {SequenceId}, provider {ProviderId}, model {ModelName}",
+                    accountId,
+                    sequence.Id,
+                    provider.ProviderId,
+                    modelNameForAttempt
+                );
+                var errorJson = JsonSerializer.Serialize(
+                    new { type = "error", data = "模型返回了空响应，请稍后重试" }
+                );
+                await Response.Body.WriteAsync(Encoding.UTF8.GetBytes($"data: {errorJson}\n\n"));
+                await Response.Body.FlushAsync();
+                return new EmptyResult();
             }
 
             assistantParts = attemptAssistantParts;
