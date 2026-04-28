@@ -48,6 +48,8 @@ public class DysonTokenAuthHandler(
 
         try
         {
+            var tokenScopes = TryExtractScopesFromJwt(tokenInfo.Token);
+
             // Extract session ID from JWT for cache key
             var sessionId = TryExtractSessionIdFromJwt(tokenInfo.Token);
             if (string.IsNullOrEmpty(sessionId))
@@ -61,6 +63,7 @@ public class DysonTokenAuthHandler(
             var cachedSession = await cache.GetAsync<DyAuthSession>(cacheKey);
             if (cachedSession is not null)
             {
+                ApplyTokenScopesIfPresent(cachedSession, tokenScopes);
                 Logger.LogDebug("Auth cache hit for path={Path} sessionId={SessionId}", Request.Path, cachedSession.Id);
                 await HydrateProfileAsync(cachedSession, Context.RequestAborted);
                 await TouchProfileLastSeenAsync(cachedSession, Context.RequestAborted);
@@ -92,6 +95,7 @@ public class DysonTokenAuthHandler(
             await cache.SetAsync(sessionCacheKey, session, SessionCacheTtl);
             Logger.LogDebug("Auth session cached for 1h, sessionId={SessionId}", session.Id);
 
+            ApplyTokenScopesIfPresent(session, tokenScopes);
             await HydrateProfileAsync(session, Context.RequestAborted);
             await TouchProfileLastSeenAsync(session, Context.RequestAborted);
             return BuildAuthResult(tokenInfo.Type, session);
@@ -134,6 +138,47 @@ public class DysonTokenAuthHandler(
         var bytes = System.Text.Encoding.UTF8.GetBytes(token);
         var hash = System.Security.Cryptography.SHA256.HashData(bytes);
         return Convert.ToHexString(hash);
+    }
+
+    private static List<string> TryExtractScopesFromJwt(string token)
+    {
+        try
+        {
+            var parts = token.Split('.');
+            if (parts.Length != 3)
+                return [];
+
+            var handler = new JwtSecurityTokenHandler();
+            var jwt = handler.ReadJwtToken(token);
+            var scopes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var claim in jwt.Claims.Where(c => c.Type == "scope" || c.Type == "scp"))
+            {
+                if (string.IsNullOrWhiteSpace(claim.Value))
+                    continue;
+
+                foreach (var part in claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    if (!string.IsNullOrWhiteSpace(part))
+                        scopes.Add(part);
+                }
+            }
+
+            return scopes.ToList();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private static void ApplyTokenScopesIfPresent(DyAuthSession session, List<string> tokenScopes)
+    {
+        if (tokenScopes.Count == 0)
+            return;
+
+        session.Scopes.Clear();
+        session.Scopes.Add(tokenScopes);
     }
 
     private AuthenticateResult BuildAuthResult(TokenType tokenType, DyAuthSession session)
