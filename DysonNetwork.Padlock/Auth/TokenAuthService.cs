@@ -108,6 +108,7 @@ public class TokenAuthService(
 
                 if (oidcJwt is not null)
                 {
+                    ApplyScopesFromToken(cachedSnSession, oidcJwt);
                     var (bound, message) = await ValidateOidcBindingAsync(cachedSnSession, oidcJwt);
                     if (!bound)
                     {
@@ -187,6 +188,7 @@ public class TokenAuthService(
 
             if (oidcJwt is not null)
             {
+                ApplyScopesFromToken(session, oidcJwt);
                 var (bound, message) = await ValidateOidcBindingAsync(session, oidcJwt);
                 if (!bound)
                 {
@@ -243,6 +245,38 @@ public class TokenAuthService(
             epoch = parsedEpoch;
 
         return (true, jwt, sessionId, tokenUse, epoch);
+    }
+
+    private void ApplyScopesFromToken(SnAuthSession session, JwtSecurityToken jwt)
+    {
+        var tokenScopes = ExtractScopesFromJwt(jwt);
+        if (tokenScopes.Count == 0)
+            return;
+
+        session.Scopes = tokenScopes;
+        logger.LogDebug(
+            "AuthenticateTokenAsync: applied token scopes to session (sessionId={SessionId}, scopes={Scopes})",
+            session.Id,
+            string.Join(",", tokenScopes)
+        );
+    }
+
+    private static List<string> ExtractScopesFromJwt(JwtSecurityToken jwt)
+    {
+        var scopes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var claim in jwt.Claims.Where(c => c.Type == "scope" || c.Type == "scp"))
+        {
+            if (string.IsNullOrWhiteSpace(claim.Value))
+                continue;
+
+            foreach (var part in claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (!string.IsNullOrWhiteSpace(part))
+                    scopes.Add(part);
+            }
+        }
+
+        return scopes.ToList();
     }
 
     private (bool IsValid, JwtSecurityToken? Token, string? Reason) ValidateOidcTokenRelaxed(string token)
