@@ -482,31 +482,49 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
             await foreach (var choice in stream.WithCancellation(cancellationToken))
             {
                 var delta = choice.Delta;
-                if (delta == null)
+                var message = choice.Message;
+                var streamedReasoning = delta?.ReasoningContent;
+                var streamedContent = delta?.Content;
+                var streamedToolCalls = delta?.ToolCalls;
+
+                if (string.IsNullOrWhiteSpace(streamedReasoning) &&
+                    string.IsNullOrWhiteSpace(streamedContent) &&
+                    (streamedToolCalls == null || streamedToolCalls.Count == 0))
+                {
+                    streamedReasoning = message?.ReasoningContent;
+
+                    if (!string.IsNullOrWhiteSpace(choice.Text))
+                    {
+                        streamedContent = choice.Text;
+                    }
+                    else
+                    {
+                        streamedContent = message?.Content;
+                    }
+
+                    streamedToolCalls = message?.ToolCalls;
+                }
+
+                if (!string.IsNullOrWhiteSpace(streamedReasoning))
+                {
+                    reasoningBuilder.Append(streamedReasoning);
+                    yield return new AgentStreamEvent.ReasoningDelta(streamedReasoning);
+                }
+
+                if (!string.IsNullOrWhiteSpace(streamedContent))
+                {
+                    textBuilder.Append(streamedContent);
+                    yield return new AgentStreamEvent.TextDelta(streamedContent);
+                }
+
+                if (streamedToolCalls == null)
                 {
                     continue;
                 }
 
-                if (!string.IsNullOrWhiteSpace(delta.ReasoningContent))
+                for (var toolDeltaIndex = 0; toolDeltaIndex < streamedToolCalls.Count; toolDeltaIndex++)
                 {
-                    reasoningBuilder.Append(delta.ReasoningContent);
-                    yield return new AgentStreamEvent.ReasoningDelta(delta.ReasoningContent);
-                }
-
-                if (!string.IsNullOrWhiteSpace(delta.Content))
-                {
-                    textBuilder.Append(delta.Content);
-                    yield return new AgentStreamEvent.TextDelta(delta.Content);
-                }
-
-                if (delta.ToolCalls == null)
-                {
-                    continue;
-                }
-
-                for (var toolDeltaIndex = 0; toolDeltaIndex < delta.ToolCalls.Count; toolDeltaIndex++)
-                {
-                    var toolDelta = delta.ToolCalls[toolDeltaIndex];
+                    var toolDelta = streamedToolCalls[toolDeltaIndex];
                     var index = toolDeltaIndex;
                     var toolCall = toolCalls.FirstOrDefault(t => t.Index == index);
                     if (toolCall == null)

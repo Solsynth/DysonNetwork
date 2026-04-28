@@ -67,7 +67,7 @@ public class ModelConfiguration
 
     /// <summary>
     /// Transport API mode. Supported values: "responses" and "chat".
-    /// Defaults to "responses".
+    /// Defaults to "chat".
     /// </summary>
     public string? ApiMode { get; set; }
 
@@ -170,7 +170,7 @@ public class ModelConfiguration
     /// </summary>
     public string GetEffectiveApiMode()
     {
-        return string.IsNullOrWhiteSpace(ApiMode) ? "responses" : ApiMode.Trim().ToLowerInvariant();
+        return string.IsNullOrWhiteSpace(ApiMode) ? "chat" : ApiMode.Trim().ToLowerInvariant();
     }
 
     /// <summary>

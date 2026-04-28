@@ -38,7 +38,7 @@ public static class AgentFoundationServiceCollectionExtensions
             var serviceId = serviceConfig.Key;
             var provider = serviceConfig.GetValue<string>("Provider")?.ToLower() ?? "openrouter";
             var model = serviceConfig.GetValue<string>("Model");
-            var apiMode = serviceConfig.GetValue<string>("ApiMode")?.Trim().ToLowerInvariant() ?? "responses";
+            var apiMode = serviceConfig.GetValue<string>("ApiMode")?.Trim().ToLowerInvariant() ?? "chat";
             var endpoint = serviceConfig.GetValue<string>("Endpoint");
             var apiKey = serviceConfig.GetValue<string>("ApiKey");
 
@@ -64,16 +64,16 @@ public static class AgentFoundationServiceCollectionExtensions
                 var embeddingEndpoint = embeddingServiceConfig.GetValue<string>("Endpoint");
                 var embeddingApiKey = embeddingServiceConfig.GetValue<string>("ApiKey");
 
-                var embeddingProviderId = $"{embeddingProvider}:responses:{embeddingActualModel}";
-                providerRegistry[embeddingProviderId] = (embeddingActualModel, "responses", embeddingEndpoint, embeddingApiKey, embeddingActualModel);
+                var embeddingProviderId = $"{embeddingProvider}:chat:{embeddingActualModel}";
+                providerRegistry[embeddingProviderId] = (embeddingActualModel, "chat", embeddingEndpoint, embeddingApiKey, embeddingActualModel);
             }
             else
             {
                 var embeddingProvider = embeddingConfig.GetValue<string>("Provider")?.ToLower() ?? "openrouter";
-                var embeddingProviderId = $"{embeddingProvider}:responses:{embeddingModel}";
+                var embeddingProviderId = $"{embeddingProvider}:chat:{embeddingModel}";
                 var embeddingApiKey = embeddingConfig.GetValue<string>("ApiKey");
                 var embeddingEndpoint = embeddingConfig.GetValue<string>("Endpoint");
-                providerRegistry[embeddingProviderId] = (embeddingModel, "responses", embeddingEndpoint, embeddingApiKey, embeddingModel);
+                providerRegistry[embeddingProviderId] = (embeddingModel, "chat", embeddingEndpoint, embeddingApiKey, embeddingModel);
             }
         }
 

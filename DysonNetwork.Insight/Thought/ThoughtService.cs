@@ -1660,6 +1660,15 @@ public class ThoughtService(
             return (null, false);
         }
 
+        var usableImageFiles = NormalizeImageFilesForVision(imageFiles);
+        if (usableImageFiles.Count == 0)
+        {
+            logger.LogWarning(
+                "Skipping image context generation for sequence {SequenceId} because no image attachment had a usable URL.",
+                sequence.Id);
+            return (null, false);
+        }
+
         var sourceThoughtIdText = sourceThoughtId.Value.ToString();
         var existingContextThoughts = await db.ThinkingThoughts
             .Where(t => t.SequenceId == sequence.Id)
@@ -1710,7 +1719,7 @@ public class ThoughtService(
 
         var conversation = new ConversationBuilder()
             .AddSystemMessage(prompt.ToString())
-            .AddUserMessageWithImages("Describe these images for internal assistant context.", imageFiles)
+            .AddUserMessageWithImages("Describe these images for internal assistant context.", usableImageFiles)
             .Build();
 
         var response = await foundationStreamingService.CompleteChatAsync(provider, conversation, options, cancellationToken);
@@ -1740,6 +1749,63 @@ public class ThoughtService(
         );
 
         return (contextText, false);
+    }
+
+    private List<SnCloudFileReferenceObject> NormalizeImageFilesForVision(IEnumerable<SnCloudFileReferenceObject> imageFiles)
+    {
+        return imageFiles
+            .Where(IsImageFile)
+            .Select(file =>
+            {
+                if (!string.IsNullOrWhiteSpace(file.Url))
+                {
+                    return file;
+                }
+
+                var fallbackUrl = BuildPublicFileUrl(file.Id);
+                if (string.IsNullOrWhiteSpace(fallbackUrl))
+                {
+                    return file;
+                }
+
+                return new SnCloudFileReferenceObject
+                {
+                    Id = file.Id,
+                    Name = file.Name,
+                    FileMeta = file.FileMeta,
+                    UserMeta = file.UserMeta,
+                    SensitiveMarks = file.SensitiveMarks,
+                    MimeType = file.MimeType,
+                    Hash = file.Hash,
+                    Size = file.Size,
+                    HasCompression = file.HasCompression,
+                    Url = fallbackUrl,
+                    Width = file.Width,
+                    Height = file.Height,
+                    Blurhash = file.Blurhash,
+                    CreatedAt = file.CreatedAt,
+                    UpdatedAt = file.UpdatedAt
+                };
+            })
+            .Where(file => !string.IsNullOrWhiteSpace(file.Url))
+            .DistinctBy(file => file.Id)
+            .ToList();
+    }
+
+    private string? BuildPublicFileUrl(string? fileId)
+    {
+        if (string.IsNullOrWhiteSpace(fileId))
+        {
+            return null;
+        }
+
+        var siteUrl = configGlobal["SiteUrl"]?.TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(siteUrl))
+        {
+            return null;
+        }
+
+        return $"{siteUrl}/drive/files/{fileId}";
     }
 
     #endregion

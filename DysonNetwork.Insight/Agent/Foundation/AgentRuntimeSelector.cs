@@ -46,7 +46,7 @@ public class AgentRuntimeSelector : IAgentRuntimeSelector
         var serviceConfig = thinkingConfig.GetSection($"Services:{modelId}");
 
         var provider = serviceConfig.GetValue<string>("Provider")?.ToLower();
-        var apiMode = serviceConfig.GetValue<string>("ApiMode")?.Trim().ToLowerInvariant() ?? "responses";
+        var apiMode = serviceConfig.GetValue<string>("ApiMode")?.Trim().ToLowerInvariant() ?? "chat";
         var model = serviceConfig.GetValue<string>("Model") ?? modelId;
 
         if (string.IsNullOrEmpty(provider))
