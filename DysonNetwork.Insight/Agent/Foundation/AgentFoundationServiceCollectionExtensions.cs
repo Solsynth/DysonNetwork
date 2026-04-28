@@ -140,6 +140,8 @@ public static class AgentFoundationServiceCollectionExtensions
         {
             "openrouter" => configuration.GetValue<string>("Thinking:OpenRouterApiKey"),
             "deepseek" => configuration.GetValue<string>("Thinking:DeepSeekApiKey"),
+            "mimo" => configuration.GetValue<string>("Thinking:MimoApiKey"),
+            "xiaomimimo" => configuration.GetValue<string>("Thinking:MimoApiKey"),
             "aliyun" => configuration.GetValue<string>("Thinking:AliyunApiKey"),
             "bigmodel" => configuration.GetValue<string>("Thinking:BigModelApiKey"),
             "longcat" => configuration.GetValue<string>("Thinking:LongcatApiKey"),
@@ -153,6 +155,8 @@ public static class AgentFoundationServiceCollectionExtensions
         {
             "openrouter" => "https://openrouter.ai/api/v1",
             "deepseek" => "https://api.deepseek.com/v1",
+            "mimo" => "https://api.xiaomimimo.com/v1",
+            "xiaomimimo" => "https://api.xiaomimimo.com/v1",
             "aliyun" => "https://dashscope.aliyuncs.com/compatible-mode/v1",
             "bigmodel" => "https://open.bigmodel.cn/api/paas/v4",
             "longcat" => "https://api.longcat.chat/openai",

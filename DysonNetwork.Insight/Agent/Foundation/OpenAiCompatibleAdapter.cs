@@ -99,14 +99,14 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
             return await CompleteWithDeepSeekSdkAsync(conversation, options, cancellationToken);
         }
 
+        if (UsesRawReasoningChatApi())
+        {
+            return await CompleteChatWithReasoningReplayAsync(conversation, options, cancellationToken);
+        }
+
         if (UsesResponsesApi())
         {
             return await CompleteWithResponsesApiAsync(conversation, options, cancellationToken);
-        }
-
-        if (RequiresReasoningReplay())
-        {
-            return await CompleteChatWithReasoningReplayAsync(conversation, options, cancellationToken);
         }
 
         var chatMessages = ConvertMessages(conversation.Messages);
@@ -132,17 +132,7 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
             yield break;
         }
 
-        if (UsesResponsesApi())
-        {
-            await foreach (var evt in CompleteStreamingWithResponsesApiAsync(conversation, options, cancellationToken))
-            {
-                yield return evt;
-            }
-
-            yield break;
-        }
-
-        if (RequiresReasoningReplay())
+        if (UsesRawReasoningChatApi())
         {
             await foreach (var evt in CompleteChatStreamingWithReasoningReplayAsync(conversation, options, cancellationToken))
             {
@@ -152,6 +142,15 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
             yield break;
         }
 
+        if (UsesResponsesApi())
+        {
+            await foreach (var evt in CompleteStreamingWithResponsesApiAsync(conversation, options, cancellationToken))
+            {
+                yield return evt;
+            }
+
+            yield break;
+        }
         var chatMessages = ConvertMessages(conversation.Messages);
         var chatOptions = BuildChatOptions(conversation.Tools, options);
         var maxRounds = options?.MaxToolRounds ?? 10;
@@ -1444,7 +1443,15 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         {
             Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
         };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+        if (UsesMimoProvider())
+        {
+            request.Headers.TryAddWithoutValidation("api-key", _apiKey);
+        }
+        else
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+        }
+
         if (stream)
         {
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
@@ -1472,7 +1479,7 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
 
         if (options?.MaxTokens.HasValue == true)
         {
-            payload["max_tokens"] = options.MaxTokens.Value;
+            payload[UsesMimoProvider() ? "max_completion_tokens" : "max_tokens"] = options.MaxTokens.Value;
         }
 
         if (options?.EnableTools == true && conversation.Tools != null && conversation.Tools.Count > 0)
@@ -2051,9 +2058,7 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
 
     private bool RequiresReasoningReplay()
     {
-        return !UsesDeepSeekSdk() &&
-               !UsesResponsesApi() &&
-               ProviderId.StartsWith("deepseek", StringComparison.OrdinalIgnoreCase);
+        return UsesRawReasoningChatApi();
     }
 
     private bool UsesResponsesApi()
@@ -2064,6 +2069,23 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
     private bool UsesDeepSeekSdk()
     {
         return string.Equals(_providerName, "deepseek", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool UsesRawReasoningChatApi()
+    {
+        if (UsesDeepSeekSdk())
+        {
+            return false;
+        }
+
+        return UsesMimoProvider();
+    }
+
+    private bool UsesMimoProvider()
+    {
+        return string.Equals(_providerName, "mimo", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(_providerName, "xiaomimimo", StringComparison.OrdinalIgnoreCase) ||
+               _endpoint.Host.Contains("xiaomimimo.com", StringComparison.OrdinalIgnoreCase);
     }
 
     private static Uri NormalizeDeepSeekEndpoint(Uri endpoint)
