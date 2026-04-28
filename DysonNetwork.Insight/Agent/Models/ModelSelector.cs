@@ -10,13 +10,16 @@ public class ModelSelector : IModelSelector
 {
     private readonly ModelSelectionConfig _config;
     private readonly ILogger<ModelSelector> _logger;
+    private readonly ModelRegistry _modelRegistry;
 
     public ModelSelector(
         IOptions<ModelSelectionConfig> config,
-        ILogger<ModelSelector> logger)
+        ILogger<ModelSelector> logger,
+        ModelRegistry modelRegistry)
     {
         _config = config.Value;
         _logger = logger;
+        _modelRegistry = modelRegistry;
     }
 
     /// <summary>
@@ -33,7 +36,7 @@ public class ModelSelector : IModelSelector
                 context.UseCase, context.PerkLevel);
 
             // Try to fall back to default model
-            var defaultModel = ModelRegistry.GetById(_config.DefaultModelId);
+            var defaultModel = _modelRegistry.GetById(_config.DefaultModelId);
             if (defaultModel != null)
             {
                 _logger.LogInformation("Falling back to default model {ModelId}", _config.DefaultModelId);

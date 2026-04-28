@@ -21,7 +21,7 @@ public class MiChanConfig : IValidatableObject
     /// Primary model for chat conversations. Defaults to deepseek-chat.
     /// Note: When UseModelSelection is true, this serves as the fallback default.
     /// </summary>
-    public ModelConfiguration ThinkingModel { get; set; } = ModelRegistry.DeepSeekChat;
+    public ModelConfiguration ThinkingModel { get; set; } = new() { ModelId = "deepseek-chat" };
 
     /// <summary>
     /// Model for autonomous behavior. Falls back to ThinkingModel if not set.
@@ -131,14 +131,6 @@ public class MiChanConfig : IValidatableObject
                     "BotAccountId is required when MiChan is enabled",
                     new[] { nameof(BotAccountId) }));
             }
-
-            // Validate vision model
-            if (Vision.EnableVisionAnalysis && !ModelRegistry.IsValid(Vision.VisionThinkingService))
-            {
-                results.Add(new ValidationResult(
-                    $"Vision model '{Vision.VisionThinkingService}' is not registered",
-                    new[] { nameof(Vision) + "." + nameof(Vision.VisionThinkingService) }));
-            }
         }
 
         return results;
@@ -205,7 +197,7 @@ public class MiChanVisionConfig
     /// <summary>
     /// Vision model ID from ModelRegistry (e.g., "vision-openrouter", "vision-aliyun")
     /// </summary>
-    public string VisionThinkingService { get; set; } = ModelRegistry.ClaudeOpus.Id;
+    public string VisionThinkingService { get; set; } = "vision-openrouter";
 
     /// <summary>
     /// Whether to enable image analysis capabilities
@@ -231,7 +223,7 @@ public class MiChanModelSelectionConfig
     /// <summary>
     /// Default model for users with PerkLevel 0
     /// </summary>
-    public string DefaultModelId { get; set; } = ModelRegistry.DeepSeekChat.Id;
+    public string DefaultModelId { get; set; } = "deepseek-chat";
 
     /// <summary>
     /// Model mappings for different use cases and PerkLevels
@@ -242,7 +234,7 @@ public class MiChanModelSelectionConfig
         new MiChanModelMapping
         {
             UseCase = ModelUseCase.MiChanChat,
-            ModelId = ModelRegistry.DeepSeekChat.Id,
+            ModelId = "deepseek-chat",
             MinPerkLevel = 0,
             IsDefault = true,
             DisplayName = "DeepSeek Chat",
@@ -251,7 +243,7 @@ public class MiChanModelSelectionConfig
         new MiChanModelMapping
         {
             UseCase = ModelUseCase.MiChanChat,
-            ModelId = ModelRegistry.DeepSeekReasoner.Id,
+            ModelId = "deepseek-reasoner",
             MinPerkLevel = 1,
             DisplayName = "DeepSeek Reasoner",
             Description = "Advanced reasoning capabilities for complex discussions"
@@ -261,7 +253,7 @@ public class MiChanModelSelectionConfig
         new MiChanModelMapping
         {
             UseCase = ModelUseCase.MiChanAutonomous,
-            ModelId = ModelRegistry.DeepSeekReasoner.Id,
+            ModelId = "deepseek-reasoner",
             MinPerkLevel = 0,
             IsDefault = true,
             DisplayName = "DeepSeek Reasoner",
@@ -272,7 +264,7 @@ public class MiChanModelSelectionConfig
         new MiChanModelMapping
         {
             UseCase = ModelUseCase.MiChanVision,
-            ModelId = ModelRegistry.QwenVision.Id,
+            ModelId = "vision-aliyun",
             MinPerkLevel = 0,
             IsDefault = true,
             DisplayName = "Qwen Vision",
@@ -281,7 +273,7 @@ public class MiChanModelSelectionConfig
         new MiChanModelMapping
         {
             UseCase = ModelUseCase.MiChanVision,
-            ModelId = ModelRegistry.ClaudeOpus.Id,
+            ModelId = "vision-openrouter",
             MinPerkLevel = 2,
             DisplayName = "Claude 3 Opus",
             Description = "Premium vision analysis with Claude"
@@ -291,21 +283,21 @@ public class MiChanModelSelectionConfig
         new MiChanModelMapping
         {
             UseCase = ModelUseCase.MiChanScheduledTask,
-            ModelId = ModelRegistry.DeepSeekChat.Id,
+            ModelId = "deepseek-chat",
             MinPerkLevel = 0,
             IsDefault = true
         },
         new MiChanModelMapping
         {
             UseCase = ModelUseCase.MiChanCompaction,
-            ModelId = ModelRegistry.DeepSeekChat.Id,
+            ModelId = "deepseek-chat",
             MinPerkLevel = 0,
             IsDefault = true
         },
         new MiChanModelMapping
         {
             UseCase = ModelUseCase.MiChanTopicGeneration,
-            ModelId = ModelRegistry.DeepSeekChat.Id,
+            ModelId = "deepseek-chat",
             MinPerkLevel = 0,
             IsDefault = true
         }

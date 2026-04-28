@@ -95,6 +95,10 @@ public static class ServiceCollectionExtensions
             services.AddMiChanFoundationProvider();
             services.AddSnChanFoundationProvider();
 
+            var thinkingConfig = configuration.GetSection("Thinking").Get<ThinkingConfig>() ?? new ThinkingConfig();
+            services.AddSingleton(thinkingConfig);
+            services.AddSingleton<ModelRegistry>();
+
             var freeQuotaConfig = configuration.GetSection("Thinking:FreeQuota").Get<FreeQuotaConfig>() ?? new FreeQuotaConfig();
             services.AddSingleton(freeQuotaConfig);
 

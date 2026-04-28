@@ -34,6 +34,7 @@ public class ThoughtProvider
     private readonly IServiceProvider _serviceProvider;
     private readonly FoundationChatStreamingService _streamingService;
     private readonly IMiChanFoundationProvider _miChanFoundationProvider;
+    private readonly ModelRegistry _modelRegistry;
 
     private readonly Dictionary<string, ThoughtServiceModel> _serviceModels = new();
     private readonly ModelConfiguration _defaultModel;
@@ -49,7 +50,8 @@ public class ThoughtProvider
         IServiceProvider serviceProvider,
         MiChanConfig miChanConfig,
         FoundationChatStreamingService streamingService,
-        IMiChanFoundationProvider miChanFoundationProvider)
+        IMiChanFoundationProvider miChanFoundationProvider,
+        ModelRegistry modelRegistry)
     {
         _logger = logger;
         _postClient = postServiceClient;
@@ -62,9 +64,10 @@ public class ThoughtProvider
         _miChanConfig = miChanConfig;
         _streamingService = streamingService;
         _miChanFoundationProvider = miChanFoundationProvider;
+        _modelRegistry = modelRegistry;
 
         var cfg = configuration.GetSection("Thinking");
-        var defaultServiceId = cfg.GetValue<string>("DefaultService") ?? ModelRegistry.DeepSeekChat.Id;
+        var defaultServiceId = cfg.GetValue<string>("DefaultService") ?? "deepseek-chat";
         var services = cfg.GetSection("Services").GetChildren();
 
         foreach (var service in services)

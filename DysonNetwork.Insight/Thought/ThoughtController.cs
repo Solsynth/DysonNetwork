@@ -34,6 +34,7 @@ public class ThoughtController(
     FoundationChatStreamingService streamingService,
     ISnChanFoundationProvider snChanFoundationProvider,
     IMiChanFoundationProvider miChanFoundationProvider,
+    ModelRegistry modelRegistry,
     ILogger<ThoughtController> logger
 ) : ControllerBase
 {
@@ -152,14 +153,14 @@ public class ThoughtController(
         else
         {
             // Fallback to all registered models when model selection is disabled
-            snChanModels = ModelRegistry
+            snChanModels = modelRegistry
                 .All.Select(m => new BotModelInfo
                 {
                     Id = m.Id,
                     DisplayName = m.DisplayName,
                     Description = $"Provider: {m.Provider}",
                     MinPerkLevel = 0,
-                    IsDefault = m.Id == ModelRegistry.DeepSeekChat.Id,
+                    IsDefault = m.Id == "deepseek-chat",
                 })
                 .ToList();
         }
@@ -197,14 +198,14 @@ public class ThoughtController(
         else
         {
             // Fallback to all registered models when model selection is disabled
-            miChanModels = ModelRegistry
+            miChanModels = modelRegistry
                 .All.Select(m => new BotModelInfo
                 {
                     Id = m.Id,
                     DisplayName = m.DisplayName,
                     Description = $"Provider: {m.Provider}",
                     MinPerkLevel = 0,
-                    IsDefault = m.Id == ModelRegistry.DeepSeekChat.Id,
+                    IsDefault = m.Id == "deepseek-chat",
                 })
                 .ToList();
         }

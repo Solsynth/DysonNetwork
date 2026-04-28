@@ -101,7 +101,7 @@ public class ModelSelectionConfig
     /// <summary>
     /// Default model to use when no mapping matches
     /// </summary>
-    public string DefaultModelId { get; set; } = ModelRegistry.DeepSeekChat.Id;
+    public string DefaultModelId { get; set; } = "deepseek-chat";
 
     /// <summary>
     /// Whether to allow users to override model selection (if they have sufficient PerkLevel)

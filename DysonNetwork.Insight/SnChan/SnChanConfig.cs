@@ -110,19 +110,19 @@ public class SnChanConfig : IValidatableObject
     /// Gets the effective default chat model
     /// </summary>
     public ModelConfiguration GetDefaultChatModel(string? defaultServiceId = null) =>
-        DefaultChatModel ?? new ModelConfiguration { ModelId = defaultServiceId ?? ModelRegistry.DeepSeekChat.Id };
+        DefaultChatModel ?? new ModelConfiguration { ModelId = defaultServiceId ?? "deepseek-chat" };
 
     /// <summary>
     /// Gets the effective reasoning model
     /// </summary>
     public ModelConfiguration GetReasoningModel(string? defaultServiceId = null) =>
-        ReasoningModel ?? DefaultChatModel ?? new ModelConfiguration { ModelId = defaultServiceId ?? ModelRegistry.DeepSeekChat.Id };
+        ReasoningModel ?? DefaultChatModel ?? new ModelConfiguration { ModelId = defaultServiceId ?? "deepseek-chat" };
 
     /// <summary>
     /// Gets the effective vision model
     /// </summary>
     public ModelConfiguration GetVisionModel(string? defaultServiceId = null) =>
-        VisionModel ?? DefaultChatModel ?? new ModelConfiguration { ModelId = defaultServiceId ?? ModelRegistry.DeepSeekChat.Id };
+        VisionModel ?? DefaultChatModel ?? new ModelConfiguration { ModelId = defaultServiceId ?? "deepseek-chat" };
 
     /// <summary>
     /// Gets the model for a specific use case based on PerkLevel
@@ -202,7 +202,7 @@ public class SnChanModelSelectionConfig
     /// <summary>
     /// Default model for users with PerkLevel 0
     /// </summary>
-    public string DefaultModelId { get; set; } = ModelRegistry.DeepSeekChat.Id;
+    public string DefaultModelId { get; set; } = "deepseek-chat";
 
     /// <summary>
     /// Whether to allow users to override model selection
@@ -218,7 +218,7 @@ public class SnChanModelSelectionConfig
         new SnChanModelMapping
         {
             UseCase = ModelUseCase.SnChanChat,
-            ModelId = ModelRegistry.DeepSeekChat.Id,
+            ModelId = "deepseek-chat",
             MinPerkLevel = 0,
             IsDefault = true,
             DisplayName = "DeepSeek Chat",
@@ -227,7 +227,7 @@ public class SnChanModelSelectionConfig
         new SnChanModelMapping
         {
             UseCase = ModelUseCase.SnChanChat,
-            ModelId = ModelRegistry.DeepSeekReasoner.Id,
+            ModelId = "deepseek-reasoner",
             MinPerkLevel = 1,
             DisplayName = "DeepSeek Reasoner",
             Description = "Advanced reasoning for complex discussions"
@@ -237,7 +237,7 @@ public class SnChanModelSelectionConfig
         new SnChanModelMapping
         {
             UseCase = ModelUseCase.SnChanReasoning,
-            ModelId = ModelRegistry.DeepSeekReasoner.Id,
+            ModelId = "deepseek-reasoner",
             MinPerkLevel = 0,
             IsDefault = true,
             DisplayName = "DeepSeek Reasoner",
@@ -248,7 +248,7 @@ public class SnChanModelSelectionConfig
         new SnChanModelMapping
         {
             UseCase = ModelUseCase.SnChanVision,
-            ModelId = ModelRegistry.QwenVision.Id,
+            ModelId = "vision-aliyun",
             MinPerkLevel = 0,
             IsDefault = true,
             DisplayName = "Qwen Vision",
@@ -257,7 +257,7 @@ public class SnChanModelSelectionConfig
         new SnChanModelMapping
         {
             UseCase = ModelUseCase.SnChanVision,
-            ModelId = ModelRegistry.ClaudeOpus.Id,
+            ModelId = "vision-openrouter",
             MinPerkLevel = 2,
             DisplayName = "Claude 3 Opus",
             Description = "Premium vision analysis with Claude"

@@ -43,11 +43,13 @@ public class MiChanClientProvider : IMiChanClientProvider
 {
     private readonly MiChanConfig _config;
     private readonly ILogger<MiChanClientProvider> _logger;
+    private readonly ModelRegistry _modelRegistry;
 
-    public MiChanClientProvider(MiChanConfig config, ILogger<MiChanClientProvider> logger)
+    public MiChanClientProvider(MiChanConfig config, ILogger<MiChanClientProvider> logger, ModelRegistry modelRegistry)
     {
         _config = config;
         _logger = logger;
+        _modelRegistry = modelRegistry;
     }
 
     public string GetProviderId(int? userPerkLevel = null, string? preferredModelId = null)
@@ -90,8 +92,8 @@ public class MiChanClientProvider : IMiChanClientProvider
     {
         return new AgentExecutionOptions
         {
-            Temperature = (float)(temperature ?? _config.ThinkingModel.GetEffectiveTemperature()),
-            ReasoningEffort = reasoningEffort ?? _config.ThinkingModel.GetEffectiveReasoningEffort()
+            Temperature = (float)(temperature ?? _config.ThinkingModel.GetEffectiveTemperature(_modelRegistry)),
+            ReasoningEffort = reasoningEffort ?? _config.ThinkingModel.GetEffectiveReasoningEffort(_modelRegistry)
         };
     }
 
@@ -128,17 +130,17 @@ public class MiChanClientProvider : IMiChanClientProvider
     /// <summary>
     /// Gets all available models from the registry
     /// </summary>
-    public IEnumerable<ModelRef> GetAvailableModels() => ModelRegistry.All;
+    public IEnumerable<ModelRef> GetAvailableModels() => _modelRegistry.All;
 
     /// <summary>
     /// Gets models that support vision
     /// </summary>
-    public IEnumerable<ModelRef> GetVisionModels() => ModelRegistry.VisionModels;
+    public IEnumerable<ModelRef> GetVisionModels() => _modelRegistry.VisionModels;
 
     /// <summary>
     /// Gets models that support reasoning
     /// </summary>
-    public IEnumerable<ModelRef> GetReasoningModels() => ModelRegistry.ReasoningModels;
+    public IEnumerable<ModelRef> GetReasoningModels() => _modelRegistry.ReasoningModels;
 
     /// <summary>
     /// Gets available models for a specific use case based on PerkLevel
@@ -150,7 +152,7 @@ public class MiChanClientProvider : IMiChanClientProvider
             return _config.ModelSelection.GetAvailableModels(useCase, userPerkLevel);
         }
 
-        return ModelRegistry.All.Select(m => new MiChanModelMapping
+        return _modelRegistry.All.Select(m => new MiChanModelMapping
         {
             UseCase = useCase,
             ModelId = m.Id,
@@ -232,14 +234,16 @@ public class SnChanClientProvider : ISnChanClientProvider
     private readonly IConfiguration _configuration;
     private readonly ILogger<SnChanClientProvider> _logger;
     private readonly ModelConfiguration _defaultModel;
+    private readonly ModelRegistry _modelRegistry;
 
-    public SnChanClientProvider(IConfiguration configuration, ILogger<SnChanClientProvider> logger)
+    public SnChanClientProvider(IConfiguration configuration, ILogger<SnChanClientProvider> logger, ModelRegistry modelRegistry)
     {
         _configuration = configuration;
         _logger = logger;
+        _modelRegistry = modelRegistry;
 
         var cfg = configuration.GetSection("Thinking");
-        var defaultServiceId = cfg.GetValue<string>("DefaultService") ?? ModelRegistry.DeepSeekChat.Id;
+        var defaultServiceId = cfg.GetValue<string>("DefaultService") ?? "deepseek-chat";
 
         _defaultModel = new ModelConfiguration
         {
@@ -266,8 +270,8 @@ public class SnChanClientProvider : ISnChanClientProvider
     {
         return new AgentExecutionOptions
         {
-            Temperature = (float)(temperature ?? _defaultModel.GetEffectiveTemperature()),
-            ReasoningEffort = reasoningEffort ?? _defaultModel.GetEffectiveReasoningEffort()
+            Temperature = (float)(temperature ?? _defaultModel.GetEffectiveTemperature(_modelRegistry)),
+            ReasoningEffort = reasoningEffort ?? _defaultModel.GetEffectiveReasoningEffort(_modelRegistry)
         };
     }
 
@@ -277,7 +281,7 @@ public class SnChanClientProvider : ISnChanClientProvider
 
     public IEnumerable<MiChanModelMapping> GetAvailableModelsForUseCase(ModelUseCase useCase, int userPerkLevel)
     {
-        return ModelRegistry.All.Select(m => new MiChanModelMapping
+        return _modelRegistry.All.Select(m => new MiChanModelMapping
         {
             UseCase = useCase,
             ModelId = m.Id,
