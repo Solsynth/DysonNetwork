@@ -229,11 +229,8 @@ public class PostController(
         if (!showFediverse)
             query = query.Where(p => p.FediverseUri == null);
 
-        // If user set the realm, return realm's post only
         if (realm != null)
             query = query.Where(p => p.RealmId == realm.Id);
-        // If user didn't, return the user joined realms post as well and non-realm related post
-        // But if user set publisher filter, also include all posts as well
         else if (string.IsNullOrWhiteSpace(pubName))
             query = query.Where(p =>
                 p.RealmId == null || visibleRealmIds.Contains(p.RealmId.Value)
@@ -279,7 +276,6 @@ public class PostController(
 
         if (!string.IsNullOrWhiteSpace(mentioned))
         {
-            // Normalize mentioned username for comparison
             var normalizedMentioned = mentioned.ToLowerInvariant();
             query = query.Where(p =>
                 p.Content != null && (
@@ -365,7 +361,6 @@ public class PostController(
         var posts = await query.Skip(offset).Take(take).ToListAsync();
         foreach (var post in posts)
         {
-            // Prevent to load nested replied post
             if (post.RepliedPost != null)
                 post.RepliedPost.RepliedPost = null;
         }
@@ -373,7 +368,6 @@ public class PostController(
 
         posts = await ps.LoadPostInfo(posts, currentUser, true);
 
-        // Load realm data for posts that have realm
         await LoadPostsRealmsAsync(posts, rs);
 
         Response.Headers["X-Total"] = totalCount.ToString();
@@ -514,7 +508,21 @@ public class PostController(
     }
 
     [HttpGet("{id:guid}/prev")]
-    public async Task<ActionResult<SnPost>> GetPrevPost(Guid id)
+    public async Task<ActionResult<SnPost>> GetPrevPost(
+        Guid id,
+        [FromQuery(Name = "pub")] string? pubName = null,
+        [FromQuery(Name = "realm")] string? realmName = null,
+        [FromQuery(Name = "type")] int? type = null,
+        [FromQuery(Name = "categories")] List<string>? categories = null,
+        [FromQuery(Name = "tags")] List<string>? tags = null,
+        [FromQuery(Name = "query")] string? queryTerm = null,
+        [FromQuery(Name = "media")] bool onlyMedia = false,
+        [FromQuery(Name = "replies")] bool? includeReplies = null,
+        [FromQuery(Name = "pinned")] bool? pinned = null,
+        [FromQuery(Name = "periodStart")] int? periodStartTime = null,
+        [FromQuery(Name = "periodEnd")] int? periodEndTime = null,
+        [FromQuery] bool showFediverse = false
+    )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as DyAccount;
@@ -527,9 +535,24 @@ public class PostController(
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
-        var userPublishers = currentUser is null
-            ? []
-            : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+        var accountId = currentUser is null ? Guid.Empty : Guid.Parse(currentUser.Id);
+        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(accountId);
+        var userRealms = currentUser is null ? [] : await rs.GetUserRealms(accountId);
+        var publicRealms = await rs.GetPublicRealms();
+        var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
+        var visibleRealmIds = userRealms.Concat(publicRealmIds).Distinct().ToList();
+
+        var publisher = pubName == null
+            ? null
+            : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
+        var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
+
+        Instant? periodStart = periodStartTime.HasValue
+            ? Instant.FromUnixTimeSeconds(periodStartTime.Value)
+            : null;
+        Instant? periodEnd = periodEndTime.HasValue
+            ? Instant.FromUnixTimeSeconds(periodEndTime.Value)
+            : null;
 
         var currentPost = await db.Posts.Where(e => e.Id == id).FirstOrDefaultAsync();
         if (currentPost is null)
@@ -537,7 +560,7 @@ public class PostController(
 
         var currentTime = currentPost.PublishedAt ?? currentPost.CreatedAt;
 
-        var prevPost = await db.Posts
+        var query = db.Posts
             .Where(e => (e.PublishedAt ?? e.CreatedAt) < currentTime)
             .Include(e => e.Publisher)
             .Include(e => e.Tags)
@@ -545,7 +568,77 @@ public class PostController(
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
             .Include(e => e.FeaturedRecords)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers)
+            .AsQueryable();
+
+        if (publisher != null)
+            query = query.Where(p => p.PublisherId == publisher.Id);
+        if (type != null)
+            query = query.Where(p => p.Type == (Shared.Models.PostType)type);
+        if (categories is { Count: > 0 })
+            query = query.Where(p => p.Categories.Any(c => categories.Contains(c.Slug)));
+        if (tags is { Count: > 0 })
+            query = query.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
+        if (onlyMedia)
+            query = query.Where(e => e.Attachments.Count > 0);
+        if (!showFediverse)
+            query = query.Where(p => p.FediverseUri == null);
+
+        if (realm != null)
+            query = query.Where(p => p.RealmId == realm.Id);
+        else if (string.IsNullOrWhiteSpace(pubName))
+            query = query.Where(p => p.RealmId == null || visibleRealmIds.Contains(p.RealmId.Value));
+
+        if (periodStart != null)
+            query = query.Where(p => (p.PublishedAt ?? p.CreatedAt) >= periodStart);
+        if (periodEnd != null)
+            query = query.Where(p => (p.PublishedAt ?? p.CreatedAt) <= periodEnd);
+
+        switch (pinned)
+        {
+            case true when realm != null:
+                query = query.Where(p => p.PinMode == Shared.Models.PostPinMode.RealmPage);
+                break;
+            case true when publisher != null:
+                query = query.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage);
+                break;
+            case true:
+                return BadRequest("You need pass extra realm or publisher params in order to filter with pinned posts.");
+            case false:
+                query = query.Where(p => p.PinMode == null);
+                break;
+        }
+
+        query = includeReplies switch
+        {
+            false => query.Where(e => e.RepliedPostId == null),
+            true => query.Where(e => e.RepliedPostId != null),
+            _ => query,
+        };
+
+        if (!string.IsNullOrWhiteSpace(queryTerm))
+        {
+            query = query.Where(p =>
+                (p.Title != null && EF.Functions.ILike(p.Title, $"%{queryTerm}%"))
+                || (p.Description != null && EF.Functions.ILike(p.Description, $"%{queryTerm}%"))
+                || (p.Content != null && EF.Functions.ILike(p.Content, $"%{queryTerm}%"))
+            );
+        }
+
+        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+            query.Where(p => p.PublisherId != null).Select(p => p.PublisherId!.Value),
+            currentUser
+        );
+
+        query = query.FilterWithVisibility(
+            currentUser,
+            userFriends,
+            userPublishers,
+            isListing: true,
+            gatekeptPublisherIds,
+            subscriberPublisherIds
+        );
+
+        var prevPost = await query
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .FirstOrDefaultAsync();
 
@@ -571,7 +664,21 @@ public class PostController(
     }
 
     [HttpGet("{id:guid}/next")]
-    public async Task<ActionResult<SnPost>> GetNextPost(Guid id)
+    public async Task<ActionResult<SnPost>> GetNextPost(
+        Guid id,
+        [FromQuery(Name = "pub")] string? pubName = null,
+        [FromQuery(Name = "realm")] string? realmName = null,
+        [FromQuery(Name = "type")] int? type = null,
+        [FromQuery(Name = "categories")] List<string>? categories = null,
+        [FromQuery(Name = "tags")] List<string>? tags = null,
+        [FromQuery(Name = "query")] string? queryTerm = null,
+        [FromQuery(Name = "media")] bool onlyMedia = false,
+        [FromQuery(Name = "replies")] bool? includeReplies = null,
+        [FromQuery(Name = "pinned")] bool? pinned = null,
+        [FromQuery(Name = "periodStart")] int? periodStartTime = null,
+        [FromQuery(Name = "periodEnd")] int? periodEndTime = null,
+        [FromQuery] bool showFediverse = false
+    )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var currentUser = currentUserValue as DyAccount;
@@ -584,9 +691,24 @@ public class PostController(
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         }
 
-        var userPublishers = currentUser is null
-            ? []
-            : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+        var accountId = currentUser is null ? Guid.Empty : Guid.Parse(currentUser.Id);
+        var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(accountId);
+        var userRealms = currentUser is null ? [] : await rs.GetUserRealms(accountId);
+        var publicRealms = await rs.GetPublicRealms();
+        var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
+        var visibleRealmIds = userRealms.Concat(publicRealmIds).Distinct().ToList();
+
+        var publisher = pubName == null
+            ? null
+            : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
+        var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
+
+        Instant? periodStart = periodStartTime.HasValue
+            ? Instant.FromUnixTimeSeconds(periodStartTime.Value)
+            : null;
+        Instant? periodEnd = periodEndTime.HasValue
+            ? Instant.FromUnixTimeSeconds(periodEndTime.Value)
+            : null;
 
         var currentPost = await db.Posts.Where(e => e.Id == id).FirstOrDefaultAsync();
         if (currentPost is null)
@@ -594,7 +716,7 @@ public class PostController(
 
         var currentTime = currentPost.PublishedAt ?? currentPost.CreatedAt;
 
-        var nextPost = await db.Posts
+        var query = db.Posts
             .Where(e => (e.PublishedAt ?? e.CreatedAt) > currentTime)
             .Include(e => e.Publisher)
             .Include(e => e.Tags)
@@ -602,7 +724,77 @@ public class PostController(
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
             .Include(e => e.FeaturedRecords)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers)
+            .AsQueryable();
+
+        if (publisher != null)
+            query = query.Where(p => p.PublisherId == publisher.Id);
+        if (type != null)
+            query = query.Where(p => p.Type == (Shared.Models.PostType)type);
+        if (categories is { Count: > 0 })
+            query = query.Where(p => p.Categories.Any(c => categories.Contains(c.Slug)));
+        if (tags is { Count: > 0 })
+            query = query.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
+        if (onlyMedia)
+            query = query.Where(e => e.Attachments.Count > 0);
+        if (!showFediverse)
+            query = query.Where(p => p.FediverseUri == null);
+
+        if (realm != null)
+            query = query.Where(p => p.RealmId == realm.Id);
+        else if (string.IsNullOrWhiteSpace(pubName))
+            query = query.Where(p => p.RealmId == null || visibleRealmIds.Contains(p.RealmId.Value));
+
+        if (periodStart != null)
+            query = query.Where(p => (p.PublishedAt ?? p.CreatedAt) >= periodStart);
+        if (periodEnd != null)
+            query = query.Where(p => (p.PublishedAt ?? p.CreatedAt) <= periodEnd);
+
+        switch (pinned)
+        {
+            case true when realm != null:
+                query = query.Where(p => p.PinMode == Shared.Models.PostPinMode.RealmPage);
+                break;
+            case true when publisher != null:
+                query = query.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage);
+                break;
+            case true:
+                return BadRequest("You need pass extra realm or publisher params in order to filter with pinned posts.");
+            case false:
+                query = query.Where(p => p.PinMode == null);
+                break;
+        }
+
+        query = includeReplies switch
+        {
+            false => query.Where(e => e.RepliedPostId == null),
+            true => query.Where(e => e.RepliedPostId != null),
+            _ => query,
+        };
+
+        if (!string.IsNullOrWhiteSpace(queryTerm))
+        {
+            query = query.Where(p =>
+                (p.Title != null && EF.Functions.ILike(p.Title, $"%{queryTerm}%"))
+                || (p.Description != null && EF.Functions.ILike(p.Description, $"%{queryTerm}%"))
+                || (p.Content != null && EF.Functions.ILike(p.Content, $"%{queryTerm}%"))
+            );
+        }
+
+        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+            query.Where(p => p.PublisherId != null).Select(p => p.PublisherId!.Value),
+            currentUser
+        );
+
+        query = query.FilterWithVisibility(
+            currentUser,
+            userFriends,
+            userPublishers,
+            isListing: true,
+            gatekeptPublisherIds,
+            subscriberPublisherIds
+        );
+
+        var nextPost = await query
             .OrderBy(e => e.PublishedAt ?? e.CreatedAt)
             .FirstOrDefaultAsync();
 
