@@ -1424,7 +1424,7 @@ public class ThoughtService(
         systemPromptBuilder.AppendLine("3. 不要主动建议接下来聊什么话题，让对话自然结束或等待用户发起新话题。");
         systemPromptBuilder.AppendLine("4. 你不需要帮助用户解决所有问题 - 有时候简单回应就够了。");
         systemPromptBuilder.AppendLine("5. 像正常人一样对话，可以有沉默、转移话题、或说不知道。");
-        systemPromptBuilder.AppendLine("6. 历史消息里可能包含 message_meta 时间标记，仅用于理解上下文时间先后；除非用户明确询问，不要在回复中复述时间戳或标签。");
+        systemPromptBuilder.AppendLine("6. 历史消息里包含 <message_meta> 时间标签，仅用于你理解上下文时间先后。**严禁在你的回复中生成 <message_meta> 或任何类似的时间标签**，用户不需要看到这些。");
         systemPromptBuilder.AppendLine();
         systemPromptBuilder.AppendLine("当你需要获取最新信息、验证事实、了解不熟悉的主题、或用户询问需要实时数据的问题时，主动使用网络搜索。");
 
@@ -1495,7 +1495,15 @@ public class ThoughtService(
             AddThoughtToBuilder(builder, thought, userTimeZone);
         }
 
-        var useVisionKernel = false;
+        if (attachments is { Count: > 0 })
+        {
+            EnsureFileUrls(attachments);
+        }
+
+        var useVisionKernel = attachments is { Count: > 0 }
+            && attachments.Any(IsImageFile)
+            && postAnalysisService.IsVisionModelAvailable();
+
         if (attachments is { Count: > 0 })
         {
             var imageFiles = attachments.Where(IsImageFile).ToList();
@@ -1539,10 +1547,8 @@ public class ThoughtService(
                 builder.AddUserMessage(rawTextContext);
             }
         }
-        else
-        {
-            builder.AddUserMessage(userMessage ?? "用户只添加了文件没有文字说明。");
-        }
+
+        builder.AddUserMessage(userMessage ?? "用户只添加了文件没有文字说明。");
 
         return (builder.Build(), useVisionKernel);
     }
@@ -1795,17 +1801,16 @@ public class ThoughtService(
     private string? BuildPublicFileUrl(string? fileId)
     {
         if (string.IsNullOrWhiteSpace(fileId))
-        {
             return null;
-        }
 
         var siteUrl = configGlobal["SiteUrl"]?.TrimEnd('/');
-        if (string.IsNullOrWhiteSpace(siteUrl))
-        {
-            return null;
-        }
+        return string.IsNullOrWhiteSpace(siteUrl) ? null : $"{siteUrl}/drive/files/{fileId}";
+    }
 
-        return $"{siteUrl}/drive/files/{fileId}";
+    private void EnsureFileUrls(List<SnCloudFileReferenceObject> files)
+    {
+        foreach (var file in files.Where(file => string.IsNullOrWhiteSpace(file.Url)))
+            file.Url = BuildPublicFileUrl(file.Id);
     }
 
     #endregion
@@ -1933,7 +1938,7 @@ public class ThoughtService(
         systemPromptBuilder.AppendLine("3. 不要主动建议接下来聊什么话题，让对话自然结束或等待用户发起新话题。");
         systemPromptBuilder.AppendLine("4. 你不需要帮助用户解决所有问题 - 有时候简单回应就够了。");
         systemPromptBuilder.AppendLine("5. 像正常人一样对话，可以有沉默、转移话题、或说不知道。");
-        systemPromptBuilder.AppendLine("6. 历史消息里可能包含 message_meta 时间标记，仅用于理解上下文时间先后；除非用户明确询问，不要在回复中复述时间戳或标签。");
+        systemPromptBuilder.AppendLine("6. 历史消息里包含 <message_meta> 时间标签，仅用于你理解上下文时间先后。**严禁在你的回复中生成 <message_meta> 或任何类似的时间标签**，用户不需要看到这些。");
 
         var builder = new ConversationBuilder();
         builder.AddSystemMessage(systemPromptBuilder.ToString());
@@ -1976,8 +1981,17 @@ public class ThoughtService(
         proposalBuilder.AppendLine("用户当前允许的提案：" + string.Join(",", acceptProposals));
         builder.AddSystemMessage(proposalBuilder.ToString());
 
-        var useVisionKernel = false;
         var currentTurnImageFiles = new List<SnCloudFileReferenceObject>();
+
+        if (attachments is { Count: > 0 })
+        {
+            EnsureFileUrls(attachments);
+        }
+
+        var useVisionKernel = attachments is { Count: > 0 }
+            && attachments.Any(IsImageFile)
+            && postAnalysisService.IsVisionModelAvailable();
+
         if (attachedPosts is { Count: > 0 })
         {
             var postsWithImages = new List<SnPost>();
