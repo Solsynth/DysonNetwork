@@ -16,7 +16,7 @@ public interface IAgentClientProvider
     string GetCompactionProviderId(int? userPerkLevel = null);
     string GetScheduledTaskProviderId(int? userPerkLevel = null);
     string GetTopicGenerationProviderId(int? userPerkLevel = null);
-    AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null);
+    AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true);
     string GetServiceId();
     IEnumerable<MiChanModelMapping> GetAvailableModelsForUseCase(ModelUseCase useCase, int userPerkLevel);
     bool IsVisionModelAvailable();
@@ -88,12 +88,13 @@ public class MiChanClientProvider : IMiChanClientProvider
         return GetServiceIdFromModel(modelConfig);
     }
 
-    public AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null)
+    public AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true)
     {
         return new AgentExecutionOptions
         {
             Temperature = (float)(temperature ?? _config.ThinkingModel.GetEffectiveTemperature(_modelRegistry)),
-            ReasoningEffort = reasoningEffort ?? _config.ThinkingModel.GetEffectiveReasoningEffort(_modelRegistry)
+            ReasoningEffort = enableThinking ? reasoningEffort ?? _config.ThinkingModel.GetEffectiveReasoningEffort(_modelRegistry) : null,
+            EnableThinking = enableThinking
         };
     }
 
@@ -266,12 +267,13 @@ public class SnChanClientProvider : ISnChanClientProvider
 
     public string GetServiceId() => _defaultModel.ModelId;
 
-    public AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null)
+    public AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true)
     {
         return new AgentExecutionOptions
         {
             Temperature = (float)(temperature ?? _defaultModel.GetEffectiveTemperature(_modelRegistry)),
-            ReasoningEffort = reasoningEffort ?? _defaultModel.GetEffectiveReasoningEffort(_modelRegistry)
+            ReasoningEffort = enableThinking ? reasoningEffort ?? _defaultModel.GetEffectiveReasoningEffort(_modelRegistry) : null,
+            EnableThinking = enableThinking
         };
     }
 

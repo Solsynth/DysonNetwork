@@ -81,6 +81,7 @@ public class ThoughtController(
         public List<Dictionary<string, dynamic>>? AttachedMessages { get; set; }
         public List<string> AcceptProposals { get; set; } = [];
         public string? ReasoningEffort { get; set; } // "low", "medium", "high"
+        public bool? Thinking { get; set; } // Enable/disable thinking mode (default: true for capable models)
         public string? Model { get; set; } // Custom model ID to use (optional)
         public string? Topic { get; set; } // Topic for new thread creation (when no sequenceId provided)
     }
@@ -568,7 +569,8 @@ public class ThoughtController(
 
             var provider = snChanFoundationProvider.GetChatAdapter(request.Model);
             var options = snChanFoundationProvider.CreateExecutionOptions(
-                reasoningEffort: request.ReasoningEffort
+                reasoningEffort: request.ReasoningEffort,
+                enableThinking: request.Thinking ?? true
             );
 
             var attemptAssistantParts = new List<SnThinkingMessagePart>();
@@ -1076,12 +1078,15 @@ public class ThoughtController(
             var provider = useVisionKernel
                 ? miChanFoundationProvider.GetVisionAdapter(currentUser.PerkLevel)
                 : miChanFoundationProvider.GetChatAdapter(currentUser.PerkLevel, request.Model);
+            var enableThinking = request.Thinking ?? true;
             var options = useVisionKernel
                 ? miChanFoundationProvider.CreateVisionExecutionOptions(
-                    reasoningEffort: request.ReasoningEffort
+                    reasoningEffort: request.ReasoningEffort,
+                    enableThinking: enableThinking
                 )
                 : miChanFoundationProvider.CreateExecutionOptions(
-                    reasoningEffort: request.ReasoningEffort
+                    reasoningEffort: request.ReasoningEffort,
+                    enableThinking: enableThinking
                 );
             var modelNameForAttempt = useVisionKernel
                 ? miChanConfig.Vision.VisionThinkingService

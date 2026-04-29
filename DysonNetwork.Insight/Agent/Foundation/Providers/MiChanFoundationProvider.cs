@@ -11,9 +11,9 @@ public interface IMiChanFoundationProvider
     IAgentProviderAdapter GetAutonomousAdapter(int? userPerkLevel = null);
     IAgentProviderAdapter GetVisionAdapter(int? userPerkLevel = null);
     IAgentProviderAdapter GetCompactionAdapter(int? userPerkLevel = null);
-    AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null);
+    AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true);
     AgentExecutionOptions CreateAutonomousExecutionOptions(double? temperature = null, string? reasoningEffort = null);
-    AgentExecutionOptions CreateVisionExecutionOptions(double? temperature = null, string? reasoningEffort = null);
+    AgentExecutionOptions CreateVisionExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true);
 }
 
 public class MiChanFoundationProvider : IMiChanFoundationProvider
@@ -65,12 +65,13 @@ public class MiChanFoundationProvider : IMiChanFoundationProvider
         return _providerRegistry.GetProvider(providerId);
     }
 
-    public AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null)
+    public AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true)
     {
         return new AgentExecutionOptions
         {
             Temperature = temperature ?? _config.ThinkingModel.GetEffectiveTemperature(),
-            ReasoningEffort = reasoningEffort ?? _config.ThinkingModel.GetEffectiveReasoningEffort(),
+            ReasoningEffort = enableThinking ? reasoningEffort ?? _config.ThinkingModel.GetEffectiveReasoningEffort() : null,
+            EnableThinking = enableThinking,
             EnableTools = _config.ThinkingModel.EnableFunctions,
             AutoInvokeTools = false,
             MaxToolRounds = 10
@@ -90,13 +91,14 @@ public class MiChanFoundationProvider : IMiChanFoundationProvider
         };
     }
 
-    public AgentExecutionOptions CreateVisionExecutionOptions(double? temperature = null, string? reasoningEffort = null)
+    public AgentExecutionOptions CreateVisionExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true)
     {
         var model = _config.GetVisionModel();
         return new AgentExecutionOptions
         {
             Temperature = temperature ?? model.GetEffectiveTemperature(),
-            ReasoningEffort = reasoningEffort ?? model.GetEffectiveReasoningEffort(),
+            ReasoningEffort = enableThinking ? reasoningEffort ?? model.GetEffectiveReasoningEffort() : null,
+            EnableThinking = enableThinking,
             EnableTools = false,
             AutoInvokeTools = false
         };

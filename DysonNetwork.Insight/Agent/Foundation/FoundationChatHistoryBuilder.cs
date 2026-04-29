@@ -102,13 +102,14 @@ public class FoundationChatHistoryBuilder
         if (hasImages && role == AgentMessageRole.User)
         {
             var contentParts = new List<AgentMessageContentPart>();
-            
+
             if (!string.IsNullOrEmpty(content))
             {
                 contentParts.Add(new AgentMessageContentPart { Type = AgentContentPartType.Text, Text = content });
             }
 
-            var imageFiles = attachedFiles?.Where(f => f.MimeType?.StartsWith("image/") == true) ?? Enumerable.Empty<SnCloudFileReferenceObject>();
+            var imageFiles = attachedFiles?.Where(f => f.MimeType?.StartsWith("image/") == true) ??
+                             Enumerable.Empty<SnCloudFileReferenceObject>();
             foreach (var imageFile in imageFiles)
             {
                 if (!string.IsNullOrEmpty(imageFile.Url))
@@ -121,20 +122,12 @@ public class FoundationChatHistoryBuilder
                 }
             }
 
-            foreach (var part in parts.Where(p => p.Files?.Any() == true))
-            {
-                foreach (var file in part.Files!.Where(f => f.MimeType?.StartsWith("image/") == true))
-                {
-                    if (!string.IsNullOrEmpty(file.Url))
-                    {
-                        contentParts.Add(new AgentMessageContentPart
-                        {
-                            Type = AgentContentPartType.ImageUrl,
-                            ImageUrl = file.Url
-                        });
-                    }
-                }
-            }
+            contentParts.AddRange(parts.Where(p => p.Files is { Count: > 0 })
+                .SelectMany(part => part.Files!.Where(f => f.MimeType?.StartsWith("image/") == true),
+                    (part, file) => new { part, file })
+                .Where(t => !string.IsNullOrEmpty(t.file.Url))
+                .Select(t => new AgentMessageContentPart
+                    { Type = AgentContentPartType.ImageUrl, ImageUrl = t.file.Url }));
 
             message.ContentParts = contentParts;
             message.Content = null;
@@ -185,7 +178,8 @@ public class FoundationChatHistoryBuilder
         foreach (var plugin in plugins)
         {
             var pluginType = plugin.GetType();
-            var methods = pluginType.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            var methods =
+                pluginType.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
 
             foreach (var method in methods)
             {
@@ -196,7 +190,8 @@ public class FoundationChatHistoryBuilder
 
                 var name = method.Name;
                 var descriptionAttr = attrs.FirstOrDefault(a => a.GetType().Name == "DescriptionAttribute");
-                var description = descriptionAttr?.GetType().GetProperty("Description")?.GetValue(descriptionAttr)?.ToString() ?? "";
+                var description = descriptionAttr?.GetType().GetProperty("Description")?.GetValue(descriptionAttr)
+                    ?.ToString() ?? "";
 
                 var parameters = BuildParametersSchema(method);
 
@@ -271,24 +266,24 @@ public class FoundationChatHistoryBuilder
     public AgentConversation ConvertFromChatHistory(object chatHistory, List<AgentToolDefinition>? tools = null)
     {
         var conversation = new AgentConversation { Tools = tools };
-        
+
         var historyType = chatHistory.GetType();
         var messagesProp = historyType.GetProperty("Messages");
         if (messagesProp == null) return conversation;
-        
+
         var messages = messagesProp.GetValue(chatHistory) as System.Collections.IEnumerable;
         if (messages == null) return conversation;
-        
+
         foreach (var message in messages)
         {
             var msgType = message.GetType();
             var roleProp = msgType.GetProperty("Role");
             var contentProp = msgType.GetProperty("Content");
             var itemsProp = msgType.GetProperty("Items");
-            
+
             var role = roleProp?.GetValue(message);
             var roleString = role?.ToString() ?? "user";
-            
+
             var agentRole = roleString.ToLower() switch
             {
                 "system" => AgentMessageRole.System,
@@ -297,22 +292,22 @@ public class FoundationChatHistoryBuilder
                 "tool" => AgentMessageRole.Tool,
                 _ => AgentMessageRole.User
             };
-            
+
             string? content = null;
             List<AgentToolCall>? toolCalls = null;
             string? toolCallId = null;
             string? toolResultContent = null;
-            
+
             var items = itemsProp?.GetValue(message) as System.Collections.IEnumerable;
             if (items != null)
             {
                 var textParts = new List<string>();
                 toolCalls = new List<AgentToolCall>();
-                
+
                 foreach (var item in items)
                 {
                     var itemType = item.GetType().Name;
-                    
+
                     if (itemType.Contains("TextContent"))
                     {
                         var textProp = item.GetType().GetProperty("Text");
@@ -326,17 +321,17 @@ public class FoundationChatHistoryBuilder
                         var functionNameProp = item.GetType().GetProperty("FunctionName");
                         var pluginNameProp = item.GetType().GetProperty("PluginName");
                         var argsProp = item.GetType().GetProperty("Arguments");
-                        
+
                         var id = idProp?.GetValue(item)?.ToString() ?? "";
                         var functionName = functionNameProp?.GetValue(item)?.ToString() ?? "";
                         var pluginName = pluginNameProp?.GetValue(item)?.ToString() ?? "";
                         var args = argsProp?.GetValue(item);
                         var argsString = args?.ToString() ?? "";
-                        
-                        var toolName = !string.IsNullOrEmpty(pluginName) 
-                            ? $"{pluginName}.{functionName}" 
+
+                        var toolName = !string.IsNullOrEmpty(pluginName)
+                            ? $"{pluginName}.{functionName}"
                             : functionName;
-                        
+
                         toolCalls.Add(new AgentToolCall
                         {
                             Id = id,
@@ -348,7 +343,7 @@ public class FoundationChatHistoryBuilder
                     {
                         var callIdProp = item.GetType().GetProperty("CallId");
                         var resultProp = item.GetType().GetProperty("Result");
-                        
+
                         toolCallId = callIdProp?.GetValue(item)?.ToString();
                         toolResultContent = resultProp?.GetValue(item)?.ToString();
                     }
@@ -357,10 +352,10 @@ public class FoundationChatHistoryBuilder
                         // Handle image content if needed
                     }
                 }
-                
+
                 if (textParts.Count > 0)
                     content = string.Join("\n", textParts);
-                    
+
                 if (toolCalls.Count == 0)
                     toolCalls = null;
             }
@@ -368,7 +363,7 @@ public class FoundationChatHistoryBuilder
             {
                 content = contentProp?.GetValue(message)?.ToString();
             }
-            
+
             if (agentRole == AgentMessageRole.Tool && !string.IsNullOrEmpty(toolCallId))
             {
                 conversation.Messages.Add(AgentMessage.FromToolResult(
@@ -387,7 +382,7 @@ public class FoundationChatHistoryBuilder
                 });
             }
         }
-        
+
         return conversation;
     }
 }

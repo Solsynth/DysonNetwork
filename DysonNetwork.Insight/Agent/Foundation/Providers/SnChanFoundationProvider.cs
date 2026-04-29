@@ -8,8 +8,8 @@ public interface ISnChanFoundationProvider
 {
     IAgentProviderAdapter GetChatAdapter(string? modelId = null);
     IAgentProviderAdapter GetVisionAdapter(int? userPerkLevel = null);
-    AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null);
-    AgentExecutionOptions CreateVisionExecutionOptions(double? temperature = null, string? reasoningEffort = null);
+    AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true);
+    AgentExecutionOptions CreateVisionExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true);
 }
 
 public class SnChanFoundationProvider : ISnChanFoundationProvider
@@ -53,12 +53,13 @@ public class SnChanFoundationProvider : ISnChanFoundationProvider
         return _providerRegistry.GetProvider(fallbackProviderId);
     }
 
-    public AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null)
+    public AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true)
     {
         return new AgentExecutionOptions
         {
             Temperature = temperature ?? _defaultModel.GetEffectiveTemperature(),
-            ReasoningEffort = reasoningEffort ?? _defaultModel.GetEffectiveReasoningEffort(),
+            ReasoningEffort = enableThinking ? reasoningEffort ?? _defaultModel.GetEffectiveReasoningEffort() : null,
+            EnableThinking = enableThinking,
             EnableTools = _defaultModel.EnableFunctions,
             AutoInvokeTools = false,
             MaxToolRounds = 10
@@ -74,7 +75,7 @@ public class SnChanFoundationProvider : ISnChanFoundationProvider
         return _providerRegistry.GetProvider(providerId);
     }
 
-    public AgentExecutionOptions CreateVisionExecutionOptions(double? temperature = null, string? reasoningEffort = null)
+    public AgentExecutionOptions CreateVisionExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true)
     {
         var serviceId = _configuration.GetValue<string>("SnChan:VisionModel:ModelId")
                         ?? _configuration.GetValue<string>("Thinking:DefaultService")
@@ -83,14 +84,17 @@ public class SnChanFoundationProvider : ISnChanFoundationProvider
         var defaultTemperature = _configuration.GetValue<double?>("SnChan:VisionModel:Temperature")
                                  ?? serviceConfig.GetValue<double?>("Temperature")
                                  ?? _defaultModel.GetEffectiveTemperature();
-        var defaultReasoningEffort = reasoningEffort
-                                     ?? _configuration.GetValue<string>("SnChan:VisionModel:ReasoningEffort")
-                                     ?? serviceConfig.GetValue<string>("ReasoningEffort");
+        var defaultReasoningEffort = enableThinking
+            ? reasoningEffort
+              ?? _configuration.GetValue<string>("SnChan:VisionModel:ReasoningEffort")
+              ?? serviceConfig.GetValue<string>("ReasoningEffort")
+            : null;
 
         return new AgentExecutionOptions
         {
             Temperature = temperature ?? defaultTemperature,
             ReasoningEffort = defaultReasoningEffort,
+            EnableThinking = enableThinking,
             EnableTools = false,
             AutoInvokeTools = false,
             MaxToolRounds = 1
