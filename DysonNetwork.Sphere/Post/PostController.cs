@@ -173,7 +173,6 @@ public class PostController(
         [FromQuery(Name = "orderDesc")] bool orderDesc = true,
         [FromQuery(Name = "periodStart")] int? periodStartTime = null,
         [FromQuery(Name = "periodEnd")] int? periodEndTime = null,
-        [FromQuery] bool showFediverse = false,
         [FromQuery(Name = "mentioned")] string? mentioned = null
     )
     {
@@ -215,6 +214,7 @@ public class PostController(
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
             .Include(e => e.FeaturedRecords)
+            .Where(p => p.FediverseUri == null)
             .AsQueryable();
         if (publisher != null)
             query = query.Where(p => p.PublisherId == publisher.Id);
@@ -226,8 +226,6 @@ public class PostController(
             query = query.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
         if (onlyMedia)
             query = query.Where(e => e.Attachments.Count > 0);
-        if (!showFediverse)
-            query = query.Where(p => p.FediverseUri == null);
 
         if (realm != null)
             query = query.Where(p => p.RealmId == realm.Id);
@@ -520,8 +518,7 @@ public class PostController(
         [FromQuery(Name = "replies")] bool? includeReplies = null,
         [FromQuery(Name = "pinned")] bool? pinned = null,
         [FromQuery(Name = "periodStart")] int? periodStartTime = null,
-        [FromQuery(Name = "periodEnd")] int? periodEndTime = null,
-        [FromQuery] bool showFediverse = false
+        [FromQuery(Name = "periodEnd")] int? periodEndTime = null
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -560,64 +557,60 @@ public class PostController(
 
         var currentTime = currentPost.PublishedAt ?? currentPost.CreatedAt;
 
-        var query = db.Posts
-            .Where(e => (e.PublishedAt ?? e.CreatedAt) < currentTime)
-            .Include(e => e.Publisher)
-            .Include(e => e.Tags)
+        var baseQuery = db.Posts
             .Include(e => e.Categories)
+            .Include(e => e.Tags)
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
             .Include(e => e.FeaturedRecords)
-            .AsQueryable();
+            .Where(p => p.FediverseUri == null);
 
         if (publisher != null)
-            query = query.Where(p => p.PublisherId == publisher.Id);
+            baseQuery = baseQuery.Where(p => p.PublisherId == publisher.Id);
         if (type != null)
-            query = query.Where(p => p.Type == (Shared.Models.PostType)type);
+            baseQuery = baseQuery.Where(p => p.Type == (Shared.Models.PostType)type);
         if (categories is { Count: > 0 })
-            query = query.Where(p => p.Categories.Any(c => categories.Contains(c.Slug)));
+            baseQuery = baseQuery.Where(p => p.Categories.Any(c => categories.Contains(c.Slug)));
         if (tags is { Count: > 0 })
-            query = query.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
+            baseQuery = baseQuery.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
         if (onlyMedia)
-            query = query.Where(e => e.Attachments.Count > 0);
-        if (!showFediverse)
-            query = query.Where(p => p.FediverseUri == null);
+            baseQuery = baseQuery.Where(e => e.Attachments.Count > 0);
 
         if (realm != null)
-            query = query.Where(p => p.RealmId == realm.Id);
+            baseQuery = baseQuery.Where(p => p.RealmId == realm.Id);
         else if (string.IsNullOrWhiteSpace(pubName))
-            query = query.Where(p => p.RealmId == null || visibleRealmIds.Contains(p.RealmId.Value));
+            baseQuery = baseQuery.Where(p => p.RealmId == null || visibleRealmIds.Contains(p.RealmId.Value));
 
         if (periodStart != null)
-            query = query.Where(p => (p.PublishedAt ?? p.CreatedAt) >= periodStart);
+            baseQuery = baseQuery.Where(p => (p.PublishedAt ?? p.CreatedAt) >= periodStart);
         if (periodEnd != null)
-            query = query.Where(p => (p.PublishedAt ?? p.CreatedAt) <= periodEnd);
+            baseQuery = baseQuery.Where(p => (p.PublishedAt ?? p.CreatedAt) <= periodEnd);
 
         switch (pinned)
         {
             case true when realm != null:
-                query = query.Where(p => p.PinMode == Shared.Models.PostPinMode.RealmPage);
+                baseQuery = baseQuery.Where(p => p.PinMode == Shared.Models.PostPinMode.RealmPage);
                 break;
             case true when publisher != null:
-                query = query.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage);
+                baseQuery = baseQuery.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage);
                 break;
             case true:
                 return BadRequest("You need pass extra realm or publisher params in order to filter with pinned posts.");
             case false:
-                query = query.Where(p => p.PinMode == null);
+                baseQuery = baseQuery.Where(p => p.PinMode == null);
                 break;
         }
 
-        query = includeReplies switch
+        baseQuery = includeReplies switch
         {
-            false => query.Where(e => e.RepliedPostId == null),
-            true => query.Where(e => e.RepliedPostId != null),
-            _ => query,
+            false => baseQuery.Where(e => e.RepliedPostId == null),
+            true => baseQuery.Where(e => e.RepliedPostId != null),
+            _ => baseQuery,
         };
 
         if (!string.IsNullOrWhiteSpace(queryTerm))
         {
-            query = query.Where(p =>
+            baseQuery = baseQuery.Where(p =>
                 (p.Title != null && EF.Functions.ILike(p.Title, $"%{queryTerm}%"))
                 || (p.Description != null && EF.Functions.ILike(p.Description, $"%{queryTerm}%"))
                 || (p.Content != null && EF.Functions.ILike(p.Content, $"%{queryTerm}%"))
@@ -625,18 +618,21 @@ public class PostController(
         }
 
         var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
-            query.Where(p => p.PublisherId != null).Select(p => p.PublisherId!.Value),
+            baseQuery.Where(p => p.PublisherId != null).Select(p => p.PublisherId!.Value),
             currentUser
         );
 
-        query = query.FilterWithVisibility(
-            currentUser,
-            userFriends,
-            userPublishers,
-            isListing: true,
-            gatekeptPublisherIds,
-            subscriberPublisherIds
-        );
+        var query = baseQuery
+            .Where(e => (e.PublishedAt ?? e.CreatedAt) < currentTime)
+            .Include(e => e.Publisher)
+            .FilterWithVisibility(
+                currentUser,
+                userFriends,
+                userPublishers,
+                isListing: true,
+                gatekeptPublisherIds,
+                subscriberPublisherIds
+            );
 
         var prevPost = await query
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
@@ -676,8 +672,7 @@ public class PostController(
         [FromQuery(Name = "replies")] bool? includeReplies = null,
         [FromQuery(Name = "pinned")] bool? pinned = null,
         [FromQuery(Name = "periodStart")] int? periodStartTime = null,
-        [FromQuery(Name = "periodEnd")] int? periodEndTime = null,
-        [FromQuery] bool showFediverse = false
+        [FromQuery(Name = "periodEnd")] int? periodEndTime = null
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -716,64 +711,60 @@ public class PostController(
 
         var currentTime = currentPost.PublishedAt ?? currentPost.CreatedAt;
 
-        var query = db.Posts
-            .Where(e => (e.PublishedAt ?? e.CreatedAt) > currentTime)
-            .Include(e => e.Publisher)
-            .Include(e => e.Tags)
+        var baseQuery = db.Posts
             .Include(e => e.Categories)
+            .Include(e => e.Tags)
             .Include(e => e.RepliedPost)
             .Include(e => e.ForwardedPost)
             .Include(e => e.FeaturedRecords)
-            .AsQueryable();
+            .Where(p => p.FediverseUri == null);
 
         if (publisher != null)
-            query = query.Where(p => p.PublisherId == publisher.Id);
+            baseQuery = baseQuery.Where(p => p.PublisherId == publisher.Id);
         if (type != null)
-            query = query.Where(p => p.Type == (Shared.Models.PostType)type);
+            baseQuery = baseQuery.Where(p => p.Type == (Shared.Models.PostType)type);
         if (categories is { Count: > 0 })
-            query = query.Where(p => p.Categories.Any(c => categories.Contains(c.Slug)));
+            baseQuery = baseQuery.Where(p => p.Categories.Any(c => categories.Contains(c.Slug)));
         if (tags is { Count: > 0 })
-            query = query.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
+            baseQuery = baseQuery.Where(p => p.Tags.Any(c => tags.Contains(c.Slug)));
         if (onlyMedia)
-            query = query.Where(e => e.Attachments.Count > 0);
-        if (!showFediverse)
-            query = query.Where(p => p.FediverseUri == null);
+            baseQuery = baseQuery.Where(e => e.Attachments.Count > 0);
 
         if (realm != null)
-            query = query.Where(p => p.RealmId == realm.Id);
+            baseQuery = baseQuery.Where(p => p.RealmId == realm.Id);
         else if (string.IsNullOrWhiteSpace(pubName))
-            query = query.Where(p => p.RealmId == null || visibleRealmIds.Contains(p.RealmId.Value));
+            baseQuery = baseQuery.Where(p => p.RealmId == null || visibleRealmIds.Contains(p.RealmId.Value));
 
         if (periodStart != null)
-            query = query.Where(p => (p.PublishedAt ?? p.CreatedAt) >= periodStart);
+            baseQuery = baseQuery.Where(p => (p.PublishedAt ?? p.CreatedAt) >= periodStart);
         if (periodEnd != null)
-            query = query.Where(p => (p.PublishedAt ?? p.CreatedAt) <= periodEnd);
+            baseQuery = baseQuery.Where(p => (p.PublishedAt ?? p.CreatedAt) <= periodEnd);
 
         switch (pinned)
         {
             case true when realm != null:
-                query = query.Where(p => p.PinMode == Shared.Models.PostPinMode.RealmPage);
+                baseQuery = baseQuery.Where(p => p.PinMode == Shared.Models.PostPinMode.RealmPage);
                 break;
             case true when publisher != null:
-                query = query.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage);
+                baseQuery = baseQuery.Where(p => p.PinMode == Shared.Models.PostPinMode.PublisherPage);
                 break;
             case true:
                 return BadRequest("You need pass extra realm or publisher params in order to filter with pinned posts.");
             case false:
-                query = query.Where(p => p.PinMode == null);
+                baseQuery = baseQuery.Where(p => p.PinMode == null);
                 break;
         }
 
-        query = includeReplies switch
+        baseQuery = includeReplies switch
         {
-            false => query.Where(e => e.RepliedPostId == null),
-            true => query.Where(e => e.RepliedPostId != null),
-            _ => query,
+            false => baseQuery.Where(e => e.RepliedPostId == null),
+            true => baseQuery.Where(e => e.RepliedPostId != null),
+            _ => baseQuery,
         };
 
         if (!string.IsNullOrWhiteSpace(queryTerm))
         {
-            query = query.Where(p =>
+            baseQuery = baseQuery.Where(p =>
                 (p.Title != null && EF.Functions.ILike(p.Title, $"%{queryTerm}%"))
                 || (p.Description != null && EF.Functions.ILike(p.Description, $"%{queryTerm}%"))
                 || (p.Content != null && EF.Functions.ILike(p.Content, $"%{queryTerm}%"))
@@ -781,18 +772,21 @@ public class PostController(
         }
 
         var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
-            query.Where(p => p.PublisherId != null).Select(p => p.PublisherId!.Value),
+            baseQuery.Where(p => p.PublisherId != null).Select(p => p.PublisherId!.Value),
             currentUser
         );
 
-        query = query.FilterWithVisibility(
-            currentUser,
-            userFriends,
-            userPublishers,
-            isListing: true,
-            gatekeptPublisherIds,
-            subscriberPublisherIds
-        );
+        var query = baseQuery
+            .Where(e => (e.PublishedAt ?? e.CreatedAt) > currentTime)
+            .Include(e => e.Publisher)
+            .FilterWithVisibility(
+                currentUser,
+                userFriends,
+                userPublishers,
+                isListing: true,
+                gatekeptPublisherIds,
+                subscriberPublisherIds
+            );
 
         var nextPost = await query
             .OrderBy(e => e.PublishedAt ?? e.CreatedAt)
