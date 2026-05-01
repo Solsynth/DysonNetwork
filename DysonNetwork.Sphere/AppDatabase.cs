@@ -132,6 +132,13 @@ public class AppDatabase(
             .HasMany(p => p.Tags)
             .WithMany(t => t.Posts)
             .UsingEntity(j => j.ToTable("post_tag_links"));
+
+        modelBuilder.Entity<SnPostTag>()
+            .HasOne(t => t.OwnerPublisher)
+            .WithMany()
+            .HasForeignKey(t => t.OwnerPublisherId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         modelBuilder.Entity<SnPost>()
             .HasMany(p => p.Categories)
             .WithMany(c => c.Posts)

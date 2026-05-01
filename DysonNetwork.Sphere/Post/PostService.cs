@@ -32,6 +32,7 @@ public partial class PostService(
     ILogger<PostService> logger,
     DyFileService.DyFileServiceClient files,
     PublisherService ps,
+    PostTagService tagService,
     RemoteWebReaderService reader,
     DyProfileService.DyProfileServiceClient accounts,
     ActivityRenderer objFactory,
@@ -153,7 +154,7 @@ public partial class PostService(
         return await db.Publishers.FirstOrDefaultAsync(p => p.Id == post.PublisherId.Value);
     }
 
-    private async Task<List<SnPostTag>> ResolveTagsAsync(IEnumerable<string> slugs)
+    private async Task<List<SnPostTag>> ResolveTagsAsync(IEnumerable<string> slugs, SnPublisher? publisher = null)
     {
         var normalizedSlugs = NormalizeTopicSlugs(slugs);
         if (normalizedSlugs.Count == 0)
@@ -170,7 +171,17 @@ public partial class PostService(
             await db.SaveChangesAsync();
         }
 
-        return existingTags.Concat(newTags).ToList();
+        var allTags = existingTags.Concat(newTags).ToList();
+
+        foreach (var tag in allTags)
+        {
+            if (!tagService.IsTagAvailable(tag))
+                throw new InvalidOperationException($"Tag '{tag.Slug}' is an event tag that has expired.");
+            if (tag.IsProtected && tag.OwnerPublisherId is not null && publisher is not null && tag.OwnerPublisherId.Value != publisher.Id)
+                throw new InvalidOperationException($"Tag '{tag.Slug}' is protected and can only be used by its owner.");
+        }
+
+        return allTags;
     }
 
     private async Task<List<SnPostCategory>> ResolveCategoriesAsync(IEnumerable<string> slugs)
@@ -960,7 +971,10 @@ public partial class PostService(
         }
 
         if (tags is not null)
-            post.Tags = await ResolveTagsAsync(tags);
+        {
+            var publisher = await GetPublisherForPostAsync(post);
+            post.Tags = await ResolveTagsAsync(tags, publisher);
+        }
 
         if (categories is not null)
         {
@@ -1168,7 +1182,10 @@ public partial class PostService(
         }
 
         if (tags is not null)
-            post.Tags = await ResolveTagsAsync(tags);
+        {
+            var publisher = await GetPublisherForPostAsync(post);
+            post.Tags = await ResolveTagsAsync(tags, publisher);
+        }
 
         if (categories is not null)
         {

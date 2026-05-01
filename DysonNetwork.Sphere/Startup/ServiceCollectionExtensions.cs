@@ -221,6 +221,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<TimelineService>();
             services.AddScoped<AutomodService>();
             services.AddScoped<PostService>();
+            services.AddScoped<PostTagService>();
             services.AddScoped<PollService>();
             services.AddScoped<StickerService>();
             services.AddScoped<AutocompletionService>();

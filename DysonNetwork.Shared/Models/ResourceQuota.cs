@@ -20,6 +20,11 @@ public static class ResourceQuotaCalculator
 
         return baseQuota + perkLevel;
     }
+
+    public static int GetProtectedTagQuota(int level, int perkLevel)
+    {
+        return 3 + 3 * perkLevel;
+    }
 }
 
 public class ResourceQuotaResponse<TRecord>
@@ -56,4 +61,11 @@ public class DeveloperBotQuotaRecord
     public string ProjectName { get; set; } = string.Empty;
     public Guid DeveloperId { get; set; }
     public string DeveloperName { get; set; } = string.Empty;
+}
+
+public class ProtectedTagQuotaRecord
+{
+    public Guid Id { get; set; }
+    public string Slug { get; set; } = string.Empty;
+    public string? Name { get; set; }
 }

@@ -483,6 +483,16 @@ public class SnPostTag : ModelBase
     [MaxLength(256)]
     public string? Name { get; set; }
 
+    [MaxLength(4096)]
+    public string? Description { get; set; }
+
+    public Guid? OwnerPublisherId { get; set; }
+    public SnPublisher? OwnerPublisher { get; set; }
+
+    public bool IsProtected { get; set; }
+    public bool IsEvent { get; set; }
+    public Instant? EventEndsAt { get; set; }
+
     [JsonIgnore]
     public List<SnPost> Posts { get; set; } = new List<SnPost>();
 
@@ -491,14 +501,23 @@ public class SnPostTag : ModelBase
 
     public DyPostTag ToProtoValue()
     {
-        return new DyPostTag
+        var proto = new DyPostTag
         {
             Id = Id.ToString(),
             Slug = Slug,
             Name = Name ?? string.Empty,
+            IsProtected = IsProtected,
+            IsEvent = IsEvent,
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
             UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset()),
         };
+        if (OwnerPublisherId.HasValue)
+            proto.OwnerPublisherId = OwnerPublisherId.Value.ToString();
+        if (EventEndsAt.HasValue)
+            proto.EventEndsAt = Timestamp.FromDateTimeOffset(EventEndsAt.Value.ToDateTimeOffset());
+        if (Description != null)
+            proto.Description = Description;
+        return proto;
     }
 
     public static SnPostTag FromProtoValue(DyPostTag proto)
@@ -508,6 +527,11 @@ public class SnPostTag : ModelBase
             Id = Guid.Parse(proto.Id),
             Slug = proto.Slug,
             Name = proto.Name != string.Empty ? proto.Name : null,
+            Description = proto.Description != string.Empty ? proto.Description : null,
+            OwnerPublisherId = !string.IsNullOrEmpty(proto.OwnerPublisherId) ? Guid.Parse(proto.OwnerPublisherId) : null,
+            IsProtected = proto.IsProtected,
+            IsEvent = proto.IsEvent,
+            EventEndsAt = proto.EventEndsAt != null ? Instant.FromDateTimeOffset(proto.EventEndsAt.ToDateTimeOffset()) : null,
             CreatedAt = Instant.FromDateTimeOffset(proto.CreatedAt.ToDateTimeOffset()),
             UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset()),
         };
