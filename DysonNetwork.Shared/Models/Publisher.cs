@@ -49,6 +49,7 @@ public class SnPublisher : ModelBase, IIdentifiedResource
     [IgnoreMember][JsonIgnore] public List<SnPostCollection> Collections { get; set; } = [];
     [IgnoreMember][JsonIgnore] public List<SnPublisherMember> Members { get; set; } = [];
     [IgnoreMember][JsonIgnore] public List<SnPublisherFeature> Features { get; set; } = [];
+    [IgnoreMember][JsonIgnore] public List<SnPublisherRatingRecord> RatingRecords { get; set; } = [];
 
     [JsonIgnore]
     public List<SnPublisherSubscription> Subscriptions { get; set; } = [];
@@ -63,6 +64,9 @@ public class SnPublisher : ModelBase, IIdentifiedResource
 
     public bool? GatekeptFollows { get; set; }
     public bool? ModerateSubscription { get; set; }
+
+    public double Rating { get; set; } = 100;
+    [NotMapped] public int RatingLevel => Rating < 100 ? -1 : Rating < 200 ? 0 : Rating < 300 ? 1 : 2;
 
     public bool IsShadowbanned => ShadowbanReason.HasValue && ShadowbanReason != PublisherShadowbanReason.None;
     public bool IsGatekept => GatekeptFollows ?? false;
@@ -83,6 +87,7 @@ public class SnPublisher : ModelBase, IIdentifiedResource
             Bio = proto.Bio,
             AccountId = Guid.TryParse(proto.AccountId, out var accountId) ? accountId : null,
             RealmId = Guid.TryParse(proto.RealmId, out var realmId) ? realmId : null,
+            Rating = proto.Rating,
         };
 
         if (proto.Picture != null)
@@ -125,6 +130,7 @@ public class SnPublisher : ModelBase, IIdentifiedResource
             Bio = Bio,
             AccountId = AccountId?.ToString() ?? string.Empty,
             RealmId = RealmId?.ToString() ?? string.Empty,
+            Rating = Rating,
             CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
             UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset())
         };
@@ -302,4 +308,40 @@ public class SnPublishingSettings : ModelBase
     public SnPublisher? DefaultFediversePublisher { get; set; }
 
     public Instant? UpdatedAt { get; set; }
+}
+
+public enum PublisherRatingRecordStatus
+{
+    Active,
+    Expired
+}
+
+public class SnPublisherRatingRecord : ModelBase
+{
+    public Guid Id { get; set; }
+    [MaxLength(1024)] public string ReasonType { get; set; } = string.Empty;
+    [MaxLength(1024)] public string Reason { get; set; } = string.Empty;
+    public double Delta { get; set; }
+    public PublisherRatingRecordStatus Status { get; set; } = PublisherRatingRecordStatus.Active;
+    public Instant? ExpiredAt { get; set; }
+
+    public Guid PublisherId { get; set; }
+    public SnPublisher Publisher { get; set; } = null!;
+
+    public double GetEffectiveDelta(Instant now)
+    {
+        if (ExpiredAt.HasValue && ExpiredAt <= now)
+            return 0;
+
+        if (!ExpiredAt.HasValue)
+            return Delta;
+
+        var totalDuration = ExpiredAt.Value - CreatedAt;
+        if (totalDuration == NodaTime.Duration.Zero)
+            return Delta;
+
+        var elapsed = now - CreatedAt;
+        var remainingRatio = 1.0 - (elapsed.TotalSeconds / totalDuration.TotalSeconds);
+        return Delta * Math.Max(0, remainingRatio);
+    }
 }

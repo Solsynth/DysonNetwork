@@ -33,6 +33,7 @@ public static class ApplicationConfiguration
         app.MapGrpcService<PostServiceGrpc>();
         app.MapGrpcService<PollServiceGrpc>();
         app.MapGrpcService<PublisherServiceGrpc>();
+        app.MapGrpcService<PublisherRatingServiceGrpc>();
         app.MapGrpcService<SphereRewindServiceGrpc>();
         app.MapGrpcService<AutocompletionServiceGrpc>();
         app.MapGrpcReflectionService();

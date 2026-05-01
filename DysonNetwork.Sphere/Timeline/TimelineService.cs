@@ -424,7 +424,7 @@ public class TimelineService(
         var personalizationBonus = mode != SnTimelineMode.Personalized || currentUser is null
             ? new Dictionary<Guid, double>()
             : await GetPersonalizationBonusMap(posts, Guid.Parse(currentUser.Id), now);
-        var publisherLevelBonus = await GetPublisherLevelBonusMap(posts);
+        var publisherRatingBonus = await GetPublisherRatingBonusMap(posts);
         var automatedPenalty = await GetAutomatedPenaltyMap(posts);
         var subscriptionBoost = currentUser is null
             ? new Dictionary<Guid, double>()
@@ -448,7 +448,7 @@ public class TimelineService(
                 var baseRank = CalculateBaseRank(p, now)
                     - recentServedPenalty.GetValueOrDefault(p.Id, 0d)
                     + persoBonus
-                    + publisherLevelBonus.GetValueOrDefault(p.Id, 0d)
+                    + publisherRatingBonus.GetValueOrDefault(p.Id, 0d)
                     - automatedPenalty.GetValueOrDefault(p.Id, 0d)
                     + subscriptionBoost.GetValueOrDefault(p.Id, 0d)
                     - automodPenaltyValue;
@@ -580,35 +580,32 @@ public class TimelineService(
         return profile.Score * decay;
     }
 
-    private async Task<Dictionary<Guid, double>> GetPublisherLevelBonusMap(List<SnPost> posts)
+    private async Task<Dictionary<Guid, double>> GetPublisherRatingBonusMap(List<SnPost> posts)
     {
-        var publisherAccounts = posts
-            .Where(p => p.Publisher?.AccountId.HasValue == true)
-            .Select(p => p.Publisher!.AccountId!.Value)
+        var publisherIds = posts
+            .Where(p => p.PublisherId.HasValue)
+            .Select(p => p.PublisherId!.Value)
             .Distinct()
             .ToList();
 
-        if (publisherAccounts.Count == 0)
+        if (publisherIds.Count == 0)
             return [];
 
-        var accountsBatch = await remoteAccounts.GetAccountBatch(publisherAccounts);
-        var socialLevelByAccountId = accountsBatch
-            .Where(a => Guid.TryParse(a.Id, out _) && a.Profile is not null)
-            .ToDictionary(
-                a => Guid.Parse(a.Id),
-                a => a.Profile?.SocialCreditsLevel ?? 0
-            );
+        var publishers = await db.Publishers
+            .Where(p => publisherIds.Contains(p.Id))
+            .Select(p => new { p.Id, p.Rating })
+            .ToDictionaryAsync(p => p.Id, p => p.Rating);
 
         return posts.ToDictionary(
             p => p.Id,
             p =>
             {
-                var accountId = p.Publisher?.AccountId;
-                if (!accountId.HasValue)
+                if (!p.PublisherId.HasValue)
                     return 0d;
 
-                var socialLevel = socialLevelByAccountId.GetValueOrDefault(accountId.Value, 0);
-                return Math.Min(3d, socialLevel * 0.05d);
+                var rating = publishers.GetValueOrDefault(p.PublisherId.Value, 100);
+                var ratingLevel = rating < 100 ? -1 : rating < 200 ? 0 : rating < 300 ? 1 : 2;
+                return Math.Min(3d, ratingLevel * 0.05d);
             }
         );
     }

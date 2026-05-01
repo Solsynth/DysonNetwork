@@ -7,7 +7,7 @@ namespace DysonNetwork.Sphere.Publisher;
 
 [ApiController]
 [Route("/api/publishers")]
-public class PublisherPublicController(AppDatabase db, RemoteAccountService accounts, PublisherService ps) : ControllerBase
+public class PublisherPublicController(AppDatabase db, RemoteAccountService accounts, PublisherService ps, PublisherRatingService ratingService) : ControllerBase
 {
     [HttpGet("search")]
     public async Task<ActionResult<List<SnPublisher>>> SearchPublishers([FromQuery] string query, [FromQuery] int take = 20)
@@ -71,5 +71,34 @@ public class PublisherPublicController(AppDatabase db, RemoteAccountService acco
             .ToListAsync();
 
         return members.Select(m => m.Publisher).ToList();
+    }
+
+    [HttpGet("{name}/rating")]
+    public async Task<ActionResult<double>> GetPublisherRating(string name)
+    {
+        var publisher = await db.Publishers.Where(e => e.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+
+        var rating = await ratingService.GetRating(publisher.Id);
+        return Ok(rating);
+    }
+
+    [HttpGet("{name}/rating/history")]
+    public async Task<ActionResult<List<SnPublisherRatingRecord>>> GetPublisherRatingHistory(
+        string name,
+        [FromQuery] int take = 20,
+        [FromQuery] int offset = 0
+    )
+    {
+        var publisher = await db.Publishers.Where(e => e.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+
+        var total = await ratingService.GetRatingHistoryCount(publisher.Id);
+        HttpContext.Response.Headers["X-Total"] = total.ToString();
+
+        var records = await ratingService.GetRatingHistory(publisher.Id, take, offset);
+        return Ok(records);
     }
 }

@@ -164,6 +164,12 @@ public static class ServiceCollectionExtensions
         services.AddGrpcClientWithSharedChannel<DyNfcService.DyNfcServiceClient>(
             "https://_grpc.passport",
             "DyNfcService");
+        services.AddGrpcClientWithSharedChannel<DyPublisherRatingService.DyPublisherRatingServiceClient>(
+            "https://_grpc.sphere",
+            "DyPublisherRatingService");
+        services.AddGrpcClientWithSharedChannel<DyPublisherService.DyPublisherServiceClient>(
+            "https://_grpc.sphere",
+            "DyPublisherService");
 
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();

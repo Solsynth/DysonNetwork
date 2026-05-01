@@ -19,6 +19,7 @@ public class PublisherController(
     AppDatabase db,
     PublisherService ps,
     PublisherQuotaService quotaService,
+    PublisherRatingService ratingService,
     DyAccountService.DyAccountServiceClient accounts,
     DyFileService.DyFileServiceClient files,
     RemoteActionLogService als,
@@ -773,6 +774,32 @@ public class PublisherController(
 
         var result = await ps.GetPublisherExpectedReward(publisher.Id);
         return Ok(result);
+    }
+
+    [HttpGet("{name}/rating/history")]
+    [Authorize]
+    public async Task<ActionResult<List<SnPublisherRatingRecord>>> GetPublisherRatingHistory(
+        string name,
+        [FromQuery] int take = 20,
+        [FromQuery] int offset = 0
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Viewer))
+            return StatusCode(403, "You are not allowed to view rating data of this publisher.");
+
+        var total = await ratingService.GetRatingHistoryCount(publisher.Id);
+        HttpContext.Response.Headers["X-Total"] = total.ToString();
+
+        var records = await ratingService.GetRatingHistory(publisher.Id, take, offset);
+        return Ok(records);
     }
 
     public class PublisherFeatureRequest

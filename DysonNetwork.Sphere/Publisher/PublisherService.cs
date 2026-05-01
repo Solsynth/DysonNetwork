@@ -27,6 +27,7 @@ public class PublisherService(
     AppDatabase db,
     DySocialCreditService.DySocialCreditServiceClient socialCredits,
     DyExperienceService.DyExperienceServiceClient experiences,
+    PublisherRatingService ratingService,
     ICacheService cache,
     ILocalizationService localization,
     RemoteAccountService remoteAccounts,
@@ -852,6 +853,31 @@ public class PublisherService(
                     ExpiredAt = expiredAt.ToTimestamp(),
                 });
             }
+        }
+
+        // Foreach loop through publishers to set rating
+        foreach (var (publisherId, value) in publisherStats)
+        {
+            var upvotes = value.Upvotes;
+            var downvotes = value.Downvotes;
+            var awardScore = value.AwardScore;
+
+            var netVotes = upvotes - downvotes;
+            var points = netVotes + awardScore * 0.1;
+            var ratingDelta = (int)points;
+
+            if (ratingDelta == 0) continue;
+
+            var publisherName = publishers.TryGetValue(publisherId, out var pub) ? pub.Name : "unknown";
+
+            await ratingService.AddRecord(
+                "publishers.rewards",
+                localization.Get("publishingRewardTitle", "en",
+                    new { publisher = $"@{publisherName}", date }),
+                ratingDelta,
+                publisherId,
+                expiredAt
+            );
         }
     }
 
