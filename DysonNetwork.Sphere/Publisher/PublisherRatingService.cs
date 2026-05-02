@@ -1,7 +1,6 @@
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
-using NodaTime;
 
 namespace DysonNetwork.Sphere.Publisher;
 
@@ -17,8 +16,7 @@ public class PublisherRatingService(AppDatabase db, ICacheService cache)
         string reasonType,
         string reason,
         double delta,
-        Guid publisherId,
-        Instant? expiredAt
+        Guid publisherId
     )
     {
         var record = new SnPublisherRatingRecord
@@ -26,19 +24,16 @@ public class PublisherRatingService(AppDatabase db, ICacheService cache)
             ReasonType = reasonType,
             Reason = reason,
             Delta = delta,
-            PublisherId = publisherId,
-            ExpiredAt = expiredAt
+            PublisherId = publisherId
         };
         db.PublisherRatingRecords.Add(record);
         await db.SaveChangesAsync();
 
         await cache.RemoveGroupAsync($"{CacheGroupPrefix}{publisherId}");
 
-        var now = SystemClock.Instance.GetCurrentInstant();
-        var records = await db.PublisherRatingRecords
+        var total = await db.PublisherRatingRecords
             .Where(r => r.PublisherId == publisherId && !r.DeletedAt.HasValue)
-            .ToListAsync();
-        var total = records.Sum(r => r.GetEffectiveDelta(now)) + BaseRating;
+            .SumAsync(r => r.Delta) + BaseRating;
 
         await db.Publishers
             .Where(p => p.Id == publisherId)
@@ -55,14 +50,9 @@ public class PublisherRatingService(AppDatabase db, ICacheService cache)
         var cached = await cache.GetAsync<double?>(cacheKey);
         if (cached.HasValue) return cached.Value;
 
-        var now = SystemClock.Instance.GetCurrentInstant();
-
-        var records = await db.PublisherRatingRecords
+        var total = await db.PublisherRatingRecords
             .Where(r => r.PublisherId == publisherId && !r.DeletedAt.HasValue)
-            .ToListAsync();
-
-        var total = records.Sum(r => r.GetEffectiveDelta(now));
-        total += BaseRating;
+            .SumAsync(r => r.Delta) + BaseRating;
 
         await cache.SetWithGroupsAsync(cacheKey, total, [$"{CacheGroupPrefix}{publisherId}"], MinCacheDuration);
 

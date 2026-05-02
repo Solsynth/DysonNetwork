@@ -4,7 +4,7 @@ This document describes the publisher rating system in `DysonNetwork.Sphere`.
 
 ## Summary
 
-Publisher rating is a reputation score assigned to publishers, modeled after the account social credit system. It is record-based: individual rating change records (deltas) aggregate into a total score. Records can expire and decay over time.
+Publisher rating is a reputation score assigned to publishers, modeled after the account social credit system. It is record-based: individual rating change records (deltas) aggregate into a total score. Records are permanent and do not decay.
 
 The rating affects:
 
@@ -20,26 +20,19 @@ Each rating change is stored as an individual record:
 | Field | Type | Description |
 |-------|------|-------------|
 | `Id` | `Guid` | Primary key |
-| `ReasonType` | `string` | Category (e.g. `"publishers.rewards"`, `"punishments"`) |
+| `ReasonType` | `string` | Category (e.g. `"publishers.rewards"`, `"publishers.resettle"`, `"punishments"`) |
 | `Reason` | `string` | Human-readable explanation |
 | `Delta` | `double` | Rating change (positive = gain, negative = penalty) |
-| `Status` | `Active` / `Expired` | Current status |
-| `ExpiredAt` | `Instant?` | Optional expiration time |
 | `PublisherId` | `Guid` | FK to `SnPublisher` |
 
 Records inherit `ModelBase` (`CreatedAt`, `UpdatedAt`, `DeletedAt`).
 
-### Effective Delta (Time-Weighted Decay)
+### Rating Calculation
 
-Permanent records (no `ExpiredAt`) always return their full delta. Temporary records decay linearly as they approach expiration:
+The total rating is simply the sum of all record deltas plus the base score:
 
 \[
-\text{effective}(r, t) =
-\begin{cases}
-0, & \text{if } r.\text{expiredAt} \le t \\
-r.\text{delta}, & \text{if } r.\text{expiredAt} = \text{null} \\
-r.\text{delta} \cdot \max\left(0,\; 1 - \frac{t - r.\text{createdAt}}{r.\text{expiredAt} - r.\text{createdAt}}\right), & \text{otherwise}
-\end{cases}
+\text{rating} = \text{baseRating} + \sum_{r \in \text{records}} r.\text{delta}
 \]
 
 ### Cached Rating on `SnPublisher`
@@ -70,7 +63,6 @@ The daily `PublisherSettlementJob` calculates rating deltas from yesterday's pos
 If non-zero, a rating record is created for the publisher with:
 
 - `ReasonType = "publishers.rewards"`
-- `ExpiredAt = end of today + 30 days` (temporary, expires monthly)
 
 This is separate from the per-member social credit distribution — it applies to the publisher entity itself.
 
@@ -84,18 +76,15 @@ Admins can penalize a publisher's rating when issuing account punishments:
 The rating record is created with:
 
 - `ReasonType = "punishments"`
-- `ExpiredAt` defaults to 365 days if not specified
 
-## Periodic Sync
+### Aggressive Resettle
 
-The `PublisherRatingValidationJob` runs every **60 minutes** and:
+Admins can recalculate and apply ratings from historical post data for any date range:
 
-1. Fetches all distinct publisher IDs with rating records
-2. Recomputes the effective rating per publisher (time-weighted sum + base)
-3. Persists the result to `publishers.rating` via `ExecuteUpdateAsync`
-4. Clears the `publisher_rating:` cache group
-
-This ensures the cached `Rating` column stays reasonably up-to-date even if cached values expire.
+- Reads historical posts, reactions (upvotes/downvotes), and awards
+- Aggregates stats across the specified date range
+- Creates incremental rating records (does not replace existing records)
+- Default: last 30 days if no date range specified
 
 ## Caching
 
@@ -105,10 +94,7 @@ Rating scores are cached in Redis:
 - **Group**: `publisher:{publisherId}`
 - **TTL**: 5 minutes
 
-Cache is invalidated when:
-
-- A new rating record is added
-- The periodic validation job runs
+Cache is invalidated when a new rating record is added.
 
 ## Timeline Integration
 
@@ -139,10 +125,16 @@ This bonus is added to the post's rank score in `RankPosts()`, directly affectin
 
 - `GET /api/publishers/{name}/rating` — returns the current rating score (double)
 - `GET /api/publishers/{name}/rating/history` — paginated rating history, returns `X-Total` header
+- `GET /api/publishers/{name}/rating/overview` — rating overview with percentile and grade
+- `GET /api/publishers/leaderboard` — paginated leaderboard sorted by rating descending
 
 ### Authenticated (members only)
 
 - `GET /api/publishers/{name}/rating/history` — same as above, requires `Viewer` role or higher
+
+### Admin
+
+- `POST /api/publishers/rewards/resettle` — aggressive resettle from historical data
 
 ### Query Parameters (history)
 
@@ -151,44 +143,33 @@ This bonus is added to the post's rank score in `RankPosts()`, directly affectin
 | `take` | `int` | `20` | Page size |
 | `offset` | `int` | `0` | Offset for pagination |
 
-## Leaderboard
-
-### API Endpoints
-
-#### Public
-
-- `GET /api/publishers/leaderboard` — paginated leaderboard sorted by rating descending
-- `GET /api/publishers/{name}/rating/overview` — rating overview with percentile and grade
-
-### Leaderboard Response
-
-```json
-[
-  {
-    "publisherId": "uuid",
-    "name": "publisher_name",
-    "nick": "Display Name",
-    "picture": { ... },
-    "rating": 250.5,
-    "rank": 1,
-    "percentile": 100.0,
-    "grade": "S++"
-  },
-  ...
-]
-```
-
-### Rating Overview Response
+### Aggressive Resettle Request
 
 ```json
 {
-  "rating": 145.5,
-  "rank": 1450,
-  "totalPublishers": 10000,
-  "percentile": 85.5,
-  "grade": "C"
+  "dateFrom": "2026-01-01T00:00:00Z",
+  "dateTo": "2026-01-31T23:59:59Z",
+  "publisherId": null
 }
 ```
+
+- `dateFrom` — start of the period to recalculate (required)
+- `dateTo` — end of the period to recalculate (required)
+- `publisherId` — optional, limit to a specific publisher; if null, resettles all publishers
+
+### Aggressive Resettle Response
+
+```json
+{
+  "processed": 42,
+  "publishers": [
+    { "publisherId": "uuid", "delta": 15 },
+    { "publisherId": "uuid", "delta": -3 }
+  ]
+}
+```
+
+## Leaderboard
 
 ### Grade Scale
 
@@ -214,28 +195,9 @@ Grades are assigned based on percentile ranking (competition ranking — ties sh
 \text{percentile} = \frac{\text{totalPublishers} - \text{rank} + 1}{\text{totalPublishers}} \times 100
 \]
 
-### Caching
+### Leaderboard Caching
 
-The leaderboard is cached for **24 hours**. Cache is invalidated when:
-
-- A rating record is added (via `PublisherRatingService.AddRecord`)
-- The settlement job runs (which calls `AddRecord`)
-
-### Query Parameters (leaderboard)
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `take` | `int` | `20` | Page size |
-| `offset` | `int` | `0` | Offset for pagination |
-
-## gRPC Service
-
-`DyPublisherRatingService` (defined in `leveling.proto`):
-
-- `AddRecord(DyAddPublisherRatingRecordRequest) → DyPublisherRatingRecord`
-- `GetRating(DyGetPublisherRatingRequest) → DyPublisherRatingResponse`
-
-Used by Padlock (admin punishments) to penalize publisher ratings remotely.
+The leaderboard is cached for **24 hours**. Cache is invalidated when any rating record is added.
 
 ## Database
 
@@ -247,8 +209,6 @@ Used by Padlock (admin punishments) to penalize publisher ratings remotely.
 | `reason_type` | `varchar(1024)` | |
 | `reason` | `varchar(1024)` | |
 | `delta` | `double precision` | |
-| `status` | `integer` | enum: 0=Active, 1=Expired |
-| `expired_at` | `timestamptz` | nullable |
 | `publisher_id` | `uuid` | FK → `publishers.id` (cascade) |
 | `created_at` | `timestamptz` | from `ModelBase` |
 | `updated_at` | `timestamptz` | from `ModelBase` |
@@ -268,11 +228,10 @@ Used by Padlock (admin punishments) to penalize publisher ratings remotely.
 | `DysonNetwork.Sphere/Publisher/PublisherRatingService.cs` | Core service: `AddRecord`, `GetRating`, history |
 | `DysonNetwork.Sphere/Publisher/PublisherLeaderboardService.cs` | Leaderboard with percentile ranking and grading |
 | `DysonNetwork.Sphere/Publisher/PublisherRatingServiceGrpc.cs` | gRPC server |
-| `DysonNetwork.Sphere/Publisher/PublisherRatingValidationJob.cs` | 60-min periodic sync job |
-| `DysonNetwork.Sphere/Publisher/PublisherService.cs` | Rating records added in `SettlePublisherRewards()` |
+| `DysonNetwork.Sphere/Publisher/PublisherService.cs` | Rating records added in `SettlePublisherRewards()`, `AggressiveResettle()` |
 | `DysonNetwork.Sphere/Timeline/TimelineService.cs` | `GetPublisherRatingBonusMap()` replaces social credit bonus |
 | `DysonNetwork.Sphere/Publisher/PublisherPublicController.cs` | Public rating endpoints |
-| `DysonNetwork.Sphere/Publisher/PublisherController.cs` | Authenticated rating history endpoint |
+| `DysonNetwork.Sphere/Publisher/PublisherController.cs` | Authenticated rating history, admin resettle endpoint |
 | `DysonNetwork.Padlock/Account/AccountAdminController.cs` | Admin punishment with publisher rating reduction |
 | `DysonSpec/proto/leveling.proto` | Proto definitions for `DyPublisherRatingService` |
 | `DysonSpec/proto/publisher.proto` | `rating` field on `DyPublisher` |

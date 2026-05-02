@@ -125,8 +125,6 @@ public class AccountAdminController(
 
         if (request.PublisherRatingReduction is > 0 && request.PublisherNames is { Count: > 0 })
         {
-            var expiredAt = request.ExpiredAt?.ToTimestamp() ?? SystemClock.Instance.GetCurrentInstant()
-                .Plus(Duration.FromDays(365)).ToTimestamp();
             foreach (var publisherName in request.PublisherNames)
             {
                 try
@@ -140,7 +138,6 @@ public class AccountAdminController(
                         Delta = -request.PublisherRatingReduction.Value,
                         Reason = $"{title} {request.Reason}",
                         ReasonType = "punishments",
-                        ExpiredAt = expiredAt,
                     });
                 }
                 catch

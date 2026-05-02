@@ -310,38 +310,13 @@ public class SnPublishingSettings : ModelBase
     public Instant? UpdatedAt { get; set; }
 }
 
-public enum PublisherRatingRecordStatus
-{
-    Active,
-    Expired
-}
-
 public class SnPublisherRatingRecord : ModelBase
 {
     public Guid Id { get; set; }
     [MaxLength(1024)] public string ReasonType { get; set; } = string.Empty;
     [MaxLength(1024)] public string Reason { get; set; } = string.Empty;
     public double Delta { get; set; }
-    public PublisherRatingRecordStatus Status { get; set; } = PublisherRatingRecordStatus.Active;
-    public Instant? ExpiredAt { get; set; }
 
     public Guid PublisherId { get; set; }
     public SnPublisher Publisher { get; set; } = null!;
-
-    public double GetEffectiveDelta(Instant now)
-    {
-        if (ExpiredAt.HasValue && ExpiredAt <= now)
-            return 0;
-
-        if (!ExpiredAt.HasValue)
-            return Delta;
-
-        var totalDuration = ExpiredAt.Value - CreatedAt;
-        if (totalDuration == NodaTime.Duration.Zero)
-            return Delta;
-
-        var elapsed = now - CreatedAt;
-        var remainingRatio = 1.0 - (elapsed.TotalSeconds / totalDuration.TotalSeconds);
-        return Delta * Math.Max(0, remainingRatio);
-    }
 }

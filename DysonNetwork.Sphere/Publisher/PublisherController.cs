@@ -930,6 +930,31 @@ public class PublisherController(
         return Ok();
     }
 
+    public class AggressiveResettleRequest
+    {
+        public Instant DateFrom { get; set; }
+        public Instant DateTo { get; set; }
+        public Guid? PublisherId { get; set; }
+    }
+
+    [HttpPost("rewards/resettle")]
+    [Authorize]
+    [AskPermission("publishers.reward.settle")]
+    public async Task<IActionResult> AggressiveResettle([FromBody] AggressiveResettleRequest request)
+    {
+        var results = await ps.AggressiveResettle(
+            request.DateFrom,
+            request.DateTo,
+            request.PublisherId
+        );
+
+        return Ok(new
+        {
+            processed = results.Count,
+            publishers = results.Select(r => new { publisherId = r.Key, delta = r.Value }).ToList()
+        });
+    }
+
     [HttpGet("{name}/fediverse")]
     [Authorize]
     public async Task<ActionResult<FediverseStatus>> GetFediverseStatus(string name)

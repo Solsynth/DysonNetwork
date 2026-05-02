@@ -17,8 +17,7 @@ public class PublisherRatingServiceGrpc(PublisherRatingService ratingService)
             request.ReasonType,
             request.Reason,
             request.Delta,
-            publisherId,
-            request.ExpiredAt?.ToInstant()
+            publisherId
         );
 
         return new DyPublisherRatingRecord

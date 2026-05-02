@@ -45,15 +45,6 @@ public static class ScheduledJobsConfiguration
                 .WithCronSchedule("0 0 0 * * ?")
             );
 
-            q.AddJob<PublisherRatingValidationJob>(opts => opts.WithIdentity("PublisherRatingValidation"));
-            q.AddTrigger(opts => opts
-                .ForJob("PublisherRatingValidation")
-                .WithIdentity("PublisherRatingValidationTrigger")
-                .WithSimpleSchedule(o => o
-                    .WithIntervalInMinutes(60)
-                    .RepeatForever())
-            );
-
             q.AddJob<DeliveryRetryJob>(opts => opts.WithIdentity("DeliveryRetry"));
             q.AddTrigger(opts => opts
                 .ForJob("DeliveryRetry")
