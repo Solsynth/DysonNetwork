@@ -34,6 +34,16 @@ public class PublisherRatingService(AppDatabase db, ICacheService cache)
 
         await cache.RemoveGroupAsync($"{CacheGroupPrefix}{publisherId}");
 
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var records = await db.PublisherRatingRecords
+            .Where(r => r.PublisherId == publisherId && !r.DeletedAt.HasValue)
+            .ToListAsync();
+        var total = records.Sum(r => r.GetEffectiveDelta(now)) + BaseRating;
+
+        await db.Publishers
+            .Where(p => p.Id == publisherId)
+            .ExecuteUpdateAsync(p => p.SetProperty(x => x.Rating, total));
+
         return record;
     }
 
