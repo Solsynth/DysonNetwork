@@ -52,7 +52,8 @@ public class AuthService(
             .Where(f => f.EnabledAt != null)
             .ToListAsync();
         var maxSteps = enabledFactors.Count;
-        if (maxSteps == 0) return 0;
+        if (maxSteps == 0)
+            throw new ArgumentException("Account has no authentication factors configured.");
 
         var riskScore = 0.0;
         var recentSessions = await db.AuthSessions
@@ -418,6 +419,8 @@ public class AuthService(
 
     public async Task<TokenPair> CreateSessionAndIssueTokens(SnAuthChallenge challenge)
     {
+        if (challenge.StepTotal <= 0)
+            throw new ArgumentException("Challenge has no authentication factors configured.");
         if (challenge.StepRemain != 0)
             throw new ArgumentException("Challenge not yet completed.");
         var now = SystemClock.Instance.GetCurrentInstant();

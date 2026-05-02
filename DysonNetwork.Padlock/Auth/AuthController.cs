@@ -90,6 +90,20 @@ public class AuthController(
                 TraceId = HttpContext.TraceIdentifier
             });
 
+        var hasAuthFactors = await db.AccountAuthFactors
+            .Where(f => f.AccountId == account.Id)
+            .Where(f => f.Type != AccountAuthFactorType.RecoveryCode)
+            .Where(f => f.EnabledAt != null)
+            .AnyAsync();
+        if (!hasAuthFactors)
+            return StatusCode(403, new ApiError
+            {
+                Code = "NO_AUTH_FACTORS",
+                Message = "Account has no authentication factors configured.",
+                Status = 403,
+                TraceId = HttpContext.TraceIdentifier
+            });
+
         var now = SystemClock.Instance.GetCurrentInstant();
         var ipAddress = HttpContext.GetClientIpAddress();
         var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
