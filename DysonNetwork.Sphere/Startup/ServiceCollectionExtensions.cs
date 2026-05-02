@@ -219,6 +219,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<PublisherQuotaService>();
             services.AddScoped<PublisherSubscriptionService>();
             services.AddScoped<PublisherRatingService>();
+            services.AddScoped<PublisherLeaderboardService>();
             services.AddScoped<TimelineService>();
             services.AddScoped<AutomodService>();
             services.AddScoped<PostService>();

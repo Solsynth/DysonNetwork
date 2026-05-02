@@ -151,6 +151,83 @@ This bonus is added to the post's rank score in `RankPosts()`, directly affectin
 | `take` | `int` | `20` | Page size |
 | `offset` | `int` | `0` | Offset for pagination |
 
+## Leaderboard
+
+### API Endpoints
+
+#### Public
+
+- `GET /api/publishers/leaderboard` — paginated leaderboard sorted by rating descending
+- `GET /api/publishers/{name}/rating/overview` — rating overview with percentile and grade
+
+### Leaderboard Response
+
+```json
+[
+  {
+    "publisherId": "uuid",
+    "name": "publisher_name",
+    "nick": "Display Name",
+    "picture": { ... },
+    "rating": 250.5,
+    "rank": 1,
+    "percentile": 100.0,
+    "grade": "S++"
+  },
+  ...
+]
+```
+
+### Rating Overview Response
+
+```json
+{
+  "rating": 145.5,
+  "rank": 1450,
+  "totalPublishers": 10000,
+  "percentile": 85.5,
+  "grade": "C"
+}
+```
+
+### Grade Scale
+
+Grades are assigned based on percentile ranking (competition ranking — ties share the same rank):
+
+| Grade | Percentile Threshold | Meaning |
+|-------|---------------------|---------|
+| S++ | #1 rank only | Absolute top |
+| S+ | ≥ 99% | Top 1% |
+| S | ≥ 95% | Top 5% |
+| A++ | ≥ 90% | Top 10% |
+| A+ | ≥ 80% | Top 20% |
+| A | ≥ 70% | Top 30% |
+| A- | ≥ 60% | Top 40% |
+| B+ | ≥ 50% | Top 50% |
+| B | ≥ 40% | Top 60% |
+| C | ≥ 20% | Top 80% |
+| D | < 20% | Bottom 20% |
+
+### Percentile Formula
+
+\[
+\text{percentile} = \frac{\text{totalPublishers} - \text{rank} + 1}{\text{totalPublishers}} \times 100
+\]
+
+### Caching
+
+The leaderboard is cached for **24 hours**. Cache is invalidated when:
+
+- A rating record is added (via `PublisherRatingService.AddRecord`)
+- The settlement job runs (which calls `AddRecord`)
+
+### Query Parameters (leaderboard)
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `take` | `int` | `20` | Page size |
+| `offset` | `int` | `0` | Offset for pagination |
+
 ## gRPC Service
 
 `DyPublisherRatingService` (defined in `leveling.proto`):
@@ -189,6 +266,7 @@ Used by Padlock (admin punishments) to penalize publisher ratings remotely.
 |------|---------|
 | `DysonNetwork.Shared/Models/Publisher.cs` | `SnPublisherRatingRecord`, `Rating`/`RatingLevel` on `SnPublisher` |
 | `DysonNetwork.Sphere/Publisher/PublisherRatingService.cs` | Core service: `AddRecord`, `GetRating`, history |
+| `DysonNetwork.Sphere/Publisher/PublisherLeaderboardService.cs` | Leaderboard with percentile ranking and grading |
 | `DysonNetwork.Sphere/Publisher/PublisherRatingServiceGrpc.cs` | gRPC server |
 | `DysonNetwork.Sphere/Publisher/PublisherRatingValidationJob.cs` | 60-min periodic sync job |
 | `DysonNetwork.Sphere/Publisher/PublisherService.cs` | Rating records added in `SettlePublisherRewards()` |

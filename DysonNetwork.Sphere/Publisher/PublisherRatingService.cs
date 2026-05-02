@@ -44,6 +44,8 @@ public class PublisherRatingService(AppDatabase db, ICacheService cache)
             .Where(p => p.Id == publisherId)
             .ExecuteUpdateAsync(p => p.SetProperty(x => x.Rating, total));
 
+        await cache.RemoveAsync("publisher_leaderboard");
+
         return record;
     }
 

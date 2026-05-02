@@ -7,7 +7,7 @@ namespace DysonNetwork.Sphere.Publisher;
 
 [ApiController]
 [Route("/api/publishers")]
-public class PublisherPublicController(AppDatabase db, RemoteAccountService accounts, PublisherService ps, PublisherRatingService ratingService) : ControllerBase
+public class PublisherPublicController(AppDatabase db, RemoteAccountService accounts, PublisherService ps, PublisherRatingService ratingService, PublisherLeaderboardService leaderboardService) : ControllerBase
 {
     [HttpGet("search")]
     public async Task<ActionResult<List<SnPublisher>>> SearchPublishers([FromQuery] string query, [FromQuery] int take = 20)
@@ -100,5 +100,28 @@ public class PublisherPublicController(AppDatabase db, RemoteAccountService acco
 
         var records = await ratingService.GetRatingHistory(publisher.Id, take, offset);
         return Ok(records);
+    }
+
+    [HttpGet("leaderboard")]
+    public async Task<ActionResult<List<PublisherLeaderboardService.LeaderboardEntry>>> GetLeaderboard(
+        [FromQuery] int take = 20,
+        [FromQuery] int offset = 0
+    )
+    {
+        var total = await leaderboardService.GetTotalPublishers();
+        HttpContext.Response.Headers["X-Total"] = total.ToString();
+
+        var entries = await leaderboardService.GetLeaderboard(take, offset);
+        return Ok(entries);
+    }
+
+    [HttpGet("{name}/rating/overview")]
+    public async Task<ActionResult<PublisherLeaderboardService.RatingOverview>> GetRatingOverview(string name)
+    {
+        var overview = await leaderboardService.GetOverviewByName(name);
+        if (overview is null)
+            return NotFound();
+
+        return Ok(overview);
     }
 }
