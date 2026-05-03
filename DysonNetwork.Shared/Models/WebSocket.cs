@@ -13,4 +13,6 @@ public abstract class WebSocketPacketType
     public const string MessageReactionRemoved = "messages.reaction.removed";
     public const string CallParticipantsUpdate = "call.participants.update";
     public const string ProgressionCompleted = "progression.completed";
+    public const string AccountStatusUpdated = "account.status.updated";
+    public const string ChatPresenceUpdated = "chat.presence.updated";
 }

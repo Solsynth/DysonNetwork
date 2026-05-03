@@ -16,28 +16,23 @@ public class WebSocketPacketEvent : EventBase
     public byte[] PacketBytes { get; set; } = null!;
 }
 
-[Obsolete]
 public class WebSocketConnectedEvent : EventBase
 {
-    public static string Type => "websocket_connected";
+    public static string Type => "connected";
     public override string EventType => Type;
-    public override string StreamName => "websocket_events";
+    public override string StreamName => "websocket_connections";
 
     public Guid AccountId { get; set; }
     public string DeviceId { get; set; } = null!;
-    public Instant ConnectedAt { get; set; } = SystemClock.Instance.GetCurrentInstant();
-    public bool IsOffline { get; set; } = false;
 }
 
-[Obsolete]
 public class WebSocketDisconnectedEvent : EventBase
 {
-    public static string Type => "websocket_disconnected";
+    public static string Type => "disconnected";
     public override string EventType => Type;
-    public override string StreamName => "websocket_events";
+    public override string StreamName => "websocket_connections";
 
     public Guid AccountId { get; set; }
     public string DeviceId { get; set; } = null!;
-    public Instant DisconnectedAt { get; set; } = SystemClock.Instance.GetCurrentInstant();
     public bool IsOffline { get; set; }
 }

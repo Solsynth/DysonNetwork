@@ -337,8 +337,67 @@ public static class ServiceCollectionExtensions
                     opts.StreamName = "locationpin_events";
                     opts.ConsumerName = "passport_locationpin_updates";
                     opts.MaxRetries = 3;
+                })
+            .AddListener<WebSocketConnectedEvent>(
+                "websocket_connected",
+                async (evt, ctx) =>
+                {
+                    await HandleWebSocketStatusChanged(evt.AccountId, evt.DeviceId, evt.Timestamp, ctx);
+                },
+                opts =>
+                {
+                    opts.UseJetStream = true;
+                    opts.StreamName = "websocket_connections";
+                    opts.ConsumerName = "passport_websocket_connected_status";
+                    opts.MaxRetries = 3;
+                })
+            .AddListener<WebSocketDisconnectedEvent>(
+                "websocket_disconnected",
+                async (evt, ctx) =>
+                {
+                    if (!evt.IsOffline) return;
+                    await HandleWebSocketStatusChanged(evt.AccountId, evt.DeviceId, evt.Timestamp, ctx);
+                },
+                opts =>
+                {
+                    opts.UseJetStream = true;
+                    opts.StreamName = "websocket_connections";
+                    opts.ConsumerName = "passport_websocket_disconnected_status";
+                    opts.MaxRetries = 3;
                 });
 
         return services;
+    }
+
+    private static async Task HandleWebSocketStatusChanged(Guid accountId, string deviceId, Instant timestamp, EventContext ctx)
+    {
+        var accountEvents = ctx.ServiceProvider.GetRequiredService<AccountEventService>();
+        var relationships = ctx.ServiceProvider.GetRequiredService<RelationshipService>();
+        var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
+        var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+
+        var previousStatus = await accountEvents.GetPreviousStatus(accountId);
+        accountEvents.PurgeStatusCache(accountId);
+        var currentStatus = await accountEvents.GetStatus(accountId);
+
+        if (previousStatus is not null && BroadcastEventHandler.StatusesEqual(previousStatus, currentStatus))
+            return;
+
+        var friendIds = await relationships.ListAccountFriends(accountId);
+        if (friendIds.Count == 0) return;
+
+        await ws.PushWebSocketPacketToUsers(
+            friendIds.Select(id => id.ToString()).ToList(),
+            WebSocketPacketType.AccountStatusUpdated,
+            InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
+            {
+                ["account_id"] = accountId,
+                ["status"] = currentStatus,
+                ["device_id"] = deviceId,
+                ["timestamp"] = timestamp
+            }).ToByteArray()
+        );
+
+        logger.LogDebug("Broadcast account status update for {AccountId} to {FriendCount} friends", accountId, friendIds.Count);
     }
 }

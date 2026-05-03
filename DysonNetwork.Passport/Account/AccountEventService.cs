@@ -49,6 +49,11 @@ public class AccountEventService(
         cache.RemoveAsync(cacheKey);
     }
 
+    public async Task<SnAccountStatus?> GetPreviousStatus(Guid userId)
+    {
+        return await cache.GetAsync<SnAccountStatus>($"{PreviousStatusCacheKey}{userId}");
+    }
+
     private static bool IsInvisibleStatus(SnAccountStatus status) => status.Type == StatusType.Invisible;
 
     public async Task<SnAccountStatus> GetStatus(Guid userId)
