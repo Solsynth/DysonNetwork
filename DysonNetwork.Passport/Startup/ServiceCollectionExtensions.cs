@@ -8,6 +8,7 @@ using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Account.Presences;
 using DysonNetwork.Passport.Affiliation;
 using DysonNetwork.Passport.Credit;
+using DysonNetwork.Passport.DomainTrust;
 using DysonNetwork.Passport.Handlers;
 using DysonNetwork.Passport.Leveling;
 using DysonNetwork.Passport.Mailer;
@@ -165,6 +166,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<LocationPinService>();
         services.AddSingleton<LocationPinSubscriptionHub>();
         services.AddHostedService<LocationPinLifecycleHostedService>();
+        services.Configure<DomainBlockSettings>(configuration.GetSection("DomainBlock"));
+        services.AddScoped<DomainTrustService>();
         services.AddEventBus()
             .AddListener<AccountCreatedEvent>(async (evt, ctx) =>
             {

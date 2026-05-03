@@ -1,5 +1,6 @@
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Credit;
+using DysonNetwork.Passport.DomainTrust;
 using DysonNetwork.Passport.Leveling;
 using DysonNetwork.Passport.Nfc;
 using DysonNetwork.Passport.Realm;
@@ -36,6 +37,8 @@ public static class ApplicationConfiguration
         app.MapGrpcService<ExperienceServiceGrpc>();
         app.MapGrpcService<RealmServiceGrpc>();
         app.MapGrpcService<NfcServiceGrpc>();
+        // TODO: Uncomment after regenerating proto code
+        // app.MapGrpcService<DomainTrustServiceGrpc>();
         app.MapGrpcReflectionService();
 
         return app;

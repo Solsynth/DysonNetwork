@@ -59,6 +59,8 @@ public class AppDatabase(
 
     public DbSet<SnNfcTag> NfcTags { get; set; } = null!;
 
+    public DbSet<SnDomainBlock> DomainBlocks { get; set; } = null!;
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql(
