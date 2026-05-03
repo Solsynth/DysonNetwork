@@ -198,9 +198,78 @@ public static class ServiceCollectionExtensions
                         opts.ConsumerName = "messager_websocket_disconnected_presence";
                         opts.MaxRetries = 3;
                     }
+                )
+                .AddListener<AccountPresenceActivitiesUpdatedEvent>(
+                    AccountPresenceActivitiesUpdatedEvent.Type,
+                    async (evt, ctx) =>
+                    {
+                        await HandlePresenceActivitiesUpdated(evt.AccountId, evt.Activities, evt.Timestamp, ctx);
+                    },
+                    opts =>
+                    {
+                        opts.UseJetStream = true;
+                        opts.StreamName = "account_events";
+                        opts.ConsumerName = "messager_account_presence_activities";
+                        opts.MaxRetries = 3;
+                    }
                 );
 
             return services;
+        }
+
+        private static async Task HandlePresenceActivitiesUpdated(
+            Guid accountId,
+            List<SnPresenceActivity> activities,
+            Instant timestamp,
+            EventContext ctx
+        )
+        {
+            var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
+            var crs = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
+            var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
+            var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+
+            var changedMembers = await db.ChatMembers
+                .Where(m => m.AccountId == accountId)
+                .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+                .Select(m => new { m.ChatRoomId, MemberId = m.Id })
+                .ToListAsync(ctx.CancellationToken);
+            if (changedMembers.Count == 0) return;
+
+            var packetCount = 0;
+            foreach (var changedMember in changedMembers)
+            {
+                var subscribedMemberIds = await crs.GetSubscribedMembers(changedMember.ChatRoomId);
+                if (subscribedMemberIds.Count == 0) continue;
+
+                var roomMembers = await crs.ListRoomMembers(changedMember.ChatRoomId);
+                var subscribedAccounts = roomMembers
+                    .Where(m => m.AccountId != accountId && subscribedMemberIds.Contains(m.Id))
+                    .Select(m => m.AccountId.ToString())
+                    .Distinct()
+                    .ToList();
+                if (subscribedAccounts.Count == 0) continue;
+
+                await ws.PushWebSocketPacketToUsers(
+                    subscribedAccounts,
+                    WebSocketPacketType.ChatPresenceActivitiesUpdated,
+                    InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
+                    {
+                        ["room_id"] = changedMember.ChatRoomId,
+                        ["member_id"] = changedMember.MemberId,
+                        ["account_id"] = accountId,
+                        ["activities"] = activities,
+                        ["timestamp"] = timestamp
+                    }).ToByteArray()
+                );
+                packetCount++;
+            }
+
+            logger.LogDebug(
+                "Broadcast chat presence activities update for {AccountId} to subscribers in {RoomCount} rooms",
+                accountId,
+                packetCount
+            );
         }
 
         private static async Task HandleWebSocketPresenceChanged(

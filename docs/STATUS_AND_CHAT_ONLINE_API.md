@@ -6,6 +6,7 @@ This document covers two API updates:
 
 - Passport account status APIs now use a unified `type` enum instead of separate `is_invisible` and `is_not_disturb` booleans.
 - Messager online member lookup now returns structured presence data instead of only an online count.
+- Realtime websocket packets notify friends and subscribed chat rooms when account status or rich presence activities change.
 
 JSON fields are shown in `snake_case`. The naming converter will map server-side model properties automatically.
 
@@ -220,3 +221,22 @@ Example:
 - Update consumers of `messager/chat/{room_id}/members/online` to expect an object instead of a raw integer.
 - DM chat clients should read `direct_message_status`.
 - Group chat clients can use either `online_user_names` for lightweight UI or `online_accounts` for richer member cards.
+
+## Realtime Presence Packets
+
+Detailed websocket lifecycle and presence broadcast behavior is documented in:
+
+```text
+docs/WEBSOCKET_PRESENCE_BROADCASTS.md
+```
+
+Clients should handle these packet types:
+
+| Packet type | Audience | Purpose |
+| --- | --- | --- |
+| `account.status.updated` | Friends | Account-level online/status change |
+| `chat.presence.updated` | Subscribed chat room members | Room-scoped online/status change with `room_id` and `member_id` |
+| `account.presence.activities.updated` | Friends | Account-level rich presence activity change |
+| `chat.presence.activities.updated` | Subscribed chat room members | Room-scoped rich presence activity change with `room_id` and `member_id` |
+
+Friend packets and chat-room packets are intentionally independent. If a user is both a friend and a subscribed member of a room containing the changed account, they receive both packet families.

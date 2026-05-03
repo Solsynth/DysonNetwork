@@ -55,6 +55,16 @@ public class AccountContactVerifiedEvent : EventBase
     public Instant VerifiedAt { get; set; } = SystemClock.Instance.GetCurrentInstant();
 }
 
+public class AccountPresenceActivitiesUpdatedEvent : EventBase
+{
+    public static string Type => "account.presence.activities.updated";
+    public override string EventType => Type;
+    public override string StreamName => "account_events";
+
+    public Guid AccountId { get; set; }
+    public List<SnPresenceActivity> Activities { get; set; } = [];
+}
+
 public class AccountRemovalConfirmedEvent : EventBase
 {
     public static string Type => "accounts.removal.confirmed";

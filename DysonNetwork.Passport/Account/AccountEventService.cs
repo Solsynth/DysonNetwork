@@ -1,6 +1,10 @@
 using System.Globalization;
+using System.Text.Json;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Localization;
@@ -17,7 +21,10 @@ public class AccountEventService(
     RemotePaymentService payment,
     RemoteSubscriptionService subscriptions,
     RemoteWebSocketService ws,
-    RemoteAccountConnectionService accountConnections
+    RemoteAccountConnectionService accountConnections,
+    RelationshipService relationships,
+    IEventBus eventBus,
+    ILogger<AccountEventService> logger
 )
 {
     private static readonly Random Random = new();
@@ -47,6 +54,75 @@ public class AccountEventService(
     {
         var cacheKey = $"{ActivityCacheKey}{userId}";
         cache.RemoveAsync(cacheKey);
+    }
+
+    private async Task BroadcastPresenceActivitiesUpdated(Guid accountId)
+    {
+        var activities = await GetActiveActivities(accountId);
+        var evt = new AccountPresenceActivitiesUpdatedEvent
+        {
+            AccountId = accountId,
+            Activities = activities
+        };
+
+        await eventBus.PublishAsync(evt);
+
+        var friendIds = await relationships.ListAccountFriends(accountId);
+        if (friendIds.Count == 0) return;
+
+        await ws.PushWebSocketPacketToUsers(
+            friendIds.Select(id => id.ToString()).ToList(),
+            WebSocketPacketType.AccountPresenceActivitiesUpdated,
+            InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
+            {
+                ["account_id"] = accountId,
+                ["activities"] = activities,
+                ["timestamp"] = evt.Timestamp
+            }).ToByteArray()
+        );
+
+        logger.LogDebug("Broadcast account presence activities update for {AccountId} to {FriendCount} friends", accountId, friendIds.Count);
+    }
+
+    private static bool PresenceActivityContentEqual(SnPresenceActivity a, SnPresenceActivity b)
+    {
+        return a.Type == b.Type &&
+               a.ManualId == b.ManualId &&
+               a.Title == b.Title &&
+               a.Subtitle == b.Subtitle &&
+               a.Caption == b.Caption &&
+               a.LargeImage == b.LargeImage &&
+               a.SmallImage == b.SmallImage &&
+               a.TitleUrl == b.TitleUrl &&
+               a.SubtitleUrl == b.SubtitleUrl &&
+               JsonSerializer.Serialize(a.Meta, InfraObjectCoder.SerializerOptions) ==
+               JsonSerializer.Serialize(b.Meta, InfraObjectCoder.SerializerOptions);
+    }
+
+    private static SnPresenceActivity ClonePresenceActivity(SnPresenceActivity activity)
+    {
+        return new SnPresenceActivity
+        {
+            Id = activity.Id,
+            AccountId = activity.AccountId,
+            Type = activity.Type,
+            ManualId = activity.ManualId,
+            Title = activity.Title,
+            Subtitle = activity.Subtitle,
+            Caption = activity.Caption,
+            LargeImage = activity.LargeImage,
+            SmallImage = activity.SmallImage,
+            TitleUrl = activity.TitleUrl,
+            SubtitleUrl = activity.SubtitleUrl,
+            Meta = activity.Meta is null ? null : new Dictionary<string, object>(activity.Meta),
+            LeaseExpiresAt = activity.LeaseExpiresAt,
+            DeletedAt = activity.DeletedAt
+        };
+    }
+
+    private static bool IsActivePresenceActivity(SnPresenceActivity activity, Instant now)
+    {
+        return activity.LeaseExpiresAt > now && activity.DeletedAt == null;
     }
 
     public async Task<SnAccountStatus?> GetPreviousStatus(Guid userId)
@@ -589,6 +665,8 @@ public class AccountEventService(
 
         PurgeActivityCache(activity.AccountId);
 
+        await BroadcastPresenceActivitiesUpdated(activity.AccountId);
+
         return activity;
     }
 
@@ -601,6 +679,9 @@ public class AccountEventService(
 
         if (activity.AccountId != userId)
             throw new UnauthorizedAccessException("Activity does not belong to user");
+
+        var before = ClonePresenceActivity(activity);
+        var wasActive = IsActivePresenceActivity(activity, SystemClock.Instance.GetCurrentInstant());
 
         if (leaseMinutes.HasValue)
         {
@@ -616,6 +697,10 @@ public class AccountEventService(
         await db.SaveChangesAsync();
 
         PurgeActivityCache(activity.AccountId);
+
+        if (wasActive != IsActivePresenceActivity(activity, SystemClock.Instance.GetCurrentInstant()) ||
+            !PresenceActivityContentEqual(before, activity))
+            await BroadcastPresenceActivitiesUpdated(activity.AccountId);
 
         return activity;
     }
@@ -634,6 +719,9 @@ public class AccountEventService(
         if (activity == null)
             return null;
 
+        var before = ClonePresenceActivity(activity);
+        var wasActive = IsActivePresenceActivity(activity, now);
+
         if (leaseMinutes.HasValue)
         {
             if (leaseMinutes.Value is < 1 or > 60)
@@ -649,6 +737,10 @@ public class AccountEventService(
 
         PurgeActivityCache(activity.AccountId);
 
+        if (wasActive != IsActivePresenceActivity(activity, SystemClock.Instance.GetCurrentInstant()) ||
+            !PresenceActivityContentEqual(before, activity))
+            await BroadcastPresenceActivitiesUpdated(activity.AccountId);
+
         return activity;
     }
 
@@ -659,6 +751,7 @@ public class AccountEventService(
             e.ManualId == manualId && e.AccountId == userId && e.LeaseExpiresAt > now && e.DeletedAt == null
         );
         if (activity == null) return false;
+        var wasActive = IsActivePresenceActivity(activity, now);
         if (activity.LeaseExpiresAt <= now)
         {
             activity.DeletedAt = now;
@@ -671,6 +764,8 @@ public class AccountEventService(
         db.Update(activity);
         await db.SaveChangesAsync();
         PurgeActivityCache(activity.AccountId);
+        if (wasActive)
+            await BroadcastPresenceActivitiesUpdated(activity.AccountId);
         return true;
     }
 
@@ -683,6 +778,7 @@ public class AccountEventService(
             throw new UnauthorizedAccessException("Activity does not belong to user");
 
         var now = SystemClock.Instance.GetCurrentInstant();
+        var wasActive = IsActivePresenceActivity(activity, now);
         if (activity.LeaseExpiresAt <= now)
         {
             activity.DeletedAt = now;
@@ -695,6 +791,8 @@ public class AccountEventService(
         db.Update(activity);
         await db.SaveChangesAsync();
         PurgeActivityCache(activity.AccountId);
+        if (wasActive)
+            await BroadcastPresenceActivitiesUpdated(activity.AccountId);
         return true;
     }
 
