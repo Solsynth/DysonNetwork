@@ -1,10 +1,13 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace DysonNetwork.Develop.Migrations
 {
+    [DbContext(typeof(AppDatabase))]
+    [Migration("20260504110000_AddCustomAppPaymentWallet")]
     public partial class AddCustomAppPaymentWallet : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)

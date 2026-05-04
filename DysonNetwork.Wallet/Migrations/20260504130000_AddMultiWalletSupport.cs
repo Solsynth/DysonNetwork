@@ -1,10 +1,13 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace DysonNetwork.Wallet.Migrations
 {
+    [DbContext(typeof(AppDatabase))]
+    [Migration("20260504130000_AddMultiWalletSupport")]
     public partial class AddMultiWalletSupport : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
