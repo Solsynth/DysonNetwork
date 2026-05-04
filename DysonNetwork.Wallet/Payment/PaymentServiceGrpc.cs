@@ -6,7 +6,7 @@ using NodaTime;
 
 namespace DysonNetwork.Wallet.Payment;
 
-public class PaymentServiceGrpc(PaymentService paymentService)
+public class PaymentServiceGrpc(PaymentService paymentService, WalletService walletService)
     : DyPaymentService.DyPaymentServiceBase
 {
     public override async Task<DyOrder> CreateOrder(
@@ -105,6 +105,19 @@ public class PaymentServiceGrpc(PaymentService paymentService)
                 string.IsNullOrWhiteSpace(request.Remarks) ? null : request.Remarks
             );
         }
+        else if (!string.IsNullOrWhiteSpace(request.PayerWalletId) && !string.IsNullOrWhiteSpace(request.PayeePublicId))
+        {
+            var payeeWallet = await walletService.GetWalletByPublicIdAsync(request.PayeePublicId)
+                ?? throw new RpcException(new Status(StatusCode.NotFound, "Payee wallet not found."));
+
+            transaction = await paymentService.TransferBetweenWalletsAsync(
+                Guid.Parse(request.PayerWalletId),
+                payeeWallet.Id,
+                request.Currency,
+                decimal.Parse(request.Amount),
+                string.IsNullOrWhiteSpace(request.Remarks) ? null : request.Remarks
+            );
+        }
         else if (!string.IsNullOrWhiteSpace(request.PayerAccountId) && !string.IsNullOrWhiteSpace(request.PayeeAccountId))
         {
             transaction = await paymentService.TransferAsync(
@@ -118,7 +131,7 @@ public class PaymentServiceGrpc(PaymentService paymentService)
         else
         {
             throw new RpcException(new Status(StatusCode.InvalidArgument,
-                "Either payer_account_id/payee_account_id or payer_wallet_id/payee_wallet_id is required."));
+                "Either payer_account_id/payee_account_id, payer_wallet_id/payee_wallet_id, or payer_wallet_id/payee_public_id is required."));
         }
 
         return transaction.ToProtoValue();
