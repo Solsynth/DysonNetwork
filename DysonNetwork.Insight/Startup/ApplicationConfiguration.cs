@@ -1,3 +1,4 @@
+using DysonNetwork.Insight.Agent;
 using DysonNetwork.Insight.Reader;
 using DysonNetwork.Shared.Networking;
 
@@ -21,6 +22,7 @@ public static class ApplicationConfiguration
         app.MapGrpcService<WebReaderGrpcService>();
         app.MapGrpcService<WebArticleGrpcService>();
         app.MapGrpcService<WebFeedGrpcService>();
+        app.MapGrpcService<AgentCompletionGrpcService>();
         app.MapGrpcReflectionService();
 
         return app;
