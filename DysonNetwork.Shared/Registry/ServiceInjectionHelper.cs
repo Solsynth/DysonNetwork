@@ -155,6 +155,9 @@ public static class ServiceInjectionHelper
             services.AddGrpcClientWithSharedChannel<DyWebReaderService.DyWebReaderServiceClient>(
                 "https://_grpc.insight",
                 "DyWebReaderServiceClient");
+            services.AddGrpcClientWithSharedChannel<DyAgentCompletionService.DyAgentCompletionServiceClient>(
+                "https://_grpc.insight",
+                "DyAgentCompletionService");
             
             services.AddSingleton<RemoteWebFeedService>();
             services.AddSingleton<RemoteWebReaderService>();

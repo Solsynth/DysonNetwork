@@ -143,6 +143,9 @@ public class SnCheckInResult : ModelBase
     [Column(TypeName = "jsonb")]
     public List<CheckInFortuneTip> Tips { get; set; } = new List<CheckInFortuneTip>();
 
+    [Column(TypeName = "jsonb")]
+    public CheckInFortuneReport? FortuneReport { get; set; }
+
     public Guid AccountId { get; set; }
     [NotMapped] public SnAccount Account { get; set; } = null!;
 
@@ -154,6 +157,19 @@ public class CheckInFortuneTip
     public bool IsPositive { get; set; }
     public string Title { get; set; } = null!;
     public string Content { get; set; } = null!;
+}
+
+public class CheckInFortuneReport
+{
+    public int Version { get; set; }
+    public string Poem { get; set; } = null!;
+    public string Summary { get; set; } = null!;
+    public string Wish { get; set; } = null!;
+    public string Love { get; set; } = null!;
+    public string Study { get; set; } = null!;
+    public string Career { get; set; } = null!;
+    public string Health { get; set; } = null!;
+    public string LostItem { get; set; } = null!;
 }
 
 /// <summary>

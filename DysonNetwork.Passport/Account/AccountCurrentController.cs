@@ -292,7 +292,7 @@ public class AccountCurrentController(
     }
 
     [HttpGet("check-in")]
-    public async Task<ActionResult<SnCheckInResult>> GetCheckInResult()
+    public async Task<ActionResult<SnCheckInResult>> GetCheckInResult([FromQuery] int version = 1)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         var userId = currentUser.Id;
@@ -308,15 +308,20 @@ public class AccountCurrentController(
             .OrderByDescending(x => x.CreatedAt)
             .FirstOrDefaultAsync();
 
-        return result is null
-            ? NotFound(ApiError.NotFound("check-in", traceId: HttpContext.TraceIdentifier))
-            : Ok(result);
+        if (result is null)
+            return NotFound(ApiError.NotFound("check-in", traceId: HttpContext.TraceIdentifier));
+
+        if (version < 2)
+            result.FortuneReport = null;
+
+        return Ok(result);
     }
 
     [HttpPost("check-in")]
     public async Task<ActionResult<SnCheckInResult>> DoCheckIn(
         [FromBody] string? captchaToken,
-        [FromQuery] Instant? backdated = null
+        [FromQuery] Instant? backdated = null,
+        [FromQuery] int version = 1
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -379,7 +384,11 @@ public class AccountCurrentController(
                         }, traceId: HttpContext.TraceIdentifier));
             }
 
-            return await events.CheckInDaily(currentUser, backdated);
+            var result = await events.CheckInDaily(currentUser, backdated, version);
+            if (version < 2)
+                result.FortuneReport = null;
+
+            return result;
         }
         catch (InvalidOperationException ex)
         {

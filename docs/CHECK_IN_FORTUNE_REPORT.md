@@ -1,0 +1,141 @@
+# Check-In Fortune Report
+
+Passport daily check-in can store a versioned, personalized fortune report on `SnCheckInResult.FortuneReport` for clients that opt into check-in API version `2` or newer.
+
+The programmed check-in roll remains the source of truth. MiChan only enriches the existing result into user-facing copy.
+
+## Storage
+
+`SnCheckInResult` includes:
+
+```csharp
+[Column(TypeName = "jsonb")]
+public CheckInFortuneReport? FortuneReport { get; set; }
+```
+
+The JSON response uses snake_case:
+
+```json
+{
+  "level": "Better",
+  "tips": [],
+  "fortune_report": {
+    "version": 2,
+    "poem": "风过签筒静，铃响见微光。",
+    "summary": "今日整体气息偏明朗，适合把拖延的小事重新拾起。",
+    "wish": "愿望宜从一个小动作开始。",
+    "love": "温柔表达比反复猜测更有力量。",
+    "study": "适合整理旧知识，细节里会有新线索。",
+    "career": "先稳住手边事务，再推进新的判断。",
+    "health": "留意休息和饮水，不必把自己逼得太紧。",
+    "lost_item": "先看常用包袋和桌角附近。"
+  }
+}
+```
+
+## Versioning
+
+The check-in endpoints accept a `version` query parameter. It defaults to `1`.
+
+| Endpoint | `version < 2` | `version >= 2` |
+| --- | --- | --- |
+| `POST /api/accounts/me/check-in` | performs legacy check-in and stores no `fortune_report` | generates and stores `fortune_report` |
+| `GET /api/accounts/me/check-in` | hides `fortune_report` even if the row has one | returns `fortune_report` when present |
+
+`fortune_report.version` is the programmed fortune schema/prompt version, separate from the endpoint compatibility version.
+
+Current fortune report version: `2`.
+
+Use a new version when the stored schema or semantic contract changes. Old check-ins keep their original version so clients and future migrations can understand historical rows.
+
+## Programmed Draw
+
+The check-in service still rolls `CheckInResultLevel` in code. MiChan is told the draw label and must not change it.
+
+Level mapping:
+
+| `CheckInResultLevel` | Draw Label |
+| --- | --- |
+| `Best` | `上上签` |
+| `Better` | `上签` |
+| `Normal` | `中签` |
+| `Worse` | `下签` |
+| `Worst` | `下下签` |
+| `Special` | `特别签` |
+
+Birthday check-ins use `Special` and skip the normal random roll, preserving existing behavior.
+
+## MiChan Generation
+
+`AccountEventService.CheckInDaily` calls Insight gRPC through `DyAgentCompletionService`.
+
+Request settings:
+
+| Field | Value |
+| --- | --- |
+| `persona` | `DY_AGENT_PERSONA_MICHAN` |
+| `account_id` | current account ID |
+| `topic` | `每日签到运势 v2` |
+| `enable_tools` | `false` |
+| `persist` | `false` |
+| `thinking` | `false` |
+| `reasoning_effort` | `low` |
+| deadline | 10 seconds |
+
+Tools and persistence are disabled because check-in fortune generation should be a bounded copywriting task, not an autonomous action or memory update.
+
+## Prompt Inputs
+
+MiChan receives:
+
+- account nickname, username, language, and region
+- user-local check-in date
+- birthday flag
+- backdated flag
+- programmed draw label, such as `上上签` or `下签`
+- raw `CheckInResultLevel`
+- legacy programmed tips
+- public same-day personal calendar events
+- same-day global or regional notable days
+
+Private user calendar events are not sent to MiChan. Friend-only events are also not sent. Only `EventVisibility.Public` events are included.
+
+Notable days come from `NotableDaysService`, which combines regional holidays from Nager.Holiday with global days such as International Workers' Day, Christmas, New Year's Day, and Solar Network anniversary.
+
+## Output Contract
+
+MiChan must return a directly parseable JSON object with all fields present:
+
+```json
+{
+  "version": 2,
+  "poem": "签诗，1到2句，有意象但自然",
+  "summary": "运势总评，60字以内",
+  "wish": "愿望，40字以内",
+  "love": "爱情，40字以内",
+  "study": "学业，40字以内",
+  "career": "事业，40字以内",
+  "health": "健康，40字以内",
+  "lost_item": "失物，40字以内"
+}
+```
+
+The parser tolerates accidental fenced code blocks but requires a valid object and all required fields.
+
+## Failure Behavior
+
+Check-in must not fail because Insight is unavailable.
+
+If gRPC fails, times out, or returns invalid JSON, Passport logs a warning and creates a local fallback `CheckInFortuneReport` from the programmed level and tips.
+
+Rewards, check-in availability, captcha behavior, and legacy `tips` remain unchanged.
+
+## Migration
+
+The feature adds nullable `fortune_report jsonb` to `account_check_in_results`.
+
+Migration:
+
+```text
+DysonNetwork.Passport/Migrations/20260504191805_AddCheckInFortuneReport.cs
+```

@@ -6,6 +6,7 @@ using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Localization;
 using NodaTime;
@@ -23,11 +24,20 @@ public class AccountEventService(
     RemoteWebSocketService ws,
     RemoteAccountConnectionService accountConnections,
     RelationshipService relationships,
+    DyAgentCompletionService.DyAgentCompletionServiceClient agentCompletion,
+    NotableDaysService notableDaysService,
     IEventBus eventBus,
     ILogger<AccountEventService> logger
 )
 {
     private static readonly Random Random = new();
+    private const int FortuneReportVersion = 2;
+    private static readonly JsonSerializerOptions FortuneReportJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
+        PropertyNameCaseInsensitive = true
+    };
     private const string StatusCacheKey = "account:status:";
     private const string PreviousStatusCacheKey = "account:status:prev:";
     private const string ActivityCacheKey = "account:activities:";
@@ -359,7 +369,7 @@ public class AccountEventService(
 
     private const string CheckInLockKey = "checkin:lock:";
 
-    public async Task<SnCheckInResult> CheckInDaily(SnAccount account, Instant? backdated = null)
+    public async Task<SnCheckInResult> CheckInDaily(SnAccount account, Instant? backdated = null, int version = 1)
     {
         var lockKey = $"{CheckInLockKey}{account.Id}";
 
@@ -401,6 +411,13 @@ public class AccountEventService(
         var isBirthday = birthdayDate.HasValue &&
                          birthdayDate.Value.Month == todayInUserTz.Month &&
                          birthdayDate.Value.Day == todayInUserTz.Day;
+        List<SnUserCalendarEvent> publicEvents = [];
+        List<NotableDay> notableDays = [];
+        if (version >= FortuneReportVersion)
+        {
+            publicEvents = await GetPublicEventsForDate(account.Id, todayInUserTz, userTimeZone);
+            notableDays = await GetNotableDaysForDate(account.Region, todayInUserTz);
+        }
 
         List<CheckInFortuneTip> tips;
         CheckInResultLevel checkInLevel;
@@ -464,6 +481,10 @@ public class AccountEventService(
         {
             Tips = tips,
             Level = checkInLevel,
+            FortuneReport = version >= FortuneReportVersion
+                ? await GenerateCheckInFortuneReport(account, todayInUserTz, isBirthday, backdated.HasValue,
+                    checkInLevel, tips, publicEvents, notableDays)
+                : null,
             AccountId = account.Id,
             RewardExperience = 100,
             RewardPoints = backdated.HasValue ? null : 10,
@@ -499,6 +520,263 @@ public class AccountEventService(
 
         // The lock will be automatically released by the await using statement
         return result;
+    }
+
+    private async Task<CheckInFortuneReport> GenerateCheckInFortuneReport(
+        SnAccount account,
+        LocalDate checkInDate,
+        bool isBirthday,
+        bool isBackdated,
+        CheckInResultLevel level,
+        List<CheckInFortuneTip> tips,
+        List<SnUserCalendarEvent> publicEvents,
+        List<NotableDay> notableDays)
+    {
+        var fallback = CreateFallbackFortuneReport(account, isBirthday, level, tips);
+        try
+        {
+            var response = await agentCompletion.CompleteAsync(
+                new DyAgentCompletionRequest
+                {
+                    Persona = DyAgentPersona.Michan,
+                    AccountId = account.Id.ToString(),
+                    Topic = $"每日签到运势 v{FortuneReportVersion}",
+                    UserMessage = BuildCheckInFortunePrompt(account, checkInDate, isBirthday, isBackdated, level, tips,
+                        publicEvents, notableDays),
+                    ReasoningEffort = "low",
+                    Thinking = false,
+                    EnableTools = false,
+                    Persist = false
+                },
+                deadline: DateTime.UtcNow.AddSeconds(10));
+
+            var report = TryParseFortuneReport(response.Content);
+            if (report is not null)
+                return report;
+
+            logger.LogWarning("MiChan returned an invalid check-in fortune report for {AccountId}", account.Id);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to generate MiChan check-in fortune report for {AccountId}", account.Id);
+        }
+
+        return fallback;
+    }
+
+    private static string BuildCheckInFortunePrompt(
+        SnAccount account,
+        LocalDate checkInDate,
+        bool isBirthday,
+        bool isBackdated,
+        CheckInResultLevel level,
+        List<CheckInFortuneTip> tips,
+        List<SnUserCalendarEvent> publicEvents,
+        List<NotableDay> notableDays)
+    {
+        var drawLabel = GetFortuneDrawLabel(level);
+        var tipLines = string.Join("\n", tips.Select(t => $"- {(t.IsPositive ? "吉" : "忌")}：{t.Title}｜{t.Content}"));
+        var eventLines = publicEvents.Count == 0
+            ? "- 无公开个人事件"
+            : string.Join("\n", publicEvents.Select(e =>
+                $"- {e.Title}{(string.IsNullOrWhiteSpace(e.Description) ? string.Empty : $"：{e.Description}")}"));
+        var notableDayLines = notableDays.Count == 0
+            ? "- 无全球或地区节日"
+            : string.Join("\n", notableDays.Select(d =>
+                $"- {d.LocalName ?? d.GlobalName ?? d.LocalizableKey ?? "未命名纪念日"}{(string.IsNullOrWhiteSpace(d.GlobalName) || d.GlobalName == d.LocalName ? string.Empty : $" / {d.GlobalName}")}"));
+        return $$"""
+你现在是巫女，正在帮助用户「{{account.Nick}}」占卜今日「{{checkInDate:yyyy-MM-dd}}」的运势。
+
+用户信息：
+- 昵称：{{account.Nick}}
+- 用户名：@{{account.Name}}
+- 语言：{{account.Language ?? "unknown"}}
+- 地区：{{account.Region ?? "unknown"}}
+- 今天是否生日：{{(isBirthday ? "是" : "否")}}
+- 是否补签：{{(isBackdated ? "是" : "否")}}
+- 用户今日抽到了：{{drawLabel}}
+- 程序化运势等级：{{level}}
+- 当前程序化签文版本：{{FortuneReportVersion}}
+- 已抽到的基础提示：
+{{tipLines}}
+- 今日公开个人事件：
+{{eventLines}}
+- 今日全球或地区节日：
+{{notableDayLines}}
+
+请以 MiChan 扮演巫女的口吻，生成一份私人化的今日签文。它应该像专门为这个用户和这一天写的，不要像模板，不要只复述基础提示。
+
+只输出 JSON，不要 Markdown，不要解释。字段必须全部存在，version 必须是 {{FortuneReportVersion}}：
+{
+  "version": {{FortuneReportVersion}},
+  "poem": "签诗，1到2句，有意象但自然",
+  "summary": "运势总评，60字以内",
+  "wish": "愿望，40字以内",
+  "love": "爱情，40字以内",
+  "study": "学业，40字以内",
+  "career": "事业，40字以内",
+  "health": "健康，40字以内",
+  "lost_item": "失物，40字以内"
+}
+
+要求：
+- 使用简体中文。
+- 不要承诺真实预测，不要说一定会发生。
+- 不要给医疗、法律、金融强建议。
+- 语气可以有仪式感，但不要恐吓用户。
+- 必须尊重“用户今日抽到了”的签位，不能自行更改签位。
+- 签位越高越明朗，签位越低越提醒谨慎。
+- 可以温柔地结合生日、公开个人事件、全球或地区节日，但不要暴露或推断未提供的私密信息。
+- 每个字段都要具体，不要重复。
+- 输出必须是可被 JSON.parse 直接解析的对象。
+""";
+    }
+
+    private static string GetFortuneDrawLabel(CheckInResultLevel level)
+    {
+        return level switch
+        {
+            CheckInResultLevel.Best => "上上签",
+            CheckInResultLevel.Better => "上签",
+            CheckInResultLevel.Normal => "中签",
+            CheckInResultLevel.Worse => "下签",
+            CheckInResultLevel.Worst => "下下签",
+            CheckInResultLevel.Special => "特别签",
+            _ => "中签"
+        };
+    }
+
+    private static CheckInFortuneReport? TryParseFortuneReport(string content)
+    {
+        var json = ExtractJsonObject(content);
+        if (json is null) return null;
+
+        try
+        {
+            var report = JsonSerializer.Deserialize<CheckInFortuneReport>(json, FortuneReportJsonOptions);
+            if (report is null || !IsValidFortuneReport(report)) return null;
+
+            report.Version = FortuneReportVersion;
+            report.Poem = TrimFortuneText(report.Poem, 120);
+            report.Summary = TrimFortuneText(report.Summary, 120);
+            report.Wish = TrimFortuneText(report.Wish, 80);
+            report.Love = TrimFortuneText(report.Love, 80);
+            report.Study = TrimFortuneText(report.Study, 80);
+            report.Career = TrimFortuneText(report.Career, 80);
+            report.Health = TrimFortuneText(report.Health, 80);
+            report.LostItem = TrimFortuneText(report.LostItem, 80);
+            return report;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? ExtractJsonObject(string content)
+    {
+        var trimmed = content.Trim();
+        if (trimmed.StartsWith("```", StringComparison.Ordinal))
+        {
+            var firstNewLine = trimmed.IndexOf('\n');
+            var lastFence = trimmed.LastIndexOf("```", StringComparison.Ordinal);
+            if (firstNewLine >= 0 && lastFence > firstNewLine)
+                trimmed = trimmed[(firstNewLine + 1)..lastFence].Trim();
+        }
+
+        var start = trimmed.IndexOf('{');
+        var end = trimmed.LastIndexOf('}');
+        return start >= 0 && end > start ? trimmed[start..(end + 1)] : null;
+    }
+
+    private static bool IsValidFortuneReport(CheckInFortuneReport report)
+    {
+        return report.Version == FortuneReportVersion &&
+               !string.IsNullOrWhiteSpace(report.Poem) &&
+               !string.IsNullOrWhiteSpace(report.Summary) &&
+               !string.IsNullOrWhiteSpace(report.Wish) &&
+               !string.IsNullOrWhiteSpace(report.Love) &&
+               !string.IsNullOrWhiteSpace(report.Study) &&
+               !string.IsNullOrWhiteSpace(report.Career) &&
+               !string.IsNullOrWhiteSpace(report.Health) &&
+               !string.IsNullOrWhiteSpace(report.LostItem);
+    }
+
+    private static string TrimFortuneText(string value, int maxLength)
+    {
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
+    }
+
+    private async Task<List<SnUserCalendarEvent>> GetPublicEventsForDate(
+        Guid accountId,
+        LocalDate date,
+        DateTimeZone userTimeZone)
+    {
+        var start = date.AtStartOfDayInZone(userTimeZone).ToInstant();
+        var end = date.PlusDays(1).AtStartOfDayInZone(userTimeZone).ToInstant();
+        var events = await db.UserCalendarEvents
+            .AsNoTracking()
+            .Where(e => e.AccountId == accountId &&
+                        e.DeletedAt == null &&
+                        e.Visibility == EventVisibility.Public &&
+                        e.EndTime >= start &&
+                        e.StartTime < end)
+            .OrderBy(e => e.StartTime)
+            .Take(5)
+            .ToListAsync();
+
+        return ExpandRecurringEvents(events, start, end)
+            .Where(e => e.Visibility == EventVisibility.Public)
+            .OrderBy(e => e.StartTime)
+            .Take(5)
+            .ToList();
+    }
+
+    private async Task<List<NotableDay>> GetNotableDaysForDate(string? regionCode, LocalDate date)
+    {
+        var days = await notableDaysService.GetNotableDays(date.Year,
+            string.IsNullOrWhiteSpace(regionCode) ? "US" : regionCode);
+
+        return days
+            .Where(d => d.Date.InUtc().Date == date)
+            .OrderBy(d => d.CountryCode is null ? 0 : 1)
+            .ThenBy(d => d.GlobalName ?? d.LocalName ?? d.LocalizableKey)
+            .Take(5)
+            .ToList();
+    }
+
+    private static CheckInFortuneReport CreateFallbackFortuneReport(
+        SnAccount account,
+        bool isBirthday,
+        CheckInResultLevel level,
+        List<CheckInFortuneTip> tips)
+    {
+        var positiveTip = tips.FirstOrDefault(t => t.IsPositive) ?? tips.FirstOrDefault();
+        var negativeTip = tips.FirstOrDefault(t => !t.IsPositive);
+        var nick = string.IsNullOrWhiteSpace(account.Nick) ? account.Name : account.Nick;
+        var tone = level switch
+        {
+            CheckInResultLevel.Worst => "云色稍沉，宜慢行守心",
+            CheckInResultLevel.Worse => "风声偏紧，宜稳住节奏",
+            CheckInResultLevel.Better => "铃音渐明，前路有微光",
+            CheckInResultLevel.Best => "晴光入签，所行多得助",
+            CheckInResultLevel.Special => "星灯为你而明，今日自有祝福",
+            _ => "签影平和，宜顺势而行"
+        };
+
+        return new CheckInFortuneReport
+        {
+            Version = FortuneReportVersion,
+            Poem = isBirthday ? "星灯落掌心，花影绕今日。" : "风过签筒静，铃响见微光。",
+            Summary = $"{nick}，今日{tone}。{positiveTip?.Content ?? "把心放稳，小事也会慢慢顺起来。"}",
+            Wish = positiveTip?.Title ?? "愿望宜从一个小动作开始。",
+            Love = "温柔表达比反复猜测更有力量。",
+            Study = "适合整理旧知识，细节里会有新线索。",
+            Career = "先稳住手边事务，再推进新的判断。",
+            Health = "留意休息和饮水，不必把自己逼得太紧。",
+            LostItem = negativeTip is null ? "先看常用包袋和桌角附近。" : "失物多在顺手放下之处，慢慢回想路径。"
+        };
     }
 
     public async Task<List<SnPresenceActivity>> GetActiveActivities(Guid userId)
