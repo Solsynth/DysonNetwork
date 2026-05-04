@@ -26,109 +26,94 @@ namespace DysonNetwork.Shared.Proto {
           string.Concat(
             "Cg1kZXZlbG9wLnByb3RvEgVwcm90bxofZ29vZ2xlL3Byb3RvYnVmL3RpbWVz",
             "dGFtcC5wcm90bxoeZ29vZ2xlL3Byb3RvYnVmL3dyYXBwZXJzLnByb3RvGg1h",
-            "Y2NvdW50LnByb3RvGgpmaWxlLnByb3RvIu0CChZEeUN1c3RvbUFwcE9hdXRo",
-            "Q29uZmlnEh0KCmNsaWVudF91cmkYASABKAlSCWNsaWVudFVyaRIjCg1yZWRp",
-            "cmVjdF91cmlzGAIgAygJUgxyZWRpcmVjdFVyaXMSOQoZcG9zdF9sb2dvdXRf",
-            "cmVkaXJlY3RfdXJpcxgDIAMoCVIWcG9zdExvZ291dFJlZGlyZWN0VXJpcxIl",
-            "Cg5hbGxvd2VkX3Njb3BlcxgEIAMoCVINYWxsb3dlZFNjb3BlcxIuChNhbGxv",
-            "d2VkX2dyYW50X3R5cGVzGAUgAygJUhFhbGxvd2VkR3JhbnRUeXBlcxIhCgxy",
-            "ZXF1aXJlX3BrY2UYBiABKAhSC3JlcXVpcmVQa2NlEjAKFGFsbG93X29mZmxp",
-            "bmVfYWNjZXNzGAcgASgIUhJhbGxvd09mZmxpbmVBY2Nlc3MSKAoQaXNfcHVi",
-            "bGljX2NsaWVudBgIIAEoCFIOaXNQdWJsaWNDbGllbnQigAEKEER5Q3VzdG9t",
-            "QXBwTGlua3MSGwoJaG9tZV9wYWdlGAEgASgJUghob21lUGFnZRIlCg5wcml2",
-            "YWN5X3BvbGljeRgCIAEoCVINcHJpdmFjeVBvbGljeRIoChB0ZXJtc19vZl9z",
-            "ZXJ2aWNlGAMgASgJUg50ZXJtc09mU2VydmljZSLABAoLRHlDdXN0b21BcHAS",
-            "DgoCaWQYASABKAlSAmlkEhIKBHNsdWcYAiABKAlSBHNsdWcSEgoEbmFtZRgD",
-            "IAEoCVIEbmFtZRIgCgtkZXNjcmlwdGlvbhgEIAEoCVILZGVzY3JpcHRpb24S",
-            "MAoGc3RhdHVzGAUgASgOMhgucHJvdG8uRHlDdXN0b21BcHBTdGF0dXNSBnN0",
-            "YXR1cxIsCgdwaWN0dXJlGAYgASgLMhIucHJvdG8uRHlDbG91ZEZpbGVSB3Bp",
-            "Y3R1cmUSMgoKYmFja2dyb3VuZBgHIAEoCzISLnByb3RvLkR5Q2xvdWRGaWxl",
-            "UgpiYWNrZ3JvdW5kEj0KDHZlcmlmaWNhdGlvbhgIIAEoCzIZLnByb3RvLkR5",
-            "VmVyaWZpY2F0aW9uTWFya1IMdmVyaWZpY2F0aW9uEi0KBWxpbmtzGAkgASgL",
-            "MhcucHJvdG8uRHlDdXN0b21BcHBMaW5rc1IFbGlua3MSQAoMb2F1dGhfY29u",
-            "ZmlnGA0gASgLMh0ucHJvdG8uRHlDdXN0b21BcHBPYXV0aENvbmZpZ1ILb2F1",
-            "dGhDb25maWcSHQoKcHJvamVjdF9pZBgKIAEoCVIJcHJvamVjdElkEjkKCmNy",
-            "ZWF0ZWRfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wUglj",
-            "cmVhdGVkQXQSOQoKdXBkYXRlZF9hdBgMIAEoCzIaLmdvb2dsZS5wcm90b2J1",
-            "Zi5UaW1lc3RhbXBSCXVwZGF0ZWRBdCK+AgoRRHlDdXN0b21BcHBTZWNyZXQS",
-            "DgoCaWQYASABKAlSAmlkEhYKBnNlY3JldBgCIAEoCVIGc2VjcmV0EiAKC2Rl",
-            "c2NyaXB0aW9uGAMgASgJUgtkZXNjcmlwdGlvbhI5CgpleHBpcmVkX2F0GAQg",
-            "ASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIJZXhwaXJlZEF0EhcK",
-            "B2lzX29pZGMYBSABKAhSBmlzT2lkYxIVCgZhcHBfaWQYBiABKAlSBWFwcElk",
-            "EjkKCmNyZWF0ZWRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0",
-            "YW1wUgljcmVhdGVkQXQSOQoKdXBkYXRlZF9hdBgIIAEoCzIaLmdvb2dsZS5w",
-            "cm90b2J1Zi5UaW1lc3RhbXBSCXVwZGF0ZWRBdCJIChVEeUdldEN1c3RvbUFw",
-            "cFJlcXVlc3QSEAoCaWQYASABKAlIAFICaWQSFAoEc2x1ZxgCIAEoCUgAUgRz",
-            "bHVnQgcKBVF1ZXJ5Ij4KFkR5R2V0Q3VzdG9tQXBwUmVzcG9uc2USJAoDYXBw",
-            "GAEgASgLMhIucHJvdG8uRHlDdXN0b21BcHBSA2FwcCKtAQodRHlDaGVja0N1",
-            "c3RvbUFwcFNlY3JldFJlcXVlc3QSHQoJc2VjcmV0X2lkGAEgASgJSABSCHNl",
-            "Y3JldElkEhcKBmFwcF9pZBgCIAEoCUgAUgVhcHBJZBIWCgZzZWNyZXQYAyAB",
-            "KAlSBnNlY3JldBIcCgdpc19vaWRjGAQgASgISAFSBmlzT2lkY4gBAUISChBT",
-            "ZWNyZXRJZGVudGlmaWVyQgoKCF9pc19vaWRjIjYKHkR5Q2hlY2tDdXN0b21B",
-            "cHBTZWNyZXRSZXNwb25zZRIUCgV2YWxpZBgBIAEoCFIFdmFsaWQihAIKDER5",
-            "Qm90QWNjb3VudBIqCgdhY2NvdW50GAEgASgLMhAucHJvdG8uRHlBY2NvdW50",
-            "UgdhY2NvdW50EhIKBHNsdWcYAiABKAlSBHNsdWcSGwoJaXNfYWN0aXZlGAMg",
-            "ASgIUghpc0FjdGl2ZRIhCgxhdXRvbWF0ZWRfaWQYBSABKAlSC2F1dG9tYXRl",
-            "ZElkEjkKCmNyZWF0ZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGlt",
-            "ZXN0YW1wUgljcmVhdGVkQXQSOQoKdXBkYXRlZF9hdBgHIAEoCzIaLmdvb2ds",
-            "ZS5wcm90b2J1Zi5UaW1lc3RhbXBSCXVwZGF0ZWRBdCLqAQoZRHlDcmVhdGVC",
-            "b3RBY2NvdW50UmVxdWVzdBIqCgdhY2NvdW50GAEgASgLMhAucHJvdG8uRHlB",
-            "Y2NvdW50UgdhY2NvdW50EiEKDGF1dG9tYXRlZF9pZBgCIAEoCVILYXV0b21h",
-            "dGVkSWQSOwoKcGljdHVyZV9pZBgIIAEoCzIcLmdvb2dsZS5wcm90b2J1Zi5T",
-            "dHJpbmdWYWx1ZVIJcGljdHVyZUlkEkEKDWJhY2tncm91bmRfaWQYCSABKAsy",
-            "HC5nb29nbGUucHJvdG9idWYuU3RyaW5nVmFsdWVSDGJhY2tncm91bmRJZCJD",
-            "ChpEeUNyZWF0ZUJvdEFjY291bnRSZXNwb25zZRIlCgNib3QYASABKAsyEy5w",
-            "cm90by5EeUJvdEFjY291bnRSA2JvdCLZAQoZRHlVcGRhdGVCb3RBY2NvdW50",
-            "UmVxdWVzdBIhCgxhdXRvbWF0ZWRfaWQYASABKAlSC2F1dG9tYXRlZElkEioK",
-            "B2FjY291bnQYAiABKAsyEC5wcm90by5EeUFjY291bnRSB2FjY291bnQSIgoK",
-            "cGljdHVyZV9pZBgIIAEoCUgAUglwaWN0dXJlSWSIAQESKAoNYmFja2dyb3Vu",
-            "ZF9pZBgJIAEoCUgBUgxiYWNrZ3JvdW5kSWSIAQFCDQoLX3BpY3R1cmVfaWRC",
-            "EAoOX2JhY2tncm91bmRfaWQiQwoaRHlVcGRhdGVCb3RBY2NvdW50UmVzcG9u",
-            "c2USJQoDYm90GAEgASgLMhMucHJvdG8uRHlCb3RBY2NvdW50UgNib3QiVAoZ",
-            "RHlEZWxldGVCb3RBY2NvdW50UmVxdWVzdBIhCgxhdXRvbWF0ZWRfaWQYASAB",
-            "KAlSC2F1dG9tYXRlZElkEhQKBWZvcmNlGAIgASgIUgVmb3JjZSI2ChpEeURl",
-            "bGV0ZUJvdEFjY291bnRSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNj",
-            "ZXNzIpQCCghEeUFwaUtleRIOCgJpZBgBIAEoCVICaWQSFAoFbGFiZWwYAiAB",
-            "KAlSBWxhYmVsEh0KCmFjY291bnRfaWQYAyABKAlSCWFjY291bnRJZBIdCgpz",
-            "ZXNzaW9uX2lkGAQgASgJUglzZXNzaW9uSWQSLgoDa2V5GAUgASgLMhwuZ29v",
-            "Z2xlLnByb3RvYnVmLlN0cmluZ1ZhbHVlUgNrZXkSOQoKY3JlYXRlZF9hdBgG",
-            "IAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBSCWNyZWF0ZWRBdBI5",
-            "Cgp1cGRhdGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFt",
-            "cFIJdXBkYXRlZEF0IiQKEkR5R2V0QXBpS2V5UmVxdWVzdBIOCgJpZBgBIAEo",
-            "CVICaWQiOAoTRHlMaXN0QXBpS2V5UmVxdWVzdBIhCgxhdXRvbWF0ZWRfaWQY",
-            "ASABKAlSC2F1dG9tYXRlZElkIj8KGER5R2V0QXBpS2V5QmF0Y2hSZXNwb25z",
-            "ZRIjCgRkYXRhGAEgAygLMg8ucHJvdG8uRHlBcGlLZXlSBGRhdGEiMgoWRHlE",
-            "ZWxldGVBcGlLZXlSZXNwb25zZRIYCgdzdWNjZXNzGAEgASgIUgdzdWNjZXNz",
-            "KoEBChFEeUN1c3RvbUFwcFN0YXR1cxIkCiBEWV9DVVNUT01fQVBQX1NUQVRV",
-            "U19VTlNQRUNJRklFRBAAEhEKDURZX0RFVkVMT1BJTkcQARIOCgpEWV9TVEFH",
-            "SU5HEAISEQoNRFlfUFJPRFVDVElPThADEhAKDERZX1NVU1BFTkRFRBAEMsYB",
-            "ChJEeUN1c3RvbUFwcFNlcnZpY2USSwoMR2V0Q3VzdG9tQXBwEhwucHJvdG8u",
-            "RHlHZXRDdXN0b21BcHBSZXF1ZXN0Gh0ucHJvdG8uRHlHZXRDdXN0b21BcHBS",
-            "ZXNwb25zZRJjChRDaGVja0N1c3RvbUFwcFNlY3JldBIkLnByb3RvLkR5Q2hl",
-            "Y2tDdXN0b21BcHBTZWNyZXRSZXF1ZXN0GiUucHJvdG8uRHlDaGVja0N1c3Rv",
-            "bUFwcFNlY3JldFJlc3BvbnNlMpYFChtEeUJvdEFjY291bnRSZWNlaXZlclNl",
-            "cnZpY2USVwoQQ3JlYXRlQm90QWNjb3VudBIgLnByb3RvLkR5Q3JlYXRlQm90",
-            "QWNjb3VudFJlcXVlc3QaIS5wcm90by5EeUNyZWF0ZUJvdEFjY291bnRSZXNw",
-            "b25zZRJXChBVcGRhdGVCb3RBY2NvdW50EiAucHJvdG8uRHlVcGRhdGVCb3RB",
-            "Y2NvdW50UmVxdWVzdBohLnByb3RvLkR5VXBkYXRlQm90QWNjb3VudFJlc3Bv",
-            "bnNlElcKEERlbGV0ZUJvdEFjY291bnQSIC5wcm90by5EeURlbGV0ZUJvdEFj",
-            "Y291bnRSZXF1ZXN0GiEucHJvdG8uRHlEZWxldGVCb3RBY2NvdW50UmVzcG9u",
-            "c2USNwoJR2V0QXBpS2V5EhkucHJvdG8uRHlHZXRBcGlLZXlSZXF1ZXN0Gg8u",
-            "cHJvdG8uRHlBcGlLZXkSSQoKTGlzdEFwaUtleRIaLnByb3RvLkR5TGlzdEFw",
-            "aUtleVJlcXVlc3QaHy5wcm90by5EeUdldEFwaUtleUJhdGNoUmVzcG9uc2US",
-            "MAoMQ3JlYXRlQXBpS2V5Eg8ucHJvdG8uRHlBcGlLZXkaDy5wcm90by5EeUFw",
-            "aUtleRIwCgxVcGRhdGVBcGlLZXkSDy5wcm90by5EeUFwaUtleRoPLnByb3Rv",
-            "LkR5QXBpS2V5EjoKDFJvdGF0ZUFwaUtleRIZLnByb3RvLkR5R2V0QXBpS2V5",
-            "UmVxdWVzdBoPLnByb3RvLkR5QXBpS2V5EkgKDERlbGV0ZUFwaUtleRIZLnBy",
-            "b3RvLkR5R2V0QXBpS2V5UmVxdWVzdBodLnByb3RvLkR5RGVsZXRlQXBpS2V5",
-            "UmVzcG9uc2VCPVofZ2l0LnNvbHN5bnRoLmRldi9zb3N5cy9zcGVjL2dlbqoC",
-            "GUR5c29uTmV0d29yay5TaGFyZWQuUHJvdG9iBnByb3RvMw=="));
+            "Y2NvdW50LnByb3RvGgpmaWxlLnByb3RvIukBChZEeUN1c3RvbUFwcE9hdXRo",
+            "Q29uZmlnEhIKCmNsaWVudF91cmkYASABKAkSFQoNcmVkaXJlY3RfdXJpcxgC",
+            "IAMoCRIhChlwb3N0X2xvZ291dF9yZWRpcmVjdF91cmlzGAMgAygJEhYKDmFs",
+            "bG93ZWRfc2NvcGVzGAQgAygJEhsKE2FsbG93ZWRfZ3JhbnRfdHlwZXMYBSAD",
+            "KAkSFAoMcmVxdWlyZV9wa2NlGAYgASgIEhwKFGFsbG93X29mZmxpbmVfYWNj",
+            "ZXNzGAcgASgIEhgKEGlzX3B1YmxpY19jbGllbnQYCCABKAgiVwoQRHlDdXN0",
+            "b21BcHBMaW5rcxIRCglob21lX3BhZ2UYASABKAkSFgoOcHJpdmFjeV9wb2xp",
+            "Y3kYAiABKAkSGAoQdGVybXNfb2Zfc2VydmljZRgDIAEoCSLeAwoLRHlDdXN0",
+            "b21BcHASCgoCaWQYASABKAkSDAoEc2x1ZxgCIAEoCRIMCgRuYW1lGAMgASgJ",
+            "EhMKC2Rlc2NyaXB0aW9uGAQgASgJEigKBnN0YXR1cxgFIAEoDjIYLnByb3Rv",
+            "LkR5Q3VzdG9tQXBwU3RhdHVzEiMKB3BpY3R1cmUYBiABKAsyEi5wcm90by5E",
+            "eUNsb3VkRmlsZRImCgpiYWNrZ3JvdW5kGAcgASgLMhIucHJvdG8uRHlDbG91",
+            "ZEZpbGUSLwoMdmVyaWZpY2F0aW9uGAggASgLMhkucHJvdG8uRHlWZXJpZmlj",
+            "YXRpb25NYXJrEiYKBWxpbmtzGAkgASgLMhcucHJvdG8uRHlDdXN0b21BcHBM",
+            "aW5rcxIzCgxvYXV0aF9jb25maWcYDSABKAsyHS5wcm90by5EeUN1c3RvbUFw",
+            "cE9hdXRoQ29uZmlnEhkKEXBheW1lbnRfd2FsbGV0X2lkGA4gASgJEhIKCnBy",
+            "b2plY3RfaWQYCiABKAkSLgoKY3JlYXRlZF9hdBgLIAEoCzIaLmdvb2dsZS5w",
+            "cm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgMIAEoCzIaLmdvb2ds",
+            "ZS5wcm90b2J1Zi5UaW1lc3RhbXAi9QEKEUR5Q3VzdG9tQXBwU2VjcmV0EgoK",
+            "AmlkGAEgASgJEg4KBnNlY3JldBgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEo",
+            "CRIuCgpleHBpcmVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVz",
+            "dGFtcBIPCgdpc19vaWRjGAUgASgIEg4KBmFwcF9pZBgGIAEoCRIuCgpjcmVh",
+            "dGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1",
+            "cGRhdGVkX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCI+",
+            "ChVEeUdldEN1c3RvbUFwcFJlcXVlc3QSDAoCaWQYASABKAlIABIOCgRzbHVn",
+            "GAIgASgJSABCBwoFUXVlcnkiOQoWRHlHZXRDdXN0b21BcHBSZXNwb25zZRIf",
+            "CgNhcHAYASABKAsyEi5wcm90by5EeUN1c3RvbUFwcCKMAQodRHlDaGVja0N1",
+            "c3RvbUFwcFNlY3JldFJlcXVlc3QSEwoJc2VjcmV0X2lkGAEgASgJSAASEAoG",
+            "YXBwX2lkGAIgASgJSAASDgoGc2VjcmV0GAMgASgJEhQKB2lzX29pZGMYBCAB",
+            "KAhIAYgBAUISChBTZWNyZXRJZGVudGlmaWVyQgoKCF9pc19vaWRjIi8KHkR5",
+            "Q2hlY2tDdXN0b21BcHBTZWNyZXRSZXNwb25zZRINCgV2YWxpZBgBIAEoCCLI",
+            "AQoMRHlCb3RBY2NvdW50EiEKB2FjY291bnQYASABKAsyEC5wcm90by5EeUFj",
+            "Y291bnQSDAoEc2x1ZxgCIAEoCRIRCglpc19hY3RpdmUYAyABKAgSFAoMYXV0",
+            "b21hdGVkX2lkGAUgASgJEi4KCmNyZWF0ZWRfYXQYBiABKAsyGi5nb29nbGUu",
+            "cHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYByABKAsyGi5nb29n",
+            "bGUucHJvdG9idWYuVGltZXN0YW1wIrsBChlEeUNyZWF0ZUJvdEFjY291bnRS",
+            "ZXF1ZXN0EiEKB2FjY291bnQYASABKAsyEC5wcm90by5EeUFjY291bnQSFAoM",
+            "YXV0b21hdGVkX2lkGAIgASgJEjAKCnBpY3R1cmVfaWQYCCABKAsyHC5nb29n",
+            "bGUucHJvdG9idWYuU3RyaW5nVmFsdWUSMwoNYmFja2dyb3VuZF9pZBgJIAEo",
+            "CzIcLmdvb2dsZS5wcm90b2J1Zi5TdHJpbmdWYWx1ZSI+ChpEeUNyZWF0ZUJv",
+            "dEFjY291bnRSZXNwb25zZRIgCgNib3QYASABKAsyEy5wcm90by5EeUJvdEFj",
+            "Y291bnQiqgEKGUR5VXBkYXRlQm90QWNjb3VudFJlcXVlc3QSFAoMYXV0b21h",
+            "dGVkX2lkGAEgASgJEiEKB2FjY291bnQYAiABKAsyEC5wcm90by5EeUFjY291",
+            "bnQSFwoKcGljdHVyZV9pZBgIIAEoCUgAiAEBEhoKDWJhY2tncm91bmRfaWQY",
+            "CSABKAlIAYgBAUINCgtfcGljdHVyZV9pZEIQCg5fYmFja2dyb3VuZF9pZCI+",
+            "ChpEeVVwZGF0ZUJvdEFjY291bnRSZXNwb25zZRIgCgNib3QYASABKAsyEy5w",
+            "cm90by5EeUJvdEFjY291bnQiQAoZRHlEZWxldGVCb3RBY2NvdW50UmVxdWVz",
+            "dBIUCgxhdXRvbWF0ZWRfaWQYASABKAkSDQoFZm9yY2UYAiABKAgiLQoaRHlE",
+            "ZWxldGVCb3RBY2NvdW50UmVzcG9uc2USDwoHc3VjY2VzcxgBIAEoCCLYAQoI",
+            "RHlBcGlLZXkSCgoCaWQYASABKAkSDQoFbGFiZWwYAiABKAkSEgoKYWNjb3Vu",
+            "dF9pZBgDIAEoCRISCgpzZXNzaW9uX2lkGAQgASgJEikKA2tleRgFIAEoCzIc",
+            "Lmdvb2dsZS5wcm90b2J1Zi5TdHJpbmdWYWx1ZRIuCgpjcmVhdGVkX2F0GAYg",
+            "ASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0",
+            "GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCIgChJEeUdldEFw",
+            "aUtleVJlcXVlc3QSCgoCaWQYASABKAkiKwoTRHlMaXN0QXBpS2V5UmVxdWVz",
+            "dBIUCgxhdXRvbWF0ZWRfaWQYASABKAkiOQoYRHlHZXRBcGlLZXlCYXRjaFJl",
+            "c3BvbnNlEh0KBGRhdGEYASADKAsyDy5wcm90by5EeUFwaUtleSIpChZEeURl",
+            "bGV0ZUFwaUtleVJlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgqgQEKEUR5Q3Vz",
+            "dG9tQXBwU3RhdHVzEiQKIERZX0NVU1RPTV9BUFBfU1RBVFVTX1VOU1BFQ0lG",
+            "SUVEEAASEQoNRFlfREVWRUxPUElORxABEg4KCkRZX1NUQUdJTkcQAhIRCg1E",
+            "WV9QUk9EVUNUSU9OEAMSEAoMRFlfU1VTUEVOREVEEAQyxgEKEkR5Q3VzdG9t",
+            "QXBwU2VydmljZRJLCgxHZXRDdXN0b21BcHASHC5wcm90by5EeUdldEN1c3Rv",
+            "bUFwcFJlcXVlc3QaHS5wcm90by5EeUdldEN1c3RvbUFwcFJlc3BvbnNlEmMK",
+            "FENoZWNrQ3VzdG9tQXBwU2VjcmV0EiQucHJvdG8uRHlDaGVja0N1c3RvbUFw",
+            "cFNlY3JldFJlcXVlc3QaJS5wcm90by5EeUNoZWNrQ3VzdG9tQXBwU2VjcmV0",
+            "UmVzcG9uc2UylgUKG0R5Qm90QWNjb3VudFJlY2VpdmVyU2VydmljZRJXChBD",
+            "cmVhdGVCb3RBY2NvdW50EiAucHJvdG8uRHlDcmVhdGVCb3RBY2NvdW50UmVx",
+            "dWVzdBohLnByb3RvLkR5Q3JlYXRlQm90QWNjb3VudFJlc3BvbnNlElcKEFVw",
+            "ZGF0ZUJvdEFjY291bnQSIC5wcm90by5EeVVwZGF0ZUJvdEFjY291bnRSZXF1",
+            "ZXN0GiEucHJvdG8uRHlVcGRhdGVCb3RBY2NvdW50UmVzcG9uc2USVwoQRGVs",
+            "ZXRlQm90QWNjb3VudBIgLnByb3RvLkR5RGVsZXRlQm90QWNjb3VudFJlcXVl",
+            "c3QaIS5wcm90by5EeURlbGV0ZUJvdEFjY291bnRSZXNwb25zZRI3CglHZXRB",
+            "cGlLZXkSGS5wcm90by5EeUdldEFwaUtleVJlcXVlc3QaDy5wcm90by5EeUFw",
+            "aUtleRJJCgpMaXN0QXBpS2V5EhoucHJvdG8uRHlMaXN0QXBpS2V5UmVxdWVz",
+            "dBofLnByb3RvLkR5R2V0QXBpS2V5QmF0Y2hSZXNwb25zZRIwCgxDcmVhdGVB",
+            "cGlLZXkSDy5wcm90by5EeUFwaUtleRoPLnByb3RvLkR5QXBpS2V5EjAKDFVw",
+            "ZGF0ZUFwaUtleRIPLnByb3RvLkR5QXBpS2V5Gg8ucHJvdG8uRHlBcGlLZXkS",
+            "OgoMUm90YXRlQXBpS2V5EhkucHJvdG8uRHlHZXRBcGlLZXlSZXF1ZXN0Gg8u",
+            "cHJvdG8uRHlBcGlLZXkSSAoMRGVsZXRlQXBpS2V5EhkucHJvdG8uRHlHZXRB",
+            "cGlLZXlSZXF1ZXN0Gh0ucHJvdG8uRHlEZWxldGVBcGlLZXlSZXNwb25zZUI9",
+            "Wh9naXQuc29sc3ludGguZGV2L3Nvc3lzL3NwZWMvZ2VuqgIZRHlzb25OZXR3",
+            "b3JrLlNoYXJlZC5Qcm90b2IGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor, global::DysonNetwork.Shared.Proto.FileReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyCustomAppStatus), }, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyCustomAppOauthConfig), global::DysonNetwork.Shared.Proto.DyCustomAppOauthConfig.Parser, new[]{ "ClientUri", "RedirectUris", "PostLogoutRedirectUris", "AllowedScopes", "AllowedGrantTypes", "RequirePkce", "AllowOfflineAccess", "IsPublicClient" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyCustomAppLinks), global::DysonNetwork.Shared.Proto.DyCustomAppLinks.Parser, new[]{ "HomePage", "PrivacyPolicy", "TermsOfService" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyCustomApp), global::DysonNetwork.Shared.Proto.DyCustomApp.Parser, new[]{ "Id", "Slug", "Name", "Description", "Status", "Picture", "Background", "Verification", "Links", "OauthConfig", "ProjectId", "CreatedAt", "UpdatedAt" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyCustomApp), global::DysonNetwork.Shared.Proto.DyCustomApp.Parser, new[]{ "Id", "Slug", "Name", "Description", "Status", "Picture", "Background", "Verification", "Links", "OauthConfig", "PaymentWalletId", "ProjectId", "CreatedAt", "UpdatedAt" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyCustomAppSecret), global::DysonNetwork.Shared.Proto.DyCustomAppSecret.Parser, new[]{ "Id", "Secret", "Description", "ExpiredAt", "IsOidc", "AppId", "CreatedAt", "UpdatedAt" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetCustomAppRequest), global::DysonNetwork.Shared.Proto.DyGetCustomAppRequest.Parser, new[]{ "Id", "Slug" }, new[]{ "Query" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetCustomAppResponse), global::DysonNetwork.Shared.Proto.DyGetCustomAppResponse.Parser, new[]{ "App" }, null, null, null, null),
@@ -893,6 +878,7 @@ namespace DysonNetwork.Shared.Proto {
       verification_ = other.verification_ != null ? other.verification_.Clone() : null;
       links_ = other.links_ != null ? other.links_.Clone() : null;
       oauthConfig_ = other.oauthConfig_ != null ? other.oauthConfig_.Clone() : null;
+      paymentWalletId_ = other.paymentWalletId_;
       projectId_ = other.projectId_;
       createdAt_ = other.createdAt_ != null ? other.createdAt_.Clone() : null;
       updatedAt_ = other.updatedAt_ != null ? other.updatedAt_.Clone() : null;
@@ -1025,6 +1011,18 @@ namespace DysonNetwork.Shared.Proto {
       }
     }
 
+    /// <summary>Field number for the "payment_wallet_id" field.</summary>
+    public const int PaymentWalletIdFieldNumber = 14;
+    private string paymentWalletId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string PaymentWalletId {
+      get { return paymentWalletId_; }
+      set {
+        paymentWalletId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
     /// <summary>Field number for the "project_id" field.</summary>
     public const int ProjectIdFieldNumber = 10;
     private string projectId_ = "";
@@ -1086,6 +1084,7 @@ namespace DysonNetwork.Shared.Proto {
       if (!object.Equals(Verification, other.Verification)) return false;
       if (!object.Equals(Links, other.Links)) return false;
       if (!object.Equals(OauthConfig, other.OauthConfig)) return false;
+      if (PaymentWalletId != other.PaymentWalletId) return false;
       if (ProjectId != other.ProjectId) return false;
       if (!object.Equals(CreatedAt, other.CreatedAt)) return false;
       if (!object.Equals(UpdatedAt, other.UpdatedAt)) return false;
@@ -1106,6 +1105,7 @@ namespace DysonNetwork.Shared.Proto {
       if (verification_ != null) hash ^= Verification.GetHashCode();
       if (links_ != null) hash ^= Links.GetHashCode();
       if (oauthConfig_ != null) hash ^= OauthConfig.GetHashCode();
+      if (PaymentWalletId.Length != 0) hash ^= PaymentWalletId.GetHashCode();
       if (ProjectId.Length != 0) hash ^= ProjectId.GetHashCode();
       if (createdAt_ != null) hash ^= CreatedAt.GetHashCode();
       if (updatedAt_ != null) hash ^= UpdatedAt.GetHashCode();
@@ -1179,6 +1179,10 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(106);
         output.WriteMessage(OauthConfig);
       }
+      if (PaymentWalletId.Length != 0) {
+        output.WriteRawTag(114);
+        output.WriteString(PaymentWalletId);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -1241,6 +1245,10 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(106);
         output.WriteMessage(OauthConfig);
       }
+      if (PaymentWalletId.Length != 0) {
+        output.WriteRawTag(114);
+        output.WriteString(PaymentWalletId);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -1280,6 +1288,9 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (oauthConfig_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(OauthConfig);
+      }
+      if (PaymentWalletId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(PaymentWalletId);
       }
       if (ProjectId.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(ProjectId);
@@ -1346,6 +1357,9 @@ namespace DysonNetwork.Shared.Proto {
           OauthConfig = new global::DysonNetwork.Shared.Proto.DyCustomAppOauthConfig();
         }
         OauthConfig.MergeFrom(other.OauthConfig);
+      }
+      if (other.PaymentWalletId.Length != 0) {
+        PaymentWalletId = other.PaymentWalletId;
       }
       if (other.ProjectId.Length != 0) {
         ProjectId = other.ProjectId;
@@ -1454,6 +1468,10 @@ namespace DysonNetwork.Shared.Proto {
             input.ReadMessage(OauthConfig);
             break;
           }
+          case 114: {
+            PaymentWalletId = input.ReadString();
+            break;
+          }
         }
       }
     #endif
@@ -1544,6 +1562,10 @@ namespace DysonNetwork.Shared.Proto {
               OauthConfig = new global::DysonNetwork.Shared.Proto.DyCustomAppOauthConfig();
             }
             input.ReadMessage(OauthConfig);
+            break;
+          }
+          case 114: {
+            PaymentWalletId = input.ReadString();
             break;
           }
         }

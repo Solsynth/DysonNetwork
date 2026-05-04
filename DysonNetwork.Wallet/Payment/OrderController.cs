@@ -39,6 +39,16 @@ public class OrderController(
         public DateTime? EndDate { get; set; }
     }
 
+    public class AppPayoutRequest
+    {
+        public string ClientId { get; set; } = null!;
+        public string ClientSecret { get; set; } = null!;
+        public Guid PayeeAccountId { get; set; }
+        public string Currency { get; set; } = null!;
+        public decimal Amount { get; set; }
+        public string? Remarks { get; set; }
+    }
+
     public class AppOrderMetricsResponse
     {
         public string AppIdentifier { get; set; } = null!;
@@ -90,6 +100,14 @@ public class OrderController(
                 return BadRequest("Payee wallet was not found.");
 
             payeeWalletId = request.PayeeWalletId.Value;
+        }
+        else if (client.PaymentWalletId.HasValue)
+        {
+            var walletExists = await db.Wallets.AnyAsync(w => w.Id == client.PaymentWalletId.Value);
+            if (!walletExists)
+                return BadRequest("Configured payout wallet was not found.");
+
+            payeeWalletId = client.PaymentWalletId.Value;
         }
 
         var order = await payment.CreateOrderAsync(
@@ -224,5 +242,44 @@ public class OrderController(
         };
 
         return Ok(response);
+    }
+
+    [HttpPost("payouts")]
+    public async Task<ActionResult<SnWalletTransaction>> CreateAppPayout([FromBody] AppPayoutRequest request)
+    {
+        var client = await ValidateClientAsync(request.ClientId, request.ClientSecret);
+        if (client is null) return BadRequest("Invalid client credentials");
+
+        if (!client.PaymentWalletId.HasValue)
+            return BadRequest("This app does not have a configured payout wallet.");
+
+        var payerWallet = await db.Wallets.FirstOrDefaultAsync(w => w.Id == client.PaymentWalletId.Value);
+        if (payerWallet is null)
+            return BadRequest("Configured payout wallet was not found.");
+
+        if (payerWallet.AccountId == request.PayeeAccountId)
+            return BadRequest("Cannot pay the payout wallet owner.");
+
+        try
+        {
+            var payeeWallet = await db.Wallets.FirstOrDefaultAsync(w => w.AccountId == request.PayeeAccountId);
+            if (payeeWallet is null)
+                return BadRequest("Payee wallet was not found.");
+
+            var transaction = await payment.CreateTransactionAsync(
+                payerWalletId: payerWallet.Id,
+                payeeWalletId: payeeWallet.Id,
+                currency: request.Currency,
+                amount: request.Amount,
+                remarks: request.Remarks,
+                type: TransactionType.Transfer
+            );
+
+            return Ok(transaction);
+        }
+        catch (Exception err)
+        {
+            return BadRequest(err.Message);
+        }
     }
 }
