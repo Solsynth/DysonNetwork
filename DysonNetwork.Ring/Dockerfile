@@ -11,7 +11,9 @@ USER $APP_UID
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
+COPY ["Directory.Packages.props", "."]
 COPY ["DysonNetwork.Ring/DysonNetwork.Ring.csproj", "DysonNetwork.Ring/"]
+COPY ["DysonNetwork.Shared/DysonNetwork.Shared.csproj", "DysonNetwork.Shared/"]
 RUN dotnet restore "DysonNetwork.Ring/DysonNetwork.Ring.csproj"
 COPY . .
 WORKDIR "/src/DysonNetwork.Ring"

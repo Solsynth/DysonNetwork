@@ -15,7 +15,9 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy .csproj and restore as distinct layers
+COPY ["Directory.Packages.props", "."]
 COPY ["DysonNetwork.Passport/DysonNetwork.Passport.csproj", "DysonNetwork.Passport/"]
+COPY ["DysonNetwork.Shared/DysonNetwork.Shared.csproj", "DysonNetwork.Shared/"]
 RUN dotnet restore "DysonNetwork.Passport/DysonNetwork.Passport.csproj"
 
 # Copy everything else and build

@@ -16,6 +16,7 @@ ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
 # First copy only the solution and project files to restore packages
+COPY ["Directory.Packages.props", "."]
 COPY ["DysonNetwork.Messager/DysonNetwork.Messager.csproj", "DysonNetwork.Messager/"]
 COPY ["DysonNetwork.Shared/DysonNetwork.Shared.csproj", "DysonNetwork.Shared/"]
 

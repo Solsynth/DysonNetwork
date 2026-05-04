@@ -12,7 +12,9 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
+COPY ["Directory.Packages.props", "."]
 COPY ["DysonNetwork.Develop/DysonNetwork.Develop.csproj", "DysonNetwork.Develop/"]
+COPY ["DysonNetwork.Shared/DysonNetwork.Shared.csproj", "DysonNetwork.Shared/"]
 RUN dotnet restore "DysonNetwork.Develop/DysonNetwork.Develop.csproj"
 COPY . .
 WORKDIR "/src/DysonNetwork.Develop"

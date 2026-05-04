@@ -4,6 +4,7 @@ EXPOSE 5226
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
+COPY ["Directory.Packages.props", "."]
 COPY ["DysonNetwork.Padlock/DysonNetwork.Padlock.csproj", "DysonNetwork.Padlock/"]
 COPY ["DysonNetwork.Shared/DysonNetwork.Shared.csproj", "DysonNetwork.Shared/"]
 RUN dotnet restore "DysonNetwork.Padlock/DysonNetwork.Padlock.csproj"
