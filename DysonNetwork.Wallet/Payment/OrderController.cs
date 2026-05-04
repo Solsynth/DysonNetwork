@@ -1,9 +1,11 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Wallet.Payment;
 
@@ -23,31 +25,79 @@ public class OrderController(
         public string? ProductIdentifier { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
         public int DurationHours { get; set; } = 24;
+        public Guid? PayeeWalletId { get; set; }
 
         public string ClientId { get; set; } = null!;
         public string ClientSecret { get; set; } = null!;
     }
 
+    public class AppOrderMetricsRequest
+    {
+        public string ClientId { get; set; } = null!;
+        public string ClientSecret { get; set; } = null!;
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+    }
+
+    public class AppOrderMetricsResponse
+    {
+        public string AppIdentifier { get; set; } = null!;
+        public int TotalOrders { get; set; }
+        public int PaidOrders { get; set; }
+        public int UnpaidOrders { get; set; }
+        public int FinishedOrders { get; set; }
+        public int CancelledOrders { get; set; }
+        public int ExpiredOrders { get; set; }
+        public decimal TotalIncomingAmount { get; set; }
+        public decimal PaidIncomingAmount { get; set; }
+        public Dictionary<string, decimal> ProductIncomingAmounts { get; set; } = new();
+        public Dictionary<string, int> ProductOrderCounts { get; set; } = new();
+    }
+
+    private async Task<SnCustomApp?> ValidateClientAsync(string clientId, string clientSecret)
+    {
+        try
+        {
+            var clientResp = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest { Slug = clientId });
+            if (clientResp.App is null) return null;
+
+            var client = SnCustomApp.FromProtoValue(clientResp.App);
+            var secret = await customApps.CheckCustomAppSecretAsync(new DyCheckCustomAppSecretRequest
+            {
+                AppId = client.Id.ToString(),
+                Secret = clientSecret,
+            });
+
+            return secret.Valid ? client : null;
+        }
+        catch (RpcException)
+        {
+            return null;
+        }
+    }
+
     [HttpPost]
     public async Task<ActionResult<SnWalletOrder>> CreateOrder([FromBody] CreateOrderRequest request)
     {
-        var clientResp = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest { Slug = request.ClientId });
-        if (clientResp.App is null) return BadRequest("Client not found");
-        var client = SnCustomApp.FromProtoValue(clientResp.App);
+        var client = await ValidateClientAsync(request.ClientId, request.ClientSecret);
+        if (client is null) return BadRequest("Invalid client credentials");
 
-        var secret = await customApps.CheckCustomAppSecretAsync(new DyCheckCustomAppSecretRequest
+        Guid? payeeWalletId = null;
+        if (request.PayeeWalletId.HasValue)
         {
-            AppId = client.Id.ToString(),
-            Secret = request.ClientSecret,
-        });
-        if (!secret.Valid) return BadRequest("Invalid client secret");
+            var walletExists = await db.Wallets.AnyAsync(w => w.Id == request.PayeeWalletId.Value);
+            if (!walletExists)
+                return BadRequest("Payee wallet was not found.");
+
+            payeeWalletId = request.PayeeWalletId.Value;
+        }
 
         var order = await payment.CreateOrderAsync(
-            default,
+            payeeWalletId,
             request.Currency,
             request.Amount,
             NodaTime.Duration.FromHours(request.DurationHours),
-            request.ClientId,
+            client.ResourceIdentifier,
             request.ProductIdentifier,
             request.Remarks,
             request.Meta
@@ -105,23 +155,15 @@ public class OrderController(
     [HttpPatch("{id:guid}/status")]
     public async Task<ActionResult<SnWalletOrder>> UpdateOrderStatus(Guid id, [FromBody] UpdateOrderStatusRequest request)
     {
-        var clientResp = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest { Slug = request.ClientId });
-        if (clientResp.App is null) return BadRequest("Client not found");
-        var client = SnCustomApp.FromProtoValue(clientResp.App);
-
-        var secret = await customApps.CheckCustomAppSecretAsync(new DyCheckCustomAppSecretRequest
-        {
-            AppId = client.Id.ToString(),
-            Secret = request.ClientSecret,
-        });
-        if (!secret.Valid) return BadRequest("Invalid client secret");
+        var client = await ValidateClientAsync(request.ClientId, request.ClientSecret);
+        if (client is null) return BadRequest("Invalid client credentials");
 
         var order = await db.PaymentOrders.FindAsync(id);
 
         if (order == null)
             return NotFound();
 
-        if (order.AppIdentifier != request.ClientId)
+        if (order.AppIdentifier != client.ResourceIdentifier)
         {
             return BadRequest("Order does not belong to this client.");
         }
@@ -134,5 +176,53 @@ public class OrderController(
         await db.SaveChangesAsync();
 
         return Ok(order);
+    }
+
+    [HttpPost("metrics")]
+    public async Task<ActionResult<AppOrderMetricsResponse>> GetAppOrderMetrics([FromBody] AppOrderMetricsRequest request)
+    {
+        var client = await ValidateClientAsync(request.ClientId, request.ClientSecret);
+        if (client is null) return BadRequest("Invalid client credentials");
+
+        var query = db.PaymentOrders
+            .Where(o => o.AppIdentifier == client.ResourceIdentifier)
+            .AsQueryable();
+
+        if (request.StartDate.HasValue)
+        {
+            var start = Instant.FromDateTimeUtc(request.StartDate.Value.ToUniversalTime());
+            query = query.Where(o => o.CreatedAt >= start);
+        }
+
+        if (request.EndDate.HasValue)
+        {
+            var end = Instant.FromDateTimeUtc(request.EndDate.Value.ToUniversalTime());
+            query = query.Where(o => o.CreatedAt <= end);
+        }
+
+        var orders = await query.ToListAsync();
+
+        var response = new AppOrderMetricsResponse
+        {
+            AppIdentifier = client.ResourceIdentifier,
+            TotalOrders = orders.Count,
+            PaidOrders = orders.Count(o => o.Status == OrderStatus.Paid),
+            UnpaidOrders = orders.Count(o => o.Status == OrderStatus.Unpaid),
+            FinishedOrders = orders.Count(o => o.Status == OrderStatus.Finished),
+            CancelledOrders = orders.Count(o => o.Status == OrderStatus.Cancelled),
+            ExpiredOrders = orders.Count(o => o.Status == OrderStatus.Expired),
+            TotalIncomingAmount = orders.Sum(o => o.Amount),
+            PaidIncomingAmount = orders
+                .Where(o => o.Status is OrderStatus.Paid or OrderStatus.Finished)
+                .Sum(o => o.Amount),
+            ProductIncomingAmounts = orders
+                .GroupBy(o => o.ProductIdentifier ?? string.Empty)
+                .ToDictionary(g => g.Key, g => g.Sum(o => o.Amount)),
+            ProductOrderCounts = orders
+                .GroupBy(o => o.ProductIdentifier ?? string.Empty)
+                .ToDictionary(g => g.Key, g => g.Count())
+        };
+
+        return Ok(response);
     }
 }

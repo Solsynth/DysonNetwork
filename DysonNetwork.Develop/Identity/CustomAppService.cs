@@ -28,6 +28,7 @@ public class CustomAppService(
             Slug = request.Slug!,
             Name = request.Name!,
             Description = request.Description,
+            PaymentWalletId = request.PaymentWalletId,
             Status = request.Status ?? Shared.Models.CustomAppStatus.Developing,
             Links = request.Links,
             OauthConfig = request.OauthConfig,
@@ -250,6 +251,8 @@ public class CustomAppService(
             app.Name = request.Name;
         if (request.Description is not null)
             app.Description = request.Description;
+        if (request.PaymentWalletId != app.PaymentWalletId)
+            app.PaymentWalletId = request.PaymentWalletId;
         if (request.Status is not null)
             app.Status = request.Status.Value;
         if (request.Links is not null)

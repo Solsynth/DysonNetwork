@@ -37,6 +37,8 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public SnCustomAppOauthConfig? OauthConfig { get; set; }
     [Column(TypeName = "jsonb")] public SnCustomAppLinks? Links { get; set; }
 
+    public Guid? PaymentWalletId { get; set; }
+
     [JsonIgnore] public List<SnCustomAppSecret> Secrets { get; set; } = new List<SnCustomAppSecret>();
 
     public Guid ProjectId { get; set; }
@@ -83,6 +85,7 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
                 AllowOfflineAccess = OauthConfig.AllowOfflineAccess,
                 IsPublicClient = OauthConfig.IsPublicClient
             },
+            PaymentWalletId = PaymentWalletId?.ToString() ?? string.Empty,
             ProjectId = ProjectId.ToString(),
             CreatedAt = CreatedAt.ToTimestamp(),
             UpdatedAt = UpdatedAt.ToTimestamp()
@@ -105,6 +108,7 @@ public class SnCustomApp : ModelBase, IIdentifiedResource
                 DyCustomAppStatus.DySuspended => CustomAppStatus.Suspended,
                 _ => CustomAppStatus.Developing
             },
+            PaymentWalletId = string.IsNullOrEmpty(p.PaymentWalletId) ? null : Guid.Parse(p.PaymentWalletId),
             ProjectId = string.IsNullOrEmpty(p.ProjectId) ? Guid.Empty : Guid.Parse(p.ProjectId),
             CreatedAt = p.CreatedAt.ToInstant(),
             UpdatedAt = p.UpdatedAt.ToInstant(),

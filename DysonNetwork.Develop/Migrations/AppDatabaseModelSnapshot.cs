@@ -100,6 +100,10 @@ namespace DysonNetwork.Develop.Migrations
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("name");
 
+                    b.Property<Guid?>("PaymentWalletId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("payment_wallet_id");
+
                     b.Property<SnCustomAppOauthConfig>("OauthConfig")
                         .HasColumnType("jsonb")
                         .HasColumnName("oauth_config");

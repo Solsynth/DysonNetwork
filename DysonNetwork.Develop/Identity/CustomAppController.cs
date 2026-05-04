@@ -19,6 +19,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         [MaxLength(4096)] string? Description,
         string? PictureId,
         string? BackgroundId,
+        Guid? PaymentWalletId,
         Shared.Models.CustomAppStatus? Status,
         SnCustomAppLinks? Links,
         SnCustomAppOauthConfig? OauthConfig
