@@ -96,9 +96,10 @@ public class WalletController(
 
         // Also include realm wallets where user is a member
         var memberPublishers = await publishers.GetUserPublishers(currentAccountId);
+        var seenRealmIds = new HashSet<Guid>();
         foreach (var publisher in memberPublishers)
         {
-            if (publisher.RealmId.HasValue)
+            if (publisher.RealmId.HasValue && seenRealmIds.Add(publisher.RealmId.Value))
             {
                 var realmWallets = await ws.GetRealmWalletsAsync(publisher.RealmId.Value);
                 wallets.AddRange(realmWallets);
@@ -201,19 +202,46 @@ public class WalletController(
     [HttpGet("transactions")]
     [Authorize]
     public async Task<ActionResult<List<SnWalletTransaction>>> GetTransactions(
-        [FromQuery] int offset = 0, [FromQuery] int take = 20
+        [FromQuery] Guid? wallet = null,
+        [FromQuery] string? direction = null,
+        [FromQuery] TransactionType? type = null,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
-        var accountWallet =
-            await db.Wallets.Where(w => w.AccountId == Guid.Parse(currentUser.Id)).FirstOrDefaultAsync();
-        if (accountWallet is null) return NotFound();
+        var currentAccountId = Guid.Parse(currentUser.Id);
+        var targetWallet = await ResolveAccessibleWalletAsync(currentAccountId, wallet);
+        if (targetWallet is null) return NotFound();
 
         var query = db.PaymentTransactions
-            .Where(t => t.PayeeWalletId == accountWallet.Id || t.PayerWalletId == accountWallet.Id)
-            .OrderByDescending(t => t.CreatedAt)
+            .Where(t => t.PayeeWalletId == targetWallet.Id || t.PayerWalletId == targetWallet.Id)
             .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(direction))
+        {
+            switch (direction.Trim().ToLowerInvariant())
+            {
+                case "income":
+                case "incoming":
+                case "in":
+                    query = query.Where(t => t.PayeeWalletId == targetWallet.Id);
+                    break;
+                case "outcome":
+                case "outgoing":
+                case "out":
+                    query = query.Where(t => t.PayerWalletId == targetWallet.Id);
+                    break;
+                default:
+                    return BadRequest("Invalid direction. Use income or outcome.");
+            }
+        }
+
+        if (type.HasValue)
+            query = query.Where(t => t.Type == type.Value);
+
+        query = query.OrderByDescending(t => t.CreatedAt);
 
         var transactionCount = await query.CountAsync();
         Response.Headers["X-Total"] = transactionCount.ToString();
@@ -259,20 +287,50 @@ public class WalletController(
     [HttpGet("orders")]
     [Authorize]
     public async Task<ActionResult<List<SnWalletOrder>>> GetOrders(
-        [FromQuery] int offset = 0, [FromQuery] int take = 20
+        [FromQuery] Guid? wallet = null,
+        [FromQuery] string? direction = null,
+        [FromQuery] TransactionType? type = null,
+        [FromQuery] OrderStatus? status = null,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
-        var accountWallet =
-            await db.Wallets.Where(w => w.AccountId == Guid.Parse(currentUser.Id)).FirstOrDefaultAsync();
-        if (accountWallet is null) return NotFound();
+        var currentAccountId = Guid.Parse(currentUser.Id);
+        var targetWallet = await ResolveAccessibleWalletAsync(currentAccountId, wallet);
+        if (targetWallet is null) return NotFound();
 
         var query = db.PaymentOrders.AsQueryable()
             .Include(o => o.Transaction)
-            .Where(o => o.Transaction != null && (o.Transaction.PayeeWalletId == accountWallet.Id ||
-                                                  o.Transaction.PayerWalletId == accountWallet.Id))
+            .Where(o => o.Transaction != null && (o.Transaction.PayeeWalletId == targetWallet.Id ||
+                                                  o.Transaction.PayerWalletId == targetWallet.Id))
             .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(direction))
+        {
+            switch (direction.Trim().ToLowerInvariant())
+            {
+                case "income":
+                case "incoming":
+                case "in":
+                    query = query.Where(o => o.Transaction != null && o.Transaction.PayeeWalletId == targetWallet.Id);
+                    break;
+                case "outcome":
+                case "outgoing":
+                case "out":
+                    query = query.Where(o => o.Transaction != null && o.Transaction.PayerWalletId == targetWallet.Id);
+                    break;
+                default:
+                    return BadRequest("Invalid direction. Use income or outcome.");
+            }
+        }
+
+        if (type.HasValue)
+            query = query.Where(o => o.Transaction != null && o.Transaction.Type == type.Value);
+
+        if (status.HasValue)
+            query = query.Where(o => o.Status == status.Value);
 
         var orderCount = await query.CountAsync();
         Response.Headers["X-Total"] = orderCount.ToString();
@@ -284,6 +342,30 @@ public class WalletController(
             .ToListAsync();
 
         return Ok(orders);
+    }
+
+    private async Task<SnWallet?> ResolveAccessibleWalletAsync(Guid currentAccountId, Guid? walletId)
+    {
+        if (!walletId.HasValue)
+            return await ws.GetAccountWalletAsync(currentAccountId);
+
+        var wallet = await ws.GetWalletAsync(walletId.Value);
+        if (wallet is null)
+            return null;
+
+        if (wallet.AccountId == currentAccountId)
+            return wallet;
+
+        if (!wallet.RealmId.HasValue)
+            return null;
+
+        var publisher = (await publishers.ListPublishers(realmId: wallet.RealmId.Value.ToString())).FirstOrDefault();
+        if (publisher is null)
+            return null;
+
+        return await publishers.IsMemberWithRole(publisher.Id, currentAccountId, PublisherMemberRole.Viewer)
+            ? wallet
+            : null;
     }
 
     public class WalletBalanceRequest
