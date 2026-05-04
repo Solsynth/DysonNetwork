@@ -14,7 +14,9 @@ namespace DysonNetwork.Wallet.Payment;
 public class OrderController(
     PaymentService payment,
     AppDatabase db,
-    DyCustomAppService.DyCustomAppServiceClient customApps
+    DyCustomAppService.DyCustomAppServiceClient customApps,
+    WalletService ws,
+    RemotePublisherService publishers
 ) : ControllerBase
 {
     public class CreateOrderRequest
@@ -137,6 +139,7 @@ public class OrderController(
 
     public class PayOrderRequest
     {
+        public Guid? PayerWalletId { get; set; }
         public string PinCode { get; set; } = string.Empty;
     }
 
@@ -148,12 +151,11 @@ public class OrderController(
 
         try
         {
-            // Get the wallet for the current user
-            var wallet = await db.Wallets.FirstOrDefaultAsync(w => w.AccountId == Guid.Parse(currentUser.Id));
+            var currentAccountId = Guid.Parse(currentUser.Id);
+            var wallet = await ResolveAccessiblePayerWalletAsync(currentAccountId, request.PayerWalletId);
             if (wallet == null)
                 return BadRequest("Wallet was not found.");
 
-            // Pay the order
             var paidOrder = await payment.PayOrderAsync(id, wallet);
             return Ok(paidOrder);
         }
@@ -281,5 +283,29 @@ public class OrderController(
         {
             return BadRequest(err.Message);
         }
+    }
+
+    private async Task<SnWallet?> ResolveAccessiblePayerWalletAsync(Guid currentAccountId, Guid? payerWalletId)
+    {
+        if (!payerWalletId.HasValue)
+            return await ws.GetAccountWalletAsync(currentAccountId);
+
+        var wallet = await ws.GetWalletAsync(payerWalletId.Value);
+        if (wallet is null)
+            return null;
+
+        if (wallet.AccountId == currentAccountId)
+            return wallet;
+
+        if (!wallet.RealmId.HasValue)
+            return null;
+
+        var publisher = (await publishers.ListPublishers(realmId: wallet.RealmId.Value.ToString())).FirstOrDefault();
+        if (publisher is null)
+            return null;
+
+        return await publishers.IsMemberWithRole(publisher.Id, currentAccountId, PublisherMemberRole.Editor)
+            ? wallet
+            : null;
     }
 }
