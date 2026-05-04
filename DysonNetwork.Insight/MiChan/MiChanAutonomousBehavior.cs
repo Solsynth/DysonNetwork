@@ -1329,9 +1329,13 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
 
         // Get random memories to spark ideas
         Guid? botAccountId = null;
-        if (!string.IsNullOrEmpty(_config.BotAccountId))
+        if (!string.IsNullOrEmpty(_config.BotAccountId) && Guid.TryParse(_config.BotAccountId, out var parsedBotAccountId))
         {
-            botAccountId = Guid.Parse(_config.BotAccountId);
+            botAccountId = parsedBotAccountId;
+        }
+        else if (!string.IsNullOrEmpty(_config.BotAccountId))
+        {
+            _logger.LogWarning("Configured BotAccountId {BotAccountId} is not a valid GUID", _config.BotAccountId);
         }
         var randomMemories = await _memoryService.GetRandomMemoriesAsync(
             limit: 10,

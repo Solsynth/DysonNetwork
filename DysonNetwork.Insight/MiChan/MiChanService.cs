@@ -1,5 +1,6 @@
 using DysonNetwork.Insight.MiChan.Plugins;
 using DysonNetwork.Insight.Thought.Memory;
+using DysonNetwork.Shared.Proto;
 
 namespace DysonNetwork.Insight.MiChan;
 
@@ -24,9 +25,10 @@ public class MiChanService(
             return;
         }
 
-        if (string.IsNullOrEmpty(config.AccessToken) || string.IsNullOrEmpty(config.BotAccountId))
+        if (string.IsNullOrEmpty(config.AccessToken) ||
+            (string.IsNullOrEmpty(config.BotAccountId) && string.IsNullOrEmpty(config.BotAccountName)))
         {
-            logger.LogWarning("MiChan is enabled but AccessToken or BotAccountId is not configured.");
+            logger.LogWarning("MiChan is enabled but AccessToken or bot account identity is not configured.");
             return;
         }
 
@@ -70,6 +72,8 @@ public class MiChanService(
     {
         try
         {
+            await ResolveBotAccountIdAsync(cancellationToken);
+
             // Create API client
             _apiClient = serviceProvider.GetRequiredService<SolarNetworkApiClient>();
 
@@ -90,6 +94,33 @@ public class MiChanService(
             logger.LogError(ex, "Failed to initialize MiChan");
             throw;
         }
+    }
+
+    private async Task ResolveBotAccountIdAsync(CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrEmpty(config.BotAccountId))
+            return;
+
+        if (string.IsNullOrEmpty(config.BotAccountName))
+            throw new InvalidOperationException("MiChan BotAccountId or BotAccountName must be configured.");
+
+        var accountClient = serviceProvider.GetRequiredService<DyProfileService.DyProfileServiceClient>();
+        var request = new DyLookupAccountBatchRequest();
+        request.Names.Add(config.BotAccountName);
+
+        var response = await accountClient.LookupAccountBatchAsync(request, cancellationToken: cancellationToken);
+        var account = response.Accounts.FirstOrDefault(a =>
+            a.Name.Equals(config.BotAccountName, StringComparison.OrdinalIgnoreCase));
+
+        if (account is null || string.IsNullOrEmpty(account.Id))
+        {
+            throw new InvalidOperationException(
+                $"MiChan bot account '{config.BotAccountName}' was not found.");
+        }
+
+        config.BotAccountId = account.Id;
+        logger.LogInformation("Resolved MiChan bot account name {BotAccountName} to account ID {BotAccountId}",
+            config.BotAccountName, config.BotAccountId);
     }
 
     private async Task AutonomousLoopAsync(CancellationToken stoppingToken)

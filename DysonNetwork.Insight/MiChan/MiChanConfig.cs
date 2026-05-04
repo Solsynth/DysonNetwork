@@ -125,11 +125,11 @@ public class MiChanConfig : IValidatableObject
                     new[] { nameof(AccessToken) }));
             }
 
-            if (string.IsNullOrEmpty(BotAccountId))
+            if (string.IsNullOrEmpty(BotAccountId) && string.IsNullOrEmpty(BotAccountName))
             {
                 results.Add(new ValidationResult(
-                    "BotAccountId is required when MiChan is enabled",
-                    new[] { nameof(BotAccountId) }));
+                    "BotAccountId or BotAccountName is required when MiChan is enabled",
+                    new[] { nameof(BotAccountId), nameof(BotAccountName) }));
             }
         }
 
