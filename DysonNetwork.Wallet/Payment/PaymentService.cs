@@ -138,7 +138,7 @@ public class PaymentService(
 
         if (payerWalletId.HasValue)
         {
-            payerWallet = await db.Wallets.FirstOrDefaultAsync(e => e.AccountId == payerWalletId.Value);
+            payerWallet = await db.Wallets.FirstOrDefaultAsync(e => e.Id == payerWalletId.Value);
 
             var (payerPocket, isNewlyCreated) =
                 await wat.GetOrCreateWalletPocketAsync(payerWalletId.Value, currency);
@@ -155,7 +155,7 @@ public class PaymentService(
 
         if (payeeWalletId.HasValue)
         {
-            payeeWallet = await db.Wallets.FirstOrDefaultAsync(e => e.AccountId == payeeWalletId.Value);
+            payeeWallet = await db.Wallets.FirstOrDefaultAsync(e => e.Id == payeeWalletId.Value);
 
             var (payeePocket, isNewlyCreated) =
                 await wat.GetOrCreateWalletPocketAsync(payeeWalletId.Value, currency, amount);
@@ -426,7 +426,7 @@ public class PaymentService(
     }
 
     public async Task<SnWalletTransaction> TransferAsync(Guid payerAccountId, Guid payeeAccountId, string currency,
-        decimal amount)
+        decimal amount, string? remarks = null)
     {
         var payerWallet = await wat.GetAccountWalletAsync(payerAccountId);
         if (payerWallet == null)
@@ -456,13 +456,15 @@ public class PaymentService(
         var payerAccount = await remoteAccounts.GetAccount(payerAccountId);
 
         // Create main transfer transaction
+        var transferRemarks = remarks ?? localizer.Get("transferRemark", payeeAccount.Language,
+            new { payer = $"@{payerAccount.Name}", payee = $"@{payeeAccount.Name}" });
+
         var transaction = await CreateTransactionAsync(
             payerWallet.Id,
             payeeWallet.Id,
             currency,
             truncatedAmount,
-            localizer.Get("transferRemark", payeeAccount.Language,
-                new { payer = $"@{payerAccount.Name}", payee = $"@{payeeAccount.Name}" }),
+            transferRemarks,
             Shared.Models.TransactionType.Transfer
         );
 

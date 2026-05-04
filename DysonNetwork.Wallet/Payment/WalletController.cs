@@ -290,7 +290,8 @@ public class WalletController(
                 payerAccountId: Guid.Parse(currentUser.Id),
                 payeeAccountId: request.PayeeAccountId,
                 currency: request.Currency,
-                amount: request.Amount
+                amount: request.Amount,
+                remarks: request.Remark
             );
 
             return Ok(transaction);
