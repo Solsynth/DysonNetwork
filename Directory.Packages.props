@@ -1,0 +1,103 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="AngleSharp" Version="1.4.0" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.2.4" />
+    <PackageVersion Include="Aspire.Hosting.Docker" Version="13.2.4" />
+    <PackageVersion Include="Aspire.Hosting.Nats" Version="13.2.4" />
+    <PackageVersion Include="Aspire.Hosting.Redis" Version="13.2.4" />
+    <PackageVersion Include="Aspire.NATS.Net" Version="13.2.4" />
+    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.2.4" />
+    <PackageVersion Include="Aspire.StackExchange.Redis" Version="13.2.4" />
+    <PackageVersion Include="Ater.DeepSeek.Core" Version="1.4.0" />
+    <PackageVersion Include="BCrypt.Net-Next" Version="4.1.0" />
+    <PackageVersion Include="BlurHashSharp.SkiaSharp" Version="1.3.4" />
+    <PackageVersion Include="CorePush" Version="5.0.1" />
+    <PackageVersion Include="DotLiquid" Version="2.3.197" />
+    <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
+    <PackageVersion Include="FFMpegCore" Version="5.4.0" />
+    <PackageVersion Include="Google.Api.CommonProtos" Version="2.17.0" />
+    <PackageVersion Include="Google.Protobuf" Version="3.34.1" />
+    <PackageVersion Include="Google.Protobuf.Tools" Version="3.34.1" />
+    <PackageVersion Include="Grpc" Version="2.46.6" />
+    <PackageVersion Include="Grpc.AspNetCore.Server" Version="2.80.0" />
+    <PackageVersion Include="Grpc.AspNetCore.Server.ClientFactory" Version="2.80.0" />
+    <PackageVersion Include="Grpc.AspNetCore.Server.Reflection" Version="2.80.0" />
+    <PackageVersion Include="Grpc.Net.Client" Version="2.80.0" />
+    <PackageVersion Include="Grpc.Tools" Version="2.80.0" />
+    <PackageVersion Include="jieba.NET" Version="0.42.2" />
+    <PackageVersion Include="Livekit.Server.Sdk.Dotnet" Version="1.2.1" />
+    <PackageVersion Include="MailKit" Version="4.16.0" />
+    <PackageVersion Include="Markdig" Version="1.1.3" />
+    <PackageVersion Include="MaxMind.GeoIP2" Version="5.4.1" />
+    <PackageVersion Include="MessagePack" Version="3.1.4" />
+    <PackageVersion Include="MessagePack.NodaTime" Version="3.5.4" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication" Version="2.3.9" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.5.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.5.0" />
+    <PackageVersion Include="Microsoft.Extensions.VectorData.Abstractions" Version="10.5.0" />
+    <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.18.0" />
+    <PackageVersion Include="Microsoft.SemanticKernel" Version="1.75.0" />
+    <PackageVersion Include="Microsoft.SemanticKernel.Connectors.Ollama" Version="1.66.0-alpha" />
+    <PackageVersion Include="Microsoft.SemanticKernel.Connectors.PgVector" Version="1.70.0-preview" />
+    <PackageVersion Include="Microsoft.SemanticKernel.Plugins.Web" Version="1.66.0-alpha" />
+    <PackageVersion Include="MimeKit" Version="4.16.0" />
+    <PackageVersion Include="MimeTypes" Version="2.5.2" />
+    <PackageVersion Include="Minio" Version="7.0.0" />
+    <PackageVersion Include="Nanoid" Version="3.1.0" />
+    <PackageVersion Include="Nager.Holiday" Version="1.0.1" />
+    <PackageVersion Include="NATS.Net" Version="2.7.3" />
+    <PackageVersion Include="NetTopologySuite" Version="2.6.0" />
+    <PackageVersion Include="NetVips" Version="3.2.0" />
+    <PackageVersion Include="NetVips.Native.linux-x64" Version="8.18.2" />
+    <PackageVersion Include="NetVips.Native.osx-arm64" Version="8.18.2" />
+    <PackageVersion Include="NodaTime" Version="3.3.2" />
+    <PackageVersion Include="NodaTime.Serialization.Protobuf" Version="2.0.2" />
+    <PackageVersion Include="NodaTime.Serialization.SystemTextJson" Version="1.3.1" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" Version="10.0.1" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite" Version="10.0.1" />
+    <PackageVersion Include="OpenAI" Version="2.10.0" />
+    <PackageVersion Include="OpenGraph-Net" Version="4.0.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.GrpcNetClient" Version="1.12.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+    <PackageVersion Include="Otp.NET" Version="1.4.1" />
+    <PackageVersion Include="Pgvector" Version="0.3.2" />
+    <PackageVersion Include="Pgvector.EntityFrameworkCore" Version="0.3.0" />
+    <PackageVersion Include="Quartz" Version="3.18.1" />
+    <PackageVersion Include="Quartz.AspNetCore" Version="3.18.1" />
+    <PackageVersion Include="Quartz.Extensions.Hosting" Version="3.18.1" />
+    <PackageVersion Include="RedLock.net" Version="2.3.2" />
+    <PackageVersion Include="SimpleMvcSitemap" Version="4.0.1" />
+    <PackageVersion Include="SkiaSharp" Version="2.88.9" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="2.88.9" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="2.88.9" />
+    <PackageVersion Include="StackExchange.Redis" Version="2.12.14" />
+    <PackageVersion Include="StackExchange.Redis.Extensions.AspNetCore" Version="12.1.0" />
+    <PackageVersion Include="SteamWebAPI2" Version="5.0.0" />
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.1.7" />
+    <PackageVersion Include="Swashbuckle.AspNetCore.Annotations" Version="10.1.7" />
+    <PackageVersion Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.1.7" />
+    <PackageVersion Include="System.Drawing.Common" Version="10.0.7" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.18.0" />
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.7" />
+    <PackageVersion Include="System.ServiceModel.Syndication" Version="10.0.7" />
+    <PackageVersion Include="TencentCloudSDK.Tmt" Version="3.0.1400" />
+    <PackageVersion Include="TiktokenSharp" Version="1.2.1" />
+    <PackageVersion Include="WebAuthn" Version="2023.5.11" />
+    <PackageVersion Include="Yarp.ReverseProxy" Version="2.3.0" />
+  </ItemGroup>
+</Project>

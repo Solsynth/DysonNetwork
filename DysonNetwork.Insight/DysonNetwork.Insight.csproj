@@ -7,50 +7,50 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AngleSharp" Version="1.4.0"/>
-        <PackageReference Include="Ater.DeepSeek.Core" Version="1.3.0" />
-        <PackageReference Include="Grpc.AspNetCore.Server.ClientFactory" Version="2.76.0"/>
-        <PackageReference Include="Grpc.AspNetCore.Server.Reflection" Version="2.76.0"/>
-        <PackageReference Include="Grpc.Net.Client" Version="2.76.0"/>
-        <PackageReference Include="Grpc.Tools" Version="2.80.0">
+        <PackageReference Include="AngleSharp" />
+        <PackageReference Include="Ater.DeepSeek.Core" />
+        <PackageReference Include="Grpc.AspNetCore.Server.ClientFactory" />
+        <PackageReference Include="Grpc.AspNetCore.Server.Reflection" />
+        <PackageReference Include="Grpc.Net.Client" />
+        <PackageReference Include="Grpc.Tools">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.Extensions.VectorData.Abstractions" Version="10.1.0" />
-        <PackageReference Include="Microsoft.SemanticKernel" Version="1.74.0" />
-        <PackageReference Include="Microsoft.SemanticKernel.Connectors.PgVector" Version="1.70.0-preview"/>
-        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
-        <PackageReference Include="Pgvector" Version="0.3.2"/>
-        <PackageReference Include="Pgvector.EntityFrameworkCore" Version="0.3.0"/>
-        <PackageReference Include="Microsoft.SemanticKernel.Connectors.Ollama" Version="1.66.0-alpha"/>
-        <PackageReference Include="Microsoft.SemanticKernel.Plugins.Web" Version="1.66.0-alpha"/>
-        <PackageReference Include="Quartz" Version="3.17.1" />
-        <PackageReference Include="Quartz.AspNetCore" Version="3.17.1" />
-        <PackageReference Include="Quartz.Extensions.Hosting" Version="3.17.1" />
-        <PackageReference Include="System.ServiceModel.Syndication" Version="10.0.5" />
-        <PackageReference Include="TiktokenSharp" Version="1.2.1" />
-        <PackageReference Include="OpenAI" Version="2.9.1" />
+        <PackageReference Include="Microsoft.Extensions.VectorData.Abstractions" />
+        <PackageReference Include="Microsoft.SemanticKernel" />
+        <PackageReference Include="Microsoft.SemanticKernel.Connectors.PgVector" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+        <PackageReference Include="Pgvector" />
+        <PackageReference Include="Pgvector.EntityFrameworkCore" />
+        <PackageReference Include="Microsoft.SemanticKernel.Connectors.Ollama" />
+        <PackageReference Include="Microsoft.SemanticKernel.Plugins.Web" />
+        <PackageReference Include="Quartz" />
+        <PackageReference Include="Quartz.AspNetCore" />
+        <PackageReference Include="Quartz.Extensions.Hosting" />
+        <PackageReference Include="System.ServiceModel.Syndication" />
+        <PackageReference Include="TiktokenSharp" />
+        <PackageReference Include="OpenAI" />
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj"/>
+        <ProjectReference Include="..\DysonNetwork.Shared\DysonNetwork.Shared.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="Controllers\"/>
+        <Folder Include="Controllers\" />
     </ItemGroup>
 
     <ItemGroup>
-        <Protobuf Remove="..\DysonNetwork.Shared\Proto\**"/>
+        <Protobuf Remove="..\DysonNetwork.Shared\Proto\**" />
     </ItemGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="Resources\Locales\*.json"/>
+        <EmbeddedResource Include="Resources\Locales\*.json" />
     </ItemGroup>
 
 </Project>

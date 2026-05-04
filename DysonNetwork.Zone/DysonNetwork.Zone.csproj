@@ -12,26 +12,26 @@
     </ItemGroup>
     
     <ItemGroup>
-        <PackageReference Include="DotLiquid" Version="2.3.197" />
-        <PackageReference Include="Markdig" Version="1.1.2" />
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
+        <PackageReference Include="DotLiquid" />
+        <PackageReference Include="Markdig" />
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="MimeKit" Version="4.15.1" />
-        <PackageReference Include="MimeTypes" Version="2.5.2">
+        <PackageReference Include="MimeKit" />
+        <PackageReference Include="MimeTypes">
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="NodaTime.Serialization.Protobuf" Version="2.0.2" />
-        <PackageReference Include="NodaTime.Serialization.SystemTextJson" Version="1.3.1" />
-        <PackageReference Include="Grpc.AspNetCore.Server" Version="2.76.0" />
-        <PackageReference Include="Quartz" Version="3.17.1" />
-        <PackageReference Include="Quartz.AspNetCore" Version="3.17.1" />
-        <PackageReference Include="Quartz.Extensions.Hosting" Version="3.17.1" />
-        <PackageReference Include="SimpleMvcSitemap" Version="4.0.1" />
-        <PackageReference Include="System.ServiceModel.Syndication" Version="10.0.5" />
+        <PackageReference Include="NodaTime.Serialization.Protobuf" />
+        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
+        <PackageReference Include="Grpc.AspNetCore.Server" />
+        <PackageReference Include="Quartz" />
+        <PackageReference Include="Quartz.AspNetCore" />
+        <PackageReference Include="Quartz.Extensions.Hosting" />
+        <PackageReference Include="SimpleMvcSitemap" />
+        <PackageReference Include="System.ServiceModel.Syndication" />
     </ItemGroup>
 
     <ItemGroup>
