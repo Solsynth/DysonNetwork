@@ -91,7 +91,20 @@ public class WalletController(
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
-        var wallets = await ws.GetAccountWalletsAsync(Guid.Parse(currentUser.Id));
+        var currentAccountId = Guid.Parse(currentUser.Id);
+        var wallets = await ws.GetAccountWalletsAsync(currentAccountId);
+
+        // Also include realm wallets where user is a member
+        var memberPublishers = await publishers.GetUserPublishers(currentAccountId);
+        foreach (var publisher in memberPublishers)
+        {
+            if (publisher.RealmId.HasValue)
+            {
+                var realmWallets = await ws.GetRealmWalletsAsync(publisher.RealmId.Value);
+                wallets.AddRange(realmWallets);
+            }
+        }
+
         return Ok(wallets);
     }
 
