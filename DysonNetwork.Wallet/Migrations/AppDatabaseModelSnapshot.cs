@@ -140,7 +140,7 @@ namespace DysonNetwork.Wallet.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid>("AccountId")
+                    b.Property<Guid?>("AccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
@@ -152,12 +152,38 @@ namespace DysonNetwork.Wallet.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_primary");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("PublicId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("public_id");
+
+                    b.Property<Guid?>("RealmId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("realm_id");
+
                     b.Property<Instant>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
                     b.HasKey("Id")
                         .HasName("pk_wallets");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_wallets_public_id");
+
+                    b.HasIndex("RealmId")
+                        .HasDatabaseName("ix_wallets_realm_id");
 
                     b.ToTable("wallets", (string)null);
                 });

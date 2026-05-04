@@ -19,6 +19,7 @@ builder.Services.AddAccountService();
 builder.Services.AddRingService();
 builder.Services.AddDriveService();
 builder.Services.AddDevelopService();
+builder.Services.AddSphereService();
 builder.Services.AddAppServices(builder.Configuration);
 
 builder.Services.AddAppFlushHandlers();

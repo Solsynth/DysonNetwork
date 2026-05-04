@@ -93,12 +93,34 @@ public class PaymentServiceGrpc(PaymentService paymentService)
         ServerCallContext context
     )
     {
-        var transaction = await paymentService.TransferAsync(
-            Guid.Parse(request.PayerAccountId),
-            Guid.Parse(request.PayeeAccountId),
-            request.Currency,
-            decimal.Parse(request.Amount)
-        );
+        SnWalletTransaction transaction;
+
+        if (!string.IsNullOrWhiteSpace(request.PayerWalletId) && !string.IsNullOrWhiteSpace(request.PayeeWalletId))
+        {
+            transaction = await paymentService.TransferBetweenWalletsAsync(
+                Guid.Parse(request.PayerWalletId),
+                Guid.Parse(request.PayeeWalletId),
+                request.Currency,
+                decimal.Parse(request.Amount),
+                string.IsNullOrWhiteSpace(request.Remarks) ? null : request.Remarks
+            );
+        }
+        else if (!string.IsNullOrWhiteSpace(request.PayerAccountId) && !string.IsNullOrWhiteSpace(request.PayeeAccountId))
+        {
+            transaction = await paymentService.TransferAsync(
+                Guid.Parse(request.PayerAccountId),
+                Guid.Parse(request.PayeeAccountId),
+                request.Currency,
+                decimal.Parse(request.Amount),
+                string.IsNullOrWhiteSpace(request.Remarks) ? null : request.Remarks
+            );
+        }
+        else
+        {
+            throw new RpcException(new Status(StatusCode.InvalidArgument,
+                "Either payer_account_id/payee_account_id or payer_wallet_id/payee_wallet_id is required."));
+        }
+
         return transaction.ToProtoValue();
     }
 

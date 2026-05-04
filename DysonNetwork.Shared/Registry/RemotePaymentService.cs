@@ -104,18 +104,38 @@ public class RemotePaymentService(DyPaymentService.DyPaymentServiceClient paymen
     }
 
     public async Task<DyTransaction> Transfer(
-        Guid payerAccountId,
-        Guid payeeAccountId,
+        Guid? payerAccountId,
+        Guid? payeeAccountId,
         string currency,
-        string amount)
+        string amount,
+        Guid? payerWalletId = null,
+        Guid? payeeWalletId = null,
+        string? payeePublicId = null,
+        string? remarks = null)
     {
         var request = new DysonNetwork.Shared.Proto.DyTransferRequest
         {
-            PayerAccountId = payerAccountId.ToString(),
-            PayeeAccountId = payeeAccountId.ToString(),
             Currency = currency,
             Amount = amount
         };
+
+        if (payerAccountId.HasValue)
+            request.PayerAccountId = payerAccountId.Value.ToString();
+
+        if (payeeAccountId.HasValue)
+            request.PayeeAccountId = payeeAccountId.Value.ToString();
+
+        if (payerWalletId.HasValue)
+            request.PayerWalletId = payerWalletId.Value.ToString();
+
+        if (payeeWalletId.HasValue)
+            request.PayeeWalletId = payeeWalletId.Value.ToString();
+
+        if (payeePublicId != null)
+            request.PayeePublicId = payeePublicId;
+
+        if (remarks != null)
+            request.Remarks = remarks;
 
         var response = await payment.TransferAsync(request);
         return response;

@@ -180,9 +180,9 @@ public class PaymentService(
     private async Task NotifyNewTransaction(SnWalletTransaction transaction, SnWallet? payerWallet,
         SnWallet? payeeWallet)
     {
-        if (payerWallet is not null)
+        if (payerWallet?.AccountId is Guid payerAccountId)
         {
-            var accountInfo = await remoteAccounts.GetAccount(payerWallet.AccountId);
+            var accountInfo = await remoteAccounts.GetAccount(payerAccountId);
             var locale = accountInfo.Language;
 
             // Due to ID is uuid, it longer than 8 words for sure
@@ -192,7 +192,7 @@ public class PaymentService(
             await pusher.SendPushNotificationToUserAsync(
                 new DySendPushNotificationToUserRequest
                 {
-                    UserId = payerWallet.AccountId.ToString(),
+                    UserId = payerAccountId.ToString(),
                     Notification = new DyPushNotification
                     {
                         Topic = "wallets.transactions",
@@ -215,9 +215,9 @@ public class PaymentService(
             );
         }
 
-        if (payeeWallet is not null)
+        if (payeeWallet?.AccountId is Guid payeeAccountId)
         {
-            var accountInfo = await remoteAccounts.GetAccount(payeeWallet.AccountId);
+            var accountInfo = await remoteAccounts.GetAccount(payeeAccountId);
             var locale = accountInfo.Language;
 
             // Due to ID is uuid, it longer than 8 words for sure
@@ -227,7 +227,7 @@ public class PaymentService(
             await pusher.SendPushNotificationToUserAsync(
                 new DySendPushNotificationToUserRequest
                 {
-                    UserId = payeeWallet.AccountId.ToString(),
+                    UserId = payeeAccountId.ToString(),
                     Notification = new DyPushNotification
                     {
                         Topic = "wallets.transactions",
@@ -260,11 +260,14 @@ public class PaymentService(
 
         if (order.Status == Shared.Models.OrderStatus.Paid)
         {
+            if (!payerWallet.AccountId.HasValue)
+                throw new InvalidOperationException("Payer wallet is not account-owned.");
+
             await eventBus.PublishAsync(PaymentOrderEventBase.Type, new PaymentOrderEvent
             {
                 OrderId = order.Id,
                 WalletId = payerWallet.Id,
-                AccountId = payerWallet.AccountId,
+                AccountId = payerWallet.AccountId.Value,
                 AppIdentifier = order.AppIdentifier,
                 ProductIdentifier = order.ProductIdentifier,
                 Meta = order.Meta ?? [],
@@ -303,11 +306,14 @@ public class PaymentService(
 
         await NotifyOrderPaid(order, payerWallet, order.PayeeWallet);
 
+        if (!payerWallet.AccountId.HasValue)
+            throw new InvalidOperationException("Payer wallet is not account-owned.");
+
         await eventBus.PublishAsync(PaymentOrderEventBase.Type, new PaymentOrderEvent
         {
             OrderId = order.Id,
             WalletId = payerWallet.Id,
-            AccountId = payerWallet.AccountId,
+            AccountId = payerWallet.AccountId.Value,
             AppIdentifier = order.AppIdentifier,
             ProductIdentifier = order.ProductIdentifier,
             Meta = order.Meta ?? [],
@@ -319,9 +325,9 @@ public class PaymentService(
 
     private async Task NotifyOrderPaid(SnWalletOrder order, SnWallet? payerWallet, SnWallet? payeeWallet)
     {
-        if (payerWallet is not null)
+        if (payerWallet?.AccountId is Guid payerAccountId)
         {
-            var accountInfo = await remoteAccounts.GetAccount(payerWallet.AccountId);
+            var accountInfo = await remoteAccounts.GetAccount(payerAccountId);
             var locale = accountInfo.Language;
 
             // Due to ID is uuid, it longer than 8 words for sure
@@ -331,7 +337,7 @@ public class PaymentService(
             await pusher.SendPushNotificationToUserAsync(
                 new DySendPushNotificationToUserRequest
                 {
-                    UserId = payerWallet.AccountId.ToString(),
+                    UserId = payerAccountId.ToString(),
                     Notification = new DyPushNotification
                     {
                         Topic = "wallets.orders.paid",
@@ -348,9 +354,9 @@ public class PaymentService(
             );
         }
 
-        if (payeeWallet is not null)
+        if (payeeWallet?.AccountId is Guid payeeAccountId)
         {
-            var accountInfo = await remoteAccounts.GetAccount(payeeWallet.AccountId);
+            var accountInfo = await remoteAccounts.GetAccount(payeeAccountId);
             var locale = accountInfo.Language;
 
             // Due to ID is uuid, it longer than 8 words for sure
@@ -360,7 +366,7 @@ public class PaymentService(
             await pusher.SendPushNotificationToUserAsync(
                 new DySendPushNotificationToUserRequest
                 {
-                    UserId = payeeWallet.AccountId.ToString(),
+                    UserId = payeeAccountId.ToString(),
                     Notification = new DyPushNotification
                     {
                         Topic = "wallets.orders.paid",
@@ -475,6 +481,47 @@ public class PaymentService(
             currency,
             fee,
             localizer.Get("transferFeeRemark", payerAccount.Language, new { id = transaction.Id.ToString()[..8] })
+        );
+
+        return transaction;
+    }
+
+    public async Task<SnWalletTransaction> TransferBetweenWalletsAsync(Guid payerWalletId, Guid payeeWalletId,
+        string currency, decimal amount, string? remarks = null)
+    {
+        var payerWallet = await wat.GetWalletAsync(payerWalletId);
+        if (payerWallet == null)
+            throw new InvalidOperationException($"Payer wallet not found: {payerWalletId}");
+
+        var payeeWallet = await wat.GetWalletAsync(payeeWalletId);
+        if (payeeWallet == null)
+            throw new InvalidOperationException($"Payee wallet not found: {payeeWalletId}");
+
+        var truncatedAmount = TruncateToThreeDecimals(amount);
+        decimal fee = TruncateToThreeDecimals(truncatedAmount * 0.05m);
+        decimal finalCost = truncatedAmount + fee;
+
+        var (payerPocket, isNewlyCreated) =
+            await wat.GetOrCreateWalletPocketAsync(payerWallet.Id, currency, amount);
+
+        if (isNewlyCreated || payerPocket.Amount < finalCost)
+            throw new InvalidOperationException("Insufficient funds");
+
+        var transaction = await CreateTransactionAsync(
+            payerWallet.Id,
+            payeeWallet.Id,
+            currency,
+            truncatedAmount,
+            remarks,
+            Shared.Models.TransactionType.Transfer
+        );
+
+        await CreateTransactionAsync(
+            payerWallet.Id,
+            null,
+            currency,
+            fee,
+            localizer.Get("transferFeeRemark", args: new { id = transaction.Id.ToString()[..8] })
         );
 
         return transaction;

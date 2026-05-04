@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 
@@ -7,13 +8,24 @@ public class WalletServiceGrpc(WalletService walletService) : DyWalletService.Dy
 {
     public override async Task<DyWallet> GetWallet(DyGetWalletRequest request, ServerCallContext context)
     {
-        var wallet = await walletService.GetAccountWalletAsync(Guid.Parse(request.AccountId));
+        SnWallet? wallet = null;
+        if (!string.IsNullOrWhiteSpace(request.WalletId))
+            wallet = await walletService.GetWalletAsync(Guid.Parse(request.WalletId));
+        else if (!string.IsNullOrWhiteSpace(request.PublicId))
+            wallet = await walletService.GetWalletByPublicIdAsync(request.PublicId);
+        else if (!string.IsNullOrWhiteSpace(request.AccountId))
+            wallet = await walletService.GetAccountWalletAsync(Guid.Parse(request.AccountId));
+
         return wallet == null ? throw new RpcException(new Status(StatusCode.NotFound, "Wallet not found.")) : wallet.ToProtoValue();
     }
 
     public override async Task<DyWallet> CreateWallet(DyCreateWalletRequest request, ServerCallContext context)
     {
-        var wallet = await walletService.CreateWalletAsync(Guid.Parse(request.AccountId));
+        var wallet = await walletService.CreateWalletAsync(
+            string.IsNullOrWhiteSpace(request.AccountId) ? null : Guid.Parse(request.AccountId),
+            string.IsNullOrWhiteSpace(request.RealmId) ? null : Guid.Parse(request.RealmId),
+            string.IsNullOrWhiteSpace(request.Name) ? null : request.Name
+        );
         return wallet.ToProtoValue();
     }
 

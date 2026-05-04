@@ -15,15 +15,26 @@ public class SnWallet : ModelBase
 
     public List<SnWalletPocket> Pockets { get; set; } = new List<SnWalletPocket>();
 
-    public Guid AccountId { get; set; }
-    [NotMapped] public SnAccount Account { get; set; } = null!;
+    public Guid? AccountId { get; set; }
+    public Guid? RealmId { get; set; }
+    [MaxLength(1024)] public string Name { get; set; } = "Wallet";
+    public bool IsPrimary { get; set; }
+    [MaxLength(32)] public string? PublicId { get; set; }
+    [NotMapped] public SnAccount? Account { get; set; }
+    [NotMapped] public SnRealm? Realm { get; set; }
+    [NotMapped] public bool IsDefault => IsPrimary;
 
     public DyWallet ToProtoValue()
     {
         var proto = new DyWallet
         {
             Id = Id.ToString(),
-            AccountId = AccountId.ToString(),
+            AccountId = AccountId?.ToString() ?? string.Empty,
+            RealmId = RealmId?.ToString() ?? string.Empty,
+            Name = Name,
+            IsPrimary = IsPrimary,
+            IsDefault = IsPrimary,
+            PublicId = PublicId ?? string.Empty,
         };
 
         foreach (var pocket in Pockets)
@@ -37,7 +48,11 @@ public class SnWallet : ModelBase
     public static SnWallet FromProtoValue(DyWallet proto) => new()
     {
         Id = Guid.Parse(proto.Id),
-        AccountId = Guid.Parse(proto.AccountId),
+        AccountId = string.IsNullOrWhiteSpace(proto.AccountId) ? null : Guid.Parse(proto.AccountId),
+        RealmId = string.IsNullOrWhiteSpace(proto.RealmId) ? null : Guid.Parse(proto.RealmId),
+        Name = string.IsNullOrWhiteSpace(proto.Name) ? "Wallet" : proto.Name,
+        IsPrimary = proto.IsPrimary || proto.IsDefault,
+        PublicId = string.IsNullOrWhiteSpace(proto.PublicId) ? null : proto.PublicId,
         Pockets = [.. proto.Pockets.Select(SnWalletPocket.FromProtoValue)],
     };
 }

@@ -19,23 +19,44 @@ public class WalletController(
     WalletService ws,
     PaymentService payment,
     RemoteAccountService remoteAccounts,
+    RemotePublisherService publishers,
     RemoteActionLogService als,
     ICacheService cache,
     ILogger<WalletController> logger
 ) : ControllerBase
 {
+    public class CreateWalletRequest
+    {
+        public string? Name { get; set; }
+        public Guid? RealmId { get; set; }
+    }
+
     [HttpPost]
     [Authorize]
-    public async Task<ActionResult<SnWallet>> CreateWallet()
+    public async Task<ActionResult<SnWallet>> CreateWallet([FromBody] CreateWalletRequest? request = null)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         try
         {
-            var wallet = await ws.CreateWalletAsync(Guid.Parse(currentUser.Id));
-            
+            var currentAccountId = Guid.Parse(currentUser.Id);
+
+        if (request?.RealmId.HasValue == true)
+        {
+            var publisher = (await publishers.ListPublishers(realmId: request.RealmId.Value.ToString())).FirstOrDefault();
+            if (publisher is null)
+                return NotFound("Realm publisher was not found.");
+            if (!await publishers.IsMemberWithRole(publisher.Id, currentAccountId, PublisherMemberRole.Editor))
+                return StatusCode(403, "You must be an editor of the realm publisher to create a realm wallet.");
+
+                var realmWallet = await ws.CreateWalletAsync(realmId: request.RealmId.Value, name: request.Name);
+                return Ok(realmWallet);
+            }
+
+            var wallet = await ws.CreateWalletAsync(accountId: currentAccountId, name: request?.Name);
+
             als.CreateActionLog(
-                Guid.Parse(currentUser.Id),
+                currentAccountId,
                 "wallets.create",
                 new Dictionary<string, object>
                 {
@@ -62,6 +83,40 @@ public class WalletController(
         var wallet = await ws.GetAccountWalletAsync(Guid.Parse(currentUser.Id));
         if (wallet is null) return NotFound("Wallet was not found, please create one first.");
         return Ok(wallet);
+    }
+
+    [HttpGet("all")]
+    [Authorize]
+    public async Task<ActionResult<List<SnWallet>>> GetWallets()
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var wallets = await ws.GetAccountWalletsAsync(Guid.Parse(currentUser.Id));
+        return Ok(wallets);
+    }
+
+    [HttpGet("{id:guid}")]
+    [Authorize]
+    public async Task<ActionResult<SnWallet>> GetWalletById(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var wallet = await ws.GetWalletAsync(id);
+        if (wallet is null) return NotFound();
+
+        if (wallet.AccountId == Guid.Parse(currentUser.Id))
+            return Ok(wallet);
+
+        if (wallet.RealmId.HasValue)
+        {
+            var publisher = (await publishers.ListPublishers(realmId: wallet.RealmId.Value.ToString())).FirstOrDefault();
+            if (publisher is null)
+                return NotFound("Realm publisher was not found.");
+            if (await publishers.IsMemberWithRole(publisher.Id, Guid.Parse(currentUser.Id), PublisherMemberRole.Viewer))
+                return Ok(wallet);
+        }
+
+        return StatusCode(403);
     }
 
     public class WalletStats
@@ -238,7 +293,10 @@ public class WalletController(
         public string? Remark { get; set; }
         [Required] public decimal Amount { get; set; }
         [Required] public string Currency { get; set; } = null!;
-        [Required] public Guid PayeeAccountId { get; set; }
+        public Guid? PayerWalletId { get; set; }
+        public Guid? PayeeAccountId { get; set; }
+        public Guid? PayeeWalletId { get; set; }
+        public string? PayeePublicId { get; set; }
         [Required] public string PinCode { get; set; } = null!;
     }
 
@@ -282,16 +340,66 @@ public class WalletController(
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
-        if (Guid.Parse(currentUser.Id) == request.PayeeAccountId) return BadRequest("Cannot transfer to yourself.");
+        var currentAccountId = Guid.Parse(currentUser.Id);
 
         try
         {
-            var transaction = await payment.TransferAsync(
-                payerAccountId: Guid.Parse(currentUser.Id),
-                payeeAccountId: request.PayeeAccountId,
-                currency: request.Currency,
-                amount: request.Amount,
-                remarks: request.Remark
+            SnWallet payerWallet;
+            if (request.PayerWalletId.HasValue)
+            {
+                payerWallet = await ws.GetWalletAsync(request.PayerWalletId.Value) ?? throw new InvalidOperationException("Payer wallet not found.");
+
+                if (payerWallet.AccountId == currentAccountId)
+                {
+                }
+                else if (payerWallet.RealmId.HasValue)
+                {
+                    var publisher = (await publishers.ListPublishers(realmId: payerWallet.RealmId.Value.ToString())).FirstOrDefault();
+                    if (publisher is null)
+                        return NotFound("Realm publisher was not found.");
+                    if (!await publishers.IsMemberWithRole(publisher.Id, currentAccountId, PublisherMemberRole.Editor))
+                        return StatusCode(403, "You must be an editor of the realm publisher to spend from this wallet.");
+                }
+                else
+                {
+                    return StatusCode(403);
+                }
+            }
+            else
+            {
+                payerWallet = await ws.GetAccountWalletAsync(currentAccountId) ?? throw new InvalidOperationException("Default wallet not found.");
+            }
+
+            SnWallet payeeWallet;
+            if (request.PayeeWalletId.HasValue)
+            {
+                payeeWallet = await ws.GetWalletAsync(request.PayeeWalletId.Value) ?? throw new InvalidOperationException("Payee wallet not found.");
+            }
+            else if (!string.IsNullOrWhiteSpace(request.PayeePublicId))
+            {
+                payeeWallet = await ws.GetWalletByPublicIdAsync(request.PayeePublicId) ?? throw new InvalidOperationException("Payee wallet not found.");
+            }
+            else if (request.PayeeAccountId.HasValue)
+            {
+                if (currentAccountId == request.PayeeAccountId.Value)
+                    return BadRequest("Cannot transfer to yourself.");
+
+                payeeWallet = await ws.GetAccountWalletAsync(request.PayeeAccountId.Value) ?? throw new InvalidOperationException("Payee wallet not found.");
+            }
+            else
+            {
+                return BadRequest("You must specify payee_account_id, payee_wallet_id, or payee_public_id.");
+            }
+
+            if (payerWallet.Id == payeeWallet.Id)
+                return BadRequest("Cannot transfer to the same wallet.");
+
+            var transaction = await payment.TransferBetweenWalletsAsync(
+                payerWallet.Id,
+                payeeWallet.Id,
+                request.Currency,
+                request.Amount,
+                request.Remark
             );
 
             return Ok(transaction);
@@ -300,6 +408,67 @@ public class WalletController(
         {
             return BadRequest(err.Message);
         }
+    }
+
+    [HttpPost("{id:guid}/default")]
+    [Authorize]
+    public async Task<ActionResult<SnWallet>> SetDefaultWallet(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var wallet = await ws.GetWalletAsync(id);
+        if (wallet is null) return NotFound();
+        if (wallet.AccountId != Guid.Parse(currentUser.Id)) return StatusCode(403);
+
+        return Ok(await ws.SetPrimaryWalletAsync(id));
+    }
+
+    [HttpPost("{id:guid}/public-id/enable")]
+    [Authorize]
+    public async Task<ActionResult<SnWallet>> EnablePublicId(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var wallet = await ws.GetWalletAsync(id);
+        if (wallet is null) return NotFound();
+
+        if (wallet.AccountId == Guid.Parse(currentUser.Id))
+            return Ok(await ws.EnablePublicIdAsync(id));
+
+        if (wallet.RealmId.HasValue)
+        {
+            var publisher = (await publishers.ListPublishers(realmId: wallet.RealmId.Value.ToString())).FirstOrDefault();
+            if (publisher is null)
+                return NotFound("Realm publisher was not found.");
+            if (await publishers.IsMemberWithRole(publisher.Id, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+                return Ok(await ws.EnablePublicIdAsync(id));
+        }
+
+        return StatusCode(403);
+    }
+
+    [HttpPost("{id:guid}/public-id/disable")]
+    [Authorize]
+    public async Task<ActionResult<SnWallet>> DisablePublicId(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var wallet = await ws.GetWalletAsync(id);
+        if (wallet is null) return NotFound();
+
+        if (wallet.AccountId == Guid.Parse(currentUser.Id))
+            return Ok(await ws.DisablePublicIdAsync(id));
+
+        if (wallet.RealmId.HasValue)
+        {
+            var publisher = (await publishers.ListPublishers(realmId: wallet.RealmId.Value.ToString())).FirstOrDefault();
+            if (publisher is null)
+                return NotFound("Realm publisher was not found.");
+            if (await publishers.IsMemberWithRole(publisher.Id, Guid.Parse(currentUser.Id), PublisherMemberRole.Editor))
+                return Ok(await ws.DisablePublicIdAsync(id));
+        }
+
+        return StatusCode(403);
     }
 
     public class CreateFundRequest
