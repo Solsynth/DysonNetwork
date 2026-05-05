@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Nfc;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
@@ -22,6 +23,8 @@ public class AppDatabase(
 
     public DbSet<SnMagicSpell> MagicSpells { get; set; } = null!;
     public DbSet<SnAccountProfile> AccountProfiles { get; set; } = null!;
+    public DbSet<SnApplePass> ApplePasses { get; set; } = null!;
+    public DbSet<SnApplePassRegistration> ApplePassRegistrations { get; set; } = null!;
     public DbSet<SnAccountRelationship> AccountRelationships { get; set; } = null!;
     public DbSet<SnAccountStatus> AccountStatuses { get; set; } = null!;
     public DbSet<SnCheckInResult> AccountCheckInResults { get; set; } = null!;
@@ -150,6 +153,12 @@ public class AppDatabase(
         // Passport no longer owns auth/account rows; keep profile as an account-id keyed read model only.
         modelBuilder.Entity<SnAccountProfile>()
             .Ignore(p => p.Account);
+
+        modelBuilder.Entity<SnApplePassRegistration>()
+            .HasOne(r => r.Pass)
+            .WithMany(p => p.Registrations)
+            .HasForeignKey(r => r.PassId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.ApplySoftDeleteFilters();
     }

@@ -121,10 +121,12 @@ public static class ServiceCollectionExtensions
             return new Shared.Templating.DotLiquidTemplateService(assembly, resourceNamespace);
         });
         services.Configure<GeoOptions>(configuration.GetSection("GeoIP"));
+        services.Configure<AppleWalletOptions>(configuration.GetSection("AppleWallet"));
         services.AddScoped<GeoService>();
         services.AddScoped<EmailService>();
         services.AddScoped<ActionLogService>();
         services.AddScoped<AccountService>();
+        services.AddScoped<ApplePassService>();
         services.AddScoped<AccountEventService>();
         services.AddScoped<NotableDaysService>();
         services.AddScoped<RelationshipService>();

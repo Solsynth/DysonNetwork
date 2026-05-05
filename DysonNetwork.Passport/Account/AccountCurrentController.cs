@@ -22,6 +22,7 @@ namespace DysonNetwork.Passport.Account;
 public class AccountCurrentController(
     AppDatabase db,
     AccountService accounts,
+    ApplePassService applePasses,
     RemoteAccountContactService remoteContacts,
     AccountEventService events,
     DyFileService.DyFileServiceClient files,
@@ -73,6 +74,16 @@ public class AccountCurrentController(
         }
 
         return Ok(account);
+    }
+
+    [HttpGet("passbook/member")]
+    [Produces("application/vnd.apple.pkpass")]
+    public async Task<ActionResult> GetMemberPass(CancellationToken cancellationToken)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var bytes = await applePasses.GenerateMemberPassAsync(currentUser.Id, cancellationToken);
+        return File(bytes, "application/vnd.apple.pkpass", "solian-member.pkpass");
     }
 
 
