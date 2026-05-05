@@ -2,7 +2,7 @@
 
 Passport daily check-in can store a versioned, personalized fortune report on `SnCheckInResult.FortuneReport` for clients that opt into check-in API version `2` or newer.
 
-The programmed check-in roll remains the source of truth. MiChan only enriches the existing result into user-facing copy.
+The programmed check-in roll remains the source of truth. MiChan only rewrites the user-facing `tips` and enriches the existing result into `fortune_report` copy.
 
 ## Storage
 
@@ -18,7 +18,18 @@ The JSON response uses snake_case:
 ```json
 {
   "level": "Better",
-  "tips": [],
+  "tips": [
+    {
+      "is_positive": true,
+      "title": "铃声渐明",
+      "content": "适合把一件拖延的小事收尾，节奏会因此更轻。"
+    },
+    {
+      "is_positive": false,
+      "title": "急语宜缓",
+      "content": "做决定前先停一停，避免被一时情绪带偏。"
+    }
+  ],
   "fortune_report": {
     "version": 2,
     "poem": "风过签筒静，铃响见微光。",
@@ -47,7 +58,7 @@ The check-in endpoints accept a `version` query parameter. It defaults to `1`.
 
 | Endpoint | `version < 2` | `version >= 2` |
 | --- | --- | --- |
-| `POST /api/accounts/me/check-in` | performs legacy check-in and stores no `fortune_report` | generates and stores `fortune_report` |
+| `POST /api/accounts/me/check-in` | performs legacy check-in with programmed localized `tips` and stores no `fortune_report` | asks MiChan to generate personalized `tips` and `fortune_report`, then stores both |
 | `GET /api/accounts/me/check-in` | hides `fortune_report` even if the row has one | returns `fortune_report` when present |
 
 `fortune_report.version` is the programmed fortune schema/prompt version, separate from the endpoint compatibility version.
@@ -101,7 +112,7 @@ MiChan receives:
 - backdated flag
 - programmed draw label, such as `上上签` or `下签`
 - raw `CheckInResultLevel`
-- legacy programmed tips
+- legacy programmed tips as source material
 - public same-day personal calendar events
 - same-day global or regional notable days
 
@@ -115,35 +126,45 @@ MiChan must return a directly parseable JSON object with all fields present:
 
 ```json
 {
-  "version": 2,
-  "poem": "签诗，1到2句，有意象但自然",
-  "summary": "运势总评，60字以内",
-  "summary_detail": "今日建议，120到180字，像巫女基于签位给用户的具体行动建议",
-  "wish": "愿望，40字以内",
-  "love": "爱情，40字以内",
-  "study": "学业，40字以内",
-  "career": "事业，40字以内",
-  "health": "健康，40字以内",
-  "lost_item": "失物，40字以内",
-  "lucky_color": "幸运色，短词",
-  "lucky_direction": "幸运方位，短词",
-  "lucky_time": "幸运时段，短词",
-  "lucky_item": "幸运小物，短词",
-  "lucky_action": "今日宜做，40字以内",
-  "avoid_action": "今日忌做，40字以内",
-  "ritual": "小仪式，60字以内"
+  "tips": [
+    { "is_positive": true, "title": "吉提示标题", "content": "具体提示" },
+    { "is_positive": true, "title": "吉提示标题", "content": "具体提示" },
+    { "is_positive": false, "title": "忌提示标题", "content": "具体提醒" },
+    { "is_positive": false, "title": "忌提示标题", "content": "具体提醒" }
+  ],
+  "fortune_report": {
+    "version": 2,
+    "poem": "签诗，1到2句，有意象但自然",
+    "summary": "运势总评，60字以内",
+    "summary_detail": "今日建议，120到180字，像巫女基于签位给用户的具体行动建议",
+    "wish": "愿望，40字以内",
+    "love": "爱情，40字以内",
+    "study": "学业，40字以内",
+    "career": "事业，40字以内",
+    "health": "健康，40字以内",
+    "lost_item": "失物，40字以内",
+    "lucky_color": "幸运色，短词",
+    "lucky_direction": "幸运方位，短词",
+    "lucky_time": "幸运时段，短词",
+    "lucky_item": "幸运小物，短词",
+    "lucky_action": "今日宜做，40字以内",
+    "avoid_action": "今日忌做，40字以内",
+    "ritual": "小仪式，60字以内"
+  }
 }
 ```
 
-The parser tolerates accidental fenced code blocks but requires a valid object and all required fields.
+The parser tolerates accidental fenced code blocks but requires a valid object, exactly four tips, and all required `fortune_report` fields.
+
+MiChan must generate all user-facing strings in the account's preferred language when available. If the preferred language cannot be determined, it falls back to Simplified Chinese.
 
 ## Failure Behavior
 
 Check-in must not fail because Insight is unavailable.
 
-If gRPC fails, times out, or returns invalid JSON, Passport logs a warning and creates a local fallback `CheckInFortuneReport` from the programmed level and tips.
+If gRPC fails, times out, or returns invalid JSON, Passport logs a warning and stores the programmed tips plus a local fallback `CheckInFortuneReport` from the programmed level and tips.
 
-Rewards, check-in availability, captcha behavior, and legacy `tips` remain unchanged.
+Rewards, check-in availability, captcha behavior, and `version < 2` legacy `tips` remain unchanged.
 
 ## Migration
 

@@ -477,14 +477,21 @@ public class AccountEventService(
             };
         }
 
+        var finalTips = tips;
+        CheckInFortuneReport? fortuneReport = null;
+        if (version >= FortuneReportVersion)
+        {
+            var generation = await GenerateCheckInFortune(account, todayInUserTz, isBirthday, backdated.HasValue,
+                checkInLevel, tips, publicEvents, notableDays);
+            finalTips = generation.Tips;
+            fortuneReport = generation.Report;
+        }
+
         var result = new SnCheckInResult
         {
-            Tips = tips,
+            Tips = finalTips,
             Level = checkInLevel,
-            FortuneReport = version >= FortuneReportVersion
-                ? await GenerateCheckInFortuneReport(account, todayInUserTz, isBirthday, backdated.HasValue,
-                    checkInLevel, tips, publicEvents, notableDays)
-                : null,
+            FortuneReport = fortuneReport,
             AccountId = account.Id,
             RewardExperience = 100,
             RewardPoints = backdated.HasValue ? null : 10,
@@ -522,7 +529,7 @@ public class AccountEventService(
         return result;
     }
 
-    private async Task<CheckInFortuneReport> GenerateCheckInFortuneReport(
+    private async Task<CheckInFortuneGeneration> GenerateCheckInFortune(
         SnAccount account,
         LocalDate checkInDate,
         bool isBirthday,
@@ -532,7 +539,11 @@ public class AccountEventService(
         List<SnUserCalendarEvent> publicEvents,
         List<NotableDay> notableDays)
     {
-        var fallback = CreateFallbackFortuneReport(account, isBirthday, level, tips);
+        var fallback = new CheckInFortuneGeneration
+        {
+            Tips = tips,
+            Report = CreateFallbackFortuneReport(account, isBirthday, level, tips)
+        };
         try
         {
             var response = await agentCompletion.CompleteAsync(
@@ -549,11 +560,11 @@ public class AccountEventService(
                 },
                 deadline: DateTime.UtcNow.AddSeconds(10));
 
-            var report = TryParseFortuneReport(response.Content);
-            if (report is not null)
-                return report;
+            var generation = TryParseFortuneGeneration(response.Content);
+            if (generation is not null)
+                return generation;
 
-            logger.LogWarning("MiChan returned an invalid check-in fortune report for {AccountId}", account.Id);
+            logger.LogWarning("MiChan returned an invalid check-in fortune generation for {AccountId}", account.Id);
         }
         catch (Exception ex)
         {
@@ -574,6 +585,7 @@ public class AccountEventService(
         List<NotableDay> notableDays)
     {
         var drawLabel = GetFortuneDrawLabel(level);
+        var outputLanguage = string.IsNullOrWhiteSpace(account.Language) ? "zh-Hans" : account.Language;
         var tipLines = string.Join("\n", tips.Select(t => $"- {(t.IsPositive ? "吉" : "忌")}：{t.Title}｜{t.Content}"));
         var eventLines = publicEvents.Count == 0
             ? "- 无公开个人事件"
@@ -603,31 +615,39 @@ public class AccountEventService(
 - 今日全球或地区节日：
 {{notableDayLines}}
 
-请以 MiChan 扮演巫女的口吻，生成一份私人化的今日签文。它应该像专门为这个用户和这一天写的，不要像模板，不要只复述基础提示。
+请以 MiChan 扮演巫女的口吻，生成一份私人化的今日签文和提示。它应该像专门为这个用户和这一天写的，不要像模板，不要只复述基础提示。
 
 只输出 JSON，不要 Markdown，不要解释。字段必须全部存在，version 必须是 {{FortuneReportVersion}}：
 {
-  "version": {{FortuneReportVersion}},
-  "poem": "签诗，1到2句，有意象但自然",
-  "summary": "运势总评，60字以内",
-  "summary_detail": "今日建议，120到180字，像巫女基于签位给用户的具体行动建议，结合今日事件和基础提示",
-  "wish": "愿望，40字以内",
-  "love": "爱情，40字以内",
-  "study": "学业，40字以内",
-  "career": "事业，40字以内",
-  "health": "健康，40字以内",
-  "lost_item": "失物，40字以内",
-  "lucky_color": "幸运色，短词",
-  "lucky_direction": "幸运方位，短词",
-  "lucky_time": "幸运时段，短词",
-  "lucky_item": "幸运小物，短词",
-  "lucky_action": "今日宜做，40字以内",
-  "avoid_action": "今日忌做，40字以内",
-  "ritual": "小仪式，60字以内，轻量、可执行、不要迷信化"
+  "tips": [
+    { "is_positive": true, "title": "吉提示标题，16字以内", "content": "具体提示，60字以内" },
+    { "is_positive": true, "title": "吉提示标题，16字以内", "content": "具体提示，60字以内" },
+    { "is_positive": false, "title": "忌提示标题，16字以内", "content": "具体提醒，60字以内" },
+    { "is_positive": false, "title": "忌提示标题，16字以内", "content": "具体提醒，60字以内" }
+  ],
+  "fortune_report": {
+    "version": {{FortuneReportVersion}},
+    "poem": "签诗，1到2句，有意象但自然",
+    "summary": "运势总评，60字以内",
+    "summary_detail": "今日建议，120到180字，像巫女基于签位给用户的具体行动建议，结合今日事件和基础提示",
+    "wish": "愿望，40字以内",
+    "love": "爱情，40字以内",
+    "study": "学业，40字以内",
+    "career": "事业，40字以内",
+    "health": "健康，40字以内",
+    "lost_item": "失物，40字以内",
+    "lucky_color": "幸运色，短词",
+    "lucky_direction": "幸运方位，短词",
+    "lucky_time": "幸运时段，短词",
+    "lucky_item": "幸运小物，短词",
+    "lucky_action": "今日宜做，40字以内",
+    "avoid_action": "今日忌做，40字以内",
+    "ritual": "小仪式，60字以内，轻量、可执行、不要迷信化"
+  }
 }
 
 要求：
-- 使用简体中文。
+- 使用用户偏好语言「{{outputLanguage}}」生成所有面向用户的字符串；如果该语言无法判断，使用简体中文。
 - 不要承诺真实预测，不要说一定会发生。
 - 不要给医疗、法律、金融强建议。
 - 语气可以有仪式感，但不要恐吓用户。
@@ -636,6 +656,8 @@ public class AccountEventService(
 - 可以温柔地结合生日、公开个人事件、全球或地区节日，但不要暴露或推断未提供的私密信息。
 - summary_detail 更像今日建议，不要只是扩写总评；要告诉用户今天适合怎么行动、注意什么、把精力放在哪里。
 - lucky_* 和 ritual 要有当天的意象感，但保持生活化，不要像抽象模板。
+- tips 必须有 4 条，通常 2 吉 2 忌；生日或特别签可以 3 吉 1 忌，但仍必须 4 条。
+- tips 要和 fortune_report 互相呼应，但不要逐字重复。
 - 每个字段都要具体，不要重复。
 - 输出必须是可被 JSON.parse 直接解析的对象。
 """;
@@ -655,16 +677,30 @@ public class AccountEventService(
         };
     }
 
-    private static CheckInFortuneReport? TryParseFortuneReport(string content)
+    private static CheckInFortuneGeneration? TryParseFortuneGeneration(string content)
     {
         var json = ExtractJsonObject(content);
         if (json is null) return null;
 
         try
         {
-            var report = JsonSerializer.Deserialize<CheckInFortuneReport>(json, FortuneReportJsonOptions);
-            if (report is null || !IsValidFortuneReport(report)) return null;
+            var generation = JsonSerializer.Deserialize<CheckInFortuneGeneration>(json, FortuneReportJsonOptions);
+            if (generation is null ||
+                generation.Tips.Count != 4 ||
+                generation.Tips.Any(t => string.IsNullOrWhiteSpace(t.Title) || string.IsNullOrWhiteSpace(t.Content)) ||
+                !IsValidFortuneReport(generation.Report))
+                return null;
 
+            generation.Tips = generation.Tips
+                .Select(t => new CheckInFortuneTip
+                {
+                    IsPositive = t.IsPositive,
+                    Title = TrimFortuneText(t.Title, 32),
+                    Content = TrimFortuneText(t.Content, 120)
+                })
+                .ToList();
+
+            var report = generation.Report;
             report.Version = FortuneReportVersion;
             report.Poem = TrimFortuneText(report.Poem, 120);
             report.Summary = TrimFortuneText(report.Summary, 120);
@@ -682,7 +718,7 @@ public class AccountEventService(
             report.LuckyAction = TrimFortuneText(report.LuckyAction, 80);
             report.AvoidAction = TrimFortuneText(report.AvoidAction, 80);
             report.Ritual = TrimFortuneText(report.Ritual, 120);
-            return report;
+            return generation;
         }
         catch (JsonException)
         {
@@ -731,6 +767,12 @@ public class AccountEventService(
     {
         var trimmed = value.Trim();
         return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
+    }
+
+    private class CheckInFortuneGeneration
+    {
+        public List<CheckInFortuneTip> Tips { get; set; } = [];
+        public CheckInFortuneReport Report { get; set; } = null!;
     }
 
     private async Task<List<SnUserCalendarEvent>> GetPublicEventsForDate(
