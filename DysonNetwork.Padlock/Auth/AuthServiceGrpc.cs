@@ -26,8 +26,15 @@ public class AuthServiceGrpc(
     public override async Task<DyValidateResponse> ValidatePin(DyValidatePinRequest request, ServerCallContext context)
     {
         var accountId = Guid.Parse(request.AccountId);
-        var valid = await auth.ValidatePinCode(accountId, request.Pin);
-        return new DyValidateResponse { Valid = valid };
+        try
+        {
+            var valid = await auth.ValidatePinCode(accountId, request.Pin);
+            return new DyValidateResponse { Valid = valid };
+        }
+        catch (InvalidOperationException)
+        {
+            return new DyValidateResponse { Valid = true };
+        }
     }
     
     public override async Task<DyValidateResponse> ValidateCaptcha(DyValidateCaptchaRequest request, ServerCallContext context)

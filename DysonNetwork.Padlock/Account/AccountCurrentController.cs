@@ -14,6 +14,12 @@ public class AccountCurrentController(
     AccountService accounts
 ) : ControllerBase
 {
+    public class PinStatusResponse
+    {
+        public bool HasPin { get; set; }
+        public bool ValidationRequired { get; set; }
+    }
+
     public class BasicInfoRequest
     {
         [MaxLength(256)] public string? Nick { get; set; }
@@ -49,5 +55,23 @@ public class AccountCurrentController(
         if (account is null) return NotFound();
 
         return Ok(account);
+    }
+
+    [HttpGet("pin-status")]
+    public async Task<ActionResult<PinStatusResponse>> GetPinStatus()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var hasPin = await db.AccountAuthFactors
+            .Where(f => f.AccountId == currentUser.Id)
+            .Where(f => f.Type == AccountAuthFactorType.PinCode)
+            .Where(f => f.EnabledAt != null)
+            .AnyAsync();
+
+        return Ok(new PinStatusResponse
+        {
+            HasPin = hasPin,
+            ValidationRequired = hasPin
+        });
     }
 }

@@ -19,6 +19,8 @@ public class OrderController(
     RemotePublisherService publishers
 ) : ControllerBase
 {
+    private const string NoPinProvided = "NO_PIN_PROVEDED";
+
     public class CreateOrderRequest
     {
         public string Currency { get; set; } = null!;
@@ -140,7 +142,7 @@ public class OrderController(
     public class PayOrderRequest
     {
         public Guid? PayerWalletId { get; set; }
-        public string PinCode { get; set; } = string.Empty;
+        public string? PinCode { get; set; }
     }
 
     [HttpPost("{id:guid}/pay")]
@@ -152,6 +154,7 @@ public class OrderController(
         try
         {
             var currentAccountId = Guid.Parse(currentUser.Id);
+            var pinCode = string.IsNullOrWhiteSpace(request.PinCode) ? NoPinProvided : request.PinCode;
             var wallet = await ResolveAccessiblePayerWalletAsync(currentAccountId, request.PayerWalletId);
             if (wallet == null)
                 return BadRequest("Wallet was not found.");

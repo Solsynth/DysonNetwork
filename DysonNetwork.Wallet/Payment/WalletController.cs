@@ -25,6 +25,8 @@ public class WalletController(
     ILogger<WalletController> logger
 ) : ControllerBase
 {
+    private const string NoPinProvided = "NO_PIN_PROVEDED";
+
     public class CreateWalletRequest
     {
         public string? Name { get; set; }
@@ -392,7 +394,7 @@ public class WalletController(
         public Guid? PayeeAccountId { get; set; }
         public Guid? PayeeWalletId { get; set; }
         public string? PayeePublicId { get; set; }
-        [Required] public string PinCode { get; set; } = null!;
+        public string? PinCode { get; set; }
     }
 
     [HttpPost("balance")]
@@ -436,6 +438,7 @@ public class WalletController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
         var currentAccountId = Guid.Parse(currentUser.Id);
+        var pinCode = string.IsNullOrWhiteSpace(request.PinCode) ? NoPinProvided : request.PinCode;
 
         try
         {
