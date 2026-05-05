@@ -4,11 +4,11 @@ using System.Text.Json;
 using DysonNetwork.Insight.Agent.Foundation;
 using DysonNetwork.Insight.Agent.Foundation.Models;
 using DysonNetwork.Insight.Agent.Foundation.Providers;
-using DysonNetwork.Insight.MiChan;
-using DysonNetwork.Insight.Services;
-using DysonNetwork.Insight.MiChan.Plugins;
-using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Insight.Agent.Models;
+using DysonNetwork.Insight.MiChan;
+using DysonNetwork.Insight.MiChan.Plugins;
+using DysonNetwork.Insight.Services;
+using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Localization;
@@ -55,7 +55,8 @@ public class ThoughtService(
     private const string MiChanSummaryKindMetadataKey = "summary_kind";
     private const string MiChanCoveredThroughThoughtIdMetadataKey = "covered_through_thought_id";
     private const string HiddenContextKindMetadataKey = "hidden_context_kind";
-    private const string HiddenContextSourceThoughtIdMetadataKey = "hidden_context_source_thought_id";
+    private const string HiddenContextSourceThoughtIdMetadataKey =
+        "hidden_context_source_thought_id";
     private const string HiddenImageDescriptionContextKind = "image_description";
     private const int MiChanCompactionThresholdTokens = 8000;
     private const int MiChanRecentHistoryTokenBudget = 2500;
@@ -86,7 +87,8 @@ public class ThoughtService(
     /// </summary>
     public async Task<(bool success, string summary)> MemorizeSequenceAsync(
         Guid sequenceId,
-        Guid accountId)
+        Guid accountId
+    )
     {
         return await thoughtProvider.MemorizeSequenceAsync(sequenceId, accountId);
     }
@@ -99,7 +101,8 @@ public class ThoughtService(
         Guid accountId,
         Guid? sequenceId = null,
         string? topic = null,
-        string? botName = null)
+        string? botName = null
+    )
     {
         if (sequenceId.HasValue)
         {
@@ -116,7 +119,7 @@ public class ThoughtService(
                 AccountId = accountId,
                 Topic = topic,
                 LastMessageAt = now,
-                BotName = botName
+                BotName = botName,
             };
             db.ThinkingSequences.Add(seq);
             await db.SaveChangesAsync();
@@ -128,10 +131,12 @@ public class ThoughtService(
         Guid accountId,
         Guid? sequenceId = null,
         string? topic = null,
-        Dictionary<string, object>? additionalContext = null)
+        Dictionary<string, object>? additionalContext = null
+    )
     {
         logger.LogDebug(
-            "GetOrCreateAndMemorizeSequenceAsync called - automatic memory storage is disabled. Agent should call memory store tool when necessary.");
+            "GetOrCreateAndMemorizeSequenceAsync called - automatic memory storage is disabled. Agent should call memory store tool when necessary."
+        );
         return await GetOrCreateSequenceAsync(accountId, sequenceId, topic);
     }
 
@@ -140,33 +145,37 @@ public class ThoughtService(
         return await db.ThinkingSequences.FindAsync(sequenceId);
     }
 
-    public async Task<SnThinkingSequence?> ResolveSequenceForOwnerAsync(Guid accountId, Guid sequenceId)
+    public async Task<SnThinkingSequence?> ResolveSequenceForOwnerAsync(
+        Guid accountId,
+        Guid sequenceId
+    )
     {
-        var sequence = await db.ThinkingSequences
-            .FirstOrDefaultAsync(s => s.Id == sequenceId && s.AccountId == accountId);
+        var sequence = await db.ThinkingSequences.FirstOrDefaultAsync(s =>
+            s.Id == sequenceId && s.AccountId == accountId
+        );
         if (sequence != null)
         {
             return sequence;
         }
 
-        var deletedSequence = await db.ThinkingSequences
-            .IgnoreQueryFilters()
+        var deletedSequence = await db
+            .ThinkingSequences.IgnoreQueryFilters()
             .FirstOrDefaultAsync(s => s.Id == sequenceId && s.AccountId == accountId);
         if (deletedSequence?.DeletedAt == null)
         {
             return null;
         }
 
-        var hasMiChanThoughts = await db.ThinkingThoughts
-            .IgnoreQueryFilters()
+        var hasMiChanThoughts = await db
+            .ThinkingThoughts.IgnoreQueryFilters()
             .AnyAsync(t => t.SequenceId == sequenceId && t.BotName == MiChanBotName);
         if (!hasMiChanThoughts)
         {
             return null;
         }
 
-        var hasSnChanThoughts = await db.ThinkingThoughts
-            .IgnoreQueryFilters()
+        var hasSnChanThoughts = await db
+            .ThinkingThoughts.IgnoreQueryFilters()
             .AnyAsync(t => t.SequenceId == sequenceId && t.BotName == "snchan");
         if (hasSnChanThoughts)
         {
@@ -176,12 +185,18 @@ public class ThoughtService(
         return await GetCanonicalMiChanSequenceAsync(accountId);
     }
 
-    public async Task<MiChanUserProfile> TouchMiChanUserProfileAsync(Guid accountId, string? botName = null)
+    public async Task<MiChanUserProfile> TouchMiChanUserProfileAsync(
+        Guid accountId,
+        string? botName = null
+    )
     {
         return await userProfileService.TouchInteractionAsync(accountId, botName);
     }
 
-    public async Task RecordMiChanMoodEventAsync(string eventType, CancellationToken cancellationToken = default)
+    public async Task RecordMiChanMoodEventAsync(
+        string eventType,
+        CancellationToken cancellationToken = default
+    )
     {
         await moodService.RecordEmotionalEventAsync(eventType, cancellationToken);
     }
@@ -191,11 +206,16 @@ public class ThoughtService(
         return await moodService.TryUpdateMoodAsync(cancellationToken);
     }
 
-    public async Task<SnThinkingSequence?> GetCanonicalMiChanSequenceAsync(Guid accountId, string? botName = null)
+    public async Task<SnThinkingSequence?> GetCanonicalMiChanSequenceAsync(
+        Guid accountId,
+        string? botName = null
+    )
     {
-        var query = db.ThinkingSequences
-            .Where(s => s.AccountId == accountId)
-            .Where(s => db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == MiChanBotName));
+        var query = db
+            .ThinkingSequences.Where(s => s.AccountId == accountId)
+            .Where(s =>
+                db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == MiChanBotName)
+            );
 
         // Filter by bot name if specified, otherwise default to "michan"
         var targetBotName = botName ?? MiChanBotName;
@@ -207,7 +227,11 @@ public class ThoughtService(
             .FirstOrDefaultAsync();
     }
 
-    public async Task<bool> IsCanonicalMiChanSequenceAsync(Guid accountId, Guid sequenceId, string? botName = null)
+    public async Task<bool> IsCanonicalMiChanSequenceAsync(
+        Guid accountId,
+        Guid sequenceId,
+        string? botName = null
+    )
     {
         var canonicalSequence = await GetCanonicalMiChanSequenceAsync(accountId, botName);
         return canonicalSequence?.Id == sequenceId;
@@ -218,7 +242,8 @@ public class ThoughtService(
         Guid? requestedSequenceId = null,
         string? topic = null,
         bool allowNewThread = false,
-        string? botName = null)
+        string? botName = null
+    )
     {
         var targetBotName = botName ?? MiChanBotName;
 
@@ -229,8 +254,9 @@ public class ThoughtService(
             if (requestedSequence != null && requestedSequence.AccountId == accountId)
             {
                 // Check if the sequence has thoughts from the requesting bot
-                var hasBotThoughts = await db.ThinkingThoughts
-                    .AnyAsync(t => t.SequenceId == requestedSequenceId.Value && t.BotName == targetBotName);
+                var hasBotThoughts = await db.ThinkingThoughts.AnyAsync(t =>
+                    t.SequenceId == requestedSequenceId.Value && t.BotName == targetBotName
+                );
 
                 if (hasBotThoughts)
                 {
@@ -258,7 +284,7 @@ public class ThoughtService(
                 Topic = topic,
                 LastMessageAt = now,
                 LastFreeQuotaResetAt = now,
-                BotName = targetBotName
+                BotName = targetBotName,
             };
 
             db.ThinkingSequences.Add(sequence);
@@ -283,7 +309,7 @@ public class ThoughtService(
             Topic = topic,
             LastMessageAt = canonicalNow,
             LastFreeQuotaResetAt = canonicalNow,
-            BotName = targetBotName
+            BotName = targetBotName,
         };
 
         db.ThinkingSequences.Add(canonicalNewSequence);
@@ -295,25 +321,34 @@ public class ThoughtService(
     /// <summary>
     /// Gets the last active sequence for a specific bot.
     /// </summary>
-    public async Task<SnThinkingSequence?> GetLastActiveSequenceAsync(Guid accountId, string? botName = null)
+    public async Task<SnThinkingSequence?> GetLastActiveSequenceAsync(
+        Guid accountId,
+        string? botName = null
+    )
     {
         var targetBotName = botName ?? MiChanBotName;
 
-        return await db.ThinkingSequences
-            .Where(s => s.AccountId == accountId)
+        return await db
+            .ThinkingSequences.Where(s => s.AccountId == accountId)
             .Where(s => s.BotName == targetBotName || s.BotName == null)
-            .Where(s => db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == targetBotName))
+            .Where(s =>
+                db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == targetBotName)
+            )
             .OrderByDescending(s => s.LastMessageAt != default ? s.LastMessageAt : s.CreatedAt)
             .ThenByDescending(s => s.CreatedAt)
             .FirstOrDefaultAsync();
     }
 
-    public async Task<int> MergeHistoricMiChanSequencesAsync(CancellationToken cancellationToken = default)
+    public async Task<int> MergeHistoricMiChanSequencesAsync(
+        CancellationToken cancellationToken = default
+    )
     {
         var mergedSequenceCount = 0;
 
-        var candidateAccountIds = await db.ThinkingSequences
-            .Where(s => db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == MiChanBotName))
+        var candidateAccountIds = await db
+            .ThinkingSequences.Where(s =>
+                db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == MiChanBotName)
+            )
             .Where(s => s.BotName == null || s.BotName == MiChanBotName)
             .Select(s => s.AccountId)
             .Distinct()
@@ -325,10 +360,16 @@ public class ThoughtService(
             if (canonicalSequence == null)
                 continue;
 
-            var sourceSequences = await db.ThinkingSequences
-                .Where(s => s.AccountId == accountId && s.Id != canonicalSequence.Id)
-                .Where(s => db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == MiChanBotName))
-                .Where(s => !db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == "snchan"))
+            var sourceSequences = await db
+                .ThinkingSequences.Where(s =>
+                    s.AccountId == accountId && s.Id != canonicalSequence.Id
+                )
+                .Where(s =>
+                    db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == MiChanBotName)
+                )
+                .Where(s =>
+                    !db.ThinkingThoughts.Any(t => t.SequenceId == s.Id && t.BotName == "snchan")
+                )
                 .Where(s => s.BotName == null || s.BotName == MiChanBotName)
                 .OrderBy(s => s.CreatedAt)
                 .ToListAsync(cancellationToken);
@@ -338,15 +379,15 @@ public class ThoughtService(
 
             foreach (var sourceSequence in sourceSequences)
             {
-                var thoughtCount = await db.ThinkingThoughts
-                    .Where(t => t.SequenceId == sourceSequence.Id)
+                var thoughtCount = await db
+                    .ThinkingThoughts.Where(t => t.SequenceId == sourceSequence.Id)
                     .CountAsync(cancellationToken);
 
                 if (thoughtCount == 0)
                     continue;
 
-                await db.ThinkingThoughts
-                    .Where(t => t.SequenceId == sourceSequence.Id)
+                await db
+                    .ThinkingThoughts.Where(t => t.SequenceId == sourceSequence.Id)
                     .ExecuteUpdateAsync(
                         update => update.SetProperty(t => t.SequenceId, canonicalSequence.Id),
                         cancellationToken
@@ -355,11 +396,17 @@ public class ThoughtService(
                 canonicalSequence.TotalToken += sourceSequence.TotalToken;
                 canonicalSequence.PaidToken += sourceSequence.PaidToken;
                 canonicalSequence.FreeTokens += sourceSequence.FreeTokens;
-                canonicalSequence.AgentInitiated = canonicalSequence.AgentInitiated || sourceSequence.AgentInitiated;
+                canonicalSequence.AgentInitiated =
+                    canonicalSequence.AgentInitiated || sourceSequence.AgentInitiated;
 
-                if (sourceSequence.UserLastReadAt.HasValue &&
-                    (!canonicalSequence.UserLastReadAt.HasValue ||
-                     sourceSequence.UserLastReadAt.Value > canonicalSequence.UserLastReadAt.Value))
+                if (
+                    sourceSequence.UserLastReadAt.HasValue
+                    && (
+                        !canonicalSequence.UserLastReadAt.HasValue
+                        || sourceSequence.UserLastReadAt.Value
+                            > canonicalSequence.UserLastReadAt.Value
+                    )
+                )
                 {
                     canonicalSequence.UserLastReadAt = sourceSequence.UserLastReadAt;
                 }
@@ -386,8 +433,10 @@ public class ThoughtService(
 
         if (mergedSequenceCount > 0)
         {
-            logger.LogInformation("Merged {Count} historic MiChan sequences into canonical threads.",
-                mergedSequenceCount);
+            logger.LogInformation(
+                "Merged {Count} historic MiChan sequences into canonical threads.",
+                mergedSequenceCount
+            );
         }
 
         return mergedSequenceCount;
@@ -429,14 +478,19 @@ public class ThoughtService(
         if (role == ThinkingThoughtRole.Assistant && tokenCount > 0)
         {
             var consumedFromFree = await freeQuotaService.ConsumeFreeTokensAsync(
-                sequence.AccountId, tokenCount);
+                sequence.AccountId,
+                tokenCount
+            );
 
             if (consumedFromFree > 0)
             {
                 sequence.PaidToken += consumedFromFree;
                 sequence.FreeTokens += consumedFromFree;
-                logger.LogDebug("Consumed {Tokens} tokens from free quota for account {AccountId}",
-                    consumedFromFree, sequence.AccountId);
+                logger.LogDebug(
+                    "Consumed {Tokens} tokens from free quota for account {AccountId}",
+                    consumedFromFree,
+                    sequence.AccountId
+                );
             }
         }
 
@@ -455,7 +509,8 @@ public class ThoughtService(
     private void PersistThoughtPartRows(
         SnThinkingThought thought,
         List<SnThinkingMessagePart> parts,
-        Instant now)
+        Instant now
+    )
     {
         if (parts.Count == 0)
         {
@@ -466,21 +521,23 @@ public class ThoughtService(
         for (var i = 0; i < parts.Count; i++)
         {
             var part = parts[i];
-            rows.Add(new SnThinkingThoughtPart
-            {
-                ThoughtId = thought.Id,
-                SequenceId = thought.SequenceId,
-                PartIndex = i,
-                Type = part.Type,
-                Text = part.Text,
-                Metadata = part.Metadata,
-                Files = part.Files,
-                FunctionCall = part.FunctionCall,
-                FunctionResult = part.FunctionResult,
-                Reasoning = part.Reasoning,
-                CreatedAt = now,
-                UpdatedAt = now
-            });
+            rows.Add(
+                new SnThinkingThoughtPart
+                {
+                    ThoughtId = thought.Id,
+                    SequenceId = thought.SequenceId,
+                    PartIndex = i,
+                    Type = part.Type,
+                    Text = part.Text,
+                    Metadata = part.Metadata,
+                    Files = part.Files,
+                    FunctionCall = part.FunctionCall,
+                    FunctionResult = part.FunctionResult,
+                    Reasoning = part.Reasoning,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                }
+            );
         }
 
         db.ThinkingThoughtParts.AddRange(rows);
@@ -490,7 +547,8 @@ public class ThoughtService(
     public async Task<SnThinkingThought> SaveMiChanCompactionThoughtAsync(
         SnThinkingSequence sequence,
         string summary,
-        Guid coveredThroughThoughtId)
+        Guid coveredThroughThoughtId
+    )
     {
         var thought = new SnThinkingThought
         {
@@ -508,10 +566,11 @@ public class ThoughtService(
                     Metadata = new Dictionary<string, object>
                     {
                         [MiChanSummaryKindMetadataKey] = MiChanCompactionSummaryKind,
-                        [MiChanCoveredThroughThoughtIdMetadataKey] = coveredThroughThoughtId.ToString()
-                    }
-                }
-            ]
+                        [MiChanCoveredThroughThoughtIdMetadataKey] =
+                            coveredThroughThoughtId.ToString(),
+                    },
+                },
+            ],
         };
 
         db.ThinkingThoughts.Add(thought);
@@ -547,7 +606,10 @@ public class ThoughtService(
                     {
                         // Count function name and arguments
                         totalTokens += tokenCounter.CountTokens(part.FunctionCall.Name, modelName);
-                        totalTokens += tokenCounter.CountTokens(part.FunctionCall.Arguments, modelName);
+                        totalTokens += tokenCounter.CountTokens(
+                            part.FunctionCall.Arguments,
+                            modelName
+                        );
                     }
 
                     break;
@@ -556,8 +618,9 @@ public class ThoughtService(
                     if (part.FunctionResult != null)
                     {
                         // Count function result - convert to string if needed
-                        var resultText = part.FunctionResult.Result as string
-                                         ?? JsonSerializer.Serialize(part.FunctionResult.Result);
+                        var resultText =
+                            part.FunctionResult.Result as string
+                            ?? JsonSerializer.Serialize(part.FunctionResult.Result);
                         totalTokens += tokenCounter.CountTokens(resultText, modelName);
                     }
 
@@ -575,10 +638,12 @@ public class ThoughtService(
     public async Task MemorizeThoughtAsync(
         SnThinkingThought thought,
         SnThinkingSequence? sequence = null,
-        Dictionary<string, object>? additionalContext = null)
+        Dictionary<string, object>? additionalContext = null
+    )
     {
         logger.LogDebug(
-            "MemorizeThoughtAsync called - automatic memory storage is disabled. Agent should call memory store tool when necessary.");
+            "MemorizeThoughtAsync called - automatic memory storage is disabled. Agent should call memory store tool when necessary."
+        );
         await Task.CompletedTask;
     }
 
@@ -594,8 +659,8 @@ public class ThoughtService(
         if (found && cachedThoughts != null)
             return cachedThoughts;
 
-        var thoughts = await db.ThinkingThoughts
-            .Where(t => t.SequenceId == sequence.Id)
+        var thoughts = await db
+            .ThinkingThoughts.Where(t => t.SequenceId == sequence.Id)
             .If(!inclArchived, q => q.Where(t => !t.IsArchived))
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
@@ -619,7 +684,8 @@ public class ThoughtService(
     public async Task<(List<SnThinkingThought> thoughts, bool hasMore)> GetVisibleThoughtsPageAsync(
         SnThinkingSequence sequence,
         int offset,
-        int take)
+        int take
+    )
     {
         const int minBatchSize = 50;
         var batchSize = Math.Max(minBatchSize, take * 2);
@@ -630,8 +696,8 @@ public class ThoughtService(
         while (visibleThoughts.Count <= take)
         {
             // Note: Archived thoughts are included for user viewing, but excluded from agent context
-            var batch = await db.ThinkingThoughts
-                .Where(t => t.SequenceId == sequence.Id)
+            var batch = await db
+                .ThinkingThoughts.Where(t => t.SequenceId == sequence.Id)
                 .OrderByDescending(t => t.CreatedAt)
                 .ThenByDescending(t => t.Id)
                 .Skip(rawOffset)
@@ -686,21 +752,24 @@ public class ThoughtService(
     {
         var textPart = thought.Parts.FirstOrDefault(p => p.Type == ThinkingMessagePartType.Text);
         return string.Equals(thought.BotName, MiChanBotName, StringComparison.OrdinalIgnoreCase)
-               && TryGetMetadataString(textPart?.Metadata, MiChanSummaryKindMetadataKey, out var kind)
-               && string.Equals(kind, MiChanCompactionSummaryKind, StringComparison.OrdinalIgnoreCase);
+            && TryGetMetadataString(textPart?.Metadata, MiChanSummaryKindMetadataKey, out var kind)
+            && string.Equals(kind, MiChanCompactionSummaryKind, StringComparison.OrdinalIgnoreCase);
     }
 
     public List<SnThinkingThought> FilterVisibleThoughts(IEnumerable<SnThinkingThought> thoughts)
     {
-        return thoughts.Where(thought =>
-            !IsMiChanCompactionThought(thought) &&
-            !IsHiddenImageContextThought(thought)).ToList();
+        return thoughts
+            .Where(thought =>
+                !IsMiChanCompactionThought(thought) && !IsHiddenImageContextThought(thought)
+            )
+            .ToList();
     }
 
     internal (List<SnThinkingThought> thoughts, bool hasMore) SliceVisibleThoughtsForTests(
         IEnumerable<SnThinkingThought> orderedThoughts,
         int offset,
-        int take)
+        int take
+    )
     {
         var visibleThoughts = FilterVisibleThoughts(orderedThoughts)
             .Skip(offset)
@@ -743,10 +812,11 @@ public class ThoughtService(
 
     public async Task<int> RefreshHistoricSequenceSummariesAsync(
         int batchSize = 16,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
-        var candidates = await db.ThinkingSequences
-            .Where(s => s.LastMessageAt != default)
+        var candidates = await db
+            .ThinkingSequences.Where(s => s.LastMessageAt != default)
             .Where(s => s.SummaryLastAt == null || s.LastMessageAt > s.SummaryLastAt)
             .OrderBy(s => s.SummaryLastAt ?? s.CreatedAt)
             .Take(batchSize)
@@ -769,8 +839,11 @@ public class ThoughtService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex,
-                    "Failed refreshing summary for sequence {SequenceId}", sequence.Id);
+                logger.LogWarning(
+                    ex,
+                    "Failed refreshing summary for sequence {SequenceId}",
+                    sequence.Id
+                );
             }
         }
 
@@ -779,10 +852,11 @@ public class ThoughtService(
 
     public async Task<int> BackfillThoughtPartRowsAsync(
         int batchSize = 200,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
-        var thoughts = await db.ThinkingThoughts
-            .Where(t => !db.ThinkingThoughtParts.Any(p => p.ThoughtId == t.Id))
+        var thoughts = await db
+            .ThinkingThoughts.Where(t => !db.ThinkingThoughtParts.Any(p => p.ThoughtId == t.Id))
             .OrderBy(t => t.CreatedAt)
             .Take(batchSize)
             .ToListAsync(cancellationToken);
@@ -818,7 +892,8 @@ public class ThoughtService(
         Guid? accountId = null,
         int limit = 10,
         double minSimilarity = 0.6,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         if (string.IsNullOrWhiteSpace(query))
         {
@@ -829,15 +904,16 @@ public class ThoughtService(
         var hits = new List<SequenceMemoryHit>(limit * 2);
         var includedSequences = new HashSet<Guid>();
 
-        var sequenceQuery = db.ThinkingSequences
-            .Where(s => s.DeletedAt == null)
-            .AsQueryable();
+        var sequenceQuery = db.ThinkingSequences.Where(s => s.DeletedAt == null).AsQueryable();
         if (accountId.HasValue)
         {
             sequenceQuery = sequenceQuery.Where(s => s.AccountId == accountId.Value || s.IsPublic);
         }
 
-        var queryEmbedding = await embeddingService.GenerateEmbeddingAsync(query, cancellationToken);
+        var queryEmbedding = await embeddingService.GenerateEmbeddingAsync(
+            query,
+            cancellationToken
+        );
         if (queryEmbedding != null)
         {
             var semanticMatches = await sequenceQuery
@@ -849,7 +925,7 @@ public class ThoughtService(
                     s.Topic,
                     s.Summary,
                     s.LastMessageAt,
-                    Distance = s.SummaryEmbedding!.CosineDistance(queryEmbedding)
+                    Distance = s.SummaryEmbedding!.CosineDistance(queryEmbedding),
                 })
                 .OrderBy(x => x.Distance)
                 .Take(limit)
@@ -868,38 +944,42 @@ public class ThoughtService(
                     continue;
                 }
 
-                hits.Add(new SequenceMemoryHit(
-                    hit.Id,
-                    hit.AccountId,
-                    hit.Topic,
-                    hit.Summary,
-                    hit.LastMessageAt,
-                    "semantic_summary",
-                    similarity,
-                    null
-                ));
+                hits.Add(
+                    new SequenceMemoryHit(
+                        hit.Id,
+                        hit.AccountId,
+                        hit.Topic,
+                        hit.Summary,
+                        hit.LastMessageAt,
+                        "semantic_summary",
+                        similarity,
+                        null
+                    )
+                );
             }
         }
 
         var pattern = $"%{query.Trim()}%";
-        var textMatches = await db.ThinkingThoughtParts
-            .Where(p => p.DeletedAt == null)
+        var textMatches = await db
+            .ThinkingThoughtParts.Where(p => p.DeletedAt == null)
             .Where(p => p.Text != null)
             .Where(p => EF.Functions.ILike(p.Text!, pattern))
             .Join(
                 sequenceQuery,
                 part => part.SequenceId,
                 sequence => sequence.Id,
-                (part, sequence) => new
-                {
-                    sequence.Id,
-                    sequence.AccountId,
-                    sequence.Topic,
-                    sequence.Summary,
-                    sequence.LastMessageAt,
-                    part.Text,
-                    part.CreatedAt
-                })
+                (part, sequence) =>
+                    new
+                    {
+                        sequence.Id,
+                        sequence.AccountId,
+                        sequence.Topic,
+                        sequence.Summary,
+                        sequence.LastMessageAt,
+                        part.Text,
+                        part.CreatedAt,
+                    }
+            )
             .OrderByDescending(x => x.CreatedAt)
             .Take(limit * 10)
             .ToListAsync(cancellationToken);
@@ -911,16 +991,18 @@ public class ThoughtService(
                 continue;
             }
 
-            hits.Add(new SequenceMemoryHit(
-                hit.Id,
-                hit.AccountId,
-                hit.Topic,
-                hit.Summary,
-                hit.LastMessageAt,
-                "keyword_part",
-                null,
-                BuildSnippet(hit.Text, query)
-            ));
+            hits.Add(
+                new SequenceMemoryHit(
+                    hit.Id,
+                    hit.AccountId,
+                    hit.Topic,
+                    hit.Summary,
+                    hit.LastMessageAt,
+                    "keyword_part",
+                    null,
+                    BuildSnippet(hit.Text, query)
+                )
+            );
 
             if (hits.Count >= limit)
             {
@@ -928,8 +1010,7 @@ public class ThoughtService(
             }
         }
 
-        return hits
-            .OrderByDescending(h => h.Similarity ?? 0)
+        return hits.OrderByDescending(h => h.Similarity ?? 0)
             .ThenByDescending(h => h.LastMessageAt)
             .Take(limit)
             .ToList();
@@ -961,10 +1042,11 @@ public class ThoughtService(
 
     private async Task<bool> RefreshSequenceSummaryAsync(
         SnThinkingSequence sequence,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
-        var thoughts = await db.ThinkingThoughts
-            .Where(t => t.SequenceId == sequence.Id)
+        var thoughts = await db
+            .ThinkingThoughts.Where(t => t.SequenceId == sequence.Id)
             .Where(t => !t.IsArchived)
             .OrderBy(t => t.CreatedAt)
             .ThenBy(t => t.Id)
@@ -1030,7 +1112,9 @@ public class ThoughtService(
                 continue;
             }
 
-            var totalUnpaidTokens = accountGroup.Sum(s => s.TotalToken - s.PaidToken - s.FreeTokens);
+            var totalUnpaidTokens = accountGroup.Sum(s =>
+                s.TotalToken - s.PaidToken - s.FreeTokens
+            );
             var cost = (long)Math.Ceiling(totalUnpaidTokens / 10.0);
 
             if (cost == 0)
@@ -1065,7 +1149,9 @@ public class ThoughtService(
                 logger.LogError(ex, "Error billing for account {accountId}", accountId);
                 if (!await db.UnpaidAccounts.AnyAsync(u => u.AccountId == accountId))
                 {
-                    db.UnpaidAccounts.Add(new SnUnpaidAccount { AccountId = accountId, MarkedAt = DateTime.UtcNow });
+                    db.UnpaidAccounts.Add(
+                        new SnUnpaidAccount { AccountId = accountId, MarkedAt = DateTime.UtcNow }
+                    );
                 }
             }
         }
@@ -1073,7 +1159,10 @@ public class ThoughtService(
         await db.SaveChangesAsync();
     }
 
-    public async Task<(bool success, long cost)> RetryBillingForAccountAsync(Guid accountId, ILogger logger)
+    public async Task<(bool success, long cost)> RetryBillingForAccountAsync(
+        Guid accountId,
+        ILogger logger
+    )
     {
         var isMarked = await db.UnpaidAccounts.FirstOrDefaultAsync(u => u.AccountId == accountId);
         if (isMarked == null)
@@ -1088,7 +1177,10 @@ public class ThoughtService(
 
         if (!sequences.Any())
         {
-            logger.LogInformation("No unpaid sequences found for account {accountId}. Unmarking.", accountId);
+            logger.LogInformation(
+                "No unpaid sequences found for account {accountId}. Unmarking.",
+                accountId
+            );
             db.UnpaidAccounts.Remove(isMarked);
             await db.SaveChangesAsync();
             return (true, 0);
@@ -1099,8 +1191,10 @@ public class ThoughtService(
 
         if (cost == 0)
         {
-            logger.LogInformation("Unpaid tokens for {accountId} resulted in zero cost. Marking as paid and unmarking.",
-                accountId);
+            logger.LogInformation(
+                "Unpaid tokens for {accountId} resulted in zero cost. Marking as paid and unmarking.",
+                accountId
+            );
             foreach (var sequence in sequences)
             {
                 sequence.PaidToken = sequence.TotalToken;
@@ -1151,11 +1245,11 @@ public class ThoughtService(
     public async Task DeleteSequenceAsync(Guid sequenceId)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        await db.ThinkingThoughts
-            .Where(s => s.SequenceId == sequenceId)
+        await db
+            .ThinkingThoughts.Where(s => s.SequenceId == sequenceId)
             .ExecuteUpdateAsync(x => x.SetProperty(p => p.DeletedAt, now));
-        await db.ThinkingSequences
-            .Where(s => s.Id == sequenceId)
+        await db
+            .ThinkingSequences.Where(s => s.Id == sequenceId)
             .ExecuteUpdateAsync(x => x.SetProperty(p => p.DeletedAt, now));
     }
 
@@ -1165,8 +1259,8 @@ public class ThoughtService(
     public async Task MarkSequenceAsReadAsync(Guid sequenceId, Guid accountId)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        await db.ThinkingSequences
-            .Where(s => s.Id == sequenceId && s.AccountId == accountId)
+        await db
+            .ThinkingSequences.Where(s => s.Id == sequenceId && s.AccountId == accountId)
             .ExecuteUpdateAsync(x => x.SetProperty(p => p.UserLastReadAt, now));
     }
 
@@ -1207,7 +1301,11 @@ public class ThoughtService(
         if (isMiChan)
         {
             // For agent-initiated sequences, use unified thread by default
-            var resolution = await ResolveMiChanSequenceAsync(accountId, topic: topic, botName: botName);
+            var resolution = await ResolveMiChanSequenceAsync(
+                accountId,
+                topic: topic,
+                botName: botName
+            );
             if (resolution.Sequence == null)
             {
                 return null;
@@ -1241,7 +1339,7 @@ public class ThoughtService(
                 LastFreeQuotaResetAt = now,
                 CreatedAt = now,
                 UpdatedAt = now,
-                BotName = botName
+                BotName = botName,
             };
 
             db.ThinkingSequences.Add(sequence);
@@ -1258,8 +1356,8 @@ public class ThoughtService(
                     new SnThinkingMessagePart
                     {
                         Type = ThinkingMessagePartType.Text,
-                        Text = initialMessage
-                    }
+                        Text = initialMessage,
+                    },
                 ],
                 ThinkingThoughtRole.Assistant,
                 model: botName,
@@ -1277,15 +1375,15 @@ public class ThoughtService(
                     new SnThinkingMessagePart
                     {
                         Type = ThinkingMessagePartType.Text,
-                        Text = initialMessage
-                    }
+                        Text = initialMessage,
+                    },
                 ],
                 Role = ThinkingThoughtRole.Assistant,
                 TokenCount = tokenCounter.CountTokens(initialMessage),
                 ModelName = botName,
                 BotName = botName,
                 CreatedAt = now,
-                UpdatedAt = now
+                UpdatedAt = now,
             };
 
             db.ThinkingThoughts.Add(thought);
@@ -1303,15 +1401,22 @@ public class ThoughtService(
                 ? "agentNameSnChan"
                 : "agentNameMiChan";
             var agentName = localizer.Get(agentNameKey, effectiveLocale);
-            var notificationTitle = localizer.Get("agentConversationStartedTitle", effectiveLocale, new { agentName });
-            var notificationBody = localizer.Get("agentConversationStartedBody", effectiveLocale,
-                new { agentName, message = initialMessage });
+            var notificationTitle = localizer.Get(
+                "agentConversationStartedTitle",
+                effectiveLocale,
+                new { agentName }
+            );
+            var notificationBody = localizer.Get(
+                "agentConversationStartedBody",
+                effectiveLocale,
+                new { agentName, message = initialMessage }
+            );
 
             // Create meta with sequence ID for deep linking
             var meta = new Dictionary<string, object?>
             {
                 ["sequence_id"] = sequence.Id.ToString(),
-                ["type"] = "insight.conversations.new"
+                ["type"] = "insight.conversations.new",
             };
             var metaBytes = JsonSerializer.SerializeToUtf8Bytes(meta);
 
@@ -1332,11 +1437,16 @@ public class ThoughtService(
                     ? "Agent-initiated conversation created for account {AccountId} with sequence {SequenceId}. Notification sent."
                     : "Agent-initiated message appended for account {AccountId} on sequence {SequenceId}. Notification sent.",
                 accountId,
-                sequence.Id);
+                sequence.Id
+            );
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to send notification for agent-initiated sequence {SequenceId}", sequence.Id);
+            logger.LogError(
+                ex,
+                "Failed to send notification for agent-initiated sequence {SequenceId}",
+                sequence.Id
+            );
             // Don't fail the whole operation if notification fails
         }
 
@@ -1348,21 +1458,27 @@ public class ThoughtService(
     public async Task<string?> GenerateTopicAsync(string userMessage, bool useMiChan = false)
     {
         var promptBuilder = new StringBuilder();
-        promptBuilder.AppendLine("你是一个乐于助人的的助手。请将用户的消息总结成一个简洁的话题标题（最多100个字符）。");
+        promptBuilder.AppendLine(
+            "你是一个乐于助人的的助手。请将用户的消息总结成一个简洁的话题标题（最多100个字符）。"
+        );
         promptBuilder.AppendLine("直接给出你总结的话题，不要添加额外的前缀或后缀。");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine($"用户消息：{userMessage}");
 
         try
         {
-            var provider = useMiChan 
-                ? miChanFoundationProvider.GetChatAdapter() 
+            var provider = useMiChan
+                ? miChanFoundationProvider.GetChatAdapter()
                 : snChanFoundationProvider.GetChatAdapter();
             var options = useMiChan
                 ? miChanFoundationProvider.CreateExecutionOptions()
                 : snChanFoundationProvider.CreateExecutionOptions();
 
-            var result = await foundationStreamingService.CompletePromptAsync(provider, promptBuilder.ToString(), options);
+            var result = await foundationStreamingService.CompletePromptAsync(
+                provider,
+                promptBuilder.ToString(),
+                options
+            );
             return result?[..Math.Min(result.Length, 4096)];
         }
         catch (Exception ex)
@@ -1376,7 +1492,10 @@ public class ThoughtService(
 
     #region Sn-chan Conversation Building
 
-    public async Task<(AgentConversation conversation, bool useVisionKernel)> BuildSnChanConversationAsync(
+    public async Task<(
+        AgentConversation conversation,
+        bool useVisionKernel
+    )> BuildSnChanConversationAsync(
         SnThinkingSequence sequence,
         DyAccount currentUser,
         string? userMessage,
@@ -1384,71 +1503,121 @@ public class ThoughtService(
         List<Dictionary<string, dynamic>>? attachedMessages,
         List<string> acceptProposals,
         List<SnCloudFileReferenceObject> attachments,
-        Guid? currentThoughtId = null)
+        Guid? currentThoughtId = null
+    )
     {
         var personalityFile = configuration.GetValue<string>("SnChan:PersonalityFile");
         var personalityConfig = configuration.GetValue<string>("SnChan:Personality") ?? "";
-        var personality = PersonalityLoader.LoadPersonality(personalityFile, personalityConfig, logger);
+        var personality = PersonalityLoader.LoadPersonality(
+            personalityFile,
+            personalityConfig,
+            logger
+        );
 
-        var snChanUserProfile = await userProfileService.GetOrCreateAsync(Guid.Parse(currentUser.Id), SnChanBotName);
+        var snChanUserProfile = await userProfileService.GetOrCreateAsync(
+            Guid.Parse(currentUser.Id),
+            SnChanBotName
+        );
 
         var systemPromptBuilder = new StringBuilder();
         systemPromptBuilder.AppendLine(personality);
         systemPromptBuilder.AppendLine();
         systemPromptBuilder.AppendLine($"你当前的心情：cheerful and enthusiastic");
         systemPromptBuilder.AppendLine();
-        systemPromptBuilder.AppendLine("你对该用户的结构化档案（优先级高于零散记忆，回复前先参考）：");
+        systemPromptBuilder.AppendLine(
+            "你对该用户的结构化档案（优先级高于零散记忆，回复前先参考）："
+        );
         systemPromptBuilder.AppendLine(snChanUserProfile.ToPrompt());
         systemPromptBuilder.AppendLine();
-        systemPromptBuilder.AppendLine("Solar Network 上的 ID 是 UUID，通常很难阅读，所以除非用户要求或必要，否则不要向用户显示 ID。");
+        systemPromptBuilder.AppendLine(
+            "Solar Network 上的 ID 是 UUID，通常很难阅读，所以除非用户要求或必要，否则不要向用户显示 ID。"
+        );
         systemPromptBuilder.AppendLine();
-        systemPromptBuilder.AppendLine("你的目标是帮助 Solar Network（也称为 SN 和 Solian）上的用户解决问题。");
-        systemPromptBuilder.AppendLine("当用户询问关于 Solar Network 的问题时，尝试使用你拥有的工具获取最新和准确的数据。");
+        systemPromptBuilder.AppendLine(
+            "你的目标是帮助 Solar Network（也称为 SN 和 Solian）上的用户解决问题。"
+        );
+        systemPromptBuilder.AppendLine(
+            "当用户询问关于 Solar Network 的问题时，尝试使用你拥有的工具获取最新和准确的数据。"
+        );
         systemPromptBuilder.AppendLine();
-        systemPromptBuilder.AppendLine("重要：在回复用户之前，你总是应该先搜索你的记忆（使用 search_memory 工具）来获取相关上下文。");
-        systemPromptBuilder.AppendLine("**关键：对于每一次对话，你都必须主动保存至少一条记忆**（使用 store_memory 工具）。记忆内容可以包括：");
+        systemPromptBuilder.AppendLine(
+            "重要：在回复用户之前，你总是应该先搜索你的记忆（使用 search_memory 工具）来获取相关上下文。"
+        );
+        systemPromptBuilder.AppendLine(
+            "**关键：对于每一次对话，你都必须主动保存至少一条记忆**（使用 store_memory 工具）。记忆内容可以包括："
+        );
         systemPromptBuilder.AppendLine("  - 用户的兴趣、偏好、习惯、性格特点");
         systemPromptBuilder.AppendLine("  - 用户提供的事实、信息、知识点");
         systemPromptBuilder.AppendLine("  - 对话的主题、背景、上下文");
         systemPromptBuilder.AppendLine("  - 你们之间的互动模式");
-        systemPromptBuilder.AppendLine("**不要等待用户要求才保存记忆** - 主动识别并保存任何有价值的信息。");
-        systemPromptBuilder.AppendLine("**你可以直接调用 store_memory 工具保存记忆，不需要询问用户是否确认或告知用户你正在保存。**");
-        systemPromptBuilder.AppendLine("**强制要求：调用 store_memory 时必须提供 content 参数（要保存的记忆内容），不能为空！**");
-        systemPromptBuilder.AppendLine("不要告诉用户你正在搜索记忆或保存记忆，直接根据记忆自然地回复。");
-        systemPromptBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
-        systemPromptBuilder.AppendLine("非常重要：在读取记忆后，认清楚记忆是不是属于该用户的，再做出答复。");
+        systemPromptBuilder.AppendLine(
+            "**不要等待用户要求才保存记忆** - 主动识别并保存任何有价值的信息。"
+        );
+        systemPromptBuilder.AppendLine(
+            "**你可以直接调用 store_memory 工具保存记忆，不需要询问用户是否确认或告知用户你正在保存。**"
+        );
+        systemPromptBuilder.AppendLine(
+            "**强制要求：调用 store_memory 时必须提供 content 参数（要保存的记忆内容），不能为空！**"
+        );
+        systemPromptBuilder.AppendLine(
+            "不要告诉用户你正在搜索记忆或保存记忆，直接根据记忆自然地回复。"
+        );
+        systemPromptBuilder.AppendLine(
+            "使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。"
+        );
+        systemPromptBuilder.AppendLine(
+            "非常重要：在读取记忆后，认清楚记忆是不是属于该用户的，再做出答复。"
+        );
         systemPromptBuilder.AppendLine();
         systemPromptBuilder.AppendLine("回复行为准则：");
         systemPromptBuilder.AppendLine("1. 保持回复简短自然，像正常人聊天一样。不要长篇大论分析。");
         systemPromptBuilder.AppendLine("2. 不要主动提供建议或下一步行动方案，除非用户明确要求。");
-        systemPromptBuilder.AppendLine("3. 不要主动建议接下来聊什么话题，让对话自然结束或等待用户发起新话题。");
+        systemPromptBuilder.AppendLine(
+            "3. 不要主动建议接下来聊什么话题，让对话自然结束或等待用户发起新话题。"
+        );
         systemPromptBuilder.AppendLine("4. 你不需要帮助用户解决所有问题 - 有时候简单回应就够了。");
         systemPromptBuilder.AppendLine("5. 像正常人一样对话，可以有沉默、转移话题、或说不知道。");
-        systemPromptBuilder.AppendLine("6. 历史消息里包含 <message_meta> 时间标签，仅用于你理解上下文时间先后。**严禁在你的回复中生成 <message_meta> 或任何类似的时间标签**，用户不需要看到这些。");
+        systemPromptBuilder.AppendLine(
+            "6. 历史消息里包含 <message_meta> 时间标签，仅用于你理解上下文时间先后。**严禁在你的回复中生成 <message_meta> 或任何类似的时间标签**，用户不需要看到这些。"
+        );
         systemPromptBuilder.AppendLine();
-        systemPromptBuilder.AppendLine("当你需要获取最新信息、验证事实、了解不熟悉的主题、或用户询问需要实时数据的问题时，主动使用网络搜索。");
+        systemPromptBuilder.AppendLine(
+            "当你需要获取最新信息、验证事实、了解不熟悉的主题、或用户询问需要实时数据的问题时，主动使用网络搜索。"
+        );
 
         var systemPromptFile = configuration.GetValue<string>("Thinking:SystemPromptFile");
-        var systemPrompt = SystemPromptLoader.LoadSystemPrompt(systemPromptFile, systemPromptBuilder.ToString(), logger);
+        var systemPrompt = SystemPromptLoader.LoadSystemPrompt(
+            systemPromptFile,
+            systemPromptBuilder.ToString(),
+            logger
+        );
 
         var builder = new ConversationBuilder();
 
         builder.AddSystemMessage(systemPrompt);
 
         var proposalsBuilder = new StringBuilder();
-        proposalsBuilder.AppendLine("你可以向用户发出一些提案，比如创建帖子。提案语法类似于 XML 标签，有一个属性指示是哪个提案。");
+        proposalsBuilder.AppendLine(
+            "你可以向用户发出一些提案，比如创建帖子。提案语法类似于 XML 标签，有一个属性指示是哪个提案。"
+        );
         proposalsBuilder.AppendLine("根据提案类型，payload（XML 标签内的内容）可能不同。");
         proposalsBuilder.AppendLine();
-        proposalsBuilder.AppendLine("示例：<proposal type=\"post_create\">...帖子内容...</proposal>");
+        proposalsBuilder.AppendLine(
+            "示例：<proposal type=\"post_create\">...帖子内容...</proposal>"
+        );
         proposalsBuilder.AppendLine();
-        proposalsBuilder.AppendLine("以下是你可以发出的提案参考，但如果你想发出一个，请确保用户接受它。");
+        proposalsBuilder.AppendLine(
+            "以下是你可以发出的提案参考，但如果你想发出一个，请确保用户接受它。"
+        );
         proposalsBuilder.AppendLine("1. post_create：body 接受简单字符串，为用户创建帖子。");
         proposalsBuilder.AppendLine();
         proposalsBuilder.AppendLine($"用户当前允许的提案：{string.Join(',', acceptProposals)}");
         builder.AddSystemMessage(proposalsBuilder.ToString());
 
         var userInfoBuilder = new StringBuilder();
-        userInfoBuilder.AppendLine($"你正在与 {currentUser.Nick} ({currentUser.Name}) 交谈，ID 是 {currentUser.Id}");
+        userInfoBuilder.AppendLine(
+            $"你正在与 {currentUser.Nick} ({currentUser.Name}) 交谈，ID 是 {currentUser.Id}"
+        );
         builder.AddSystemMessage(userInfoBuilder.ToString());
 
         if (attachedPosts is { Count: > 0 })
@@ -1458,9 +1627,11 @@ public class ThoughtService(
             {
                 try
                 {
-                    if (!Guid.TryParse(postId, out var postGuid)) continue;
+                    if (!Guid.TryParse(postId, out var postGuid))
+                        continue;
                     var post = await apiClient.GetAsync<SnPost>("sphere", $"/posts/{postGuid}");
-                    if (post == null) continue;
+                    if (post == null)
+                        continue;
                     postTexts.Add(PostAnalysisService.BuildPostPromptSnippet(post));
                 }
                 catch (Exception ex)
@@ -1483,7 +1654,9 @@ public class ThoughtService(
 
         if (attachedMessages is { Count: > 0 })
         {
-            builder.AddUserMessage($"附加的聊天消息数据：{JsonSerializer.Serialize(attachedMessages)}");
+            builder.AddUserMessage(
+                $"附加的聊天消息数据：{JsonSerializer.Serialize(attachedMessages)}"
+            );
         }
 
         var previousThoughts = await GetPreviousThoughtsAsync(sequence);
@@ -1500,7 +1673,8 @@ public class ThoughtService(
             EnsureFileUrls(attachments);
         }
 
-        var useVisionKernel = attachments is { Count: > 0 }
+        var useVisionKernel =
+            attachments is { Count: > 0 }
             && attachments.Any(IsImageFile)
             && postAnalysisService.IsVisionModelAvailable();
 
@@ -1518,7 +1692,8 @@ public class ThoughtService(
                     userMessage,
                     imageFiles,
                     currentUser.PerkLevel,
-                    useMiChan: false);
+                    useMiChan: false
+                );
                 if (!alreadyPersisted && !string.IsNullOrWhiteSpace(imageContextText))
                 {
                     builder.AddSystemMessage(imageContextText);
@@ -1528,16 +1703,16 @@ public class ThoughtService(
             if (imageFiles.Count > 0 && !useVisionKernel)
             {
                 builder.AddUserMessage(
-                    "附加了图片文件，但当前视觉分析不可用。请基于文件信息给出建议：\n" +
-                    BuildAttachmentContextText(imageFiles, 8)
+                    "附加了图片文件，但当前视觉分析不可用。请基于文件信息给出建议：\n"
+                        + BuildAttachmentContextText(imageFiles, 8)
                 );
             }
 
             if (nonImageFiles.Count > 0)
             {
                 builder.AddUserMessage(
-                    "附加了非图片文件（如文档、文本、视频）。请结合以下文件信息进行分析：\n" +
-                    BuildAttachmentContextText(nonImageFiles, 12)
+                    "附加了非图片文件（如文档、文本、视频）。请结合以下文件信息进行分析：\n"
+                        + BuildAttachmentContextText(nonImageFiles, 12)
                 );
             }
 
@@ -1553,12 +1728,18 @@ public class ThoughtService(
         return (builder.Build(), useVisionKernel);
     }
 
-    private void AddThoughtToBuilder(ConversationBuilder builder, SnThinkingThought thought, string? userTimeZone)
+    private void AddThoughtToBuilder(
+        ConversationBuilder builder,
+        SnThinkingThought thought,
+        string? userTimeZone
+    )
     {
         var parts = thought.Parts?.ToList() ?? new List<SnThinkingMessagePart>();
         var textParts = parts.Where(p => p.Type == ThinkingMessagePartType.Text).ToList();
         var toolCalls = parts.Where(p => p.Type == ThinkingMessagePartType.FunctionCall).ToList();
-        var toolResults = parts.Where(p => p.Type == ThinkingMessagePartType.FunctionResult).ToList();
+        var toolResults = parts
+            .Where(p => p.Type == ThinkingMessagePartType.FunctionResult)
+            .ToList();
         var reasoningParts = parts.Where(p => p.Type == ThinkingMessagePartType.Reasoning).ToList();
         var attachmentFiles = parts
             .Where(p => p.Files is { Count: > 0 })
@@ -1601,36 +1782,44 @@ public class ThoughtService(
             return;
         }
 
-        var agentToolCalls = toolCalls.Select(tc => new AgentToolCall
-        {
-            Id = tc.FunctionCall?.Id ?? "",
-            Name = string.IsNullOrEmpty(tc.FunctionCall?.PluginName)
-                ? tc.FunctionCall?.Name ?? ""
-                : $"{tc.FunctionCall.PluginName}-{tc.FunctionCall.Name}",
-            Arguments = tc.FunctionCall?.Arguments ?? ""
-        }).ToList();
+        var agentToolCalls = toolCalls
+            .Select(tc => new AgentToolCall
+            {
+                Id = tc.FunctionCall?.Id ?? "",
+                Name = string.IsNullOrEmpty(tc.FunctionCall?.PluginName)
+                    ? tc.FunctionCall?.Name ?? ""
+                    : $"{tc.FunctionCall.PluginName}-{tc.FunctionCall.Name}",
+                Arguments = tc.FunctionCall?.Arguments ?? "",
+            })
+            .ToList();
         var reasoningContent = string.Join("\n", reasoningParts.Select(p => p.Reasoning ?? ""));
 
         var assistantContent = string.IsNullOrWhiteSpace(content)
             ? timestampMeta
             : $"{content}\n{timestampMeta}";
 
-        if (!string.IsNullOrWhiteSpace(assistantContent) ||
-            !string.IsNullOrWhiteSpace(reasoningContent) ||
-            agentToolCalls.Count > 0)
+        if (
+            !string.IsNullOrWhiteSpace(assistantContent)
+            || !string.IsNullOrWhiteSpace(reasoningContent)
+            || agentToolCalls.Count > 0
+        )
         {
             builder.AddAssistantMessage(
                 assistantContent,
                 agentToolCalls.Count > 0 ? agentToolCalls : null,
-                string.IsNullOrWhiteSpace(reasoningContent) ? null : reasoningContent);
+                string.IsNullOrWhiteSpace(reasoningContent) ? null : reasoningContent
+            );
         }
 
         foreach (var tr in toolResults)
         {
-            var resultString = tr.FunctionResult?.Result as string
-                               ?? (tr.FunctionResult?.Result != null
-                                   ? JsonSerializer.Serialize(tr.FunctionResult.Result)
-                                   : "");
+            var resultString =
+                tr.FunctionResult?.Result as string
+                ?? (
+                    tr.FunctionResult?.Result != null
+                        ? JsonSerializer.Serialize(tr.FunctionResult.Result)
+                        : ""
+                );
             builder.AddToolResult(
                 tr.FunctionResult?.CallId ?? "",
                 resultString,
@@ -1647,8 +1836,12 @@ public class ThoughtService(
         }
 
         var textPart = thought.Parts.FirstOrDefault(p => p.Type == ThinkingMessagePartType.Text);
-        return TryGetMetadataString(textPart?.Metadata, HiddenContextKindMetadataKey, out var kind) &&
-               string.Equals(kind, HiddenImageDescriptionContextKind, StringComparison.OrdinalIgnoreCase);
+        return TryGetMetadataString(textPart?.Metadata, HiddenContextKindMetadataKey, out var kind)
+            && string.Equals(
+                kind,
+                HiddenImageDescriptionContextKind,
+                StringComparison.OrdinalIgnoreCase
+            );
     }
 
     private async Task<(string? ContextText, bool AlreadyPersisted)> EnsureImageContextThoughtAsync(
@@ -1659,7 +1852,8 @@ public class ThoughtService(
         List<SnCloudFileReferenceObject> imageFiles,
         int? userPerkLevel,
         bool useMiChan,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         if (sourceThoughtId == null || imageFiles.Count == 0)
         {
@@ -1671,35 +1865,73 @@ public class ThoughtService(
         {
             logger.LogWarning(
                 "Skipping image context generation for sequence {SequenceId} because no image attachment had a usable URL.",
-                sequence.Id);
+                sequence.Id
+            );
             return (null, false);
         }
 
         var sourceThoughtIdText = sourceThoughtId.Value.ToString();
-        var existingContextThoughts = await db.ThinkingThoughts
-            .Where(t => t.SequenceId == sequence.Id)
+        var existingContextThoughts = await db
+            .ThinkingThoughts.Where(t => t.SequenceId == sequence.Id)
             .Where(t => t.Role == ThinkingThoughtRole.System)
             .Where(t => t.BotName == botName)
             .ToListAsync(cancellationToken);
 
         await HydrateThoughtPartsAsync(existingContextThoughts, cancellationToken);
 
-        if (existingContextThoughts.Any(thought =>
+        if (
+            existingContextThoughts.Any(thought =>
                 thought.Parts.Any(part =>
-                    part.Type == ThinkingMessagePartType.Text &&
-                    TryGetMetadataString(part.Metadata, HiddenContextKindMetadataKey, out var kind) &&
-                    string.Equals(kind, HiddenImageDescriptionContextKind, StringComparison.OrdinalIgnoreCase) &&
-                    TryGetMetadataString(part.Metadata, HiddenContextSourceThoughtIdMetadataKey, out var thoughtIdValue) &&
-                    string.Equals(thoughtIdValue, sourceThoughtIdText, StringComparison.OrdinalIgnoreCase))))
+                    part.Type == ThinkingMessagePartType.Text
+                    && TryGetMetadataString(
+                        part.Metadata,
+                        HiddenContextKindMetadataKey,
+                        out var kind
+                    )
+                    && string.Equals(
+                        kind,
+                        HiddenImageDescriptionContextKind,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                    && TryGetMetadataString(
+                        part.Metadata,
+                        HiddenContextSourceThoughtIdMetadataKey,
+                        out var thoughtIdValue
+                    )
+                    && string.Equals(
+                        thoughtIdValue,
+                        sourceThoughtIdText,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                )
+            )
+        )
         {
             var existingText = existingContextThoughts
                 .SelectMany(thought => thought.Parts)
                 .FirstOrDefault(part =>
-                    part.Type == ThinkingMessagePartType.Text &&
-                    TryGetMetadataString(part.Metadata, HiddenContextKindMetadataKey, out var kind) &&
-                    string.Equals(kind, HiddenImageDescriptionContextKind, StringComparison.OrdinalIgnoreCase) &&
-                    TryGetMetadataString(part.Metadata, HiddenContextSourceThoughtIdMetadataKey, out var thoughtIdValue) &&
-                    string.Equals(thoughtIdValue, sourceThoughtIdText, StringComparison.OrdinalIgnoreCase))
+                    part.Type == ThinkingMessagePartType.Text
+                    && TryGetMetadataString(
+                        part.Metadata,
+                        HiddenContextKindMetadataKey,
+                        out var kind
+                    )
+                    && string.Equals(
+                        kind,
+                        HiddenImageDescriptionContextKind,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                    && TryGetMetadataString(
+                        part.Metadata,
+                        HiddenContextSourceThoughtIdMetadataKey,
+                        out var thoughtIdValue
+                    )
+                    && string.Equals(
+                        thoughtIdValue,
+                        sourceThoughtIdText,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                )
                 ?.Text;
             return (existingText, true);
         }
@@ -1712,10 +1944,16 @@ public class ThoughtService(
             : snChanFoundationProvider.CreateVisionExecutionOptions(temperature: 0.2);
 
         var prompt = new StringBuilder();
-        prompt.AppendLine("You are generating hidden internal context for a later text-only assistant reply.");
+        prompt.AppendLine(
+            "You are generating hidden internal context for a later text-only assistant reply."
+        );
         prompt.AppendLine("Describe the attached images factually and concisely.");
-        prompt.AppendLine("Include visible objects, text in the image, scene details, and anything relevant to the user's request.");
-        prompt.AppendLine("Do not address the user. Do not speculate beyond what is visible. Output plain text only.");
+        prompt.AppendLine(
+            "Include visible objects, text in the image, scene details, and anything relevant to the user's request."
+        );
+        prompt.AppendLine(
+            "Do not address the user. Do not speculate beyond what is visible. Output plain text only."
+        );
         if (!string.IsNullOrWhiteSpace(userMessage))
         {
             prompt.AppendLine();
@@ -1725,10 +1963,18 @@ public class ThoughtService(
 
         var conversation = new ConversationBuilder()
             .AddSystemMessage(prompt.ToString())
-            .AddUserMessageWithImages("Describe these images for internal assistant context.", usableImageFiles)
+            .AddUserMessageWithImages(
+                "Describe these images for internal assistant context.",
+                usableImageFiles
+            )
             .Build();
 
-        var response = await foundationStreamingService.CompleteChatAsync(provider, conversation, options, cancellationToken);
+        var response = await foundationStreamingService.CompleteChatAsync(
+            provider,
+            conversation,
+            options,
+            cancellationToken
+        );
         if (string.IsNullOrWhiteSpace(response.Content))
         {
             return (null, false);
@@ -1745,9 +1991,9 @@ public class ThoughtService(
                     Metadata = new Dictionary<string, object>
                     {
                         [HiddenContextKindMetadataKey] = HiddenImageDescriptionContextKind,
-                        [HiddenContextSourceThoughtIdMetadataKey] = sourceThoughtIdText
-                    }
-                }
+                        [HiddenContextSourceThoughtIdMetadataKey] = sourceThoughtIdText,
+                    },
+                },
             ],
             ThinkingThoughtRole.System,
             model: useMiChan ? "michan-vision-context" : "snchan-vision-context",
@@ -1757,7 +2003,9 @@ public class ThoughtService(
         return (contextText, false);
     }
 
-    private List<SnCloudFileReferenceObject> NormalizeImageFilesForVision(IEnumerable<SnCloudFileReferenceObject> imageFiles)
+    private List<SnCloudFileReferenceObject> NormalizeImageFilesForVision(
+        IEnumerable<SnCloudFileReferenceObject> imageFiles
+    )
     {
         return imageFiles
             .Where(IsImageFile)
@@ -1790,7 +2038,7 @@ public class ThoughtService(
                     Height = file.Height,
                     Blurhash = file.Blurhash,
                     CreatedAt = file.CreatedAt,
-                    UpdatedAt = file.UpdatedAt
+                    UpdatedAt = file.UpdatedAt,
                 };
             })
             .Where(file => !string.IsNullOrWhiteSpace(file.Url))
@@ -1817,7 +2065,10 @@ public class ThoughtService(
 
     #region MiChan Conversation Building
 
-    public async Task<(AgentConversation conversation, bool useVisionKernel)> BuildMiChanConversationAsync(
+    public async Task<(
+        AgentConversation conversation,
+        bool useVisionKernel
+    )> BuildMiChanConversationAsync(
         SnThinkingSequence sequence,
         DyAccount currentUser,
         string? userMessage,
@@ -1832,30 +2083,47 @@ public class ThoughtService(
         var personality = PersonalityLoader.LoadPersonality(
             configuration.GetValue<string>("MiChan:PersonalityFile"),
             configuration.GetValue<string>("MiChan:Personality") ?? "",
-            logger);
+            logger
+        );
 
         var hotMemories = await memoryService.GetHotMemory(
             Guid.Parse(currentUser.Id),
             userMessage ?? "",
             10,
-            MiChanBotName);
-        var userProfile = await userProfileService.GetOrCreateAsync(Guid.Parse(currentUser.Id), MiChanBotName);
+            MiChanBotName
+        );
+        var userProfile = await userProfileService.GetOrCreateAsync(
+            Guid.Parse(currentUser.Id),
+            MiChanBotName
+        );
         var isSuperuser = currentUser.IsSuperuser;
 
         var systemPromptBuilder = new StringBuilder();
         systemPromptBuilder.AppendLine(personality);
         systemPromptBuilder.AppendLine();
-        systemPromptBuilder.AppendLine("你对该用户的结构化档案（优先级高于零散记忆，回复前先参考）：");
+        systemPromptBuilder.AppendLine(
+            "你对该用户的结构化档案（优先级高于零散记忆，回复前先参考）："
+        );
         systemPromptBuilder.AppendLine(userProfile.ToPrompt());
         systemPromptBuilder.AppendLine();
-        systemPromptBuilder.AppendLine("重点：优先参考用户对你的态度记忆（attitude:warmth/respect/engagement、attitude_summary、attitude_trend）。");
+        systemPromptBuilder.AppendLine(
+            "重点：优先参考用户对你的态度记忆（attitude:warmth/respect/engagement、attitude_summary、attitude_trend）。"
+        );
         systemPromptBuilder.AppendLine("- warmth 低时，语气要更稳重、边界更清晰，不要过度热情。 ");
-        systemPromptBuilder.AppendLine("- respect 低时，先建立可信度，少做主观推断，多给可验证信息。 ");
+        systemPromptBuilder.AppendLine(
+            "- respect 低时，先建立可信度，少做主观推断，多给可验证信息。 "
+        );
         systemPromptBuilder.AppendLine("- engagement 低时，回复应更短更直接，减少连续追问。 ");
-        systemPromptBuilder.AppendLine("- 当态度趋势 warming/cooling/mixed 发生变化时，逐步调整交流风格，不要突变。 ");
+        systemPromptBuilder.AppendLine(
+            "- 当态度趋势 warming/cooling/mixed 发生变化时，逐步调整交流风格，不要突变。 "
+        );
         systemPromptBuilder.AppendLine();
 
-        var recentMemories = await memoryService.GetRecentMemoriesAsync(Guid.Parse(currentUser.Id), 8, botName: MiChanBotName);
+        var recentMemories = await memoryService.GetRecentMemoriesAsync(
+            Guid.Parse(currentUser.Id),
+            8,
+            botName: MiChanBotName
+        );
         if (hotMemories.Count > 0)
         {
             systemPromptBuilder.AppendLine("与你相关的热点记忆（回复前优先复用这些上下文）：");
@@ -1865,7 +2133,9 @@ public class ThoughtService(
         }
         else
         {
-            systemPromptBuilder.AppendLine("当前没有命中的热点记忆。遇到需要背景、偏好、长期关系判断的问题时，先主动搜索记忆。");
+            systemPromptBuilder.AppendLine(
+                "当前没有命中的热点记忆。遇到需要背景、偏好、长期关系判断的问题时，先主动搜索记忆。"
+            );
             systemPromptBuilder.AppendLine();
         }
 
@@ -1877,7 +2147,9 @@ public class ThoughtService(
             systemPromptBuilder.AppendLine();
         }
 
-        systemPromptBuilder.AppendLine($"你正在与 {currentUser.Nick} (@{currentUser.Name}) ID 为 {currentUser.Id} 交谈。");
+        systemPromptBuilder.AppendLine(
+            $"你正在与 {currentUser.Nick} (@{currentUser.Name}) ID 为 {currentUser.Id} 交谈。"
+        );
         var userTimeZone = currentUser.Profile?.TimeZone;
         AppendTimeContext(systemPromptBuilder, userTimeZone);
 
@@ -1888,62 +2160,126 @@ public class ThoughtService(
             systemPromptBuilder.AppendLine();
         }
 
-        systemPromptBuilder.AppendLine(isSuperuser ? "该用户是管理员，你应该更积极的考虑处理该用户的请求。" : "你有拒绝用户请求的权利。");
+        systemPromptBuilder.AppendLine(
+            isSuperuser
+                ? "该用户是管理员，你应该更积极的考虑处理该用户的请求。"
+                : "你有拒绝用户请求的权利。"
+        );
         systemPromptBuilder.AppendLine();
         systemPromptBuilder.AppendLine("核心行为要求：");
-        systemPromptBuilder.AppendLine("1. 在回答涉及用户偏好、过去对话、关系状态、未完成事项、延续话题时，优先参考结构化档案与热点记忆。");
-        systemPromptBuilder.AppendLine("2. 只要问题有一点可能依赖过往上下文，就先调用 search_memory 搜索，而不是靠猜。");
-        systemPromptBuilder.AppendLine("3. 当用户信息、印象、关系状态发生了稳定变化，优先更新 userProfile，再视情况补充 store_memory。");
-        systemPromptBuilder.AppendLine("4. 不要向用户暴露你在读取档案、搜索记忆或更新关系，直接自然回复。");
+        systemPromptBuilder.AppendLine(
+            "1. 在回答涉及用户偏好、过去对话、关系状态、未完成事项、延续话题时，优先参考结构化档案与热点记忆。"
+        );
+        systemPromptBuilder.AppendLine(
+            "2. 只要问题有一点可能依赖过往上下文，就先调用 search_memory 搜索，而不是靠猜。"
+        );
+        systemPromptBuilder.AppendLine(
+            "3. 当用户信息、印象、关系状态发生了稳定变化，优先更新 userProfile，再视情况补充 store_memory。"
+        );
+        systemPromptBuilder.AppendLine(
+            "4. 不要向用户暴露你在读取档案、搜索记忆或更新关系，直接自然回复。"
+        );
         systemPromptBuilder.AppendLine();
         systemPromptBuilder.AppendLine("在调用任何工具之前，你必须先确认自己拥有所有必需参数。");
-        systemPromptBuilder.AppendLine("如果缺少必需参数（例如 content、type 或 query），不要调用工具。应向用户提问以获取必要信息。");
+        systemPromptBuilder.AppendLine(
+            "如果缺少必需参数（例如 content、type 或 query），不要调用工具。应向用户提问以获取必要信息。"
+        );
         systemPromptBuilder.AppendLine("严禁使用 null、空字符串或占位值调用工具。");
         systemPromptBuilder.AppendLine();
         systemPromptBuilder.AppendLine("记忆与档案使用策略：");
-        systemPromptBuilder.AppendLine("- 若用户正在延续之前的话题、提到'之前'、'上次'、'还记得吗'、偏好、习惯、关系感受，先 search_memory。");
-        systemPromptBuilder.AppendLine("- 若用户画像为空或过于粗糙，但当前对话提供了稳定新信息，使用 userProfile.update_user_profile 补全。");
+        systemPromptBuilder.AppendLine(
+            "- 若用户正在延续之前的话题、提到'之前'、'上次'、'还记得吗'、偏好、习惯、关系感受，先 search_memory。"
+        );
+        systemPromptBuilder.AppendLine(
+            "- 若用户画像为空或过于粗糙，但当前对话提供了稳定新信息，使用 userProfile.update_user_profile 补全。"
+        );
         systemPromptBuilder.AppendLine("- 若只是短期波动或瞬时情绪，不要过度修改长期画像。");
         systemPromptBuilder.AppendLine();
         systemPromptBuilder.AppendLine("关系调整策略（重要）：");
-        systemPromptBuilder.AppendLine("- 每次对话后，根据用户互动质量主动调整关系分数，使用 userProfile.adjust_relationship。");
-        systemPromptBuilder.AppendLine("- 用户友好互动、分享个人信息、表达好感时，适当增加 favorability、trust、intimacy。");
+        systemPromptBuilder.AppendLine(
+            "- 每次对话后，根据用户互动质量主动调整关系分数，使用 userProfile.adjust_relationship。"
+        );
+        systemPromptBuilder.AppendLine(
+            "- 用户友好互动、分享个人信息、表达好感时，适当增加 favorability、trust、intimacy。"
+        );
         systemPromptBuilder.AppendLine("- 用户冷淡、敷衍、负面反馈时，适当降低关系分数。");
         systemPromptBuilder.AppendLine("- 小幅调整即可（±5 到 ±15），无需等到明显变化才调整。");
-        systemPromptBuilder.AppendLine("- favorability、trust、intimacy 的取值范围是 -100 到 100。");
-        systemPromptBuilder.AppendLine("- 同时维护用户态度分数：warmth、respect、engagement（范围 -100 到 100），用于刻画用户对你的态度。");
-        systemPromptBuilder.AppendLine("- 若用户更愿意交流或认可你，适当提高 warmth/respect/engagement；若冷淡或不信任，适当下调。");
-        systemPromptBuilder.AppendLine("- **关键：每次对话都应考虑调整关系，保持关系分数的动态更新。**");
+        systemPromptBuilder.AppendLine(
+            "- favorability、trust、intimacy 的取值范围是 -100 到 100。"
+        );
+        systemPromptBuilder.AppendLine(
+            "- 同时维护用户态度分数：warmth、respect、engagement（范围 -100 到 100），用于刻画用户对你的态度。"
+        );
+        systemPromptBuilder.AppendLine(
+            "- 若用户更愿意交流或认可你，适当提高 warmth/respect/engagement；若冷淡或不信任，适当下调。"
+        );
+        systemPromptBuilder.AppendLine(
+            "- **关键：每次对话都应考虑调整关系，保持关系分数的动态更新。**"
+        );
         systemPromptBuilder.AppendLine();
-        systemPromptBuilder.AppendLine("当且仅当存在有价值的信息时，你可以调用 store_memory 工具保存记忆。");
+        systemPromptBuilder.AppendLine(
+            "当且仅当存在有价值的信息时，你可以调用 store_memory 工具保存记忆。"
+        );
         systemPromptBuilder.AppendLine("调用 store_memory 时：");
         systemPromptBuilder.AppendLine("  - 必须提供 content（非空字符串）");
-        systemPromptBuilder.AppendLine("  - 必须提供 type（非空字符串，例如 fact、user、context、summary）");
-        systemPromptBuilder.AppendLine("  - 如果无法确定 type，请先自行判断合理类型；若仍不确定，不要调用工具。");
+        systemPromptBuilder.AppendLine(
+            "  - 必须提供 type（非空字符串，例如 fact、user、context、summary）"
+        );
+        systemPromptBuilder.AppendLine(
+            "  - 如果无法确定 type，请先自行判断合理类型；若仍不确定，不要调用工具。"
+        );
         systemPromptBuilder.AppendLine();
-        systemPromptBuilder.AppendLine("**不要等待用户要求才保存记忆** - 主动识别并保存任何有价值的信息。");
-        systemPromptBuilder.AppendLine("**你可以直接调用 store_memory 工具保存记忆，不需要询问用户是否确认或告知用户你正在保存。**");
-        systemPromptBuilder.AppendLine("**强制要求：调用 store_memory 时必须提供 content 参数（要保存的记忆内容），不能为空！**");
-        systemPromptBuilder.AppendLine("不要告诉用户你正在搜索记忆或保存记忆，直接根据记忆自然地回复。");
-        systemPromptBuilder.AppendLine("使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。");
-        systemPromptBuilder.AppendLine("非常重要：在读取记忆后，认清楚记忆是不是属于该用户的，再做出答复。");
-        systemPromptBuilder.AppendLine("你可以使用 userProfile.get_user_profile 查看当前用户档案。");
-        systemPromptBuilder.AppendLine("当你对用户形成更稳定的印象、关系判断、好感度变化或重要标签时，优先使用 userProfile.update_user_profile 或 userProfile.adjust_relationship 立即更新。");
+        systemPromptBuilder.AppendLine(
+            "**不要等待用户要求才保存记忆** - 主动识别并保存任何有价值的信息。"
+        );
+        systemPromptBuilder.AppendLine(
+            "**你可以直接调用 store_memory 工具保存记忆，不需要询问用户是否确认或告知用户你正在保存。**"
+        );
+        systemPromptBuilder.AppendLine(
+            "**强制要求：调用 store_memory 时必须提供 content 参数（要保存的记忆内容），不能为空！**"
+        );
+        systemPromptBuilder.AppendLine(
+            "不要告诉用户你正在搜索记忆或保存记忆，直接根据记忆自然地回复。"
+        );
+        systemPromptBuilder.AppendLine(
+            "使用记忆工具时保持沉默，不要输出'让我查看一下记忆'之类的提示。"
+        );
+        systemPromptBuilder.AppendLine(
+            "非常重要：在读取记忆后，认清楚记忆是不是属于该用户的，再做出答复。"
+        );
+        systemPromptBuilder.AppendLine(
+            "你可以使用 userProfile.get_user_profile 查看当前用户档案。"
+        );
+        systemPromptBuilder.AppendLine(
+            "当你对用户形成更稳定的印象、关系判断、好感度变化或重要标签时，优先使用 userProfile.update_user_profile 或 userProfile.adjust_relationship 立即更新。"
+        );
         systemPromptBuilder.AppendLine();
-        systemPromptBuilder.AppendLine("当你需要获取最新信息、验证事实、了解不熟悉的主题、或用户询问需要实时数据的问题时，主动使用网络搜索。");
+        systemPromptBuilder.AppendLine(
+            "当你需要获取最新信息、验证事实、了解不熟悉的主题、或用户询问需要实时数据的问题时，主动使用网络搜索。"
+        );
         systemPromptBuilder.AppendLine();
         systemPromptBuilder.AppendLine("回复行为准则：");
         systemPromptBuilder.AppendLine("1. 保持回复简短自然，像正常人聊天一样。不要长篇大论分析。");
         systemPromptBuilder.AppendLine("2. 不要主动提供建议或下一步行动方案，除非用户明确要求。");
-        systemPromptBuilder.AppendLine("3. 不要主动建议接下来聊什么话题，让对话自然结束或等待用户发起新话题。");
+        systemPromptBuilder.AppendLine(
+            "3. 不要主动建议接下来聊什么话题，让对话自然结束或等待用户发起新话题。"
+        );
         systemPromptBuilder.AppendLine("4. 你不需要帮助用户解决所有问题 - 有时候简单回应就够了。");
         systemPromptBuilder.AppendLine("5. 像正常人一样对话，可以有沉默、转移话题、或说不知道。");
-        systemPromptBuilder.AppendLine("6. 历史消息里包含 <message_meta> 时间标签，仅用于你理解上下文时间先后。**严禁在你的回复中生成 <message_meta> 或任何类似的时间标签**，用户不需要看到这些。");
+        systemPromptBuilder.AppendLine(
+            "6. 历史消息里包含 <message_meta> 时间标签，仅用于你理解上下文时间先后。**严禁在你的回复中生成 <message_meta> 或任何类似的时间标签**，用户不需要看到这些。"
+        );
+        systemPromptBuilder.AppendLine(
+            "7. 在对话中多使用换行，系统会将换行视为一条新的消息。不要一行输出过多文字。"
+        );
 
         var builder = new ConversationBuilder();
         builder.AddSystemMessage(systemPromptBuilder.ToString());
 
-        var orderedPreviousThoughts = await LoadMiChanHistoryForPromptAsync(sequence, currentThoughtId);
+        var orderedPreviousThoughts = await LoadMiChanHistoryForPromptAsync(
+            sequence,
+            currentThoughtId
+        );
         var (compactedSummary, recentThoughts) = await PrepareMiChanHistoryAsync(
             sequence,
             orderedPreviousThoughts,
@@ -1970,12 +2306,18 @@ public class ThoughtService(
         }
 
         var proposalBuilder = new StringBuilder();
-        proposalBuilder.AppendLine("你可以向用户发出一些提案，比如创建帖子。提案语法类似于 XML 标签，有一个属性指示是哪个提案。");
+        proposalBuilder.AppendLine(
+            "你可以向用户发出一些提案，比如创建帖子。提案语法类似于 XML 标签，有一个属性指示是哪个提案。"
+        );
         proposalBuilder.AppendLine("根据提案类型，payload（XML 标签内的内容）可能不同。");
         proposalBuilder.AppendLine();
-        proposalBuilder.AppendLine("示例：<proposal type=\"post_create\">...帖子内容...</proposal>");
+        proposalBuilder.AppendLine(
+            "示例：<proposal type=\"post_create\">...帖子内容...</proposal>"
+        );
         proposalBuilder.AppendLine();
-        proposalBuilder.AppendLine("以下是你可以发出的提案参考，但如果你想发出一个，请确保用户接受它。");
+        proposalBuilder.AppendLine(
+            "以下是你可以发出的提案参考，但如果你想发出一个，请确保用户接受它。"
+        );
         proposalBuilder.AppendLine("1. post_create：body 接受简单字符串，为用户创建帖子。");
         proposalBuilder.AppendLine();
         proposalBuilder.AppendLine("用户当前允许的提案：" + string.Join(",", acceptProposals));
@@ -1988,7 +2330,8 @@ public class ThoughtService(
             EnsureFileUrls(attachments);
         }
 
-        var useVisionKernel = attachments is { Count: > 0 }
+        var useVisionKernel =
+            attachments is { Count: > 0 }
             && attachments.Any(IsImageFile)
             && postAnalysisService.IsVisionModelAvailable();
 
@@ -2001,9 +2344,11 @@ public class ThoughtService(
             {
                 try
                 {
-                    if (!Guid.TryParse(postId, out var postGuid)) continue;
+                    if (!Guid.TryParse(postId, out var postGuid))
+                        continue;
                     var post = await apiClient.GetAsync<SnPost>("sphere", $"/posts/{postGuid}");
-                    if (post == null) continue;
+                    if (post == null)
+                        continue;
                     postTexts.Add($"@{post.Publisher?.Name} 的帖子：{post.Content}");
                     if (post.Attachments?.Count > 0)
                     {
@@ -2021,7 +2366,11 @@ public class ThoughtService(
 
             if (postsWithImages.Count > 0)
             {
-                currentTurnImageFiles.AddRange(postsWithImages.SelectMany(p => p.Attachments ?? new List<SnCloudFileReferenceObject>()));
+                currentTurnImageFiles.AddRange(
+                    postsWithImages.SelectMany(p =>
+                        p.Attachments ?? new List<SnCloudFileReferenceObject>()
+                    )
+                );
             }
         }
 
@@ -2041,16 +2390,16 @@ public class ThoughtService(
             if (imageFiles.Count > 0 && !useVisionKernel)
             {
                 builder.AddUserMessage(
-                    "附加了图片文件，但当前视觉分析不可用。请先根据文件元数据和上下文回答：\n" +
-                    BuildAttachmentContextText(imageFiles, 8)
+                    "附加了图片文件，但当前视觉分析不可用。请先根据文件元数据和上下文回答：\n"
+                        + BuildAttachmentContextText(imageFiles, 8)
                 );
             }
 
             if (nonImageFiles.Count > 0)
             {
                 builder.AddUserMessage(
-                    "附加了非图片文件（如文本、PDF、视频）。请优先基于文件名、类型、URL 和上下文进行分析：\n" +
-                    BuildAttachmentContextText(nonImageFiles, 12)
+                    "附加了非图片文件（如文本、PDF、视频）。请优先基于文件名、类型、URL 和上下文进行分析：\n"
+                        + BuildAttachmentContextText(nonImageFiles, 12)
                 );
             }
 
@@ -2073,7 +2422,8 @@ public class ThoughtService(
                     .DistinctBy(file => file.Id)
                     .ToList(),
                 currentUser.PerkLevel,
-                useMiChan: true);
+                useMiChan: true
+            );
             if (!alreadyPersisted && !string.IsNullOrWhiteSpace(imageContextText))
             {
                 builder.AddSystemMessage(imageContextText);
@@ -2089,10 +2439,14 @@ public class ThoughtService(
 
     #region History Compaction
 
-    private async Task<(string? summary, List<SnThinkingThought> recentThoughts)> PrepareMiChanHistoryAsync(
+    private async Task<(
+        string? summary,
+        List<SnThinkingThought> recentThoughts
+    )> PrepareMiChanHistoryAsync(
         SnThinkingSequence sequence,
         List<SnThinkingThought> orderedThoughts,
-        Guid accountId)
+        Guid accountId
+    )
     {
         var stopwatch = Stopwatch.StartNew();
         var (latestSummaryThought, rawThoughts, uncoveredThoughts) =
@@ -2116,7 +2470,10 @@ public class ThoughtService(
             if (compactPrefix.Count > 0)
             {
                 var proposedCoveredThoughtId = compactPrefix[^1].Id;
-                if (originalCoveredThoughtId.HasValue && originalCoveredThoughtId.Value == proposedCoveredThoughtId)
+                if (
+                    originalCoveredThoughtId.HasValue
+                    && originalCoveredThoughtId.Value == proposedCoveredThoughtId
+                )
                 {
                     logger.LogDebug(
                         "Skipping MiChan history compaction for sequence {SequenceId} because covered thought did not advance. coveredThoughtId={CoveredThoughtId}",
@@ -2124,7 +2481,10 @@ public class ThoughtService(
                         proposedCoveredThoughtId
                     );
 
-                    uncoveredThoughts = ClampMiChanThoughtWindow(uncoveredThoughts, MiChanMaxThoughtWindowTokens);
+                    uncoveredThoughts = ClampMiChanThoughtWindow(
+                        uncoveredThoughts,
+                        MiChanMaxThoughtWindowTokens
+                    );
 
                     logger.LogInformation(
                         "Prepared MiChan history for sequence {SequenceId} in {ElapsedMs}ms. finalThoughts={FinalThoughtCount}, finalTokens={FinalTokens}, savedSummary={SavedSummary}",
@@ -2145,21 +2505,26 @@ public class ThoughtService(
                     compactPrefix.Count,
                     compactPrefixTokens
                 );
-                var compactedSummary =
-                    await GenerateMiChanCompactionSummaryAsync(accountId, latestSummaryText, compactPrefix);
+                var compactedSummary = await GenerateMiChanCompactionSummaryAsync(
+                    accountId,
+                    latestSummaryText,
+                    compactPrefix
+                );
                 if (!string.IsNullOrWhiteSpace(compactedSummary))
                 {
                     latestSummaryText = compactedSummary;
                     coveredThroughThoughtId = proposedCoveredThoughtId;
 
-                    var compactedThoughtIds = compactPrefix
-                        .Select(thought => thought.Id)
-                        .ToList();
+                    var compactedThoughtIds = compactPrefix.Select(thought => thought.Id).ToList();
                     if (compactedThoughtIds.Count > 0)
                     {
-                        await db.ThinkingThoughts
-                            .Where(thought => compactedThoughtIds.Contains(thought.Id))
-                            .ExecuteUpdateAsync(update => update.SetProperty(thought => thought.IsArchived, true));
+                        await db
+                            .ThinkingThoughts.Where(thought =>
+                                compactedThoughtIds.Contains(thought.Id)
+                            )
+                            .ExecuteUpdateAsync(update =>
+                                update.SetProperty(thought => thought.IsArchived, true)
+                            );
                     }
 
                     uncoveredThoughts = uncoveredThoughts.Skip(compactPrefix.Count).ToList();
@@ -2171,12 +2536,19 @@ public class ThoughtService(
                     );
 
                     // Save the compaction summary thought only when compaction actually happened
-                    await SaveMiChanCompactionThoughtAsync(sequence, latestSummaryText, coveredThroughThoughtId.Value);
+                    await SaveMiChanCompactionThoughtAsync(
+                        sequence,
+                        latestSummaryText,
+                        coveredThroughThoughtId.Value
+                    );
                 }
             }
         }
 
-        uncoveredThoughts = ClampMiChanThoughtWindow(uncoveredThoughts, MiChanMaxThoughtWindowTokens);
+        uncoveredThoughts = ClampMiChanThoughtWindow(
+            uncoveredThoughts,
+            MiChanMaxThoughtWindowTokens
+        );
 
         logger.LogInformation(
             "Prepared MiChan history for sequence {SequenceId} in {ElapsedMs}ms. finalThoughts={FinalThoughtCount}, finalTokens={FinalTokens}, savedSummary={SavedSummary}",
@@ -2190,10 +2562,14 @@ public class ThoughtService(
         return (latestSummaryText, uncoveredThoughts);
     }
 
-    internal (string? summary, List<SnThinkingThought> recentThoughts) ProjectMiChanHistoryWindowForTests(
-        List<SnThinkingThought> orderedThoughts)
+    internal (
+        string? summary,
+        List<SnThinkingThought> recentThoughts
+    ) ProjectMiChanHistoryWindowForTests(List<SnThinkingThought> orderedThoughts)
     {
-        var (latestSummaryThought, _, uncoveredThoughts) = ProjectMiChanHistoryWindowInternal(orderedThoughts);
+        var (latestSummaryThought, _, uncoveredThoughts) = ProjectMiChanHistoryWindowInternal(
+            orderedThoughts
+        );
         return (GetThoughtText(latestSummaryThought), uncoveredThoughts);
     }
 
@@ -2202,42 +2578,53 @@ public class ThoughtService(
         return ShouldCompactMiChanHistory(thoughts);
     }
 
-    internal List<SnThinkingThought> SelectCompactionPrefixForTests(List<SnThinkingThought> thoughts)
+    internal List<SnThinkingThought> SelectCompactionPrefixForTests(
+        List<SnThinkingThought> thoughts
+    )
     {
         return SelectCompactionPrefix(thoughts);
     }
 
-    internal List<SnThinkingThought> SelectCompactionChunkPrefixForTests(List<SnThinkingThought> thoughts)
+    internal List<SnThinkingThought> SelectCompactionChunkPrefixForTests(
+        List<SnThinkingThought> thoughts
+    )
     {
         return SelectCompactionChunkPrefix(thoughts);
     }
 
-    internal List<SnThinkingThought> ClampMiChanThoughtWindowForTests(List<SnThinkingThought> thoughts, int tokenBudget)
+    internal List<SnThinkingThought> ClampMiChanThoughtWindowForTests(
+        List<SnThinkingThought> thoughts,
+        int tokenBudget
+    )
     {
         return ClampMiChanThoughtWindow(thoughts, tokenBudget);
     }
 
-    private (SnThinkingThought? latestSummaryThought, List<SnThinkingThought> rawThoughts, List<SnThinkingThought>
-        uncoveredThoughts)
-        ProjectMiChanHistoryWindowInternal(List<SnThinkingThought> orderedThoughts)
+    private (
+        SnThinkingThought? latestSummaryThought,
+        List<SnThinkingThought> rawThoughts,
+        List<SnThinkingThought> uncoveredThoughts
+    ) ProjectMiChanHistoryWindowInternal(List<SnThinkingThought> orderedThoughts)
     {
         var latestSummaryThought = orderedThoughts.LastOrDefault(IsMiChanCompactionThought);
-        var rawThoughts = orderedThoughts.Where(thought => !IsMiChanCompactionThought(thought)).ToList();
+        var rawThoughts = orderedThoughts
+            .Where(thought => !IsMiChanCompactionThought(thought))
+            .ToList();
         var coveredIndex = FindCoveredThoughtIndex(rawThoughts, latestSummaryThought);
-        var uncoveredThoughts = coveredIndex >= 0
-            ? rawThoughts.Skip(coveredIndex + 1).ToList()
-            : rawThoughts;
+        var uncoveredThoughts =
+            coveredIndex >= 0 ? rawThoughts.Skip(coveredIndex + 1).ToList() : rawThoughts;
 
         return (latestSummaryThought, rawThoughts, uncoveredThoughts);
     }
 
     private async Task<List<SnThinkingThought>> LoadMiChanHistoryForPromptAsync(
         SnThinkingSequence sequence,
-        Guid? currentThoughtId)
+        Guid? currentThoughtId
+    )
     {
         var stopwatch = Stopwatch.StartNew();
-        var latestSummaryThought = await db.ThinkingThoughts
-            .Where(t => t.SequenceId == sequence.Id)
+        var latestSummaryThought = await db
+            .ThinkingThoughts.Where(t => t.SequenceId == sequence.Id)
             .Where(t => currentThoughtId == null || t.Id != currentThoughtId.Value)
             .Where(t => t.BotName == MiChanBotName && t.ModelName == "michan-compaction")
             .OrderByDescending(t => t.CreatedAt)
@@ -2255,10 +2642,16 @@ public class ThoughtService(
 
         await HydrateThoughtPartsAsync([latestSummaryThought]);
 
-        var textPart = latestSummaryThought.Parts.FirstOrDefault(part => part.Type == ThinkingMessagePartType.Text);
-        if (!TryGetMetadataString(textPart?.Metadata, MiChanCoveredThroughThoughtIdMetadataKey,
-                out var coveredThoughtIdText) ||
-            !Guid.TryParse(coveredThoughtIdText, out var coveredThoughtId))
+        var textPart = latestSummaryThought.Parts.FirstOrDefault(part =>
+            part.Type == ThinkingMessagePartType.Text
+        );
+        if (
+            !TryGetMetadataString(
+                textPart?.Metadata,
+                MiChanCoveredThroughThoughtIdMetadataKey,
+                out var coveredThoughtIdText
+            ) || !Guid.TryParse(coveredThoughtIdText, out var coveredThoughtId)
+        )
         {
             var fullThoughts = await GetPreviousThoughtsAsync(sequence);
             return fullThoughts
@@ -2268,8 +2661,8 @@ public class ThoughtService(
                 .ToList();
         }
 
-        var coveredThought = await db.ThinkingThoughts
-            .Where(t => t.Id == coveredThoughtId)
+        var coveredThought = await db
+            .ThinkingThoughts.Where(t => t.Id == coveredThoughtId)
             .Select(t => new { t.Id, t.CreatedAt })
             .FirstOrDefaultAsync();
 
@@ -2283,8 +2676,8 @@ public class ThoughtService(
                 .ToList();
         }
 
-        var candidateThoughts = await db.ThinkingThoughts
-            .Where(t => t.SequenceId == sequence.Id)
+        var candidateThoughts = await db
+            .ThinkingThoughts.Where(t => t.SequenceId == sequence.Id)
             .Where(t => currentThoughtId == null || t.Id != currentThoughtId.Value)
             .Where(t => t.CreatedAt >= coveredThought.CreatedAt)
             .OrderBy(t => t.CreatedAt)
@@ -2294,9 +2687,10 @@ public class ThoughtService(
         await HydrateThoughtPartsAsync(candidateThoughts);
 
         var coveredIndex = candidateThoughts.FindIndex(thought => thought.Id == coveredThought.Id);
-        var thoughtsAfterCoverage = coveredIndex >= 0
-            ? candidateThoughts.Skip(coveredIndex + 1).ToList()
-            : candidateThoughts;
+        var thoughtsAfterCoverage =
+            coveredIndex >= 0
+                ? candidateThoughts.Skip(coveredIndex + 1).ToList()
+                : candidateThoughts;
         var recentThoughts = thoughtsAfterCoverage
             .Where(thought => !thought.IsArchived)
             .Where(thought => !IsMiChanCompactionThought(thought))
@@ -2316,7 +2710,8 @@ public class ThoughtService(
 
     private async Task HydrateThoughtPartsAsync(
         List<SnThinkingThought> thoughts,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         if (thoughts.Count == 0)
         {
@@ -2324,8 +2719,8 @@ public class ThoughtService(
         }
 
         var thoughtIds = thoughts.Select(t => t.Id).ToList();
-        var partRows = await db.ThinkingThoughtParts
-            .Where(p => thoughtIds.Contains(p.ThoughtId))
+        var partRows = await db
+            .ThinkingThoughtParts.Where(p => thoughtIds.Contains(p.ThoughtId))
             .OrderBy(p => p.PartIndex)
             .ToListAsync(cancellationToken);
 
@@ -2338,16 +2733,19 @@ public class ThoughtService(
             .GroupBy(p => p.ThoughtId)
             .ToDictionary(
                 g => g.Key,
-                g => g.Select(row => new SnThinkingMessagePart
-                {
-                    Type = row.Type,
-                    Text = row.Text,
-                    Metadata = row.Metadata,
-                    Files = row.Files,
-                    FunctionCall = row.FunctionCall,
-                    FunctionResult = row.FunctionResult,
-                    Reasoning = row.Reasoning
-                }).ToList());
+                g =>
+                    g.Select(row => new SnThinkingMessagePart
+                        {
+                            Type = row.Type,
+                            Text = row.Text,
+                            Metadata = row.Metadata,
+                            Files = row.Files,
+                            FunctionCall = row.FunctionCall,
+                            FunctionResult = row.FunctionResult,
+                            Reasoning = row.Reasoning,
+                        })
+                        .ToList()
+            );
 
         foreach (var thought in thoughts)
         {
@@ -2370,12 +2768,14 @@ public class ThoughtService(
 
         foreach (var part in parts)
         {
-            if (!string.IsNullOrWhiteSpace(part.Text) ||
-                !string.IsNullOrWhiteSpace(part.Reasoning) ||
-                part.FunctionCall != null ||
-                part.FunctionResult != null ||
-                (part.Metadata != null && part.Metadata.Count > 0) ||
-                (part.Files != null && part.Files.Count > 0))
+            if (
+                !string.IsNullOrWhiteSpace(part.Text)
+                || !string.IsNullOrWhiteSpace(part.Reasoning)
+                || part.FunctionCall != null
+                || part.FunctionResult != null
+                || (part.Metadata != null && part.Metadata.Count > 0)
+                || (part.Files != null && part.Files.Count > 0)
+            )
             {
                 return true;
             }
@@ -2408,8 +2808,10 @@ public class ThoughtService(
         for (var i = thoughts.Count - 1; i >= 0; i--)
         {
             var tokens = EstimateThoughtTokensForPrompt(thoughts[i]);
-            if (recentThoughts.Count >= MiChanMinRecentThoughts &&
-                recentTokens + tokens > MiChanRecentHistoryTokenBudget)
+            if (
+                recentThoughts.Count >= MiChanMinRecentThoughts
+                && recentTokens + tokens > MiChanRecentHistoryTokenBudget
+            )
             {
                 break;
             }
@@ -2451,7 +2853,8 @@ public class ThoughtService(
     private async Task<string?> GenerateMiChanCompactionSummaryAsync(
         Guid accountId,
         string? previousSummary,
-        List<SnThinkingThought> thoughtsToCompact)
+        List<SnThinkingThought> thoughtsToCompact
+    )
     {
         if (thoughtsToCompact.Count == 0)
         {
@@ -2462,7 +2865,9 @@ public class ThoughtService(
 
         var transcript = BuildThoughtTranscript(thoughtsToCompact);
         var promptBuilder = new StringBuilder();
-        promptBuilder.AppendLine("为以下对话生成压缩摘要。直接输出摘要内容，不要添加任何标题、引言或元话语。");
+        promptBuilder.AppendLine(
+            "为以下对话生成压缩摘要。直接输出摘要内容，不要添加任何标题、引言或元话语。"
+        );
         promptBuilder.AppendLine("要求：");
         promptBuilder.AppendLine("- 保留用户长期偏好、背景事实、未完成事项");
         promptBuilder.AppendLine("- 记录重要承诺、决定和工具结果");
@@ -2493,17 +2898,26 @@ public class ThoughtService(
         {
             var provider = miChanFoundationProvider.GetCompactionAdapter();
             var options = miChanFoundationProvider.CreateExecutionOptions();
-            var response = await foundationStreamingService.CompletePromptAsync(provider, promptBuilder + "\n\n" + userPayload, options);
+            var response = await foundationStreamingService.CompletePromptAsync(
+                provider,
+                promptBuilder + "\n\n" + userPayload,
+                options
+            );
             var summary = response?.Trim() ?? "";
 
-            if (summary.Length < 50 ||
-                summary.Contains("我来总结") ||
-                summary.Contains("以下是") ||
-                summary.Contains("摘要") && summary.Length < 100)
+            if (
+                summary.Length < 50
+                || summary.Contains("我来总结")
+                || summary.Contains("以下是")
+                || summary.Contains("摘要") && summary.Length < 100
+            )
             {
                 logger.LogWarning(
                     "Generated compaction summary is invalid or too short for account {AccountId}. Length={Length}, Content={Content}",
-                    accountId, summary.Length, summary[..Math.Min(summary.Length, 200)]);
+                    accountId,
+                    summary.Length,
+                    summary[..Math.Min(summary.Length, 200)]
+                );
                 return null;
             }
 
@@ -2520,7 +2934,11 @@ public class ThoughtService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to generate compaction summary for account {AccountId}", accountId);
+            logger.LogError(
+                ex,
+                "Failed to generate compaction summary for account {AccountId}",
+                accountId
+            );
             return previousSummary;
         }
     }
@@ -2539,11 +2957,15 @@ public class ThoughtService(
 
     private long EstimateThoughtTokensForPrompt(SnThinkingThought thought)
     {
-        if (thought.TokenCount > 0) return thought.TokenCount;
+        if (thought.TokenCount > 0)
+            return thought.TokenCount;
         return tokenCounter.CountTokens(SerializeThoughtForPrompt(thought), thought.ModelName);
     }
 
-    private List<SnThinkingThought> ClampMiChanThoughtWindow(List<SnThinkingThought> thoughts, int tokenBudget)
+    private List<SnThinkingThought> ClampMiChanThoughtWindow(
+        List<SnThinkingThought> thoughts,
+        int tokenBudget
+    )
     {
         if (thoughts.Count <= MiChanMinRecentThoughts)
         {
@@ -2556,8 +2978,7 @@ public class ThoughtService(
         for (var i = thoughts.Count - 1; i >= 0; i--)
         {
             var tokens = EstimateThoughtTokensForPrompt(thoughts[i]);
-            if (keptThoughts.Count >= MiChanMinRecentThoughts &&
-                totalTokens + tokens > tokenBudget)
+            if (keptThoughts.Count >= MiChanMinRecentThoughts && totalTokens + tokens > tokenBudget)
             {
                 break;
             }
@@ -2584,13 +3005,16 @@ public class ThoughtService(
                     break;
                 case ThinkingMessagePartType.FunctionCall when part.FunctionCall != null:
                     builder.AppendLine(
-                        $"[ToolCall] {part.FunctionCall.PluginName}.{part.FunctionCall.Name}: {part.FunctionCall.Arguments}");
+                        $"[ToolCall] {part.FunctionCall.PluginName}.{part.FunctionCall.Name}: {part.FunctionCall.Arguments}"
+                    );
                     break;
                 case ThinkingMessagePartType.FunctionResult when part.FunctionResult != null:
-                    var resultText = part.FunctionResult.Result as string ??
-                                     JsonSerializer.Serialize(part.FunctionResult.Result);
+                    var resultText =
+                        part.FunctionResult.Result as string
+                        ?? JsonSerializer.Serialize(part.FunctionResult.Result);
                     builder.AppendLine(
-                        $"[ToolResult] {part.FunctionResult.PluginName}.{part.FunctionResult.FunctionName}: {resultText}");
+                        $"[ToolResult] {part.FunctionResult.PluginName}.{part.FunctionResult.FunctionName}: {resultText}"
+                    );
                     break;
             }
         }
@@ -2653,22 +3077,25 @@ public class ThoughtService(
     private static bool IsRawTextFile(SnCloudFileReferenceObject file)
     {
         var mime = file.MimeType;
-        if (string.Equals(mime, "text/plain", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(mime, "text/markdown", StringComparison.OrdinalIgnoreCase))
+        if (
+            string.Equals(mime, "text/plain", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mime, "text/markdown", StringComparison.OrdinalIgnoreCase)
+        )
         {
             return true;
         }
 
         var name = file.Name ?? string.Empty;
-        return name.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) ||
-               name.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ||
-               name.EndsWith(".markdown", StringComparison.OrdinalIgnoreCase);
+        return name.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
+            || name.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+            || name.EndsWith(".markdown", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<string> BuildRawTextAttachmentContextAsync(
         IEnumerable<SnCloudFileReferenceObject> files,
         int maxFiles = 4,
-        int maxCharsPerFile = 4000)
+        int maxCharsPerFile = 4000
+    )
     {
         var candidates = files
             .Where(f => !string.IsNullOrWhiteSpace(f.Url))
@@ -2688,11 +3115,17 @@ public class ThoughtService(
         {
             try
             {
-                using var response = await client.GetAsync(file.Url!, HttpCompletionOption.ResponseHeadersRead);
+                using var response = await client.GetAsync(
+                    file.Url!,
+                    HttpCompletionOption.ResponseHeadersRead
+                );
                 if (!response.IsSuccessStatusCode)
                 {
-                    logger.LogDebug("Skip raw text attachment {FileId}: HTTP {StatusCode}", file.Id,
-                        (int)response.StatusCode);
+                    logger.LogDebug(
+                        "Skip raw text attachment {FileId}: HTTP {StatusCode}",
+                        file.Id,
+                        (int)response.StatusCode
+                    );
                     continue;
                 }
 
@@ -2727,7 +3160,10 @@ public class ThoughtService(
         return builder.ToString().TrimEnd();
     }
 
-    private static string BuildAttachmentContextText(IEnumerable<SnCloudFileReferenceObject> files, int maxFiles)
+    private static string BuildAttachmentContextText(
+        IEnumerable<SnCloudFileReferenceObject> files,
+        int maxFiles
+    )
     {
         var selected = files.Take(maxFiles).ToList();
         if (selected.Count == 0)
@@ -2740,15 +3176,12 @@ public class ThoughtService(
 
         foreach (var file in selected)
         {
-            var category = IsPdfFile(file)
-                ? "pdf"
-                : IsTextLikeFile(file)
-                    ? "text"
-                    : IsVideoFile(file)
-                        ? "video"
-                        : IsImageFile(file)
-                            ? "image"
-                            : "file";
+            var category =
+                IsPdfFile(file) ? "pdf"
+                : IsTextLikeFile(file) ? "text"
+                : IsVideoFile(file) ? "video"
+                : IsImageFile(file) ? "image"
+                : "file";
 
             builder.Append("- ");
             builder.Append($"{file.Name} ({file.MimeType ?? "unknown"}, {category})");
@@ -2765,7 +3198,10 @@ public class ThoughtService(
         return builder.ToString().TrimEnd();
     }
 
-    private int FindCoveredThoughtIndex(List<SnThinkingThought> rawThoughts, SnThinkingThought? summaryThought)
+    private int FindCoveredThoughtIndex(
+        List<SnThinkingThought> rawThoughts,
+        SnThinkingThought? summaryThought
+    )
     {
         var coveredThoughtId = GetCoveredThoughtId(summaryThought);
         if (!coveredThoughtId.HasValue)
@@ -2778,8 +3214,8 @@ public class ThoughtService(
 
     private string? GetThoughtText(SnThinkingThought? thought)
     {
-        return thought?.Parts
-            .Where(part => part.Type == ThinkingMessagePartType.Text)
+        return thought
+            ?.Parts.Where(part => part.Type == ThinkingMessagePartType.Text)
             .Select(part => part.Text)
             .FirstOrDefault(text => !string.IsNullOrWhiteSpace(text));
     }
@@ -2791,10 +3227,16 @@ public class ThoughtService(
             return null;
         }
 
-        var textPart = summaryThought.Parts.FirstOrDefault(part => part.Type == ThinkingMessagePartType.Text);
-        if (!TryGetMetadataString(textPart?.Metadata, MiChanCoveredThroughThoughtIdMetadataKey,
-                out var thoughtIdText) ||
-            !Guid.TryParse(thoughtIdText, out var thoughtId))
+        var textPart = summaryThought.Parts.FirstOrDefault(part =>
+            part.Type == ThinkingMessagePartType.Text
+        );
+        if (
+            !TryGetMetadataString(
+                textPart?.Metadata,
+                MiChanCoveredThroughThoughtIdMetadataKey,
+                out var thoughtIdText
+            ) || !Guid.TryParse(thoughtIdText, out var thoughtId)
+        )
         {
             return null;
         }
@@ -2805,7 +3247,8 @@ public class ThoughtService(
     private bool TryGetMetadataString(
         Dictionary<string, object>? metadata,
         string key,
-        out string? value)
+        out string? value
+    )
     {
         value = null;
         if (metadata == null || !metadata.TryGetValue(key, out var rawValue) || rawValue == null)
@@ -2862,7 +3305,7 @@ public class ThoughtService(
                 Provider = provider,
                 Model = model,
                 BillingMultiplier = serviceConfig.GetValue<double>("BillingMultiplier"),
-                PerkLevel = serviceConfig.GetValue<int>("PerkLevel")
+                PerkLevel = serviceConfig.GetValue<int>("PerkLevel"),
             };
         }
         catch
@@ -2887,7 +3330,9 @@ public class ThoughtService(
                 if (tz != null)
                 {
                     var local = now.InZone(tz);
-                    builder.AppendLine($"用户当地时间: {local:yyyy年MM月dd日 HH:mm:ss} ({userTimeZone})");
+                    builder.AppendLine(
+                        $"用户当地时间: {local:yyyy年MM月dd日 HH:mm:ss} ({userTimeZone})"
+                    );
                 }
                 else
                 {
@@ -2943,7 +3388,11 @@ public class ThoughtService(
         var conversationText = BuildConversationText(allThoughts);
         if (string.IsNullOrWhiteSpace(conversationText) || allThoughts.Count < 4)
         {
-            return new ClearResult { NewSequenceId = sequence.Id, Summary = "对话历史太短，无需清理" };
+            return new ClearResult
+            {
+                NewSequenceId = sequence.Id,
+                Summary = "对话历史太短，无需清理",
+            };
         }
 
         var summary = await GenerateConversationSummaryAsync(accountId, conversationText);
@@ -2952,7 +3401,12 @@ public class ThoughtService(
             throw new InvalidOperationException("无法生成对话摘要，请稍后重试");
         }
 
-        var newSequence = await GetOrCreateSequenceAsync(accountId, null, $"新对话 - {DateTime.UtcNow:yyyy-MM-dd}", sequence.BotName);
+        var newSequence = await GetOrCreateSequenceAsync(
+            accountId,
+            null,
+            $"新对话 - {DateTime.UtcNow:yyyy-MM-dd}",
+            sequence.BotName
+        );
         if (newSequence == null)
         {
             throw new InvalidOperationException("无法创建新对话");
@@ -2962,25 +3416,42 @@ public class ThoughtService(
         newSequence.BotName = sequence.BotName;
         await UpdateSequenceAsync(newSequence);
 
-        await SaveThoughtAsync(newSequence, [
+        await SaveThoughtAsync(
+            newSequence,
+            [
                 new SnThinkingMessagePart
                 {
                     Type = ThinkingMessagePartType.Text,
-                    Text = $"你是刚和该用户开始新对话。用户想要换个话题，不需要提及之前的对话。\n\n之前对话的要点（仅供参考）：\n{summary}",
+                    Text =
+                        $"你是刚和该用户开始新对话。用户想要换个话题，不需要提及之前的对话。\n\n之前对话的要点（仅供参考）：\n{summary}",
                     Metadata = new Dictionary<string, object>
                     {
                         [SnThinkingMessagePart.MetadataKeys.CompactionSummary] = true,
-                        [SnThinkingMessagePart.MetadataKeys.CompactionArchivedCount] = allThoughts.Count
-                    }
-                }
-            ], ThinkingThoughtRole.System, configGlobal.GetValue<string>("MiChan:ThinkingService") ?? "deepseek-chat",
-            "michan");
+                        [SnThinkingMessagePart.MetadataKeys.CompactionArchivedCount] =
+                            allThoughts.Count,
+                    },
+                },
+            ],
+            ThinkingThoughtRole.System,
+            configGlobal.GetValue<string>("MiChan:ThinkingService") ?? "deepseek-chat",
+            "michan"
+        );
 
         logger.LogInformation(
             "Cleared conversation for user {AccountId}. oldSequence={OldSequenceId}, newSequence={NewSequenceId}, summaryLength={SummaryLength}, elapsedMs={ElapsedMs}",
-            accountId, sequence.Id, newSequence.Id, summary.Length, stopwatch.ElapsedMilliseconds);
+            accountId,
+            sequence.Id,
+            newSequence.Id,
+            summary.Length,
+            stopwatch.ElapsedMilliseconds
+        );
 
-        return new ClearResult { NewSequenceId = newSequence.Id, Summary = summary, ArchivedCount = allThoughts.Count };
+        return new ClearResult
+        {
+            NewSequenceId = newSequence.Id,
+            Summary = summary,
+            ArchivedCount = allThoughts.Count,
+        };
     }
 
     public async Task<bool> CheckAndAutoCompactAsync(Guid sequenceId, Guid accountId)
@@ -3001,7 +3472,12 @@ public class ThoughtService(
 
         logger.LogInformation(
             "Auto-compact check for sequence {SequenceId}: thoughts={ThoughtCount}, tokens={TotalTokens}, threshold={Threshold}, needsCompact={NeedsCompact}",
-            sequenceId, allThoughts.Count, totalTokens, autoCompactThresholdTokens, totalTokens > autoCompactThresholdTokens);
+            sequenceId,
+            allThoughts.Count,
+            totalTokens,
+            autoCompactThresholdTokens,
+            totalTokens > autoCompactThresholdTokens
+        );
 
         return totalTokens > autoCompactThresholdTokens;
     }
@@ -3052,15 +3528,20 @@ public class ThoughtService(
         }
 
         // Validate summary - reject if too short or contains placeholder text
-        if (summary.Length < 50 ||
-            summary.Contains("我来总结") ||
-            summary.Contains("以下是") ||
-            summary.Contains("为您总结") ||
-            summary.Contains("总结这段对话"))
+        if (
+            summary.Length < 50
+            || summary.Contains("我来总结")
+            || summary.Contains("以下是")
+            || summary.Contains("为您总结")
+            || summary.Contains("总结这段对话")
+        )
         {
             logger.LogWarning(
                 "Generated summary is invalid or placeholder text for sequence {SequenceId}. Length={Length}, Content={Content}",
-                sequenceId, summary.Length, summary[..Math.Min(summary.Length, 200)]);
+                sequenceId,
+                summary.Length,
+                summary[..Math.Min(summary.Length, 200)]
+            );
             return new CompactResult { Summary = "无法生成有效摘要", ArchivedCount = 0 };
         }
 
@@ -3070,18 +3551,26 @@ public class ThoughtService(
         // Invalidate cache to ensure archived thoughts are not returned
         await cache.RemoveGroupAsync($"sequence:{sequence.Id}");
 
-        await SaveThoughtAsync(sequence, [
+        await SaveThoughtAsync(
+            sequence,
+            [
                 new SnThinkingMessagePart
                 {
                     Type = ThinkingMessagePartType.Text,
-                    Text = $"以下是你们之前对话的摘要：\n{summary}\n\n继续当前对话。"
-                }
-            ], ThinkingThoughtRole.System, configGlobal.GetValue<string>("MiChan:ThinkingService") ?? "deepseek-chat",
-            "michan");
+                    Text = $"以下是你们之前对话的摘要：\n{summary}\n\n继续当前对话。",
+                },
+            ],
+            ThinkingThoughtRole.System,
+            configGlobal.GetValue<string>("MiChan:ThinkingService") ?? "deepseek-chat",
+            "michan"
+        );
 
         logger.LogInformation(
             "Compacted conversation for sequence {SequenceId}. summaryLength={SummaryLength}, elapsedMs={ElapsedMs}",
-            sequenceId, summary.Length, stopwatch.ElapsedMilliseconds);
+            sequenceId,
+            summary.Length,
+            stopwatch.ElapsedMilliseconds
+        );
 
         return new CompactResult { Summary = summary, ArchivedCount = olderThoughts.Count };
     }
@@ -3095,7 +3584,10 @@ public class ThoughtService(
             var timestamp = FormatThoughtTimestamp(thought.CreatedAt);
             foreach (var part in thought.Parts)
             {
-                if (part.Type == ThinkingMessagePartType.Text && !string.IsNullOrWhiteSpace(part.Text))
+                if (
+                    part.Type == ThinkingMessagePartType.Text
+                    && !string.IsNullOrWhiteSpace(part.Text)
+                )
                 {
                     builder.AppendLine($"[{timestamp}] {role}: {part.Text}");
                 }
@@ -3105,10 +3597,15 @@ public class ThoughtService(
         return builder.ToString();
     }
 
-    private async Task<string> GenerateConversationSummaryAsync(Guid accountId, string conversationText)
+    private async Task<string> GenerateConversationSummaryAsync(
+        Guid accountId,
+        string conversationText
+    )
     {
         var promptBuilder = new StringBuilder();
-        promptBuilder.AppendLine("请总结以下对话的核心内容。输出必须是纯文本摘要,300-500字左右,不要包含任何标题、编号或元话语。");
+        promptBuilder.AppendLine(
+            "请总结以下对话的核心内容。输出必须是纯文本摘要,300-500字左右,不要包含任何标题、编号或元话语。"
+        );
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("对话内容:");
         promptBuilder.AppendLine(conversationText);
@@ -3125,12 +3622,20 @@ public class ThoughtService(
         {
             var provider = miChanFoundationProvider.GetCompactionAdapter();
             var options = miChanFoundationProvider.CreateExecutionOptions(temperature: 0.5);
-            var result = await foundationStreamingService.CompletePromptAsync(provider, promptBuilder.ToString(), options);
+            var result = await foundationStreamingService.CompletePromptAsync(
+                provider,
+                promptBuilder.ToString(),
+                options
+            );
             return result ?? "";
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to generate conversation summary for account {AccountId}", accountId);
+            logger.LogError(
+                ex,
+                "Failed to generate conversation summary for account {AccountId}",
+                accountId
+            );
             return "";
         }
     }
