@@ -98,6 +98,8 @@ Request settings:
 | `enable_tools` | `false` |
 | `thinking` | `false` |
 | `reasoning_effort` | `low` |
+| effective temperature | at least `0.95` |
+| effective max tokens | at least `1800` |
 | deadline | 10 seconds |
 
 Tools and persistence are disabled because check-in fortune generation should be a bounded copywriting task, not an autonomous action or memory update.
@@ -136,21 +138,21 @@ MiChan must return a directly parseable JSON object with all fields present:
   "fortune_report": {
     "version": 2,
     "poem": "签诗，1到2句，有意象但自然",
-    "summary": "运势总评，60字以内",
-    "summary_detail": "今日建议，120到180字，像巫女基于签位给用户的具体行动建议",
-    "wish": "愿望，40字以内",
-    "love": "爱情，40字以内",
-    "study": "学业，40字以内",
-    "career": "事业，40字以内",
-    "health": "健康，40字以内",
-    "lost_item": "失物，40字以内",
+    "summary": "运势总评，80字以内",
+    "summary_detail": "今日建议，180到260字，像巫女基于签位给用户的具体行动建议",
+    "wish": "愿望，60字以内",
+    "love": "爱情，60字以内",
+    "study": "学业，60字以内",
+    "career": "事业，60字以内",
+    "health": "健康，60字以内",
+    "lost_item": "失物，60字以内",
     "lucky_color": "幸运色，短词",
     "lucky_direction": "幸运方位，短词",
     "lucky_time": "幸运时段，短词",
     "lucky_item": "幸运小物，短词",
-    "lucky_action": "今日宜做，40字以内",
-    "avoid_action": "今日忌做，40字以内",
-    "ritual": "小仪式，60字以内"
+    "lucky_action": "今日宜做，60字以内",
+    "avoid_action": "今日忌做，60字以内",
+    "ritual": "小仪式，80字以内"
   }
 }
 ```

@@ -3,12 +3,12 @@ using System.Text.Json;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
+using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
-using DysonNetwork.Shared.Localization;
 using NodaTime;
 using NodaTime.Extensions;
 
@@ -32,11 +32,15 @@ public class AccountEventService(
 {
     private static readonly Random Random = new();
     private const int FortuneReportVersion = 2;
-    private static readonly JsonSerializerOptions FortuneReportJsonOptions = new(JsonSerializerDefaults.Web)
+    private const int FortuneTipTitleMaxLength = 48;
+    private const int FortuneTipContentMaxLength = 180;
+    private static readonly JsonSerializerOptions FortuneReportJsonOptions = new(
+        JsonSerializerDefaults.Web
+    )
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower,
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
     };
     private const string StatusCacheKey = "account:status:";
     private const string PreviousStatusCacheKey = "account:status:prev:";
@@ -49,7 +53,9 @@ public class AccountEventService(
 
     public async Task<Dictionary<string, bool>> GetAccountIsConnectedBatch(List<Guid> userIds)
     {
-        return await ws.GetWebsocketConnectionStatusBatch(userIds.Select(x => x.ToString()).ToList());
+        return await ws.GetWebsocketConnectionStatusBatch(
+            userIds.Select(x => x.ToString()).ToList()
+        );
     }
 
     public void PurgeStatusCache(Guid userId)
@@ -72,41 +78,50 @@ public class AccountEventService(
         var evt = new AccountPresenceActivitiesUpdatedEvent
         {
             AccountId = accountId,
-            Activities = activities
+            Activities = activities,
         };
 
         await eventBus.PublishAsync(evt);
 
         var friendIds = await relationships.ListAccountFriends(accountId);
-        if (friendIds.Count == 0) return;
+        if (friendIds.Count == 0)
+            return;
 
         await ws.PushWebSocketPacketToUsers(
             friendIds.Select(id => id.ToString()).ToList(),
             WebSocketPacketType.AccountPresenceActivitiesUpdated,
-            InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
-            {
-                ["account_id"] = accountId,
-                ["activities"] = activities,
-                ["timestamp"] = evt.Timestamp
-            }).ToByteArray()
+            InfraObjectCoder
+                .ConvertObjectToByteString(
+                    new Dictionary<string, object>
+                    {
+                        ["account_id"] = accountId,
+                        ["activities"] = activities,
+                        ["timestamp"] = evt.Timestamp,
+                    }
+                )
+                .ToByteArray()
         );
 
-        logger.LogDebug("Broadcast account presence activities update for {AccountId} to {FriendCount} friends", accountId, friendIds.Count);
+        logger.LogDebug(
+            "Broadcast account presence activities update for {AccountId} to {FriendCount} friends",
+            accountId,
+            friendIds.Count
+        );
     }
 
     private static bool PresenceActivityContentEqual(SnPresenceActivity a, SnPresenceActivity b)
     {
-        return a.Type == b.Type &&
-               a.ManualId == b.ManualId &&
-               a.Title == b.Title &&
-               a.Subtitle == b.Subtitle &&
-               a.Caption == b.Caption &&
-               a.LargeImage == b.LargeImage &&
-               a.SmallImage == b.SmallImage &&
-               a.TitleUrl == b.TitleUrl &&
-               a.SubtitleUrl == b.SubtitleUrl &&
-               JsonSerializer.Serialize(a.Meta, InfraObjectCoder.SerializerOptions) ==
-               JsonSerializer.Serialize(b.Meta, InfraObjectCoder.SerializerOptions);
+        return a.Type == b.Type
+            && a.ManualId == b.ManualId
+            && a.Title == b.Title
+            && a.Subtitle == b.Subtitle
+            && a.Caption == b.Caption
+            && a.LargeImage == b.LargeImage
+            && a.SmallImage == b.SmallImage
+            && a.TitleUrl == b.TitleUrl
+            && a.SubtitleUrl == b.SubtitleUrl
+            && JsonSerializer.Serialize(a.Meta, InfraObjectCoder.SerializerOptions)
+                == JsonSerializer.Serialize(b.Meta, InfraObjectCoder.SerializerOptions);
     }
 
     private static SnPresenceActivity ClonePresenceActivity(SnPresenceActivity activity)
@@ -126,7 +141,7 @@ public class AccountEventService(
             SubtitleUrl = activity.SubtitleUrl,
             Meta = activity.Meta is null ? null : new Dictionary<string, object>(activity.Meta),
             LeaseExpiresAt = activity.LeaseExpiresAt,
-            DeletedAt = activity.DeletedAt
+            DeletedAt = activity.DeletedAt,
         };
     }
 
@@ -140,7 +155,8 @@ public class AccountEventService(
         return await cache.GetAsync<SnAccountStatus>($"{PreviousStatusCacheKey}{userId}");
     }
 
-    private static bool IsInvisibleStatus(SnAccountStatus status) => status.Type == StatusType.Invisible;
+    private static bool IsInvisibleStatus(SnAccountStatus status) =>
+        status.Type == StatusType.Invisible;
 
     public async Task<SnAccountStatus> GetStatus(Guid userId)
     {
@@ -149,14 +165,15 @@ public class AccountEventService(
         SnAccountStatus? status;
         if (cachedStatus is not null)
         {
-            cachedStatus!.IsOnline = !IsInvisibleStatus(cachedStatus) && await GetAccountIsConnected(userId);
+            cachedStatus!.IsOnline =
+                !IsInvisibleStatus(cachedStatus) && await GetAccountIsConnected(userId);
             status = cachedStatus;
         }
         else
         {
             var now = SystemClock.Instance.GetCurrentInstant();
-            status = await db.AccountStatuses
-                .Where(e => e.AccountId == userId)
+            status = await db
+                .AccountStatuses.Where(e => e.AccountId == userId)
                 .Where(e => e.ClearedAt == null || e.ClearedAt > now)
                 .OrderByDescending(e => e.CreatedAt)
                 .FirstOrDefaultAsync();
@@ -164,9 +181,12 @@ public class AccountEventService(
             if (status is not null)
             {
                 status.IsOnline = !IsInvisibleStatus(status) && isOnline;
-                await cache.SetWithGroupsAsync(cacheKey, status,
+                await cache.SetWithGroupsAsync(
+                    cacheKey,
+                    status,
                     [$"{AccountService.AccountCachePrefix}{status.AccountId}"],
-                    TimeSpan.FromMinutes(5));
+                    TimeSpan.FromMinutes(5)
+                );
             }
             else
             {
@@ -211,7 +231,8 @@ public class AccountEventService(
             var cachedStatus = await cache.GetAsync<SnAccountStatus>(cacheKey);
             if (cachedStatus != null)
             {
-                cachedStatus.IsOnline = !IsInvisibleStatus(cachedStatus) && await GetAccountIsConnected(userId);
+                cachedStatus.IsOnline =
+                    !IsInvisibleStatus(cachedStatus) && await GetAccountIsConnected(userId);
                 results[userId] = cachedStatus;
             }
             else
@@ -220,11 +241,12 @@ public class AccountEventService(
             }
         }
 
-        if (cacheMissUserIds.Count == 0) return results;
+        if (cacheMissUserIds.Count == 0)
+            return results;
         {
             var now = SystemClock.Instance.GetCurrentInstant();
-            var statusesFromDb = await db.AccountStatuses
-                .Where(e => cacheMissUserIds.Contains(e.AccountId))
+            var statusesFromDb = await db
+                .AccountStatuses.Where(e => cacheMissUserIds.Contains(e.AccountId))
                 .Where(e => e.ClearedAt == null || e.ClearedAt > now)
                 .GroupBy(e => e.AccountId)
                 .Select(g => g.OrderByDescending(e => e.CreatedAt).First())
@@ -243,7 +265,8 @@ public class AccountEventService(
             }
 
             var usersWithoutStatus = cacheMissUserIds.Except(foundUserIds).ToList();
-            if (usersWithoutStatus.Count == 0) return results;
+            if (usersWithoutStatus.Count == 0)
+                return results;
             {
                 foreach (var userId in usersWithoutStatus)
                 {
@@ -267,8 +290,10 @@ public class AccountEventService(
     public async Task<SnAccountStatus> CreateStatus(SnAccount user, SnAccountStatus status)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        await db.AccountStatuses
-            .Where(x => x.AccountId == user.Id && (x.ClearedAt == null || x.ClearedAt > now))
+        await db
+            .AccountStatuses.Where(x =>
+                x.AccountId == user.Id && (x.ClearedAt == null || x.ClearedAt > now)
+            )
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.ClearedAt, now));
 
         db.AccountStatuses.Add(status);
@@ -292,7 +317,8 @@ public class AccountEventService(
     public async Task<bool> CheckInDailyDoAskCaptcha(SnAccount user)
     {
         var perkSubscription = await subscriptions.GetPerkSubscription(user.Id);
-        if (perkSubscription is not null) return false;
+        if (perkSubscription is not null)
+            return false;
 
         var cacheKey = $"{CaptchaCacheKey}{user.Id}";
         var needsCaptcha = await cache.GetAsync<bool?>(cacheKey);
@@ -307,8 +333,8 @@ public class AccountEventService(
     public async Task<bool> CheckInDailyIsAvailable(SnAccount user)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        var lastCheckIn = await db.AccountCheckInResults
-            .Where(x => x.AccountId == user.Id)
+        var lastCheckIn = await db
+            .AccountCheckInResults.Where(x => x.AccountId == user.Id)
             .OrderByDescending(x => x.CreatedAt)
             .FirstOrDefaultAsync();
 
@@ -336,31 +362,28 @@ public class AccountEventService(
             0,
             0
         ).ToInstant();
-        var backdatedMonthEnd =
-            new DateTime(
-                backdatedDate.Year,
-                backdatedDate.Month,
-                DateTime.DaysInMonth(
-                    backdatedDate.Year,
-                    backdatedDate.Month
-                ),
-                23,
-                59,
-                59
-            ).ToInstant();
+        var backdatedMonthEnd = new DateTime(
+            backdatedDate.Year,
+            backdatedDate.Month,
+            DateTime.DaysInMonth(backdatedDate.Year, backdatedDate.Month),
+            23,
+            59,
+            59
+        ).ToInstant();
 
         // The first check, if that day already has a check-in
-        var lastCheckIn = await db.AccountCheckInResults
-            .Where(x => x.AccountId == user.Id)
+        var lastCheckIn = await db
+            .AccountCheckInResults.Where(x => x.AccountId == user.Id)
             .Where(x => x.CreatedAt >= backdatedStart && x.CreatedAt < backdatedEnd)
             .OrderByDescending(x => x.CreatedAt)
             .FirstOrDefaultAsync();
-        if (lastCheckIn is not null) return false;
+        if (lastCheckIn is not null)
+            return false;
 
         // The second check, is the user reached the max backdated check-ins limit,
         // which is once a week, which is 4 times a month
-        var backdatedCheckInMonths = await db.AccountCheckInResults
-            .Where(x => x.AccountId == user.Id)
+        var backdatedCheckInMonths = await db
+            .AccountCheckInResults.Where(x => x.AccountId == user.Id)
             .Where(x => x.CreatedAt >= backdatedMonthStart && x.CreatedAt < backdatedMonthEnd)
             .Where(x => x.BackdatedFrom != null)
             .CountAsync();
@@ -369,13 +392,21 @@ public class AccountEventService(
 
     private const string CheckInLockKey = "checkin:lock:";
 
-    public async Task<SnCheckInResult> CheckInDaily(SnAccount account, Instant? backdated = null, int version = 1)
+    public async Task<SnCheckInResult> CheckInDaily(
+        SnAccount account,
+        Instant? backdated = null,
+        int version = 1
+    )
     {
         var lockKey = $"{CheckInLockKey}{account.Id}";
 
         try
         {
-            var lk = await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(100));
+            var lk = await cache.AcquireLockAsync(
+                lockKey,
+                TimeSpan.FromMinutes(1),
+                TimeSpan.FromMilliseconds(100)
+            );
 
             if (lk != null)
                 await lk.ReleaseAsync();
@@ -387,11 +418,11 @@ public class AccountEventService(
 
         // Now try to acquire the lock properly
         await using var lockObj =
-            await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(5)) ??
-            throw new InvalidOperationException("Check-in was in progress.");
+            await cache.AcquireLockAsync(lockKey, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(5))
+            ?? throw new InvalidOperationException("Check-in was in progress.");
 
-        var accountProfile = await db.AccountProfiles
-            .Where(x => x.AccountId == account.Id)
+        var accountProfile = await db
+            .AccountProfiles.Where(x => x.AccountId == account.Id)
             .Select(x => new { x.Birthday, x.TimeZone })
             .FirstOrDefaultAsync();
 
@@ -402,15 +433,18 @@ public class AccountEventService(
         var userTimeZone = DateTimeZone.Utc;
         if (!string.IsNullOrEmpty(accountProfile?.TimeZone))
         {
-            userTimeZone = DateTimeZoneProviders.Tzdb.GetZoneOrNull(accountProfile.TimeZone) ?? DateTimeZone.Utc;
+            userTimeZone =
+                DateTimeZoneProviders.Tzdb.GetZoneOrNull(accountProfile.TimeZone)
+                ?? DateTimeZone.Utc;
         }
 
         var todayInUserTz = now.InZone(userTimeZone).Date;
         var birthdayDate = accountBirthday?.InZone(userTimeZone).Date;
 
-        var isBirthday = birthdayDate.HasValue &&
-                         birthdayDate.Value.Month == todayInUserTz.Month &&
-                         birthdayDate.Value.Day == todayInUserTz.Day;
+        var isBirthday =
+            birthdayDate.HasValue
+            && birthdayDate.Value.Month == todayInUserTz.Month
+            && birthdayDate.Value.Day == todayInUserTz.Day;
         List<SnUserCalendarEvent> publicEvents = [];
         List<NotableDay> notableDays = [];
         if (version >= FortuneReportVersion)
@@ -432,36 +466,45 @@ public class AccountEventService(
                 {
                     IsPositive = true,
                     Title = localizer.Get("fortuneTipSpecialTitleBirthday"),
-                    Content = localizer.Get("fortuneTipSpecialContentBirthday", args: new { account.Nick }),
-                }
+                    Content = localizer.Get(
+                        "fortuneTipSpecialContentBirthday",
+                        args: new { account.Nick }
+                    ),
+                },
             ];
         }
         else
         {
             // Generate 2 positive tips
-            var positiveIndices = Enumerable.Range(1, FortuneTipCount)
+            var positiveIndices = Enumerable
+                .Range(1, FortuneTipCount)
                 .OrderBy(_ => Random.Next())
                 .Take(2)
                 .ToList();
-            tips = positiveIndices.Select(index => new CheckInFortuneTip
-            {
-                IsPositive = true,
-                Title = localizer.Get($"fortuneTipPositiveTitle{index}", account.Language),
-                Content = localizer.Get($"fortuneTipPositiveContent{index}", account.Language)
-            }).ToList();
+            tips = positiveIndices
+                .Select(index => new CheckInFortuneTip
+                {
+                    IsPositive = true,
+                    Title = localizer.Get($"fortuneTipPositiveTitle{index}", account.Language),
+                    Content = localizer.Get($"fortuneTipPositiveContent{index}", account.Language),
+                })
+                .ToList();
 
             // Generate 2 negative tips
-            var negativeIndices = Enumerable.Range(1, FortuneTipCount)
+            var negativeIndices = Enumerable
+                .Range(1, FortuneTipCount)
                 .Except(positiveIndices)
                 .OrderBy(_ => Random.Next())
                 .Take(2)
                 .ToList();
-            tips.AddRange(negativeIndices.Select(index => new CheckInFortuneTip
-            {
-                IsPositive = false,
-                Title = localizer.Get($"fortuneTipNegativeTitle{index}", account.Language),
-                Content = localizer.Get($"fortuneTipNegativeContent{index}", account.Language)
-            }));
+            tips.AddRange(
+                negativeIndices.Select(index => new CheckInFortuneTip
+                {
+                    IsPositive = false,
+                    Title = localizer.Get($"fortuneTipNegativeTitle{index}", account.Language),
+                    Content = localizer.Get($"fortuneTipNegativeContent{index}", account.Language),
+                })
+            );
 
             // The 5 is specialized, keep it alone.
             // Use weighted random distribution to make all levels reasonably achievable
@@ -473,7 +516,7 @@ public class AccountEventService(
                 < 30 => CheckInResultLevel.Worse, // 10-29: 20% chance
                 < 70 => CheckInResultLevel.Normal, // 30-69: 40% chance
                 < 90 => CheckInResultLevel.Better, // 70-89: 20% chance
-                _ => CheckInResultLevel.Best // 90-99: 10% chance
+                _ => CheckInResultLevel.Best, // 90-99: 10% chance
             };
         }
 
@@ -481,8 +524,16 @@ public class AccountEventService(
         CheckInFortuneReport? fortuneReport = null;
         if (version >= FortuneReportVersion)
         {
-            var generation = await GenerateCheckInFortune(account, todayInUserTz, isBirthday, backdated.HasValue,
-                checkInLevel, tips, publicEvents, notableDays);
+            var generation = await GenerateCheckInFortune(
+                account,
+                todayInUserTz,
+                isBirthday,
+                backdated.HasValue,
+                checkInLevel,
+                tips,
+                publicEvents,
+                notableDays
+            );
             finalTips = generation.Tips;
             fortuneReport = generation.Report;
         }
@@ -537,12 +588,13 @@ public class AccountEventService(
         CheckInResultLevel level,
         List<CheckInFortuneTip> tips,
         List<SnUserCalendarEvent> publicEvents,
-        List<NotableDay> notableDays)
+        List<NotableDay> notableDays
+    )
     {
         var fallback = new CheckInFortuneGeneration
         {
             Tips = tips,
-            Report = CreateFallbackFortuneReport(account, isBirthday, level, tips)
+            Report = CreateFallbackFortuneReport(account, isBirthday, level, tips),
         };
         try
         {
@@ -552,23 +604,39 @@ public class AccountEventService(
                     Persona = DyAgentPersona.Michan,
                     AccountId = account.Id.ToString(),
                     Topic = $"每日签到运势 v{FortuneReportVersion}",
-                    UserMessage = BuildCheckInFortunePrompt(account, checkInDate, isBirthday, isBackdated, level, tips,
-                        publicEvents, notableDays),
-                    ReasoningEffort = "low",
-                    Thinking = false,
-                    EnableTools = false
+                    UserMessage = BuildCheckInFortunePrompt(
+                        account,
+                        checkInDate,
+                        isBirthday,
+                        isBackdated,
+                        level,
+                        tips,
+                        publicEvents,
+                        notableDays
+                    ),
+                    ReasoningEffort = "medium",
+                    Thinking = true,
+                    EnableTools = false,
                 },
-                deadline: DateTime.UtcNow.AddSeconds(10));
+                deadline: DateTime.UtcNow.AddSeconds(30)
+            );
 
             var generation = TryParseFortuneGeneration(response.Content);
             if (generation is not null)
                 return generation;
 
-            logger.LogWarning("MiChan returned an invalid check-in fortune generation for {AccountId}", account.Id);
+            logger.LogWarning(
+                "MiChan returned an invalid check-in fortune generation for {AccountId}",
+                account.Id
+            );
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to generate MiChan check-in fortune report for {AccountId}", account.Id);
+            logger.LogWarning(
+                ex,
+                "Failed to generate MiChan check-in fortune report for {AccountId}",
+                account.Id
+            );
         }
 
         return fallback;
@@ -582,24 +650,48 @@ public class AccountEventService(
         CheckInResultLevel level,
         List<CheckInFortuneTip> tips,
         List<SnUserCalendarEvent> publicEvents,
-        List<NotableDay> notableDays)
+        List<NotableDay> notableDays
+    )
     {
         var drawLabel = GetFortuneDrawLabel(level);
-        var outputLanguage = string.IsNullOrWhiteSpace(account.Language) ? "zh-Hans" : account.Language;
+        var outputLanguage = string.IsNullOrWhiteSpace(account.Language)
+            ? "zh-Hans"
+            : account.Language;
+        var requestTimestamp = SystemClock
+            .Instance.GetCurrentInstant()
+            .ToDateTimeUtc()
+            .ToString("O", CultureInfo.InvariantCulture);
         var variation = CreateFortuneVariation();
-        var tipLines = string.Join("\n", tips.Select(t => $"- {(t.IsPositive ? "吉" : "忌")}：{t.Title}｜{t.Content}"));
-        var eventLines = publicEvents.Count == 0
-            ? "- 无公开个人事件"
-            : string.Join("\n", publicEvents.Select(e =>
-                $"- {e.Title}{(string.IsNullOrWhiteSpace(e.Description) ? string.Empty : $"：{e.Description}")}"));
-        var notableDayLines = notableDays.Count == 0
-            ? "- 无全球或地区节日"
-            : string.Join("\n", notableDays.Select(d =>
-                $"- {d.LocalName ?? d.GlobalName ?? d.LocalizableKey ?? "未命名纪念日"}{(string.IsNullOrWhiteSpace(d.GlobalName) || d.GlobalName == d.LocalName ? string.Empty : $" / {d.GlobalName}")}"));
+        var tipLines = string.Join(
+            "\n",
+            tips.Select(t => $"- {(t.IsPositive ? "吉" : "忌")}：{t.Title}｜{t.Content}")
+        );
+        var eventLines =
+            publicEvents.Count == 0
+                ? "- 无公开个人事件"
+                : string.Join(
+                    "\n",
+                    publicEvents.Select(e =>
+                        $"- {e.Title}{(string.IsNullOrWhiteSpace(e.Description) ? string.Empty : $"：{e.Description}")}"
+                    )
+                );
+        var notableDayLines =
+            notableDays.Count == 0
+                ? "- 无全球或地区节日"
+                : string.Join(
+                    "\n",
+                    notableDays.Select(d =>
+                        $"- {d.LocalName ?? d.GlobalName ?? d.LocalizableKey ?? "未命名纪念日"}{(string.IsNullOrWhiteSpace(d.GlobalName) || d.GlobalName == d.LocalName ? string.Empty : $" / {d.GlobalName}")}"
+                    )
+                );
         return $$"""
-你现在是巫女，正在帮助用户「{{account.Nick}}」占卜今日「{{checkInDate:yyyy-MM-dd}}」的运势。
+请求生成时间：{{requestTimestamp}}
+
+你是巫女咩酱。请保持系统人格文件中定义的咩酱说话方式和边界，
+正在为用户「{{account.Nick}}」写今日「{{checkInDate:yyyy-MM-dd}}」签到运势。
 
 用户信息：
+- ID: {{account.Id}}
 - 昵称：{{account.Nick}}
 - 用户名：@{{account.Name}}
 - 语言：{{account.Language ?? "unknown"}}
@@ -610,14 +702,13 @@ public class AccountEventService(
 - 程序化运势等级：{{level}}
 - 当前程序化签文版本：{{FortuneReportVersion}}
 - 本次生成变化锚点：{{variation}}
-- 已抽到的基础提示：
-{{tipLines}}
 - 今日公开个人事件：
 {{eventLines}}
 - 今日全球或地区节日：
 {{notableDayLines}}
 
-请以 MiChan 扮演巫女的口吻，生成一份私人化的今日签文和提示。它应该像专门为这个用户和这一天写的，不要像模板，不要只复述基础提示。
+请以咩酱本人的口吻，生成一份私人化的今日签文和提示。
+它可以有轻微仪式感，但不要过于严肃古板，也不要只复述基础提示。
 
 只输出 JSON，不要 Markdown，不要解释。字段必须全部存在，version 必须是 {{FortuneReportVersion}}：
 {
@@ -630,29 +721,30 @@ public class AccountEventService(
   "fortune_report": {
     "version": {{FortuneReportVersion}},
     "poem": "签诗，1到2句，有意象但自然",
-    "summary": "运势总评，60字以内",
-    "summary_detail": "今日建议，120到180字，像巫女基于签位给用户的具体行动建议，结合今日事件和基础提示",
-    "wish": "愿望，40字以内",
-    "love": "爱情，40字以内",
-    "study": "学业，40字以内",
-    "career": "事业，40字以内",
-    "health": "健康，40字以内",
-    "lost_item": "失物，40字以内",
+    "summary": "运势总评，80字以内",
+    "summary_detail": "今日建议，180到260字，像巫女基于签位给用户的具体行动建议，结合今日事件和基础提示",
+    "wish": "愿望，60字以内",
+    "love": "爱情，60字以内",
+    "study": "学业，60字以内",
+    "career": "事业，60字以内",
+    "health": "健康，60字以内",
+    "lost_item": "失物，60字以内",
     "lucky_color": "幸运色，短词",
     "lucky_direction": "幸运方位，短词",
     "lucky_time": "幸运时段，短词",
     "lucky_item": "幸运小物，短词",
-    "lucky_action": "今日宜做，40字以内",
-    "avoid_action": "今日忌做，40字以内",
-    "ritual": "小仪式，60字以内，轻量、可执行、不要迷信化"
+    "lucky_action": "今日宜做，60字以内",
+    "avoid_action": "今日忌做，60字以内",
+    "ritual": "小仪式，80字以内，轻量、可执行、不要迷信化"
   }
 }
 
 要求：
 - 使用用户偏好语言「{{outputLanguage}}」生成所有面向用户的字符串；如果该语言无法判断，使用简体中文。
+- 人格优先级高于任务包装：保持 MiChan 的自然、友好、体贴、略带思考感的表达；不要为了“运势”变成夸张古风、玄学大师、神社巫女或冷冰冰的模板文案。
 - 不要承诺真实预测，不要说一定会发生。
 - 不要给医疗、法律、金融强建议。
-- 语气可以有仪式感，但不要恐吓用户。
+- 语气可以有轻微仪式感，但要像 MiChan 给朋友写的今日提醒，不要恐吓用户。
 - 必须尊重“用户今日抽到了”的签位，不能自行更改签位。
 - 签位越高越明朗，签位越低越提醒谨慎。
 - 可以温柔地结合生日、公开个人事件、全球或地区节日，但不要暴露或推断未提供的私密信息。
@@ -668,9 +760,39 @@ public class AccountEventService(
 
     private static string CreateFortuneVariation()
     {
-        string[] images = ["晨雾", "纸灯", "海风", "雨后石阶", "月影", "远钟", "窗边绿植", "旧书页", "暖茶", "星砂"];
-        string[] rhythms = ["先收束再推进", "先观察再表达", "先整理再行动", "轻快但不冒进", "安静而坚定", "留白中找线索"];
-        string[] focuses = ["沟通", "收尾", "学习", "身体感受", "人际边界", "小型整理", "计划校准", "情绪降噪"];
+        string[] images =
+        [
+            "晨雾",
+            "纸灯",
+            "海风",
+            "雨后石阶",
+            "月影",
+            "远钟",
+            "窗边绿植",
+            "旧书页",
+            "暖茶",
+            "星砂",
+        ];
+        string[] rhythms =
+        [
+            "先收束再推进",
+            "先观察再表达",
+            "先整理再行动",
+            "轻快但不冒进",
+            "安静而坚定",
+            "留白中找线索",
+        ];
+        string[] focuses =
+        [
+            "沟通",
+            "收尾",
+            "学习",
+            "身体感受",
+            "人际边界",
+            "小型整理",
+            "计划校准",
+            "情绪降噪",
+        ];
 
         return $"{images[Random.Next(images.Length)]} / {rhythms[Random.Next(rhythms.Length)]} / {focuses[Random.Next(focuses.Length)]} / #{Random.Next(1000, 9999)}";
     }
@@ -685,51 +807,59 @@ public class AccountEventService(
             CheckInResultLevel.Worse => "下签",
             CheckInResultLevel.Worst => "下下签",
             CheckInResultLevel.Special => "特别签",
-            _ => "中签"
+            _ => "中签",
         };
     }
 
     private static CheckInFortuneGeneration? TryParseFortuneGeneration(string content)
     {
         var json = ExtractJsonObject(content);
-        if (json is null) return null;
+        if (json is null)
+            return null;
 
         try
         {
-            var generation = JsonSerializer.Deserialize<CheckInFortuneGeneration>(json, FortuneReportJsonOptions);
-            if (generation is null ||
-                generation.Tips.Count != 4 ||
-                generation.Tips.Any(t => string.IsNullOrWhiteSpace(t.Title) || string.IsNullOrWhiteSpace(t.Content)) ||
-                !IsValidFortuneReport(generation.Report))
+            var generation = JsonSerializer.Deserialize<CheckInFortuneGeneration>(
+                json,
+                FortuneReportJsonOptions
+            );
+            if (
+                generation is null
+                || generation.Tips.Count != 4
+                || generation.Tips.Any(t =>
+                    string.IsNullOrWhiteSpace(t.Title) || string.IsNullOrWhiteSpace(t.Content)
+                )
+                || !IsValidFortuneReport(generation.Report)
+            )
                 return null;
 
-            generation.Tips = generation.Tips
-                .Select(t => new CheckInFortuneTip
+            generation.Tips = generation
+                .Tips.Select(t => new CheckInFortuneTip
                 {
                     IsPositive = t.IsPositive,
-                    Title = TrimFortuneText(t.Title, 32),
-                    Content = TrimFortuneText(t.Content, 120)
+                    Title = TrimFortuneText(t.Title, FortuneTipTitleMaxLength),
+                    Content = TrimFortuneText(t.Content, FortuneTipContentMaxLength),
                 })
                 .ToList();
 
             var report = generation.Report;
             report.Version = FortuneReportVersion;
             report.Poem = TrimFortuneText(report.Poem, 120);
-            report.Summary = TrimFortuneText(report.Summary, 120);
-            report.SummaryDetail = TrimFortuneText(report.SummaryDetail, 260);
-            report.Wish = TrimFortuneText(report.Wish, 80);
-            report.Love = TrimFortuneText(report.Love, 80);
-            report.Study = TrimFortuneText(report.Study, 80);
-            report.Career = TrimFortuneText(report.Career, 80);
-            report.Health = TrimFortuneText(report.Health, 80);
-            report.LostItem = TrimFortuneText(report.LostItem, 80);
+            report.Summary = TrimFortuneText(report.Summary, 160);
+            report.SummaryDetail = TrimFortuneText(report.SummaryDetail, 360);
+            report.Wish = TrimFortuneText(report.Wish, 120);
+            report.Love = TrimFortuneText(report.Love, 120);
+            report.Study = TrimFortuneText(report.Study, 120);
+            report.Career = TrimFortuneText(report.Career, 120);
+            report.Health = TrimFortuneText(report.Health, 120);
+            report.LostItem = TrimFortuneText(report.LostItem, 120);
             report.LuckyColor = TrimFortuneText(report.LuckyColor, 40);
             report.LuckyDirection = TrimFortuneText(report.LuckyDirection, 40);
             report.LuckyTime = TrimFortuneText(report.LuckyTime, 40);
             report.LuckyItem = TrimFortuneText(report.LuckyItem, 40);
-            report.LuckyAction = TrimFortuneText(report.LuckyAction, 80);
-            report.AvoidAction = TrimFortuneText(report.AvoidAction, 80);
-            report.Ritual = TrimFortuneText(report.Ritual, 120);
+            report.LuckyAction = TrimFortuneText(report.LuckyAction, 120);
+            report.AvoidAction = TrimFortuneText(report.AvoidAction, 120);
+            report.Ritual = TrimFortuneText(report.Ritual, 160);
             return generation;
         }
         catch (JsonException)
@@ -756,23 +886,23 @@ public class AccountEventService(
 
     private static bool IsValidFortuneReport(CheckInFortuneReport report)
     {
-        return report.Version == FortuneReportVersion &&
-               !string.IsNullOrWhiteSpace(report.Poem) &&
-               !string.IsNullOrWhiteSpace(report.Summary) &&
-               !string.IsNullOrWhiteSpace(report.SummaryDetail) &&
-               !string.IsNullOrWhiteSpace(report.Wish) &&
-               !string.IsNullOrWhiteSpace(report.Love) &&
-               !string.IsNullOrWhiteSpace(report.Study) &&
-               !string.IsNullOrWhiteSpace(report.Career) &&
-               !string.IsNullOrWhiteSpace(report.Health) &&
-               !string.IsNullOrWhiteSpace(report.LostItem) &&
-               !string.IsNullOrWhiteSpace(report.LuckyColor) &&
-               !string.IsNullOrWhiteSpace(report.LuckyDirection) &&
-               !string.IsNullOrWhiteSpace(report.LuckyTime) &&
-               !string.IsNullOrWhiteSpace(report.LuckyItem) &&
-               !string.IsNullOrWhiteSpace(report.LuckyAction) &&
-               !string.IsNullOrWhiteSpace(report.AvoidAction) &&
-               !string.IsNullOrWhiteSpace(report.Ritual);
+        return report.Version == FortuneReportVersion
+            && !string.IsNullOrWhiteSpace(report.Poem)
+            && !string.IsNullOrWhiteSpace(report.Summary)
+            && !string.IsNullOrWhiteSpace(report.SummaryDetail)
+            && !string.IsNullOrWhiteSpace(report.Wish)
+            && !string.IsNullOrWhiteSpace(report.Love)
+            && !string.IsNullOrWhiteSpace(report.Study)
+            && !string.IsNullOrWhiteSpace(report.Career)
+            && !string.IsNullOrWhiteSpace(report.Health)
+            && !string.IsNullOrWhiteSpace(report.LostItem)
+            && !string.IsNullOrWhiteSpace(report.LuckyColor)
+            && !string.IsNullOrWhiteSpace(report.LuckyDirection)
+            && !string.IsNullOrWhiteSpace(report.LuckyTime)
+            && !string.IsNullOrWhiteSpace(report.LuckyItem)
+            && !string.IsNullOrWhiteSpace(report.LuckyAction)
+            && !string.IsNullOrWhiteSpace(report.AvoidAction)
+            && !string.IsNullOrWhiteSpace(report.Ritual);
     }
 
     private static string TrimFortuneText(string value, int maxLength)
@@ -790,17 +920,20 @@ public class AccountEventService(
     private async Task<List<SnUserCalendarEvent>> GetPublicEventsForDate(
         Guid accountId,
         LocalDate date,
-        DateTimeZone userTimeZone)
+        DateTimeZone userTimeZone
+    )
     {
         var start = date.AtStartOfDayInZone(userTimeZone).ToInstant();
         var end = date.PlusDays(1).AtStartOfDayInZone(userTimeZone).ToInstant();
-        var events = await db.UserCalendarEvents
-            .AsNoTracking()
-            .Where(e => e.AccountId == accountId &&
-                        e.DeletedAt == null &&
-                        e.Visibility == EventVisibility.Public &&
-                        e.EndTime >= start &&
-                        e.StartTime < end)
+        var events = await db
+            .UserCalendarEvents.AsNoTracking()
+            .Where(e =>
+                e.AccountId == accountId
+                && e.DeletedAt == null
+                && e.Visibility == EventVisibility.Public
+                && e.EndTime >= start
+                && e.StartTime < end
+            )
             .OrderBy(e => e.StartTime)
             .Take(5)
             .ToListAsync();
@@ -814,11 +947,12 @@ public class AccountEventService(
 
     private async Task<List<NotableDay>> GetNotableDaysForDate(string? regionCode, LocalDate date)
     {
-        var days = await notableDaysService.GetNotableDays(date.Year,
-            string.IsNullOrWhiteSpace(regionCode) ? "US" : regionCode);
+        var days = await notableDaysService.GetNotableDays(
+            date.Year,
+            string.IsNullOrWhiteSpace(regionCode) ? "US" : regionCode
+        );
 
-        return days
-            .Where(d => d.Date.InUtc().Date == date)
+        return days.Where(d => d.Date.InUtc().Date == date)
             .OrderBy(d => d.CountryCode is null ? 0 : 1)
             .ThenBy(d => d.GlobalName ?? d.LocalName ?? d.LocalizableKey)
             .Take(5)
@@ -829,7 +963,8 @@ public class AccountEventService(
         SnAccount account,
         bool isBirthday,
         CheckInResultLevel level,
-        List<CheckInFortuneTip> tips)
+        List<CheckInFortuneTip> tips
+    )
     {
         var positiveTip = tips.FirstOrDefault(t => t.IsPositive) ?? tips.FirstOrDefault();
         var negativeTip = tips.FirstOrDefault(t => !t.IsPositive);
@@ -841,28 +976,32 @@ public class AccountEventService(
             CheckInResultLevel.Better => "铃音渐明，前路有微光",
             CheckInResultLevel.Best => "晴光入签，所行多得助",
             CheckInResultLevel.Special => "星灯为你而明，今日自有祝福",
-            _ => "签影平和，宜顺势而行"
+            _ => "签影平和，宜顺势而行",
         };
 
         return new CheckInFortuneReport
         {
             Version = FortuneReportVersion,
             Poem = isBirthday ? "星灯落掌心，花影绕今日。" : "风过签筒静，铃响见微光。",
-            Summary = $"{nick}，今日{tone}。{positiveTip?.Content ?? "把心放稳，小事也会慢慢顺起来。"}",
-            SummaryDetail = $"{nick}，今日建议你先把节奏放稳，再选择最值得推进的一件事。{positiveTip?.Content ?? "顺手完成的小事会带来一点确定感。"} 若遇到卡顿，不必急着证明自己，先整理线索、减少分心；把注意力放在能立即收尾的小行动上，会比反复犹豫更有帮助。",
+            Summary =
+                $"{nick}，今日{tone}。{positiveTip?.Content ?? "把心放稳，小事也会慢慢顺起来。"}",
+            SummaryDetail =
+                $"{nick}，今日建议你先把节奏放稳，再选择最值得推进的一件事。{positiveTip?.Content ?? "顺手完成的小事会带来一点确定感。"} 若遇到卡顿，不必急着证明自己，先整理线索、减少分心；把注意力放在能立即收尾的小行动上，会比反复犹豫更有帮助。",
             Wish = positiveTip?.Title ?? "愿望宜从一个小动作开始。",
             Love = "温柔表达比反复猜测更有力量。",
             Study = "适合整理旧知识，细节里会有新线索。",
             Career = "先稳住手边事务，再推进新的判断。",
             Health = "留意休息和饮水，不必把自己逼得太紧。",
-            LostItem = negativeTip is null ? "先看常用包袋和桌角附近。" : "失物多在顺手放下之处，慢慢回想路径。",
+            LostItem = negativeTip is null
+                ? "先看常用包袋和桌角附近。"
+                : "失物多在顺手放下之处，慢慢回想路径。",
             LuckyColor = isBirthday ? "星白色" : "浅青色",
             LuckyDirection = "东南",
             LuckyTime = "午后",
             LuckyItem = "随身钥匙",
             LuckyAction = "把一件拖延的小事收尾。",
             AvoidAction = "避免在情绪上头时立刻做决定。",
-            Ritual = "出门前整理桌面一角，给今天留出清爽的开端。"
+            Ritual = "出门前整理桌面一角，给今天留出清爽的开端。",
         };
     }
 
@@ -876,16 +1015,24 @@ public class AccountEventService(
         }
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        var activities = await db.PresenceActivities
-            .Where(e => e.AccountId == userId && e.LeaseExpiresAt > now && e.DeletedAt == null)
+        var activities = await db
+            .PresenceActivities.Where(e =>
+                e.AccountId == userId && e.LeaseExpiresAt > now && e.DeletedAt == null
+            )
             .ToListAsync();
 
-        await cache.SetWithGroupsAsync(cacheKey, activities, [$"{AccountService.AccountCachePrefix}{userId}"],
-            TimeSpan.FromMinutes(1));
+        await cache.SetWithGroupsAsync(
+            cacheKey,
+            activities,
+            [$"{AccountService.AccountCachePrefix}{userId}"],
+            TimeSpan.FromMinutes(1)
+        );
         return activities;
     }
 
-    public async Task<Dictionary<Guid, List<SnPresenceActivity>>> GetActiveActivitiesBatch(List<Guid> userIds)
+    public async Task<Dictionary<Guid, List<SnPresenceActivity>>> GetActiveActivitiesBatch(
+        List<Guid> userIds
+    )
     {
         var results = new Dictionary<Guid, List<SnPresenceActivity>>();
         var cacheMissUserIds = new List<Guid>();
@@ -906,12 +1053,17 @@ public class AccountEventService(
         }
 
         // If all activities were found in cache, return early
-        if (cacheMissUserIds.Count == 0) return results;
+        if (cacheMissUserIds.Count == 0)
+            return results;
 
         // Fetch remaining activities from database in a single query
         var now = SystemClock.Instance.GetCurrentInstant();
-        var activitiesFromDb = await db.PresenceActivities
-            .Where(e => cacheMissUserIds.Contains(e.AccountId) && e.LeaseExpiresAt > now && e.DeletedAt == null)
+        var activitiesFromDb = await db
+            .PresenceActivities.Where(e =>
+                cacheMissUserIds.Contains(e.AccountId)
+                && e.LeaseExpiresAt > now
+                && e.DeletedAt == null
+            )
             .ToListAsync();
 
         // Group activities by user ID and update cache
@@ -921,22 +1073,32 @@ public class AccountEventService(
 
         foreach (var userId in cacheMissUserIds)
         {
-            var userActivities = activitiesByUser.GetValueOrDefault(userId, new List<SnPresenceActivity>());
+            var userActivities = activitiesByUser.GetValueOrDefault(
+                userId,
+                new List<SnPresenceActivity>()
+            );
             results[userId] = userActivities;
 
             // Update cache for this user
             var cacheKey = $"{ActivityCacheKey}{userId}";
-            await cache.SetWithGroupsAsync(cacheKey, userActivities, [$"{AccountService.AccountCachePrefix}{userId}"],
-                TimeSpan.FromMinutes(1));
+            await cache.SetWithGroupsAsync(
+                cacheKey,
+                userActivities,
+                [$"{AccountService.AccountCachePrefix}{userId}"],
+                TimeSpan.FromMinutes(1)
+            );
         }
 
         return results;
     }
 
-    public async Task<(List<SnPresenceActivity>, int)> GetAllActivities(Guid userId, int offset = 0, int take = 20)
+    public async Task<(List<SnPresenceActivity>, int)> GetAllActivities(
+        Guid userId,
+        int offset = 0,
+        int take = 20
+    )
     {
-        var query = db.PresenceActivities
-            .Where(e => e.AccountId == userId && e.DeletedAt == null);
+        var query = db.PresenceActivities.Where(e => e.AccountId == userId && e.DeletedAt == null);
 
         var totalCount = await query.CountAsync();
 
@@ -949,10 +1111,13 @@ public class AccountEventService(
         return (activities, totalCount);
     }
 
-    public async Task<(List<SnAccountStatus>, int)> GetStatusHistory(Guid userId, int offset = 0, int take = 20)
+    public async Task<(List<SnAccountStatus>, int)> GetStatusHistory(
+        Guid userId,
+        int offset = 0,
+        int take = 20
+    )
     {
-        var query = db.AccountStatuses
-            .Where(e => e.AccountId == userId && e.DeletedAt == null);
+        var query = db.AccountStatuses.Where(e => e.AccountId == userId && e.DeletedAt == null);
 
         var totalCount = await query.CountAsync();
 
@@ -965,46 +1130,52 @@ public class AccountEventService(
         return (statuses, totalCount);
     }
 
-    public async Task<(List<AccountTimelineItem>, int)> GetTimeline(Guid userId, int offset = 0, int take = 20)
+    public async Task<(List<AccountTimelineItem>, int)> GetTimeline(
+        Guid userId,
+        int offset = 0,
+        int take = 20
+    )
     {
-        var statusQuery = db.AccountStatuses
-            .Where(e => e.AccountId == userId && e.DeletedAt == null);
-        var activityQuery = db.PresenceActivities
-            .Where(e => e.AccountId == userId && e.DeletedAt == null);
+        var statusQuery = db.AccountStatuses.Where(e =>
+            e.AccountId == userId && e.DeletedAt == null
+        );
+        var activityQuery = db.PresenceActivities.Where(e =>
+            e.AccountId == userId && e.DeletedAt == null
+        );
 
         var statusCount = await statusQuery.CountAsync();
         var activityCount = await activityQuery.CountAsync();
         var totalCount = statusCount + activityCount;
 
-        var statuses = await statusQuery
-            .OrderByDescending(e => e.CreatedAt)
-            .ToListAsync();
-        var activities = await activityQuery
-            .OrderByDescending(e => e.CreatedAt)
-            .ToListAsync();
+        var statuses = await statusQuery.OrderByDescending(e => e.CreatedAt).ToListAsync();
+        var activities = await activityQuery.OrderByDescending(e => e.CreatedAt).ToListAsync();
 
         var timelineItems = new List<AccountTimelineItem>();
 
         foreach (var status in statuses)
         {
-            timelineItems.Add(new AccountTimelineItem
-            {
-                Id = status.Id,
-                CreatedAt = status.CreatedAt,
-                EventType = TimelineEventType.StatusChange,
-                Status = status
-            });
+            timelineItems.Add(
+                new AccountTimelineItem
+                {
+                    Id = status.Id,
+                    CreatedAt = status.CreatedAt,
+                    EventType = TimelineEventType.StatusChange,
+                    Status = status,
+                }
+            );
         }
 
         foreach (var activity in activities)
         {
-            timelineItems.Add(new AccountTimelineItem
-            {
-                Id = activity.Id,
-                CreatedAt = activity.CreatedAt,
-                EventType = TimelineEventType.Activity,
-                Activity = activity
-            });
+            timelineItems.Add(
+                new AccountTimelineItem
+                {
+                    Id = activity.Id,
+                    CreatedAt = activity.CreatedAt,
+                    EventType = TimelineEventType.Activity,
+                    Activity = activity,
+                }
+            );
         }
 
         var sortedTimeline = timelineItems
@@ -1035,8 +1206,12 @@ public class AccountEventService(
         return activity;
     }
 
-    public async Task<SnPresenceActivity> UpdateActivity(Guid activityId, Guid userId,
-        Action<SnPresenceActivity> update, int? leaseMinutes = null)
+    public async Task<SnPresenceActivity> UpdateActivity(
+        Guid activityId,
+        Guid userId,
+        Action<SnPresenceActivity> update,
+        int? leaseMinutes = null
+    )
     {
         var activity = await db.PresenceActivities.FindAsync(activityId);
         if (activity == null)
@@ -1046,7 +1221,10 @@ public class AccountEventService(
             throw new UnauthorizedAccessException("Activity does not belong to user");
 
         var before = ClonePresenceActivity(activity);
-        var wasActive = IsActivePresenceActivity(activity, SystemClock.Instance.GetCurrentInstant());
+        var wasActive = IsActivePresenceActivity(
+            activity,
+            SystemClock.Instance.GetCurrentInstant()
+        );
 
         if (leaseMinutes.HasValue)
         {
@@ -1063,8 +1241,11 @@ public class AccountEventService(
 
         PurgeActivityCache(activity.AccountId);
 
-        if (wasActive != IsActivePresenceActivity(activity, SystemClock.Instance.GetCurrentInstant()) ||
-            !PresenceActivityContentEqual(before, activity))
+        if (
+            wasActive
+                != IsActivePresenceActivity(activity, SystemClock.Instance.GetCurrentInstant())
+            || !PresenceActivityContentEqual(before, activity)
+        )
             await BroadcastPresenceActivitiesUpdated(activity.AccountId);
 
         return activity;
@@ -1079,7 +1260,10 @@ public class AccountEventService(
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var activity = await db.PresenceActivities.FirstOrDefaultAsync(e =>
-            e.ManualId == manualId && e.AccountId == userId && e.LeaseExpiresAt > now && e.DeletedAt == null
+            e.ManualId == manualId
+            && e.AccountId == userId
+            && e.LeaseExpiresAt > now
+            && e.DeletedAt == null
         );
         if (activity == null)
             return null;
@@ -1102,8 +1286,11 @@ public class AccountEventService(
 
         PurgeActivityCache(activity.AccountId);
 
-        if (wasActive != IsActivePresenceActivity(activity, SystemClock.Instance.GetCurrentInstant()) ||
-            !PresenceActivityContentEqual(before, activity))
+        if (
+            wasActive
+                != IsActivePresenceActivity(activity, SystemClock.Instance.GetCurrentInstant())
+            || !PresenceActivityContentEqual(before, activity)
+        )
             await BroadcastPresenceActivitiesUpdated(activity.AccountId);
 
         return activity;
@@ -1113,9 +1300,13 @@ public class AccountEventService(
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var activity = await db.PresenceActivities.FirstOrDefaultAsync(e =>
-            e.ManualId == manualId && e.AccountId == userId && e.LeaseExpiresAt > now && e.DeletedAt == null
+            e.ManualId == manualId
+            && e.AccountId == userId
+            && e.LeaseExpiresAt > now
+            && e.DeletedAt == null
         );
-        if (activity == null) return false;
+        if (activity == null)
+            return false;
         var wasActive = IsActivePresenceActivity(activity, now);
         if (activity.LeaseExpiresAt <= now)
         {
@@ -1137,7 +1328,8 @@ public class AccountEventService(
     public async Task<bool> DeleteActivity(Guid activityId, Guid userId)
     {
         var activity = await db.PresenceActivities.FindAsync(activityId);
-        if (activity == null) return false;
+        if (activity == null)
+            return false;
 
         if (activity.AccountId != userId)
             throw new UnauthorizedAccessException("Activity does not belong to user");
@@ -1174,8 +1366,8 @@ public class AccountEventService(
         if (providerSet.Count == 0)
             return [];
 
-        var accountIds = await db.AccountProfiles
-            .AsNoTracking()
+        var accountIds = await db
+            .AccountProfiles.AsNoTracking()
             .Select(p => p.AccountId)
             .ToListAsync();
 
@@ -1185,10 +1377,19 @@ public class AccountEventService(
             var hasPresenceConnection = false;
             foreach (var provider in providerSet)
             {
-                var connections = await accountConnections.ListConnectionsAsync(accountId, provider);
-                if (connections.Any(c => !string.IsNullOrWhiteSpace(c.ProvidedIdentifier) &&
-                                         (!string.IsNullOrWhiteSpace(c.RefreshToken) ||
-                                          !string.IsNullOrWhiteSpace(c.AccessToken))))
+                var connections = await accountConnections.ListConnectionsAsync(
+                    accountId,
+                    provider
+                );
+                if (
+                    connections.Any(c =>
+                        !string.IsNullOrWhiteSpace(c.ProvidedIdentifier)
+                        && (
+                            !string.IsNullOrWhiteSpace(c.RefreshToken)
+                            || !string.IsNullOrWhiteSpace(c.AccessToken)
+                        )
+                    )
+                )
                 {
                     hasPresenceConnection = true;
                     break;
@@ -1238,7 +1439,8 @@ public class AccountEventService(
 
     public async Task<SnUserCalendarEvent> CreateCalendarEventAsync(
         Guid accountId,
-        CreateCalendarEventRequest request)
+        CreateCalendarEventRequest request
+    )
     {
         // Validate request
         if (string.IsNullOrWhiteSpace(request.Title))
@@ -1265,7 +1467,7 @@ public class AccountEventService(
             Visibility = request.Visibility,
             Recurrence = request.Recurrence,
             Meta = request.Meta,
-            AccountId = accountId
+            AccountId = accountId,
         };
 
         db.UserCalendarEvents.Add(calendarEvent);
@@ -1286,10 +1488,11 @@ public class AccountEventService(
     public async Task<SnUserCalendarEvent> UpdateCalendarEventAsync(
         Guid accountId,
         Guid eventId,
-        UpdateCalendarEventRequest request)
+        UpdateCalendarEventRequest request
+    )
     {
-        var calendarEvent = await db.UserCalendarEvents
-            .Where(e => e.Id == eventId && e.DeletedAt == null)
+        var calendarEvent = await db
+            .UserCalendarEvents.Where(e => e.Id == eventId && e.DeletedAt == null)
             .FirstOrDefaultAsync();
 
         if (calendarEvent == null)
@@ -1306,10 +1509,14 @@ public class AccountEventService(
             calendarEvent.Title = request.Title.Trim();
 
         if (request.Description != null)
-            calendarEvent.Description = string.IsNullOrEmpty(request.Description) ? null : request.Description.Trim();
+            calendarEvent.Description = string.IsNullOrEmpty(request.Description)
+                ? null
+                : request.Description.Trim();
 
         if (request.Location != null)
-            calendarEvent.Location = string.IsNullOrEmpty(request.Location) ? null : request.Location.Trim();
+            calendarEvent.Location = string.IsNullOrEmpty(request.Location)
+                ? null
+                : request.Location.Trim();
 
         if (request.StartTime.HasValue)
             calendarEvent.StartTime = request.StartTime.Value;
@@ -1358,8 +1565,10 @@ public class AccountEventService(
         {
             PurgeCalendarEventCache(accountId, newStartMonth.Year, newStartMonth.Month);
         }
-        if ((newEndMonth.Year != oldEndMonth.Year || newEndMonth.Month != oldEndMonth.Month) &&
-            (newEndMonth.Year != newStartMonth.Year || newEndMonth.Month != newStartMonth.Month))
+        if (
+            (newEndMonth.Year != oldEndMonth.Year || newEndMonth.Month != oldEndMonth.Month)
+            && (newEndMonth.Year != newStartMonth.Year || newEndMonth.Month != newStartMonth.Month)
+        )
         {
             PurgeCalendarEventCache(accountId, newEndMonth.Year, newEndMonth.Month);
         }
@@ -1369,8 +1578,8 @@ public class AccountEventService(
 
     public async Task<bool> DeleteCalendarEventAsync(Guid accountId, Guid eventId)
     {
-        var calendarEvent = await db.UserCalendarEvents
-            .Where(e => e.Id == eventId && e.DeletedAt == null)
+        var calendarEvent = await db
+            .UserCalendarEvents.Where(e => e.Id == eventId && e.DeletedAt == null)
             .FirstOrDefaultAsync();
 
         if (calendarEvent == null)
@@ -1394,10 +1603,13 @@ public class AccountEventService(
         return true;
     }
 
-    public async Task<SnUserCalendarEvent?> GetCalendarEventAsync(Guid eventId, Guid? viewerId = null)
+    public async Task<SnUserCalendarEvent?> GetCalendarEventAsync(
+        Guid eventId,
+        Guid? viewerId = null
+    )
     {
-        var calendarEvent = await db.UserCalendarEvents
-            .Where(e => e.Id == eventId && e.DeletedAt == null)
+        var calendarEvent = await db
+            .UserCalendarEvents.Where(e => e.Id == eventId && e.DeletedAt == null)
             .FirstOrDefaultAsync();
 
         if (calendarEvent == null)
@@ -1420,18 +1632,21 @@ public class AccountEventService(
         Instant? startTime = null,
         Instant? endTime = null,
         int offset = 0,
-        int take = 50)
+        int take = 50
+    )
     {
         var isOwner = viewerId == accountId;
 
-        var query = db.UserCalendarEvents
-            .Where(e => e.AccountId == accountId && e.DeletedAt == null);
+        var query = db.UserCalendarEvents.Where(e =>
+            e.AccountId == accountId && e.DeletedAt == null
+        );
 
         // Apply visibility filter if viewer is not the owner
         if (!isOwner && viewerId.HasValue)
         {
-            query = query.Where(e => e.Visibility == EventVisibility.Public ||
-                                     e.Visibility == EventVisibility.Friends);
+            query = query.Where(e =>
+                e.Visibility == EventVisibility.Public || e.Visibility == EventVisibility.Friends
+            );
         }
         else if (!isOwner)
         {
@@ -1448,35 +1663,38 @@ public class AccountEventService(
 
         var totalCount = await query.CountAsync();
 
-        var events = await query
-            .OrderBy(e => e.StartTime)
-            .Skip(offset)
-            .Take(take)
-            .ToListAsync();
+        var events = await query.OrderBy(e => e.StartTime).Skip(offset).Take(take).ToListAsync();
 
         // For Friends visibility, we need to check if viewer is actually a friend
         if (!isOwner && viewerId.HasValue)
         {
-            var friendIds = await db.AccountRelationships
-                .Where(r => r.AccountId == accountId &&
-                           r.RelatedId == viewerId.Value &&
-                           r.Status == RelationshipStatus.Friends)
+            var friendIds = await db
+                .AccountRelationships.Where(r =>
+                    r.AccountId == accountId
+                    && r.RelatedId == viewerId.Value
+                    && r.Status == RelationshipStatus.Friends
+                )
                 .Select(r => r.RelatedId)
                 .ToListAsync();
 
             var isFriend = friendIds.Contains(viewerId.Value);
 
             // Filter out Friends-only events if not a friend
-            events = events.Where(e =>
-                e.Visibility == EventVisibility.Public ||
-                (e.Visibility == EventVisibility.Friends && isFriend)
-            ).ToList();
+            events = events
+                .Where(e =>
+                    e.Visibility == EventVisibility.Public
+                    || (e.Visibility == EventVisibility.Friends && isFriend)
+                )
+                .ToList();
         }
 
         return (events, totalCount);
     }
 
-    private async Task<bool> IsEventVisibleToUserAsync(SnUserCalendarEvent calendarEvent, Guid viewerId)
+    private async Task<bool> IsEventVisibleToUserAsync(
+        SnUserCalendarEvent calendarEvent,
+        Guid viewerId
+    )
     {
         if (calendarEvent.AccountId == viewerId)
             return true;
@@ -1487,10 +1705,11 @@ public class AccountEventService(
         if (calendarEvent.Visibility == EventVisibility.Friends)
         {
             // Check if viewer is a friend
-            var isFriend = await db.AccountRelationships
-                .AnyAsync(r => r.AccountId == calendarEvent.AccountId &&
-                              r.RelatedId == viewerId &&
-                              r.Status == RelationshipStatus.Friends);
+            var isFriend = await db.AccountRelationships.AnyAsync(r =>
+                r.AccountId == calendarEvent.AccountId
+                && r.RelatedId == viewerId
+                && r.Status == RelationshipStatus.Friends
+            );
             return isFriend;
         }
 
@@ -1500,7 +1719,8 @@ public class AccountEventService(
     private List<SnUserCalendarEvent> ExpandRecurringEvents(
         List<SnUserCalendarEvent> events,
         Instant rangeStart,
-        Instant rangeEnd)
+        Instant rangeEnd
+    )
     {
         var expandedEvents = new List<SnUserCalendarEvent>();
 
@@ -1527,7 +1747,8 @@ public class AccountEventService(
     private List<SnUserCalendarEvent> GetRecurringEventOccurrences(
         SnUserCalendarEvent evt,
         Instant rangeStart,
-        Instant rangeEnd)
+        Instant rangeEnd
+    )
     {
         var occurrences = new List<SnUserCalendarEvent>();
         var recurrence = evt.Recurrence!;
@@ -1559,7 +1780,7 @@ public class AccountEventService(
                     Meta = evt.Meta,
                     AccountId = evt.AccountId,
                     CreatedAt = evt.CreatedAt,
-                    UpdatedAt = evt.UpdatedAt
+                    UpdatedAt = evt.UpdatedAt,
                 };
                 occurrences.Add(occurrence);
             }
@@ -1568,7 +1789,10 @@ public class AccountEventService(
 
             // Calculate next occurrence
             (currentStart, currentEnd) = CalculateNextOccurrence(
-                currentStart, currentEnd, recurrence);
+                currentStart,
+                currentEnd,
+                recurrence
+            );
 
             if (currentStart == default)
                 break;
@@ -1580,7 +1804,8 @@ public class AccountEventService(
     private (Instant start, Instant end) CalculateNextOccurrence(
         Instant currentStart,
         Instant currentEnd,
-        RecurrencePattern recurrence)
+        RecurrencePattern recurrence
+    )
     {
         var duration = currentEnd - currentStart;
         Instant nextStart;
@@ -1654,13 +1879,16 @@ public class AccountEventService(
         int year = 0,
         bool replaceInvisible = false,
         Guid? viewerId = null,
-        string? regionCode = null)
+        string? regionCode = null
+    )
     {
         if (year == 0)
             year = SystemClock.Instance.GetCurrentInstant().InUtc().Date.Year;
 
         // Create start and end dates for the specified month
-        var startOfMonth = new LocalDate(year, month, 1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+        var startOfMonth = new LocalDate(year, month, 1)
+            .AtStartOfDayInZone(DateTimeZone.Utc)
+            .ToInstant();
         var endOfMonth = startOfMonth.Plus(Duration.FromDays(DateTime.DaysInMonth(year, month)));
 
         // Determine the effective viewer
@@ -1668,46 +1896,55 @@ public class AccountEventService(
         var isOwner = effectiveViewerId == user.Id;
 
         // Fetch statuses
-        var statuses = await db.AccountStatuses
-            .AsNoTracking()
+        var statuses = await db
+            .AccountStatuses.AsNoTracking()
             .TagWith("eventcal:statuses")
-            .Where(x => x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth)
+            .Where(x =>
+                x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth
+            )
             .Select(x => new SnAccountStatus
             {
                 Id = x.Id,
                 Attitude = x.Attitude,
-                Type = replaceInvisible && x.Type == StatusType.Invisible ? StatusType.Default : x.Type,
+                Type =
+                    replaceInvisible && x.Type == StatusType.Invisible
+                        ? StatusType.Default
+                        : x.Type,
                 Label = x.Label,
                 Symbol = x.Symbol,
                 ClearedAt = x.ClearedAt,
                 AccountId = x.AccountId,
-                CreatedAt = x.CreatedAt
+                CreatedAt = x.CreatedAt,
             })
             .OrderBy(x => x.CreatedAt)
             .ToListAsync();
 
         // Fetch check-ins
-        var checkIn = await db.AccountCheckInResults
-            .AsNoTracking()
+        var checkIn = await db
+            .AccountCheckInResults.AsNoTracking()
             .TagWith("eventcal:checkin")
-            .Where(x => x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth)
+            .Where(x =>
+                x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth
+            )
             .ToListAsync();
 
         // Fetch user calendar events with visibility filtering
-        var userEventsQuery = db.UserCalendarEvents
-            .AsNoTracking()
+        var userEventsQuery = db
+            .UserCalendarEvents.AsNoTracking()
             .TagWith("eventcal:userevents")
-            .Where(x => x.AccountId == user.Id &&
-                       x.DeletedAt == null &&
-                       x.EndTime >= startOfMonth &&
-                       x.StartTime < endOfMonth);
+            .Where(x =>
+                x.AccountId == user.Id
+                && x.DeletedAt == null
+                && x.EndTime >= startOfMonth
+                && x.StartTime < endOfMonth
+            );
 
         // Apply visibility filter
         if (!isOwner)
         {
             userEventsQuery = userEventsQuery.Where(x =>
-                x.Visibility == EventVisibility.Public ||
-                x.Visibility == EventVisibility.Friends);
+                x.Visibility == EventVisibility.Public || x.Visibility == EventVisibility.Friends
+            );
         }
 
         var userEvents = await userEventsQuery.ToListAsync();
@@ -1715,37 +1952,42 @@ public class AccountEventService(
         // For Friends visibility, check friendship status
         if (!isOwner)
         {
-            var isFriend = await db.AccountRelationships
-                .AnyAsync(r => r.AccountId == user.Id &&
-                              r.RelatedId == effectiveViewerId &&
-                              r.Status == RelationshipStatus.Friends);
+            var isFriend = await db.AccountRelationships.AnyAsync(r =>
+                r.AccountId == user.Id
+                && r.RelatedId == effectiveViewerId
+                && r.Status == RelationshipStatus.Friends
+            );
 
-            userEvents = userEvents.Where(e =>
-                e.Visibility == EventVisibility.Public ||
-                (e.Visibility == EventVisibility.Friends && isFriend)
-            ).ToList();
+            userEvents = userEvents
+                .Where(e =>
+                    e.Visibility == EventVisibility.Public
+                    || (e.Visibility == EventVisibility.Friends && isFriend)
+                )
+                .ToList();
         }
 
         // Expand recurring events
         var expandedEvents = ExpandRecurringEvents(userEvents, startOfMonth, endOfMonth);
 
         // Map to DTOs
-        var userEventDtos = expandedEvents.Select(e => new UserCalendarEventDto
-        {
-            Id = e.Id,
-            Title = e.Title,
-            Description = e.Description,
-            Location = e.Location,
-            StartTime = e.StartTime,
-            EndTime = e.EndTime,
-            IsAllDay = e.IsAllDay,
-            Visibility = e.Visibility,
-            Recurrence = e.Recurrence,
-            Meta = e.Meta,
-            AccountId = e.AccountId,
-            CreatedAt = e.CreatedAt,
-            UpdatedAt = e.UpdatedAt
-        }).ToList();
+        var userEventDtos = expandedEvents
+            .Select(e => new UserCalendarEventDto
+            {
+                Id = e.Id,
+                Title = e.Title,
+                Description = e.Description,
+                Location = e.Location,
+                StartTime = e.StartTime,
+                EndTime = e.EndTime,
+                IsAllDay = e.IsAllDay,
+                Visibility = e.Visibility,
+                Recurrence = e.Recurrence,
+                Meta = e.Meta,
+                AccountId = e.AccountId,
+                CreatedAt = e.CreatedAt,
+                UpdatedAt = e.UpdatedAt,
+            })
+            .ToList();
 
         // Fetch notable days
         var notableDays = new List<NotableDay>();
@@ -1756,8 +1998,11 @@ public class AccountEventService(
         }
 
         // Group data by date
-        var dates = Enumerable.Range(1, DateTime.DaysInMonth(year, month))
-            .Select(day => new LocalDate(year, month, day).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant())
+        var dates = Enumerable
+            .Range(1, DateTime.DaysInMonth(year, month))
+            .Select(day =>
+                new LocalDate(year, month, day).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant()
+            )
             .ToList();
 
         var statusesByDate = statuses
@@ -1772,18 +2017,26 @@ public class AccountEventService(
             .GroupBy(e => e.StartTime.InUtc().Date)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        return dates.Select(date =>
-        {
-            var utcDate = date.InUtc().Date;
-            return new DailyEventResponse
+        return dates
+            .Select(date =>
             {
-                Date = date,
-                CheckInResult = checkInByDate.GetValueOrDefault(utcDate),
-                Statuses = statusesByDate.GetValueOrDefault(utcDate, new List<SnAccountStatus>()),
-                UserEvents = eventsByDate.GetValueOrDefault(utcDate, new List<UserCalendarEventDto>()),
-                NotableDays = new List<DysonNetwork.Shared.Models.NotableDay>() // Populated by caller
-            };
-        }).ToList();
+                var utcDate = date.InUtc().Date;
+                return new DailyEventResponse
+                {
+                    Date = date,
+                    CheckInResult = checkInByDate.GetValueOrDefault(utcDate),
+                    Statuses = statusesByDate.GetValueOrDefault(
+                        utcDate,
+                        new List<SnAccountStatus>()
+                    ),
+                    UserEvents = eventsByDate.GetValueOrDefault(
+                        utcDate,
+                        new List<UserCalendarEventDto>()
+                    ),
+                    NotableDays = new List<DysonNetwork.Shared.Models.NotableDay>(), // Populated by caller
+                };
+            })
+            .ToList();
     }
 
     public async Task<MergedDailyEventResponse> GetMergedEventCalendar(
@@ -1793,13 +2046,21 @@ public class AccountEventService(
         bool replaceInvisible = false,
         Guid? viewerId = null,
         string? regionCode = null,
-        NotableDaysService? notableDaysService = null)
+        NotableDaysService? notableDaysService = null
+    )
     {
         if (year == 0)
             year = SystemClock.Instance.GetCurrentInstant().InUtc().Date.Year;
 
         // Get the base calendar
-        var calendar = await GetEventCalendar(user, month, year, replaceInvisible, viewerId, regionCode);
+        var calendar = await GetEventCalendar(
+            user,
+            month,
+            year,
+            replaceInvisible,
+            viewerId,
+            regionCode
+        );
 
         // Fetch notable days if region code and service provided
         var notableDays = new List<Shared.Models.NotableDay>();
@@ -1820,12 +2081,14 @@ public class AccountEventService(
         // Create merged response
         var mergedResponse = new MergedDailyEventResponse
         {
-            Date = calendar.FirstOrDefault()?.Date ?? new LocalDate(year, month, 1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant(),
+            Date =
+                calendar.FirstOrDefault()?.Date
+                ?? new LocalDate(year, month, 1).AtStartOfDayInZone(DateTimeZone.Utc).ToInstant(),
             CheckInResult = calendar.FirstOrDefault()?.CheckInResult,
             Statuses = calendar.SelectMany(c => c.Statuses).ToList(),
             UserEvents = calendar.SelectMany(c => c.UserEvents).ToList(),
             NotableDays = notableDays,
-            MergedEvents = new List<MergedCalendarEvent>()
+            MergedEvents = new List<MergedCalendarEvent>(),
         };
 
         // Merge all events into a flat list
@@ -1838,60 +2101,66 @@ public class AccountEventService(
             // Add check-in as merged event
             if (day.CheckInResult != null)
             {
-                allMergedEvents.Add(new MergedCalendarEvent
-                {
-                    Id = day.CheckInResult.Id,
-                    Type = CalendarEventType.CheckIn,
-                    Title = $"Check-in: {day.CheckInResult.Level}",
-                    Description = $"Daily check-in result: {day.CheckInResult.Level}",
-                    StartTime = day.CheckInResult.CreatedAt,
-                    EndTime = day.CheckInResult.CreatedAt,
-                    IsAllDay = true,
-                    Meta = new Dictionary<string, object>
+                allMergedEvents.Add(
+                    new MergedCalendarEvent
                     {
-                        ["level"] = day.CheckInResult.Level.ToString(),
-                        ["rewardPoints"] = day.CheckInResult.RewardPoints ?? 0,
-                        ["rewardExperience"] = day.CheckInResult.RewardExperience ?? 0
+                        Id = day.CheckInResult.Id,
+                        Type = CalendarEventType.CheckIn,
+                        Title = $"Check-in: {day.CheckInResult.Level}",
+                        Description = $"Daily check-in result: {day.CheckInResult.Level}",
+                        StartTime = day.CheckInResult.CreatedAt,
+                        EndTime = day.CheckInResult.CreatedAt,
+                        IsAllDay = true,
+                        Meta = new Dictionary<string, object>
+                        {
+                            ["level"] = day.CheckInResult.Level.ToString(),
+                            ["rewardPoints"] = day.CheckInResult.RewardPoints ?? 0,
+                            ["rewardExperience"] = day.CheckInResult.RewardExperience ?? 0,
+                        },
                     }
-                });
+                );
             }
 
             // Add statuses as merged events
             foreach (var status in day.Statuses)
             {
-                allMergedEvents.Add(new MergedCalendarEvent
-                {
-                    Id = status.Id,
-                    Type = CalendarEventType.Status,
-                    Title = status.Label ?? "Status Update",
-                    Description = $"Status: {status.Attitude} - {status.Type}",
-                    StartTime = status.CreatedAt,
-                    EndTime = status.ClearedAt ?? status.CreatedAt.Plus(Duration.FromHours(24)),
-                    IsAllDay = false,
-                    Meta = new Dictionary<string, object>
+                allMergedEvents.Add(
+                    new MergedCalendarEvent
                     {
-                        ["attitude"] = status.Attitude.ToString(),
-                        ["type"] = status.Type.ToString(),
-                        ["symbol"] = status.Symbol ?? ""
+                        Id = status.Id,
+                        Type = CalendarEventType.Status,
+                        Title = status.Label ?? "Status Update",
+                        Description = $"Status: {status.Attitude} - {status.Type}",
+                        StartTime = status.CreatedAt,
+                        EndTime = status.ClearedAt ?? status.CreatedAt.Plus(Duration.FromHours(24)),
+                        IsAllDay = false,
+                        Meta = new Dictionary<string, object>
+                        {
+                            ["attitude"] = status.Attitude.ToString(),
+                            ["type"] = status.Type.ToString(),
+                            ["symbol"] = status.Symbol ?? "",
+                        },
                     }
-                });
+                );
             }
 
             // Add user events as merged events
             foreach (var evt in day.UserEvents)
             {
-                allMergedEvents.Add(new MergedCalendarEvent
-                {
-                    Id = evt.Id,
-                    Type = CalendarEventType.UserEvent,
-                    Title = evt.Title,
-                    Description = evt.Description ?? "",
-                    Location = evt.Location,
-                    StartTime = evt.StartTime,
-                    EndTime = evt.EndTime,
-                    IsAllDay = evt.IsAllDay,
-                    Meta = evt.Meta ?? new Dictionary<string, object>()
-                });
+                allMergedEvents.Add(
+                    new MergedCalendarEvent
+                    {
+                        Id = evt.Id,
+                        Type = CalendarEventType.UserEvent,
+                        Title = evt.Title,
+                        Description = evt.Description ?? "",
+                        Location = evt.Location,
+                        StartTime = evt.StartTime,
+                        EndTime = evt.EndTime,
+                        IsAllDay = evt.IsAllDay,
+                        Meta = evt.Meta ?? new Dictionary<string, object>(),
+                    }
+                );
             }
 
             // Add notable days
@@ -1899,21 +2168,25 @@ public class AccountEventService(
             {
                 foreach (var notableDay in days)
                 {
-                    allMergedEvents.Add(new MergedCalendarEvent
-                    {
-                        Type = CalendarEventType.NotableDay,
-                        Title = notableDay.GlobalName ?? notableDay.LocalName ?? "Holiday",
-                        Description = notableDay.LocalName ?? "",
-                        StartTime = notableDay.Date,
-                        EndTime = notableDay.Date.Plus(Duration.FromHours(24)),
-                        IsAllDay = true,
-                        Meta = new Dictionary<string, object>
+                    allMergedEvents.Add(
+                        new MergedCalendarEvent
                         {
-                            ["localName"] = notableDay.LocalName ?? "",
-                            ["countryCode"] = notableDay.CountryCode ?? "",
-                            ["holidayTypes"] = notableDay.Holidays.Select(h => h.ToString()).ToList()
+                            Type = CalendarEventType.NotableDay,
+                            Title = notableDay.GlobalName ?? notableDay.LocalName ?? "Holiday",
+                            Description = notableDay.LocalName ?? "",
+                            StartTime = notableDay.Date,
+                            EndTime = notableDay.Date.Plus(Duration.FromHours(24)),
+                            IsAllDay = true,
+                            Meta = new Dictionary<string, object>
+                            {
+                                ["localName"] = notableDay.LocalName ?? "",
+                                ["countryCode"] = notableDay.CountryCode ?? "",
+                                ["holidayTypes"] = notableDay
+                                    .Holidays.Select(h => h.ToString())
+                                    .ToList(),
+                            },
                         }
-                    });
+                    );
                 }
             }
         }
@@ -1932,28 +2205,26 @@ public class AccountEventService(
         Guid? viewerId = null,
         string? regionCode = null,
         NotableDaysService? notableDaysService = null,
-        int take = 5)
+        int take = 5
+    )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var isOwner = viewerId == user.Id;
 
         // Get user events (respecting visibility)
-        var userEventsQuery = db.UserCalendarEvents
-            .AsNoTracking()
-            .Where(e => e.AccountId == user.Id &&
-                       e.DeletedAt == null &&
-                       e.EndTime > now);
+        var userEventsQuery = db
+            .UserCalendarEvents.AsNoTracking()
+            .Where(e => e.AccountId == user.Id && e.DeletedAt == null && e.EndTime > now);
 
         if (!isOwner && viewerId.HasValue)
         {
             userEventsQuery = userEventsQuery.Where(e =>
-                e.Visibility == EventVisibility.Public ||
-                e.Visibility == EventVisibility.Friends);
+                e.Visibility == EventVisibility.Public || e.Visibility == EventVisibility.Friends
+            );
         }
         else if (!isOwner)
         {
-            userEventsQuery = userEventsQuery.Where(e =>
-                e.Visibility == EventVisibility.Public);
+            userEventsQuery = userEventsQuery.Where(e => e.Visibility == EventVisibility.Public);
         }
 
         var userEvents = await userEventsQuery.ToListAsync();
@@ -1962,16 +2233,15 @@ public class AccountEventService(
         bool isFriend = false;
         if (!isOwner && viewerId.HasValue)
         {
-            isFriend = await db.AccountRelationships
-                .AnyAsync(r => r.AccountId == user.Id &&
-                              r.RelatedId == viewerId.Value &&
-                              r.Status == RelationshipStatus.Friends);
+            isFriend = await db.AccountRelationships.AnyAsync(r =>
+                r.AccountId == user.Id
+                && r.RelatedId == viewerId.Value
+                && r.Status == RelationshipStatus.Friends
+            );
 
             if (!isFriend)
             {
-                userEvents = userEvents
-                    .Where(e => e.Visibility == EventVisibility.Public)
-                    .ToList();
+                userEvents = userEvents.Where(e => e.Visibility == EventVisibility.Public).ToList();
             }
         }
 
@@ -2007,7 +2277,8 @@ public class AccountEventService(
 
     private List<SnUserCalendarEvent> ExpandRecurringEventsForCountdown(
         List<SnUserCalendarEvent> events,
-        Instant fromTime)
+        Instant fromTime
+    )
     {
         var expandedEvents = new List<SnUserCalendarEvent>();
 
@@ -2034,7 +2305,8 @@ public class AccountEventService(
     private List<SnUserCalendarEvent> GetRecurringEventOccurrencesForCountdown(
         SnUserCalendarEvent evt,
         Instant fromTime,
-        int maxOccurrences)
+        int maxOccurrences
+    )
     {
         var occurrences = new List<SnUserCalendarEvent>();
         var recurrence = evt.Recurrence!;
@@ -2050,15 +2322,23 @@ public class AccountEventService(
         while (currentEnd <= fromTime && occurrenceCount < maxOccurrencesLimit)
         {
             occurrenceCount++;
-            (currentStart, currentEnd) = CalculateNextOccurrence(currentStart, currentEnd, recurrence);
-            if (currentStart == default) break;
-            if (endDate.HasValue && currentStart > endDate.Value) break;
+            (currentStart, currentEnd) = CalculateNextOccurrence(
+                currentStart,
+                currentEnd,
+                recurrence
+            );
+            if (currentStart == default)
+                break;
+            if (endDate.HasValue && currentStart > endDate.Value)
+                break;
         }
 
         // Generate future occurrences
-        while (occurrenceCount < maxOccurrencesLimit &&
-               occurrenceCount < maxOccurrences &&
-               (!endDate.HasValue || currentStart <= endDate.Value))
+        while (
+            occurrenceCount < maxOccurrencesLimit
+            && occurrenceCount < maxOccurrences
+            && (!endDate.HasValue || currentStart <= endDate.Value)
+        )
         {
             if (currentEnd > fromTime)
             {
@@ -2076,20 +2356,28 @@ public class AccountEventService(
                     Meta = evt.Meta,
                     AccountId = evt.AccountId,
                     CreatedAt = evt.CreatedAt,
-                    UpdatedAt = evt.UpdatedAt
+                    UpdatedAt = evt.UpdatedAt,
                 };
                 occurrences.Add(occurrence);
             }
 
             occurrenceCount++;
-            (currentStart, currentEnd) = CalculateNextOccurrence(currentStart, currentEnd, recurrence);
-            if (currentStart == default) break;
+            (currentStart, currentEnd) = CalculateNextOccurrence(
+                currentStart,
+                currentEnd,
+                recurrence
+            );
+            if (currentStart == default)
+                break;
         }
 
         return occurrences;
     }
 
-    private EventCountdownItem CreateCountdownItemFromUserEvent(SnUserCalendarEvent evt, Instant now)
+    private EventCountdownItem CreateCountdownItemFromUserEvent(
+        SnUserCalendarEvent evt,
+        Instant now
+    )
     {
         var timeUntil = evt.StartTime - now;
         var daysRemaining = (int)timeUntil.TotalDays;
@@ -2110,11 +2398,14 @@ public class AccountEventService(
             HoursRemaining = Math.Max(0, hoursRemaining),
             IsOngoing = isOngoing,
             Meta = evt.Meta,
-            AccountId = evt.AccountId
+            AccountId = evt.AccountId,
         };
     }
 
-    private EventCountdownItem CreateCountdownItemFromNotableDay(DysonNetwork.Shared.Models.NotableDay day, Instant now)
+    private EventCountdownItem CreateCountdownItemFromNotableDay(
+        DysonNetwork.Shared.Models.NotableDay day,
+        Instant now
+    )
     {
         var timeUntil = day.Date - now;
         var daysRemaining = (int)timeUntil.TotalDays;
@@ -2138,9 +2429,9 @@ public class AccountEventService(
             {
                 ["localName"] = day.LocalName ?? "",
                 ["countryCode"] = day.CountryCode ?? "",
-                ["holidayTypes"] = day.Holidays.Select(h => h.ToString()).ToList()
+                ["holidayTypes"] = day.Holidays.Select(h => h.ToString()).ToList(),
             },
-            AccountId = null
+            AccountId = null,
         };
     }
 
