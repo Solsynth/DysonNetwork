@@ -1673,10 +1673,7 @@ public class ThoughtService(
             EnsureFileUrls(attachments);
         }
 
-        var useVisionKernel =
-            attachments is { Count: > 0 }
-            && attachments.Any(IsImageFile)
-            && postAnalysisService.IsVisionModelAvailable();
+        var useVisionKernel = attachments is { Count: > 0 } && attachments.Any(IsImageFile);
 
         if (attachments is { Count: > 0 })
         {
