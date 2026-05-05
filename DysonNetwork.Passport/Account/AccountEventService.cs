@@ -2116,6 +2116,8 @@ public class AccountEventService(
                             ["level"] = day.CheckInResult.Level.ToString(),
                             ["rewardPoints"] = day.CheckInResult.RewardPoints ?? 0,
                             ["rewardExperience"] = day.CheckInResult.RewardExperience ?? 0,
+                            ["tips"] = day.CheckInResult.Tips,
+                            ["fortuneReport"] = day.CheckInResult.FortuneReport!,
                         },
                     }
                 );
