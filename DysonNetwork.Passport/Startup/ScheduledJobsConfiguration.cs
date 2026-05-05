@@ -1,6 +1,7 @@
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Account.Presences;
 using DysonNetwork.Passport.Credit;
+using DysonNetwork.Passport.DomainTrust;
 using DysonNetwork.Passport.Handlers;
 using DysonNetwork.Passport.Realm;
 using Quartz;
@@ -25,6 +26,15 @@ public static class ScheduledJobsConfiguration
                 .WithIdentity("LastActiveFlushTrigger")
                 .WithSimpleSchedule(o => o
                     .WithIntervalInMinutes(5)
+                    .RepeatForever())
+            );
+
+            q.AddJob<DomainValidationMetricFlushJob>(opts => opts.WithIdentity("DomainValidationMetricFlush"));
+            q.AddTrigger(opts => opts
+                .ForJob("DomainValidationMetricFlush")
+                .WithIdentity("DomainValidationMetricFlushTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(1)
                     .RepeatForever())
             );
 

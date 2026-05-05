@@ -249,4 +249,25 @@ public class DomainTrustService
         await _db.SaveChangesAsync();
         return true;
     }
+
+    public async Task<List<SnDomainValidationMetric>> GetDomainMetricsAsync(int offset = 0, int limit = 50)
+    {
+        return await _db.DomainValidationMetrics
+            .OrderByDescending(x => x.CheckCount)
+            .ThenBy(x => x.Domain)
+            .Skip(offset)
+            .Take(limit)
+            .ToListAsync();
+    }
+
+    public async Task<int> GetDomainMetricCountAsync()
+    {
+        return await _db.DomainValidationMetrics.CountAsync();
+    }
+
+    public async Task<SnDomainValidationMetric?> GetDomainMetricAsync(string domain)
+    {
+        return await _db.DomainValidationMetrics
+            .FirstOrDefaultAsync(x => x.Domain == domain);
+    }
 }

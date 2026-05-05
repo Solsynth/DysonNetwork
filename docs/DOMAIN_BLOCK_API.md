@@ -104,11 +104,6 @@ Get a paginated list of all domain block rules.
     "port_restriction": null,
     "reason": "Known phishing site",
     "priority": 10,
-    "is_active": true,
-    "created_by_account_id": "uuid",
-    "created_at": "2026-05-05T10:30:00Z",
-    "updated_at": "2026-05-05T10:30:00Z"
-  ,
     "trust_level": 0,
     "is_active": true,
     "created_by_account_id": "uuid",
@@ -159,6 +154,7 @@ Create a new domain block rule.
   "port_restriction": "int (optional - specific port to block)",
   "reason": "string (optional, max 256 chars)",
   "priority": "int (default: 0 - higher = checked first)",
+  "trust_level": "int (default: 0 - 0=Blocked, 1=Neutral, 2=Verified)",
   "is_active": "bool (default: true)"
 }
 ```
@@ -169,6 +165,7 @@ Create a new domain block rule.
 {
   "domain_pattern": "*.malicious.net",
   "reason": "Known malware distribution network",
+  "trust_level": 0,
   "priority": 100
 }
 ```
@@ -183,6 +180,7 @@ Create a new domain block rule.
   "port_restriction": null,
   "reason": "Known malware distribution network",
   "priority": 100,
+  "trust_level": 0,
   "is_active": true,
   "created_by_account_id": "uuid",
   "created_at": "2026-05-05T10:30:00Z",
@@ -209,6 +207,7 @@ Update an existing block rule.
   "port_restriction": "int (optional)",
   "reason": "string (optional)",
   "priority": "int (optional)",
+  "trust_level": "int (optional - 0=Blocked, 1=Neutral, 2=Verified)",
   "is_active": "bool (optional)"
 }
 ```
@@ -258,6 +257,7 @@ Validate a URL against all block rules and default restrictions. Returns detaile
 ```json
 {
   "is_allowed": false,
+  "is_verified": false,
   "block_reason": "HTTP protocol is blocked by default (not secure)",
   "matched_rule": null,
   "matched_source": "default_http_block"
@@ -269,6 +269,7 @@ Validate a URL against all block rules and default restrictions. Returns detaile
 | Field | Type | Description |
 |-------|------|-------------|
 | `is_allowed` | bool | Whether the URL is allowed |
+| `is_verified` | bool | Whether the domain is officially verified (safe to open directly) |
 | `block_reason` | string? | Human-readable reason if blocked |
 | `matched_rule` | object? | The matching database rule (if any) |
 | `matched_source` | string? | Source of the block decision |
@@ -304,9 +305,105 @@ Quick check if a URL is allowed. Returns minimal information.
 ```json
 {
   "is_allowed": false,
+  "is_verified": false,
   "block_reason": "HTTP protocol is blocked by default (not secure)"
 }
 ```
+
+**Metrics Behavior:**
+
+- Every call to `POST /api/domain-blocks/validate` and `GET /api/domain-blocks/check` records a validation metric.
+- Metrics are aggregated by normalized host only: `uri.host.toLowerCase()`.
+- Invalid URLs that cannot be parsed into an absolute URI are not recorded.
+- Metrics are buffered in memory and flushed periodically to the database for better write performance.
+
+---
+
+### List Validation Metrics
+
+Get aggregated validation metrics for domains checked through the validation APIs.
+
+**Endpoint:** `GET /api/domain-blocks/metrics`
+
+**Authorization:** Required
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `offset` | int | Pagination offset (default: 0) |
+| `limit` | int | Pagination limit (default: 50) |
+
+**Ordering:**
+
+- Ordered by `check_count` descending, then by `domain` ascending.
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "domain": "example.com",
+    "check_count": 120,
+    "blocked_count": 4,
+    "verified_count": 85,
+    "last_checked_at": "2026-05-05T10:30:00Z"
+  },
+  {
+    "domain": "malicious.net",
+    "check_count": 48,
+    "blocked_count": 48,
+    "verified_count": 0,
+    "last_checked_at": "2026-05-05T10:28:00Z"
+  }
+]
+```
+
+**Headers:**
+
+- `X-Total`: Total count of tracked domains
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `domain` | string | Normalized host name |
+| `check_count` | int | Total validation/check calls recorded for the domain |
+| `blocked_count` | int | Number of validation results where `is_allowed` was `false` |
+| `verified_count` | int | Number of validation results where `is_verified` was `true` |
+| `last_checked_at` | string? | Most recent validation timestamp |
+
+---
+
+### Get Validation Metric By Domain
+
+Get the aggregated validation metrics for a single normalized domain.
+
+**Endpoint:** `GET /api/domain-blocks/metrics/{domain}`
+
+**Authorization:** Required
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `domain` | string | Normalized domain/host, such as `example.com` |
+
+**Response:** `200 OK`
+
+```json
+{
+  "domain": "example.com",
+  "check_count": 120,
+  "blocked_count": 4,
+  "verified_count": 85,
+  "last_checked_at": "2026-05-05T10:30:00Z"
+}
+```
+
+**Response:** `404 Not Found`
+
+Returned when the domain has no stored metric record yet.
 
 ---
 
@@ -329,8 +426,9 @@ message DyValidateUrlRequest {
 
 message DyDomainValidationResult {
   bool is_allowed = 1;
-  string block_reason = 2;
-  string matched_source = 3;
+  bool is_verified = 2;
+  string block_reason = 3;
+  string matched_source = 4;
 }
 ```
 
@@ -360,19 +458,27 @@ message DyDomainBlockCheckResult {
 ### Client-side URL Validation
 
 ```javascript
-// Check if a redirect URL is safe
-async function isUrlSafe(url) {
+// Check if a URL is safe and trusted
+async function validateUrl(url) {
   const response = await fetch(`/api/domain-blocks/check?url=${encodeURIComponent(url)}`);
   const result = await response.json();
-  return result.is_allowed;
+  return result;
 }
 
-// Usage
-const redirectUrl = 'http://example.com';
-if (await isUrlSafe(redirectUrl)) {
-  window.location.href = redirectUrl;
+// Usage - deciding whether to open link directly or show warning
+const result = await validateUrl('https://example.com');
+
+if (!result.is_allowed) {
+  // URL is blocked - don't open
+  showError('This URL is blocked: ' + result.block_reason);
+} else if (result.is_verified) {
+  // Verified domain - safe to open directly
+  window.location.href = url;
 } else {
-  alert('This URL is not allowed');
+  // Neutral domain - ask user for confirmation
+  if (confirm('You are about to leave this site. Continue?')) {
+    window.location.href = url;
+  }
 }
 ```
 
@@ -395,6 +501,69 @@ public class MyService
         return result.IsAllowed;
     }
 }
+```
+
+---
+
+## Client Behavior Guidelines
+
+When handling URLs, clients should check the validation result and behave accordingly:
+
+### Blocked URLs (`is_allowed: false`)
+
+**Behavior:**
+- Do NOT open the URL
+- Do NOT generate link previews
+- Show error message with `block_reason`
+- Log the blocked attempt if needed
+
+**Example:**
+```javascript
+if (!result.is_allowed) {
+  showError(`Cannot open link: ${result.block_reason}`);
+  return;
+}
+```
+
+### Verified URLs (`is_allowed: true && is_verified: true`)
+
+**Behavior:**
+- Safe to open directly without user confirmation
+- Can generate link previews
+- Show verified badge/indicator (optional)
+- Suitable for OAuth redirects, deep links, etc.
+
+**Example:**
+```javascript
+if (result.is_verified) {
+  window.location.href = url;  // Open directly
+  return;
+}
+```
+
+### Neutral URLs (`is_allowed: true && is_verified: false`)
+
+**Behavior:**
+- Show link preview if available
+- Ask user for confirmation before opening
+- Display warning about leaving the app
+- Suitable for user-submitted links, chat messages, etc.
+
+**Example:**
+```javascript
+if (confirm('You are about to visit an external site. Continue?')) {
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+```
+
+### Recommended Client Flow
+
+```
+1. Get validation result from API
+2. if (is_allowed === false) → Show error, stop
+3. if (is_verified === true) → Open directly
+4. if (is_verified === false) → Show preview + ask confirmation
+5. User confirms → Open with security attributes (noopener, noreferrer)
 ```
 
 ---

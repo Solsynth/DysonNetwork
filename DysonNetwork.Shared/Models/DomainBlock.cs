@@ -38,6 +38,20 @@ public class SnDomainBlock : ModelBase
     public Guid? CreatedByAccountId { get; set; }
 }
 
+[Index(nameof(Domain), IsUnique = true)]
+public class SnDomainValidationMetric : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    [MaxLength(512)]
+    public string Domain { get; set; } = string.Empty;
+
+    public int CheckCount { get; set; }
+    public int BlockedCount { get; set; }
+    public int VerifiedCount { get; set; }
+    public Instant? LastCheckedAt { get; set; }
+}
+
 public class DomainBlockRule
 {
     public string DomainPattern { get; set; } = string.Empty;

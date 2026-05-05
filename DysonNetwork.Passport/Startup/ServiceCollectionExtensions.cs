@@ -100,6 +100,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<FlushBufferService>();
         services.AddScoped<LastActiveFlushHandler>();
+        services.AddScoped<DomainValidationMetricFlushHandler>();
 
         return services;
     }

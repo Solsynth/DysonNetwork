@@ -1,14 +1,29 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using NodaTime;
 
 namespace DysonNetwork.Passport.DomainTrust;
 
 [ApiController]
 [Route("/api/domain-blocks")]
-public class DomainTrustController(DomainTrustService service) : Controller
+public class DomainTrustController(
+    DomainTrustService service,
+    FlushBufferService flushBuffer,
+    IClock clock
+) : Controller
 {
+    public class DomainValidationMetricResponse
+    {
+        public string Domain { get; set; } = string.Empty;
+        public int CheckCount { get; set; }
+        public int BlockedCount { get; set; }
+        public int VerifiedCount { get; set; }
+        public Instant? LastCheckedAt { get; set; }
+    }
+
     [HttpGet]
     [Authorize]
     public async Task<ActionResult<List<SnDomainBlock>>> ListRules(
@@ -129,6 +144,7 @@ public class DomainTrustController(DomainTrustService service) : Controller
     public async Task<ActionResult<DomainValidationResult>> ValidateUrl([FromBody] ValidateUrlRequest request)
     {
         var result = await service.ValidateUrlAsync(request.Url);
+        TrackValidationMetric(request.Url, result);
         return Ok(result);
     }
 
@@ -136,11 +152,68 @@ public class DomainTrustController(DomainTrustService service) : Controller
     public async Task<ActionResult<object>> CheckUrl([FromQuery] string url)
     {
         var result = await service.ValidateUrlAsync(url);
+        TrackValidationMetric(url, result);
         return Ok(new
         {
             is_allowed = result.IsAllowed,
             is_verified = result.IsVerified,
             block_reason = result.BlockReason
+        });
+    }
+
+    [HttpGet("metrics")]
+    [Authorize]
+    public async Task<ActionResult<List<DomainValidationMetricResponse>>> ListMetrics(
+        [FromQuery] int offset = 0,
+        [FromQuery] int limit = 50
+    )
+    {
+        var total = await service.GetDomainMetricCountAsync();
+        var metrics = await service.GetDomainMetricsAsync(offset, limit);
+
+        Response.Headers["X-Total"] = total.ToString();
+        return Ok(metrics.Select(x => new DomainValidationMetricResponse
+        {
+            Domain = x.Domain,
+            CheckCount = x.CheckCount,
+            BlockedCount = x.BlockedCount,
+            VerifiedCount = x.VerifiedCount,
+            LastCheckedAt = x.LastCheckedAt
+        }).ToList());
+    }
+
+    [HttpGet("metrics/{domain}")]
+    [Authorize]
+    public async Task<ActionResult<DomainValidationMetricResponse>> GetMetric(string domain)
+    {
+        var metric = await service.GetDomainMetricAsync(domain.Trim().ToLowerInvariant());
+        if (metric is null) return NotFound();
+
+        return Ok(new DomainValidationMetricResponse
+        {
+            Domain = metric.Domain,
+            CheckCount = metric.CheckCount,
+            BlockedCount = metric.BlockedCount,
+            VerifiedCount = metric.VerifiedCount,
+            LastCheckedAt = metric.LastCheckedAt
+        });
+    }
+
+    private void TrackValidationMetric(string url, DomainValidationResult result)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return;
+
+        var domain = uri.Host.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(domain))
+            return;
+
+        flushBuffer.Enqueue(new DomainValidationMetricInfo
+        {
+            Domain = domain,
+            IsAllowed = result.IsAllowed,
+            IsVerified = result.IsVerified,
+            CheckedAt = clock.GetCurrentInstant()
         });
     }
 }
