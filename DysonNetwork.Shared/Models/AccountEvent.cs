@@ -164,12 +164,20 @@ public class CheckInFortuneReport
     public int Version { get; set; }
     public string Poem { get; set; } = null!;
     public string Summary { get; set; } = null!;
+    public string SummaryDetail { get; set; } = null!;
     public string Wish { get; set; } = null!;
     public string Love { get; set; } = null!;
     public string Study { get; set; } = null!;
     public string Career { get; set; } = null!;
     public string Health { get; set; } = null!;
     public string LostItem { get; set; } = null!;
+    public string LuckyColor { get; set; } = null!;
+    public string LuckyDirection { get; set; } = null!;
+    public string LuckyTime { get; set; } = null!;
+    public string LuckyItem { get; set; } = null!;
+    public string LuckyAction { get; set; } = null!;
+    public string AvoidAction { get; set; } = null!;
+    public string Ritual { get; set; } = null!;
 }
 
 /// <summary>

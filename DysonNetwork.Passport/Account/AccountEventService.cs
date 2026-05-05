@@ -610,12 +610,20 @@ public class AccountEventService(
   "version": {{FortuneReportVersion}},
   "poem": "签诗，1到2句，有意象但自然",
   "summary": "运势总评，60字以内",
+  "summary_detail": "今日建议，120到180字，像巫女基于签位给用户的具体行动建议，结合今日事件和基础提示",
   "wish": "愿望，40字以内",
   "love": "爱情，40字以内",
   "study": "学业，40字以内",
   "career": "事业，40字以内",
   "health": "健康，40字以内",
-  "lost_item": "失物，40字以内"
+  "lost_item": "失物，40字以内",
+  "lucky_color": "幸运色，短词",
+  "lucky_direction": "幸运方位，短词",
+  "lucky_time": "幸运时段，短词",
+  "lucky_item": "幸运小物，短词",
+  "lucky_action": "今日宜做，40字以内",
+  "avoid_action": "今日忌做，40字以内",
+  "ritual": "小仪式，60字以内，轻量、可执行、不要迷信化"
 }
 
 要求：
@@ -626,6 +634,8 @@ public class AccountEventService(
 - 必须尊重“用户今日抽到了”的签位，不能自行更改签位。
 - 签位越高越明朗，签位越低越提醒谨慎。
 - 可以温柔地结合生日、公开个人事件、全球或地区节日，但不要暴露或推断未提供的私密信息。
+- summary_detail 更像今日建议，不要只是扩写总评；要告诉用户今天适合怎么行动、注意什么、把精力放在哪里。
+- lucky_* 和 ritual 要有当天的意象感，但保持生活化，不要像抽象模板。
 - 每个字段都要具体，不要重复。
 - 输出必须是可被 JSON.parse 直接解析的对象。
 """;
@@ -658,12 +668,20 @@ public class AccountEventService(
             report.Version = FortuneReportVersion;
             report.Poem = TrimFortuneText(report.Poem, 120);
             report.Summary = TrimFortuneText(report.Summary, 120);
+            report.SummaryDetail = TrimFortuneText(report.SummaryDetail, 260);
             report.Wish = TrimFortuneText(report.Wish, 80);
             report.Love = TrimFortuneText(report.Love, 80);
             report.Study = TrimFortuneText(report.Study, 80);
             report.Career = TrimFortuneText(report.Career, 80);
             report.Health = TrimFortuneText(report.Health, 80);
             report.LostItem = TrimFortuneText(report.LostItem, 80);
+            report.LuckyColor = TrimFortuneText(report.LuckyColor, 40);
+            report.LuckyDirection = TrimFortuneText(report.LuckyDirection, 40);
+            report.LuckyTime = TrimFortuneText(report.LuckyTime, 40);
+            report.LuckyItem = TrimFortuneText(report.LuckyItem, 40);
+            report.LuckyAction = TrimFortuneText(report.LuckyAction, 80);
+            report.AvoidAction = TrimFortuneText(report.AvoidAction, 80);
+            report.Ritual = TrimFortuneText(report.Ritual, 120);
             return report;
         }
         catch (JsonException)
@@ -693,12 +711,20 @@ public class AccountEventService(
         return report.Version == FortuneReportVersion &&
                !string.IsNullOrWhiteSpace(report.Poem) &&
                !string.IsNullOrWhiteSpace(report.Summary) &&
+               !string.IsNullOrWhiteSpace(report.SummaryDetail) &&
                !string.IsNullOrWhiteSpace(report.Wish) &&
                !string.IsNullOrWhiteSpace(report.Love) &&
                !string.IsNullOrWhiteSpace(report.Study) &&
                !string.IsNullOrWhiteSpace(report.Career) &&
                !string.IsNullOrWhiteSpace(report.Health) &&
-               !string.IsNullOrWhiteSpace(report.LostItem);
+               !string.IsNullOrWhiteSpace(report.LostItem) &&
+               !string.IsNullOrWhiteSpace(report.LuckyColor) &&
+               !string.IsNullOrWhiteSpace(report.LuckyDirection) &&
+               !string.IsNullOrWhiteSpace(report.LuckyTime) &&
+               !string.IsNullOrWhiteSpace(report.LuckyItem) &&
+               !string.IsNullOrWhiteSpace(report.LuckyAction) &&
+               !string.IsNullOrWhiteSpace(report.AvoidAction) &&
+               !string.IsNullOrWhiteSpace(report.Ritual);
     }
 
     private static string TrimFortuneText(string value, int maxLength)
@@ -769,12 +795,20 @@ public class AccountEventService(
             Version = FortuneReportVersion,
             Poem = isBirthday ? "星灯落掌心，花影绕今日。" : "风过签筒静，铃响见微光。",
             Summary = $"{nick}，今日{tone}。{positiveTip?.Content ?? "把心放稳，小事也会慢慢顺起来。"}",
+            SummaryDetail = $"{nick}，今日建议你先把节奏放稳，再选择最值得推进的一件事。{positiveTip?.Content ?? "顺手完成的小事会带来一点确定感。"} 若遇到卡顿，不必急着证明自己，先整理线索、减少分心；把注意力放在能立即收尾的小行动上，会比反复犹豫更有帮助。",
             Wish = positiveTip?.Title ?? "愿望宜从一个小动作开始。",
             Love = "温柔表达比反复猜测更有力量。",
             Study = "适合整理旧知识，细节里会有新线索。",
             Career = "先稳住手边事务，再推进新的判断。",
             Health = "留意休息和饮水，不必把自己逼得太紧。",
-            LostItem = negativeTip is null ? "先看常用包袋和桌角附近。" : "失物多在顺手放下之处，慢慢回想路径。"
+            LostItem = negativeTip is null ? "先看常用包袋和桌角附近。" : "失物多在顺手放下之处，慢慢回想路径。",
+            LuckyColor = isBirthday ? "星白色" : "浅青色",
+            LuckyDirection = "东南",
+            LuckyTime = "午后",
+            LuckyItem = "随身钥匙",
+            LuckyAction = "把一件拖延的小事收尾。",
+            AvoidAction = "避免在情绪上头时立刻做决定。",
+            Ritual = "出门前整理桌面一角，给今天留出清爽的开端。"
         };
     }
 

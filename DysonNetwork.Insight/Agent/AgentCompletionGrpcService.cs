@@ -1,10 +1,13 @@
+using System.Text;
 using DysonNetwork.Insight.Agent.Foundation;
 using DysonNetwork.Insight.Agent.Foundation.Models;
 using DysonNetwork.Insight.Agent.Foundation.Providers;
 using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.SnChan.Plugins;
+using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
+using NodaTime;
 
 namespace DysonNetwork.Insight.Agent;
 
@@ -13,6 +16,9 @@ public class AgentCompletionGrpcService(
     IServiceProvider serviceProvider,
     IAgentToolRegistry toolRegistry,
     IConfiguration configuration,
+    MemoryService memoryService,
+    UserProfileService userProfileService,
+    MoodService moodService,
     IMiChanFoundationProvider miChanFoundationProvider,
     ISnChanFoundationProvider snChanFoundationProvider,
     MiChanConfig miChanConfig,
@@ -31,7 +37,7 @@ public class AgentCompletionGrpcService(
             throw new RpcException(new Status(StatusCode.InvalidArgument, "user_message is required"));
 
         var currentUser = await LoadAccountAsync(accountId);
-        var conversation = BuildEphemeralConversation(request, currentUser);
+        var conversation = await BuildEphemeralConversationAsync(request, currentUser, accountId, context.CancellationToken);
         var usedVision = false;
 
         if (request.EnableTools)
@@ -83,10 +89,15 @@ public class AgentCompletionGrpcService(
         }
     }
 
-    private AgentConversation BuildEphemeralConversation(DyAgentCompletionRequest request, DyAccount currentUser)
+    private async Task<AgentConversation> BuildEphemeralConversationAsync(
+        DyAgentCompletionRequest request,
+        DyAccount currentUser,
+        Guid accountId,
+        CancellationToken cancellationToken)
     {
         var builder = new ConversationBuilder();
-        builder.AddSystemMessage(BuildSystemPrompt(request.Persona, currentUser));
+        builder.AddSystemMessage(await BuildSystemPromptAsync(request.Persona, currentUser, accountId, request.UserMessage,
+            cancellationToken));
         if (!string.IsNullOrWhiteSpace(request.Topic))
             builder.AddSystemMessage("当前请求主题：" + request.Topic);
         if (request.AcceptProposals.Count > 0)
@@ -111,7 +122,12 @@ public class AgentCompletionGrpcService(
         return builder.Build();
     }
 
-    private string BuildSystemPrompt(DyAgentPersona persona, DyAccount currentUser)
+    private async Task<string> BuildSystemPromptAsync(
+        DyAgentPersona persona,
+        DyAccount currentUser,
+        Guid accountId,
+        string userMessage,
+        CancellationToken cancellationToken)
     {
         var personality = persona == DyAgentPersona.Michan
             ? PersonalityLoader.LoadPersonality(
@@ -123,13 +139,107 @@ public class AgentCompletionGrpcService(
                 configuration.GetValue<string>("SnChan:Personality") ?? string.Empty,
                 logger);
 
-        return $$"""
-{{personality}}
+        var builder = new StringBuilder();
+        builder.AppendLine(personality);
+        builder.AppendLine();
+        builder.AppendLine("你正在处理一个一次性的 gRPC completion 请求。不要创建、引用或延续 thought sequence。不要声称已经保存记忆或更新档案。");
+        builder.AppendLine($"你正在为 {currentUser.Nick} (@{currentUser.Name}) 生成回复，用户 ID 是 {currentUser.Id}。");
+        AppendTimeContext(builder, currentUser.Profile?.TimeZone);
+        builder.AppendLine("Solar Network 上的 ID 是 UUID，通常很难阅读，所以除非用户要求或必要，否则不要向用户显示 ID。");
+        builder.AppendLine();
 
-你正在处理一个一次性的 gRPC completion 请求。不要创建、引用或延续 thought sequence。不要声称已经保存记忆或更新档案。
-你正在为 {{currentUser.Nick}} (@{{currentUser.Name}}) 生成回复，用户 ID 是 {{currentUser.Id}}。
-Solar Network 上的 ID 是 UUID，通常很难阅读，所以除非用户要求或必要，否则不要向用户显示 ID。
-""";
+        if (persona == DyAgentPersona.Michan)
+            await AppendMiChanContextAsync(builder, accountId, userMessage, cancellationToken);
+
+        return builder.ToString();
+    }
+
+    private async Task AppendMiChanContextAsync(
+        StringBuilder builder,
+        Guid accountId,
+        string userMessage,
+        CancellationToken cancellationToken)
+    {
+        var userProfile = await userProfileService.GetOrCreateAsync(accountId, "michan", cancellationToken);
+        builder.AppendLine("你对该用户的结构化档案（优先级高于零散记忆，回复前先参考）：");
+        builder.AppendLine(userProfile.ToPrompt());
+        builder.AppendLine();
+        builder.AppendLine("重点：优先参考用户对你的态度记忆（attitude:warmth/respect/engagement、attitude_summary、attitude_trend）。");
+        builder.AppendLine("- warmth 低时，语气要更稳重、边界更清晰，不要过度热情。");
+        builder.AppendLine("- respect 低时，先建立可信度，少做主观推断，多给可验证信息。");
+        builder.AppendLine("- engagement 低时，回复应更短更直接，减少连续追问。");
+        builder.AppendLine("- 当态度趋势 warming/cooling/mixed 发生变化时，逐步调整交流风格，不要突变。");
+        builder.AppendLine();
+
+        var hotMemories = await memoryService.GetHotMemory(accountId, userMessage, 10, "michan", cancellationToken);
+        if (hotMemories.Count > 0)
+        {
+            builder.AppendLine("与你相关的热点记忆（回复前优先复用这些上下文）：");
+            foreach (var memory in hotMemories.Take(8))
+                builder.AppendLine("- " + memory.ToPrompt());
+            builder.AppendLine();
+        }
+        else
+        {
+            builder.AppendLine("当前没有命中的热点记忆。遇到需要背景、偏好、长期关系判断的问题时，只能基于本次请求和结构化档案回答。");
+            builder.AppendLine();
+        }
+
+        var recentMemories = await memoryService.GetRecentMemoriesAsync(accountId, 8, botName: "michan",
+            cancellationToken: cancellationToken);
+        if (recentMemories.Count > 0)
+        {
+            builder.AppendLine("最近的新记忆（来自之前的对话或自动行为）：");
+            foreach (var memory in recentMemories.Take(8))
+                builder.AppendLine("- " + memory.ToPrompt());
+            builder.AppendLine();
+        }
+
+        var currentMood = await moodService.GetCurrentMoodDescriptionAsync();
+        if (!string.IsNullOrWhiteSpace(currentMood))
+        {
+            builder.AppendLine($"你当前的心情：{currentMood}");
+            builder.AppendLine();
+        }
+
+        builder.AppendLine("记忆与档案只能作为上下文参考。本次 gRPC completion 不会保存新记忆，也不会更新用户档案或关系分数。");
+        builder.AppendLine();
+    }
+
+    private static void AppendTimeContext(StringBuilder builder, string? userTimeZone)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var serverZone = DateTimeZoneProviders.Tzdb.GetSystemDefault();
+        var serverNow = now.InZone(serverZone);
+
+        builder.AppendLine($"当前时间（服务器时间）: {serverNow:yyyy年MM月dd日 HH:mm:ss}");
+
+        if (!string.IsNullOrEmpty(userTimeZone))
+        {
+            try
+            {
+                var tz = DateTimeZoneProviders.Tzdb.GetZoneOrNull(userTimeZone);
+                if (tz != null)
+                {
+                    var local = now.InZone(tz);
+                    builder.AppendLine($"用户当地时间: {local:yyyy年MM月dd日 HH:mm:ss} ({userTimeZone})");
+                }
+                else
+                {
+                    builder.AppendLine($"（用户时区 {userTimeZone} 无法识别）");
+                }
+            }
+            catch
+            {
+                builder.AppendLine($"（用户时区 {userTimeZone} 无效）");
+            }
+        }
+        else
+        {
+            builder.AppendLine("（用户未设置时区）");
+        }
+
+        builder.AppendLine();
     }
 
     private (IAgentProviderAdapter Provider, AgentExecutionOptions Options, string ModelLabel) GetProviderAndOptions(
