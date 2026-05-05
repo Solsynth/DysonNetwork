@@ -83,7 +83,7 @@ Current config keys:
   "LabelColor": "rgb(224, 242, 254)",
   "TermsText": "Solsynth 2026 © All rights reserved.",
   "BarcodeAltText": "MEMBER CODE",
-  "WebServiceUrl": "https://passport.solian.app/passkit/v1",
+  "WebServiceUrl": "https://api.solian.app/passport/passkit/v1",
   "SigningCertificatePath": "./Keys/AppleWallet/member-pass.p12",
   "SigningCertificatePassword": "",
   "AppleWwdrCertificatePath": "./Keys/AppleWallet/AppleWWDRCAG4.cer",
@@ -127,7 +127,7 @@ For real devices, `AppleWallet:WebServiceUrl` should point to the public HTTPS b
 Recommended value:
 
 ```text
-https://passport.solian.app/api/passkit/v1
+https://api.solian.app/passport/passkit/v1
 ```
 
 If the URL does not match the public route Wallet can reach, pass update registration and refresh will fail.
@@ -300,7 +300,7 @@ Set `AppleWallet:WebServiceUrl` to the public HTTPS URL that iPhone Wallet can r
 Recommended format:
 
 ```text
-https://<public-passport-host>/api/passkit/v1
+https://<public-api-host>/passport/passkit/v1
 ```
 
 ### 5. Verify the Site URL

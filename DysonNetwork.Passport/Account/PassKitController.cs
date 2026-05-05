@@ -25,6 +25,26 @@ public class PassKitController(ApplePassService passService) : ControllerBase
         public List<string>? Logs { get; set; }
     }
 
+    [HttpGet("")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult GetRoot()
+    {
+        return Ok(new
+        {
+            service = "passkit",
+            version = "v1",
+            message = "Apple Wallet PassKit service endpoint.",
+            endpoints = new[]
+            {
+                "POST devices/{deviceLibraryIdentifier}/registrations/{passTypeIdentifier}/{serialNumber}",
+                "DELETE devices/{deviceLibraryIdentifier}/registrations/{passTypeIdentifier}/{serialNumber}",
+                "GET devices/{deviceLibraryIdentifier}/registrations/{passTypeIdentifier}",
+                "GET passes/{passTypeIdentifier}/{serialNumber}",
+                "POST log"
+            }
+        });
+    }
+
     [HttpPost("devices/{deviceLibraryIdentifier}/registrations/{passTypeIdentifier}/{serialNumber}")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType<ApiError>(StatusCodes.Status401Unauthorized)]
