@@ -201,6 +201,25 @@ public class AuthController(
         [Required] public string Password { get; set; } = string.Empty;
     }
 
+    public class PasskeyAuthenticationStartResponse
+    {
+        public string Challenge { get; set; } = null!;
+        public string RpId { get; set; } = null!;
+        public List<AccountService.PasskeyCredentialDescriptor> AllowCredentials { get; set; } = [];
+        public int Timeout { get; set; }
+        public string UserVerification { get; set; } = "preferred";
+    }
+
+    public class PasskeyAuthenticationCompleteRequest
+    {
+        [Required] public Guid FactorId { get; set; }
+        [Required] public string CredentialId { get; set; } = string.Empty;
+        [Required] public string ClientDataJson { get; set; } = string.Empty;
+        [Required] public string AuthenticatorData { get; set; } = string.Empty;
+        [Required] public string Signature { get; set; } = string.Empty;
+        public string? UserHandle { get; set; }
+    }
+
     [HttpPatch("challenge/{id:guid}")]
     public async Task<ActionResult<SnAuthChallenge>> DoChallenge([FromRoute] Guid id, [FromBody] PerformChallengeRequest request)
     {
@@ -253,6 +272,130 @@ public class AuthController(
                 HttpContext.Request.Headers.UserAgent.ToString().Length);
 
             return BadRequest("Invalid password.");
+        }
+
+        if (challenge.StepRemain == 0)
+        {
+            await pusher.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
+            {
+                Notification = new DyPushNotification
+                {
+                    Topic = "auth.login",
+                    Title = localizer.Get("newLoginTitle", challenge.Account.Language),
+                    Body = localizer.Get("newLoginBody", locale: challenge.Account.Language, args: new
+                        { deviceName = challenge.DeviceName ?? "unknown", ipAddress = challenge.IpAddress ?? "unknown" }),
+                    IsSavable = true
+                },
+                UserId = challenge.AccountId.ToString()
+            });
+        }
+
+        await db.SaveChangesAsync();
+        return challenge;
+    }
+
+    [HttpPost("challenge/{id:guid}/passkey/start")]
+    public async Task<ActionResult<PasskeyAuthenticationStartResponse>> StartPasskeyChallenge([FromRoute] Guid id)
+    {
+        var challenge = await db.AuthChallenges
+            .Include(e => e.Account)
+            .Include(e => e.Account.AuthFactors)
+            .FirstOrDefaultAsync(e => e.Id == id);
+        if (challenge is null) return NotFound("Auth challenge was not found.");
+
+        var factor = challenge.Account.AuthFactors
+            .FirstOrDefault(f => f.Type == AccountAuthFactorType.Passkey && f.EnabledAt != null && f.Trustworthy > 0 && !challenge.BlacklistFactors.Contains(f.Id));
+        if (factor is null) return BadRequest("No available passkey factor was found.");
+
+        if (challenge.StepRemain == 0) return BadRequest("Auth challenge already completed.");
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (challenge.ExpiredAt.HasValue && now > challenge.ExpiredAt.Value)
+            return BadRequest("Auth challenge has expired.");
+
+        var passkeyCredential = await accounts.GetPasskeyCredentialAsync(factor);
+        if (passkeyCredential == null)
+            return BadRequest("Passkey factor is invalid.");
+
+        var rpId = HttpContext.Request.Host.Host;
+        var assertionChallenge = await accounts.GeneratePasskeyAssertionChallengeAsync(challenge.Id, factor.Id);
+        return Ok(new PasskeyAuthenticationStartResponse
+        {
+            Challenge = assertionChallenge,
+            RpId = rpId,
+            AllowCredentials =
+            [
+                new AccountService.PasskeyCredentialDescriptor
+                {
+                    Id = passkeyCredential.CredentialId,
+                    Transports = ["internal", "hybrid", "usb", "nfc", "ble"]
+                }
+            ],
+            Timeout = 60000,
+            UserVerification = "preferred"
+        });
+    }
+
+    [HttpPost("challenge/{id:guid}/passkey/complete")]
+    public async Task<ActionResult<SnAuthChallenge>> CompletePasskeyChallenge([FromRoute] Guid id, [FromBody] PasskeyAuthenticationCompleteRequest request)
+    {
+        var challenge = await db.AuthChallenges
+            .Include(e => e.Account)
+            .FirstOrDefaultAsync(e => e.Id == id);
+        if (challenge is null) return NotFound("Auth challenge was not found.");
+
+        var factor = await db.AccountAuthFactors
+            .Where(f => f.Id == request.FactorId)
+            .Where(f => f.AccountId == challenge.AccountId)
+            .FirstOrDefaultAsync();
+        if (factor is null) return NotFound("Auth factor was not found.");
+        if (factor.Type != AccountAuthFactorType.Passkey) return BadRequest("Auth factor is not a passkey.");
+        if (factor.EnabledAt is null) return BadRequest("Auth factor is not enabled.");
+        if (factor.Trustworthy <= 0) return BadRequest("Auth factor is not trustworthy.");
+
+        if (challenge.StepRemain == 0) return challenge;
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (challenge.ExpiredAt.HasValue && now > challenge.ExpiredAt.Value)
+            return BadRequest("Auth challenge has expired.");
+
+        if (challenge.BlacklistFactors.Contains(factor.Id))
+            return BadRequest("Auth factor already used.");
+
+        try
+        {
+            if (await accounts.VerifyPasskeyAssertionAsync(
+                    factor,
+                    challenge.Id,
+                    request.CredentialId,
+                    request.ClientDataJson,
+                    request.AuthenticatorData,
+                    request.Signature
+                ))
+            {
+                challenge.StepRemain -= factor.Trustworthy;
+                challenge.StepRemain = Math.Max(0, challenge.StepRemain);
+                challenge.BlacklistFactors.Add(factor.Id);
+                db.Update(challenge);
+            }
+            else
+            {
+                throw new ArgumentException("Invalid passkey assertion.");
+            }
+        }
+        catch (Exception)
+        {
+            challenge.FailedAttempts++;
+            db.Update(challenge);
+            await db.SaveChangesAsync();
+
+            logger.LogWarning(
+                "CompletePasskeyChallenge: authentication failure (challengeId={ChallengeId}, factorId={FactorId}, accountId={AccountId}, failedAttempts={FailedAttempts}, ip={IpAddress}, uaLength={UaLength})",
+                challenge.Id, factor.Id, challenge.AccountId, challenge.FailedAttempts,
+                HttpContext.GetClientIpAddress(),
+                HttpContext.Request.Headers.UserAgent.ToString().Length);
+
+            return BadRequest("Invalid passkey assertion.");
         }
 
         if (challenge.StepRemain == 0)

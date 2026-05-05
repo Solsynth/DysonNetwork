@@ -556,12 +556,128 @@ public class AccountService(
         return challenge;
     }
 
+    public async Task<string> GeneratePasskeyAssertionChallengeAsync(Guid challengeId, Guid factorId)
+    {
+        var challengeBytes = new byte[32];
+        System.Security.Cryptography.RandomNumberGenerator.Fill(challengeBytes);
+        var challenge = Base64UrlEncode(challengeBytes);
+        var key = GetPasskeyAssertionChallengeKey(challengeId, factorId);
+        await cache.SetAsync(key, challenge, TimeSpan.FromMinutes(5));
+        logger.LogInformation(
+            "Generated passkey assertion challenge for auth challenge {ChallengeId} and factor {FactorId}",
+            challengeId,
+            factorId
+        );
+        return challenge;
+    }
+
+    public async Task<bool> VerifyPasskeyAssertionAsync(
+        SnAccountAuthFactor factor,
+        Guid challengeId,
+        string credentialId,
+        string clientDataJson,
+        string authenticatorData,
+        string signature
+    )
+    {
+        var key = GetPasskeyAssertionChallengeKey(challengeId, factor.Id);
+        var storedChallenge = await cache.GetAsync<string>(key);
+        if (string.IsNullOrEmpty(storedChallenge))
+        {
+            logger.LogWarning(
+                "Passkey assertion failed because challenge was missing or expired for auth challenge {ChallengeId} and factor {FactorId}",
+                challengeId,
+                factor.Id
+            );
+            return false;
+        }
+
+        try
+        {
+            var assertion = new PasskeyAssertion
+            {
+                CredentialId = credentialId,
+                ClientDataJson = clientDataJson,
+                AuthenticatorData = ParseAssertionAuthenticatorData(authenticatorData),
+                Signature = DecodeBase64OrBase64Url(signature)
+            };
+
+            var verified = await VerifyPasskey(factor, System.Text.Json.JsonSerializer.Serialize(assertion));
+            if (!verified)
+            {
+                logger.LogWarning(
+                    "Passkey assertion verification failed for auth challenge {ChallengeId} and factor {FactorId}",
+                    challengeId,
+                    factor.Id
+                );
+                return false;
+            }
+
+            var clientDataJsonBytes = DecodeClientDataJsonBytes(clientDataJson);
+            using var clientData = System.Text.Json.JsonDocument.Parse(clientDataJsonBytes);
+            var root = clientData.RootElement;
+            if (root.TryGetProperty("type", out var typeElement) && typeElement.GetString() != "webauthn.get")
+            {
+                logger.LogWarning(
+                    "Passkey assertion failed because client data type was invalid for auth challenge {ChallengeId} and factor {FactorId}",
+                    challengeId,
+                    factor.Id
+                );
+                return false;
+            }
+
+            if (root.TryGetProperty("challenge", out var challengeElement) &&
+                challengeElement.GetString() != storedChallenge)
+            {
+                logger.LogWarning(
+                    "Passkey assertion failed because client data challenge mismatched for auth challenge {ChallengeId} and factor {FactorId}",
+                    challengeId,
+                    factor.Id
+                );
+                return false;
+            }
+
+            await cache.RemoveAsync(key);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Passkey assertion processing failed for auth challenge {ChallengeId} and factor {FactorId}",
+                challengeId,
+                factor.Id
+            );
+            return false;
+        }
+    }
+
+    public Task<PasskeyCredential?> GetPasskeyCredentialAsync(SnAccountAuthFactor factor)
+    {
+        if (factor.Type != AccountAuthFactorType.Passkey || string.IsNullOrWhiteSpace(factor.Secret))
+            return Task.FromResult<PasskeyCredential?>(null);
+
+        try
+        {
+            return Task.FromResult(System.Text.Json.JsonSerializer.Deserialize<PasskeyCredential>(factor.Secret));
+        }
+        catch
+        {
+            return Task.FromResult<PasskeyCredential?>(null);
+        }
+    }
+
     private static string Base64UrlEncode(byte[] data)
     {
         return Convert.ToBase64String(data)
             .Replace('+', '-')
             .Replace('/', '_')
             .TrimEnd('=');
+    }
+
+    private static string GetPasskeyAssertionChallengeKey(Guid challengeId, Guid factorId)
+    {
+        return $"passkey:assertion:{challengeId}:{factorId}";
     }
 
     public async Task<PasskeyCredential?> CompletePasskeyRegistrationAsync(
@@ -803,6 +919,20 @@ public class AccountService(
                 normalized = normalized.PadRight(normalized.Length + (4 - padding), '=');
             return Convert.FromBase64String(normalized);
         }
+    }
+
+    private static AuthenticatorData ParseAssertionAuthenticatorData(string authenticatorData)
+    {
+        var bytes = DecodeBase64OrBase64Url(authenticatorData);
+        if (bytes.Length < 37)
+            throw new FormatException("Authenticator data is too short.");
+
+        return new AuthenticatorData
+        {
+            RpIdHash = bytes[..32],
+            Flags = (AuthenticatorFlags)bytes[32],
+            Counter = BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(33, 4))
+        };
     }
 
     private static byte[] DecodeClientDataJsonBytes(string value)
@@ -1377,6 +1507,13 @@ public class AccountService(
         public byte[] PublicKeyY { get; set; } = null!;
         public byte[]? CredentialPublicKey { get; set; }
         public ulong Counter { get; set; }
+    }
+
+    public class PasskeyCredentialDescriptor
+    {
+        public string Type { get; set; } = "public-key";
+        public string Id { get; set; } = null!;
+        public List<string> Transports { get; set; } = [];
     }
 
     public class PasskeyAssertion
