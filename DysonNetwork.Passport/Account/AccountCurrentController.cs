@@ -322,8 +322,7 @@ public class AccountCurrentController(
         if (result is null)
             return NotFound(ApiError.NotFound("check-in", traceId: HttpContext.TraceIdentifier));
 
-        if (version < 2)
-            result.FortuneReport = null;
+        events.PrepareCheckInResultForResponse(currentUser, result, version);
 
         return Ok(result);
     }
@@ -396,8 +395,7 @@ public class AccountCurrentController(
             }
 
             var result = await events.CheckInDaily(currentUser, backdated, version);
-            if (version < 2)
-                result.FortuneReport = null;
+            events.PrepareCheckInResultForResponse(currentUser, result, version);
 
             return result;
         }

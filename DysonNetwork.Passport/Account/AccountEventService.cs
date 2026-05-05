@@ -580,6 +580,16 @@ public class AccountEventService(
         return result;
     }
 
+    public SnCheckInResult PrepareCheckInResultForResponse(
+        SnAccount account,
+        SnCheckInResult result,
+        int version = FortuneReportVersion
+    )
+    {
+        result.FortuneReport = CompleteFortuneReport(account, result);
+        return result;
+    }
+
     private async Task<CheckInFortuneGeneration> GenerateCheckInFortune(
         SnAccount account,
         LocalDate checkInDate,
@@ -1003,6 +1013,43 @@ public class AccountEventService(
             AvoidAction = "避免在情绪上头时立刻做决定。",
             Ritual = "出门前整理桌面一角，给今天留出清爽的开端。",
         };
+    }
+
+    private static CheckInFortuneReport CompleteFortuneReport(SnAccount account, SnCheckInResult result)
+    {
+        var fallback = CreateFallbackFortuneReport(
+            account,
+            result.Level == CheckInResultLevel.Special,
+            result.Level,
+            result.Tips
+        );
+        var report = result.FortuneReport;
+        if (report is null)
+            return fallback;
+
+        report.Version = FortuneReportVersion;
+        report.Poem = PickFortuneText(report.Poem, fallback.Poem);
+        report.Summary = PickFortuneText(report.Summary, fallback.Summary);
+        report.SummaryDetail = PickFortuneText(report.SummaryDetail, fallback.SummaryDetail);
+        report.Wish = PickFortuneText(report.Wish, fallback.Wish);
+        report.Love = PickFortuneText(report.Love, fallback.Love);
+        report.Study = PickFortuneText(report.Study, fallback.Study);
+        report.Career = PickFortuneText(report.Career, fallback.Career);
+        report.Health = PickFortuneText(report.Health, fallback.Health);
+        report.LostItem = PickFortuneText(report.LostItem, fallback.LostItem);
+        report.LuckyColor = PickFortuneText(report.LuckyColor, fallback.LuckyColor);
+        report.LuckyDirection = PickFortuneText(report.LuckyDirection, fallback.LuckyDirection);
+        report.LuckyTime = PickFortuneText(report.LuckyTime, fallback.LuckyTime);
+        report.LuckyItem = PickFortuneText(report.LuckyItem, fallback.LuckyItem);
+        report.LuckyAction = PickFortuneText(report.LuckyAction, fallback.LuckyAction);
+        report.AvoidAction = PickFortuneText(report.AvoidAction, fallback.AvoidAction);
+        report.Ritual = PickFortuneText(report.Ritual, fallback.Ritual);
+        return report;
+    }
+
+    private static string PickFortuneText(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 
     public async Task<List<SnPresenceActivity>> GetActiveActivities(Guid userId)
@@ -1927,6 +1974,8 @@ public class AccountEventService(
                 x.AccountId == user.Id && x.CreatedAt >= startOfMonth && x.CreatedAt < endOfMonth
             )
             .ToListAsync();
+        foreach (var item in checkIn)
+            PrepareCheckInResultForResponse(user, item);
 
         // Fetch user calendar events with visibility filtering
         var userEventsQuery = db
