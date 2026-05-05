@@ -14,7 +14,8 @@ namespace DysonNetwork.Padlock.Account;
 public class AccountSecurityController(
     AppDatabase db,
     AccountService accounts,
-    Auth.AuthService auth
+    Auth.AuthService auth,
+    ILogger<AccountSecurityController> logger
 ) : ControllerBase
 {
     public record AuthorizedAppResponse(
@@ -210,6 +211,14 @@ public class AccountSecurityController(
 
         var credentialJson = System.Text.Json.JsonSerializer.Serialize(credential);
         var factor = await accounts.CreateAuthFactor(currentUser, AccountAuthFactorType.Passkey, credentialJson);
+        if (factor == null)
+        {
+            logger.LogWarning(
+                "Passkey registration completed but factor creation failed for account {AccountId} and device {DeviceId}",
+                currentUser.Id,
+                request.DeviceId
+            );
+        }
         return factor is null ? BadRequest("Failed to create passkey factor.") : Ok(factor);
     }
 

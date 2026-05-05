@@ -545,6 +545,11 @@ public class AccountService(
         var challenge = Base64UrlEncode(challengeBytes);
         var key = $"{PasskeyChallengePrefix}{account.Id}:{deviceId}";
         await cache.SetAsync(key, challenge, TimeSpan.FromMinutes(5));
+        logger.LogInformation(
+            "Generated passkey registration challenge for account {AccountId} and device {DeviceId}",
+            account.Id,
+            deviceId
+        );
         return challenge;
     }
 
@@ -565,14 +570,38 @@ public class AccountService(
         var key = $"{PasskeyChallengePrefix}{account.Id}:{deviceId}";
         var storedChallenge = await cache.GetAsync<string>(key);
         if (string.IsNullOrEmpty(storedChallenge))
+        {
+            logger.LogWarning(
+                "Passkey registration failed because challenge was missing or expired for account {AccountId} and device {DeviceId}",
+                account.Id,
+                deviceId
+            );
             return null;
+        }
 
         var attestation = ParseAttestationObject(attestationObject);
         if (attestation == null)
+        {
+            logger.LogWarning(
+                "Passkey registration failed because attestation parsing returned null for account {AccountId} and device {DeviceId}",
+                account.Id,
+                deviceId
+            );
             return null;
+        }
 
         if (!VerifyAttestationStatement(attestation, clientDataJson, storedChallenge))
+        {
+            logger.LogWarning(
+                "Passkey registration failed because attestation verification failed for account {AccountId} and device {DeviceId}. format={Format}, hasCert={HasCertificate}, algorithm={Algorithm}",
+                account.Id,
+                deviceId,
+                attestation.Format,
+                attestation.AttestationCertificate != null,
+                attestation.Algorithm
+            );
             return null;
+        }
 
         await cache.RemoveAsync(key);
 
@@ -583,6 +612,12 @@ public class AccountService(
             PublicKeyY = attestation.PublicKeyY,
             Counter = attestation.Counter
         };
+
+        logger.LogInformation(
+            "Passkey registration completed for account {AccountId} and device {DeviceId}",
+            account.Id,
+            deviceId
+        );
 
         return credential;
     }
