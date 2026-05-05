@@ -14,6 +14,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
+using System.Buffers.Binary;
+using System.Formats.Cbor;
 
 namespace DysonNetwork.Padlock.Account;
 
@@ -626,32 +628,43 @@ public class AccountService(
     {
         try
         {
-            var attestationBytes = Convert.FromBase64String(attestationObjectBase64);
-            using var ms = new MemoryStream(attestationBytes);
-            using var reader = new BinaryReader(ms);
-
-            var format = ReadString(reader);
-            if (format != "fido-u2f" && format != "packed")
-                return null;
+            var attestationBytes = DecodeBase64OrBase64Url(attestationObjectBase64);
+            var reader = new CborReader(attestationBytes, CborConformanceMode.Ctap2Canonical);
 
             var statement = new AttestationStatement();
-            statement.Format = format;
+            var mapLength = reader.ReadStartMap();
 
-            var attStmtMap = ReadMap(reader);
-            if (attStmtMap.TryGetValue("sig", out var sigValue) && sigValue is byte[] signature)
-                statement.Signature = signature;
+            while (reader.PeekState() != CborReaderState.EndMap)
+            {
+                var key = reader.ReadTextString();
+                switch (key)
+                {
+                    case "fmt":
+                        statement.Format = reader.ReadTextString();
+                        break;
+                    case "attStmt":
+                        ReadAttestationStatement(reader, statement);
+                        break;
+                    case "authData":
+                        statement.AuthData = reader.ReadByteString();
+                        break;
+                    default:
+                        reader.SkipValue();
+                        break;
+                }
+            }
 
-            if (attStmtMap.TryGetValue("x5c", out var x5CValue) && x5CValue is List<object> x5CList &&
-                x5CList.Count > 0 && x5CList[0] is byte[] certBytes)
-                statement.AttestationCertificate = certBytes;
+            reader.ReadEndMap();
 
-            if (attStmtMap.TryGetValue("alg", out var algValue) && algValue is int alg)
-                statement.Algorithm = alg;
+            if (string.IsNullOrEmpty(statement.Format) || statement.AuthData == null)
+                return null;
 
-            var authData = ReadBytes(reader);
-            return ParseAuthenticatorData(authData, statement);
+            if (statement.Format != "none" && statement.Format != "fido-u2f" && statement.Format != "packed")
+                return null;
+
+            return ParseAuthenticatorData(statement.AuthData, statement);
         }
-        catch
+        catch (Exception)
         {
             return null;
         }
@@ -662,21 +675,32 @@ public class AccountService(
         if (authData.Length < 37)
             return null;
 
-        using var ms = new MemoryStream(authData);
-        using var reader = new BinaryReader(ms);
-
-        statement.RpIdHash = reader.ReadBytes(32);
-        var flags = reader.ReadByte();
+        statement.RpIdHash = authData[..32];
+        var flags = authData[32];
         statement.UserPresent = (flags & 0x01) != 0;
         statement.UserVerified = (flags & 0x04) != 0;
-        statement.Counter = reader.ReadUInt32();
+        statement.Counter = BinaryPrimitives.ReadUInt32BigEndian(authData.AsSpan(33, 4));
 
         if ((flags & 0x40) != 0)
         {
-            var credIdLen = reader.ReadUInt16();
-            statement.CredentialId = Convert.ToBase64String(reader.ReadBytes(credIdLen));
+            const int aaguidOffset = 37;
+            const int aaguidLength = 16;
+            if (authData.Length < aaguidOffset + aaguidLength + 2)
+                return null;
 
-            var publicKeyBytes = reader.ReadBytes((int)(authData.Length - ms.Position));
+            var credentialLengthOffset = aaguidOffset + aaguidLength;
+            var credIdLen = BinaryPrimitives.ReadUInt16BigEndian(
+                authData.AsSpan(credentialLengthOffset, 2)
+            );
+            var credentialIdOffset = credentialLengthOffset + 2;
+            if (authData.Length < credentialIdOffset + credIdLen)
+                return null;
+
+            statement.CredentialId = Convert.ToBase64String(
+                authData.AsSpan(credentialIdOffset, credIdLen).ToArray()
+            );
+
+            var publicKeyBytes = authData[(credentialIdOffset + credIdLen)..];
             var (x, y) = ExtractPublicKeyFromCbor(publicKeyBytes);
             if (x != null && y != null)
             {
@@ -693,25 +717,90 @@ public class AccountService(
     {
         try
         {
-            using var ms = new MemoryStream(keyBytes);
-            using var reader = new BinaryReader(ms);
+            var reader = new CborReader(keyBytes, CborConformanceMode.Ctap2Canonical);
+            var mapLength = reader.ReadStartMap();
+            byte[]? x = null;
+            byte[]? y = null;
+            int? keyType = null;
 
-            ReadCbor(reader);
-            ReadCbor(reader);
-            var keyType = ReadCbor(reader);
+            while (reader.PeekState() != CborReaderState.EndMap)
+            {
+                var label = reader.ReadInt32();
+                switch (label)
+                {
+                    case 1:
+                        keyType = reader.ReadInt32();
+                        break;
+                    case -2:
+                        x = reader.ReadByteString();
+                        break;
+                    case -3:
+                        y = reader.ReadByteString();
+                        break;
+                    default:
+                        reader.SkipValue();
+                        break;
+                }
+            }
+
+            reader.ReadEndMap();
+
             if (keyType is not 2)
                 return (null, null);
-
-            ReadCbor(reader);
-            var x = ReadCbor(reader) as byte[];
-            ReadCbor(reader);
-            var y = ReadCbor(reader) as byte[];
 
             return (x, y);
         }
         catch
         {
             return (null, null);
+        }
+    }
+
+    private static void ReadAttestationStatement(CborReader reader, AttestationStatement statement)
+    {
+        var mapLength = reader.ReadStartMap();
+
+        while (reader.PeekState() != CborReaderState.EndMap)
+        {
+            var key = reader.ReadTextString();
+            switch (key)
+            {
+                case "sig":
+                    statement.Signature = reader.ReadByteString();
+                    break;
+                case "x5c":
+                    var certArrayLength = reader.ReadStartArray();
+                    if (reader.PeekState() != CborReaderState.EndArray)
+                        statement.AttestationCertificate = reader.ReadByteString();
+                    while (reader.PeekState() != CborReaderState.EndArray)
+                        reader.SkipValue();
+                    reader.ReadEndArray();
+                    break;
+                case "alg":
+                    statement.Algorithm = reader.ReadInt32();
+                    break;
+                default:
+                    reader.SkipValue();
+                    break;
+            }
+        }
+
+        reader.ReadEndMap();
+    }
+
+    private static byte[] DecodeBase64OrBase64Url(string value)
+    {
+        try
+        {
+            return Convert.FromBase64String(value);
+        }
+        catch (FormatException)
+        {
+            var normalized = value.Replace('-', '+').Replace('_', '/');
+            var padding = normalized.Length % 4;
+            if (padding != 0)
+                normalized = normalized.PadRight(normalized.Length + (4 - padding), '=');
+            return Convert.FromBase64String(normalized);
         }
     }
 
@@ -773,6 +862,9 @@ public class AccountService(
         if (root.TryGetProperty("challenge", out var challengeElement) &&
             challengeElement.GetString() != expectedChallenge)
             return false;
+
+        if (statement.Format == "none")
+            return true;
 
         var clientDataHash =
             System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(clientDataJson));
