@@ -3,18 +3,16 @@ using DysonNetwork.Insight.Agent.Foundation.Models;
 using DysonNetwork.Insight.Agent.Foundation.Providers;
 using DysonNetwork.Insight.MiChan;
 using DysonNetwork.Insight.SnChan.Plugins;
-using DysonNetwork.Insight.Thought;
-using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 
 namespace DysonNetwork.Insight.Agent;
 
 public class AgentCompletionGrpcService(
-    ThoughtService thoughtService,
     FoundationChatStreamingService streamingService,
     IServiceProvider serviceProvider,
     IAgentToolRegistry toolRegistry,
+    IConfiguration configuration,
     IMiChanFoundationProvider miChanFoundationProvider,
     ISnChanFoundationProvider snChanFoundationProvider,
     MiChanConfig miChanConfig,
@@ -32,52 +30,9 @@ public class AgentCompletionGrpcService(
         if (string.IsNullOrWhiteSpace(request.UserMessage))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "user_message is required"));
 
-        var sequenceId = TryParseOptionalGuid(request.SequenceId, "sequence_id");
-        var botName = GetBotName(request.Persona);
-        var sequence = await thoughtService.GetOrCreateSequenceAsync(
-            accountId,
-            sequenceId,
-            request.Topic,
-            botName);
-        if (sequence is null)
-            throw new RpcException(new Status(StatusCode.NotFound, "sequence not found for account"));
-
         var currentUser = await LoadAccountAsync(accountId);
-        var userThought = request.Persist
-            ? await thoughtService.SaveThoughtAsync(
-                sequence,
-                [new SnThinkingMessagePart { Type = ThinkingMessagePartType.Text, Text = request.UserMessage }],
-                ThinkingThoughtRole.User,
-                botName: botName)
-            : null;
-
-        var attachedMessages = request.AttachedMessages
-            .Select(message => new Dictionary<string, dynamic>
-            {
-                ["role"] = message.Role,
-                ["content"] = message.Content
-            })
-            .ToList();
-
-        var (conversation, usedVision) = request.Persona == DyAgentPersona.Michan
-            ? await thoughtService.BuildMiChanConversationAsync(
-                sequence,
-                currentUser,
-                request.UserMessage,
-                request.AttachedPostIds.ToList(),
-                attachedMessages,
-                request.AcceptProposals.ToList(),
-                [],
-                userThought?.Id)
-            : await thoughtService.BuildSnChanConversationAsync(
-                sequence,
-                currentUser,
-                request.UserMessage,
-                request.AttachedPostIds.ToList(),
-                attachedMessages,
-                request.AcceptProposals.ToList(),
-                [],
-                userThought?.Id);
+        var conversation = BuildEphemeralConversation(request, currentUser);
+        var usedVision = false;
 
         if (request.EnableTools)
         {
@@ -96,43 +51,16 @@ public class AgentCompletionGrpcService(
         var response = await streamingService.CompleteChatAsync(provider, conversation, options, context.CancellationToken);
         var content = response.Content ?? string.Empty;
 
-        if (request.Persist)
-        {
-            var assistantParts = new List<SnThinkingMessagePart>();
-            if (!string.IsNullOrWhiteSpace(content))
-                assistantParts.Add(new SnThinkingMessagePart { Type = ThinkingMessagePartType.Text, Text = content });
-            if (!string.IsNullOrWhiteSpace(response.Reasoning))
-                assistantParts.Add(new SnThinkingMessagePart { Type = ThinkingMessagePartType.Reasoning, Reasoning = response.Reasoning });
-            foreach (var toolCall in response.ToolCalls ?? [])
-            {
-                assistantParts.Add(new SnThinkingMessagePart
-                {
-                    Type = ThinkingMessagePartType.FunctionCall,
-                    FunctionCall = new SnFunctionCall
-                    {
-                        Id = toolCall.Id,
-                        Name = toolCall.Name,
-                        Arguments = toolCall.Arguments
-                    }
-                });
-            }
-
-            if (assistantParts.Count > 0)
-                await thoughtService.SaveThoughtAsync(sequence, assistantParts, ThinkingThoughtRole.Assistant, modelLabel, botName);
-        }
-
         logger.LogInformation(
-            "Agent completion finished for {Persona}, account {AccountId}, sequence {SequenceId}, model={Model}, usedVision={UsedVision}",
+            "Agent completion finished for {Persona}, account {AccountId}, model={Model}, usedVision={UsedVision}",
             request.Persona,
             accountId,
-            sequence.Id,
             modelLabel,
             usedVision);
 
         var result = new DyAgentCompletionResponse
         {
             Content = content,
-            SequenceId = sequence.Id.ToString(),
             Model = modelLabel,
             UsedVision = usedVision
         };
@@ -153,6 +81,55 @@ public class AgentCompletionGrpcService(
         {
             throw new RpcException(new Status(StatusCode.NotFound, "account not found"));
         }
+    }
+
+    private AgentConversation BuildEphemeralConversation(DyAgentCompletionRequest request, DyAccount currentUser)
+    {
+        var builder = new ConversationBuilder();
+        builder.AddSystemMessage(BuildSystemPrompt(request.Persona, currentUser));
+        if (!string.IsNullOrWhiteSpace(request.Topic))
+            builder.AddSystemMessage("当前请求主题：" + request.Topic);
+        if (request.AcceptProposals.Count > 0)
+            builder.AddSystemMessage("用户当前允许的提案：" + string.Join(",", request.AcceptProposals));
+        if (request.AttachedPostIds.Count > 0)
+            builder.AddUserMessage("附加的帖子 ID：" + string.Join(",", request.AttachedPostIds));
+        if (request.AttachedMessages.Count > 0)
+        {
+            foreach (var message in request.AttachedMessages)
+            {
+                var content = $"附加消息（{message.Role}）：{message.Content}";
+                if (string.Equals(message.Role, "assistant", StringComparison.OrdinalIgnoreCase))
+                    builder.AddAssistantMessage(content);
+                else if (string.Equals(message.Role, "system", StringComparison.OrdinalIgnoreCase))
+                    builder.AddSystemMessage(content);
+                else
+                    builder.AddUserMessage(content);
+            }
+        }
+
+        builder.AddUserMessage(request.UserMessage);
+        return builder.Build();
+    }
+
+    private string BuildSystemPrompt(DyAgentPersona persona, DyAccount currentUser)
+    {
+        var personality = persona == DyAgentPersona.Michan
+            ? PersonalityLoader.LoadPersonality(
+                configuration.GetValue<string>("MiChan:PersonalityFile"),
+                configuration.GetValue<string>("MiChan:Personality") ?? string.Empty,
+                logger)
+            : PersonalityLoader.LoadPersonality(
+                configuration.GetValue<string>("SnChan:PersonalityFile"),
+                configuration.GetValue<string>("SnChan:Personality") ?? string.Empty,
+                logger);
+
+        return $$"""
+{{personality}}
+
+你正在处理一个一次性的 gRPC completion 请求。不要创建、引用或延续 thought sequence。不要声称已经保存记忆或更新档案。
+你正在为 {{currentUser.Nick}} (@{{currentUser.Name}}) 生成回复，用户 ID 是 {{currentUser.Id}}。
+Solar Network 上的 ID 是 UUID，通常很难阅读，所以除非用户要求或必要，否则不要向用户显示 ID。
+""";
     }
 
     private (IAgentProviderAdapter Provider, AgentExecutionOptions Options, string ModelLabel) GetProviderAndOptions(
@@ -198,19 +175,4 @@ public class AgentCompletionGrpcService(
         AdditionalParameters = options.AdditionalParameters
     };
 
-    private static Guid? TryParseOptionalGuid(string value, string fieldName)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-        if (Guid.TryParse(value, out var parsed))
-            return parsed;
-        throw new RpcException(new Status(StatusCode.InvalidArgument, $"{fieldName} must be a valid UUID"));
-    }
-
-    private static string GetBotName(DyAgentPersona persona) => persona switch
-    {
-        DyAgentPersona.Michan => "michan",
-        DyAgentPersona.Snchan => "snchan",
-        _ => throw new RpcException(new Status(StatusCode.InvalidArgument, "unsupported persona"))
-    };
 }

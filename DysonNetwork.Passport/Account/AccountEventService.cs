@@ -545,8 +545,7 @@ public class AccountEventService(
                         publicEvents, notableDays),
                     ReasoningEffort = "low",
                     Thinking = false,
-                    EnableTools = false,
-                    Persist = false
+                    EnableTools = false
                 },
                 deadline: DateTime.UtcNow.AddSeconds(10));
 

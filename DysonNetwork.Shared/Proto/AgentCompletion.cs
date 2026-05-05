@@ -26,37 +26,35 @@ namespace DysonNetwork.Shared.Proto {
           string.Concat(
             "ChZhZ2VudF9jb21wbGV0aW9uLnByb3RvEgVwcm90byJGChZEeUFnZW50QXR0",
             "YWNoZWRNZXNzYWdlEhIKBHJvbGUYASABKAlSBHJvbGUSGAoHY29udGVudBgC",
-            "IAEoCVIHY29udGVudCLgBAoYRHlBZ2VudENvbXBsZXRpb25SZXF1ZXN0Ei8K",
+            "IAEoCVIHY29udGVudCKQBAoYRHlBZ2VudENvbXBsZXRpb25SZXF1ZXN0Ei8K",
             "B3BlcnNvbmEYASABKA4yFS5wcm90by5EeUFnZW50UGVyc29uYVIHcGVyc29u",
-            "YRIdCgphY2NvdW50X2lkGAIgASgJUglhY2NvdW50SWQSJAoLc2VxdWVuY2Vf",
-            "aWQYAyABKAlIAFIKc2VxdWVuY2VJZIgBARIZCgV0b3BpYxgEIAEoCUgBUgV0",
-            "b3BpY4gBARIhCgx1c2VyX21lc3NhZ2UYBSABKAlSC3VzZXJNZXNzYWdlEioK",
-            "EWF0dGFjaGVkX3Bvc3RfaWRzGAYgAygJUg9hdHRhY2hlZFBvc3RJZHMSSgoR",
-            "YXR0YWNoZWRfbWVzc2FnZXMYByADKAsyHS5wcm90by5EeUFnZW50QXR0YWNo",
-            "ZWRNZXNzYWdlUhBhdHRhY2hlZE1lc3NhZ2VzEikKEGFjY2VwdF9wcm9wb3Nh",
-            "bHMYCCADKAlSD2FjY2VwdFByb3Bvc2FscxIZCgVtb2RlbBgJIAEoCUgCUgVt",
-            "b2RlbIgBARIuChByZWFzb25pbmdfZWZmb3J0GAogASgJSANSD3JlYXNvbmlu",
-            "Z0VmZm9ydIgBARIfCgh0aGlua2luZxgLIAEoCEgEUgh0aGlua2luZ4gBARIh",
-            "CgxlbmFibGVfdG9vbHMYDCABKAhSC2VuYWJsZVRvb2xzEhgKB3BlcnNpc3QY",
-            "DSABKAhSB3BlcnNpc3RCDgoMX3NlcXVlbmNlX2lkQggKBl90b3BpY0IICgZf",
-            "bW9kZWxCEwoRX3JlYXNvbmluZ19lZmZvcnRCCwoJX3RoaW5raW5nIr4BChlE",
-            "eUFnZW50Q29tcGxldGlvblJlc3BvbnNlEhgKB2NvbnRlbnQYASABKAlSB2Nv",
-            "bnRlbnQSIQoJcmVhc29uaW5nGAIgASgJSABSCXJlYXNvbmluZ4gBARIfCgtz",
-            "ZXF1ZW5jZV9pZBgDIAEoCVIKc2VxdWVuY2VJZBIUCgVtb2RlbBgEIAEoCVIF",
-            "bW9kZWwSHwoLdXNlZF92aXNpb24YBSABKAhSCnVzZWRWaXNpb25CDAoKX3Jl",
-            "YXNvbmluZypsCg5EeUFnZW50UGVyc29uYRIgChxEWV9BR0VOVF9QRVJTT05B",
-            "X1VOU1BFQ0lGSUVEEAASGwoXRFlfQUdFTlRfUEVSU09OQV9NSUNIQU4QARIb",
-            "ChdEWV9BR0VOVF9QRVJTT05BX1NOQ0hBThACMmkKGER5QWdlbnRDb21wbGV0",
-            "aW9uU2VydmljZRJNCghDb21wbGV0ZRIfLnByb3RvLkR5QWdlbnRDb21wbGV0",
-            "aW9uUmVxdWVzdBogLnByb3RvLkR5QWdlbnRDb21wbGV0aW9uUmVzcG9uc2VC",
-            "PVofZ2l0LnNvbHN5bnRoLmRldi9zb3N5cy9zcGVjL2dlbqoCGUR5c29uTmV0",
-            "d29yay5TaGFyZWQuUHJvdG9iBnByb3RvMw=="));
+            "YRIdCgphY2NvdW50X2lkGAIgASgJUglhY2NvdW50SWQSGQoFdG9waWMYAyAB",
+            "KAlIAFIFdG9waWOIAQESIQoMdXNlcl9tZXNzYWdlGAQgASgJUgt1c2VyTWVz",
+            "c2FnZRIqChFhdHRhY2hlZF9wb3N0X2lkcxgFIAMoCVIPYXR0YWNoZWRQb3N0",
+            "SWRzEkoKEWF0dGFjaGVkX21lc3NhZ2VzGAYgAygLMh0ucHJvdG8uRHlBZ2Vu",
+            "dEF0dGFjaGVkTWVzc2FnZVIQYXR0YWNoZWRNZXNzYWdlcxIpChBhY2NlcHRf",
+            "cHJvcG9zYWxzGAcgAygJUg9hY2NlcHRQcm9wb3NhbHMSGQoFbW9kZWwYCCAB",
+            "KAlIAVIFbW9kZWyIAQESLgoQcmVhc29uaW5nX2VmZm9ydBgJIAEoCUgCUg9y",
+            "ZWFzb25pbmdFZmZvcnSIAQESHwoIdGhpbmtpbmcYCiABKAhIA1IIdGhpbmtp",
+            "bmeIAQESIQoMZW5hYmxlX3Rvb2xzGAsgASgIUgtlbmFibGVUb29sc0IICgZf",
+            "dG9waWNCCAoGX21vZGVsQhMKEV9yZWFzb25pbmdfZWZmb3J0QgsKCV90aGlu",
+            "a2luZyKdAQoZRHlBZ2VudENvbXBsZXRpb25SZXNwb25zZRIYCgdjb250ZW50",
+            "GAEgASgJUgdjb250ZW50EiEKCXJlYXNvbmluZxgCIAEoCUgAUglyZWFzb25p",
+            "bmeIAQESFAoFbW9kZWwYAyABKAlSBW1vZGVsEh8KC3VzZWRfdmlzaW9uGAQg",
+            "ASgIUgp1c2VkVmlzaW9uQgwKCl9yZWFzb25pbmcqbAoORHlBZ2VudFBlcnNv",
+            "bmESIAocRFlfQUdFTlRfUEVSU09OQV9VTlNQRUNJRklFRBAAEhsKF0RZX0FH",
+            "RU5UX1BFUlNPTkFfTUlDSEFOEAESGwoXRFlfQUdFTlRfUEVSU09OQV9TTkNI",
+            "QU4QAjJpChhEeUFnZW50Q29tcGxldGlvblNlcnZpY2USTQoIQ29tcGxldGUS",
+            "Hy5wcm90by5EeUFnZW50Q29tcGxldGlvblJlcXVlc3QaIC5wcm90by5EeUFn",
+            "ZW50Q29tcGxldGlvblJlc3BvbnNlQj1aH2dpdC5zb2xzeW50aC5kZXYvc29z",
+            "eXMvc3BlYy9nZW6qAhlEeXNvbk5ldHdvcmsuU2hhcmVkLlByb3RvYgZwcm90",
+            "bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyAgentPersona), }, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyAgentAttachedMessage), global::DysonNetwork.Shared.Proto.DyAgentAttachedMessage.Parser, new[]{ "Role", "Content" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyAgentCompletionRequest), global::DysonNetwork.Shared.Proto.DyAgentCompletionRequest.Parser, new[]{ "Persona", "AccountId", "SequenceId", "Topic", "UserMessage", "AttachedPostIds", "AttachedMessages", "AcceptProposals", "Model", "ReasoningEffort", "Thinking", "EnableTools", "Persist" }, new[]{ "SequenceId", "Topic", "Model", "ReasoningEffort", "Thinking" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyAgentCompletionResponse), global::DysonNetwork.Shared.Proto.DyAgentCompletionResponse.Parser, new[]{ "Content", "Reasoning", "SequenceId", "Model", "UsedVision" }, new[]{ "Reasoning" }, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyAgentCompletionRequest), global::DysonNetwork.Shared.Proto.DyAgentCompletionRequest.Parser, new[]{ "Persona", "AccountId", "Topic", "UserMessage", "AttachedPostIds", "AttachedMessages", "AcceptProposals", "Model", "ReasoningEffort", "Thinking", "EnableTools" }, new[]{ "Topic", "Model", "ReasoningEffort", "Thinking" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyAgentCompletionResponse), global::DysonNetwork.Shared.Proto.DyAgentCompletionResponse.Parser, new[]{ "Content", "Reasoning", "Model", "UsedVision" }, new[]{ "Reasoning" }, null, null, null)
           }));
     }
     #endregion
@@ -346,7 +344,6 @@ namespace DysonNetwork.Shared.Proto {
       _hasBits0 = other._hasBits0;
       persona_ = other.persona_;
       accountId_ = other.accountId_;
-      sequenceId_ = other.sequenceId_;
       topic_ = other.topic_;
       userMessage_ = other.userMessage_;
       attachedPostIds_ = other.attachedPostIds_.Clone();
@@ -356,7 +353,6 @@ namespace DysonNetwork.Shared.Proto {
       reasoningEffort_ = other.reasoningEffort_;
       thinking_ = other.thinking_;
       enableTools_ = other.enableTools_;
-      persist_ = other.persist_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -390,34 +386,8 @@ namespace DysonNetwork.Shared.Proto {
       }
     }
 
-    /// <summary>Field number for the "sequence_id" field.</summary>
-    public const int SequenceIdFieldNumber = 3;
-    private readonly static string SequenceIdDefaultValue = "";
-
-    private string sequenceId_;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string SequenceId {
-      get { return sequenceId_ ?? SequenceIdDefaultValue; }
-      set {
-        sequenceId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-    /// <summary>Gets whether the "sequence_id" field is set</summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool HasSequenceId {
-      get { return sequenceId_ != null; }
-    }
-    /// <summary>Clears the value of the "sequence_id" field</summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void ClearSequenceId() {
-      sequenceId_ = null;
-    }
-
     /// <summary>Field number for the "topic" field.</summary>
-    public const int TopicFieldNumber = 4;
+    public const int TopicFieldNumber = 3;
     private readonly static string TopicDefaultValue = "";
 
     private string topic_;
@@ -443,7 +413,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "user_message" field.</summary>
-    public const int UserMessageFieldNumber = 5;
+    public const int UserMessageFieldNumber = 4;
     private string userMessage_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -455,9 +425,9 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "attached_post_ids" field.</summary>
-    public const int AttachedPostIdsFieldNumber = 6;
+    public const int AttachedPostIdsFieldNumber = 5;
     private static readonly pb::FieldCodec<string> _repeated_attachedPostIds_codec
-        = pb::FieldCodec.ForString(50);
+        = pb::FieldCodec.ForString(42);
     private readonly pbc::RepeatedField<string> attachedPostIds_ = new pbc::RepeatedField<string>();
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -466,9 +436,9 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "attached_messages" field.</summary>
-    public const int AttachedMessagesFieldNumber = 7;
+    public const int AttachedMessagesFieldNumber = 6;
     private static readonly pb::FieldCodec<global::DysonNetwork.Shared.Proto.DyAgentAttachedMessage> _repeated_attachedMessages_codec
-        = pb::FieldCodec.ForMessage(58, global::DysonNetwork.Shared.Proto.DyAgentAttachedMessage.Parser);
+        = pb::FieldCodec.ForMessage(50, global::DysonNetwork.Shared.Proto.DyAgentAttachedMessage.Parser);
     private readonly pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyAgentAttachedMessage> attachedMessages_ = new pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyAgentAttachedMessage>();
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -477,9 +447,9 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "accept_proposals" field.</summary>
-    public const int AcceptProposalsFieldNumber = 8;
+    public const int AcceptProposalsFieldNumber = 7;
     private static readonly pb::FieldCodec<string> _repeated_acceptProposals_codec
-        = pb::FieldCodec.ForString(66);
+        = pb::FieldCodec.ForString(58);
     private readonly pbc::RepeatedField<string> acceptProposals_ = new pbc::RepeatedField<string>();
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -488,7 +458,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "model" field.</summary>
-    public const int ModelFieldNumber = 9;
+    public const int ModelFieldNumber = 8;
     private readonly static string ModelDefaultValue = "";
 
     private string model_;
@@ -514,7 +484,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "reasoning_effort" field.</summary>
-    public const int ReasoningEffortFieldNumber = 10;
+    public const int ReasoningEffortFieldNumber = 9;
     private readonly static string ReasoningEffortDefaultValue = "";
 
     private string reasoningEffort_;
@@ -540,7 +510,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "thinking" field.</summary>
-    public const int ThinkingFieldNumber = 11;
+    public const int ThinkingFieldNumber = 10;
     private readonly static bool ThinkingDefaultValue = false;
 
     private bool thinking_;
@@ -567,7 +537,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "enable_tools" field.</summary>
-    public const int EnableToolsFieldNumber = 12;
+    public const int EnableToolsFieldNumber = 11;
     private bool enableTools_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -575,18 +545,6 @@ namespace DysonNetwork.Shared.Proto {
       get { return enableTools_; }
       set {
         enableTools_ = value;
-      }
-    }
-
-    /// <summary>Field number for the "persist" field.</summary>
-    public const int PersistFieldNumber = 13;
-    private bool persist_;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Persist {
-      get { return persist_; }
-      set {
-        persist_ = value;
       }
     }
 
@@ -607,7 +565,6 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (Persona != other.Persona) return false;
       if (AccountId != other.AccountId) return false;
-      if (SequenceId != other.SequenceId) return false;
       if (Topic != other.Topic) return false;
       if (UserMessage != other.UserMessage) return false;
       if(!attachedPostIds_.Equals(other.attachedPostIds_)) return false;
@@ -617,7 +574,6 @@ namespace DysonNetwork.Shared.Proto {
       if (ReasoningEffort != other.ReasoningEffort) return false;
       if (Thinking != other.Thinking) return false;
       if (EnableTools != other.EnableTools) return false;
-      if (Persist != other.Persist) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -627,7 +583,6 @@ namespace DysonNetwork.Shared.Proto {
       int hash = 1;
       if (Persona != global::DysonNetwork.Shared.Proto.DyAgentPersona.Unspecified) hash ^= Persona.GetHashCode();
       if (AccountId.Length != 0) hash ^= AccountId.GetHashCode();
-      if (HasSequenceId) hash ^= SequenceId.GetHashCode();
       if (HasTopic) hash ^= Topic.GetHashCode();
       if (UserMessage.Length != 0) hash ^= UserMessage.GetHashCode();
       hash ^= attachedPostIds_.GetHashCode();
@@ -637,7 +592,6 @@ namespace DysonNetwork.Shared.Proto {
       if (HasReasoningEffort) hash ^= ReasoningEffort.GetHashCode();
       if (HasThinking) hash ^= Thinking.GetHashCode();
       if (EnableTools != false) hash ^= EnableTools.GetHashCode();
-      if (Persist != false) hash ^= Persist.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -664,40 +618,32 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(18);
         output.WriteString(AccountId);
       }
-      if (HasSequenceId) {
-        output.WriteRawTag(26);
-        output.WriteString(SequenceId);
-      }
       if (HasTopic) {
-        output.WriteRawTag(34);
+        output.WriteRawTag(26);
         output.WriteString(Topic);
       }
       if (UserMessage.Length != 0) {
-        output.WriteRawTag(42);
+        output.WriteRawTag(34);
         output.WriteString(UserMessage);
       }
       attachedPostIds_.WriteTo(output, _repeated_attachedPostIds_codec);
       attachedMessages_.WriteTo(output, _repeated_attachedMessages_codec);
       acceptProposals_.WriteTo(output, _repeated_acceptProposals_codec);
       if (HasModel) {
-        output.WriteRawTag(74);
+        output.WriteRawTag(66);
         output.WriteString(Model);
       }
       if (HasReasoningEffort) {
-        output.WriteRawTag(82);
+        output.WriteRawTag(74);
         output.WriteString(ReasoningEffort);
       }
       if (HasThinking) {
-        output.WriteRawTag(88);
+        output.WriteRawTag(80);
         output.WriteBool(Thinking);
       }
       if (EnableTools != false) {
-        output.WriteRawTag(96);
+        output.WriteRawTag(88);
         output.WriteBool(EnableTools);
-      }
-      if (Persist != false) {
-        output.WriteRawTag(104);
-        output.WriteBool(Persist);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -717,40 +663,32 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(18);
         output.WriteString(AccountId);
       }
-      if (HasSequenceId) {
-        output.WriteRawTag(26);
-        output.WriteString(SequenceId);
-      }
       if (HasTopic) {
-        output.WriteRawTag(34);
+        output.WriteRawTag(26);
         output.WriteString(Topic);
       }
       if (UserMessage.Length != 0) {
-        output.WriteRawTag(42);
+        output.WriteRawTag(34);
         output.WriteString(UserMessage);
       }
       attachedPostIds_.WriteTo(ref output, _repeated_attachedPostIds_codec);
       attachedMessages_.WriteTo(ref output, _repeated_attachedMessages_codec);
       acceptProposals_.WriteTo(ref output, _repeated_acceptProposals_codec);
       if (HasModel) {
-        output.WriteRawTag(74);
+        output.WriteRawTag(66);
         output.WriteString(Model);
       }
       if (HasReasoningEffort) {
-        output.WriteRawTag(82);
+        output.WriteRawTag(74);
         output.WriteString(ReasoningEffort);
       }
       if (HasThinking) {
-        output.WriteRawTag(88);
+        output.WriteRawTag(80);
         output.WriteBool(Thinking);
       }
       if (EnableTools != false) {
-        output.WriteRawTag(96);
+        output.WriteRawTag(88);
         output.WriteBool(EnableTools);
-      }
-      if (Persist != false) {
-        output.WriteRawTag(104);
-        output.WriteBool(Persist);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -767,9 +705,6 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (AccountId.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(AccountId);
-      }
-      if (HasSequenceId) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(SequenceId);
       }
       if (HasTopic) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Topic);
@@ -792,9 +727,6 @@ namespace DysonNetwork.Shared.Proto {
       if (EnableTools != false) {
         size += 1 + 1;
       }
-      if (Persist != false) {
-        size += 1 + 1;
-      }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
       }
@@ -812,9 +744,6 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.AccountId.Length != 0) {
         AccountId = other.AccountId;
-      }
-      if (other.HasSequenceId) {
-        SequenceId = other.SequenceId;
       }
       if (other.HasTopic) {
         Topic = other.Topic;
@@ -836,9 +765,6 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.EnableTools != false) {
         EnableTools = other.EnableTools;
-      }
-      if (other.Persist != false) {
-        Persist = other.Persist;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -868,47 +794,39 @@ namespace DysonNetwork.Shared.Proto {
             break;
           }
           case 26: {
-            SequenceId = input.ReadString();
-            break;
-          }
-          case 34: {
             Topic = input.ReadString();
             break;
           }
-          case 42: {
+          case 34: {
             UserMessage = input.ReadString();
             break;
           }
-          case 50: {
+          case 42: {
             attachedPostIds_.AddEntriesFrom(input, _repeated_attachedPostIds_codec);
             break;
           }
-          case 58: {
+          case 50: {
             attachedMessages_.AddEntriesFrom(input, _repeated_attachedMessages_codec);
             break;
           }
-          case 66: {
+          case 58: {
             acceptProposals_.AddEntriesFrom(input, _repeated_acceptProposals_codec);
             break;
           }
-          case 74: {
+          case 66: {
             Model = input.ReadString();
             break;
           }
-          case 82: {
+          case 74: {
             ReasoningEffort = input.ReadString();
             break;
           }
-          case 88: {
+          case 80: {
             Thinking = input.ReadBool();
             break;
           }
-          case 96: {
+          case 88: {
             EnableTools = input.ReadBool();
-            break;
-          }
-          case 104: {
-            Persist = input.ReadBool();
             break;
           }
         }
@@ -939,47 +857,39 @@ namespace DysonNetwork.Shared.Proto {
             break;
           }
           case 26: {
-            SequenceId = input.ReadString();
-            break;
-          }
-          case 34: {
             Topic = input.ReadString();
             break;
           }
-          case 42: {
+          case 34: {
             UserMessage = input.ReadString();
             break;
           }
-          case 50: {
+          case 42: {
             attachedPostIds_.AddEntriesFrom(ref input, _repeated_attachedPostIds_codec);
             break;
           }
-          case 58: {
+          case 50: {
             attachedMessages_.AddEntriesFrom(ref input, _repeated_attachedMessages_codec);
             break;
           }
-          case 66: {
+          case 58: {
             acceptProposals_.AddEntriesFrom(ref input, _repeated_acceptProposals_codec);
             break;
           }
-          case 74: {
+          case 66: {
             Model = input.ReadString();
             break;
           }
-          case 82: {
+          case 74: {
             ReasoningEffort = input.ReadString();
             break;
           }
-          case 88: {
+          case 80: {
             Thinking = input.ReadBool();
             break;
           }
-          case 96: {
+          case 88: {
             EnableTools = input.ReadBool();
-            break;
-          }
-          case 104: {
-            Persist = input.ReadBool();
             break;
           }
         }
@@ -1026,7 +936,6 @@ namespace DysonNetwork.Shared.Proto {
     public DyAgentCompletionResponse(DyAgentCompletionResponse other) : this() {
       content_ = other.content_;
       reasoning_ = other.reasoning_;
-      sequenceId_ = other.sequenceId_;
       model_ = other.model_;
       usedVision_ = other.usedVision_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
@@ -1076,20 +985,8 @@ namespace DysonNetwork.Shared.Proto {
       reasoning_ = null;
     }
 
-    /// <summary>Field number for the "sequence_id" field.</summary>
-    public const int SequenceIdFieldNumber = 3;
-    private string sequenceId_ = "";
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string SequenceId {
-      get { return sequenceId_; }
-      set {
-        sequenceId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
     /// <summary>Field number for the "model" field.</summary>
-    public const int ModelFieldNumber = 4;
+    public const int ModelFieldNumber = 3;
     private string model_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -1101,7 +998,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "used_vision" field.</summary>
-    public const int UsedVisionFieldNumber = 5;
+    public const int UsedVisionFieldNumber = 4;
     private bool usedVision_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -1129,7 +1026,6 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (Content != other.Content) return false;
       if (Reasoning != other.Reasoning) return false;
-      if (SequenceId != other.SequenceId) return false;
       if (Model != other.Model) return false;
       if (UsedVision != other.UsedVision) return false;
       return Equals(_unknownFields, other._unknownFields);
@@ -1141,7 +1037,6 @@ namespace DysonNetwork.Shared.Proto {
       int hash = 1;
       if (Content.Length != 0) hash ^= Content.GetHashCode();
       if (HasReasoning) hash ^= Reasoning.GetHashCode();
-      if (SequenceId.Length != 0) hash ^= SequenceId.GetHashCode();
       if (Model.Length != 0) hash ^= Model.GetHashCode();
       if (UsedVision != false) hash ^= UsedVision.GetHashCode();
       if (_unknownFields != null) {
@@ -1170,16 +1065,12 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(18);
         output.WriteString(Reasoning);
       }
-      if (SequenceId.Length != 0) {
-        output.WriteRawTag(26);
-        output.WriteString(SequenceId);
-      }
       if (Model.Length != 0) {
-        output.WriteRawTag(34);
+        output.WriteRawTag(26);
         output.WriteString(Model);
       }
       if (UsedVision != false) {
-        output.WriteRawTag(40);
+        output.WriteRawTag(32);
         output.WriteBool(UsedVision);
       }
       if (_unknownFields != null) {
@@ -1200,16 +1091,12 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(18);
         output.WriteString(Reasoning);
       }
-      if (SequenceId.Length != 0) {
-        output.WriteRawTag(26);
-        output.WriteString(SequenceId);
-      }
       if (Model.Length != 0) {
-        output.WriteRawTag(34);
+        output.WriteRawTag(26);
         output.WriteString(Model);
       }
       if (UsedVision != false) {
-        output.WriteRawTag(40);
+        output.WriteRawTag(32);
         output.WriteBool(UsedVision);
       }
       if (_unknownFields != null) {
@@ -1227,9 +1114,6 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (HasReasoning) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Reasoning);
-      }
-      if (SequenceId.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(SequenceId);
       }
       if (Model.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Model);
@@ -1254,9 +1138,6 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.HasReasoning) {
         Reasoning = other.Reasoning;
-      }
-      if (other.SequenceId.Length != 0) {
-        SequenceId = other.SequenceId;
       }
       if (other.Model.Length != 0) {
         Model = other.Model;
@@ -1292,14 +1173,10 @@ namespace DysonNetwork.Shared.Proto {
             break;
           }
           case 26: {
-            SequenceId = input.ReadString();
-            break;
-          }
-          case 34: {
             Model = input.ReadString();
             break;
           }
-          case 40: {
+          case 32: {
             UsedVision = input.ReadBool();
             break;
           }
@@ -1331,14 +1208,10 @@ namespace DysonNetwork.Shared.Proto {
             break;
           }
           case 26: {
-            SequenceId = input.ReadString();
-            break;
-          }
-          case 34: {
             Model = input.ReadString();
             break;
           }
-          case 40: {
+          case 32: {
             UsedVision = input.ReadBool();
             break;
           }
