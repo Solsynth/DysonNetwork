@@ -518,7 +518,8 @@ public class AccountService(
             if ((assertion.AuthenticatorData.Flags & AuthenticatorFlags.UserPresent) == 0)
                 return Task.FromResult(false);
 
-            var signatureData = assertion.AuthenticatorData.GetSignedData(assertion.ClientDataJson);
+            var clientDataJsonBytes = DecodeClientDataJsonBytes(assertion.ClientDataJson);
+            var signatureData = assertion.AuthenticatorData.GetSignedData(clientDataJsonBytes);
             using var ecDsa = System.Security.Cryptography.ECDsa.Create(new System.Security.Cryptography.ECParameters
             {
                 Curve = System.Security.Cryptography.ECCurve.NamedCurves.nistP256,
@@ -804,6 +805,18 @@ public class AccountService(
         }
     }
 
+    private static byte[] DecodeClientDataJsonBytes(string value)
+    {
+        try
+        {
+            return DecodeBase64OrBase64Url(value);
+        }
+        catch (FormatException)
+        {
+            return System.Text.Encoding.UTF8.GetBytes(value);
+        }
+    }
+
     private static object? ReadCbor(BinaryReader reader)
     {
         var initialByte = reader.ReadByte();
@@ -853,7 +866,8 @@ public class AccountService(
         if (!statement.UserPresent)
             return false;
 
-        var clientData = System.Text.Json.JsonDocument.Parse(clientDataJson);
+        var clientDataJsonBytes = DecodeClientDataJsonBytes(clientDataJson);
+        var clientData = System.Text.Json.JsonDocument.Parse(clientDataJsonBytes);
         var root = clientData.RootElement;
 
         if (root.TryGetProperty("type", out var typeElement) && typeElement.GetString() != "webauthn.create")
@@ -866,8 +880,7 @@ public class AccountService(
         if (statement.Format == "none")
             return true;
 
-        var clientDataHash =
-            System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(clientDataJson));
+        var clientDataHash = System.Security.Cryptography.SHA256.HashData(clientDataJsonBytes);
 
         if (statement.Format == "packed")
         {
@@ -1381,10 +1394,9 @@ public class AccountService(
         public ulong Counter { get; set; }
         public byte[]? AttestedCredentialData { get; set; }
 
-        public byte[] GetSignedData(string clientDataJson)
+        public byte[] GetSignedData(byte[] clientDataJsonBytes)
         {
-            var clientDataHash =
-                System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(clientDataJson));
+            var clientDataHash = System.Security.Cryptography.SHA256.HashData(clientDataJsonBytes);
             var signedData = new byte[37 + clientDataHash.Length];
             Buffer.BlockCopy(RpIdHash, 0, signedData, 0, 32);
             signedData[32] = (byte)Flags;
