@@ -27,6 +27,7 @@ builder.Services.AddSphereService();
 builder.Services.AddWalletService();
 builder.Services.AddDriveService();
 builder.Services.AddFitnessService();
+builder.Services.AddDomainBlockService();
 builder.Services.AddThinkingServices(builder.Configuration);
 builder.Services.AddSnChanServices(builder.Configuration);
 builder.Services.AddMiChanServices(builder.Configuration);

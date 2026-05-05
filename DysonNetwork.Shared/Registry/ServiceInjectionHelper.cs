@@ -176,12 +176,23 @@ public static class ServiceInjectionHelper
             return services;
         }
 
+
         public IServiceCollection AddMlsService()
         {
             services.AddGrpcClientWithSharedChannel<DyMlsService.DyMlsServiceClient>(
                 "https://_grpc.padlock",
                 "DyMlsService");
             services.AddSingleton<RemoteMlsService>();
+
+            return services;
+        }
+
+        public IServiceCollection AddDomainBlockService()
+        {
+            services.AddGrpcClientWithSharedChannel<DyDomainBlockService.DyDomainBlockServiceClient>(
+                "https://_grpc.passport",
+                "DyDomainBlockService");
+            services.AddSingleton<RemoteDomainBlockService>();
 
             return services;
         }

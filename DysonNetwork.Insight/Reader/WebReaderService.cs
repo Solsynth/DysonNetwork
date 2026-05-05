@@ -3,6 +3,7 @@ using AngleSharp;
 using AngleSharp.Dom;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models.Embed;
+using DysonNetwork.Shared.Registry;
 
 namespace DysonNetwork.Insight.Reader;
 
@@ -13,7 +14,8 @@ namespace DysonNetwork.Insight.Reader;
 public class WebReaderService(
     IHttpClientFactory httpClientFactory,
     ILogger<WebReaderService> logger,
-    ICacheService cache
+    ICacheService cache,
+    RemoteDomainBlockService domainBlock
 )
 {
     private const string LinkPreviewCachePrefix = "scrap:preview:";
@@ -65,6 +67,14 @@ public class WebReaderService(
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
         {
             throw new ArgumentException(@"Invalid URL format", nameof(url));
+        }
+
+        // Check if domain is blocked
+        var validationResult = await domainBlock.ValidateUrlAsync(url);
+        if (!validationResult.IsAllowed)
+        {
+            logger.LogWarning("URL blocked: {Url}, Reason: {Reason}", url, validationResult.BlockReason);
+            throw new WebReaderException($"URL is blocked: {validationResult.BlockReason}");
         }
 
         // Try to get from cache if not bypassing
