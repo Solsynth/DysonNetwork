@@ -578,6 +578,7 @@ public class WalletController(
         [Required] public Shared.Models.FundSplitType SplitType { get; set; }
         public string? Message { get; set; }
         public int? ExpirationHours { get; set; } // Optional: hours until expiration
+        public string? PinCode { get; set; }
     }
 
     [HttpPost("funds")]
@@ -588,6 +589,7 @@ public class WalletController(
 
         try
         {
+            var pinCode = string.IsNullOrWhiteSpace(request.PinCode) ? NoPinProvided : request.PinCode;
             Duration? expiration = null;
             if (request.ExpirationHours.HasValue)
             {
