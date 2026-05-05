@@ -586,6 +586,7 @@ public class AccountEventService(
     {
         var drawLabel = GetFortuneDrawLabel(level);
         var outputLanguage = string.IsNullOrWhiteSpace(account.Language) ? "zh-Hans" : account.Language;
+        var variation = CreateFortuneVariation();
         var tipLines = string.Join("\n", tips.Select(t => $"- {(t.IsPositive ? "吉" : "忌")}：{t.Title}｜{t.Content}"));
         var eventLines = publicEvents.Count == 0
             ? "- 无公开个人事件"
@@ -608,6 +609,7 @@ public class AccountEventService(
 - 用户今日抽到了：{{drawLabel}}
 - 程序化运势等级：{{level}}
 - 当前程序化签文版本：{{FortuneReportVersion}}
+- 本次生成变化锚点：{{variation}}
 - 已抽到的基础提示：
 {{tipLines}}
 - 今日公开个人事件：
@@ -658,9 +660,19 @@ public class AccountEventService(
 - lucky_* 和 ritual 要有当天的意象感，但保持生活化，不要像抽象模板。
 - tips 必须有 4 条，通常 2 吉 2 忌；生日或特别签可以 3 吉 1 忌，但仍必须 4 条。
 - tips 要和 fortune_report 互相呼应，但不要逐字重复。
+- 本次文案需要围绕“本次生成变化锚点”选择意象、节奏和行动建议，避免复用常见模板句式。
 - 每个字段都要具体，不要重复。
 - 输出必须是可被 JSON.parse 直接解析的对象。
 """;
+    }
+
+    private static string CreateFortuneVariation()
+    {
+        string[] images = ["晨雾", "纸灯", "海风", "雨后石阶", "月影", "远钟", "窗边绿植", "旧书页", "暖茶", "星砂"];
+        string[] rhythms = ["先收束再推进", "先观察再表达", "先整理再行动", "轻快但不冒进", "安静而坚定", "留白中找线索"];
+        string[] focuses = ["沟通", "收尾", "学习", "身体感受", "人际边界", "小型整理", "计划校准", "情绪降噪"];
+
+        return $"{images[Random.Next(images.Length)]} / {rhythms[Random.Next(rhythms.Length)]} / {focuses[Random.Next(focuses.Length)]} / #{Random.Next(1000, 9999)}";
     }
 
     private static string GetFortuneDrawLabel(CheckInResultLevel level)

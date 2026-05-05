@@ -112,6 +112,7 @@ MiChan receives:
 - backdated flag
 - programmed draw label, such as `上上签` or `下签`
 - raw `CheckInResultLevel`
+- a per-generation variation anchor for imagery, rhythm, and focus
 - legacy programmed tips as source material
 - public same-day personal calendar events
 - same-day global or regional notable days
@@ -157,6 +158,8 @@ MiChan must return a directly parseable JSON object with all fields present:
 The parser tolerates accidental fenced code blocks but requires a valid object, exactly four tips, and all required `fortune_report` fields.
 
 MiChan must generate all user-facing strings in the account's preferred language when available. If the preferred language cannot be determined, it falls back to Simplified Chinese.
+
+The variation anchor is intentionally non-semantic. It helps avoid repeated fortune copy across similar check-ins but does not change the programmed draw level or safety constraints.
 
 ## Failure Behavior
 
