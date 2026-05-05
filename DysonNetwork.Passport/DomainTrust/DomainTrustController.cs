@@ -47,6 +47,7 @@ public class DomainTrustController(DomainTrustService service) : Controller
         public string? Reason { get; set; }
 
         public int Priority { get; set; }
+        public DomainTrustLevel TrustLevel { get; set; } = DomainTrustLevel.Blocked;
         public bool IsActive { get; set; } = true;
     }
 
@@ -63,6 +64,7 @@ public class DomainTrustController(DomainTrustService service) : Controller
             PortRestriction = request.PortRestriction,
             Reason = request.Reason,
             Priority = request.Priority,
+            TrustLevel = request.TrustLevel,
             IsActive = request.IsActive
         };
 
@@ -84,6 +86,7 @@ public class DomainTrustController(DomainTrustService service) : Controller
         public string? Reason { get; set; }
 
         public int? Priority { get; set; }
+        public DomainTrustLevel? TrustLevel { get; set; }
         public bool? IsActive { get; set; }
     }
 
@@ -98,6 +101,7 @@ public class DomainTrustController(DomainTrustService service) : Controller
             if (request.PortRestriction.HasValue) r.PortRestriction = request.PortRestriction;
             if (request.Reason != null) r.Reason = request.Reason;
             if (request.Priority.HasValue) r.Priority = request.Priority.Value;
+            if (request.TrustLevel.HasValue) r.TrustLevel = request.TrustLevel.Value;
             if (request.IsActive.HasValue) r.IsActive = request.IsActive.Value;
         });
 
@@ -135,6 +139,7 @@ public class DomainTrustController(DomainTrustService service) : Controller
         return Ok(new
         {
             is_allowed = result.IsAllowed,
+            is_verified = result.IsVerified,
             block_reason = result.BlockReason
         });
     }

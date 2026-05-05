@@ -2,17 +2,37 @@
 
 ## Overview
 
-The Domain Block system provides URL validation and domain blocking capabilities. It uses a blacklist approach where all URLs are allowed by default, except for:
+The Domain Block system provides URL validation and domain trust management. It uses a **three-tier trust model**:
 
-- HTTP URLs (configurable)
-- Direct IP addresses (configurable)
-- Private network addresses (configurable)
-- Blocked ports (configurable)
-- Custom block rules in the database
+1. **Blocked** - Unsafe, don't scrape/open (explicitly blocked)
+2. **Neutral** - Default behavior for unlisted domains (show preview, user decides)
+3. **Verified** - Official/verified, client can open directly without warning
 
-This system is useful for preventing SSRF attacks, restricting unsafe protocols, and managing trusted domains for OAuth redirects, embeds, and API calls.
+Default behaviors (configurable):
+- HTTP URLs are blocked
+- Direct IP addresses are blocked
+- Private network addresses are blocked
+- Certain ports are blocked
+
+This system is useful for preventing SSRF attacks, restricting unsafe protocols, managing trusted domains for OAuth redirects, embeds, and API calls, and identifying official/verified domains.
 
 ## Base URL
+
+## Trust Levels
+
+The system supports three trust levels:
+
+| Level | Value | Description | Client Behavior |
+|-------|-------|-------------|-----------------|
+| **Blocked** | `0` | Explicitly blocked domain | Do not scrape, do not open, show error |
+| **Neutral** | `1` | Default for unlisted domains | Show preview, ask user before opening |
+| **Verified** | `2` | Official/verified domain | Safe to open directly without warning |
+
+**Default Behavior:**
+- Unlisted domains default to **Neutral** (not verified, not blocked)
+- Default blocks (HTTP, IP addresses, private networks) return **Blocked** status
+- Database rules can override default behavior with any trust level
+
 
 ```
 /pass/domain-blocks
@@ -84,6 +104,12 @@ Get a paginated list of all domain block rules.
     "port_restriction": null,
     "reason": "Known phishing site",
     "priority": 10,
+    "is_active": true,
+    "created_by_account_id": "uuid",
+    "created_at": "2026-05-05T10:30:00Z",
+    "updated_at": "2026-05-05T10:30:00Z"
+  ,
+    "trust_level": 0,
     "is_active": true,
     "created_by_account_id": "uuid",
     "created_at": "2026-05-05T10:30:00Z",

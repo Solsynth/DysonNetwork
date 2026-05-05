@@ -5,6 +5,13 @@ using NodaTime;
 
 namespace DysonNetwork.Shared.Models;
 
+public enum DomainTrustLevel
+{
+    Blocked = 0,
+    Neutral = 1,
+    Verified = 2
+}
+
 [Index(nameof(DomainPattern))]
 [Index(nameof(IsActive))]
 public class SnDomainBlock : ModelBase
@@ -23,6 +30,8 @@ public class SnDomainBlock : ModelBase
     public string? Reason { get; set; }
 
     public int Priority { get; set; } = 0;
+
+    public DomainTrustLevel TrustLevel { get; set; } = DomainTrustLevel.Blocked;
 
     public bool IsActive { get; set; } = true;
 

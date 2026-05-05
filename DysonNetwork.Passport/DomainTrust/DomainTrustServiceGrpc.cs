@@ -21,6 +21,7 @@ public class DomainTrustServiceGrpc(DomainTrustService service)
         return new DyDomainValidationResult
         {
             IsAllowed = result.IsAllowed,
+            IsVerified = result.IsVerified,
             BlockReason = result.BlockReason ?? string.Empty,
             MatchedSource = result.MatchedSource ?? string.Empty
         };
@@ -33,7 +34,7 @@ public class DomainTrustServiceGrpc(DomainTrustService service)
     {
         int? port = request.Port > 0 ? request.Port : null;
 
-        var rule = await service.FindMatchingBlockRuleAsync(
+        var rule = await service.FindMatchingRuleAsync(
             request.Host,
             string.IsNullOrEmpty(request.Protocol) ? null : request.Protocol,
             port
@@ -41,7 +42,7 @@ public class DomainTrustServiceGrpc(DomainTrustService service)
 
         return new DyDomainBlockCheckResult
         {
-            IsBlocked = rule != null,
+            IsBlocked = rule != null && rule.TrustLevel == DomainTrustLevel.Blocked,
             Reason = rule?.Reason ?? string.Empty
         };
     }

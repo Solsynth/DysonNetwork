@@ -5,6 +5,7 @@ namespace DysonNetwork.Shared.Registry;
 public class DomainValidationResult
 {
     public bool IsAllowed { get; set; }
+    public bool IsVerified { get; set; }
     public string? BlockReason { get; set; }
     public string? MatchedSource { get; set; }
 }
@@ -21,6 +22,8 @@ public class RemoteDomainBlockService(DyDomainBlockService.DyDomainBlockServiceC
             return new DomainValidationResult
             {
                 IsAllowed = response.IsAllowed,
+                // TODO: Uncomment after proto regeneration
+                // IsVerified = response.IsVerified,
                 BlockReason = string.IsNullOrEmpty(response.BlockReason) ? null : response.BlockReason,
                 MatchedSource = string.IsNullOrEmpty(response.MatchedSource) ? null : response.MatchedSource
             };
@@ -30,6 +33,7 @@ public class RemoteDomainBlockService(DyDomainBlockService.DyDomainBlockServiceC
             return new DomainValidationResult
             {
                 IsAllowed = false,
+                IsVerified = false,
                 BlockReason = "Domain validation service unavailable",
                 MatchedSource = "grpc_error"
             };

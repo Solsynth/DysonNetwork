@@ -10,6 +10,7 @@ namespace DysonNetwork.Passport.DomainTrust;
 public class DomainValidationResult
 {
     public bool IsAllowed { get; set; }
+    public bool IsVerified { get; set; }
     public string? BlockReason { get; set; }
     public SnDomainBlock? MatchedRule { get; set; }
     public string? MatchedSource { get; set; }
@@ -45,7 +46,7 @@ public class DomainTrustService
 
         if (_settings.BlockHttpByDefault && scheme == "http")
         {
-            var dbRule = await _db.DomainBlocks
+            var httpRule = await _db.DomainBlocks
                 .FirstOrDefaultAsync(r => r.IsActive && r.Protocol == "http" && r.DomainPattern == "*");
 
             return new DomainValidationResult
@@ -53,7 +54,7 @@ public class DomainTrustService
                 IsAllowed = false,
                 BlockReason = "HTTP protocol is blocked by default (not secure)",
                 MatchedSource = "default_http_block",
-                MatchedRule = dbRule
+                MatchedRule = httpRule
             };
         }
 
@@ -88,25 +89,38 @@ public class DomainTrustService
             };
         }
 
-        var dbBlockRule = await FindMatchingBlockRuleAsync(host, scheme, port);
-        if (dbBlockRule != null)
+        var dbRule = await FindMatchingRuleAsync(host, scheme, port);
+        if (dbRule != null)
         {
+            if (dbRule.TrustLevel == DomainTrustLevel.Blocked)
+            {
+                return new DomainValidationResult
+                {
+                    IsAllowed = false,
+                    IsVerified = false,
+                    BlockReason = dbRule.Reason ?? "Domain is blocked",
+                    MatchedRule = dbRule,
+                    MatchedSource = "database_rule"
+                };
+            }
+
             return new DomainValidationResult
             {
-                IsAllowed = false,
-                BlockReason = dbBlockRule.Reason ?? "Domain is blocked",
-                MatchedRule = dbBlockRule,
+                IsAllowed = true,
+                IsVerified = dbRule.TrustLevel == DomainTrustLevel.Verified,
+                MatchedRule = dbRule,
                 MatchedSource = "database_rule"
             };
         }
 
         return new DomainValidationResult
         {
-            IsAllowed = true
+            IsAllowed = true,
+            IsVerified = false
         };
     }
 
-    public async Task<SnDomainBlock?> FindMatchingBlockRuleAsync(string host, string? scheme = null, int? port = null)
+    public async Task<SnDomainBlock?> FindMatchingRuleAsync(string host, string? scheme = null, int? port = null)
     {
         var rules = await _db.DomainBlocks
             .Where(r => r.IsActive)
