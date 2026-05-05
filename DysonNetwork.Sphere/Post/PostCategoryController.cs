@@ -115,15 +115,6 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
         return Ok(category);
     }
 
-    [HttpGet("tags/{slug}")]
-    public async Task<ActionResult<SnPostTag>> GetTag(string slug)
-    {
-        var tag = await db.PostTags.FirstOrDefaultAsync(e => e.Slug == slug);
-        if (tag is null)
-            return NotFound();
-        return Ok(tag);
-    }
-
     [HttpPost("categories/{slug}/subscribe")]
     [Authorize]
     public async Task<ActionResult<SnPostCategorySubscription>> SubscribeCategory(string slug)
