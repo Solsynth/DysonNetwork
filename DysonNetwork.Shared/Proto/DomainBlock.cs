@@ -25,25 +25,25 @@ namespace DysonNetwork.Shared.Proto {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
             "ChJkb21haW5fYmxvY2sucHJvdG8SBXByb3RvIigKFER5VmFsaWRhdGVVcmxS",
-            "ZXF1ZXN0EhAKA3VybBgBIAEoCVIDdXJsIoMBChhEeURvbWFpblZhbGlkYXRp",
-            "b25SZXN1bHQSHQoKaXNfYWxsb3dlZBgBIAEoCFIJaXNBbGxvd2VkEiEKDGJs",
-            "b2NrX3JlYXNvbhgCIAEoCVILYmxvY2tSZWFzb24SJQoObWF0Y2hlZF9zb3Vy",
-            "Y2UYAyABKAlSDW1hdGNoZWRTb3VyY2UiXwoZRHlEb21haW5CbG9ja0NoZWNr",
-            "UmVxdWVzdBISCgRob3N0GAEgASgJUgRob3N0EhoKCHByb3RvY29sGAIgASgJ",
-            "Ughwcm90b2NvbBISCgRwb3J0GAMgASgFUgRwb3J0IlEKGER5RG9tYWluQmxv",
-            "Y2tDaGVja1Jlc3VsdBIdCgppc19ibG9ja2VkGAEgASgIUglpc0Jsb2NrZWQS",
-            "FgoGcmVhc29uGAIgASgJUgZyZWFzb24yuQEKFER5RG9tYWluQmxvY2tTZXJ2",
-            "aWNlEksKC1ZhbGlkYXRlVXJsEhsucHJvdG8uRHlWYWxpZGF0ZVVybFJlcXVl",
-            "c3QaHy5wcm90by5EeURvbWFpblZhbGlkYXRpb25SZXN1bHQSVAoPSXNEb21h",
-            "aW5CbG9ja2VkEiAucHJvdG8uRHlEb21haW5CbG9ja0NoZWNrUmVxdWVzdBof",
-            "LnByb3RvLkR5RG9tYWluQmxvY2tDaGVja1Jlc3VsdEI9Wh9naXQuc29sc3lu",
-            "dGguZGV2L3Nvc3lzL3NwZWMvZ2VuqgIZRHlzb25OZXR3b3JrLlNoYXJlZC5Q",
-            "cm90b2IGcHJvdG8z"));
+            "ZXF1ZXN0EhAKA3VybBgBIAEoCVIDdXJsIqQBChhEeURvbWFpblZhbGlkYXRp",
+            "b25SZXN1bHQSHQoKaXNfYWxsb3dlZBgBIAEoCFIJaXNBbGxvd2VkEh8KC2lz",
+            "X3ZlcmlmaWVkGAIgASgIUgppc1ZlcmlmaWVkEiEKDGJsb2NrX3JlYXNvbhgD",
+            "IAEoCVILYmxvY2tSZWFzb24SJQoObWF0Y2hlZF9zb3VyY2UYBCABKAlSDW1h",
+            "dGNoZWRTb3VyY2UiXwoZRHlEb21haW5CbG9ja0NoZWNrUmVxdWVzdBISCgRo",
+            "b3N0GAEgASgJUgRob3N0EhoKCHByb3RvY29sGAIgASgJUghwcm90b2NvbBIS",
+            "CgRwb3J0GAMgASgFUgRwb3J0IlEKGER5RG9tYWluQmxvY2tDaGVja1Jlc3Vs",
+            "dBIdCgppc19ibG9ja2VkGAEgASgIUglpc0Jsb2NrZWQSFgoGcmVhc29uGAIg",
+            "ASgJUgZyZWFzb24yuQEKFER5RG9tYWluQmxvY2tTZXJ2aWNlEksKC1ZhbGlk",
+            "YXRlVXJsEhsucHJvdG8uRHlWYWxpZGF0ZVVybFJlcXVlc3QaHy5wcm90by5E",
+            "eURvbWFpblZhbGlkYXRpb25SZXN1bHQSVAoPSXNEb21haW5CbG9ja2VkEiAu",
+            "cHJvdG8uRHlEb21haW5CbG9ja0NoZWNrUmVxdWVzdBofLnByb3RvLkR5RG9t",
+            "YWluQmxvY2tDaGVja1Jlc3VsdEI9Wh9naXQuc29sc3ludGguZGV2L3Nvc3lz",
+            "L3NwZWMvZ2VuqgIZRHlzb25OZXR3b3JrLlNoYXJlZC5Qcm90b2IGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyValidateUrlRequest), global::DysonNetwork.Shared.Proto.DyValidateUrlRequest.Parser, new[]{ "Url" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyDomainValidationResult), global::DysonNetwork.Shared.Proto.DyDomainValidationResult.Parser, new[]{ "IsAllowed", "BlockReason", "MatchedSource" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyDomainValidationResult), global::DysonNetwork.Shared.Proto.DyDomainValidationResult.Parser, new[]{ "IsAllowed", "IsVerified", "BlockReason", "MatchedSource" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyDomainBlockCheckRequest), global::DysonNetwork.Shared.Proto.DyDomainBlockCheckRequest.Parser, new[]{ "Host", "Protocol", "Port" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyDomainBlockCheckResult), global::DysonNetwork.Shared.Proto.DyDomainBlockCheckResult.Parser, new[]{ "IsBlocked", "Reason" }, null, null, null, null)
           }));
@@ -286,6 +286,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public DyDomainValidationResult(DyDomainValidationResult other) : this() {
       isAllowed_ = other.isAllowed_;
+      isVerified_ = other.isVerified_;
       blockReason_ = other.blockReason_;
       matchedSource_ = other.matchedSource_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
@@ -309,8 +310,20 @@ namespace DysonNetwork.Shared.Proto {
       }
     }
 
+    /// <summary>Field number for the "is_verified" field.</summary>
+    public const int IsVerifiedFieldNumber = 2;
+    private bool isVerified_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool IsVerified {
+      get { return isVerified_; }
+      set {
+        isVerified_ = value;
+      }
+    }
+
     /// <summary>Field number for the "block_reason" field.</summary>
-    public const int BlockReasonFieldNumber = 2;
+    public const int BlockReasonFieldNumber = 3;
     private string blockReason_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -322,7 +335,7 @@ namespace DysonNetwork.Shared.Proto {
     }
 
     /// <summary>Field number for the "matched_source" field.</summary>
-    public const int MatchedSourceFieldNumber = 3;
+    public const int MatchedSourceFieldNumber = 4;
     private string matchedSource_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -349,6 +362,7 @@ namespace DysonNetwork.Shared.Proto {
         return true;
       }
       if (IsAllowed != other.IsAllowed) return false;
+      if (IsVerified != other.IsVerified) return false;
       if (BlockReason != other.BlockReason) return false;
       if (MatchedSource != other.MatchedSource) return false;
       return Equals(_unknownFields, other._unknownFields);
@@ -359,6 +373,7 @@ namespace DysonNetwork.Shared.Proto {
     public override int GetHashCode() {
       int hash = 1;
       if (IsAllowed != false) hash ^= IsAllowed.GetHashCode();
+      if (IsVerified != false) hash ^= IsVerified.GetHashCode();
       if (BlockReason.Length != 0) hash ^= BlockReason.GetHashCode();
       if (MatchedSource.Length != 0) hash ^= MatchedSource.GetHashCode();
       if (_unknownFields != null) {
@@ -383,12 +398,16 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(8);
         output.WriteBool(IsAllowed);
       }
+      if (IsVerified != false) {
+        output.WriteRawTag(16);
+        output.WriteBool(IsVerified);
+      }
       if (BlockReason.Length != 0) {
-        output.WriteRawTag(18);
+        output.WriteRawTag(26);
         output.WriteString(BlockReason);
       }
       if (MatchedSource.Length != 0) {
-        output.WriteRawTag(26);
+        output.WriteRawTag(34);
         output.WriteString(MatchedSource);
       }
       if (_unknownFields != null) {
@@ -405,12 +424,16 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(8);
         output.WriteBool(IsAllowed);
       }
+      if (IsVerified != false) {
+        output.WriteRawTag(16);
+        output.WriteBool(IsVerified);
+      }
       if (BlockReason.Length != 0) {
-        output.WriteRawTag(18);
+        output.WriteRawTag(26);
         output.WriteString(BlockReason);
       }
       if (MatchedSource.Length != 0) {
-        output.WriteRawTag(26);
+        output.WriteRawTag(34);
         output.WriteString(MatchedSource);
       }
       if (_unknownFields != null) {
@@ -424,6 +447,9 @@ namespace DysonNetwork.Shared.Proto {
     public int CalculateSize() {
       int size = 0;
       if (IsAllowed != false) {
+        size += 1 + 1;
+      }
+      if (IsVerified != false) {
         size += 1 + 1;
       }
       if (BlockReason.Length != 0) {
@@ -446,6 +472,9 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.IsAllowed != false) {
         IsAllowed = other.IsAllowed;
+      }
+      if (other.IsVerified != false) {
+        IsVerified = other.IsVerified;
       }
       if (other.BlockReason.Length != 0) {
         BlockReason = other.BlockReason;
@@ -476,11 +505,15 @@ namespace DysonNetwork.Shared.Proto {
             IsAllowed = input.ReadBool();
             break;
           }
-          case 18: {
-            BlockReason = input.ReadString();
+          case 16: {
+            IsVerified = input.ReadBool();
             break;
           }
           case 26: {
+            BlockReason = input.ReadString();
+            break;
+          }
+          case 34: {
             MatchedSource = input.ReadString();
             break;
           }
@@ -507,11 +540,15 @@ namespace DysonNetwork.Shared.Proto {
             IsAllowed = input.ReadBool();
             break;
           }
-          case 18: {
-            BlockReason = input.ReadString();
+          case 16: {
+            IsVerified = input.ReadBool();
             break;
           }
           case 26: {
+            BlockReason = input.ReadString();
+            break;
+          }
+          case 34: {
             MatchedSource = input.ReadString();
             break;
           }

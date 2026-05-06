@@ -58,6 +58,7 @@ public class SnChanFoundationProvider : ISnChanFoundationProvider
         return new AgentExecutionOptions
         {
             Temperature = temperature ?? _defaultModel.GetEffectiveTemperature(),
+            TopP = null,
             ReasoningEffort = enableThinking ? reasoningEffort ?? _defaultModel.GetEffectiveReasoningEffort() : null,
             EnableThinking = enableThinking,
             EnableTools = _defaultModel.EnableFunctions,
@@ -93,6 +94,7 @@ public class SnChanFoundationProvider : ISnChanFoundationProvider
         return new AgentExecutionOptions
         {
             Temperature = temperature ?? defaultTemperature,
+            TopP = null,
             ReasoningEffort = defaultReasoningEffort,
             EnableThinking = enableThinking,
             EnableTools = false,

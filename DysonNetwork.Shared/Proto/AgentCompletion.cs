@@ -26,7 +26,7 @@ namespace DysonNetwork.Shared.Proto {
           string.Concat(
             "ChZhZ2VudF9jb21wbGV0aW9uLnByb3RvEgVwcm90byJGChZEeUFnZW50QXR0",
             "YWNoZWRNZXNzYWdlEhIKBHJvbGUYASABKAlSBHJvbGUSGAoHY29udGVudBgC",
-            "IAEoCVIHY29udGVudCKQBAoYRHlBZ2VudENvbXBsZXRpb25SZXF1ZXN0Ei8K",
+            "IAEoCVIHY29udGVudCKeBQoYRHlBZ2VudENvbXBsZXRpb25SZXF1ZXN0Ei8K",
             "B3BlcnNvbmEYASABKA4yFS5wcm90by5EeUFnZW50UGVyc29uYVIHcGVyc29u",
             "YRIdCgphY2NvdW50X2lkGAIgASgJUglhY2NvdW50SWQSGQoFdG9waWMYAyAB",
             "KAlIAFIFdG9waWOIAQESIQoMdXNlcl9tZXNzYWdlGAQgASgJUgt1c2VyTWVz",
@@ -36,24 +36,27 @@ namespace DysonNetwork.Shared.Proto {
             "cHJvcG9zYWxzGAcgAygJUg9hY2NlcHRQcm9wb3NhbHMSGQoFbW9kZWwYCCAB",
             "KAlIAVIFbW9kZWyIAQESLgoQcmVhc29uaW5nX2VmZm9ydBgJIAEoCUgCUg9y",
             "ZWFzb25pbmdFZmZvcnSIAQESHwoIdGhpbmtpbmcYCiABKAhIA1IIdGhpbmtp",
-            "bmeIAQESIQoMZW5hYmxlX3Rvb2xzGAsgASgIUgtlbmFibGVUb29sc0IICgZf",
-            "dG9waWNCCAoGX21vZGVsQhMKEV9yZWFzb25pbmdfZWZmb3J0QgsKCV90aGlu",
-            "a2luZyKdAQoZRHlBZ2VudENvbXBsZXRpb25SZXNwb25zZRIYCgdjb250ZW50",
-            "GAEgASgJUgdjb250ZW50EiEKCXJlYXNvbmluZxgCIAEoCUgAUglyZWFzb25p",
-            "bmeIAQESFAoFbW9kZWwYAyABKAlSBW1vZGVsEh8KC3VzZWRfdmlzaW9uGAQg",
-            "ASgIUgp1c2VkVmlzaW9uQgwKCl9yZWFzb25pbmcqbAoORHlBZ2VudFBlcnNv",
-            "bmESIAocRFlfQUdFTlRfUEVSU09OQV9VTlNQRUNJRklFRBAAEhsKF0RZX0FH",
-            "RU5UX1BFUlNPTkFfTUlDSEFOEAESGwoXRFlfQUdFTlRfUEVSU09OQV9TTkNI",
-            "QU4QAjJpChhEeUFnZW50Q29tcGxldGlvblNlcnZpY2USTQoIQ29tcGxldGUS",
-            "Hy5wcm90by5EeUFnZW50Q29tcGxldGlvblJlcXVlc3QaIC5wcm90by5EeUFn",
-            "ZW50Q29tcGxldGlvblJlc3BvbnNlQj1aH2dpdC5zb2xzeW50aC5kZXYvc29z",
-            "eXMvc3BlYy9nZW6qAhlEeXNvbk5ldHdvcmsuU2hhcmVkLlByb3RvYgZwcm90",
-            "bzM="));
+            "bmeIAQESIQoMZW5hYmxlX3Rvb2xzGAsgASgIUgtlbmFibGVUb29scxIlCgt0",
+            "ZW1wZXJhdHVyZRgMIAEoAUgEUgt0ZW1wZXJhdHVyZYgBARIYCgV0b3BfcBgN",
+            "IAEoAUgFUgR0b3BQiAEBEiIKCm1heF90b2tlbnMYDiABKAVIBlIJbWF4VG9r",
+            "ZW5ziAEBQggKBl90b3BpY0IICgZfbW9kZWxCEwoRX3JlYXNvbmluZ19lZmZv",
+            "cnRCCwoJX3RoaW5raW5nQg4KDF90ZW1wZXJhdHVyZUIICgZfdG9wX3BCDQoL",
+            "X21heF90b2tlbnMinQEKGUR5QWdlbnRDb21wbGV0aW9uUmVzcG9uc2USGAoH",
+            "Y29udGVudBgBIAEoCVIHY29udGVudBIhCglyZWFzb25pbmcYAiABKAlIAFIJ",
+            "cmVhc29uaW5niAEBEhQKBW1vZGVsGAMgASgJUgVtb2RlbBIfCgt1c2VkX3Zp",
+            "c2lvbhgEIAEoCFIKdXNlZFZpc2lvbkIMCgpfcmVhc29uaW5nKmwKDkR5QWdl",
+            "bnRQZXJzb25hEiAKHERZX0FHRU5UX1BFUlNPTkFfVU5TUEVDSUZJRUQQABIb",
+            "ChdEWV9BR0VOVF9QRVJTT05BX01JQ0hBThABEhsKF0RZX0FHRU5UX1BFUlNP",
+            "TkFfU05DSEFOEAIyaQoYRHlBZ2VudENvbXBsZXRpb25TZXJ2aWNlEk0KCENv",
+            "bXBsZXRlEh8ucHJvdG8uRHlBZ2VudENvbXBsZXRpb25SZXF1ZXN0GiAucHJv",
+            "dG8uRHlBZ2VudENvbXBsZXRpb25SZXNwb25zZUI9Wh9naXQuc29sc3ludGgu",
+            "ZGV2L3Nvc3lzL3NwZWMvZ2VuqgIZRHlzb25OZXR3b3JrLlNoYXJlZC5Qcm90",
+            "b2IGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyAgentPersona), }, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyAgentAttachedMessage), global::DysonNetwork.Shared.Proto.DyAgentAttachedMessage.Parser, new[]{ "Role", "Content" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyAgentCompletionRequest), global::DysonNetwork.Shared.Proto.DyAgentCompletionRequest.Parser, new[]{ "Persona", "AccountId", "Topic", "UserMessage", "AttachedPostIds", "AttachedMessages", "AcceptProposals", "Model", "ReasoningEffort", "Thinking", "EnableTools" }, new[]{ "Topic", "Model", "ReasoningEffort", "Thinking" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyAgentCompletionRequest), global::DysonNetwork.Shared.Proto.DyAgentCompletionRequest.Parser, new[]{ "Persona", "AccountId", "Topic", "UserMessage", "AttachedPostIds", "AttachedMessages", "AcceptProposals", "Model", "ReasoningEffort", "Thinking", "EnableTools", "Temperature", "TopP", "MaxTokens" }, new[]{ "Topic", "Model", "ReasoningEffort", "Thinking", "Temperature", "TopP", "MaxTokens" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyAgentCompletionResponse), global::DysonNetwork.Shared.Proto.DyAgentCompletionResponse.Parser, new[]{ "Content", "Reasoning", "Model", "UsedVision" }, new[]{ "Reasoning" }, null, null, null)
           }));
     }
@@ -353,6 +356,9 @@ namespace DysonNetwork.Shared.Proto {
       reasoningEffort_ = other.reasoningEffort_;
       thinking_ = other.thinking_;
       enableTools_ = other.enableTools_;
+      temperature_ = other.temperature_;
+      topP_ = other.topP_;
+      maxTokens_ = other.maxTokens_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -548,6 +554,87 @@ namespace DysonNetwork.Shared.Proto {
       }
     }
 
+    /// <summary>Field number for the "temperature" field.</summary>
+    public const int TemperatureFieldNumber = 12;
+    private readonly static double TemperatureDefaultValue = 0D;
+
+    private double temperature_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public double Temperature {
+      get { if ((_hasBits0 & 2) != 0) { return temperature_; } else { return TemperatureDefaultValue; } }
+      set {
+        _hasBits0 |= 2;
+        temperature_ = value;
+      }
+    }
+    /// <summary>Gets whether the "temperature" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasTemperature {
+      get { return (_hasBits0 & 2) != 0; }
+    }
+    /// <summary>Clears the value of the "temperature" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearTemperature() {
+      _hasBits0 &= ~2;
+    }
+
+    /// <summary>Field number for the "top_p" field.</summary>
+    public const int TopPFieldNumber = 13;
+    private readonly static double TopPDefaultValue = 0D;
+
+    private double topP_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public double TopP {
+      get { if ((_hasBits0 & 4) != 0) { return topP_; } else { return TopPDefaultValue; } }
+      set {
+        _hasBits0 |= 4;
+        topP_ = value;
+      }
+    }
+    /// <summary>Gets whether the "top_p" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasTopP {
+      get { return (_hasBits0 & 4) != 0; }
+    }
+    /// <summary>Clears the value of the "top_p" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearTopP() {
+      _hasBits0 &= ~4;
+    }
+
+    /// <summary>Field number for the "max_tokens" field.</summary>
+    public const int MaxTokensFieldNumber = 14;
+    private readonly static int MaxTokensDefaultValue = 0;
+
+    private int maxTokens_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int MaxTokens {
+      get { if ((_hasBits0 & 8) != 0) { return maxTokens_; } else { return MaxTokensDefaultValue; } }
+      set {
+        _hasBits0 |= 8;
+        maxTokens_ = value;
+      }
+    }
+    /// <summary>Gets whether the "max_tokens" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasMaxTokens {
+      get { return (_hasBits0 & 8) != 0; }
+    }
+    /// <summary>Clears the value of the "max_tokens" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearMaxTokens() {
+      _hasBits0 &= ~8;
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -574,6 +661,9 @@ namespace DysonNetwork.Shared.Proto {
       if (ReasoningEffort != other.ReasoningEffort) return false;
       if (Thinking != other.Thinking) return false;
       if (EnableTools != other.EnableTools) return false;
+      if (!pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.Equals(Temperature, other.Temperature)) return false;
+      if (!pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.Equals(TopP, other.TopP)) return false;
+      if (MaxTokens != other.MaxTokens) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -592,6 +682,9 @@ namespace DysonNetwork.Shared.Proto {
       if (HasReasoningEffort) hash ^= ReasoningEffort.GetHashCode();
       if (HasThinking) hash ^= Thinking.GetHashCode();
       if (EnableTools != false) hash ^= EnableTools.GetHashCode();
+      if (HasTemperature) hash ^= pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.GetHashCode(Temperature);
+      if (HasTopP) hash ^= pbc::ProtobufEqualityComparers.BitwiseDoubleEqualityComparer.GetHashCode(TopP);
+      if (HasMaxTokens) hash ^= MaxTokens.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -645,6 +738,18 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(88);
         output.WriteBool(EnableTools);
       }
+      if (HasTemperature) {
+        output.WriteRawTag(97);
+        output.WriteDouble(Temperature);
+      }
+      if (HasTopP) {
+        output.WriteRawTag(105);
+        output.WriteDouble(TopP);
+      }
+      if (HasMaxTokens) {
+        output.WriteRawTag(112);
+        output.WriteInt32(MaxTokens);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -690,6 +795,18 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(88);
         output.WriteBool(EnableTools);
       }
+      if (HasTemperature) {
+        output.WriteRawTag(97);
+        output.WriteDouble(Temperature);
+      }
+      if (HasTopP) {
+        output.WriteRawTag(105);
+        output.WriteDouble(TopP);
+      }
+      if (HasMaxTokens) {
+        output.WriteRawTag(112);
+        output.WriteInt32(MaxTokens);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -726,6 +843,15 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (EnableTools != false) {
         size += 1 + 1;
+      }
+      if (HasTemperature) {
+        size += 1 + 8;
+      }
+      if (HasTopP) {
+        size += 1 + 8;
+      }
+      if (HasMaxTokens) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(MaxTokens);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -765,6 +891,15 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.EnableTools != false) {
         EnableTools = other.EnableTools;
+      }
+      if (other.HasTemperature) {
+        Temperature = other.Temperature;
+      }
+      if (other.HasTopP) {
+        TopP = other.TopP;
+      }
+      if (other.HasMaxTokens) {
+        MaxTokens = other.MaxTokens;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -829,6 +964,18 @@ namespace DysonNetwork.Shared.Proto {
             EnableTools = input.ReadBool();
             break;
           }
+          case 97: {
+            Temperature = input.ReadDouble();
+            break;
+          }
+          case 105: {
+            TopP = input.ReadDouble();
+            break;
+          }
+          case 112: {
+            MaxTokens = input.ReadInt32();
+            break;
+          }
         }
       }
     #endif
@@ -890,6 +1037,18 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 88: {
             EnableTools = input.ReadBool();
+            break;
+          }
+          case 97: {
+            Temperature = input.ReadDouble();
+            break;
+          }
+          case 105: {
+            TopP = input.ReadDouble();
+            break;
+          }
+          case 112: {
+            MaxTokens = input.ReadInt32();
             break;
           }
         }

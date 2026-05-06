@@ -70,6 +70,7 @@ public class MiChanFoundationProvider : IMiChanFoundationProvider
         return new AgentExecutionOptions
         {
             Temperature = temperature ?? _config.ThinkingModel.GetEffectiveTemperature(),
+            TopP = null,
             ReasoningEffort = enableThinking ? reasoningEffort ?? _config.ThinkingModel.GetEffectiveReasoningEffort() : null,
             EnableThinking = enableThinking,
             EnableTools = _config.ThinkingModel.EnableFunctions,
@@ -84,6 +85,7 @@ public class MiChanFoundationProvider : IMiChanFoundationProvider
         return new AgentExecutionOptions
         {
             Temperature = temperature ?? model.GetEffectiveTemperature(),
+            TopP = null,
             ReasoningEffort = reasoningEffort ?? model.GetEffectiveReasoningEffort(),
             EnableTools = model.EnableFunctions,
             AutoInvokeTools = false,
@@ -97,6 +99,7 @@ public class MiChanFoundationProvider : IMiChanFoundationProvider
         return new AgentExecutionOptions
         {
             Temperature = temperature ?? model.GetEffectiveTemperature(),
+            TopP = null,
             ReasoningEffort = enableThinking ? reasoningEffort ?? model.GetEffectiveReasoningEffort() : null,
             EnableThinking = enableThinking,
             EnableTools = false,

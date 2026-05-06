@@ -810,6 +810,11 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
             request.Temperature = (float)options.Temperature.Value;
         }
 
+        if (options?.TopP.HasValue == true)
+        {
+            request.TopP = (float)options.TopP.Value;
+        }
+
         if (options?.MaxTokens.HasValue == true)
         {
             request.MaxOutputTokenCount = options.MaxTokens.Value;
@@ -860,6 +865,11 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         if (options?.Temperature.HasValue == true)
         {
             request.Temperature = options.Temperature.Value;
+        }
+
+        if (options?.TopP.HasValue == true)
+        {
+            request.TopP = options.TopP.Value;
         }
 
         if (options?.MaxTokens.HasValue == true)
@@ -1495,6 +1505,11 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
             payload["temperature"] = options.Temperature.Value;
         }
 
+        if (options?.TopP.HasValue == true)
+        {
+            payload["top_p"] = options.TopP.Value;
+        }
+
         if (options?.MaxTokens.HasValue == true)
         {
             payload[UsesMimoProvider() ? "max_completion_tokens" : "max_tokens"] = options.MaxTokens.Value;
@@ -1930,6 +1945,11 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         if (options?.Temperature.HasValue == true)
         {
             chatOptions.Temperature = (float)options.Temperature.Value;
+        }
+
+        if (options?.TopP.HasValue == true)
+        {
+            chatOptions.TopP = (float)options.TopP.Value;
         }
 
         if (options?.MaxTokens.HasValue == true)

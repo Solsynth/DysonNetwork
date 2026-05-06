@@ -276,6 +276,7 @@ public class AgentCompletionGrpcService(
     private static AgentExecutionOptions WithToolOptions(AgentExecutionOptions options, bool enableTools) => new()
     {
         Temperature = options.Temperature,
+        TopP = options.TopP,
         MaxTokens = options.MaxTokens,
         ReasoningEffort = options.ReasoningEffort,
         EnableThinking = options.EnableThinking,
@@ -291,12 +292,13 @@ public class AgentCompletionGrpcService(
     {
         if (request.Persona != DyAgentPersona.Michan ||
             !request.Topic.StartsWith("每日签到运势", StringComparison.Ordinal))
-            return options;
+            return ApplyRequestTuning(options, request);
 
-        return new AgentExecutionOptions
+        var tuned = new AgentExecutionOptions
         {
             Temperature = Math.Max(options.Temperature ?? 0.7, 0.95),
-            MaxTokens = Math.Max(options.MaxTokens ?? 0, 1800),
+            TopP = options.TopP ?? 0.92,
+            MaxTokens = options.MaxTokens,
             ReasoningEffort = options.ReasoningEffort,
             EnableThinking = options.EnableThinking,
             EnableTools = options.EnableTools,
@@ -304,6 +306,23 @@ public class AgentCompletionGrpcService(
             MaxToolRounds = options.MaxToolRounds,
             AdditionalParameters = options.AdditionalParameters
         };
+
+        return ApplyRequestTuning(tuned, request);
     }
+
+    private static AgentExecutionOptions ApplyRequestTuning(
+        AgentExecutionOptions options,
+        DyAgentCompletionRequest request) => new()
+    {
+        Temperature = request.HasTemperature ? request.Temperature : options.Temperature,
+        TopP = request.HasTopP ? request.TopP : options.TopP,
+        MaxTokens = request.HasMaxTokens ? request.MaxTokens : options.MaxTokens,
+        ReasoningEffort = options.ReasoningEffort,
+        EnableThinking = options.EnableThinking,
+        EnableTools = options.EnableTools,
+        AutoInvokeTools = options.AutoInvokeTools,
+        MaxToolRounds = options.MaxToolRounds,
+        AdditionalParameters = options.AdditionalParameters
+    };
 
 }

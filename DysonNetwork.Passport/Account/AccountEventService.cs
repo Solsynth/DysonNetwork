@@ -627,6 +627,8 @@ public class AccountEventService(
                     ReasoningEffort = "none",
                     Thinking = false,
                     EnableTools = false,
+                    Temperature = 1.28,
+                    TopP = 0.98,
                 },
                 deadline: DateTime.UtcNow.AddSeconds(30)
             );
