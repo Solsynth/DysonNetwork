@@ -19,12 +19,6 @@ Route:
 GET /api/accounts/me/pin-status
 ```
 
-Production gateway path:
-
-```text
-/passport/accounts/me/pin-status
-```
-
 Authorization:
 
 - requires authenticated user
