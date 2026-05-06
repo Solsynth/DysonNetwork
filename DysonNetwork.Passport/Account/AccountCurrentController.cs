@@ -32,6 +32,14 @@ public class AccountCurrentController(
     DyAuthService.DyAuthServiceClient auth
 ) : ControllerBase
 {
+    private const string NoPinProvided = "NO_PIN_PROVEDED";
+
+    public class PinStatusResponse
+    {
+        public bool HasPin { get; set; }
+        public bool ValidationRequired { get; set; }
+    }
+
     [HttpGet]
     [ProducesResponseType<SnAccount>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiError>(StatusCodes.Status401Unauthorized)]
@@ -74,6 +82,25 @@ public class AccountCurrentController(
         }
 
         return Ok(account);
+    }
+
+    [HttpGet("pin-status")]
+    public async Task<ActionResult<PinStatusResponse>> GetPinStatus()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var validation = await auth.ValidatePinAsync(new DyValidatePinRequest
+        {
+            AccountId = currentUser.Id.ToString(),
+            Pin = NoPinProvided
+        });
+
+        var validationRequired = !validation.Valid;
+        return Ok(new PinStatusResponse
+        {
+            HasPin = validationRequired,
+            ValidationRequired = validationRequired
+        });
     }
 
     [HttpGet("passbook/member")]
