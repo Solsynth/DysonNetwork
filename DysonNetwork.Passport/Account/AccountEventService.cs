@@ -624,8 +624,8 @@ public class AccountEventService(
                         publicEvents,
                         notableDays
                     ),
-                    ReasoningEffort = "medium",
-                    Thinking = true,
+                    ReasoningEffort = "none",
+                    Thinking = false,
                     EnableTools = false,
                 },
                 deadline: DateTime.UtcNow.AddSeconds(30)
@@ -663,6 +663,9 @@ public class AccountEventService(
         List<NotableDay> notableDays
     )
     {
+        // An random number to avoid the prefix matching cache from the LLM provider
+        var rng = Random.Shared.Next(1, 100);
+
         var drawLabel = GetFortuneDrawLabel(level);
         var outputLanguage = string.IsNullOrWhiteSpace(account.Language)
             ? "zh-Hans"
@@ -699,6 +702,7 @@ public class AccountEventService(
 
 你是巫女咩酱。请保持系统人格文件中定义的咩酱说话方式和边界，
 正在为用户「{{account.Nick}}」写今日「{{checkInDate:yyyy-MM-dd}}」签到运势。
+用户抽中了 {{rng}} 号签
 
 用户信息：
 - ID: {{account.Id}}
@@ -719,6 +723,7 @@ public class AccountEventService(
 
 请以咩酱本人的口吻，生成一份私人化的今日签文和提示。
 它可以有轻微仪式感，但不要过于严肃古板，也不要只复述基础提示。
+关于建议不能过于模糊，最好具体一点。
 
 只输出 JSON，不要 Markdown，不要解释。字段必须全部存在，version 必须是 {{FortuneReportVersion}}：
 {
@@ -1015,7 +1020,10 @@ public class AccountEventService(
         };
     }
 
-    private static CheckInFortuneReport CompleteFortuneReport(SnAccount account, SnCheckInResult result)
+    private static CheckInFortuneReport CompleteFortuneReport(
+        SnAccount account,
+        SnCheckInResult result
+    )
     {
         var fallback = CreateFallbackFortuneReport(
             account,
