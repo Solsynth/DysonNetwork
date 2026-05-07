@@ -14,7 +14,6 @@ public abstract class WebSocketPacketType
     public const string CallParticipantsUpdate = "call.participants.update";
     public const string ProgressionCompleted = "progression.completed";
     public const string AccountStatusUpdated = "account.status.updated";
-    public const string AccountCheckInFortuneUpdated = "account.check_in.fortune.updated";
     public const string ChatPresenceUpdated = "chat.presence.updated";
     public const string AccountPresenceActivitiesUpdated = "account.presence.activities.updated";
     public const string ChatPresenceActivitiesUpdated = "chat.presence.activities.updated";

@@ -46,7 +46,7 @@ public class SnThinkingSequence : ModelBase
     [MaxLength(8192)] public string? Summary { get; set; }
     public Instant? SummaryLastAt { get; set; }
 
-    [Column(TypeName = "vector(1536)")] public Vector? SummaryEmbedding { get; set; }
+    [Column(TypeName = "vector(1024)")] public Vector? SummaryEmbedding { get; set; }
 }
 
 public enum ThinkingThoughtRole
