@@ -63,16 +63,19 @@ public static class GrpcSharedChannelExtensions
     public static IServiceCollection AddGrpcClientWithSharedChannel<TClient>(
         this IServiceCollection services,
         string endpoint,
-        string serviceName
+        string serviceName,
+        Action<IHttpClientBuilder>? configureHttpClient = null
     ) where TClient : class
     {
-        services.AddGrpcClient<TClient>(options => { options.Address = new Uri(endpoint); })
+        var builder = services.AddGrpcClient<TClient>(options => { options.Address = new Uri(endpoint); })
             .ConfigureChannel(options =>
             {
                 options.MaxReceiveMessageSize = DefaultGrpcMessageSize;
                 options.MaxSendMessageSize = DefaultGrpcMessageSize;
             })
             .ConfigureGrpcDefaults();
+
+        configureHttpClient?.Invoke(builder);
 
         return services;
     }

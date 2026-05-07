@@ -1,5 +1,7 @@
 using DysonNetwork.Shared.Proto;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 
 namespace DysonNetwork.Shared.Registry;
 
@@ -157,7 +159,26 @@ public static class ServiceInjectionHelper
                 "DyWebReaderServiceClient");
             services.AddGrpcClientWithSharedChannel<DyAgentCompletionService.DyAgentCompletionServiceClient>(
                 "https://_grpc.insight",
-                "DyAgentCompletionService");
+                "DyAgentCompletionService",
+                http =>
+                {
+#pragma warning disable EXTEXP0001
+                    http.RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
+                    http.ConfigureHttpClient((sp, client) =>
+                    {
+                        var configuration = sp.GetRequiredService<IConfiguration>();
+                        var timeoutSeconds = Math.Clamp(
+                            configuration.GetValue<int?>("CheckIn:Fortune:GrpcHttpTimeoutSeconds")
+                                ?? configuration.GetValue<int?>("CheckIn:Fortune:TimeoutSeconds")
+                                ?? configuration.GetValue<int?>("AgentCompletion:GrpcHttpTimeoutSeconds")
+                                ?? 90,
+                            30,
+                            900
+                        );
+                        client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+                    });
+                });
             
             services.AddSingleton<RemoteWebFeedService>();
             services.AddSingleton<RemoteWebReaderService>();

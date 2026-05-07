@@ -143,7 +143,7 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<SteamPresenceService>();
         services.AddScoped<IPresenceService, SteamPresenceService>();
-        
+
         services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(
             "https://_grpc.padlock",
             "DyAccountService");
