@@ -113,6 +113,7 @@ public class MemoryService(
 
         // Order by cosine distance and select with distance
         var results = await queryable
+            .Where(r => r.Embedding != null)
             .Select(r => new { Record = r, Distance = r.Embedding!.CosineDistance(queryEmbedding) })
             .OrderBy(x => x.Distance)
             .Take(limit)
