@@ -148,16 +148,6 @@ public class AgentCompletionGrpcService(
         builder.AppendLine("Solar Network 上的 ID 是 UUID，通常很难阅读，所以除非用户要求或必要，否则不要向用户显示 ID。");
         builder.AppendLine();
 
-        if (IsDailyFortuneRequest(persona, userMessage))
-        {
-            builder.AppendLine("这是每日签到运势的结构化生成请求。优先遵守用户消息中的 JSON schema、语言、签位、去重和长度要求。");
-            builder.AppendLine("不要调用热点记忆搜索、情绪或工具；只能基于本次请求提供的资料、用户档案和下方少量近期记忆生成。输出必须保持可解析 JSON。");
-            await AppendMiChanUserProfileAsync(builder, accountId, cancellationToken);
-            await AppendRecentMiChanMemoriesAsync(builder, accountId, 4, cancellationToken);
-            builder.AppendLine();
-            return builder.ToString();
-        }
-
         if (persona == DyAgentPersona.Michan)
             await AppendMiChanContextAsync(builder, accountId, userMessage, cancellationToken);
 
@@ -252,44 +242,6 @@ public class AgentCompletionGrpcService(
         builder.AppendLine();
     }
 
-    private async Task AppendMiChanUserProfileAsync(
-        StringBuilder builder,
-        Guid accountId,
-        CancellationToken cancellationToken)
-    {
-        var userProfile = await userProfileService.GetOrCreateAsync(accountId, "michan", cancellationToken);
-        builder.AppendLine("用户结构化档案（用于个性化语气和建议，不要暴露为档案来源）：");
-        builder.AppendLine(userProfile.ToPrompt());
-        builder.AppendLine();
-    }
-
-    private async Task AppendRecentMiChanMemoriesAsync(
-        StringBuilder builder,
-        Guid accountId,
-        int take,
-        CancellationToken cancellationToken)
-    {
-        var recentMemories = await memoryService.GetRecentMemoriesAsync(
-            accountId,
-            take,
-            botName: "michan",
-            cancellationToken: cancellationToken);
-        if (recentMemories.Count == 0)
-            return;
-
-        builder.AppendLine("少量近期记忆（只用于让表达更贴近用户，不要暴露为记忆来源）：");
-        foreach (var memory in recentMemories.Take(take))
-            builder.AppendLine("- " + memory.ToPrompt());
-    }
-
-    private static bool IsDailyFortuneRequest(DyAgentPersona persona, string userMessage)
-    {
-        return persona == DyAgentPersona.Michan
-            && userMessage.Contains("每日签到运势", StringComparison.Ordinal)
-            && userMessage.Contains("fortune_report", StringComparison.Ordinal)
-            && userMessage.Contains("只输出 JSON", StringComparison.Ordinal);
-    }
-
     private (IAgentProviderAdapter Provider, AgentExecutionOptions Options, string ModelLabel) GetProviderAndOptions(
         DyAgentCompletionRequest request,
         DyAccount currentUser,
@@ -338,24 +290,7 @@ public class AgentCompletionGrpcService(
         AgentExecutionOptions options,
         DyAgentCompletionRequest request)
     {
-        if (request.Persona != DyAgentPersona.Michan ||
-            !request.Topic.StartsWith("每日签到运势", StringComparison.Ordinal))
-            return ApplyRequestTuning(options, request);
-
-        var tuned = new AgentExecutionOptions
-        {
-            Temperature = Math.Max(options.Temperature ?? 0.7, 0.95),
-            TopP = options.TopP ?? 0.92,
-            MaxTokens = options.MaxTokens,
-            ReasoningEffort = options.ReasoningEffort,
-            EnableThinking = options.EnableThinking,
-            EnableTools = options.EnableTools,
-            AutoInvokeTools = options.AutoInvokeTools,
-            MaxToolRounds = options.MaxToolRounds,
-            AdditionalParameters = options.AdditionalParameters
-        };
-
-        return ApplyRequestTuning(tuned, request);
+        return ApplyRequestTuning(options, request);
     }
 
     private static AgentExecutionOptions ApplyRequestTuning(

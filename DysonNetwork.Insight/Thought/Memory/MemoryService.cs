@@ -350,7 +350,8 @@ public class MemoryService(
         var allMemories = new List<(MiChanMemoryRecord Record, double Distance)>();
 
         var hotQuery = database.MemoryRecords
-            .Where(r => r.IsHot && r.IsActive);
+            .Where(r => r.IsHot && r.IsActive)
+            .Where(r => r.Embedding != null);
 
         // Filter by bot name if specified - include bot-specific and global (null) memories
         if (!string.IsNullOrEmpty(botName))
