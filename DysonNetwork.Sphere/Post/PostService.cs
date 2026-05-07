@@ -1304,21 +1304,57 @@ public partial class PostService(
         return post;
     }
 
-    [GeneratedRegex(@"https?://(?!.*\.\w{1,6}(?:[#?]|$))[^\s]+", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?<!\]\()https?://[^\s<]+", RegexOptions.IgnoreCase)]
     private static partial Regex GetLinkRegex();
 
     [GeneratedRegex(@"@(\w+)", RegexOptions.IgnoreCase)]
     private static partial Regex GetMentionRegex();
+
+    private static List<string> ExtractPreviewUrls(string content, int maxLinks)
+    {
+        var urls = new List<string>();
+        foreach (Match match in GetLinkRegex().Matches(content))
+        {
+            var normalizedUrl = NormalizePreviewUrl(match.Value);
+            if (normalizedUrl is null || urls.Contains(normalizedUrl, StringComparer.OrdinalIgnoreCase))
+                continue;
+
+            urls.Add(normalizedUrl);
+            if (urls.Count >= maxLinks)
+                break;
+        }
+
+        return urls;
+    }
+
+    private static string? NormalizePreviewUrl(string? rawUrl)
+    {
+        if (string.IsNullOrWhiteSpace(rawUrl))
+            return null;
+
+        var url = rawUrl.Trim().TrimEnd('.', ',', ';', ':', '!', '?');
+        while (url.Length > 0 && ")]}>\"'".Contains(url[^1]))
+        {
+            var trailing = url[^1];
+            if (trailing == ')' && url.Count(c => c == '(') >= url.Count(c => c == ')'))
+                break;
+
+            url = url[..^1];
+        }
+
+        return Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+            ? uri.ToString()
+            : null;
+    }
 
     private async Task<SnPost> PreviewPostLinkAsync(SnPost item)
     {
         if (item.Type != PostType.Moment || string.IsNullOrEmpty(item.Content))
             return item;
 
-        // Find all URLs in the content
-        var matches = GetLinkRegex().Matches(item.Content);
-
-        if (matches.Count == 0)
+        var urls = ExtractPreviewUrls(item.Content, maxLinks: 3);
+        if (urls.Count == 0)
             return item;
 
         // Initialize meta dictionary if null
@@ -1330,16 +1366,8 @@ public partial class PostService(
             item.Metadata["embeds"] = new List<Dictionary<string, object>>();
         var embeds = (List<Dictionary<string, object>>)item.Metadata["embeds"];
 
-        // Process up to 3 links to avoid excessive processing
-        const int maxLinks = 3;
-        var processedLinks = 0;
-        foreach (Match match in matches)
+        foreach (var url in urls)
         {
-            if (processedLinks >= maxLinks)
-                break;
-
-            var url = match.Value;
-
             try
             {
                 // Check if this URL is already in the embed list
@@ -1348,11 +1376,10 @@ public partial class PostService(
                 );
                 if (urlAlreadyEmbedded)
                     continue;
-
+                
                 // Preview the link
                 var linkEmbed = await reader.GetLinkPreview(url);
                 embeds.Add(EmbeddableBase.ToDictionary(linkEmbed));
-                processedLinks++;
             }
             catch
             {

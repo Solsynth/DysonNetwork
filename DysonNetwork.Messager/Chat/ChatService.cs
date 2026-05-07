@@ -56,11 +56,49 @@ public partial class ChatService(
                !message.Type.StartsWith("system.");
     }
 
-    [GeneratedRegex(@"https?://(?!.*\.\w{1,6}(?:[#?]|$))[^\s]+", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?<!\]\()https?://[^\s<]+", RegexOptions.IgnoreCase)]
     private static partial Regex GetLinkRegex();
 
     [GeneratedRegex(@"(?<!\w)@(?:u/)?everyone\b", RegexOptions.IgnoreCase)]
     private static partial Regex GetEveryoneMentionRegex();
+
+    private static List<string> ExtractPreviewUrls(string content, int maxLinks)
+    {
+        var urls = new List<string>();
+        foreach (Match match in GetLinkRegex().Matches(content))
+        {
+            var normalizedUrl = NormalizePreviewUrl(match.Value);
+            if (normalizedUrl is null || urls.Contains(normalizedUrl, StringComparer.OrdinalIgnoreCase))
+                continue;
+
+            urls.Add(normalizedUrl);
+            if (urls.Count >= maxLinks)
+                break;
+        }
+
+        return urls;
+    }
+
+    private static string? NormalizePreviewUrl(string? rawUrl)
+    {
+        if (string.IsNullOrWhiteSpace(rawUrl))
+            return null;
+
+        var url = rawUrl.Trim().TrimEnd('.', ',', ';', ':', '!', '?');
+        while (url.Length > 0 && ")]}>\"'".Contains(url[^1]))
+        {
+            var trailing = url[^1];
+            if (trailing == ')' && url.Count(c => c == '(') >= url.Count(c => c == ')'))
+                break;
+
+            url = url[..^1];
+        }
+
+        return Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+            ? uri.ToString()
+            : null;
+    }
 
     private async Task EmitChatUseActionLogAsync(SnChatMessage message, SnChatMember sender, SnChatRoom room, string? clientIpAddress = null)
     {
@@ -191,10 +229,8 @@ public partial class ChatService(
         if (string.IsNullOrEmpty(message.Content))
             return message;
 
-        // Find all URLs in the content
-        var matches = GetLinkRegex().Matches(message.Content);
-
-        if (matches.Count == 0)
+        var urls = ExtractPreviewUrls(message.Content, maxLinks: 3);
+        if (urls.Count == 0)
             return message;
 
         // Initialize meta dictionary if null
@@ -209,15 +245,8 @@ public partial class ChatService(
 
         var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
 
-        // Process up to 3 links to avoid excessive processing
-        var processedLinks = 0;
-        foreach (Match match in matches)
+        foreach (var url in urls)
         {
-            if (processedLinks >= 3)
-                break;
-
-            var url = match.Value;
-
             try
             {
                 // Check if this URL is already in the embed list
@@ -225,11 +254,10 @@ public partial class ChatService(
                     e.TryGetValue("Url", out var originalUrl) && (string)originalUrl == url);
                 if (urlAlreadyEmbedded)
                     continue;
-
+                
                 // Preview the link
                 var linkEmbed = await webReader.GetLinkPreview(url);
                 embeds.Add(EmbeddableBase.ToDictionary(linkEmbed));
-                processedLinks++;
             }
             catch
             {
