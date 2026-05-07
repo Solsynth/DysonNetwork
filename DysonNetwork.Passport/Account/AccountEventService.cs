@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
@@ -815,7 +816,7 @@ public class AccountEventService(
                 deadline: DateTime.UtcNow.AddSeconds(timeoutSeconds)
             );
 
-            var generation = TryParseFortuneGeneration(response.Content, tips);
+            var generation = TryParseFortuneGeneration(response.Content, tips, fallback);
             if (generation is not null)
             {
                 generation.IsGenerated = true;
@@ -940,34 +941,27 @@ public class AccountEventService(
 关于建议不能过于模糊，最好具体一点。
 tips 也必须由咩酱重新生成，不是从备用基础提示里挑选。
 
-只输出 JSON，不要 Markdown，不要解释。字段必须全部存在，version 必须是 {{FortuneReportVersion}}：
-{
-  "tips": [
-    { "is_positive": true, "title": "吉提示标题，16字以内", "content": "具体提示，60字以内" },
-    { "is_positive": true, "title": "吉提示标题，16字以内", "content": "具体提示，60字以内" },
-    { "is_positive": false, "title": "忌提示标题，16字以内", "content": "具体提醒，60字以内" },
-    { "is_positive": false, "title": "忌提示标题，16字以内", "content": "具体提醒，60字以内" }
-  ],
-  "fortune_report": {
-    "version": {{FortuneReportVersion}},
-    "poem": "签诗，1到2句，有意象但自然",
-    "summary": "运势总评，80字以内",
-    "summary_detail": "今日建议，180到260字，像巫女基于签位给用户的具体行动建议，结合今日事件和基础提示",
-    "wish": "愿望，60字以内",
-    "love": "爱情，60字以内",
-    "study": "学业，60字以内",
-    "career": "事业，60字以内",
-    "health": "健康，60字以内",
-    "lost_item": "失物，60字以内",
-    "lucky_color": "幸运色，短词",
-    "lucky_direction": "幸运方位，短词",
-    "lucky_time": "幸运时段，短词",
-    "lucky_item": "幸运小物，短词",
-    "lucky_action": "今日宜做，60字以内",
-    "avoid_action": "今日忌做，60字以内",
-    "ritual": "小仪式，80字以内，轻量、可执行、不要迷信化"
-  }
-}
+请输出下面这种宽松文本格式，不要 Markdown，不要解释，不需要 JSON。每行一个字段，字段名必须保留英文：
+POEM: 签诗，1到2句，有意象但自然
+SUMMARY: 运势总评，80字以内
+SUMMARY_DETAIL: 今日建议，180到260字，像咩酱基于签位给用户的具体行动建议
+WISH: 愿望，60字以内
+LOVE: 爱情，60字以内
+STUDY: 学业，60字以内
+CAREER: 事业，60字以内
+HEALTH: 健康，60字以内
+LOST_ITEM: 失物，60字以内
+LUCKY_COLOR: 幸运色，短词
+LUCKY_DIRECTION: 幸运方位，短词
+LUCKY_TIME: 幸运时段，短词
+LUCKY_ITEM: 幸运小物，短词
+LUCKY_ACTION: 今日宜做，60字以内
+AVOID_ACTION: 今日忌做，60字以内
+RITUAL: 小仪式，80字以内，轻量、可执行、不要迷信化
+TIP+: 吉提示标题 | 具体提示
+TIP+: 吉提示标题 | 具体提示
+TIP-: 忌提示标题 | 具体提醒
+TIP-: 忌提示标题 | 具体提醒
 
 要求：
 - 使用用户偏好语言「{{outputLanguage}}」生成所有面向用户的字符串；如果该语言无法判断，使用简体中文。
@@ -980,13 +974,13 @@ tips 也必须由咩酱重新生成，不是从备用基础提示里挑选。
 - 可以温柔地结合生日、公开个人事件、全球或地区节日，但不要暴露或推断未提供的私密信息。
 - summary_detail 更像今日建议，不要只是扩写总评；要告诉用户今天适合怎么行动、注意什么、把精力放在哪里。
 - lucky_* 和 ritual 要有当天的意象感，但保持生活化，不要像抽象模板。
-- tips 必须有 4 条，通常 2 吉 2 忌；生日或特别签可以 3 吉 1 忌，但仍必须 4 条。
+- tips 尽量有 4 条，通常 2 吉 2 忌；生日或特别签可以 3 吉 1 忌。服务端会兜底补齐 tips。
 - tips 要和 fortune_report 互相呼应，但不要逐字重复。
 - 本次文案需要围绕“本次生成变化锚点”选择意象、节奏和行动建议，避免复用常见模板句式。
 - 每个字段都要具体，不要重复。
 - 不要复用近期已生成内容中的标题、短句、幸运色、幸运小物、今日宜忌、小仪式或核心意象。
 - 不要复制或轻微改写备用基础提示；如果意思相近，也要换成新的具体行动场景。
-- 输出必须是可被 JSON.parse 直接解析的对象。
+- 字段值里不要换行。如果某个字段不确定，仍然输出字段名，并给出自然的短句。
 """;
     }
 
@@ -1064,9 +1058,14 @@ tips 也必须由咩酱重新生成，不是从备用基础提示里挑选。
 
     private static CheckInFortuneGeneration? TryParseFortuneGeneration(
         string content,
-        List<CheckInFortuneTip> seedTips
+        List<CheckInFortuneTip> seedTips,
+        CheckInFortuneGeneration fallback
     )
     {
+        var looseGeneration = TryParseLooseFortuneGeneration(content, seedTips, fallback);
+        if (looseGeneration is not null)
+            return looseGeneration;
+
         var json = ExtractJsonObject(content);
         if (json is null)
             return null;
@@ -1077,46 +1076,16 @@ tips 也必须由咩酱重新生成，不是从备用基础提示里挑选。
                 json,
                 FortuneReportJsonOptions
             );
-            if (
-                generation is null
-                || generation.Tips.Count != 4
-                || !HasValidFortuneTipBalance(generation.Tips)
-                || generation.Tips.Any(t =>
-                    string.IsNullOrWhiteSpace(t.Title) || string.IsNullOrWhiteSpace(t.Content)
-                )
-                || HasDuplicateFortuneTips(generation.Tips)
-                || ReusesSeedFortuneTips(generation.Tips, seedTips)
-                || !IsValidFortuneReport(generation.Report)
-            )
+            if (generation?.Report is null)
                 return null;
 
-            generation.Tips = generation
-                .Tips.Select(t => new CheckInFortuneTip
-                {
-                    IsPositive = t.IsPositive,
-                    Title = TrimFortuneText(t.Title, FortuneTipTitleMaxLength),
-                    Content = TrimFortuneText(t.Content, FortuneTipContentMaxLength),
-                })
-                .ToList();
+            generation.Tips = NormalizeGeneratedFortuneTips(generation.Tips, seedTips, fallback.Tips);
 
-            var report = generation.Report;
-            report.Version = FortuneReportVersion;
-            report.Poem = TrimFortuneText(report.Poem, 120);
-            report.Summary = TrimFortuneText(report.Summary, 160);
-            report.SummaryDetail = TrimFortuneText(report.SummaryDetail, 360);
-            report.Wish = TrimFortuneText(report.Wish, 120);
-            report.Love = TrimFortuneText(report.Love, 120);
-            report.Study = TrimFortuneText(report.Study, 120);
-            report.Career = TrimFortuneText(report.Career, 120);
-            report.Health = TrimFortuneText(report.Health, 120);
-            report.LostItem = TrimFortuneText(report.LostItem, 120);
-            report.LuckyColor = TrimFortuneText(report.LuckyColor, 40);
-            report.LuckyDirection = TrimFortuneText(report.LuckyDirection, 40);
-            report.LuckyTime = TrimFortuneText(report.LuckyTime, 40);
-            report.LuckyItem = TrimFortuneText(report.LuckyItem, 40);
-            report.LuckyAction = TrimFortuneText(report.LuckyAction, 120);
-            report.AvoidAction = TrimFortuneText(report.AvoidAction, 120);
-            report.Ritual = TrimFortuneText(report.Ritual, 160);
+            var report = CompleteParsedFortuneReport(generation.Report, fallback.Report);
+            if (!IsValidFortuneReport(report))
+                return null;
+
+            generation.Report = TrimFortuneReport(report);
             return generation;
         }
         catch (JsonException)
@@ -1125,16 +1094,164 @@ tips 也必须由咩酱重新生成，不是从备用基础提示里挑选。
         }
     }
 
-    private static string? ExtractJsonObject(string content)
+    private static CheckInFortuneGeneration? TryParseLooseFortuneGeneration(
+        string content,
+        List<CheckInFortuneTip> seedTips,
+        CheckInFortuneGeneration fallback
+    )
+    {
+        var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var tips = new List<CheckInFortuneTip>();
+
+        foreach (var rawLine in StripCodeFence(content).Split('\n'))
+        {
+            var line = rawLine.Trim();
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            var separator = line.IndexOf(':');
+            if (separator < 0)
+                separator = line.IndexOf('：');
+            if (separator <= 0)
+                continue;
+
+            var key = line[..separator].Trim().TrimStart('-', '*').Trim();
+            var value = line[(separator + 1)..].Trim();
+            if (string.IsNullOrWhiteSpace(value))
+                continue;
+
+            if (key.Equals("TIP+", StringComparison.OrdinalIgnoreCase) || key.Equals("TIP-", StringComparison.OrdinalIgnoreCase))
+            {
+                tips.Add(ParseLooseFortuneTip(value, key.Equals("TIP+", StringComparison.OrdinalIgnoreCase)));
+                continue;
+            }
+
+            fields[key] = value;
+        }
+
+        if (fields.Count == 0)
+            return null;
+
+        var report = CompleteParsedFortuneReport(
+            new CheckInFortuneReport
+            {
+                Version = FortuneReportVersion,
+                Poem = GetLooseField(fields, "POEM"),
+                Summary = GetLooseField(fields, "SUMMARY"),
+                SummaryDetail = GetLooseField(fields, "SUMMARY_DETAIL"),
+                Wish = GetLooseField(fields, "WISH"),
+                Love = GetLooseField(fields, "LOVE"),
+                Study = GetLooseField(fields, "STUDY"),
+                Career = GetLooseField(fields, "CAREER"),
+                Health = GetLooseField(fields, "HEALTH"),
+                LostItem = GetLooseField(fields, "LOST_ITEM"),
+                LuckyColor = GetLooseField(fields, "LUCKY_COLOR"),
+                LuckyDirection = GetLooseField(fields, "LUCKY_DIRECTION"),
+                LuckyTime = GetLooseField(fields, "LUCKY_TIME"),
+                LuckyItem = GetLooseField(fields, "LUCKY_ITEM"),
+                LuckyAction = GetLooseField(fields, "LUCKY_ACTION"),
+                AvoidAction = GetLooseField(fields, "AVOID_ACTION"),
+                Ritual = GetLooseField(fields, "RITUAL"),
+            },
+            fallback.Report
+        );
+        if (!IsValidFortuneReport(report))
+            return null;
+
+        var generation = new CheckInFortuneGeneration
+        {
+            Tips = NormalizeGeneratedFortuneTips(tips, seedTips, fallback.Tips),
+            Report = TrimFortuneReport(report),
+        };
+        return generation;
+    }
+
+    private static string StripCodeFence(string content)
     {
         var trimmed = content.Trim();
-        if (trimmed.StartsWith("```", StringComparison.Ordinal))
+        if (!trimmed.StartsWith("```", StringComparison.Ordinal))
+            return trimmed;
+
+        var firstNewLine = trimmed.IndexOf('\n');
+        var lastFence = trimmed.LastIndexOf("```", StringComparison.Ordinal);
+        return firstNewLine >= 0 && lastFence > firstNewLine
+            ? trimmed[(firstNewLine + 1)..lastFence].Trim()
+            : trimmed;
+    }
+
+    private static CheckInFortuneTip ParseLooseFortuneTip(string value, bool isPositive)
+    {
+        var parts = value.Split('|', 2, StringSplitOptions.TrimEntries);
+        if (parts.Length == 2)
+            return new CheckInFortuneTip { IsPositive = isPositive, Title = parts[0], Content = parts[1] };
+
+        parts = value.Split('｜', 2, StringSplitOptions.TrimEntries);
+        if (parts.Length == 2)
+            return new CheckInFortuneTip { IsPositive = isPositive, Title = parts[0], Content = parts[1] };
+
+        return new CheckInFortuneTip
         {
-            var firstNewLine = trimmed.IndexOf('\n');
-            var lastFence = trimmed.LastIndexOf("```", StringComparison.Ordinal);
-            if (firstNewLine >= 0 && lastFence > firstNewLine)
-                trimmed = trimmed[(firstNewLine + 1)..lastFence].Trim();
-        }
+            IsPositive = isPositive,
+            Title = isPositive ? "今日可取" : "今日留意",
+            Content = value,
+        };
+    }
+
+    private static string GetLooseField(Dictionary<string, string> fields, string key)
+    {
+        return fields.GetValueOrDefault(key) ?? string.Empty;
+    }
+
+    private static CheckInFortuneReport CompleteParsedFortuneReport(
+        CheckInFortuneReport report,
+        CheckInFortuneReport fallback
+    )
+    {
+        report.Version = FortuneReportVersion;
+        report.Poem = PickFortuneText(report.Poem, fallback.Poem);
+        report.Summary = PickFortuneText(report.Summary, fallback.Summary);
+        report.SummaryDetail = PickFortuneText(report.SummaryDetail, fallback.SummaryDetail);
+        report.Wish = PickFortuneText(report.Wish, fallback.Wish);
+        report.Love = PickFortuneText(report.Love, fallback.Love);
+        report.Study = PickFortuneText(report.Study, fallback.Study);
+        report.Career = PickFortuneText(report.Career, fallback.Career);
+        report.Health = PickFortuneText(report.Health, fallback.Health);
+        report.LostItem = PickFortuneText(report.LostItem, fallback.LostItem);
+        report.LuckyColor = PickFortuneText(report.LuckyColor, fallback.LuckyColor);
+        report.LuckyDirection = PickFortuneText(report.LuckyDirection, fallback.LuckyDirection);
+        report.LuckyTime = PickFortuneText(report.LuckyTime, fallback.LuckyTime);
+        report.LuckyItem = PickFortuneText(report.LuckyItem, fallback.LuckyItem);
+        report.LuckyAction = PickFortuneText(report.LuckyAction, fallback.LuckyAction);
+        report.AvoidAction = PickFortuneText(report.AvoidAction, fallback.AvoidAction);
+        report.Ritual = PickFortuneText(report.Ritual, fallback.Ritual);
+        return report;
+    }
+
+    private static CheckInFortuneReport TrimFortuneReport(CheckInFortuneReport report)
+    {
+        report.Version = FortuneReportVersion;
+        report.Poem = TrimFortuneText(report.Poem, 120);
+        report.Summary = TrimFortuneText(report.Summary, 160);
+        report.SummaryDetail = TrimFortuneText(report.SummaryDetail, 360);
+        report.Wish = TrimFortuneText(report.Wish, 120);
+        report.Love = TrimFortuneText(report.Love, 120);
+        report.Study = TrimFortuneText(report.Study, 120);
+        report.Career = TrimFortuneText(report.Career, 120);
+        report.Health = TrimFortuneText(report.Health, 120);
+        report.LostItem = TrimFortuneText(report.LostItem, 120);
+        report.LuckyColor = TrimFortuneText(report.LuckyColor, 40);
+        report.LuckyDirection = TrimFortuneText(report.LuckyDirection, 40);
+        report.LuckyTime = TrimFortuneText(report.LuckyTime, 40);
+        report.LuckyItem = TrimFortuneText(report.LuckyItem, 40);
+        report.LuckyAction = TrimFortuneText(report.LuckyAction, 120);
+        report.AvoidAction = TrimFortuneText(report.AvoidAction, 120);
+        report.Ritual = TrimFortuneText(report.Ritual, 160);
+        return report;
+    }
+
+    private static string? ExtractJsonObject(string content)
+    {
+        var trimmed = StripCodeFence(content);
 
         var start = trimmed.IndexOf('{');
         var end = trimmed.LastIndexOf('}');
@@ -1167,6 +1284,61 @@ tips 也必须由咩酱重新生成，不是从备用基础提示里挑选。
         var positiveCount = tips.Count(t => t.IsPositive);
         var negativeCount = tips.Count - positiveCount;
         return positiveCount is 2 or 3 && negativeCount is 1 or 2;
+    }
+
+    private static List<CheckInFortuneTip> NormalizeGeneratedFortuneTips(
+        List<CheckInFortuneTip>? generatedTips,
+        List<CheckInFortuneTip> seedTips,
+        List<CheckInFortuneTip> fallbackTips
+    )
+    {
+        if (generatedTips is null || generatedTips.Count == 0)
+            return CloneFortuneTips(fallbackTips);
+
+        var result = generatedTips
+            .Where(t => !string.IsNullOrWhiteSpace(t.Title) && !string.IsNullOrWhiteSpace(t.Content))
+            .Where(t => !ReusesSeedFortuneTips([t], seedTips))
+            .GroupBy(t => NormalizeFortuneText($"{t.Title}{t.Content}"))
+            .Select(g => g.First())
+            .Take(4)
+            .Select(t => new CheckInFortuneTip
+            {
+                IsPositive = t.IsPositive,
+                Title = TrimFortuneText(t.Title, FortuneTipTitleMaxLength),
+                Content = TrimFortuneText(t.Content, FortuneTipContentMaxLength),
+            })
+            .ToList();
+
+        foreach (var fallbackTip in fallbackTips)
+        {
+            if (result.Count >= 4)
+                break;
+
+            if (result.Any(t => t.IsPositive == fallbackTip.IsPositive))
+                continue;
+
+            result.Add(new CheckInFortuneTip
+            {
+                IsPositive = fallbackTip.IsPositive,
+                Title = TrimFortuneText(fallbackTip.Title, FortuneTipTitleMaxLength),
+                Content = TrimFortuneText(fallbackTip.Content, FortuneTipContentMaxLength),
+            });
+        }
+
+        foreach (var fallbackTip in fallbackTips)
+        {
+            if (result.Count >= 4)
+                break;
+
+            result.Add(new CheckInFortuneTip
+            {
+                IsPositive = fallbackTip.IsPositive,
+                Title = TrimFortuneText(fallbackTip.Title, FortuneTipTitleMaxLength),
+                Content = TrimFortuneText(fallbackTip.Content, FortuneTipContentMaxLength),
+            });
+        }
+
+        return result;
     }
 
     private static bool HasDuplicateFortuneTips(List<CheckInFortuneTip> tips)
@@ -1219,6 +1391,8 @@ tips 也必须由咩酱重新生成，不是从备用基础提示里挑选。
     private class CheckInFortuneGeneration
     {
         public List<CheckInFortuneTip> Tips { get; set; } = [];
+
+        [JsonPropertyName("fortune_report")]
         public CheckInFortuneReport Report { get; set; } = null!;
         public bool IsGenerated { get; set; }
     }
