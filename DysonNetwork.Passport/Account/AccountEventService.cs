@@ -8,6 +8,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
+using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Extensions;
@@ -28,6 +29,7 @@ public class AccountEventService(
     NotableDaysService notableDaysService,
     IEventBus eventBus,
     IConfiguration configuration,
+    IServiceScopeFactory scopeFactory,
     ILogger<AccountEventService> logger
 )
 {
@@ -533,23 +535,10 @@ public class AccountEventService(
         }
 
         var finalTips = tips;
-        CheckInFortuneReport? fortuneReport = null;
-        if (version >= FortuneReportVersion)
-        {
-            var generation = await GenerateCheckInFortune(
-                account,
-                todayInUserTz,
-                isBirthday,
-                backdated.HasValue,
-                checkInLevel,
-                tips,
-                publicEvents,
-                notableDays,
-                recentFortunes
-            );
-            finalTips = generation.Tips;
-            fortuneReport = generation.Report;
-        }
+        CheckInFortuneReport? fortuneReport =
+            version >= FortuneReportVersion
+                ? CreateFallbackFortuneReport(account, isBirthday, checkInLevel, tips)
+                : null;
 
         var result = new SnCheckInResult
         {
@@ -581,6 +570,23 @@ public class AccountEventService(
 
         db.AccountCheckInResults.Add(result);
         await db.SaveChangesAsync(); // Remember to save changes to the database
+
+        if (version >= FortuneReportVersion)
+        {
+            StartCheckInFortuneGeneration(
+                result.Id,
+                account,
+                todayInUserTz,
+                isBirthday,
+                backdated.HasValue,
+                checkInLevel,
+                tips,
+                publicEvents,
+                notableDays,
+                recentFortunes
+            );
+        }
+
         if (result.RewardExperience is not null)
             await experienceService.AddRecord(
                 "check-in",
@@ -603,6 +609,147 @@ public class AccountEventService(
         return result;
     }
 
+    private void StartCheckInFortuneGeneration(
+        Guid checkInResultId,
+        SnAccount account,
+        LocalDate checkInDate,
+        bool isBirthday,
+        bool isBackdated,
+        CheckInResultLevel level,
+        List<CheckInFortuneTip> tips,
+        List<SnUserCalendarEvent> publicEvents,
+        List<NotableDay> notableDays,
+        List<SnCheckInResult> recentFortunes
+    )
+    {
+        var accountSnapshot = CloneAccountForFortune(account);
+        var tipsSnapshot = CloneFortuneTips(tips);
+        var publicEventsSnapshot = publicEvents.ToList();
+        var notableDaysSnapshot = notableDays.ToList();
+        var recentFortunesSnapshot = recentFortunes.ToList();
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var scope = scopeFactory.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<AccountEventService>();
+                await service.CompleteCheckInFortuneGeneration(
+                    checkInResultId,
+                    accountSnapshot,
+                    checkInDate,
+                    isBirthday,
+                    isBackdated,
+                    level,
+                    tipsSnapshot,
+                    publicEventsSnapshot,
+                    notableDaysSnapshot,
+                    recentFortunesSnapshot
+                );
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Background MiChan check-in fortune generation failed for {CheckInResultId}",
+                    checkInResultId
+                );
+            }
+        });
+    }
+
+    private async Task CompleteCheckInFortuneGeneration(
+        Guid checkInResultId,
+        SnAccount account,
+        LocalDate checkInDate,
+        bool isBirthday,
+        bool isBackdated,
+        CheckInResultLevel level,
+        List<CheckInFortuneTip> tips,
+        List<SnUserCalendarEvent> publicEvents,
+        List<NotableDay> notableDays,
+        List<SnCheckInResult> recentFortunes
+    )
+    {
+        var generation = await GenerateCheckInFortune(
+            account,
+            checkInDate,
+            isBirthday,
+            isBackdated,
+            level,
+            tips,
+            publicEvents,
+            notableDays,
+            recentFortunes
+        );
+        if (!generation.IsGenerated)
+            return;
+
+        var result = await db.AccountCheckInResults.FirstOrDefaultAsync(x => x.Id == checkInResultId);
+        if (result is null)
+        {
+            logger.LogWarning(
+                "MiChan check-in fortune generation completed but result {CheckInResultId} no longer exists",
+                checkInResultId
+            );
+            return;
+        }
+
+        result.Tips = generation.Tips;
+        result.FortuneReport = generation.Report;
+        result.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
+        db.Update(result);
+        await db.SaveChangesAsync();
+        await NotifyCheckInFortuneUpdated(account, result);
+    }
+
+    private async Task NotifyCheckInFortuneUpdated(SnAccount account, SnCheckInResult result)
+    {
+        var report = CompleteFortuneReport(account, result);
+        await ws.PushWebSocketPacket(
+            account.Id.ToString(),
+            WebSocketPacketType.AccountCheckInFortuneUpdated,
+            InfraObjectCoder
+                .ConvertObjectToByteString(
+                    new Dictionary<string, object>
+                    {
+                        ["id"] = result.Id,
+                        ["account_id"] = result.AccountId,
+                        ["level"] = result.Level.ToString(),
+                        ["tips"] = result.Tips,
+                        ["fortune_report"] = report,
+                        ["created_at"] = result.CreatedAt,
+                        ["updated_at"] = result.UpdatedAt,
+                    }
+                )
+                .ToByteArray()
+        );
+    }
+
+    private static SnAccount CloneAccountForFortune(SnAccount account)
+    {
+        return new SnAccount
+        {
+            Id = account.Id,
+            Name = account.Name,
+            Nick = account.Nick,
+            Language = account.Language,
+            Region = account.Region,
+        };
+    }
+
+    private static List<CheckInFortuneTip> CloneFortuneTips(List<CheckInFortuneTip> tips)
+    {
+        return tips
+            .Select(t => new CheckInFortuneTip
+            {
+                IsPositive = t.IsPositive,
+                Title = t.Title,
+                Content = t.Content,
+            })
+            .ToList();
+    }
+
     private async Task<CheckInFortuneGeneration> GenerateCheckInFortune(
         SnAccount account,
         LocalDate checkInDate,
@@ -623,6 +770,11 @@ public class AccountEventService(
         try
         {
             var model = configuration.GetValue<string>("CheckIn:Fortune:Model");
+            var timeoutSeconds = Math.Clamp(
+                configuration.GetValue<int?>("CheckIn:Fortune:TimeoutSeconds") ?? 90,
+                5,
+                180
+            );
             var request = new DyAgentCompletionRequest
             {
                 Persona = DyAgentPersona.Michan,
@@ -650,12 +802,15 @@ public class AccountEventService(
 
             var response = await agentCompletion.CompleteAsync(
                 request,
-                deadline: DateTime.UtcNow.AddSeconds(30)
+                deadline: DateTime.UtcNow.AddSeconds(timeoutSeconds)
             );
 
             var generation = TryParseFortuneGeneration(response.Content, tips);
             if (generation is not null)
+            {
+                generation.IsGenerated = true;
                 return generation;
+            }
 
             logger.LogWarning(
                 "MiChan returned an invalid check-in fortune generation for {AccountId}: {Content}",
@@ -663,13 +818,17 @@ public class AccountEventService(
                 TruncateLogText(response.Content, 512)
             );
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is OperationCanceledException or RpcException)
         {
             logger.LogWarning(
-                ex,
-                "Failed to generate MiChan check-in fortune report for {AccountId}",
-                account.Id
+                "MiChan check-in fortune generation was canceled or timed out for {AccountId}: {Message}",
+                account.Id,
+                ex.Message
             );
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to generate MiChan check-in fortune report for {AccountId}", account.Id);
         }
 
         return fallback;
@@ -1035,6 +1194,7 @@ tips 也必须由咩酱重新生成，不是从备用基础提示里挑选。
     {
         public List<CheckInFortuneTip> Tips { get; set; } = [];
         public CheckInFortuneReport Report { get; set; } = null!;
+        public bool IsGenerated { get; set; }
     }
 
     private async Task<List<SnUserCalendarEvent>> GetPublicEventsForDate(
