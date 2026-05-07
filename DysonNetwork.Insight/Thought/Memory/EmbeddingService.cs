@@ -13,7 +13,7 @@ public class EmbeddingService(
     IHttpClientFactory httpClientFactory,
     ILogger<EmbeddingService> logger)
 {
-    private const int DefaultExpectedDimensions = 1536;
+    private const int DefaultExpectedDimensions = 1024;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>
@@ -42,11 +42,11 @@ public class EmbeddingService(
                 return null;
             }
 
-            if (values.Length != DefaultExpectedDimensions)
+            if (values.Length != embeddingConfig.Dimensions)
             {
                 logger.LogWarning(
                     "Embedding dimension mismatch. Expected {Expected}, got {Actual}. Skipping embedding write to avoid DB vector errors.",
-                    DefaultExpectedDimensions,
+                    embeddingConfig.Dimensions,
                     values.Length);
                 return null;
             }
@@ -77,7 +77,8 @@ public class EmbeddingService(
             JsonSerializer.Serialize(new
             {
                 model = config.Model,
-                input = text
+                input = text,
+                dimensions = config.Dimensions
             }, JsonOptions),
             Encoding.UTF8,
             "application/json");
@@ -178,7 +179,11 @@ public class EmbeddingService(
             var endpoint = serviceConfig.GetValue<string>("Endpoint") ?? GetDefaultEndpoint(provider);
             var apiKey = serviceConfig.GetValue<string>("ApiKey") ?? GetDefaultApiKey(provider);
 
-            return BuildConfig(provider, model, endpoint, apiKey);
+            var dimensions = serviceConfig.GetValue<int?>("Dimensions")
+                ?? embeddingConfig.GetValue<int?>("Dimensions")
+                ?? DefaultExpectedDimensions;
+
+            return BuildConfig(provider, model, endpoint, apiKey, dimensions);
         }
 
         var directProvider = embeddingConfig.GetValue<string>("Provider")?.ToLowerInvariant() ?? "openrouter";
@@ -186,10 +191,12 @@ public class EmbeddingService(
         var directApiKey = embeddingConfig.GetValue<string>("ApiKey") ?? GetDefaultApiKey(directProvider);
         var directModel = modelId ?? GetDefaultEmbeddingModel(directProvider);
 
-        return BuildConfig(directProvider, directModel, directEndpoint, directApiKey);
+        var directDimensions = embeddingConfig.GetValue<int?>("Dimensions") ?? DefaultExpectedDimensions;
+
+        return BuildConfig(directProvider, directModel, directEndpoint, directApiKey, directDimensions);
     }
 
-    private EmbeddingProviderConfig? BuildConfig(string provider, string? model, string endpoint, string? apiKey)
+    private EmbeddingProviderConfig? BuildConfig(string provider, string? model, string endpoint, string? apiKey, int dimensions)
     {
         if (string.IsNullOrWhiteSpace(model))
         {
@@ -203,7 +210,13 @@ public class EmbeddingService(
             return null;
         }
 
-        return new EmbeddingProviderConfig(provider, model, endpoint, apiKey);
+        if (dimensions <= 0)
+        {
+            logger.LogWarning("Embedding dimensions must be greater than zero.");
+            return null;
+        }
+
+        return new EmbeddingProviderConfig(provider, model, endpoint, apiKey, dimensions);
     }
 
     private string? GetDefaultApiKey(string provider) => provider.ToLowerInvariant() switch
@@ -251,5 +264,6 @@ public class EmbeddingService(
         string Provider,
         string Model,
         string Endpoint,
-        string ApiKey);
+        string ApiKey,
+        int Dimensions);
 }

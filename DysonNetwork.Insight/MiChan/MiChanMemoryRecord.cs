@@ -36,7 +36,7 @@ public class MiChanMemoryRecord : ModelBase
     /// <summary>
     /// Vector used to search the memory
     /// </summary>
-    [Column(TypeName = "vector(1536)")]
+    [Column(TypeName = "vector(1024)")]
     public Vector? Embedding { get; set; }
 
     /// <summary>

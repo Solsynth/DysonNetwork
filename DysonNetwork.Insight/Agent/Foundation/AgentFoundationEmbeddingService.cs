@@ -6,7 +6,7 @@ using Pgvector;
 
 public class AgentFoundationEmbeddingService
 {
-    private const int DefaultExpectedDimensions = 1536;
+    private const int DefaultExpectedDimensions = 1024;
 
     private readonly IAgentProviderRegistry _providerRegistry;
     private readonly IConfiguration _configuration;
@@ -38,6 +38,7 @@ public class AgentFoundationEmbeddingService
                 embeddingConfig = _configuration.GetSection("Embeddings");
             }
             var modelId = embeddingConfig.GetValue<string>("Model");
+            var expectedDimensions = embeddingConfig.GetValue<int?>("Dimensions") ?? DefaultExpectedDimensions;
 
             string providerId;
             if (!string.IsNullOrEmpty(modelId) && !modelId.Contains('/'))
@@ -45,6 +46,7 @@ public class AgentFoundationEmbeddingService
                 var serviceConfig = _configuration.GetSection($"Thinking:Services:{modelId}");
                 var providerName = serviceConfig.GetValue<string>("Provider")?.ToLower() ?? "openrouter";
                 var model = serviceConfig.GetValue<string>("Model") ?? modelId;
+                expectedDimensions = serviceConfig.GetValue<int?>("Dimensions") ?? expectedDimensions;
                 providerId = $"{providerName}:{model}";
             }
             else
@@ -62,11 +64,11 @@ public class AgentFoundationEmbeddingService
 
             var response = await provider.GenerateEmbeddingAsync(text, cancellationToken);
             var values = response.Embedding.ToArray();
-            if (values.Length != DefaultExpectedDimensions)
+            if (values.Length != expectedDimensions)
             {
                 _logger.LogWarning(
                     "Embedding dimension mismatch. Expected {Expected}, got {Actual}. Skipping embedding write to avoid DB vector errors.",
-                    DefaultExpectedDimensions,
+                    expectedDimensions,
                     values.Length);
                 return null;
             }

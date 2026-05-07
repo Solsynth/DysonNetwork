@@ -48,7 +48,7 @@ public class SnDocChunk : ModelBase
     /// Vector embedding for semantic search.
     /// Generated from: Title + Description + Chunk Content
     /// </summary>
-    [Column(TypeName = "vector(1536)")]
+    [Column(TypeName = "vector(1024)")]
     public Vector? Embedding { get; set; }
 
     /// <summary>

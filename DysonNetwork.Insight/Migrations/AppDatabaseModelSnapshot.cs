@@ -109,7 +109,7 @@ namespace DysonNetwork.Insight.Migrations
                         .HasColumnName("deleted_at");
 
                     b.Property<Vector>("Embedding")
-                        .HasColumnType("vector(1536)")
+                        .HasColumnType("vector(1024)")
                         .HasColumnName("embedding");
 
                     b.Property<bool>("IsActive")
@@ -412,7 +412,7 @@ namespace DysonNetwork.Insight.Migrations
                         .HasColumnName("deleted_at");
 
                     b.Property<Vector>("Embedding")
-                        .HasColumnType("vector(1536)")
+                        .HasColumnType("vector(1024)")
                         .HasColumnName("embedding");
 
                     b.Property<int>("EndOffset")
@@ -636,7 +636,7 @@ namespace DysonNetwork.Insight.Migrations
                         .HasColumnName("summary");
 
                     b.Property<Vector>("SummaryEmbedding")
-                        .HasColumnType("vector(1536)")
+                        .HasColumnType("vector(1024)")
                         .HasColumnName("summary_embedding");
 
                     b.Property<Instant?>("SummaryLastAt")
