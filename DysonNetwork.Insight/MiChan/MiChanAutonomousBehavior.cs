@@ -93,6 +93,11 @@ public class MiChanAutonomousBehavior
         return Task.CompletedTask;
     }
 
+    private bool IsActionEnabled(string action)
+    {
+        return _config.AutonomousBehavior.Actions.Contains(action, StringComparer.OrdinalIgnoreCase);
+    }
+
     /// <summary>
     /// Check if it's time for an autonomous action and execute if so
     /// </summary>
@@ -115,8 +120,11 @@ public class MiChanAutonomousBehavior
         {
             _logger.LogInformation("Executing autonomous action (interval: {Interval}m)...", _nextInterval.TotalMinutes);
 
-            // Always check posts first for mentions and interesting content
-            await CheckAndInteractWithPostsAsync();
+            // Always check posts first for mentions and interesting content when browsing is enabled.
+            if (IsActionEnabled("browse"))
+            {
+                await CheckAndInteractWithPostsAsync();
+            }
 
             // Reset daily conversation count if needed
             var today = DateTime.UtcNow.Date;
@@ -387,19 +395,19 @@ public class MiChanAutonomousBehavior
                 var decision = await DecidePostActionAsync(post, isMentioned, personality, mood, cancellationToken);
 
                 // Execute reply if decided (duplicate check happens inside ReplyToPostAsync)
-                if (decision.ShouldReply && !string.IsNullOrEmpty(decision.Content))
+                if (IsActionEnabled("reply") && decision.ShouldReply && !string.IsNullOrEmpty(decision.Content))
                 {
                     await ReplyToPostAsync(post, decision.Content);
                 }
 
                 // Execute react if decided
-                if (decision.ShouldReact && !string.IsNullOrEmpty(decision.ReactionSymbol))
+                if (IsActionEnabled("react") && decision.ShouldReact && !string.IsNullOrEmpty(decision.ReactionSymbol))
                 {
                     await ReactToPostAsync(post, decision.ReactionSymbol, decision.ReactionAttitude ?? "Positive");
                 }
 
                 // Execute pin if decided
-                if (decision is { ShouldPin: true, PinMode: not null })
+                if (IsActionEnabled("pin") && decision is { ShouldPin: true, PinMode: not null })
                 {
                     await PinPostAsync(post, decision.PinMode.Value);
                 }
@@ -843,7 +851,7 @@ public class MiChanAutonomousBehavior
                 promptBuilder.AppendLine();
                 promptBuilder.AppendLine("如果发现重要信息或用户偏好，请使用 store_memory 工具保存到记忆中。必须提供 content 参数（要保存的记忆内容），不能为空！");
 
-                _toolRegistry.RegisterMiChanPlugins(_serviceProvider);
+                _toolRegistry.RegisterMiChanPlugins(_serviceProvider, "post");
                 var provider = _foundationProvider.GetAutonomousAdapter();
                 var options = _foundationProvider.CreateAutonomousExecutionOptions();
 
@@ -1361,7 +1369,7 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
                       如果在创作过程中发现重要信息或有趣的话题，请使用 store_memory 工具保存到记忆中。必须提供 content 参数（要保存的记忆内容），不能为空！
                       """;
 
-        _toolRegistry.RegisterMiChanPlugins(_serviceProvider);
+        _toolRegistry.RegisterMiChanPlugins(_serviceProvider, "post");
         var provider = _foundationProvider.GetAutonomousAdapter();
         var options = _foundationProvider.CreateAutonomousExecutionOptions();
 
