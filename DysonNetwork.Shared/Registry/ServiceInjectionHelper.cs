@@ -2,6 +2,7 @@ using DysonNetwork.Shared.Proto;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
+using Microsoft.Extensions.Logging;
 
 namespace DysonNetwork.Shared.Registry;
 
@@ -165,6 +166,15 @@ public static class ServiceInjectionHelper
 #pragma warning disable EXTEXP0001
                     http.RemoveAllResilienceHandlers();
 #pragma warning restore EXTEXP0001
+                    http.ConfigureAdditionalHttpMessageHandlers((handlers, _) =>
+                    {
+                        for (var i = handlers.Count - 1; i >= 0; i--)
+                        {
+                            var handlerType = handlers[i].GetType();
+                            if (handlerType.FullName == "Microsoft.Extensions.Http.Resilience.ResilienceHandler")
+                                handlers.RemoveAt(i);
+                        }
+                    });
                     http.ConfigureHttpClient((sp, client) =>
                     {
                         var configuration = sp.GetRequiredService<IConfiguration>();
@@ -175,6 +185,11 @@ public static class ServiceInjectionHelper
                                 ?? 90,
                             30,
                             900
+                        );
+                        var logger = sp.GetRequiredService<ILogger<DyAgentCompletionService.DyAgentCompletionServiceClient>>();
+                        logger.LogInformation(
+                            "Configured DyAgentCompletionService gRPC HTTP timeout to {TimeoutSeconds}s",
+                            timeoutSeconds
                         );
                         client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
                     });
