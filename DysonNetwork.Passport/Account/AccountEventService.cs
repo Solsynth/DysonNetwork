@@ -27,6 +27,7 @@ public class AccountEventService(
     DyAgentCompletionService.DyAgentCompletionServiceClient agentCompletion,
     NotableDaysService notableDaysService,
     IEventBus eventBus,
+    IConfiguration configuration,
     ILogger<AccountEventService> logger
 )
 {
@@ -453,6 +454,17 @@ public class AccountEventService(
             notableDays = await GetNotableDaysForDate(account.Region, todayInUserTz);
         }
 
+        List<SnCheckInResult> recentFortunes = [];
+        if (version >= FortuneReportVersion)
+        {
+            recentFortunes = await db
+                .AccountCheckInResults.AsNoTracking()
+                .Where(x => x.AccountId == account.Id && x.FortuneReport != null)
+                .OrderByDescending(x => x.CreatedAt)
+                .Take(8)
+                .ToListAsync();
+        }
+
         List<CheckInFortuneTip> tips;
         CheckInResultLevel checkInLevel;
 
@@ -532,7 +544,8 @@ public class AccountEventService(
                 checkInLevel,
                 tips,
                 publicEvents,
-                notableDays
+                notableDays,
+                recentFortunes
             );
             finalTips = generation.Tips;
             fortuneReport = generation.Report;
@@ -598,7 +611,8 @@ public class AccountEventService(
         CheckInResultLevel level,
         List<CheckInFortuneTip> tips,
         List<SnUserCalendarEvent> publicEvents,
-        List<NotableDay> notableDays
+        List<NotableDay> notableDays,
+        List<SnCheckInResult> recentFortunes
     )
     {
         var fallback = new CheckInFortuneGeneration
@@ -608,38 +622,45 @@ public class AccountEventService(
         };
         try
         {
+            var model = configuration.GetValue<string>("CheckIn:Fortune:Model");
+            var request = new DyAgentCompletionRequest
+            {
+                Persona = DyAgentPersona.Michan,
+                AccountId = account.Id.ToString(),
+                Topic = $"每日签到运势 v{FortuneReportVersion}",
+                UserMessage = BuildCheckInFortunePrompt(
+                    account,
+                    checkInDate,
+                    isBirthday,
+                    isBackdated,
+                    level,
+                    tips,
+                    publicEvents,
+                    notableDays,
+                    recentFortunes
+                ),
+                ReasoningEffort = "none",
+                Thinking = false,
+                EnableTools = false,
+                Temperature = 1.28,
+                TopP = 0.98,
+            };
+            if (!string.IsNullOrWhiteSpace(model))
+                request.Model = model;
+
             var response = await agentCompletion.CompleteAsync(
-                new DyAgentCompletionRequest
-                {
-                    Persona = DyAgentPersona.Michan,
-                    AccountId = account.Id.ToString(),
-                    Topic = $"每日签到运势 v{FortuneReportVersion}",
-                    UserMessage = BuildCheckInFortunePrompt(
-                        account,
-                        checkInDate,
-                        isBirthday,
-                        isBackdated,
-                        level,
-                        tips,
-                        publicEvents,
-                        notableDays
-                    ),
-                    ReasoningEffort = "none",
-                    Thinking = false,
-                    EnableTools = false,
-                    Temperature = 1.28,
-                    TopP = 0.98,
-                },
+                request,
                 deadline: DateTime.UtcNow.AddSeconds(30)
             );
 
-            var generation = TryParseFortuneGeneration(response.Content);
+            var generation = TryParseFortuneGeneration(response.Content, tips);
             if (generation is not null)
                 return generation;
 
             logger.LogWarning(
-                "MiChan returned an invalid check-in fortune generation for {AccountId}",
-                account.Id
+                "MiChan returned an invalid check-in fortune generation for {AccountId}: {Content}",
+                account.Id,
+                TruncateLogText(response.Content, 512)
             );
         }
         catch (Exception ex)
@@ -662,7 +683,8 @@ public class AccountEventService(
         CheckInResultLevel level,
         List<CheckInFortuneTip> tips,
         List<SnUserCalendarEvent> publicEvents,
-        List<NotableDay> notableDays
+        List<NotableDay> notableDays,
+        List<SnCheckInResult> recentFortunes
     )
     {
         // An random number to avoid the prefix matching cache from the LLM provider
@@ -681,6 +703,7 @@ public class AccountEventService(
             "\n",
             tips.Select(t => $"- {(t.IsPositive ? "吉" : "忌")}：{t.Title}｜{t.Content}")
         );
+        var recentFortuneLines = CreateRecentFortuneLines(recentFortunes);
         var eventLines =
             publicEvents.Count == 0
                 ? "- 无公开个人事件"
@@ -718,6 +741,10 @@ public class AccountEventService(
 - 程序化运势等级：{{level}}
 - 当前程序化签文版本：{{FortuneReportVersion}}
 - 本次生成变化锚点：{{variation}}
+- 备用基础提示（只用于兜底和方向参考，禁止照抄或轻微改写）：
+{{tipLines}}
+- 近期已生成内容（今天必须避开这些表达、意象、行动、幸运物）：
+{{recentFortuneLines}}
 - 今日公开个人事件：
 {{eventLines}}
 - 今日全球或地区节日：
@@ -726,6 +753,7 @@ public class AccountEventService(
 请以咩酱本人的口吻，生成一份私人化的今日签文和提示。
 它可以有轻微仪式感，但不要过于严肃古板，也不要只复述基础提示。
 关于建议不能过于模糊，最好具体一点。
+tips 也必须由咩酱重新生成，不是从备用基础提示里挑选。
 
 只输出 JSON，不要 Markdown，不要解释。字段必须全部存在，version 必须是 {{FortuneReportVersion}}：
 {
@@ -771,8 +799,29 @@ public class AccountEventService(
 - tips 要和 fortune_report 互相呼应，但不要逐字重复。
 - 本次文案需要围绕“本次生成变化锚点”选择意象、节奏和行动建议，避免复用常见模板句式。
 - 每个字段都要具体，不要重复。
+- 不要复用近期已生成内容中的标题、短句、幸运色、幸运小物、今日宜忌、小仪式或核心意象。
+- 不要复制或轻微改写备用基础提示；如果意思相近，也要换成新的具体行动场景。
 - 输出必须是可被 JSON.parse 直接解析的对象。
 """;
+    }
+
+    private static string CreateRecentFortuneLines(List<SnCheckInResult> recentFortunes)
+    {
+        if (recentFortunes.Count == 0)
+            return "- 无近期生成内容";
+
+        return string.Join(
+            "\n",
+            recentFortunes.Select(f =>
+            {
+                var report = f.FortuneReport;
+                var tips = string.Join("；", f.Tips.Take(4).Select(t => $"{t.Title}/{t.Content}"));
+                var reportParts = report is null
+                    ? string.Empty
+                    : $"诗={report.Poem}；总评={report.Summary}；幸运={report.LuckyColor}/{report.LuckyTime}/{report.LuckyItem}；宜={report.LuckyAction}；忌={report.AvoidAction}；仪式={report.Ritual}";
+                return $"- {f.CreatedAt.InUtc().Date:yyyy-MM-dd}：{tips}；{reportParts}";
+            })
+        );
     }
 
     private static string CreateFortuneVariation()
@@ -828,7 +877,10 @@ public class AccountEventService(
         };
     }
 
-    private static CheckInFortuneGeneration? TryParseFortuneGeneration(string content)
+    private static CheckInFortuneGeneration? TryParseFortuneGeneration(
+        string content,
+        List<CheckInFortuneTip> seedTips
+    )
     {
         var json = ExtractJsonObject(content);
         if (json is null)
@@ -843,9 +895,12 @@ public class AccountEventService(
             if (
                 generation is null
                 || generation.Tips.Count != 4
+                || !HasValidFortuneTipBalance(generation.Tips)
                 || generation.Tips.Any(t =>
                     string.IsNullOrWhiteSpace(t.Title) || string.IsNullOrWhiteSpace(t.Content)
                 )
+                || HasDuplicateFortuneTips(generation.Tips)
+                || ReusesSeedFortuneTips(generation.Tips, seedTips)
                 || !IsValidFortuneReport(generation.Report)
             )
                 return null;
@@ -922,8 +977,56 @@ public class AccountEventService(
             && !string.IsNullOrWhiteSpace(report.Ritual);
     }
 
+    private static bool HasValidFortuneTipBalance(List<CheckInFortuneTip> tips)
+    {
+        var positiveCount = tips.Count(t => t.IsPositive);
+        var negativeCount = tips.Count - positiveCount;
+        return positiveCount is 2 or 3 && negativeCount is 1 or 2;
+    }
+
+    private static bool HasDuplicateFortuneTips(List<CheckInFortuneTip> tips)
+    {
+        return tips.Select(t => NormalizeFortuneText(t.Title)).Distinct().Count() != tips.Count
+            || tips.Select(t => NormalizeFortuneText(t.Content)).Distinct().Count() != tips.Count;
+    }
+
+    private static bool ReusesSeedFortuneTips(
+        List<CheckInFortuneTip> generatedTips,
+        List<CheckInFortuneTip> seedTips
+    )
+    {
+        var seedTexts = seedTips
+            .SelectMany(t => new[] { t.Title, t.Content })
+            .Select(NormalizeFortuneText)
+            .Where(t => t.Length > 0)
+            .ToHashSet(StringComparer.Ordinal);
+
+        return generatedTips
+            .SelectMany(t => new[] { t.Title, t.Content })
+            .Select(NormalizeFortuneText)
+            .Any(seedTexts.Contains);
+    }
+
+    private static string NormalizeFortuneText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        return new string(value.Where(c => !char.IsWhiteSpace(c) && !char.IsPunctuation(c)).ToArray())
+            .ToLowerInvariant();
+    }
+
     private static string TrimFortuneText(string value, int maxLength)
     {
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
+    }
+
+    private static string TruncateLogText(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
         var trimmed = value.Trim();
         return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
