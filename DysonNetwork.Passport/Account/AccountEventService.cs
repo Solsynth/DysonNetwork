@@ -775,6 +775,16 @@ public class AccountEventService(
                 5,
                 180
             );
+            var temperature = Math.Clamp(
+                configuration.GetValue<double?>("CheckIn:Fortune:Temperature") ?? 0.95,
+                0,
+                2
+            );
+            var topP = Math.Clamp(
+                configuration.GetValue<double?>("CheckIn:Fortune:TopP") ?? 0.98,
+                0,
+                1
+            );
             var request = new DyAgentCompletionRequest
             {
                 Persona = DyAgentPersona.Michan,
@@ -794,8 +804,8 @@ public class AccountEventService(
                 ReasoningEffort = "none",
                 Thinking = false,
                 EnableTools = false,
-                Temperature = 1.28,
-                TopP = 0.98,
+                Temperature = temperature,
+                TopP = topP,
             };
             if (!string.IsNullOrWhiteSpace(model))
                 request.Model = model;
@@ -818,12 +828,28 @@ public class AccountEventService(
                 TruncateLogText(response.Content, 512)
             );
         }
-        catch (Exception ex) when (ex is OperationCanceledException or RpcException)
+        catch (OperationCanceledException ex)
         {
             logger.LogWarning(
                 "MiChan check-in fortune generation was canceled or timed out for {AccountId}: {Message}",
                 account.Id,
                 ex.Message
+            );
+        }
+        catch (RpcException ex) when (ex.StatusCode is StatusCode.Cancelled or StatusCode.DeadlineExceeded)
+        {
+            logger.LogWarning(
+                "MiChan check-in fortune generation was canceled or timed out for {AccountId}: {Message}",
+                account.Id,
+                ex.Message
+            );
+        }
+        catch (RpcException ex)
+        {
+            logger.LogWarning(
+                ex,
+                "MiChan check-in fortune generation failed through gRPC for {AccountId}",
+                account.Id
             );
         }
         catch (Exception ex)
