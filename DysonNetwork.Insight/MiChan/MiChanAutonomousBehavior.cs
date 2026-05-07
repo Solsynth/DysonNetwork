@@ -28,6 +28,7 @@ public class MiChanAutonomousBehavior
     private readonly MemoryService _memoryService;
     private readonly InteractiveHistoryService _interactiveHistoryService;
     private readonly MoodService _moodService;
+    private readonly UserProfileService _userProfileService;
     private readonly IAgentToolRegistry _toolRegistry;
     private readonly FoundationChatStreamingService _streamingService;
     private readonly IMiChanFoundationProvider _foundationProvider;
@@ -65,6 +66,7 @@ public class MiChanAutonomousBehavior
         MemoryService memoryService,
         InteractiveHistoryService interactiveHistoryService,
         MoodService moodService,
+        UserProfileService userProfileService,
         IAgentToolRegistry toolRegistry,
         FoundationChatStreamingService streamingService,
         IMiChanFoundationProvider foundationProvider
@@ -80,6 +82,7 @@ public class MiChanAutonomousBehavior
         _memoryService = memoryService;
         _interactiveHistoryService = interactiveHistoryService;
         _moodService = moodService;
+        _userProfileService = userProfileService;
         _toolRegistry = toolRegistry;
         _streamingService = streamingService;
         _foundationProvider = foundationProvider;
@@ -148,10 +151,12 @@ public class MiChanAutonomousBehavior
                     case "repost":
                         await CheckAndRepostInterestingContentAsync();
                         break;
-                    case "start_conversation":
-                        await StartConversationWithUserAsync();
-                        break;
                 }
+            }
+
+            if (IsActionEnabled("start_conversation"))
+            {
+                await StartConversationWithUserAsync();
             }
 
             _lastActionTime = DateTime.UtcNow;
@@ -1642,6 +1647,70 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
         }
     }
 
+    private record ConversationCandidate(
+        Guid UserId,
+        MiChanUserProfile? Profile,
+        List<MiChanMemoryRecord> Memories,
+        int Score);
+
+    private static int CalculateConversationCandidateScore(MiChanUserProfile? profile, List<MiChanMemoryRecord> memories)
+    {
+        var score = 10 + Math.Min(memories.Count, 10) * 3;
+
+        if (profile == null)
+            return score;
+
+        score += profile.Favorability * 2;
+        score += profile.TrustLevel;
+        score += profile.IntimacyLevel;
+        score += profile.UserWarmth;
+        score += profile.UserRespect;
+        score += profile.UserEngagement;
+        score += Math.Min(profile.InteractionCount, 20) * 2;
+
+        if (profile.LastInteractionAt.HasValue)
+        {
+            var daysSinceInteraction = (SystemClock.Instance.GetCurrentInstant() - profile.LastInteractionAt.Value).TotalDays;
+            score += daysSinceInteraction switch
+            {
+                <= 1 => 20,
+                <= 7 => 12,
+                <= 30 => 5,
+                _ => 0
+            };
+        }
+
+        if (!string.IsNullOrWhiteSpace(profile.ProfileSummary))
+            score += 8;
+        if (!string.IsNullOrWhiteSpace(profile.RelationshipSummary))
+            score += 8;
+        if (profile.Tags.Count > 0)
+            score += Math.Min(profile.Tags.Count, 5) * 2;
+
+        return Math.Max(1, score);
+    }
+
+    private ConversationCandidate PickConversationCandidate(List<ConversationCandidate> candidates)
+    {
+        var rankedCandidates = candidates
+            .OrderByDescending(c => c.Score)
+            .Take(Math.Min(candidates.Count, _config.AutonomousBehavior.ConversationCandidatePoolSize))
+            .ToList();
+
+        var totalWeight = rankedCandidates.Sum(c => Math.Max(1, c.Score));
+        var roll = _random.Next(totalWeight);
+        var cumulative = 0;
+
+        foreach (var candidate in rankedCandidates)
+        {
+            cumulative += Math.Max(1, candidate.Score);
+            if (roll < cumulative)
+                return candidate;
+        }
+
+        return rankedCandidates[0];
+    }
+
     /// <summary>
     /// Randomly start a conversation with a user based on stored memories.
     /// This allows MiChan to proactively reach out to users with personalized messages.
@@ -1671,60 +1740,36 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
             // Get blocked users list to filter out
             var blockedUsers = await GetBlockedByUsersAsync();
 
-            // Get user profiles and recent memories to find eligible users
-            // First, get all users we've interacted with recently via their profiles
-            var userProfiles = await _memoryService.GetByFiltersAsync(
-                type: "user",
-                take: 100,
-                orderBy: "lastAccessedAt",
-                descending: true);
+            var profileCandidates = await _userProfileService.GetConversationCandidatesAsync(
+                botName: "michan",
+                take: _config.AutonomousBehavior.ConversationCandidatePoolSize);
 
-            // Also get recent memories with account IDs to find active users
             var recentMemories = await _memoryService.GetByFiltersAsync(
                 take: 200,
                 orderBy: "createdAt",
                 descending: true);
 
-            // Combine and get unique users from both sources
-            var userIdsFromProfiles = userProfiles
-                .Where(m => m.AccountId.HasValue && m.AccountId.Value != Guid.Empty)
-                .Select(m => m.AccountId!.Value)
-                .Distinct();
-
-            var userIdsFromMemories = recentMemories
-                .Where(m => m.AccountId.HasValue && m.AccountId.Value != Guid.Empty)
-                .Select(m => m.AccountId!.Value)
-                .Distinct();
-
-            var allUserIds = userIdsFromProfiles.Union(userIdsFromMemories).ToList();
-
-            // Group all memories by account ID to get user context
-            var userMemoryGroups = allUserIds
-                .Select(userId => new { UserId = userId, Memories = recentMemories.Where(m => m.AccountId == userId).ToList() })
-                .Where(g => g.Memories.Any())
-                .Select(g => g.Memories.GroupBy(m => g.UserId).First())
+            var candidateUserIds = profileCandidates
+                .Select(p => p.AccountId)
+                .Concat(recentMemories
+                    .Where(m => m.AccountId.HasValue && m.AccountId.Value != Guid.Empty)
+                    .Select(m => m.AccountId!.Value))
+                .Distinct()
                 .ToList();
 
-            // If no users found via memories, fallback: get all users who have posted recently via API
-            if (userMemoryGroups.Count == 0)
+            if (candidateUserIds.Count == 0)
             {
-                _logger.LogInformation("Autonomous: No users found in memories, attempting to find active users via API...");
+                _logger.LogInformation("Autonomous: No users found in profiles or memories, attempting to find active users via API...");
                 
-                // Try to get recent posts to find active users
                 try 
                 {
                     var recentPosts = await _apiClient.GetAsync<List<SnPost>>("sphere", "/posts?take=50");
                     if (recentPosts != null)
                     {
-                        var activeUserIds = recentPosts
-                            .Where(p => p.Publisher?.AccountId != null && p.Publisher.AccountId.ToString() != _config.BotAccountId)
-                            .Select(p => p.Publisher.AccountId.Value)
+                        candidateUserIds = recentPosts
+                            .Where(p => p.Publisher?.AccountId.HasValue == true && p.Publisher.AccountId.Value.ToString() != _config.BotAccountId)
+                            .Select(p => p.Publisher!.AccountId!.Value)
                             .Distinct()
-                            .ToList();
-
-                        // Create memory groups for these users (empty memories, but we'll have their ID)
-                        userMemoryGroups = activeUserIds
-                            .Select(userId => new List<MiChanMemoryRecord>().GroupBy(m => userId).First())
                             .ToList();
                     }
                 }
@@ -1734,55 +1779,75 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
                 }
             }
 
-            // Filter eligible users and apply constraints
-            var eligibleUserIds = allUserIds
-                .Where(userId =>
+            var profileByUserId = profileCandidates.ToDictionary(p => p.AccountId);
+            var memoryByUserId = recentMemories
+                .Where(m => m.AccountId.HasValue)
+                .GroupBy(m => m.AccountId!.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var eligibleCandidates = new List<ConversationCandidate>();
+            foreach (var userId in candidateUserIds)
+            {
+                var accountId = userId.ToString();
+
+                if (blockedUsers.Contains(accountId))
+                    continue;
+
+                if (accountId == _config.BotAccountId)
+                    continue;
+
+                profileByUserId.TryGetValue(userId, out var profile);
+                memoryByUserId.TryGetValue(userId, out var memories);
+                memories ??= [];
+
+                if (profile != null)
                 {
-                    var accountId = userId.ToString();
-
-                    // Skip blocked users
-                    if (blockedUsers.Contains(accountId))
-                        return false;
-
-                    // Skip bot's own account
-                    if (accountId == _config.BotAccountId)
-                        return false;
-
-                    // Check cooldown period
-                    if (_recentlyContactedUsers.TryGetValue(userId, out var lastContact))
+                    if (profile.Favorability < _config.AutonomousBehavior.MinConversationFavorability ||
+                        profile.UserWarmth < -30 ||
+                        profile.UserRespect < -30)
                     {
-                        var hoursSinceLastContact = (DateTime.UtcNow - lastContact).TotalHours;
-                        if (hoursSinceLastContact < _config.AutonomousBehavior.MinHoursSinceLastContact)
-                            return false;
+                        continue;
                     }
 
-                    return true;
-                })
-                .ToList();
+                    if (profile.InteractionCount == 0 && memories.Count == 0 &&
+                        string.IsNullOrWhiteSpace(profile.ProfileSummary) &&
+                        string.IsNullOrWhiteSpace(profile.RelationshipSummary))
+                    {
+                        continue;
+                    }
+                }
 
-            if (eligibleUserIds.Count == 0)
+                if (_recentlyContactedUsers.TryGetValue(userId, out var lastContact))
+                {
+                    var hoursSinceLastContact = (DateTime.UtcNow - lastContact).TotalHours;
+                    if (hoursSinceLastContact < _config.AutonomousBehavior.MinHoursSinceLastContact)
+                        continue;
+                }
+
+                if (await _interactiveHistoryService.HasInteractedWithAsync(userId, "user", "conversation"))
+                    continue;
+
+                var score = CalculateConversationCandidateScore(profile, memories);
+                eligibleCandidates.Add(new ConversationCandidate(userId, profile, memories, score));
+            }
+
+            if (eligibleCandidates.Count == 0)
             {
                 _logger.LogDebug("Autonomous: No eligible users found for conversation");
                 return;
             }
 
-            // Get memories for eligible users to weight selection
-            var eligibleUserMemories = eligibleUserIds
-                .Select(userId => new { UserId = userId, Memories = recentMemories.Where(m => m.AccountId == userId).ToList() })
-                .ToList();
+            var selectedCandidate = PickConversationCandidate(eligibleCandidates);
+            var selectedUserId = selectedCandidate.UserId;
+            var userMemories = selectedCandidate.Memories;
+            var selectedProfile = selectedCandidate.Profile;
 
-            // Weight users by number of memories (more memories = higher chance)
-            // This prioritizes users MiChan has more history with
-            var weightedUsers = eligibleUserMemories
-                .SelectMany(u => Enumerable.Repeat(u.UserId, Math.Max(1, Math.Min(u.Memories.Count, 5))))
-                .ToList();
-
-            // Select a random user from weighted list
-            var selectedUserId = weightedUsers[_random.Next(weightedUsers.Count)];
-            var userMemories = eligibleUserMemories.First(u => u.UserId == selectedUserId).Memories;
-
-            _logger.LogInformation("Autonomous: Selected user {UserId} for conversation (has {MemoryCount} memories)",
-                selectedUserId, userMemories.Count);
+            _logger.LogInformation(
+                "Autonomous: Selected user {UserId} for conversation (score={Score}, favorability={Favorability}, memories={MemoryCount})",
+                selectedUserId,
+                selectedCandidate.Score,
+                selectedProfile?.Favorability,
+                userMemories.Count);
 
             // Load personality and mood
             var personality = PersonalityLoader.LoadPersonality(_config.PersonalityFile, _config.Personality, _logger);
@@ -1796,17 +1861,27 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
                 minSimilarity: 0.5);
 
             var memoryContext = BuildMemoryContext(relevantMemories, "关于这个用户的记忆:");
+            var profileContext = selectedProfile?.ToPrompt();
 
             // Generate conversation starter message
             var promptBuilder = new StringBuilder();
             AppendCommonPromptSections(promptBuilder, personality, mood, null, memoryContext, null);
 
+            if (!string.IsNullOrWhiteSpace(profileContext))
+            {
+                promptBuilder.AppendLine("用户画像与关系状态:");
+                promptBuilder.AppendLine(profileContext);
+                promptBuilder.AppendLine();
+            }
+
             promptBuilder.AppendLine("你想主动和这位用户开启一段对话。基于你对他们的了解，写一个自然、个性化的开场白。");
             promptBuilder.AppendLine();
             promptBuilder.AppendLine("要求：");
             promptBuilder.AppendLine("- 语气友好、自然，就像朋友之间的闲聊");
-            promptBuilder.AppendLine("- 可以参考你们之前的互动或用户的兴趣");
+            promptBuilder.AppendLine("- 优先参考用户画像、好感度、亲密度、用户兴趣和近期记忆");
             promptBuilder.AppendLine("- 可以分享一个想法、提出一个问题，或者跟进之前的话题");
+            promptBuilder.AppendLine("- 不要显得黏人、催促、查岗或要求对方必须回复");
+            promptBuilder.AppendLine("- 避免泛泛的'最近怎么样'，除非关系已经很亲近且上下文适合");
             promptBuilder.AppendLine("- 长度1-3句话，简洁但有温度");
             promptBuilder.AppendLine("- 使用简体中文");
             promptBuilder.AppendLine("- 不要使用表情符号");

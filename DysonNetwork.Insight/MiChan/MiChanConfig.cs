@@ -157,9 +157,11 @@ public class MiChanAutonomousBehaviorConfig
     public MiChanDynamicMoodConfig DynamicMood { get; set; } = new();
 
     // Settings for proactive conversation behavior
-    public int MaxConversationsPerDay { get; set; } = 3; // Maximum conversations MiChan can initiate per day
-    public int MinHoursSinceLastContact { get; set; } = 24; // Minimum hours between contacting the same user
-    public int ConversationProbability { get; set; } = 10; // % chance to attempt starting a conversation per cycle
+    public int MaxConversationsPerDay { get; set; } = 5; // Maximum conversations MiChan can initiate per day
+    public int MinHoursSinceLastContact { get; set; } = 12; // Minimum hours between contacting the same user
+    public int ConversationProbability { get; set; } = 25; // % chance to attempt starting a conversation per cycle
+    public int MinConversationFavorability { get; set; } = -10; // Minimum relationship score for proactive conversations
+    public int ConversationCandidatePoolSize { get; set; } = 50; // Number of profile candidates to consider
 
     // Action probabilities (% chance when action is selected)
     public int ReplyProbability { get; set; } = 30; // % chance to reply to a post (when not mentioned)

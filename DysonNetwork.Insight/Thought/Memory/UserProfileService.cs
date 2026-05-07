@@ -65,6 +65,31 @@ public class UserProfileService(
         return await query.FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<List<MiChanUserProfile>> GetConversationCandidatesAsync(
+        string? botName = null,
+        int take = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var query = database.UserProfiles.AsQueryable();
+
+        if (string.IsNullOrEmpty(botName))
+        {
+            query = query.Where(p => p.BotName == null);
+        }
+        else
+        {
+            query = query.Where(p => p.BotName == botName);
+        }
+
+        return await query
+            .Where(p => p.InteractionCount > 0 || p.ProfileSummary != null || p.RelationshipSummary != null)
+            .OrderByDescending(p => p.Favorability)
+            .ThenByDescending(p => p.UserEngagement)
+            .ThenByDescending(p => p.LastInteractionAt)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<MiChanUserProfile> TouchInteractionAsync(
         Guid accountId,
         string? botName = null,
