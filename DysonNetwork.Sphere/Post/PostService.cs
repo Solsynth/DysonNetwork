@@ -588,6 +588,103 @@ public partial class PostService(
         return (title, content);
     }
 
+    public Dictionary<string, object> BuildPostNotificationMeta(
+        SnPost post,
+        string? avatarId = null,
+        Dictionary<string, object?>? extraMeta = null
+    )
+    {
+        var (title, content) = ChopPostForNotification(post);
+        var data = new Dictionary<string, object>
+        {
+            ["post_id"] = post.Id.ToString(),
+            ["post_title"] = title,
+            ["post_content"] = content,
+        };
+
+        if (post.PublisherId.HasValue)
+            data["publisher_id"] = post.PublisherId.Value.ToString();
+
+        if (post.RepliedPostId.HasValue)
+            data["replied_post_id"] = post.RepliedPostId.Value.ToString();
+
+        if (post.ForwardedPostId.HasValue)
+            data["forwarded_post_id"] = post.ForwardedPostId.Value.ToString();
+
+        if (post.Publisher is not null)
+        {
+            data["publisher_name"] = post.Publisher.Name;
+            data["publisher_nick"] = post.Publisher.Nick;
+            avatarId ??= post.Publisher.Picture?.Id;
+        }
+
+        if (!string.IsNullOrWhiteSpace(avatarId))
+        {
+            data["pfp"] = avatarId;
+            data["avatar"] = avatarId;
+        }
+
+        if (post.Attachments.Count > 0)
+        {
+            var imageAttachments = post.Attachments
+                .Where(p => p.MimeType?.StartsWith("image/") ?? false)
+                .Select(p => p.Url ?? p.Id)
+                .ToList();
+
+            if (imageAttachments.Count > 0)
+                data["images"] = imageAttachments;
+
+            var firstImage = post.Attachments.FirstOrDefault(p => p.MimeType?.StartsWith("image/") ?? false);
+            if (firstImage is not null)
+                data["image"] = firstImage.Url ?? firstImage.Id;
+        }
+
+        if (post.Tags.Count > 0)
+            data["tags"] = post.Tags.Select(x => x.Slug).ToList();
+
+        if (post.Categories.Count > 0)
+            data["categories"] = post.Categories.Select(x => x.Slug).ToList();
+
+        if (extraMeta is not null)
+        {
+            foreach (var (key, value) in extraMeta)
+            {
+                if (value is not null)
+                    data[key] = value;
+            }
+        }
+
+        return data;
+    }
+
+    public DyPushNotification BuildPostNotification(
+        string topic,
+        string title,
+        SnPost post,
+        string? subtitle = null,
+        string? body = null,
+        bool isSavable = true,
+        string? avatarId = null,
+        Dictionary<string, object?>? extraMeta = null
+    )
+    {
+        var (postTitle, postContent) = ChopPostForNotification(post);
+        var notification = new DyPushNotification
+        {
+            Topic = topic,
+            Title = title,
+            Subtitle = !string.IsNullOrWhiteSpace(subtitle) ? subtitle : postTitle,
+            Body = !string.IsNullOrWhiteSpace(body) ? body : postContent,
+            Meta = InfraObjectCoder.ConvertObjectToByteString(
+                BuildPostNotificationMeta(post, avatarId, extraMeta)
+            ),
+            IsSavable = isSavable,
+            ActionUri = $"/posts/{post.Id}",
+        };
+
+        return notification;
+    }
+
     private async Task BroadcastPostUpdateAsync(SnPost post, string eventType)
     {
         using var scope = serviceProvider.CreateScope();
@@ -879,22 +976,26 @@ public partial class PostService(
                             new DySendPushNotificationToUserRequest
                             {
                                 UserId = member.Id,
-                                Notification = new DyPushNotification
-                                {
-                                    Topic = "posts.mentions.new",
-                                    Title = localizer.Get(
+                                Notification = BuildPostNotification(
+                                    topic: "posts.mentions.new",
+                                    title: localizer.Get(
                                         "postMentionTitle",
                                         locale: member.Language,
                                         args: new { user = sender!.Nick }
                                     ),
-                                    Body = localizer.Get(
+                                    body: localizer.Get(
                                         "postMentionBody",
                                         locale: member.Language,
                                         args: new { user = sender!.Nick, content = body }
                                     ),
-                                    IsSavable = true,
-                                    ActionUri = $"/posts/{post.Id}",
-                                },
+                                    post: post,
+                                    extraMeta: new Dictionary<string, object?>
+                                    {
+                                        ["notification_type"] = "mention",
+                                        ["mentioned_publisher_id"] = mentionedPublisher.Id.ToString(),
+                                        ["mentioned_publisher_name"] = mentionedPublisher.Name,
+                                    }
+                                ),
                             }
                         );
                     }
@@ -1036,18 +1137,20 @@ public partial class PostService(
                             new DySendPushNotificationToUserRequest
                             {
                                 UserId = member.Id,
-                                Notification = new DyPushNotification
-                                {
-                                    Topic = "post.replies",
-                                    Title = localizer.Get(
+                                Notification = BuildPostNotification(
+                                    topic: "post.replies",
+                                    title: localizer.Get(
                                         "postReplyTitle",
                                         locale: member.Language,
                                         args: new { user = sender!.Nick }
                                     ),
-                                    Body = ChopPostForNotification(post).content,
-                                    IsSavable = true,
-                                    ActionUri = $"/posts/{post.Id}",
-                                },
+                                    body: ChopPostForNotification(post).content,
+                                    post: post,
+                                    extraMeta: new Dictionary<string, object?>
+                                    {
+                                        ["notification_type"] = "reply",
+                                    }
+                                ),
                             }
                         );
                     }
@@ -1235,18 +1338,20 @@ public partial class PostService(
                                 new DySendPushNotificationToUserRequest
                                 {
                                     UserId = member.Id,
-                                    Notification = new DyPushNotification
-                                    {
-                                        Topic = "post.replies",
-                                        Title = localizer.Get(
+                                    Notification = BuildPostNotification(
+                                        topic: "post.replies",
+                                        title: localizer.Get(
                                             "postReplyTitle",
                                             locale: member.Language,
                                             args: new { user = sender!.Nick }
                                         ),
-                                        Body = ChopPostForNotification(post).content,
-                                        IsSavable = true,
-                                        ActionUri = $"/posts/{post.Id}",
-                                    },
+                                        body: ChopPostForNotification(post).content,
+                                        post: post,
+                                        extraMeta: new Dictionary<string, object?>
+                                        {
+                                            ["notification_type"] = "reply",
+                                        }
+                                    ),
                                 }
                             );
                         }
@@ -1796,15 +1901,14 @@ public partial class PostService(
                         new DySendPushNotificationToUserRequest
                         {
                             UserId = member.Id,
-                            Notification = new DyPushNotification
-                            {
-                                Topic = "posts.reactions.new",
-                                Title = localizer.Get(
+                            Notification = BuildPostNotification(
+                                topic: "posts.reactions.new",
+                                title: localizer.Get(
                                     "postReactTitle",
                                     locale: member.Language,
                                     args: new { user = sender.Nick }
                                 ),
-                                Body = string.IsNullOrWhiteSpace(post.Title)
+                                body: string.IsNullOrWhiteSpace(post.Title)
                                     ? localizer.Get(
                                         "postReactBody",
                                         locale: member.Language,
@@ -1820,9 +1924,17 @@ public partial class PostService(
                                             title = post.Title,
                                         }
                                     ),
-                                IsSavable = true,
-                                ActionUri = $"/posts/{post.Id}",
-                            },
+                                post: post,
+                                avatarId: sender.Profile?.Picture?.Id,
+                                extraMeta: new Dictionary<string, object?>
+                                {
+                                    ["notification_type"] = "reaction",
+                                    ["reaction"] = reaction.Symbol,
+                                    ["reaction_attitude"] = reaction.Attitude.ToString().ToLowerInvariant(),
+                                    ["actor_id"] = sender.Id,
+                                    ["actor_name"] = sender.Nick,
+                                }
+                            ),
                         }
                     );
                 }
@@ -2384,15 +2496,14 @@ public partial class PostService(
                         new DySendPushNotificationToUserRequest
                         {
                             UserId = member.Id,
-                            Notification = new DyPushNotification
-                            {
-                                Topic = "posts.awards.new",
-                                Title = localizer.Get(
+                            Notification = BuildPostNotification(
+                                topic: "posts.awards.new",
+                                title: localizer.Get(
                                     "postAwardedTitle",
                                     locale: member.Language,
                                     args: new { user = sender.Nick }
                                 ),
-                                Body = string.IsNullOrWhiteSpace(post.Title)
+                                body: string.IsNullOrWhiteSpace(post.Title)
                                     ? localizer.Get(
                                         "postAwardedBody",
                                         locale: member.Language,
@@ -2408,9 +2519,17 @@ public partial class PostService(
                                             title = post.Title,
                                         }
                                     ),
-                                IsSavable = true,
-                                ActionUri = $"/posts/{post.Id}",
-                            },
+                                post: post,
+                                avatarId: sender.Profile?.Picture?.Id,
+                                extraMeta: new Dictionary<string, object?>
+                                {
+                                    ["notification_type"] = "award",
+                                    ["amount"] = amount,
+                                    ["award_attitude"] = award.Attitude.ToString().ToLowerInvariant(),
+                                    ["actor_id"] = sender.Id,
+                                    ["actor_name"] = sender.Nick,
+                                }
+                            ),
                         }
                     );
                 }

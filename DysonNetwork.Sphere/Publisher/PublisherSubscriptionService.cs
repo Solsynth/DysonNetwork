@@ -93,20 +93,6 @@ public class PublisherSubscriptionService(
         // Create notification data
         var (title, message) = ps.ChopPostForNotification(post);
 
-        // Data to include with the notification
-        var data = new Dictionary<string, object>
-        {
-            ["post_id"] = post.Id,
-            ["publisher_id"] = post.PublisherId.Value.ToString()
-        };
-
-        if (post.Attachments.Any(p => p.MimeType?.StartsWith("image/") ?? false))
-            data["image"] =
-                post.Attachments
-                    .Where(p => p.MimeType?.StartsWith("image/") ?? false)
-                    .Select(p => p.Id).First();
-        if (post.Publisher?.Picture is not null) data["pfp"] = post.Publisher.Picture.Id;
-
         // Gather subscribers
         var subscribers = await db.PublisherSubscriptions
             .Where(p => p.PublisherId == post.PublisherId)
@@ -147,15 +133,20 @@ public class PublisherSubscriptionService(
         {
             try
             {
-                var notification = new DyPushNotification
-                {
-                    Topic = "posts.new",
-                    Title = localizer.Get("postSubscriptionTitle", locale: target.Key, args: new { publisher = post.Publisher!.Nick, title }),
-                    Body = message,
-                    Meta = InfraObjectCoder.ConvertObjectToByteString(data),
-                    IsSavable = true,
-                    ActionUri = $"/posts/{post.Id}"
-                };
+                var notification = ps.BuildPostNotification(
+                    topic: "posts.new",
+                    title: localizer.Get(
+                        "postSubscriptionTitle",
+                        locale: target.Key,
+                        args: new { publisher = post.Publisher!.Nick, title }
+                    ),
+                    body: message,
+                    post: post,
+                    extraMeta: new Dictionary<string, object?>
+                    {
+                        ["notification_type"] = "subscription",
+                    }
+                );
                 var request = new DySendPushNotificationToUsersRequest { Notification = notification };
                 request.UserIds.AddRange(target.Select(x => x.Id.ToString()));
                 await pusher.SendPushNotificationToUsersAsync(request);
@@ -175,19 +166,6 @@ public class PublisherSubscriptionService(
     {
         var (title, message) = ps.ChopPostForNotification(post);
 
-        var data = new Dictionary<string, object>
-        {
-            ["post_id"] = post.Id,
-            ["publisher_id"] = post.PublisherId.Value.ToString()
-        };
-
-        if (post.Attachments.Any(p => p.MimeType?.StartsWith("image/") ?? false))
-            data["image"] =
-                post.Attachments
-                    .Where(p => p.MimeType?.StartsWith("image/") ?? false)
-                    .Select(p => p.Id).First();
-        if (post.Publisher?.Picture is not null) data["pfp"] = post.Publisher.Picture.Id;
-
         var followers = await db.PublisherFollowRequests
             .Where(r => r.PublisherId == post.PublisherId && r.State == FollowRequestState.Accepted)
             .ToListAsync();
@@ -205,15 +183,21 @@ public class PublisherSubscriptionService(
         {
             try
             {
-                var notification = new DyPushNotification
-                {
-                    Topic = "posts.new",
-                    Title = localizer.Get("postSubscriptionTitle", locale: target.Key, args: new { publisher = post.Publisher!.Nick, title }),
-                    Body = message,
-                    Meta = InfraObjectCoder.ConvertObjectToByteString(data),
-                    IsSavable = true,
-                    ActionUri = $"/posts/{post.Id}"
-                };
+                var notification = ps.BuildPostNotification(
+                    topic: "posts.new",
+                    title: localizer.Get(
+                        "postSubscriptionTitle",
+                        locale: target.Key,
+                        args: new { publisher = post.Publisher!.Nick, title }
+                    ),
+                    body: message,
+                    post: post,
+                    extraMeta: new Dictionary<string, object?>
+                    {
+                        ["notification_type"] = "subscription",
+                        ["require_follow"] = true,
+                    }
+                );
                 var request = new DySendPushNotificationToUsersRequest { Notification = notification };
                 request.UserIds.AddRange(target.Select(x => x.Id.ToString()));
                 await pusher.SendPushNotificationToUsersAsync(request);
