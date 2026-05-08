@@ -282,6 +282,11 @@ public partial class ChatController(
         [MaxLength(128)] public string? EncryptionMessageType { get; set; }
     }
 
+    public class RedirectMessagesRequest
+    {
+        [Required] public List<Guid> MessageIds { get; set; } = [];
+    }
+
     public class SendVoiceMessageRequest
     {
         [Required] public IFormFile File { get; set; } = null!;
@@ -720,6 +725,106 @@ public partial class ChatController(
 
         var result = await cs.SendMessageAsync(message, member, member.ChatRoom, Request.GetClientIpAddress());
         return Ok(result);
+    }
+
+    [HttpPost("{roomId:guid}/messages/redirect")]
+    [Authorize]
+    [AskPermission("chat.messages.create")]
+    public async Task<ActionResult<List<SnChatMessage>>> RedirectMessages([FromBody] RedirectMessagesRequest request, Guid roomId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var messageIds = request.MessageIds
+            .Distinct()
+            .ToList();
+        if (messageIds.Count == 0)
+            return BadRequest("You need to select at least one message to redirect.");
+        if (messageIds.Count > 100)
+            return BadRequest("You can redirect up to 100 messages at once.");
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var destinationMember = await crs.GetRoomMember(accountId, roomId);
+        if (destinationMember == null)
+            return StatusCode(403, "You need to be a member to redirect messages here.");
+        if (destinationMember.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None)
+            return BadRequest("Redirect is not supported for encrypted chat rooms.");
+
+        var sourceMessages = await db.ChatMessages
+            .Where(m => messageIds.Contains(m.Id))
+            .Include(m => m.Sender)
+            .Include(m => m.ChatRoom)
+            .ToListAsync();
+        if (sourceMessages.Count != messageIds.Count)
+            return BadRequest("One or more selected messages do not exist.");
+
+        sourceMessages = sourceMessages
+            .OrderBy(m => messageIds.IndexOf(m.Id))
+            .ToList();
+
+        if (sourceMessages.Any(m => m.Type != "text"))
+            return BadRequest("Only regular text messages can be redirected right now.");
+        if (sourceMessages.Any(m => m.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None))
+            return BadRequest("Redirect is not supported for encrypted source messages.");
+
+        var sourceRoomIds = sourceMessages
+            .Select(m => m.ChatRoomId)
+            .Distinct()
+            .ToList();
+        var joinedSourceRoomIds = await db.ChatMembers
+            .Where(m => m.AccountId == accountId && sourceRoomIds.Contains(m.ChatRoomId))
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+            .Select(m => m.ChatRoomId)
+            .Distinct()
+            .ToListAsync();
+        if (joinedSourceRoomIds.Count != sourceRoomIds.Count)
+            return StatusCode(403, "You can only redirect messages from chat rooms you are currently in.");
+
+        var sourceSenders = await crs.LoadMemberAccounts(sourceMessages.Select(m => m.Sender).DistinctBy(m => m.Id).ToList());
+        foreach (var roomGroup in sourceMessages.GroupBy(m => m.ChatRoomId))
+        {
+            var roomSenders = sourceSenders
+                .Where(s => roomGroup.Any(m => m.SenderId == s.Id))
+                .ToList();
+            var hydratedSenders = await crs.HydrateRealmIdentity(roomSenders, roomGroup.Key);
+            foreach (var hydratedSender in hydratedSenders)
+            {
+                var senderIndex = sourceSenders.FindIndex(s => s.Id == hydratedSender.Id);
+                if (senderIndex >= 0)
+                    sourceSenders[senderIndex] = hydratedSender;
+            }
+        }
+
+        foreach (var sourceMessage in sourceMessages)
+        {
+            var hydratedSender = sourceSenders.FirstOrDefault(s => s.Id == sourceMessage.SenderId);
+            if (hydratedSender != null)
+                sourceMessage.Sender = hydratedSender;
+        }
+
+        var redirectedMessages = new List<SnChatMessage>(sourceMessages.Count);
+        foreach (var sourceMessage in sourceMessages)
+        {
+            var mentionedUsers = await ExtractMentionedUsersAsync(
+                sourceMessage.Content,
+                null,
+                null,
+                roomId,
+                accountId
+            );
+
+            var redirectedMessage = await cs.RedirectMessageAsync(
+                sourceMessage,
+                sourceMessage.Sender,
+                destinationMember,
+                destinationMember.ChatRoom,
+                mentionedUsers,
+                Request.GetClientIpAddress()
+            );
+
+            redirectedMessages.Add(redirectedMessage);
+        }
+
+        return Ok(redirectedMessages);
     }
 
     [HttpGet("{roomId:guid}/voice/{voiceId:guid}")]

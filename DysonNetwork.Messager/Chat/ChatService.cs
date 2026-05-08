@@ -379,6 +379,230 @@ public partial class ChatService(
         return message;
     }
 
+    private static List<SnCloudFileReferenceObject> CloneAttachments(List<SnCloudFileReferenceObject> attachments)
+    {
+        return attachments.Select(attachment => new SnCloudFileReferenceObject
+        {
+            CreatedAt = attachment.CreatedAt,
+            UpdatedAt = attachment.UpdatedAt,
+            DeletedAt = attachment.DeletedAt,
+            Id = attachment.Id,
+            Name = attachment.Name,
+            FileMeta = attachment.FileMeta != null ? new Dictionary<string, object?>(attachment.FileMeta) : [],
+            UserMeta = attachment.UserMeta != null ? new Dictionary<string, object?>(attachment.UserMeta) : [],
+            SensitiveMarks = attachment.SensitiveMarks?.ToList() ?? [],
+            MimeType = attachment.MimeType,
+            Hash = attachment.Hash,
+            Size = attachment.Size,
+            HasCompression = attachment.HasCompression,
+            Url = attachment.Url,
+            Width = attachment.Width,
+            Height = attachment.Height,
+            Blurhash = attachment.Blurhash,
+        }).ToList();
+    }
+
+    private static Dictionary<string, object> CloneRedirectMeta(Dictionary<string, object>? meta)
+    {
+        if (meta is null)
+            return [];
+
+        return meta
+            .Where(entry => !string.Equals(entry.Key, "redirect", StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(entry => entry.Key, entry => entry.Value);
+    }
+
+    private static List<Dictionary<string, object?>> BuildRedirectAttachmentSnapshot(List<SnCloudFileReferenceObject> attachments)
+    {
+        return attachments.Select(attachment => new Dictionary<string, object?>
+        {
+            ["id"] = attachment.Id,
+            ["name"] = attachment.Name,
+            ["mime_type"] = attachment.MimeType,
+            ["size"] = attachment.Size,
+            ["url"] = attachment.Url,
+            ["width"] = attachment.Width,
+            ["height"] = attachment.Height,
+            ["blurhash"] = attachment.Blurhash,
+            ["has_compression"] = attachment.HasCompression,
+        }).ToList();
+    }
+
+    private static Dictionary<string, object?>? BuildRedirectProfileSnapshot(SnAccountProfile? profile)
+    {
+        if (profile is null)
+            return null;
+
+        return new Dictionary<string, object?>
+        {
+            ["id"] = profile.Id,
+            ["first_name"] = profile.FirstName,
+            ["middle_name"] = profile.MiddleName,
+            ["last_name"] = profile.LastName,
+            ["bio"] = profile.Bio,
+            ["gender"] = profile.Gender,
+            ["pronouns"] = profile.Pronouns,
+            ["time_zone"] = profile.TimeZone,
+            ["location"] = profile.Location,
+            ["birthday"] = profile.Birthday?.ToUnixTimeMilliseconds(),
+            ["last_seen_at"] = profile.LastSeenAt?.ToUnixTimeMilliseconds(),
+            ["experience"] = profile.Experience,
+            ["level"] = profile.Level,
+            ["leveling_progress"] = profile.LevelingProgress,
+            ["social_credits"] = profile.SocialCredits,
+            ["social_credits_level"] = profile.SocialCreditsLevel,
+            ["picture"] = profile.Picture is not null ? BuildRedirectAttachmentSnapshot([profile.Picture]).First() : null,
+            ["background"] = profile.Background is not null ? BuildRedirectAttachmentSnapshot([profile.Background]).First() : null,
+            ["created_at"] = profile.CreatedAt.ToUnixTimeMilliseconds(),
+            ["updated_at"] = profile.UpdatedAt.ToUnixTimeMilliseconds(),
+        };
+    }
+
+    private static Dictionary<string, object?>? BuildRedirectAccountSnapshot(SnAccount? account)
+    {
+        if (account is null)
+            return null;
+
+        return new Dictionary<string, object?>
+        {
+            ["id"] = account.Id,
+            ["name"] = account.Name,
+            ["nick"] = account.Nick,
+            ["language"] = account.Language,
+            ["region"] = account.Region,
+            ["activated_at"] = account.ActivatedAt?.ToUnixTimeMilliseconds(),
+            ["is_superuser"] = account.IsSuperuser,
+            ["automated_id"] = account.AutomatedId,
+            ["profile"] = BuildRedirectProfileSnapshot(account.Profile),
+            ["created_at"] = account.CreatedAt.ToUnixTimeMilliseconds(),
+            ["updated_at"] = account.UpdatedAt.ToUnixTimeMilliseconds(),
+        };
+    }
+
+    private static Dictionary<string, object?> BuildRedirectSenderSnapshot(SnChatMember sender)
+    {
+        return new Dictionary<string, object?>
+        {
+            ["id"] = sender.Id,
+            ["chat_room_id"] = sender.ChatRoomId,
+            ["account_id"] = sender.AccountId,
+            ["nick"] = sender.Nick,
+            ["realm_nick"] = sender.RealmNick,
+            ["realm_bio"] = sender.RealmBio,
+            ["realm_experience"] = sender.RealmExperience,
+            ["realm_level"] = sender.RealmLevel,
+            ["realm_leveling_progress"] = sender.RealmLevelingProgress,
+            ["notify"] = sender.Notify.ToString(),
+            ["joined_at"] = sender.JoinedAt?.ToUnixTimeMilliseconds(),
+            ["leave_at"] = sender.LeaveAt?.ToUnixTimeMilliseconds(),
+            ["created_at"] = sender.CreatedAt.ToUnixTimeMilliseconds(),
+            ["updated_at"] = sender.UpdatedAt.ToUnixTimeMilliseconds(),
+            ["account"] = BuildRedirectAccountSnapshot(sender.Account),
+        };
+    }
+
+    private static Dictionary<string, object?> BuildRedirectRoomSnapshot(SnChatRoom? room)
+    {
+        if (room is null)
+        {
+            return new Dictionary<string, object?>();
+        }
+
+        return new Dictionary<string, object?>
+        {
+            ["id"] = room.Id,
+            ["name"] = room.Name,
+            ["description"] = room.Description,
+            ["type"] = room.Type.ToString(),
+            ["is_community"] = room.IsCommunity,
+            ["is_public"] = room.IsPublic,
+            ["encryption_mode"] = room.EncryptionMode.ToString(),
+            ["realm_id"] = room.RealmId,
+            ["account_id"] = room.AccountId,
+            ["picture"] = room.Picture is not null ? BuildRedirectAttachmentSnapshot([room.Picture]).First() : null,
+            ["background"] = room.Background is not null ? BuildRedirectAttachmentSnapshot([room.Background]).First() : null,
+            ["created_at"] = room.CreatedAt.ToUnixTimeMilliseconds(),
+            ["updated_at"] = room.UpdatedAt.ToUnixTimeMilliseconds(),
+        };
+    }
+
+    private static Dictionary<string, object> BuildRedirectMessageEntrySnapshot(SnChatMessage sourceMessage, SnChatMember sourceSender)
+    {
+        return new Dictionary<string, object>
+        {
+            ["id"] = sourceMessage.Id,
+            ["type"] = sourceMessage.Type,
+            ["content"] = sourceMessage.Content ?? string.Empty,
+            ["meta"] = CloneRedirectMeta(sourceMessage.Meta),
+            ["nonce"] = sourceMessage.Nonce,
+            ["edited_at"] = sourceMessage.EditedAt?.ToUnixTimeMilliseconds(),
+            ["replied_message_id"] = sourceMessage.RepliedMessageId,
+            ["forwarded_message_id"] = sourceMessage.ForwardedMessageId,
+            ["sender_id"] = sourceMessage.SenderId,
+            ["chat_room_id"] = sourceMessage.ChatRoomId,
+            ["created_at"] = sourceMessage.CreatedAt.ToUnixTimeMilliseconds(),
+            ["updated_at"] = sourceMessage.UpdatedAt.ToUnixTimeMilliseconds(),
+            ["deleted_at"] = sourceMessage.DeletedAt?.ToUnixTimeMilliseconds(),
+            ["attachments"] = BuildRedirectAttachmentSnapshot(sourceMessage.Attachments),
+            ["reactions_count"] = new Dictionary<string, int>(sourceMessage.ReactionsCount),
+            ["sender"] = BuildRedirectSenderSnapshot(sourceSender),
+            ["chat_room"] = BuildRedirectRoomSnapshot(sourceMessage.ChatRoom),
+        };
+    }
+
+    private static Dictionary<string, object> BuildRedirectSnapshot(
+        SnChatMessage sourceMessage,
+        SnChatMember sourceSender,
+        SnChatMember redirector,
+        SnChatRoom destinationRoom
+    )
+    {
+        return new Dictionary<string, object>
+        {
+            ["version"] = 1,
+            ["source_message_id"] = sourceMessage.Id,
+            ["source_room_id"] = sourceMessage.ChatRoomId,
+            ["source_sender_id"] = sourceSender.AccountId,
+            ["source_sender_name"] = sourceSender.Nick ?? sourceSender.RealmNick ?? sourceSender.Account?.Nick ?? "Someone",
+            ["source_type"] = sourceMessage.Type,
+            ["source_content"] = sourceMessage.Content ?? string.Empty,
+            ["source_created_at"] = sourceMessage.CreatedAt.ToUnixTimeMilliseconds(),
+            ["source_attachments"] = BuildRedirectAttachmentSnapshot(sourceMessage.Attachments),
+            ["source_meta"] = CloneRedirectMeta(sourceMessage.Meta),
+            ["source_message"] = BuildRedirectMessageEntrySnapshot(sourceMessage, sourceSender),
+            ["redirected_by"] = BuildRedirectSenderSnapshot(redirector),
+            ["redirected_to_room"] = BuildRedirectRoomSnapshot(destinationRoom),
+        };
+    }
+
+    public async Task<SnChatMessage> RedirectMessageAsync(
+        SnChatMessage sourceMessage,
+        SnChatMember sourceSender,
+        SnChatMember redirector,
+        SnChatRoom destinationRoom,
+        List<Guid>? membersMentioned = null,
+        string? clientIpAddress = null
+    )
+    {
+        var meta = CloneRedirectMeta(sourceMessage.Meta);
+        meta["redirect"] = BuildRedirectSnapshot(sourceMessage, sourceSender, redirector, destinationRoom);
+
+        var redirectMessage = new SnChatMessage
+        {
+            Type = "text",
+            SenderId = redirector.Id,
+            ChatRoomId = destinationRoom.Id,
+            Nonce = Guid.NewGuid().ToString(),
+            Content = sourceMessage.Content,
+            Meta = meta,
+            Attachments = CloneAttachments(sourceMessage.Attachments),
+            MembersMentioned = membersMentioned,
+            ForwardedMessageId = sourceMessage.Id,
+        };
+
+        return await SendMessageAsync(redirectMessage, redirector, destinationRoom, clientIpAddress);
+    }
+
     public async Task<SnChatMessage> SendSystemMessageAsync(
         SnChatRoom room,
         SnChatMember sender,
