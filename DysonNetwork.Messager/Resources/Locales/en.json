@@ -2,7 +2,9 @@
     "chatInviteTitle": "Chat Invite",
     "chatInviteBodyDirectMessage": "{senderNick} sent you a direct message",
     "chatInviteBodyGroupInvite": "You have been invited to {roomName}",
+    "chatNotificationAttachmentOnlyBodySingular": "{count} attachment",
+    "chatNotificationAttachmentOnlyBodyPlural": "{count} attachments",
     "chatReactionNotificationTitle": "{senderNick} reacted to your message ({roomSubject})",
-    "chatReactionNotificationBodyAdded": "Reacted with {symbol}",
-    "chatReactionNotificationBodyRemoved": "Removed reaction {symbol}"
+    "chatReactionNotificationBodyAdded": "{senderNick} reacted to your message with {symbol}",
+    "chatReactionNotificationBodyRemoved": "{senderNick} removed their reaction {symbol} from your message"
 }

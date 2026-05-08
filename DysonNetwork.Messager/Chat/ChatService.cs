@@ -100,6 +100,19 @@ public partial class ChatService(
             : null;
     }
 
+    private static bool IsEveryoneMentioned(SnChatMessage message) =>
+        !message.IsEncrypted
+        && !string.IsNullOrWhiteSpace(message.Content)
+        && GetEveryoneMentionRegex().IsMatch(message.Content);
+
+    private static bool IsAccountMentioned(SnChatMessage message, Guid accountId)
+    {
+        if (IsEveryoneMentioned(message))
+            return true;
+
+        return message.MembersMentioned?.Contains(accountId) == true;
+    }
+
     private async Task EmitChatUseActionLogAsync(SnChatMessage message, SnChatMember sender, SnChatRoom room, string? clientIpAddress = null)
     {
         if (sender.AccountId == Guid.Empty || message.Type.StartsWith("system."))
@@ -699,8 +712,6 @@ public partial class ChatService(
                 sender.Id
             );
 
-        var notification = BuildNotification(message, sender, room, roomSubject, type);
-
         var accountsToNotify = FilterAccountsForNotification(members, message, sender);
 
         // Filter out subscribed users from push notifications
@@ -720,9 +731,29 @@ public partial class ChatService(
 
         if (accountsToNotify.Count > 0)
         {
-            var ntyRequest = new DySendPushNotificationToUsersRequest { Notification = notification };
-            ntyRequest.UserIds.AddRange(accountsToNotify.Select(a => a.Id.ToString()));
-            await scopedNty.SendPushNotificationToUsersAsync(ntyRequest);
+            foreach (var targetGroup in accountsToNotify.GroupBy(a =>
+                         new
+                         {
+                             Mentioned = IsAccountMentioned(message, Guid.Parse(a.Id)),
+                             a.Language,
+                         }))
+            {
+                var notification = BuildNotification(
+                    message,
+                    sender,
+                    room,
+                    roomSubject,
+                    type,
+                    locale: targetGroup.Key.Language,
+                    mentioned: targetGroup.Key.Mentioned
+                );
+                var ntyRequest = new DySendPushNotificationToUsersRequest
+                {
+                    Notification = notification,
+                };
+                ntyRequest.UserIds.AddRange(targetGroup.Select(a => a.Id.ToString()));
+                await scopedNty.SendPushNotificationToUsersAsync(ntyRequest);
+            }
         }
 
         logger.LogInformation("Delivered message to {count} accounts.", accountsToNotify.Count);
@@ -768,11 +799,7 @@ public partial class ChatService(
         var notification = new DyPushNotification
         {
             Topic = isAdded ? "messages.reaction.added" : "messages.reaction.removed",
-            Title = localization.Get("chatReactionNotificationTitle", locale, new
-            {
-                senderNick = reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick ?? "Someone",
-                roomSubject
-            }),
+            Title = $"{reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick ?? "Someone"} ({roomSubject})",
             Meta = InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
             {
                 ["user_id"] = reactor.AccountId,
@@ -785,8 +812,16 @@ public partial class ChatService(
             ActionUri = $"/chat/{room.Id}",
             IsSavable = false,
             Body = isAdded
-                ? localization.Get("chatReactionNotificationBodyAdded", locale, new { symbol })
-                : localization.Get("chatReactionNotificationBodyRemoved", locale, new { symbol })
+                ? localization.Get("chatReactionNotificationBodyAdded", locale, new
+                {
+                    senderNick = reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick ?? "Someone",
+                    symbol,
+                })
+                : localization.Get("chatReactionNotificationBodyRemoved", locale, new
+                {
+                    senderNick = reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick ?? "Someone",
+                    symbol,
+                })
         };
 
         var ntyRequest = new DySendPushNotificationToUsersRequest { Notification = notification };
@@ -796,9 +831,11 @@ public partial class ChatService(
         logger.LogInformation("Sent reaction notification to message author {AuthorId}", messageAuthor.AccountId);
     }
 
-    private DyPushNotification BuildNotification(SnChatMessage message, SnChatMember sender, SnChatRoom room,
-        string roomSubject,
-        string type)
+    private Dictionary<string, object> BuildNotificationMeta(
+        SnChatMessage message,
+        SnChatMember sender,
+        SnChatRoom room
+    )
     {
         var metaDict = new Dictionary<string, object>
         {
@@ -809,16 +846,33 @@ public partial class ChatService(
             ["room_id"] = room.Id,
         };
 
-        var imageId = message.Attachments
-            .Where(a => a.MimeType != null && a.MimeType.StartsWith("image"))
-            .Select(a => a.Id).FirstOrDefault();
-        if (imageId is not null)
-            metaDict["image"] = imageId;
+        var imageIds = message.Attachments
+            .Where(a => a.MimeType?.StartsWith("image") ?? false)
+            .Select(a => a.Id)
+            .ToList();
+        if (imageIds.Count > 0)
+        {
+            metaDict["images"] = imageIds;
+            metaDict["image"] = imageIds.First();
+        }
 
         if (sender.Account!.Profile is not { Picture: null })
             metaDict["pfp"] = sender.Account!.Profile.Picture.Id;
         if (!string.IsNullOrEmpty(room.Name))
             metaDict["room_name"] = room.Name;
+
+        return metaDict;
+    }
+
+    private DyPushNotification BuildNotification(SnChatMessage message, SnChatMember sender, SnChatRoom room,
+        string roomSubject,
+        string type,
+        string? locale = null,
+        bool mentioned = false)
+    {
+        var metaDict = BuildNotificationMeta(message, sender, room);
+        if (mentioned)
+            metaDict["mentioned"] = true;
 
         var notification = new DyPushNotification
         {
@@ -827,46 +881,64 @@ public partial class ChatService(
             Meta = InfraObjectCoder.ConvertObjectToByteString(metaDict),
             ActionUri = $"/chat/{room.Id}",
             IsSavable = false,
-            Body = BuildNotificationBody(message, type)
+            Body = BuildNotificationBody(message, type, locale, mentioned)
         };
 
         return notification;
     }
 
-    private string BuildNotificationBody(SnChatMessage message, string type)
+    private string BuildNotificationBody(
+        SnChatMessage message,
+        string type,
+        string? locale = null,
+        bool mentioned = false
+    )
     {
+        string body;
+
         if (IsUserEncryptedMessage(message))
-            return "Encrypted message";
-
-        if (message.DeletedAt is not null)
-            return "Deleted a message";
-
-        switch (message.Type)
+            body = "Encrypted message";
+        else if (message.DeletedAt is not null)
+            body = "Deleted a message";
+        else
         {
-            case "call.ended":
-                return "Call ended";
-            case "call.start":
-                return "Call begun";
-            case "voice":
-                return "Voice message";
-            default:
-                var attachmentWord = message.Attachments.Count == 1 ? "attachment" : "attachments";
-                var body = !string.IsNullOrEmpty(message.Content)
-                    ? message.Content[..Math.Min(message.Content.Length, 100)]
-                    : $"<{message.Attachments.Count} {attachmentWord}>";
+            switch (message.Type)
+            {
+                case "call.ended":
+                    body = "Call ended";
+                    break;
+                case "call.start":
+                    body = "Call begun";
+                    break;
+                case "voice":
+                    body = "Voice message";
+                    break;
+                default:
+                    body = !string.IsNullOrEmpty(message.Content)
+                        ? message.Content[..Math.Min(message.Content.Length, 100)]
+                        : localization.Get(
+                            message.Attachments.Count == 1
+                                ? "chatNotificationAttachmentOnlyBodySingular"
+                                : "chatNotificationAttachmentOnlyBodyPlural",
+                            locale,
+                            new { count = message.Attachments.Count }
+                        );
 
-                switch (type)
-                {
-                    case WebSocketPacketType.MessageUpdate:
-                        body += " (edited)";
-                        break;
-                    case WebSocketPacketType.MessageDelete:
-                        body = "Deleted a message";
-                        break;
-                }
+                    switch (type)
+                    {
+                        case WebSocketPacketType.MessageUpdate:
+                            body += " (edited)";
+                            break;
+                        case WebSocketPacketType.MessageDelete:
+                            body = "Deleted a message";
+                            break;
+                    }
 
-                return body;
+                    break;
+            }
         }
+
+        return mentioned ? $"<mentioned> {body}" : body;
     }
 
     private static List<DyAccount> FilterAccountsForNotification(
@@ -876,9 +948,7 @@ public partial class ChatService(
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        var everyoneMentioned = !message.IsEncrypted
-                                && !string.IsNullOrWhiteSpace(message.Content)
-                                && GetEveryoneMentionRegex().IsMatch(message.Content);
+        var everyoneMentioned = IsEveryoneMentioned(message);
 
         var accountsToNotify = new List<DyAccount>();
         foreach (var member in members.Where(member => member.Notify != ChatMemberNotify.None))
