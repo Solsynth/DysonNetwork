@@ -19,6 +19,8 @@ using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NetTopologySuite.Geometries;
+using NetTopologySuite.IO;
 using NodaTime;
 using Swashbuckle.AspNetCore.Annotations;
 using PostType = DysonNetwork.Shared.Models.PostType;
@@ -46,6 +48,45 @@ public class PostActionController(
     IEventBus eventBus
 ) : ControllerBase
 {
+    private static bool HasLocationPayload(string? locationName, string? locationAddress, string? locationWkt)
+    {
+        return !string.IsNullOrWhiteSpace(locationName)
+            || !string.IsNullOrWhiteSpace(locationAddress)
+            || !string.IsNullOrWhiteSpace(locationWkt);
+    }
+
+    private static LocationEmbed CreateLocationEmbed(
+        string? locationName,
+        string? locationAddress,
+        Geometry? location
+    )
+    {
+        return new LocationEmbed
+        {
+            Name = string.IsNullOrWhiteSpace(locationName) ? null : locationName,
+            Address = string.IsNullOrWhiteSpace(locationAddress) ? null : locationAddress,
+            Wkt = location?.AsText()
+        };
+    }
+
+    private ActionResult? TryParseLocation(string? locationWkt, out Geometry? location)
+    {
+        location = null;
+        if (string.IsNullOrWhiteSpace(locationWkt))
+            return null;
+
+        try
+        {
+            location = new WKTReader().Read(locationWkt);
+            location.SRID = 4326;
+            return null;
+        }
+        catch (Exception)
+        {
+            return BadRequest("Invalid location WKT.");
+        }
+    }
+
     private async Task<bool> IsBlockedByUserAsync(Guid blockerId, Guid blockedId)
     {
         try
@@ -96,6 +137,12 @@ public class PostActionController(
         
         [MaxLength(128)]
         public string? FitnessReference { get; set; }
+
+        [MaxLength(256)] public string? LocationName { get; set; }
+
+        [MaxLength(1024)] public string? LocationAddress { get; set; }
+
+        public string? LocationWkt { get; set; }
         
         public string? ThumbnailId { get; set; }
 
@@ -123,6 +170,10 @@ public class PostActionController(
             return BadRequest("Thumbnail must be presented in attachment list.");
         if (request.DraftedAt is not null && request.PublishedAt is not null)
             return BadRequest("Cannot set both draftedAt and publishedAt.");
+
+        var locationError = TryParseLocation(request.LocationWkt, out var location);
+        if (locationError is not null)
+            return locationError;
 
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -342,6 +393,20 @@ public class PostActionController(
                 post.Metadata["embeds"] = new List<Dictionary<string, object>>();
             var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
             embeds.Add(EmbeddableBase.ToDictionary(fitnessEmbed));
+            post.Metadata["embeds"] = embeds;
+        }
+
+        if (HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
+        {
+            var locationEmbed = CreateLocationEmbed(request.LocationName, request.LocationAddress, location);
+            post.Metadata ??= new Dictionary<string, object>();
+            if (
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+            embeds.Add(EmbeddableBase.ToDictionary(locationEmbed));
             post.Metadata["embeds"] = embeds;
         }
 
@@ -766,6 +831,10 @@ public class PostActionController(
         if (request.DraftedAt is not null)
             post.DraftedAt = request.DraftedAt;
 
+        var updateLocationError = TryParseLocation(request.LocationWkt, out var location);
+        if (updateLocationError is not null)
+            return updateLocationError;
+
         // The same, this field can be null, so update it anyway.
         post.EmbedView = request.EmbedView;
 
@@ -900,6 +969,32 @@ public class PostActionController(
             var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
             // Remove all old live stream embeds
             embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "livestream");
+        }
+
+        if (HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
+        {
+            var locationEmbed = CreateLocationEmbed(request.LocationName, request.LocationAddress, location);
+            post.Metadata ??= new Dictionary<string, object>();
+            if (
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "location");
+            embeds.Add(EmbeddableBase.ToDictionary(locationEmbed));
+            post.Metadata["embeds"] = embeds;
+        }
+        else
+        {
+            post.Metadata ??= new Dictionary<string, object>();
+            if (
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "location");
         }
 
         if (request.ThumbnailId is not null)

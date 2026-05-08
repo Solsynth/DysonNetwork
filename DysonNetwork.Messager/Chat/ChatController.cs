@@ -17,6 +17,8 @@ using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NetTopologySuite.Geometries;
+using NetTopologySuite.IO;
 using NodaTime;
 
 namespace DysonNetwork.Messager.Chat;
@@ -112,6 +114,45 @@ public partial class ChatController(
             "content.delete" => "messages.delete",
             _ => messageType
         };
+    }
+
+    private static bool HasLocationPayload(string? locationName, string? locationAddress, string? locationWkt)
+    {
+        return !string.IsNullOrWhiteSpace(locationName)
+            || !string.IsNullOrWhiteSpace(locationAddress)
+            || !string.IsNullOrWhiteSpace(locationWkt);
+    }
+
+    private static LocationEmbed CreateLocationEmbed(
+        string? locationName,
+        string? locationAddress,
+        Geometry? location
+    )
+    {
+        return new LocationEmbed
+        {
+            Name = string.IsNullOrWhiteSpace(locationName) ? null : locationName,
+            Address = string.IsNullOrWhiteSpace(locationAddress) ? null : locationAddress,
+            Wkt = location?.AsText()
+        };
+    }
+
+    private ActionResult? TryParseLocation(string? locationWkt, out Geometry? location)
+    {
+        location = null;
+        if (string.IsNullOrWhiteSpace(locationWkt))
+            return null;
+
+        try
+        {
+            location = new WKTReader().Read(locationWkt);
+            location.SRID = 4326;
+            return null;
+        }
+        catch (Exception)
+        {
+            return BadRequest("Invalid location WKT.");
+        }
     }
 
     // Server cannot decrypt to verify crypto correctness, but we can block obvious plaintext JSON misuse.
@@ -283,6 +324,9 @@ public partial class ChatController(
         [MaxLength(128)] public string? ClientMessageId { get; set; }
         public Guid? FundId { get; set; }
         public Guid? PollId { get; set; }
+        [MaxLength(256)] public string? LocationName { get; set; }
+        [MaxLength(1024)] public string? LocationAddress { get; set; }
+        public string? LocationWkt { get; set; }
         public List<string>? AttachmentsId { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
         public Guid? RepliedMessageId { get; set; }
@@ -457,6 +501,9 @@ public partial class ChatController(
 
         request.Content = TextSanitizer.Sanitize(request.Content);
 
+        var locationError = TryParseLocation(request.LocationWkt, out var location);
+        if (locationError is not null) return locationError;
+
         var now = SystemClock.Instance.GetCurrentInstant();
         var member = await crs.GetRoomMember(accountId, roomId);
         if (member == null)
@@ -477,7 +524,8 @@ public partial class ChatController(
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (!string.IsNullOrWhiteSpace(request.Content) ||
                 request.FundId.HasValue ||
-                request.PollId.HasValue)
+                request.PollId.HasValue ||
+                HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
                 return E2EeError("chat.e2ee_plaintext_forbidden", "Plaintext fields are forbidden for E2EE rooms.");
         }
         else
@@ -485,7 +533,8 @@ public partial class ChatController(
             if (string.IsNullOrWhiteSpace(request.Content) &&
                 (request.AttachmentsId == null || request.AttachmentsId.Count == 0) &&
                 !request.FundId.HasValue &&
-                !request.PollId.HasValue)
+                !request.PollId.HasValue &&
+                !HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
                 return BadRequest("You cannot send an empty message.");
         }
 
@@ -578,6 +627,19 @@ public partial class ChatController(
                 message.Meta["embeds"] = new List<Dictionary<string, object>>();
             var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
             embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
+            message.Meta["embeds"] = embeds;
+        }
+        if (!e2eeMode && HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
+        {
+            var locationEmbed = CreateLocationEmbed(request.LocationName, request.LocationAddress, location);
+            message.Meta ??= new Dictionary<string, object>();
+            if (
+                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                message.Meta["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
+            embeds.Add(EmbeddableBase.ToDictionary(locationEmbed));
             message.Meta["embeds"] = embeds;
         }
         if (!e2eeMode && request.Content is not null)
@@ -847,6 +909,9 @@ public partial class ChatController(
 
         request.Content = TextSanitizer.Sanitize(request.Content);
 
+        var locationError = TryParseLocation(request.LocationWkt, out var location);
+        if (locationError is not null) return locationError;
+
         var message = await db.ChatMessages
             .Include(m => m.Sender)
             .Include(message => message.ChatRoom)
@@ -877,7 +942,8 @@ public partial class ChatController(
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (!string.IsNullOrWhiteSpace(request.Content) ||
                 request.FundId.HasValue ||
-                request.PollId.HasValue)
+                request.PollId.HasValue ||
+                HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
                 return E2EeError("chat.e2ee_plaintext_forbidden", "Plaintext fields are forbidden for E2EE rooms.");
         }
         else
@@ -885,7 +951,8 @@ public partial class ChatController(
             if (string.IsNullOrWhiteSpace(request.Content) &&
                 (request.AttachmentsId == null || request.AttachmentsId.Count == 0) &&
                 !request.FundId.HasValue &&
-                !request.PollId.HasValue)
+                !request.PollId.HasValue &&
+                !HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
                 return BadRequest("You cannot send an empty message.");
 
             // Update mentions based on new content and references
@@ -986,6 +1053,32 @@ public partial class ChatController(
             var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
             // Remove all old poll embeds
             embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "poll");
+        }
+
+        if (!e2eeMode && HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
+        {
+            var locationEmbed = CreateLocationEmbed(request.LocationName, request.LocationAddress, location);
+            message.Meta ??= new Dictionary<string, object>();
+            if (
+                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                message.Meta["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "location");
+            embeds.Add(EmbeddableBase.ToDictionary(locationEmbed));
+            message.Meta["embeds"] = embeds;
+        }
+        else if (!e2eeMode)
+        {
+            message.Meta ??= new Dictionary<string, object>();
+            if (
+                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                message.Meta["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "location");
         }
 
         if (request.AttachmentsId is not null)

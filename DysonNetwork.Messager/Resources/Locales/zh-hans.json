@@ -2,6 +2,7 @@
     "chatInviteTitle": "聊天邀请",
     "chatInviteBodyDirectMessage": "{senderNick} 向您发送了一条私信",
     "chatInviteBodyGroupInvite": "您已被邀请加入 {roomName}",
+    "chatNotificationMentionedBody": "[Mentioned] {body}",
     "chatNotificationAttachmentOnlyBodySingular": "{count} 个附件",
     "chatNotificationAttachmentOnlyBodyPlural": "{count} 个附件",
     "chatReactionNotificationTitle": "{senderNick} 对您的消息作出了回应（{roomSubject}）",
