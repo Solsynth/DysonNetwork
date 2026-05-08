@@ -30,6 +30,59 @@ Custom reaction symbols require an active subscription.
 
 ## Endpoints
 
+### List Reactions
+
+```
+GET /api/chat/{roomId}/messages/{messageId}/reactions
+```
+
+#### Authentication
+
+Authentication is optional for public unencrypted rooms.
+
+Private rooms and encrypted rooms require a valid authentication token and active room membership.
+
+#### Query Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| symbol | string | No | Filter results to a single reaction symbol |
+| offset | int | No | Pagination offset. Default: `0` |
+| take | int | No | Pagination size. Default: `20` |
+| order | string | No | Sort mode. Use `created` for newest-first order; otherwise results are sorted by `symbol` and then newest-first |
+
+#### Response
+
+Returns a list of `SnChatReaction` objects.
+
+The `X-Total` response header contains the total number of matching reactions before pagination.
+
+Example:
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "message_id": "660e8400-e29b-41d4-a716-446655440001",
+    "sender_id": "770e8400-e29b-41d4-a716-446655440002",
+    "sender": {
+      "id": "770e8400-e29b-41d4-a716-446655440002"
+    },
+    "symbol": "heart",
+    "attitude": 0,
+    "created_at": "2024-02-02T10:00:00Z",
+    "updated_at": "2024-02-02T10:00:00Z"
+  }
+]
+```
+
+#### Error Responses
+
+| Status Code | Description |
+|-------------|-------------|
+| 401 Unauthorized | Missing authentication for a private or encrypted room |
+| 403 Forbidden | User is not a member of a private or encrypted room |
+| 404 Not Found | Room or message not found |
+
 ### Add or Toggle Reaction
 
 ```
@@ -212,6 +265,8 @@ Example message with reactions:
 ```
 
 `reactions_count` is read directly from the message record. `reactions_made` is still hydrated per requesting user from `chat_reactions`.
+
+When listing reactions through `/api/chat/{roomId}/messages/{messageId}/reactions`, each reaction also includes a hydrated `sender` member object for display.
 
 ## Sync Integration
 

@@ -63,6 +63,31 @@ public partial class ChatController(
         return E2EeError("chat.e2ee_required", $"This room requires capability '{token}'.");
     }
 
+    private async Task<(SnChatRoom? Room, ActionResult? Error)> GetReadableRoomAsync(
+        Guid roomId,
+        DyAccount? currentUser
+    )
+    {
+        var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
+        if (room is null)
+            return (null, NotFound());
+
+        if (room.EncryptionMode != ChatRoomEncryptionMode.None || !room.IsPublic)
+        {
+            if (currentUser is null)
+                return (null, Unauthorized());
+
+            var accountId = Guid.Parse(currentUser.Id);
+            var member = await db.ChatMembers
+                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+                .FirstOrDefaultAsync();
+            if (member is null)
+                return (null, StatusCode(403, "You are not a member of this chat room."));
+        }
+
+        return (room, null);
+    }
+
     private static bool HasEncryptedPayload(SendMessageRequest request)
     {
         return request.Ciphertext is { Length: > 0 } &&
@@ -304,31 +329,8 @@ public partial class ChatController(
         var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         var currentUserId = currentUser is null ? (Guid?)null : Guid.Parse(currentUser.Id);
 
-        var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
-        if (room is null) return NotFound();
-
-        if (room.EncryptionMode != ChatRoomEncryptionMode.None)
-        {
-            if (currentUser is null) return Unauthorized();
-            var accountId = Guid.Parse(currentUser.Id);
-            var member = await db.ChatMembers
-                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
-                .FirstOrDefaultAsync();
-            if (member is null)
-                return StatusCode(403, "You are not a member of this chat room.");
-        }
-        else if (!room.IsPublic)
-        {
-            if (currentUser is null) return Unauthorized();
-
-            var accountId = Guid.Parse(currentUser.Id);
-            var member = await db.ChatMembers
-                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null &&
-                            m.LeaveAt == null)
-                .FirstOrDefaultAsync();
-            if (member == null)
-                return StatusCode(403, "You are not a member of this chat room.");
-        }
+        var (room, roomError) = await GetReadableRoomAsync(roomId, currentUser);
+        if (roomError is not null) return roomError;
 
         var totalCount = await db.ChatMessages
             .Where(m => m.ChatRoomId == roomId)
@@ -361,19 +363,8 @@ public partial class ChatController(
         var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
         var currentUserId = currentUser is null ? (Guid?)null : Guid.Parse(currentUser.Id);
 
-        var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
-        if (room is null) return NotFound();
-
-        if (room.EncryptionMode != ChatRoomEncryptionMode.None || !room.IsPublic)
-        {
-            if (currentUser is null) return Unauthorized();
-            var accountId = Guid.Parse(currentUser.Id);
-            var member = await db.ChatMembers
-                .Where(m => m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
-                .FirstOrDefaultAsync();
-            if (member == null)
-                return StatusCode(403, "You are not a member of this chat room.");
-        }
+        var (room, roomError) = await GetReadableRoomAsync(roomId, currentUser);
+        if (roomError is not null) return roomError;
 
         var message = await db.ChatMessages
             .Where(m => m.Id == messageId && m.ChatRoomId == roomId)
@@ -831,21 +822,8 @@ public partial class ChatController(
     public async Task<ActionResult> GetVoiceMessage(Guid roomId, Guid voiceId)
     {
         var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
-        var accountId = currentUser is null ? (Guid?)null : Guid.Parse(currentUser.Id);
-
-        var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
-        if (room is null) return NotFound();
-
-        if (!room.IsPublic)
-        {
-            if (accountId is null) return Unauthorized();
-
-            var member = await db.ChatMembers
-                .Where(m => m.AccountId == accountId.Value && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
-                .FirstOrDefaultAsync();
-            if (member is null)
-                return StatusCode(403, "You are not a member of this chat room.");
-        }
+        var (room, roomError) = await GetReadableRoomAsync(roomId, currentUser);
+        if (roomError is not null) return roomError;
 
         var clip = await voice.GetVoiceClipAsync(roomId, voiceId);
         if (clip is null) return NotFound();
@@ -1211,6 +1189,59 @@ public partial class ChatController(
         return NoContent();
     }
 
+    [HttpGet("{roomId:guid}/messages/{messageId:guid}/reactions")]
+    public async Task<ActionResult<List<SnChatReaction>>> ListMessageReactions(
+        Guid roomId,
+        Guid messageId,
+        [FromQuery] string? symbol = null,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20,
+        [FromQuery(Name = "order")] string? order = null
+    )
+    {
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
+
+        var (room, roomError) = await GetReadableRoomAsync(roomId, currentUser);
+        if (roomError is not null) return roomError;
+
+        var messageExists = await db.ChatMessages
+            .AnyAsync(m => m.Id == messageId && m.ChatRoomId == roomId);
+        if (!messageExists)
+            return NotFound();
+
+        var query = db.ChatReactions.Where(r => r.MessageId == messageId);
+        if (!string.IsNullOrWhiteSpace(symbol))
+            query = query.Where(r => r.Symbol == symbol);
+
+        var totalCount = await query.CountAsync();
+        Response.Headers.Append("X-Total", totalCount.ToString());
+
+        query = order?.ToLowerInvariant() switch
+        {
+            "created" => query.OrderByDescending(r => r.CreatedAt),
+            _ => query.OrderBy(r => r.Symbol).ThenByDescending(r => r.CreatedAt)
+        };
+
+        var reactions = await query
+            .Include(r => r.Sender)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        var senders = reactions.Select(r => r.Sender).DistinctBy(s => s.Id).ToList();
+        senders = await crs.LoadMemberAccounts(senders);
+        senders = await crs.HydrateRealmIdentity(senders, roomId);
+
+        foreach (var reaction in reactions)
+        {
+            var sender = senders.FirstOrDefault(s => s.Id == reaction.SenderId);
+            if (sender != null)
+                reaction.Sender = sender;
+        }
+
+        return Ok(reactions);
+    }
+
     public class SyncRequest
     {
         [Required] public long LastSyncTimestamp { get; set; }
@@ -1229,15 +1260,10 @@ public partial class ChatController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
-        if (room is null) return NotFound();
+        var (room, roomError) = await GetReadableRoomAsync(roomId, currentUser);
+        if (roomError is not null) return roomError;
 
         var accountId = Guid.Parse(currentUser.Id);
-        var isMember = await db.ChatMembers
-            .AnyAsync(m =>
-                m.AccountId == accountId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null);
-        if (!isMember)
-            return StatusCode(403, "You are not a member of this chat room.");
 
         var response = await cs.GetSyncDataAsync(roomId, accountId, request.LastSyncTimestamp, 1000);
         Response.Headers["X-Total"] = response.TotalCount.ToString();
