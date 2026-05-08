@@ -133,6 +133,7 @@ public class PostActionController(
 
         public Guid? PollId { get; set; }
         public Guid? FundId { get; set; }
+        public Guid? MeetId { get; set; }
         public Guid? LiveStreamId { get; set; }
         
         [MaxLength(128)]
@@ -335,6 +336,20 @@ public class PostActionController(
             {
                 return BadRequest("Invalid fund ID.");
             }
+        }
+
+        if (request.MeetId.HasValue)
+        {
+            var meetEmbed = new MeetEmbed { Id = request.MeetId.Value };
+            post.Metadata ??= new Dictionary<string, object>();
+            if (
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+            embeds.Add(EmbeddableBase.ToDictionary(meetEmbed));
+            post.Metadata["embeds"] = embeds;
         }
 
         if (request.LiveStreamId.HasValue)
@@ -923,6 +938,32 @@ public class PostActionController(
             var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
             // Remove all old fund embeds
             embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "fund");
+        }
+
+        if (request.MeetId.HasValue)
+        {
+            var meetEmbed = new MeetEmbed { Id = request.MeetId.Value };
+            post.Metadata ??= new Dictionary<string, object>();
+            if (
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "meet");
+            embeds.Add(EmbeddableBase.ToDictionary(meetEmbed));
+            post.Metadata["embeds"] = embeds;
+        }
+        else
+        {
+            post.Metadata ??= new Dictionary<string, object>();
+            if (
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "meet");
         }
 
         // Handle live stream embeds

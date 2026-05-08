@@ -124,3 +124,4 @@ the request is rejected with the same plaintext-forbidden rule already used for 
 
 - No additional post read-side hydration is required because embeds are already returned through metadata.
 - `DysonNetwork.Sphere/Post/PostController.cs` does not create embeds; post write behavior lives in `PostActionController.cs`.
+- See also `docs/MEET_EMBED.md` for lightweight meet references.
