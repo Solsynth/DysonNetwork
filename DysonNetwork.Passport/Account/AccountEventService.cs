@@ -640,11 +640,6 @@ public class AccountEventService(
         List<SnCheckInResult> recentFortunes
     )
     {
-        var fallback = new CheckInFortuneGeneration
-        {
-            Tips = tips,
-            Report = CreateFallbackFortuneReport(account, isBirthday, level, tips),
-        };
         var model = configuration.GetValue<string>("CheckIn:Fortune:Model");
         var timeoutSeconds = Math.Clamp(
             configuration.GetValue<int?>("CheckIn:Fortune:TimeoutSeconds") ?? 90,
@@ -705,7 +700,7 @@ public class AccountEventService(
                 deadline: DateTime.UtcNow.AddSeconds(timeoutSeconds)
             );
 
-            var generation = TryParseFortuneGeneration(response.Content, tips, fallback);
+            var generation = TryParseFortuneGeneration(response.Content, tips);
             if (generation is not null)
             {
                 logger.LogInformation(
@@ -778,7 +773,6 @@ public class AccountEventService(
             .Instance.GetCurrentInstant()
             .ToDateTimeUtc()
             .ToString("O", CultureInfo.InvariantCulture);
-        var variation = CreateFortuneVariation();
         var tipLines = string.Join(
             "\n",
             tips.Select(t => $"- {(t.IsPositive ? "吉" : "忌")}：{t.Title}｜{t.Content}")
@@ -820,7 +814,6 @@ public class AccountEventService(
 - 用户今日抽到了：{{drawLabel}}
 - 程序化运势等级：{{level}}
 - 当前程序化签文版本：{{FortuneReportVersion}}
-- 本次生成变化锚点：{{variation}}
 - 备用基础提示（只用于兜底和方向参考，禁止照抄或轻微改写）：
 {{tipLines}}
 - 近期已生成内容（今天必须避开这些表达、意象、行动、幸运物）：
@@ -832,8 +825,9 @@ public class AccountEventService(
 
 请以咩酱本人的口吻，生成一份私人化的今日签文和提示。
 它可以有轻微仪式感，但不要过于严肃古板，也不要只复述基础提示。
-关于建议不能过于模糊，最好具体一点。
+关于建议不能过于模糊，最好具体一点，要像真的在安排用户今天该怎么过。
 tips 也必须由咩酱重新生成，不是从备用基础提示里挑选。
+尤其是 tips 不能写成空泛的好运提醒，必须落到今天可感知的场景，例如学习、工作、社交、出行、整理、休息、金钱安排、情绪管理中的具体一种。
 
 请输出下面这种宽松文本格式，不要 Markdown，不要解释，不需要 JSON。每行一个字段，字段名必须保留英文：
 POEM: 签诗，1到2句，有意象但自然
@@ -852,10 +846,10 @@ LUCKY_ITEM: 幸运小物，短词
 LUCKY_ACTION: 今日宜做，60字以内
 AVOID_ACTION: 今日忌做，60字以内
 RITUAL: 小仪式，80字以内，轻量、可执行、不要迷信化
-TIP+: 吉提示标题 | 具体提示
-TIP+: 吉提示标题 | 具体提示
-TIP-: 忌提示标题 | 具体提醒
-TIP-: 忌提示标题 | 具体提醒
+TIP+: 吉提示标题 | 具体提示，要写清今天适合做什么、在哪类场景做、为什么此时适合
+TIP+: 吉提示标题 | 具体提示，要写清今天适合做什么、在哪类场景做、为什么此时适合
+TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容易卡在哪里、建议怎么避开
+TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容易卡在哪里、建议怎么避开
 
 要求：
 - 使用用户偏好语言「{{outputLanguage}}」生成所有面向用户的字符串；如果该语言无法判断，使用简体中文。
@@ -870,7 +864,10 @@ TIP-: 忌提示标题 | 具体提醒
 - lucky_* 和 ritual 要有当天的意象感，但保持生活化，不要像抽象模板。
 - tips 尽量有 4 条，通常 2 吉 2 忌；生日或特别签可以 3 吉 1 忌。服务端会兜底补齐 tips。
 - tips 要和 fortune_report 互相呼应，但不要逐字重复。
-- 本次文案需要围绕“本次生成变化锚点”选择意象、节奏和行动建议，避免复用常见模板句式。
+- tips 每条都必须比“今天不错”“适合努力”“注意情绪”更进一步，至少包含一个明确行动或判断，例如“今天适合复习旧题，不适合临时换资料”“下午更适合发消息确认细节，不适合在多人场合硬聊结论”。
+- tips 标题不要使用“保持耐心”“稳住节奏”“今日留意”这类放在哪里都能成立的泛化标题，要让标题本身就能看出主题，例如“旧题回看”“先约时间再开聊”“把包里票据清掉”。
+- 如果有学习、工作、公开日程或节日线索，优先把其中 1 到 2 条 tips 写到这些场景里，让用户一眼就知道今天适合把精力放在哪。
+- 至少 1 条吉提示和 1 条忌提示要直接落在可执行的现实安排上，例如学习计划、沟通时机、收尾事项、出门准备、睡前整理，而不是抽象心态口号。
 - 每个字段都要具体，不要重复。
 - 不要复用近期已生成内容中的标题、短句、幸运色、幸运小物、今日宜忌、小仪式或核心意象。
 - 不要复制或轻微改写备用基础提示；如果意思相近，也要换成新的具体行动场景。
@@ -897,45 +894,6 @@ TIP-: 忌提示标题 | 具体提醒
         );
     }
 
-    private static string CreateFortuneVariation()
-    {
-        string[] images =
-        [
-            "晨雾",
-            "纸灯",
-            "海风",
-            "雨后石阶",
-            "月影",
-            "远钟",
-            "窗边绿植",
-            "旧书页",
-            "暖茶",
-            "星砂",
-        ];
-        string[] rhythms =
-        [
-            "先收束再推进",
-            "先观察再表达",
-            "先整理再行动",
-            "轻快但不冒进",
-            "安静而坚定",
-            "留白中找线索",
-        ];
-        string[] focuses =
-        [
-            "沟通",
-            "收尾",
-            "学习",
-            "身体感受",
-            "人际边界",
-            "小型整理",
-            "计划校准",
-            "情绪降噪",
-        ];
-
-        return $"{images[Random.Next(images.Length)]} / {rhythms[Random.Next(rhythms.Length)]} / {focuses[Random.Next(focuses.Length)]} / #{Random.Next(1000, 9999)}";
-    }
-
     private static string GetFortuneDrawLabel(CheckInResultLevel level)
     {
         return level switch
@@ -952,11 +910,10 @@ TIP-: 忌提示标题 | 具体提醒
 
     private static CheckInFortuneGeneration? TryParseFortuneGeneration(
         string content,
-        List<CheckInFortuneTip> seedTips,
-        CheckInFortuneGeneration fallback
+        List<CheckInFortuneTip> seedTips
     )
     {
-        var looseGeneration = TryParseLooseFortuneGeneration(content, seedTips, fallback);
+        var looseGeneration = TryParseLooseFortuneGeneration(content, seedTips);
         if (looseGeneration is not null)
             return looseGeneration;
 
@@ -973,13 +930,12 @@ TIP-: 忌提示标题 | 具体提醒
             if (generation?.Report is null)
                 return null;
 
-            generation.Tips = NormalizeGeneratedFortuneTips(generation.Tips, seedTips, fallback.Tips);
-
-            var report = CompleteParsedFortuneReport(generation.Report, fallback.Report);
-            if (!IsValidFortuneReport(report))
+            if (!IsValidFortuneReport(generation.Report))
                 return null;
 
-            generation.Report = TrimFortuneReport(report);
+            generation.Tips = NormalizeGeneratedFortuneTips(generation.Tips, seedTips);
+
+            generation.Report = TrimFortuneReport(generation.Report);
             return generation;
         }
         catch (JsonException)
@@ -990,8 +946,7 @@ TIP-: 忌提示标题 | 具体提醒
 
     private static CheckInFortuneGeneration? TryParseLooseFortuneGeneration(
         string content,
-        List<CheckInFortuneTip> seedTips,
-        CheckInFortuneGeneration fallback
+        List<CheckInFortuneTip> seedTips
     )
     {
         var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -1026,35 +981,32 @@ TIP-: 忌提示标题 | 具体提醒
         if (fields.Count == 0)
             return null;
 
-        var report = CompleteParsedFortuneReport(
-            new CheckInFortuneReport
-            {
-                Version = FortuneReportVersion,
-                Poem = GetLooseField(fields, "POEM"),
-                Summary = GetLooseField(fields, "SUMMARY"),
-                SummaryDetail = GetLooseField(fields, "SUMMARY_DETAIL"),
-                Wish = GetLooseField(fields, "WISH"),
-                Love = GetLooseField(fields, "LOVE"),
-                Study = GetLooseField(fields, "STUDY"),
-                Career = GetLooseField(fields, "CAREER"),
-                Health = GetLooseField(fields, "HEALTH"),
-                LostItem = GetLooseField(fields, "LOST_ITEM"),
-                LuckyColor = GetLooseField(fields, "LUCKY_COLOR"),
-                LuckyDirection = GetLooseField(fields, "LUCKY_DIRECTION"),
-                LuckyTime = GetLooseField(fields, "LUCKY_TIME"),
-                LuckyItem = GetLooseField(fields, "LUCKY_ITEM"),
-                LuckyAction = GetLooseField(fields, "LUCKY_ACTION"),
-                AvoidAction = GetLooseField(fields, "AVOID_ACTION"),
-                Ritual = GetLooseField(fields, "RITUAL"),
-            },
-            fallback.Report
-        );
+        var report = new CheckInFortuneReport
+        {
+            Version = FortuneReportVersion,
+            Poem = GetLooseField(fields, "POEM"),
+            Summary = GetLooseField(fields, "SUMMARY"),
+            SummaryDetail = GetLooseField(fields, "SUMMARY_DETAIL"),
+            Wish = GetLooseField(fields, "WISH"),
+            Love = GetLooseField(fields, "LOVE"),
+            Study = GetLooseField(fields, "STUDY"),
+            Career = GetLooseField(fields, "CAREER"),
+            Health = GetLooseField(fields, "HEALTH"),
+            LostItem = GetLooseField(fields, "LOST_ITEM"),
+            LuckyColor = GetLooseField(fields, "LUCKY_COLOR"),
+            LuckyDirection = GetLooseField(fields, "LUCKY_DIRECTION"),
+            LuckyTime = GetLooseField(fields, "LUCKY_TIME"),
+            LuckyItem = GetLooseField(fields, "LUCKY_ITEM"),
+            LuckyAction = GetLooseField(fields, "LUCKY_ACTION"),
+            AvoidAction = GetLooseField(fields, "AVOID_ACTION"),
+            Ritual = GetLooseField(fields, "RITUAL"),
+        };
         if (!IsValidFortuneReport(report))
             return null;
 
         var generation = new CheckInFortuneGeneration
         {
-            Tips = NormalizeGeneratedFortuneTips(tips, seedTips, fallback.Tips),
+            Tips = NormalizeGeneratedFortuneTips(tips, seedTips),
             Report = TrimFortuneReport(report),
         };
         return generation;
@@ -1094,31 +1046,6 @@ TIP-: 忌提示标题 | 具体提醒
     private static string GetLooseField(Dictionary<string, string> fields, string key)
     {
         return fields.GetValueOrDefault(key) ?? string.Empty;
-    }
-
-    private static CheckInFortuneReport CompleteParsedFortuneReport(
-        CheckInFortuneReport report,
-        CheckInFortuneReport fallback
-    )
-    {
-        report.Version = FortuneReportVersion;
-        report.Poem = PickFortuneText(report.Poem, fallback.Poem);
-        report.Summary = PickFortuneText(report.Summary, fallback.Summary);
-        report.SummaryDetail = PickFortuneText(report.SummaryDetail, fallback.SummaryDetail);
-        report.Wish = PickFortuneText(report.Wish, fallback.Wish);
-        report.Love = PickFortuneText(report.Love, fallback.Love);
-        report.Study = PickFortuneText(report.Study, fallback.Study);
-        report.Career = PickFortuneText(report.Career, fallback.Career);
-        report.Health = PickFortuneText(report.Health, fallback.Health);
-        report.LostItem = PickFortuneText(report.LostItem, fallback.LostItem);
-        report.LuckyColor = PickFortuneText(report.LuckyColor, fallback.LuckyColor);
-        report.LuckyDirection = PickFortuneText(report.LuckyDirection, fallback.LuckyDirection);
-        report.LuckyTime = PickFortuneText(report.LuckyTime, fallback.LuckyTime);
-        report.LuckyItem = PickFortuneText(report.LuckyItem, fallback.LuckyItem);
-        report.LuckyAction = PickFortuneText(report.LuckyAction, fallback.LuckyAction);
-        report.AvoidAction = PickFortuneText(report.AvoidAction, fallback.AvoidAction);
-        report.Ritual = PickFortuneText(report.Ritual, fallback.Ritual);
-        return report;
     }
 
     private static CheckInFortuneReport TrimFortuneReport(CheckInFortuneReport report)
@@ -1182,12 +1109,11 @@ TIP-: 忌提示标题 | 具体提醒
 
     private static List<CheckInFortuneTip> NormalizeGeneratedFortuneTips(
         List<CheckInFortuneTip>? generatedTips,
-        List<CheckInFortuneTip> seedTips,
-        List<CheckInFortuneTip> fallbackTips
+        List<CheckInFortuneTip> seedTips
     )
     {
         if (generatedTips is null || generatedTips.Count == 0)
-            return CloneFortuneTips(fallbackTips);
+            return [];
 
         var result = generatedTips
             .Where(t => !string.IsNullOrWhiteSpace(t.Title) && !string.IsNullOrWhiteSpace(t.Content))
@@ -1202,35 +1128,6 @@ TIP-: 忌提示标题 | 具体提醒
                 Content = TrimFortuneText(t.Content, FortuneTipContentMaxLength),
             })
             .ToList();
-
-        foreach (var fallbackTip in fallbackTips)
-        {
-            if (result.Count >= 4)
-                break;
-
-            if (result.Any(t => t.IsPositive == fallbackTip.IsPositive))
-                continue;
-
-            result.Add(new CheckInFortuneTip
-            {
-                IsPositive = fallbackTip.IsPositive,
-                Title = TrimFortuneText(fallbackTip.Title, FortuneTipTitleMaxLength),
-                Content = TrimFortuneText(fallbackTip.Content, FortuneTipContentMaxLength),
-            });
-        }
-
-        foreach (var fallbackTip in fallbackTips)
-        {
-            if (result.Count >= 4)
-                break;
-
-            result.Add(new CheckInFortuneTip
-            {
-                IsPositive = fallbackTip.IsPositive,
-                Title = TrimFortuneText(fallbackTip.Title, FortuneTipTitleMaxLength),
-                Content = TrimFortuneText(fallbackTip.Content, FortuneTipContentMaxLength),
-            });
-        }
 
         return result;
     }
