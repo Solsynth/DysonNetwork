@@ -550,42 +550,70 @@ public partial class ChatService(
         };
     }
 
+    private static List<Dictionary<string, object>> BuildRedirectMessagesSnapshot(
+        List<SnChatMessage> sourceMessages,
+        Dictionary<Guid, SnChatMember> sourceSenders
+    )
+    {
+        return sourceMessages
+            .Select(message => BuildRedirectMessageEntrySnapshot(message, sourceSenders[message.SenderId]))
+            .ToList();
+    }
+
+    private static Dictionary<string, object> BuildRedirectRangeSnapshot(List<SnChatMessage> sourceMessages)
+    {
+        var orderedMessages = sourceMessages
+            .OrderBy(m => m.CreatedAt)
+            .ToList();
+
+        return new Dictionary<string, object>
+        {
+            ["start_message_id"] = orderedMessages.First().Id,
+            ["end_message_id"] = orderedMessages.Last().Id,
+            ["message_count"] = orderedMessages.Count,
+            ["started_at"] = orderedMessages.First().CreatedAt.ToUnixTimeMilliseconds(),
+            ["ended_at"] = orderedMessages.Last().CreatedAt.ToUnixTimeMilliseconds(),
+        };
+    }
+
     private static Dictionary<string, object> BuildRedirectSnapshot(
-        SnChatMessage sourceMessage,
-        SnChatMember sourceSender,
+        List<SnChatMessage> sourceMessages,
+        SnChatRoom sourceRoom,
+        Dictionary<Guid, SnChatMember> sourceSenders,
         SnChatMember redirector,
         SnChatRoom destinationRoom
     )
     {
+        var orderedMessages = sourceMessages
+            .OrderBy(m => m.CreatedAt)
+            .ToList();
+
         return new Dictionary<string, object>
         {
-            ["version"] = 1,
-            ["source_message_id"] = sourceMessage.Id,
-            ["source_room_id"] = sourceMessage.ChatRoomId,
-            ["source_sender_id"] = sourceSender.AccountId,
-            ["source_sender_name"] = sourceSender.Nick ?? sourceSender.RealmNick ?? sourceSender.Account?.Nick ?? "Someone",
-            ["source_type"] = sourceMessage.Type,
-            ["source_content"] = sourceMessage.Content ?? string.Empty,
-            ["source_created_at"] = sourceMessage.CreatedAt.ToUnixTimeMilliseconds(),
-            ["source_attachments"] = BuildRedirectAttachmentSnapshot(sourceMessage.Attachments),
-            ["source_meta"] = CloneRedirectMeta(sourceMessage.Meta),
-            ["source_message"] = BuildRedirectMessageEntrySnapshot(sourceMessage, sourceSender),
+            ["version"] = 2,
+            ["kind"] = "history_segment",
+            ["source_room_id"] = sourceRoom.Id,
+            ["source_room"] = BuildRedirectRoomSnapshot(sourceRoom),
+            ["range"] = BuildRedirectRangeSnapshot(orderedMessages),
+            ["messages"] = BuildRedirectMessagesSnapshot(orderedMessages, sourceSenders),
             ["redirected_by"] = BuildRedirectSenderSnapshot(redirector),
             ["redirected_to_room"] = BuildRedirectRoomSnapshot(destinationRoom),
         };
     }
 
-    public async Task<SnChatMessage> RedirectMessageAsync(
-        SnChatMessage sourceMessage,
-        SnChatMember sourceSender,
+    public async Task<SnChatMessage> RedirectMessagesAsync(
+        List<SnChatMessage> sourceMessages,
+        SnChatRoom sourceRoom,
+        Dictionary<Guid, SnChatMember> sourceSenders,
         SnChatMember redirector,
         SnChatRoom destinationRoom,
-        List<Guid>? membersMentioned = null,
         string? clientIpAddress = null
     )
     {
-        var meta = CloneRedirectMeta(sourceMessage.Meta);
-        meta["redirect"] = BuildRedirectSnapshot(sourceMessage, sourceSender, redirector, destinationRoom);
+        var meta = new Dictionary<string, object>
+        {
+            ["redirect"] = BuildRedirectSnapshot(sourceMessages, sourceRoom, sourceSenders, redirector, destinationRoom)
+        };
 
         var redirectMessage = new SnChatMessage
         {
@@ -593,11 +621,11 @@ public partial class ChatService(
             SenderId = redirector.Id,
             ChatRoomId = destinationRoom.Id,
             Nonce = Guid.NewGuid().ToString(),
-            Content = sourceMessage.Content,
+            Content = null,
             Meta = meta,
-            Attachments = CloneAttachments(sourceMessage.Attachments),
-            MembersMentioned = membersMentioned,
-            ForwardedMessageId = sourceMessage.Id,
+            Attachments = [],
+            MembersMentioned = [],
+            ForwardedMessageId = sourceMessages.OrderBy(m => m.CreatedAt).First().Id,
         };
 
         return await SendMessageAsync(redirectMessage, redirector, destinationRoom, clientIpAddress);

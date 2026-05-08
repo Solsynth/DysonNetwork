@@ -1,6 +1,6 @@
 # Chat Redirect Messages
 
-This document describes the HTTP-only chat redirect API for redirecting one or more existing chat messages into another chat room.
+This document describes the HTTP-only chat redirect API for redirecting a section of chat history into another chat room.
 
 The feature is named `redirect` to avoid conflicting with the existing quote-style forward behavior already represented by `forwarded_message_id`.
 
@@ -24,36 +24,39 @@ The feature is named `redirect` to avoid conflicting with the existing quote-sty
 }
 ```
 
+`message_ids` must all belong to the same source room. The server rebuilds the redirected transcript snapshot in chronological order by message creation time, regardless of request order.
+
 ## Response
 
-Returns `200 OK` with a JSON array of the newly created destination `SnChatMessage` objects.
+Returns `200 OK` with a single newly created destination `SnChatMessage`.
 
-Each returned message is a newly created chat message in the destination room. It is not the original message.
+That message is a transcript container for the selected history section. It is not one cloned message per selected source message.
 
 ## Current Rules
 
 The current implementation is intentionally limited:
 
 - only text messages can be redirected
-- source messages must come from non-E2EE rooms
+- all selected messages must come from the same source room
+- source messages must come from a non-E2EE room
 - destination room must be a non-E2EE room
 - the caller must be an active member of the destination room
-- the caller must be an active member of every source room
+- the caller must be an active member of the source room
 - up to `100` messages can be redirected per request
 
 If any selected message does not exist or violates the constraints, the request is rejected.
 
 ## Redirect Message Shape
 
-Each redirected message is created as a normal new chat message with:
+The redirect action creates one normal new chat message with:
 
 - `type = "text"`
-- `content` copied from the source message
-- `attachments` copied from the source message
-- `forwarded_message_id` set to the original source message id for provenance
-- `meta.redirect` containing a frozen snapshot of the source message
+- `content = null`
+- no copied top-level attachments
+- `forwarded_message_id` set to the first message id in the selected history section for provenance
+- `meta.redirect` containing a frozen transcript snapshot
 
-The snapshot is used so the destination room can render redirect information even if the source message is later edited or deleted.
+The snapshot is used so the destination room can render the redirected chat history even if the source messages are later edited or deleted.
 
 ## `meta.redirect` Snapshot
 
@@ -62,110 +65,79 @@ The redirected message contains a `meta.redirect` object with this shape:
 ```json
 {
   "redirect": {
-    "version": 1,
-    "source_message_id": "11111111-1111-1111-1111-111111111111",
+    "version": 2,
+    "kind": "history_segment",
     "source_room_id": "33333333-3333-3333-3333-333333333333",
-    "source_sender_id": "44444444-4444-4444-4444-444444444444",
-    "source_sender_name": "alice",
-    "source_type": "text",
-    "source_content": "hello world",
-    "source_created_at": 1712345678901,
-    "source_attachments": [
+    "source_room": {
+      "id": "33333333-3333-3333-3333-333333333333",
+      "name": "General",
+      "description": null,
+      "type": "Group",
+      "is_community": false,
+      "is_public": false,
+      "encryption_mode": "None",
+      "realm_id": null,
+      "account_id": null,
+      "picture": null,
+      "background": null,
+      "created_at": 1712000000000,
+      "updated_at": 1712000000000
+    },
+    "range": {
+      "start_message_id": "11111111-1111-1111-1111-111111111111",
+      "end_message_id": "22222222-2222-2222-2222-222222222222",
+      "message_count": 2,
+      "started_at": 1712345678901,
+      "ended_at": 1712345680901
+    },
+    "messages": [
       {
-        "id": "file_id",
-        "name": "photo.png",
-        "mime_type": "image/png",
-        "size": 123456,
-        "url": null,
-        "width": 1280,
-        "height": 720,
-        "blurhash": null,
-        "has_compression": false
-      }
-    ],
-    "source_meta": {},
-    "source_message": {
-      "id": "11111111-1111-1111-1111-111111111111",
-      "type": "text",
-      "content": "hello world",
-      "meta": {},
-      "nonce": "nonce-value",
-      "edited_at": null,
-      "replied_message_id": null,
-      "forwarded_message_id": null,
-      "sender_id": "55555555-5555-5555-5555-555555555555",
-      "chat_room_id": "33333333-3333-3333-3333-333333333333",
-      "created_at": 1712345678901,
-      "updated_at": 1712345678901,
-      "deleted_at": null,
-      "attachments": [],
-      "reactions_count": {},
-      "sender": {
-        "id": "55555555-5555-5555-5555-555555555555",
+        "id": "11111111-1111-1111-1111-111111111111",
+        "type": "text",
+        "content": "hello world",
+        "meta": {},
+        "nonce": "nonce-value",
+        "edited_at": null,
+        "replied_message_id": null,
+        "forwarded_message_id": null,
+        "sender_id": "55555555-5555-5555-5555-555555555555",
         "chat_room_id": "33333333-3333-3333-3333-333333333333",
-        "account_id": "44444444-4444-4444-4444-444444444444",
-        "nick": "alice",
-        "realm_nick": null,
-        "realm_bio": null,
-        "realm_experience": null,
-        "realm_level": null,
-        "realm_leveling_progress": null,
-        "notify": "All",
-        "joined_at": 1712345600000,
-        "leave_at": null,
-        "created_at": 1712345600000,
-        "updated_at": 1712345600000,
-        "account": {
-          "id": "44444444-4444-4444-4444-444444444444",
-          "name": "alice",
-          "nick": "Alice",
-          "language": "en",
-          "region": "US",
-          "activated_at": 1712000000000,
-          "is_superuser": false,
-          "automated_id": null,
-          "profile": {
-            "id": "66666666-6666-6666-6666-666666666666",
-            "first_name": "Alice",
-            "middle_name": null,
-            "last_name": null,
-            "bio": null,
-            "gender": null,
-            "pronouns": null,
-            "time_zone": null,
-            "location": null,
-            "birthday": null,
-            "last_seen_at": null,
-            "experience": 0,
-            "level": 0,
-            "leveling_progress": 0,
-            "social_credits": 0,
-            "social_credits_level": 0,
-            "picture": null,
-            "background": null,
+        "created_at": 1712345678901,
+        "updated_at": 1712345678901,
+        "deleted_at": null,
+        "attachments": [],
+        "reactions_count": {},
+        "sender": {
+          "id": "55555555-5555-5555-5555-555555555555",
+          "chat_room_id": "33333333-3333-3333-3333-333333333333",
+          "account_id": "44444444-4444-4444-4444-444444444444",
+          "nick": "alice",
+          "realm_nick": null,
+          "realm_bio": null,
+          "realm_experience": null,
+          "realm_level": null,
+          "realm_leveling_progress": null,
+          "notify": "All",
+          "joined_at": 1712345600000,
+          "leave_at": null,
+          "created_at": 1712345600000,
+          "updated_at": 1712345600000,
+          "account": {
+            "id": "44444444-4444-4444-4444-444444444444",
+            "name": "alice",
+            "nick": "Alice",
+            "language": "en",
+            "region": "US",
+            "activated_at": 1712000000000,
+            "is_superuser": false,
+            "automated_id": null,
+            "profile": null,
             "created_at": 1712000000000,
             "updated_at": 1712000000000
-          },
-          "created_at": 1712000000000,
-          "updated_at": 1712000000000
+          }
         }
-      },
-      "chat_room": {
-        "id": "33333333-3333-3333-3333-333333333333",
-        "name": "General",
-        "description": null,
-        "type": "Group",
-        "is_community": false,
-        "is_public": false,
-        "encryption_mode": "None",
-        "realm_id": null,
-        "account_id": null,
-        "picture": null,
-        "background": null,
-        "created_at": 1712000000000,
-        "updated_at": 1712000000000
       }
-    },
+    ],
     "redirected_by": {
       "id": "77777777-7777-7777-7777-777777777777",
       "chat_room_id": "88888888-8888-8888-8888-888888888888",
@@ -214,11 +186,13 @@ The redirected message contains a `meta.redirect` object with this shape:
 }
 ```
 
-`source_message` is a preloaded snapshot of the original message entry. It is intended to give clients enough data to render the redirected message card without performing an extra fetch for sender or attachment context.
+The most important fields are:
 
-`redirected_by` is a snapshot of the member who performed the redirect in the destination room.
-
-`redirected_to_room` is a snapshot of the destination room at redirect time.
+- `source_room`: snapshot of the original chat room
+- `range`: summary of the selected history section
+- `messages`: full preloaded message-entry snapshots in chronological order
+- `redirected_by`: snapshot of the member who performed the redirect in the destination room
+- `redirected_to_room`: snapshot of the destination room at redirect time
 
 ## Snapshot Semantics
 
@@ -226,23 +200,21 @@ The redirect snapshot is frozen at redirect time.
 
 That means:
 
-- later edits to the source message do not rewrite redirected messages
-- later deletion of the source message does not erase the redirected snapshot
-- destination room rendering should prefer `meta.redirect.source_message` for redirect card UI
+- later edits to source messages do not rewrite redirected messages
+- later deletion of source messages does not erase the redirected snapshot
+- destination room rendering should prefer `meta.redirect.messages` and `meta.redirect.source_room` for transcript UI
 
 ## Notes For Clients
 
-Clients can detect redirected messages by checking for `meta.redirect`.
+Clients can detect redirected transcript messages by checking for `meta.redirect.kind == "history_segment"`.
 
 Recommended rendering behavior:
 
-- show the destination message as a redirected message card
-- use `meta.redirect.source_message.sender` as the original sender payload
-- use `meta.redirect.source_message.attachments` for attachment rendering
-- use `meta.redirect.source_message.content` as the main snapshot body
-- use `meta.redirect.redirected_by` if the UI wants to explicitly label who redirected the message
-- fall back to `source_sender_name`, `source_content`, and `source_attachments` only if the client wants a simpler contract
-- optionally use `forwarded_message_id` as a provenance link when the client knows the user can still access the original room/message
+- show the destination message as a redirected history card
+- use `meta.redirect.source_room` as the original room label
+- use `meta.redirect.messages` to render the transcript entries in order
+- use each message entry's `sender` and `attachments` snapshots directly without extra fetches
+- use `meta.redirect.redirected_by` if the UI wants to explicitly label who redirected the history section
 
 ## Error Cases
 
@@ -251,10 +223,11 @@ Common error responses include:
 - `400 Bad Request` when `message_ids` is empty
 - `400 Bad Request` when more than `100` messages are requested
 - `400 Bad Request` when one or more source messages do not exist
+- `400 Bad Request` when selected messages span multiple source rooms
 - `400 Bad Request` when any selected message is not a text message
 - `400 Bad Request` when source or destination room is encrypted
 - `403 Forbidden` when the caller is not a current member of the destination room
-- `403 Forbidden` when the caller is not a current member of one or more source rooms
+- `403 Forbidden` when the caller is not a current member of the source room
 
 ## Non-Goals In Current Version
 
@@ -266,4 +239,4 @@ The current implementation does not support:
 - adding a user-authored comment above redirected content
 - partial success for mixed-validity batches
 
-These can be added later without changing the basic `meta.redirect` contract.
+These can be added later without changing the basic transcript-style `meta.redirect` contract.

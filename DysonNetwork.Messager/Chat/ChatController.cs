@@ -799,7 +799,7 @@ public partial class ChatController(
     [HttpPost("{roomId:guid}/messages/redirect")]
     [Authorize]
     [AskPermission("chat.messages.create")]
-    public async Task<ActionResult<List<SnChatMessage>>> RedirectMessages([FromBody] RedirectMessagesRequest request, Guid roomId)
+    public async Task<ActionResult<SnChatMessage>> RedirectMessages([FromBody] RedirectMessagesRequest request, Guid roomId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
@@ -830,15 +830,18 @@ public partial class ChatController(
             .OrderBy(m => messageIds.IndexOf(m.Id))
             .ToList();
 
-        if (sourceMessages.Any(m => m.Type != "text"))
-            return BadRequest("Only regular text messages can be redirected right now.");
-        if (sourceMessages.Any(m => m.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None))
-            return BadRequest("Redirect is not supported for encrypted source messages.");
-
         var sourceRoomIds = sourceMessages
             .Select(m => m.ChatRoomId)
             .Distinct()
             .ToList();
+
+        if (sourceMessages.Any(m => m.Type != "text"))
+            return BadRequest("Only regular text messages can be redirected right now.");
+        if (sourceMessages.Any(m => m.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None))
+            return BadRequest("Redirect is not supported for encrypted source messages.");
+        if (sourceRoomIds.Count != 1)
+            return BadRequest("You can only redirect a section of history from one source chat room at a time.");
+
         var joinedSourceRoomIds = await db.ChatMembers
             .Where(m => m.AccountId == accountId && sourceRoomIds.Contains(m.ChatRoomId))
             .Where(m => m.JoinedAt != null && m.LeaveAt == null)
@@ -870,30 +873,27 @@ public partial class ChatController(
                 sourceMessage.Sender = hydratedSender;
         }
 
-        var redirectedMessages = new List<SnChatMessage>(sourceMessages.Count);
-        foreach (var sourceMessage in sourceMessages)
-        {
-            var mentionedUsers = await ExtractMentionedUsersAsync(
-                sourceMessage.Content,
-                null,
-                null,
-                roomId,
-                accountId
-            );
+        sourceMessages = sourceMessages
+            .OrderBy(m => m.CreatedAt)
+            .ThenBy(m => m.Id)
+            .ToList();
 
-            var redirectedMessage = await cs.RedirectMessageAsync(
-                sourceMessage,
-                sourceMessage.Sender,
-                destinationMember,
-                destinationMember.ChatRoom,
-                mentionedUsers,
-                Request.GetClientIpAddress()
-            );
+        var sourceSendersById = sourceMessages
+            .Select(m => m.Sender)
+            .DistinctBy(m => m.Id)
+            .ToDictionary(m => m.Id, m => m);
 
-            redirectedMessages.Add(redirectedMessage);
-        }
+        var sourceRoom = sourceMessages.First().ChatRoom;
+        var redirectedMessage = await cs.RedirectMessagesAsync(
+            sourceMessages,
+            sourceRoom,
+            sourceSendersById,
+            destinationMember,
+            destinationMember.ChatRoom,
+            Request.GetClientIpAddress()
+        );
 
-        return Ok(redirectedMessages);
+        return Ok(redirectedMessage);
     }
 
     [HttpGet("{roomId:guid}/voice/{voiceId:guid}")]
