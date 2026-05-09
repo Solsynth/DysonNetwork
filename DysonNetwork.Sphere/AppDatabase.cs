@@ -28,6 +28,7 @@ public class AppDatabase(
     public DbSet<SnPostTag> PostTags { get; set; } = null!;
     public DbSet<SnPostCategory> PostCategories { get; set; } = null!;
     public DbSet<SnPostCollection> PostCollections { get; set; } = null!;
+    public DbSet<SnPostCollectionItem> PostCollectionItems { get; set; } = null!;
     public DbSet<SnPostFeaturedRecord> PostFeaturedRecords { get; set; } = null!;
     public DbSet<SnPostCategorySubscription> PostCategorySubscriptions { get; set; } = null!;
     public DbSet<SnPostInterestProfile> PostInterestProfiles { get; set; } = null!;
@@ -150,10 +151,30 @@ public class AppDatabase(
             .HasMany(p => p.Categories)
             .WithMany(c => c.Posts)
             .UsingEntity(j => j.ToTable("post_category_links"));
-        modelBuilder.Entity<SnPost>()
-            .HasMany(p => p.Collections)
-            .WithMany(c => c.Posts)
-            .UsingEntity(j => j.ToTable("post_collection_links"));
+        modelBuilder.Entity<SnPostCollection>()
+            .HasIndex(c => new { c.PublisherId, c.Slug, c.DeletedAt })
+            .IsUnique();
+        modelBuilder.Entity<SnPostCollection>()
+            .HasOne(c => c.Publisher)
+            .WithMany(p => p.Collections)
+            .HasForeignKey(c => c.PublisherId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnPostCollectionItem>()
+            .HasIndex(i => new { i.CollectionId, i.PostId, i.DeletedAt })
+            .IsUnique();
+        modelBuilder.Entity<SnPostCollectionItem>()
+            .HasIndex(i => new { i.CollectionId, i.Order });
+        modelBuilder.Entity<SnPostCollectionItem>()
+            .HasOne(i => i.Collection)
+            .WithMany(c => c.Items)
+            .HasForeignKey(i => i.CollectionId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnPostCollectionItem>()
+            .HasOne(i => i.Post)
+            .WithMany(p => p.CollectionItems)
+            .HasForeignKey(i => i.PostId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnFediverseActor>()
             .HasOne(a => a.Instance)

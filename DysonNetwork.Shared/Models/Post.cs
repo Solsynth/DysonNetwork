@@ -190,7 +190,10 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
     public List<SnPostCategory> Categories { get; set; } = [];
 
     [JsonIgnore]
-    public List<SnPostCollection> Collections { get; set; } = [];
+    public List<SnPostCollectionItem> CollectionItems { get; set; } = [];
+
+    [NotMapped]
+    public List<SnPostCollection> PublisherCollections { get; set; } = [];
     public List<SnPostFeaturedRecord> FeaturedRecords { get; set; } = [];
 
     [JsonIgnore]
@@ -592,7 +595,7 @@ public class SnPostCategorySubscription : ModelBase
 
 public class SnPostCollection : ModelBase
 {
-    public Guid Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     [MaxLength(128)]
     public string Slug { get; set; } = null!;
@@ -603,9 +606,68 @@ public class SnPostCollection : ModelBase
     [MaxLength(4096)]
     public string? Description { get; set; }
 
+    public Guid PublisherId { get; set; }
     public SnPublisher Publisher { get; set; } = null!;
 
-    public List<SnPost> Posts { get; set; } = new List<SnPost>();
+    [JsonIgnore]
+    public List<SnPostCollectionItem> Items { get; set; } = [];
+
+    [NotMapped]
+    public List<SnPost> Posts { get; set; } = [];
+
+    public DyPostCollection ToProtoValue()
+    {
+        var proto = new DyPostCollection
+        {
+            Id = Id.ToString(),
+            Slug = Slug,
+            Publisher = Publisher.ToProtoValue(),
+            PublisherId = PublisherId.ToString(),
+            CreatedAt = Timestamp.FromDateTimeOffset(CreatedAt.ToDateTimeOffset()),
+            UpdatedAt = Timestamp.FromDateTimeOffset(UpdatedAt.ToDateTimeOffset()),
+        };
+
+        if (Name != null)
+            proto.Name = Name;
+        if (Description != null)
+            proto.Description = Description;
+
+        proto.Posts.AddRange(Posts.Select(p => p.ToProtoValue()));
+        return proto;
+    }
+
+    public static SnPostCollection FromProtoValue(DyPostCollection proto)
+    {
+        return new SnPostCollection
+        {
+            Id = Guid.Parse(proto.Id),
+            Slug = proto.Slug,
+            Name = proto.Name,
+            Description = proto.Description,
+            PublisherId = !string.IsNullOrEmpty(proto.PublisherId)
+                ? Guid.Parse(proto.PublisherId)
+                : Guid.Parse(proto.Publisher.Id),
+            Publisher = SnPublisher.FromProtoValue(proto.Publisher),
+            Posts = proto.Posts.Select(SnPost.FromProtoValue).ToList(),
+            CreatedAt = Instant.FromDateTimeOffset(proto.CreatedAt.ToDateTimeOffset()),
+            UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset()),
+        };
+    }
+}
+
+public class SnPostCollectionItem : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    public Guid CollectionId { get; set; }
+    [JsonIgnore]
+    public SnPostCollection Collection { get; set; } = null!;
+
+    public Guid PostId { get; set; }
+    [JsonIgnore]
+    public SnPost Post { get; set; } = null!;
+
+    public int Order { get; set; }
 }
 
 public class SnPostFeaturedRecord : ModelBase

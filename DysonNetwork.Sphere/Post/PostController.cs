@@ -16,6 +16,7 @@ namespace DysonNetwork.Sphere.Post;
 public class PostController(
     AppDatabase db,
     PostService ps,
+    PostCollectionService pcs,
     PublisherService pub,
     RemoteAccountService remoteAccountsHelper,
     DyProfileService.DyProfileServiceClient accounts,
@@ -366,6 +367,7 @@ public class PostController(
 
         posts = await ps.LoadPostInfo(posts, currentUser, true);
 
+        await pcs.LoadPublisherCollectionsAsync(posts);
         await LoadPostsRealmsAsync(posts, rs);
 
         Response.Headers["X-Total"] = totalCount.ToString();
@@ -438,6 +440,7 @@ public class PostController(
         }
 
         post = await ps.LoadPostInfo(post, currentUser);
+        await pcs.LoadPublisherCollectionsAsync([post]);
         if (post.RealmId != null)
         {
             post.Realm = await rs.GetRealm(post.RealmId.Value.ToString());
@@ -494,6 +497,7 @@ public class PostController(
         }
 
         post = await ps.LoadPostInfo(post, currentUser);
+        await pcs.LoadPublisherCollectionsAsync([post]);
         if (post.RealmId != null)
             post.Realm = await rs.GetRealm(post.RealmId.Value.ToString());
 
@@ -653,6 +657,7 @@ public class PostController(
         }
 
         prevPost = await ps.LoadPostInfo(prevPost, currentUser);
+        await pcs.LoadPublisherCollectionsAsync([prevPost]);
         if (prevPost.RealmId != null)
             prevPost.Realm = await rs.GetRealm(prevPost.RealmId.Value.ToString());
 
@@ -807,6 +812,7 @@ public class PostController(
         }
 
         nextPost = await ps.LoadPostInfo(nextPost, currentUser);
+        await pcs.LoadPublisherCollectionsAsync([nextPost]);
         if (nextPost.RealmId != null)
             nextPost.Realm = await rs.GetRealm(nextPost.RealmId.Value.ToString());
 
@@ -891,6 +897,7 @@ public class PostController(
         if (post is null)
             return NotFound();
         post = await ps.LoadPostInfo(post, currentUser, true);
+        await pcs.LoadPublisherCollectionsAsync([post]);
 
         return Ok(post);
     }
@@ -926,6 +933,7 @@ public class PostController(
             .FilterWithVisibility(currentUser, userFriends, userPublishers, gatekeptPublisherIds: gatekeptPublisherIds, followerPublisherIds: subscriberPublisherIds)
             .ToListAsync();
         posts = await ps.LoadPostInfo(posts, currentUser);
+        await pcs.LoadPublisherCollectionsAsync(posts);
 
         return Ok(posts);
     }
@@ -978,6 +986,7 @@ public class PostController(
             .Take(take)
             .ToListAsync();
         posts = await ps.LoadPostInfo(posts, currentUser, true);
+        await pcs.LoadPublisherCollectionsAsync(posts);
 
         var postsId = posts.Select(e => e.Id).ToList();
         var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
@@ -1042,6 +1051,7 @@ public class PostController(
             .ToListAsync();
 
         rootReplies = await ps.LoadPostInfo(rootReplies, currentUser, true);
+        await pcs.LoadPublisherCollectionsAsync(rootReplies);
 
         Response.Headers["X-Total"] = totalCount.ToString();
 
@@ -1070,6 +1080,7 @@ public class PostController(
                 break;
 
             children = await ps.LoadPostInfo(children, currentUser, true);
+            await pcs.LoadPublisherCollectionsAsync(children);
 
             foreach (var child in children)
             {
@@ -1144,6 +1155,7 @@ public class PostController(
             .ToListAsync();
 
         posts = await ps.LoadPostInfo(posts, currentUser, true);
+        await pcs.LoadPublisherCollectionsAsync(posts);
 
         var postsId = posts.Select(e => e.Id).ToList();
         var reactionMaps = await ps.GetPostReactionMapBatch(postsId);
