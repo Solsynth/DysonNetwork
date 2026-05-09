@@ -588,6 +588,30 @@ public partial class ChatService(
             .OrderBy(m => m.CreatedAt)
             .ToList();
 
+        if (orderedMessages.Count == 1)
+        {
+            var sourceMessage = orderedMessages[0];
+            var sourceSender = sourceSenders[sourceMessage.SenderId];
+
+            return new Dictionary<string, object>
+            {
+                ["version"] = 1,
+                ["source_message_id"] = sourceMessage.Id,
+                ["source_room_id"] = sourceRoom.Id,
+                ["source_room"] = BuildRedirectRoomSnapshot(sourceRoom),
+                ["source_sender_id"] = sourceSender.AccountId,
+                ["source_sender_name"] = sourceSender.Nick ?? sourceSender.RealmNick ?? sourceSender.Account?.Nick ?? "Someone",
+                ["source_type"] = sourceMessage.Type,
+                ["source_content"] = sourceMessage.Content ?? string.Empty,
+                ["source_created_at"] = sourceMessage.CreatedAt.ToUnixTimeMilliseconds(),
+                ["source_attachments"] = BuildRedirectAttachmentSnapshot(sourceMessage.Attachments),
+                ["source_meta"] = CloneRedirectMeta(sourceMessage.Meta),
+                ["source_message"] = BuildRedirectMessageEntrySnapshot(sourceMessage, sourceSender),
+                ["redirected_by"] = BuildRedirectSenderSnapshot(redirector),
+                ["redirected_to_room"] = BuildRedirectRoomSnapshot(destinationRoom),
+            };
+        }
+
         return new Dictionary<string, object>
         {
             ["version"] = 2,

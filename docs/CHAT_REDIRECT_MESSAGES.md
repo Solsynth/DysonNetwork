@@ -58,9 +58,18 @@ The redirect action creates one normal new chat message with:
 
 The snapshot is used so the destination room can render the redirected chat history even if the source messages are later edited or deleted.
 
+## Versioning
+
+The redirect snapshot uses two payload versions:
+
+- `version = 1` when exactly one source message is redirected
+- `version = 2` when multiple source messages are redirected as a history segment
+
+This keeps the simpler single-message redirect payload available for clients that already understand the original contract.
+
 ## `meta.redirect` Snapshot
 
-The redirected message contains a `meta.redirect` object with this shape:
+When multiple source messages are redirected, `meta.redirect` has this shape:
 
 ```json
 {
@@ -194,6 +203,22 @@ The most important fields are:
 - `redirected_by`: snapshot of the member who performed the redirect in the destination room
 - `redirected_to_room`: snapshot of the destination room at redirect time
 
+When exactly one source message is redirected, `meta.redirect` stays on `version = 1` and uses the single-message shape with:
+
+- `source_message_id`
+- `source_room_id`
+- `source_room`
+- `source_sender_id`
+- `source_sender_name`
+- `source_type`
+- `source_content`
+- `source_created_at`
+- `source_attachments`
+- `source_meta`
+- `source_message`
+- `redirected_by`
+- `redirected_to_room`
+
 ## Snapshot Semantics
 
 The redirect snapshot is frozen at redirect time.
@@ -206,7 +231,9 @@ That means:
 
 ## Notes For Clients
 
-Clients can detect redirected transcript messages by checking for `meta.redirect.kind == "history_segment"`.
+Clients can detect redirected transcript messages by checking for `meta.redirect.version == 2` or `meta.redirect.kind == "history_segment"`.
+
+Clients can detect single-message redirects by checking for `meta.redirect.version == 1`.
 
 Recommended rendering behavior:
 
