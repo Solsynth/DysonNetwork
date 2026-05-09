@@ -1,31 +1,42 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Registry;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.Publisher;
 
 [ApiController]
 [Route("/api/publishers")]
-public class PublisherPublicController(AppDatabase db, RemoteAccountService accounts, PublisherService ps, PublisherRatingService ratingService, PublisherLeaderboardService leaderboardService) : ControllerBase
+public class PublisherPublicController(
+    AppDatabase db,
+    RemoteAccountService accounts,
+    PublisherService ps,
+    PublisherRatingService ratingService,
+    PublisherLeaderboardService leaderboardService
+) : ControllerBase
 {
     [HttpGet("search")]
-    public async Task<ActionResult<List<SnPublisher>>> SearchPublishers([FromQuery] string query, [FromQuery] int take = 20)
+    public async Task<ActionResult<List<SnPublisher>>> SearchPublishers(
+        [FromQuery] string query,
+        [FromQuery] int take = 20
+    )
     {
         if (string.IsNullOrWhiteSpace(query))
             return Ok(new List<SnPublisher>());
-        
+
         // Use PublisherService to load individual publisher accounts efficiently
-        var publishers = await db.Publishers
-            .Where(a => EF.Functions.ILike(a.Name, $"%{query}%") ||
-                        EF.Functions.ILike(a.Nick, $"%{query}%") ||
-                        (a.Bio != null && EF.Functions.ILike(a.Bio, $"%{query}%")))
+        var publishers = await db
+            .Publishers.Where(a =>
+                EF.Functions.ILike(a.Name, $"%{query}%")
+                || EF.Functions.ILike(a.Nick, $"%{query}%")
+                || (a.Bio != null && EF.Functions.ILike(a.Bio, $"%{query}%"))
+            )
             .Take(take)
             .ToListAsync();
-        
+
         // Load individual publisher accounts in batch to avoid N+1 queries
         var publishersWithAccounts = await ps.LoadIndividualPublisherAccounts(publishers);
-        
+
         return Ok(publishersWithAccounts);
     }
 
@@ -38,7 +49,11 @@ public class PublisherPublicController(AppDatabase db, RemoteAccountService acco
         if (publisher.AccountId is null)
             return Ok(publisher);
 
-        publisher.Account = SnAccount.FromProtoValue(await accounts.GetAccount(publisher.AccountId.Value));
+        var data = await ps.HydratePublisherRealm([publisher]);
+        publisher = data.First();
+        publisher.Account = SnAccount.FromProtoValue(
+            await accounts.GetAccount(publisher.AccountId!.Value)
+        );
 
         return Ok(publisher);
     }
@@ -103,10 +118,9 @@ public class PublisherPublicController(AppDatabase db, RemoteAccountService acco
     }
 
     [HttpGet("leaderboard")]
-    public async Task<ActionResult<List<PublisherLeaderboardService.LeaderboardEntry>>> GetLeaderboard(
-        [FromQuery] int take = 20,
-        [FromQuery] int offset = 0
-    )
+    public async Task<
+        ActionResult<List<PublisherLeaderboardService.LeaderboardEntry>>
+    > GetLeaderboard([FromQuery] int take = 20, [FromQuery] int offset = 0)
     {
         var total = await leaderboardService.GetTotalPublishers();
         HttpContext.Response.Headers["X-Total"] = total.ToString();
@@ -116,7 +130,9 @@ public class PublisherPublicController(AppDatabase db, RemoteAccountService acco
     }
 
     [HttpGet("{name}/rating/overview")]
-    public async Task<ActionResult<PublisherLeaderboardService.RatingOverview>> GetRatingOverview(string name)
+    public async Task<ActionResult<PublisherLeaderboardService.RatingOverview>> GetRatingOverview(
+        string name
+    )
     {
         var overview = await leaderboardService.GetOverviewByName(name);
         if (overview is null)
