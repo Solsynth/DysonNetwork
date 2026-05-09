@@ -1,10 +1,9 @@
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Sphere.Live;
 using Microsoft.EntityFrameworkCore;
-using DysonNetwork.Shared.Localization;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Publisher;
@@ -34,10 +33,9 @@ public class PublisherSubscriptionService(
     /// <returns>True if an active subscription exists, false otherwise</returns>
     public async Task<bool> SubscriptionExistsAsync(Guid accountId, Guid publisherId)
     {
-        return await db.PublisherSubscriptions
-            .AnyAsync(p => p.AccountId == accountId &&
-                            p.PublisherId == publisherId &&
-                            p.EndedAt == null);
+        return await db.PublisherSubscriptions.AnyAsync(p =>
+            p.AccountId == accountId && p.PublisherId == publisherId && p.EndedAt == null
+        );
     }
 
     /// <summary>
@@ -46,13 +44,16 @@ public class PublisherSubscriptionService(
     /// <param name="accountId">The account ID</param>
     /// <param name="publisherId">The publisher ID</param>
     /// <returns>The subscription or null if not found</returns>
-    public async Task<SnPublisherSubscription?> GetSubscriptionAsync(Guid accountId, Guid publisherId)
+    public async Task<SnPublisherSubscription?> GetSubscriptionAsync(
+        Guid accountId,
+        Guid publisherId
+    )
     {
-        return await db.PublisherSubscriptions
-            .Include(p => p.Publisher)
-            .FirstOrDefaultAsync(p => p.AccountId == accountId && 
-                                       p.PublisherId == publisherId && 
-                                       p.EndedAt == null);
+        return await db
+            .PublisherSubscriptions.Include(p => p.Publisher)
+            .FirstOrDefaultAsync(p =>
+                p.AccountId == accountId && p.PublisherId == publisherId && p.EndedAt == null
+            );
     }
 
     /// <summary>
@@ -61,10 +62,13 @@ public class PublisherSubscriptionService(
     /// <param name="accountId">The account ID</param>
     /// <param name="publisherId">The publisher ID</param>
     /// <returns>The subscription or null if not found</returns>
-    public async Task<SnPublisherSubscription?> GetSubscriptionIncludingEndedAsync(Guid accountId, Guid publisherId)
+    public async Task<SnPublisherSubscription?> GetSubscriptionIncludingEndedAsync(
+        Guid accountId,
+        Guid publisherId
+    )
     {
-        return await db.PublisherSubscriptions
-            .Include(p => p.Publisher)
+        return await db
+            .PublisherSubscriptions.Include(p => p.Publisher)
             .FirstOrDefaultAsync(p => p.AccountId == accountId && p.PublisherId == publisherId);
     }
 
@@ -90,12 +94,9 @@ public class PublisherSubscriptionService(
             return await NotifyFollowersPost(post);
         }
 
-        // Create notification data
-        var (title, message) = ps.ChopPostForNotification(post);
-
         // Gather subscribers
-        var subscribers = await db.PublisherSubscriptions
-            .Where(p => p.PublisherId == post.PublisherId)
+        var subscribers = await db
+            .PublisherSubscriptions.Where(p => p.PublisherId == post.PublisherId)
             .ToListAsync();
         if (subscribers.Count == 0)
             return 0;
@@ -104,8 +105,10 @@ public class PublisherSubscriptionService(
         if (post.Categories.Count > 0)
         {
             var categoryIds = post.Categories.Select(x => x.Id).ToList();
-            var subs = await db.PostCategorySubscriptions
-                .Where(s => s.CategoryId != null && categoryIds.Contains(s.CategoryId.Value))
+            var subs = await db
+                .PostCategorySubscriptions.Where(s =>
+                    s.CategoryId != null && categoryIds.Contains(s.CategoryId.Value)
+                )
                 .ToListAsync();
             categorySubscribers.AddRange(subs);
         }
@@ -113,8 +116,10 @@ public class PublisherSubscriptionService(
         if (post.Tags.Count > 0)
         {
             var tagIds = post.Tags.Select(x => x.Id).ToList();
-            var subs = await db.PostCategorySubscriptions
-                .Where(s => s.TagId != null && tagIds.Contains(s.TagId.Value))
+            var subs = await db
+                .PostCategorySubscriptions.Where(s =>
+                    s.TagId != null && tagIds.Contains(s.TagId.Value)
+                )
                 .ToListAsync();
             categorySubscribers.AddRange(subs);
         }
@@ -133,12 +138,16 @@ public class PublisherSubscriptionService(
         {
             try
             {
+                // Create notification data
+                var (title, message) = ps.ChopPostForNotification(post, target.Key);
+
                 var notification = ps.BuildPostNotification(
+                    locale: target.Key,
                     topic: "posts.new",
                     title: localizer.Get(
                         "postSubscriptionTitle",
                         locale: target.Key,
-                        args: new { publisher = post.Publisher!.Nick, title }
+                        args: new { publisher = post.Publisher!.Nick }
                     ),
                     body: message,
                     post: post,
@@ -147,7 +156,10 @@ public class PublisherSubscriptionService(
                         ["notification_type"] = "subscription",
                     }
                 );
-                var request = new DySendPushNotificationToUsersRequest { Notification = notification };
+                var request = new DySendPushNotificationToUsersRequest
+                {
+                    Notification = notification,
+                };
                 request.UserIds.AddRange(target.Select(x => x.Id.ToString()));
                 await pusher.SendPushNotificationToUsersAsync(request);
                 notifiedCount++;
@@ -164,10 +176,10 @@ public class PublisherSubscriptionService(
 
     private async Task<int> NotifyFollowersPost(SnPost post)
     {
-        var (title, message) = ps.ChopPostForNotification(post);
-
-        var followers = await db.PublisherFollowRequests
-            .Where(r => r.PublisherId == post.PublisherId && r.State == FollowRequestState.Accepted)
+        var followers = await db
+            .PublisherFollowRequests.Where(r =>
+                r.PublisherId == post.PublisherId && r.State == FollowRequestState.Accepted
+            )
             .ToListAsync();
         if (followers.Count == 0)
             return 0;
@@ -183,12 +195,15 @@ public class PublisherSubscriptionService(
         {
             try
             {
+                var (title, message) = ps.ChopPostForNotification(post, target.Key);
+
                 var notification = ps.BuildPostNotification(
+                    locale: target.Key,
                     topic: "posts.new",
                     title: localizer.Get(
                         "postSubscriptionTitle",
                         locale: target.Key,
-                        args: new { publisher = post.Publisher!.Nick, title }
+                        args: new { publisher = post.Publisher!.Nick }
                     ),
                     body: message,
                     post: post,
@@ -198,14 +213,15 @@ public class PublisherSubscriptionService(
                         ["require_follow"] = true,
                     }
                 );
-                var request = new DySendPushNotificationToUsersRequest { Notification = notification };
+                var request = new DySendPushNotificationToUsersRequest
+                {
+                    Notification = notification,
+                };
                 request.UserIds.AddRange(target.Select(x => x.Id.ToString()));
                 await pusher.SendPushNotificationToUsersAsync(request);
                 notifiedCount++;
             }
-            catch (Exception)
-            {
-            }
+            catch (Exception) { }
         }
 
         return notifiedCount;
@@ -229,7 +245,7 @@ public class PublisherSubscriptionService(
         var data = new Dictionary<string, object>
         {
             ["livestream_id"] = liveStream.Id.ToString(),
-            ["publisher_id"] = liveStream.PublisherId.Value.ToString()
+            ["publisher_id"] = liveStream.PublisherId.Value.ToString(),
         };
 
         if (liveStream.Thumbnail is not null)
@@ -238,8 +254,8 @@ public class PublisherSubscriptionService(
         if (liveStream.Publisher.Picture is not null)
             data["pfp"] = liveStream.Publisher.Picture.Id;
 
-        var subscribers = await db.PublisherSubscriptions
-            .Where(p => p.PublisherId == liveStream.PublisherId)
+        var subscribers = await db
+            .PublisherSubscriptions.Where(p => p.PublisherId == liveStream.PublisherId)
             .ToListAsync();
 
         if (subscribers.Count == 0)
@@ -257,20 +273,25 @@ public class PublisherSubscriptionService(
                 var notification = new DyPushNotification
                 {
                     Topic = "livestream.started",
-                    Title = localizer.Get("liveStreamStartedTitle", locale: target.Key, args: new { publisher = publisherName }),
+                    Title = localizer.Get(
+                        "liveStreamStartedTitle",
+                        locale: target.Key,
+                        args: new { publisher = publisherName }
+                    ),
                     Body = title,
                     Meta = InfraObjectCoder.ConvertObjectToByteString(data),
                     IsSavable = true,
-                    ActionUri = $"/livestreams/{liveStream.Id}"
+                    ActionUri = $"/livestreams/{liveStream.Id}",
                 };
-                var request = new DySendPushNotificationToUsersRequest { Notification = notification };
+                var request = new DySendPushNotificationToUsersRequest
+                {
+                    Notification = notification,
+                };
                 request.UserIds.AddRange(target.Select(x => x.Id.ToString()));
                 await pusher.SendPushNotificationToUsersAsync(request);
                 notifiedCount++;
             }
-            catch (Exception)
-            {
-            }
+            catch (Exception) { }
         }
 
         return notifiedCount;
@@ -283,8 +304,8 @@ public class PublisherSubscriptionService(
     /// <returns>A list of active subscriptions</returns>
     public async Task<List<SnPublisherSubscription>> GetAccountSubscriptionsAsync(Guid accountId)
     {
-        return await db.PublisherSubscriptions
-            .Include(p => p.Publisher)
+        return await db
+            .PublisherSubscriptions.Include(p => p.Publisher)
             .Where(p => p.AccountId == accountId)
             .ToListAsync();
     }
@@ -296,8 +317,8 @@ public class PublisherSubscriptionService(
     /// <returns>A list of active subscriptions</returns>
     public async Task<List<SnPublisherSubscription>> GetPublisherSubscribersAsync(Guid publisherId)
     {
-        return await db.PublisherSubscriptions
-            .Where(p => p.PublisherId == publisherId)
+        return await db
+            .PublisherSubscriptions.Where(p => p.PublisherId == publisherId)
             .ToListAsync();
     }
 
@@ -309,33 +330,33 @@ public class PublisherSubscriptionService(
         if (ids.Count == 0)
             return [];
 
-        var latestPosts = await db.Posts
-            .Where(p =>
-                p.PublisherId.HasValue &&
-                ids.Contains(p.PublisherId.Value) &&
-                p.RepliedPostId == null &&
-                p.Visibility == Shared.Models.PostVisibility.Public
+        var latestPosts = await db
+            .Posts.Where(p =>
+                p.PublisherId.HasValue
+                && ids.Contains(p.PublisherId.Value)
+                && p.RepliedPostId == null
+                && p.Visibility == Shared.Models.PostVisibility.Public
             )
             .GroupBy(p => p.PublisherId!.Value)
             .Select(g => new
             {
                 PublisherId = g.Key,
-                LatestContentAt = g.Max(p => p.PublishedAt ?? p.CreatedAt)
+                LatestContentAt = g.Max(p => p.PublishedAt ?? p.CreatedAt),
             })
             .ToListAsync();
 
-        var latestLiveStreams = await db.LiveStreams
-            .Where(ls =>
-                ls.PublisherId.HasValue &&
-                ids.Contains(ls.PublisherId.Value) &&
-                ls.Visibility == Shared.Models.LiveStreamVisibility.Public &&
-                ls.StartedAt != null
+        var latestLiveStreams = await db
+            .LiveStreams.Where(ls =>
+                ls.PublisherId.HasValue
+                && ids.Contains(ls.PublisherId.Value)
+                && ls.Visibility == Shared.Models.LiveStreamVisibility.Public
+                && ls.StartedAt != null
             )
             .GroupBy(ls => ls.PublisherId!.Value)
             .Select(g => new
             {
                 PublisherId = g.Key,
-                LatestContentAt = g.Max(ls => ls.StartedAt ?? ls.CreatedAt)
+                LatestContentAt = g.Max(ls => ls.StartedAt ?? ls.CreatedAt),
             })
             .ToListAsync();
 
@@ -346,9 +367,11 @@ public class PublisherSubscriptionService(
 
         foreach (var item in latestLiveStreams)
         {
-            if (!latestContentAt.TryGetValue(item.PublisherId, out var current) ||
-                current == null ||
-                item.LatestContentAt > current)
+            if (
+                !latestContentAt.TryGetValue(item.PublisherId, out var current)
+                || current == null
+                || item.LatestContentAt > current
+            )
             {
                 latestContentAt[item.PublisherId] = item.LatestContentAt;
             }
@@ -366,14 +389,17 @@ public class PublisherSubscriptionService(
         if (subscription is null)
             return null;
 
-        var latestContentAt = (await GetLatestContentAtForPublishersAsync([publisherId]))[publisherId];
+        var latestContentAt = (await GetLatestContentAtForPublishersAsync([publisherId]))[
+            publisherId
+        ];
 
         return new SubscriptionReadStatus
         {
             Subscription = subscription,
             LatestContentAt = latestContentAt,
-            HasNewContent = latestContentAt != null &&
-                            (subscription.LastReadAt == null || latestContentAt > subscription.LastReadAt)
+            HasNewContent =
+                latestContentAt != null
+                && (subscription.LastReadAt == null || latestContentAt > subscription.LastReadAt),
         };
     }
 
@@ -420,7 +446,9 @@ public class PublisherSubscriptionService(
             endedSubscription.Notify = true;
             db.PublisherSubscriptions.Update(endedSubscription);
             await db.SaveChangesAsync();
-            await cache.RemoveAsync(string.Format(PublisherService.SubscribedPublishersCacheKey, accountId));
+            await cache.RemoveAsync(
+                string.Format(PublisherService.SubscribedPublishersCacheKey, accountId)
+            );
             return endedSubscription;
         }
 
@@ -434,7 +462,9 @@ public class PublisherSubscriptionService(
         db.PublisherSubscriptions.Add(subscription);
         await db.SaveChangesAsync();
 
-        await cache.RemoveAsync(string.Format(PublisherService.SubscribedPublishersCacheKey, accountId));
+        await cache.RemoveAsync(
+            string.Format(PublisherService.SubscribedPublishersCacheKey, accountId)
+        );
 
         return subscription;
     }
@@ -456,7 +486,9 @@ public class PublisherSubscriptionService(
         db.PublisherSubscriptions.Update(subscription);
         await db.SaveChangesAsync();
 
-        await cache.RemoveAsync(string.Format(PublisherService.SubscribedPublishersCacheKey, accountId));
+        await cache.RemoveAsync(
+            string.Format(PublisherService.SubscribedPublishersCacheKey, accountId)
+        );
 
         return true;
     }
@@ -474,7 +506,9 @@ public class PublisherSubscriptionService(
             throw new InvalidOperationException("Already subscribed");
 
         if (existing != null && existing.EndReason == SubscriptionEndReason.RemovedByPublisher)
-            throw new InvalidOperationException("Account was removed by publisher and cannot be re-added");
+            throw new InvalidOperationException(
+                "Account was removed by publisher and cannot be re-added"
+            );
 
         if (existing != null && existing.EndReason == SubscriptionEndReason.UserLeft)
             throw new InvalidOperationException("Account left voluntarily and cannot be re-added");
@@ -499,7 +533,9 @@ public class PublisherSubscriptionService(
         }
 
         await db.SaveChangesAsync();
-        await cache.RemoveAsync(string.Format(PublisherService.SubscribedPublishersCacheKey, accountId));
+        await cache.RemoveAsync(
+            string.Format(PublisherService.SubscribedPublishersCacheKey, accountId)
+        );
 
         return await GetSubscriptionAsync(accountId, publisherId);
     }
@@ -511,7 +547,11 @@ public class PublisherSubscriptionService(
     /// <param name="publisherId">The publisher ID</param>
     /// <param name="removedByAccountId">The manager account ID doing the removal</param>
     /// <returns>True if the subscriber was removed, false if not found</returns>
-    public async Task<bool> RemoveSubscriberAsync(Guid accountId, Guid publisherId, Guid removedByAccountId)
+    public async Task<bool> RemoveSubscriberAsync(
+        Guid accountId,
+        Guid publisherId,
+        Guid removedByAccountId
+    )
     {
         var subscription = await GetSubscriptionAsync(accountId, publisherId);
         if (subscription is null)
@@ -523,7 +563,9 @@ public class PublisherSubscriptionService(
         db.PublisherSubscriptions.Update(subscription);
         await db.SaveChangesAsync();
 
-        await cache.RemoveAsync(string.Format(PublisherService.SubscribedPublishersCacheKey, accountId));
+        await cache.RemoveAsync(
+            string.Format(PublisherService.SubscribedPublishersCacheKey, accountId)
+        );
 
         return true;
     }
@@ -535,7 +577,11 @@ public class PublisherSubscriptionService(
     /// <param name="publisherId">The publisher ID</param>
     /// <param name="notify">Whether to notify on new posts</param>
     /// <returns>The updated subscription or null if not found</returns>
-    public async Task<SnPublisherSubscription?> UpdateSubscriberNotifyAsync(Guid accountId, Guid publisherId, bool notify)
+    public async Task<SnPublisherSubscription?> UpdateSubscriberNotifyAsync(
+        Guid accountId,
+        Guid publisherId,
+        bool notify
+    )
     {
         var subscription = await GetSubscriptionAsync(accountId, publisherId);
         if (subscription is null)

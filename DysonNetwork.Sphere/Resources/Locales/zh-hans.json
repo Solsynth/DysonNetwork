@@ -9,7 +9,7 @@
     "postAwardedTitle": "{user} 打赏了您的帖子",
     "postAwardedBody": "{user} 打赏了 {amount} 积分",
     "postAwardedContentBody": "{user} 打赏了 {amount} 积分给 \"{title}\"",
-    "postSubscriptionTitle": "{publisher} 发布了帖子 {title}",
+    "postSubscriptionTitle": "{publisher} 发布了帖子",
     "postReplyBody": "{user} 回复：{content}",
     "postReplyContentBody": "{user} 回复了帖子 \"{title}\"：{content}",
     "publishingRewardTitle": "发布者 {publisher} 于 {date} 的成就",

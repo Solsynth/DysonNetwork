@@ -1,8 +1,7 @@
-using System.Globalization;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.ComponentModel.DataAnnotations.Schema;
 using AngleSharp.Html.Parser;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
@@ -71,21 +70,22 @@ public partial class PostService(
             _ => 0,
         };
 
-    private static string? GetEmojiForSymbol(string symbol) => symbol switch
-    {
-        "thumb_up" => "👍",
-        "thumb_down" => "👎",
-        "heart" => "❤️",
-        "laugh" => "😂",
-        "clap" => "👏",
-        "party" => "🎉",
-        "pray" => "🙏",
-        "cry" => "😭",
-        "confuse" => "😕",
-        "angry" => "😡",
-        "just_okay" => "😐",
-        _ => null
-    };
+    private static string? GetEmojiForSymbol(string symbol) =>
+        symbol switch
+        {
+            "thumb_up" => "👍",
+            "thumb_down" => "👎",
+            "heart" => "❤️",
+            "laugh" => "😂",
+            "clap" => "👏",
+            "party" => "🎉",
+            "pray" => "🙏",
+            "cry" => "😭",
+            "confuse" => "😕",
+            "angry" => "😡",
+            "just_okay" => "😐",
+            _ => null,
+        };
 
     private static double ClampInterestScore(double score) => Math.Clamp(score, -100d, 100d);
 
@@ -107,11 +107,11 @@ public partial class PostService(
         return scoreDelta;
     }
 
-    private static string NormalizeTopicSlug(string value) =>
-        value.Trim().ToLowerInvariant();
+    private static string NormalizeTopicSlug(string value) => value.Trim().ToLowerInvariant();
 
     private static List<string> NormalizeTopicSlugs(IEnumerable<string> values) =>
-        values.Where(e => !string.IsNullOrWhiteSpace(e))
+        values
+            .Where(e => !string.IsNullOrWhiteSpace(e))
             .Select(NormalizeTopicSlug)
             .Distinct()
             .ToList();
@@ -126,9 +126,12 @@ public partial class PostService(
             null => [],
             List<string> items => NormalizeTopicSlugs(items),
             string[] items => NormalizeTopicSlugs(items),
-            IEnumerable<object> items => NormalizeTopicSlugs(items.Select(x => x?.ToString() ?? string.Empty)),
+            IEnumerable<object> items => NormalizeTopicSlugs(
+                items.Select(x => x?.ToString() ?? string.Empty)
+            ),
             JsonElement { ValueKind: JsonValueKind.Array } element => NormalizeTopicSlugs(
-                element.EnumerateArray()
+                element
+                    .EnumerateArray()
                     .Where(x => x.ValueKind == JsonValueKind.String)
                     .Select(x => x.GetString() ?? string.Empty)
             ),
@@ -154,13 +157,18 @@ public partial class PostService(
         return await db.Publishers.FirstOrDefaultAsync(p => p.Id == post.PublisherId.Value);
     }
 
-    private async Task<List<SnPostTag>> ResolveTagsAsync(IEnumerable<string> slugs, SnPublisher? publisher = null)
+    private async Task<List<SnPostTag>> ResolveTagsAsync(
+        IEnumerable<string> slugs,
+        SnPublisher? publisher = null
+    )
     {
         var normalizedSlugs = NormalizeTopicSlugs(slugs);
         if (normalizedSlugs.Count == 0)
             return [];
 
-        var existingTags = await db.PostTags.Where(e => normalizedSlugs.Contains(e.Slug)).ToListAsync();
+        var existingTags = await db
+            .PostTags.Where(e => normalizedSlugs.Contains(e.Slug))
+            .ToListAsync();
         var existingSlugs = existingTags.Select(t => t.Slug).ToHashSet();
         var missingSlugs = normalizedSlugs.Where(slug => !existingSlugs.Contains(slug)).ToList();
 
@@ -176,9 +184,18 @@ public partial class PostService(
         foreach (var tag in allTags)
         {
             if (!tagService.IsTagAvailable(tag))
-                throw new InvalidOperationException($"Tag '{tag.Slug}' is an event tag that has expired.");
-            if (tag.IsProtected && tag.OwnerPublisherId is not null && publisher is not null && tag.OwnerPublisherId.Value != publisher.Id)
-                throw new InvalidOperationException($"Tag '{tag.Slug}' is protected and can only be used by its owner.");
+                throw new InvalidOperationException(
+                    $"Tag '{tag.Slug}' is an event tag that has expired."
+                );
+            if (
+                tag.IsProtected
+                && tag.OwnerPublisherId is not null
+                && publisher is not null
+                && tag.OwnerPublisherId.Value != publisher.Id
+            )
+                throw new InvalidOperationException(
+                    $"Tag '{tag.Slug}' is protected and can only be used by its owner."
+                );
         }
 
         return allTags;
@@ -197,7 +214,9 @@ public partial class PostService(
     {
         return string.Join(
             '\n',
-            new[] { post.Title, post.Description, post.Content }.Where(x => !string.IsNullOrWhiteSpace(x))
+            new[] { post.Title, post.Description, post.Content }.Where(x =>
+                !string.IsNullOrWhiteSpace(x)
+            )
         );
     }
 
@@ -213,12 +232,16 @@ public partial class PostService(
 
         if (categories)
         {
-            var candidates = await db.PostCategories.Select(x => new { x.Slug, x.Name }).ToListAsync();
+            var candidates = await db
+                .PostCategories.Select(x => new { x.Slug, x.Name })
+                .ToListAsync();
             return candidates
                 .Where(x =>
                     normalizedSource.Contains(NormalizeTopicText(x.Slug))
-                    || (!string.IsNullOrWhiteSpace(x.Name)
-                        && normalizedSource.Contains(NormalizeTopicText(x.Name)))
+                    || (
+                        !string.IsNullOrWhiteSpace(x.Name)
+                        && normalizedSource.Contains(NormalizeTopicText(x.Name))
+                    )
                 )
                 .Select(x => x.Slug)
                 .Distinct()
@@ -230,8 +253,10 @@ public partial class PostService(
         return tagCandidates
             .Where(x =>
                 normalizedSource.Contains(NormalizeTopicText(x.Slug))
-                || (!string.IsNullOrWhiteSpace(x.Name)
-                    && normalizedSource.Contains(NormalizeTopicText(x.Name)))
+                || (
+                    !string.IsNullOrWhiteSpace(x.Name)
+                    && normalizedSource.Contains(NormalizeTopicText(x.Name))
+                )
             )
             .Select(x => x.Slug)
             .Distinct()
@@ -245,7 +270,8 @@ public partial class PostService(
         int take = 3
     )
     {
-        var posts = await db.Posts.Where(p => p.PublisherId == publisherId && p.DraftedAt == null)
+        var posts = await db
+            .Posts.Where(p => p.PublisherId == publisherId && p.DraftedAt == null)
             .Where(p => p.PublishedAt != null)
             .Include(p => p.Tags)
             .Include(p => p.Categories)
@@ -257,7 +283,9 @@ public partial class PostService(
         var scores = new Dictionary<string, double>();
         foreach (var post in posts)
         {
-            var topicItems = categories ? post.Categories.Select(x => x.Slug) : post.Tags.Select(x => x.Slug);
+            var topicItems = categories
+                ? post.Categories.Select(x => x.Slug)
+                : post.Tags.Select(x => x.Slug);
             var topicSlugs = NormalizeTopicSlugs(topicItems);
             if (topicSlugs.Count == 0)
                 continue;
@@ -265,7 +293,10 @@ public partial class PostService(
             var ageDays = Math.Max(0, (now - (post.PublishedAt ?? post.CreatedAt)).TotalDays);
             var recencyWeight = Math.Exp(-ageDays / 30d);
             var engagementWeight =
-                1d + Math.Max(0, post.ReactionScore) / 4d + Math.Max(0, post.RepliesCount) / 2d + (double)post.AwardedScore / 20d;
+                1d
+                + Math.Max(0, post.ReactionScore) / 4d
+                + Math.Max(0, post.RepliesCount) / 2d
+                + (double)post.AwardedScore / 20d;
             var score = Math.Max(0.25d, recencyWeight * engagementWeight);
 
             foreach (var slug in topicSlugs)
@@ -362,7 +393,8 @@ public partial class PostService(
         if (signals.Count == 0)
             return;
 
-        var aggregatedSignals = signals.GroupBy(x => new { x.AccountId, x.PostId })
+        var aggregatedSignals = signals
+            .GroupBy(x => new { x.AccountId, x.PostId })
             .Select(g => new
             {
                 g.Key.AccountId,
@@ -375,17 +407,26 @@ public partial class PostService(
             .ToList();
 
         var postIds = aggregatedSignals.Select(x => x.PostId).Distinct().ToList();
-        var posts = await db.Posts.Where(p => postIds.Contains(p.Id))
+        var posts = await db
+            .Posts.Where(p => postIds.Contains(p.Id))
             .Include(p => p.Tags)
             .Include(p => p.Categories)
             .ToDictionaryAsync(p => p.Id);
 
         var accountIds = aggregatedSignals.Select(x => x.AccountId).Distinct().ToList();
         var tagIds = posts.Values.SelectMany(p => p.Tags.Select(x => x.Id)).Distinct().ToList();
-        var categoryIds = posts.Values.SelectMany(p => p.Categories.Select(x => x.Id)).Distinct().ToList();
-        var publisherIds = posts.Values.Where(p => p.PublisherId.HasValue).Select(p => p.PublisherId!.Value).Distinct().ToList();
+        var categoryIds = posts
+            .Values.SelectMany(p => p.Categories.Select(x => x.Id))
+            .Distinct()
+            .ToList();
+        var publisherIds = posts
+            .Values.Where(p => p.PublisherId.HasValue)
+            .Select(p => p.PublisherId!.Value)
+            .Distinct()
+            .ToList();
 
-        var existingProfiles = await db.PostInterestProfiles.Where(p => accountIds.Contains(p.AccountId))
+        var existingProfiles = await db
+            .PostInterestProfiles.Where(p => accountIds.Contains(p.AccountId))
             .Where(p =>
                 (p.Kind == PostInterestKind.Tag && tagIds.Contains(p.ReferenceId))
                 || (p.Kind == PostInterestKind.Category && categoryIds.Contains(p.ReferenceId))
@@ -436,9 +477,7 @@ public partial class PostService(
             }
         }
 
-        var newProfiles = profileMap.Values
-            .Where(p => !existingProfiles.Contains(p))
-            .ToList();
+        var newProfiles = profileMap.Values.Where(p => !existingProfiles.Contains(p)).ToList();
 
         try
         {
@@ -460,7 +499,10 @@ public partial class PostService(
         return ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505";
     }
 
-    private static async Task UpsertInterestProfileAsync(AppDatabase db, SnPostInterestProfile profile)
+    private static async Task UpsertInterestProfileAsync(
+        AppDatabase db,
+        SnPostInterestProfile profile
+    )
     {
         const string sql = """
             INSERT INTO post_interest_profiles (id, account_id, kind, reference_id, score, interaction_count, last_interacted_at, last_signal_type, created_at, updated_at)
@@ -472,17 +514,22 @@ public partial class PostService(
                 last_signal_type = EXCLUDED.last_signal_type,
                 updated_at = EXCLUDED.updated_at
             """;
-        await db.Database.ExecuteSqlRawAsync(sql,
+        await db.Database.ExecuteSqlRawAsync(
+            sql,
             new NpgsqlParameter("@Id", profile.Id),
             new NpgsqlParameter("@AccountId", profile.AccountId),
             new NpgsqlParameter("@Kind", (int)profile.Kind),
             new NpgsqlParameter("@ReferenceId", profile.ReferenceId),
             new NpgsqlParameter("@Score", profile.Score),
             new NpgsqlParameter("@InteractionCount", profile.InteractionCount),
-            new NpgsqlParameter("@LastInteractedAt", profile.LastInteractedAt ?? (object)DBNull.Value),
+            new NpgsqlParameter(
+                "@LastInteractedAt",
+                profile.LastInteractedAt ?? (object)DBNull.Value
+            ),
             new NpgsqlParameter("@LastSignalType", profile.LastSignalType ?? (object)DBNull.Value),
             new NpgsqlParameter("@CreatedAt", profile.CreatedAt),
-            new NpgsqlParameter("@UpdatedAt", profile.UpdatedAt));
+            new NpgsqlParameter("@UpdatedAt", profile.UpdatedAt)
+        );
     }
 
     private static List<SnPost> TruncatePostContent(List<SnPost> input)
@@ -570,9 +617,8 @@ public partial class PostService(
         return input;
     }
 
-    public (string title, string content) ChopPostForNotification(SnPost post)
+    public (string? title, string content) ChopPostForNotification(SnPost post, String locale)
     {
-        var locale = CultureInfo.CurrentUICulture.Name;
         var content = !string.IsNullOrEmpty(post.Description)
             ? post.Description?.Length >= 40
                 ? post.Description[..37] + "..."
@@ -581,21 +627,23 @@ public partial class PostService(
                 ? string.Concat(post.Content.AsSpan(0, 97), "...")
                 : post.Content;
         var title =
-            post.Title ?? (post.Content?.Length >= 10 ? post.Content[..10] + "..." : post.Content);
+            post.Title
+            ?? (post.Description?.Length >= 10 ? post.Description[..10] + "..." : post.Description);
         title ??= localizer.Get("postOnlyMedia", locale: locale);
         if (string.IsNullOrWhiteSpace(content))
             content = localizer.Get("postOnlyMedia", locale: locale);
         return (title, content);
     }
 
-    public Dictionary<string, object> BuildPostNotificationMeta(
+    public Dictionary<string, object?> BuildPostNotificationMeta(
         SnPost post,
+        String locale,
         string? avatarId = null,
         Dictionary<string, object?>? extraMeta = null
     )
     {
-        var (title, content) = ChopPostForNotification(post);
-        var data = new Dictionary<string, object>
+        var (title, content) = ChopPostForNotification(post, locale);
+        var data = new Dictionary<string, object?>
         {
             ["post_id"] = post.Id.ToString(),
             ["post_title"] = title,
@@ -626,15 +674,17 @@ public partial class PostService(
 
         if (post.Attachments.Count > 0)
         {
-            var imageAttachments = post.Attachments
-                .Where(p => p.MimeType?.StartsWith("image/") ?? false)
+            var imageAttachments = post
+                .Attachments.Where(p => p.MimeType?.StartsWith("image/") ?? false)
                 .Select(p => p.Url ?? p.Id)
                 .ToList();
 
             if (imageAttachments.Count > 0)
                 data["images"] = imageAttachments;
 
-            var firstImage = post.Attachments.FirstOrDefault(p => p.MimeType?.StartsWith("image/") ?? false);
+            var firstImage = post.Attachments.FirstOrDefault(p =>
+                p.MimeType?.StartsWith("image/") ?? false
+            );
             if (firstImage is not null)
                 data["image"] = firstImage.Url ?? firstImage.Id;
         }
@@ -658,6 +708,7 @@ public partial class PostService(
     }
 
     public DyPushNotification BuildPostNotification(
+        string locale,
         string topic,
         string title,
         SnPost post,
@@ -668,7 +719,7 @@ public partial class PostService(
         Dictionary<string, object?>? extraMeta = null
     )
     {
-        var (postTitle, postContent) = ChopPostForNotification(post);
+        var (postTitle, postContent) = ChopPostForNotification(post, locale);
         var notification = new DyPushNotification
         {
             Topic = topic,
@@ -676,7 +727,7 @@ public partial class PostService(
             Subtitle = !string.IsNullOrWhiteSpace(subtitle) ? subtitle : postTitle,
             Body = !string.IsNullOrWhiteSpace(body) ? body : postContent,
             Meta = InfraObjectCoder.ConvertObjectToByteString(
-                BuildPostNotificationMeta(post, avatarId, extraMeta)
+                BuildPostNotificationMeta(post, locale, avatarId, extraMeta)
             ),
             IsSavable = isSavable,
             ActionUri = $"/posts/{post.Id}",
@@ -813,8 +864,10 @@ public partial class PostService(
         HashSet<string>? followerAccountIds = null;
         if (postsRequireFollow)
         {
-            var followerRequests = await db.PublisherFollowRequests
-                .Where(r => r.PublisherId == publisherId.Value && r.State == FollowRequestState.Accepted)
+            var followerRequests = await db
+                .PublisherFollowRequests.Where(r =>
+                    r.PublisherId == publisherId.Value && r.State == FollowRequestState.Accepted
+                )
                 .Select(r => r.AccountId.ToString())
                 .ToListAsync();
             followerAccountIds = followerRequests.ToHashSet();
@@ -869,7 +922,10 @@ public partial class PostService(
                 {
                     if (postsRequireFollow)
                     {
-                        if (isMember || (followerAccountIds != null && followerAccountIds.Contains(userId)))
+                        if (
+                            isMember
+                            || (followerAccountIds != null && followerAccountIds.Contains(userId))
+                        )
                             filteredUserIds.Add(userId);
                     }
                     else
@@ -965,18 +1021,19 @@ public partial class PostService(
                     queryRequest.Id.AddRange(memberIds);
                     var queryResponse = await accountsClient.GetAccountBatchAsync(queryRequest);
 
-                    var (title, body) = ChopPostForNotification(post);
-
                     foreach (var member in queryResponse.Accounts)
                     {
                         if (member == null)
                             continue;
+
+                        var (title, body) = ChopPostForNotification(post, member.Language);
 
                         await nty.SendPushNotificationToUserAsync(
                             new DySendPushNotificationToUserRequest
                             {
                                 UserId = member.Id,
                                 Notification = BuildPostNotification(
+                                    member.Language,
                                     topic: "posts.mentions.new",
                                     title: localizer.Get(
                                         "postMentionTitle",
@@ -992,7 +1049,8 @@ public partial class PostService(
                                     extraMeta: new Dictionary<string, object?>
                                     {
                                         ["notification_type"] = "mention",
-                                        ["mentioned_publisher_id"] = mentionedPublisher.Id.ToString(),
+                                        ["mentioned_publisher_id"] =
+                                            mentionedPublisher.Id.ToString(),
                                         ["mentioned_publisher_name"] = mentionedPublisher.Name,
                                     }
                                 ),
@@ -1097,9 +1155,7 @@ public partial class PostService(
             && post.PublishedAt is not null
             && post.PublishedAt.Value.ToDateTimeUtc() <= now;
 
-        if (
-            isPublishedNow
-        )
+        if (isPublishedNow)
             _ = Task.Run(async () =>
             {
                 using var scope = factory.CreateScope();
@@ -1108,17 +1164,15 @@ public partial class PostService(
                 await pubSub.NotifySubscriberPost(post);
             });
 
-        if (
-            isPublishedNow
-            && post.RepliedPost is not null
-        )
+        if (isPublishedNow && post.RepliedPost is not null)
         {
             _ = Task.Run(async () =>
             {
                 var sender = post.Publisher;
                 using var scope = factory.CreateScope();
                 var pub = scope.ServiceProvider.GetRequiredService<PublisherService>();
-                var nty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
+                var nty =
+                    scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
                 var notifyTargets =
                     scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
                 try
@@ -1138,13 +1192,14 @@ public partial class PostService(
                             {
                                 UserId = member.Id,
                                 Notification = BuildPostNotification(
+                                    locale: member.Language,
                                     topic: "post.replies",
                                     title: localizer.Get(
                                         "postReplyTitle",
                                         locale: member.Language,
                                         args: new { user = sender!.Nick }
                                     ),
-                                    body: ChopPostForNotification(post).content,
+                                    body: ChopPostForNotification(post, member.Language).content,
                                     post: post,
                                     extraMeta: new Dictionary<string, object?>
                                     {
@@ -1188,10 +1243,7 @@ public partial class PostService(
         }
 
         // Send ActivityPub Create activity in background for public posts
-        if (
-            isPublishedNow
-            && post.Visibility == PostVisibility.Public
-        )
+        if (isPublishedNow && post.Visibility == PostVisibility.Public)
         {
             _ = Task.Run(async () =>
             {
@@ -1309,7 +1361,8 @@ public partial class PostService(
             _ = Task.Run(async () =>
             {
                 using var scope = factory.CreateScope();
-                var pubSub = scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
+                var pubSub =
+                    scope.ServiceProvider.GetRequiredService<PublisherSubscriptionService>();
                 await pubSub.NotifySubscriberPost(post);
             });
 
@@ -1326,7 +1379,9 @@ public partial class PostService(
                         scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
                     try
                     {
-                        var members = await pub.GetPublisherMembers(post.RepliedPost.PublisherId!.Value);
+                        var members = await pub.GetPublisherMembers(
+                            post.RepliedPost.PublisherId!.Value
+                        );
                         var queryRequest = new DyGetAccountBatchRequest();
                         queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
                         var queryResponse = await notifyTargets.GetAccountBatchAsync(queryRequest);
@@ -1339,13 +1394,17 @@ public partial class PostService(
                                 {
                                     UserId = member.Id,
                                     Notification = BuildPostNotification(
+                                        locale: member.Language,
                                         topic: "post.replies",
                                         title: localizer.Get(
                                             "postReplyTitle",
                                             locale: member.Language,
                                             args: new { user = sender!.Nick }
                                         ),
-                                        body: ChopPostForNotification(post).content,
+                                        body: ChopPostForNotification(
+                                            post,
+                                            member.Language
+                                        ).content,
                                         post: post,
                                         extraMeta: new Dictionary<string, object?>
                                         {
@@ -1400,9 +1459,8 @@ public partial class PostService(
         if (isPublished)
         {
             // Broadcast real-time update to connected clients
-            _ = Task.Run(
-                async () =>
-                    await BroadcastPostUpdateAsync(post, wasPublished ? "post.updated" : "post.created")
+            _ = Task.Run(async () =>
+                await BroadcastPostUpdateAsync(post, wasPublished ? "post.updated" : "post.created")
             );
         }
 
@@ -1421,7 +1479,10 @@ public partial class PostService(
         foreach (Match match in GetLinkRegex().Matches(content))
         {
             var normalizedUrl = NormalizePreviewUrl(match.Value);
-            if (normalizedUrl is null || urls.Contains(normalizedUrl, StringComparer.OrdinalIgnoreCase))
+            if (
+                normalizedUrl is null
+                || urls.Contains(normalizedUrl, StringComparer.OrdinalIgnoreCase)
+            )
                 continue;
 
             urls.Add(normalizedUrl);
@@ -1447,7 +1508,8 @@ public partial class PostService(
             url = url[..^1];
         }
 
-        return Uri.TryCreate(url, UriKind.Absolute, out var uri)
+        return
+            Uri.TryCreate(url, UriKind.Absolute, out var uri)
             && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
             ? uri.ToString()
             : null;
@@ -1481,7 +1543,7 @@ public partial class PostService(
                 );
                 if (urlAlreadyEmbedded)
                     continue;
-                
+
                 // Preview the link
                 var linkEmbed = await reader.GetLinkPreview(url);
                 embeds.Add(EmbeddableBase.ToDictionary(linkEmbed));
@@ -1598,11 +1660,7 @@ public partial class PostService(
         }
     }
 
-    public async Task<SnPost> PinPostAsync(
-        SnPost post,
-        DyAccount currentUser,
-        PostPinMode pinMode
-    )
+    public async Task<SnPost> PinPostAsync(SnPost post, DyAccount currentUser, PostPinMode pinMode)
     {
         var accountId = Guid.Parse(currentUser.Id);
         if (post.RepliedPostId != null)
@@ -1707,11 +1765,12 @@ public partial class PostService(
     {
         var hasMatchingReaction =
             reaction.AccountId.HasValue
-            && await db.Set<SnPostReaction>().AnyAsync(r =>
-                r.PostId == post.Id
-                && r.Symbol == reaction.Symbol
-                && r.AccountId == reaction.AccountId.Value
-            );
+            && await db.Set<SnPostReaction>()
+                .AnyAsync(r =>
+                    r.PostId == post.Id
+                    && r.Symbol == reaction.Symbol
+                    && r.AccountId == reaction.AccountId.Value
+                );
 
         if (isRemoving)
         {
@@ -1787,12 +1846,16 @@ public partial class PostService(
         {
             var accountId = Guid.Parse(sender.Id);
             SnPublisher? accountPublisher = null;
-            var settings = await db.PublishingSettings
-                .FirstOrDefaultAsync(s => s.AccountId == accountId);
+            var settings = await db.PublishingSettings.FirstOrDefaultAsync(s =>
+                s.AccountId == accountId
+            );
             if (settings?.DefaultFediversePublisherId != null)
             {
-                accountPublisher = await db.Publishers
-                    .Where(p => p.Id == settings.DefaultFediversePublisherId && p.Members.Any(m => m.AccountId == accountId))
+                accountPublisher = await db
+                    .Publishers.Where(p =>
+                        p.Id == settings.DefaultFediversePublisherId
+                        && p.Members.Any(m => m.AccountId == accountId)
+                    )
                     .FirstOrDefaultAsync();
             }
             if (accountPublisher == null)
@@ -1832,18 +1895,19 @@ public partial class PostService(
                             }
                             catch (Exception ex)
                             {
-                                logger.LogError($"Error sending ActivityPub EmojiReact: {ex.Message}");
+                                logger.LogError(
+                                    $"Error sending ActivityPub EmojiReact: {ex.Message}"
+                                );
                             }
                         });
                     }
                     else
                     {
-                        var existingReaction = await db.PostReactions
-                            .FirstOrDefaultAsync(r =>
-                                r.PostId == post.Id
-                                && r.Symbol == reaction.Symbol
-                                && r.AccountId == reaction.AccountId
-                            );
+                        var existingReaction = await db.PostReactions.FirstOrDefaultAsync(r =>
+                            r.PostId == post.Id
+                            && r.Symbol == reaction.Symbol
+                            && r.AccountId == reaction.AccountId
+                        );
                         var undoActivityId = existingReaction?.FediverseUri;
                         _ = Task.Run(async () =>
                         {
@@ -1862,7 +1926,9 @@ public partial class PostService(
                             }
                             catch (Exception ex)
                             {
-                                logger.LogError($"Error sending ActivityPub Undo EmojiReact: {ex.Message}");
+                                logger.LogError(
+                                    $"Error sending ActivityPub Undo EmojiReact: {ex.Message}"
+                                );
                             }
                         });
                     }
@@ -1902,6 +1968,7 @@ public partial class PostService(
                         {
                             UserId = member.Id,
                             Notification = BuildPostNotification(
+                                locale: member.Language,
                                 topic: "posts.reactions.new",
                                 title: localizer.Get(
                                     "postReactTitle",
@@ -1930,7 +1997,9 @@ public partial class PostService(
                                 {
                                     ["notification_type"] = "reaction",
                                     ["reaction"] = reaction.Symbol,
-                                    ["reaction_attitude"] = reaction.Attitude.ToString().ToLowerInvariant(),
+                                    ["reaction_attitude"] = reaction
+                                        .Attitude.ToString()
+                                        .ToLowerInvariant(),
                                     ["actor_id"] = sender.Id,
                                     ["actor_name"] = sender.Nick,
                                 }
@@ -1995,7 +2064,11 @@ public partial class PostService(
     /// <param name="postId">The ID of the post to mark as viewed</param>
     /// <param name="viewerId">Optional viewer ID for unique view counting (anonymous if null)</param>
     /// <returns>Task representing the asynchronous operation</returns>
-    public async Task IncreaseViewCount(Guid postId, string? viewerId = null, bool isDetailView = false)
+    public async Task IncreaseViewCount(
+        Guid postId,
+        string? viewerId = null,
+        bool isDetailView = false
+    )
     {
         // Check if this view is already counted in cache to prevent duplicate counting
         if (!string.IsNullOrEmpty(viewerId))
@@ -2024,7 +2097,11 @@ public partial class PostService(
         );
 
         // Only fire interest signal on detail page views
-        if (isDetailView && !string.IsNullOrEmpty(viewerId) && Guid.TryParse(viewerId, out var accountId))
+        if (
+            isDetailView
+            && !string.IsNullOrEmpty(viewerId)
+            && Guid.TryParse(viewerId, out var accountId)
+        )
         {
             var interestCacheKey =
                 $"post:interest:view:{postId}:{viewerId}:{DateTime.UtcNow:yyyyMMdd}";
@@ -2258,8 +2335,8 @@ public partial class PostService(
 
         var postIdsParameter = new NpgsqlParameter<Guid[]>("postIds", postIds.ToArray());
 
-        var results = await db.Database
-            .SqlQueryRaw<ThreadReplyCountResult>(
+        var results = await db
+            .Database.SqlQueryRaw<ThreadReplyCountResult>(
                 """
                 WITH RECURSIVE reply_tree AS (
                     SELECT replied_post_id AS ancestor_id, id AS descendant_id
@@ -2333,8 +2410,19 @@ public partial class PostService(
                 .Posts.Where(e => e.Visibility == PostVisibility.Public)
                 .Where(e => e.CreatedAt >= periodStart && e.CreatedAt < periodEnd)
                 .Where(e => e.FediverseUri == null)
-                .Where(e => e.Publisher == null || (e.Publisher.GatekeptFollows != true && (e.Publisher.ShadowbanReason == null || e.Publisher.ShadowbanReason == PublisherShadowbanReason.None)))
-                .Where(e => e.ShadowbanReason == null || e.ShadowbanReason == PostShadowbanReason.None)
+                .Where(e =>
+                    e.Publisher == null
+                    || (
+                        e.Publisher.GatekeptFollows != true
+                        && (
+                            e.Publisher.ShadowbanReason == null
+                            || e.Publisher.ShadowbanReason == PublisherShadowbanReason.None
+                        )
+                    )
+                )
+                .Where(e =>
+                    e.ShadowbanReason == null || e.ShadowbanReason == PostShadowbanReason.None
+                )
                 .Select(e => e.Id)
                 .ToListAsync();
 
@@ -2344,9 +2432,7 @@ public partial class PostService(
                 .Select(e => new
                 {
                     PostId = e.Key,
-                    Score = e.Sum(r =>
-                        r.Attitude == PostReactionAttitude.Positive ? 1 : -1
-                    ),
+                    Score = e.Sum(r => r.Attitude == PostReactionAttitude.Positive ? 1 : -1),
                 })
                 .ToDictionaryAsync(e => e.PostId, e => e.Score);
 
@@ -2398,12 +2484,14 @@ public partial class PostService(
                 db.PostFeaturedRecords.AddRange(records);
                 await db.SaveChangesAsync();
 
-                var featuredPosts = await db.Posts
-                    .Where(p => records.Select(r => r.PostId).Contains(p.Id))
+                var featuredPosts = await db
+                    .Posts.Where(p => records.Select(r => r.PostId).Contains(p.Id))
                     .Include(p => p.Publisher)
                     .ToListAsync();
 
-                foreach (var featuredPost in featuredPosts.Where(p => p.Publisher?.AccountId is not null))
+                foreach (
+                    var featuredPost in featuredPosts.Where(p => p.Publisher?.AccountId is not null)
+                )
                 {
                     var record = records.First(r => r.PostId == featuredPost.Id);
                     actionLogs.CreateActionLog(
@@ -2413,7 +2501,7 @@ public partial class PostService(
                         {
                             ["post_id"] = featuredPost.Id,
                             ["publisher_id"] = featuredPost.PublisherId ?? Guid.Empty,
-                            ["social_credits"] = record.SocialCredits
+                            ["social_credits"] = record.SocialCredits,
                         }
                     );
                 }
@@ -2460,8 +2548,7 @@ public partial class PostService(
         db.PostAwards.Add(award);
         await db.SaveChangesAsync();
 
-        var delta =
-            award.Attitude == PostReactionAttitude.Positive ? amount : -amount;
+        var delta = award.Attitude == PostReactionAttitude.Positive ? amount : -amount;
 
         await db
             .Posts.Where(p => p.Id == postId)
@@ -2497,6 +2584,7 @@ public partial class PostService(
                         {
                             UserId = member.Id,
                             Notification = BuildPostNotification(
+                                locale: member.Language,
                                 topic: "posts.awards.new",
                                 title: localizer.Get(
                                     "postAwardedTitle",
@@ -2525,7 +2613,9 @@ public partial class PostService(
                                 {
                                     ["notification_type"] = "award",
                                     ["amount"] = amount,
-                                    ["award_attitude"] = award.Attitude.ToString().ToLowerInvariant(),
+                                    ["award_attitude"] = award
+                                        .Attitude.ToString()
+                                        .ToLowerInvariant(),
                                     ["actor_id"] = sender.Id,
                                     ["actor_name"] = sender.Nick,
                                 }
@@ -2552,7 +2642,10 @@ public partial class PostService(
         Gatekept,
     }
 
-    public async Task<PostVisibilityResult> CheckPostVisibilityAsync(SnPost post, DyAccount? currentUser)
+    public async Task<PostVisibilityResult> CheckPostVisibilityAsync(
+        SnPost post,
+        DyAccount? currentUser
+    )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
 
@@ -2561,7 +2654,10 @@ public partial class PostService(
             if (currentUser == null)
                 return PostVisibilityResult.NotVisible;
 
-            if (post.Publisher?.AccountId == null || post.Publisher.AccountId.Value != Guid.Parse(currentUser.Id))
+            if (
+                post.Publisher?.AccountId == null
+                || post.Publisher.AccountId.Value != Guid.Parse(currentUser.Id)
+            )
                 return PostVisibilityResult.NotVisible;
         }
 
@@ -2573,7 +2669,10 @@ public partial class PostService(
             if (currentUser == null)
                 return PostVisibilityResult.NotVisible;
 
-            if (post.Publisher?.AccountId == null || post.Publisher.AccountId.Value != Guid.Parse(currentUser.Id))
+            if (
+                post.Publisher?.AccountId == null
+                || post.Publisher.AccountId.Value != Guid.Parse(currentUser.Id)
+            )
                 return PostVisibilityResult.NotVisible;
         }
 
@@ -2582,7 +2681,10 @@ public partial class PostService(
             if (currentUser == null)
                 return PostVisibilityResult.NotVisible;
 
-            if (post.Publisher?.AccountId != null && post.Publisher.AccountId.Value == Guid.Parse(currentUser.Id))
+            if (
+                post.Publisher?.AccountId != null
+                && post.Publisher.AccountId.Value == Guid.Parse(currentUser.Id)
+            )
                 return PostVisibilityResult.Visible;
         }
 
@@ -2591,8 +2693,8 @@ public partial class PostService(
             var publisher = post.Publisher;
             if (publisher == null)
             {
-                publisher = await db.Publishers
-                    .AsNoTracking()
+                publisher = await db
+                    .Publishers.AsNoTracking()
                     .FirstOrDefaultAsync(p => p.Id == post.PublisherId.Value);
             }
 
@@ -2602,12 +2704,11 @@ public partial class PostService(
                     return PostVisibilityResult.Gatekept;
 
                 var accountId = Guid.Parse(currentUser.Id);
-                var isSubscribed = await db.PublisherSubscriptions
-                    .AnyAsync(s =>
-                        s.PublisherId == post.PublisherId.Value &&
-                        s.AccountId == accountId &&
-                        s.EndedAt == null
-                    );
+                var isSubscribed = await db.PublisherSubscriptions.AnyAsync(s =>
+                    s.PublisherId == post.PublisherId.Value
+                    && s.AccountId == accountId
+                    && s.EndedAt == null
+                );
 
                 if (!isSubscribed)
                     return PostVisibilityResult.Gatekept;
@@ -2625,7 +2726,9 @@ public partial class PostService(
             case PostVisibilityResult.NotVisible:
                 throw new InvalidOperationException("Post is not visible to this user");
             case PostVisibilityResult.Gatekept:
-                throw new InvalidOperationException("Post is from a gatekept publisher and user is not subscribed");
+                throw new InvalidOperationException(
+                    "Post is from a gatekept publisher and user is not subscribed"
+                );
         }
     }
 }
@@ -2690,7 +2793,11 @@ public static class PostQueryExtensions
                 || publishersId.Contains(e.PublisherId!.Value)
             );
 
-        if (gatekeptPublisherIds != null && gatekeptPublisherIds.Count > 0 && followerPublisherIds != null)
+        if (
+            gatekeptPublisherIds != null
+            && gatekeptPublisherIds.Count > 0
+            && followerPublisherIds != null
+        )
         {
             result = result.Where(e =>
                 !(e.PublisherId.HasValue && gatekeptPublisherIds.Contains(e.PublisherId.Value))
