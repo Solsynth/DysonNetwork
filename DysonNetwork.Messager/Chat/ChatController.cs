@@ -1,7 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
-using System.Text.RegularExpressions;
-using System.Text;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
@@ -18,7 +16,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
-using NetTopologySuite.IO;
 using NodaTime;
 
 namespace DysonNetwork.Messager.Chat;
@@ -41,7 +38,6 @@ public partial class ChatController(
 {
     private const string E2EeCapabilityHeader = "X-Client-Ability";
     private const string MlsCapabilityToken = "chat.mls.v2";
-    private const string MlsEncryptionScheme = "chat.mls.v2";
 
     private bool HasClientCapability(string token)
     {
@@ -90,81 +86,14 @@ public partial class ChatController(
         return (room, null);
     }
 
-    private static bool HasEncryptedPayload(SendMessageRequest request)
-    {
-        return request.Ciphertext is { Length: > 0 } &&
-               !string.IsNullOrWhiteSpace(request.EncryptionScheme) &&
-               !string.IsNullOrWhiteSpace(request.EncryptionMessageType);
-    }
-
-    private static bool IsMlsPayloadValid(SendMessageRequest request)
-    {
-        var schemeOk = string.Equals(request.EncryptionScheme, MlsEncryptionScheme, StringComparison.Ordinal);
-        return schemeOk &&
-               request.EncryptionEpoch.HasValue;
-    }
-
-    private static string NormalizeEncryptionMessageType(string? messageType, string fallbackType)
-    {
-        if (string.IsNullOrWhiteSpace(messageType)) return fallbackType;
-        return messageType switch
-        {
-            "content.new" => "text",
-            "content.edit" => "messages.update",
-            "content.delete" => "messages.delete",
-            _ => messageType
-        };
-    }
-
-    private static bool HasLocationPayload(string? locationName, string? locationAddress, string? locationWkt)
-    {
-        return !string.IsNullOrWhiteSpace(locationName)
-            || !string.IsNullOrWhiteSpace(locationAddress)
-            || !string.IsNullOrWhiteSpace(locationWkt);
-    }
-
-    private static LocationEmbed CreateLocationEmbed(
-        string? locationName,
-        string? locationAddress,
-        Geometry? location
-    )
-    {
-        return new LocationEmbed
-        {
-            Name = string.IsNullOrWhiteSpace(locationName) ? null : locationName,
-            Address = string.IsNullOrWhiteSpace(locationAddress) ? null : locationAddress,
-            Wkt = location?.AsText()
-        };
-    }
-
     private ActionResult? TryParseLocation(string? locationWkt, out Geometry? location)
     {
-        location = null;
-        if (string.IsNullOrWhiteSpace(locationWkt))
+        if (ChatMessageHelpers.TryParseLocation(locationWkt, out location, out var error))
             return null;
-
-        try
-        {
-            location = new WKTReader().Read(locationWkt);
-            location.SRID = 4326;
-            return null;
-        }
-        catch (Exception)
-        {
-            return BadRequest("Invalid location WKT.");
-        }
+        return BadRequest(error);
     }
 
-    // Server cannot decrypt to verify crypto correctness, but we can block obvious plaintext JSON misuse.
-    private static bool LooksLikePlaintextJson(byte[]? payload)
-    {
-        if (payload is not { Length: > 1 }) return false;
-        var text = Encoding.UTF8.GetString(payload).Trim();
-        if (!(text.StartsWith("{") && text.EndsWith("}"))) return false;
-        return text.Contains("\"content\"", StringComparison.OrdinalIgnoreCase)
-               || text.Contains("\"attachments_id\"", StringComparison.OrdinalIgnoreCase)
-               || text.Contains("\"nonce\"", StringComparison.OrdinalIgnoreCase);
-    }
+
 
     public class MarkMessageReadRequest
     {
@@ -317,28 +246,15 @@ public partial class ChatController(
         });
     }
 
-    public class SendMessageRequest
+    public class SendMessageRequest : ChatMessageHelpers.SendMessageRequestLike
     {
-        [MaxLength(4096)] public string? Content { get; set; }
-        [MaxLength(36)] public string? Nonce { get; set; }
-        [MaxLength(128)] public string? ClientMessageId { get; set; }
-        public Guid? FundId { get; set; }
-        public Guid? PollId { get; set; }
-        public Guid? MeetId { get; set; }
-        [MaxLength(256)] public string? LocationName { get; set; }
-        [MaxLength(1024)] public string? LocationAddress { get; set; }
-        public string? LocationWkt { get; set; }
-        public List<string>? AttachmentsId { get; set; }
-        public Dictionary<string, object>? Meta { get; set; }
-        public Guid? RepliedMessageId { get; set; }
-        public Guid? ForwardedMessageId { get; set; }
-        public bool IsEncrypted { get; set; }
-        public byte[]? Ciphertext { get; set; }
-        public byte[]? EncryptionHeader { get; set; }
-        public byte[]? EncryptionSignature { get; set; }
-        [MaxLength(128)] public string? EncryptionScheme { get; set; }
-        public long? EncryptionEpoch { get; set; }
-        [MaxLength(128)] public string? EncryptionMessageType { get; set; }
+        [MaxLength(4096)] public new string? Content { get; set; }
+        [MaxLength(36)] public new string? Nonce { get; set; }
+        [MaxLength(128)] public new string? ClientMessageId { get; set; }
+        [MaxLength(256)] public new string? LocationName { get; set; }
+        [MaxLength(1024)] public new string? LocationAddress { get; set; }
+        [MaxLength(128)] public new string? EncryptionScheme { get; set; }
+        [MaxLength(128)] public new string? EncryptionMessageType { get; set; }
     }
 
     public class DeleteMessageRequest
@@ -426,72 +342,6 @@ public partial class ChatController(
     }
 
 
-    [GeneratedRegex(@"@(?:u/)?([A-Za-z0-9_-]+)")]
-    private static partial Regex MentionRegex();
-
-    /// <summary>
-    /// Extracts mentioned users from message content, replies, and forwards
-    /// </summary>
-    private async Task<List<Guid>> ExtractMentionedUsersAsync(string? content, Guid? repliedMessageId,
-        Guid? forwardedMessageId, Guid roomId, Guid? excludeSenderId = null)
-    {
-        var mentionedUsers = new List<Guid>();
-
-        // Add sender of a replied message
-        if (repliedMessageId.HasValue)
-        {
-            var replyingTo = await db.ChatMessages
-                .Where(m => m.Id == repliedMessageId.Value && m.ChatRoomId == roomId)
-                .Include(m => m.Sender)
-                .Select(m => m.Sender)
-                .FirstOrDefaultAsync();
-            if (replyingTo != null)
-                mentionedUsers.Add(replyingTo.AccountId);
-        }
-
-        // Add sender of a forwarded message
-        if (forwardedMessageId.HasValue)
-        {
-            var forwardedMessage = await db.ChatMessages
-                .Where(m => m.Id == forwardedMessageId.Value)
-                .Select(m => new { m.SenderId })
-                .FirstOrDefaultAsync();
-            if (forwardedMessage != null)
-            {
-                mentionedUsers.Add(forwardedMessage.SenderId);
-            }
-        }
-
-        // Extract mentions from content using regex
-        if (string.IsNullOrWhiteSpace(content)) return mentionedUsers.Distinct().ToList();
-        {
-            var mentionedNames = MentionRegex()
-                .Matches(content)
-                .Select(m => m.Groups[1].Value)
-                .Distinct()
-                .ToList();
-
-            if (mentionedNames.Count <= 0) return mentionedUsers.Distinct().ToList();
-            {
-                var queryRequest = new DyLookupAccountBatchRequest();
-                queryRequest.Names.AddRange(mentionedNames);
-                var queryResponse = (await accounts.LookupAccountBatchAsync(queryRequest)).Accounts;
-                var mentionedIds = queryResponse.Select(a => Guid.Parse(a.Id)).ToList();
-
-                if (mentionedIds.Count <= 0) return mentionedUsers.Distinct().ToList();
-                var mentionedMembers = await db.ChatMembers
-                    .Where(m => m.ChatRoomId == roomId && mentionedIds.Contains(m.AccountId))
-                    .Where(m => m.JoinedAt != null && m.LeaveAt == null)
-                    .Where(m => excludeSenderId == null || m.AccountId != excludeSenderId.Value)
-                    .Select(m => m.AccountId)
-                    .ToListAsync();
-                mentionedUsers.AddRange(mentionedMembers);
-            }
-        }
-
-        return mentionedUsers.Distinct().ToList();
-    }
-
     [HttpPost("{roomId:guid}/messages")]
     [Authorize]
     [AskPermission("chat.messages.create")]
@@ -517,27 +367,18 @@ public partial class ChatController(
         {
             var capabilityError = EnsureE2EeCapabilityForRoom(member.ChatRoom);
             if (capabilityError is not null) return capabilityError;
-            if (!request.IsEncrypted || !HasEncryptedPayload(request))
+            if (!request.IsEncrypted || !ChatMessageHelpers.HasEncryptedPayload(request))
                 return E2EeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
-            if (mlsMode && !IsMlsPayloadValid(request))
+            if (mlsMode && !ChatMessageHelpers.IsMlsPayloadValid(request))
                 return E2EeError("chat.mls_payload_required", "MLS rooms require scheme chat.mls.v2 and encryption_epoch.");
-            if (LooksLikePlaintextJson(request.Ciphertext))
+            if (ChatMessageHelpers.LooksLikePlaintextJson(request.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
-            if (!string.IsNullOrWhiteSpace(request.Content) ||
-                request.FundId.HasValue ||
-                request.MeetId.HasValue ||
-                request.PollId.HasValue ||
-                HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
+            if (ChatMessageHelpers.HasPlaintextFields(request))
                 return E2EeError("chat.e2ee_plaintext_forbidden", "Plaintext fields are forbidden for E2EE rooms.");
         }
         else
         {
-            if (string.IsNullOrWhiteSpace(request.Content) &&
-                (request.AttachmentsId == null || request.AttachmentsId.Count == 0) &&
-                !request.FundId.HasValue &&
-                !request.MeetId.HasValue &&
-                !request.PollId.HasValue &&
-                !HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
+            if (ChatMessageHelpers.IsEmptyMessage(request))
                 return BadRequest("You cannot send an empty message.");
         }
 
@@ -597,7 +438,7 @@ public partial class ChatController(
             EncryptionScheme = request.EncryptionScheme,
             EncryptionEpoch = request.EncryptionEpoch,
             EncryptionMessageType = request.IsEncrypted
-                ? NormalizeEncryptionMessageType(request.EncryptionMessageType, "text")
+                ? ChatMessageHelpers.NormalizeEncryptionMessageType(request.EncryptionMessageType, "text")
                 : null,
             ClientMessageId = request.ClientMessageId
         };
@@ -606,15 +447,7 @@ public partial class ChatController(
         if (!e2eeMode && request.FundId.HasValue)
         {
             var fundEmbed = new FundEmbed { Id = request.FundId.Value };
-            message.Meta ??= new Dictionary<string, object>();
-            if (
-                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
-                || existingEmbeds is not List<EmbeddableBase>
-            )
-                message.Meta["embeds"] = new List<Dictionary<string, object>>();
-            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-            embeds.Add(EmbeddableBase.ToDictionary(fundEmbed));
-            message.Meta["embeds"] = embeds;
+            ChatMessageHelpers.AddEmbedToMessage(message, fundEmbed);
         }
 
         // Add embed for poll if provided
@@ -622,41 +455,17 @@ public partial class ChatController(
         {
             var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest { Id = request.PollId.Value.ToString() });
             var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
-            message.Meta ??= new Dictionary<string, object>();
-            if (
-                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
-                    || existingEmbeds is not List<EmbeddableBase>
-                )
-                message.Meta["embeds"] = new List<Dictionary<string, object>>();
-            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-            embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
-            message.Meta["embeds"] = embeds;
+            ChatMessageHelpers.AddEmbedToMessage(message, pollEmbed);
         }
         if (!e2eeMode && request.MeetId.HasValue)
         {
             var meetEmbed = new MeetEmbed { Id = request.MeetId.Value };
-            message.Meta ??= new Dictionary<string, object>();
-            if (
-                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
-                || existingEmbeds is not List<EmbeddableBase>
-            )
-                message.Meta["embeds"] = new List<Dictionary<string, object>>();
-            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-            embeds.Add(EmbeddableBase.ToDictionary(meetEmbed));
-            message.Meta["embeds"] = embeds;
+            ChatMessageHelpers.AddEmbedToMessage(message, meetEmbed);
         }
-        if (!e2eeMode && HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
+        if (!e2eeMode && ChatMessageHelpers.HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
         {
-            var locationEmbed = CreateLocationEmbed(request.LocationName, request.LocationAddress, location);
-            message.Meta ??= new Dictionary<string, object>();
-            if (
-                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
-                || existingEmbeds is not List<EmbeddableBase>
-            )
-                message.Meta["embeds"] = new List<Dictionary<string, object>>();
-            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-            embeds.Add(EmbeddableBase.ToDictionary(locationEmbed));
-            message.Meta["embeds"] = embeds;
+            var locationEmbed = ChatMessageHelpers.CreateLocationEmbed(request.LocationName, request.LocationAddress, location);
+            ChatMessageHelpers.AddEmbedToMessage(message, locationEmbed);
         }
         if (!e2eeMode && request.Content is not null)
             message.Content = request.Content;
@@ -704,8 +513,8 @@ public partial class ChatController(
         // Extract mentioned users
         if (!e2eeMode)
         {
-            message.MembersMentioned = await ExtractMentionedUsersAsync(request.Content, request.RepliedMessageId,
-                request.ForwardedMessageId, roomId);
+            message.MembersMentioned = await ChatMessageHelpers.ExtractMentionedUsersAsync(request.Content, request.RepliedMessageId,
+                request.ForwardedMessageId, roomId, null, db, accounts);
         }
 
         var result = await cs.SendMessageAsync(message, member, member.ChatRoom, Request.GetClientIpAddress());
@@ -785,11 +594,14 @@ public partial class ChatController(
             ForwardedMessageId = request.ForwardedMessageId
         };
 
-        message.MembersMentioned = await ExtractMentionedUsersAsync(
+        message.MembersMentioned = await ChatMessageHelpers.ExtractMentionedUsersAsync(
             null,
             request.RepliedMessageId,
             request.ForwardedMessageId,
-            roomId
+            roomId,
+            null,
+            db,
+            accounts
         );
 
         var result = await cs.SendMessageAsync(message, member, member.ChatRoom, Request.GetClientIpAddress());
@@ -950,32 +762,23 @@ public partial class ChatController(
 
         if (e2eeMode)
         {
-            if (!request.IsEncrypted || !HasEncryptedPayload(request))
+            if (!request.IsEncrypted || !ChatMessageHelpers.HasEncryptedPayload(request))
                 return E2EeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
-            if (mlsMode && !IsMlsPayloadValid(request))
+            if (mlsMode && !ChatMessageHelpers.IsMlsPayloadValid(request))
                 return E2EeError("chat.mls_payload_required", "MLS rooms require scheme chat.mls.v2 and encryption_epoch.");
-            if (LooksLikePlaintextJson(request.Ciphertext))
+            if (ChatMessageHelpers.LooksLikePlaintextJson(request.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
-            if (!string.IsNullOrWhiteSpace(request.Content) ||
-                request.FundId.HasValue ||
-                request.MeetId.HasValue ||
-                request.PollId.HasValue ||
-                HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
+            if (ChatMessageHelpers.HasPlaintextFields(request))
                 return E2EeError("chat.e2ee_plaintext_forbidden", "Plaintext fields are forbidden for E2EE rooms.");
         }
         else
         {
-            if (string.IsNullOrWhiteSpace(request.Content) &&
-                (request.AttachmentsId == null || request.AttachmentsId.Count == 0) &&
-                !request.FundId.HasValue &&
-                !request.MeetId.HasValue &&
-                !request.PollId.HasValue &&
-                !HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
+            if (ChatMessageHelpers.IsEmptyMessage(request))
                 return BadRequest("You cannot send an empty message.");
 
             // Update mentions based on new content and references
-            var updatedMentions = await ExtractMentionedUsersAsync(request.Content, request.RepliedMessageId,
-                request.ForwardedMessageId, roomId, accountId);
+            var updatedMentions = await ChatMessageHelpers.ExtractMentionedUsersAsync(request.Content, request.RepliedMessageId,
+                request.ForwardedMessageId, roomId, accountId, db, accounts);
             message.MembersMentioned = updatedMentions;
         }
 
@@ -994,19 +797,8 @@ public partial class ChatController(
                     return BadRequest("You can only share funds that you created.");
 
                 var fundEmbed = new FundEmbed { Id = request.FundId.Value };
-                message.Meta ??= new Dictionary<string, object>();
-                if (
-                    !message.Meta.TryGetValue("embeds", out var existingEmbeds)
-                    || existingEmbeds is not List<EmbeddableBase>
-                )
-                    message.Meta["embeds"] = new List<Dictionary<string, object>>();
-                var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-                // Remove all old fund embeds
-                embeds.RemoveAll(e =>
-                    e.TryGetValue("type", out var type) && type.ToString() == "fund"
-                );
-                embeds.Add(EmbeddableBase.ToDictionary(fundEmbed));
-                message.Meta["embeds"] = embeds;
+                ChatMessageHelpers.RemoveEmbedFromMessage(message, "fund");
+                ChatMessageHelpers.AddEmbedToMessage(message, fundEmbed);
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
@@ -1019,15 +811,7 @@ public partial class ChatController(
         }
         else if (!e2eeMode)
         {
-            message.Meta ??= new Dictionary<string, object>();
-            if (
-                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
-                || existingEmbeds is not List<EmbeddableBase>
-            )
-                message.Meta["embeds"] = new List<Dictionary<string, object>>();
-            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-            // Remove all old fund embeds
-            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "fund");
+            ChatMessageHelpers.RemoveEmbedFromMessage(message, "fund");
         }
 
         // Handle poll embeds for update
@@ -1037,19 +821,8 @@ public partial class ChatController(
             {
                 var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest { Id = request.PollId.Value.ToString() });
                 var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
-                message.Meta ??= new Dictionary<string, object>();
-                if (
-                    !message.Meta.TryGetValue("embeds", out var existingEmbeds)
-                    || existingEmbeds is not List<EmbeddableBase>
-                )
-                    message.Meta["embeds"] = new List<Dictionary<string, object>>();
-                var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-                // Remove all old poll embeds
-                embeds.RemoveAll(e =>
-                    e.TryGetValue("type", out var type) && type.ToString() == "poll"
-                );
-                embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
-                message.Meta["embeds"] = embeds;
+                ChatMessageHelpers.RemoveEmbedFromMessage(message, "poll");
+                ChatMessageHelpers.AddEmbedToMessage(message, pollEmbed);
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
             {
@@ -1062,67 +835,29 @@ public partial class ChatController(
         }
         else if (!e2eeMode)
         {
-            message.Meta ??= new Dictionary<string, object>();
-            if (
-                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
-                || existingEmbeds is not List<EmbeddableBase>
-            )
-                message.Meta["embeds"] = new List<Dictionary<string, object>>();
-            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-            // Remove all old poll embeds
-            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "poll");
+            ChatMessageHelpers.RemoveEmbedFromMessage(message, "poll");
         }
 
         if (!e2eeMode && request.MeetId.HasValue)
         {
             var meetEmbed = new MeetEmbed { Id = request.MeetId.Value };
-            message.Meta ??= new Dictionary<string, object>();
-            if (
-                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
-                || existingEmbeds is not List<EmbeddableBase>
-            )
-                message.Meta["embeds"] = new List<Dictionary<string, object>>();
-            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "meet");
-            embeds.Add(EmbeddableBase.ToDictionary(meetEmbed));
-            message.Meta["embeds"] = embeds;
+            ChatMessageHelpers.RemoveEmbedFromMessage(message, "meet");
+            ChatMessageHelpers.AddEmbedToMessage(message, meetEmbed);
         }
         else if (!e2eeMode)
         {
-            message.Meta ??= new Dictionary<string, object>();
-            if (
-                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
-                || existingEmbeds is not List<EmbeddableBase>
-            )
-                message.Meta["embeds"] = new List<Dictionary<string, object>>();
-            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "meet");
+            ChatMessageHelpers.RemoveEmbedFromMessage(message, "meet");
         }
 
-        if (!e2eeMode && HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
+        if (!e2eeMode && ChatMessageHelpers.HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
         {
-            var locationEmbed = CreateLocationEmbed(request.LocationName, request.LocationAddress, location);
-            message.Meta ??= new Dictionary<string, object>();
-            if (
-                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
-                || existingEmbeds is not List<EmbeddableBase>
-            )
-                message.Meta["embeds"] = new List<Dictionary<string, object>>();
-            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "location");
-            embeds.Add(EmbeddableBase.ToDictionary(locationEmbed));
-            message.Meta["embeds"] = embeds;
+            var locationEmbed = ChatMessageHelpers.CreateLocationEmbed(request.LocationName, request.LocationAddress, location);
+            ChatMessageHelpers.RemoveEmbedFromMessage(message, "location");
+            ChatMessageHelpers.AddEmbedToMessage(message, locationEmbed);
         }
         else if (!e2eeMode)
         {
-            message.Meta ??= new Dictionary<string, object>();
-            if (
-                !message.Meta.TryGetValue("embeds", out var existingEmbeds)
-                || existingEmbeds is not List<EmbeddableBase>
-            )
-                message.Meta["embeds"] = new List<Dictionary<string, object>>();
-            var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "location");
+            ChatMessageHelpers.RemoveEmbedFromMessage(message, "location");
         }
 
         if (request.AttachmentsId is not null)
@@ -1153,7 +888,7 @@ public partial class ChatController(
             message.EncryptionSignature = request.EncryptionSignature;
             message.EncryptionScheme = request.EncryptionScheme;
             message.EncryptionEpoch = request.EncryptionEpoch;
-            message.EncryptionMessageType = NormalizeEncryptionMessageType(request.EncryptionMessageType, "messages.update");
+            message.EncryptionMessageType = ChatMessageHelpers.NormalizeEncryptionMessageType(request.EncryptionMessageType, "messages.update");
             message.ClientMessageId = request.ClientMessageId;
             message.Content = null;
             message.Meta ??= [];
@@ -1173,7 +908,7 @@ public partial class ChatController(
             request.EncryptionSignature,
             request.EncryptionScheme,
             request.EncryptionEpoch,
-            NormalizeEncryptionMessageType(request.EncryptionMessageType, "messages.update"),
+            ChatMessageHelpers.NormalizeEncryptionMessageType(request.EncryptionMessageType, "messages.update"),
             request.ClientMessageId
         );
 
@@ -1199,10 +934,10 @@ public partial class ChatController(
             var capabilityError = EnsureE2EeCapabilityForRoom(message.ChatRoom);
             if (capabilityError is not null) return capabilityError;
             if (mlsMode && request is not null &&
-                (!string.Equals(request.EncryptionScheme, MlsEncryptionScheme, StringComparison.Ordinal) ||
+                (!string.Equals(request.EncryptionScheme, ChatMessageHelpers.MlsEncryptionScheme, StringComparison.Ordinal) ||
                  !request.EncryptionEpoch.HasValue))
                 return E2EeError("chat.mls_payload_required", "MLS rooms require scheme chat.mls.v2 and encryption_epoch.");
-            if (LooksLikePlaintextJson(request?.Ciphertext))
+            if (ChatMessageHelpers.LooksLikePlaintextJson(request?.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
         }
 
@@ -1218,7 +953,7 @@ public partial class ChatController(
             request?.EncryptionSignature,
             request?.EncryptionScheme,
             request?.EncryptionEpoch,
-            request is null ? null : NormalizeEncryptionMessageType(request.EncryptionMessageType, "messages.delete"),
+            request is null ? null : ChatMessageHelpers.NormalizeEncryptionMessageType(request.EncryptionMessageType, "messages.delete"),
             request?.ClientMessageId
         );
 

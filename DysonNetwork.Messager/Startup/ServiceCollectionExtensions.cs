@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Messager.Chat;
@@ -396,101 +395,6 @@ public static class ServiceCollectionExtensions
             return false;
         }
 
-        private static bool HasEncryptedPayload(ChatController.SendMessageRequest request)
-        {
-            return request.Ciphertext is { Length: > 0 } &&
-                   !string.IsNullOrWhiteSpace(request.EncryptionScheme) &&
-                   !string.IsNullOrWhiteSpace(request.EncryptionMessageType);
-        }
-
-        private static bool LooksLikePlaintextJson(byte[]? payload)
-        {
-            if (payload is not { Length: > 1 }) return false;
-            var text = System.Text.Encoding.UTF8.GetString(payload).Trim();
-            if (!(text.StartsWith("{") && text.EndsWith("}"))) return false;
-            return text.Contains("\"content\"", StringComparison.OrdinalIgnoreCase)
-                   || text.Contains("\"attachments_id\"", StringComparison.OrdinalIgnoreCase)
-                   || text.Contains("\"nonce\"", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static string NormalizeEncryptionMessageType(string? messageType, string fallbackType)
-        {
-            if (string.IsNullOrWhiteSpace(messageType)) return fallbackType;
-            return messageType switch
-            {
-                "content.new" => "text",
-                "content.edit" => "messages.update",
-                "content.delete" => "messages.delete",
-                _ => messageType
-            };
-        }
-
-        private static async Task<List<Guid>> ExtractMentionedUsersAsync(
-            string? content,
-            Guid? repliedMessageId,
-            Guid? forwardedMessageId,
-            Guid roomId,
-            Guid? excludeSenderId,
-            AppDatabase db,
-            DyAccountService.DyAccountServiceClient accounts
-        )
-        {
-            var mentionedUsers = new List<Guid>();
-
-            if (repliedMessageId.HasValue)
-            {
-                var replyingTo = await db.ChatMessages
-                    .Where(m => m.Id == repliedMessageId.Value && m.ChatRoomId == roomId)
-                    .Include(m => m.Sender)
-                    .Select(m => m.Sender)
-                    .FirstOrDefaultAsync();
-                if (replyingTo != null)
-                    mentionedUsers.Add(replyingTo.AccountId);
-            }
-
-            if (forwardedMessageId.HasValue)
-            {
-                var forwardedMessage = await db.ChatMessages
-                    .Where(m => m.Id == forwardedMessageId.Value)
-                    .Select(m => new { m.SenderId })
-                    .FirstOrDefaultAsync();
-                if (forwardedMessage != null)
-                {
-                    mentionedUsers.Add(forwardedMessage.SenderId);
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(content))
-            {
-                var mentionedNames = Regex
-                    .Matches(content, @"@(?:u/)?([A-Za-z0-9_-]+)")
-                    .Select(m => m.Groups[1].Value)
-                    .Distinct()
-                    .ToList();
-
-                if (mentionedNames.Count > 0)
-                {
-                    var queryRequest = new DyLookupAccountBatchRequest();
-                    queryRequest.Names.AddRange(mentionedNames);
-                    var queryResponse = (await accounts.LookupAccountBatchAsync(queryRequest)).Accounts;
-                    var mentionedIds = queryResponse.Select(a => Guid.Parse(a.Id)).ToList();
-
-                    if (mentionedIds.Count > 0)
-                    {
-                        var mentionedMembers = await db.ChatMembers
-                            .Where(m => m.ChatRoomId == roomId && mentionedIds.Contains(m.AccountId))
-                            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
-                            .Where(m => excludeSenderId == null || m.AccountId != excludeSenderId.Value)
-                            .Select(m => m.AccountId)
-                            .ToListAsync();
-                        mentionedUsers.AddRange(mentionedMembers);
-                    }
-                }
-            }
-
-            return mentionedUsers.Distinct().ToList();
-        }
-
         private static async Task HandleMessageSend(WebSocketPacketEvent evt, WebSocketPacket packet, EventContext ctx)
         {
             var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
@@ -536,28 +440,25 @@ public static class ServiceCollectionExtensions
             var mlsMode = member.ChatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeMls;
             if (e2eeMode)
             {
-                if (!requestData.IsEncrypted || !HasEncryptedPayload(requestData))
+                if (!requestData.IsEncrypted || !ChatMessageHelpers.HasEncryptedPayload(requestData))
                 {
                     await SendErrorResponse(evt, "Encrypted payload is required for E2EE rooms.", ws);
                     return;
                 }
 
-                if (mlsMode && (!string.Equals(requestData.EncryptionScheme, "chat.mls.v2", StringComparison.Ordinal) ||
-                                !requestData.EncryptionEpoch.HasValue))
+                if (mlsMode && !ChatMessageHelpers.IsMlsPayloadValid(requestData))
                 {
                     await SendErrorResponse(evt, "MLS rooms require scheme chat.mls.v2 and encryption_epoch.", ws);
                     return;
                 }
 
-                if (LooksLikePlaintextJson(requestData.Ciphertext))
+                if (ChatMessageHelpers.LooksLikePlaintextJson(requestData.Ciphertext))
                 {
                     await SendErrorResponse(evt, "Ciphertext appears to be plaintext JSON.", ws);
                     return;
                 }
 
-                if (!string.IsNullOrWhiteSpace(requestData.Content) ||
-                    requestData.FundId.HasValue ||
-                    requestData.PollId.HasValue)
+                if (ChatMessageHelpers.HasPlaintextFields(requestData))
                 {
                     await SendErrorResponse(evt, "Plaintext fields are forbidden for E2EE rooms.", ws);
                     return;
@@ -565,10 +466,7 @@ public static class ServiceCollectionExtensions
             }
             else
             {
-                if (string.IsNullOrWhiteSpace(requestData.Content) &&
-                    (requestData.AttachmentsId == null || requestData.AttachmentsId.Count == 0) &&
-                    !requestData.FundId.HasValue &&
-                    !requestData.PollId.HasValue)
+                if (ChatMessageHelpers.IsEmptyMessage(requestData))
                 {
                     await SendErrorResponse(evt, "You cannot send an empty message.", ws);
                     return;
@@ -635,7 +533,7 @@ public static class ServiceCollectionExtensions
                 EncryptionScheme = requestData.EncryptionScheme,
                 EncryptionEpoch = requestData.EncryptionEpoch,
                 EncryptionMessageType = requestData.IsEncrypted
-                    ? NormalizeEncryptionMessageType(requestData.EncryptionMessageType, "text")
+                    ? ChatMessageHelpers.NormalizeEncryptionMessageType(requestData.EncryptionMessageType, "text")
                     : null,
                 ClientMessageId = requestData.ClientMessageId
             };
@@ -643,14 +541,7 @@ public static class ServiceCollectionExtensions
             if (!e2eeMode && requestData.FundId.HasValue)
             {
                 var fundEmbed = new FundEmbed { Id = requestData.FundId.Value };
-                message.Meta ??= new Dictionary<string, object>();
-                if (!message.Meta.TryGetValue("embeds", out var existingEmbeds)
-                    || existingEmbeds is not List<EmbeddableBase>)
-                    message.Meta["embeds"] = new List<Dictionary<string, object>>();
-
-                var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-                embeds.Add(EmbeddableBase.ToDictionary(fundEmbed));
-                message.Meta["embeds"] = embeds;
+                ChatMessageHelpers.AddEmbedToMessage(message, fundEmbed);
             }
 
             if (!e2eeMode && requestData.PollId.HasValue)
@@ -660,15 +551,24 @@ public static class ServiceCollectionExtensions
                     Id = requestData.PollId.Value.ToString()
                 });
                 var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
+                ChatMessageHelpers.AddEmbedToMessage(message, pollEmbed);
+            }
 
-                message.Meta ??= new Dictionary<string, object>();
-                if (!message.Meta.TryGetValue("embeds", out var existingEmbeds)
-                    || existingEmbeds is not List<EmbeddableBase>)
-                    message.Meta["embeds"] = new List<Dictionary<string, object>>();
+            if (!e2eeMode && requestData.MeetId.HasValue)
+            {
+                var meetEmbed = new MeetEmbed { Id = requestData.MeetId.Value };
+                ChatMessageHelpers.AddEmbedToMessage(message, meetEmbed);
+            }
 
-                var embeds = (List<Dictionary<string, object>>)message.Meta["embeds"];
-                embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
-                message.Meta["embeds"] = embeds;
+            if (!e2eeMode && ChatMessageHelpers.HasLocationPayload(requestData.LocationName, requestData.LocationAddress, requestData.LocationWkt))
+            {
+                if (!ChatMessageHelpers.TryParseLocation(requestData.LocationWkt, out var location, out var locationError))
+                {
+                    await SendErrorResponse(evt, locationError ?? "Invalid location WKT.", ws);
+                    return;
+                }
+                var locationEmbed = ChatMessageHelpers.CreateLocationEmbed(requestData.LocationName, requestData.LocationAddress, location);
+                ChatMessageHelpers.AddEmbedToMessage(message, locationEmbed);
             }
 
             if (!e2eeMode && requestData.Content is not null)
@@ -723,7 +623,7 @@ public static class ServiceCollectionExtensions
 
             if (!e2eeMode)
             {
-                message.MembersMentioned = await ExtractMentionedUsersAsync(
+                message.MembersMentioned = await ChatMessageHelpers.ExtractMentionedUsersAsync(
                     requestData.Content,
                     requestData.RepliedMessageId,
                     requestData.ForwardedMessageId,
