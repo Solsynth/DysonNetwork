@@ -46,14 +46,16 @@ public class PublisherPublicController(
         var publisher = await db.Publishers.Where(e => e.Name == name).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
-        if (publisher.AccountId is null)
-            return Ok(publisher);
 
         var data = await ps.HydratePublisherRealm([publisher]);
         publisher = data.First();
-        publisher.Account = SnAccount.FromProtoValue(
-            await accounts.GetAccount(publisher.AccountId!.Value)
-        );
+
+        if (publisher.AccountId is not null)
+        {
+            publisher.Account = SnAccount.FromProtoValue(
+                await accounts.GetAccount(publisher.AccountId.Value)
+            );
+        }
 
         return Ok(publisher);
     }
