@@ -501,6 +501,14 @@ public partial class ChatService(
         };
     }
 
+    private static Dictionary<string, object> BuildRedirectSenderMapSnapshot(Dictionary<Guid, SnChatMember> sourceSenders)
+    {
+        return sourceSenders.ToDictionary(
+            entry => entry.Key.ToString(),
+            entry => (object)BuildRedirectSenderSnapshot(entry.Value)
+        );
+    }
+
     private static Dictionary<string, object?> BuildRedirectRoomSnapshot(SnChatRoom? room)
     {
         if (room is null)
@@ -545,7 +553,6 @@ public partial class ChatService(
             ["deleted_at"] = sourceMessage.DeletedAt?.ToUnixTimeMilliseconds(),
             ["attachments"] = BuildRedirectAttachmentSnapshot(sourceMessage.Attachments),
             ["reactions_count"] = new Dictionary<string, int>(sourceMessage.ReactionsCount),
-            ["sender"] = BuildRedirectSenderSnapshot(sourceSender),
             ["chat_room"] = BuildRedirectRoomSnapshot(sourceMessage.ChatRoom),
         };
     }
@@ -606,6 +613,7 @@ public partial class ChatService(
                 ["source_created_at"] = sourceMessage.CreatedAt.ToUnixTimeMilliseconds(),
                 ["source_attachments"] = BuildRedirectAttachmentSnapshot(sourceMessage.Attachments),
                 ["source_meta"] = CloneRedirectMeta(sourceMessage.Meta),
+                ["sender_map"] = BuildRedirectSenderMapSnapshot(sourceSenders),
                 ["source_message"] = BuildRedirectMessageEntrySnapshot(sourceMessage, sourceSender),
                 ["redirected_by"] = BuildRedirectSenderSnapshot(redirector),
                 ["redirected_to_room"] = BuildRedirectRoomSnapshot(destinationRoom),
@@ -619,6 +627,7 @@ public partial class ChatService(
             ["source_room_id"] = sourceRoom.Id,
             ["source_room"] = BuildRedirectRoomSnapshot(sourceRoom),
             ["range"] = BuildRedirectRangeSnapshot(orderedMessages),
+            ["sender_map"] = BuildRedirectSenderMapSnapshot(sourceSenders),
             ["messages"] = BuildRedirectMessagesSnapshot(orderedMessages, sourceSenders),
             ["redirected_by"] = BuildRedirectSenderSnapshot(redirector),
             ["redirected_to_room"] = BuildRedirectRoomSnapshot(destinationRoom),

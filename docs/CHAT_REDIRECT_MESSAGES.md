@@ -99,6 +99,37 @@ When multiple source messages are redirected, `meta.redirect` has this shape:
       "started_at": 1712345678901,
       "ended_at": 1712345680901
     },
+    "sender_map": {
+      "55555555-5555-5555-5555-555555555555": {
+        "id": "55555555-5555-5555-5555-555555555555",
+        "chat_room_id": "33333333-3333-3333-3333-333333333333",
+        "account_id": "44444444-4444-4444-4444-444444444444",
+        "nick": "alice",
+        "realm_nick": null,
+        "realm_bio": null,
+        "realm_experience": null,
+        "realm_level": null,
+        "realm_leveling_progress": null,
+        "notify": "All",
+        "joined_at": 1712345600000,
+        "leave_at": null,
+        "created_at": 1712345600000,
+        "updated_at": 1712345600000,
+        "account": {
+          "id": "44444444-4444-4444-4444-444444444444",
+          "name": "alice",
+          "nick": "Alice",
+          "language": "en",
+          "region": "US",
+          "activated_at": 1712000000000,
+          "is_superuser": false,
+          "automated_id": null,
+          "profile": null,
+          "created_at": 1712000000000,
+          "updated_at": 1712000000000
+        }
+      }
+    },
     "messages": [
       {
         "id": "11111111-1111-1111-1111-111111111111",
@@ -116,34 +147,20 @@ When multiple source messages are redirected, `meta.redirect` has this shape:
         "deleted_at": null,
         "attachments": [],
         "reactions_count": {},
-        "sender": {
-          "id": "55555555-5555-5555-5555-555555555555",
-          "chat_room_id": "33333333-3333-3333-3333-333333333333",
-          "account_id": "44444444-4444-4444-4444-444444444444",
-          "nick": "alice",
-          "realm_nick": null,
-          "realm_bio": null,
-          "realm_experience": null,
-          "realm_level": null,
-          "realm_leveling_progress": null,
-          "notify": "All",
-          "joined_at": 1712345600000,
-          "leave_at": null,
-          "created_at": 1712345600000,
-          "updated_at": 1712345600000,
-          "account": {
-            "id": "44444444-4444-4444-4444-444444444444",
-            "name": "alice",
-            "nick": "Alice",
-            "language": "en",
-            "region": "US",
-            "activated_at": 1712000000000,
-            "is_superuser": false,
-            "automated_id": null,
-            "profile": null,
-            "created_at": 1712000000000,
-            "updated_at": 1712000000000
-          }
+        "chat_room": {
+          "id": "33333333-3333-3333-3333-333333333333",
+          "name": "General",
+          "description": null,
+          "type": "Group",
+          "is_community": false,
+          "is_public": false,
+          "encryption_mode": "None",
+          "realm_id": null,
+          "account_id": null,
+          "picture": null,
+          "background": null,
+          "created_at": 1712000000000,
+          "updated_at": 1712000000000
         }
       }
     ],
@@ -199,6 +216,7 @@ The most important fields are:
 
 - `source_room`: snapshot of the original chat room
 - `range`: summary of the selected history section
+- `sender_map`: deduplicated sender snapshot map keyed by source `sender_id`
 - `messages`: full preloaded message-entry snapshots in chronological order
 - `redirected_by`: snapshot of the member who performed the redirect in the destination room
 - `redirected_to_room`: snapshot of the destination room at redirect time
@@ -215,6 +233,7 @@ When exactly one source message is redirected, `meta.redirect` stays on `version
 - `source_created_at`
 - `source_attachments`
 - `source_meta`
+- `sender_map`
 - `source_message`
 - `redirected_by`
 - `redirected_to_room`
@@ -240,7 +259,8 @@ Recommended rendering behavior:
 - show the destination message as a redirected history card
 - use `meta.redirect.source_room` as the original room label
 - use `meta.redirect.messages` to render the transcript entries in order
-- use each message entry's `sender` and `attachments` snapshots directly without extra fetches
+- resolve each message entry's `sender_id` through `meta.redirect.sender_map`
+- use each message entry's `attachments` snapshots directly without extra fetches
 - use `meta.redirect.redirected_by` if the UI wants to explicitly label who redirected the history section
 
 ## Error Cases
