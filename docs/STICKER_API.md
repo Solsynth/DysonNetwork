@@ -106,6 +106,54 @@ Notes:
 - All fields are optional.
 - Only provided fields are updated.
 
+## Batch Update Sticker Rendering Settings
+
+Endpoint:
+
+```text
+PATCH /api/stickers/{packId}/content/batch/rendering-settings
+```
+
+Request body:
+
+```json
+{
+  "sticker_ids": [
+    "7b602089-3c6c-45bf-91be-4c812e4fb5a1",
+    "8a4466f0-5ce8-4f03-8ab3-9f5b51f50dea"
+  ],
+  "size": "large",
+  "mode": "emote"
+}
+```
+
+Notes:
+
+- `sticker_ids` is required.
+- At least one of `size` or `mode` must be provided.
+- All sticker ids must belong to the target pack.
+- The endpoint updates up to 24 stickers per request.
+- This endpoint only changes rendering metadata. It does not update `slug` or `image_id`.
+
+Response body:
+
+```json
+[
+  {
+    "id": "7b602089-3c6c-45bf-91be-4c812e4fb5a1",
+    "slug": "wave",
+    "size": "large",
+    "mode": "emote"
+  },
+  {
+    "id": "8a4466f0-5ce8-4f03-8ab3-9f5b51f50dea",
+    "slug": "smile",
+    "size": "large",
+    "mode": "emote"
+  }
+]
+```
+
 ## Lookup Sticker By Placeholder
 
 Endpoint:

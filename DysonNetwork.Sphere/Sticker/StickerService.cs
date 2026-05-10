@@ -125,6 +125,12 @@ public class StickerService(
         return results;
     }
 
+    public async Task PurgeStickerCachesAsync(IEnumerable<SnSticker> stickers)
+    {
+        foreach (var sticker in stickers)
+            await PurgeStickerCache(sticker);
+    }
+
     private async Task PurgeStickerCache(SnSticker sticker)
     {
         // Remove both possible cache entries

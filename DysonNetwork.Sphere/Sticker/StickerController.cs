@@ -331,6 +331,13 @@ public class StickerController(
         public List<string> Placeholders { get; set; } = [];
     }
 
+    public class BatchStickerRenderingSettingsRequest
+    {
+        public List<Guid> StickerIds { get; set; } = [];
+        public StickerSize? Size { get; set; }
+        public StickerMode? Mode { get; set; }
+    }
+
     [HttpPatch("{packId:guid}/content/{id:guid}")]
     public async Task<IActionResult> UpdateSticker(Guid packId, Guid id, [FromBody] StickerRequest request)
     {
@@ -367,6 +374,53 @@ public class StickerController(
 
         sticker = await st.UpdateStickerAsync(sticker);
         return Ok(sticker);
+    }
+
+    [HttpPatch("{packId:guid}/content/batch/rendering-settings")]
+    public async Task<IActionResult> BatchUpdateStickerRenderingSettings(
+        Guid packId,
+        [FromBody] BatchStickerRenderingSettingsRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var permissionCheck =
+            await _CheckStickerPackPermissions(packId, currentUser, PublisherMemberRole.Editor);
+        if (permissionCheck is not OkResult)
+            return permissionCheck;
+
+        if (request.StickerIds.Count == 0)
+            return BadRequest("sticker_ids is required.");
+        if (request.Size is null && request.Mode is null)
+            return BadRequest("At least one of size or mode is required.");
+
+        var stickerIds = request.StickerIds
+            .Distinct()
+            .Take(MaxStickersPerPack)
+            .ToList();
+
+        var stickers = await db.Stickers
+            .Include(s => s.Pack)
+            .Where(s => s.PackId == packId && stickerIds.Contains(s.Id))
+            .ToListAsync();
+
+        if (stickers.Count != stickerIds.Count)
+            return BadRequest("One or more stickers were not found in this pack.");
+
+        foreach (var sticker in stickers)
+        {
+            if (request.Size is not null)
+                sticker.Size = request.Size.Value;
+            if (request.Mode is not null)
+                sticker.Mode = request.Mode.Value;
+        }
+
+        db.Stickers.UpdateRange(stickers);
+        await db.SaveChangesAsync();
+        await st.PurgeStickerCachesAsync(stickers);
+
+        return Ok(stickers);
     }
 
     [HttpDelete("{packId:guid}/content/{id:guid}")]
