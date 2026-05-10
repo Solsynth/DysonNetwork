@@ -22,11 +22,8 @@ public class StickerService(
         return sticker;
     }
 
-    public async Task<SnSticker> UpdateStickerAsync(SnSticker sticker, SnCloudFileReferenceObject? newImage)
+    public async Task<SnSticker> UpdateStickerAsync(SnSticker sticker)
     {
-        if (newImage is not null)
-            sticker.Image = newImage;
-
         db.Stickers.Update(sticker);
         await db.SaveChangesAsync();
 
@@ -62,7 +59,7 @@ public class StickerService(
 
     public async Task<SnSticker?> LookupStickerByIdentifierAsync(string identifier)
     {
-        identifier = identifier.ToLower();
+        identifier = identifier.Trim().ToLower();
         // Try to get from the cache first
         var cacheKey = $"sticker:lookup:{identifier}";
         var cachedSticker = await cache.GetAsync<SnSticker>(cacheKey);
@@ -102,10 +99,43 @@ public class StickerService(
         return sticker;
     }
 
+    public async Task<List<SnStickerBatchLookupItem>> LookupStickersByIdentifiersAsync(IEnumerable<string> identifiers)
+    {
+        var results = new List<SnStickerBatchLookupItem>();
+
+        foreach (var identifier in identifiers)
+        {
+            var normalizedIdentifier = identifier.Trim();
+            if (string.IsNullOrWhiteSpace(normalizedIdentifier))
+            {
+                results.Add(new SnStickerBatchLookupItem
+                {
+                    Placeholder = identifier,
+                });
+                continue;
+            }
+
+            results.Add(new SnStickerBatchLookupItem
+            {
+                Placeholder = identifier,
+                Sticker = await LookupStickerByIdentifierAsync(normalizedIdentifier),
+            });
+        }
+
+        return results;
+    }
+
     private async Task PurgeStickerCache(SnSticker sticker)
     {
         // Remove both possible cache entries
         await cache.RemoveAsync($"sticker:lookup:{sticker.Id}");
         await cache.RemoveAsync($"sticker:lookup:{sticker.Pack.Prefix}{sticker.Slug}");
+        await cache.RemoveAsync($"sticker:lookup:{sticker.Pack.Prefix}+{sticker.Slug}");
     }
+}
+
+public class SnStickerBatchLookupItem
+{
+    public string Placeholder { get; set; } = string.Empty;
+    public SnSticker? Sticker { get; set; }
 }

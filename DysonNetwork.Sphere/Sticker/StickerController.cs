@@ -272,6 +272,20 @@ public class StickerController(
         return Redirect($"/drive/files/{sticker.Image.Id}?original=true");
     }
 
+    [HttpPost("lookup/batch")]
+    public async Task<ActionResult<List<SnStickerBatchLookupItem>>> LookupStickersByPlaceholderBatch(
+        [FromBody] BatchStickerLookupRequest request
+    )
+    {
+        var placeholders = request.Placeholders
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Take(100)
+            .ToList();
+
+        var stickers = await st.LookupStickersByIdentifiersAsync(placeholders);
+        return Ok(stickers);
+    }
+
     [HttpGet("search")]
     public async Task<ActionResult<List<SnSticker>>> SearchSticker(
         [FromQuery] string query,
@@ -308,6 +322,13 @@ public class StickerController(
     {
         [MaxLength(128)] public string? Slug { get; set; } = null!;
         public string? ImageId { get; set; }
+        public StickerSize? Size { get; set; }
+        public StickerMode? Mode { get; set; }
+    }
+
+    public class BatchStickerLookupRequest
+    {
+        public List<string> Placeholders { get; set; } = [];
     }
 
     [HttpPatch("{packId:guid}/content/{id:guid}")]
@@ -331,8 +352,11 @@ public class StickerController(
 
         if (request.Slug is not null)
             sticker.Slug = request.Slug;
+        if (request.Size is not null)
+            sticker.Size = request.Size.Value;
+        if (request.Mode is not null)
+            sticker.Mode = request.Mode.Value;
 
-        SnCloudFileReferenceObject? image = null;
         if (request.ImageId is not null)
         {
             var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.ImageId });
@@ -341,7 +365,7 @@ public class StickerController(
             sticker.Image = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
-        sticker = await st.UpdateStickerAsync(sticker, image);
+        sticker = await st.UpdateStickerAsync(sticker);
         return Ok(sticker);
     }
 
@@ -405,6 +429,8 @@ public class StickerController(
         {
             Slug = request.Slug,
             Image = SnCloudFileReferenceObject.FromProtoValue(file),
+            Size = request.Size ?? StickerSize.Auto,
+            Mode = request.Mode ?? StickerMode.Sticker,
             Pack = pack
         };
 

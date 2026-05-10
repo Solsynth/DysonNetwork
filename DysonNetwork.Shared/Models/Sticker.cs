@@ -6,6 +6,20 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Shared.Models;
 
+public enum StickerSize
+{
+    Auto,
+    Small,
+    Medium,
+    Large,
+}
+
+public enum StickerMode
+{
+    Sticker,
+    Emote,
+}
+
 [Index(nameof(Slug))] // The slug index shouldn't be unique, the sticker slug can be repeated across packs.
 public class SnSticker : ModelBase, IIdentifiedResource
 {
@@ -13,6 +27,8 @@ public class SnSticker : ModelBase, IIdentifiedResource
 
     [MaxLength(128)] public string Slug { get; set; } = null!;
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject Image { get; set; } = null!;
+    public StickerSize Size { get; set; } = StickerSize.Auto;
+    public StickerMode Mode { get; set; } = StickerMode.Sticker;
 
     public Guid PackId { get; set; }
     [IgnoreMember] [JsonIgnore] public StickerPack Pack { get; set; } = null!;
