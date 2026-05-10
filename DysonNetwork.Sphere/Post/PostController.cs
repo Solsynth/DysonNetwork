@@ -23,6 +23,12 @@ public class PostController(
     RemoteRealmService rs
 ) : ControllerBase
 {
+    public class UserReactionListingItem
+    {
+        public required SnPostReaction Reaction { get; set; }
+        public required SnPost Post { get; set; }
+    }
+
     private async Task<(HashSet<Guid>? gatekeptPublisherIds, HashSet<Guid>? subscriberPublisherIds)> GetGatekeepInfoAsync(
         IQueryable<Guid> publisherIdsInQuery,
         DyAccount? currentUser)
@@ -861,6 +867,114 @@ public class PostController(
                 reaction.Account = account;
 
         return Ok(reactions);
+    }
+
+    [HttpGet("reactions/users/{name}")]
+    public async Task<ActionResult<List<UserReactionListingItem>>> ListUserReactions(
+        string name,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20,
+        [FromQuery(Name = "order")] string? order = null
+    )
+    {
+        var account = (await remoteAccountsHelper.SearchAccounts(name))
+            .Select(SnAccount.FromProtoValue)
+            .FirstOrDefault(a => string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase));
+        if (account is null)
+            return NotFound();
+
+        var accountId = account.Id;
+
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var currentUser = currentUserValue as DyAccount;
+
+        List<Guid> userFriends = [];
+        if (currentUser != null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(
+                new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
+            );
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        }
+
+        var userPublishers = currentUser is null
+            ? []
+            : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+
+        var localPostQuery = db.PostReactions
+            .Where(r => r.AccountId == accountId && r.Post.FediverseUri == null)
+            .Select(r => r.Post)
+            .Where(p => p.PublisherId != null);
+
+        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+            localPostQuery.Select(p => p.PublisherId!.Value),
+            currentUser
+        );
+
+        var visibleReactions = db.PostReactions
+            .Where(r => r.AccountId == accountId && r.Post.FediverseUri == null)
+            .Where(r =>
+                db.Posts
+                    .Where(p => p.Id == r.PostId)
+                    .FilterWithVisibility(
+                        currentUser,
+                        userFriends,
+                        userPublishers,
+                        isListing: true,
+                        gatekeptPublisherIds,
+                        subscriberPublisherIds
+                    )
+                    .Any()
+            );
+
+        var totalCount = await visibleReactions.CountAsync();
+        Response.Headers["X-Total"] = totalCount.ToString();
+
+        visibleReactions = order?.ToLowerInvariant() switch
+        {
+            "created" => visibleReactions.OrderByDescending(r => r.CreatedAt),
+            _ => visibleReactions.OrderByDescending(r => r.CreatedAt)
+        };
+
+        var reactions = await visibleReactions
+            .Include(r => r.Actor)
+            .Include(r => r.Post)
+            .ThenInclude(p => p.Publisher)
+            .Include(r => r.Post)
+            .ThenInclude(p => p.Categories)
+            .Include(r => r.Post)
+            .ThenInclude(p => p.Tags)
+            .Include(r => r.Post)
+            .ThenInclude(p => p.RepliedPost)
+            .Include(r => r.Post)
+            .ThenInclude(p => p.ForwardedPost)
+            .Include(r => r.Post)
+            .ThenInclude(p => p.FeaturedRecords)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        foreach (var reaction in reactions)
+        {
+            if (reaction.AccountId == accountId)
+                reaction.Account = account;
+        }
+
+        var posts = reactions.Select(r => r.Post).ToList();
+        posts = await ps.LoadPostInfo(posts, currentUser, true);
+        await pcs.LoadPublisherCollectionsAsync(posts);
+
+        var postsById = posts.ToDictionary(p => p.Id);
+        var result = reactions
+            .Where(r => postsById.ContainsKey(r.PostId))
+            .Select(r => new UserReactionListingItem
+            {
+                Reaction = r,
+                Post = postsById[r.PostId]
+            })
+            .ToList();
+
+        return Ok(result);
     }
 
     [HttpGet("{id:guid}/replies/featured")]
