@@ -161,22 +161,19 @@ public partial class ChatService(
             var sticker = SnSticker.FromProtoValue(stickerProto);
             message.Content = localization.Get("chatStickerBody", null);
             message.Meta ??= new Dictionary<string, object>();
+            message.Meta["image"] = sticker.Image.Id;
             message.Meta["sticker"] = new Dictionary<string, object?>
             {
                 ["id"] = sticker.Id,
                 ["slug"] = sticker.Slug,
                 ["name"] = sticker.Name,
                 ["image_id"] = sticker.Image.Id,
-                ["sticker_image_id"] = sticker.Image.Id,
                 ["size"] = (int)sticker.Size,
                 ["mode"] = (int)sticker.Mode,
                 ["pack_id"] = sticker.PackId,
                 ["pack_prefix"] = sticker.Pack?.Prefix,
                 ["placeholder"] = placeholder,
             };
-
-            if (message.Attachments.All(a => a.Id != sticker.Image.Id))
-                message.Attachments.Add(sticker.Image);
         }
         catch (RpcException ex)
             when (ex.StatusCode is StatusCode.NotFound or StatusCode.InvalidArgument)
@@ -512,6 +509,13 @@ public partial class ChatService(
 
         await NormalizeStickerPlaceholderMessageAsync(message);
         await EnrichInlineStickerPreviewAsync(message);
+
+        var imageIds = GetNotificationImageIds(message);
+        if (imageIds.Count > 0)
+        {
+            message.Meta ??= new Dictionary<string, object>();
+            message.Meta["image"] = imageIds.First();
+        }
 
         // First complete the save operation
         db.ChatMessages.Add(message);
@@ -1444,22 +1448,7 @@ public partial class ChatService(
             ["room_id"] = room.Id,
         };
 
-        var imageIds = message
-            .Attachments.Where(a => a.MimeType?.StartsWith("image") ?? false)
-            .Select(a => a.Id)
-            .ToList();
-
-        if (
-            imageIds.Count == 0
-            && message.Meta?.TryGetValue("sticker", out var stickerMeta) == true
-            && stickerMeta is Dictionary<string, object?> stickerMetaDict
-            && stickerMetaDict.TryGetValue("sticker_image_id", out var stickerImageId)
-            && stickerImageId is string stickerImageIdText
-            && !string.IsNullOrWhiteSpace(stickerImageIdText)
-        )
-        {
-            imageIds.Add(stickerImageIdText);
-        }
+        var imageIds = GetNotificationImageIds(message);
 
         if (imageIds.Count > 0)
         {
@@ -1473,6 +1462,26 @@ public partial class ChatService(
             metaDict["room_name"] = room.Name;
 
         return metaDict;
+    }
+
+    private static List<string> GetNotificationImageIds(SnChatMessage message)
+    {
+        var imageIds = message
+            .Attachments.Where(a => a.MimeType?.StartsWith("image") ?? false)
+            .Select(a => a.Id)
+            .ToList();
+
+        if (
+            imageIds.Count == 0
+            && message.Meta?.TryGetValue("image", out var metaImage) == true
+            && metaImage is string metaImageText
+            && !string.IsNullOrWhiteSpace(metaImageText)
+        )
+        {
+            imageIds.Add(metaImageText);
+        }
+
+        return imageIds;
     }
 
     private DyPushNotification BuildNotification(
