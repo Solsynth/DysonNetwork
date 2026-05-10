@@ -85,13 +85,10 @@ public class AccountAdminController(
         foreach (var userId in allUserIds)
         {
             var isOnline = onlineStatuses.GetValueOrDefault(userId.ToString(), false);
-            var activeActivities = await accountEventService.GetActiveActivities(userId);
-            var hasActivePresence = activeActivities.Any();
-
             var shouldInclude = stage switch
             {
-                PresenceUpdateStage.Active => isOnline && hasActivePresence,
-                PresenceUpdateStage.Maybe => isOnline && !hasActivePresence,
+                PresenceUpdateStage.Active => isOnline,
+                PresenceUpdateStage.Maybe => false,
                 PresenceUpdateStage.Cold => !isOnline,
                 _ => false
             };
