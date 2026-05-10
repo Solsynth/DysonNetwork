@@ -28,6 +28,7 @@ public class SnSticker : ModelBase, IIdentifiedResource
     public Guid Id { get; set; } = Guid.NewGuid();
 
     [MaxLength(128)] public string Slug { get; set; } = null!;
+    [MaxLength(1024)] public string Name { get; set; } = string.Empty;
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject Image { get; set; } = null!;
     public StickerSize Size { get; set; } = StickerSize.Auto;
     public StickerMode Mode { get; set; } = StickerMode.Sticker;
@@ -41,6 +42,7 @@ public class SnSticker : ModelBase, IIdentifiedResource
     {
         Id = Id.ToString(),
         Slug = Slug,
+        Name = Name,
         ImageId = Image.Id,
         Size = Size switch
         {
@@ -72,6 +74,7 @@ public class SnSticker : ModelBase, IIdentifiedResource
     {
         Id = Guid.Parse(proto.Id),
         Slug = proto.Slug,
+        Name = proto.Name,
         Image = new SnCloudFileReferenceObject
         {
             Id = proto.ImageId,

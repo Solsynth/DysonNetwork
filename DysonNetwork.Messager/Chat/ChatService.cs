@@ -147,6 +147,7 @@ public partial class ChatService(
             {
                 ["id"] = sticker.Id,
                 ["slug"] = sticker.Slug,
+                ["name"] = sticker.Name,
                 ["size"] = sticker.Size.ToString().ToLowerInvariant(),
                 ["mode"] = sticker.Mode.ToString().ToLowerInvariant(),
                 ["pack_id"] = sticker.PackId,

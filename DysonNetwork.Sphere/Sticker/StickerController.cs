@@ -321,6 +321,7 @@ public class StickerController(
     public class StickerRequest
     {
         [MaxLength(128)] public string? Slug { get; set; } = null!;
+        [MaxLength(1024)] public string? Name { get; set; }
         public string? ImageId { get; set; }
         public StickerSize? Size { get; set; }
         public StickerMode? Mode { get; set; }
@@ -359,6 +360,8 @@ public class StickerController(
 
         if (request.Slug is not null)
             sticker.Slug = request.Slug;
+        if (request.Name is not null)
+            sticker.Name = request.Name;
         if (request.Size is not null)
             sticker.Size = request.Size.Value;
         if (request.Mode is not null)
@@ -482,6 +485,7 @@ public class StickerController(
         var sticker = new SnSticker
         {
             Slug = request.Slug,
+            Name = request.Name ?? request.Slug,
             Image = SnCloudFileReferenceObject.FromProtoValue(file),
             Size = request.Size ?? StickerSize.Auto,
             Mode = request.Mode ?? StickerMode.Sticker,

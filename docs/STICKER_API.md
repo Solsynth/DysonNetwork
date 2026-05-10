@@ -45,6 +45,7 @@ Example response shape:
 {
   "id": "7b602089-3c6c-45bf-91be-4c812e4fb5a1",
   "slug": "wave",
+  "name": "Waving Hand",
   "image": {
     "id": "file_123"
   },
@@ -68,6 +69,7 @@ Request body:
 
 ```json
 {
+  "name": "Waving Hand",
   "slug": "wave",
   "image_id": "file_123",
   "size": "auto",
@@ -79,6 +81,7 @@ Notes:
 
 - `slug` is required.
 - `image_id` is required.
+- `name` is optional. If omitted, it falls back to `slug` on create.
 - `size` is optional and defaults to `auto`.
 - `mode` is optional and defaults to `sticker`.
 
@@ -94,6 +97,7 @@ Request body:
 
 ```json
 {
+  "name": "Waving Hand Large",
   "slug": "wave_alt",
   "image_id": "file_456",
   "size": "large",
@@ -216,6 +220,7 @@ Response body:
     "sticker": {
       "id": "7b602089-3c6c-45bf-91be-4c812e4fb5a1",
       "slug": "wave",
+      "name": "Waving Hand",
       "size": "auto",
       "mode": "sticker"
     }
@@ -233,5 +238,6 @@ This feature adds two new columns to the `stickers` table:
 
 - `size`
 - `mode`
+- `name`
 
 Apply the Sphere migration before using these fields in production.

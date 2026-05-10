@@ -23,6 +23,7 @@ enum DyStickerMode {
 message DySticker {
   string id = 1;
   string slug = 2;
+  string name = 18;
   string image_id = 3;
   DyStickerSize size = 4;
   DyStickerMode mode = 5;
