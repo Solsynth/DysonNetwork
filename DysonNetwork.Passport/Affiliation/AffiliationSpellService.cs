@@ -6,6 +6,23 @@ namespace DysonNetwork.Passport.Affiliation;
 
 public class AffiliationSpellService(AppDatabase db)
 {
+    public async Task<SnAffiliationResult> RecordAffiliationEvent(string spellWord, string resourceIdentifier)
+    {
+        var spell = await db.AffiliationSpells.FirstOrDefaultAsync(a => a.Spell == spellWord);
+        if (spell is null) throw new InvalidOperationException("The spell was not found.");
+
+        var result = new SnAffiliationResult
+        {
+            Spell = spell,
+            ResourceIdentifier = resourceIdentifier
+        };
+
+        db.AffiliationResults.Add(result);
+        await db.SaveChangesAsync();
+
+        return result;
+    }
+
     public async Task<SnAffiliationSpell> CreateAffiliationSpell(Guid accountId, string? spellWord)
     {
         spellWord ??= _GenerateRandomString(8);
@@ -25,19 +42,7 @@ public class AffiliationSpellService(AppDatabase db)
 
     public async Task<SnAffiliationResult> CreateAffiliationResult(string spellWord, string resourceId)
     {
-        var spell =
-            await db.AffiliationSpells.FirstOrDefaultAsync(a => a.Spell == spellWord);
-        if (spell is null) throw  new InvalidOperationException("The spell was not found.");
-
-        var result = new SnAffiliationResult
-        {
-            Spell = spell,
-            ResourceIdentifier = resourceId
-        };
-        db.AffiliationResults.Add(result);
-        await db.SaveChangesAsync();
-        
-        return result;
+        return await RecordAffiliationEvent(spellWord, resourceId);
     }
 
     public async Task<bool> CheckAffiliationSpellHasTaken(string spellWord)

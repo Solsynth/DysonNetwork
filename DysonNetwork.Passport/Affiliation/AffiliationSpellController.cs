@@ -15,6 +15,11 @@ public class AffiliationSpellController(AppDatabase db, AffiliationSpellService 
         [MaxLength(1024)] public string? Spell { get; set; }
     }
 
+    public class CreateAffiliationResultRequest
+    {
+        [MaxLength(8192)] public string ResourceIdentifier { get; set; } = null!;
+    }
+
     [HttpPost]
     [Authorize]
     public async Task<ActionResult<SnAffiliationSpell>> CreateSpell([FromBody] CreateAffiliationSpellRequest request)
@@ -25,6 +30,26 @@ public class AffiliationSpellController(AppDatabase db, AffiliationSpellService 
         {
             var spell = await ars.CreateAffiliationSpell(currentUser.Id, request.Spell);
             return Ok(spell);
+        }
+        catch (InvalidOperationException e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
+
+    [HttpPost("{spell}/results")]
+    public async Task<ActionResult<SnAffiliationResult>> RecordResult(
+        [FromRoute] string spell,
+        [FromBody] CreateAffiliationResultRequest request
+    )
+    {
+        try
+        {
+            var result = await ars.RecordAffiliationEvent(
+                Uri.UnescapeDataString(spell),
+                request.ResourceIdentifier
+            );
+            return Ok(result);
         }
         catch (InvalidOperationException e)
         {

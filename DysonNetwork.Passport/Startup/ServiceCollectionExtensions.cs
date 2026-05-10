@@ -175,6 +175,7 @@ public static class ServiceCollectionExtensions
             .AddListener<AccountCreatedEvent>(async (evt, ctx) =>
             {
                 var spells = ctx.ServiceProvider.GetRequiredService<MagicSpellService>();
+                var affiliationSpells = ctx.ServiceProvider.GetRequiredService<AffiliationSpellService>();
                 var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
                 
                 logger.LogInformation("Handling account creation event for @{UserName}", evt.Name);
@@ -198,6 +199,11 @@ public static class ServiceCollectionExtensions
                         preventRepeat: true
                     );
                     await spells.NotifyMagicSpell(spell, true);
+                }
+
+                if (!string.IsNullOrWhiteSpace(evt.AffiliationSpell))
+                {
+                    await affiliationSpells.RecordAffiliationEvent(evt.AffiliationSpell, $"account:{evt.AccountId}");
                 }
 
                 logger.LogInformation("Handled account created event for {AccountId}", evt.AccountId);

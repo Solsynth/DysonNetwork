@@ -30,6 +30,7 @@ public class AccountCreatedEvent : EventBase
     public Instant? PrimaryEmailVerifiedAt { get; set; }
     public Instant? ActivatedAt { get; set; }
     public bool IsSuperuser { get; set; }
+    public string? AffiliationSpell { get; set; }
     public Instant CreatedAt { get; set; } = SystemClock.Instance.GetCurrentInstant();
 }
 

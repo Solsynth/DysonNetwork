@@ -41,6 +41,7 @@ public class AccountController(
 
         [MaxLength(32)] public string Language { get; set; } = "en-us";
         [Required] public string CaptchaToken { get; set; } = string.Empty;
+        [MaxLength(1024)] public string? AffiliationSpell { get; set; }
     }
 
     public class AccountCreateValidateRequest
@@ -85,7 +86,8 @@ public class AccountController(
                 request.Email,
                 request.Password,
                 request.Language,
-                region
+                region,
+                request.AffiliationSpell
             );
             return Ok(account);
         }

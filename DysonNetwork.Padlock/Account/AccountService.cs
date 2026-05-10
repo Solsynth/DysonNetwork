@@ -68,6 +68,7 @@ public class AccountService(
         string? password,
         string language = "en-US",
         string region = "en",
+        string? affiliationSpell = null,
         bool isEmailVerified = false,
         bool isActivated = false
     )
@@ -109,7 +110,7 @@ public class AccountService(
 
         db.Accounts.Add(account);
         await db.SaveChangesAsync();
-        await PublishAccountCreated(account);
+        await PublishAccountCreated(account, affiliationSpell);
         return account;
     }
 
@@ -1329,7 +1330,7 @@ public class AccountService(
         return true;
     }
 
-    private async Task PublishAccountCreated(SnAccount account)
+    private async Task PublishAccountCreated(SnAccount account, string? affiliationSpell = null)
     {
         var primaryEmail = account.Contacts
             .Where(c => c.Type == AccountContactType.Email)
@@ -1347,6 +1348,7 @@ public class AccountService(
             PrimaryEmailVerifiedAt = primaryEmail?.VerifiedAt,
             ActivatedAt = account.ActivatedAt,
             IsSuperuser = account.IsSuperuser,
+            AffiliationSpell = affiliationSpell,
             CreatedAt = SystemClock.Instance.GetCurrentInstant()
         });
     }
