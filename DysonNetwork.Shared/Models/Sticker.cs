@@ -38,37 +38,52 @@ public class SnSticker : ModelBase, IIdentifiedResource
 
     public string ResourceIdentifier => $"sticker:{Id}";
 
-    public DySticker ToProtoValue() => new()
+    public DySticker ToProtoValue()
     {
-        Id = Id.ToString(),
-        Slug = Slug,
-        Name = Name,
-        ImageId = Image.Id,
-        Size = Size switch
+        var proto = new DySticker
         {
-            StickerSize.Small => DyStickerSize.Small,
-            StickerSize.Medium => DyStickerSize.Medium,
-            StickerSize.Large => DyStickerSize.Large,
-            _ => DyStickerSize.Auto,
-        },
-        Mode = Mode switch
-        {
-            StickerMode.Emote => DyStickerMode.Emote,
-            _ => DyStickerMode.Sticker,
-        },
-        PackId = PackId.ToString(),
-        PackPrefix = Pack?.Prefix,
-        CreatedAt = CreatedAt.ToTimestamp(),
-        UpdatedAt = UpdatedAt.ToTimestamp(),
-        DeletedAt = DeletedAt?.ToTimestamp(),
-        ImageName = Image.Name,
-        ImageMimeType = Image.MimeType,
-        ImageSize = Image.Size,
-        ImageUrl = Image.Url,
-        ImageWidth = Image.Width ?? 0,
-        ImageHeight = Image.Height ?? 0,
-        ImageBlurhash = Image.Blurhash,
-    };
+            Id = Id.ToString(),
+            Slug = Slug,
+            Name = Name ?? string.Empty,
+            ImageId = Image.Id ?? string.Empty,
+            Size = Size switch
+            {
+                StickerSize.Small => DyStickerSize.Small,
+                StickerSize.Medium => DyStickerSize.Medium,
+                StickerSize.Large => DyStickerSize.Large,
+                _ => DyStickerSize.Auto,
+            },
+            Mode = Mode switch
+            {
+                StickerMode.Emote => DyStickerMode.Emote,
+                _ => DyStickerMode.Sticker,
+            },
+            PackId = PackId.ToString(),
+            CreatedAt = CreatedAt.ToTimestamp(),
+            UpdatedAt = UpdatedAt.ToTimestamp(),
+        };
+
+        if (!string.IsNullOrWhiteSpace(Pack?.Prefix))
+            proto.PackPrefix = Pack.Prefix;
+        if (DeletedAt is not null)
+            proto.DeletedAt = DeletedAt.Value.ToTimestamp();
+        if (!string.IsNullOrWhiteSpace(Image.Name))
+            proto.ImageName = Image.Name;
+        if (!string.IsNullOrWhiteSpace(Image.MimeType))
+            proto.ImageMimeType = Image.MimeType;
+        if (Image.Size > 0)
+            proto.ImageSize = Image.Size;
+        if (!string.IsNullOrWhiteSpace(Image.Url))
+            proto.ImageUrl = Image.Url;
+        if (Image.Width is not null)
+            proto.ImageWidth = Image.Width.Value;
+        if (Image.Height is not null)
+            proto.ImageHeight = Image.Height.Value;
+        if (!string.IsNullOrWhiteSpace(Image.Blurhash))
+            proto.ImageBlurhash = Image.Blurhash;
+
+        return proto;
+    }
 
     public static SnSticker FromProtoValue(DySticker proto) => new()
     {
