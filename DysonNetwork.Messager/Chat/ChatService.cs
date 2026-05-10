@@ -1589,9 +1589,7 @@ public partial class ChatService(
             }
         }
 
-        return mentioned
-            ? localization.Get("chatNotificationMentionedBody", locale, new { body })
-            : body;
+        return mentioned ? $"[@] {body}" : body;
     }
 
     private static List<DyAccount> FilterAccountsForNotification(
