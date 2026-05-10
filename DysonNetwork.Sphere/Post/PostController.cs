@@ -1297,6 +1297,229 @@ public class PostController(
         return Ok(tree);
     }
 
+    public class PostThreadResponse
+    {
+        public List<ThreadedReplyNode>? Ancestors { get; set; }
+        public required ThreadedReplyNode Current { get; set; }
+        public required List<ThreadedReplyNode> Descendants { get; set; }
+        public required bool HasMore { get; set; }
+    }
+
+    [HttpGet("{id:guid}/thread")]
+    public async Task<ActionResult<PostThreadResponse>> GetThread(
+        Guid id,
+        [FromQuery] bool ancestors = true,
+        [FromQuery] int ancestorLimit = 50,
+        [FromQuery] int take = 20
+    )
+    {
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var currentUser = currentUserValue as DyAccount;
+
+        List<Guid> userFriends = [];
+        if (currentUser != null)
+        {
+            var friendsResponse = await accounts.ListFriendsAsync(
+                new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
+            );
+            userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        }
+
+        var userPublishers = currentUser is null
+            ? []
+            : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
+
+        var currentPost = await db.Posts
+            .Where(e => e.Id == id)
+            .Include(e => e.Publisher)
+            .Include(e => e.Tags)
+            .Include(e => e.Categories)
+            .Include(e => e.RepliedPost)
+            .Include(e => e.ForwardedPost)
+            .Include(e => e.FeaturedRecords)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers)
+            .FirstOrDefaultAsync();
+        if (currentPost is null)
+            return NotFound();
+
+        if (currentPost.PublisherId.HasValue && currentPost.Publisher?.GatekeptFollows == true)
+        {
+            if (currentUser == null)
+                return StatusCode(403, "Subscriber access required");
+            var currentAccountId = Guid.Parse(currentUser.Id);
+            var isSubscriber = await db.PublisherSubscriptions
+                .AnyAsync(s => s.PublisherId == currentPost.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
+            if (!isSubscriber && !userPublishers.Any(p => p.Id == currentPost.PublisherId.Value))
+                return StatusCode(403, "Subscriber access required");
+        }
+
+        currentPost = await ps.LoadPostInfo(currentPost, currentUser);
+        await pcs.LoadPublisherCollectionsAsync([currentPost]);
+        if (currentPost.RealmId != null)
+            currentPost.Realm = await rs.GetRealm(currentPost.RealmId.Value.ToString());
+
+        List<ThreadedReplyNode>? ancestorNodes = null;
+        if (ancestors)
+        {
+            var ancestorIdsRaw = await db.Database.SqlQueryRaw<Guid>(
+                """
+                WITH RECURSIVE ancestor_chain AS (
+                    SELECT id, replied_post_id, 0 AS depth
+                    FROM posts
+                    WHERE id = {0} AND replied_post_id IS NOT NULL
+                    UNION ALL
+                    SELECT p.id, p.replied_post_id, ac.depth + 1
+                    FROM posts p
+                    INNER JOIN ancestor_chain ac ON p.id = ac.replied_post_id
+                    WHERE p.deleted_at IS NULL
+                    LIMIT {1}
+                )
+                SELECT id FROM ancestor_chain WHERE depth > 0 ORDER BY depth DESC
+                """,
+                id, ancestorLimit
+            ).ToListAsync();
+
+            if (ancestorIdsRaw.Count > 0)
+            {
+                var ancestorPosts = await db.Posts
+                    .Where(e => ancestorIdsRaw.Contains(e.Id))
+                    .Include(e => e.Publisher)
+                    .Include(e => e.Tags)
+                    .Include(e => e.Categories)
+                    .Include(e => e.ForwardedPost)
+                    .Include(e => e.FeaturedRecords)
+                    .FilterWithVisibility(currentUser, userFriends, userPublishers)
+                    .ToListAsync();
+
+                ancestorPosts = await ps.LoadPostInfo(ancestorPosts, currentUser);
+                await pcs.LoadPublisherCollectionsAsync(ancestorPosts);
+
+                var ancestorRealmIds = ancestorPosts
+                    .Where(p => p.RealmId != null)
+                    .Select(p => p.RealmId!.Value)
+                    .Distinct()
+                    .ToList();
+                if (ancestorRealmIds.Count > 0)
+                {
+                    var realms = await rs.GetRealmBatch(ancestorRealmIds.Select(rid => rid.ToString()).ToList());
+                    var realmDict = realms.GroupBy(r => r.Id).ToDictionary(g => g.Key, g => g.FirstOrDefault());
+                    foreach (var post in ancestorPosts.Where(p => p.RealmId != null))
+                        if (realmDict.TryGetValue(post.RealmId!.Value, out var realm))
+                            post.Realm = realm;
+                }
+
+                var ancestorOrder = ancestorIdsRaw.Select((aid, idx) => new { aid, idx }).ToDictionary(x => x.aid, x => x.idx);
+                ancestorPosts.Sort((a, b) =>
+                    ancestorOrder.GetValueOrDefault(a.Id, int.MaxValue)
+                        .CompareTo(ancestorOrder.GetValueOrDefault(b.Id, int.MaxValue)));
+
+                ancestorNodes = [];
+                for (var i = 0; i < ancestorPosts.Count; i++)
+                {
+                    ancestorNodes.Add(new ThreadedReplyNode
+                    {
+                        Post = ancestorPosts[i],
+                        Depth = i,
+                        ParentId = ancestorPosts[i].RepliedPostId
+                    });
+                }
+            }
+        }
+
+        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+            db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
+            currentUser
+        );
+
+        var rootReplies = await db.Posts
+            .Where(e => e.RepliedPostId == id)
+            .Include(e => e.ForwardedPost)
+            .Include(e => e.Categories)
+            .Include(e => e.Tags)
+            .Include(e => e.FeaturedRecords)
+            .AsNoTracking()
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
+            .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
+            .ToListAsync();
+
+        rootReplies = await ps.LoadPostInfo(rootReplies, currentUser, true);
+        await pcs.LoadPublisherCollectionsAsync(rootReplies);
+
+        var descendants = new List<ThreadedReplyNode>();
+        var hasMore = false;
+        if (rootReplies.Count > 0)
+        {
+            var repliesByParent = new Dictionary<Guid, List<SnPost>>();
+            var visited = rootReplies.Select(e => e.Id).ToHashSet();
+            var frontier = rootReplies.Select(e => e.Id).ToList();
+
+            while (frontier.Count > 0)
+            {
+                var children = await db.Posts
+                    .Where(e => e.RepliedPostId != null && frontier.Contains(e.RepliedPostId.Value))
+                    .Include(e => e.ForwardedPost)
+                    .Include(e => e.Categories)
+                    .Include(e => e.Tags)
+                    .Include(e => e.FeaturedRecords)
+                    .AsNoTracking()
+                    .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
+                    .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
+                    .ToListAsync();
+
+                children = children.Where(e => visited.Add(e.Id)).ToList();
+                if (children.Count == 0)
+                    break;
+
+                children = await ps.LoadPostInfo(children, currentUser, true);
+                await pcs.LoadPublisherCollectionsAsync(children);
+
+                foreach (var child in children)
+                {
+                    if (child.RepliedPostId is not { } parentId)
+                        continue;
+
+                    if (!repliesByParent.TryGetValue(parentId, out var siblings))
+                    {
+                        siblings = [];
+                        repliesByParent[parentId] = siblings;
+                    }
+
+                    siblings.Add(child);
+                }
+
+                frontier = children.Select(e => e.Id).ToList();
+            }
+
+            foreach (var root in rootReplies)
+                FlattenThreadedReplies(root, repliesByParent, 0, descendants);
+
+            if (descendants.Count > take)
+            {
+                hasMore = true;
+                descendants = descendants.Take(take).ToList();
+            }
+        }
+
+        if (currentUser != null)
+            await ps.IncreaseViewCount(currentPost.Id, currentUser.Id, isDetailView: true);
+        else
+            await ps.IncreaseViewCount(currentPost.Id, isDetailView: true);
+
+        var ancestorCount = ancestorNodes?.Count ?? 0;
+        return Ok(new PostThreadResponse
+        {
+            Ancestors = ancestorNodes,
+            Current = new ThreadedReplyNode
+            {
+                Post = currentPost,
+                Depth = ancestorCount,
+                ParentId = currentPost.RepliedPostId
+            },
+            Descendants = descendants,
+            HasMore = hasMore
+        });
+    }
+
     [HttpGet("{id:guid}/forwards")]
     public async Task<ActionResult<List<SnPost>>> ListForwards(
         Guid id,
