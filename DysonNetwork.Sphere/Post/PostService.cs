@@ -1943,6 +1943,9 @@ public partial class PostService(
             }
         }
 
+        if (isRemoving)
+            return isRemoving;
+
         _ = Task.Run(async () =>
         {
             using var scope = factory.CreateScope();
