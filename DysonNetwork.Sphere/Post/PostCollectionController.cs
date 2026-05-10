@@ -35,6 +35,11 @@ public class PostCollectionController(
         public int? Order { get; set; }
     }
 
+    public class BatchAddCollectionPostsRequest
+    {
+        public List<Guid> PostIds { get; set; } = [];
+    }
+
     public class ReorderCollectionPostsRequest
     {
         public List<Guid> PostIds { get; set; } = [];
@@ -160,6 +165,33 @@ public class PostCollectionController(
         try
         {
             await collectionService.AddPostAsync(collection, request.PostId, request.Order);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("{slug}/posts/batch")]
+    [Authorize]
+    public async Task<ActionResult> BatchAddCollectionPosts(
+        string publisherName,
+        string slug,
+        [FromBody] BatchAddCollectionPostsRequest request
+    )
+    {
+        var collection = await collectionService.GetCollectionBySlugAsync(publisherName, slug);
+        if (collection is null)
+            return NotFound();
+
+        var auth = await RequirePublisherEditorAsync(collection.Publisher.Name);
+        if (auth.Result is not null)
+            return auth.Result;
+
+        try
+        {
+            await collectionService.BatchAddPostsAsync(collection, request.PostIds);
             return NoContent();
         }
         catch (InvalidOperationException ex)

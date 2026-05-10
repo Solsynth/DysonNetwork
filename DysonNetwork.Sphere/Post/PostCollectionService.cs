@@ -111,6 +111,43 @@ public class PostCollectionService(
         return item;
     }
 
+    public async Task BatchAddPostsAsync(SnPostCollection collection, IReadOnlyList<Guid> postIds)
+    {
+        var existingIds = await db.PostCollectionItems
+            .Where(i => i.CollectionId == collection.Id && postIds.Contains(i.PostId))
+            .Select(i => i.PostId)
+            .ToListAsync();
+
+        var newIds = postIds.Except(existingIds).ToList();
+        if (newIds.Count == 0)
+            return;
+
+        var existingPostIds = await db.Posts
+            .Where(p => newIds.Contains(p.Id))
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        var missingIds = newIds.Except(existingPostIds).ToList();
+        if (missingIds.Count > 0)
+            throw new InvalidOperationException(
+                $"Posts not found: {string.Join(", ", missingIds)}");
+
+        var maxOrder = await db.PostCollectionItems
+            .Where(i => i.CollectionId == collection.Id)
+            .Select(i => (int?)i.Order)
+            .MaxAsync() ?? -1;
+
+        var items = newIds.Select((postId, index) => new SnPostCollectionItem
+        {
+            CollectionId = collection.Id,
+            PostId = postId,
+            Order = maxOrder + 1 + index,
+        }).ToList();
+
+        db.PostCollectionItems.AddRange(items);
+        await db.SaveChangesAsync();
+    }
+
     public async Task RemovePostAsync(SnPostCollection collection, Guid postId)
     {
         var item = await db.PostCollectionItems
