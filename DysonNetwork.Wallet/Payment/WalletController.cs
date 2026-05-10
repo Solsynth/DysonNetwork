@@ -150,17 +150,26 @@ public class WalletController(
 
     [HttpGet("stats")]
     [Authorize]
-    public async Task<ActionResult<WalletStats>> GetWalletStats([FromQuery] int period = 30)
+    public async Task<ActionResult<WalletStats>> GetWalletStats(
+        [FromQuery] int period = 30,
+        [FromQuery] List<Guid>? wallets = null,
+        [FromQuery] List<string>? currencies = null
+    )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
-        var wallet = await ws.GetAccountWalletAsync(Guid.Parse(currentUser.Id));
-        if (wallet is null) return NotFound("Wallet was not found, please create one first.");
+        var currentAccountId = Guid.Parse(currentUser.Id);
+        var resolvedWallets = await ResolveAccessibleWalletsAsync(currentAccountId, wallets);
+        if (resolvedWallets is null || resolvedWallets.Count == 0)
+            return NotFound("Wallet was not found, please create one first.");
+
+        var resolvedWalletIds = resolvedWallets.Select(w => w.Id).ToHashSet();
+        var currencyFilters = NormalizeFilters(currencies, "points");
 
         var periodEnd = SystemClock.Instance.GetCurrentInstant();
         var periodBegin = periodEnd.Minus(Duration.FromDays(period));
 
-        var cacheKey = $"wallet:stats:{currentUser.Id}:{period}";
+        var cacheKey = $"wallet:stats:{currentAccountId}:{period}:{string.Join(',', resolvedWalletIds.OrderBy(id => id))}:{string.Join(',', currencyFilters.OrderBy(c => c))}";
         var cached = await cache.GetAsync<WalletStats>(cacheKey);
         if (cached != null)
         {
@@ -168,22 +177,25 @@ public class WalletController(
         }
 
         var transactions = await db.PaymentTransactions
-            .Where(t => (t.PayerWalletId == wallet.Id || t.PayeeWalletId == wallet.Id) &&
+            .Where(t => (t.PayerWalletId.HasValue && resolvedWalletIds.Contains(t.PayerWalletId.Value) ||
+                         t.PayeeWalletId.HasValue && resolvedWalletIds.Contains(t.PayeeWalletId.Value)) &&
+                        currencyFilters.Contains(t.Currency) &&
                         t.CreatedAt >= periodBegin && t.CreatedAt <= periodEnd)
             .ToListAsync();
 
         var orders = await db.PaymentOrders
-            .Where(o => o.PayeeWalletId == wallet.Id &&
+            .Where(o => o.PayeeWalletId.HasValue && resolvedWalletIds.Contains(o.PayeeWalletId.Value) &&
+                        currencyFilters.Contains(o.Currency) &&
                         o.CreatedAt >= periodBegin && o.CreatedAt <= periodEnd)
             .ToListAsync();
 
         var incomeCategories = transactions
-            .Where(t => t.PayeeWalletId == wallet.Id)
+            .Where(t => t.PayeeWalletId.HasValue && resolvedWalletIds.Contains(t.PayeeWalletId.Value) && currencyFilters.Contains(t.Currency))
             .GroupBy(t => t.Type.ToString())
             .ToDictionary(g => g.Key, g => g.Sum(t => t.Amount));
 
         var outgoingCategories = transactions
-            .Where(t => t.PayerWalletId == wallet.Id)
+            .Where(t => t.PayerWalletId.HasValue && resolvedWalletIds.Contains(t.PayerWalletId.Value) && currencyFilters.Contains(t.Currency))
             .GroupBy(t => t.Type.ToString())
             .ToDictionary(g => g.Key, g => g.Sum(t => t.Amount));
 
@@ -199,6 +211,57 @@ public class WalletController(
 
         await cache.SetAsync(cacheKey, stats, TimeSpan.FromHours(1));
         return Ok(stats);
+    }
+
+    private async Task<List<SnWallet>?> ResolveAccessibleWalletsAsync(Guid currentAccountId, List<Guid>? walletIds)
+    {
+        if (walletIds is null || walletIds.Count == 0)
+        {
+            var wallet = await ws.GetAccountWalletAsync(currentAccountId);
+            return wallet is null ? null : new List<SnWallet> { wallet };
+        }
+
+        var wallets = new List<SnWallet>();
+        foreach (var walletId in walletIds.Distinct())
+        {
+            var wallet = await ws.GetWalletAsync(walletId);
+            if (wallet is null)
+                return null;
+
+            if (wallet.AccountId == currentAccountId)
+            {
+                wallets.Add(wallet);
+                continue;
+            }
+
+            if (!wallet.RealmId.HasValue)
+                return null;
+
+            var publisher = (await publishers.ListPublishers(realmId: wallet.RealmId.Value.ToString())).FirstOrDefault();
+            if (publisher is null)
+                return null;
+
+            if (!await publishers.IsMemberWithRole(publisher.Id, currentAccountId, PublisherMemberRole.Viewer))
+                return null;
+
+            wallets.Add(wallet);
+        }
+
+        return wallets;
+    }
+
+    private static HashSet<string> NormalizeFilters(IEnumerable<string>? values, string defaultValue)
+    {
+        var filters = values?
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => v.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase)
+            ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (filters.Count == 0)
+            filters.Add(defaultValue);
+
+        return filters;
     }
 
     [HttpGet("transactions")]
