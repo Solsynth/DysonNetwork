@@ -585,6 +585,88 @@ public class PostActionController(
         return Ok(reaction);
     }
 
+    [HttpPost("{id:guid}/bookmark")]
+    [Authorize]
+    public async Task<ActionResult<SnPostBookmark>> BookmarkPost(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var friendsResponse = await accounts.ListFriendsAsync(
+            new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
+        );
+        var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        var accountId = Guid.Parse(currentUser.Id);
+        var userPublishers = await pub.GetUserPublishers(accountId);
+
+        var post = await db
+            .Posts.Where(e => e.Id == id)
+            .Include(e => e.Publisher)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers)
+            .FirstOrDefaultAsync();
+        if (post is null)
+            return NotFound();
+
+        var existingBookmark = await db.PostBookmarks
+            .Where(b => b.PostId == id && b.AccountId == accountId)
+            .FirstOrDefaultAsync();
+        if (existingBookmark is not null)
+            return Ok(existingBookmark);
+
+        var bookmark = new SnPostBookmark
+        {
+            PostId = id,
+            AccountId = accountId,
+        };
+
+        db.PostBookmarks.Add(bookmark);
+        await db.SaveChangesAsync();
+
+        als.CreateActionLog(
+            accountId,
+            ActionLogType.PostBookmark,
+            new Dictionary<string, object>
+            {
+                { "post_id", post.Id.ToString() }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
+
+        return Ok(bookmark);
+    }
+
+    [HttpDelete("{id:guid}/bookmark")]
+    [Authorize]
+    public async Task<ActionResult> UnbookmarkPost(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var bookmark = await db.PostBookmarks
+            .Where(b => b.PostId == id && b.AccountId == accountId)
+            .FirstOrDefaultAsync();
+        if (bookmark is null)
+            return NotFound();
+
+        db.PostBookmarks.Remove(bookmark);
+        await db.SaveChangesAsync();
+
+        als.CreateActionLog(
+            accountId,
+            ActionLogType.PostUnbookmark,
+            new Dictionary<string, object>
+            {
+                { "post_id", id.ToString() }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
+
+        return NoContent();
+    }
+
     public class PostAwardRequest
     {
         public decimal Amount { get; set; }

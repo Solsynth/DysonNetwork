@@ -152,6 +152,9 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
     [NotMapped]
     public Dictionary<string, bool>? ReactionsMade { get; set; }
 
+    [NotMapped]
+    public bool IsBookmarked { get; set; }
+
     public bool RepliedGone { get; set; }
     public bool ForwardedGone { get; set; }
 
@@ -186,6 +189,8 @@ public class SnPost : ModelBase, IIdentifiedResource, ITimelineEvent
 
     [JsonIgnore]
     public List<SnPostReaction> Reactions { get; set; } = [];
+    [JsonIgnore]
+    public List<SnPostBookmark> Bookmarks { get; set; } = [];
     public List<SnPostTag> Tags { get; set; } = [];
     public List<SnPostCategory> Categories { get; set; } = [];
 
@@ -828,6 +833,16 @@ public class SnPostAward : ModelBase
             proto.Message = Message;
         return proto;
     }
+}
+
+public class SnPostBookmark : ModelBase
+{
+    public Guid Id { get; set; }
+
+    public Guid PostId { get; set; }
+    [JsonIgnore] public SnPost Post { get; set; } = null!;
+
+    public Guid AccountId { get; set; }
 }
 
 public class SnQuoteAuthorization : ModelBase

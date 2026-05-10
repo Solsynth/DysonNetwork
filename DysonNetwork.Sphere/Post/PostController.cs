@@ -147,6 +147,84 @@ public class PostController(
         return Ok(posts);
     }
 
+    [HttpGet("bookmarks")]
+    [Authorize]
+    public async Task<ActionResult<List<SnPost>>> ListBookmarks(
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20,
+        [FromQuery(Name = "order")] string? order = null
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var friendsResponse = await accounts.ListFriendsAsync(
+            new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
+        );
+        var userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+        var userPublishers = await pub.GetUserPublishers(accountId);
+
+        var bookmarkedPostQuery = db.PostBookmarks
+            .Where(b => b.AccountId == accountId)
+            .Select(b => b.Post)
+            .Where(p => p.PublisherId != null)
+            .Select(p => p.PublisherId!.Value);
+
+        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+            bookmarkedPostQuery,
+            currentUser
+        );
+
+        var visibleBookmarks = db.PostBookmarks
+            .Where(b => b.AccountId == accountId)
+            .Where(b =>
+                db.Posts
+                    .Where(p => p.Id == b.PostId)
+                    .FilterWithVisibility(
+                        currentUser,
+                        userFriends,
+                        userPublishers,
+                        isListing: true,
+                        gatekeptPublisherIds,
+                        subscriberPublisherIds
+                    )
+                    .Any()
+            );
+
+        var totalCount = await visibleBookmarks.CountAsync();
+        Response.Headers["X-Total"] = totalCount.ToString();
+
+        visibleBookmarks = order?.ToLowerInvariant() switch
+        {
+            "created" => visibleBookmarks.OrderByDescending(b => b.CreatedAt),
+            _ => visibleBookmarks.OrderByDescending(b => b.CreatedAt)
+        };
+
+        var posts = await visibleBookmarks
+            .Include(b => b.Post)
+            .ThenInclude(p => p.Publisher)
+            .Include(b => b.Post)
+            .ThenInclude(p => p.Categories)
+            .Include(b => b.Post)
+            .ThenInclude(p => p.Tags)
+            .Include(b => b.Post)
+            .ThenInclude(p => p.RepliedPost)
+            .Include(b => b.Post)
+            .ThenInclude(p => p.ForwardedPost)
+            .Include(b => b.Post)
+            .ThenInclude(p => p.FeaturedRecords)
+            .Skip(offset)
+            .Take(take)
+            .Select(b => b.Post)
+            .ToListAsync();
+
+        posts = await ps.LoadPostInfo(posts, currentUser, true);
+        await pcs.LoadPublisherCollectionsAsync(posts);
+
+        return Ok(posts);
+    }
+
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<SnPost>))]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

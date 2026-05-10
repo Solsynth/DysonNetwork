@@ -23,6 +23,7 @@ public class AppDatabase(
     public DbSet<SnPublisherRatingRecord> PublisherRatingRecords { get; set; } = null!;
 
     public DbSet<SnPost> Posts { get; set; } = null!;
+    public DbSet<SnPostBookmark> PostBookmarks { get; set; } = null!;
     public DbSet<SnPostReaction> PostReactions { get; set; } = null!;
     public DbSet<SnPostAward> PostAwards { get; set; } = null!;
     public DbSet<SnPostTag> PostTags { get; set; } = null!;
@@ -151,6 +152,16 @@ public class AppDatabase(
             .HasMany(p => p.Categories)
             .WithMany(c => c.Posts)
             .UsingEntity(j => j.ToTable("post_category_links"));
+
+        modelBuilder.Entity<SnPostBookmark>()
+            .HasIndex(b => new { b.AccountId, b.PostId, b.DeletedAt })
+            .IsUnique();
+        modelBuilder.Entity<SnPostBookmark>()
+            .HasOne(b => b.Post)
+            .WithMany(p => p.Bookmarks)
+            .HasForeignKey(b => b.PostId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<SnPostCollection>()
             .HasIndex(c => new { c.PublisherId, c.Slug, c.DeletedAt })
             .IsUnique();

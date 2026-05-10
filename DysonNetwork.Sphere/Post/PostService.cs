@@ -2060,6 +2060,18 @@ public partial class PostService(
         );
     }
 
+    private async Task<HashSet<Guid>> GetPostBookmarkMapBatch(
+        List<Guid> postIds,
+        Guid accountId
+    )
+    {
+        return (await db.PostBookmarks
+            .Where(b => postIds.Contains(b.PostId) && b.AccountId == accountId)
+            .Select(b => b.PostId)
+            .ToListAsync())
+            .ToHashSet();
+    }
+
     /// <summary>
     /// Increases the view count for a post.
     /// Uses the flush buffer service to batch database updates for better performance.
@@ -2215,6 +2227,9 @@ public partial class PostService(
         var reactionMadeMap = currentUser is not null
             ? await GetPostReactionMadeMapBatch(postsId, Guid.Parse(currentUser.Id))
             : new Dictionary<Guid, Dictionary<string, bool>>();
+        var bookmarkedPostIds = currentUser is not null
+            ? await GetPostBookmarkMapBatch(postsId, Guid.Parse(currentUser.Id))
+            : [];
         var repliesCountMap = await GetPostRepliesCountBatch(postsId);
         var threadRepliesCountMap = await GetPostThreadRepliesCountBatch(postsId);
 
@@ -2239,6 +2254,7 @@ public partial class PostService(
 
             // Set reaction made status
             post.ReactionsMade = reactionMadeMap.TryGetValue(post.Id, out var made) ? made : [];
+            post.IsBookmarked = bookmarkedPostIds.Contains(post.Id);
 
             // Set reply count
             post.RepliesCount = repliesCountMap.GetValueOrDefault(post.Id, 0);
