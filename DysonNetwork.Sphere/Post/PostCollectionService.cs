@@ -26,7 +26,9 @@ public class PostCollectionService(
         SnPublisher publisher,
         string slug,
         string? name,
-        string? description
+        string? description,
+        SnCloudFileReferenceObject? background = null,
+        SnCloudFileReferenceObject? icon = null
     )
     {
         var normalizedSlug = NormalizeSlug(slug);
@@ -43,6 +45,8 @@ public class PostCollectionService(
             Slug = normalizedSlug,
             Name = name,
             Description = description,
+            Background = background,
+            Icon = icon,
         };
 
         db.PostCollections.Add(collection);
@@ -53,11 +57,15 @@ public class PostCollectionService(
     public async Task<SnPostCollection> UpdateCollectionAsync(
         SnPostCollection collection,
         string? name,
-        string? description
+        string? description,
+        SnCloudFileReferenceObject? background = null,
+        SnCloudFileReferenceObject? icon = null
     )
     {
         collection.Name = name;
         collection.Description = description;
+        collection.Background = background;
+        collection.Icon = icon;
         await db.SaveChangesAsync();
         return collection;
     }

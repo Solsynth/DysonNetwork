@@ -609,6 +609,12 @@ public class SnPostCollection : ModelBase
     public Guid PublisherId { get; set; }
     public SnPublisher Publisher { get; set; } = null!;
 
+    [Column(TypeName = "jsonb")]
+    public SnCloudFileReferenceObject? Background { get; set; }
+
+    [Column(TypeName = "jsonb")]
+    public SnCloudFileReferenceObject? Icon { get; set; }
+
     [JsonIgnore]
     public List<SnPostCollectionItem> Items { get; set; } = [];
 
@@ -631,6 +637,10 @@ public class SnPostCollection : ModelBase
             proto.Name = Name;
         if (Description != null)
             proto.Description = Description;
+        if (Background != null)
+            proto.Background = Background.ToProtoValue();
+        if (Icon != null)
+            proto.Icon = Icon.ToProtoValue();
 
         proto.Posts.AddRange(Posts.Select(p => p.ToProtoValue()));
         return proto;
@@ -648,6 +658,8 @@ public class SnPostCollection : ModelBase
                 ? Guid.Parse(proto.PublisherId)
                 : Guid.Parse(proto.Publisher.Id),
             Publisher = SnPublisher.FromProtoValue(proto.Publisher),
+            Background = proto.Background is not null ? SnCloudFileReferenceObject.FromProtoValue(proto.Background) : null,
+            Icon = proto.Icon is not null ? SnCloudFileReferenceObject.FromProtoValue(proto.Icon) : null,
             Posts = proto.Posts.Select(SnPost.FromProtoValue).ToList(),
             CreatedAt = Instant.FromDateTimeOffset(proto.CreatedAt.ToDateTimeOffset()),
             UpdatedAt = Instant.FromDateTimeOffset(proto.UpdatedAt.ToDateTimeOffset()),

@@ -19,6 +19,8 @@ Posts can appear in collections owned by other publishers, but when a post is re
 | `description` | string(4096)? | Collection description |
 | `publisher_id` | UUID | Owning publisher |
 | `publisher` | object | Owning publisher object |
+| `background` | object? | Background image (SnCloudFileReferenceObject) |
+| `icon` | object? | Icon image (SnCloudFileReferenceObject) |
 | `created_at` | Instant | Creation timestamp |
 | `updated_at` | Instant | Last update timestamp |
 
@@ -74,6 +76,12 @@ Returns all collections owned by the publisher.
       "id": "f37d7331-7305-4f2d-8e85-d5dfb04f2bd9",
       "name": "solsynth"
     },
+    "background": null,
+    "icon": {
+      "id": "file-uuid",
+      "name": "icon.png",
+      "url": "https://cdn.example.com/files/icon.png"
+    },
     "created_at": "2026-05-10T12:00:00Z",
     "updated_at": "2026-05-10T12:00:00Z"
   }
@@ -101,6 +109,8 @@ POST /api/publishers/{publisherName}/collections
 | `slug` | Yes | Collection slug, max 128 chars |
 | `name` | No | Display name, max 256 chars |
 | `description` | No | Description, max 4096 chars |
+| `background_id` | No | Cloud file ID for the background image |
+| `icon_id` | No | Cloud file ID for the icon image |
 
 **Response:** `201 Created`
 
@@ -138,7 +148,18 @@ PATCH /api/publishers/{publisherName}/collections/{slug}
 }
 ```
 
-Both fields are optional, but the current implementation replaces stored values with the values provided in the request body, including `null`.
+All fields are optional. Note that `name`, `description`, `background_id`, and `icon_id` are replaced with whatever is sent (including `null` to clear them).
+
+**Request Body:**
+
+```json
+{
+  "name": "Updated Name",
+  "description": "Updated description",
+  "background_id": null,
+  "icon_id": "new-icon-file-id"
+}
+```
 
 **Response:** `200 OK`
 
@@ -371,6 +392,9 @@ This field is populated on the major post read endpoints, including:
 ## Migration Notes
 
 The schema now uses `post_collection_items` instead of the old implicit `post_collection_links` table.
+
+Additional migrations:
+- `AddPostCollectionBackgroundIcon` adds `background` (jsonb) and `icon` (jsonb) columns to the `post_collections` table.
 
 During migration:
 

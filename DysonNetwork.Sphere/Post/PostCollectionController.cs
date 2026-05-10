@@ -13,7 +13,8 @@ public class PostCollectionController(
     AppDatabase db,
     PostCollectionService collectionService,
     PublisherService publisherService,
-    DyProfileService.DyProfileServiceClient accounts
+    DyProfileService.DyProfileServiceClient accounts,
+    DyFileService.DyFileServiceClient files
 ) : ControllerBase
 {
     public class CreateCollectionRequest
@@ -21,12 +22,16 @@ public class PostCollectionController(
         [MaxLength(128)] public string Slug { get; set; } = null!;
         [MaxLength(256)] public string? Name { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
+        public string? BackgroundId { get; set; }
+        public string? IconId { get; set; }
     }
 
     public class UpdateCollectionRequest
     {
         [MaxLength(256)] public string? Name { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
+        public string? BackgroundId { get; set; }
+        public string? IconId { get; set; }
     }
 
     public class AddCollectionPostRequest
@@ -70,11 +75,25 @@ public class PostCollectionController(
 
         try
         {
+            SnCloudFileReferenceObject? background = null, icon = null;
+            if (request.BackgroundId is not null)
+            {
+                var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
+                background = SnCloudFileReferenceObject.FromProtoValue(file);
+            }
+            if (request.IconId is not null)
+            {
+                var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.IconId });
+                icon = SnCloudFileReferenceObject.FromProtoValue(file);
+            }
+
             var collection = await collectionService.CreateCollectionAsync(
                 publisher.Value!,
                 request.Slug,
                 request.Name,
-                request.Description
+                request.Description,
+                background,
+                icon
             );
             return CreatedAtAction(nameof(GetCollection), new { publisherName, slug = collection.Slug }, collection);
         }
@@ -109,7 +128,19 @@ public class PostCollectionController(
         if (auth.Result is not null)
             return auth.Result;
 
-        collection = await collectionService.UpdateCollectionAsync(collection, request.Name, request.Description);
+        SnCloudFileReferenceObject? background = null, icon = null;
+        if (request.BackgroundId is not null)
+        {
+            var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
+            background = SnCloudFileReferenceObject.FromProtoValue(file);
+        }
+        if (request.IconId is not null)
+        {
+            var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.IconId });
+            icon = SnCloudFileReferenceObject.FromProtoValue(file);
+        }
+
+        collection = await collectionService.UpdateCollectionAsync(collection, request.Name, request.Description, background, icon);
         return Ok(collection);
     }
 
