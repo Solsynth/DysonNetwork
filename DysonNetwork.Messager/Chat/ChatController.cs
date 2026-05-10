@@ -246,15 +246,28 @@ public partial class ChatController(
         });
     }
 
-    public class SendMessageRequest : ChatMessageHelpers.SendMessageRequestLike
+    public class SendMessageRequest : ISendMessageRequest
     {
-        [MaxLength(4096)] public new string? Content { get; set; }
-        [MaxLength(36)] public new string? Nonce { get; set; }
-        [MaxLength(128)] public new string? ClientMessageId { get; set; }
-        [MaxLength(256)] public new string? LocationName { get; set; }
-        [MaxLength(1024)] public new string? LocationAddress { get; set; }
-        [MaxLength(128)] public new string? EncryptionScheme { get; set; }
-        [MaxLength(128)] public new string? EncryptionMessageType { get; set; }
+        [MaxLength(4096)] public string? Content { get; set; }
+        [MaxLength(36)] public string? Nonce { get; set; }
+        [MaxLength(128)] public string? ClientMessageId { get; set; }
+        public Guid? FundId { get; set; }
+        public Guid? PollId { get; set; }
+        public Guid? MeetId { get; set; }
+        [MaxLength(256)] public string? LocationName { get; set; }
+        [MaxLength(1024)] public string? LocationAddress { get; set; }
+        public string? LocationWkt { get; set; }
+        public List<string>? AttachmentsId { get; set; }
+        public Dictionary<string, object>? Meta { get; set; }
+        public Guid? RepliedMessageId { get; set; }
+        public Guid? ForwardedMessageId { get; set; }
+        public bool IsEncrypted { get; set; }
+        public byte[]? Ciphertext { get; set; }
+        public byte[]? EncryptionHeader { get; set; }
+        public byte[]? EncryptionSignature { get; set; }
+        [MaxLength(128)] public string? EncryptionScheme { get; set; }
+        public long? EncryptionEpoch { get; set; }
+        [MaxLength(128)] public string? EncryptionMessageType { get; set; }
     }
 
     public class DeleteMessageRequest

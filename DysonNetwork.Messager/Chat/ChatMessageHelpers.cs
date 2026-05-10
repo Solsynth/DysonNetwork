@@ -10,18 +10,42 @@ using NetTopologySuite.IO;
 
 namespace DysonNetwork.Messager.Chat;
 
+public interface ISendMessageRequest
+{
+    string? Content { get; }
+    string? Nonce { get; }
+    string? ClientMessageId { get; }
+    Guid? FundId { get; }
+    Guid? PollId { get; }
+    Guid? MeetId { get; }
+    string? LocationName { get; }
+    string? LocationAddress { get; }
+    string? LocationWkt { get; }
+    List<string>? AttachmentsId { get; }
+    Dictionary<string, object>? Meta { get; }
+    Guid? RepliedMessageId { get; }
+    Guid? ForwardedMessageId { get; }
+    bool IsEncrypted { get; }
+    byte[]? Ciphertext { get; }
+    byte[]? EncryptionHeader { get; }
+    byte[]? EncryptionSignature { get; }
+    string? EncryptionScheme { get; }
+    long? EncryptionEpoch { get; }
+    string? EncryptionMessageType { get; }
+}
+
 public static class ChatMessageHelpers
 {
     public const string MlsEncryptionScheme = "chat.mls.v2";
 
-    public static bool HasEncryptedPayload(SendMessageRequestLike request)
+    public static bool HasEncryptedPayload(ISendMessageRequest request)
     {
         return request.Ciphertext is { Length: > 0 } &&
                !string.IsNullOrWhiteSpace(request.EncryptionScheme) &&
                !string.IsNullOrWhiteSpace(request.EncryptionMessageType);
     }
 
-    public static bool IsMlsPayloadValid(SendMessageRequestLike request)
+    public static bool IsMlsPayloadValid(ISendMessageRequest request)
     {
         var schemeOk = string.Equals(request.EncryptionScheme, MlsEncryptionScheme, StringComparison.Ordinal);
         return schemeOk && request.EncryptionEpoch.HasValue;
@@ -90,13 +114,13 @@ public static class ChatMessageHelpers
                || text.Contains("\"nonce\"", StringComparison.OrdinalIgnoreCase);
     }
 
-    public static bool HasMeetOrLocationPayload(SendMessageRequestLike request)
+    public static bool HasMeetOrLocationPayload(ISendMessageRequest request)
     {
         return request.MeetId.HasValue ||
                HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt);
     }
 
-    public static bool IsEmptyMessage(SendMessageRequestLike request)
+    public static bool IsEmptyMessage(ISendMessageRequest request)
     {
         return string.IsNullOrWhiteSpace(request.Content) &&
                (request.AttachmentsId == null || request.AttachmentsId.Count == 0) &&
@@ -106,7 +130,7 @@ public static class ChatMessageHelpers
                !HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt);
     }
 
-    public static bool HasPlaintextFields(SendMessageRequestLike request)
+    public static bool HasPlaintextFields(ISendMessageRequest request)
     {
         return !string.IsNullOrWhiteSpace(request.Content) ||
                request.FundId.HasValue ||
@@ -201,29 +225,5 @@ public static class ChatMessageHelpers
         }
 
         return mentionedUsers.Distinct().ToList();
-    }
-
-    public abstract class SendMessageRequestLike
-    {
-        public string? Content { get; set; }
-        public string? Nonce { get; set; }
-        public string? ClientMessageId { get; set; }
-        public Guid? FundId { get; set; }
-        public Guid? PollId { get; set; }
-        public Guid? MeetId { get; set; }
-        public string? LocationName { get; set; }
-        public string? LocationAddress { get; set; }
-        public string? LocationWkt { get; set; }
-        public List<string>? AttachmentsId { get; set; }
-        public Dictionary<string, object>? Meta { get; set; }
-        public Guid? RepliedMessageId { get; set; }
-        public Guid? ForwardedMessageId { get; set; }
-        public bool IsEncrypted { get; set; }
-        public byte[]? Ciphertext { get; set; }
-        public byte[]? EncryptionHeader { get; set; }
-        public byte[]? EncryptionSignature { get; set; }
-        public string? EncryptionScheme { get; set; }
-        public long? EncryptionEpoch { get; set; }
-        public string? EncryptionMessageType { get; set; }
     }
 }
