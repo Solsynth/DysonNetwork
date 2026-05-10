@@ -67,6 +67,9 @@ public partial class ChatService(
     [GeneratedRegex(@"^[a-z0-9._-]+\+[a-z0-9._-]+$", RegexOptions.IgnoreCase)]
     private static partial Regex GetStickerPlaceholderRegex();
 
+    [GeneratedRegex(@":(?<identifier>[a-z0-9._-]+\+[a-z0-9._-]+):", RegexOptions.IgnoreCase)]
+    private static partial Regex GetInlineStickerPlaceholderRegex();
+
     private static List<string> ExtractPreviewUrls(string content, int maxLinks)
     {
         var urls = new List<string>();
@@ -148,6 +151,7 @@ public partial class ChatService(
                 ["id"] = sticker.Id,
                 ["slug"] = sticker.Slug,
                 ["name"] = sticker.Name,
+                ["image_id"] = sticker.Image.Id,
                 ["size"] = (int)sticker.Size,
                 ["mode"] = (int)sticker.Mode,
                 ["pack_id"] = sticker.PackId,
@@ -161,6 +165,78 @@ public partial class ChatService(
         catch (RpcException ex) when (ex.StatusCode is StatusCode.NotFound or StatusCode.InvalidArgument)
         {
             // Ignore invalid sticker placeholders and keep the original text message.
+        }
+    }
+
+    private async Task EnrichInlineStickerPreviewAsync(SnChatMessage message)
+    {
+        if (message.IsEncrypted || message.Type != "text" || string.IsNullOrWhiteSpace(message.Content))
+            return;
+
+        var matches = GetInlineStickerPlaceholderRegex()
+            .Matches(message.Content)
+            .Select(match => match.Groups["identifier"].Value)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (matches.Count == 0)
+            return;
+
+        var stickerClient = stickerClientFactory.CreateClient();
+        var stickers = new Dictionary<string, SnSticker>(StringComparer.OrdinalIgnoreCase);
+        foreach (var identifier in matches)
+        {
+            try
+            {
+                var stickerProto = await stickerClient.GetStickerByIdentifierAsync(new DyGetStickerRequest
+                {
+                    Identifier = identifier,
+                });
+                stickers[identifier] = SnSticker.FromProtoValue(stickerProto);
+            }
+            catch (RpcException ex) when (ex.StatusCode is StatusCode.NotFound or StatusCode.InvalidArgument)
+            {
+                // Ignore invalid sticker placeholders and leave them unchanged.
+            }
+        }
+
+        if (stickers.Count == 0)
+            return;
+
+        var stickerSequence = GetInlineStickerPlaceholderRegex()
+            .Matches(message.Content)
+            .Select(match => match.Groups["identifier"].Value)
+            .Where(identifier => stickers.ContainsKey(identifier))
+            .ToList();
+
+        var transformed = GetInlineStickerPlaceholderRegex().Replace(message.Content, match =>
+        {
+            var identifier = match.Groups["identifier"].Value;
+            if (!stickers.TryGetValue(identifier, out var sticker) || string.IsNullOrWhiteSpace(sticker.Name))
+                return match.Value;
+
+            return $"[{sticker.Name}]";
+        });
+
+        message.Meta ??= new Dictionary<string, object>();
+        message.Meta["sticker_preview_text"] = transformed;
+
+        if (GetInlineStickerPlaceholderRegex().Replace(message.Content.Trim(), string.Empty).Length == 0 && stickerSequence.Count > 0)
+        {
+            var stickerNames = stickerSequence
+                .Select(identifier => stickers[identifier].Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .ToList();
+
+            if (stickerNames.Count == stickerSequence.Count)
+            {
+                var firstName = stickerNames[0];
+                if (stickerNames.All(name => string.Equals(name, firstName, StringComparison.Ordinal)))
+                {
+                    message.Meta["sticker_only_name"] = firstName;
+                    message.Meta["sticker_only_count"] = stickerNames.Count;
+                }
+            }
         }
     }
 
@@ -374,6 +450,7 @@ public partial class ChatService(
         if (string.IsNullOrWhiteSpace(message.Nonce)) message.Nonce = Guid.NewGuid().ToString();
 
         await NormalizeStickerPlaceholderMessageAsync(message);
+        await EnrichInlineStickerPreviewAsync(message);
 
         // First complete the save operation
         db.ChatMessages.Add(message);
@@ -1252,15 +1329,36 @@ public partial class ChatService(
                     body = "Voice message";
                     break;
                 default:
-                    body = !string.IsNullOrEmpty(message.Content)
-                        ? message.Content[..Math.Min(message.Content.Length, 100)]
-                        : localization.Get(
-                            message.Attachments.Count == 1
-                                ? "chatNotificationAttachmentOnlyBodySingular"
-                                : "chatNotificationAttachmentOnlyBodyPlural",
-                            locale,
-                            new { count = message.Attachments.Count }
-                        );
+                    if (message.Meta?.TryGetValue("sticker_only_name", out var stickerOnlyName) == true
+                        && stickerOnlyName is string singleStickerName
+                        && !string.IsNullOrWhiteSpace(singleStickerName))
+                    {
+                        var stickerCount = 1;
+                        if (message.Meta.TryGetValue("sticker_only_count", out var countValue))
+                            stickerCount = Convert.ToInt32(countValue);
+
+                        body = stickerCount > 1
+                            ? localization.Get("chatStickerOnlyNotificationBodyPlural", locale, new { name = singleStickerName, count = stickerCount })
+                            : localization.Get("chatStickerOnlyNotificationBody", locale, new { name = singleStickerName });
+                    }
+                    else if (message.Meta?.TryGetValue("sticker_preview_text", out var stickerPreviewText) == true
+                             && stickerPreviewText is string previewText
+                             && !string.IsNullOrWhiteSpace(previewText))
+                    {
+                        body = previewText[..Math.Min(previewText.Length, 100)];
+                    }
+                    else
+                    {
+                        body = !string.IsNullOrEmpty(message.Content)
+                            ? message.Content[..Math.Min(message.Content.Length, 100)]
+                            : localization.Get(
+                                message.Attachments.Count == 1
+                                    ? "chatNotificationAttachmentOnlyBodySingular"
+                                    : "chatNotificationAttachmentOnlyBodyPlural",
+                                locale,
+                                new { count = message.Attachments.Count }
+                            );
+                    }
 
                     switch (type)
                     {

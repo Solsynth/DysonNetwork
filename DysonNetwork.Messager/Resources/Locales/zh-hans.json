@@ -4,6 +4,8 @@
     "chatInviteBodyGroupInvite": "您已被邀请加入 {roomName}",
     "chatNotificationMentionedBody": "[Mentioned] {body}",
     "chatStickerBody": "贴图",
+    "chatStickerOnlyNotificationBody": "[贴图] {name}",
+    "chatStickerOnlyNotificationBodyPlural": "[贴图] {name} x{count}",
     "chatNotificationAttachmentOnlyBodySingular": "{count} 个附件",
     "chatNotificationAttachmentOnlyBodyPlural": "{count} 个附件",
     "chatReactionNotificationTitle": "{senderNick} 对您的消息作出了回应（{roomSubject}）",
