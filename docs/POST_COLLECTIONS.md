@@ -210,6 +210,65 @@ When `order` is provided, existing items at or after that position are shifted d
 | `401 Unauthorized` | Not authenticated |
 | `403 Forbidden` | Not an editor of the publisher |
 
+### Batch Add Posts To Collection
+
+```http
+POST /api/publishers/{publisherName}/collections/{slug}/posts/batch
+```
+
+**Request Body:**
+
+```json
+{
+  "post_ids": [
+    "f68871e8-1608-43dc-9ccf-3ef0cc63f3a0",
+    "a7b93d22-43dc-1608-9ccf-3ef0cc63f3a1"
+  ]
+}
+```
+
+Silently skips posts already present in the collection. Validates that all remaining posts exist (returns 400 with missing IDs if not). New posts are appended sequentially after the current max order.
+
+**Response:** `204 No Content`
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| `400 Bad Request` | One or more posts not found (IDs listed in message) |
+| `401 Unauthorized` | Not authenticated |
+| `403 Forbidden` | Not an editor of the publisher |
+| `404 Not Found` | Collection not found |
+
+### Batch Remove Posts From Collection
+
+```http
+POST /api/publishers/{publisherName}/collections/{slug}/posts/batch-remove
+```
+
+**Request Body:**
+
+```json
+{
+  "post_ids": [
+    "f68871e8-1608-43dc-9ccf-3ef0cc63f3a0",
+    "a7b93d22-43dc-1608-9ccf-3ef0cc63f3a1"
+  ]
+}
+```
+
+Removes all matching posts in a single operation and compacts the remaining items' order.
+
+**Response:** `204 No Content`
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| `401 Unauthorized` | Not authenticated |
+| `403 Forbidden` | Not an editor of the publisher |
+| `404 Not Found` | Collection not found |
+
 ### Remove Post From Collection
 
 ```http

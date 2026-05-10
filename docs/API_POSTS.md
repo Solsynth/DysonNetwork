@@ -1,6 +1,8 @@
 # Post API Reference
 
-This document covers the reply-related post APIs and the reply count fields exposed on `SnPost`.
+This document covers the reply-related post APIs, batch management endpoints, and the reply count fields exposed on `SnPost`.
+
+See also: [Post Collections API](POST_COLLECTIONS.md) for collection management endpoints.
 
 ## Reply Count Fields
 
@@ -116,6 +118,82 @@ Each item is a `ThreadedReplyNode`:
 - descendants are returned in depth-first order
 - `depth` and `parentId` allow the client to reconstruct the tree structure on the frontend
 - visibility filtering still applies, so hidden replies are omitted
+
+## Batch Endpoints
+
+Requires `Editor` role on all affected publishers.
+
+### Batch Delete Posts
+
+```http
+POST /api/posts/batch/delete
+```
+
+**Request Body:**
+
+```json
+{
+  "post_ids": [
+    "f68871e8-1608-43dc-9ccf-3ef0cc63f3a0",
+    "a7b93d22-43dc-1608-9ccf-3ef0cc63f3a1"
+  ]
+}
+```
+
+Validates all posts exist and none are locked. Checks Editor role per publisher (supports cross-publisher batches). Each post is hard-deleted with cleanup (reactions soft-deleted, reply/forward references flagged).
+
+**Response:** `204 No Content`
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| `400 Bad Request` | One or more posts not found |
+| `401 Unauthorized` | Not authenticated |
+| `403 Forbidden` | Not an editor of one of the affected publishers |
+| `423 Locked` | One of the posts is locked |
+
+### Batch Update Visibility
+
+```http
+POST /api/posts/batch/visibility
+```
+
+**Request Body:**
+
+```json
+{
+  "post_ids": [
+    "f68871e8-1608-43dc-9ccf-3ef0cc63f3a0"
+  ],
+  "visibility": "public",
+  "drafted_at": null,
+  "published_at": "2026-05-10T12:00:00Z"
+}
+```
+
+All fields except `post_ids` are optional. Updates are applied uniformly to all specified posts.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `visibility` | string? | One of `public`, `friends`, `unlisted`, `private` |
+| `drafted_at` | Instant? | Marks as draft (clears `published_at`) |
+| `published_at` | Instant? | Publishes post (clears `drafted_at`). Cannot be in the past unless post was a draft. |
+
+`drafted_at` and `published_at` are mutually exclusive.
+
+**Response:** `204 No Content`
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| `400 Bad Request` | Both `drafted_at` and `published_at` set |
+| `400 Bad Request` | One or more posts not found |
+| `400 Bad Request` | `published_at` in the past on a published post |
+| `401 Unauthorized` | Not authenticated |
+| `403 Forbidden` | Not an editor of one of the affected publishers |
+| `423 Locked` | One of the posts is locked |
 
 ## Client Guidance
 
