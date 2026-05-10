@@ -205,7 +205,7 @@ public class PostCollectionController(
         }
     }
 
-    [HttpPost("{slug}/posts/batch-remove")]
+    [HttpPost("{slug}/posts/batch/remove")]
     [Authorize]
     public async Task<ActionResult> BatchRemoveCollectionPosts(
         string publisherName,

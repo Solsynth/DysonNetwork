@@ -243,7 +243,7 @@ Silently skips posts already present in the collection. Validates that all remai
 ### Batch Remove Posts From Collection
 
 ```http
-POST /api/publishers/{publisherName}/collections/{slug}/posts/batch-remove
+POST /api/publishers/{publisherName}/collections/{slug}/posts/batch/remove
 ```
 
 **Request Body:**
