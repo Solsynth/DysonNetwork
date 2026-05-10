@@ -1372,9 +1372,8 @@ public class PostController(
                     FROM posts p
                     INNER JOIN ancestor_chain ac ON p.id = ac.replied_post_id
                     WHERE p.deleted_at IS NULL
-                    LIMIT {1}
                 )
-                SELECT id FROM ancestor_chain WHERE depth > 0 ORDER BY depth DESC
+                SELECT id FROM ancestor_chain WHERE depth > 0 ORDER BY depth DESC LIMIT {1}
                 """,
                 id, ancestorLimit
             ).ToListAsync();
