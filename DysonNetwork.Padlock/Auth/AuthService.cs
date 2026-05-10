@@ -6,6 +6,8 @@ using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.EventBus;
+using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Padlock.Account;
@@ -29,6 +31,7 @@ public class AuthService(
     GeoService geo,
     RemoteSubscriptionService subscriptions,
     AuthJwtService authJwt,
+    IEventBus eventBus,
     ILogger<AuthService> logger,
     ActionLogService actionLogs
 )
@@ -38,6 +41,13 @@ public class AuthService(
         string RefreshToken,
         Instant AccessTokenExpiresAt,
         Instant RefreshTokenExpiresAt
+    );
+
+    private sealed record RevokedSessionInfo(
+        Guid Id,
+        Guid AccountId,
+        Guid? ClientId,
+        string? DeviceId
     );
 
     private HttpContext HttpContext => httpContextAccessor.HttpContext!;
@@ -302,7 +312,12 @@ public class AuthService(
         var now = SystemClock.Instance.GetCurrentInstant();
         var sessions = await db.AuthSessions
             .Where(s => sessionsToRevokeIds.Contains(s.Id))
-            .Select(s => new { s.Id, s.AccountId })
+            .Select(s => new RevokedSessionInfo(
+                s.Id,
+                s.AccountId,
+                s.ClientId,
+                s.Client != null ? s.Client.DeviceId : null
+            ))
             .ToListAsync();
         if (sessions.Count == 0) return false;
 
@@ -322,6 +337,7 @@ public class AuthService(
         {
             await BumpAccountVersion(accountId);
         }
+        await PublishSessionRevokedEventsAsync(sessions, now);
 
         return true;
     }
@@ -348,25 +364,49 @@ public class AuthService(
     {
         var sessions = await db.AuthSessions
             .Where(s => s.AccountId == accountId && !s.ExpiredAt.HasValue)
-            .Select(s => s.Id)
+            .Select(s => new RevokedSessionInfo(
+                s.Id,
+                s.AccountId,
+                s.ClientId,
+                s.Client != null ? s.Client.DeviceId : null
+            ))
             .ToListAsync();
         if (sessions.Count == 0) return 0;
 
         var now = SystemClock.Instance.GetCurrentInstant();
         await db.AuthSessions
-            .Where(s => sessions.Contains(s.Id))
+            .Where(s => sessions.Select(x => x.Id).Contains(s.Id))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(x => x.ExpiredAt, now)
                 .SetProperty(x => x.Epoch, x => x.Epoch + 1));
 
-        foreach (var sessionIdToClear in sessions)
+        foreach (var session in sessions)
         {
             // Invalidate AuthScheme's session cache (epoch increment invalidates tokens)
-            await cache.RemoveAsync(AuthCacheConstants.Session(sessionIdToClear.ToString()));
+            await cache.RemoveAsync(AuthCacheConstants.Session(session.Id.ToString()));
         }
         await BumpAccountVersion(accountId);
+        await PublishSessionRevokedEventsAsync(sessions, now);
 
         return sessions.Count;
+    }
+
+    private async Task PublishSessionRevokedEventsAsync(
+        IEnumerable<RevokedSessionInfo> sessions,
+        Instant revokedAt
+    )
+    {
+        foreach (var session in sessions)
+        {
+            await eventBus.PublishAsync(AuthSessionRevokedEvent.Type, new AuthSessionRevokedEvent
+            {
+                SessionId = session.Id,
+                AccountId = session.AccountId,
+                ClientId = session.ClientId,
+                DeviceId = session.DeviceId,
+                RevokedAt = revokedAt
+            });
+        }
     }
 
     private Duration GetAccessTokenLifetime()
