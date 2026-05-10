@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package proto;
+
+option csharp_namespace = "DysonNetwork.Shared.Proto";
+option go_package = "git.solsynth.dev/sosys/spec/gen";
+
+import "google/protobuf/timestamp.proto";
+enum DyStickerSize {
+  DY_STICKER_SIZE_UNSPECIFIED = 0;
+  DY_STICKER_SIZE_AUTO = 1;
+  DY_STICKER_SIZE_SMALL = 2;
+  DY_STICKER_SIZE_MEDIUM = 3;
+  DY_STICKER_SIZE_LARGE = 4;
+}
+
+enum DyStickerMode {
+  DY_STICKER_MODE_UNSPECIFIED = 0;
+  DY_STICKER_MODE_STICKER = 1;
+  DY_STICKER_MODE_EMOTE = 2;
+}
+
+message DySticker {
+  string id = 1;
+  string slug = 2;
+  string image_id = 3;
+  DyStickerSize size = 4;
+  DyStickerMode mode = 5;
+  string pack_id = 6;
+  optional string pack_prefix = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  optional google.protobuf.Timestamp deleted_at = 10;
+  optional string image_name = 11;
+  optional string image_mime_type = 12;
+  optional int64 image_size = 13;
+  optional string image_url = 14;
+  optional int32 image_width = 15;
+  optional int32 image_height = 16;
+  optional string image_blurhash = 17;
+}
+
+message DyGetStickerRequest {
+  string identifier = 1;
+}
+
+service DyStickerService {
+  rpc GetStickerByIdentifier(DyGetStickerRequest) returns (DySticker);
+}

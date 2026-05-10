@@ -129,6 +129,10 @@ public static class ServiceInjectionHelper
                 "https://_grpc.sphere",
                 "DyPollService");
 
+            services.AddGrpcClientWithSharedChannel<DyStickerService.DyStickerServiceClient>(
+                "https://_grpc.sphere",
+                "DyStickerService");
+
             services.AddGrpcClientWithSharedChannel<DyAutocompletionService.DyAutocompletionServiceClient>(
                 "https://_grpc.sphere",
                 "DyAutocompletionService");

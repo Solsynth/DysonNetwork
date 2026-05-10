@@ -12,6 +12,7 @@ using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Extensions;
+using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
 using NodaTime;
@@ -30,7 +31,8 @@ public partial class ChatService(
     ICacheService cache,
     RemoteActionLogService actionLogs,
     IHttpContextAccessor httpContextAccessor,
-    ILocalizationService localization
+    ILocalizationService localization,
+    LazyGrpcClientFactory<DyStickerService.DyStickerServiceClient> stickerClientFactory
 )
 {
     private const string ChatUseCooldownCacheKey = "actionlog:chat.use:";
@@ -61,6 +63,9 @@ public partial class ChatService(
 
     [GeneratedRegex(@"(?<!\w)@(?:u/)?everyone\b", RegexOptions.IgnoreCase)]
     private static partial Regex GetEveryoneMentionRegex();
+
+    [GeneratedRegex(@"^[a-z0-9._-]+\+[a-z0-9._-]+$", RegexOptions.IgnoreCase)]
+    private static partial Regex GetStickerPlaceholderRegex();
 
     private static List<string> ExtractPreviewUrls(string content, int maxLinks)
     {
@@ -111,6 +116,51 @@ public partial class ChatService(
             return true;
 
         return message.MembersMentioned?.Contains(accountId) == true;
+    }
+
+    private static bool IsExactStickerPlaceholderMessage(SnChatMessage message)
+    {
+        if (message.IsEncrypted || message.Type != "text" || string.IsNullOrWhiteSpace(message.Content))
+            return false;
+
+        return GetStickerPlaceholderRegex().IsMatch(message.Content.Trim());
+    }
+
+    private async Task NormalizeStickerPlaceholderMessageAsync(SnChatMessage message)
+    {
+        if (!IsExactStickerPlaceholderMessage(message))
+            return;
+
+        try
+        {
+            var stickerClient = stickerClientFactory.CreateClient();
+            var placeholder = message.Content!.Trim();
+            var stickerProto = await stickerClient.GetStickerByIdentifierAsync(new DyGetStickerRequest
+            {
+                Identifier = placeholder,
+            });
+
+            var sticker = SnSticker.FromProtoValue(stickerProto);
+            message.Content = localization.Get("chatStickerBody", null);
+            message.Meta ??= new Dictionary<string, object>();
+            message.Meta["sticker"] = new Dictionary<string, object?>
+            {
+                ["id"] = sticker.Id,
+                ["slug"] = sticker.Slug,
+                ["size"] = sticker.Size.ToString().ToLowerInvariant(),
+                ["mode"] = sticker.Mode.ToString().ToLowerInvariant(),
+                ["pack_id"] = sticker.PackId,
+                ["pack_prefix"] = sticker.Pack?.Prefix,
+                ["placeholder"] = placeholder,
+            };
+
+            if (message.Attachments.All(a => a.Id != sticker.Image.Id))
+                message.Attachments.Add(sticker.Image);
+        }
+        catch (RpcException ex) when (ex.StatusCode is StatusCode.NotFound or StatusCode.InvalidArgument)
+        {
+            // Ignore invalid sticker placeholders and keep the original text message.
+        }
     }
 
     private async Task EmitChatUseActionLogAsync(SnChatMessage message, SnChatMember sender, SnChatRoom room, string? clientIpAddress = null)
@@ -321,6 +371,8 @@ public partial class ChatService(
     public async Task<SnChatMessage> SendMessageAsync(SnChatMessage message, SnChatMember sender, SnChatRoom room, string? clientIpAddress = null)
     {
         if (string.IsNullOrWhiteSpace(message.Nonce)) message.Nonce = Guid.NewGuid().ToString();
+
+        await NormalizeStickerPlaceholderMessageAsync(message);
 
         // First complete the save operation
         db.ChatMessages.Add(message);

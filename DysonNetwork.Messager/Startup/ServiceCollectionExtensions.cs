@@ -79,6 +79,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ChatService>();
             services.AddScoped<ChatVoiceService>();
             services.AddScoped<IRealtimeService, LiveKitRealtimeService>();
+            services.AddLazyGrpcClientFactory<DyStickerService.DyStickerServiceClient>();
 
             services.AddEventBus()
                 .AddListener<AccountDeletedEvent>(
