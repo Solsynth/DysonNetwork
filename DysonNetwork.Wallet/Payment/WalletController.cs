@@ -141,9 +141,9 @@ public class WalletController(
         public Instant PeriodEnd { get; set; }
         public int TotalTransactions { get; set; }
         public int TotalOrders { get; set; }
-        public Dictionary<string, decimal> IncomeCatgories { get; set; } = null!;
+        public Dictionary<string, decimal> IncomeCategories { get; set; } = null!;
         public Dictionary<string, decimal> OutgoingCategories { get; set; } = null!;
-        public decimal TotalIncome => IncomeCatgories.Values.Sum();
+        public decimal TotalIncome => IncomeCategories.Values.Sum();
         public decimal TotalOutgoing => OutgoingCategories.Values.Sum();
         public decimal Sum => TotalIncome - TotalOutgoing;
     }
@@ -205,7 +205,7 @@ public class WalletController(
             PeriodEnd = periodEnd,
             TotalTransactions = transactions.Count,
             TotalOrders = orders.Count,
-            IncomeCatgories = incomeCategories,
+            IncomeCategories = incomeCategories,
             OutgoingCategories = outgoingCategories
         };
 
