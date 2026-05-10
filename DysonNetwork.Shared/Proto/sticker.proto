@@ -39,6 +39,7 @@ message DySticker {
   optional int32 image_width = 15;
   optional int32 image_height = 16;
   optional string image_blurhash = 17;
+  int32 order = 19;
 }
 
 message DyGetStickerRequest {

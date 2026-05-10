@@ -76,7 +76,7 @@ public class StickerController(
         var packs = await queryable
             .Skip(offset)
             .Take(take)
-            .Include(e => e.Stickers.OrderByDescending(s => s.CreatedAt).Take(8))
+            .Include(e => e.Stickers.OrderBy(s => s.Order).Take(8))
             .Include(e => e.Publisher)
             .ToListAsync();
 
@@ -91,16 +91,16 @@ public class StickerController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var ownershipsId = await db.StickerPackOwnerships
-            .Where(p => p.AccountId == accountId)
-            .Select(p => p.PackId)
-            .ToListAsync();
-        var packs = await db.StickerPacks
-            .Where(p => ownershipsId.Contains(p.Id))
-            .Include(p => p.Stickers)
+        var ownerships = await db.StickerPackOwnerships
+            .Where(o => o.AccountId == accountId)
+            .Include(o => o.Pack)
+                .ThenInclude(p => p.Stickers.OrderBy(s => s.Order))
+            .Include(o => o.Pack)
+                .ThenInclude(p => p.Publisher)
+            .OrderBy(o => o.Order)
             .ToListAsync();
 
-        return Ok(packs);
+        return Ok(ownerships);
     }
 
     [HttpGet("{id:guid}")]
@@ -248,7 +248,7 @@ public class StickerController(
         var stickers = await db.Stickers
             .Where(s => s.Pack.Id == packId)
             .Include(e => e.Pack)
-            .OrderByDescending(e => e.CreatedAt)
+            .OrderBy(e => e.Order)
             .ToListAsync();
 
         return Ok(stickers);
@@ -556,5 +556,76 @@ public class StickerController(
         await db.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    public class OrderItemRequest
+    {
+        public Guid Id { get; set; }
+        public int Order { get; set; }
+    }
+
+    public class ReorderRequest
+    {
+        public List<OrderItemRequest> Items { get; set; } = [];
+    }
+
+    [HttpPatch("me/order")]
+    [Authorize]
+    public async Task<IActionResult> ReorderOwnedStickerPacks([FromBody] ReorderRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var ownershipIds = request.Items.Select(i => i.Id).ToList();
+        var ownerships = await db.StickerPackOwnerships
+            .Where(o => ownershipIds.Contains(o.Id) && o.AccountId == accountId)
+            .ToListAsync();
+
+        if (ownerships.Count != ownershipIds.Count)
+            return BadRequest("One or more ownership IDs were not found.");
+
+        foreach (var ownership in ownerships)
+        {
+            var item = request.Items.First(i => i.Id == ownership.Id);
+            ownership.Order = item.Order;
+        }
+
+        db.StickerPackOwnerships.UpdateRange(ownerships);
+        await db.SaveChangesAsync();
+
+        return Ok();
+    }
+
+    [HttpPatch("{packId:guid}/content/order")]
+    [Authorize]
+    public async Task<IActionResult> ReorderStickers(Guid packId, [FromBody] ReorderRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var permissionCheck =
+            await _CheckStickerPackPermissions(packId, currentUser, PublisherMemberRole.Editor);
+        if (permissionCheck is not OkResult)
+            return permissionCheck;
+
+        var stickerIds = request.Items.Select(i => i.Id).ToList();
+        var stickers = await db.Stickers
+            .Where(s => stickerIds.Contains(s.Id) && s.PackId == packId)
+            .ToListAsync();
+
+        if (stickers.Count != stickerIds.Count)
+            return BadRequest("One or more sticker IDs were not found in this pack.");
+
+        foreach (var sticker in stickers)
+        {
+            var item = request.Items.First(i => i.Id == sticker.Id);
+            sticker.Order = item.Order;
+        }
+
+        db.Stickers.UpdateRange(stickers);
+        await db.SaveChangesAsync();
+
+        return Ok();
     }
 }

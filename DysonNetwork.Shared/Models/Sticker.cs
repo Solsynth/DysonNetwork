@@ -32,6 +32,7 @@ public class SnSticker : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public SnCloudFileReferenceObject Image { get; set; } = null!;
     public StickerSize Size { get; set; } = StickerSize.Auto;
     public StickerMode Mode { get; set; } = StickerMode.Sticker;
+    public int Order { get; set; }
 
     public Guid PackId { get; set; }
     [IgnoreMember] [JsonIgnore] public StickerPack Pack { get; set; } = null!;
@@ -59,6 +60,7 @@ public class SnSticker : ModelBase, IIdentifiedResource
                 _ => DyStickerMode.Sticker,
             },
             PackId = PackId.ToString(),
+            Order = Order,
             CreatedAt = CreatedAt.ToTimestamp(),
             UpdatedAt = UpdatedAt.ToTimestamp(),
         };
@@ -116,6 +118,7 @@ public class SnSticker : ModelBase, IIdentifiedResource
             _ => StickerMode.Sticker,
         },
         PackId = Guid.Parse(proto.PackId),
+        Order = proto.Order,
         Pack = proto.HasPackPrefix ? new StickerPack { Prefix = proto.PackPrefix } : null!,
         CreatedAt = proto.CreatedAt.ToInstant(),
         UpdatedAt = proto.UpdatedAt.ToInstant(),
@@ -151,6 +154,7 @@ public class StickerPackOwnership : ModelBase
     public Guid PackId { get; set; }
     public StickerPack Pack { get; set; } = null!;
     public Guid AccountId { get; set; }
+    public int Order { get; set; }
 
     [NotMapped] public SnAccount Account { get; set; } = null!;
 }
