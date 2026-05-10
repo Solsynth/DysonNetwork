@@ -162,13 +162,13 @@ public class PostCollectionService(
             .Where(i => i.CollectionId == collection.Id)
             .OrderBy(i => i.Order)
             .ThenBy(i => i.PostId)
+            .Include(i => i.Post).ThenInclude(p => p.Publisher)
+            .Include(i => i.Post).ThenInclude(p => p.Tags)
+            .Include(i => i.Post).ThenInclude(p => p.Categories)
+            .Include(i => i.Post).ThenInclude(p => p.RepliedPost)
+            .Include(i => i.Post).ThenInclude(p => p.ForwardedPost)
+            .Include(i => i.Post).ThenInclude(p => p.FeaturedRecords)
             .Select(i => i.Post)
-            .Include(p => p.Publisher)
-            .Include(p => p.Tags)
-            .Include(p => p.Categories)
-            .Include(p => p.RepliedPost)
-            .Include(p => p.ForwardedPost)
-            .Include(p => p.FeaturedRecords)
             .FilterWithVisibility(
                 currentUser,
                 userFriends,
@@ -225,23 +225,17 @@ public class PostCollectionService(
     {
         var gatekeepInfo = await GetGatekeepInfoAsync(collection.PublisherId, currentUser);
 
-        var visiblePostIds = await db.PostCollectionItems
+        var allItems = await db.PostCollectionItems
             .Where(i => i.CollectionId == collection.Id)
             .OrderBy(i => i.Order)
             .ThenBy(i => i.PostId)
-            .Include(i => i.Post)
-            .ThenInclude(p => p.Publisher)
-            .Include(i => i.Post)
-            .ThenInclude(p => p.Tags)
-            .Include(i => i.Post)
-            .ThenInclude(p => p.Categories)
-            .Include(i => i.Post)
-            .ThenInclude(p => p.RepliedPost)
-            .Include(i => i.Post)
-            .ThenInclude(p => p.ForwardedPost)
-            .Include(i => i.Post)
-            .ThenInclude(p => p.FeaturedRecords)
-            .Select(i => i.Post)
+            .Select(i => new { i.PostId, i.Order })
+            .ToListAsync();
+
+        var allPostIds = allItems.Select(i => i.PostId).ToList();
+
+        var visiblePostIds = await db.Posts
+            .Where(p => allPostIds.Contains(p.Id))
             .FilterWithVisibility(
                 currentUser,
                 userFriends,
@@ -253,15 +247,21 @@ public class PostCollectionService(
             .Select(p => p.Id)
             .ToListAsync();
 
-        var currentIndex = visiblePostIds.FindIndex(id => id == postId);
+        var visibleSet = visiblePostIds.ToHashSet();
+        var orderedVisibleIds = allItems
+            .Where(i => visibleSet.Contains(i.PostId))
+            .Select(i => i.PostId)
+            .ToList();
+
+        var currentIndex = orderedVisibleIds.FindIndex(id => id == postId);
         if (currentIndex < 0)
             return null;
 
         var targetIndex = next ? currentIndex + 1 : currentIndex - 1;
-        if (targetIndex < 0 || targetIndex >= visiblePostIds.Count)
+        if (targetIndex < 0 || targetIndex >= orderedVisibleIds.Count)
             return null;
 
-        var targetPostId = visiblePostIds[targetIndex];
+        var targetPostId = orderedVisibleIds[targetIndex];
 
         var post = await db.Posts
             .Where(p => p.Id == targetPostId)
