@@ -160,6 +160,7 @@ public partial class ChatService(
 
             var sticker = SnSticker.FromProtoValue(stickerProto);
             message.Content = localization.Get("chatStickerBody", null);
+            message.StickerImage = sticker.Image;
             message.Meta ??= new Dictionary<string, object>();
             message.Meta["sticker"] = new Dictionary<string, object?>
             {
@@ -1448,21 +1449,15 @@ public partial class ChatService(
             .Select(a => a.Id)
             .ToList();
 
-        if (
-            imageIds.Count == 0
-            && message.Meta?.TryGetValue("sticker", out var stickerMeta) == true
-            && stickerMeta is Dictionary<string, object?> stickerMetaDict
-            && stickerMetaDict.TryGetValue("image_id", out var stickerImageId)
-            && Guid.TryParse(stickerImageId?.ToString(), out var stickerImageGuid)
-        )
+        if (imageIds.Count == 0 && message.StickerImage?.Id is not null)
         {
-            imageIds.Add(stickerImageGuid.ToString());
+            imageIds.Add(message.StickerImage.Id);
         }
 
         if (imageIds.Count > 0)
         {
             metaDict["images"] = imageIds;
-            metaDict["image"] = imageIds.First().ToString();
+            metaDict["image"] = imageIds.First();
         }
 
         if (sender.Account!.Profile is not { Picture: null })

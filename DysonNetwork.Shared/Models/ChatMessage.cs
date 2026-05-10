@@ -23,6 +23,11 @@ public class SnChatMessage : ModelBase, IIdentifiedResource
     [Column(TypeName = "jsonb")] public List<Guid>? MembersMentioned { get; set; }
     [MaxLength(36)] public string Nonce { get; set; } = null!;
     public Instant? EditedAt { get; set; }
+
+    // Cached sticker image for notification rendering only.
+    [NotMapped]
+    [JsonIgnore]
+    public SnCloudFileReferenceObject? StickerImage { get; set; }
     
     [Column(TypeName = "jsonb")] public List<SnCloudFileReferenceObject> Attachments { get; set; } = []; 
 
@@ -69,6 +74,7 @@ public class SnChatMessage : ModelBase, IIdentifiedResource
             MembersMentioned = MembersMentioned,
             Nonce = Nonce,
             EditedAt = EditedAt,
+            StickerImage = StickerImage,
             Attachments = Attachments,
             ReactionsCount = new Dictionary<string, int>(ReactionsCount),
             RepliedMessageId = RepliedMessageId,
