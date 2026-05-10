@@ -13,14 +13,16 @@ Stickers now expose two client-rendering fields:
 
 These fields are metadata for the client renderer only. The backend does not apply any special behavior based on them.
 
+`size` and `mode` are int-backed enums in API payloads.
+
 ## Sticker Size
 
 Supported values:
 
-- `auto`
-- `small`
-- `medium`
-- `large`
+- `0`: `auto`
+- `1`: `small`
+- `2`: `medium`
+- `3`: `large`
 
 Default value:
 
@@ -30,8 +32,8 @@ Default value:
 
 Supported values:
 
-- `sticker`
-- `emote`
+- `0`: `sticker`
+- `1`: `emote`
 
 Default value:
 
@@ -49,8 +51,8 @@ Example response shape:
   "image": {
     "id": "file_123"
   },
-  "size": "auto",
-  "mode": "sticker",
+  "size": 0,
+  "mode": 0,
   "pack_id": "d65dce58-1f7d-4adc-a9a4-6d33fd62ee28",
   "created_at": "2026-05-10T10:00:00Z",
   "updated_at": "2026-05-10T10:00:00Z"
@@ -72,8 +74,8 @@ Request body:
   "name": "Waving Hand",
   "slug": "wave",
   "image_id": "file_123",
-  "size": "auto",
-  "mode": "sticker"
+  "size": 0,
+  "mode": 0
 }
 ```
 
@@ -82,8 +84,8 @@ Notes:
 - `slug` is required.
 - `image_id` is required.
 - `name` is optional. If omitted, it falls back to `slug` on create.
-- `size` is optional and defaults to `auto`.
-- `mode` is optional and defaults to `sticker`.
+- `size` is optional and defaults to `0` (`auto`).
+- `mode` is optional and defaults to `0` (`sticker`).
 
 ## Update Sticker
 
@@ -100,8 +102,8 @@ Request body:
   "name": "Waving Hand Large",
   "slug": "wave_alt",
   "image_id": "file_456",
-  "size": "large",
-  "mode": "emote"
+  "size": 3,
+  "mode": 1
 }
 ```
 
@@ -126,8 +128,8 @@ Request body:
     "7b602089-3c6c-45bf-91be-4c812e4fb5a1",
     "8a4466f0-5ce8-4f03-8ab3-9f5b51f50dea"
   ],
-  "size": "large",
-  "mode": "emote"
+  "size": 3,
+  "mode": 1
 }
 ```
 
@@ -147,13 +149,13 @@ Response body:
     "id": "7b602089-3c6c-45bf-91be-4c812e4fb5a1",
     "slug": "wave",
     "size": "large",
-    "mode": "emote"
+    "mode": 1
   },
   {
     "id": "8a4466f0-5ce8-4f03-8ab3-9f5b51f50dea",
     "slug": "smile",
-    "size": "large",
-    "mode": "emote"
+    "size": 3,
+    "mode": 1
   }
 ]
 ```
@@ -221,8 +223,8 @@ Response body:
       "id": "7b602089-3c6c-45bf-91be-4c812e4fb5a1",
       "slug": "wave",
       "name": "Waving Hand",
-      "size": "auto",
-      "mode": "sticker"
+      "size": 0,
+      "mode": 0
     }
   },
   {
