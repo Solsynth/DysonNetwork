@@ -1462,7 +1462,7 @@ public partial class ChatService(
         if (imageIds.Count > 0)
         {
             metaDict["images"] = imageIds;
-            metaDict["image"] = imageIds.First();
+            metaDict["image"] = imageIds.First().ToString();
         }
 
         if (sender.Account!.Profile is not { Picture: null })
