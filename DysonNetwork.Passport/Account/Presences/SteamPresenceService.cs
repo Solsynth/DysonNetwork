@@ -131,6 +131,56 @@ public class SteamPresenceService(
         return result;
     }
 
+    public async Task<SteamPresenceScanResult> ScanAndUpdatePresencesAsync(IEnumerable<Guid> userIds, string steamId)
+    {
+        if (string.IsNullOrWhiteSpace(steamId))
+        {
+            return new SteamPresenceScanResult
+            {
+                Items =
+                [
+                    new SteamPresenceScanItem
+                    {
+                        AccountId = Guid.Empty,
+                        SteamId = steamId,
+                        Status = "error",
+                        Error = "Steam ID is required"
+                    }
+                ]
+            };
+        }
+
+        var matchedConnections = new List<SnAccountConnection>();
+        foreach (var userId in userIds.Distinct())
+        {
+            var userConnections = await connections.ListConnectionsAsync(userId, "steam");
+            matchedConnections.AddRange(userConnections.Where(c => c.ProvidedIdentifier == steamId));
+        }
+
+        if (matchedConnections.Count == 0)
+        {
+            return new SteamPresenceScanResult
+            {
+                Items =
+                [
+                    new SteamPresenceScanItem
+                    {
+                        AccountId = Guid.Empty,
+                        SteamId = steamId,
+                        Status = "not_found",
+                        Error = "No connected account found for the provided Steam ID"
+                    }
+                ]
+            };
+        }
+
+        var result = new SteamPresenceScanResult();
+        foreach (var connection in matchedConnections)
+            result.Items.Add(await UpdateSteamPresenceAsync(connection.AccountId, connection.ProvidedIdentifier));
+
+        return result;
+    }
+
     /// <summary>
     /// Updates the Steam presence activity for a specific user using pre-fetched player summary data
     /// </summary>
