@@ -1456,7 +1456,7 @@ public partial class ChatService(
             && Guid.TryParse(stickerImageId?.ToString(), out var stickerImageGuid)
         )
         {
-            imageIds.Add(stickerImageGuid);
+            imageIds.Add(stickerImageGuid.ToString());
         }
 
         if (imageIds.Count > 0)
