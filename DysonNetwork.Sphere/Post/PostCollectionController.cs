@@ -40,6 +40,11 @@ public class PostCollectionController(
         public List<Guid> PostIds { get; set; } = [];
     }
 
+    public class BatchRemoveCollectionPostsRequest
+    {
+        public List<Guid> PostIds { get; set; } = [];
+    }
+
     public class ReorderCollectionPostsRequest
     {
         public List<Guid> PostIds { get; set; } = [];
@@ -198,6 +203,26 @@ public class PostCollectionController(
         {
             return BadRequest(ex.Message);
         }
+    }
+
+    [HttpPost("{slug}/posts/batch-remove")]
+    [Authorize]
+    public async Task<ActionResult> BatchRemoveCollectionPosts(
+        string publisherName,
+        string slug,
+        [FromBody] BatchRemoveCollectionPostsRequest request
+    )
+    {
+        var collection = await collectionService.GetCollectionBySlugAsync(publisherName, slug);
+        if (collection is null)
+            return NotFound();
+
+        var auth = await RequirePublisherEditorAsync(collection.Publisher.Name);
+        if (auth.Result is not null)
+            return auth.Result;
+
+        await collectionService.BatchRemovePostsAsync(collection, request.PostIds);
+        return NoContent();
     }
 
     [HttpDelete("{slug}/posts/{postId:guid}")]

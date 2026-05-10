@@ -167,6 +167,26 @@ public class PostCollectionService(
         await db.SaveChangesAsync();
     }
 
+    public async Task BatchRemovePostsAsync(SnPostCollection collection, IReadOnlyList<Guid> postIds)
+    {
+        var items = await db.PostCollectionItems
+            .Where(i => i.CollectionId == collection.Id && postIds.Contains(i.PostId))
+            .ToListAsync();
+        if (items.Count == 0)
+            return;
+
+        db.PostCollectionItems.RemoveRange(items);
+
+        var remainingItems = await db.PostCollectionItems
+            .Where(i => i.CollectionId == collection.Id)
+            .OrderBy(i => i.Order)
+            .ToListAsync();
+        for (var index = 0; index < remainingItems.Count; index++)
+            remainingItems[index].Order = index;
+
+        await db.SaveChangesAsync();
+    }
+
     public async Task ReorderPostsAsync(SnPostCollection collection, IReadOnlyList<Guid> postIds)
     {
         var items = await db.PostCollectionItems

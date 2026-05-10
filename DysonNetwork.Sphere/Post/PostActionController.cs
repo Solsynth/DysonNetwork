@@ -151,6 +151,19 @@ public class PostActionController(
         public string? Language { get; set; }
     }
 
+    public class BatchDeleteRequest
+    {
+        public List<Guid> PostIds { get; set; } = [];
+    }
+
+    public class BatchVisibilityRequest
+    {
+        public List<Guid> PostIds { get; set; } = [];
+        public Shared.Models.PostVisibility? Visibility { get; set; }
+        public Instant? DraftedAt { get; set; }
+        public Instant? PublishedAt { get; set; }
+    }
+
     [HttpPost]
     [AskPermission("posts.create")]
     public async Task<ActionResult<SnPost>> CreatePost(
@@ -1139,6 +1152,128 @@ public class PostActionController(
             ipAddress: Request.GetClientIpAddress()
         );
 
+        return NoContent();
+    }
+
+    [HttpPost("batch/delete")]
+    [Authorize]
+    public async Task<ActionResult> BatchDeletePosts([FromBody] BatchDeleteRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        if (request.PostIds.Count == 0)
+            return BadRequest("PostIds list is empty.");
+
+        var posts = await db
+            .Posts.Where(e => request.PostIds.Contains(e.Id))
+            .Include(e => e.Publisher)
+            .ToListAsync();
+
+        if (posts.Count != request.PostIds.Count)
+        {
+            var foundIds = posts.Select(p => p.Id).ToHashSet();
+            var missingIds = request.PostIds.Where(id => !foundIds.Contains(id)).ToList();
+            return BadRequest($"Posts not found: {string.Join(", ", missingIds)}");
+        }
+
+        var lockedPost = posts.FirstOrDefault(p => p.LockedAt is not null);
+        if (lockedPost is not null)
+            return StatusCode(423, $"Post {lockedPost.Id} is locked and cannot be deleted.");
+
+        var accountId = Guid.Parse(currentUser.Id);
+        foreach (var postGroup in posts.GroupBy(p => p.Publisher.Id))
+        {
+            if (!await pub.IsMemberWithRole(postGroup.Key, accountId, PublisherMemberRole.Editor))
+            {
+                var pubName = postGroup.First().Publisher?.Name ?? postGroup.Key.ToString();
+                return StatusCode(403, $"You need at least be an editor to delete posts from publisher '{pubName}'.");
+            }
+        }
+
+        foreach (var post in posts)
+        {
+            await ps.DeletePostAsync(post);
+
+            als.CreateActionLog(
+                accountId,
+                ActionLogType.PostDelete,
+                new Dictionary<string, object>
+                {
+                    { "post_id", post.Id.ToString() }
+                },
+                userAgent: Request.Headers.UserAgent,
+                ipAddress: Request.GetClientIpAddress()
+            );
+        }
+
+        return NoContent();
+    }
+
+    [HttpPost("batch/visibility")]
+    [Authorize]
+    public async Task<ActionResult> BatchUpdateVisibility([FromBody] BatchVisibilityRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        if (request.PostIds.Count == 0)
+            return BadRequest("PostIds list is empty.");
+
+        if (request.DraftedAt is not null && request.PublishedAt is not null)
+            return BadRequest("Cannot set both draftedAt and publishedAt.");
+
+        var posts = await db
+            .Posts.Where(e => request.PostIds.Contains(e.Id))
+            .Include(e => e.Publisher)
+            .ToListAsync();
+
+        if (posts.Count != request.PostIds.Count)
+        {
+            var foundIds = posts.Select(p => p.Id).ToHashSet();
+            var missingIds = request.PostIds.Where(id => !foundIds.Contains(id)).ToList();
+            return BadRequest($"Posts not found: {string.Join(", ", missingIds)}");
+        }
+
+        var lockedPost = posts.FirstOrDefault(p => p.LockedAt is not null);
+        if (lockedPost is not null)
+            return StatusCode(423, $"Post {lockedPost.Id} is locked and cannot be edited.");
+
+        var accountId = Guid.Parse(currentUser.Id);
+        foreach (var postGroup in posts.GroupBy(p => p.Publisher.Id))
+        {
+            if (!await pub.IsMemberWithRole(postGroup.Key, accountId, PublisherMemberRole.Editor))
+            {
+                var pubName = postGroup.First().Publisher?.Name ?? postGroup.Key.ToString();
+                return StatusCode(403, $"You need at least be an editor to edit posts from publisher '{pubName}'.");
+            }
+        }
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        foreach (var post in posts)
+        {
+            post.EditedAt = now;
+
+            if (request.Visibility is not null)
+                post.Visibility = request.Visibility.Value;
+
+            if (request.PublishedAt is not null)
+            {
+                if (request.PublishedAt.Value < now && post.DraftedAt is null)
+                    return BadRequest($"Cannot set publishedAt to the past for post {post.Id}.");
+
+                post.PublishedAt = request.PublishedAt;
+                post.DraftedAt = null;
+            }
+
+            if (request.DraftedAt is not null)
+            {
+                post.DraftedAt = request.DraftedAt;
+                post.PublishedAt = null;
+            }
+        }
+
+        await db.SaveChangesAsync();
         return NoContent();
     }
 
