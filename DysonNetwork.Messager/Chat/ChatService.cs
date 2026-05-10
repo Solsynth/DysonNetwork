@@ -1,20 +1,20 @@
-using System.Text.RegularExpressions;
 using System.Text.Json;
-using DysonNetwork.Shared.Models;
-using DysonNetwork.Shared.Proto;
+using System.Text.RegularExpressions;
 using DysonNetwork.Messager.Chat.Realtime;
 using DysonNetwork.Messager.Chat.Voice;
-using DysonNetwork.Shared.Data;
-using DysonNetwork.Shared.Models.Embed;
-using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.EventBus;
-using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Cache;
-using DysonNetwork.Shared.Localization;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Extensions;
+using DysonNetwork.Shared.Localization;
+using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Models.Embed;
+using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Queue;
+using DysonNetwork.Shared.Registry;
 using Grpc.Core;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Messager.Chat;
@@ -40,22 +40,30 @@ public partial class ChatService(
 
     private static string NormalizeEncryptionMessageType(string? messageType, string fallbackType)
     {
-        if (string.IsNullOrWhiteSpace(messageType)) return fallbackType;
+        if (string.IsNullOrWhiteSpace(messageType))
+            return fallbackType;
         return messageType switch
         {
             "content.new" => "text",
             "content.edit" => "messages.update",
             "content.delete" => "messages.delete",
-            _ => messageType
+            _ => messageType,
         };
     }
 
     private static bool IsUserEncryptedMessage(SnChatMessage message)
     {
-        if (!message.IsEncrypted) return false;
-        return message.Type is not ("messages.update" or "messages.delete" or "messages.update.links" or
-            WebSocketPacketType.MessageReactionAdded or WebSocketPacketType.MessageReactionRemoved) &&
-               !message.Type.StartsWith("system.");
+        if (!message.IsEncrypted)
+            return false;
+        return message.Type
+                is not (
+                    "messages.update"
+                    or "messages.delete"
+                    or "messages.update.links"
+                    or WebSocketPacketType.MessageReactionAdded
+                    or WebSocketPacketType.MessageReactionRemoved
+                )
+            && !message.Type.StartsWith("system.");
     }
 
     [GeneratedRegex(@"(?<!\]\()https?://[^\s<]+", RegexOptions.IgnoreCase)]
@@ -76,7 +84,10 @@ public partial class ChatService(
         foreach (Match match in GetLinkRegex().Matches(content))
         {
             var normalizedUrl = NormalizePreviewUrl(match.Value);
-            if (normalizedUrl is null || urls.Contains(normalizedUrl, StringComparer.OrdinalIgnoreCase))
+            if (
+                normalizedUrl is null
+                || urls.Contains(normalizedUrl, StringComparer.OrdinalIgnoreCase)
+            )
                 continue;
 
             urls.Add(normalizedUrl);
@@ -102,7 +113,8 @@ public partial class ChatService(
             url = url[..^1];
         }
 
-        return Uri.TryCreate(url, UriKind.Absolute, out var uri)
+        return
+            Uri.TryCreate(url, UriKind.Absolute, out var uri)
             && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
             ? uri.ToString()
             : null;
@@ -123,7 +135,11 @@ public partial class ChatService(
 
     private static bool IsExactStickerPlaceholderMessage(SnChatMessage message)
     {
-        if (message.IsEncrypted || message.Type != "text" || string.IsNullOrWhiteSpace(message.Content))
+        if (
+            message.IsEncrypted
+            || message.Type != "text"
+            || string.IsNullOrWhiteSpace(message.Content)
+        )
             return false;
 
         return GetStickerPlaceholderRegex().IsMatch(message.Content.Trim());
@@ -138,10 +154,9 @@ public partial class ChatService(
         {
             var stickerClient = stickerClientFactory.CreateClient();
             var placeholder = message.Content!.Trim();
-            var stickerProto = await stickerClient.GetStickerByIdentifierAsync(new DyGetStickerRequest
-            {
-                Identifier = placeholder,
-            });
+            var stickerProto = await stickerClient.GetStickerByIdentifierAsync(
+                new DyGetStickerRequest { Identifier = placeholder }
+            );
 
             var sticker = SnSticker.FromProtoValue(stickerProto);
             message.Content = localization.Get("chatStickerBody", null);
@@ -162,7 +177,8 @@ public partial class ChatService(
             if (message.Attachments.All(a => a.Id != sticker.Image.Id))
                 message.Attachments.Add(sticker.Image);
         }
-        catch (RpcException ex) when (ex.StatusCode is StatusCode.NotFound or StatusCode.InvalidArgument)
+        catch (RpcException ex)
+            when (ex.StatusCode is StatusCode.NotFound or StatusCode.InvalidArgument)
         {
             // Ignore invalid sticker placeholders and keep the original text message.
         }
@@ -170,7 +186,11 @@ public partial class ChatService(
 
     private async Task EnrichInlineStickerPreviewAsync(SnChatMessage message)
     {
-        if (message.IsEncrypted || message.Type != "text" || string.IsNullOrWhiteSpace(message.Content))
+        if (
+            message.IsEncrypted
+            || message.Type != "text"
+            || string.IsNullOrWhiteSpace(message.Content)
+        )
             return;
 
         var matches = GetInlineStickerPlaceholderRegex()
@@ -188,13 +208,13 @@ public partial class ChatService(
         {
             try
             {
-                var stickerProto = await stickerClient.GetStickerByIdentifierAsync(new DyGetStickerRequest
-                {
-                    Identifier = identifier,
-                });
+                var stickerProto = await stickerClient.GetStickerByIdentifierAsync(
+                    new DyGetStickerRequest { Identifier = identifier }
+                );
                 stickers[identifier] = SnSticker.FromProtoValue(stickerProto);
             }
-            catch (RpcException ex) when (ex.StatusCode is StatusCode.NotFound or StatusCode.InvalidArgument)
+            catch (RpcException ex)
+                when (ex.StatusCode is StatusCode.NotFound or StatusCode.InvalidArgument)
             {
                 // Ignore invalid sticker placeholders and leave them unchanged.
             }
@@ -209,19 +229,30 @@ public partial class ChatService(
             .Where(identifier => stickers.ContainsKey(identifier))
             .ToList();
 
-        var transformed = GetInlineStickerPlaceholderRegex().Replace(message.Content, match =>
-        {
-            var identifier = match.Groups["identifier"].Value;
-            if (!stickers.TryGetValue(identifier, out var sticker) || string.IsNullOrWhiteSpace(sticker.Name))
-                return match.Value;
+        var transformed = GetInlineStickerPlaceholderRegex()
+            .Replace(
+                message.Content,
+                match =>
+                {
+                    var identifier = match.Groups["identifier"].Value;
+                    if (
+                        !stickers.TryGetValue(identifier, out var sticker)
+                        || string.IsNullOrWhiteSpace(sticker.Name)
+                    )
+                        return match.Value;
 
-            return $"[{sticker.Name}]";
-        });
+                    return $"[{sticker.Name}]";
+                }
+            );
 
         message.Meta ??= new Dictionary<string, object>();
         message.Meta["sticker_preview_text"] = transformed;
 
-        if (GetInlineStickerPlaceholderRegex().Replace(message.Content.Trim(), string.Empty).Length == 0 && stickerSequence.Count > 0)
+        if (
+            GetInlineStickerPlaceholderRegex().Replace(message.Content.Trim(), string.Empty).Length
+                == 0
+            && stickerSequence.Count > 0
+        )
         {
             var stickerNames = stickerSequence
                 .Select(identifier => stickers[identifier].Name)
@@ -231,7 +262,11 @@ public partial class ChatService(
             if (stickerNames.Count == stickerSequence.Count)
             {
                 var firstName = stickerNames[0];
-                if (stickerNames.All(name => string.Equals(name, firstName, StringComparison.Ordinal)))
+                if (
+                    stickerNames.All(name =>
+                        string.Equals(name, firstName, StringComparison.Ordinal)
+                    )
+                )
                 {
                     message.Meta["sticker_only_name"] = firstName;
                     message.Meta["sticker_only_count"] = stickerNames.Count;
@@ -240,14 +275,20 @@ public partial class ChatService(
         }
     }
 
-    private async Task EmitChatUseActionLogAsync(SnChatMessage message, SnChatMember sender, SnChatRoom room, string? clientIpAddress = null)
+    private async Task EmitChatUseActionLogAsync(
+        SnChatMessage message,
+        SnChatMember sender,
+        SnChatRoom room,
+        string? clientIpAddress = null
+    )
     {
         if (sender.AccountId == Guid.Empty || message.Type.StartsWith("system."))
             return;
 
         var cacheKey = $"{ChatUseCooldownCacheKey}{sender.AccountId}";
         var alreadyEmitted = await cache.GetAsync<bool?>(cacheKey);
-        if (alreadyEmitted == true) return;
+        if (alreadyEmitted == true)
+            return;
 
         var request = httpContextAccessor.HttpContext?.Request;
         var userAgent = request?.Headers.UserAgent.ToString();
@@ -260,7 +301,7 @@ public partial class ChatService(
             new Dictionary<string, object>
             {
                 ["room_id"] = room.Id,
-                ["message_type"] = message.Type
+                ["message_type"] = message.Type,
             },
             userAgent: string.IsNullOrWhiteSpace(userAgent) ? null : userAgent,
             ipAddress: string.IsNullOrWhiteSpace(ipAddress) ? null : ipAddress
@@ -284,13 +325,15 @@ public partial class ChatService(
             var updatedMessage = await CreateLinkPreviewAsync(message);
 
             // If embeds were added, update the message in the database
-            if (updatedMessage.Meta != null &&
-                updatedMessage.Meta.TryGetValue("embeds", out var embeds) &&
-                embeds is List<Dictionary<string, object>> { Count: > 0 } embedsList)
+            if (
+                updatedMessage.Meta != null
+                && updatedMessage.Meta.TryGetValue("embeds", out var embeds)
+                && embeds is List<Dictionary<string, object>> { Count: > 0 } embedsList
+            )
             {
                 // Get a fresh copy of the message from the database
-                var dbMessage = await dbContext.ChatMessages
-                    .Where(m => m.Id == message.Id)
+                var dbMessage = await dbContext
+                    .ChatMessages.Where(m => m.Id == message.Id)
                     .Include(m => m.Sender)
                     .Include(m => m.ChatRoom)
                     .FirstOrDefaultAsync();
@@ -304,7 +347,9 @@ public partial class ChatService(
                     dbContext.Update(dbMessage);
                     await dbContext.SaveChangesAsync();
 
-                    logger.LogDebug($"Updated message {message.Id} with {embedsList.Count} link previews");
+                    logger.LogDebug(
+                        $"Updated message {message.Id} with {embedsList.Count} link previews"
+                    );
 
                     // Create and store sync message for link preview update
                     var syncMessage = new SnChatMessage
@@ -316,10 +361,10 @@ public partial class ChatService(
                         Meta = new Dictionary<string, object>
                         {
                             ["message_id"] = dbMessage.Id,
-                            ["embeds"] = embedsList
+                            ["embeds"] = embedsList,
                         },
                         CreatedAt = dbMessage.UpdatedAt,
-                        UpdatedAt = dbMessage.UpdatedAt
+                        UpdatedAt = dbMessage.UpdatedAt,
                     };
 
                     dbContext.ChatMessages.Add(syncMessage);
@@ -329,8 +374,11 @@ public partial class ChatService(
                     syncMessage.Sender = dbMessage.Sender;
                     syncMessage.ChatRoom = dbMessage.ChatRoom;
 
-                    logger.LogWarning("CreateLinkPreviewBackgroundAsync: sending link preview for messageId={messageId}, embedCount={embedCount}",
-                        dbMessage.Id, embedsList.Count);
+                    logger.LogWarning(
+                        "CreateLinkPreviewBackgroundAsync: sending link preview for messageId={messageId}, embedCount={embedCount}",
+                        dbMessage.Id,
+                        embedsList.Count
+                    );
 
                     using var syncScope = scopeFactory.CreateScope();
 
@@ -346,7 +394,11 @@ public partial class ChatService(
                     }
                     catch (Exception ex)
                     {
-                        logger.LogWarning("Failed to deliver link preview: messageId={messageId}, error={error}", dbMessage.Id, ex.Message);
+                        logger.LogWarning(
+                            "Failed to deliver link preview: messageId={messageId}, error={error}",
+                            dbMessage.Id,
+                            ex.Message
+                        );
                     }
                 }
             }
@@ -354,7 +406,9 @@ public partial class ChatService(
         catch (Exception ex)
         {
             // Log errors but don't rethrow - this is a background task
-            logger.LogError($"Error processing link previews for message {message.Id}: {ex.Message} {ex.StackTrace}");
+            logger.LogError(
+                $"Error processing link previews for message {message.Id}: {ex.Message} {ex.StackTrace}"
+            );
         }
     }
 
@@ -377,8 +431,10 @@ public partial class ChatService(
         message.Meta ??= new Dictionary<string, object>();
 
         // Initialize the embeds' array if it doesn't exist
-        if (!message.Meta.TryGetValue("embeds", out var existingEmbeds) ||
-            existingEmbeds is not List<Dictionary<string, object>>)
+        if (
+            !message.Meta.TryGetValue("embeds", out var existingEmbeds)
+            || existingEmbeds is not List<Dictionary<string, object>>
+        )
         {
             message.Meta["embeds"] = new List<Dictionary<string, object>>();
         }
@@ -391,10 +447,11 @@ public partial class ChatService(
             {
                 // Check if this URL is already in the embed list
                 var urlAlreadyEmbedded = embeds.Any(e =>
-                    e.TryGetValue("Url", out var originalUrl) && (string)originalUrl == url);
+                    e.TryGetValue("Url", out var originalUrl) && (string)originalUrl == url
+                );
                 if (urlAlreadyEmbedded)
                     continue;
-                
+
                 // Preview the link
                 var linkEmbed = await webReader.GetLinkPreview(url);
                 embeds.Add(EmbeddableBase.ToDictionary(linkEmbed));
@@ -416,20 +473,17 @@ public partial class ChatService(
         IServiceScope scope
     )
     {
-        var scopedWs = scope.ServiceProvider.GetRequiredService<WebSocketService.WebSocketServiceClient>();
+        var scopedWs =
+            scope.ServiceProvider.GetRequiredService<WebSocketService.WebSocketServiceClient>();
         var payload = InfraObjectCoder.ConvertObjectToByteString(message);
 
         var request = new DyPushWebSocketPacketToUsersRequest
         {
-            Packet = new DyWebSocketPacket
-            {
-                Type = "messages.new",
-                Data = payload,
-            },
+            Packet = new DyWebSocketPacket { Type = "messages.new", Data = payload },
         };
         var memberAccounts = members.Select(a => a.Account).Where(a => a is not null).ToList();
         request.UserIds.AddRange(memberAccounts.Select(a => a!.Id.ToString()));
-        
+
         logger.LogWarning(
             "DeliverWebSocketMessage: messageId={messageId}, type={type}, targetUserCount={targetUserCount}, attachmentCount={attachmentCount}, payloadBytes={payloadBytes}, userIds={userIds}",
             message.Id,
@@ -439,15 +493,21 @@ public partial class ChatService(
             payload.Length,
             string.Join(",", request.UserIds.Take(10))
         );
-        
+
         await scopedWs.PushWebSocketPacketToUsersAsync(request);
 
         logger.LogInformation($"Delivered message to {request.UserIds.Count} accounts.");
     }
 
-    public async Task<SnChatMessage> SendMessageAsync(SnChatMessage message, SnChatMember sender, SnChatRoom room, string? clientIpAddress = null)
+    public async Task<SnChatMessage> SendMessageAsync(
+        SnChatMessage message,
+        SnChatMember sender,
+        SnChatRoom room,
+        string? clientIpAddress = null
+    )
     {
-        if (string.IsNullOrWhiteSpace(message.Nonce)) message.Nonce = Guid.NewGuid().ToString();
+        if (string.IsNullOrWhiteSpace(message.Nonce))
+            message.Nonce = Guid.NewGuid().ToString();
 
         await NormalizeStickerPlaceholderMessageAsync(message);
         await EnrichInlineStickerPreviewAsync(message);
@@ -457,24 +517,36 @@ public partial class ChatService(
         await db.SaveChangesAsync();
 
         // Sending a message implies read-through at least to this message for the sender.
-        await db.ChatMembers
-            .Where(m => m.Id == sender.Id && m.ChatRoomId == room.Id && m.JoinedAt != null && m.LeaveAt == null)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(m => m.LastReadAt, message.CreatedAt));
+        await db
+            .ChatMembers.Where(m =>
+                m.Id == sender.Id
+                && m.ChatRoomId == room.Id
+                && m.JoinedAt != null
+                && m.LeaveAt == null
+            )
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(m => m.LastReadAt, message.CreatedAt)
+            );
 
-        if (room.RealmId.HasValue && sender.AccountId != Guid.Empty && !message.Type.StartsWith("system."))
+        if (
+            room.RealmId.HasValue
+            && sender.AccountId != Guid.Empty
+            && !message.Type.StartsWith("system.")
+        )
         {
-            await eventBus.PublishAsync(new RealmActivityEvent
-            {
-                RealmId = room.RealmId.Value,
-                AccountId = sender.AccountId,
-                ActivityType = "chat_message",
-                ReferenceId = $"{room.Id}:{message.Id}",
-                Delta = 2
-            });
+            await eventBus.PublishAsync(
+                new RealmActivityEvent
+                {
+                    RealmId = room.RealmId.Value,
+                    AccountId = sender.AccountId,
+                    ActivityType = "chat_message",
+                    ReferenceId = $"{room.Id}:{message.Id}",
+                    Delta = 2,
+                }
+            );
         }
 
         await EmitChatUseActionLogAsync(message, sender, room, clientIpAddress);
-
 
         // Copy the value to ensure the delivery is correct
         message.Sender = sender;
@@ -487,15 +559,25 @@ public partial class ChatService(
         var localLogger = logger;
         _ = Task.Run(async () =>
         {
-            localLogger.LogWarning("Starting background message delivery: messageId={messageId}, roomId={roomId}", localMessage.Id, localRoom.Id);
+            localLogger.LogWarning(
+                "Starting background message delivery: messageId={messageId}, roomId={roomId}",
+                localMessage.Id,
+                localRoom.Id
+            );
             try
             {
                 await DeliverMessageAsync(localMessage, localSender, localRoom);
             }
             catch (Exception ex)
             {
-                localLogger.LogWarning("Error delivering message: messageId={messageId}, error={error}", localMessage.Id, ex.Message);
-                localLogger.LogError($"Error when delivering message: {ex.Message} {ex.StackTrace}");
+                localLogger.LogWarning(
+                    "Error delivering message: messageId={messageId}, error={error}",
+                    localMessage.Id,
+                    ex.Message
+                );
+                localLogger.LogError(
+                    $"Error when delivering message: {ex.Message} {ex.StackTrace}"
+                );
             }
         });
 
@@ -503,33 +585,45 @@ public partial class ChatService(
         if (!message.IsEncrypted && message.Type == "text")
         {
             var localMessageForPreview = message;
-            _ = Task.Run(async () => await CreateLinkPreviewBackgroundAsync(localMessageForPreview));
+            _ = Task.Run(async () =>
+                await CreateLinkPreviewBackgroundAsync(localMessageForPreview)
+            );
         }
 
         return message;
     }
 
-    private static List<SnCloudFileReferenceObject> CloneAttachments(List<SnCloudFileReferenceObject> attachments)
+    private static List<SnCloudFileReferenceObject> CloneAttachments(
+        List<SnCloudFileReferenceObject> attachments
+    )
     {
-        return attachments.Select(attachment => new SnCloudFileReferenceObject
-        {
-            CreatedAt = attachment.CreatedAt,
-            UpdatedAt = attachment.UpdatedAt,
-            DeletedAt = attachment.DeletedAt,
-            Id = attachment.Id,
-            Name = attachment.Name,
-            FileMeta = attachment.FileMeta != null ? new Dictionary<string, object?>(attachment.FileMeta) : [],
-            UserMeta = attachment.UserMeta != null ? new Dictionary<string, object?>(attachment.UserMeta) : [],
-            SensitiveMarks = attachment.SensitiveMarks?.ToList() ?? [],
-            MimeType = attachment.MimeType,
-            Hash = attachment.Hash,
-            Size = attachment.Size,
-            HasCompression = attachment.HasCompression,
-            Url = attachment.Url,
-            Width = attachment.Width,
-            Height = attachment.Height,
-            Blurhash = attachment.Blurhash,
-        }).ToList();
+        return attachments
+            .Select(attachment => new SnCloudFileReferenceObject
+            {
+                CreatedAt = attachment.CreatedAt,
+                UpdatedAt = attachment.UpdatedAt,
+                DeletedAt = attachment.DeletedAt,
+                Id = attachment.Id,
+                Name = attachment.Name,
+                FileMeta =
+                    attachment.FileMeta != null
+                        ? new Dictionary<string, object?>(attachment.FileMeta)
+                        : [],
+                UserMeta =
+                    attachment.UserMeta != null
+                        ? new Dictionary<string, object?>(attachment.UserMeta)
+                        : [],
+                SensitiveMarks = attachment.SensitiveMarks?.ToList() ?? [],
+                MimeType = attachment.MimeType,
+                Hash = attachment.Hash,
+                Size = attachment.Size,
+                HasCompression = attachment.HasCompression,
+                Url = attachment.Url,
+                Width = attachment.Width,
+                Height = attachment.Height,
+                Blurhash = attachment.Blurhash,
+            })
+            .ToList();
     }
 
     private static Dictionary<string, object> CloneRedirectMeta(Dictionary<string, object>? meta)
@@ -537,28 +631,35 @@ public partial class ChatService(
         if (meta is null)
             return [];
 
-        return meta
-            .Where(entry => !string.Equals(entry.Key, "redirect", StringComparison.OrdinalIgnoreCase))
+        return meta.Where(entry =>
+                !string.Equals(entry.Key, "redirect", StringComparison.OrdinalIgnoreCase)
+            )
             .ToDictionary(entry => entry.Key, entry => entry.Value);
     }
 
-    private static List<Dictionary<string, object?>> BuildRedirectAttachmentSnapshot(List<SnCloudFileReferenceObject> attachments)
+    private static List<Dictionary<string, object?>> BuildRedirectAttachmentSnapshot(
+        List<SnCloudFileReferenceObject> attachments
+    )
     {
-        return attachments.Select(attachment => new Dictionary<string, object?>
-        {
-            ["id"] = attachment.Id,
-            ["name"] = attachment.Name,
-            ["mime_type"] = attachment.MimeType,
-            ["size"] = attachment.Size,
-            ["url"] = attachment.Url,
-            ["width"] = attachment.Width,
-            ["height"] = attachment.Height,
-            ["blurhash"] = attachment.Blurhash,
-            ["has_compression"] = attachment.HasCompression,
-        }).ToList();
+        return attachments
+            .Select(attachment => new Dictionary<string, object?>
+            {
+                ["id"] = attachment.Id,
+                ["name"] = attachment.Name,
+                ["mime_type"] = attachment.MimeType,
+                ["size"] = attachment.Size,
+                ["url"] = attachment.Url,
+                ["width"] = attachment.Width,
+                ["height"] = attachment.Height,
+                ["blurhash"] = attachment.Blurhash,
+                ["has_compression"] = attachment.HasCompression,
+            })
+            .ToList();
     }
 
-    private static Dictionary<string, object?>? BuildRedirectProfileSnapshot(SnAccountProfile? profile)
+    private static Dictionary<string, object?>? BuildRedirectProfileSnapshot(
+        SnAccountProfile? profile
+    )
     {
         if (profile is null)
             return null;
@@ -581,8 +682,12 @@ public partial class ChatService(
             ["leveling_progress"] = profile.LevelingProgress,
             ["social_credits"] = profile.SocialCredits,
             ["social_credits_level"] = profile.SocialCreditsLevel,
-            ["picture"] = profile.Picture is not null ? BuildRedirectAttachmentSnapshot([profile.Picture]).First() : null,
-            ["background"] = profile.Background is not null ? BuildRedirectAttachmentSnapshot([profile.Background]).First() : null,
+            ["picture"] = profile.Picture is not null
+                ? BuildRedirectAttachmentSnapshot([profile.Picture]).First()
+                : null,
+            ["background"] = profile.Background is not null
+                ? BuildRedirectAttachmentSnapshot([profile.Background]).First()
+                : null,
             ["created_at"] = profile.CreatedAt.ToUnixTimeMilliseconds(),
             ["updated_at"] = profile.UpdatedAt.ToUnixTimeMilliseconds(),
         };
@@ -631,7 +736,9 @@ public partial class ChatService(
         };
     }
 
-    private static Dictionary<string, object> BuildRedirectSenderMapSnapshot(Dictionary<Guid, SnChatMember> sourceSenders)
+    private static Dictionary<string, object> BuildRedirectSenderMapSnapshot(
+        Dictionary<Guid, SnChatMember> sourceSenders
+    )
     {
         return sourceSenders.ToDictionary(
             entry => entry.Key.ToString(),
@@ -657,14 +764,21 @@ public partial class ChatService(
             ["encryption_mode"] = room.EncryptionMode.ToString(),
             ["realm_id"] = room.RealmId,
             ["account_id"] = room.AccountId,
-            ["picture"] = room.Picture is not null ? BuildRedirectAttachmentSnapshot([room.Picture]).First() : null,
-            ["background"] = room.Background is not null ? BuildRedirectAttachmentSnapshot([room.Background]).First() : null,
+            ["picture"] = room.Picture is not null
+                ? BuildRedirectAttachmentSnapshot([room.Picture]).First()
+                : null,
+            ["background"] = room.Background is not null
+                ? BuildRedirectAttachmentSnapshot([room.Background]).First()
+                : null,
             ["created_at"] = room.CreatedAt.ToUnixTimeMilliseconds(),
             ["updated_at"] = room.UpdatedAt.ToUnixTimeMilliseconds(),
         };
     }
 
-    private static Dictionary<string, object> BuildRedirectMessageEntrySnapshot(SnChatMessage sourceMessage, SnChatMember sourceSender)
+    private static Dictionary<string, object> BuildRedirectMessageEntrySnapshot(
+        SnChatMessage sourceMessage,
+        SnChatMember sourceSender
+    )
     {
         return new Dictionary<string, object>
         {
@@ -693,15 +807,17 @@ public partial class ChatService(
     )
     {
         return sourceMessages
-            .Select(message => BuildRedirectMessageEntrySnapshot(message, sourceSenders[message.SenderId]))
+            .Select(message =>
+                BuildRedirectMessageEntrySnapshot(message, sourceSenders[message.SenderId])
+            )
             .ToList();
     }
 
-    private static Dictionary<string, object> BuildRedirectRangeSnapshot(List<SnChatMessage> sourceMessages)
+    private static Dictionary<string, object> BuildRedirectRangeSnapshot(
+        List<SnChatMessage> sourceMessages
+    )
     {
-        var orderedMessages = sourceMessages
-            .OrderBy(m => m.CreatedAt)
-            .ToList();
+        var orderedMessages = sourceMessages.OrderBy(m => m.CreatedAt).ToList();
 
         return new Dictionary<string, object>
         {
@@ -721,9 +837,7 @@ public partial class ChatService(
         SnChatRoom destinationRoom
     )
     {
-        var orderedMessages = sourceMessages
-            .OrderBy(m => m.CreatedAt)
-            .ToList();
+        var orderedMessages = sourceMessages.OrderBy(m => m.CreatedAt).ToList();
 
         if (orderedMessages.Count == 1)
         {
@@ -737,7 +851,11 @@ public partial class ChatService(
                 ["source_room_id"] = sourceRoom.Id,
                 ["source_room"] = BuildRedirectRoomSnapshot(sourceRoom),
                 ["source_sender_id"] = sourceSender.AccountId,
-                ["source_sender_name"] = sourceSender.Nick ?? sourceSender.RealmNick ?? sourceSender.Account?.Nick ?? "Someone",
+                ["source_sender_name"] =
+                    sourceSender.Nick
+                    ?? sourceSender.RealmNick
+                    ?? sourceSender.Account?.Nick
+                    ?? "Someone",
                 ["source_type"] = sourceMessage.Type,
                 ["source_content"] = sourceMessage.Content ?? string.Empty,
                 ["source_created_at"] = sourceMessage.CreatedAt.ToUnixTimeMilliseconds(),
@@ -775,7 +893,13 @@ public partial class ChatService(
     {
         var meta = new Dictionary<string, object>
         {
-            ["redirect"] = BuildRedirectSnapshot(sourceMessages, sourceRoom, sourceSenders, redirector, destinationRoom)
+            ["redirect"] = BuildRedirectSnapshot(
+                sourceMessages,
+                sourceRoom,
+                sourceSenders,
+                redirector,
+                destinationRoom
+            ),
         };
 
         var redirectMessage = new SnChatMessage
@@ -791,7 +915,12 @@ public partial class ChatService(
             ForwardedMessageId = sourceMessages.OrderBy(m => m.CreatedAt).First().Id,
         };
 
-        return await SendMessageAsync(redirectMessage, redirector, destinationRoom, clientIpAddress);
+        return await SendMessageAsync(
+            redirectMessage,
+            redirector,
+            destinationRoom,
+            clientIpAddress
+        );
     }
 
     public async Task<SnChatMessage> SendSystemMessageAsync(
@@ -809,7 +938,7 @@ public partial class ChatService(
             SenderId = sender.Id,
             Content = content,
             Meta = meta ?? new Dictionary<string, object>(),
-            Nonce = Guid.NewGuid().ToString()
+            Nonce = Guid.NewGuid().ToString(),
         };
 
         db.ChatMessages.Add(systemMessage);
@@ -818,18 +947,15 @@ public partial class ChatService(
         systemMessage.Sender = sender;
         systemMessage.ChatRoom = room;
 
-        _ = DeliverMessageAsync(
-            systemMessage,
-            sender,
-            room,
-            type: type,
-            notify: false
-        );
+        _ = DeliverMessageAsync(systemMessage, sender, room, type: type, notify: false);
 
         return systemMessage;
     }
 
-    public async Task<SnChatMessage> SendMemberJoinedSystemMessageAsync(SnChatRoom room, SnChatMember member)
+    public async Task<SnChatMessage> SendMemberJoinedSystemMessageAsync(
+        SnChatRoom room,
+        SnChatMember member
+    )
     {
         if (member.Account is null)
             member = await crs.LoadMemberAccount(member);
@@ -844,7 +970,7 @@ public partial class ChatService(
             {
                 ["event"] = "member_joined",
                 ["member_id"] = member.Id,
-                ["account_id"] = member.AccountId
+                ["account_id"] = member.AccountId,
             }
         );
     }
@@ -865,7 +991,7 @@ public partial class ChatService(
         {
             ["event"] = "member_left",
             ["member_id"] = member.Id,
-            ["account_id"] = member.AccountId
+            ["account_id"] = member.AccountId,
         };
 
         if (operatorMember is not null && operatorMember.Id != member.Id)
@@ -873,7 +999,11 @@ public partial class ChatService(
             if (operatorMember.Account is null)
                 operatorMember = await crs.LoadMemberAccount(operatorMember);
 
-            var operatorName = operatorMember.Nick ?? operatorMember.RealmNick ?? operatorMember.Account?.Nick ?? "Moderator";
+            var operatorName =
+                operatorMember.Nick
+                ?? operatorMember.RealmNick
+                ?? operatorMember.Account?.Nick
+                ?? "Moderator";
             content = $"{displayName} was removed from the chat by {operatorName}.";
             meta["operator_member_id"] = operatorMember.Id;
             meta["operator_account_id"] = operatorMember.AccountId;
@@ -885,13 +1015,7 @@ public partial class ChatService(
             meta["reason"] = "left";
         }
 
-        return await SendSystemMessageAsync(
-            room,
-            member,
-            "system.member.left",
-            content,
-            meta
-        );
+        return await SendSystemMessageAsync(room, member, "system.member.left", content, meta);
     }
 
     public async Task<SnChatMessage> SendChatInfoUpdatedSystemMessageAsync(
@@ -903,7 +1027,11 @@ public partial class ChatService(
         if (operatorMember.Account is null)
             operatorMember = await crs.LoadMemberAccount(operatorMember);
 
-        var operatorName = operatorMember.Nick ?? operatorMember.RealmNick ?? operatorMember.Account?.Nick ?? "Someone";
+        var operatorName =
+            operatorMember.Nick
+            ?? operatorMember.RealmNick
+            ?? operatorMember.Account?.Nick
+            ?? "Someone";
         var changedKeys = string.Join(", ", changes.Keys.OrderBy(k => k));
 
         return await SendSystemMessageAsync(
@@ -914,7 +1042,7 @@ public partial class ChatService(
             new Dictionary<string, object>
             {
                 ["event"] = "chat_info_updated",
-                ["changes"] = changes
+                ["changes"] = changes,
             }
         );
     }
@@ -926,9 +1054,10 @@ public partial class ChatService(
         string? mlsGroupId = null
     )
     {
-        var content = mode == ChatRoomEncryptionMode.E2eeMls
-            ? "This chat now uses MLS."
-            : "This chat now uses E2EE.";
+        var content =
+            mode == ChatRoomEncryptionMode.E2eeMls
+                ? "This chat now uses MLS."
+                : "This chat now uses E2EE.";
         return await SendSystemMessageAsync(
             room,
             sender,
@@ -939,7 +1068,7 @@ public partial class ChatService(
                 ["event"] = "e2ee_enabled",
                 ["room_id"] = room.Id,
                 ["mode"] = mode.ToString(),
-                ["mls_group_id"] = mlsGroupId
+                ["mls_group_id"] = mlsGroupId,
             }
         );
     }
@@ -962,7 +1091,7 @@ public partial class ChatService(
                 ["room_id"] = room.Id,
                 ["mls_group_id"] = room.MlsGroupId,
                 ["epoch"] = epoch,
-                ["reason"] = reason
+                ["reason"] = reason,
             }
         );
     }
@@ -989,7 +1118,7 @@ public partial class ChatService(
                 ["target_account_id"] = targetAccountId,
                 ["target_device_id"] = targetDeviceId,
                 ["epoch"] = epoch,
-                ["reason"] = reason
+                ["reason"] = reason,
             }
         );
     }
@@ -1027,7 +1156,7 @@ public partial class ChatService(
                 ["operator_member_id"] = operatorMember.Id,
                 ["operator_account_id"] = operatorMember.AccountId,
                 ["reason"] = reason ?? "",
-                ["timeout_until"] = timeoutUntil.ToUnixTimeMilliseconds()
+                ["timeout_until"] = timeoutUntil.ToUnixTimeMilliseconds(),
             }
         );
     }
@@ -1043,8 +1172,13 @@ public partial class ChatService(
         if (targetMember.Account is null)
             targetMember = crs.LoadMemberAccount(targetMember).Result;
 
-        var operatorName = operatorMember.Nick ?? operatorMember.RealmNick ?? operatorMember.Account?.Nick ?? "Moderator";
-        var targetName = targetMember.Nick ?? targetMember.RealmNick ?? targetMember.Account?.Nick ?? "Someone";
+        var operatorName =
+            operatorMember.Nick
+            ?? operatorMember.RealmNick
+            ?? operatorMember.Account?.Nick
+            ?? "Moderator";
+        var targetName =
+            targetMember.Nick ?? targetMember.RealmNick ?? targetMember.Account?.Nick ?? "Someone";
 
         var content = $"{targetName}'s timeout was removed by {operatorName}.";
 
@@ -1059,7 +1193,7 @@ public partial class ChatService(
                 ["target_member_id"] = targetMember.Id,
                 ["target_account_id"] = targetMember.AccountId,
                 ["operator_member_id"] = operatorMember.Id,
-                ["operator_account_id"] = operatorMember.AccountId
+                ["operator_account_id"] = operatorMember.AccountId,
             }
         );
     }
@@ -1084,8 +1218,13 @@ public partial class ChatService(
         // Ensure sender has Account loaded
         if (sender.Account is null)
         {
-            logger.LogError("DeliverMessageAsync: sender.Account is null after LoadMemberAccount! senderId={senderId}", sender.Id);
-            throw new InvalidOperationException($"Sender account could not be loaded for sender {sender.Id}");
+            logger.LogError(
+                "DeliverMessageAsync: sender.Account is null after LoadMemberAccount! senderId={senderId}",
+                sender.Id
+            );
+            throw new InvalidOperationException(
+                $"Sender account could not be loaded for sender {sender.Id}"
+            );
         }
 
         message.Sender = sender;
@@ -1093,8 +1232,15 @@ public partial class ChatService(
 
         var members = await scopedCrs.ListRoomMembers(room.Id);
 
-        logger.LogWarning("DeliverMessageAsync: roomId={roomId}, messageId={messageId}, senderId={senderId}, senderAccountId={senderAccountId}, memberCount={memberCount}, type={type}",
-            room.Id, message.Id, sender.Id, sender.AccountId, members.Count, type);
+        logger.LogWarning(
+            "DeliverMessageAsync: roomId={roomId}, messageId={messageId}, senderId={senderId}, senderAccountId={senderAccountId}, memberCount={memberCount}, type={type}",
+            room.Id,
+            message.Id,
+            sender.Id,
+            sender.AccountId,
+            members.Count,
+            type
+        );
 
         await DeliverWebSocketMessage(message, members, scope);
 
@@ -1112,10 +1258,13 @@ public partial class ChatService(
     )
     {
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
-        var scopedNty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
+        var scopedNty =
+            scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
 
-        var roomSubject = room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM" :
-            room.Realm is not null ? $"{room.Name ?? "Unknown"}, {room.Realm.Name}" : room.Name ?? "Unknown";
+        var roomSubject =
+            room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM"
+            : room.Realm is not null ? $"{room.Name ?? "Unknown"}, {room.Realm.Name}"
+            : room.Name ?? "Unknown";
 
         if (sender.Account is null)
             sender = await scopedCrs.LoadMemberAccount(sender);
@@ -1123,8 +1272,7 @@ public partial class ChatService(
             sender = await scopedCrs.HydrateRealmIdentity(sender, room.Id);
         if (sender.Account is null)
             throw new InvalidOperationException(
-                "Sender account is null, this should never happen. Sender id: " +
-                sender.Id
+                "Sender account is null, this should never happen. Sender id: " + sender.Id
             );
 
         var accountsToNotify = FilterAccountsForNotification(members, message, sender);
@@ -1137,21 +1285,32 @@ public partial class ChatService(
                 subscribedMemberIds.Add(member.AccountId);
         }
 
-        accountsToNotify = accountsToNotify.Where(a => !subscribedMemberIds.Contains(Guid.Parse(a.Id))).ToList();
+        accountsToNotify = accountsToNotify
+            .Where(a => !subscribedMemberIds.Contains(Guid.Parse(a.Id)))
+            .ToList();
 
-        logger.LogWarning("SendPushNotificationsAsync: messageId={messageId}, totalMembers={totalMembers}, filteredCount={filteredCount}, notifyingCount={notifyingCount}",
-            message.Id, members.Count, accountsToNotify.Count, accountsToNotify.Count);
+        logger.LogWarning(
+            "SendPushNotificationsAsync: messageId={messageId}, totalMembers={totalMembers}, filteredCount={filteredCount}, notifyingCount={notifyingCount}",
+            message.Id,
+            members.Count,
+            accountsToNotify.Count,
+            accountsToNotify.Count
+        );
 
-        logger.LogInformation("Trying to deliver message to {count} accounts...", accountsToNotify.Count);
+        logger.LogInformation(
+            "Trying to deliver message to {count} accounts...",
+            accountsToNotify.Count
+        );
 
         if (accountsToNotify.Count > 0)
         {
-            foreach (var targetGroup in accountsToNotify.GroupBy(a =>
-                         new
-                         {
-                             Mentioned = IsAccountMentioned(message, Guid.Parse(a.Id)),
-                             a.Language,
-                         }))
+            foreach (
+                var targetGroup in accountsToNotify.GroupBy(a => new
+                {
+                    Mentioned = IsAccountMentioned(message, Guid.Parse(a.Id)),
+                    a.Language,
+                })
+            )
             {
                 var notification = BuildNotification(
                     message,
@@ -1184,10 +1343,11 @@ public partial class ChatService(
     {
         using var scope = scopeFactory.CreateScope();
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
-        var scopedNty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
+        var scopedNty =
+            scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
 
-        var messageAuthor = await db.ChatMembers
-            .Where(m => m.Id == message.SenderId && m.ChatRoomId == room.Id)
+        var messageAuthor = await db
+            .ChatMembers.Where(m => m.Id == message.SenderId && m.ChatRoomId == room.Id)
             .FirstOrDefaultAsync();
 
         if (messageAuthor is null)
@@ -1208,42 +1368,64 @@ public partial class ChatService(
             return;
 
         var locale = messageAuthor.Account.Language;
-        var roomSubject = room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM" :
-            room.Realm is not null ? $"{room.Name ?? "Unknown"}, {room.Realm.Name}" : room.Name ?? "Unknown";
+        var roomSubject =
+            room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM"
+            : room.Realm is not null ? $"{room.Name ?? "Unknown"}, {room.Realm.Name}"
+            : room.Name ?? "Unknown";
 
         var notification = new DyPushNotification
         {
             Topic = isAdded ? "messages.reaction.added" : "messages.reaction.removed",
-            Title = $"{reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick ?? "Someone"} ({roomSubject})",
-            Meta = InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
-            {
-                ["user_id"] = reactor.AccountId,
-                ["reactor_id"] = reactor.Id,
-                ["reactor_name"] = reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick,
-                ["message_id"] = message.Id,
-                ["room_id"] = room.Id,
-                ["symbol"] = symbol ?? ""
-            }),
+            Title =
+                $"{reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick ?? "Someone"} ({roomSubject})",
+            Meta = InfraObjectCoder.ConvertObjectToByteString(
+                new Dictionary<string, object>
+                {
+                    ["user_id"] = reactor.AccountId,
+                    ["reactor_id"] = reactor.Id,
+                    ["reactor_name"] = reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick,
+                    ["message_id"] = message.Id,
+                    ["room_id"] = room.Id,
+                    ["symbol"] = symbol ?? "",
+                }
+            ),
             ActionUri = $"/chat/{room.Id}",
             IsSavable = false,
             Body = isAdded
-                ? localization.Get("chatReactionNotificationBodyAdded", locale, new
-                {
-                    senderNick = reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick ?? "Someone",
-                    symbol,
-                })
-                : localization.Get("chatReactionNotificationBodyRemoved", locale, new
-                {
-                    senderNick = reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick ?? "Someone",
-                    symbol,
-                })
+                ? localization.Get(
+                    "chatReactionNotificationBodyAdded",
+                    locale,
+                    new
+                    {
+                        senderNick = reactor.Nick
+                            ?? reactor.RealmNick
+                            ?? reactor.Account?.Nick
+                            ?? "Someone",
+                        symbol,
+                    }
+                )
+                : localization.Get(
+                    "chatReactionNotificationBodyRemoved",
+                    locale,
+                    new
+                    {
+                        senderNick = reactor.Nick
+                            ?? reactor.RealmNick
+                            ?? reactor.Account?.Nick
+                            ?? "Someone",
+                        symbol,
+                    }
+                ),
         };
 
         var ntyRequest = new DySendPushNotificationToUsersRequest { Notification = notification };
         ntyRequest.UserIds.Add(messageAuthor.AccountId.ToString());
         await scopedNty.SendPushNotificationToUsersAsync(ntyRequest);
 
-        logger.LogInformation("Sent reaction notification to message author {AuthorId}", messageAuthor.AccountId);
+        logger.LogInformation(
+            "Sent reaction notification to message author {AuthorId}",
+            messageAuthor.AccountId
+        );
     }
 
     private Dictionary<string, object> BuildNotificationMeta(
@@ -1261,10 +1443,22 @@ public partial class ChatService(
             ["room_id"] = room.Id,
         };
 
-        var imageIds = message.Attachments
-            .Where(a => a.MimeType?.StartsWith("image") ?? false)
+        var imageIds = message
+            .Attachments.Where(a => a.MimeType?.StartsWith("image") ?? false)
             .Select(a => a.Id)
             .ToList();
+
+        if (
+            imageIds.Count == 0
+            && message.Meta?.TryGetValue("sticker", out var stickerMeta) == true
+            && stickerMeta is Dictionary<string, object?> stickerMetaDict
+            && stickerMetaDict.TryGetValue("image_id", out var stickerImageId)
+            && Guid.TryParse(stickerImageId?.ToString(), out var stickerImageGuid)
+        )
+        {
+            imageIds.Add(stickerImageGuid);
+        }
+
         if (imageIds.Count > 0)
         {
             metaDict["images"] = imageIds;
@@ -1279,11 +1473,15 @@ public partial class ChatService(
         return metaDict;
     }
 
-    private DyPushNotification BuildNotification(SnChatMessage message, SnChatMember sender, SnChatRoom room,
+    private DyPushNotification BuildNotification(
+        SnChatMessage message,
+        SnChatMember sender,
+        SnChatRoom room,
         string roomSubject,
         string type,
         string? locale = null,
-        bool mentioned = false)
+        bool mentioned = false
+    )
     {
         var metaDict = BuildNotificationMeta(message, sender, room);
         if (mentioned)
@@ -1296,7 +1494,7 @@ public partial class ChatService(
             Meta = InfraObjectCoder.ConvertObjectToByteString(metaDict),
             ActionUri = $"/chat/{room.Id}",
             IsSavable = false,
-            Body = BuildNotificationBody(message, type, locale, mentioned)
+            Body = BuildNotificationBody(message, type, locale, mentioned),
         };
 
         return notification;
@@ -1329,21 +1527,38 @@ public partial class ChatService(
                     body = "Voice message";
                     break;
                 default:
-                    if (message.Meta?.TryGetValue("sticker_only_name", out var stickerOnlyName) == true
+                    if (
+                        message.Meta?.TryGetValue("sticker_only_name", out var stickerOnlyName)
+                            == true
                         && stickerOnlyName is string singleStickerName
-                        && !string.IsNullOrWhiteSpace(singleStickerName))
+                        && !string.IsNullOrWhiteSpace(singleStickerName)
+                    )
                     {
                         var stickerCount = 1;
                         if (message.Meta.TryGetValue("sticker_only_count", out var countValue))
                             stickerCount = Convert.ToInt32(countValue);
 
-                        body = stickerCount > 1
-                            ? localization.Get("chatStickerOnlyNotificationBodyPlural", locale, new { name = singleStickerName, count = stickerCount })
-                            : localization.Get("chatStickerOnlyNotificationBody", locale, new { name = singleStickerName });
+                        body =
+                            stickerCount > 1
+                                ? localization.Get(
+                                    "chatStickerOnlyNotificationBodyPlural",
+                                    locale,
+                                    new { name = singleStickerName, count = stickerCount }
+                                )
+                                : localization.Get(
+                                    "chatStickerOnlyNotificationBody",
+                                    locale,
+                                    new { name = singleStickerName }
+                                );
                     }
-                    else if (message.Meta?.TryGetValue("sticker_preview_text", out var stickerPreviewText) == true
-                             && stickerPreviewText is string previewText
-                             && !string.IsNullOrWhiteSpace(previewText))
+                    else if (
+                        message.Meta?.TryGetValue(
+                            "sticker_preview_text",
+                            out var stickerPreviewText
+                        ) == true
+                        && stickerPreviewText is string previewText
+                        && !string.IsNullOrWhiteSpace(previewText)
+                    )
                     {
                         body = previewText[..Math.Min(previewText.Length, 100)];
                     }
@@ -1392,10 +1607,18 @@ public partial class ChatService(
         foreach (var member in members.Where(member => member.Notify != ChatMemberNotify.None))
         {
             // Skip if mentioned but not in mentions-only mode or if break is active
-            if (!everyoneMentioned && (message.MembersMentioned is null || !message.MembersMentioned.Contains(member.AccountId)))
+            if (
+                !everyoneMentioned
+                && (
+                    message.MembersMentioned is null
+                    || !message.MembersMentioned.Contains(member.AccountId)
+                )
+            )
             {
-                if (member.BreakUntil is not null && member.BreakUntil > now) continue;
-                if (member.Notify == ChatMemberNotify.Mentions) continue;
+                if (member.BreakUntil is not null && member.BreakUntil > now)
+                    continue;
+                if (member.Notify == ChatMemberNotify.Mentions)
+                    continue;
             }
 
             if (member.Account is not null)
@@ -1414,10 +1637,16 @@ public partial class ChatService(
     /// <exception cref="ArgumentException"></exception>
     public async Task ReadChatRoomAsync(Guid roomId, Guid userId)
     {
-        var sender = await db.ChatMembers
-            .Where(m => m.AccountId == userId && m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+        var sender = await db
+            .ChatMembers.Where(m =>
+                m.AccountId == userId
+                && m.ChatRoomId == roomId
+                && m.JoinedAt != null
+                && m.LeaveAt == null
+            )
             .FirstOrDefaultAsync();
-        if (sender is null) throw new ArgumentException("User is not a member of the chat room.");
+        if (sender is null)
+            throw new ArgumentException("User is not a member of the chat room.");
 
         sender.LastReadAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
@@ -1425,14 +1654,20 @@ public partial class ChatService(
 
     public async Task<int> CountUnreadMessage(Guid userId, Guid chatRoomId)
     {
-        var member = await db.ChatMembers
-            .Where(m => m.AccountId == userId && m.ChatRoomId == chatRoomId && m.JoinedAt != null && m.LeaveAt == null)
+        var member = await db
+            .ChatMembers.Where(m =>
+                m.AccountId == userId
+                && m.ChatRoomId == chatRoomId
+                && m.JoinedAt != null
+                && m.LeaveAt == null
+            )
             .Select(m => new { m.Id, m.LastReadAt })
             .FirstOrDefaultAsync();
-        if (member is null) return 0;
+        if (member is null)
+            return 0;
 
-        var query = db.ChatMessages
-            .Where(m => m.ChatRoomId == chatRoomId)
+        var query = db
+            .ChatMessages.Where(m => m.ChatRoomId == chatRoomId)
             .Where(m => m.SenderId != member.Id);
 
         if (member.LastReadAt is not null)
@@ -1443,23 +1678,29 @@ public partial class ChatService(
 
     public async Task<Dictionary<Guid, int>> CountUnreadMessageForUser(Guid userId)
     {
-        var members = await db.ChatMembers
-            .Where(m => m.LeaveAt == null && m.JoinedAt != null)
+        var members = await db
+            .ChatMembers.Where(m => m.LeaveAt == null && m.JoinedAt != null)
             .Where(m => m.AccountId == userId)
-            .Select(m => new { m.Id, m.ChatRoomId, m.LastReadAt })
+            .Select(m => new
+            {
+                m.Id,
+                m.ChatRoomId,
+                m.LastReadAt,
+            })
             .ToListAsync();
-        if (members.Count == 0) return new Dictionary<Guid, int>();
+        if (members.Count == 0)
+            return new Dictionary<Guid, int>();
 
         var counts = await (
             from member in db.ChatMembers
             join msg in db.ChatMessages on member.ChatRoomId equals msg.ChatRoomId
-            where member.AccountId == userId
-                  && member.LeaveAt == null
-                  && member.JoinedAt != null
-                  && msg.SenderId != member.Id
-                  && (member.LastReadAt == null || msg.CreatedAt > member.LastReadAt)
-            group msg by member.ChatRoomId
-            into grouped
+            where
+                member.AccountId == userId
+                && member.LeaveAt == null
+                && member.JoinedAt != null
+                && msg.SenderId != member.Id
+                && (member.LastReadAt == null || msg.CreatedAt > member.LastReadAt)
+            group msg by member.ChatRoomId into grouped
             select new { grouped.Key, Count = grouped.Count() }
         ).ToDictionaryAsync(x => x.Key, x => x.Count);
 
@@ -1472,27 +1713,21 @@ public partial class ChatService(
 
     public async Task<Dictionary<Guid, SnChatMessage?>> ListLastMessageForUser(Guid userId)
     {
-        var userRooms = await db.ChatMembers
-            .Where(m => m.LeaveAt == null && m.JoinedAt != null)
+        var userRooms = await db
+            .ChatMembers.Where(m => m.LeaveAt == null && m.JoinedAt != null)
             .Where(m => m.AccountId == userId)
             .Select(m => m.ChatRoomId)
             .ToListAsync();
 
-        var messages = await db.ChatMessages
-            .IgnoreQueryFilters()
+        var messages = await db
+            .ChatMessages.IgnoreQueryFilters()
             .Include(m => m.Sender)
             .Where(m => userRooms.Contains(m.ChatRoomId))
             .GroupBy(m => m.ChatRoomId)
             .Select(g => g.OrderByDescending(m => m.CreatedAt).FirstOrDefault())
-            .ToDictionaryAsync(
-                m => m!.ChatRoomId,
-                m => m
-            );
+            .ToDictionaryAsync(m => m!.ChatRoomId, m => m);
 
-        var messageSenders = messages
-            .Select(m => m.Value!.Sender)
-            .DistinctBy(x => x.Id)
-            .ToList();
+        var messageSenders = messages.Select(m => m.Value!.Sender).DistinctBy(x => x.Id).ToList();
         messageSenders = await crs.LoadMemberAccounts(messageSenders);
         messageSenders = messageSenders.Where(x => x.Account is not null).ToList();
 
@@ -1507,23 +1742,31 @@ public partial class ChatService(
         foreach (var message in messages)
             message.Value!.Sender = messageSenders.First(x => x.Id == message.Value.SenderId);
 
-        await HydrateMessageReactionsAsync(messages.Values.OfType<SnChatMessage>().ToList(), userId);
+        await HydrateMessageReactionsAsync(
+            messages.Values.OfType<SnChatMessage>().ToList(),
+            userId
+        );
 
         return messages;
     }
 
-    public async Task<SyncResponse> GetSyncDataAsync(Guid roomId, Guid? accountId, long lastSyncTimestamp, int limit = 500)
+    public async Task<SyncResponse> GetSyncDataAsync(
+        Guid roomId,
+        Guid? accountId,
+        long lastSyncTimestamp,
+        int limit = 500
+    )
     {
         var lastSyncInstant = Instant.FromUnixTimeMilliseconds(lastSyncTimestamp);
 
         // Count total newer messages
-        var totalCount = await db.ChatMessages
-            .Where(m => m.ChatRoomId == roomId && m.CreatedAt > lastSyncInstant)
+        var totalCount = await db
+            .ChatMessages.Where(m => m.ChatRoomId == roomId && m.CreatedAt > lastSyncInstant)
             .CountAsync();
 
         // Get up to limit messages that have been created since the last sync
-        var syncMessages = await db.ChatMessages
-            .Where(m => m.ChatRoomId == roomId)
+        var syncMessages = await db
+            .ChatMessages.Where(m => m.ChatRoomId == roomId)
             .Where(m => m.CreatedAt > lastSyncInstant)
             .OrderBy(m => m.CreatedAt)
             .Take(limit)
@@ -1532,10 +1775,7 @@ public partial class ChatService(
 
         if (syncMessages.Count > 0)
         {
-            var senders = syncMessages
-                .Select(m => m.Sender)
-                .DistinctBy(s => s.Id)
-                .ToList();
+            var senders = syncMessages.Select(m => m.Sender).DistinctBy(s => s.Id).ToList();
 
             senders = await crs.LoadMemberAccounts(senders);
             senders = await crs.HydrateRealmIdentity(senders, roomId);
@@ -1549,18 +1789,18 @@ public partial class ChatService(
         }
         await HydrateMessageReactionsAsync(syncMessages, accountId);
 
-        var latestTimestamp = syncMessages.Count > 0
-            ? syncMessages.Last().CreatedAt
-            : SystemClock.Instance.GetCurrentInstant();
+        var latestTimestamp =
+            syncMessages.Count > 0
+                ? syncMessages.Last().CreatedAt
+                : SystemClock.Instance.GetCurrentInstant();
 
         return new SyncResponse
         {
             Messages = syncMessages,
             CurrentTimestamp = latestTimestamp,
-            TotalCount = totalCount
+            TotalCount = totalCount,
         };
     }
-
 
     public async Task<SnChatMessage> UpdateMessageAsync(
         SnChatMessage message,
@@ -1608,16 +1848,23 @@ public partial class ChatService(
         if (encryptionEpoch.HasValue)
             message.EncryptionEpoch = encryptionEpoch.Value;
         if (encryptionMessageType is not null)
-            message.EncryptionMessageType = NormalizeEncryptionMessageType(encryptionMessageType, "messages.update");
+            message.EncryptionMessageType = NormalizeEncryptionMessageType(
+                encryptionMessageType,
+                "messages.update"
+            );
         if (!string.IsNullOrWhiteSpace(clientMessageId))
             message.ClientMessageId = clientMessageId;
 
         // Update do not override meta, replies to and forwarded to
 
         // Mark as edited if content or attachments changed
-        if (isContentChanged || isAttachmentsChanged || isCiphertextChanged || isEncryptedFlagChanged)
+        if (
+            isContentChanged
+            || isAttachmentsChanged
+            || isCiphertextChanged
+            || isEncryptedFlagChanged
+        )
             message.EditedAt = SystemClock.Instance.GetCurrentInstant();
-
 
         db.Update(message);
         await db.SaveChangesAsync();
@@ -1635,15 +1882,19 @@ public partial class ChatService(
             EncryptionSignature = message.EncryptionSignature,
             EncryptionScheme = message.EncryptionScheme,
             EncryptionEpoch = message.EncryptionEpoch,
-            EncryptionMessageType = NormalizeEncryptionMessageType(message.EncryptionMessageType, "messages.update"),
+            EncryptionMessageType = NormalizeEncryptionMessageType(
+                message.EncryptionMessageType,
+                "messages.update"
+            ),
             ClientMessageId = message.ClientMessageId,
             Attachments = message.Attachments,
             Nonce = Guid.NewGuid().ToString(),
-            Meta = message.Meta != null
-                ? new Dictionary<string, object>(message.Meta) { ["message_id"] = message.Id }
-                : new Dictionary<string, object> { ["message_id"] = message.Id },
+            Meta =
+                message.Meta != null
+                    ? new Dictionary<string, object>(message.Meta) { ["message_id"] = message.Id }
+                    : new Dictionary<string, object> { ["message_id"] = message.Id },
             CreatedAt = message.UpdatedAt,
-            UpdatedAt = message.UpdatedAt
+            UpdatedAt = message.UpdatedAt,
         };
 
         if (!message.IsEncrypted && isContentChanged && prevContent is not null)
@@ -1724,12 +1975,9 @@ public partial class ChatService(
                 : null,
             ClientMessageId = clientMessageId ?? message.ClientMessageId,
             Nonce = Guid.NewGuid().ToString(),
-            Meta = new Dictionary<string, object>
-            {
-                ["message_id"] = message.Id
-            },
+            Meta = new Dictionary<string, object> { ["message_id"] = message.Id },
             CreatedAt = message.DeletedAt.Value,
-            UpdatedAt = message.DeletedAt.Value
+            UpdatedAt = message.DeletedAt.Value,
         };
 
         db.ChatMessages.Add(syncMessage);
@@ -1758,8 +2006,8 @@ public partial class ChatService(
             if (!TryGetMetaGuid(message.Meta, "voice_clip_id", out var clipId))
                 return;
 
-            var clip = await db.ChatVoiceClips
-                .Where(v => v.Id == clipId && v.ChatRoomId == message.ChatRoomId)
+            var clip = await db
+                .ChatVoiceClips.Where(v => v.Id == clipId && v.ChatRoomId == message.ChatRoomId)
                 .FirstOrDefaultAsync();
             if (clip is null)
                 return;
@@ -1778,7 +2026,11 @@ public partial class ChatService(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed voice asset cleanup for deleted message {MessageId}", message.Id);
+            logger.LogWarning(
+                ex,
+                "Failed voice asset cleanup for deleted message {MessageId}",
+                message.Id
+            );
         }
     }
 
@@ -1800,9 +2052,11 @@ public partial class ChatService(
             return true;
         }
 
-        if (raw is JsonElement je &&
-            je.ValueKind == JsonValueKind.String &&
-            Guid.TryParse(je.GetString(), out var fromJson))
+        if (
+            raw is JsonElement je
+            && je.ValueKind == JsonValueKind.String
+            && Guid.TryParse(je.GetString(), out var fromJson)
+        )
         {
             value = fromJson;
             return true;
@@ -1822,14 +2076,14 @@ public partial class ChatService(
         reaction.SenderId = sender.Id;
 
         db.ChatReactions.Add(reaction);
-        
+
         if (message.ReactionsCount.TryGetValue(reaction.Symbol, out var count))
             message.ReactionsCount[reaction.Symbol] = count + 1;
         else
             message.ReactionsCount[reaction.Symbol] = 1;
 
         await db.SaveChangesAsync();
-        
+
         var syncMessage = new SnChatMessage
         {
             Type = WebSocketPacketType.MessageReactionAdded,
@@ -1846,9 +2100,9 @@ public partial class ChatService(
                     ["symbol"] = reaction.Symbol,
                     ["attitude"] = reaction.Attitude,
                     ["message_id"] = reaction.MessageId,
-                    ["sender_id"] = reaction.SenderId
+                    ["sender_id"] = reaction.SenderId,
                 },
-                ["reactions_count"] = new Dictionary<string, int>(message.ReactionsCount)
+                ["reactions_count"] = new Dictionary<string, int>(message.ReactionsCount),
             },
         };
 
@@ -1857,21 +2111,33 @@ public partial class ChatService(
 
         if (sender.Account is null)
         {
-            logger.LogWarning("AddReactionAsync: sender.Account is null, loading account for senderId={senderId}", sender.Id);
+            logger.LogWarning(
+                "AddReactionAsync: sender.Account is null, loading account for senderId={senderId}",
+                sender.Id
+            );
             sender = await crs.LoadMemberAccount(sender);
         }
 
         if (sender.Account is null)
         {
-            logger.LogError("AddReactionAsync: sender.Account is still null after LoadMemberAccount! senderId={senderId}", sender.Id);
-            throw new InvalidOperationException($"Sender account could not be loaded for sender {sender.Id}");
+            logger.LogError(
+                "AddReactionAsync: sender.Account is still null after LoadMemberAccount! senderId={senderId}",
+                sender.Id
+            );
+            throw new InvalidOperationException(
+                $"Sender account could not be loaded for sender {sender.Id}"
+            );
         }
 
         syncMessage.Sender = sender;
         syncMessage.ChatRoom = room;
 
-        logger.LogWarning("AddReactionAsync: delivering reaction sync message, syncMessageId={syncMessageId}, senderId={senderId}, senderAccountId={senderAccountId}",
-            syncMessage.Id, sender.Id, sender.AccountId);
+        logger.LogWarning(
+            "AddReactionAsync: delivering reaction sync message, syncMessageId={syncMessageId}, senderId={senderId}, senderAccountId={senderAccountId}",
+            syncMessage.Id,
+            sender.Id,
+            sender.AccountId
+        );
 
         await DeliverMessageAsync(
             syncMessage,
@@ -1882,9 +2148,11 @@ public partial class ChatService(
         );
 
         // Explicitly update ReactionsCount in database to avoid entity tracking issues
-        await db.ChatMessages
-            .Where(m => m.Id == message.Id)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(m => m.ReactionsCount, message.ReactionsCount));
+        await db
+            .ChatMessages.Where(m => m.Id == message.Id)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(m => m.ReactionsCount, message.ReactionsCount)
+            );
 
         await HydrateMessageReactionsAsync([message], sender.AccountId);
 
@@ -1913,8 +2181,10 @@ public partial class ChatService(
     )
     {
         var sd = sender;
-        var reaction = await db.ChatReactions
-            .Where(r => r.MessageId == message.Id && r.SenderId == sd.Id && r.Symbol == symbol)
+        var reaction = await db
+            .ChatReactions.Where(r =>
+                r.MessageId == message.Id && r.SenderId == sd.Id && r.Symbol == symbol
+            )
             .FirstOrDefaultAsync();
 
         if (reaction is null)
@@ -1942,30 +2212,42 @@ public partial class ChatService(
             {
                 ["message_id"] = message.Id,
                 ["symbol"] = symbol,
-                ["reactions_count"] = new Dictionary<string, int>(message.ReactionsCount)
+                ["reactions_count"] = new Dictionary<string, int>(message.ReactionsCount),
             },
         };
 
         db.ChatMessages.Add(syncMessage);
         await db.SaveChangesAsync();
-        
+
         if (sender.Account is null)
         {
-            logger.LogWarning("RemoveReactionAsync: sender.Account is null, loading account for senderId={senderId}", sender.Id);
+            logger.LogWarning(
+                "RemoveReactionAsync: sender.Account is null, loading account for senderId={senderId}",
+                sender.Id
+            );
             sender = await crs.LoadMemberAccount(sender);
         }
 
         if (sender.Account is null)
         {
-            logger.LogError("RemoveReactionAsync: sender.Account is still null after LoadMemberAccount! senderId={senderId}", sender.Id);
-            throw new InvalidOperationException($"Sender account could not be loaded for sender {sender.Id}");
+            logger.LogError(
+                "RemoveReactionAsync: sender.Account is still null after LoadMemberAccount! senderId={senderId}",
+                sender.Id
+            );
+            throw new InvalidOperationException(
+                $"Sender account could not be loaded for sender {sender.Id}"
+            );
         }
 
         syncMessage.Sender = sender;
         syncMessage.ChatRoom = room;
 
-        logger.LogWarning("RemoveReactionAsync: delivering reaction sync message, syncMessageId={syncMessageId}, senderId={senderId}, senderAccountId={senderAccountId}",
-            syncMessage.Id, sender.Id, sender.AccountId);
+        logger.LogWarning(
+            "RemoveReactionAsync: delivering reaction sync message, syncMessageId={syncMessageId}, senderId={senderId}, senderAccountId={senderAccountId}",
+            syncMessage.Id,
+            sender.Id,
+            sender.AccountId
+        );
 
         await DeliverMessageAsync(
             syncMessage,
@@ -1976,9 +2258,11 @@ public partial class ChatService(
         );
 
         // Explicitly update ReactionsCount in database to avoid entity tracking issues
-        await db.ChatMessages
-            .Where(m => m.Id == message.Id)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(m => m.ReactionsCount, message.ReactionsCount));
+        await db
+            .ChatMessages.Where(m => m.Id == message.Id)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(m => m.ReactionsCount, message.ReactionsCount)
+            );
 
         await HydrateMessageReactionsAsync([message], sender.AccountId);
 
@@ -1999,7 +2283,10 @@ public partial class ChatService(
         _ = SendReactionNotificationAsync(message, sender, room, isAdded: false, symbol);
     }
 
-    public async Task HydrateMessageReactionsAsync(List<SnChatMessage> messages, Guid? accountId = null)
+    public async Task HydrateMessageReactionsAsync(
+        List<SnChatMessage> messages,
+        Guid? accountId = null
+    )
     {
         if (messages.Count == 0)
             return;
@@ -2009,17 +2296,16 @@ public partial class ChatService(
         Dictionary<Guid, Dictionary<string, bool>> reactionMadeMap = new();
         if (accountId.HasValue)
         {
-            var reactionsMade = await db.ChatReactions
-                .Where(r => messageIds.Contains(r.MessageId) && r.Sender.AccountId == accountId.Value)
+            var reactionsMade = await db
+                .ChatReactions.Where(r =>
+                    messageIds.Contains(r.MessageId) && r.Sender.AccountId == accountId.Value
+                )
                 .Select(r => new { r.MessageId, r.Symbol })
                 .ToListAsync();
 
             reactionMadeMap = reactionsMade
                 .GroupBy(r => r.MessageId)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.ToDictionary(r => r.Symbol, _ => true)
-                );
+                .ToDictionary(g => g.Key, g => g.ToDictionary(r => r.Symbol, _ => true));
         }
 
         foreach (var message in messages)
@@ -2029,7 +2315,6 @@ public partial class ChatService(
                 : null;
         }
     }
-
 }
 
 public class SyncResponse
