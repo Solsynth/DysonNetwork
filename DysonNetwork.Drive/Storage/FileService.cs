@@ -114,6 +114,13 @@ public class FileService(
         var bundle = await ValidateAndGetBundleAsync(fileBundleId, accountId);
         var finalExpiredAt = CalculateFinalExpiration(expiredAt, pool, bundle);
 
+        if (!string.IsNullOrEmpty(parentId))
+        {
+            var parentExists = await db.Files.AnyAsync(f => f.Id == parentId && f.AccountId == accountId);
+            if (!parentExists)
+                throw new InvalidOperationException("Parent file not found: " + parentId);
+        }
+
         var (managedTempPath, fileSize, finalContentType) =
             await PrepareFileAsync(fileId, filePath, fileName, contentType);
 

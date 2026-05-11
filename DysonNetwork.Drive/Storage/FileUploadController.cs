@@ -79,11 +79,15 @@ public class FileUploadController(
                     File = existingFile
                 });
 
-            if (existingFile.AccountId == accountId)
+            if (existingFile.AccountId == accountId && !string.IsNullOrEmpty(request.ParentId))
             {
-                existingFile.ParentId = request.ParentId;
-                existingFile.Indexed = true;
-                await db.SaveChangesAsync();
+                var parentExists = await db.Files.AnyAsync(f => f.Id == request.ParentId && f.AccountId == accountId);
+                if (parentExists)
+                {
+                    existingFile.ParentId = request.ParentId;
+                    existingFile.Indexed = true;
+                    await db.SaveChangesAsync();
+                }
             }
 
             return Ok(new CreateUploadTaskResponse
