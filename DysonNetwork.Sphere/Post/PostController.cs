@@ -179,21 +179,21 @@ public class PostController(
             currentUser
         );
 
+        var visiblePostIds = await db.Posts
+            .Where(p => db.PostBookmarks.Any(b => b.AccountId == accountId && b.PostId == p.Id))
+            .FilterWithVisibility(
+                currentUser,
+                userFriends,
+                userPublishers,
+                isListing: true,
+                gatekeptPublisherIds,
+                subscriberPublisherIds
+            )
+            .Select(p => p.Id)
+            .ToListAsync();
+
         var visibleBookmarks = db.PostBookmarks
-            .Where(b => b.AccountId == accountId)
-            .Where(b =>
-                db.Posts
-                    .Where(p => p.Id == b.PostId)
-                    .FilterWithVisibility(
-                        currentUser,
-                        userFriends,
-                        userPublishers,
-                        isListing: true,
-                        gatekeptPublisherIds,
-                        subscriberPublisherIds
-                    )
-                    .Any()
-            );
+            .Where(b => b.AccountId == accountId && visiblePostIds.Contains(b.PostId));
 
         var totalCount = await visibleBookmarks.CountAsync();
         Response.Headers["X-Total"] = totalCount.ToString();
