@@ -667,6 +667,21 @@ public class PostActionController(
         return NoContent();
     }
 
+    [HttpGet("{id:guid}/bookmark")]
+    [Authorize]
+    public async Task<ActionResult<SnPostBookmark?>> GetBookmarkStatus(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var bookmark = await db.PostBookmarks
+            .Where(b => b.PostId == id && b.AccountId == accountId)
+            .FirstOrDefaultAsync();
+
+        return Ok(bookmark);
+    }
+
     public class PostAwardRequest
     {
         public decimal Amount { get; set; }

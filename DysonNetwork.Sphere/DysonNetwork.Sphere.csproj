@@ -31,6 +31,7 @@
         <PackageReference Include="Quartz" />
         <PackageReference Include="Quartz.AspNetCore" />
         <PackageReference Include="Quartz.Extensions.Hosting" />
+        <PackageReference Include="Pgvector.EntityFrameworkCore" />
         <PackageReference Include="StackExchange.Redis.Extensions.AspNetCore" />
         <PackageReference Include="Swashbuckle.AspNetCore.Annotations" />
         <PackageReference Include="System.Drawing.Common" />

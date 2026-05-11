@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using Pgvector;
+using Pgvector.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.Annotations;
 using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
@@ -20,6 +22,7 @@ public class PostController(
     PublisherService pub,
     RemoteAccountService remoteAccountsHelper,
     DyProfileService.DyProfileServiceClient accounts,
+    DyEmbeddingService.DyEmbeddingServiceClient embeddings,
     RemoteRealmService rs
 ) : ControllerBase
 {
@@ -258,7 +261,8 @@ public class PostController(
         [FromQuery(Name = "orderDesc")] bool orderDesc = true,
         [FromQuery(Name = "periodStart")] int? periodStartTime = null,
         [FromQuery(Name = "periodEnd")] int? periodEndTime = null,
-        [FromQuery(Name = "mentioned")] string? mentioned = null
+        [FromQuery(Name = "mentioned")] string? mentioned = null,
+        [FromQuery(Name = "searchEngine")] string? searchEngine = null
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -292,6 +296,12 @@ public class PostController(
                 ? null
                 : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
         var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
+        var useSemanticSearch =
+            !string.IsNullOrWhiteSpace(queryTerm)
+            && (
+                string.Equals(searchEngine, "semantic", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(searchEngine, "semetric", StringComparison.OrdinalIgnoreCase)
+            );
 
         var query = db
             .Posts.Include(e => e.Categories)
@@ -347,15 +357,6 @@ public class PostController(
             true => query.Where(e => e.RepliedPostId != null),
             _ => query,
         };
-
-        if (!string.IsNullOrWhiteSpace(queryTerm))
-        {
-            query = query.Where(p =>
-                (p.Title != null && EF.Functions.ILike(p.Title, $"%{queryTerm}%"))
-                || (p.Description != null && EF.Functions.ILike(p.Description, $"%{queryTerm}%"))
-                || (p.Content != null && EF.Functions.ILike(p.Content, $"%{queryTerm}%"))
-            );
-        }
 
         if (!string.IsNullOrWhiteSpace(mentioned))
         {
@@ -420,6 +421,69 @@ public class PostController(
             query = query.Where(p =>
                 !shadowbannedPublisherIds.Contains(p.PublisherId!.Value) &&
                 (p.ShadowbanReason == null || p.ShadowbanReason == PostShadowbanReason.None));
+        }
+
+        if (useSemanticSearch)
+        {
+            try
+            {
+                var embeddingResponse = await embeddings.GenerateEmbeddingAsync(
+                    new DyGenerateEmbeddingRequest { Text = queryTerm! }
+                );
+                var queryEmbedding = new Vector(embeddingResponse.Embedding.ToArray());
+
+                var semanticQuery = query.Join(
+                    db.PostIndices.Where(i => i.Embedding != null),
+                    post => post.Id,
+                    index => index.PostId,
+                    (post, index) => new
+                    {
+                        post.Id,
+                        Distance = index.Embedding!.CosineDistance(queryEmbedding),
+                    }
+                );
+
+                var semanticTotalCount = await semanticQuery.CountAsync();
+                var rankedPostIds = await semanticQuery
+                    .OrderBy(x => x.Distance)
+                    .Skip(offset)
+                    .Take(take)
+                    .Select(x => x.Id)
+                    .ToListAsync();
+
+                var rankedPosts = await query.Where(p => rankedPostIds.Contains(p.Id)).ToListAsync();
+                var rankedPostsMap = rankedPosts.ToDictionary(p => p.Id);
+                var semanticPosts = rankedPostIds
+                    .Where(rankedPostsMap.ContainsKey)
+                    .Select(id => rankedPostsMap[id])
+                    .ToList();
+
+                foreach (var post in semanticPosts)
+                {
+                    if (post.RepliedPost != null)
+                        post.RepliedPost.RepliedPost = null;
+                }
+
+                semanticPosts = await ps.LoadPostInfo(semanticPosts, currentUser, true);
+                await pcs.LoadPublisherCollectionsAsync(semanticPosts);
+                await LoadPostsRealmsAsync(semanticPosts, rs);
+
+                Response.Headers["X-Total"] = semanticTotalCount.ToString();
+                return Ok(semanticPosts);
+            }
+            catch (Grpc.Core.RpcException)
+            {
+                return StatusCode(503, "Semantic search is currently unavailable.");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(queryTerm))
+        {
+            query = query.Where(p =>
+                (p.Title != null && EF.Functions.ILike(p.Title, $"%{queryTerm}%"))
+                || (p.Description != null && EF.Functions.ILike(p.Description, $"%{queryTerm}%"))
+                || (p.Content != null && EF.Functions.ILike(p.Content, $"%{queryTerm}%"))
+            );
         }
 
         if (shuffle)

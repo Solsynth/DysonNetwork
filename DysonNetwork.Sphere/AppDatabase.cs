@@ -6,6 +6,7 @@ using DysonNetwork.Sphere.ActivityPub.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using NodaTime;
+using Pgvector.EntityFrameworkCore;
 using Quartz;
 
 namespace DysonNetwork.Sphere;
@@ -23,6 +24,7 @@ public class AppDatabase(
     public DbSet<SnPublisherRatingRecord> PublisherRatingRecords { get; set; } = null!;
 
     public DbSet<SnPost> Posts { get; set; } = null!;
+    public DbSet<SnPostIndex> PostIndices { get; set; } = null!;
     public DbSet<SnPostBookmark> PostBookmarks { get; set; } = null!;
     public DbSet<SnPostReaction> PostReactions { get; set; } = null!;
     public DbSet<SnPostAward> PostAwards { get; set; } = null!;
@@ -67,6 +69,7 @@ public class AppDatabase(
                 .ConfigureDataSource(optSource => optSource.EnableDynamicJson())
                 .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)
                 .UseNodaTime()
+                .UseVector()
         ).UseSnakeCaseNamingConvention();
 
         base.OnConfiguring(optionsBuilder);
@@ -75,6 +78,8 @@ public class AppDatabase(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.HasPostgresExtension("vector");
 
         modelBuilder.Ignore<SnAccount>();
         modelBuilder.Ignore<SnAccountRelationship>();
@@ -152,6 +157,15 @@ public class AppDatabase(
             .HasMany(p => p.Categories)
             .WithMany(c => c.Posts)
             .UsingEntity(j => j.ToTable("post_category_links"));
+
+        modelBuilder.Entity<SnPostIndex>()
+            .HasIndex(i => i.PostId)
+            .IsUnique();
+        modelBuilder.Entity<SnPostIndex>()
+            .HasOne(i => i.Post)
+            .WithMany()
+            .HasForeignKey(i => i.PostId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnPostBookmark>()
             .HasIndex(b => new { b.AccountId, b.PostId, b.DeletedAt })

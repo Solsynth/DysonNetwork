@@ -153,6 +153,10 @@ public static class ServiceInjectionHelper
 
         public IServiceCollection AddInsightService()
         {
+            services.AddGrpcClientWithSharedChannel<DyEmbeddingService.DyEmbeddingServiceClient>(
+                "https://_grpc.insight",
+                "DyEmbeddingService"
+            );
             services.AddGrpcClientWithSharedChannel<DyWebFeedService.DyWebFeedServiceClient>(
                 "https://_grpc.insight",
                 "DyWebFeedServiceClient");

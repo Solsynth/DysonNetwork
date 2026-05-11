@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -17,6 +18,7 @@ using Markdig;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Npgsql;
+using Pgvector;
 using PostContentType = DysonNetwork.Shared.Models.PostContentType;
 
 namespace DysonNetwork.Sphere.Post;
@@ -218,6 +220,100 @@ public partial class PostService(
                 !string.IsNullOrWhiteSpace(x)
             )
         );
+    }
+
+    private static string BuildPostIndexText(SnPost post) =>
+        string.Join(
+            '\n',
+            new[] { post.Title, post.Description, post.Content }.Where(x =>
+                !string.IsNullOrWhiteSpace(x)
+            )
+        );
+
+    private static string ComputePostIndexHash(string sourceText)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(sourceText));
+        return Convert.ToHexString(hash);
+    }
+
+    private void QueuePostIndex(Guid postId)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await IndexPostAsync(postId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error indexing post {PostId}", postId);
+            }
+        });
+    }
+
+    private async Task IndexPostAsync(Guid postId)
+    {
+        using var scope = factory.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+        var embeddingClient = scope.ServiceProvider.GetRequiredService<
+            DyEmbeddingService.DyEmbeddingServiceClient
+        >();
+
+        var post = await dbContext.Posts.FirstOrDefaultAsync(p => p.Id == postId);
+        if (post is null)
+            return;
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (
+            post.DraftedAt is not null
+            || post.PublishedAt is null
+            || post.PublishedAt.Value > now
+            || post.Visibility != PostVisibility.Public
+        )
+            return;
+
+        var sourceText = BuildPostIndexText(post);
+        if (string.IsNullOrWhiteSpace(sourceText))
+            return;
+
+        var sourceHash = ComputePostIndexHash(sourceText);
+        var existingIndex = await dbContext.PostIndices.FirstOrDefaultAsync(i => i.PostId == postId);
+        if (existingIndex is not null && existingIndex.SourceHash == sourceHash)
+            return;
+
+        var embeddingResponse = await embeddingClient.GenerateEmbeddingAsync(
+            new DyGenerateEmbeddingRequest { Text = sourceText }
+        );
+        var embeddingValues = embeddingResponse.Embedding.ToArray();
+        if (embeddingValues.Length == 0)
+        {
+            logger.LogWarning("Embedding service returned no values for post {PostId}", postId);
+            return;
+        }
+
+        var embedding = new Vector(embeddingValues);
+        if (existingIndex is null)
+        {
+            dbContext.PostIndices.Add(
+                new SnPostIndex
+                {
+                    PostId = postId,
+                    SourceText = sourceText,
+                    SourceHash = sourceHash,
+                    Embedding = embedding,
+                    IndexedAt = now,
+                }
+            );
+        }
+        else
+        {
+            existingIndex.SourceText = sourceText;
+            existingIndex.SourceHash = sourceHash;
+            existingIndex.Embedding = embedding;
+            existingIndex.IndexedAt = now;
+        }
+
+        await dbContext.SaveChangesAsync();
     }
 
     private async Task<List<string>> InferMatchingTopicSlugsAsync(
@@ -1242,6 +1338,9 @@ public partial class PostService(
             _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
         }
 
+        if (isPublishedNow && post.Visibility == PostVisibility.Public)
+            QueuePostIndex(post.Id);
+
         // Send ActivityPub Create activity in background for public posts
         if (isPublishedNow && post.Visibility == PostVisibility.Public)
         {
@@ -1314,6 +1413,10 @@ public partial class PostService(
         }
 
         var entity = db.Entry(post);
+        var previousTitle = entity.Property(e => e.Title).OriginalValue;
+        var previousDescription = entity.Property(e => e.Description).OriginalValue;
+        var previousContent = entity.Property(e => e.Content).OriginalValue;
+        var previousVisibility = entity.Property(e => e.Visibility).OriginalValue;
         var previousDraftedAt = entity.Property(e => e.DraftedAt).OriginalValue;
         var previousPublishedAt = entity.Property(e => e.PublishedAt).OriginalValue;
 
@@ -1323,6 +1426,21 @@ public partial class PostService(
             && previousPublishedAt.Value <= now;
         var isPublished =
             post.DraftedAt is null && post.PublishedAt is not null && post.PublishedAt.Value <= now;
+        var previousIndexText = string.Join(
+            '\n',
+            new[] { previousTitle, previousDescription, previousContent }.Where(x =>
+                !string.IsNullOrWhiteSpace(x)
+            )
+        );
+        var currentIndexText = BuildPostIndexText(post);
+        var shouldReindex =
+            isPublished
+            && post.Visibility == PostVisibility.Public
+            && (
+                !wasPublished
+                || previousVisibility != PostVisibility.Public
+                || !string.Equals(previousIndexText, currentIndexText, StringComparison.Ordinal)
+            );
 
         if (attachments is not null)
         {
@@ -1433,6 +1551,9 @@ public partial class PostService(
             // Process link preview in the background to avoid delaying post update
             _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
         }
+
+        if (shouldReindex)
+            QueuePostIndex(post.Id);
 
         // Send ActivityPub activity in background for published public posts
         if (isPublished && post.Visibility == PostVisibility.Public)
