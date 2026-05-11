@@ -22,6 +22,7 @@ public class PostController(
     PublisherService pub,
     RemoteAccountService remoteAccountsHelper,
     DyProfileService.DyProfileServiceClient accounts,
+    IConfiguration configuration,
     DyEmbeddingService.DyEmbeddingServiceClient embeddings,
     RemoteRealmService rs
 ) : ControllerBase
@@ -296,11 +297,16 @@ public class PostController(
                 ? null
                 : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
         var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
+        var defaultSearchEngine = configuration["Posts:SearchEngineDefault"] ?? "semantic";
+        var effectiveSearchEngine = string.IsNullOrWhiteSpace(searchEngine)
+            ? defaultSearchEngine
+            : searchEngine;
         var useSemanticSearch =
             !string.IsNullOrWhiteSpace(queryTerm)
-            && (
-                string.Equals(searchEngine, "semantic", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(searchEngine, "semetric", StringComparison.OrdinalIgnoreCase)
+            && !(
+                string.Equals(effectiveSearchEngine, "fulltext", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(effectiveSearchEngine, "full-text", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(effectiveSearchEngine, "full_text", StringComparison.OrdinalIgnoreCase)
             );
 
         var query = db
