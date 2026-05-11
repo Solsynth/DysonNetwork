@@ -22,8 +22,7 @@ public class RemoteDomainBlockService(DyDomainBlockService.DyDomainBlockServiceC
             return new DomainValidationResult
             {
                 IsAllowed = response.IsAllowed,
-                // TODO: Uncomment after proto regeneration
-                // IsVerified = response.IsVerified,
+                IsVerified = response.IsVerified,
                 BlockReason = string.IsNullOrEmpty(response.BlockReason) ? null : response.BlockReason,
                 MatchedSource = string.IsNullOrEmpty(response.MatchedSource) ? null : response.MatchedSource
             };

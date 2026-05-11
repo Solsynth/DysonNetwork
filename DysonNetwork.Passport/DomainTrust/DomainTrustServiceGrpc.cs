@@ -1,8 +1,4 @@
-// TODO: Uncomment after regenerating proto code
-// This file requires the generated proto code from DysonSpec/proto/domain_block.proto
-// Run proto regeneration to generate DyDomainBlockService and related types
-
-/*
+using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 
@@ -47,4 +43,3 @@ public class DomainTrustServiceGrpc(DomainTrustService service)
         };
     }
 }
-*/

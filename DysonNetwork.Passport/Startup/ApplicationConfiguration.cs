@@ -37,8 +37,7 @@ public static class ApplicationConfiguration
         app.MapGrpcService<ExperienceServiceGrpc>();
         app.MapGrpcService<RealmServiceGrpc>();
         app.MapGrpcService<NfcServiceGrpc>();
-        // TODO: Uncomment after regenerating proto code
-        // app.MapGrpcService<DomainTrustServiceGrpc>();
+        app.MapGrpcService<DomainTrustServiceGrpc>();
         app.MapGrpcReflectionService();
 
         return app;

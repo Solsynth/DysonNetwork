@@ -257,6 +257,33 @@ DELETE /api/posts/{id}/bookmark
 
 - `204 No Content`
 
+### Get Bookmark Status
+
+Returns the bookmark record if the current user has bookmarked the target post, or `null` if not.
+
+```http
+GET /api/posts/{id}/bookmark
+```
+
+### Behavior
+
+- Requires authentication
+- Returns the bookmark object if it exists for the current user, or `null` otherwise
+
+### Response Shape
+
+```json
+{
+  "id": "bookmark-id",
+  "post_id": "post-id",
+  "account_id": "account-id",
+  "created_at": "2026-05-10T12:00:00Z",
+  "updated_at": "2026-05-10T12:00:00Z"
+}
+```
+
+Or `null` if not bookmarked.
+
 ### List Bookmarks
 
 Returns the current user's saved posts as normal enriched `SnPost` payloads.
