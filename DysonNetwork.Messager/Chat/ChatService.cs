@@ -13,7 +13,6 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using Grpc.Core;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -35,6 +34,7 @@ public partial class ChatService(
     LazyGrpcClientFactory<DyStickerService.DyStickerServiceClient> stickerClientFactory
 )
 {
+    public IRealtimeService Realtime { get; } = realtime;
     private const string ChatUseCooldownCacheKey = "actionlog:chat.use:";
     private static readonly TimeSpan ChatUseCooldown = TimeSpan.FromMinutes(1);
 
@@ -174,6 +174,13 @@ public partial class ChatService(
                 ["pack_prefix"] = sticker.Pack?.Prefix,
                 ["placeholder"] = placeholder,
             };
+
+            logger.LogDebug(
+                "Attached sticker image to chat message meta: placeholder={Placeholder}, stickerId={StickerId}, imageId={ImageId}",
+                placeholder,
+                sticker.Id,
+                sticker.Image.Id
+            );
         }
         catch (RpcException ex)
             when (ex.StatusCode is StatusCode.NotFound or StatusCode.InvalidArgument)
@@ -245,6 +252,22 @@ public partial class ChatService(
 
         message.Meta ??= new Dictionary<string, object>();
         message.Meta["sticker_preview_text"] = transformed;
+
+        if (
+            !TryGetMetaImageId(message.Meta, out _)
+            && stickerSequence.FirstOrDefault(identifier =>
+                !string.IsNullOrWhiteSpace(stickers[identifier].Image.Id)
+            )
+                is { } firstImageStickerIdentifier
+        )
+        {
+            message.Meta["image"] = stickers[firstImageStickerIdentifier].Image.Id;
+            logger.LogDebug(
+                "Attached inline sticker image to chat message meta: stickerIdentifier={StickerIdentifier}, imageId={ImageId}",
+                firstImageStickerIdentifier,
+                stickers[firstImageStickerIdentifier].Image.Id
+            );
+        }
 
         if (
             GetInlineStickerPlaceholderRegex().Replace(message.Content.Trim(), string.Empty).Length
@@ -510,13 +533,6 @@ public partial class ChatService(
         await NormalizeStickerPlaceholderMessageAsync(message);
         await EnrichInlineStickerPreviewAsync(message);
 
-        var imageIds = GetNotificationImageIds(message);
-        if (imageIds.Count > 0)
-        {
-            message.Meta ??= new Dictionary<string, object>();
-            message.Meta["image"] = imageIds.First();
-        }
-
         // First complete the save operation
         db.ChatMessages.Add(message);
         await db.SaveChangesAsync();
@@ -587,7 +603,7 @@ public partial class ChatService(
         });
 
         // Process link preview in the background to avoid delaying message sending
-        if (!message.IsEncrypted && message.Type == "text")
+        if (message is { IsEncrypted: false, Type: "text" })
         {
             var localMessageForPreview = message;
             _ = Task.Run(async () =>
@@ -596,39 +612,6 @@ public partial class ChatService(
         }
 
         return message;
-    }
-
-    private static List<SnCloudFileReferenceObject> CloneAttachments(
-        List<SnCloudFileReferenceObject> attachments
-    )
-    {
-        return attachments
-            .Select(attachment => new SnCloudFileReferenceObject
-            {
-                CreatedAt = attachment.CreatedAt,
-                UpdatedAt = attachment.UpdatedAt,
-                DeletedAt = attachment.DeletedAt,
-                Id = attachment.Id,
-                Name = attachment.Name,
-                FileMeta =
-                    attachment.FileMeta != null
-                        ? new Dictionary<string, object?>(attachment.FileMeta)
-                        : [],
-                UserMeta =
-                    attachment.UserMeta != null
-                        ? new Dictionary<string, object?>(attachment.UserMeta)
-                        : [],
-                SensitiveMarks = attachment.SensitiveMarks?.ToList() ?? [],
-                MimeType = attachment.MimeType,
-                Hash = attachment.Hash,
-                Size = attachment.Size,
-                HasCompression = attachment.HasCompression,
-                Url = attachment.Url,
-                Width = attachment.Width,
-                Height = attachment.Height,
-                Blurhash = attachment.Blurhash,
-            })
-            .ToList();
     }
 
     private static Dictionary<string, object> CloneRedirectMeta(Dictionary<string, object>? meta)
@@ -1456,6 +1439,14 @@ public partial class ChatService(
             metaDict["image"] = imageIds.First();
         }
 
+        logger.LogDebug(
+            "Built chat notification image meta: messageId={MessageId}, attachmentImageCount={AttachmentImageCount}, hasMetaImage={HasMetaImage}, selectedImageId={SelectedImageId}",
+            message.Id,
+            message.Attachments.Count(a => a.MimeType?.StartsWith("image") ?? false),
+            TryGetMetaImageId(message.Meta, out _),
+            imageIds.FirstOrDefault()
+        );
+
         if (sender.Account!.Profile is not { Picture: null })
             metaDict["pfp"] = sender.Account!.Profile.Picture.Id;
         if (!string.IsNullOrEmpty(room.Name))
@@ -1466,22 +1457,35 @@ public partial class ChatService(
 
     private static List<string> GetNotificationImageIds(SnChatMessage message)
     {
-        var imageIds = message
-            .Attachments.Where(a => a.MimeType?.StartsWith("image") ?? false)
+        var imageIds = message.Attachments
+            .Where(a => a.MimeType?.StartsWith("image") ?? false)
             .Select(a => a.Id)
             .ToList();
 
-        if (
-            imageIds.Count == 0
-            && message.Meta?.TryGetValue("image", out var metaImage) == true
-            && metaImage is string metaImageText
-            && !string.IsNullOrWhiteSpace(metaImageText)
-        )
-        {
-            imageIds.Add(metaImageText);
-        }
+        if (imageIds.Count == 0 && TryGetMetaImageId(message.Meta, out var metaImageId))
+            imageIds.Add(metaImageId);
 
         return imageIds;
+    }
+
+    private static bool TryGetMetaImageId(
+        Dictionary<string, object>? meta,
+        out string metaImageId
+    )
+    {
+        metaImageId = string.Empty;
+        if (meta?.TryGetValue("image", out var metaImage) != true)
+            return false;
+
+        metaImageId = metaImage switch
+        {
+            string value => value,
+            JsonElement { ValueKind: JsonValueKind.String } value =>
+                value.GetString() ?? string.Empty,
+            _ => string.Empty,
+        };
+
+        return !string.IsNullOrWhiteSpace(metaImageId);
     }
 
     private DyPushNotification BuildNotification(
