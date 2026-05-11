@@ -1053,21 +1053,21 @@ public class PostController(
             currentUser
         );
 
+        var visiblePostIds = await db.Posts
+            .Where(p => db.PostReactions.Any(r => r.AccountId == accountId && r.PostId == p.Id && r.Post.FediverseUri == null))
+            .FilterWithVisibility(
+                currentUser,
+                userFriends,
+                userPublishers,
+                isListing: true,
+                gatekeptPublisherIds,
+                subscriberPublisherIds
+            )
+            .Select(p => p.Id)
+            .ToListAsync();
+
         var visibleReactions = db.PostReactions
-            .Where(r => r.AccountId == accountId && r.Post.FediverseUri == null)
-            .Where(r =>
-                db.Posts
-                    .Where(p => p.Id == r.PostId)
-                    .FilterWithVisibility(
-                        currentUser,
-                        userFriends,
-                        userPublishers,
-                        isListing: true,
-                        gatekeptPublisherIds,
-                        subscriberPublisherIds
-                    )
-                    .Any()
-            );
+            .Where(r => r.AccountId == accountId && r.Post.FediverseUri == null && visiblePostIds.Contains(r.PostId));
 
         var totalCount = await visibleReactions.CountAsync();
         Response.Headers["X-Total"] = totalCount.ToString();
