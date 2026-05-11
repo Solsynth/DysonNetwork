@@ -14,6 +14,15 @@ public static class ScheduledJobsConfiguration
     {
         services.AddQuartz(q =>
         {
+            q.AddJob<PostIndexBackfillJob>(opts => opts.WithIdentity("PostIndexBackfill"));
+            q.AddTrigger(opts => opts
+                .ForJob("PostIndexBackfill")
+                .WithIdentity("PostIndexBackfillTrigger")
+                .StartNow()
+                .WithSimpleSchedule(o => o
+                    .WithRepeatCount(0))
+            );
+
             q.AddJob<AppDatabaseRecyclingJob>(opts => opts.WithIdentity("AppDatabaseRecycling"));
             q.AddTrigger(opts => opts
                 .ForJob("AppDatabaseRecycling")

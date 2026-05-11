@@ -251,7 +251,7 @@ public partial class PostService(
         });
     }
 
-    private async Task IndexPostAsync(Guid postId)
+    public async Task IndexPostAsync(Guid postId, CancellationToken cancellationToken = default)
     {
         using var scope = factory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDatabase>();
@@ -259,7 +259,7 @@ public partial class PostService(
             DyEmbeddingService.DyEmbeddingServiceClient
         >();
 
-        var post = await dbContext.Posts.FirstOrDefaultAsync(p => p.Id == postId);
+        var post = await dbContext.Posts.FirstOrDefaultAsync(p => p.Id == postId, cancellationToken);
         if (post is null)
             return;
 
@@ -277,12 +277,16 @@ public partial class PostService(
             return;
 
         var sourceHash = ComputePostIndexHash(sourceText);
-        var existingIndex = await dbContext.PostIndices.FirstOrDefaultAsync(i => i.PostId == postId);
+        var existingIndex = await dbContext.PostIndices.FirstOrDefaultAsync(
+            i => i.PostId == postId,
+            cancellationToken
+        );
         if (existingIndex is not null && existingIndex.SourceHash == sourceHash)
             return;
 
         var embeddingResponse = await embeddingClient.GenerateEmbeddingAsync(
-            new DyGenerateEmbeddingRequest { Text = sourceText }
+            new DyGenerateEmbeddingRequest { Text = sourceText },
+            cancellationToken: cancellationToken
         );
         var embeddingValues = embeddingResponse.Embedding.ToArray();
         if (embeddingValues.Length == 0)
@@ -313,7 +317,27 @@ public partial class PostService(
             existingIndex.IndexedAt = now;
         }
 
-        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task BackfillPublicPostIndicesAsync(CancellationToken cancellationToken = default)
+    {
+        var postIds = await db
+            .Posts.Where(p =>
+                p.DraftedAt == null
+                && p.PublishedAt != null
+                && p.PublishedAt <= SystemClock.Instance.GetCurrentInstant()
+                && p.Visibility == PostVisibility.Public
+            )
+            .OrderBy(p => p.CreatedAt)
+            .Select(p => p.Id)
+            .ToListAsync(cancellationToken);
+
+        if (postIds.Count == 0)
+            return;
+
+        foreach (var postId in postIds)
+            await IndexPostAsync(postId, cancellationToken);
     }
 
     private async Task<List<string>> InferMatchingTopicSlugsAsync(
