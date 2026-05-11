@@ -2,11 +2,19 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Models;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using NodaTime.Serialization.Protobuf;
+using Pgvector;
+using Pgvector.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.Post;
 
-public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyPostServiceBase
+public class PostServiceGrpc(
+    AppDatabase db,
+    PostService ps,
+    IConfiguration configuration,
+    DyEmbeddingService.DyEmbeddingServiceClient embeddings
+) : DyPostService.DyPostServiceBase
 {
     public override async Task<DyPost> GetPost(DyGetPostRequest request, ServerCallContext context)
     {
@@ -89,14 +97,14 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyP
             .Where(p => p.DraftedAt == null)
             .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(request.Query))
-        {
-            // Simple search, assuming full-text search or title/content contains
-            query = query.Where(p =>
-                (p.Title != null && EF.Functions.ILike(p.Title, $"%{request.Query}%")) ||
-                (p.Content != null && EF.Functions.ILike(p.Content, $"%{request.Query}%")) ||
-                (p.Description != null && EF.Functions.ILike(p.Description, $"%{request.Query}%")));
-        }
+        var defaultSearchEngine = configuration["Posts:SearchEngineDefault"] ?? "semantic";
+        var useSemanticSearch =
+            !string.IsNullOrWhiteSpace(request.Query)
+            && !(
+                string.Equals(defaultSearchEngine, "fulltext", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(defaultSearchEngine, "full-text", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(defaultSearchEngine, "full_text", StringComparison.OrdinalIgnoreCase)
+            );
 
         if (!string.IsNullOrWhiteSpace(request.PublisherId) && Guid.TryParse(request.PublisherId, out var pid))
             query = query.Where(p => p.PublisherId == pid);
@@ -105,6 +113,68 @@ public class PostServiceGrpc(AppDatabase db, PostService ps) : DyPostService.DyP
             query = query.Where(p => p.RealmId == rid);
 
         query = query.FilterWithVisibility(null, [], []);
+
+        if (useSemanticSearch)
+        {
+            var embeddingResponse = await embeddings.GenerateEmbeddingAsync(
+                new DyGenerateEmbeddingRequest { Text = request.Query }
+            );
+            var queryEmbedding = new Vector(embeddingResponse.Embedding.ToArray());
+
+            var semanticQuery = query.Join(
+                db.PostIndices.Where(i => i.Embedding != null),
+                post => post.Id,
+                index => index.PostId,
+                (post, index) => new
+                {
+                    post.Id,
+                    Distance = index.Embedding!.CosineDistance(queryEmbedding),
+                }
+            );
+
+            var semanticTotalSize = await semanticQuery.CountAsync();
+
+            var semanticPageSize = request.PageSize > 0 ? request.PageSize : 20;
+            var semanticPageToken = request.PageToken;
+            var semanticOffset = string.IsNullOrEmpty(semanticPageToken) ? 0 : int.Parse(semanticPageToken);
+
+            var rankedPostIds = await semanticQuery
+                .OrderBy(x => x.Distance)
+                .Skip(semanticOffset)
+                .Take(semanticPageSize)
+                .Select(x => x.Id)
+                .ToListAsync();
+
+            var rankedPosts = await query.Where(p => rankedPostIds.Contains(p.Id)).ToListAsync();
+            var rankedPostsMap = rankedPosts.ToDictionary(p => p.Id);
+            var semanticPosts = rankedPostIds
+                .Where(rankedPostsMap.ContainsKey)
+                .Select(id => rankedPostsMap[id])
+                .ToList();
+
+            semanticPosts = await ps.LoadPostInfo(semanticPosts, null, true);
+
+            var semanticNextToken =
+                semanticOffset + semanticPageSize < semanticTotalSize
+                    ? (semanticOffset + semanticPageSize).ToString()
+                    : string.Empty;
+
+            var semanticResp = new DySearchPostsResponse();
+            semanticResp.Posts.AddRange(semanticPosts.Select(p => p.ToProtoValue()));
+            semanticResp.NextPageToken = semanticNextToken;
+            semanticResp.TotalSize = semanticTotalSize;
+
+            return semanticResp;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Query))
+        {
+            // Simple search, assuming full-text search or title/content contains
+            query = query.Where(p =>
+                (p.Title != null && EF.Functions.ILike(p.Title, $"%{request.Query}%")) ||
+                (p.Content != null && EF.Functions.ILike(p.Content, $"%{request.Query}%")) ||
+                (p.Description != null && EF.Functions.ILike(p.Description, $"%{request.Query}%")));
+        }
 
         var totalSize = await query.CountAsync();
 
