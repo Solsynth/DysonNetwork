@@ -389,6 +389,17 @@ This field is populated on the major post read endpoints, including:
 5. `GET /api/posts/{id}/next`
 6. reply and forward listing endpoints
 
+### Creating Posts With Collections
+
+When creating a post via `POST /api/posts`, you can optionally include a `collection_ids` array in the request body to add the post to one or more collections at creation time. The collections must belong to the same publisher as the post. Duplicate assignments are silently skipped.
+
+```json
+{
+  "content": "Hello world",
+  "collection_ids": ["8f7b3f8e-6758-4f10-a4d4-cbe8ce7c5278"]
+}
+```
+
 ## Migration Notes
 
 The schema now uses `post_collection_items` instead of the old implicit `post_collection_links` table.

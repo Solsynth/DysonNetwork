@@ -36,6 +36,7 @@ public class PostActionController(
     AppDatabase db,
     PostService ps,
     PublisherService pub,
+    PostCollectionService pcs,
     DyProfileService.DyProfileServiceClient accounts,
     RemoteActionLogService als,
     RemotePaymentService remotePayments,
@@ -149,6 +150,8 @@ public class PostActionController(
 
         [MaxLength(16)]
         public string? Language { get; set; }
+
+        [MaxLength(16)] public List<Guid>? CollectionIds { get; set; }
     }
 
     public class BatchDeleteRequest
@@ -457,6 +460,25 @@ public class PostActionController(
         catch (InvalidOperationException err)
         {
             return BadRequest(err.Message);
+        }
+
+        if (request.CollectionIds is { Count: > 0 })
+        {
+            var collections = await db.PostCollections
+                .Where(c => request.CollectionIds.Contains(c.Id) && c.PublisherId == publisher.Id)
+                .ToListAsync();
+
+            foreach (var collection in collections)
+            {
+                try
+                {
+                    await pcs.AddPostAsync(collection, post.Id, null);
+                }
+                catch (InvalidOperationException)
+                {
+                    // Skip duplicates silently
+                }
+            }
         }
 
         als.CreateActionLog(
