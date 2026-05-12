@@ -681,6 +681,290 @@ public static class ProgressionCatalogDefaults
                 },
             },
         },
+        new()
+        {
+            Identifier = "profile-complete",
+            Title = "Fully Realized",
+            Summary = "Complete your profile with name, bio, avatar, birthday, location, and pronouns.",
+            Icon = "user-check",
+            SortOrder = 115,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.AccountProfileComplete] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 100,
+                SourcePoints = 10,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.account.profile_complete",
+                    Label = "Fully Realized",
+                    Caption = "Completed their profile.",
+                },
+            },
+        },
+        new()
+        {
+            Identifier = "first-2fa",
+            Title = "Fort Knox",
+            Summary = "Enable two-factor authentication.",
+            Icon = "shield-check",
+            SortOrder = 116,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.AuthFactorEnable] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 80,
+                SourcePoints = 8,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "first-chatroom",
+            Title = "Room Hopper",
+            Summary = "Join a chatroom for the first time.",
+            Icon = "door-open",
+            SortOrder = 117,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.ChatroomJoin] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 30,
+                SourcePoints = 3,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "chatroom-10",
+            Title = "Regular",
+            Summary = "Join 10 different chatrooms.",
+            Icon = "meeting",
+            SortOrder = 203,
+            TargetCount = 10,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.ChatroomJoin] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 200,
+                SourcePoints = 20,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "bookmark-10",
+            Title = "Librarian",
+            Summary = "Bookmark 10 posts.",
+            Icon = "bookmark",
+            SortOrder = 204,
+            TargetCount = 10,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostBookmark] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 100,
+                SourcePoints = 10,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "boost-50",
+            Title = "Signal Tower",
+            Summary = "Boost 50 posts.",
+            Icon = "repeat",
+            SortOrder = 205,
+            TargetCount = 50,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostBoost] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 250,
+                SourcePoints = 25,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.boost.50",
+                    Label = "Signal Tower",
+                    Caption = "Boosted 50 posts on the Solar Network.",
+                },
+            },
+        },
+        new()
+        {
+            Identifier = "realm-join-10",
+            Title = "Globe Trotter",
+            Summary = "Join 10 realms.",
+            Icon = "globe",
+            SortOrder = 206,
+            TargetCount = 10,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.RealmJoin] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 300,
+                SourcePoints = 30,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "streak-post-90",
+            Title = "Quarterly Author",
+            Summary = "Create posts for 90 days in a row.",
+            Icon = "calendar-check",
+            SeriesIdentifier = "post-streak",
+            SeriesTitle = "Posting Streak",
+            SeriesOrder = 4,
+            SortOrder = 207,
+            TargetCount = 90,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.PostCreate],
+                Mode = ProgressionTriggerMode.Streak,
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 8000,
+                SourcePoints = 200,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.post.streak.90",
+                    Label = "Quarterly Author",
+                    Caption = "Created posts for 90 days in a row.",
+                },
+            },
+        },
+        new()
+        {
+            Identifier = "streak-post-365",
+            Title = "Daily Devotee",
+            Summary = "Create posts for 365 days in a row.",
+            Icon = "calendar-heart",
+            SeriesIdentifier = "post-streak",
+            SeriesTitle = "Posting Streak",
+            SeriesOrder = 5,
+            SortOrder = 208,
+            TargetCount = 365,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.PostCreate],
+                Mode = ProgressionTriggerMode.Streak,
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 36500,
+                SourcePoints = 500,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.post.streak.365",
+                    Label = "Daily Devotee",
+                    Caption = "Created posts for 365 days in a row.",
+                },
+            },
+        },
+        new()
+        {
+            Identifier = "streak-login-90",
+            Title = "Perennial",
+            Summary = "Stay active for 90 days in a row.",
+            Icon = "sunrise",
+            SeriesIdentifier = "activity-streak",
+            SeriesTitle = "Activity Streak",
+            SeriesOrder = 4,
+            SortOrder = 211,
+            TargetCount = 90,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.AccountActive],
+                Mode = ProgressionTriggerMode.Streak,
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 5000,
+                SourcePoints = 120,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.login.streak.90",
+                    Label = "Perennial",
+                    Caption = "Stayed active for 90 days in a row.",
+                },
+            },
+        },
+        new()
+        {
+            Identifier = "hidden-night-owl",
+            Title = "Night Owl",
+            Summary = "Create a post between midnight and 4am.",
+            Icon = "moon",
+            Hidden = true,
+            SortOrder = 900,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostCreate] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 50,
+                SourcePoints = 5,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.hidden.night_owl",
+                    Label = "Night Owl",
+                    Caption = "Posted between midnight and 4am.",
+                },
+            },
+        },
+        new()
+        {
+            Identifier = "hidden-speed-friend",
+            Title = "Instant Connection",
+            Summary = "Accept a friend request within 60 seconds.",
+            Icon = "zap",
+            Hidden = true,
+            SortOrder = 901,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.RelationshipFriendAccept] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 50,
+                SourcePoints = 5,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.hidden.speed_friend",
+                    Label = "Instant Connection",
+                    Caption = "Accepted a friend request within 60 seconds.",
+                },
+            },
+        },
+        new()
+        {
+            Identifier = "hidden-social-butterfly-day",
+            Title = "Social Butterfly (Day)",
+            Summary = "Make 5 friends in a single day.",
+            Icon = "butterfly",
+            Hidden = true,
+            SortOrder = 902,
+            TargetCount = 5,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.RelationshipFriendEstablished],
+                Mode = ProgressionTriggerMode.Streak,
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 200,
+                SourcePoints = 20,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.hidden.social_butterfly_day",
+                    Label = "Social Butterfly",
+                    Caption = "Made 5 friends in a single day.",
+                },
+            },
+        },
         // new()
         // {
         //     Identifier = "spring-rally-2026",
@@ -747,6 +1031,145 @@ public static class ProgressionCatalogDefaults
             {
                 Experience = 25,
                 SourcePoints = 2,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "daily-react",
+            Title = "Give Credit",
+            Summary = "React to 3 posts today.",
+            Icon = "heart",
+            SortOrder = 11,
+            TargetCount = 3,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostReact] },
+            Schedule = new SnQuestScheduleConfig { Repeatability = QuestRepeatability.Daily },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 15,
+                SourcePoints = 2,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "daily-chat",
+            Title = "Say Something",
+            Summary = "Send a chat message today.",
+            Icon = "message-circle",
+            SortOrder = 12,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.ChatUse] },
+            Schedule = new SnQuestScheduleConfig { Repeatability = QuestRepeatability.Daily },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 10,
+                SourcePoints = 1,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "weekly-post-5",
+            Title = "Weekly Writer",
+            Summary = "Create 5 posts this week.",
+            Icon = "pen-line",
+            SortOrder = 20,
+            TargetCount = 5,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostCreate] },
+            Schedule = new SnQuestScheduleConfig { Repeatability = QuestRepeatability.Weekly },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 100,
+                SourcePoints = 10,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "weekly-react-20",
+            Title = "Appreciator",
+            Summary = "React to 20 posts this week.",
+            Icon = "sparkles",
+            SortOrder = 21,
+            TargetCount = 20,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostReact] },
+            Schedule = new SnQuestScheduleConfig { Repeatability = QuestRepeatability.Weekly },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 80,
+                SourcePoints = 8,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "weekly-friend-1",
+            Title = "Make a Friend",
+            Summary = "Make a new friend this week.",
+            Icon = "user-plus",
+            SortOrder = 22,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.RelationshipFriendEstablished],
+            },
+            Schedule = new SnQuestScheduleConfig { Repeatability = QuestRepeatability.Weekly },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 50,
+                SourcePoints = 5,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "weekly-boost-3",
+            Title = "Amplifier",
+            Summary = "Boost 3 posts this week.",
+            Icon = "repeat",
+            SortOrder = 23,
+            TargetCount = 3,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostBoost] },
+            Schedule = new SnQuestScheduleConfig { Repeatability = QuestRepeatability.Weekly },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 60,
+                SourcePoints = 6,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "monthly-post-20",
+            Title = "Chronicler",
+            Summary = "Create 20 posts this month.",
+            Icon = "book-open",
+            SortOrder = 30,
+            TargetCount = 20,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostCreate] },
+            Schedule = new SnQuestScheduleConfig { Repeatability = QuestRepeatability.Monthly },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 300,
+                SourcePoints = 30,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "monthly-realm-join",
+            Title = "Explorer",
+            Summary = "Join a new realm this month.",
+            Icon = "compass",
+            SortOrder = 31,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.RealmJoin] },
+            Schedule = new SnQuestScheduleConfig { Repeatability = QuestRepeatability.Monthly },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 100,
+                SourcePoints = 10,
                 SourcePointsCurrency = WalletCurrency.SourcePoint,
             },
         },

@@ -68,6 +68,7 @@ public abstract class ActionLogType
     public const string RelationshipBlock = "relationships.block";
     public const string RelationshipUnblock = "relationships.unblock";
     public const string AccountAvatar = "accounts.profile.avatar";
+    public const string AccountProfileComplete = "accounts.profile.complete";
     public const string AccountConnectionLink = "accounts.connection.link";
     public const string AccountPushEnable = "accounts.push.enable";
     public const string PostCreate = "posts.create";

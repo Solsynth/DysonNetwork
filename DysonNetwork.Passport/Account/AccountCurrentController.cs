@@ -114,6 +114,8 @@ public class AccountCurrentController(
         var profile = await accounts.GetOrCreateAccountProfileAsync(userId);
         var changedFields = new List<string>();
 
+        var wasProfileComplete = IsProfileComplete(profile);
+
         if (request.FirstName is not null) { profile.FirstName = request.FirstName; changedFields.Add("first_name"); }
         if (request.MiddleName is not null) { profile.MiddleName = request.MiddleName; changedFields.Add("middle_name"); }
         if (request.LastName is not null) { profile.LastName = request.LastName; changedFields.Add("last_name"); }
@@ -165,9 +167,31 @@ public class AccountCurrentController(
             );
         }
 
+        if (!wasProfileComplete && IsProfileComplete(profile))
+        {
+            remoteActionLogs.CreateActionLog(
+                userId,
+                ActionLogType.AccountProfileComplete,
+                new Dictionary<string, object>(),
+                Request.Headers.UserAgent.ToString(),
+                Request.GetClientIpAddress()
+            );
+        }
+
         await accounts.PurgeAccountCache(currentUser);
 
         return profile;
+    }
+
+    private static bool IsProfileComplete(SnAccountProfile p)
+    {
+        return !string.IsNullOrWhiteSpace(p.FirstName)
+            && !string.IsNullOrWhiteSpace(p.LastName)
+            && !string.IsNullOrWhiteSpace(p.Bio)
+            && !string.IsNullOrWhiteSpace(p.Location)
+            && !string.IsNullOrWhiteSpace(p.Pronouns)
+            && p.Birthday is not null
+            && p.Picture is not null;
     }
 
     [HttpDelete]

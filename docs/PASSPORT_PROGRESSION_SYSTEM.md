@@ -39,12 +39,14 @@ Current tracked action list:
 - `posts.boost`
 - `posts.featured`
 - `chat.use`
+- `chatrooms.join`
 - `publishers.create`
 - `publishers.members.join`
 - `realms.create`
 - `realms.join`
 - `accounts.profile.update`
 - `accounts.profile.avatar`
+- `accounts.profile.complete`
 - `accounts.connection.link`
 - `accounts.push.enable`
 - `accounts.active`
@@ -150,8 +152,8 @@ User-facing progression endpoints merge definitions that share the same `SeriesI
 
 This is intended for upgrade-style ladders such as:
 
-- posting streaks: 3 / 7 / 30 days
-- activity streaks: 7 / 30 / 365 days
+- posting streaks: 3 / 7 / 30 / 90 / 365 days
+- activity streaks: 7 / 30 / 90 / 365 days
 - featured post milestones
 - Stellar supporter milestones: 1 / 3 / 6 / 9 / 12 eligible months
 - friend count milestones: 1 / 5 / 20 / 50 / 100 friends
@@ -339,6 +341,40 @@ Current behavior:
 
 This means both the sender and receiver of a friend request get progression credit for friend-count achievements.
 
+## Profile Complete Action Log
+
+`accounts.profile.complete` is emitted by:
+
+- [DysonNetwork.Passport/Account/AccountCurrentController.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Account/AccountCurrentController.cs)
+
+Current behavior:
+
+- emitted when the user's profile transitions from incomplete to complete
+- checks before and after the profile update to avoid duplicate emissions
+- metadata: empty dictionary
+
+Profile complete requires all of the following fields to be non-null and non-empty:
+
+- `FirstName`
+- `LastName`
+- `Bio`
+- `Location`
+- `Pronouns`
+- `Birthday`
+- `Picture` (avatar)
+
+## Chatroom Join Action Log
+
+`chatrooms.join` is emitted by:
+
+- [DysonNetwork.Messager/Chat/ChatRoomController.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Messager/Chat/ChatRoomController.cs)
+
+Current behavior:
+
+- emitted when a user accepts a chatroom invite (`AcceptChatInvite`)
+- emitted when a user self-joins a community chatroom (`JoinChatRoom`)
+- metadata: `chatroom_id` (string)
+
 ## Stellar Support Progression
 
 Eligible Stellar purchases emit a support-month action log from Wallet:
@@ -427,21 +463,48 @@ Note:
 
 ## Seeded Content
 
+### Achievements
+
 Current code-seeded achievement highlights:
 
 - first post, first reaction, first chat, first realm join, and first publisher
 - first avatar, first external account link, first push notification enable
-- first bookmark, first boost
+- first bookmark, first boost, first chatroom join
+- profile completion, first 2FA enable
 - friend count ladder (1 / 5 / 20 / 50 / 100)
 - featured post ladder
-- posting streak ladder
-- activity streak ladder
-- Stellar supporter ladder
-- high-count chat, post, and reaction milestones
+- posting streak ladder (3 / 7 / 30 / 90 / 365 days)
+- activity streak ladder (7 / 30 / 90 / 365 days)
+- Stellar supporter ladder (1 / 3 / 6 / 9 / 12 months)
+- high-count chat, post, reaction, bookmark, boost, chatroom, and realm join milestones
 
-Current code-seeded quest highlights:
+Hidden achievements (not shown in catalog until unlocked):
 
-- daily post
+- Night Owl: post between midnight and 4am
+- Instant Connection: accept a friend request within 60 seconds
+- Social Butterfly: make 5 friends in a single day
+
+### Quests
+
+Current code-seeded quests:
+
+Daily:
+
+- Daily Dispatch: publish one post
+- Give Credit: react to 3 posts
+- Say Something: send a chat message
+
+Weekly:
+
+- Weekly Writer: create 5 posts
+- Appreciator: react to 20 posts
+- Make a Friend: make 1 new friend
+- Amplifier: boost 3 posts
+
+Monthly:
+
+- Chronicler: create 20 posts
+- Explorer: join a new realm
 
 You can add more definitions either by:
 
