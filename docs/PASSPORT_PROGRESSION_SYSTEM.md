@@ -149,6 +149,7 @@ User-facing progression endpoints merge definitions that share the same `SeriesI
 - if the user still has unfinished tiers, Passport returns the first unfinished tier
 - if the whole ladder is complete, Passport returns the highest completed tier
 - the payload also includes `SeriesTotalSteps` and `SeriesCompletedSteps`
+- the payload includes a `SeriesStages` array with every tier in the ladder and its completion status (`Identifier`, `Title`, `SeriesOrder`, `TargetCount`, `IsCompleted`, `CompletedAt`)
 
 This is intended for upgrade-style ladders such as:
 
@@ -421,6 +422,7 @@ User list payloads now include series fields for merged stepped ladders:
 - `SeriesOrder`
 - `SeriesTotalSteps`
 - `SeriesCompletedSteps`
+- `SeriesStages` — array of all tiers with `Identifier`, `Title`, `SeriesOrder`, `TargetCount`, `IsCompleted`, `CompletedAt`
 
 ### Admin APIs
 

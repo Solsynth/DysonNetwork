@@ -551,6 +551,15 @@ public class ProgressionService(
                 representative.SeriesCompletedSteps = ordered.Count(state => state.IsCompleted);
                 representative.SeriesTitle ??= representative.Title;
                 representative.SeriesIdentifier ??= representative.Identifier;
+                representative.SeriesStages = ordered.Select(s => new ProgressionSeriesStage
+                {
+                    Identifier = s.Identifier,
+                    Title = s.Title,
+                    SeriesOrder = s.SeriesOrder,
+                    TargetCount = s.TargetCount,
+                    IsCompleted = s.IsCompleted,
+                    CompletedAt = s.CompletedAt,
+                }).ToList();
                 return representative;
             });
     }
@@ -571,6 +580,15 @@ public class ProgressionService(
                 representative.SeriesCompletedSteps = ordered.Count(state => state.IsCompleted);
                 representative.SeriesTitle ??= representative.Title;
                 representative.SeriesIdentifier ??= representative.Identifier;
+                representative.SeriesStages = ordered.Select(s => new ProgressionSeriesStage
+                {
+                    Identifier = s.Identifier,
+                    Title = s.Title,
+                    SeriesOrder = s.SeriesOrder,
+                    TargetCount = s.TargetCount,
+                    IsCompleted = s.IsCompleted,
+                    CompletedAt = s.CompletedAt,
+                }).ToList();
                 return representative;
             });
     }

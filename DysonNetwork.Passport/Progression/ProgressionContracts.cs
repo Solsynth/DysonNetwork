@@ -51,6 +51,7 @@ public class ProgressionAchievementState
     public int BestStreak { get; set; }
     public int SeriesTotalSteps { get; set; } = 1;
     public int SeriesCompletedSteps { get; set; }
+    public List<ProgressionSeriesStage> SeriesStages { get; set; } = [];
     public bool IsCompleted { get; set; }
     public Instant? CompletedAt { get; set; }
     public SnProgressRewardDefinition Reward { get; set; } = new();
@@ -76,12 +77,23 @@ public class ProgressionQuestState
     public int ProgressCount { get; set; }
     public int SeriesTotalSteps { get; set; } = 1;
     public int SeriesCompletedSteps { get; set; }
+    public List<ProgressionSeriesStage> SeriesStages { get; set; } = [];
     public bool IsCompleted { get; set; }
     public Instant? CompletedAt { get; set; }
     public string PeriodKey { get; set; } = string.Empty;
     public Instant NextResetAt { get; set; }
     public SnQuestScheduleConfig Schedule { get; set; } = new();
     public SnProgressRewardDefinition Reward { get; set; } = new();
+}
+
+public class ProgressionSeriesStage
+{
+    public string Identifier { get; set; } = null!;
+    public string Title { get; set; } = null!;
+    public int? SeriesOrder { get; set; }
+    public int TargetCount { get; set; }
+    public bool IsCompleted { get; set; }
+    public Instant? CompletedAt { get; set; }
 }
 
 public class ProgressionCompletionPacket
