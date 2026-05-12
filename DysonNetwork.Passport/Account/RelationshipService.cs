@@ -211,6 +211,16 @@ public class RelationshipService(
             relationship.AccountId,
             new Dictionary<string, object> { ["status"] = status.ToString().ToLowerInvariant() }
         );
+        CreateActionLog(
+            relationship.AccountId,
+            ActionLogType.RelationshipFriendEstablished,
+            relationship.RelatedId
+        );
+        CreateActionLog(
+            relationship.RelatedId,
+            ActionLogType.RelationshipFriendEstablished,
+            relationship.AccountId
+        );
         await PurgeRelationshipCache(relationship.AccountId, relationship.RelatedId, RelationshipStatus.Friends,
             status);
 

@@ -126,6 +126,7 @@ public class AccountCurrentController(
         if (request.Links is not null) { profile.Links = request.Links; changedFields.Add("links"); }
         if (request.UsernameColor is not null) { profile.UsernameColor = request.UsernameColor; changedFields.Add("username_color"); }
 
+        var hadPicture = profile.Picture is not null;
         if (request.PictureId is not null)
         {
             var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
@@ -148,6 +149,17 @@ public class AccountCurrentController(
                 userId,
                 ActionLogType.AccountProfileUpdate,
                 new Dictionary<string, object> { ["fields"] = changedFields },
+                Request.Headers.UserAgent.ToString(),
+                Request.GetClientIpAddress()
+            );
+        }
+
+        if (!hadPicture && profile.Picture is not null)
+        {
+            remoteActionLogs.CreateActionLog(
+                userId,
+                ActionLogType.AccountAvatar,
+                new Dictionary<string, object>(),
                 Request.Headers.UserAgent.ToString(),
                 Request.GetClientIpAddress()
             );

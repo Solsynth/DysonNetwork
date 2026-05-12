@@ -451,6 +451,236 @@ public static class ProgressionCatalogDefaults
                 },
             },
         },
+        new()
+        {
+            Identifier = "first-avatar",
+            Title = "Picture Perfect",
+            Summary = "Set your profile picture for the first time.",
+            Icon = "image",
+            SortOrder = 110,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.AccountAvatar] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 50,
+                SourcePoints = 5,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.account.avatar",
+                    Label = "Picture Perfect",
+                    Caption = "Set a profile picture for the first time.",
+                },
+            },
+        },
+        new()
+        {
+            Identifier = "first-connection",
+            Title = "Getting Connected",
+            Summary = "Link an external account for the first time.",
+            Icon = "link",
+            SortOrder = 111,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.AccountConnectionLink] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 50,
+                SourcePoints = 5,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "first-push",
+            Title = "Always Informed",
+            Summary = "Enable push notifications for the first time.",
+            Icon = "bell",
+            SortOrder = 112,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.AccountPushEnable] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 30,
+                SourcePoints = 3,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "friends-1",
+            Title = "It Takes Two",
+            Summary = "Make your first friend.",
+            Icon = "user-plus",
+            SeriesIdentifier = "friend-count",
+            SeriesTitle = "Friend Count",
+            SeriesOrder = 1,
+            SortOrder = 130,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.RelationshipFriendEstablished],
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 50,
+                SourcePoints = 5,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "friends-5",
+            Title = "Social Butterfly",
+            Summary = "Make 5 friends.",
+            Icon = "users",
+            SeriesIdentifier = "friend-count",
+            SeriesTitle = "Friend Count",
+            SeriesOrder = 2,
+            SortOrder = 131,
+            TargetCount = 5,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.RelationshipFriendEstablished],
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 150,
+                SourcePoints = 15,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "friends-20",
+            Title = "People Person",
+            Summary = "Make 20 friends.",
+            Icon = "users-round",
+            SeriesIdentifier = "friend-count",
+            SeriesTitle = "Friend Count",
+            SeriesOrder = 3,
+            SortOrder = 132,
+            TargetCount = 20,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.RelationshipFriendEstablished],
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 500,
+                SourcePoints = 40,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "friends-50",
+            Title = "Community Pillar",
+            Summary = "Make 50 friends.",
+            Icon = "heart-handshake",
+            SeriesIdentifier = "friend-count",
+            SeriesTitle = "Friend Count",
+            SeriesOrder = 4,
+            SortOrder = 133,
+            TargetCount = 50,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.RelationshipFriendEstablished],
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 1200,
+                SourcePoints = 80,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.friends.50",
+                    Label = "Community Pillar",
+                    Caption = "Made 50 friends on the Solar Network.",
+                },
+            },
+        },
+        new()
+        {
+            Identifier = "friends-100",
+            Title = "The Connector",
+            Summary = "Make 100 friends.",
+            Icon = "network",
+            SeriesIdentifier = "friend-count",
+            SeriesTitle = "Friend Count",
+            SeriesOrder = 5,
+            SortOrder = 134,
+            TargetCount = 100,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.RelationshipFriendEstablished],
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 3000,
+                SourcePoints = 150,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.friends.100",
+                    Label = "The Connector",
+                    Caption = "Made 100 friends on the Solar Network.",
+                },
+            },
+        },
+        new()
+        {
+            Identifier = "first-bookmark",
+            Title = "Read Later",
+            Summary = "Bookmark a post for the first time.",
+            Icon = "bookmark",
+            SortOrder = 113,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostBookmark] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 20,
+                SourcePoints = 2,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "first-boost",
+            Title = "Signal Boost",
+            Summary = "Boost a post for the first time.",
+            Icon = "repeat",
+            SortOrder = 114,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostBoost] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 30,
+                SourcePoints = 3,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "expert-reaction",
+            Title = "Empath",
+            Summary = "React to 1000 posts.",
+            Icon = "heart",
+            SortOrder = 202,
+            TargetCount = 1000,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostReact] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 300,
+                SourcePoints = 30,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.reaction.expert",
+                    Label = "Empath",
+                    Caption = "Reacted to 1000 posts on the Solar Network.",
+                },
+            },
+        },
         // new()
         // {
         //     Identifier = "spring-rally-2026",

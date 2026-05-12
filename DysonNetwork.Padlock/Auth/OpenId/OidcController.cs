@@ -16,6 +16,7 @@ public class OidcController(
     AppDatabase db,
     AccountService accounts,
     AuthService auth,
+    ActionLogService actionLogs,
     ICacheService cache,
     IConfiguration configuration,
     ILogger<OidcController> logger
@@ -197,6 +198,12 @@ public class OidcController(
             await db.AccountConnections.AddAsync(connection);
             await db.SaveChangesAsync();
 
+            await actionLogs.CreateActionLogAsync(
+                existingAccount.Id,
+                ActionLogType.AccountConnectionLink,
+                new Dictionary<string, object> { ["provider"] = provider }
+            );
+
             return existingAccount;
         }
 
@@ -217,6 +224,12 @@ public class OidcController(
 
         db.AccountConnections.Add(newConnection);
         await db.SaveChangesAsync();
+
+        await actionLogs.CreateActionLogAsync(
+            newAccount.Id,
+            ActionLogType.AccountConnectionLink,
+            new Dictionary<string, object> { ["provider"] = provider }
+        );
 
         return newAccount;
     }

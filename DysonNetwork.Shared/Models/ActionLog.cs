@@ -64,8 +64,12 @@ public abstract class ActionLogType
     public const string AuthorizedAppDeauthorize = "developer.apps.deauthorize";
     public const string RelationshipFriendRequest = "relationships.friends.request";
     public const string RelationshipFriendAccept = "relationships.friends.accept";
+    public const string RelationshipFriendEstablished = "relationships.friends.established";
     public const string RelationshipBlock = "relationships.block";
     public const string RelationshipUnblock = "relationships.unblock";
+    public const string AccountAvatar = "accounts.profile.avatar";
+    public const string AccountConnectionLink = "accounts.connection.link";
+    public const string AccountPushEnable = "accounts.push.enable";
     public const string PostCreate = "posts.create";
     public const string PostUpdate = "posts.update";
     public const string PostDelete = "posts.delete";

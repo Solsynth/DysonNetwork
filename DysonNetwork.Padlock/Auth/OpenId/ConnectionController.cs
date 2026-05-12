@@ -18,6 +18,7 @@ public class ConnectionController(
     IEnumerable<OidcService> oidcServices,
     AccountService accounts,
     AuthService auth,
+    ActionLogService actionLogs,
     ICacheService cache,
     IConfiguration configuration,
     ILogger<ConnectionController> logger
@@ -117,6 +118,14 @@ public class ConnectionController(
         });
 
         await db.SaveChangesAsync();
+
+        await actionLogs.CreateActionLogAsync(
+            currentUser.Id,
+            ActionLogType.AccountConnectionLink,
+            new Dictionary<string, object> { ["provider"] = "apple" },
+            Request.Headers.UserAgent.ToString(),
+            HttpContext.Connection.RemoteIpAddress?.ToString()
+        );
 
         return Ok(new { message = "Successfully connected Apple account." });
     }
@@ -295,6 +304,17 @@ public class ConnectionController(
         {
             logger.LogError(ex, "Failed to save OIDC connection for provider {Provider}", provider);
             return StatusCode(500, $"Failed to save {provider} connection. Please try again.");
+        }
+
+        if (!userHasProvider)
+        {
+            await actionLogs.CreateActionLogAsync(
+                accountId,
+                ActionLogType.AccountConnectionLink,
+                new Dictionary<string, object> { ["provider"] = provider },
+                Request.Headers.UserAgent.ToString(),
+                HttpContext.Connection.RemoteIpAddress?.ToString()
+            );
         }
 
         // Clean up and redirect

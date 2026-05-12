@@ -27,6 +27,7 @@ public class PushService
     private readonly HttpClient _httpClient;
     private readonly RemoteWebSocketService _ws;
     private readonly NotificationPreferenceService _preferenceService;
+    private readonly RemoteActionLogService _actionLogs;
     private static readonly HashSet<string> InvalidFcmErrors = new(StringComparer.OrdinalIgnoreCase)
     {
         "InvalidRegistration",
@@ -49,7 +50,8 @@ public class PushService
         IHttpClientFactory httpFactory,
         ILogger<PushService> logger,
         RemoteWebSocketService ws,
-        NotificationPreferenceService preferenceService
+        NotificationPreferenceService preferenceService,
+        RemoteActionLogService actionLogs
     )
     {
         var cfgSection = config.GetSection("Notifications:Push");
@@ -83,6 +85,7 @@ public class PushService
         _queueService = queueService;
         _logger = logger;
         _preferenceService = preferenceService;
+        _actionLogs = actionLogs;
     }
 
     public async Task UnsubscribeDevice(string deviceId)
@@ -151,6 +154,18 @@ public class PushService
 
         _db.PushSubscriptions.Add(subscription);
         await _db.SaveChangesAsync();
+
+        var existingCount = await _db.PushSubscriptions
+            .Where(s => s.AccountId == accountId && s.DeletedAt == null)
+            .CountAsync();
+        if (existingCount <= 1)
+        {
+            _actionLogs.CreateActionLog(
+                accountId,
+                ActionLogType.AccountPushEnable,
+                new Dictionary<string, object> { ["provider"] = provider.ToString().ToLowerInvariant() }
+            );
+        }
 
         return subscription;
     }
