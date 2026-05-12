@@ -30,6 +30,7 @@ public abstract class ProgressionTriggerMode
 {
     public const string Count = "count";
     public const string Streak = "streak";
+    public const string DailyCount = "daily_count";
 }
 
 public class SnQuestScheduleConfig

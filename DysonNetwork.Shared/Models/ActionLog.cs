@@ -76,6 +76,7 @@ public abstract class ActionLogType
     public const string PostDelete = "posts.delete";
     public const string PostReact = "posts.react";
     public const string PostFeatured = "posts.featured";
+    public const string PostCreateTopical = "posts.create.topical";
     public const string PostPin = "posts.pin";
     public const string PostUnpin = "posts.unpin";
     public const string PostBoost = "posts.boost";

@@ -492,6 +492,22 @@ public class PostActionController(
             ipAddress: Request.GetClientIpAddress()
         );
 
+        if (post.Tags.Count > 0 && post.Categories.Count > 0)
+        {
+            als.CreateActionLog(
+                Guid.Parse(currentUser.Id),
+                ActionLogType.PostCreateTopical,
+                new Dictionary<string, object>
+                {
+                    { "post_id", post.Id.ToString() },
+                    { "tag_count", post.Tags.Count },
+                    { "category_count", post.Categories.Count }
+                },
+                userAgent: Request.Headers.UserAgent,
+                ipAddress: Request.GetClientIpAddress()
+            );
+        }
+
         post.Publisher = publisher;
 
         if (post.RealmId.HasValue && post.DraftedAt is null && post.PublishedAt is not null &&
@@ -598,7 +614,8 @@ public class PostActionController(
             new Dictionary<string, object>
             {
                 { "post_id", post.Id.ToString() },
-                { "reaction", request.Symbol }
+                { "reaction", request.Symbol },
+                { "post_kind", post.PublisherId.HasValue ? "publisher" : "personal" }
             },
             userAgent: Request.Headers.UserAgent,
             ipAddress: Request.GetClientIpAddress()

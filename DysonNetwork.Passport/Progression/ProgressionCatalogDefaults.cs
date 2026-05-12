@@ -661,6 +661,66 @@ public static class ProgressionCatalogDefaults
         },
         new()
         {
+            Identifier = "first-topical-post",
+            Title = "Well Structured",
+            Summary = "Publish a post with both categories and tags.",
+            Icon = "layout-grid",
+            SortOrder = 116,
+            TargetCount = 1,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostCreateTopical] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 75,
+                SourcePoints = 8,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.post.topical.first",
+                    Label = "Well Structured",
+                    Caption = "Published a post with both categories and tags.",
+                },
+            },
+        },
+        new()
+        {
+            Identifier = "topical-post-10",
+            Title = "Curator",
+            Summary = "Publish 10 posts with both categories and tags.",
+            Icon = "layout-list",
+            SortOrder = 117,
+            TargetCount = 10,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostCreateTopical] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 150,
+                SourcePoints = 15,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+            },
+        },
+        new()
+        {
+            Identifier = "topical-post-50",
+            Title = "Organizer",
+            Summary = "Publish 50 posts with both categories and tags.",
+            Icon = "layout-template",
+            SortOrder = 118,
+            TargetCount = 50,
+            Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostCreateTopical] },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 500,
+                SourcePoints = 50,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.post.topical.50",
+                    Label = "Organizer",
+                    Caption = "Published 50 posts with both categories and tags.",
+                },
+            },
+        },
+        new()
+        {
             Identifier = "expert-reaction",
             Title = "Empath",
             Summary = "React to 1000 posts.",
@@ -683,11 +743,75 @@ public static class ProgressionCatalogDefaults
         },
         new()
         {
+            Identifier = "gots-fired-5",
+            Title = "炎上",
+            Summary = "Have a publisher post receive many downvotes in a single day.",
+            Icon = "flame",
+            Hidden = true,
+            SortOrder = 122,
+            TargetCount = 5,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.PostReact],
+                MetaEquals = new Dictionary<string, string>
+                {
+                    ["reaction"] = "thumb_down",
+                    ["post_kind"] = "publisher",
+                },
+                Mode = ProgressionTriggerMode.DailyCount,
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 75,
+                SourcePoints = 8,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.post.downvote.5",
+                    Label = "炎上",
+                    Caption = "Received repeated downvotes on a publisher post in one day.",
+                },
+            },
+        },
+        new()
+        {
+            Identifier = "gots-fired-20",
+            Title = "炎上",
+            Summary = "Have a publisher post receive a lot of downvotes in a single day.",
+            Icon = "fire-extinguisher",
+            Hidden = true,
+            SortOrder = 123,
+            TargetCount = 20,
+            Trigger = new SnProgressTriggerDefinition
+            {
+                Actions = [ActionLogType.PostReact],
+                MetaEquals = new Dictionary<string, string>
+                {
+                    ["reaction"] = "thumb_down",
+                    ["post_kind"] = "publisher",
+                },
+                Mode = ProgressionTriggerMode.DailyCount,
+            },
+            Reward = new SnProgressRewardDefinition
+            {
+                Experience = 250,
+                SourcePoints = 25,
+                SourcePointsCurrency = WalletCurrency.SourcePoint,
+                Badge = new SnProgressBadgeRewardDefinition
+                {
+                    Type = "progression.post.downvote.20",
+                    Label = "炎上",
+                    Caption = "Received a lot of downvotes on publisher posts.",
+                },
+            },
+        },
+        new()
+        {
             Identifier = "profile-complete",
             Title = "Fully Realized",
             Summary = "Complete your profile with name, bio, avatar, birthday, location, and pronouns.",
             Icon = "user-check",
-            SortOrder = 115,
+            SortOrder = 124,
             TargetCount = 1,
             Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.AccountProfileComplete] },
             Reward = new SnProgressRewardDefinition
@@ -709,7 +833,7 @@ public static class ProgressionCatalogDefaults
             Title = "Fort Knox",
             Summary = "Enable two-factor authentication.",
             Icon = "shield-check",
-            SortOrder = 116,
+            SortOrder = 125,
             TargetCount = 1,
             Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.AuthFactorEnable] },
             Reward = new SnProgressRewardDefinition
@@ -725,7 +849,7 @@ public static class ProgressionCatalogDefaults
             Title = "Room Hopper",
             Summary = "Join a chatroom for the first time.",
             Icon = "door-open",
-            SortOrder = 117,
+            SortOrder = 126,
             TargetCount = 1,
             Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.ChatroomJoin] },
             Reward = new SnProgressRewardDefinition
@@ -741,7 +865,7 @@ public static class ProgressionCatalogDefaults
             Title = "Regular",
             Summary = "Join 10 different chatrooms.",
             Icon = "meeting",
-            SortOrder = 203,
+            SortOrder = 204,
             TargetCount = 10,
             Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.ChatroomJoin] },
             Reward = new SnProgressRewardDefinition
@@ -757,7 +881,7 @@ public static class ProgressionCatalogDefaults
             Title = "Librarian",
             Summary = "Bookmark 10 posts.",
             Icon = "bookmark",
-            SortOrder = 204,
+            SortOrder = 205,
             TargetCount = 10,
             Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostBookmark] },
             Reward = new SnProgressRewardDefinition
@@ -773,7 +897,7 @@ public static class ProgressionCatalogDefaults
             Title = "Signal Tower",
             Summary = "Boost 50 posts.",
             Icon = "repeat",
-            SortOrder = 205,
+            SortOrder = 206,
             TargetCount = 50,
             Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.PostBoost] },
             Reward = new SnProgressRewardDefinition
@@ -795,7 +919,7 @@ public static class ProgressionCatalogDefaults
             Title = "Globe Trotter",
             Summary = "Join 10 realms.",
             Icon = "globe",
-            SortOrder = 206,
+            SortOrder = 207,
             TargetCount = 10,
             Trigger = new SnProgressTriggerDefinition { Actions = [ActionLogType.RealmJoin] },
             Reward = new SnProgressRewardDefinition
@@ -814,7 +938,7 @@ public static class ProgressionCatalogDefaults
             SeriesIdentifier = "post-streak",
             SeriesTitle = "Posting Streak",
             SeriesOrder = 4,
-            SortOrder = 207,
+            SortOrder = 208,
             TargetCount = 90,
             Trigger = new SnProgressTriggerDefinition
             {
@@ -843,7 +967,7 @@ public static class ProgressionCatalogDefaults
             SeriesIdentifier = "post-streak",
             SeriesTitle = "Posting Streak",
             SeriesOrder = 5,
-            SortOrder = 208,
+            SortOrder = 209,
             TargetCount = 365,
             Trigger = new SnProgressTriggerDefinition
             {
@@ -872,7 +996,7 @@ public static class ProgressionCatalogDefaults
             SeriesIdentifier = "activity-streak",
             SeriesTitle = "Activity Streak",
             SeriesOrder = 4,
-            SortOrder = 211,
+            SortOrder = 212,
             TargetCount = 90,
             Trigger = new SnProgressTriggerDefinition
             {

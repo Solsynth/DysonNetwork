@@ -476,6 +476,12 @@ public class ProgressionService(
             return;
         }
 
+        if (string.Equals(definition.Trigger.Mode, ProgressionTriggerMode.DailyCount, StringComparison.OrdinalIgnoreCase))
+        {
+            ApplyDailyCountProgress(progress, definition.TargetCount, occurredAt, zone);
+            return;
+        }
+
         progress.ProgressCount = Math.Min(definition.TargetCount, progress.ProgressCount + 1);
         progress.LastProgressAt = occurredAt;
     }
@@ -509,6 +515,25 @@ public class ProgressionService(
 
         progress.BestStreak = Math.Max(progress.BestStreak, progress.CurrentStreak);
         progress.ProgressCount = Math.Min(targetCount, progress.CurrentStreak);
+        progress.LastProgressAt = occurredAt;
+    }
+
+    private static void ApplyDailyCountProgress(
+        SnAccountAchievement progress,
+        int targetCount,
+        Instant occurredAt,
+        DateTimeZone zone
+    )
+    {
+        var currentDate = occurredAt.InZone(zone).Date;
+        if (progress.LastProgressAt.HasValue)
+        {
+            var lastDate = progress.LastProgressAt.Value.InZone(zone).Date;
+            if (lastDate != currentDate)
+                progress.ProgressCount = 0;
+        }
+
+        progress.ProgressCount = Math.Min(targetCount, progress.ProgressCount + 1);
         progress.LastProgressAt = occurredAt;
     }
 

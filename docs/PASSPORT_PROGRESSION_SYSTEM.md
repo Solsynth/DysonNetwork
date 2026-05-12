@@ -34,6 +34,7 @@ Shared event contract:
 Current tracked action list:
 
 - `posts.create`
+- `posts.create.topical`
 - `posts.react`
 - `posts.bookmark`
 - `posts.boost`
@@ -376,6 +377,28 @@ Current behavior:
 - emitted when a user self-joins a community chatroom (`JoinChatRoom`)
 - metadata: `chatroom_id` (string)
 
+## Topical Post Action Log
+
+`posts.create.topical` is emitted by:
+
+- [DysonNetwork.Sphere/Post/PostActionController.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Sphere/Post/PostActionController.cs)
+
+Current behavior:
+
+- emitted when a new post has at least one tag and at least one category
+- fires alongside the normal `posts.create` log
+- metadata: `post_id`, `tag_count`, `category_count`
+
+## Downvote Reaction Meta
+
+`posts.react` includes extra metadata for progression matching:
+
+- `reaction`: reaction symbol such as `thumb_down`
+- `post_kind`: `publisher` or `personal`
+
+This lets hidden achievements target publisher-post downvotes without changing the base post reaction flow.
+The hidden ladder is day-scoped, so only downvotes received on the same day count toward the achievement.
+
 ## Stellar Support Progression
 
 Eligible Stellar purchases emit a support-month action log from Wallet:
@@ -472,6 +495,8 @@ Current code-seeded achievement highlights:
 - first post, first reaction, first chat, first realm join, and first publisher
 - first avatar, first external account link, first push notification enable
 - first bookmark, first boost, first chatroom join
+- first topical post (tags + categories)
+- topical post ladder (10 / 50)
 - profile completion, first 2FA enable
 - friend count ladder (1 / 5 / 20 / 50 / 100)
 - featured post ladder
@@ -485,6 +510,7 @@ Hidden achievements (not shown in catalog until unlocked):
 - Night Owl: post between midnight and 4am
 - Instant Connection: accept a friend request within 60 seconds
 - Social Butterfly: make 5 friends in a single day
+- 炎上: publisher post receives repeated downvotes in a single day (same ladder, no 1-step tier)
 
 ### Quests
 

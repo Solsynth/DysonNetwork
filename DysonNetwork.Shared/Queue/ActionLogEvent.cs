@@ -30,6 +30,7 @@ public static class ProgressionActionLogRegistry
         Shared.Models.ActionLogType.AccountConnectionLink,
         Shared.Models.ActionLogType.AccountPushEnable,
         Shared.Models.ActionLogType.PostCreate,
+        Shared.Models.ActionLogType.PostCreateTopical,
         Shared.Models.ActionLogType.PostFeatured,
         Shared.Models.ActionLogType.PostReact,
         Shared.Models.ActionLogType.PostBookmark,
