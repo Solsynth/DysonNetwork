@@ -1,5 +1,8 @@
 {
-    "postOnlyMedia": "Media only",
+    "postSharedMedia": {
+        "one": "Shared {count} media",
+        "other": "Shared {count} media"
+    },
     "postMentionTitle": "{user} mentioned you in a post",
     "postMentionBody": "{user} mentioned you in a post: {content}",
     "postReplyTitle": "{user} replied to your post",

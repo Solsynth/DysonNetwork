@@ -1,5 +1,5 @@
 {
-    "postOnlyMedia": "只有媒体文件",
+    "postSharedMedia": "分享了 {count} 个媒体文件",
     "postMentionTitle": "{user} 在帖子中提到了您",
     "postMentionBody": "{user} 在帖子中提到了您 {content}",
     "postReplyTitle": "{user} 回复了您的帖子",

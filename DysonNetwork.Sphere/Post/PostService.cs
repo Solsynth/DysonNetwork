@@ -749,9 +749,12 @@ public partial class PostService(
         var title =
             post.Title
             ?? (post.Description?.Length >= 10 ? post.Description[..10] + "..." : post.Description);
-        title ??= localizer.Get("postOnlyMedia", locale: locale);
-        if (string.IsNullOrWhiteSpace(content))
-            content = localizer.Get("postOnlyMedia", locale: locale);
+        var mediaCount = post.Attachments.Count;
+        var hasTextContent = !string.IsNullOrWhiteSpace(post.Content) || !string.IsNullOrWhiteSpace(post.Description);
+        if (!hasTextContent && mediaCount > 0)
+            title ??= localizer.Get("postSharedMedia", locale: locale, args: new { Count = mediaCount });
+        if (string.IsNullOrWhiteSpace(content) && mediaCount > 0)
+            content = localizer.Get("postSharedMedia", locale: locale, args: new { Count = mediaCount });
         return (title, content);
     }
 
