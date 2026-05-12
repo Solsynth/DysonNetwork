@@ -35,11 +35,35 @@ Current tracked action list:
 
 - `posts.create`
 - `posts.react`
+- `posts.bookmark`
+- `posts.boost`
+- `posts.featured`
 - `chat.use`
 - `publishers.create`
 - `publishers.members.join`
 - `realms.create`
 - `realms.join`
+- `accounts.profile.update`
+- `accounts.profile.avatar`
+- `accounts.connection.link`
+- `accounts.push.enable`
+- `accounts.active`
+- `stellar.support.month`
+- `login`
+- `relationships.friends.request`
+- `relationships.friends.accept`
+- `relationships.friends.established`
+- `relationships.block`
+- `relationships.unblock`
+- `accounts.auth_factors.create`
+- `accounts.auth_factors.enable`
+- `accounts.auth_factors.disable`
+- `accounts.auth_factors.delete`
+- `accounts.auth_factors.reset_password`
+- `developer.sessions.revoke`
+- `developer.devices.revoke`
+- `developer.devices.rename`
+- `developer.apps.deauthorize`
 
 Published subject format:
 
@@ -130,6 +154,7 @@ This is intended for upgrade-style ladders such as:
 - activity streaks: 7 / 30 / 365 days
 - featured post milestones
 - Stellar supporter milestones: 1 / 3 / 6 / 9 / 12 eligible months
+- friend count milestones: 1 / 5 / 20 / 50 / 100 friends
 
 ### Definition lifecycle
 
@@ -231,7 +256,7 @@ Current seeding behavior:
 - missing definitions are inserted from code defaults
 - existing definitions are updated only when `IsSeedManaged` is `true`
 - DB remains the runtime source of truth
-- built-in defaults include streak ladders, featured-post ladders, and Stellar supporter ladders
+- built-in defaults include streak ladders, featured-post ladders, Stellar supporter ladders, friend count ladders, and first-time action achievements
 
 This is intentionally similar to Wallet’s subscription catalog seeding model.
 
@@ -247,6 +272,72 @@ Current behavior:
 - throttled to at most once per account per minute
 - includes normal action-log request metadata such as user-agent and IP address
 - includes action meta fields: `room_id` and `message_type`
+
+## Avatar Action Log
+
+`accounts.profile.avatar` is emitted by:
+
+- [DysonNetwork.Passport/Account/AccountCurrentController.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Account/AccountCurrentController.cs)
+
+Current behavior:
+
+- emitted only when the user sets a profile picture for the first time (old `Picture` field was null)
+- fires alongside the general `accounts.profile.update` log
+- metadata: empty dictionary
+
+Emission logic:
+
+```csharp
+var hadPicture = profile.Picture is not null;
+// ... update profile ...
+if (!hadPicture && profile.Picture is not null)
+{
+    remoteActionLogs.CreateActionLog(userId, ActionLogType.AccountAvatar, ...);
+}
+```
+
+## Connection Link Action Log
+
+`accounts.connection.link` is emitted by:
+
+- [DysonNetwork.Padlock/Auth/OpenId/ConnectionController.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Padlock/Auth/OpenId/ConnectionController.cs) — web OAuth flow and mobile Apple sign-in
+- [DysonNetwork.Padlock/Auth/OpenId/OidcController.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Padlock/Auth/OpenId/OidcController.cs) — new connection during login flow
+
+Current behavior:
+
+- emitted only when a **new** external account connection is created (not on re-auth or token refresh)
+- not emitted when updating an existing connection's tokens
+- metadata: `provider` (string, e.g. `"apple"`, `"google"`, `"discord"`)
+
+Supported providers: apple, google, microsoft, discord, github, steam, afdian.
+
+## Push Notification Enable Action Log
+
+`accounts.push.enable` is emitted by:
+
+- [DysonNetwork.Ring/Notification/PushService.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Ring/Notification/PushService.cs)
+
+Current behavior:
+
+- emitted when a new push subscription is created and it is the account's **first** active subscription
+- checks existing subscription count after insert; emits only when count <= 1
+- metadata: `provider` (string, e.g. `"fcm"`, `"apns"`, `"sop"`)
+
+The Ring service uses `RemoteActionLogService` (gRPC to Padlock) to write the action log, since Ring does not have direct access to the Padlock action log database.
+
+## Friend Established Action Log
+
+`relationships.friends.established` is emitted by:
+
+- [DysonNetwork.Passport/Account/RelationshipService.cs](/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Passport/Account/RelationshipService.cs)
+
+Current behavior:
+
+- emitted for **both** parties when a friend request is accepted
+- fires alongside the existing `relationships.friends.accept` log (which only fires for the acceptor)
+- metadata: `related_account_id` (Guid of the other party)
+
+This means both the sender and receiver of a friend request get progression credit for friend-count achievements.
 
 ## Stellar Support Progression
 
@@ -339,11 +430,14 @@ Note:
 Current code-seeded achievement highlights:
 
 - first post, first reaction, first chat, first realm join, and first publisher
+- first avatar, first external account link, first push notification enable
+- first bookmark, first boost
+- friend count ladder (1 / 5 / 20 / 50 / 100)
 - featured post ladder
 - posting streak ladder
 - activity streak ladder
 - Stellar supporter ladder
-- high-count chat and post milestones
+- high-count chat, post, and reaction milestones
 
 Current code-seeded quest highlights:
 
@@ -371,3 +465,4 @@ The implementation was validated with:
 - `dotnet build DysonNetwork.Passport/DysonNetwork.Passport.csproj`
 - `dotnet build DysonNetwork.Wallet/DysonNetwork.Wallet.csproj`
 - `dotnet build DysonNetwork.Padlock/DysonNetwork.Padlock.csproj`
+- `dotnet build DysonNetwork.Ring/DysonNetwork.Ring.csproj`
