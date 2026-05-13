@@ -255,11 +255,13 @@ public partial class PostService(
     {
         using var scope = factory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-        var embeddingClient = scope.ServiceProvider.GetRequiredService<
-            DyEmbeddingService.DyEmbeddingServiceClient
-        >();
+        var embeddingClient =
+            scope.ServiceProvider.GetRequiredService<DyEmbeddingService.DyEmbeddingServiceClient>();
 
-        var post = await dbContext.Posts.FirstOrDefaultAsync(p => p.Id == postId, cancellationToken);
+        var post = await dbContext.Posts.FirstOrDefaultAsync(
+            p => p.Id == postId,
+            cancellationToken
+        );
         if (post is null)
             return;
 
@@ -750,11 +752,21 @@ public partial class PostService(
             post.Title
             ?? (post.Description?.Length >= 10 ? post.Description[..10] + "..." : post.Description);
         var mediaCount = post.Attachments.Count;
-        var hasTextContent = !string.IsNullOrWhiteSpace(post.Content) || !string.IsNullOrWhiteSpace(post.Description);
+        var hasTextContent =
+            !string.IsNullOrWhiteSpace(post.Content)
+            || !string.IsNullOrWhiteSpace(post.Description);
         if (!hasTextContent && mediaCount > 0)
-            title ??= localizer.Get("postSharedMedia", locale: locale, args: new { Count = mediaCount });
+            title ??= localizer.Get(
+                "postSharedMedia",
+                locale: locale,
+                args: new { count = mediaCount }
+            );
         if (string.IsNullOrWhiteSpace(content) && mediaCount > 0)
-            content = localizer.Get("postSharedMedia", locale: locale, args: new { Count = mediaCount });
+            content = localizer.Get(
+                "postSharedMedia",
+                locale: locale,
+                args: new { count = mediaCount }
+            );
         return (title, content);
     }
 
@@ -2208,16 +2220,14 @@ public partial class PostService(
         );
     }
 
-    private async Task<HashSet<Guid>> GetPostBookmarkMapBatch(
-        List<Guid> postIds,
-        Guid accountId
-    )
+    private async Task<HashSet<Guid>> GetPostBookmarkMapBatch(List<Guid> postIds, Guid accountId)
     {
-        return (await db.PostBookmarks
-            .Where(b => postIds.Contains(b.PostId) && b.AccountId == accountId)
-            .Select(b => b.PostId)
-            .ToListAsync())
-            .ToHashSet();
+        return (
+            await db
+                .PostBookmarks.Where(b => postIds.Contains(b.PostId) && b.AccountId == accountId)
+                .Select(b => b.PostId)
+                .ToListAsync()
+        ).ToHashSet();
     }
 
     /// <summary>
