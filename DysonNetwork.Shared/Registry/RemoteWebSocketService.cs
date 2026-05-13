@@ -22,6 +22,33 @@ public class RemoteWebSocketService(WebSocketService.WebSocketServiceClient clie
         await client.PushWebSocketPacketAsync(request);
     }
 
+    public async Task PushWebSocketPacket(
+        string accountId,
+        string type,
+        byte[] data,
+        IReadOnlyCollection<string>? excludedWebSocketDeviceIds,
+        string? errorMessage = null
+    )
+    {
+        var request = new DyPushWebSocketPacketRequest
+        {
+            UserId = accountId,
+            Packet = new DyWebSocketPacket
+            {
+                Type = type,
+                Data = Google.Protobuf.ByteString.CopyFrom(data)
+            }
+        };
+
+        if (excludedWebSocketDeviceIds != null)
+            request.ExcludedWebsocketDeviceIds.Add(excludedWebSocketDeviceIds);
+
+        if (errorMessage != null)
+            request.Packet.ErrorMessage = errorMessage;
+
+        await client.PushWebSocketPacketAsync(request);
+    }
+
     public async Task PushWebSocketPacketToUsers(List<string> userIds, string type, byte[] data,
         string? errorMessage = null)
     {

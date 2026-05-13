@@ -7,6 +7,9 @@ namespace DysonNetwork.Ring.Services;
 
 public class QueueService(INatsConnection nats)
 {
+    public Task EnqueuePushNotification(Shared.Models.SnNotification notification, Guid userId, bool isSavable = false)
+        => EnqueuePushNotification(notification, userId, null, isSavable);
+
     public async Task EnqueueEmail(string toName, string toAddress, string subject, string body)
     {
         var message = new QueueMessage
@@ -24,7 +27,12 @@ public class QueueService(INatsConnection nats)
         await nats.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
     }
 
-    public async Task EnqueuePushNotification(Shared.Models.SnNotification notification, Guid userId, bool isSavable = false)
+    public async Task EnqueuePushNotification(
+        Shared.Models.SnNotification notification,
+        Guid userId,
+        IReadOnlyCollection<string>? excludedWebSocketDeviceIds = null,
+        bool isSavable = false
+    )
     {
         // Update the account ID in case it wasn't set
         notification.AccountId = userId;

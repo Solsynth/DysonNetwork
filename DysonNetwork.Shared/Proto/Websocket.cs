@@ -25,58 +25,59 @@ namespace DysonNetwork.Shared.Proto {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
             "Cg93ZWJzb2NrZXQucHJvdG8SBXByb3RvGhtnb29nbGUvcHJvdG9idWYvZW1w",
-            "dHkucHJvdG8aDWFjY291bnQucHJvdG8aCnJpbmcucHJvdG8iaQocRHlQdXNo",
-            "V2ViU29ja2V0UGFja2V0UmVxdWVzdBIXCgd1c2VyX2lkGAEgASgJUgZ1c2Vy",
-            "SWQSMAoGcGFja2V0GAIgASgLMhgucHJvdG8uRHlXZWJTb2NrZXRQYWNrZXRS",
-            "BnBhY2tldCJyCiNEeVB1c2hXZWJTb2NrZXRQYWNrZXRUb1VzZXJzUmVxdWVz",
-            "dBIZCgh1c2VyX2lkcxgBIAMoCVIHdXNlcklkcxIwCgZwYWNrZXQYAiABKAsy",
-            "GC5wcm90by5EeVdlYlNvY2tldFBhY2tldFIGcGFja2V0InUKJER5UHVzaFdl",
-            "YlNvY2tldFBhY2tldFRvRGV2aWNlUmVxdWVzdBIbCglkZXZpY2VfaWQYASAB",
-            "KAlSCGRldmljZUlkEjAKBnBhY2tldBgCIAEoCzIYLnByb3RvLkR5V2ViU29j",
-            "a2V0UGFja2V0UgZwYWNrZXQieAolRHlQdXNoV2ViU29ja2V0UGFja2V0VG9E",
-            "ZXZpY2VzUmVxdWVzdBIdCgpkZXZpY2VfaWRzGAEgAygJUglkZXZpY2VJZHMS",
-            "MAoGcGFja2V0GAIgASgLMhgucHJvdG8uRHlXZWJTb2NrZXRQYWNrZXRSBnBh",
-            "Y2tldCJnCiVEeUdldFdlYnNvY2tldENvbm5lY3Rpb25TdGF0dXNSZXF1ZXN0",
-            "Eh0KCWRldmljZV9pZBgBIAEoCUgAUghkZXZpY2VJZBIZCgd1c2VyX2lkGAIg",
-            "ASgJSABSBnVzZXJJZEIECgJpZCJLCiZEeUdldFdlYnNvY2tldENvbm5lY3Rp",
-            "b25TdGF0dXNSZXNwb25zZRIhCgxpc19jb25uZWN0ZWQYASABKAhSC2lzQ29u",
-            "bmVjdGVkIkcKKkR5R2V0V2Vic29ja2V0Q29ubmVjdGlvblN0YXR1c0JhdGNo",
-            "UmVxdWVzdBIZCgh1c2Vyc19pZBgBIAMoCVIHdXNlcnNJZCLVAQorRHlHZXRX",
-            "ZWJzb2NrZXRDb25uZWN0aW9uU3RhdHVzQmF0Y2hSZXNwb25zZRJmCgxpc19j",
-            "b25uZWN0ZWQYASADKAsyQy5wcm90by5EeUdldFdlYnNvY2tldENvbm5lY3Rp",
-            "b25TdGF0dXNCYXRjaFJlc3BvbnNlLklzQ29ubmVjdGVkRW50cnlSC2lzQ29u",
-            "bmVjdGVkGj4KEElzQ29ubmVjdGVkRW50cnkSEAoDa2V5GAEgASgJUgNrZXkS",
-            "FAoFdmFsdWUYAiABKAhSBXZhbHVlOgI4ASI9CiBEeUdldEFsbENvbm5lY3Rl",
-            "ZFVzZXJJZHNSZXNwb25zZRIZCgh1c2VyX2lkcxgBIAMoCVIHdXNlcklkcyKc",
-            "AQofRHlSZWNlaXZlV2ViU29ja2V0UGFja2V0UmVxdWVzdBIwCgZwYWNrZXQY",
-            "ASABKAsyGC5wcm90by5EeVdlYlNvY2tldFBhY2tldFIGcGFja2V0EioKB2Fj",
-            "Y291bnQYAiABKAsyEC5wcm90by5EeUFjY291bnRSB2FjY291bnQSGwoJZGV2",
-            "aWNlX2lkGAMgASgJUghkZXZpY2VJZDLhBgoQV2ViU29ja2V0U2VydmljZRJU",
-            "ChNQdXNoV2ViU29ja2V0UGFja2V0EiMucHJvdG8uRHlQdXNoV2ViU29ja2V0",
-            "UGFja2V0UmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eSIAEmIKGlB1",
-            "c2hXZWJTb2NrZXRQYWNrZXRUb1VzZXJzEioucHJvdG8uRHlQdXNoV2ViU29j",
-            "a2V0UGFja2V0VG9Vc2Vyc1JlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1w",
-            "dHkiABJkChtQdXNoV2ViU29ja2V0UGFja2V0VG9EZXZpY2USKy5wcm90by5E",
-            "eVB1c2hXZWJTb2NrZXRQYWNrZXRUb0RldmljZVJlcXVlc3QaFi5nb29nbGUu",
-            "cHJvdG9idWYuRW1wdHkiABJmChxQdXNoV2ViU29ja2V0UGFja2V0VG9EZXZp",
-            "Y2VzEiwucHJvdG8uRHlQdXNoV2ViU29ja2V0UGFja2V0VG9EZXZpY2VzUmVx",
-            "dWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eSIAEn0KHEdldFdlYnNvY2tl",
-            "dENvbm5lY3Rpb25TdGF0dXMSLC5wcm90by5EeUdldFdlYnNvY2tldENvbm5l",
-            "Y3Rpb25TdGF0dXNSZXF1ZXN0Gi0ucHJvdG8uRHlHZXRXZWJzb2NrZXRDb25u",
-            "ZWN0aW9uU3RhdHVzUmVzcG9uc2UiABKMAQohR2V0V2Vic29ja2V0Q29ubmVj",
-            "dGlvblN0YXR1c0JhdGNoEjEucHJvdG8uRHlHZXRXZWJzb2NrZXRDb25uZWN0",
-            "aW9uU3RhdHVzQmF0Y2hSZXF1ZXN0GjIucHJvdG8uRHlHZXRXZWJzb2NrZXRD",
-            "b25uZWN0aW9uU3RhdHVzQmF0Y2hSZXNwb25zZSIAElsKFkdldEFsbENvbm5l",
-            "Y3RlZFVzZXJJZHMSFi5nb29nbGUucHJvdG9idWYuRW1wdHkaJy5wcm90by5E",
-            "eUdldEFsbENvbm5lY3RlZFVzZXJJZHNSZXNwb25zZSIAEloKFlJlY2VpdmVX",
-            "ZWJTb2NrZXRQYWNrZXQSJi5wcm90by5EeVJlY2VpdmVXZWJTb2NrZXRQYWNr",
-            "ZXRSZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5IgBCPVofZ2l0LnNv",
-            "bHN5bnRoLmRldi9zb3N5cy9zcGVjL2dlbqoCGUR5c29uTmV0d29yay5TaGFy",
-            "ZWQuUHJvdG9iBnByb3RvMw=="));
+            "dHkucHJvdG8aDWFjY291bnQucHJvdG8aCnJpbmcucHJvdG8irAEKHER5UHVz",
+            "aFdlYlNvY2tldFBhY2tldFJlcXVlc3QSFwoHdXNlcl9pZBgBIAEoCVIGdXNl",
+            "cklkEjAKBnBhY2tldBgCIAEoCzIYLnByb3RvLkR5V2ViU29ja2V0UGFja2V0",
+            "UgZwYWNrZXQSQQodZXhjbHVkZWRfd2Vic29ja2V0X2RldmljZV9pZHMYAyAD",
+            "KAlSGmV4Y2x1ZGVkV2Vic29ja2V0RGV2aWNlSWRzInIKI0R5UHVzaFdlYlNv",
+            "Y2tldFBhY2tldFRvVXNlcnNSZXF1ZXN0EhkKCHVzZXJfaWRzGAEgAygJUgd1",
+            "c2VySWRzEjAKBnBhY2tldBgCIAEoCzIYLnByb3RvLkR5V2ViU29ja2V0UGFj",
+            "a2V0UgZwYWNrZXQidQokRHlQdXNoV2ViU29ja2V0UGFja2V0VG9EZXZpY2VS",
+            "ZXF1ZXN0EhsKCWRldmljZV9pZBgBIAEoCVIIZGV2aWNlSWQSMAoGcGFja2V0",
+            "GAIgASgLMhgucHJvdG8uRHlXZWJTb2NrZXRQYWNrZXRSBnBhY2tldCJ4CiVE",
+            "eVB1c2hXZWJTb2NrZXRQYWNrZXRUb0RldmljZXNSZXF1ZXN0Eh0KCmRldmlj",
+            "ZV9pZHMYASADKAlSCWRldmljZUlkcxIwCgZwYWNrZXQYAiABKAsyGC5wcm90",
+            "by5EeVdlYlNvY2tldFBhY2tldFIGcGFja2V0ImcKJUR5R2V0V2Vic29ja2V0",
+            "Q29ubmVjdGlvblN0YXR1c1JlcXVlc3QSHQoJZGV2aWNlX2lkGAEgASgJSABS",
+            "CGRldmljZUlkEhkKB3VzZXJfaWQYAiABKAlIAFIGdXNlcklkQgQKAmlkIksK",
+            "JkR5R2V0V2Vic29ja2V0Q29ubmVjdGlvblN0YXR1c1Jlc3BvbnNlEiEKDGlz",
+            "X2Nvbm5lY3RlZBgBIAEoCFILaXNDb25uZWN0ZWQiRwoqRHlHZXRXZWJzb2Nr",
+            "ZXRDb25uZWN0aW9uU3RhdHVzQmF0Y2hSZXF1ZXN0EhkKCHVzZXJzX2lkGAEg",
+            "AygJUgd1c2Vyc0lkItUBCitEeUdldFdlYnNvY2tldENvbm5lY3Rpb25TdGF0",
+            "dXNCYXRjaFJlc3BvbnNlEmYKDGlzX2Nvbm5lY3RlZBgBIAMoCzJDLnByb3Rv",
+            "LkR5R2V0V2Vic29ja2V0Q29ubmVjdGlvblN0YXR1c0JhdGNoUmVzcG9uc2Uu",
+            "SXNDb25uZWN0ZWRFbnRyeVILaXNDb25uZWN0ZWQaPgoQSXNDb25uZWN0ZWRF",
+            "bnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoCFIFdmFsdWU6",
+            "AjgBIj0KIER5R2V0QWxsQ29ubmVjdGVkVXNlcklkc1Jlc3BvbnNlEhkKCHVz",
+            "ZXJfaWRzGAEgAygJUgd1c2VySWRzIpwBCh9EeVJlY2VpdmVXZWJTb2NrZXRQ",
+            "YWNrZXRSZXF1ZXN0EjAKBnBhY2tldBgBIAEoCzIYLnByb3RvLkR5V2ViU29j",
+            "a2V0UGFja2V0UgZwYWNrZXQSKgoHYWNjb3VudBgCIAEoCzIQLnByb3RvLkR5",
+            "QWNjb3VudFIHYWNjb3VudBIbCglkZXZpY2VfaWQYAyABKAlSCGRldmljZUlk",
+            "MuEGChBXZWJTb2NrZXRTZXJ2aWNlElQKE1B1c2hXZWJTb2NrZXRQYWNrZXQS",
+            "Iy5wcm90by5EeVB1c2hXZWJTb2NrZXRQYWNrZXRSZXF1ZXN0GhYuZ29vZ2xl",
+            "LnByb3RvYnVmLkVtcHR5IgASYgoaUHVzaFdlYlNvY2tldFBhY2tldFRvVXNl",
+            "cnMSKi5wcm90by5EeVB1c2hXZWJTb2NrZXRQYWNrZXRUb1VzZXJzUmVxdWVz",
+            "dBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eSIAEmQKG1B1c2hXZWJTb2NrZXRQ",
+            "YWNrZXRUb0RldmljZRIrLnByb3RvLkR5UHVzaFdlYlNvY2tldFBhY2tldFRv",
+            "RGV2aWNlUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eSIAEmYKHFB1",
+            "c2hXZWJTb2NrZXRQYWNrZXRUb0RldmljZXMSLC5wcm90by5EeVB1c2hXZWJT",
+            "b2NrZXRQYWNrZXRUb0RldmljZXNSZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVm",
+            "LkVtcHR5IgASfQocR2V0V2Vic29ja2V0Q29ubmVjdGlvblN0YXR1cxIsLnBy",
+            "b3RvLkR5R2V0V2Vic29ja2V0Q29ubmVjdGlvblN0YXR1c1JlcXVlc3QaLS5w",
+            "cm90by5EeUdldFdlYnNvY2tldENvbm5lY3Rpb25TdGF0dXNSZXNwb25zZSIA",
+            "EowBCiFHZXRXZWJzb2NrZXRDb25uZWN0aW9uU3RhdHVzQmF0Y2gSMS5wcm90",
+            "by5EeUdldFdlYnNvY2tldENvbm5lY3Rpb25TdGF0dXNCYXRjaFJlcXVlc3Qa",
+            "Mi5wcm90by5EeUdldFdlYnNvY2tldENvbm5lY3Rpb25TdGF0dXNCYXRjaFJl",
+            "c3BvbnNlIgASWwoWR2V0QWxsQ29ubmVjdGVkVXNlcklkcxIWLmdvb2dsZS5w",
+            "cm90b2J1Zi5FbXB0eRonLnByb3RvLkR5R2V0QWxsQ29ubmVjdGVkVXNlcklk",
+            "c1Jlc3BvbnNlIgASWgoWUmVjZWl2ZVdlYlNvY2tldFBhY2tldBImLnByb3Rv",
+            "LkR5UmVjZWl2ZVdlYlNvY2tldFBhY2tldFJlcXVlc3QaFi5nb29nbGUucHJv",
+            "dG9idWYuRW1wdHkiAEI9Wh9naXQuc29sc3ludGguZGV2L3Nvc3lzL3NwZWMv",
+            "Z2VuqgIZRHlzb25OZXR3b3JrLlNoYXJlZC5Qcm90b2IGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.EmptyReflection.Descriptor, global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor, global::DysonNetwork.Shared.Proto.RingReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyPushWebSocketPacketRequest), global::DysonNetwork.Shared.Proto.DyPushWebSocketPacketRequest.Parser, new[]{ "UserId", "Packet" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyPushWebSocketPacketRequest), global::DysonNetwork.Shared.Proto.DyPushWebSocketPacketRequest.Parser, new[]{ "UserId", "Packet", "ExcludedWebsocketDeviceIds" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyPushWebSocketPacketToUsersRequest), global::DysonNetwork.Shared.Proto.DyPushWebSocketPacketToUsersRequest.Parser, new[]{ "UserIds", "Packet" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyPushWebSocketPacketToDeviceRequest), global::DysonNetwork.Shared.Proto.DyPushWebSocketPacketToDeviceRequest.Parser, new[]{ "DeviceId", "Packet" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyPushWebSocketPacketToDevicesRequest), global::DysonNetwork.Shared.Proto.DyPushWebSocketPacketToDevicesRequest.Parser, new[]{ "DeviceIds", "Packet" }, null, null, null, null),
@@ -129,6 +130,7 @@ namespace DysonNetwork.Shared.Proto {
     public DyPushWebSocketPacketRequest(DyPushWebSocketPacketRequest other) : this() {
       userId_ = other.userId_;
       packet_ = other.packet_ != null ? other.packet_.Clone() : null;
+      excludedWebsocketDeviceIds_ = other.excludedWebsocketDeviceIds_.Clone();
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -162,6 +164,17 @@ namespace DysonNetwork.Shared.Proto {
       }
     }
 
+    /// <summary>Field number for the "excluded_websocket_device_ids" field.</summary>
+    public const int ExcludedWebsocketDeviceIdsFieldNumber = 3;
+    private static readonly pb::FieldCodec<string> _repeated_excludedWebsocketDeviceIds_codec
+        = pb::FieldCodec.ForString(26);
+    private readonly pbc::RepeatedField<string> excludedWebsocketDeviceIds_ = new pbc::RepeatedField<string>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<string> ExcludedWebsocketDeviceIds {
+      get { return excludedWebsocketDeviceIds_; }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -179,6 +192,7 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (UserId != other.UserId) return false;
       if (!object.Equals(Packet, other.Packet)) return false;
+      if(!excludedWebsocketDeviceIds_.Equals(other.excludedWebsocketDeviceIds_)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -188,6 +202,7 @@ namespace DysonNetwork.Shared.Proto {
       int hash = 1;
       if (UserId.Length != 0) hash ^= UserId.GetHashCode();
       if (packet_ != null) hash ^= Packet.GetHashCode();
+      hash ^= excludedWebsocketDeviceIds_.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -214,6 +229,7 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(18);
         output.WriteMessage(Packet);
       }
+      excludedWebsocketDeviceIds_.WriteTo(output, _repeated_excludedWebsocketDeviceIds_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -232,6 +248,7 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(18);
         output.WriteMessage(Packet);
       }
+      excludedWebsocketDeviceIds_.WriteTo(ref output, _repeated_excludedWebsocketDeviceIds_codec);
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -248,6 +265,7 @@ namespace DysonNetwork.Shared.Proto {
       if (packet_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(Packet);
       }
+      size += excludedWebsocketDeviceIds_.CalculateSize(_repeated_excludedWebsocketDeviceIds_codec);
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
       }
@@ -269,6 +287,7 @@ namespace DysonNetwork.Shared.Proto {
         }
         Packet.MergeFrom(other.Packet);
       }
+      excludedWebsocketDeviceIds_.Add(other.excludedWebsocketDeviceIds_);
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
 
@@ -299,6 +318,10 @@ namespace DysonNetwork.Shared.Proto {
             input.ReadMessage(Packet);
             break;
           }
+          case 26: {
+            excludedWebsocketDeviceIds_.AddEntriesFrom(input, _repeated_excludedWebsocketDeviceIds_codec);
+            break;
+          }
         }
       }
     #endif
@@ -327,6 +350,10 @@ namespace DysonNetwork.Shared.Proto {
               Packet = new global::DysonNetwork.Shared.Proto.DyWebSocketPacket();
             }
             input.ReadMessage(Packet);
+            break;
+          }
+          case 26: {
+            excludedWebsocketDeviceIds_.AddEntriesFrom(ref input, _repeated_excludedWebsocketDeviceIds_codec);
             break;
           }
         }

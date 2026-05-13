@@ -273,11 +273,6 @@ public class PushService
         CancellationToken cancellationToken = default)
     {
         BroadcastSopStream(notification);
-        await _ws.PushWebSocketPacket(
-            notification.AccountId.ToString(),
-            "notifications.new",
-            InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray()
-        );
 
         try
         {
@@ -296,23 +291,30 @@ public class PushService
             if (subscriptions.Count == 0)
             {
                 _logger.LogInformation("No push subscriptions found for account {AccountId}", notification.AccountId);
+                await _ws.PushWebSocketPacket(
+                    notification.AccountId.ToString(),
+                    "notifications.new",
+                    InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray()
+                );
                 return;
             }
 
-            // Send push notifications
-            var tasks = new List<Task>();
-            foreach (var subscription in subscriptions)
+            var subscriptionByDevice = subscriptions
+                .GroupBy(s => s.DeviceId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(GetSubscriptionPriority).First());
+
+            foreach (var deviceGroup in subscriptions.GroupBy(s => s.DeviceId))
             {
-                try
-                {
-                    tasks.Add(SendPushNotificationAsync(subscription, notification));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error sending push notification to {DeviceId}", subscription.DeviceId);
-                }
+                var deviceId = deviceGroup.Key;
+                await _ws.PushWebSocketPacket(
+                    notification.AccountId.ToString(),
+                    "notifications.new",
+                    InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray(),
+                    [deviceId]
+                );
             }
 
+            var tasks = subscriptionByDevice.Values.Select(sub => SendPushNotificationAsync(sub, notification)).ToList();
             await Task.WhenAll(tasks);
         }
         catch (Exception ex)
@@ -342,7 +344,12 @@ public class PushService
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.ViewedAt, now));
     }
 
-    public async Task SendNotificationBatch(SnNotification notification, List<Guid> accounts, bool save = false)
+    public async Task SendNotificationBatch(
+        SnNotification notification,
+        List<Guid> accounts,
+        bool save = false,
+        IReadOnlyCollection<string>? excludedWebSocketDeviceIds = null
+    )
     {
         if (save)
         {
@@ -380,24 +387,40 @@ public class PushService
             notification.AccountId = account;
             BroadcastSopStream(notification);
 
-            // WebSocket
-            await _ws.PushWebSocketPacket(
-                notification.AccountId.ToString(),
-                "notifications.new",
-                InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray()
-            );
-
-            // Push notifications
             var subscriptions = await _db.PushSubscriptions
                 .Where(s => s.AccountId == account)
                 .Where(s => s.IsActivated)
                 .ToListAsync();
 
-            if (subscriptions.Count > 0)
+            if (subscriptions.Count == 0)
             {
-                var tasks = subscriptions.Select(sub => SendPushNotificationAsync(sub, notification)).ToList();
-                await Task.WhenAll(tasks);
+                await _ws.PushWebSocketPacket(
+                    notification.AccountId.ToString(),
+                    "notifications.new",
+                    InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray(),
+                    excludedWebSocketDeviceIds
+                );
+                continue;
             }
+
+            var subscriptionByDevice = subscriptions
+                .GroupBy(s => s.DeviceId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(GetSubscriptionPriority).First());
+
+            foreach (var deviceGroup in subscriptions.GroupBy(s => s.DeviceId))
+            {
+                var deviceId = deviceGroup.Key;
+
+                await _ws.PushWebSocketPacket(
+                    notification.AccountId.ToString(),
+                    "notifications.new",
+                    InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray(),
+                    excludedWebSocketDeviceIds is null ? new[] { deviceId } : excludedWebSocketDeviceIds.Concat([deviceId]).ToArray()
+                );
+            }
+
+            var tasks = subscriptionByDevice.Values.Select(sub => SendPushNotificationAsync(sub, notification)).ToList();
+            await Task.WhenAll(tasks);
         }
     }
 
@@ -533,6 +556,15 @@ public class PushService
         foreach (var stream in accountStreams.Values)
             stream.Writer.TryWrite(notification);
     }
+
+    private static int GetSubscriptionPriority(SnNotificationPushSubscription subscription) => subscription.Provider switch
+    {
+        PushProvider.Sop => 3,
+        PushProvider.Google => 2,
+        PushProvider.UnifiedPush => 1,
+        PushProvider.Apple => 4,
+        _ => 0
+    };
 
     private static bool IsInvalidFcmTokenError(string? error) =>
         !string.IsNullOrWhiteSpace(error) && InvalidFcmErrors.Contains(error);
