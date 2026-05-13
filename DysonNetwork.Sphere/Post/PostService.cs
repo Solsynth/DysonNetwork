@@ -739,7 +739,7 @@ public partial class PostService(
         return input;
     }
 
-    public (string? title, string content) ChopPostForNotification(SnPost post, String locale)
+    public (string? title, string? content) ChopPostForNotification(SnPost post, String locale)
     {
         var content = !string.IsNullOrEmpty(post.Description)
             ? post.Description?.Length >= 40
