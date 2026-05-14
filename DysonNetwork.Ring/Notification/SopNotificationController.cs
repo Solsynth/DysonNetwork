@@ -82,7 +82,7 @@ public class SopNotificationController(
         Response.Headers.Append("Cache-Control", "no-cache");
         Response.Headers.Append("Connection", "keep-alive");
 
-        var (streamId, reader) = nty.SubscribeSopStream(sopSub.AccountId);
+        var (streamId, reader) = nty.SubscribeSopStream(sopSub.AccountId, sopSub.DeviceId);
         try
         {
             await Response.WriteAsync("event: ready\n");

@@ -41,7 +41,8 @@ public class QueueService(INatsConnection nats)
         {
             Type = QueueMessageType.PushNotification,
             TargetId = userId.ToString(),
-            Data = JsonSerializer.Serialize(notification)
+            Data = JsonSerializer.Serialize(notification),
+            ExcludedWebSocketDeviceIds = excludedWebSocketDeviceIds?.ToList()
         };
         var rawMessage = InfraObjectCoder.ConvertObjectToByteString(message).ToByteArray();
         await nats.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
@@ -53,6 +54,7 @@ public class QueueMessage
     public QueueMessageType Type { get; set; }
     public string? TargetId { get; set; }
     public string Data { get; set; } = string.Empty;
+    public List<string>? ExcludedWebSocketDeviceIds { get; set; }
 }
 
 public enum QueueMessageType

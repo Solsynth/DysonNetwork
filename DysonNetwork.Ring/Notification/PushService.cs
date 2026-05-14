@@ -16,7 +16,9 @@ namespace DysonNetwork.Ring.Notification;
 
 public class PushService
 {
-    private static readonly ConcurrentDictionary<Guid, ConcurrentDictionary<Guid, Channel<SnNotification>>> SopStreams = new();
+    private sealed record SopStreamSubscription(string DeviceId, Channel<SnNotification> Channel);
+
+    private static readonly ConcurrentDictionary<Guid, ConcurrentDictionary<Guid, SopStreamSubscription>> SopStreams = new();
     private readonly AppDatabase _db;
     private readonly QueueService _queueService;
     private readonly ILogger<PushService> _logger;
@@ -209,20 +211,20 @@ public class PushService
             .FirstOrDefault();
     }
 
-    public (Guid StreamId, ChannelReader<SnNotification> Reader) SubscribeSopStream(Guid accountId)
+    public (Guid StreamId, ChannelReader<SnNotification> Reader) SubscribeSopStream(Guid accountId, string deviceId)
     {
-        var accountStreams = SopStreams.GetOrAdd(accountId, _ => new ConcurrentDictionary<Guid, Channel<SnNotification>>());
+        var accountStreams = SopStreams.GetOrAdd(accountId, _ => new ConcurrentDictionary<Guid, SopStreamSubscription>());
         var streamId = Guid.NewGuid();
         var channel = Channel.CreateUnbounded<SnNotification>();
-        accountStreams[streamId] = channel;
+        accountStreams[streamId] = new SopStreamSubscription(deviceId, channel);
         return (streamId, channel.Reader);
     }
 
     public void UnsubscribeSopStream(Guid accountId, Guid streamId)
     {
         if (!SopStreams.TryGetValue(accountId, out var accountStreams)) return;
-        if (accountStreams.TryRemove(streamId, out var channel))
-            channel.Writer.TryComplete();
+        if (accountStreams.TryRemove(streamId, out var stream))
+            stream.Channel.Writer.TryComplete();
         if (accountStreams.IsEmpty)
             SopStreams.TryRemove(accountId, out _);
     }
@@ -269,7 +271,9 @@ public class PushService
             _ = _queueService.EnqueuePushNotification(notification, accountId, save);
     }
 
-    public async Task DeliverPushNotification(SnNotification notification,
+    public async Task DeliverPushNotification(
+        SnNotification notification,
+        IReadOnlyCollection<string>? excludedWebSocketDeviceIds = null,
         CancellationToken cancellationToken = default)
     {
         BroadcastSopStream(notification);
@@ -294,25 +298,26 @@ public class PushService
                 await _ws.PushWebSocketPacket(
                     notification.AccountId.ToString(),
                     "notifications.new",
-                    InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray()
+                    InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray(),
+                    excludedWebSocketDeviceIds
                 );
                 return;
             }
 
-            var subscriptionByDevice = subscriptions
-                .GroupBy(s => s.DeviceId)
-                .ToDictionary(g => g.Key, g => g.OrderByDescending(GetSubscriptionPriority).First());
+            var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
+            var subscriptionByDevice = SelectSubscriptionsByDevice(subscriptions, connectedSopDeviceIds);
 
-            foreach (var deviceGroup in subscriptions.GroupBy(s => s.DeviceId))
-            {
-                var deviceId = deviceGroup.Key;
-                await _ws.PushWebSocketPacket(
-                    notification.AccountId.ToString(),
-                    "notifications.new",
-                    InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray(),
-                    [deviceId]
-                );
-            }
+            var websocketExclusions = BuildWebSocketExclusions(
+                connectedSopDeviceIds,
+                excludedWebSocketDeviceIds
+            );
+
+            await _ws.PushWebSocketPacket(
+                notification.AccountId.ToString(),
+                "notifications.new",
+                InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray(),
+                websocketExclusions
+            );
 
             var tasks = subscriptionByDevice.Values.Select(sub => SendPushNotificationAsync(sub, notification)).ToList();
             await Task.WhenAll(tasks);
@@ -403,21 +408,20 @@ public class PushService
                 continue;
             }
 
-            var subscriptionByDevice = subscriptions
-                .GroupBy(s => s.DeviceId)
-                .ToDictionary(g => g.Key, g => g.OrderByDescending(GetSubscriptionPriority).First());
+            var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
+            var subscriptionByDevice = SelectSubscriptionsByDevice(subscriptions, connectedSopDeviceIds);
 
-            foreach (var deviceGroup in subscriptions.GroupBy(s => s.DeviceId))
-            {
-                var deviceId = deviceGroup.Key;
+            var websocketExclusions = BuildWebSocketExclusions(
+                connectedSopDeviceIds,
+                excludedWebSocketDeviceIds
+            );
 
-                await _ws.PushWebSocketPacket(
-                    notification.AccountId.ToString(),
-                    "notifications.new",
-                    InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray(),
-                    excludedWebSocketDeviceIds is null ? new[] { deviceId } : excludedWebSocketDeviceIds.Concat([deviceId]).ToArray()
-                );
-            }
+            await _ws.PushWebSocketPacket(
+                notification.AccountId.ToString(),
+                "notifications.new",
+                InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray(),
+                websocketExclusions
+            );
 
             var tasks = subscriptionByDevice.Values.Select(sub => SendPushNotificationAsync(sub, notification)).ToList();
             await Task.WhenAll(tasks);
@@ -554,17 +558,65 @@ public class PushService
     {
         if (!SopStreams.TryGetValue(notification.AccountId, out var accountStreams)) return;
         foreach (var stream in accountStreams.Values)
-            stream.Writer.TryWrite(notification);
+            stream.Channel.Writer.TryWrite(notification);
     }
 
-    private static int GetSubscriptionPriority(SnNotificationPushSubscription subscription) => subscription.Provider switch
+    private static Dictionary<string, SnNotificationPushSubscription> SelectSubscriptionsByDevice(
+        IEnumerable<SnNotificationPushSubscription> subscriptions,
+        IReadOnlySet<string> connectedSopDeviceIds
+    )
     {
-        PushProvider.Sop => 3,
+        return subscriptions
+            .GroupBy(s => NormalizeSopDeviceId(s.DeviceId))
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(s => GetSubscriptionPriority(s, connectedSopDeviceIds)).First()
+            );
+    }
+
+    private static int GetSubscriptionPriority(
+        SnNotificationPushSubscription subscription,
+        IReadOnlySet<string> connectedSopDeviceIds
+    ) => subscription.Provider switch
+    {
+        PushProvider.Sop => connectedSopDeviceIds.Contains(NormalizeSopDeviceId(subscription.DeviceId)) ? 5 : 0,
         PushProvider.Google => 2,
         PushProvider.UnifiedPush => 1,
         PushProvider.Apple => 4,
         _ => 0
     };
+
+    private static IReadOnlySet<string> GetConnectedSopWebSocketDeviceIds(Guid accountId)
+    {
+        if (!SopStreams.TryGetValue(accountId, out var accountStreams)) return new HashSet<string>();
+
+        return accountStreams.Values
+            .Select(s => NormalizeSopDeviceId(s.DeviceId))
+            .ToHashSet();
+    }
+
+    private static string NormalizeSopDeviceId(string deviceId)
+    {
+        const string sopSuffix = ":sop";
+        return deviceId.EndsWith(sopSuffix, StringComparison.Ordinal)
+            ? deviceId[..^sopSuffix.Length]
+            : deviceId;
+    }
+
+    private static IReadOnlyCollection<string>? BuildWebSocketExclusions(
+        IEnumerable<string> deviceIds,
+        IReadOnlyCollection<string>? excludedWebSocketDeviceIds
+    )
+    {
+        var exclusions = excludedWebSocketDeviceIds is null
+            ? new HashSet<string>()
+            : new HashSet<string>(excludedWebSocketDeviceIds);
+
+        foreach (var deviceId in deviceIds)
+            exclusions.Add(deviceId);
+
+        return exclusions.Count == 0 ? null : exclusions.ToArray();
+    }
 
     private static bool IsInvalidFcmTokenError(string? error) =>
         !string.IsNullOrWhiteSpace(error) && InvalidFcmErrors.Contains(error);

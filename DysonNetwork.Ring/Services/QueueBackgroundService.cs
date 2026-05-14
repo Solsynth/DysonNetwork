@@ -113,7 +113,11 @@ public class QueueBackgroundService(
         }
 
         logger.LogDebug("Processing push notification for account {AccountId}", notification.AccountId);
-        await pushService.DeliverPushNotification(notification, cancellationToken);
+        await pushService.DeliverPushNotification(
+            notification,
+            message.ExcludedWebSocketDeviceIds,
+            cancellationToken
+        );
         logger.LogDebug("Successfully processed push notification for account {AccountId}", notification.AccountId);
     }
 }
