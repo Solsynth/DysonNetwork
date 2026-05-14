@@ -75,10 +75,7 @@ public class ProgressionService(
     public async Task<List<ProgressionAchievementState>> ListAchievementStatesAsync(Guid accountId, CancellationToken cancellationToken = default)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        var definitions = await db.AchievementDefinitions
-            .Where(m => m.IsEnabled)
-            .OrderBy(m => m.SortOrder)
-            .ThenBy(m => m.Title)
+        var definitions = await GetAchievementDefinitionsQuery()
             .ToListAsync(cancellationToken);
         var progressMap = await db.AccountAchievements
             .Where(m => m.AccountId == accountId)
@@ -122,6 +119,42 @@ public class ProgressionService(
             .ThenBy(state => state.SeriesOrder ?? int.MaxValue)
             .ThenBy(state => state.Title)
             .ToList();
+    }
+
+    public async Task<List<ProgressionAchievementState>> SearchAchievementStatesAsync(Guid accountId, string query, CancellationToken cancellationToken = default)
+    {
+        var normalized = query.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+            return await ListAchievementStatesAsync(accountId, cancellationToken);
+
+        var states = await ListAchievementStatesAsync(accountId, cancellationToken);
+        return states.Where(state => MatchesQuery(state, normalized)).ToList();
+    }
+
+    public async Task<ProgressionAchievementStats> GetAchievementStatsAsync(Guid accountId, CancellationToken cancellationToken = default)
+    {
+        var definitions = await GetAchievementDefinitionsQuery().ToListAsync(cancellationToken);
+        var progressMap = await db.AccountAchievements
+            .Where(m => m.AccountId == accountId)
+            .ToDictionaryAsync(m => m.AchievementDefinitionId, cancellationToken);
+
+        var totalCount = definitions.Count;
+        var completedCount = definitions.Count(definition =>
+            progressMap.TryGetValue(definition.Id, out var progress) && progress.CompletedAt is not null
+        );
+        var hiddenDefinitions = definitions.Where(m => m.Hidden).ToList();
+        var hiddenCompletedCount = hiddenDefinitions.Count(definition =>
+            progressMap.TryGetValue(definition.Id, out var progress) && progress.CompletedAt is not null
+        );
+
+        return new ProgressionAchievementStats
+        {
+            TotalCount = totalCount,
+            CompletedCount = completedCount,
+            HiddenTotalCount = hiddenDefinitions.Count,
+            HiddenCompletedCount = hiddenCompletedCount,
+            CompletionPercentage = totalCount == 0 ? 0 : Math.Round((double)completedCount / totalCount * 100, 2)
+        };
     }
 
     public async Task<List<ProgressionQuestState>> ListQuestStatesAsync(Guid accountId, CancellationToken cancellationToken = default)
@@ -463,6 +496,20 @@ public class ProgressionService(
         return true;
     }
 
+    private static bool MatchesQuery(ProgressionAchievementState state, string query)
+    {
+        return Contains(state.Identifier, query) ||
+               Contains(state.Title, query) ||
+               Contains(state.Summary, query) ||
+               Contains(state.SeriesIdentifier, query) ||
+               Contains(state.SeriesTitle, query);
+    }
+
+    private static bool Contains(string? value, string query)
+    {
+        return !string.IsNullOrWhiteSpace(value) && value.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static void ApplyAchievementProgress(
         SnAccountAchievement progress,
         SnAchievementDefinition definition,
@@ -616,6 +663,14 @@ public class ProgressionService(
                 }).ToList();
                 return representative;
             });
+    }
+
+    private IQueryable<SnAchievementDefinition> GetAchievementDefinitionsQuery()
+    {
+        return db.AchievementDefinitions
+            .Where(m => m.IsEnabled)
+            .OrderBy(m => m.SortOrder)
+            .ThenBy(m => m.Title);
     }
 
     private async Task<DateTimeZone> ResolveAccountZoneAsync(Guid accountId, CancellationToken cancellationToken)

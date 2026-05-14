@@ -13,10 +13,22 @@ public class ProgressionController(ProgressionService progression) : ControllerB
     [HttpGet("achievements")]
     [ProducesResponseType<List<ProgressionAchievementState>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiError>(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<List<ProgressionAchievementState>>> GetAchievements()
+    public async Task<ActionResult<List<ProgressionAchievementState>>> GetAchievements([FromQuery] string? query = null)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
-        return Ok(await progression.ListAchievementStatesAsync(currentUser.Id, HttpContext.RequestAborted));
+        if (string.IsNullOrWhiteSpace(query))
+            return Ok(await progression.ListAchievementStatesAsync(currentUser.Id, HttpContext.RequestAborted));
+
+        return Ok(await progression.SearchAchievementStatesAsync(currentUser.Id, query, HttpContext.RequestAborted));
+    }
+
+    [HttpGet("achievements/stats")]
+    [ProducesResponseType<ProgressionAchievementStats>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ApiError>(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<ProgressionAchievementStats>> GetAchievementStats()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        return Ok(await progression.GetAchievementStatsAsync(currentUser.Id, HttpContext.RequestAborted));
     }
 
     [HttpGet("quests")]

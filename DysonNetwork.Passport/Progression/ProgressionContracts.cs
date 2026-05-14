@@ -104,3 +104,12 @@ public class ProgressionCompletionPacket
     public string? PeriodKey { get; set; }
     public SnProgressRewardDefinition Reward { get; set; } = new();
 }
+
+public class ProgressionAchievementStats
+{
+    public int TotalCount { get; set; }
+    public int CompletedCount { get; set; }
+    public int HiddenTotalCount { get; set; }
+    public int HiddenCompletedCount { get; set; }
+    public double CompletionPercentage { get; set; }
+}

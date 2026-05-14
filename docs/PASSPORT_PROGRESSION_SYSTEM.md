@@ -435,6 +435,8 @@ Controller:
 Endpoints:
 
 - `GET /api/accounts/me/progression/achievements`
+- `GET /api/accounts/me/progression/achievements?query=...`
+- `GET /api/accounts/me/progression/achievements/stats`
 - `GET /api/accounts/me/progression/quests`
 - `GET /api/accounts/me/progression/grants`
 
@@ -446,6 +448,14 @@ User list payloads now include series fields for merged stepped ladders:
 - `SeriesTotalSteps`
 - `SeriesCompletedSteps`
 - `SeriesStages` — array of all tiers with `Identifier`, `Title`, `SeriesOrder`, `TargetCount`, `IsCompleted`, `CompletedAt`
+
+Achievement stats include hidden definitions in the totals:
+
+- `TotalCount`
+- `CompletedCount`
+- `HiddenTotalCount`
+- `HiddenCompletedCount`
+- `CompletionPercentage`
 
 ### Admin APIs
 
@@ -511,6 +521,8 @@ Hidden achievements (not shown in catalog until unlocked):
 - Instant Connection: accept a friend request within 60 seconds
 - Social Butterfly: make 5 friends in a single day
 - 炎上: publisher post receives repeated downvotes in a single day (same ladder, no 1-step tier)
+
+The achievement search endpoint matches hidden achievements too, and the achievement stats endpoint counts hidden entries in both the total and completion percentage.
 
 ### Quests
 
