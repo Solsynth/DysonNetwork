@@ -622,6 +622,8 @@ public class PersistentTaskService(
             ExpiredAt = request.ExpiredAt,
             Hash = request.Hash,
             ParentId = request.ParentId,
+            Usage = request.Usage,
+            ApplicationType = request.ApplicationType,
             AccountId = accountId,
             Status = TaskStatus.InProgress,
             UploadedChunks = [],

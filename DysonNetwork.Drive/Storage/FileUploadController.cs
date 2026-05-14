@@ -122,6 +122,8 @@ public class FileUploadController(
         public string? EncryptionSignature { get; set; }
         public DateTimeOffset? ExpiredAt { get; set; }
         [MaxLength(32)] public string? ParentId { get; set; }
+        [MaxLength(256)] public string? Usage { get; set; }
+        [MaxLength(256)] public string? ApplicationType { get; set; }
     }
 
     [HttpPost("direct")]
@@ -211,7 +213,10 @@ public class FileUploadController(
                 request.EncryptionSignature,
                 request.ExpiredAt.HasValue ? Instant.FromDateTimeOffset(request.ExpiredAt.Value) : null,
                 request.ParentId,
-                !string.IsNullOrEmpty(request.ParentId)
+                !string.IsNullOrEmpty(request.ParentId),
+                null,
+                request.Usage,
+                request.ApplicationType
             );
 
             await fileService.PublishUploadCompletedEventAsync(fileEvent);
@@ -472,7 +477,9 @@ public class FileUploadController(
                 persistentTask.ExpiredAt,
                 persistentTask.ParentId,
                 !string.IsNullOrEmpty(persistentTask.ParentId),
-                taskId
+                taskId,
+                persistentTask.Usage,
+                persistentTask.ApplicationType
             );
 
             await persistentTaskService.UpdateTaskProgressAsync(taskId, 0.55, "Uploading to remote storage...");

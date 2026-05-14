@@ -106,7 +106,9 @@ public class FileService(
         Instant? expiredAt,
         string? parentId = null,
         bool indexed = false,
-        string? taskId = null
+        string? taskId = null,
+        string? usage = null,
+        string? applicationType = null
     )
     {
         var accountId = Guid.Parse(account.Id);
@@ -126,7 +128,7 @@ public class FileService(
 
         var fileObject = CreateFileObject(fileId, accountId, finalContentType, fileSize);
 
-        var file = CreateCloudFile(fileId, fileName, fileObject, finalExpiredAt, bundle, accountId, parentId, indexed);
+        var file = CreateCloudFile(fileId, fileName, fileObject, finalExpiredAt, bundle, accountId, parentId, indexed, usage, applicationType);
 
         if (!pool.PolicyConfig.NoMetadata)
         {
@@ -252,7 +254,9 @@ public class FileService(
         SnFileBundle? bundle,
         Guid accountId,
         string? parentId,
-        bool indexed
+        bool indexed,
+        string? usage = null,
+        string? applicationType = null
     )
     {
         return new SnCloudFile
@@ -267,6 +271,8 @@ public class FileService(
             ParentId = parentId,
             Indexed = indexed,
             IsFolder = false,
+            Usage = usage,
+            ApplicationType = applicationType
         };
     }
 
@@ -579,6 +585,12 @@ public class FileService(
                     break;
                 case "is_marked_recycle":
                     updatable.IsMarkedRecycle = file.IsMarkedRecycle;
+                    break;
+                case "usage":
+                    updatable.Usage = file.Usage;
+                    break;
+                case "application_type":
+                    updatable.ApplicationType = file.ApplicationType;
                     break;
                 default:
                     logger.LogWarning("Attempted to update unmodifiable field: {Field}", path);
@@ -977,6 +989,8 @@ file class UpdatableCloudFile(SnCloudFile file)
     public Dictionary<string, object?>? FileMeta { get; set; } = file.FileMeta;
     public Dictionary<string, object?>? UserMeta { get; set; } = file.UserMeta;
     public bool IsMarkedRecycle { get; set; } = file.IsMarkedRecycle;
+    public string? Usage { get; set; } = file.Usage;
+    public string? ApplicationType { get; set; } = file.ApplicationType;
 
     public Action<UpdateSettersBuilder<SnCloudFile>> ToSetPropertyCalls()
     {
@@ -985,6 +999,8 @@ file class UpdatableCloudFile(SnCloudFile file)
             .SetProperty(f => f.Name, Name)
             .SetProperty(f => f.Description, Description)
             .SetProperty(f => f.UserMeta, userMeta)
-            .SetProperty(f => f.IsMarkedRecycle, IsMarkedRecycle);
+            .SetProperty(f => f.IsMarkedRecycle, IsMarkedRecycle)
+            .SetProperty(f => f.Usage, Usage)
+            .SetProperty(f => f.ApplicationType, ApplicationType);
     }
 }

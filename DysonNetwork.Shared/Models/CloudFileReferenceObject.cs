@@ -43,6 +43,8 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
     public int? Width { get; set; }
     public int? Height { get; set; }
     [MaxLength(64)] public string? Blurhash { get; set; }
+    [MaxLength(256)] public string? Usage { get; set; }
+    [MaxLength(256)] public string? ApplicationType { get; set; }
 
     public static SnCloudFileReferenceObject FromProtoValue(DyCloudFile proto)
     {
@@ -66,7 +68,9 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
             Url = string.IsNullOrEmpty(proto.Url) ? null : proto.Url,
             Width = proto.HasWidth ? proto.Width : null,
             Height = proto.HasHeight ? proto.Height : null,
-            Blurhash = proto.HasBlurhash ? proto.Blurhash : null
+            Blurhash = proto.HasBlurhash ? proto.Blurhash : null,
+            Usage = proto.HasUsage ? proto.Usage : null,
+            ApplicationType = proto.HasApplicationType ? proto.ApplicationType : null
         };
     }
 
@@ -151,6 +155,11 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
             UserMeta = InfraObjectCoder.ConvertObjectToByteString(UserMeta),
             SensitiveMarks = InfraObjectCoder.ConvertObjectToByteString(SensitiveMarks)
         };
+
+        if (Usage is not null)
+            proto.Usage = Usage;
+        if (ApplicationType is not null)
+            proto.ApplicationType = ApplicationType;
 
         return proto;
     }

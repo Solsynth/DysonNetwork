@@ -26,7 +26,7 @@ namespace DysonNetwork.Shared.Proto {
           string.Concat(
             "CgpmaWxlLnByb3RvEgVwcm90bxofZ29vZ2xlL3Byb3RvYnVmL3RpbWVzdGFt",
             "cC5wcm90bxobZ29vZ2xlL3Byb3RvYnVmL2VtcHR5LnByb3RvGiBnb29nbGUv",
-            "cHJvdG9idWYvZmllbGRfbWFzay5wcm90byKsBQoLRHlDbG91ZEZpbGUSDgoC",
+            "cHJvdG9idWYvZmllbGRfbWFzay5wcm90byKWBgoLRHlDbG91ZEZpbGUSDgoC",
             "aWQYASABKAlSAmlkEhIKBG5hbWUYAiABKAlSBG5hbWUSGwoJZmlsZV9tZXRh",
             "GAMgASgMUghmaWxlTWV0YRIbCgl1c2VyX21ldGEYBCABKAxSCHVzZXJNZXRh",
             "EiwKD3NlbnNpdGl2ZV9tYXJrcxgMIAEoDEgAUg5zZW5zaXRpdmVNYXJrc4gB",
@@ -40,46 +40,49 @@ namespace DysonNetwork.Shared.Proto {
             "MAoGb2JqZWN0GBAgASgLMhMucHJvdG8uRHlGaWxlT2JqZWN0SARSBm9iamVj",
             "dIgBARIgCglwYXJlbnRfaWQYESABKAlIBVIIcGFyZW50SWSIAQESGAoHaW5k",
             "ZXhlZBgSIAEoCFIHaW5kZXhlZBIbCglpc19mb2xkZXIYEyABKAhSCGlzRm9s",
-            "ZGVyQhIKEF9zZW5zaXRpdmVfbWFya3NCCAoGX3dpZHRoQgkKB19oZWlnaHRC",
-            "CwoJX2JsdXJoYXNoQgkKB19vYmplY3RCDAoKX3BhcmVudF9pZCLFAQoMRHlG",
-            "aWxlT2JqZWN0Eg4KAmlkGAEgASgJUgJpZBISCgRzaXplGAIgASgDUgRzaXpl",
-            "EhIKBG1ldGEYAyABKAxSBG1ldGESGwoJbWltZV90eXBlGAQgASgJUghtaW1l",
-            "VHlwZRISCgRoYXNoGAUgASgJUgRoYXNoEicKD2hhc19jb21wcmVzc2lvbhgG",
-            "IAEoCFIOaGFzQ29tcHJlc3Npb24SIwoNaGFzX3RodW1ibmFpbBgHIAEoCFIM",
-            "aGFzVGh1bWJuYWlsIiIKEER5R2V0RmlsZVJlcXVlc3QSDgoCaWQYASABKAlS",
-            "AmlkIikKFUR5R2V0RmlsZUJhdGNoUmVxdWVzdBIQCgNpZHMYASADKAlSA2lk",
-            "cyJCChZEeUdldEZpbGVCYXRjaFJlc3BvbnNlEigKBWZpbGVzGAEgAygLMhIu",
-            "cHJvdG8uRHlDbG91ZEZpbGVSBWZpbGVzInoKE0R5VXBkYXRlRmlsZVJlcXVl",
-            "c3QSJgoEZmlsZRgBIAEoCzISLnByb3RvLkR5Q2xvdWRGaWxlUgRmaWxlEjsK",
-            "C3VwZGF0ZV9tYXNrGAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLkZpZWxkTWFz",
-            "a1IKdXBkYXRlTWFzayKIAQoORHlGaWxlTWV0YWRhdGESFwoHZmlsZV9pZBgB",
-            "IAEoCVIGZmlsZUlkEhsKCWZpbGVfbmFtZRgCIAEoCVIIZmlsZU5hbWUSIQoM",
-            "Y29udGVudF90eXBlGAMgASgJUgtjb250ZW50VHlwZRIdCgphY2NvdW50X2lk",
-            "GAQgASgJUglhY2NvdW50SWQiiwEKEER5VXBsb2FkTWV0YWRhdGESFwoHZmls",
-            "ZV9pZBgBIAEoCVIGZmlsZUlkEiMKDXRhcmdldF9yZW1vdGUYAiABKAlSDHRh",
-            "cmdldFJlbW90ZRIWCgZzdWZmaXgYAyABKAlSBnN1ZmZpeBIhCgxjb250ZW50",
-            "X3R5cGUYBCABKAlSC2NvbnRlbnRUeXBlIjsKE0R5RGVsZXRlRmlsZVJlcXVl",
-            "c3QSDgoCaWQYASABKAlSAmlkEhQKBXB1cmdlGAIgASgIUgVwdXJnZSIuChNE",
-            "eVB1cmdlQ2FjaGVSZXF1ZXN0EhcKB2ZpbGVfaWQYASABKAlSBmZpbGVJZCIx",
-            "ChZEeVNldEZpbGVQdWJsaWNSZXF1ZXN0EhcKB2ZpbGVfaWQYASABKAlSBmZp",
-            "bGVJZCIzChhEeVVuc2V0RmlsZVB1YmxpY1JlcXVlc3QSFwoHZmlsZV9pZBgB",
-            "IAEoCVIGZmlsZUlkMuoDCg1EeUZpbGVTZXJ2aWNlEjYKB0dldEZpbGUSFy5w",
-            "cm90by5EeUdldEZpbGVSZXF1ZXN0GhIucHJvdG8uRHlDbG91ZEZpbGUSSwoM",
-            "R2V0RmlsZUJhdGNoEhwucHJvdG8uRHlHZXRGaWxlQmF0Y2hSZXF1ZXN0Gh0u",
-            "cHJvdG8uRHlHZXRGaWxlQmF0Y2hSZXNwb25zZRI8CgpVcGRhdGVGaWxlEhou",
-            "cHJvdG8uRHlVcGRhdGVGaWxlUmVxdWVzdBoSLnByb3RvLkR5Q2xvdWRGaWxl",
-            "EkAKCkRlbGV0ZUZpbGUSGi5wcm90by5EeURlbGV0ZUZpbGVSZXF1ZXN0GhYu",
-            "Z29vZ2xlLnByb3RvYnVmLkVtcHR5EkAKClB1cmdlQ2FjaGUSGi5wcm90by5E",
-            "eVB1cmdlQ2FjaGVSZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5EkYK",
-            "DVNldEZpbGVQdWJsaWMSHS5wcm90by5EeVNldEZpbGVQdWJsaWNSZXF1ZXN0",
-            "GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5EkoKD1Vuc2V0RmlsZVB1YmxpYxIf",
-            "LnByb3RvLkR5VW5zZXRGaWxlUHVibGljUmVxdWVzdBoWLmdvb2dsZS5wcm90",
-            "b2J1Zi5FbXB0eUI9Wh9naXQuc29sc3ludGguZGV2L3Nvc3lzL3NwZWMvZ2Vu",
-            "qgIZRHlzb25OZXR3b3JrLlNoYXJlZC5Qcm90b2IGcHJvdG8z"));
+            "ZGVyEhkKBXVzYWdlGBQgASgJSAZSBXVzYWdliAEBEi4KEGFwcGxpY2F0aW9u",
+            "X3R5cGUYFSABKAlIB1IPYXBwbGljYXRpb25UeXBliAEBQhIKEF9zZW5zaXRp",
+            "dmVfbWFya3NCCAoGX3dpZHRoQgkKB19oZWlnaHRCCwoJX2JsdXJoYXNoQgkK",
+            "B19vYmplY3RCDAoKX3BhcmVudF9pZEIICgZfdXNhZ2VCEwoRX2FwcGxpY2F0",
+            "aW9uX3R5cGUixQEKDER5RmlsZU9iamVjdBIOCgJpZBgBIAEoCVICaWQSEgoE",
+            "c2l6ZRgCIAEoA1IEc2l6ZRISCgRtZXRhGAMgASgMUgRtZXRhEhsKCW1pbWVf",
+            "dHlwZRgEIAEoCVIIbWltZVR5cGUSEgoEaGFzaBgFIAEoCVIEaGFzaBInCg9o",
+            "YXNfY29tcHJlc3Npb24YBiABKAhSDmhhc0NvbXByZXNzaW9uEiMKDWhhc190",
+            "aHVtYm5haWwYByABKAhSDGhhc1RodW1ibmFpbCIiChBEeUdldEZpbGVSZXF1",
+            "ZXN0Eg4KAmlkGAEgASgJUgJpZCIpChVEeUdldEZpbGVCYXRjaFJlcXVlc3QS",
+            "EAoDaWRzGAEgAygJUgNpZHMiQgoWRHlHZXRGaWxlQmF0Y2hSZXNwb25zZRIo",
+            "CgVmaWxlcxgBIAMoCzISLnByb3RvLkR5Q2xvdWRGaWxlUgVmaWxlcyJ6ChNE",
+            "eVVwZGF0ZUZpbGVSZXF1ZXN0EiYKBGZpbGUYASABKAsyEi5wcm90by5EeUNs",
+            "b3VkRmlsZVIEZmlsZRI7Cgt1cGRhdGVfbWFzaxgCIAEoCzIaLmdvb2dsZS5w",
+            "cm90b2J1Zi5GaWVsZE1hc2tSCnVwZGF0ZU1hc2siiAEKDkR5RmlsZU1ldGFk",
+            "YXRhEhcKB2ZpbGVfaWQYASABKAlSBmZpbGVJZBIbCglmaWxlX25hbWUYAiAB",
+            "KAlSCGZpbGVOYW1lEiEKDGNvbnRlbnRfdHlwZRgDIAEoCVILY29udGVudFR5",
+            "cGUSHQoKYWNjb3VudF9pZBgEIAEoCVIJYWNjb3VudElkIosBChBEeVVwbG9h",
+            "ZE1ldGFkYXRhEhcKB2ZpbGVfaWQYASABKAlSBmZpbGVJZBIjCg10YXJnZXRf",
+            "cmVtb3RlGAIgASgJUgx0YXJnZXRSZW1vdGUSFgoGc3VmZml4GAMgASgJUgZz",
+            "dWZmaXgSIQoMY29udGVudF90eXBlGAQgASgJUgtjb250ZW50VHlwZSI7ChNE",
+            "eURlbGV0ZUZpbGVSZXF1ZXN0Eg4KAmlkGAEgASgJUgJpZBIUCgVwdXJnZRgC",
+            "IAEoCFIFcHVyZ2UiLgoTRHlQdXJnZUNhY2hlUmVxdWVzdBIXCgdmaWxlX2lk",
+            "GAEgASgJUgZmaWxlSWQiMQoWRHlTZXRGaWxlUHVibGljUmVxdWVzdBIXCgdm",
+            "aWxlX2lkGAEgASgJUgZmaWxlSWQiMwoYRHlVbnNldEZpbGVQdWJsaWNSZXF1",
+            "ZXN0EhcKB2ZpbGVfaWQYASABKAlSBmZpbGVJZDLqAwoNRHlGaWxlU2Vydmlj",
+            "ZRI2CgdHZXRGaWxlEhcucHJvdG8uRHlHZXRGaWxlUmVxdWVzdBoSLnByb3Rv",
+            "LkR5Q2xvdWRGaWxlEksKDEdldEZpbGVCYXRjaBIcLnByb3RvLkR5R2V0Rmls",
+            "ZUJhdGNoUmVxdWVzdBodLnByb3RvLkR5R2V0RmlsZUJhdGNoUmVzcG9uc2US",
+            "PAoKVXBkYXRlRmlsZRIaLnByb3RvLkR5VXBkYXRlRmlsZVJlcXVlc3QaEi5w",
+            "cm90by5EeUNsb3VkRmlsZRJACgpEZWxldGVGaWxlEhoucHJvdG8uRHlEZWxl",
+            "dGVGaWxlUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJACgpQdXJn",
+            "ZUNhY2hlEhoucHJvdG8uRHlQdXJnZUNhY2hlUmVxdWVzdBoWLmdvb2dsZS5w",
+            "cm90b2J1Zi5FbXB0eRJGCg1TZXRGaWxlUHVibGljEh0ucHJvdG8uRHlTZXRG",
+            "aWxlUHVibGljUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJKCg9V",
+            "bnNldEZpbGVQdWJsaWMSHy5wcm90by5EeVVuc2V0RmlsZVB1YmxpY1JlcXVl",
+            "c3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHlCPVofZ2l0LnNvbHN5bnRoLmRl",
+            "di9zb3N5cy9zcGVjL2dlbqoCGUR5c29uTmV0d29yay5TaGFyZWQuUHJvdG9i",
+            "BnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.EmptyReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.FieldMaskReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyCloudFile), global::DysonNetwork.Shared.Proto.DyCloudFile.Parser, new[]{ "Id", "Name", "FileMeta", "UserMeta", "SensitiveMarks", "MimeType", "Hash", "Size", "HasCompression", "Url", "ContentType", "UploadedAt", "Width", "Height", "Blurhash", "Object", "ParentId", "Indexed", "IsFolder" }, new[]{ "SensitiveMarks", "Width", "Height", "Blurhash", "Object", "ParentId" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyCloudFile), global::DysonNetwork.Shared.Proto.DyCloudFile.Parser, new[]{ "Id", "Name", "FileMeta", "UserMeta", "SensitiveMarks", "MimeType", "Hash", "Size", "HasCompression", "Url", "ContentType", "UploadedAt", "Width", "Height", "Blurhash", "Object", "ParentId", "Indexed", "IsFolder", "Usage", "ApplicationType" }, new[]{ "SensitiveMarks", "Width", "Height", "Blurhash", "Object", "ParentId", "Usage", "ApplicationType" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyFileObject), global::DysonNetwork.Shared.Proto.DyFileObject.Parser, new[]{ "Id", "Size", "Meta", "MimeType", "Hash", "HasCompression", "HasThumbnail" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetFileRequest), global::DysonNetwork.Shared.Proto.DyGetFileRequest.Parser, new[]{ "Id" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetFileBatchRequest), global::DysonNetwork.Shared.Proto.DyGetFileBatchRequest.Parser, new[]{ "Ids" }, null, null, null, null),
@@ -157,6 +160,8 @@ namespace DysonNetwork.Shared.Proto {
       parentId_ = other.parentId_;
       indexed_ = other.indexed_;
       isFolder_ = other.isFolder_;
+      usage_ = other.usage_;
+      applicationType_ = other.applicationType_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -466,6 +471,58 @@ namespace DysonNetwork.Shared.Proto {
       }
     }
 
+    /// <summary>Field number for the "usage" field.</summary>
+    public const int UsageFieldNumber = 20;
+    private readonly static string UsageDefaultValue = "";
+
+    private string usage_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Usage {
+      get { return usage_ ?? UsageDefaultValue; }
+      set {
+        usage_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+    /// <summary>Gets whether the "usage" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasUsage {
+      get { return usage_ != null; }
+    }
+    /// <summary>Clears the value of the "usage" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearUsage() {
+      usage_ = null;
+    }
+
+    /// <summary>Field number for the "application_type" field.</summary>
+    public const int ApplicationTypeFieldNumber = 21;
+    private readonly static string ApplicationTypeDefaultValue = "";
+
+    private string applicationType_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string ApplicationType {
+      get { return applicationType_ ?? ApplicationTypeDefaultValue; }
+      set {
+        applicationType_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+    /// <summary>Gets whether the "application_type" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasApplicationType {
+      get { return applicationType_ != null; }
+    }
+    /// <summary>Clears the value of the "application_type" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearApplicationType() {
+      applicationType_ = null;
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -500,6 +557,8 @@ namespace DysonNetwork.Shared.Proto {
       if (ParentId != other.ParentId) return false;
       if (Indexed != other.Indexed) return false;
       if (IsFolder != other.IsFolder) return false;
+      if (Usage != other.Usage) return false;
+      if (ApplicationType != other.ApplicationType) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -526,6 +585,8 @@ namespace DysonNetwork.Shared.Proto {
       if (HasParentId) hash ^= ParentId.GetHashCode();
       if (Indexed != false) hash ^= Indexed.GetHashCode();
       if (IsFolder != false) hash ^= IsFolder.GetHashCode();
+      if (HasUsage) hash ^= Usage.GetHashCode();
+      if (HasApplicationType) hash ^= ApplicationType.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -620,6 +681,14 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(152, 1);
         output.WriteBool(IsFolder);
       }
+      if (HasUsage) {
+        output.WriteRawTag(162, 1);
+        output.WriteString(Usage);
+      }
+      if (HasApplicationType) {
+        output.WriteRawTag(170, 1);
+        output.WriteString(ApplicationType);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -706,6 +775,14 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(152, 1);
         output.WriteBool(IsFolder);
       }
+      if (HasUsage) {
+        output.WriteRawTag(162, 1);
+        output.WriteString(Usage);
+      }
+      if (HasApplicationType) {
+        output.WriteRawTag(170, 1);
+        output.WriteString(ApplicationType);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -772,6 +849,12 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (IsFolder != false) {
         size += 2 + 1;
+      }
+      if (HasUsage) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(Usage);
+      }
+      if (HasApplicationType) {
+        size += 2 + pb::CodedOutputStream.ComputeStringSize(ApplicationType);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -847,6 +930,12 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.IsFolder != false) {
         IsFolder = other.IsFolder;
+      }
+      if (other.HasUsage) {
+        Usage = other.Usage;
+      }
+      if (other.HasApplicationType) {
+        ApplicationType = other.ApplicationType;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -949,6 +1038,14 @@ namespace DysonNetwork.Shared.Proto {
             IsFolder = input.ReadBool();
             break;
           }
+          case 162: {
+            Usage = input.ReadString();
+            break;
+          }
+          case 170: {
+            ApplicationType = input.ReadString();
+            break;
+          }
         }
       }
     #endif
@@ -1048,6 +1145,14 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 152: {
             IsFolder = input.ReadBool();
+            break;
+          }
+          case 162: {
+            Usage = input.ReadString();
+            break;
+          }
+          case 170: {
+            ApplicationType = input.ReadString();
             break;
           }
         }

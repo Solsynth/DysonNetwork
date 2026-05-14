@@ -40,6 +40,9 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
     public bool Indexed { get; set; } = false;
     public bool IsFolder { get; set; } = false;
 
+    [MaxLength(256)] public string? Usage { get; set; }
+    [MaxLength(256)] public string? ApplicationType { get; set; }
+
     [JsonIgnore] public SnFileBundle? Bundle { get; set; }
     public Guid? BundleId { get; set; }
 
@@ -84,7 +87,9 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
             MimeType = MimeType,
             Hash = Hash,
             Size = Size,
-            HasCompression = HasCompression
+            HasCompression = HasCompression,
+            Usage = Usage,
+            ApplicationType = ApplicationType
         };
     }
 
@@ -132,6 +137,11 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
                 HasThumbnail = Object.HasThumbnail
             };
         }
+
+        if (Usage is not null)
+            proto.Usage = Usage;
+        if (ApplicationType is not null)
+            proto.ApplicationType = ApplicationType;
 
         return proto;
     }

@@ -26,6 +26,8 @@ public class FileUploadParameters
     public string Hash { get; set; } = string.Empty;
     public List<int> UploadedChunks { get; set; } = [];
     [MaxLength(32)] public string? ParentId { get; set; }
+    [MaxLength(256)] public string? Usage { get; set; }
+    [MaxLength(256)] public string? ApplicationType { get; set; }
 }
 
 // File Move Task Parameters
@@ -102,6 +104,8 @@ public class CreateUploadTaskRequest
     public Instant? ExpiredAt { get; set; }
     public long? ChunkSize { get; set; }
     [MaxLength(32)] public string? ParentId { get; set; }
+    [MaxLength(256)] public string? Usage { get; set; }
+    [MaxLength(256)] public string? ApplicationType { get; set; }
 }
 
 public class CreateUploadTaskResponse
@@ -343,6 +347,30 @@ public class PersistentUploadTask : PersistentTask
         {
             var parameters = TypedParameters;
             parameters.ParentId = value;
+            TypedParameters = parameters;
+        }
+    }
+
+    [MaxLength(256)]
+    public string? Usage
+    {
+        get => TypedParameters.Usage;
+        set
+        {
+            var parameters = TypedParameters;
+            parameters.Usage = value;
+            TypedParameters = parameters;
+        }
+    }
+
+    [MaxLength(256)]
+    public string? ApplicationType
+    {
+        get => TypedParameters.ApplicationType;
+        set
+        {
+            var parameters = TypedParameters;
+            parameters.ApplicationType = value;
             TypedParameters = parameters;
         }
     }
