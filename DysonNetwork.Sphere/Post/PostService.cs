@@ -855,12 +855,14 @@ public partial class PostService(
     )
     {
         var (postTitle, postContent) = ChopPostForNotification(post, locale);
+        var notificationSubtitle = !string.IsNullOrWhiteSpace(subtitle) ? subtitle : postTitle;
+        var notificationBody = !string.IsNullOrWhiteSpace(body) ? body : postContent;
         var notification = new DyPushNotification
         {
-            Topic = topic,
-            Title = title,
-            Subtitle = !string.IsNullOrWhiteSpace(subtitle) ? subtitle : postTitle,
-            Body = !string.IsNullOrWhiteSpace(body) ? body : postContent,
+            Topic = topic ?? string.Empty,
+            Title = title ?? string.Empty,
+            Subtitle = notificationSubtitle ?? string.Empty,
+            Body = notificationBody ?? string.Empty,
             Meta = InfraObjectCoder.ConvertObjectToByteString(
                 BuildPostNotificationMeta(post, locale, avatarId, extraMeta)
             ),
