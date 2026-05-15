@@ -1,7 +1,7 @@
 version: v2
 
 inputs:
-    - git_repo: https://git.solsynth.dev/SolarNetwork/DysonProto.git
+    - git_repo: https://src.solsynth.dev/SoSYS/Spec.git
       subdir: proto
 
 plugins:
