@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
 using StackExchange.Redis;
 
@@ -119,7 +118,7 @@ public sealed class CacheServiceRedis(
     {
         var normalized = Normalize(key);
         var db = redis.GetDatabase();
-        var json = JsonSerializer.Serialize(value);
+        var json = serializer.Serialize(value);
         await db.HashSetAsync(normalized, new HashEntry[]
         {
             new(DataField, json),
@@ -147,7 +146,7 @@ public sealed class CacheServiceRedis(
             return default;
         if (!map.TryGetValue(DataField, out var data) || string.IsNullOrWhiteSpace(data))
             return default;
-        return JsonSerializer.Deserialize<T>(data);
+        return serializer.Deserialize<T>(data);
     }
 
     public async Task<bool> SetFlagAsync(string key, TimeSpan? expiry = null)
