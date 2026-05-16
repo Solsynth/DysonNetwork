@@ -22,7 +22,7 @@ public class DysonTokenAuthHandler(
     UrlEncoder encoder,
     DyAuthService.DyAuthServiceClient auth,
     DyProfileService.DyProfileServiceClient profiles,
-    ICacheService cache,
+    ISharedCacheService cache,
     IConfiguration config
 ) : AuthenticationHandler<DysonTokenAuthOptions>(options, logger, encoder)
 {
@@ -60,7 +60,7 @@ public class DysonTokenAuthHandler(
             var cacheKey = AuthCacheKeys.Session(sessionId);
 
             // Check cache first
-            var cachedSession = await cache.GetAsync<DyAuthSession>(cacheKey);
+            var cachedSession = await cache.GetData<DyAuthSession>(cacheKey, typeof(DyAuthSession).Name);
             if (cachedSession is not null)
             {
                 ApplyTokenScopesIfPresent(cachedSession, tokenScopes);
@@ -92,7 +92,7 @@ public class DysonTokenAuthHandler(
 
             // Cache the validated session using session ID
             var sessionCacheKey = AuthCacheKeys.Session(session.Id);
-            await cache.SetAsync(sessionCacheKey, session, SessionCacheTtl);
+            await cache.SetData(sessionCacheKey, session, SessionCacheTtl, typeof(DyAuthSession).Name);
             Logger.LogDebug("Auth session cached for 1h, sessionId={SessionId}", session.Id);
 
             ApplyTokenScopesIfPresent(session, tokenScopes);
@@ -223,7 +223,7 @@ public class DysonTokenAuthHandler(
             return;
 
         var cacheKey = $"{ProfileCachePrefix}{session.Account.Id}";
-        var cached = await cache.GetAsync<DyAccountProfile>(cacheKey);
+        var cached = await cache.GetData<DyAccountProfile>(cacheKey, typeof(DyAccountProfile).Name);
         if (cached is not null)
         {
             session.Account.Profile = cached;
@@ -237,7 +237,7 @@ public class DysonTokenAuthHandler(
                 cancellationToken: cancellationToken
             );
             session.Account.Profile = profile;
-            await cache.SetAsync(cacheKey, profile, ProfileCacheTtl);
+            await cache.SetData(cacheKey, profile, ProfileCacheTtl, typeof(DyAccountProfile).Name);
         }
         catch (RpcException ex) when (ex.StatusCode is StatusCode.NotFound or StatusCode.Unimplemented)
         {
@@ -258,8 +258,7 @@ public class DysonTokenAuthHandler(
             return;
 
         var throttleKey = $"auth:last_seen_touch:{session.Account.Id}";
-        var (alreadyTouched, _) = await cache.GetAsyncWithStatus<bool>(throttleKey);
-        if (alreadyTouched)
+        if (await cache.HasFlagAsync(throttleKey))
             return;
 
         try
@@ -280,7 +279,7 @@ public class DysonTokenAuthHandler(
                 },
                 cancellationToken: cancellationToken
             );
-            await cache.SetAsync(throttleKey, true, LastSeenTouchThrottle);
+            await cache.SetFlagAsync(throttleKey, LastSeenTouchThrottle);
         }
         catch (RpcException ex) when (ex.StatusCode is StatusCode.NotFound or StatusCode.Unimplemented)
         {
