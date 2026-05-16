@@ -22,7 +22,7 @@ public class DysonTokenAuthHandler(
     UrlEncoder encoder,
     DyAuthService.DyAuthServiceClient auth,
     DyProfileService.DyProfileServiceClient profiles,
-    ISharedCacheService cache,
+    ICacheService cache,
     IConfiguration config
 ) : AuthenticationHandler<DysonTokenAuthOptions>(options, logger, encoder)
 {

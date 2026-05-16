@@ -59,13 +59,19 @@ These entries only store the string `"1"` and rely on TTL for expiration.
 
 ## API Naming
 
-The shared cache API uses neutral names:
+The shared cache API uses neutral names on `ICacheService`:
 
 - `SetData`
 - `GetData`
 - `SetFlagAsync`
 - `HasFlagAsync`
 - `RemoveFlagAsync`
+- `AddToGroupAsync`
+- `RemoveGroupAsync`
+- `GetGroupKeysAsync`
+- `SetWithGroupsAsync`
+- `AcquireLockAsync`
+- `ExecuteWithLockAsync`
 
 The Go cache package mirrors the same naming.
 
@@ -103,6 +109,36 @@ Auth should continue to work even when cache entries are malformed.
 3. Update `last_seen_at`.
 4. Set the flag with a short TTL.
 
+## Group Contract
+
+Groups use Redis sets:
+
+- group set: `dyson:cg:{group}`
+- reverse index: `dyson:cgk:{normalizedKey}`
+
+Rules:
+
+1. `AddToGroupAsync(key, group)` adds the normalized key to the group set.
+2. `RemoveGroupAsync(group)` removes all member keys and clears their reverse indexes.
+3. `GetGroupKeysAsync(group)` returns the normalized keys stored in the set.
+4. `RemoveAsync(key)` also clears the reverse index entries for that key.
+
+## Lock Contract
+
+Locks use a leased string value:
+
+- lock key: `dyson:lock:{resource}`
+- lock token: random string owned by the acquirer
+- acquisition: `SET key token NX PX ttl`
+- release: compare-and-delete using the token
+
+Rules:
+
+1. Locks are owned by a single caller token.
+2. Release only succeeds for the owner token.
+3. Expiration is controlled by Redis TTL.
+4. Wait/retry helpers may poll until a timeout.
+
 ## Files Involved
 
 Go:
@@ -115,8 +151,8 @@ Go:
 
 C#:
 
-- `/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Shared/Cache/ISharedCacheService.cs`
-- `/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Shared/Cache/SharedProtoCacheService.cs`
+- `/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Shared/Cache/ICacheService.cs`
+- `/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Shared/Cache/CacheService.cs`
 - `/Users/littlesheep/Documents/Projects/DysonNetwork/DysonNetwork.Shared/Auth/AuthScheme.cs`
 
 ## Migration Notes

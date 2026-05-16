@@ -81,7 +81,6 @@ public static class Extensions
                 return RedLockFactory.Create(new List<RedLockMultiplexer> { new(mux) });
             });
             builder.Services.AddSingleton<ICacheService, CacheServiceRedis>();
-            builder.Services.AddSingleton<ISharedCacheService, SharedCacheService>();
             if (builder.Configuration.GetSection("Cache")["Serializer"] == "MessagePack")
                 builder.Services.AddSingleton<ICacheSerializer, MessagePackCacheSerializer>();
             else

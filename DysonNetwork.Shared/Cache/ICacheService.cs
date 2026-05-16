@@ -49,6 +49,31 @@ public interface ICacheService
     Task<bool> SetWithGroupsAsync<T>(string key, T value, IEnumerable<string>? groups = null, TimeSpan? expiry = null);
 
     /// <summary>
+    /// Stores structured shared data in a hash envelope.
+    /// </summary>
+    Task<bool> SetData<T>(string key, T value, TimeSpan? expiry = null, string? typeName = null);
+
+    /// <summary>
+    /// Reads structured shared data from a hash envelope.
+    /// </summary>
+    Task<T?> GetData<T>(string key, string? typeName = null);
+
+    /// <summary>
+    /// Sets a simple flag value with TTL.
+    /// </summary>
+    Task<bool> SetFlagAsync(string key, TimeSpan? expiry = null);
+
+    /// <summary>
+    /// Checks whether a flag value exists.
+    /// </summary>
+    Task<bool> HasFlagAsync(string key);
+
+    /// <summary>
+    /// Removes a simple flag value.
+    /// </summary>
+    Task<bool> RemoveFlagAsync(string key);
+
+    /// <summary>
     /// Acquires a distributed lock on the specified resource
     /// </summary>
     /// <param name="resource">The resource identifier to lock</param>
