@@ -453,7 +453,7 @@ public class SubscriptionService(
     }
 
     /// <summary>
-    /// Cancel the renewal of the current activated subscription.
+    /// Cancel the current activated subscription.
     /// </summary>
     /// <param name="accountId">The user who requested the action.</param>
     /// <param name="identifier">The subscription identifier</param>
@@ -473,13 +473,15 @@ public class SubscriptionService(
                 "Only in-app wallet subscription can be cancelled. For other payment methods, please head to the payment provider."
             );
 
+        var now = SystemClock.Instance.GetCurrentInstant();
+        subscription.IsActive = false;
+        subscription.Status = SubscriptionStatus.Cancelled;
         subscription.RenewalAt = null;
+        subscription.EndedAt = now < subscription.BegunAt ? subscription.BegunAt : now;
 
         await db.SaveChangesAsync();
 
-        // Invalidate the cache for this subscription
-        var cacheKey = $"{SubscriptionCacheKeyPrefix}{accountId}:{identifier}";
-        await cache.RemoveAsync(cacheKey);
+        await InvalidateSubscriptionCaches(accountId, identifier);
 
         return subscription;
     }
@@ -496,7 +498,10 @@ public class SubscriptionService(
     {
         var subscription = await db.WalletSubscriptions
             .Where(s => s.AccountId == accountId && s.Identifier == identifier)
-            .Where(s => s.Status != Shared.Models.SubscriptionStatus.Expired)
+            .Where(s =>
+                s.Status == Shared.Models.SubscriptionStatus.Unpaid ||
+                s.Status == Shared.Models.SubscriptionStatus.Active ||
+                s.Status == Shared.Models.SubscriptionStatus.Expired)
             .Include(s => s.Coupon)
             .OrderByDescending(s => s.BegunAt)
             .FirstOrDefaultAsync();
@@ -945,15 +950,20 @@ public class SubscriptionService(
         var (found, cachedSubscription) = await cache.GetAsyncWithStatus<SnWalletSubscription>(cacheKey);
         if (found && cachedSubscription != null)
         {
-            return cachedSubscription;
+            if (cachedSubscription.IsAvailable)
+                return cachedSubscription;
+
+            await cache.RemoveAsync(cacheKey);
         }
 
         // If not in cache, get from database
-        var subscription = await db.WalletSubscriptions
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var candidates = await db.WalletSubscriptions
             .Where(s => s.AccountId == accountId && identifiers.Contains(s.Identifier))
+            .Include(s => s.Coupon)
             .OrderByDescending(s => s.BegunAt)
-            .FirstOrDefaultAsync();
-        if (subscription is { IsAvailable: false }) subscription = null;
+            .ToListAsync();
+        var subscription = candidates.FirstOrDefault(s => s.IsAvailableAt(now));
 
         // Cache the result if found (with 5 minutes expiry)
         await cache.SetAsync(cacheKey, subscription, TimeSpan.FromMinutes(5));
@@ -971,7 +981,10 @@ public class SubscriptionService(
         var (found, cachedSubscription) = await cache.GetAsyncWithStatus<SnWalletSubscription>(cacheKey);
         if (found && cachedSubscription != null)
         {
-            return cachedSubscription;
+            if (cachedSubscription.IsAvailable)
+                return cachedSubscription;
+
+            await cache.RemoveAsync(cacheKey);
         }
 
         // If not in cache, get from database
@@ -1009,10 +1022,15 @@ public class SubscriptionService(
 
         foreach (var (accountId, found, cachedSubscription) in cacheResults)
         {
-            if (found && cachedSubscription != null)
+            if (found && cachedSubscription is { IsAvailable: true })
                 result[accountId] = cachedSubscription;
             else
+            {
+                if (found && cachedSubscription != null)
+                    await cache.RemoveAsync($"{SubscriptionPerkCacheKeyPrefix}{accountId}");
+
                 missingAccountIds.Add(accountId);
+            }
         }
 
         if (missingAccountIds.Count == 0) return result;
