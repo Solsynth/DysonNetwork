@@ -172,8 +172,8 @@ namespace DysonNetwork.Shared.Proto {
             "Eh4ucHJvdG8uRHlMaXN0QWN0aW9uTG9nc1JlcXVlc3QaHy5wcm90by5EeUxp",
             "c3RBY3Rpb25Mb2dzUmVzcG9uc2UiABJZChBTZWFyY2hBY3Rpb25Mb2dzEiAu",
             "cHJvdG8uRHlTZWFyY2hBY3Rpb25Mb2dzUmVxdWVzdBohLnByb3RvLkR5U2Vh",
-            "cmNoQWN0aW9uTG9nc1Jlc3BvbnNlIgBCPVofZ2l0LnNvbHN5bnRoLmRldi9z",
-            "b3N5cy9zcGVjL2dlbqoCGUR5c29uTmV0d29yay5TaGFyZWQuUHJvdG9iBnBy",
+            "cmNoQWN0aW9uTG9nc1Jlc3BvbnNlIgBCPVofc3JjLnNvbHN5bnRoLmRldi9z",
+            "b3N5cy9nby9wcm90b6oCGUR5c29uTmV0d29yay5TaGFyZWQuUHJvdG9iBnBy",
             "b3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.FieldMaskReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.StructReflection.Descriptor, global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor, },

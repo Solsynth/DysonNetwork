@@ -439,8 +439,8 @@ namespace DysonNetwork.Shared.Proto {
             "eGVyY2lzZRIeLnByb3RvLkR5VXBkYXRlRXhlcmNpc2VSZXF1ZXN0GhgucHJv",
             "dG8uRHlFeGVyY2lzZUxpYnJhcnkiABJTCg5EZWxldGVFeGVyY2lzZRIeLnBy",
             "b3RvLkR5RGVsZXRlRXhlcmNpc2VSZXF1ZXN0Gh8ucHJvdG8uRHlEZWxldGVF",
-            "eGVyY2lzZVJlc3BvbnNlIgBCPVofZ2l0LnNvbHN5bnRoLmRldi9zb3N5cy9z",
-            "cGVjL2dlbqoCGUR5c29uTmV0d29yay5TaGFyZWQuUHJvdG9iBnByb3RvMw=="));
+            "eGVyY2lzZVJlc3BvbnNlIgBCPVofc3JjLnNvbHN5bnRoLmRldi9zb3N5cy9n",
+            "by9wcm90b6oCGUR5c29uTmV0d29yay5TaGFyZWQuUHJvdG9iBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyWorkoutType), typeof(global::DysonNetwork.Shared.Proto.DyFitnessMetricType), typeof(global::DysonNetwork.Shared.Proto.DyFitnessGoalType), typeof(global::DysonNetwork.Shared.Proto.DyFitnessGoalStatus), typeof(global::DysonNetwork.Shared.Proto.DyRepeatType), typeof(global::DysonNetwork.Shared.Proto.DyFitnessVisibility), }, null, new pbr::GeneratedClrTypeInfo[] {

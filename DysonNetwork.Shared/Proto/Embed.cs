@@ -35,8 +35,8 @@ namespace DysonNetwork.Shared.Proto {
             "ZS5wcm90b2J1Zi5UaW1lc3RhbXBIB1INcHVibGlzaGVkRGF0ZYgBAUIICgZf",
             "dGl0bGVCDgoMX2Rlc2NyaXB0aW9uQgwKCl9pbWFnZV91cmxCDgoMX2Zhdmlj",
             "b25fdXJsQgwKCl9zaXRlX25hbWVCDwoNX2NvbnRlbnRfdHlwZUIJCgdfYXV0",
-            "aG9yQhEKD19wdWJsaXNoZWRfZGF0ZUI9Wh9naXQuc29sc3ludGguZGV2L3Nv",
-            "c3lzL3NwZWMvZ2VuqgIZRHlzb25OZXR3b3JrLlNoYXJlZC5Qcm90b2IGcHJv",
+            "aG9yQhEKD19wdWJsaXNoZWRfZGF0ZUI9Wh9zcmMuc29sc3ludGguZGV2L3Nv",
+            "c3lzL2dvL3Byb3RvqgIZRHlzb25OZXR3b3JrLlNoYXJlZC5Qcm90b2IGcHJv",
             "dG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, },

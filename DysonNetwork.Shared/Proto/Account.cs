@@ -294,7 +294,7 @@ namespace DysonNetwork.Shared.Proto {
             "by5EeUdldE1hZ2ljU3BlbGxSZXF1ZXN0GhMucHJvdG8uRHlNYWdpY1NwZWxs",
             "IgASVgoPQXBwbHlNYWdpY1NwZWxsEh8ucHJvdG8uRHlBcHBseU1hZ2ljU3Bl",
             "bGxSZXF1ZXN0GiAucHJvdG8uRHlBcHBseU1hZ2ljU3BlbGxSZXNwb25zZSIA",
-            "Qj1aH2dpdC5zb2xzeW50aC5kZXYvc29zeXMvc3BlYy9nZW6qAhlEeXNvbk5l",
+            "Qj1aH3NyYy5zb2xzeW50aC5kZXYvc29zeXMvZ28vcHJvdG+qAhlEeXNvbk5l",
             "dHdvcmsuU2hhcmVkLlByb3RvYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.StructReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.EmptyReflection.Descriptor, global::DysonNetwork.Shared.Proto.FileReflection.Descriptor, global::DysonNetwork.Shared.Proto.WalletReflection.Descriptor, },

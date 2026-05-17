@@ -30,8 +30,8 @@ namespace DysonNetwork.Shared.Proto {
             "SQoURHlSZXF1ZXN0UmV3aW5kRXZlbnQSHQoKYWNjb3VudF9pZBgBIAEoCVIJ",
             "YWNjb3VudElkEhIKBHllYXIYAiABKAVSBHllYXIyWAoPRHlSZXdpbmRTZXJ2",
             "aWNlEkUKDkdldFJld2luZEV2ZW50EhsucHJvdG8uRHlSZXF1ZXN0UmV3aW5k",
-            "RXZlbnQaFC5wcm90by5EeVJld2luZEV2ZW50IgBCPVofZ2l0LnNvbHN5bnRo",
-            "LmRldi9zb3N5cy9zcGVjL2dlbqoCGUR5c29uTmV0d29yay5TaGFyZWQuUHJv",
+            "RXZlbnQaFC5wcm90by5EeVJld2luZEV2ZW50IgBCPVofc3JjLnNvbHN5bnRo",
+            "LmRldi9zb3N5cy9nby9wcm90b6oCGUR5c29uTmV0d29yay5TaGFyZWQuUHJv",
             "dG9iBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },

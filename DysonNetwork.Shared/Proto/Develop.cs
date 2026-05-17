@@ -122,7 +122,7 @@ namespace DysonNetwork.Shared.Proto {
             "RHlBcGlLZXkSOgoMUm90YXRlQXBpS2V5EhkucHJvdG8uRHlHZXRBcGlLZXlS",
             "ZXF1ZXN0Gg8ucHJvdG8uRHlBcGlLZXkSSAoMRGVsZXRlQXBpS2V5EhkucHJv",
             "dG8uRHlHZXRBcGlLZXlSZXF1ZXN0Gh0ucHJvdG8uRHlEZWxldGVBcGlLZXlS",
-            "ZXNwb25zZUI9Wh9naXQuc29sc3ludGguZGV2L3Nvc3lzL3NwZWMvZ2VuqgIZ",
+            "ZXNwb25zZUI9Wh9zcmMuc29sc3ludGguZGV2L3Nvc3lzL2dvL3Byb3RvqgIZ",
             "RHlzb25OZXR3b3JrLlNoYXJlZC5Qcm90b2IGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor, global::DysonNetwork.Shared.Proto.FileReflection.Descriptor, },

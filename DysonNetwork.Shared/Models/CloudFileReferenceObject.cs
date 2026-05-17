@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Models;
 
@@ -19,7 +20,7 @@ public enum ContentSensitiveMark
     Gambling,
     SelfHarm,
     ChildAbuse,
-    Other
+    Other,
 }
 
 /// <summary>
@@ -38,19 +39,23 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
     public string? Hash { get; set; }
     public long Size { get; set; }
     public bool HasCompression { get; set; } = false;
-    
+
     [MaxLength(2048)] public string? Url { get; set; }
     public int? Width { get; set; }
     public int? Height { get; set; }
+
     [MaxLength(64)] public string? Blurhash { get; set; }
+
     [MaxLength(256)] public string? Usage { get; set; }
+
     [MaxLength(256)] public string? ApplicationType { get; set; }
 
     public static SnCloudFileReferenceObject FromProtoValue(DyCloudFile proto)
     {
-        var fileMeta = proto.Object != null
-            ? ConvertObjectToDictionary(proto.Object.Meta)
-            : ConvertToDictionary(proto.FileMeta);
+        var fileMeta =
+            proto.Object != null
+                ? ConvertObjectToDictionary(proto.Object.Meta)
+                : ConvertToDictionary(proto.FileMeta);
 
         return new SnCloudFileReferenceObject
         {
@@ -59,7 +64,9 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
             FileMeta = fileMeta,
             UserMeta = ConvertToDictionary(proto.UserMeta),
             SensitiveMarks = proto.HasSensitiveMarks
-                ? InfraObjectCoder.ConvertByteStringToObject<List<ContentSensitiveMark>>(proto.SensitiveMarks)
+                ? InfraObjectCoder.ConvertByteStringToObject<List<ContentSensitiveMark>>(
+                    proto.SensitiveMarks
+                )
                 : [],
             MimeType = proto.MimeType,
             Hash = proto.Hash,
@@ -70,11 +77,15 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
             Height = proto.HasHeight ? proto.Height : null,
             Blurhash = proto.HasBlurhash ? proto.Blurhash : null,
             Usage = proto.HasUsage ? proto.Usage : null,
-            ApplicationType = proto.HasApplicationType ? proto.ApplicationType : null
+            ApplicationType = proto.HasApplicationType ? proto.ApplicationType : null,
+            CreatedAt = proto.CreatedAt.ToInstant(),
+            UpdatedAt = proto.UpdatedAt.ToInstant()
         };
     }
 
-    private static Dictionary<string, object?> ConvertObjectToDictionary(Google.Protobuf.ByteString byteString)
+    private static Dictionary<string, object?> ConvertObjectToDictionary(
+        Google.Protobuf.ByteString byteString
+    )
     {
         if (byteString.IsEmpty)
             return [];
@@ -88,10 +99,13 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
         {
             result[property.Name] = ConvertJsonElement(property.Value);
         }
+
         return result;
     }
 
-    private static Dictionary<string, object?> ConvertToDictionary(Google.Protobuf.ByteString byteString)
+    private static Dictionary<string, object?> ConvertToDictionary(
+        Google.Protobuf.ByteString byteString
+    )
     {
         if (byteString.IsEmpty)
             return [];
@@ -105,6 +119,7 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
         {
             result[property.Name] = ConvertJsonElement(property.Value);
         }
+
         return result;
     }
 
@@ -119,7 +134,7 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
             JsonValueKind.Null => null,
             JsonValueKind.Object => ConvertToDictionaryElement(element),
             JsonValueKind.Array => element.EnumerateArray().Select(ConvertJsonElement).ToList(),
-            _ => null
+            _ => null,
         };
     }
 
@@ -130,6 +145,7 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
         {
             result[property.Name] = ConvertJsonElement(property.Value);
         }
+
         return result;
     }
 
@@ -153,7 +169,9 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
             Blurhash = Blurhash ?? string.Empty,
             FileMeta = InfraObjectCoder.ConvertObjectToByteString(FileMeta),
             UserMeta = InfraObjectCoder.ConvertObjectToByteString(UserMeta),
-            SensitiveMarks = InfraObjectCoder.ConvertObjectToByteString(SensitiveMarks)
+            SensitiveMarks = InfraObjectCoder.ConvertObjectToByteString(SensitiveMarks),
+            CreatedAt = CreatedAt.ToTimestamp(),
+            UpdatedAt = UpdatedAt.ToTimestamp(),
         };
 
         if (Usage is not null)

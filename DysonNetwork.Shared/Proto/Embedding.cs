@@ -37,8 +37,8 @@ namespace DysonNetwork.Shared.Proto {
             "dGVFbWJlZGRpbmdSZXF1ZXN0GiIucHJvdG8uRHlHZW5lcmF0ZUVtYmVkZGlu",
             "Z1Jlc3BvbnNlEl0KEkdlbmVyYXRlRW1iZWRkaW5ncxIiLnByb3RvLkR5R2Vu",
             "ZXJhdGVFbWJlZGRpbmdzUmVxdWVzdBojLnByb3RvLkR5R2VuZXJhdGVFbWJl",
-            "ZGRpbmdzUmVzcG9uc2VCPVofZ2l0LnNvbHN5bnRoLmRldi9zb3N5cy9zcGVj",
-            "L2dlbqoCGUR5c29uTmV0d29yay5TaGFyZWQuUHJvdG9iBnByb3RvMw=="));
+            "ZGRpbmdzUmVzcG9uc2VCPVofc3JjLnNvbHN5bnRoLmRldi9zb3N5cy9nby9w",
+            "cm90b6oCGUR5c29uTmV0d29yay5TaGFyZWQuUHJvdG9iBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
