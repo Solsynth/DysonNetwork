@@ -10,11 +10,11 @@ DysonNetwork/           # Main repository (this repo)
 ├── DysonNetwork.Passport/    # User profiles & social features
 ├── DysonNetwork.Sphere/      # ActivityPub & federated content
 ├── DysonNetwork.Messager/    # Real-time messaging
-├── DysonNetwork.Drive/       # File storage & E2EE
+├── DysonNetwork.Drive/       # File storage & E2EE (migrated to DysonFS: ../DysonFS)
 ├── DysonNetwork.Wallet/      # Payments & subscriptions
 ├── DysonNetwork.Fitness/     # Health & fitness tracking
 ├── DysonNetwork.Ring/        # Real-time communication (calls)
-├── DysonNetwork.Zone/        # Zones & communities
+├── DysonNetwork.Zone/        # Zones & communities (discontinued)
 ├── DysonNetwork.Develop/     # Developer portal & app management
 ├── DysonNetwork.Insight/     # AI features
 └── DysonNetwork.Shared/      # Shared models, proto, utilities

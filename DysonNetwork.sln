@@ -13,15 +13,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Shared", "Dyso
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Ring", "DysonNetwork.Ring\DysonNetwork.Ring.csproj", "{D5DAFB0D-487E-48EF-BA2F-C581C846F63B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Drive", "DysonNetwork.Drive\DysonNetwork.Drive.csproj", "{8DE0B783-8852-494D-B90A-201ABBB71202}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Develop", "DysonNetwork.Develop\DysonNetwork.Develop.csproj", "{C577AA78-B11D-4076-89A6-1C7F0ECC04E2}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Control", "DysonNetwork.Control\DysonNetwork.Control.csproj", "{7FFED190-51C7-4302-A8B5-96C839463458}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Insight", "DysonNetwork.Insight\DysonNetwork.Insight.csproj", "{E603CDF2-8BA0-49AE-A1F9-BD2DA5CB983D}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Zone", "DysonNetwork.Zone\DysonNetwork.Zone.csproj", "{E255B723-CAC9-4AC8-AA3B-116CC256E63C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DysonNetwork.Messager", "DysonNetwork.Messager\DysonNetwork.Messager.csproj", "{4011F9B8-D691-4BCE-B2F8-2766688C5FFB}"
 EndProject
