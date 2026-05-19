@@ -527,13 +527,16 @@ public partial class ChatService(
         string? clientIpAddress = null
     )
     {
+        var existingMessage = await GetExistingClientMessageAsync(message);
+        if (existingMessage is not null)
+            return existingMessage;
+
         if (string.IsNullOrWhiteSpace(message.Nonce))
             message.Nonce = Guid.NewGuid().ToString();
 
         await NormalizeStickerPlaceholderMessageAsync(message);
         await EnrichInlineStickerPreviewAsync(message);
 
-        // First complete the save operation
         db.ChatMessages.Add(message);
         await db.SaveChangesAsync();
 
@@ -612,6 +615,29 @@ public partial class ChatService(
         }
 
         return message;
+    }
+
+    private async Task<SnChatMessage?> GetExistingClientMessageAsync(SnChatMessage message)
+    {
+        if (string.IsNullOrWhiteSpace(message.ClientMessageId))
+            return null;
+
+        var existingMessage = await db.ChatMessages
+            .Where(m =>
+                m.ChatRoomId == message.ChatRoomId
+                && m.SenderId == message.SenderId
+                && m.ClientMessageId == message.ClientMessageId
+                && m.Type == message.Type
+            )
+            .Include(m => m.ChatRoom)
+            .Include(m => m.Sender)
+            .FirstOrDefaultAsync();
+
+        if (existingMessage is null)
+            return null;
+
+        existingMessage.Sender = await crs.LoadMemberAccount(existingMessage.Sender);
+        return existingMessage;
     }
 
     private static Dictionary<string, object> CloneRedirectMeta(Dictionary<string, object>? meta)
