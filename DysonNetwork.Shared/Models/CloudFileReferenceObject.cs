@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
+using NodaTime;
 using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Shared.Models;
@@ -52,6 +53,7 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
 
     public static SnCloudFileReferenceObject FromProtoValue(DyCloudFile proto)
     {
+        var now = SystemClock.Instance.GetCurrentInstant();
         var fileMeta =
             proto.Object != null
                 ? ConvertObjectToDictionary(proto.Object.Meta)
@@ -78,8 +80,8 @@ public class SnCloudFileReferenceObject : ModelBase, ICloudFile
             Blurhash = proto.HasBlurhash ? proto.Blurhash : null,
             Usage = proto.HasUsage ? proto.Usage : null,
             ApplicationType = proto.HasApplicationType ? proto.ApplicationType : null,
-            CreatedAt = proto.CreatedAt.ToInstant(),
-            UpdatedAt = proto.UpdatedAt.ToInstant()
+            CreatedAt = proto.CreatedAt?.ToInstant() ?? now,
+            UpdatedAt = proto.UpdatedAt?.ToInstant() ?? proto.CreatedAt?.ToInstant() ?? now
         };
     }
 
