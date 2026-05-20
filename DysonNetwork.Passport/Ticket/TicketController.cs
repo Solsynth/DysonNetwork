@@ -26,8 +26,7 @@ public class TicketController(
         [MaxLength(256)]
         public string Title { get; set; } = null!;
 
-        [MaxLength(16384)]
-        public string? Content { get; set; }
+        [MaxLength(16384)] public string Content { get; set; } = null!;
 
         [Required] public TicketType Type { get; set; }
 
@@ -77,6 +76,29 @@ public class TicketController(
             Key = "tickets.admin"
         });
         return (resp.HasPermission, currentUser);
+    }
+
+    private static bool IsSelfScopedTicketQuery(
+        SnAccount currentUser,
+        Guid? creatorId,
+        Guid? assigneeId
+    )
+    {
+        var hasScope = false;
+
+        if (creatorId.HasValue)
+        {
+            hasScope = true;
+            if (creatorId.Value != currentUser.Id) return false;
+        }
+
+        if (assigneeId.HasValue)
+        {
+            hasScope = true;
+            if (assigneeId.Value != currentUser.Id) return false;
+        }
+
+        return hasScope;
     }
 
     private async Task NotifyTicketStatusChangedAsync(SnTicket ticket, TicketStatus oldStatus, TicketStatus newStatus, SnAccount updater)
@@ -229,8 +251,11 @@ public class TicketController(
         [FromQuery] int take = 20
     )
     {
-        var (isAdmin, _) = await GetCurrentUserAsync();
-        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to view all tickets");
+        var (isAdmin, currentUser) = await GetCurrentUserAsync();
+        if (currentUser == null) return Unauthorized();
+
+        if (!isAdmin && !IsSelfScopedTicketQuery(currentUser, creatorId, assigneeId))
+            return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to view these tickets");
 
         var tickets = await ticketService.GetTicketsAsync(
             creatorId,
@@ -450,8 +475,11 @@ public class TicketController(
         [FromQuery] TicketStatus? status = null
     )
     {
-        var (isAdmin, _) = await GetCurrentUserAsync();
-        if (!isAdmin) return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to view ticket count");
+        var (isAdmin, currentUser) = await GetCurrentUserAsync();
+        if (currentUser == null) return Unauthorized();
+
+        if (!isAdmin && !IsSelfScopedTicketQuery(currentUser, creatorId, assigneeId))
+            return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to view these tickets");
 
         var count = await ticketService.CountTicketsAsync(creatorId, assigneeId, status);
         return Ok(new { count });
