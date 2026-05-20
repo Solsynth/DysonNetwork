@@ -33,6 +33,7 @@ public class TicketController(
         public TicketPriority Priority { get; set; } = TicketPriority.Medium;
 
         public List<string>? FileIds { get; set; }
+        public List<string?>? Resources { get; set; }
     }
 
     public class UpdateTicketRequest
@@ -44,6 +45,8 @@ public class TicketController(
         public TicketType? Type { get; set; }
 
         public TicketPriority? Priority { get; set; }
+
+        public List<string?>? Resources { get; set; }
     }
 
     public class AddMessageRequest
@@ -224,7 +227,8 @@ public class TicketController(
                 request.Type,
                 request.Priority,
                 currentUser.Id,
-                request.FileIds
+                request.FileIds,
+                request.Resources
             );
 
             _ = NotifyTicketCreatedAsync(ticket);
@@ -324,7 +328,8 @@ public class TicketController(
                 id,
                 request.Title,
                 request.Type,
-                request.Priority
+                request.Priority,
+                request.Resources
             );
 
             return Ok(ticket);

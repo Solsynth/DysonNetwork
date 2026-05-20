@@ -3,6 +3,7 @@
 ## Overview
 
 The Ticket system allows users to create and manage support tickets with messages and file attachments.
+Tickets also carry an optional `resources` field for structured related links or references.
 
 ## Base URL
 
@@ -60,7 +61,8 @@ Create a new support ticket.
   "content": "string (optional, max 16384 chars)",
   "type": "ticket_type (required)",
   "priority": "ticket_priority (optional, default: 1)",
-  "fileIds": ["string array (optional)"]
+  "fileIds": ["string array (optional)"],
+  "resources": ["string or null entries (optional)"]
 }
 ```
 
@@ -91,8 +93,19 @@ Create a new support ticket.
   "created_at": "timestamp",
   "updated_at": "timestamp",
   "deleted_at": null,
-  "messages": [],
-  "files": []
+  "resources": ["string", null],
+  "messages": [
+    {
+      "id": "uuid",
+      "ticket_id": "uuid",
+      "sender_id": "uuid",
+      "content": "Initial message",
+      "created_at": "timestamp",
+      "updated_at": "timestamp",
+      "deleted_at": null,
+      "files": []
+    }
+  ]
 }
 ```
 
@@ -105,6 +118,8 @@ Get a list of tickets with optional filters.
 **Endpoint:** `GET /api/tickets`
 
 **Authorization:** Required
+
+Admins can list all tickets. Regular users can only list tickets scoped to themselves by `creator_id` and/or `assignee_id`, or use `GET /api/tickets/me`.
 
 **Query Parameters:**
 
@@ -134,7 +149,8 @@ Get a list of tickets with optional filters.
     "resolved_at": null,
     "created_at": "timestamp",
     "updated_at": "timestamp",
-    "files": []
+    "resources": ["string", null],
+    "messages": []
   }
 ]
 ```
@@ -148,6 +164,8 @@ Get tickets created by the current user.
 **Endpoint:** `GET /api/tickets/me`
 
 **Authorization:** Required
+
+Returns tickets created by the current user.
 
 **Query Parameters:**
 
@@ -193,9 +211,12 @@ Update ticket information.
 {
   "title": "string (optional, 3-256 chars)",
   "type": "ticket_type (optional)",
-  "priority": "ticket_priority (optional)"
+  "priority": "ticket_priority (optional)",
+  "resources": ["string or null entries (optional)"]
 }
 ```
+
+If `resources` is provided, it replaces the stored list for that ticket.
 
 **Response:** `200 OK` or `404 Not Found`
 

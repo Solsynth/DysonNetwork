@@ -24,6 +24,7 @@ public class SnTicket : ModelBase
 
     public List<SnTicketMessage> Messages { get; set; } = [];
     [Column(TypeName = "jsonb")] public Dictionary<string, object> Metadata { get; set; } = [];
+    [Column(TypeName = "jsonb")] public List<string?>? Resources { get; set; }
 }
 
 public class SnTicketMessage : ModelBase

@@ -19,7 +19,8 @@ public class TicketService(
         TicketType type,
         TicketPriority priority,
         Guid creatorId,
-        List<string>? fileIds = null
+        List<string>? fileIds = null,
+        List<string?>? resources = null
     )
     {
         var creator = await accounts.GetAccount(creatorId)
@@ -37,6 +38,7 @@ public class TicketService(
             Priority = priority,
             CreatorId = creatorId,
             Status = TicketStatus.Open,
+            Resources = resources,
             Messages =
             [
                 new SnTicketMessage
@@ -189,7 +191,8 @@ public class TicketService(
         Guid ticketId,
         string? title = null,
         TicketType? type = null,
-        TicketPriority? priority = null
+        TicketPriority? priority = null,
+        List<string?>? resources = null
     )
     {
         var ticket = await db.Tickets.FindAsync(ticketId)
@@ -198,6 +201,7 @@ public class TicketService(
         if (title != null) ticket.Title = title;
         if (type.HasValue) ticket.Type = type.Value;
         if (priority.HasValue) ticket.Priority = priority.Value;
+        if (resources != null) ticket.Resources = resources;
 
         await db.SaveChangesAsync();
 
