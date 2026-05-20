@@ -286,12 +286,14 @@ public class AfdianPaymentHandler(
         }
     }
 
-    public string CreateCheckoutUrl(string planId, string skuId)
+    public string CreateCheckoutUrl(string planId, string skuId, string? customOrderId = null, int quantity = 1)
     {
         if (string.IsNullOrWhiteSpace(planId))
             throw new InvalidOperationException("Payment:Auth:Afdian:PlanId is not configured.");
         if (string.IsNullOrWhiteSpace(skuId))
             throw new ArgumentException("Afdian sku id is required.", nameof(skuId));
+        if (quantity <= 0)
+            throw new ArgumentOutOfRangeException(nameof(quantity), "Afdian quantity must be greater than zero.");
 
         var skuPayload = JsonSerializer.Serialize(
             new[]
@@ -299,20 +301,21 @@ public class AfdianPaymentHandler(
                 new
                 {
                     sku_id = skuId,
-                    count = 1
+                    count = quantity
                 }
             }
         );
 
-        return QueryHelpers.AddQueryString(
-            CheckoutBaseUrl,
-            new Dictionary<string, string?>
-            {
-                ["product_type"] = "1",
-                ["plan_id"] = planId,
-                ["sku"] = skuPayload
-            }
-        );
+        var query = new Dictionary<string, string?>
+        {
+            ["product_type"] = "1",
+            ["plan_id"] = planId,
+            ["sku"] = skuPayload
+        };
+        if (!string.IsNullOrWhiteSpace(customOrderId))
+            query["custom_order_id"] = customOrderId;
+
+        return QueryHelpers.AddQueryString(CheckoutBaseUrl, query);
     }
 
     public string GetCheckoutPlanId()

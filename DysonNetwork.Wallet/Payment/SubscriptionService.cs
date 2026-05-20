@@ -339,7 +339,6 @@ public class SubscriptionService(
         if (account is null)
             throw new InvalidOperationException($"Account was not found with identifier {order.AccountId}");
 
-        var appliedAt = SystemClock.Instance.GetCurrentInstant();
         logger.LogInformation(
             "Applying provider subscription order {OrderId} from {Provider} for account {AccountId}. SubscriptionId={SubscriptionId} IsTesting={IsTesting}",
             order.Id,
@@ -348,6 +347,13 @@ public class SubscriptionService(
             order.SubscriptionId,
             order.IsTesting
         );
+        var effectiveFrom = order.BegunAt == default
+            ? SystemClock.Instance.GetCurrentInstant()
+            : order.BegunAt;
+        var cycleDuration = order.Duration > Duration.Zero
+            ? order.Duration
+            : GetDefaultSubscriptionDuration();
+
         return await ApplyPaidSubscriptionAsync(
             account.Id,
             definition,
@@ -357,8 +363,8 @@ public class SubscriptionService(
                 Currency = definition.Currency,
                 OrderId = order.Id,
             },
-            appliedAt,
-            GetDefaultSubscriptionDuration(),
+            effectiveFrom,
+            cycleDuration,
             isTesting: order.IsTesting
         );
     }
@@ -651,9 +657,8 @@ public class SubscriptionService(
 
         await db.SaveChangesAsync();
 
-        // Batch invalidate caches for better performance
         var cacheTasks = expiredSubscriptions.Select(subscription =>
-            cache.RemoveAsync($"{SubscriptionCacheKeyPrefix}{subscription.AccountId}:{subscription.Identifier}"));
+            InvalidateSubscriptionCaches(subscription.AccountId, subscription.Identifier));
         await Task.WhenAll(cacheTasks);
 
         return expiredSubscriptions.Count;
@@ -735,71 +740,15 @@ public class SubscriptionService(
             .OrderBy(s => s.BegunAt)
             .ToListAsync();
 
-        var sameIdentifierTail = activeOrQueued
-            .Where(s => s.Identifier == definition.Identifier)
-            .OrderByDescending(s => s.EndedAt ?? s.BegunAt)
-            .FirstOrDefault();
         var effectivePerkLevel = isTesting ? 0 : definition.PerkLevel;
         logger.LogInformation(
-            "Applying subscription definition {Identifier} for account {AccountId}. PaymentMethod={PaymentMethod} IsTesting={IsTesting} EffectivePerkLevel={EffectivePerkLevel} ExistingTail={ExistingTailId}",
+            "Applying subscription definition {Identifier} for account {AccountId}. PaymentMethod={PaymentMethod} IsTesting={IsTesting} EffectivePerkLevel={EffectivePerkLevel}",
             definition.Identifier,
             accountId,
             paymentMethod,
             isTesting,
-            effectivePerkLevel,
-            sameIdentifierTail?.Id
+            effectivePerkLevel
         );
-
-        if (sameIdentifierTail?.PaymentDetails.OrderId == paymentDetails.OrderId)
-        {
-            logger.LogInformation(
-                "Skipping duplicate subscription application for order {OrderId} on subscription {SubscriptionId}",
-                paymentDetails.OrderId,
-                sameIdentifierTail.Id
-            );
-            return sameIdentifierTail;
-        }
-
-        if (sameIdentifierTail is not null)
-        {
-            var extensionBase = sameIdentifierTail.EndedAt.HasValue && sameIdentifierTail.EndedAt.Value > effectiveFrom
-                ? sameIdentifierTail.EndedAt.Value
-                : effectiveFrom;
-
-            sameIdentifierTail.EndedAt = extensionBase.Plus(cycleDuration);
-            sameIdentifierTail.PaymentMethod = paymentMethod;
-            sameIdentifierTail.PaymentDetails = paymentDetails;
-            sameIdentifierTail.CouponId = couponId ?? sameIdentifierTail.CouponId;
-            sameIdentifierTail.Coupon = coupon ?? sameIdentifierTail.Coupon;
-            sameIdentifierTail.BasePrice = definition.BasePrice;
-            sameIdentifierTail.GroupIdentifier = definition.GroupIdentifier;
-            sameIdentifierTail.DisplayName = definition.DisplayName;
-            sameIdentifierTail.PerkLevel = effectivePerkLevel;
-            sameIdentifierTail.IsTesting = isTesting;
-            sameIdentifierTail.Status = SubscriptionStatus.Active;
-            sameIdentifierTail.RenewalAt = definition.PaymentPolicy.AllowInternalWalletRenewal
-                ? sameIdentifierTail.EndedAt
-                : null;
-
-            if (placeholderSubscription is not null && placeholderSubscription.Id != sameIdentifierTail.Id)
-            {
-                placeholderSubscription.IsActive = false;
-                placeholderSubscription.Status = SubscriptionStatus.Cancelled;
-                db.WalletSubscriptions.Update(placeholderSubscription);
-            }
-
-            db.WalletSubscriptions.Update(sameIdentifierTail);
-            await db.SaveChangesAsync();
-            await InvalidateSubscriptionCaches(accountId, definition.Identifier);
-            TrackStellarSupportPurchase(sameIdentifierTail, definition, paymentMethod, cycleDuration, isTesting);
-            logger.LogInformation(
-                "Extended existing subscription {SubscriptionId}. NewEndAt={EndedAt} IsTesting={IsTesting}",
-                sameIdentifierTail.Id,
-                sameIdentifierTail.EndedAt,
-                sameIdentifierTail.IsTesting
-            );
-            return sameIdentifierTail;
-        }
 
         var groupTail = activeOrQueued
             .OrderByDescending(s => s.EndedAt ?? s.BegunAt)
@@ -838,7 +787,7 @@ public class SubscriptionService(
         await InvalidateSubscriptionCaches(accountId, definition.Identifier);
         TrackStellarSupportPurchase(subscription, definition, paymentMethod, cycleDuration, isTesting);
         logger.LogInformation(
-            "Created subscription {SubscriptionId} for definition {Identifier}. BegunAt={BegunAt} EndedAt={EndedAt} IsTesting={IsTesting}",
+            "Created queued subscription {SubscriptionId} for definition {Identifier}. BegunAt={BegunAt} EndedAt={EndedAt} IsTesting={IsTesting}",
             subscription.Id,
             definition.Identifier,
             subscription.BegunAt,
@@ -897,6 +846,73 @@ public class SubscriptionService(
     {
         var totalDays = Math.Max(1d, cycleDuration.ToTimeSpan().TotalDays);
         return Math.Max(1, (int)Math.Floor((totalDays + 2d) / 30d));
+    }
+
+    public async Task<(int TotalCount, List<SnWalletSubscription> Items)> GetPendingActivationsAsync(
+        Guid accountId,
+        int offset = 0,
+        int take = 20,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var query = db.WalletSubscriptions
+            .Where(s => s.AccountId == accountId)
+            .Where(s => s.IsActive)
+            .Where(s => s.Status == SubscriptionStatus.Active)
+            .Where(s => s.BegunAt > now)
+            .Include(s => s.Coupon)
+            .OrderBy(s => s.BegunAt);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
+        return (totalCount, items);
+    }
+
+    public async Task<int> ActivatePendingSubscriptionsAsync(
+        int batchSize = 100,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var subscriptions = await db.WalletSubscriptions
+            .Where(s => s.IsActive)
+            .Where(s => s.Status == SubscriptionStatus.Active)
+            .Where(s => s.BegunAt <= now)
+            .Where(s => !s.EndedAt.HasValue || s.EndedAt.Value > now)
+            .Where(s => s.UpdatedAt < s.BegunAt)
+            .Include(s => s.Coupon)
+            .OrderBy(s => s.BegunAt)
+            .Take(batchSize)
+            .ToListAsync(cancellationToken);
+
+        if (subscriptions.Count == 0)
+            return 0;
+
+        foreach (var subscription in subscriptions)
+        {
+            subscription.UpdatedAt = now;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        foreach (var subscription in subscriptions)
+        {
+            await InvalidateSubscriptionCaches(subscription.AccountId, subscription.Identifier);
+            await NotifySubscriptionBegun(subscription);
+
+            if (IsSponsorRewardEligiblePaymentMethod(subscription.PaymentMethod))
+            {
+                await HandleSponsorCurrencyUpdateAsync(subscription);
+                await HandleSponsorBadgeSubscriptionAsync(subscription);
+            }
+        }
+
+        return subscriptions.Count;
     }
 
     private async Task InvalidateSubscriptionCaches(Guid accountId, string identifier)

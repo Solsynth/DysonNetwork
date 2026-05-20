@@ -66,6 +66,13 @@ public class SubscriptionController(
         public List<SubscriptionGroupStateItem> Subscriptions { get; set; } = [];
     }
 
+    public class PendingActivationListResponse
+    {
+        public int TotalCount { get; set; }
+        public Instant? NextActivationAt { get; set; }
+        public List<SnWalletSubscription> Subscriptions { get; set; } = [];
+    }
+
     [HttpGet("catalog")]
     public async Task<ActionResult<List<SubscriptionCatalogItem>>> ListCatalog()
     {
@@ -104,6 +111,30 @@ public class SubscriptionController(
         Response.Headers["X-Total"] = totalCount.ToString();
 
         return subscriptionsList;
+    }
+
+    [HttpGet("pending-activations")]
+    [Authorize]
+    public async Task<ActionResult<PendingActivationListResponse>> ListPendingActivations(
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var (totalCount, items) = await subscriptions.GetPendingActivationsAsync(
+            Guid.Parse(currentUser.Id),
+            offset,
+            take,
+            HttpContext.RequestAborted
+        );
+
+        return Ok(new PendingActivationListResponse
+        {
+            TotalCount = totalCount,
+            NextActivationAt = items.Count == 0 ? null : items.Min(s => s.BegunAt),
+            Subscriptions = items
+        });
     }
 
     [HttpGet("fuzzy/{prefix}")]

@@ -22,28 +22,14 @@ public class SubscriptionRenewalJob(
         var expiredCount = await subscriptionService.UpdateExpiredSubscriptionsAsync();
         logger.LogInformation("Updated {ExpiredCount} expired subscriptions", expiredCount);
 
-        var now = SystemClock.Instance.GetCurrentInstant();
         const int batchSize = 100; // Process in smaller batches
         var processedCount = 0;
         var renewedCount = 0;
         var failedCount = 0;
-        var activatedCount = 0;
+        var activatedCount = await subscriptionService.ActivatePendingSubscriptionsAsync(batchSize, context.CancellationToken);
+        logger.LogInformation("Activated {ActivatedCount} queued subscriptions", activatedCount);
 
-        var queuedSubscriptions = await db.WalletSubscriptions
-            .Where(s => s.IsActive)
-            .Where(s => s.Status == SubscriptionStatus.Active)
-            .Where(s => s.BegunAt <= now)
-            .Where(s => s.EndedAt == null || s.EndedAt > now)
-            .Where(s => s.RenewalAt == null || s.RenewalAt > now)
-            .Where(s => s.CreatedAt != s.UpdatedAt)
-            .Take(batchSize)
-            .ToListAsync();
-
-        foreach (var subscription in queuedSubscriptions.Where(s => s.BegunAt > s.CreatedAt))
-        {
-            activatedCount++;
-            await subscriptionService.UpdateExpiredSubscriptionsAsync();
-        }
+        var now = SystemClock.Instance.GetCurrentInstant();
 
         // Find subscriptions that need renewal (due for renewal and are still active)
         var subscriptionsToRenew = await db.WalletSubscriptions

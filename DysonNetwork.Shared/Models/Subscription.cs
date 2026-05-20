@@ -366,6 +366,12 @@ public class SnWalletSubscription : ModelBase
     }
 
     [NotMapped]
+    public bool IsPendingActivation
+    {
+        get => IsPendingActivationAt(SystemClock.Instance.GetCurrentInstant());
+    }
+
+    [NotMapped]
     public decimal FinalPrice
     {
         get => CalculateFinalPriceAt(SystemClock.Instance.GetCurrentInstant());
@@ -381,6 +387,15 @@ public class SnWalletSubscription : ModelBase
         if (EndedAt.HasValue && currentInstant > EndedAt.Value) return false;
         if (RenewalAt.HasValue && currentInstant > RenewalAt.Value) return false;
         if (Status != SubscriptionStatus.Active) return false;
+        return true;
+    }
+
+    public bool IsPendingActivationAt(Instant currentInstant)
+    {
+        if (!IsActive) return false;
+        if (Status != SubscriptionStatus.Active) return false;
+        if (BegunAt <= currentInstant) return false;
+        if (EndedAt.HasValue && EndedAt.Value <= currentInstant) return false;
         return true;
     }
 
@@ -421,6 +436,7 @@ public class SnWalletSubscription : ModelBase
             EndedAt = EndedAt,
             IsActive = IsActive,
             IsAvailable = IsAvailableAt(currentInstant),
+            IsPendingActivation = IsPendingActivationAt(currentInstant),
             IsFreeTrial = IsFreeTrial,
             Status = Status,
             BasePrice = BasePrice,
@@ -509,6 +525,7 @@ public class SnSubscriptionReferenceObject : ModelBase
     public Instant? EndedAt { get; set; }
     public bool IsActive { get; set; }
     public bool IsAvailable { get; set; }
+    public bool IsPendingActivation { get; set; }
     public bool IsFreeTrial { get; set; }
     public SubscriptionStatus Status { get; set; }
     public decimal BasePrice { get; set; }
