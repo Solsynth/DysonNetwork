@@ -73,6 +73,11 @@ public class SubscriptionController(
         public List<SnWalletSubscription> Subscriptions { get; set; } = [];
     }
 
+    public class ActivateSubscriptionRequest
+    {
+        [Required] public Guid SubscriptionId { get; set; }
+    }
+
     [HttpGet("catalog")]
     public async Task<ActionResult<List<SubscriptionCatalogItem>>> ListCatalog()
     {
@@ -190,6 +195,46 @@ public class SubscriptionController(
                 .Select(s => MapGroupStateItem(s, definitionMap))
                 .ToList()
         });
+    }
+
+    [HttpPost("groups/{groupIdentifier}/activate")]
+    [Authorize]
+    public async Task<ActionResult<SubscriptionGroupStateResponse>> ActivateSubscriptionInGroup(
+        string groupIdentifier,
+        [FromBody] ActivateSubscriptionRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        try
+        {
+            var accountId = Guid.Parse(currentUser.Id);
+            var target = await subscriptions.SwitchSubscriptionActivationAsync(
+                accountId,
+                groupIdentifier,
+                request.SubscriptionId,
+                HttpContext.RequestAborted
+            );
+
+            als.CreateActionLog(
+                accountId,
+                "subscriptions.activate_switch",
+                new Dictionary<string, object>
+                {
+                    { "group_identifier", groupIdentifier },
+                    { "subscription_id", target.Id.ToString() },
+                    { "subscription_identifier", target.Identifier }
+                },
+                userAgent: Request.Headers.UserAgent,
+                ipAddress: Request.GetClientIpAddress()
+            );
+
+            return await GetSubscriptionGroup(groupIdentifier);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpGet("groups/{groupIdentifier}/active")]

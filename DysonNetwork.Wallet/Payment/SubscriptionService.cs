@@ -873,6 +873,139 @@ public class SubscriptionService(
         return (totalCount, items);
     }
 
+    public async Task<SnWalletSubscription> SwitchSubscriptionActivationAsync(
+        Guid accountId,
+        string groupIdentifier,
+        Guid subscriptionId,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var definitions = await catalog.ListDefinitionsByGroupAsync(groupIdentifier, cancellationToken);
+        if (definitions.Count == 0)
+            throw new InvalidOperationException($"Subscription group {groupIdentifier} was not found.");
+
+        var identifiers = definitions.Select(x => x.Identifier).ToList();
+        var definitionMap = definitions.ToDictionary(x => x.Identifier, StringComparer.OrdinalIgnoreCase);
+        var subscriptionsInGroup = await db.WalletSubscriptions
+            .Where(s => s.AccountId == accountId)
+            .Where(s => identifiers.Contains(s.Identifier))
+            .Where(s => s.IsActive)
+            .Where(s => s.Status == SubscriptionStatus.Active)
+            .Include(s => s.Coupon)
+            .OrderBy(s => s.BegunAt)
+            .ToListAsync(cancellationToken);
+
+        var target = subscriptionsInGroup.FirstOrDefault(s => s.Id == subscriptionId);
+        if (target is null)
+            throw new InvalidOperationException("Subscription was not found in this group.");
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (target.EndedAt.HasValue && target.EndedAt.Value <= now)
+            throw new InvalidOperationException("Subscription is no longer available for activation.");
+
+        var current = subscriptionsInGroup
+            .Where(s => s.IsAvailableAt(now))
+            .OrderByDescending(s => s.PerkLevel)
+            .ThenByDescending(s => s.BegunAt)
+            .FirstOrDefault();
+        var alreadyActivatedIds = subscriptionsInGroup
+            .Where(s => s.BegunAt <= now)
+            .Select(s => s.Id)
+            .ToHashSet();
+
+        if (current?.Id == target.Id)
+            return target;
+
+        var targetDefinition = definitionMap.GetValueOrDefault(target.Identifier)
+            ?? throw new InvalidOperationException("Subscription definition was not found.");
+        var targetDuration = GetSubscriptionDuration(target);
+        var cursor = now;
+
+        target.BegunAt = cursor;
+        target.EndedAt = cursor.Plus(targetDuration);
+        target.GroupIdentifier = targetDefinition.GroupIdentifier;
+        target.DisplayName = targetDefinition.DisplayName;
+        target.PerkLevel = target.IsTesting ? 0 : targetDefinition.PerkLevel;
+        target.RenewalAt = targetDefinition.PaymentPolicy.AllowInternalWalletRenewal
+            ? target.EndedAt
+            : null;
+        cursor = target.EndedAt ?? cursor;
+
+        if (current is not null)
+        {
+            var currentDefinition = definitionMap.GetValueOrDefault(current.Identifier)
+                ?? throw new InvalidOperationException("Subscription definition was not found.");
+            var remainingDuration = GetRemainingSubscriptionDuration(current, now);
+
+            current.BegunAt = cursor;
+            current.EndedAt = cursor.Plus(remainingDuration);
+            current.GroupIdentifier = currentDefinition.GroupIdentifier;
+            current.DisplayName = currentDefinition.DisplayName;
+            current.PerkLevel = current.IsTesting ? 0 : currentDefinition.PerkLevel;
+            current.RenewalAt = currentDefinition.PaymentPolicy.AllowInternalWalletRenewal
+                ? current.EndedAt
+                : null;
+            cursor = current.EndedAt ?? cursor;
+        }
+
+        var trailingSubscriptions = subscriptionsInGroup
+            .Where(s => s.Id != target.Id)
+            .Where(s => current is null || s.Id != current.Id)
+            .OrderBy(s => s.BegunAt)
+            .ThenBy(s => s.CreatedAt)
+            .ToList();
+
+        foreach (var subscription in trailingSubscriptions)
+        {
+            var definition = definitionMap.GetValueOrDefault(subscription.Identifier)
+                ?? throw new InvalidOperationException("Subscription definition was not found.");
+            var duration = GetSubscriptionDuration(subscription);
+
+            subscription.BegunAt = cursor;
+            subscription.EndedAt = cursor.Plus(duration);
+            subscription.GroupIdentifier = definition.GroupIdentifier;
+            subscription.DisplayName = definition.DisplayName;
+            subscription.PerkLevel = subscription.IsTesting ? 0 : definition.PerkLevel;
+            subscription.RenewalAt = definition.PaymentPolicy.AllowInternalWalletRenewal
+                ? subscription.EndedAt
+                : null;
+            cursor = subscription.EndedAt ?? cursor;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        var resumedSubscriptionIds = subscriptionsInGroup
+            .Where(s => s.Id != target.Id)
+            .Where(s => alreadyActivatedIds.Contains(s.Id))
+            .Where(s => s.BegunAt > now)
+            .Select(s => s.Id)
+            .ToList();
+        if (resumedSubscriptionIds.Count > 0)
+        {
+            await db.WalletSubscriptions
+                .Where(s => resumedSubscriptionIds.Contains(s.Id))
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(s => s.UpdatedAt, s => s.BegunAt),
+                    cancellationToken
+                );
+
+            foreach (var subscription in subscriptionsInGroup.Where(s => resumedSubscriptionIds.Contains(s.Id)))
+            {
+                subscription.UpdatedAt = subscription.BegunAt;
+            }
+        }
+
+        await InvalidateSubscriptionCaches(accountId, identifiers);
+
+        await NotifySubscriptionBegun(target);
+        if (IsSponsorRewardEligiblePaymentMethod(target.PaymentMethod))
+        {
+            await HandleSponsorCurrencyUpdateAsync(target);
+            await HandleSponsorBadgeSubscriptionAsync(target);
+        }
+
+        return target;
+    }
+
     public async Task<int> ActivatePendingSubscriptionsAsync(
         int batchSize = 100,
         CancellationToken cancellationToken = default
@@ -915,9 +1048,35 @@ public class SubscriptionService(
         return subscriptions.Count;
     }
 
+    private static Duration GetSubscriptionDuration(SnWalletSubscription subscription)
+    {
+        if (subscription.EndedAt.HasValue && subscription.EndedAt.Value > subscription.BegunAt)
+            return subscription.EndedAt.Value - subscription.BegunAt;
+
+        return Duration.FromDays(30);
+    }
+
+    private static Duration GetRemainingSubscriptionDuration(SnWalletSubscription subscription, Instant now)
+    {
+        if (subscription.EndedAt.HasValue && subscription.EndedAt.Value > now)
+            return subscription.EndedAt.Value - now;
+
+        return Duration.Zero;
+    }
+
     private async Task InvalidateSubscriptionCaches(Guid accountId, string identifier)
     {
         await cache.RemoveAsync($"{SubscriptionCacheKeyPrefix}{accountId}:{identifier}");
+        await cache.RemoveAsync($"{SubscriptionPerkCacheKeyPrefix}{accountId}");
+    }
+
+    private async Task InvalidateSubscriptionCaches(Guid accountId, IEnumerable<string> identifiers)
+    {
+        foreach (var identifier in identifiers.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            await cache.RemoveAsync($"{SubscriptionCacheKeyPrefix}{accountId}:{identifier}");
+        }
+
         await cache.RemoveAsync($"{SubscriptionPerkCacheKeyPrefix}{accountId}");
     }
 
