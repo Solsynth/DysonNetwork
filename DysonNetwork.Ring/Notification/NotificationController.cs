@@ -78,6 +78,7 @@ public class NotificationController(
     public class PushNotificationSubscribeRequest
     {
         [MaxLength(4096)] public string? DeviceToken { get; set; }
+        [MaxLength(4096)] public string? DeviceName { get; set; }
         public PushProvider Provider { get; set; }
     }
 
@@ -111,6 +112,7 @@ public class NotificationController(
             await nty.SubscribeDevice(
                 currentSession.ClientId,
                 request.DeviceToken,
+                request.DeviceName,
                 request.Provider,
                 currentUser
             );

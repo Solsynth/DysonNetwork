@@ -13,14 +13,9 @@ var padlockService = builder.AddProject<Projects.DysonNetwork_Padlock>("padlock"
 var passService = builder.AddProject<Projects.DysonNetwork_Passport>("passport")
     .WithReference(ringService)
     .WithReference(padlockService);
-var driveService = builder.AddProject<Projects.DysonNetwork_Drive>("drive")
-    .WithReference(passService)
-    .WithReference(ringService)
-    .WithReference(padlockService);
 var sphereService = builder.AddProject<Projects.DysonNetwork_Sphere>("sphere")
     .WithReference(passService)
     .WithReference(ringService)
-    .WithReference(driveService)
     .WithReference(padlockService);
 var developService = builder.AddProject<Projects.DysonNetwork_Develop>("develop")
     .WithReference(passService)
@@ -33,19 +28,11 @@ var insightService = builder.AddProject<Projects.DysonNetwork_Insight>("insight"
     .WithReference(sphereService)
     .WithReference(developService)
     .WithReference(padlockService);
-var zoneService = builder.AddProject<Projects.DysonNetwork_Zone>("zone")
-    .WithReference(passService)
-    .WithReference(ringService)
-    .WithReference(sphereService)
-    .WithReference(developService)
-    .WithReference(insightService)
-    .WithReference(padlockService);
 var messagerService = builder.AddProject<Projects.DysonNetwork_Messager>("messager")
     .WithReference(passService)
     .WithReference(ringService)
     .WithReference(sphereService)
     .WithReference(developService)
-    .WithReference(driveService)
     .WithReference(padlockService);
 var walletService = builder.AddProject<Projects.DysonNetwork_Wallet>("wallet")
     .WithReference(passService)
@@ -54,19 +41,17 @@ var walletService = builder.AddProject<Projects.DysonNetwork_Wallet>("wallet")
 
 var bladeService = builder.AddExternalService("blade", "http://localhost:7001");
 
-passService.WithReference(developService).WithReference(driveService).WithReference(walletService);
-padlockService.WithReference(driveService).WithReference(walletService);
+passService.WithReference(developService).WithReference(walletService);
+padlockService.WithReference(walletService);
 ringService.WithReference(padlockService);
 
 List<IResourceBuilder<ProjectResource>> services =
 [
     ringService,
     passService,
-    driveService,
     sphereService,
     developService,
     insightService,
-    zoneService,
     messagerService,
     walletService,
     padlockService

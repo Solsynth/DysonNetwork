@@ -50,6 +50,7 @@ public class SnNotificationPushSubscription : ModelBase
     public Guid AccountId { get; set; }
     [MaxLength(8192)] public string DeviceId { get; set; } = null!;
     [MaxLength(8192)] public string DeviceToken { get; set; } = null!;
+    [MaxLength(8192)] public string? DeviceName { get; set; }
     public PushProvider Provider { get; set; }
     public bool IsActivated { get; set; } = true;
     

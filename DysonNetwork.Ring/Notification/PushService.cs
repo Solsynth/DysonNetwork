@@ -100,6 +100,7 @@ public class PushService
     public async Task<SnNotificationPushSubscription> SubscribeDevice(
         string deviceId,
         string deviceToken,
+        string? deviceName,
         PushProvider provider,
         DyAccount account,
         bool isActivated = true
@@ -136,6 +137,7 @@ public class PushService
             existingSubscription.IsActivated = isActivated;
             existingSubscription.LastUsedAt = now;
             existingSubscription.UpdatedAt = now;
+            existingSubscription.DeviceName = deviceName;
 
             _db.Update(existingSubscription);
             await _db.SaveChangesAsync();
@@ -174,11 +176,12 @@ public class PushService
 
     public async Task<(string Token, SnNotificationPushSubscription Subscription)> RegisterSopToken(
         string deviceId,
+        string? deviceName,
         DyAccount account
     )
     {
         var token = $"{Convert.ToHexString(Guid.NewGuid().ToByteArray()).ToLowerInvariant()}{Convert.ToHexString(Guid.NewGuid().ToByteArray()).ToLowerInvariant()}";
-        var subscription = await SubscribeDevice(deviceId, token, PushProvider.Sop, account);
+        var subscription = await SubscribeDevice(deviceId, token, deviceName, PushProvider.Sop, account);
         return (token, subscription);
     }
 

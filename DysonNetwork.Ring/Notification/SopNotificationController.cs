@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
@@ -17,6 +18,11 @@ public class SopNotificationController(
     IOptions<JsonOptions> jsonOptions
 ) : ControllerBase
 {
+    public class SopRegistrationRequest
+    {
+        [MaxLength(4096)] public string? DeviceName { get; set; }
+    }
+    
     public class SopRegistrationResponse
     {
         public string Token { get; set; } = null!;
@@ -25,7 +31,7 @@ public class SopNotificationController(
 
     [HttpPost("subscription")]
     [Authorize]
-    public async Task<ActionResult<SopRegistrationResponse>> RegisterSopToken()
+    public async Task<ActionResult<SopRegistrationResponse>> RegisterSopToken([FromBody] SopRegistrationRequest request)
     {
         HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -33,7 +39,7 @@ public class SopNotificationController(
             return Unauthorized();
 
         var sopDeviceId = $"{currentSession.ClientId}:sop";
-        var (token, subscription) = await nty.RegisterSopToken(sopDeviceId, currentUser);
+        var (token, subscription) = await nty.RegisterSopToken(sopDeviceId, request.DeviceName, currentUser);
         return Ok(new SopRegistrationResponse
         {
             Token = token,
