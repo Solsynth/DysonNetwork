@@ -888,6 +888,164 @@ public partial class PostService(
         return notification;
     }
 
+    private async Task NotifyPostSubscribersAsync(
+        SnPost post,
+        Func<SnPostSubscription, bool> predicate,
+        Func<DyAccount, DyPushNotification> notificationFactory,
+        Guid? excludeAccountId = null
+    )
+    {
+        var subscriptions = await db.PostSubscriptions
+            .Where(s => s.PostId == post.Id)
+            .ToListAsync();
+
+        subscriptions = subscriptions
+            .Where(predicate)
+            .Where(s => !excludeAccountId.HasValue || s.AccountId != excludeAccountId.Value)
+            .ToList();
+        if (subscriptions.Count == 0)
+            return;
+
+        var queryRequest = new DyGetAccountBatchRequest();
+        queryRequest.Id.AddRange(subscriptions.Select(s => s.AccountId.ToString()).Distinct());
+        var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
+
+        foreach (var account in queryResponse.Accounts)
+        {
+            if (account is null)
+                continue;
+
+            await serviceProvider
+                .GetRequiredService<DyRingService.DyRingServiceClient>()
+                .SendPushNotificationToUserAsync(
+                    new DySendPushNotificationToUserRequest
+                    {
+                        UserId = account.Id,
+                        Notification = notificationFactory(account),
+                    }
+                );
+        }
+    }
+
+    private static bool HasMeaningfulPublishedEdit(
+        string? previousTitle,
+        string? previousDescription,
+        string? previousContent,
+        PostVisibility previousVisibility,
+        Instant? previousDraftedAt,
+        Instant? previousPublishedAt,
+        IReadOnlyList<string> previousAttachmentIds,
+        SnPost post,
+        IReadOnlyList<string> currentAttachmentIds,
+        bool wasPublished,
+        bool isPublished
+    )
+    {
+        if (!wasPublished || !isPublished)
+            return false;
+
+        if (!string.Equals(previousTitle, post.Title, StringComparison.Ordinal))
+            return true;
+        if (!string.Equals(previousDescription, post.Description, StringComparison.Ordinal))
+            return true;
+        if (!string.Equals(previousContent, post.Content, StringComparison.Ordinal))
+            return true;
+        if (previousVisibility != post.Visibility)
+            return true;
+        if (previousDraftedAt != post.DraftedAt)
+            return true;
+        if (previousPublishedAt != post.PublishedAt)
+            return true;
+
+        return !previousAttachmentIds.SequenceEqual(currentAttachmentIds, StringComparer.Ordinal);
+    }
+
+    public Task NotifyPostReactionSubscribersAsync(
+        SnPost post,
+        SnPostReaction reaction,
+        DyAccount sender
+    )
+    {
+        return NotifyPostSubscribersAsync(
+            post,
+            s => s.NotifyReactions,
+            account => BuildPostNotification(
+                locale: account.Language,
+                topic: "posts.subscriptions.reactions",
+                title: $"{sender.Nick} reacted to a post you subscribed to",
+                body: $"{sender.Nick} reacted with {reaction.Symbol}",
+                post: post,
+                avatarId: sender.Profile?.Picture?.Id,
+                extraMeta: new Dictionary<string, object?>
+                {
+                    ["notification_type"] = "post_subscription",
+                    ["subscription_event_type"] = "reaction",
+                    ["reaction"] = reaction.Symbol,
+                    ["reaction_attitude"] = reaction.Attitude.ToString().ToLowerInvariant(),
+                    ["actor_id"] = sender.Id,
+                    ["actor_name"] = sender.Nick,
+                }
+            ),
+            excludeAccountId: Guid.Parse(sender.Id)
+        );
+    }
+
+    public Task NotifyPostForwardSubscribersAsync(
+        SnPost post,
+        SnPublisher actorPublisher,
+        Guid excludeAccountId
+    )
+    {
+        var actorName = actorPublisher.Nick ?? actorPublisher.Name;
+        return NotifyPostSubscribersAsync(
+            post,
+            s => s.NotifyForwards,
+            account => BuildPostNotification(
+                locale: account.Language,
+                topic: "posts.subscriptions.forwards",
+                title: $"{actorName} forwarded a post you subscribed to",
+                body: $"{actorName} boosted this post",
+                post: post,
+                avatarId: actorPublisher.Picture?.Id,
+                extraMeta: new Dictionary<string, object?>
+                {
+                    ["notification_type"] = "post_subscription",
+                    ["subscription_event_type"] = "forward",
+                    ["actor_publisher_id"] = actorPublisher.Id.ToString(),
+                    ["actor_publisher_name"] = actorPublisher.Name,
+                    ["actor_publisher_nick"] = actorPublisher.Nick,
+                }
+            ),
+            excludeAccountId: excludeAccountId
+        );
+    }
+
+    public Task NotifyPostEditSubscribersAsync(
+        SnPost post,
+        Guid? excludeAccountId = null
+    )
+    {
+        var actorName = post.Publisher?.Nick ?? post.Publisher?.Name ?? "The author";
+        return NotifyPostSubscribersAsync(
+            post,
+            s => s.NotifyEdits,
+            account => BuildPostNotification(
+                locale: account.Language,
+                topic: "posts.subscriptions.edits",
+                title: $"{actorName} updated a post you subscribed to",
+                body: "The original post has new edits.",
+                post: post,
+                avatarId: post.Publisher?.Picture?.Id,
+                extraMeta: new Dictionary<string, object?>
+                {
+                    ["notification_type"] = "post_subscription",
+                    ["subscription_event_type"] = "edit",
+                }
+            ),
+            excludeAccountId: excludeAccountId
+        );
+    }
+
     private async Task BroadcastPostUpdateAsync(SnPost post, string eventType)
     {
         using var scope = serviceProvider.CreateScope();
@@ -1475,6 +1633,10 @@ public partial class PostService(
         var previousVisibility = entity.Property(e => e.Visibility).OriginalValue;
         var previousDraftedAt = entity.Property(e => e.DraftedAt).OriginalValue;
         var previousPublishedAt = entity.Property(e => e.PublishedAt).OriginalValue;
+        var previousAttachmentIds = post.Attachments
+            .Select(a => a.Id)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToList();
 
         var wasPublished =
             previousDraftedAt is null
@@ -1526,6 +1688,24 @@ public partial class PostService(
         }
 
         await ApplyAutomaticTopicsAsync(post, tags, categories);
+
+        var currentAttachmentIds = post.Attachments
+            .Select(a => a.Id)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToList();
+        var shouldNotifyPostSubscribersAboutEdit = HasMeaningfulPublishedEdit(
+            previousTitle,
+            previousDescription,
+            previousContent,
+            previousVisibility,
+            previousDraftedAt,
+            previousPublishedAt,
+            previousAttachmentIds,
+            post,
+            currentAttachmentIds,
+            wasPublished,
+            isPublished
+        );
 
         db.Update(post);
         await db.SaveChangesAsync();
@@ -1606,6 +1786,25 @@ public partial class PostService(
         {
             // Process link preview in the background to avoid delaying post update
             _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
+        }
+
+        if (shouldNotifyPostSubscribersAboutEdit)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await NotifyPostEditSubscribersAsync(post, post.Publisher?.AccountId);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(
+                        ex,
+                        "Error when sending subscribed post edit notifications for post {PostId}",
+                        post.Id
+                    );
+                }
+            });
         }
 
         if (shouldReindex)
@@ -2192,6 +2391,22 @@ public partial class PostService(
             {
                 logger.LogError(
                     $"Error when sending post reactions notification: {ex.Message} {ex.StackTrace}"
+                );
+            }
+        });
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await NotifyPostReactionSubscribersAsync(post, reaction, sender);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    ex,
+                    "Error when sending subscribed post reaction notifications for post {PostId}",
+                    post.Id
                 );
             }
         });

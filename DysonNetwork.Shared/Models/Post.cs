@@ -847,6 +847,20 @@ public class SnPostBookmark : ModelBase
     public Guid AccountId { get; set; }
 }
 
+public class SnPostSubscription : ModelBase
+{
+    public Guid Id { get; set; }
+
+    public Guid PostId { get; set; }
+    [JsonIgnore] public SnPost Post { get; set; } = null!;
+
+    public Guid AccountId { get; set; }
+
+    public bool NotifyReactions { get; set; } = true;
+    public bool NotifyForwards { get; set; } = true;
+    public bool NotifyEdits { get; set; } = true;
+}
+
 public class SnQuoteAuthorization : ModelBase
 {
     public Guid Id { get; set; }

@@ -1544,6 +1544,22 @@ public class PostActionController(
         post.BoostCount++;
         await db.SaveChangesAsync();
 
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await ps.NotifyPostForwardSubscribersAsync(post, userPublisher, accountId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    ex,
+                    "Error when sending subscribed post forward notifications for post {PostId}",
+                    post.Id
+                );
+            }
+        });
+
         await activityPubDelivery.SendAnnounceActivityAsync(post, localActor, request?.Content);
 
         als.CreateActionLog(

@@ -26,6 +26,7 @@ public class AppDatabase(
     public DbSet<SnPost> Posts { get; set; } = null!;
     public DbSet<SnPostIndex> PostIndices { get; set; } = null!;
     public DbSet<SnPostBookmark> PostBookmarks { get; set; } = null!;
+    public DbSet<SnPostSubscription> PostSubscriptions { get; set; } = null!;
     public DbSet<SnPostReaction> PostReactions { get; set; } = null!;
     public DbSet<SnPostAward> PostAwards { get; set; } = null!;
     public DbSet<SnPostTag> PostTags { get; set; } = null!;
@@ -175,6 +176,15 @@ public class AppDatabase(
             .HasOne(b => b.Post)
             .WithMany(p => p.Bookmarks)
             .HasForeignKey(b => b.PostId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnPostSubscription>()
+            .HasIndex(s => new { s.AccountId, s.PostId, s.DeletedAt })
+            .IsUnique();
+        modelBuilder.Entity<SnPostSubscription>()
+            .HasOne(s => s.Post)
+            .WithMany()
+            .HasForeignKey(s => s.PostId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnPostCollection>()
