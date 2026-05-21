@@ -19,6 +19,57 @@ public class AccountServiceGrpc(
     ILogger<AccountServiceGrpc> logger
 ) : DyAccountService.DyAccountServiceBase
 {
+    private sealed record AccountSearchContext(string Query, bool UseFuzzyMatch);
+
+    private static AccountSearchContext? CreateSearchContext(string? query)
+    {
+        var normalized = query?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : new AccountSearchContext(normalized, normalized.Length >= 3);
+    }
+
+    private static IQueryable<SnAccount> ApplyAccountSearch(
+        IQueryable<SnAccount> query,
+        AccountSearchContext? searchContext
+    )
+    {
+        if (searchContext is null)
+            return query;
+
+        var searchPattern = $"%{searchContext.Query}%";
+        if (!searchContext.UseFuzzyMatch)
+        {
+            return query.Where(a =>
+                EF.Functions.ILike(a.Name, searchPattern)
+                || EF.Functions.ILike(a.Nick, searchPattern)
+            );
+        }
+
+        return query.Where(a =>
+            EF.Functions.ILike(a.Name, searchPattern)
+            || EF.Functions.ILike(a.Nick, searchPattern)
+            || EF.Functions.TrigramsAreSimilar(a.Name, searchContext.Query)
+            || EF.Functions.TrigramsAreSimilar(a.Nick, searchContext.Query)
+        );
+    }
+
+    private static IQueryable<SnAccount> ApplyAccountSearchOrdering(
+        IQueryable<SnAccount> query,
+        AccountSearchContext? searchContext
+    )
+    {
+        if (searchContext is not { UseFuzzyMatch: true })
+            return query.OrderBy(a => a.Name);
+
+        var searchPattern = $"%{searchContext.Query}%";
+        return query
+            .OrderByDescending(a =>
+                EF.Functions.ILike(a.Name, searchPattern) || EF.Functions.ILike(a.Nick, searchPattern)
+            )
+            .ThenByDescending(a => EF.Functions.TrigramsSimilarity(a.Name, searchContext.Query))
+            .ThenByDescending(a => EF.Functions.TrigramsSimilarity(a.Nick, searchContext.Query))
+            .ThenBy(a => a.Name);
+    }
+
     public override async Task<DyAccount> GetAccount(DyGetAccountRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.Id, out var accountId))
@@ -114,13 +165,17 @@ public class AccountServiceGrpc(
         DySearchAccountRequest request,
         ServerCallContext context)
     {
-        var query = request.Query.Trim();
-        if (string.IsNullOrEmpty(query))
+        var searchContext = CreateSearchContext(request.Query);
+        if (searchContext is null)
             return new DyGetAccountBatchResponse();
 
-        var accounts = await db.Accounts
-            .AsNoTracking()
-            .Where(a => EF.Functions.ILike(a.Name, $"%{query}%") || EF.Functions.ILike(a.Nick, $"%{query}%"))
+        var accounts = await ApplyAccountSearchOrdering(
+                ApplyAccountSearch(
+                    db.Accounts.AsNoTracking(),
+                    searchContext
+                ),
+                searchContext
+            )
             .Take(100)
             .ToListAsync(context.CancellationToken);
         await PopulatePerkSubscriptionsAsync(accounts, context.CancellationToken);

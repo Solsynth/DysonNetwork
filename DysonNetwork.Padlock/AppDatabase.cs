@@ -94,6 +94,8 @@ public class AppDatabase(
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.HasPostgresExtension("pg_trgm");
+
         // Padlock keeps auth/security ownership; relationship graph lives in Pass.
         modelBuilder.Ignore<SnAccountBadge>();
         modelBuilder.Ignore<SnAccountProfile>();

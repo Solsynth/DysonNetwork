@@ -15,21 +15,77 @@ public class PublisherPublicController(
     PublisherLeaderboardService leaderboardService
 ) : ControllerBase
 {
+    private sealed record PublisherSearchContext(string Query, bool UseFuzzyMatch);
+
+    private static PublisherSearchContext? CreateSearchContext(string? query)
+    {
+        var normalized = query?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : new PublisherSearchContext(normalized, normalized.Length >= 3);
+    }
+
+    private static IQueryable<SnPublisher> ApplyPublisherSearch(
+        IQueryable<SnPublisher> query,
+        PublisherSearchContext? searchContext
+    )
+    {
+        if (searchContext is null)
+            return query;
+
+        var searchPattern = $"%{searchContext.Query}%";
+        if (!searchContext.UseFuzzyMatch)
+        {
+            return query.Where(a =>
+                EF.Functions.ILike(a.Name, searchPattern)
+                || EF.Functions.ILike(a.Nick, searchPattern)
+                || (a.Bio != null && EF.Functions.ILike(a.Bio, searchPattern))
+            );
+        }
+
+        return query.Where(a =>
+            EF.Functions.ILike(a.Name, searchPattern)
+            || EF.Functions.ILike(a.Nick, searchPattern)
+            || (a.Bio != null && EF.Functions.ILike(a.Bio, searchPattern))
+            || EF.Functions.TrigramsAreSimilar(a.Name, searchContext.Query)
+            || EF.Functions.TrigramsAreSimilar(a.Nick, searchContext.Query)
+            || (a.Bio != null && EF.Functions.TrigramsAreWordSimilar(searchContext.Query, a.Bio))
+        );
+    }
+
+    private static IQueryable<SnPublisher> ApplyPublisherSearchOrdering(
+        IQueryable<SnPublisher> query,
+        PublisherSearchContext? searchContext
+    )
+    {
+        if (searchContext is not { UseFuzzyMatch: true })
+            return query.OrderBy(a => a.Name);
+
+        var searchPattern = $"%{searchContext.Query}%";
+        return query
+            .OrderByDescending(a =>
+                EF.Functions.ILike(a.Name, searchPattern)
+                || EF.Functions.ILike(a.Nick, searchPattern)
+                || (a.Bio != null && EF.Functions.ILike(a.Bio, searchPattern))
+            )
+            .ThenByDescending(a => EF.Functions.TrigramsSimilarity(a.Name, searchContext.Query))
+            .ThenByDescending(a => EF.Functions.TrigramsSimilarity(a.Nick, searchContext.Query))
+            .ThenByDescending(a => a.Bio != null ? EF.Functions.TrigramsWordSimilarity(searchContext.Query, a.Bio) : 0.0f)
+            .ThenBy(a => a.Name);
+    }
+
     [HttpGet("search")]
     public async Task<ActionResult<List<SnPublisher>>> SearchPublishers(
         [FromQuery] string query,
         [FromQuery] int take = 20
     )
     {
-        if (string.IsNullOrWhiteSpace(query))
+        var searchContext = CreateSearchContext(query);
+        if (searchContext is null)
             return Ok(new List<SnPublisher>());
 
         // Use PublisherService to load individual publisher accounts efficiently
-        var publishers = await db
-            .Publishers.Where(a =>
-                EF.Functions.ILike(a.Name, $"%{query}%")
-                || EF.Functions.ILike(a.Nick, $"%{query}%")
-                || (a.Bio != null && EF.Functions.ILike(a.Bio, $"%{query}%"))
+        var publishers = await ApplyPublisherSearchOrdering(
+                ApplyPublisherSearch(db.Publishers, searchContext),
+                searchContext
             )
             .Take(take)
             .ToListAsync();
