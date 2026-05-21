@@ -27,11 +27,16 @@ public class PostController(
     RemoteRealmService rs
 ) : ControllerBase
 {
+    private const string OrderDate = "date";
+    private const string OrderPopularity = "popularity";
+
     public class UserReactionListingItem
     {
         public required SnPostReaction Reaction { get; set; }
         public required SnPost Post { get; set; }
     }
+
+    private sealed record PostSearchContext(string Query, bool UseFuzzyMatch);
 
     private async Task<(HashSet<Guid>? gatekeptPublisherIds, HashSet<Guid>? subscriberPublisherIds)> GetGatekeepInfoAsync(
         IQueryable<Guid> publisherIdsInQuery,
@@ -88,6 +93,100 @@ public class PostController(
         var replies = repliesByParent.GetValueOrDefault(post.Id, []);
         foreach (var reply in replies)
             FlattenThreadedReplies(reply, repliesByParent, depth + 1, result);
+    }
+
+    private static string? NormalizeSearchTerm(string? queryTerm)
+    {
+        var normalized = queryTerm?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static PostSearchContext? CreatePostSearchContext(string? queryTerm)
+    {
+        var normalized = NormalizeSearchTerm(queryTerm);
+        return normalized is null ? null : new PostSearchContext(normalized, normalized.Length >= 3);
+    }
+
+    private static IQueryable<SnPost> ApplyPostTextSearch(IQueryable<SnPost> query, PostSearchContext? searchContext)
+    {
+        if (searchContext is null)
+            return query;
+
+        var searchPattern = $"%{searchContext.Query}%";
+        if (!searchContext.UseFuzzyMatch)
+        {
+            return query.Where(p =>
+                (p.Title != null && EF.Functions.ILike(p.Title, searchPattern))
+                || (p.Description != null && EF.Functions.ILike(p.Description, searchPattern))
+                || (p.Content != null && EF.Functions.ILike(p.Content, searchPattern))
+            );
+        }
+
+        return query.Where(p =>
+            (p.Title != null && (
+                EF.Functions.ILike(p.Title, searchPattern)
+                || EF.Functions.TrigramsAreSimilar(p.Title, searchContext.Query)
+            ))
+            || (p.Description != null && (
+                EF.Functions.ILike(p.Description, searchPattern)
+                || EF.Functions.TrigramsAreSimilar(p.Description, searchContext.Query)
+            ))
+            || (p.Content != null && (
+                EF.Functions.ILike(p.Content, searchPattern)
+                || EF.Functions.TrigramsAreWordSimilar(searchContext.Query, p.Content)
+            ))
+        );
+    }
+
+    private static IQueryable<SnPost> ApplyPostOrdering(
+        IQueryable<SnPost> query,
+        string? order,
+        bool orderDesc,
+        bool shuffle,
+        PostSearchContext? searchContext
+    )
+    {
+        if (shuffle)
+            return query.OrderBy(e => EF.Functions.Random());
+
+        var normalizedOrder = order?.Trim().ToLowerInvariant();
+        var orderByDate = normalizedOrder == OrderDate;
+
+        if (searchContext is { UseFuzzyMatch: true } && !orderByDate)
+        {
+            var searchPattern = $"%{searchContext.Query}%";
+            IOrderedQueryable<SnPost> rankedQuery = query
+                .OrderByDescending(p =>
+                    (p.Title != null && EF.Functions.ILike(p.Title, searchPattern))
+                    || (p.Description != null && EF.Functions.ILike(p.Description, searchPattern))
+                    || (p.Content != null && EF.Functions.ILike(p.Content, searchPattern))
+                )
+                .ThenByDescending(p => p.Title != null ? EF.Functions.TrigramsSimilarity(p.Title, searchContext.Query) : 0.0f)
+                .ThenByDescending(p => p.Description != null ? EF.Functions.TrigramsSimilarity(p.Description, searchContext.Query) : 0.0f)
+                .ThenByDescending(p => p.Content != null ? EF.Functions.TrigramsWordSimilarity(searchContext.Query, p.Content) : 0.0f);
+
+            return normalizedOrder switch
+            {
+                OrderPopularity => orderDesc
+                    ? rankedQuery.ThenByDescending(e => e.Upvotes * 10 - e.Downvotes * 10 + e.AwardedScore)
+                        .ThenByDescending(e => e.PublishedAt ?? e.CreatedAt)
+                    : rankedQuery.ThenBy(e => e.Upvotes * 10 - e.Downvotes * 10 + e.AwardedScore)
+                        .ThenByDescending(e => e.PublishedAt ?? e.CreatedAt),
+                _ => orderDesc
+                    ? rankedQuery.ThenByDescending(e => e.PublishedAt ?? e.CreatedAt)
+                    : rankedQuery.ThenBy(e => e.PublishedAt ?? e.CreatedAt)
+            };
+        }
+
+        return normalizedOrder switch
+        {
+            OrderPopularity => orderDesc
+                ? query.OrderByDescending(e => e.Upvotes * 10 - e.Downvotes * 10 + e.AwardedScore)
+                : query.OrderBy(e => e.Upvotes * 10 - e.Downvotes * 10 + e.AwardedScore),
+            _ => orderDesc
+                ? query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
+                : query.OrderBy(e => e.PublishedAt ?? e.CreatedAt)
+        };
     }
 
     [HttpGet("featured")]
@@ -298,11 +397,12 @@ public class PostController(
                 : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
         var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
         var defaultSearchEngine = configuration["Posts:SearchEngineDefault"] ?? "semantic";
+        var searchContext = CreatePostSearchContext(queryTerm);
         var effectiveSearchEngine = string.IsNullOrWhiteSpace(searchEngine)
             ? defaultSearchEngine
             : searchEngine;
         var useSemanticSearch =
-            !string.IsNullOrWhiteSpace(queryTerm)
+            searchContext is not null
             && !(
                 string.Equals(effectiveSearchEngine, "fulltext", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(effectiveSearchEngine, "full-text", StringComparison.OrdinalIgnoreCase)
@@ -434,7 +534,7 @@ public class PostController(
             try
             {
                 var embeddingResponse = await embeddings.GenerateEmbeddingAsync(
-                    new DyGenerateEmbeddingRequest { Text = queryTerm! }
+                    new DyGenerateEmbeddingRequest { Text = searchContext!.Query }
                 );
                 var queryEmbedding = new Vector(embeddingResponse.Embedding.ToArray());
 
@@ -483,31 +583,8 @@ public class PostController(
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(queryTerm))
-        {
-            query = query.Where(p =>
-                (p.Title != null && EF.Functions.ILike(p.Title, $"%{queryTerm}%"))
-                || (p.Description != null && EF.Functions.ILike(p.Description, $"%{queryTerm}%"))
-                || (p.Content != null && EF.Functions.ILike(p.Content, $"%{queryTerm}%"))
-            );
-        }
-
-        if (shuffle)
-        {
-            query = query.OrderBy(e => EF.Functions.Random());
-        }
-        else
-        {
-            query = order switch
-            {
-                "popularity" => orderDesc
-                    ? query.OrderByDescending(e => e.Upvotes * 10 - e.Downvotes * 10 + e.AwardedScore)
-                    : query.OrderBy(e => e.Upvotes * 10 - e.Downvotes * 10 + e.AwardedScore),
-                _ => orderDesc
-                    ? query.OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
-                    : query.OrderBy(e => e.PublishedAt ?? e.CreatedAt)
-            };
-        }
+        query = ApplyPostTextSearch(query, searchContext);
+        query = ApplyPostOrdering(query, order, orderDesc, shuffle, searchContext);
 
         var totalCount = await query.CountAsync();
 
@@ -766,14 +843,7 @@ public class PostController(
             _ => baseQuery,
         };
 
-        if (!string.IsNullOrWhiteSpace(queryTerm))
-        {
-            baseQuery = baseQuery.Where(p =>
-                (p.Title != null && EF.Functions.ILike(p.Title, $"%{queryTerm}%"))
-                || (p.Description != null && EF.Functions.ILike(p.Description, $"%{queryTerm}%"))
-                || (p.Content != null && EF.Functions.ILike(p.Content, $"%{queryTerm}%"))
-            );
-        }
+        baseQuery = ApplyPostTextSearch(baseQuery, CreatePostSearchContext(queryTerm));
 
         var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
             baseQuery.Where(p => p.PublisherId != null).Select(p => p.PublisherId!.Value),
@@ -921,14 +991,7 @@ public class PostController(
             _ => baseQuery,
         };
 
-        if (!string.IsNullOrWhiteSpace(queryTerm))
-        {
-            baseQuery = baseQuery.Where(p =>
-                (p.Title != null && EF.Functions.ILike(p.Title, $"%{queryTerm}%"))
-                || (p.Description != null && EF.Functions.ILike(p.Description, $"%{queryTerm}%"))
-                || (p.Content != null && EF.Functions.ILike(p.Content, $"%{queryTerm}%"))
-            );
-        }
+        baseQuery = ApplyPostTextSearch(baseQuery, CreatePostSearchContext(queryTerm));
 
         var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
             baseQuery.Where(p => p.PublisherId != null).Select(p => p.PublisherId!.Value),

@@ -80,6 +80,7 @@ public class AppDatabase(
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.HasPostgresExtension("vector");
+        modelBuilder.HasPostgresExtension("pg_trgm");
 
         modelBuilder.Ignore<SnAccount>();
         modelBuilder.Ignore<SnAccountRelationship>();
