@@ -5,7 +5,6 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace DysonNetwork.Ring.Notification;
@@ -13,7 +12,6 @@ namespace DysonNetwork.Ring.Notification;
 [ApiController]
 [Route("/api/notifications/sop")]
 public class SopNotificationController(
-    AppDatabase db,
     PushService nty,
     IOptions<JsonOptions> jsonOptions
 ) : ControllerBase
@@ -60,15 +58,12 @@ public class SopNotificationController(
         var sopSub = await nty.GetSopSubscriptionByToken(token);
         if (sopSub is null) return Unauthorized();
 
-        var totalCount = await db.Notifications
-            .Where(s => s.AccountId == sopSub.AccountId)
-            .CountAsync();
-        var notifications = await db.Notifications
-            .Where(s => s.AccountId == sopSub.AccountId)
-            .OrderByDescending(e => e.CreatedAt)
-            .Skip(offset)
-            .Take(take)
-            .ToListAsync();
+        var (notifications, totalCount) = await nty.ListSopNotifications(
+            sopSub.AccountId,
+            offset,
+            take,
+            HttpContext.RequestAborted
+        );
 
         Response.Headers["X-Total"] = totalCount.ToString();
         return Ok(notifications);

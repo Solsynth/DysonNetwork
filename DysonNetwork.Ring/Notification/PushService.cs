@@ -30,6 +30,7 @@ public class PushService
     private readonly RemoteWebSocketService _ws;
     private readonly NotificationPreferenceService _preferenceService;
     private readonly RemoteActionLogService _actionLogs;
+    private readonly SopNotificationReplayBuffer _sopReplayBuffer;
     private static readonly HashSet<string> InvalidFcmErrors = new(StringComparer.OrdinalIgnoreCase)
     {
         "InvalidRegistration",
@@ -53,7 +54,8 @@ public class PushService
         ILogger<PushService> logger,
         RemoteWebSocketService ws,
         NotificationPreferenceService preferenceService,
-        RemoteActionLogService actionLogs
+        RemoteActionLogService actionLogs,
+        SopNotificationReplayBuffer sopReplayBuffer
     )
     {
         var cfgSection = config.GetSection("Notifications:Push");
@@ -88,6 +90,7 @@ public class PushService
         _logger = logger;
         _preferenceService = preferenceService;
         _actionLogs = actionLogs;
+        _sopReplayBuffer = sopReplayBuffer;
     }
 
     public async Task UnsubscribeDevice(string deviceId)
@@ -277,8 +280,12 @@ public class PushService
     public async Task DeliverPushNotification(
         SnNotification notification,
         IReadOnlyCollection<string>? excludedWebSocketDeviceIds = null,
+        bool isSavable = false,
         CancellationToken cancellationToken = default)
     {
+        if (!isSavable)
+            await _sopReplayBuffer.AppendNotification(notification);
+
         BroadcastSopStream(notification);
 
         try
@@ -393,6 +400,8 @@ public class PushService
         foreach (var account in accounts)
         {
             notification.AccountId = account;
+            if (!save)
+                await _sopReplayBuffer.AppendNotification(notification);
             BroadcastSopStream(notification);
 
             var subscriptions = await _db.PushSubscriptions
@@ -648,5 +657,45 @@ public class PushService
             UpdatedAt = notification.UpdatedAt,
         }));
         await _db.SaveChangesAsync();
+    }
+
+    public async Task<(List<SnNotification> Notifications, int TotalCount)> ListSopNotifications(
+        Guid accountId,
+        int offset,
+        int take,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var replayNotifications = await _sopReplayBuffer.GetNotifications(accountId);
+        var replayIds = replayNotifications.Select(n => n.Id).ToHashSet();
+
+        var dbTotalCount = await _db.Notifications
+            .Where(s => s.AccountId == accountId)
+            .CountAsync(cancellationToken);
+
+        var duplicateCount = replayIds.Count == 0
+            ? 0
+            : await _db.Notifications
+                .Where(s => s.AccountId == accountId)
+                .Where(s => replayIds.Contains(s.Id))
+                .CountAsync(cancellationToken);
+
+        var dbFetchCount = offset + take + replayNotifications.Count;
+        var dbNotifications = await _db.Notifications
+            .Where(s => s.AccountId == accountId)
+            .OrderByDescending(e => e.CreatedAt)
+            .Take(dbFetchCount)
+            .ToListAsync(cancellationToken);
+
+        var notifications = replayNotifications
+            .Concat(dbNotifications)
+            .GroupBy(n => n.Id)
+            .Select(g => g.OrderByDescending(n => n.CreatedAt).First())
+            .OrderByDescending(n => n.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToList();
+
+        return (notifications, dbTotalCount + replayNotifications.Count - duplicateCount);
     }
 }

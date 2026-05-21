@@ -116,6 +116,7 @@ public class QueueBackgroundService(
         await pushService.DeliverPushNotification(
             notification,
             message.ExcludedWebSocketDeviceIds,
+            message.IsSavable,
             cancellationToken
         );
         logger.LogDebug("Successfully processed push notification for account {AccountId}", notification.AccountId);
