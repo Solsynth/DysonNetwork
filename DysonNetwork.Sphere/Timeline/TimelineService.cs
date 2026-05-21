@@ -524,12 +524,18 @@ public class TimelineService(
         var tagIds = posts.SelectMany(p => p.Tags.Select(x => x.Id)).Distinct().ToList();
         var categoryIds = posts.SelectMany(p => p.Categories.Select(x => x.Id)).Distinct().ToList();
         var publisherIds = posts.Where(p => p.PublisherId.HasValue).Select(p => p.PublisherId!.Value).Distinct().ToList();
+        var postCollectionMap = await GetPostCollectionMapAsync(posts.Select(p => p.Id));
+        var collectionIds = postCollectionMap.Values
+            .SelectMany(x => x)
+            .Distinct()
+            .ToList();
 
         var interestProfiles = await db.PostInterestProfiles.Where(p => p.AccountId == accountId)
             .Where(p =>
                 (p.Kind == PostInterestKind.Tag && tagIds.Contains(p.ReferenceId))
                 || (p.Kind == PostInterestKind.Category && categoryIds.Contains(p.ReferenceId))
                 || (p.Kind == PostInterestKind.Publisher && publisherIds.Contains(p.ReferenceId))
+                || (p.Kind == PostInterestKind.Collection && collectionIds.Contains(p.ReferenceId))
             )
             .ToListAsync();
 
@@ -545,6 +551,8 @@ public class TimelineService(
         var categoryInterest = interestProfiles.Where(x => x.Kind == PostInterestKind.Category)
             .ToDictionary(x => x.ReferenceId, x => GetDecayedInterestScore(x, now));
         var publisherInterest = interestProfiles.Where(x => x.Kind == PostInterestKind.Publisher)
+            .ToDictionary(x => x.ReferenceId, x => GetDecayedInterestScore(x, now));
+        var collectionInterest = interestProfiles.Where(x => x.Kind == PostInterestKind.Collection)
             .ToDictionary(x => x.ReferenceId, x => GetDecayedInterestScore(x, now));
         var subscribedTagIds = subscriptions.Where(x => x.TagId.HasValue).Select(x => x.TagId!.Value).ToHashSet();
         var subscribedCategoryIds = subscriptions.Where(x => x.CategoryId.HasValue).Select(x => x.CategoryId!.Value).ToHashSet();
@@ -563,6 +571,9 @@ public class TimelineService(
                         ? Math.Min(2d, publisherScore * 0.2d)
                         : Math.Max(-6d, publisherScore * 0.5d);
                 }
+                bonus += postCollectionMap.GetValueOrDefault(post.Id, []).Sum(collectionId =>
+                    collectionInterest.GetValueOrDefault(collectionId, 0d) * 0.6d
+                );
                 bonus += post.Tags.Count(tag => subscribedTagIds.Contains(tag.Id)) * 1.25d;
                 bonus += post.Categories.Count(category => subscribedCategoryIds.Contains(category.Id)) * 1.5d;
                 return bonus;
@@ -756,10 +767,14 @@ public class TimelineService(
         var publisherInterest = interestProfiles
             .Where(x => x.Kind == PostInterestKind.Publisher)
             .ToDictionary(x => x.ReferenceId, x => GetDecayedInterestScore(x, now));
+        var collectionInterest = interestProfiles
+            .Where(x => x.Kind == PostInterestKind.Collection)
+            .ToDictionary(x => x.ReferenceId, x => GetDecayedInterestScore(x, now));
 
         var publicRealms = await rs.GetPublicRealms("date", 40);
         var visibleRealmIds = publicRealms.Select(x => x.Id).Concat(userRealms).Distinct().ToList();
         var candidatePosts = await GetDiscoveryCandidatePosts(now, visibleRealmIds);
+        var postCollectionMap = await GetPostCollectionMapAsync(candidatePosts.Select(x => x.Id));
 
         var interestEntries = await BuildDiscoveryInterestEntries(interestProfiles, now);
         var suggestionContext = await BuildDiscoverySuggestionContext(
@@ -773,6 +788,8 @@ public class TimelineService(
             tagInterest,
             categoryInterest,
             publisherInterest,
+            collectionInterest,
+            postCollectionMap,
             now
         );
 
@@ -896,6 +913,7 @@ public class TimelineService(
                     || (p.PublishedAt == null && p.CreatedAt >= recent)
                 )
                 .ToListAsync();
+            var postCollectionMap = await GetPostCollectionMapAsync(historicPosts.Select(p => p.Id));
 
             // Aggregate tags from historic posts
             var tagScores = historicPosts
@@ -912,6 +930,13 @@ public class TimelineService(
                 .Select(g => (Kind: PostInterestKind.Category, ReferenceId: g.Key, ScoreDelta: 2.0d * g.Count()))
                 .ToList();
             adjustments.AddRange(categoryScores);
+
+            var collectionScores = postCollectionMap.Values
+                .SelectMany(x => x)
+                .GroupBy(x => x)
+                .Select(g => (Kind: PostInterestKind.Collection, ReferenceId: g.Key, ScoreDelta: 1.5d * g.Count()))
+                .ToList();
+            adjustments.AddRange(collectionScores);
 
             // Add publisher interests from user's own publishers (score: 2.0)
             adjustments.AddRange(userPublisherIds.Select(id =>
@@ -960,6 +985,9 @@ public class TimelineService(
                 }
             case "publisher":
                 adjustments = [(PostInterestKind.Publisher, referenceId, baseScore)];
+                break;
+            case "collection":
+                adjustments = [(PostInterestKind.Collection, referenceId, baseScore)];
                 break;
             case "tag":
                 adjustments = [(PostInterestKind.Tag, referenceId, baseScore)];
@@ -1035,6 +1063,19 @@ public class TimelineService(
         if (post.PublisherId.HasValue)
             adjustments.Add((PostInterestKind.Publisher, post.PublisherId.Value, baseScore));
 
+        var collectionIds = await db.PostCollectionItems
+            .Where(x => x.PostId == post.Id)
+            .Select(x => x.CollectionId)
+            .Distinct()
+            .ToListAsync();
+        if (collectionIds.Count > 0)
+        {
+            var collectionScore = baseScore * 0.65d / collectionIds.Count;
+            adjustments.AddRange(collectionIds.Select(collectionId =>
+                (PostInterestKind.Collection, collectionId, collectionScore)
+            ));
+        }
+
         var tags = post.Tags.Select(x => x.Id).Distinct().ToList();
         if (tags.Count > 0)
         {
@@ -1085,6 +1126,10 @@ public class TimelineService(
             .Where(x => x.Kind == PostInterestKind.Publisher)
             .Select(x => x.ReferenceId)
             .ToList();
+        var collectionIds = aggregatedAdjustments
+            .Where(x => x.Kind == PostInterestKind.Collection)
+            .Select(x => x.ReferenceId)
+            .ToList();
 
         var existingProfiles = await db.PostInterestProfiles
             .Where(p => p.AccountId == accountId)
@@ -1092,6 +1137,7 @@ public class TimelineService(
                 (p.Kind == PostInterestKind.Tag && tagIds.Contains(p.ReferenceId))
                 || (p.Kind == PostInterestKind.Category && categoryIds.Contains(p.ReferenceId))
                 || (p.Kind == PostInterestKind.Publisher && publisherIds.Contains(p.ReferenceId))
+                || (p.Kind == PostInterestKind.Collection && collectionIds.Contains(p.ReferenceId))
             )
             .ToListAsync();
 
@@ -1133,6 +1179,7 @@ public class TimelineService(
                     (p.Kind == PostInterestKind.Tag && tagIds.Contains(p.ReferenceId))
                     || (p.Kind == PostInterestKind.Category && categoryIds.Contains(p.ReferenceId))
                     || (p.Kind == PostInterestKind.Publisher && publisherIds.Contains(p.ReferenceId))
+                    || (p.Kind == PostInterestKind.Collection && collectionIds.Contains(p.ReferenceId))
                 )
                 .ToListAsync();
 
@@ -1206,6 +1253,11 @@ public class TimelineService(
             .Select(x => x.ReferenceId)
             .Distinct()
             .ToList();
+        var collectionIds = profiles
+            .Where(x => x.Kind == PostInterestKind.Collection)
+            .Select(x => x.ReferenceId)
+            .Distinct()
+            .ToList();
 
         var tags = await db.PostTags
             .AsNoTracking()
@@ -1219,6 +1271,10 @@ public class TimelineService(
             .AsNoTracking()
             .Where(x => publisherIds.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, x => x.Nick);
+        var collections = await db.PostCollections
+            .AsNoTracking()
+            .Where(x => collectionIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id, x => x.Name ?? x.Slug);
 
         return profiles
             .Select(profile => new SnDiscoveryInterestEntry
@@ -1236,6 +1292,10 @@ public class TimelineService(
                         profile.ReferenceId.ToString()
                     ),
                     PostInterestKind.Publisher => publishers.GetValueOrDefault(
+                        profile.ReferenceId,
+                        profile.ReferenceId.ToString()
+                    ),
+                    PostInterestKind.Collection => collections.GetValueOrDefault(
                         profile.ReferenceId,
                         profile.ReferenceId.ToString()
                     ),
@@ -1262,6 +1322,8 @@ public class TimelineService(
         IReadOnlyDictionary<Guid, double> tagInterest,
         IReadOnlyDictionary<Guid, double> categoryInterest,
         IReadOnlyDictionary<Guid, double> publisherInterest,
+        IReadOnlyDictionary<Guid, double> collectionInterest,
+        IReadOnlyDictionary<Guid, List<Guid>> postCollectionMap,
         Instant now
     )
     {
@@ -1286,6 +1348,8 @@ public class TimelineService(
             tagInterest,
             categoryInterest,
             publisherInterest,
+            collectionInterest,
+            postCollectionMap,
             now
         );
         var accountCandidates = await BuildAccountSuggestions(
@@ -1301,6 +1365,8 @@ public class TimelineService(
             publicRealmMap,
             tagInterest,
             categoryInterest,
+            collectionInterest,
+            postCollectionMap,
             now
         );
         var suppressed = await BuildSuppressedSuggestions(preferences, publicRealmMap);
@@ -1323,6 +1389,8 @@ public class TimelineService(
         IReadOnlyDictionary<Guid, double> tagInterest,
         IReadOnlyDictionary<Guid, double> categoryInterest,
         IReadOnlyDictionary<Guid, double> publisherInterest,
+        IReadOnlyDictionary<Guid, double> collectionInterest,
+        IReadOnlyDictionary<Guid, List<Guid>> postCollectionMap,
         Instant now
     )
     {
@@ -1333,7 +1401,14 @@ public class TimelineService(
             {
                 var posts = group.ToList();
                 var score = posts
-                    .Select(post => CalculateDiscoveryPostScore(post, tagInterest, categoryInterest, now))
+                    .Select(post => CalculateDiscoveryPostScore(
+                        post,
+                        tagInterest,
+                        categoryInterest,
+                        collectionInterest,
+                        postCollectionMap.GetValueOrDefault(post.Id, []),
+                        now
+                    ))
                     .OrderByDescending(x => x)
                     .Take(3)
                     .Sum();
@@ -1444,6 +1519,8 @@ public class TimelineService(
         IReadOnlyDictionary<Guid, SnRealm> publicRealmMap,
         IReadOnlyDictionary<Guid, double> tagInterest,
         IReadOnlyDictionary<Guid, double> categoryInterest,
+        IReadOnlyDictionary<Guid, double> collectionInterest,
+        IReadOnlyDictionary<Guid, List<Guid>> postCollectionMap,
         Instant now
     )
     {
@@ -1454,7 +1531,14 @@ public class TimelineService(
             {
                 var posts = group.ToList();
                 var score = posts
-                    .Select(post => CalculateDiscoveryPostScore(post, tagInterest, categoryInterest, now))
+                    .Select(post => CalculateDiscoveryPostScore(
+                        post,
+                        tagInterest,
+                        categoryInterest,
+                        collectionInterest,
+                        postCollectionMap.GetValueOrDefault(post.Id, []),
+                        now
+                    ))
                     .OrderByDescending(x => x)
                     .Take(3)
                     .Sum();
@@ -1575,12 +1659,16 @@ public class TimelineService(
         SnPost post,
         IReadOnlyDictionary<Guid, double> tagInterest,
         IReadOnlyDictionary<Guid, double> categoryInterest,
+        IReadOnlyDictionary<Guid, double> collectionInterest,
+        IReadOnlyList<Guid> collectionIds,
         Instant now
     )
     {
         var tagScore = post.Tags.Sum(tag => tagInterest.GetValueOrDefault(tag.Id, 0d)) * 0.9d;
         var categoryScore = post.Categories.Sum(category => categoryInterest.GetValueOrDefault(category.Id, 0d))
             * 0.8d;
+        var collectionScore = collectionIds.Sum(collectionId => collectionInterest.GetValueOrDefault(collectionId, 0d))
+            * 0.65d;
         var engagementScore = Math.Max(
             0d,
             post.ReactionScore * 0.15d + (double)post.AwardedScore / 50d + post.RepliesCount * 0.08d
@@ -1588,7 +1676,26 @@ public class TimelineService(
         var articleBonus = post.Type == PostType.Article ? 0.35d : 0d;
         var ageDays = Math.Max(0d, (now - GetPostTimelineInstant(post)).TotalDays);
         var freshness = 1d / Math.Pow(ageDays + 1d, 0.35d);
-        return (tagScore + categoryScore + engagementScore + articleBonus) * freshness;
+        return (tagScore + categoryScore + collectionScore + engagementScore + articleBonus) * freshness;
+    }
+
+    private async Task<Dictionary<Guid, List<Guid>>> GetPostCollectionMapAsync(IEnumerable<Guid> postIds)
+    {
+        var ids = postIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return [];
+
+        var items = await db.PostCollectionItems
+            .Where(x => ids.Contains(x.PostId))
+            .Select(x => new { x.PostId, x.CollectionId })
+            .ToListAsync();
+
+        return items
+            .GroupBy(x => x.PostId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(x => x.CollectionId).Distinct().ToList()
+            );
     }
 
     private static List<string> BuildReasonLabels(IEnumerable<SnPost> posts)

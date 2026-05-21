@@ -74,7 +74,7 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
             return BadRequest("Invalid feedback. Expected positive or negative.");
 
         if (!IsFeedbackKindSupported(request.Kind))
-            return BadRequest("Invalid kind. Expected post, publisher, tag, or category.");
+            return BadRequest("Invalid kind. Expected post, publisher, collection, tag, or category.");
 
         var result = await timeline.ApplyRecommendationFeedbackAsync(
             currentUser,
@@ -100,7 +100,7 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
 
         var kind = ParseInterestKind(request.Kind);
         if (kind == null)
-            return BadRequest("Invalid kind. Expected publisher, tag, or category.");
+            return BadRequest("Invalid kind. Expected publisher, collection, tag, or category.");
 
         var profile = await timeline.AdjustRecommendationWeightAsync(
             currentUser,
@@ -142,7 +142,7 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
         if (string.IsNullOrWhiteSpace(kind))
             return false;
 
-        return kind.Trim().ToLowerInvariant() is "post" or "publisher" or "tag" or "category";
+        return kind.Trim().ToLowerInvariant() is "post" or "publisher" or "collection" or "tag" or "category";
     }
 
     private static RecommendationFeedbackValue? ParseFeedback(string? feedback)
@@ -166,6 +166,7 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
         return kind.Trim().ToLowerInvariant() switch
         {
             "publisher" => PostInterestKind.Publisher,
+            "collection" => PostInterestKind.Collection,
             "tag" => PostInterestKind.Tag,
             "category" => PostInterestKind.Category,
             _ => null,

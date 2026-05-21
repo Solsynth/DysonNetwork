@@ -534,6 +534,10 @@ public partial class PostService(
             .Include(p => p.Tags)
             .Include(p => p.Categories)
             .ToDictionaryAsync(p => p.Id);
+        var postCollectionMap = await db.PostCollectionItems
+            .Where(i => postIds.Contains(i.PostId))
+            .Select(i => new { i.PostId, i.CollectionId })
+            .ToListAsync();
 
         var accountIds = aggregatedSignals.Select(x => x.AccountId).Distinct().ToList();
         var tagIds = posts.Values.SelectMany(p => p.Tags.Select(x => x.Id)).Distinct().ToList();
@@ -546,6 +550,10 @@ public partial class PostService(
             .Select(p => p.PublisherId!.Value)
             .Distinct()
             .ToList();
+        var collectionIds = postCollectionMap
+            .Select(x => x.CollectionId)
+            .Distinct()
+            .ToList();
 
         var existingProfiles = await db
             .PostInterestProfiles.Where(p => accountIds.Contains(p.AccountId))
@@ -553,6 +561,7 @@ public partial class PostService(
                 (p.Kind == PostInterestKind.Tag && tagIds.Contains(p.ReferenceId))
                 || (p.Kind == PostInterestKind.Category && categoryIds.Contains(p.ReferenceId))
                 || (p.Kind == PostInterestKind.Publisher && publisherIds.Contains(p.ReferenceId))
+                || (p.Kind == PostInterestKind.Collection && collectionIds.Contains(p.ReferenceId))
             )
             .ToListAsync();
 
@@ -566,11 +575,17 @@ public partial class PostService(
             if (!posts.TryGetValue(signal.PostId, out var post))
                 continue;
 
+            var postCollectionIds = postCollectionMap
+                .Where(x => x.PostId == signal.PostId)
+                .Select(x => x.CollectionId)
+                .Distinct()
+                .ToList();
             var targets = new List<(PostInterestKind Kind, Guid ReferenceId)>();
             targets.AddRange(post.Tags.Select(x => (PostInterestKind.Tag, x.Id)));
             targets.AddRange(post.Categories.Select(x => (PostInterestKind.Category, x.Id)));
             if (post.PublisherId.HasValue)
                 targets.Add((PostInterestKind.Publisher, post.PublisherId.Value));
+            targets.AddRange(postCollectionIds.Select(x => (PostInterestKind.Collection, x)));
 
             foreach (var target in targets.Distinct())
             {

@@ -9,6 +9,7 @@ public enum PostInterestKind
     Tag,
     Category,
     Publisher,
+    Collection,
 }
 
 [Index(nameof(AccountId), nameof(Kind), nameof(ReferenceId), nameof(DeletedAt), IsUnique = true)]
