@@ -33,7 +33,6 @@
         <PackageReference Include="Microsoft.AspNetCore.Authentication" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
         <PackageReference Include="Microsoft.IdentityModel.Tokens" />
         <PackageReference Include="NATS.Net" />
         <PackageReference Include="NodaTime" />
@@ -48,10 +47,6 @@
         <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" />
         <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
         <PackageReference Include="Yarp.ReverseProxy" />
-
-        <PackageReference Include="Aspire.NATS.Net" />
-        <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
-        <PackageReference Include="Aspire.StackExchange.Redis" />
         
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" />
