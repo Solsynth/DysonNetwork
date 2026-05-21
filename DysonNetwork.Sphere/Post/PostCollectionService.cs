@@ -225,8 +225,6 @@ public class PostCollectionService(
 
         var query = db.PostCollectionItems
             .Where(i => i.CollectionId == collection.Id)
-            .OrderBy(i => i.Order)
-            .ThenBy(i => i.PostId)
             .Include(i => i.Post).ThenInclude(p => p.Publisher)
             .Include(i => i.Post).ThenInclude(p => p.Tags)
             .Include(i => i.Post).ThenInclude(p => p.Categories)
@@ -241,7 +239,10 @@ public class PostCollectionService(
                 isListing: true,
                 gatekeepInfo.gatekeptPublisherIds,
                 gatekeepInfo.subscriberPublisherIds
-            );
+            )
+            .OrderByDescending(p => p.PublishedAt ?? p.CreatedAt)
+            .ThenByDescending(p => p.CreatedAt)
+            .ThenByDescending(p => p.Id);
 
         var posts = await query.Skip(offset).Take(take).ToListAsync();
         foreach (var post in posts)
@@ -292,9 +293,12 @@ public class PostCollectionService(
 
         var allItems = await db.PostCollectionItems
             .Where(i => i.CollectionId == collection.Id)
-            .OrderBy(i => i.Order)
-            .ThenBy(i => i.PostId)
-            .Select(i => new { i.PostId, i.Order })
+            .Select(i => new
+            {
+                i.PostId,
+                PublishedAt = i.Post.PublishedAt,
+                i.Post.CreatedAt,
+            })
             .ToListAsync();
 
         var allPostIds = allItems.Select(i => i.PostId).ToList();
@@ -315,6 +319,9 @@ public class PostCollectionService(
         var visibleSet = visiblePostIds.ToHashSet();
         var orderedVisibleIds = allItems
             .Where(i => visibleSet.Contains(i.PostId))
+            .OrderByDescending(i => i.PublishedAt ?? i.CreatedAt)
+            .ThenByDescending(i => i.CreatedAt)
+            .ThenByDescending(i => i.PostId)
             .Select(i => i.PostId)
             .ToList();
 
@@ -369,7 +376,8 @@ public class PostCollectionService(
             {
                 i.PostId,
                 Collection = i.Collection,
-                i.Order,
+                PublishedAt = i.Post.PublishedAt,
+                i.Post.CreatedAt,
             })
             .ToListAsync();
 
@@ -378,14 +386,22 @@ public class PostCollectionService(
                 posts.Where(p => p.PublisherId.HasValue),
                 item => item.PostId,
                 post => post.Id,
-                (item, post) => new { item.PostId, item.Collection, item.Order, PostPublisherId = post.PublisherId!.Value }
+                (item, post) => new
+                {
+                    item.PostId,
+                    item.Collection,
+                    item.PublishedAt,
+                    item.CreatedAt,
+                    PostPublisherId = post.PublisherId!.Value
+                }
             )
             .Where(x => x.Collection.PublisherId == x.PostPublisherId)
             .GroupBy(i => i.PostId)
             .ToDictionary(
                 g => g.Key,
                 g => g
-                    .OrderBy(i => i.Order)
+                    .OrderByDescending(i => i.PublishedAt ?? i.CreatedAt)
+                    .ThenByDescending(i => i.CreatedAt)
                     .ThenBy(i => i.Collection.Slug)
                     .Select(i => i.Collection)
                     .DistinctBy(c => c.Id)

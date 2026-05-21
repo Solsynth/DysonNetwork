@@ -198,9 +198,12 @@ public class PostCollectionController(
         if (auth.Result is not null)
             return auth.Result;
 
+        if (request.Order.HasValue)
+            return BadRequest("Manual ordering is not supported. Collection posts are sorted automatically by published date descending.");
+
         try
         {
-            await collectionService.AddPostAsync(collection, request.PostId, request.Order);
+            await collectionService.AddPostAsync(collection, request.PostId, null);
             return NoContent();
         }
         catch (InvalidOperationException ex)
@@ -288,15 +291,7 @@ public class PostCollectionController(
         if (auth.Result is not null)
             return auth.Result;
 
-        try
-        {
-            await collectionService.ReorderPostsAsync(collection, request.PostIds);
-            return NoContent();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        return BadRequest("Manual reordering is not supported. Collection posts are sorted automatically by published date descending.");
     }
 
     [HttpGet("{slug}/posts/{postId:guid}/prev")]
