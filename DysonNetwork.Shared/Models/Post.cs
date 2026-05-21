@@ -596,6 +596,8 @@ public class SnPostCategorySubscription : ModelBase
     public SnPostCategory? Category { get; set; }
     public Guid? TagId { get; set; }
     public SnPostTag? Tag { get; set; }
+    public Guid? CollectionId { get; set; }
+    public SnPostCollection? Collection { get; set; }
 }
 
 public class SnPostCollection : ModelBase

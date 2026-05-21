@@ -11,7 +11,7 @@ namespace DysonNetwork.Sphere.Post;
 public class PostCategorySubController(AppDatabase db) : ControllerBase
 {
     /// <summary>
-    /// Get all subscriptions of categories and tags for the current user
+    /// Get all subscriptions of categories, tags, and collections for the current user
     /// </summary>
     /// <returns>List of active subscription</returns>
     [HttpGet("subscriptions")]
@@ -27,6 +27,8 @@ public class PostCategorySubController(AppDatabase db) : ControllerBase
         var pubQuery = db.PostCategorySubscriptions
             .Include(ps => ps.Tag)
             .Include(ps => ps.Category)
+            .Include(ps => ps.Collection)
+            .ThenInclude(c => c!.Publisher)
             .Where(ps => ps.AccountId == accountId)
             .OrderByDescending(ps => ps.CreatedAt)
             .AsQueryable();

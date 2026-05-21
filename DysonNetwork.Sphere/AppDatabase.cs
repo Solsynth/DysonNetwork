@@ -202,6 +202,14 @@ public class AppDatabase(
             .HasForeignKey(i => i.PostId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        modelBuilder.Entity<SnPostCategorySubscription>()
+            .HasIndex(s => s.CollectionId);
+        modelBuilder.Entity<SnPostCategorySubscription>()
+            .HasOne(s => s.Collection)
+            .WithMany()
+            .HasForeignKey(s => s.CollectionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<SnFediverseActor>()
             .HasOne(a => a.Instance)
             .WithMany(i => i.Actors)

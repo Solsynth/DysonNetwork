@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Sphere.Post;
 
@@ -110,6 +111,86 @@ public class PostCollectionController(
         if (collection is null)
             return NotFound();
         return Ok(collection);
+    }
+
+    [HttpPost("{slug}/subscribe")]
+    [Authorize]
+    public async Task<ActionResult<SnPostCategorySubscription>> SubscribeCollection(string publisherName, string slug)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var collection = await collectionService.GetCollectionBySlugAsync(publisherName, slug);
+        if (collection is null)
+            return NotFound("Collection not found.");
+
+        var existingSubscription = await db.PostCategorySubscriptions
+            .FirstOrDefaultAsync(s => s.CollectionId == collection.Id && s.AccountId == accountId);
+        if (existingSubscription is not null)
+            return Ok(existingSubscription);
+
+        var subscription = new SnPostCategorySubscription
+        {
+            Id = Guid.NewGuid(),
+            AccountId = accountId,
+            CollectionId = collection.Id,
+        };
+
+        db.PostCategorySubscriptions.Add(subscription);
+        await db.SaveChangesAsync();
+
+        return CreatedAtAction(
+            nameof(GetCollectionSubscription),
+            new { publisherName, slug },
+            subscription
+        );
+    }
+
+    [HttpPost("{slug}/unsubscribe")]
+    [Authorize]
+    public async Task<IActionResult> UnsubscribeCollection(string publisherName, string slug)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var collection = await collectionService.GetCollectionBySlugAsync(publisherName, slug);
+        if (collection is null)
+            return NotFound("Collection not found.");
+
+        var subscription = await db.PostCategorySubscriptions
+            .FirstOrDefaultAsync(s => s.CollectionId == collection.Id && s.AccountId == accountId);
+        if (subscription is null)
+            return NoContent();
+
+        db.PostCategorySubscriptions.Remove(subscription);
+        await db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [HttpGet("{slug}/subscription")]
+    [Authorize]
+    public async Task<ActionResult<SnPostCategorySubscription>> GetCollectionSubscription(
+        string publisherName,
+        string slug
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var collection = await collectionService.GetCollectionBySlugAsync(publisherName, slug);
+        if (collection is null)
+            return NotFound("Collection not found.");
+
+        var subscription = await db.PostCategorySubscriptions
+            .FirstOrDefaultAsync(s => s.CollectionId == collection.Id && s.AccountId == accountId);
+        if (subscription is null)
+            return NotFound("Subscription not found.");
+
+        return Ok(subscription);
     }
 
     [HttpPatch("{slug}")]

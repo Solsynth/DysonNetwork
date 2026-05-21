@@ -98,10 +98,8 @@ public class PublisherSubscriptionService(
         var subscribers = await db
             .PublisherSubscriptions.Where(p => p.PublisherId == post.PublisherId)
             .ToListAsync();
-        if (subscribers.Count == 0)
-            return 0;
 
-        List<SnPostCategorySubscription> categorySubscribers = [];
+        List<SnPostCategorySubscription> topicSubscribers = [];
         if (post.Categories.Count > 0)
         {
             var categoryIds = post.Categories.Select(x => x.Id).ToList();
@@ -110,7 +108,7 @@ public class PublisherSubscriptionService(
                     s.CategoryId != null && categoryIds.Contains(s.CategoryId.Value)
                 )
                 .ToListAsync();
-            categorySubscribers.AddRange(subs);
+            topicSubscribers.AddRange(subs);
         }
 
         if (post.Tags.Count > 0)
@@ -121,12 +119,30 @@ public class PublisherSubscriptionService(
                     s.TagId != null && tagIds.Contains(s.TagId.Value)
                 )
                 .ToListAsync();
-            categorySubscribers.AddRange(subs);
+            topicSubscribers.AddRange(subs);
         }
+
+        var collectionIds = await db.PostCollectionItems
+            .Where(i => i.PostId == post.Id)
+            .Select(i => i.CollectionId)
+            .Distinct()
+            .ToListAsync();
+        if (collectionIds.Count > 0)
+        {
+            var subs = await db
+                .PostCategorySubscriptions.Where(s =>
+                    s.CollectionId != null && collectionIds.Contains(s.CollectionId.Value)
+                )
+                .ToListAsync();
+            topicSubscribers.AddRange(subs);
+        }
+
+        if (subscribers.Count == 0 && topicSubscribers.Count == 0)
+            return 0;
 
         List<string> requestAccountIds = [];
         requestAccountIds.AddRange(subscribers.Select(x => x.AccountId.ToString()));
-        requestAccountIds.AddRange(categorySubscribers.Select(x => x.AccountId.ToString()));
+        requestAccountIds.AddRange(topicSubscribers.Select(x => x.AccountId.ToString()));
 
         var queryRequest = new DyGetAccountBatchRequest();
         queryRequest.Id.AddRange(requestAccountIds.Distinct());
