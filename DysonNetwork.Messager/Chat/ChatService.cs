@@ -2104,6 +2104,38 @@ public partial class ChatService(
         return false;
     }
 
+    private async Task LockMessageForReactionUpdateAsync(Guid messageId)
+    {
+        await db
+            .ChatMessages.FromSqlInterpolated(
+                $"SELECT * FROM chat_messages WHERE id = {messageId} FOR UPDATE"
+            )
+            .AsNoTracking()
+            .Select(m => m.Id)
+            .FirstAsync();
+    }
+
+    private async Task<Dictionary<string, int>> RebuildMessageReactionCountsAsync(Guid messageId)
+    {
+        return await db
+            .ChatReactions.Where(r => r.MessageId == messageId)
+            .GroupBy(r => r.Symbol)
+            .Select(g => new { Symbol = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.Symbol, g => g.Count);
+    }
+
+    private async Task PersistMessageReactionCountsAsync(
+        Guid messageId,
+        Dictionary<string, int> reactionsCount
+    )
+    {
+        await db
+            .ChatMessages.Where(m => m.Id == messageId)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(m => m.ReactionsCount, reactionsCount)
+            );
+    }
+
     public async Task<SnChatReaction> AddReactionAsync(
         SnChatRoom room,
         SnChatMessage message,
@@ -2114,14 +2146,14 @@ public partial class ChatService(
         reaction.MessageId = message.Id;
         reaction.SenderId = sender.Id;
 
+        await using var tx = await db.Database.BeginTransactionAsync();
+        await LockMessageForReactionUpdateAsync(message.Id);
+
         db.ChatReactions.Add(reaction);
-
-        if (message.ReactionsCount.TryGetValue(reaction.Symbol, out var count))
-            message.ReactionsCount[reaction.Symbol] = count + 1;
-        else
-            message.ReactionsCount[reaction.Symbol] = 1;
-
         await db.SaveChangesAsync();
+
+        message.ReactionsCount = await RebuildMessageReactionCountsAsync(message.Id);
+        await PersistMessageReactionCountsAsync(message.Id, message.ReactionsCount);
 
         var syncMessage = new SnChatMessage
         {
@@ -2147,6 +2179,7 @@ public partial class ChatService(
 
         db.ChatMessages.Add(syncMessage);
         await db.SaveChangesAsync();
+        await tx.CommitAsync();
 
         if (sender.Account is null)
         {
@@ -2186,13 +2219,6 @@ public partial class ChatService(
             notify: false
         );
 
-        // Explicitly update ReactionsCount in database to avoid entity tracking issues
-        await db
-            .ChatMessages.Where(m => m.Id == message.Id)
-            .ExecuteUpdateAsync(setters =>
-                setters.SetProperty(m => m.ReactionsCount, message.ReactionsCount)
-            );
-
         await HydrateMessageReactionsAsync([message], sender.AccountId);
 
         // Ensure the original message sender has Account loaded before delivery
@@ -2229,17 +2255,14 @@ public partial class ChatService(
         if (reaction is null)
             return;
 
+        await using var tx = await db.Database.BeginTransactionAsync();
+        await LockMessageForReactionUpdateAsync(message.Id);
+
         db.ChatReactions.Remove(reaction);
-
-        if (message.ReactionsCount.TryGetValue(symbol, out var count))
-        {
-            if (count > 1)
-                message.ReactionsCount[symbol] = count - 1;
-            else
-                message.ReactionsCount.Remove(symbol);
-        }
-
         await db.SaveChangesAsync();
+
+        message.ReactionsCount = await RebuildMessageReactionCountsAsync(message.Id);
+        await PersistMessageReactionCountsAsync(message.Id, message.ReactionsCount);
 
         var syncMessage = new SnChatMessage
         {
@@ -2257,6 +2280,7 @@ public partial class ChatService(
 
         db.ChatMessages.Add(syncMessage);
         await db.SaveChangesAsync();
+        await tx.CommitAsync();
 
         if (sender.Account is null)
         {
@@ -2295,13 +2319,6 @@ public partial class ChatService(
             type: WebSocketPacketType.MessageNew,
             notify: false
         );
-
-        // Explicitly update ReactionsCount in database to avoid entity tracking issues
-        await db
-            .ChatMessages.Where(m => m.Id == message.Id)
-            .ExecuteUpdateAsync(setters =>
-                setters.SetProperty(m => m.ReactionsCount, message.ReactionsCount)
-            );
 
         await HydrateMessageReactionsAsync([message], sender.AccountId);
 
