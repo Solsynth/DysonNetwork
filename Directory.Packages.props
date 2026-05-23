@@ -80,6 +80,7 @@
     <PackageVersion Include="Quartz.AspNetCore" Version="3.18.1" />
     <PackageVersion Include="Quartz.Extensions.Hosting" Version="3.18.1" />
     <PackageVersion Include="RedLock.net" Version="2.3.2" />
+    <PackageVersion Include="Sentry" Version="5.16.0" />
     <PackageVersion Include="SimpleMvcSitemap" Version="4.0.1" />
     <PackageVersion Include="SkiaSharp" Version="2.88.9" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="2.88.9" />

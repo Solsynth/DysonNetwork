@@ -45,6 +45,7 @@
         <PackageReference Include="Otp.NET" />
         <PackageReference Include="Pgvector" />
         <PackageReference Include="RedLock.net" />
+        <PackageReference Include="Sentry" />
         <PackageReference Include="StackExchange.Redis" />
         <PackageReference Include="Swashbuckle.AspNetCore" />
         <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" />

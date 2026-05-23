@@ -10,6 +10,7 @@ using NodaTime;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
+using Sentry;
 using RedLockNet;
 using RedLockNet.SERedis;
 using RedLockNet.SERedis.Configuration;
@@ -31,6 +32,16 @@ public static class Extensions
         {
             // Allow unencrypted grpc
             AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
+
+            var sentryDsn = builder.Configuration["SentryDsn"];
+            if (!string.IsNullOrWhiteSpace(sentryDsn))
+            {
+                SentrySdk.Init(options =>
+                {
+                    options.Dsn = sentryDsn;
+                    options.TracesSampleRate = 0.01;
+                });
+            }
 
             builder.ConfigureOpenTelemetry();
 
