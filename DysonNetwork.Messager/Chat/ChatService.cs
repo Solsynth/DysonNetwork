@@ -1355,91 +1355,104 @@ public partial class ChatService(
         string symbol
     )
     {
-        using var scope = scopeFactory.CreateScope();
-        var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
-        var scopedNty =
-            scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
-
-        var messageAuthor = await db
-            .ChatMembers.Where(m => m.Id == message.SenderId && m.ChatRoomId == room.Id)
-            .FirstOrDefaultAsync();
-
-        if (messageAuthor is null)
-            return;
-
-        if (messageAuthor.AccountId == reactor.AccountId)
-            return;
-
-        if (messageAuthor.Notify == ChatMemberNotify.None)
-            return;
-
-        var now = SystemClock.Instance.GetCurrentInstant();
-        if (messageAuthor.BreakUntil is not null && messageAuthor.BreakUntil > now)
-            return;
-
-        messageAuthor = await scopedCrs.LoadMemberAccount(messageAuthor);
-        if (messageAuthor.Account is null)
-            return;
-
-        var locale = messageAuthor.Account.Language;
-        var roomSubject =
-            room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM"
-            : room.Realm is not null ? $"{room.Name ?? "Unknown"}, {room.Realm.Name}"
-            : room.Name ?? "Unknown";
-
-        var notification = new DyPushNotification
+        try
         {
-            Topic = isAdded ? "messages.reaction.added" : "messages.reaction.removed",
-            Title =
-                $"{reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick ?? "Someone"} ({roomSubject})",
-            Meta = InfraObjectCoder.ConvertObjectToByteString(
-                new Dictionary<string, object>
-                {
-                    ["user_id"] = reactor.AccountId,
-                    ["reactor_id"] = reactor.Id,
-                    ["reactor_name"] = reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick,
-                    ["message_id"] = message.Id,
-                    ["room_id"] = room.Id,
-                    ["symbol"] = symbol ?? "",
-                }
-            ),
-            ActionUri = $"/chat/{room.Id}",
-            IsSavable = false,
-            Body = isAdded
-                ? localization.Get(
-                    "chatReactionNotificationBodyAdded",
-                    locale,
-                    new
+            using var scope = scopeFactory.CreateScope();
+            var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+            var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
+            var scopedNty =
+                scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
+
+            var messageAuthor = await scopedDb
+                .ChatMembers.Where(m => m.Id == message.SenderId && m.ChatRoomId == room.Id)
+                .FirstOrDefaultAsync();
+
+            if (messageAuthor is null)
+                return;
+
+            if (messageAuthor.AccountId == reactor.AccountId)
+                return;
+
+            if (messageAuthor.Notify == ChatMemberNotify.None)
+                return;
+
+            var now = SystemClock.Instance.GetCurrentInstant();
+            if (messageAuthor.BreakUntil is not null && messageAuthor.BreakUntil > now)
+                return;
+
+            messageAuthor = await scopedCrs.LoadMemberAccount(messageAuthor);
+            if (messageAuthor.Account is null)
+                return;
+
+            var locale = messageAuthor.Account.Language;
+            var roomSubject =
+                room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM"
+                : room.Realm is not null ? $"{room.Name ?? "Unknown"}, {room.Realm.Name}"
+                : room.Name ?? "Unknown";
+
+            var notification = new DyPushNotification
+            {
+                Topic = isAdded ? "messages.reaction.added" : "messages.reaction.removed",
+                Title =
+                    $"{reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick ?? "Someone"} ({roomSubject})",
+                Meta = InfraObjectCoder.ConvertObjectToByteString(
+                    new Dictionary<string, object>
                     {
-                        senderNick = reactor.Nick
-                            ?? reactor.RealmNick
-                            ?? reactor.Account?.Nick
-                            ?? "Someone",
-                        symbol,
-                    }
-                )
-                : localization.Get(
-                    "chatReactionNotificationBodyRemoved",
-                    locale,
-                    new
-                    {
-                        senderNick = reactor.Nick
-                            ?? reactor.RealmNick
-                            ?? reactor.Account?.Nick
-                            ?? "Someone",
-                        symbol,
+                        ["user_id"] = reactor.AccountId,
+                        ["reactor_id"] = reactor.Id,
+                        ["reactor_name"] = reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick,
+                        ["message_id"] = message.Id,
+                        ["room_id"] = room.Id,
+                        ["symbol"] = symbol ?? "",
                     }
                 ),
-        };
+                ActionUri = $"/chat/{room.Id}",
+                IsSavable = false,
+                Body = isAdded
+                    ? localization.Get(
+                        "chatReactionNotificationBodyAdded",
+                        locale,
+                        new
+                        {
+                            senderNick = reactor.Nick
+                                ?? reactor.RealmNick
+                                ?? reactor.Account?.Nick
+                                ?? "Someone",
+                            symbol,
+                        }
+                    )
+                    : localization.Get(
+                        "chatReactionNotificationBodyRemoved",
+                        locale,
+                        new
+                        {
+                            senderNick = reactor.Nick
+                                ?? reactor.RealmNick
+                                ?? reactor.Account?.Nick
+                                ?? "Someone",
+                            symbol,
+                        }
+                    ),
+            };
 
-        var ntyRequest = new DySendPushNotificationToUsersRequest { Notification = notification };
-        ntyRequest.UserIds.Add(messageAuthor.AccountId.ToString());
-        await scopedNty.SendPushNotificationToUsersAsync(ntyRequest);
+            var ntyRequest = new DySendPushNotificationToUsersRequest { Notification = notification };
+            ntyRequest.UserIds.Add(messageAuthor.AccountId.ToString());
+            await scopedNty.SendPushNotificationToUsersAsync(ntyRequest);
 
-        logger.LogInformation(
-            "Sent reaction notification to message author {AuthorId}",
-            messageAuthor.AccountId
-        );
+            logger.LogInformation(
+                "Sent reaction notification to message author {AuthorId}",
+                messageAuthor.AccountId
+            );
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Failed to send reaction notification for message {MessageId} in room {RoomId}",
+                message.Id,
+                room.Id
+            );
+        }
     }
 
     private Dictionary<string, object> BuildNotificationMeta(
