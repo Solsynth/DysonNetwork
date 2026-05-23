@@ -1,8 +1,8 @@
 using System.Globalization;
+using System.Text.Json;
 using Microsoft.AspNetCore.RateLimiting;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Account.Presences;
@@ -30,6 +30,7 @@ using DysonNetwork.Shared.Registry;
 using DysonNetwork.Shared.Localization;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Proto;
+using WebSocketPacket = DysonNetwork.Shared.Models.WebSocketPacket;
 
 namespace DysonNetwork.Passport.Startup;
 
@@ -351,6 +352,14 @@ public static class ServiceCollectionExtensions
                 "websocket_connected",
                 async (evt, ctx) =>
                 {
+                    var accountEvents = ctx.ServiceProvider.GetRequiredService<AccountEventService>();
+                    await accountEvents.UpdateWebSocketConnectionState(
+                        evt.AccountId,
+                        evt.DeviceId,
+                        isConnected: true,
+                        idleSince: null,
+                        updateIdleSince: true
+                    );
                     await HandleWebSocketStatusChanged(evt.AccountId, evt.DeviceId, evt.Timestamp, ctx);
                 },
                 opts =>
@@ -365,6 +374,12 @@ public static class ServiceCollectionExtensions
                 async (evt, ctx) =>
                 {
                     if (!evt.IsOffline) return;
+                    var accountEvents = ctx.ServiceProvider.GetRequiredService<AccountEventService>();
+                    await accountEvents.UpdateWebSocketConnectionState(
+                        evt.AccountId,
+                        evt.DeviceId,
+                        isConnected: false
+                    );
                     await HandleWebSocketStatusChanged(evt.AccountId, evt.DeviceId, evt.Timestamp, ctx);
                 },
                 opts =>
@@ -373,9 +388,46 @@ public static class ServiceCollectionExtensions
                     opts.StreamName = "websocket_connections";
                     opts.ConsumerName = "passport_websocket_disconnected_status";
                     opts.MaxRetries = 3;
+                })
+            .AddListener<WebSocketPacketEvent>(
+                WebSocketPacketEvent.SubjectPrefix + "passport",
+                async (evt, ctx) =>
+                {
+                    var packet = WebSocketPacket.FromBytes(evt.PacketBytes);
+                    if (packet.Type != "status.idle") return;
+
+                    var accountEvents = ctx.ServiceProvider.GetRequiredService<AccountEventService>();
+                    await accountEvents.UpdateWebSocketConnectionState(
+                        evt.AccountId,
+                        evt.DeviceId,
+                        isConnected: true,
+                        idleSince: ResolveIdleSince(packet, evt.Timestamp),
+                        updateIdleSince: true
+                    );
+                    await HandleWebSocketStatusChanged(evt.AccountId, evt.DeviceId, evt.Timestamp, ctx);
+                },
+                opts =>
+                {
+                    opts.UseJetStream = false;
                 });
 
         return services;
+    }
+
+    private static Instant? ResolveIdleSince(WebSocketPacket packet, Instant timestamp)
+    {
+        if (packet.Data is null) return timestamp;
+
+        var element = packet.GetData<JsonElement>();
+        return element.ValueKind switch
+        {
+            JsonValueKind.True => timestamp,
+            JsonValueKind.False => null,
+            JsonValueKind.Object when element.TryGetProperty("is_idle", out var isIdle)
+                && isIdle.ValueKind is JsonValueKind.True or JsonValueKind.False
+                    => isIdle.GetBoolean() ? timestamp : null,
+            _ => timestamp
+        };
     }
 
     private static async Task HandleWebSocketStatusChanged(Guid accountId, string deviceId, Instant timestamp, EventContext ctx)

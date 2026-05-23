@@ -31,6 +31,12 @@ public class SnAccountStatus : ModelBase
     public bool IsOnline { get; set; }
 
     [NotMapped]
+    public bool IsIdle { get; set; }
+
+    [NotMapped]
+    public Instant? IdleSince { get; set; }
+
+    [NotMapped]
     public bool IsCustomized { get; set; } = true;
     public StatusType Type { get; set; } = StatusType.Default;
 
@@ -68,6 +74,7 @@ public class SnAccountStatus : ModelBase
                 _ => DyStatusAttitude.Unspecified,
             },
             IsOnline = IsOnline,
+            IsIdle = IsIdle,
             IsCustomized = IsCustomized,
             IsInvisible = Type == StatusType.Invisible,
             IsNotDisturb = Type == StatusType.DoNotDisturb,
@@ -82,6 +89,7 @@ public class SnAccountStatus : ModelBase
             CreatedAt = CreatedAt.ToTimestamp(),
             UpdatedAt = UpdatedAt.ToTimestamp(),
             DeletedAt = DeletedAt?.ToTimestamp(),
+            IdleSince = IdleSince?.ToTimestamp(),
         };
 
         return proto;
@@ -99,6 +107,8 @@ public class SnAccountStatus : ModelBase
                 _ => StatusAttitude.Neutral,
             },
             IsOnline = proto.IsOnline,
+            IsIdle = proto.IsIdle,
+            IdleSince = proto.IdleSince?.ToInstant(),
             IsCustomized = proto.IsCustomized,
             Type = proto.Type != DyAccountStatusType.Default
                 ? Enum.IsDefined(typeof(StatusType), (int)proto.Type) ? (StatusType)proto.Type : StatusType.Default

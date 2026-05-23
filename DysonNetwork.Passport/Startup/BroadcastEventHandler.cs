@@ -8,6 +8,8 @@ public static class BroadcastEventHandler
     {
         return a.Attitude == b.Attitude &&
                a.IsOnline == b.IsOnline &&
+               a.IsIdle == b.IsIdle &&
+               a.IdleSince == b.IdleSince &&
                a.IsCustomized == b.IsCustomized &&
                a.Label == b.Label &&
                a.Symbol == b.Symbol &&

@@ -33,6 +33,11 @@ public class AccountEventService(
     ILogger<AccountEventService> logger
 )
 {
+    private sealed class WebSocketConnectionPresenceState
+    {
+        public Instant? IdleSince { get; set; }
+    }
+
     private static readonly Random Random = new();
     private const int FortuneReportVersion = 2;
     private const int FortuneTipTitleMaxLength = 48;
@@ -48,6 +53,8 @@ public class AccountEventService(
     private const string StatusCacheKey = "account:status:";
     private const string PreviousStatusCacheKey = "account:status:prev:";
     private const string ActivityCacheKey = "account:activities:";
+    private const string ConnectionIdleStateCacheKey = "account:connection-idle-state:";
+    private const string ConnectionIdleStateLockKey = "account:connection-idle-state:lock:";
 
     private async Task<bool> GetAccountIsConnected(Guid userId)
     {
@@ -73,6 +80,76 @@ public class AccountEventService(
     {
         var cacheKey = $"{ActivityCacheKey}{userId}";
         cache.RemoveAsync(cacheKey);
+    }
+
+    public async Task UpdateWebSocketConnectionState(
+        Guid accountId,
+        string deviceId,
+        bool? isConnected = null,
+        Instant? idleSince = null,
+        bool updateIdleSince = false
+    )
+    {
+        var cacheKey = $"{ConnectionIdleStateCacheKey}{accountId}";
+        var lockKey = $"{ConnectionIdleStateLockKey}{accountId}";
+
+        await cache.ExecuteWithLockAsync(
+            lockKey,
+            async () =>
+            {
+                var states =
+                    await cache.GetAsync<Dictionary<string, WebSocketConnectionPresenceState>>(cacheKey)
+                    ?? [];
+
+                if (isConnected == false)
+                {
+                    states.Remove(deviceId);
+                }
+                else
+                {
+                    var state = states.TryGetValue(deviceId, out var existingState)
+                        ? existingState
+                        : new WebSocketConnectionPresenceState();
+                    if (updateIdleSince)
+                        state.IdleSince = idleSince;
+                    states[deviceId] = state;
+                }
+
+                if (states.Count == 0)
+                {
+                    await cache.RemoveAsync(cacheKey);
+                }
+                else
+                {
+                    await cache.SetAsync(cacheKey, states, TimeSpan.FromDays(7));
+                }
+            },
+            TimeSpan.FromSeconds(10),
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromMilliseconds(100)
+        );
+    }
+
+    public Task ClearWebSocketConnectionStates(Guid accountId)
+    {
+        return cache.RemoveAsync($"{ConnectionIdleStateCacheKey}{accountId}");
+    }
+
+    private async Task<(bool IsIdle, Instant? IdleSince)> GetAccountIdleState(Guid userId)
+    {
+        var states = await cache.GetAsync<Dictionary<string, WebSocketConnectionPresenceState>>(
+            $"{ConnectionIdleStateCacheKey}{userId}"
+        );
+        if (states is not { Count: > 0 })
+            return (false, null);
+
+        var idleSinceValues = states.Values
+            .Select(x => x.IdleSince)
+            .ToList();
+        if (idleSinceValues.Any(x => x is null))
+            return (false, null);
+
+        return (true, idleSinceValues.Max());
     }
 
     private async Task BroadcastPresenceActivitiesUpdated(Guid accountId)
@@ -168,8 +245,15 @@ public class AccountEventService(
         SnAccountStatus? status;
         if (cachedStatus is not null)
         {
-            cachedStatus!.IsOnline =
-                !IsInvisibleStatus(cachedStatus) && await GetAccountIsConnected(userId);
+            var isOnline = !IsInvisibleStatus(cachedStatus) && await GetAccountIsConnected(userId);
+            cachedStatus!.IsOnline = isOnline;
+            var idleState = isOnline
+                ? await GetAccountIdleState(userId)
+                : (IsIdle: false, IdleSince: null as Instant?);
+            cachedStatus.IsIdle = isOnline && idleState.IsIdle;
+            cachedStatus.IdleSince = cachedStatus.IsIdle ? idleState.IdleSince : null;
+            if (!isOnline)
+                await ClearWebSocketConnectionStates(userId);
             status = cachedStatus;
         }
         else
@@ -181,9 +265,14 @@ public class AccountEventService(
                 .OrderByDescending(e => e.CreatedAt)
                 .FirstOrDefaultAsync();
             var isOnline = await GetAccountIsConnected(userId);
+            var idleState = isOnline
+                ? await GetAccountIdleState(userId)
+                : (IsIdle: false, IdleSince: null as Instant?);
             if (status is not null)
             {
                 status.IsOnline = !IsInvisibleStatus(status) && isOnline;
+                status.IsIdle = status.IsOnline && idleState.IsIdle;
+                status.IdleSince = status.IsIdle ? idleState.IdleSince : null;
                 await cache.SetWithGroupsAsync(
                     cacheKey,
                     status,
@@ -199,6 +288,8 @@ public class AccountEventService(
                     {
                         Attitude = Shared.Models.StatusAttitude.Neutral,
                         IsOnline = true,
+                        IsIdle = idleState.IsIdle,
+                        IdleSince = idleState.IsIdle ? idleState.IdleSince : null,
                         IsCustomized = false,
                         Label = "Online",
                         AccountId = userId,
@@ -206,10 +297,13 @@ public class AccountEventService(
                 }
                 else
                 {
+                    await ClearWebSocketConnectionStates(userId);
                     status = new SnAccountStatus
                     {
                         Attitude = Shared.Models.StatusAttitude.Neutral,
                         IsOnline = false,
+                        IsIdle = false,
+                        IdleSince = null,
                         IsCustomized = false,
                         Label = "Offline",
                         AccountId = userId,
@@ -234,8 +328,15 @@ public class AccountEventService(
             var cachedStatus = await cache.GetAsync<SnAccountStatus>(cacheKey);
             if (cachedStatus != null)
             {
-                cachedStatus.IsOnline =
-                    !IsInvisibleStatus(cachedStatus) && await GetAccountIsConnected(userId);
+                var isOnline = !IsInvisibleStatus(cachedStatus) && await GetAccountIsConnected(userId);
+                cachedStatus.IsOnline = isOnline;
+                var idleState = isOnline
+                    ? await GetAccountIdleState(userId)
+                    : (IsIdle: false, IdleSince: null as Instant?);
+                cachedStatus.IsIdle = isOnline && idleState.IsIdle;
+                cachedStatus.IdleSince = cachedStatus.IsIdle ? idleState.IdleSince : null;
+                if (!isOnline)
+                    await ClearWebSocketConnectionStates(userId);
                 results[userId] = cachedStatus;
             }
             else
@@ -260,7 +361,12 @@ public class AccountEventService(
             foreach (var status in statusesFromDb)
             {
                 var isOnline = await GetAccountIsConnected(status.AccountId);
+                var idleState = isOnline
+                    ? await GetAccountIdleState(status.AccountId)
+                    : (IsIdle: false, IdleSince: null as Instant?);
                 status.IsOnline = !IsInvisibleStatus(status) && isOnline;
+                status.IsIdle = status.IsOnline && idleState.IsIdle;
+                status.IdleSince = status.IsIdle ? idleState.IdleSince : null;
                 results[status.AccountId] = status;
                 var cacheKey = $"{StatusCacheKey}{status.AccountId}";
                 await cache.SetAsync(cacheKey, status, TimeSpan.FromMinutes(5));
@@ -274,10 +380,17 @@ public class AccountEventService(
                 foreach (var userId in usersWithoutStatus)
                 {
                     var isOnline = await GetAccountIsConnected(userId);
+                    var idleState = isOnline
+                        ? await GetAccountIdleState(userId)
+                        : (IsIdle: false, IdleSince: null as Instant?);
+                    if (!isOnline)
+                        await ClearWebSocketConnectionStates(userId);
                     var defaultStatus = new SnAccountStatus
                     {
                         Attitude = Shared.Models.StatusAttitude.Neutral,
                         IsOnline = isOnline,
+                        IsIdle = isOnline && idleState.IsIdle,
+                        IdleSince = isOnline && idleState.IsIdle ? idleState.IdleSince : null,
                         IsCustomized = false,
                         Label = isOnline ? "Online" : "Offline",
                         AccountId = userId,
