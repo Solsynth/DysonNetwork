@@ -6,6 +6,9 @@ The Presence Activity API allows users to manage their current activities (e.g.,
 
 This service is handled by the DysonNetwork.Pass, when using with the gateway, replace the `/api` with the `/pass`
 
+For hash-addressed presence artwork uploads and references, see `docs/PASSPORT_PRESENCE_ARTWORK.md`.
+The production gateway path for artwork resources is `/passport/presence/artworks`.
+
 ## Key Features
 
 - **Lease-Based Expiration**: Activities automatically expire within 1-60 minutes unless renewed

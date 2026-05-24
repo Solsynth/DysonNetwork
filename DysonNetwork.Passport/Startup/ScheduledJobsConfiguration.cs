@@ -82,6 +82,12 @@ public static class ScheduledJobsConfiguration
                     .RepeatForever())
                 .UsingJobData("stage", nameof(PresenceUpdateStage.Cold))
             );
+
+            q.AddJob<PresenceArtworkCleanupJob>(opts => opts.WithIdentity("PresenceArtworkCleanup"));
+            q.AddTrigger(opts => opts
+                .ForJob("PresenceArtworkCleanup")
+                .WithIdentity("PresenceArtworkCleanupTrigger")
+                .WithCronSchedule(PresenceArtworkService.DefaultCleanupCron));
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

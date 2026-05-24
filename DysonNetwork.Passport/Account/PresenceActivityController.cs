@@ -11,7 +11,11 @@ namespace DysonNetwork.Passport.Account;
 /// </summary>
 [ApiController]
 [Route("/api/activities")]
-public class PresenceActivityController(AccountEventService service, AccountService accounts)
+public class PresenceActivityController(
+    AccountEventService service,
+    AccountService accounts,
+    PresenceArtworkService artworkService
+)
     : ControllerBase
 {
     /// <summary>
@@ -79,11 +83,28 @@ public class PresenceActivityController(AccountEventService service, AccountServ
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<SnPresenceActivity>> SetActivity(
-        [FromBody] SetActivityRequest request
+        [FromBody] SetActivityRequest request,
+        CancellationToken cancellationToken
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
+
+        try
+        {
+            await artworkService.ValidateAndTouchReferencesAsync(
+                [request.LargeImage, request.SmallImage],
+                cancellationToken
+            );
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
 
         if (!string.IsNullOrWhiteSpace(request.ManualId))
         {
@@ -148,11 +169,28 @@ public class PresenceActivityController(AccountEventService service, AccountServ
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<SnPresenceActivity>> UpdateActivity(
         [FromRoute] Guid id,
-        [FromBody] SetActivityRequest request
+        [FromBody] SetActivityRequest request,
+        CancellationToken cancellationToken
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
+
+        try
+        {
+            await artworkService.ValidateAndTouchReferencesAsync(
+                [request.LargeImage, request.SmallImage],
+                cancellationToken
+            );
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
 
         var result = await service.UpdateActivity(
             id,
@@ -169,6 +207,10 @@ public class PresenceActivityController(AccountEventService service, AccountServ
                     activity.Caption = request.Caption;
                 if (request.ManualId != null)
                     activity.ManualId = request.ManualId;
+                if (request.LargeImage != null)
+                    activity.LargeImage = request.LargeImage;
+                if (request.SmallImage != null)
+                    activity.SmallImage = request.SmallImage;
                 if (request.Meta != null)
                     activity.Meta = request.Meta;
             },

@@ -129,6 +129,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AccountService>();
         services.AddScoped<ApplePassService>();
         services.AddScoped<AccountEventService>();
+        services.AddScoped<PresenceArtworkService>();
         services.AddScoped<NotableDaysService>();
         services.AddScoped<RelationshipService>();
         services.AddScoped<MagicSpellService>();

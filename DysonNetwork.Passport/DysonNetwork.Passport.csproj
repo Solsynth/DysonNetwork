@@ -15,6 +15,7 @@
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
+        <PackageReference Include="Minio" />
         <PackageReference Include="Nager.Holiday" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" />
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" />

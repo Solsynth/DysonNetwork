@@ -29,6 +29,7 @@ public class AppDatabase(
     public DbSet<SnAccountStatus> AccountStatuses { get; set; } = null!;
     public DbSet<SnCheckInResult> AccountCheckInResults { get; set; } = null!;
     public DbSet<SnPresenceActivity> PresenceActivities { get; set; } = null!;
+    public DbSet<SnPresenceArtwork> PresenceArtworks { get; set; } = null!;
     public DbSet<SnUserCalendarEvent> UserCalendarEvents { get; set; } = null!;
     public DbSet<SnAccountBadge> Badges { get; set; } = null!;
     
@@ -117,7 +118,10 @@ public class AppDatabase(
 
         modelBuilder.Entity<SnAccountRelationship>()
             .HasKey(r => new { FromAccountId = r.AccountId, ToAccountId = r.RelatedId });
-        
+
+        modelBuilder.Entity<SnPresenceArtwork>()
+            .HasKey(a => a.Hash);
+
         modelBuilder.Entity<SnRealmMember>()
             .HasKey(pm => new { pm.RealmId, pm.AccountId });
         modelBuilder.Entity<SnRealmMember>()
