@@ -1,7 +1,5 @@
 using DysonNetwork.Shared.Models;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Passport.Account;
 
@@ -15,16 +13,18 @@ public class PresenceActivityController(
     AccountEventService service,
     AccountService accounts,
     PresenceArtworkService artworkService
-)
-    : ControllerBase
+) : ControllerBase
 {
     /// <summary>
     /// Retrieves active (non-expired) presence activities for the authenticated user.
     /// Optionally includes expired activities if includeExpired is true.
+    /// Supports filtering by query (searches title, subtitle, caption, manualId) and type.
     /// </summary>
     /// <param name="includeExpired">Whether to include expired activities</param>
     /// <param name="offset">The number of activities to skip for pagination</param>
     /// <param name="take">The maximum number of activities to return</param>
+    /// <param name="query">Search keyword for title, subtitle, caption, or manualId</param>
+    /// <param name="type">Filter by presence activity type</param>
     /// <returns>List of presence activities</returns>
     [HttpGet]
     [ProducesResponseType<List<SnPresenceActivity>>(StatusCodes.Status200OK)]
@@ -32,23 +32,32 @@ public class PresenceActivityController(
     public async Task<ActionResult<List<SnPresenceActivity>>> GetActivities(
         [FromQuery] bool includeExpired = false,
         [FromQuery] int offset = 0,
-        [FromQuery] int take = 20
+        [FromQuery] int take = 20,
+        [FromQuery] string? query = null,
+        [FromQuery] PresenceType? type = null
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
-        List<SnPresenceActivity> activities;
-        if (includeExpired)
+
+        var hasFilters = !string.IsNullOrWhiteSpace(query) || type.HasValue;
+
+        if (!includeExpired && !hasFilters)
         {
-            (activities, var total) = await service.GetAllActivities(currentUser.Id, offset, take);
-            Response.Headers["X-Total"] = total.ToString();
-        }
-        else
-        {
-            activities = await service.GetActiveActivities(currentUser.Id);
+            var activities = await service.GetActiveActivities(currentUser.Id);
+            return Ok(activities);
         }
 
-        return Ok(activities);
+        var (results, total) = await service.GetFilteredActivities(
+            currentUser.Id,
+            offset,
+            take,
+            query,
+            type,
+            isActive: includeExpired ? null : true);
+
+        Response.Headers["X-Total"] = total.ToString();
+        return Ok(results);
     }
 
     /// <summary>
@@ -148,7 +157,7 @@ public class PresenceActivityController(
             SmallImage = request.SmallImage,
             TitleUrl = request.TitleUrl,
             SubtitleUrl = request.SubtitleUrl,
-            Meta = request.Meta
+            Meta = request.Meta,
         };
 
         var createResult = await service.SetActivity(newActivity, request.LeaseMinutes);
@@ -258,7 +267,6 @@ public class PresenceActivityController(
 
             return NoContent();
         }
-
     }
 
     /// <summary>

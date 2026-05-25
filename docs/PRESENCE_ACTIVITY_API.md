@@ -27,39 +27,80 @@ All endpoints require `[Authorize]` header. User context is automatically extrac
 
 ---
 
-## Get Active Activities
+## Get Activities
 
-Retrieve all currently active (non-expired) presence activities for the authenticated user.
+Retrieve presence activities for the authenticated user. Supports filtering, searching, and pagination.
 
 **Endpoint:** `GET /api/activities`
 
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `include_expired` | bool | `false` | Include expired activities in results |
+| `offset` | int | `0` | Number of records to skip (pagination) |
+| `take` | int | `20` | Maximum records to return (pagination) |
+| `query` | string? | — | Search keyword matched against `title`, `subtitle`, `caption`, and `manual_id` |
+| `type` | string? | — | Filter by presence type: `Unknown`, `Gaming`, `Music`, `Workout` |
+
+**Behavior:**
+
+- **No filters + `include_expired=false`**: Returns only active (non-expired) activities from cache (1-minute TTL).
+- **Any filter or `include_expired=true`**: Queries database directly, returns pagination total in `X-Total` response header.
+
 **Response:**
+
 ```json
 [
   {
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "type": "Gaming",
-    "manualId": "game-session-1",
+    "manual_id": "game-session-1",
     "title": "Playing Cyberpunk 2077",
     "subtitle": "Night City Exploration",
     "caption": "Missions completed: 15",
+    "large_image": "https://example.com/large.png",
+    "small_image": "https://example.com/small.png",
+    "title_url": "https://example.com",
+    "subtitle_url": "https://example.com",
     "meta": {
       "appName": "Cyberpunk 2077",
-      "platform": "Steam",
-      "customProperty": "additional data"
+      "platform": "Steam"
     },
-    "leaseMinutes": 10,
-    "leaseExpiresAt": "2024-01-15T14:30:00Z",
-    "accountId": "user-guid",
-    "createdAt": "2024-01-15T14:25:00Z",
-    "updatedAt": "2024-01-15T14:25:00Z",
-    "deletedAt": null
+    "lease_minutes": 10,
+    "lease_expires_at": "2024-01-15T14:30:00Z",
+    "account_id": "user-guid",
+    "created_at": "2024-01-15T14:25:00Z",
+    "updated_at": "2024-01-15T14:25:00Z",
+    "deleted_at": null
   }
 ]
 ```
 
-**Common Response Codes:**
-- `200 OK` - Success, returns array of active activities
+**Example Requests:**
+
+```
+# Get active activities (cached)
+GET /api/activities
+
+# Get all activities with pagination
+GET /api/activities?include_expired=true&offset=0&take=50
+
+# Search active activities by keyword
+GET /api/activities?query=cyberpunk
+
+# Filter active activities by type
+GET /api/activities?type=Gaming
+
+# Combine search and type filter
+GET /api/activities?query=elden&type=Gaming&include_expired=true&take=10
+
+# List only expired music activities
+GET /api/activities?type=Music&include_expired=true&offset=0&take=20
+```
+
+**Response Codes:**
+- `200 OK` - Success, returns array of activities
 - `401 Unauthorized` - Invalid or missing authentication
 
 ---
@@ -214,6 +255,10 @@ public class SnPresenceActivity : ModelBase
     public string? Title { get; set; }
     public string? Subtitle { get; set; }
     public string? Caption { get; set; }
+    public string? LargeImage { get; set; } // Image URL or hash reference
+    public string? SmallImage { get; set; } // Image URL or hash reference
+    public string? TitleUrl { get; set; }
+    public string? SubtitleUrl { get; set; }
     public Dictionary<string, object>? Meta { get; set; } // JSON metadata
     public int LeaseMinutes { get; set; } // Lease duration
     public Instant LeaseExpiresAt { get; set; } // Expiration timestamp
@@ -225,6 +270,25 @@ public class SnPresenceActivity : ModelBase
     public Instant? DeletedAt { get; set; } // Soft deletion
 }
 ```
+
+### Filtering & Search
+
+The `GET /api/activities` endpoint supports the following query capabilities:
+
+**Text Search (`query`):**
+- Searches across `title`, `subtitle`, `caption`, and `manual_id` fields
+- Uses case-sensitive `Contains` matching via EF Core
+- When `query` is specified, the response includes `X-Total` header with total matching count
+- Searching always queries the database directly (bypasses the 1-minute cache)
+
+**Type Filter (`type`):**
+- Matches exactly on the `PresenceType` enum value
+- Combine with `query` for targeted filtering (e.g., `&type=Music&query=artist_name`)
+
+**Active/Expired Filter (`include_expired`):**
+- `include_expired=false` (default): Only activities where `lease_expires_at > now`
+- `include_expired=true`: Returns all non-deleted activities regardless of lease status
+- No `query` and no `type` + `include_expired=false` uses cached results for best performance
 
 ## Behavior & Constraints
 
