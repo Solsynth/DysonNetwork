@@ -103,6 +103,9 @@ public partial class ChatController(
     public class ChatRoomWsUniversalRequest
     {
         public Guid ChatRoomId { get; set; }
+        public long? Ts { get; set; }
+        public string? Type { get; set; }
+        public double? Progress { get; set; }
     }
 
     public class ChatSummaryResponse

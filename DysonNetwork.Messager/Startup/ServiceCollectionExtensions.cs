@@ -671,6 +671,34 @@ public static class ServiceCollectionExtensions
                 return;
             }
 
+            var typingType = string.IsNullOrWhiteSpace(requestData.Type)
+                ? "typing"
+                : requestData.Type.Trim().ToLowerInvariant();
+            if (typingType is not ("typing" or "speaking" or "uploading"))
+            {
+                await SendErrorResponse(evt, "messages.typing type must be typing, speaking, or uploading.", ws);
+                return;
+            }
+
+            if (requestData.Progress.HasValue && (requestData.Progress.Value < 0 || requestData.Progress.Value > 1))
+            {
+                await SendErrorResponse(evt, "messages.typing progress must be between 0 and 1.", ws);
+                return;
+            }
+
+            Instant timestamp;
+            try
+            {
+                timestamp = requestData.Ts.HasValue
+                    ? Instant.FromUnixTimeMilliseconds(requestData.Ts.Value)
+                    : SystemClock.Instance.GetCurrentInstant();
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                await SendErrorResponse(evt, "messages.typing ts must be a valid unix timestamp in milliseconds.", ws);
+                return;
+            }
+
             var sender = await crs.GetRoomMember(evt.AccountId, requestData.ChatRoomId);
             if (sender == null)
             {
@@ -697,7 +725,10 @@ public static class ServiceCollectionExtensions
                     {
                         ["room_id"] = sender.ChatRoomId,
                         ["sender_id"] = sender.Id,
-                        ["sender"] = sender
+                        ["sender"] = sender,
+                        ["timestamp"] = timestamp,
+                        ["type"] = typingType,
+                        ["progress"] = requestData.Progress
                     }).ToByteArray()
                 );
             }
