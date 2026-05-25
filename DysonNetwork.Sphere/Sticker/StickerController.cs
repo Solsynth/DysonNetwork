@@ -150,7 +150,7 @@ public class StickerController(
             return BadRequest("Name is required");
         if (string.IsNullOrEmpty(request.Prefix))
             return BadRequest("Prefix is required");
-        if (!IsAscii(request.Prefix))
+        if (!IsAlphanumeric(request.Prefix))
             return BadRequest("Prefix must only contain ASCII characters");
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -208,7 +208,7 @@ public class StickerController(
             pack.Description = request.Description;
         if (request.Prefix is not null)
         {
-            if (!IsAscii(request.Prefix))
+            if (!IsAlphanumeric(request.Prefix))
                 return BadRequest("Prefix must only contain ASCII characters");
             pack.Prefix = request.Prefix;
         }
@@ -370,7 +370,7 @@ public class StickerController(
 
         if (request.Slug is not null)
         {
-            if (!IsAscii(request.Slug))
+            if (!IsAlphanumeric(request.Slug))
                 return BadRequest("Slug must only contain ASCII characters");
             sticker.Slug = request.Slug;
         }
@@ -474,7 +474,7 @@ public class StickerController(
 
         if (string.IsNullOrWhiteSpace(request.Slug))
             return BadRequest("Slug is required.");
-        if (!IsAscii(request.Slug))
+        if (!IsAlphanumeric(request.Slug))
             return BadRequest("Slug must only contain ASCII characters");
         if (request.ImageId is null)
             return BadRequest("Image is required.");
