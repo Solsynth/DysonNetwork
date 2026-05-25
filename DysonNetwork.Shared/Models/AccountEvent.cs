@@ -310,6 +310,88 @@ public class SnPresenceActivity : ModelBase
 
     public Guid AccountId { get; set; }
     [NotMapped] public SnAccount Account { get; set; } = null!;
+
+    public DyPresenceActivity ToProtoValue()
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var isActive = LeaseExpiresAt > now && DeletedAt == null;
+
+        var proto = new DyPresenceActivity
+        {
+            Id = Id.ToString(),
+            Type = (DyPresenceType)Type,
+            LeaseMinutes = LeaseMinutes,
+            LeaseExpiresAt = LeaseExpiresAt.ToTimestamp(),
+            AccountId = AccountId.ToString(),
+            CreatedAt = CreatedAt.ToTimestamp(),
+            UpdatedAt = UpdatedAt.ToTimestamp(),
+            IsActive = isActive,
+        };
+
+        if (!string.IsNullOrWhiteSpace(ManualId))
+            proto.ManualId = ManualId;
+        if (!string.IsNullOrWhiteSpace(Title))
+            proto.Title = Title;
+        if (!string.IsNullOrWhiteSpace(Subtitle))
+            proto.Subtitle = Subtitle;
+        if (!string.IsNullOrWhiteSpace(Caption))
+            proto.Caption = Caption;
+        if (!string.IsNullOrWhiteSpace(LargeImage))
+            proto.LargeImage = LargeImage;
+        if (!string.IsNullOrWhiteSpace(SmallImage))
+            proto.SmallImage = SmallImage;
+        if (!string.IsNullOrWhiteSpace(TitleUrl))
+            proto.TitleUrl = TitleUrl;
+        if (!string.IsNullOrWhiteSpace(SubtitleUrl))
+            proto.SubtitleUrl = SubtitleUrl;
+
+        if (Meta != null)
+        {
+            proto.Meta = new Google.Protobuf.WellKnownTypes.Struct();
+            proto.Meta.Fields.Add(InfraObjectCoder.ConvertToValueMap(Meta));
+        }
+
+        if (DeletedAt.HasValue)
+            proto.DeletedAt = DeletedAt.Value.ToTimestamp();
+
+        if (!isActive)
+            proto.EndedAt = (DeletedAt ?? LeaseExpiresAt).ToTimestamp();
+
+        return proto;
+    }
+
+    public static SnPresenceActivity FromProtoValue(DyPresenceActivity proto)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var activity = new SnPresenceActivity
+        {
+            Id = Guid.TryParse(proto.Id, out var id) ? id : Guid.NewGuid(),
+            Type = (PresenceType)proto.Type,
+            ManualId = proto.HasManualId ? proto.ManualId : null,
+            Title = proto.HasTitle ? proto.Title : null,
+            Subtitle = proto.HasSubtitle ? proto.Subtitle : null,
+            Caption = proto.HasCaption ? proto.Caption : null,
+            LargeImage = proto.HasLargeImage ? proto.LargeImage : null,
+            SmallImage = proto.HasSmallImage ? proto.SmallImage : null,
+            TitleUrl = proto.HasTitleUrl ? proto.TitleUrl : null,
+            SubtitleUrl = proto.HasSubtitleUrl ? proto.SubtitleUrl : null,
+            LeaseMinutes = proto.LeaseMinutes,
+            LeaseExpiresAt = proto.LeaseExpiresAt?.ToInstant() ?? now,
+            AccountId = Guid.Parse(proto.AccountId),
+            CreatedAt = proto.CreatedAt?.ToInstant() ?? now,
+            UpdatedAt = proto.UpdatedAt?.ToInstant() ?? now,
+        };
+
+        if (proto.Meta != null)
+            activity.Meta = InfraObjectCoder.ConvertFromValueMap(proto.Meta.Fields)
+                .Where(kvp => kvp.Value != null)
+                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value!);
+
+        if (proto.DeletedAt != null)
+            activity.DeletedAt = proto.DeletedAt.ToInstant();
+
+        return activity;
+    }
 }
 
 public enum TimelineEventType

@@ -20,6 +20,7 @@ builder.Services.AddAppServices();
 builder.Services.AddAppAuthentication();
 builder.Services.AddDysonAuth();
 builder.Services.AddAccountService();
+builder.Services.AddPresenceService();
 builder.Services.AddBladeService();
 builder.Services.AddRingService();
 builder.Services.AddDriveService();

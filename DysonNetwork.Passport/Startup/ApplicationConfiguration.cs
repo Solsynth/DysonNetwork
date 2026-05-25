@@ -38,6 +38,7 @@ public static class ApplicationConfiguration
         app.MapGrpcService<RealmServiceGrpc>();
         app.MapGrpcService<NfcServiceGrpc>();
         app.MapGrpcService<DomainTrustServiceGrpc>();
+        app.MapGrpcService<PresenceServiceGrpc>();
         app.MapGrpcReflectionService();
 
         return app;

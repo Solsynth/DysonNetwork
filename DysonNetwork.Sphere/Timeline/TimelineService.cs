@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Post;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using NodaTime.Serialization.Protobuf;
 using NodaTime.Text;
 using PostVisibility = DysonNetwork.Shared.Models.PostVisibility;
 
@@ -15,6 +16,7 @@ public class TimelineService(
     Post.PostService ps,
     RemoteRealmService rs,
     DyProfileService.DyProfileServiceClient accounts,
+    DyPresenceService.DyPresenceServiceClient presence,
     RemoteAccountService remoteAccounts,
     DysonNetwork.Shared.Cache.ICacheService cache,
     Automod.AutomodService automodService,
@@ -35,6 +37,7 @@ public class TimelineService(
     private const double SubscriptionBoostBonus = 1.5d;
     private static readonly TimeSpan DiscoveryProfileCacheTtl = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan FriendIdsCacheTtl = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan FriendPresenceCacheTtl = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan UserRealmsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan RecentServedPostsCacheTtl = TimeSpan.FromHours(24);
     private static readonly TimeSpan SoftCursorCacheTtl = TimeSpan.FromMinutes(5);
@@ -96,7 +99,7 @@ public class TimelineService(
         if (activities.Count == 0)
             activities.Add(SnTimelineEvent.Empty());
 
-        return BuildTimelinePage(activities, posts, mode);
+        return BuildTimelinePage(activities, mode);
     }
 
     private async Task<HashSet<Guid>> GetGatekeptPublisherIds(List<Guid> realmIds)
@@ -215,12 +218,16 @@ public class TimelineService(
 
         await UpdateSoftCursorAsync(accountId);
 
+        var postEvents = posts.Select(p => p.ToActivity()).ToList();
+        var presenceEvents = await GetCachedFriendsPresence(accountId, userFriends, effectiveCursor, take);
+
+        var mergedEvents = MergeEventsByTime(postEvents, presenceEvents, take);
+
         var interleaved = new List<SnTimelineEvent>();
         SnTimelineEvent? personalizedDiscovery = null;
-        var discoveryInsertIndex = cursor == null && posts.Count >= 4 ? Math.Min(4, posts.Count) : -1;
-        for (var i = 0; i < posts.Count; i++)
+        var discoveryInsertIndex = cursor == null && mergedEvents.Count >= 4 ? Math.Min(4, mergedEvents.Count) : -1;
+        for (var i = 0; i < mergedEvents.Count; i++)
         {
-            var post = posts[i];
             if (i == discoveryInsertIndex)
             {
                 personalizedDiscovery ??= await MaybeGetDiscoveryActivity(
@@ -234,7 +241,7 @@ public class TimelineService(
                     interleaved.Add(discovery);
             }
 
-            interleaved.Add(post.ToActivity());
+            interleaved.Add(mergedEvents[i]);
         }
 
         activities.AddRange(interleaved);
@@ -242,7 +249,7 @@ public class TimelineService(
         if (activities.Count == 0)
             activities.Add(SnTimelineEvent.Empty());
 
-        return BuildTimelinePage(activities, posts, mode);
+        return BuildTimelinePage(activities, mode);
     }
 
     private async Task<List<Guid>> GetBoostedPostIdsForTimelineAsync(
@@ -1777,25 +1784,25 @@ public class TimelineService(
 
     private static SnTimelinePage BuildTimelinePage(
         List<SnTimelineEvent> activities,
-        IReadOnlyList<SnPost> posts,
         SnTimelineMode mode
     )
     {
         return new SnTimelinePage
         {
             Items = activities,
-            NextCursor = GetNextCursor(posts),
+            NextCursor = GetNextCursor(activities),
             Mode = mode.ToString().ToLowerInvariant(),
         };
     }
 
-    private static string? GetNextCursor(IReadOnlyList<SnPost> posts)
+    private static string? GetNextCursor(IReadOnlyList<SnTimelineEvent> activities)
     {
-        if (posts.Count == 0)
+        var nonEmpty = activities.Where(e => e.Type != "empty").ToList();
+        if (nonEmpty.Count == 0)
             return null;
 
-        var oldestPostTime = posts.Min(GetPostTimelineInstant);
-        return InstantPattern.ExtendedIso.Format(oldestPostTime);
+        var oldestEventTime = nonEmpty.Min(e => e.CreatedAt);
+        return InstantPattern.ExtendedIso.Format(oldestEventTime);
     }
 
     private static Instant GetPostTimelineInstant(SnPost post)
@@ -2025,6 +2032,57 @@ public class TimelineService(
         var realmIds = await rs.GetUserRealms(accountId);
         await cache.SetAsync(cacheKey, realmIds, UserRealmsCacheTtl);
         return realmIds;
+    }
+
+    private async Task<List<SnTimelineEvent>> GetCachedFriendsPresence(
+        Guid accountId,
+        List<Guid> friendIds,
+        Instant? cursor,
+        int take
+    )
+    {
+        if (friendIds.Count == 0)
+            return [];
+
+        var cacheKey = $"timeline:presence:{accountId}:{cursor?.ToUnixTimeTicks() ?? 0}:{take}";
+        var cached = await cache.GetAsync<List<SnTimelineEvent>>(cacheKey);
+        if (cached is not null)
+            return cached;
+
+        var request = new DyListFriendsActivitiesRequest
+        {
+            MaxPerType = 3,
+            Take = take,
+        };
+        request.AccountIds.AddRange(friendIds.Select(id => id.ToString()));
+
+        if (cursor.HasValue)
+            request.Cursor = cursor.Value.ToTimestamp();
+
+        var response = await presence.ListFriendsActivitiesAsync(request);
+
+        var events = response.Activities
+            .Select(SnPresenceActivity.FromProtoValue)
+            .Select(activity => new FriendPresenceEvent(activity).ToActivity())
+            .ToList();
+
+        await cache.SetAsync(cacheKey, events, FriendPresenceCacheTtl);
+        return events;
+    }
+
+    private static List<SnTimelineEvent> MergeEventsByTime(
+        List<SnTimelineEvent> postEvents,
+        List<SnTimelineEvent> presenceEvents,
+        int take
+    )
+    {
+        var merged = postEvents
+            .Concat(presenceEvents)
+            .OrderByDescending(e => e.CreatedAt)
+            .Take(take)
+            .ToList();
+
+        return merged;
     }
 
     private IQueryable<SnPost> BuildPostsQuery(

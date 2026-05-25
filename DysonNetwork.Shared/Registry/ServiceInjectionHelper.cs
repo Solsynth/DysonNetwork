@@ -231,6 +231,15 @@ public static class ServiceInjectionHelper
             return services;
         }
 
+        public IServiceCollection AddPresenceService()
+        {
+            services.AddGrpcClientWithSharedChannel<DyPresenceService.DyPresenceServiceClient>(
+                "https://_grpc.passport",
+                "DyPresenceService");
+
+            return services;
+        }
+
         public IServiceCollection AddDomainBlockService()
         {
             services.AddGrpcClientWithSharedChannel<DyDomainBlockService.DyDomainBlockServiceClient>(
