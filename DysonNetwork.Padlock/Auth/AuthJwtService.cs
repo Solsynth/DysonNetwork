@@ -123,13 +123,26 @@ public sealed class AuthJwtService(IConfiguration config)
                 ValidAudience = Audience,
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new RsaSecurityKey(_publicKey.Value),
-                ValidateLifetime = true,
+                ValidateLifetime = false,
                 ClockSkew = TimeSpan.FromMinutes(1),
                 ValidAlgorithms = [SecurityAlgorithms.RsaSha256]
             };
 
             handler.ValidateToken(token, parameters, out var validated);
-            return (true, validated as JwtSecurityToken);
+            var jwt = validated as JwtSecurityToken;
+            if (jwt is null)
+                return (false, null);
+
+            var tokenType = jwt.Claims.FirstOrDefault(c => c.Type == ClaimType)?.Value
+                            ?? jwt.Claims.FirstOrDefault(c => c.Type == LegacyClaimTokenUse)?.Value
+                            ?? "user";
+            if (!string.Equals(tokenType, "api_key", StringComparison.Ordinal) &&
+                jwt.ValidTo < DateTime.UtcNow.Subtract(parameters.ClockSkew))
+            {
+                return (false, null);
+            }
+
+            return (true, jwt);
         }
         catch
         {
