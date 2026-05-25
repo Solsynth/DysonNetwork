@@ -167,7 +167,7 @@ public class AccountService(
             SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromHours(24)),
             preventRepeat: true
         );
-        await spells.NotifyMagicSpell(spell);
+        await spells.NotifyMagicSpell(spell, true);
     }
 
     /// <summary>

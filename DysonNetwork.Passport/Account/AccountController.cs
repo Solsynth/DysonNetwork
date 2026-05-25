@@ -50,6 +50,16 @@ public class AccountController(
         {
             await accounts.RequestPasswordReset(account);
         }
+        catch (ArgumentException ex) when (ex.Message == "Account has no contact method that can use")
+        {
+            return BadRequest(new ApiError
+            {
+                Code = "NO_CONTACT_METHOD",
+                Message = "This account has no email contact available for password reset.",
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
+        }
         catch (InvalidOperationException)
         {
             return BadRequest(new ApiError
