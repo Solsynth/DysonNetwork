@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.RegularExpressions;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
@@ -18,6 +19,9 @@ public class StickerController(
     DyFileService.DyFileServiceClient files
 ) : ControllerBase
 {
+    private static readonly Regex AlphanumericRegex = new(@"^[a-zA-Z0-9]+$");
+    private static bool IsAlphanumeric(string value) => AlphanumericRegex.IsMatch(value);
+
     private async Task<IActionResult> _CheckStickerPackPermissions(
         Guid packId,
         DyAccount currentUser,
@@ -146,6 +150,8 @@ public class StickerController(
             return BadRequest("Name is required");
         if (string.IsNullOrEmpty(request.Prefix))
             return BadRequest("Prefix is required");
+        if (!IsAscii(request.Prefix))
+            return BadRequest("Prefix must only contain ASCII characters");
 
         var accountId = Guid.Parse(currentUser.Id);
         var publisher =
@@ -201,7 +207,11 @@ public class StickerController(
         if (request.Description is not null)
             pack.Description = request.Description;
         if (request.Prefix is not null)
+        {
+            if (!IsAscii(request.Prefix))
+                return BadRequest("Prefix must only contain ASCII characters");
             pack.Prefix = request.Prefix;
+        }
 
         if (request.IconId is not null)
         {
@@ -359,7 +369,11 @@ public class StickerController(
             return NotFound();
 
         if (request.Slug is not null)
+        {
+            if (!IsAscii(request.Slug))
+                return BadRequest("Slug must only contain ASCII characters");
             sticker.Slug = request.Slug;
+        }
         if (request.Name is not null)
             sticker.Name = request.Name;
         if (request.Size is not null)
@@ -460,6 +474,8 @@ public class StickerController(
 
         if (string.IsNullOrWhiteSpace(request.Slug))
             return BadRequest("Slug is required.");
+        if (!IsAscii(request.Slug))
+            return BadRequest("Slug must only contain ASCII characters");
         if (request.ImageId is null)
             return BadRequest("Image is required.");
 
