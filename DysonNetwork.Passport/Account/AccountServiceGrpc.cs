@@ -330,6 +330,16 @@ public class AccountServiceGrpc(
 
     public override async Task<BoolValue> HasRelationship(DyGetRelationshipRequest request, ServerCallContext context)
     {
+        if (request.EitherDirection && request.HasStatus
+            && (Shared.Models.RelationshipStatus)request.Status == Shared.Models.RelationshipStatus.Blocked)
+        {
+            var isBlocked = await relationships.IsBlockedEitherDirection(
+                Guid.Parse(request.AccountId),
+                Guid.Parse(request.RelatedId)
+            );
+            return new BoolValue { Value = isBlocked };
+        }
+
         bool hasRelationship;
         if (!request.HasStatus)
             hasRelationship = await relationships.HasExistingRelationship(

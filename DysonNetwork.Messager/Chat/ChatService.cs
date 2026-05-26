@@ -31,7 +31,8 @@ public partial class ChatService(
     RemoteActionLogService actionLogs,
     IHttpContextAccessor httpContextAccessor,
     ILocalizationService localization,
-    LazyGrpcClientFactory<DyStickerService.DyStickerServiceClient> stickerClientFactory
+    LazyGrpcClientFactory<DyStickerService.DyStickerServiceClient> stickerClientFactory,
+    RemoteAccountService remoteAccounts
 )
 {
     public IRealtimeService Realtime { get; } = realtime;
@@ -530,6 +531,19 @@ public partial class ChatService(
         var existingMessage = await GetExistingClientMessageAsync(message);
         if (existingMessage is not null)
             return existingMessage;
+
+        if (room.Type == ChatRoomType.DirectMessage && sender.AccountId != Guid.Empty)
+        {
+            var otherMember = await db.ChatMembers
+                .Where(m => m.ChatRoomId == room.Id && m.Id != sender.Id && m.JoinedAt != null && m.LeaveAt == null)
+                .FirstOrDefaultAsync();
+            if (otherMember is not null)
+            {
+                var isBlocked = await remoteAccounts.IsBlockedEitherDirection(sender.AccountId, otherMember.AccountId);
+                if (isBlocked)
+                    throw new InvalidOperationException("You cannot send messages to a blocked user.");
+            }
+        }
 
         if (string.IsNullOrWhiteSpace(message.Nonce))
             message.Nonce = Guid.NewGuid().ToString();
@@ -1302,6 +1316,18 @@ public partial class ChatService(
         accountsToNotify = accountsToNotify
             .Where(a => !subscribedMemberIds.Contains(Guid.Parse(a.Id)))
             .ToList();
+
+        // Filter out blocked accounts
+        if (sender.AccountId != Guid.Empty)
+        {
+            var blockedIds = await remoteAccounts.ListAllBlockedAccountIds(sender.AccountId);
+            if (blockedIds.Count > 0)
+            {
+                accountsToNotify = accountsToNotify
+                    .Where(a => !blockedIds.Contains(Guid.Parse(a.Id)))
+                    .ToList();
+            }
+        }
 
         logger.LogWarning(
             "SendPushNotificationsAsync: messageId={messageId}, totalMembers={totalMembers}, filteredCount={filteredCount}, notifyingCount={notifyingCount}",

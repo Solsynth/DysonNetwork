@@ -147,4 +147,50 @@ public class RemoteAccountService(
         var response = await profiles.UpdateBadgeAsync(request);
         return response.Badge;
     }
+
+    public async Task<bool> IsBlockedEitherDirection(Guid userId, Guid otherId)
+    {
+        if (userId == Guid.Empty || otherId == Guid.Empty)
+            return false;
+        if (userId == otherId)
+            return false;
+
+        try
+        {
+            var response = await profiles.HasRelationshipAsync(new DyGetRelationshipRequest
+            {
+                AccountId = userId.ToString(),
+                RelatedId = otherId.ToString(),
+                Status = (int)RelationshipStatus.Blocked,
+                EitherDirection = true
+            });
+            return response.Value;
+        }
+        catch (RpcException ex) when (ex.StatusCode is StatusCode.Unavailable or StatusCode.DeadlineExceeded)
+        {
+            logger.LogWarning(ex, "Profile service unavailable while checking block status between {User1} and {User2}", userId, otherId);
+            return false;
+        }
+    }
+
+    public async Task<HashSet<Guid>> ListAllBlockedAccountIds(Guid accountId)
+    {
+        try
+        {
+            var blockedResponse = await profiles.ListBlockedAsync(new DyListRelationshipSimpleRequest { AccountId = accountId.ToString() });
+            var blockedByResponse = await profiles.ListBlockedAsync(new DyListRelationshipSimpleRequest { RelatedId = accountId.ToString() });
+
+            var result = new HashSet<Guid>();
+            foreach (var id in blockedResponse.AccountsId)
+                result.Add(Guid.Parse(id));
+            foreach (var id in blockedByResponse.AccountsId)
+                result.Add(Guid.Parse(id));
+            return result;
+        }
+        catch (RpcException ex) when (ex.StatusCode is StatusCode.Unavailable or StatusCode.DeadlineExceeded)
+        {
+            logger.LogWarning(ex, "Profile service unavailable while listing blocked accounts for {AccountId}", accountId);
+            return [];
+        }
+    }
 }

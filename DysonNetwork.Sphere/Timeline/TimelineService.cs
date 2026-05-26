@@ -37,6 +37,7 @@ public class TimelineService(
     private const double SubscriptionBoostBonus = 1.5d;
     private static readonly TimeSpan DiscoveryProfileCacheTtl = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan FriendIdsCacheTtl = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan BlockedIdsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan FriendPresenceCacheTtl = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan UserRealmsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan RecentServedPostsCacheTtl = TimeSpan.FromHours(24);
@@ -141,6 +142,7 @@ public class TimelineService(
         var userFriends = await GetCachedFriendIds(accountId, currentUser.Id);
         var userPublishers = await pub.GetUserPublishers(accountId);
         var userPublisherIds = userPublishers.Select(x => x.Id).ToList();
+        var blockedAccountIds = await GetCachedBlockedAccountIds(accountId);
 
         var filteredPublishers = await GetFilteredPublishers(filter, currentUser, userFriends);
         var filteredPublishersId = filteredPublishers?.Select(e => e.Id).ToList();
@@ -181,7 +183,8 @@ public class TimelineService(
                 timelinePublishers,
                 isListing: true,
                 gatekeptPublisherIds,
-                followerPublisherIds
+                followerPublisherIds,
+                blockedAccountIds
             )
             .Take(take * TimelineCandidateMultiplier);
 
@@ -2020,6 +2023,18 @@ public class TimelineService(
         var friendIds = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
         await cache.SetAsync(cacheKey, friendIds, FriendIdsCacheTtl);
         return friendIds;
+    }
+
+    private async Task<HashSet<Guid>> GetCachedBlockedAccountIds(Guid accountId)
+    {
+        var cacheKey = $"timeline:blocked:{accountId}";
+        var cached = await cache.GetAsync<HashSet<Guid>>(cacheKey);
+        if (cached is not null)
+            return cached;
+
+        var blockedIds = await remoteAccounts.ListAllBlockedAccountIds(accountId);
+        await cache.SetAsync(cacheKey, blockedIds, BlockedIdsCacheTtl);
+        return blockedIds;
     }
 
     private async Task<List<Guid>> GetCachedUserRealms(Guid accountId)

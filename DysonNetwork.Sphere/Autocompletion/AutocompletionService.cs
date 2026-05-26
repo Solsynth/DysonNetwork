@@ -6,7 +6,7 @@ namespace DysonNetwork.Sphere.Autocompletion;
 
 public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAccountsHelper, RemoteRealmService remoteRealmService)
 {
-    public async Task<List<DysonNetwork.Shared.Models.Autocompletion>> GetAutocompletion(string content, Guid? chatId = null, Guid? realmId = null, int limit = 10)
+    public async Task<List<DysonNetwork.Shared.Models.Autocompletion>> GetAutocompletion(string content, Guid? chatId = null, Guid? realmId = null, int limit = 10, Guid? currentUserId = null)
     {
         if (string.IsNullOrWhiteSpace(content))
             return [];
@@ -29,7 +29,7 @@ public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAc
                 query = afterAt;
             }
 
-            return await AutocompleteAt(type, query, chatId, realmId, hadSlash, limit);
+            return await AutocompleteAt(type, query, chatId, realmId, hadSlash, limit, currentUserId);
         }
 
         if (!content.StartsWith(':')) return [];
@@ -40,14 +40,21 @@ public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAc
     }
 
     private async Task<List<Shared.Models.Autocompletion>> AutocompleteAt(string type, string query, Guid? chatId, Guid? realmId, bool hadSlash,
-        int limit)
+        int limit, Guid? currentUserId)
     {
         var results = new List<DysonNetwork.Shared.Models.Autocompletion>();
+
+        HashSet<Guid>? blockedIds = null;
+        if (currentUserId.HasValue)
+            blockedIds = await remoteAccountsHelper.ListAllBlockedAccountIds(currentUserId.Value);
 
         switch (type)
         {
             case "u":
                 var allAccounts = await remoteAccountsHelper.SearchAccounts(query);
+
+                if (blockedIds is { Count: > 0 })
+                    allAccounts = allAccounts.Where(a => !blockedIds.Contains(Guid.Parse(a.Id))).ToList();
 
                 if (realmId.HasValue)
                 {
@@ -72,8 +79,13 @@ public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAc
                 results.AddRange(users);
                 break;
             case "p":
-                var publishers = await db.Publishers
-                    .Where(p => EF.Functions.Like(p.Name, $"{query}%") || EF.Functions.Like(p.Nick, $"{query}%"))
+                var publishersQuery = db.Publishers
+                    .Where(p => EF.Functions.Like(p.Name, $"{query}%") || EF.Functions.Like(p.Nick, $"{query}%"));
+
+                if (blockedIds is { Count: > 0 })
+                    publishersQuery = publishersQuery.Where(p => p.AccountId == null || !blockedIds.Contains(p.AccountId.Value));
+
+                var publishers = await publishersQuery
                     .Take(limit)
                     .Select(p => new DysonNetwork.Shared.Models.Autocompletion
                     {

@@ -88,16 +88,18 @@ public class PostActionController(
         }
     }
 
-    private async Task<bool> IsBlockedByUserAsync(Guid blockerId, Guid blockedId)
+    private async Task<bool> IsBlockedEitherDirectionAsync(Guid userId, Guid otherId)
     {
         try
         {
-            var relationship = await accounts.GetRelationshipAsync(new DyGetRelationshipRequest
+            var response = await accounts.HasRelationshipAsync(new DyGetRelationshipRequest
             {
-                AccountId = blockerId.ToString(),
-                RelatedId = blockedId.ToString(),
+                AccountId = userId.ToString(),
+                RelatedId = otherId.ToString(),
+                Status = (int)RelationshipStatus.Blocked,
+                EitherDirection = true
             });
-            return relationship.Relationship is not null && relationship.Relationship.Status <= -100;
+            return response.Value;
         }
         catch
         {
@@ -268,7 +270,7 @@ public class PostActionController(
 
             if (repliedPost.Publisher?.AccountId != null)
             {
-                if (await IsBlockedByUserAsync(repliedPost.Publisher.AccountId.Value, accountId))
+                if (await IsBlockedEitherDirectionAsync(repliedPost.Publisher.AccountId.Value, accountId))
                     return BadRequest("You cannot reply to a post from a user who blocked you.");
             }
             
@@ -284,6 +286,11 @@ public class PostActionController(
                 .FirstOrDefaultAsync();
             if (forwardedPost is null)
                 return BadRequest("Forwarded post was not found.");
+            if (forwardedPost.Publisher?.AccountId != null && forwardedPost.Publisher.AccountId != accountId)
+            {
+                if (await IsBlockedEitherDirectionAsync(forwardedPost.Publisher.AccountId.Value, accountId))
+                    return BadRequest("You cannot forward a post from a blocked user.");
+            }
             post.ForwardedPost = forwardedPost;
             post.ForwardedPostId = forwardedPost.Id;
         }
@@ -580,7 +587,7 @@ public class PostActionController(
 
         if (post.Publisher?.AccountId != null && post.Publisher.AccountId != accountId)
         {
-            if (await IsBlockedByUserAsync(post.Publisher.AccountId.Value, accountId))
+            if (await IsBlockedEitherDirectionAsync(post.Publisher.AccountId.Value, accountId))
                 return BadRequest("You cannot react to this post.");
         }
         
@@ -781,7 +788,7 @@ public class PostActionController(
 
         if (post.Publisher?.AccountId != null && post.Publisher.AccountId != accountId)
         {
-            if (await IsBlockedByUserAsync(post.Publisher.AccountId.Value, accountId))
+            if (await IsBlockedEitherDirectionAsync(post.Publisher.AccountId.Value, accountId))
                 return BadRequest("You cannot award this post.");
         }
 
@@ -1500,7 +1507,7 @@ public class PostActionController(
 
         if (post.Publisher?.AccountId != null && post.Publisher.AccountId != accountId)
         {
-            if (await IsBlockedByUserAsync(post.Publisher.AccountId.Value, accountId))
+            if (await IsBlockedEitherDirectionAsync(post.Publisher.AccountId.Value, accountId))
                 return BadRequest("You cannot boost this post.");
         }
 

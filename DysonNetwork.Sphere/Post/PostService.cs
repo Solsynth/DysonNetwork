@@ -910,6 +910,20 @@ public partial class PostService(
         queryRequest.Id.AddRange(subscriptions.Select(s => s.AccountId.ToString()).Distinct());
         var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
 
+        // Filter out blocked accounts
+        if (post.Publisher?.AccountId.HasValue == true)
+        {
+            using var scope = serviceProvider.CreateScope();
+            var remoteAccounts = scope.ServiceProvider.GetRequiredService<RemoteAccountService>();
+            var blockedIds = await remoteAccounts.ListAllBlockedAccountIds(post.Publisher.AccountId.Value);
+            if (blockedIds.Count > 0)
+            {
+                var filtered = queryResponse.Accounts.Where(a => !blockedIds.Contains(Guid.Parse(a.Id))).ToList();
+                queryResponse.Accounts.Clear();
+                queryResponse.Accounts.AddRange(filtered);
+            }
+        }
+
         foreach (var account in queryResponse.Accounts)
         {
             if (account is null)
@@ -1302,6 +1316,7 @@ public partial class PostService(
             var nty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
             var accountsClient =
                 scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
+            var remoteAccounts = scope.ServiceProvider.GetRequiredService<RemoteAccountService>();
 
             var sender = post.Publisher;
 
@@ -1318,6 +1333,15 @@ public partial class PostService(
                         continue;
                     if (mentionedPublisher.IsShadowbanned)
                         continue;
+
+                    // Skip mention if either user has blocked the other
+                    if (sender?.AccountId is not null && mentionedPublisher.AccountId is not null)
+                    {
+                        var isBlocked = await remoteAccounts.IsBlockedEitherDirection(
+                            sender.AccountId.Value, mentionedPublisher.AccountId.Value);
+                        if (isBlocked)
+                            continue;
+                    }
 
                     // Get all member accounts of the mentioned publisher
                     var memberIds = mentionedPublisher
@@ -3151,7 +3175,8 @@ public static class PostQueryExtensions
         List<SnPublisher> publishers,
         bool isListing = false,
         HashSet<Guid>? gatekeptPublisherIds = null,
-        HashSet<Guid>? followerPublisherIds = null
+        HashSet<Guid>? followerPublisherIds = null,
+        HashSet<Guid>? blockedAccountIds = null
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -3212,6 +3237,15 @@ public static class PostQueryExtensions
                 !(e.PublisherId.HasValue && gatekeptPublisherIds.Contains(e.PublisherId.Value))
                 || publishersId.Contains(e.PublisherId.Value)
                 || followerPublisherIds.Contains(e.PublisherId.Value)
+            );
+        }
+
+        if (blockedAccountIds is { Count: > 0 })
+        {
+            result = result.Where(e =>
+                e.Publisher == null
+                || e.Publisher.AccountId == null
+                || !blockedAccountIds.Contains(e.Publisher.AccountId.Value)
             );
         }
 

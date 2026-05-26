@@ -117,65 +117,66 @@ namespace DysonNetwork.Shared.Proto {
             "LkR5QWNjb3VudEJhZGdlUgViYWRnZRI7Cgt1cGRhdGVfbWFzaxgEIAEoCzIa",
             "Lmdvb2dsZS5wcm90b2J1Zi5GaWVsZE1hc2tSCnVwZGF0ZU1hc2siRAoVRHlV",
             "cGRhdGVCYWRnZVJlc3BvbnNlEisKBWJhZGdlGAEgASgLMhUucHJvdG8uRHlB",
-            "Y2NvdW50QmFkZ2VSBWJhZGdlIoABChhEeUdldFJlbGF0aW9uc2hpcFJlcXVl",
+            "Y2NvdW50QmFkZ2VSBWJhZGdlIqsBChhEeUdldFJlbGF0aW9uc2hpcFJlcXVl",
             "c3QSHQoKYWNjb3VudF9pZBgBIAEoCVIJYWNjb3VudElkEh0KCnJlbGF0ZWRf",
             "aWQYAiABKAlSCXJlbGF0ZWRJZBIbCgZzdGF0dXMYAyABKAVIAFIGc3RhdHVz",
-            "iAEBQgkKB19zdGF0dXMibAoZRHlHZXRSZWxhdGlvbnNoaXBSZXNwb25zZRI+",
-            "CgxyZWxhdGlvbnNoaXAYASABKAsyFS5wcm90by5EeVJlbGF0aW9uc2hpcEgA",
-            "UgxyZWxhdGlvbnNoaXCIAQFCDwoNX3JlbGF0aW9uc2hpcCJ6Ch9EeUxpc3RS",
-            "ZWxhdGlvbnNoaXBTaW1wbGVSZXF1ZXN0Eh8KCmFjY291bnRfaWQYASABKAlI",
-            "AFIJYWNjb3VudElkEh8KCnJlbGF0ZWRfaWQYAiABKAlIAFIJcmVsYXRlZElk",
-            "QhUKE3JlbGF0aW9uX2lkZW50aWZpZXIiQwogRHlMaXN0UmVsYXRpb25zaGlw",
-            "U2ltcGxlUmVzcG9uc2USHwoLYWNjb3VudHNfaWQYASADKAlSCmFjY291bnRz",
-            "SWQqaAoQRHlTdGF0dXNBdHRpdHVkZRIiCh5EWV9TVEFUVVNfQVRUSVRVREVf",
-            "VU5TUEVDSUZJRUQQABIPCgtEWV9QT1NJVElWRRABEg8KC0RZX05FR0FUSVZF",
-            "EAISDgoKRFlfTkVVVFJBTBADKqsBChNEeUFjY291bnRTdGF0dXNUeXBlEiIK",
-            "HkRZX0FDQ09VTlRfU1RBVFVTX1RZUEVfREVGQVVMVBAAEh8KG0RZX0FDQ09V",
-            "TlRfU1RBVFVTX1RZUEVfQlVTWRABEikKJURZX0FDQ09VTlRfU1RBVFVTX1RZ",
-            "UEVfRE9fTk9UX0RJU1RVUkIQAhIkCiBEWV9BQ0NPVU5UX1NUQVRVU19UWVBF",
-            "X0lOVklTSUJMRRADMpgMChBEeVByb2ZpbGVTZXJ2aWNlEjwKCkdldEFjY291",
-            "bnQSGi5wcm90by5EeUdldEFjY291bnRSZXF1ZXN0GhAucHJvdG8uRHlBY2Nv",
-            "dW50IgASQgoNR2V0Qm90QWNjb3VudBIdLnByb3RvLkR5R2V0Qm90QWNjb3Vu",
-            "dFJlcXVlc3QaEC5wcm90by5EeUFjY291bnQiABJWCg9HZXRBY2NvdW50QmF0",
-            "Y2gSHy5wcm90by5EeUdldEFjY291bnRCYXRjaFJlcXVlc3QaIC5wcm90by5E",
-            "eUdldEFjY291bnRCYXRjaFJlc3BvbnNlIgASXAoSR2V0Qm90QWNjb3VudEJh",
-            "dGNoEiIucHJvdG8uRHlHZXRCb3RBY2NvdW50QmF0Y2hSZXF1ZXN0GiAucHJv",
-            "dG8uRHlHZXRBY2NvdW50QmF0Y2hSZXNwb25zZSIAElwKEkxvb2t1cEFjY291",
-            "bnRCYXRjaBIiLnByb3RvLkR5TG9va3VwQWNjb3VudEJhdGNoUmVxdWVzdBog",
-            "LnByb3RvLkR5R2V0QWNjb3VudEJhdGNoUmVzcG9uc2UiABJSCg1TZWFyY2hB",
-            "Y2NvdW50Eh0ucHJvdG8uRHlTZWFyY2hBY2NvdW50UmVxdWVzdBogLnByb3Rv",
-            "LkR5R2V0QWNjb3VudEJhdGNoUmVzcG9uc2UiABJNCgxMaXN0QWNjb3VudHMS",
-            "HC5wcm90by5EeUxpc3RBY2NvdW50c1JlcXVlc3QaHS5wcm90by5EeUxpc3RB",
-            "Y2NvdW50c1Jlc3BvbnNlIgASSAoQR2V0QWNjb3VudFN0YXR1cxIaLnByb3Rv",
-            "LkR5R2V0QWNjb3VudFJlcXVlc3QaFi5wcm90by5EeUFjY291bnRTdGF0dXMi",
-            "ABJiChVHZXRBY2NvdW50U3RhdHVzQmF0Y2gSHy5wcm90by5EeUdldEFjY291",
-            "bnRCYXRjaFJlcXVlc3QaJi5wcm90by5EeUdldEFjY291bnRTdGF0dXNCYXRj",
-            "aFJlc3BvbnNlIgASQwoKR2V0UHJvZmlsZRIaLnByb3RvLkR5R2V0UHJvZmls",
-            "ZVJlcXVlc3QaFy5wcm90by5EeUFjY291bnRQcm9maWxlIgASSQoNVXBkYXRl",
-            "UHJvZmlsZRIdLnByb3RvLkR5VXBkYXRlUHJvZmlsZVJlcXVlc3QaFy5wcm90",
-            "by5EeUFjY291bnRQcm9maWxlIgASRwoKTGlzdEJhZGdlcxIaLnByb3RvLkR5",
-            "TGlzdEJhZGdlc1JlcXVlc3QaGy5wcm90by5EeUxpc3RCYWRnZXNSZXNwb25z",
-            "ZSIAEkcKCkdyYW50QmFkZ2USGi5wcm90by5EeUdyYW50QmFkZ2VSZXF1ZXN0",
-            "GhsucHJvdG8uRHlHcmFudEJhZGdlUmVzcG9uc2UiABJBCghHZXRCYWRnZRIY",
-            "LnByb3RvLkR5R2V0QmFkZ2VSZXF1ZXN0GhkucHJvdG8uRHlHZXRCYWRnZVJl",
-            "c3BvbnNlIgASSgoLVXBkYXRlQmFkZ2USGy5wcm90by5EeVVwZGF0ZUJhZGdl",
-            "UmVxdWVzdBocLnByb3RvLkR5VXBkYXRlQmFkZ2VSZXNwb25zZSIAElYKD0dl",
-            "dFJlbGF0aW9uc2hpcBIfLnByb3RvLkR5R2V0UmVsYXRpb25zaGlwUmVxdWVz",
-            "dBogLnByb3RvLkR5R2V0UmVsYXRpb25zaGlwUmVzcG9uc2UiABJQCg9IYXNS",
+            "iAEBEikKEGVpdGhlcl9kaXJlY3Rpb24YBCABKAhSD2VpdGhlckRpcmVjdGlv",
+            "bkIJCgdfc3RhdHVzImwKGUR5R2V0UmVsYXRpb25zaGlwUmVzcG9uc2USPgoM",
+            "cmVsYXRpb25zaGlwGAEgASgLMhUucHJvdG8uRHlSZWxhdGlvbnNoaXBIAFIM",
+            "cmVsYXRpb25zaGlwiAEBQg8KDV9yZWxhdGlvbnNoaXAiegofRHlMaXN0UmVs",
+            "YXRpb25zaGlwU2ltcGxlUmVxdWVzdBIfCgphY2NvdW50X2lkGAEgASgJSABS",
+            "CWFjY291bnRJZBIfCgpyZWxhdGVkX2lkGAIgASgJSABSCXJlbGF0ZWRJZEIV",
+            "ChNyZWxhdGlvbl9pZGVudGlmaWVyIkMKIER5TGlzdFJlbGF0aW9uc2hpcFNp",
+            "bXBsZVJlc3BvbnNlEh8KC2FjY291bnRzX2lkGAEgAygJUgphY2NvdW50c0lk",
+            "KmgKEER5U3RhdHVzQXR0aXR1ZGUSIgoeRFlfU1RBVFVTX0FUVElUVURFX1VO",
+            "U1BFQ0lGSUVEEAASDwoLRFlfUE9TSVRJVkUQARIPCgtEWV9ORUdBVElWRRAC",
+            "Eg4KCkRZX05FVVRSQUwQAyqrAQoTRHlBY2NvdW50U3RhdHVzVHlwZRIiCh5E",
+            "WV9BQ0NPVU5UX1NUQVRVU19UWVBFX0RFRkFVTFQQABIfChtEWV9BQ0NPVU5U",
+            "X1NUQVRVU19UWVBFX0JVU1kQARIpCiVEWV9BQ0NPVU5UX1NUQVRVU19UWVBF",
+            "X0RPX05PVF9ESVNUVVJCEAISJAogRFlfQUNDT1VOVF9TVEFUVVNfVFlQRV9J",
+            "TlZJU0lCTEUQAzKYDAoQRHlQcm9maWxlU2VydmljZRI8CgpHZXRBY2NvdW50",
+            "EhoucHJvdG8uRHlHZXRBY2NvdW50UmVxdWVzdBoQLnByb3RvLkR5QWNjb3Vu",
+            "dCIAEkIKDUdldEJvdEFjY291bnQSHS5wcm90by5EeUdldEJvdEFjY291bnRS",
+            "ZXF1ZXN0GhAucHJvdG8uRHlBY2NvdW50IgASVgoPR2V0QWNjb3VudEJhdGNo",
+            "Eh8ucHJvdG8uRHlHZXRBY2NvdW50QmF0Y2hSZXF1ZXN0GiAucHJvdG8uRHlH",
+            "ZXRBY2NvdW50QmF0Y2hSZXNwb25zZSIAElwKEkdldEJvdEFjY291bnRCYXRj",
+            "aBIiLnByb3RvLkR5R2V0Qm90QWNjb3VudEJhdGNoUmVxdWVzdBogLnByb3Rv",
+            "LkR5R2V0QWNjb3VudEJhdGNoUmVzcG9uc2UiABJcChJMb29rdXBBY2NvdW50",
+            "QmF0Y2gSIi5wcm90by5EeUxvb2t1cEFjY291bnRCYXRjaFJlcXVlc3QaIC5w",
+            "cm90by5EeUdldEFjY291bnRCYXRjaFJlc3BvbnNlIgASUgoNU2VhcmNoQWNj",
+            "b3VudBIdLnByb3RvLkR5U2VhcmNoQWNjb3VudFJlcXVlc3QaIC5wcm90by5E",
+            "eUdldEFjY291bnRCYXRjaFJlc3BvbnNlIgASTQoMTGlzdEFjY291bnRzEhwu",
+            "cHJvdG8uRHlMaXN0QWNjb3VudHNSZXF1ZXN0Gh0ucHJvdG8uRHlMaXN0QWNj",
+            "b3VudHNSZXNwb25zZSIAEkgKEEdldEFjY291bnRTdGF0dXMSGi5wcm90by5E",
+            "eUdldEFjY291bnRSZXF1ZXN0GhYucHJvdG8uRHlBY2NvdW50U3RhdHVzIgAS",
+            "YgoVR2V0QWNjb3VudFN0YXR1c0JhdGNoEh8ucHJvdG8uRHlHZXRBY2NvdW50",
+            "QmF0Y2hSZXF1ZXN0GiYucHJvdG8uRHlHZXRBY2NvdW50U3RhdHVzQmF0Y2hS",
+            "ZXNwb25zZSIAEkMKCkdldFByb2ZpbGUSGi5wcm90by5EeUdldFByb2ZpbGVS",
+            "ZXF1ZXN0GhcucHJvdG8uRHlBY2NvdW50UHJvZmlsZSIAEkkKDVVwZGF0ZVBy",
+            "b2ZpbGUSHS5wcm90by5EeVVwZGF0ZVByb2ZpbGVSZXF1ZXN0GhcucHJvdG8u",
+            "RHlBY2NvdW50UHJvZmlsZSIAEkcKCkxpc3RCYWRnZXMSGi5wcm90by5EeUxp",
+            "c3RCYWRnZXNSZXF1ZXN0GhsucHJvdG8uRHlMaXN0QmFkZ2VzUmVzcG9uc2Ui",
+            "ABJHCgpHcmFudEJhZGdlEhoucHJvdG8uRHlHcmFudEJhZGdlUmVxdWVzdBob",
+            "LnByb3RvLkR5R3JhbnRCYWRnZVJlc3BvbnNlIgASQQoIR2V0QmFkZ2USGC5w",
+            "cm90by5EeUdldEJhZGdlUmVxdWVzdBoZLnByb3RvLkR5R2V0QmFkZ2VSZXNw",
+            "b25zZSIAEkoKC1VwZGF0ZUJhZGdlEhsucHJvdG8uRHlVcGRhdGVCYWRnZVJl",
+            "cXVlc3QaHC5wcm90by5EeVVwZGF0ZUJhZGdlUmVzcG9uc2UiABJWCg9HZXRS",
             "ZWxhdGlvbnNoaXASHy5wcm90by5EeUdldFJlbGF0aW9uc2hpcFJlcXVlc3Qa",
-            "Gi5nb29nbGUucHJvdG9idWYuQm9vbFZhbHVlIgASYAoLTGlzdEZyaWVuZHMS",
-            "Ji5wcm90by5EeUxpc3RSZWxhdGlvbnNoaXBTaW1wbGVSZXF1ZXN0GicucHJv",
-            "dG8uRHlMaXN0UmVsYXRpb25zaGlwU2ltcGxlUmVzcG9uc2UiABJgCgtMaXN0",
-            "QmxvY2tlZBImLnByb3RvLkR5TGlzdFJlbGF0aW9uc2hpcFNpbXBsZVJlcXVl",
-            "c3QaJy5wcm90by5EeUxpc3RSZWxhdGlvbnNoaXBTaW1wbGVSZXNwb25zZSIA",
-            "MpwCChJEeUFjdGlvbkxvZ1NlcnZpY2USVgoPQ3JlYXRlQWN0aW9uTG9nEh8u",
-            "cHJvdG8uRHlDcmVhdGVBY3Rpb25Mb2dSZXF1ZXN0GiAucHJvdG8uRHlDcmVh",
-            "dGVBY3Rpb25Mb2dSZXNwb25zZSIAElMKDkxpc3RBY3Rpb25Mb2dzEh4ucHJv",
-            "dG8uRHlMaXN0QWN0aW9uTG9nc1JlcXVlc3QaHy5wcm90by5EeUxpc3RBY3Rp",
-            "b25Mb2dzUmVzcG9uc2UiABJZChBTZWFyY2hBY3Rpb25Mb2dzEiAucHJvdG8u",
-            "RHlTZWFyY2hBY3Rpb25Mb2dzUmVxdWVzdBohLnByb3RvLkR5U2VhcmNoQWN0",
-            "aW9uTG9nc1Jlc3BvbnNlIgBCPVofc3JjLnNvbHN5bnRoLmRldi9zb3N5cy9n",
-            "by9wcm90b6oCGUR5c29uTmV0d29yay5TaGFyZWQuUHJvdG9iBnByb3RvMw=="));
+            "IC5wcm90by5EeUdldFJlbGF0aW9uc2hpcFJlc3BvbnNlIgASUAoPSGFzUmVs",
+            "YXRpb25zaGlwEh8ucHJvdG8uRHlHZXRSZWxhdGlvbnNoaXBSZXF1ZXN0Ghou",
+            "Z29vZ2xlLnByb3RvYnVmLkJvb2xWYWx1ZSIAEmAKC0xpc3RGcmllbmRzEiYu",
+            "cHJvdG8uRHlMaXN0UmVsYXRpb25zaGlwU2ltcGxlUmVxdWVzdBonLnByb3Rv",
+            "LkR5TGlzdFJlbGF0aW9uc2hpcFNpbXBsZVJlc3BvbnNlIgASYAoLTGlzdEJs",
+            "b2NrZWQSJi5wcm90by5EeUxpc3RSZWxhdGlvbnNoaXBTaW1wbGVSZXF1ZXN0",
+            "GicucHJvdG8uRHlMaXN0UmVsYXRpb25zaGlwU2ltcGxlUmVzcG9uc2UiADKc",
+            "AgoSRHlBY3Rpb25Mb2dTZXJ2aWNlElYKD0NyZWF0ZUFjdGlvbkxvZxIfLnBy",
+            "b3RvLkR5Q3JlYXRlQWN0aW9uTG9nUmVxdWVzdBogLnByb3RvLkR5Q3JlYXRl",
+            "QWN0aW9uTG9nUmVzcG9uc2UiABJTCg5MaXN0QWN0aW9uTG9ncxIeLnByb3Rv",
+            "LkR5TGlzdEFjdGlvbkxvZ3NSZXF1ZXN0Gh8ucHJvdG8uRHlMaXN0QWN0aW9u",
+            "TG9nc1Jlc3BvbnNlIgASWQoQU2VhcmNoQWN0aW9uTG9ncxIgLnByb3RvLkR5",
+            "U2VhcmNoQWN0aW9uTG9nc1JlcXVlc3QaIS5wcm90by5EeVNlYXJjaEFjdGlv",
+            "bkxvZ3NSZXNwb25zZSIAQj1aH3NyYy5zb2xzeW50aC5kZXYvc29zeXMvZ28v",
+            "cHJvdG+qAhlEeXNvbk5ldHdvcmsuU2hhcmVkLlByb3RvYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.FieldMaskReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.StructReflection.Descriptor, global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyStatusAttitude), typeof(global::DysonNetwork.Shared.Proto.DyAccountStatusType), }, null, new pbr::GeneratedClrTypeInfo[] {
@@ -199,7 +200,7 @@ namespace DysonNetwork.Shared.Proto {
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetBadgeResponse), global::DysonNetwork.Shared.Proto.DyGetBadgeResponse.Parser, new[]{ "Badge" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyUpdateBadgeRequest), global::DysonNetwork.Shared.Proto.DyUpdateBadgeRequest.Parser, new[]{ "AccountId", "BadgeId", "Badge", "UpdateMask" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyUpdateBadgeResponse), global::DysonNetwork.Shared.Proto.DyUpdateBadgeResponse.Parser, new[]{ "Badge" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest), global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest.Parser, new[]{ "AccountId", "RelatedId", "Status" }, new[]{ "Status" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest), global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest.Parser, new[]{ "AccountId", "RelatedId", "Status", "EitherDirection" }, new[]{ "Status" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetRelationshipResponse), global::DysonNetwork.Shared.Proto.DyGetRelationshipResponse.Parser, new[]{ "Relationship" }, new[]{ "Relationship" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest), global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest.Parser, new[]{ "AccountId", "RelatedId" }, new[]{ "RelationIdentifier" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse), global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse.Parser, new[]{ "AccountsId" }, null, null, null, null)
@@ -6614,6 +6615,7 @@ namespace DysonNetwork.Shared.Proto {
       accountId_ = other.accountId_;
       relatedId_ = other.relatedId_;
       status_ = other.status_;
+      eitherDirection_ = other.eitherDirection_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -6674,6 +6676,18 @@ namespace DysonNetwork.Shared.Proto {
       _hasBits0 &= ~1;
     }
 
+    /// <summary>Field number for the "either_direction" field.</summary>
+    public const int EitherDirectionFieldNumber = 4;
+    private bool eitherDirection_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool EitherDirection {
+      get { return eitherDirection_; }
+      set {
+        eitherDirection_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -6692,6 +6706,7 @@ namespace DysonNetwork.Shared.Proto {
       if (AccountId != other.AccountId) return false;
       if (RelatedId != other.RelatedId) return false;
       if (Status != other.Status) return false;
+      if (EitherDirection != other.EitherDirection) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -6702,6 +6717,7 @@ namespace DysonNetwork.Shared.Proto {
       if (AccountId.Length != 0) hash ^= AccountId.GetHashCode();
       if (RelatedId.Length != 0) hash ^= RelatedId.GetHashCode();
       if (HasStatus) hash ^= Status.GetHashCode();
+      if (EitherDirection != false) hash ^= EitherDirection.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -6732,6 +6748,10 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(24);
         output.WriteInt32(Status);
       }
+      if (EitherDirection != false) {
+        output.WriteRawTag(32);
+        output.WriteBool(EitherDirection);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -6754,6 +6774,10 @@ namespace DysonNetwork.Shared.Proto {
         output.WriteRawTag(24);
         output.WriteInt32(Status);
       }
+      if (EitherDirection != false) {
+        output.WriteRawTag(32);
+        output.WriteBool(EitherDirection);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -6772,6 +6796,9 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (HasStatus) {
         size += 1 + pb::CodedOutputStream.ComputeInt32Size(Status);
+      }
+      if (EitherDirection != false) {
+        size += 1 + 1;
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -6793,6 +6820,9 @@ namespace DysonNetwork.Shared.Proto {
       }
       if (other.HasStatus) {
         Status = other.Status;
+      }
+      if (other.EitherDirection != false) {
+        EitherDirection = other.EitherDirection;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -6825,6 +6855,10 @@ namespace DysonNetwork.Shared.Proto {
             Status = input.ReadInt32();
             break;
           }
+          case 32: {
+            EitherDirection = input.ReadBool();
+            break;
+          }
         }
       }
     #endif
@@ -6854,6 +6888,10 @@ namespace DysonNetwork.Shared.Proto {
           }
           case 24: {
             Status = input.ReadInt32();
+            break;
+          }
+          case 32: {
+            EitherDirection = input.ReadBool();
             break;
           }
         }

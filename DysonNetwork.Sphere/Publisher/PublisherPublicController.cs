@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -82,15 +83,25 @@ public class PublisherPublicController(
         if (searchContext is null)
             return Ok(new List<SnPublisher>());
 
-        // Use PublisherService to load individual publisher accounts efficiently
+        HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var currentUser = currentUserValue as DyAccount;
+
+        var publishersQueryable = ApplyPublisherSearch(db.Publishers, searchContext);
+
+        if (currentUser is not null)
+        {
+            var blockedIds = await accounts.ListAllBlockedAccountIds(Guid.Parse(currentUser.Id));
+            if (blockedIds.Count > 0)
+                publishersQueryable = publishersQueryable.Where(p => p.AccountId == null || !blockedIds.Contains(p.AccountId.Value));
+        }
+
         var publishers = await ApplyPublisherSearchOrdering(
-                ApplyPublisherSearch(db.Publishers, searchContext),
+                publishersQueryable,
                 searchContext
             )
             .Take(take)
             .ToListAsync();
 
-        // Load individual publisher accounts in batch to avoid N+1 queries
         var publishersWithAccounts = await ps.LoadIndividualPublisherAccounts(publishers);
 
         return Ok(publishersWithAccounts);

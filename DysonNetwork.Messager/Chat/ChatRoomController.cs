@@ -96,10 +96,11 @@ public class ChatRoomController(
         {
             AccountId = currentUser.Id,
             RelatedId = request.RelatedUserId.ToString(),
-            Status = -100
+            Status = -100,
+            EitherDirection = true
         });
         if (hasBlocked?.Value ?? false)
-            return StatusCode(403, "You cannot create direct message with a user that blocked you.");
+            return StatusCode(403, "You cannot create direct message with a user that you have blocked or who has blocked you.");
 
         // Check if DM already exists between these users in the same encryption mode.
         // This allows one plaintext DM and one encrypted DM to coexist for the same pair.
@@ -891,16 +892,17 @@ public class ChatRoomController(
             await accounts.GetAccountAsync(new DyGetAccountRequest { Id = request.RelatedUserId.ToString() });
         if (relatedUser == null) return BadRequest("Related user was not found");
 
-        // Check if the user has blocked the current user
-        var relationship = await accounts.GetRelationshipAsync(new DyGetRelationshipRequest
+        // Check if either user has blocked the other
+        var relationship = await accounts.HasRelationshipAsync(new DyGetRelationshipRequest
         {
             AccountId = currentUser.Id,
             RelatedId = relatedUser.Id,
-            Status = -100
+            Status = -100,
+            EitherDirection = true
         });
 
-        if (relationship?.Relationship is { Status: -100 })
-            return StatusCode(403, "You cannot invite a user that blocked you.");
+        if (relationship?.Value ?? false)
+            return StatusCode(403, "You cannot invite a user that you have blocked or who has blocked you.");
 
         var chatRoom = await db.ChatRooms
             .Where(p => p.Id == roomId)

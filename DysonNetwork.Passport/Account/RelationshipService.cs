@@ -277,6 +277,26 @@ public class RelationshipService(
             isRelated);
     }
 
+    public async Task<List<Guid>> ListAllBlockedAccountIds(Guid accountId)
+    {
+        var cacheKey = $"{UserBlockedCacheKeyPrefix}all:{accountId}";
+        var cached = await cache.GetAsync<List<Guid>>(cacheKey);
+        if (cached is not null)
+            return cached;
+
+        var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
+        var blockedIds = await db.AccountRelationships
+            .Where(r => r.Status == RelationshipStatus.Blocked)
+            .Where(r => r.ExpiredAt == null || r.ExpiredAt > now)
+            .Where(r => r.AccountId == accountId || r.RelatedId == accountId)
+            .Select(r => r.AccountId == accountId ? r.RelatedId : r.AccountId)
+            .Distinct()
+            .ToListAsync();
+
+        await cache.SetAsync(cacheKey, blockedIds, CacheExpiration);
+        return blockedIds;
+    }
+
     private void CreateActionLog(
         Guid accountId,
         string action,
@@ -302,6 +322,35 @@ public class RelationshipService(
     {
         var relationship = await GetRelationship(accountId, relatedId, status);
         return relationship is not null;
+    }
+
+    public async Task<bool> IsBlockedEitherDirection(Guid userId, Guid otherId)
+    {
+        if (userId == Guid.Empty || otherId == Guid.Empty)
+            return false;
+        if (userId == otherId)
+            return false;
+
+        var (smaller, larger) = userId.CompareTo(otherId) < 0
+            ? (userId, otherId)
+            : (otherId, userId);
+
+        var cacheKey = $"{UserBlockedCacheKeyPrefix}either:{smaller}:{larger}";
+        var cached = await cache.GetAsync<bool?>(cacheKey);
+        if (cached.HasValue)
+            return cached.Value;
+
+        var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
+        var isBlocked = await db.AccountRelationships
+            .Where(r => r.Status == RelationshipStatus.Blocked)
+            .Where(r => r.ExpiredAt == null || r.ExpiredAt > now)
+            .AnyAsync(r =>
+                (r.AccountId == userId && r.RelatedId == otherId) ||
+                (r.AccountId == otherId && r.RelatedId == userId)
+            );
+
+        await cache.SetAsync(cacheKey, isBlocked, CacheExpiration);
+        return isBlocked;
     }
 
     private async Task<List<Guid>> GetCachedRelationships(
@@ -351,6 +400,13 @@ public class RelationshipService(
         {
             keysToRemove.Add($"{UserBlockedCacheKeyPrefix}{accountId}");
             keysToRemove.Add($"{UserBlockedCacheKeyPrefix}{relatedId}");
+            keysToRemove.Add($"{UserBlockedCacheKeyPrefix}all:{accountId}");
+            keysToRemove.Add($"{UserBlockedCacheKeyPrefix}all:{relatedId}");
+
+            var (smaller, larger) = accountId.CompareTo(relatedId) < 0
+                ? (accountId, relatedId)
+                : (relatedId, accountId);
+            keysToRemove.Add($"{UserBlockedCacheKeyPrefix}either:{smaller}:{larger}");
         }
 
         var removeTasks = keysToRemove.Select(key => cache.RemoveAsync(key));

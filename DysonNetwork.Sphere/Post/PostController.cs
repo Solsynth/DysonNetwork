@@ -375,16 +375,19 @@ public class PostController(
             ? Instant.FromUnixTimeSeconds(periodEndTime.Value)
             : null;
 
+        var accountId = currentUser is null ? Guid.Empty : Guid.Parse(currentUser.Id);
+
         List<Guid> userFriends = [];
+        HashSet<Guid> blockedAccountIds = [];
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(
                 new DyListRelationshipSimpleRequest { RelatedId = currentUser.Id }
             );
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
+            blockedAccountIds = await remoteAccountsHelper.ListAllBlockedAccountIds(accountId);
         }
 
-        var accountId = currentUser is null ? Guid.Empty : Guid.Parse(currentUser.Id);
         var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(accountId);
         var userRealms = currentUser is null ? [] : await rs.GetUserRealms(accountId);
         var publicRealms = await rs.GetPublicRealms();
@@ -519,7 +522,8 @@ public class PostController(
             userPublishers,
             isListing: true,
             gatekeptPublisherIds,
-            subscriberPublisherIds
+            subscriberPublisherIds,
+            blockedAccountIds
         );
 
         if (shadowbannedPublisherIds != null && shadowbannedPublisherIds.Count > 0)

@@ -453,6 +453,14 @@ public class PublisherService(
 
     public async Task<SnPublisherFollowRequest> CreateFollowRequest(Guid publisherId, Guid accountId)
     {
+        var publisher = await db.Publishers.FindAsync(publisherId);
+        if (publisher?.AccountId is not null)
+        {
+            var isBlocked = await remoteAccounts.IsBlockedEitherDirection(accountId, publisher.AccountId.Value);
+            if (isBlocked)
+                throw new InvalidOperationException("You cannot follow a publisher you have blocked or who has blocked you.");
+        }
+
         var existingRequest = await GetFollowRequest(publisherId, accountId);
         if (existingRequest != null)
         {

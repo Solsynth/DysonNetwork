@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -15,7 +16,8 @@ public class PublisherSubscriptionService(
     ILocalizationService localizer,
     ICacheService cache,
     DyRingService.DyRingServiceClient pusher,
-    DyAccountService.DyAccountServiceClient accounts
+    DyAccountService.DyAccountServiceClient accounts,
+    RemoteAccountService remoteAccounts
 )
 {
     public class SubscriptionReadStatus
@@ -148,6 +150,18 @@ public class PublisherSubscriptionService(
         queryRequest.Id.AddRange(requestAccountIds.Distinct());
         var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
 
+        // Filter out blocked accounts
+        if (post.Publisher.AccountId.HasValue)
+        {
+            var blockedIds = await remoteAccounts.ListAllBlockedAccountIds(post.Publisher.AccountId.Value);
+            if (blockedIds.Count > 0)
+            {
+                var filtered = queryResponse.Accounts.Where(a => !blockedIds.Contains(Guid.Parse(a.Id))).ToList();
+                queryResponse.Accounts.Clear();
+                queryResponse.Accounts.AddRange(filtered);
+            }
+        }
+
         // Notify each subscriber
         var notifiedCount = 0;
         foreach (var target in queryResponse.Accounts.GroupBy(x => x.Language))
@@ -205,6 +219,18 @@ public class PublisherSubscriptionService(
         var queryRequest = new DyGetAccountBatchRequest();
         queryRequest.Id.AddRange(requestAccountIds.Distinct());
         var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
+
+        // Filter out blocked accounts
+        if (post.Publisher?.AccountId.HasValue == true)
+        {
+            var blockedIds = await remoteAccounts.ListAllBlockedAccountIds(post.Publisher.AccountId.Value);
+            if (blockedIds.Count > 0)
+            {
+                var filtered = queryResponse.Accounts.Where(a => !blockedIds.Contains(Guid.Parse(a.Id))).ToList();
+                queryResponse.Accounts.Clear();
+                queryResponse.Accounts.AddRange(filtered);
+            }
+        }
 
         var notifiedCount = 0;
         foreach (var target in queryResponse.Accounts.GroupBy(x => x.Language))
