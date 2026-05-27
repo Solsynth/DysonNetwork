@@ -62,7 +62,7 @@ public class StickerController(
         {
             queryable = order switch
             {
-                "usage" => queryable.OrderByDescending(p => p.Ownerships.Count),
+                "usage" => queryable.OrderByDescending(p => p.Popularity),
                 _ => queryable.OrderByDescending(p => p.CreatedAt)
             };
         }
@@ -267,7 +267,7 @@ public class StickerController(
     [HttpGet("lookup/{identifier}")]
     public async Task<ActionResult<SnSticker>> GetStickerByIdentifier(string identifier)
     {
-        var sticker = await st.LookupStickerByIdentifierAsync(identifier);
+        var sticker = await st.LookupStickerByIdentifierAsync(identifier, true);
 
         if (sticker is null) return NotFound();
         return Ok(sticker);
@@ -276,7 +276,7 @@ public class StickerController(
     [HttpGet("lookup/{identifier}/open")]
     public async Task<ActionResult<SnSticker>> OpenStickerByIdentifier(string identifier)
     {
-        var sticker = await st.LookupStickerByIdentifierAsync(identifier);
+        var sticker = await st.LookupStickerByIdentifierAsync(identifier, true);
 
         if (sticker?.Image is null) return NotFound();
         return Redirect($"/drive/files/{sticker.Image.Id}?original=true");
@@ -292,7 +292,7 @@ public class StickerController(
             .Take(100)
             .ToList();
 
-        var stickers = await st.LookupStickersByIdentifiersAsync(placeholders);
+        var stickers = await st.LookupStickersByIdentifiersAsync(placeholders, true);
         return Ok(stickers);
     }
 

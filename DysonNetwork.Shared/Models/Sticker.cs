@@ -135,6 +135,7 @@ public class StickerPack : ModelBase, IIdentifiedResource
     [MaxLength(1024)] public string Name { get; set; } = null!;
     [MaxLength(4096)] public string Description { get; set; } = string.Empty;
     [MaxLength(128)] public string Prefix { get; set; } = null!;
+    public int Popularity { get; set; }
 
     public List<SnSticker> Stickers { get; set; } = [];
 

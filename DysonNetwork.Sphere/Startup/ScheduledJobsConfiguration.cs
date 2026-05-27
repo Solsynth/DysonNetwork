@@ -3,6 +3,7 @@ using DysonNetwork.Sphere.ActivityPub.Services;
 using DysonNetwork.Sphere.Live;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
+using DysonNetwork.Sphere.Sticker;
 
 using Quartz;
 
@@ -42,6 +43,15 @@ public static class ScheduledJobsConfiguration
             q.AddTrigger(opts => opts
                 .ForJob("PostInterestFlush")
                 .WithIdentity("PostInterestFlushTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(1)
+                    .RepeatForever())
+            );
+
+            q.AddJob<StickerPopularityFlushJob>(opts => opts.WithIdentity("StickerPopularityFlush"));
+            q.AddTrigger(opts => opts
+                .ForJob("StickerPopularityFlush")
+                .WithIdentity("StickerPopularityFlushTrigger")
                 .WithSimpleSchedule(o => o
                     .WithIntervalInMinutes(1)
                     .RepeatForever())

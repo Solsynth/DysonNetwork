@@ -7,7 +7,8 @@ namespace DysonNetwork.Sphere.Sticker;
 
 public class StickerService(
     AppDatabase db,
-    ICacheService cache
+    ICacheService cache,
+    FlushBufferService flushBuffer
 )
 {
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
@@ -57,14 +58,23 @@ public class StickerService(
             await PurgeStickerCache(sticker);
     }
 
-    public async Task<SnSticker?> LookupStickerByIdentifierAsync(string identifier)
+    public async Task<SnSticker?> LookupStickerByIdentifierAsync(string identifier, bool trackPopularity = false)
     {
         identifier = identifier.Trim().ToLower();
         // Try to get from the cache first
         var cacheKey = $"sticker:lookup:{identifier}";
         var cachedSticker = await cache.GetAsync<SnSticker>(cacheKey);
         if (cachedSticker is not null)
+        {
+            if (trackPopularity)
+            {
+                flushBuffer.Enqueue(new StickerPackPopularityIncrement
+                {
+                    PackId = cachedSticker.PackId,
+                });
+            }
             return cachedSticker;
+        }
 
         // If not in cache, fetch from the database
         IQueryable<SnSticker> query = db.Stickers
@@ -94,12 +104,24 @@ public class StickerService(
 
         // Store in cache if found
         if (sticker != null)
+        {
             await cache.SetAsync(cacheKey, sticker, CacheDuration);
+            if (trackPopularity)
+            {
+                flushBuffer.Enqueue(new StickerPackPopularityIncrement
+                {
+                    PackId = sticker.PackId,
+                });
+            }
+        }
 
         return sticker;
     }
 
-    public async Task<List<SnStickerBatchLookupItem>> LookupStickersByIdentifiersAsync(IEnumerable<string> identifiers)
+    public async Task<List<SnStickerBatchLookupItem>> LookupStickersByIdentifiersAsync(
+        IEnumerable<string> identifiers,
+        bool trackPopularity = false
+    )
     {
         var results = new List<SnStickerBatchLookupItem>();
 
@@ -118,7 +140,7 @@ public class StickerService(
             results.Add(new SnStickerBatchLookupItem
             {
                 Placeholder = identifier,
-                Sticker = await LookupStickerByIdentifierAsync(normalizedIdentifier),
+                Sticker = await LookupStickerByIdentifierAsync(normalizedIdentifier, trackPopularity),
             });
         }
 

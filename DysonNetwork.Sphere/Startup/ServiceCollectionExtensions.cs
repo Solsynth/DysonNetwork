@@ -196,6 +196,7 @@ public static class ServiceCollectionExtensions
             services.AddSingleton<FlushBufferService>();
             services.AddScoped<PostViewFlushHandler>();
             services.AddScoped<PostInterestFlushHandler>();
+            services.AddScoped<StickerPopularityFlushHandler>();
 
             return services;
         }

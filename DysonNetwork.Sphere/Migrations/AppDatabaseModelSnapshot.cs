@@ -2584,6 +2584,10 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("prefix");
 
+                    b.Property<int>("Popularity")
+                        .HasColumnType("integer")
+                        .HasColumnName("popularity");
+
                     b.Property<Guid>("PublisherId")
                         .HasColumnType("uuid")
                         .HasColumnName("publisher_id");
