@@ -1,180 +1,154 @@
-# Block System
+# Block & Mute System
 
 ## Overview
 
-The block system enforces mutual interaction restrictions between two users. When user A blocks user B, a directional record is stored (`blocker_id=A, blocked_id=B`), but behavioral restrictions apply in **both directions** — neither user can interact with the other.
+Two relationship mechanisms control visibility between users:
 
-The core design principle: a block creates interaction separation, discovery separation, and notification separation without breaking public thread integrity.
+- **Block** (`status = -100`) — mutual interaction restriction. Neither user sees or interacts with the other.
+- **Mute** (`status = -50`) — one-directional visibility hide. The muting user stops seeing the muted user, but the muted user is unaffected.
 
-## Storage Model
+Both are stored in the `account_relationships` table as directional records.
 
-Blocks are stored in the `account_relationships` table with `status = -100` (`RelationshipStatus.Blocked`). Each block is a single directional record:
+## Block
+
+### Storage
 
 ```
-blocker_id = A, blocked_id = B, status = -100
+account_id = A, related_id = B, status = -100
 ```
 
-If B also blocks A, a separate record exists. Behavioral checks always query **both directions**.
+Behavioral checks query **both directions** — a block is mutual.
 
-## Centralized Helpers
+### Helpers
 
-### `IsBlockedEitherDirection(userId, otherId)`
+**`IsBlockedEitherDirection(userId, otherId)`** — returns `true` if A→B or B→A blocked.
 
-Checks if a block exists in either direction between two users. Returns `true` if A blocked B **or** B blocked A.
+- Passport: `RelationshipService.cs`
+- Shared: `RemoteAccountService.cs`
+- gRPC: `HasRelationship` with `EitherDirection = true`, `Status = -100`
 
-**Passport (direct DB access):**
-`DysonNetwork.Passport/Account/RelationshipService.cs`
+**`ListAllBlockedAccountIds(accountId)`** — returns union of blocked + blocked-by IDs.
 
-**Shared (gRPC wrapper):**
-`DysonNetwork.Shared/Registry/RemoteAccountService.cs`
+### Behavioral Rules
 
-**gRPC:**
-Uses `HasRelationship` RPC with `EitherDirection = true` and `Status = -100`:
+| Surface | Block Behavior |
+|---|---|
+| Post interactions (reply, react, forward, boost, award) | Blocked in both directions, returns 400 |
+| Feed & timeline | Posts from blocked users hidden |
+| Search & autocomplete | Blocked users/publishers hidden |
+| Notifications | All suppressed between blocked users |
+| Direct messages | Blocked, returns 403 |
+| Mentions | Silently stripped (no notification sent) |
+| Follow requests | Blocked, returns 400 |
 
-```csharp
-var response = await profiles.HasRelationshipAsync(new DyGetRelationshipRequest
-{
-    AccountId = userId.ToString(),
-    RelatedId = otherId.ToString(),
-    Status = (int)RelationshipStatus.Blocked,
-    EitherDirection = true
-});
+## Mute
+
+### Storage
+
+```
+account_id = A, related_id = B, status = -50
 ```
 
-### `ListAllBlockedAccountIds(accountId)`
+Mute is **one-directional** — only A's view is affected.
 
-Returns a `HashSet<Guid>` of all account IDs blocked by or blocking the given user (union of both directions). Used for feed filtering, search filtering, and notification filtering.
+### Helpers
 
-**Passport:**
-`DysonNetwork.Passport/Account/RelationshipService.cs`
+**`ListAccountMuted(accountId)`** — returns list of account IDs muted by this user.
 
-**Shared:**
-`DysonNetwork.Shared/Registry/RemoteAccountService.cs`
+- Passport: `RelationshipService.cs`
+- gRPC: `ListMuted` RPC
+- Shared: `RemoteAccountService.ListMutedAccountIds(accountId)`
+
+### Behavioral Rules
+
+| Surface | Mute Behavior |
+|---|---|
+| Post interactions (reply, react, forward, boost, award) | **Not restricted** — muted user can still interact |
+| Feed & timeline | Posts from muted users hidden |
+| Search & autocomplete | Muted users/publishers hidden |
+| Notifications from muted user | **Suppressed** (push, subscription, mention) |
+| Direct messages | **Not restricted** — DMs still work |
+| Mentions | Silently stripped (no notification sent) |
+| Follow requests | **Not restricted** |
+
+### Key Differences from Block
+
+| Aspect | Mute (A mutes B) | Block (A blocks B) |
+|---|---|---|
+| A sees B's content | No | No |
+| B sees A's content | Yes | No |
+| B can interact with A | Yes | No |
+| A gets B's notifications | No | No |
+| B gets A's notifications | Yes | No |
+| Direction | One-directional | Mutual |
+
+### Block Implies Mute
+
+When A blocks B, B is automatically hidden from A's feed, search, and notifications. The block filtering code always merges blocked + muted IDs before filtering.
 
 ## Caching
 
-All block data is cached in Redis (shared across services):
+All data is cached in Redis (shared across services):
 
 | Key Pattern | Purpose | TTL |
 |---|---|---|
 | `accounts:blocked:{accountId}:{isRelated}` | One-direction blocked list | 1 hour |
 | `accounts:blocked:all:{accountId}` | Both-directions blocked list | 1 hour |
 | `accounts:blocked:either:{smallerId}:{largerId}` | Bidirectional check (symmetric) | 1 hour |
+| `accounts:muted:{accountId}:False` | One-direction muted list | 1 hour |
 
-Cache is purged on block/unblock via `PurgeRelationshipCache`.
+Cache is purged on relationship changes via `PurgeRelationshipCache`.
 
-## Behavioral Rules
+## API Endpoints
 
-### Post Interactions
-
-| Action | Check | File |
+| Endpoint | Method | Description |
 |---|---|---|
-| Reply to post | Bidirectional block check | `PostActionController.cs` |
-| React to post | Bidirectional block check | `PostActionController.cs` |
-| Forward/repost | Bidirectional block check | `PostActionController.cs` |
-| Boost post | Bidirectional block check | `PostActionController.cs` |
-| Award post | Bidirectional block check | `PostActionController.cs` |
+| `/api/relationships/{accountId}/block` | POST | Block a user |
+| `/api/relationships/{accountId}/block` | DELETE | Unblock a user |
+| `/api/relationships/{accountId}/mute` | POST | Mute a user |
+| `/api/relationships/{accountId}/mute` | DELETE | Unmute a user |
+| `/api/relationships/inspect/{accountId}` | GET | Lists friends, blocked, muted, pending |
 
-All return `400 Bad Request` with a descriptive message when blocked.
+## What Does NOT Happen
 
-### Feed & Timeline
-
-Posts from blocked users are filtered out at the database query level via `FilterWithVisibility`:
-
-```csharp
-if (blockedAccountIds is { Count: > 0 })
-{
-    result = result.Where(e =>
-        e.Publisher == null
-        || e.Publisher.AccountId == null
-        || !blockedAccountIds.Contains(e.Publisher.AccountId.Value)
-    );
-}
-```
-
-Applied in:
-- `TimelineService.ListEvents` (personalized feed)
-- `PostController.ListPosts` (post listing/search)
-
-### Direct Messages
-
-| Action | Check | File |
-|---|---|---|
-| Create DM | Bidirectional block check | `ChatRoomController.cs` |
-| Send DM message | Bidirectional block check | `ChatService.cs` |
-| Invite to chat | Bidirectional block check | `ChatRoomController.cs` |
-
-Returns `403 Forbidden` when blocked.
-
-### Search & Discovery
-
-| Surface | Filtering | File |
-|---|---|---|
-| Publisher search | Exclude blocked publishers | `PublisherPublicController.cs` |
-| `@` mention autocomplete | Exclude blocked users/publishers | `AutocompletionService.cs` |
-
-### Notifications
-
-Notifications are suppressed between blocked users:
-
-| Notification Type | Filtering | File |
-|---|---|---|
-| Publisher subscription (new post) | Filter blocked accounts | `PublisherSubscriptionService.cs` |
-| Follower notification | Filter blocked accounts | `PublisherSubscriptionService.cs` |
-| Post subscription (reaction/forward/edit) | Filter blocked accounts | `PostService.cs` |
-| Chat message push | Filter blocked accounts | `ChatService.cs` |
-
-### Mentions
-
-Mentions of blocked users are **silently stripped** — the post is created normally, but no mention notification is sent. The mention text remains in the content but triggers no action.
-
-`PostService.cs` → `SendMentionNotificationsAsync`
-
-### Follow Requests
-
-Follow requests are blocked if either direction is blocked:
-
-`PublisherService.cs` → `CreateFollowRequest`
-
-Returns `InvalidOperationException` which surfaces as a `400 Bad Request`.
-
-## What Does NOT Happen on Block
-
-Per design decision, blocking does **not** clean up existing data:
+Neither block nor mute cleans up existing data:
 
 - Old reactions are **not** removed
 - Old follows are **not** removed
 - Old messages remain accessible
 - Historical mentions are preserved
 
-The block only prevents **new** interactions and **filters** from discovery surfaces.
+They only prevent **new** interactions (block) and **filter** from discovery surfaces (both).
 
 ## Profile Access
 
-Public profiles remain accessible read-only. Interaction UI is removed by the interaction-level blocks above. Private content follows existing visibility rules (already enforced by `FilterWithVisibility`).
+Public profiles remain accessible read-only for both blocked and muted users. Interaction UI is removed by the interaction-level checks above.
 
 ## Files Changed
 
 ### DysonSpec (proto)
-- `proto/profile.proto` — Added `bool either_direction = 4` to `DyGetRelationshipRequest`
+- `proto/profile.proto` — `bool either_direction = 4` on `DyGetRelationshipRequest`, `rpc ListMuted`
 
 ### Passport
-- `Account/RelationshipService.cs` — `IsBlockedEitherDirection`, `ListAllBlockedAccountIds`, cache purge updates
-- `Account/AccountServiceGrpc.cs` — `HasRelationship` handles `EitherDirection` flag
+- `Account/RelationshipService.cs` — `IsBlockedEitherDirection`, `ListAllBlockedAccountIds`, `MuteAccount`, `UnmuteAccount`, `ListAccountMuted`, cache purge
+- `Account/AccountServiceGrpc.cs` — `HasRelationship` handles `EitherDirection`, `ListMuted` implementation
+- `Account/RelationshipController.cs` — Mute/unmute endpoints, inspect includes muted
 
 ### Shared
-- `Registry/RemoteAccountService.cs` — `IsBlockedEitherDirection`, `ListAllBlockedAccountIds`
+- `Models/Relationship.cs` — `Muted = -50` enum value
+- `Models/ActionLog.cs` — `RelationshipMute`, `RelationshipUnmute` constants
+- `Registry/RemoteAccountService.cs` — `IsBlockedEitherDirection`, `ListAllBlockedAccountIds`, `ListMutedAccountIds`
 
 ### Sphere
 - `Post/PostActionController.cs` — Bidirectional block checks for all post interactions + forward block
-- `Post/PostService.cs` — `FilterWithVisibility` block param, notification filtering, mention stripping
-- `Timeline/TimelineService.cs` — Blocked IDs loading and feed filtering
-- `Post/PostController.cs` — `ListPosts` block filtering
-- `Publisher/PublisherSubscriptionService.cs` — Notification block filtering
-- `Publisher/PublisherPublicController.cs` — Search block filtering
+- `Post/PostService.cs` — `FilterWithVisibility` block + mute params, notification filtering, mention stripping
+- `Timeline/TimelineService.cs` — Blocked + muted IDs loading and feed filtering
+- `Post/PostController.cs` — `ListPosts` block + mute filtering
+- `Publisher/PublisherSubscriptionService.cs` — Notification block + mute filtering
+- `Publisher/PublisherPublicController.cs` — Search block + mute filtering
 - `Publisher/PublisherService.cs` — Follow request block check
-- `Autocompletion/AutocompletionService.cs` — Autocomplete block filtering
+- `Autocompletion/AutocompletionService.cs` — Autocomplete block + mute filtering
 
 ### Messager
-- `Chat/ChatRoomController.cs` — Bidirectional DM creation and invite checks
-- `Chat/ChatService.cs` — DM message sending block check, notification filtering
+- `Chat/ChatRoomController.cs` — Bidirectional DM creation and invite checks (block only)
+- `Chat/ChatService.cs` — DM message sending block check, notification block + mute filtering

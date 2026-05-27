@@ -38,6 +38,7 @@ public class TimelineService(
     private static readonly TimeSpan DiscoveryProfileCacheTtl = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan FriendIdsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan BlockedIdsCacheTtl = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan MutedIdsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan FriendPresenceCacheTtl = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan UserRealmsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan RecentServedPostsCacheTtl = TimeSpan.FromHours(24);
@@ -143,6 +144,8 @@ public class TimelineService(
         var userPublishers = await pub.GetUserPublishers(accountId);
         var userPublisherIds = userPublishers.Select(x => x.Id).ToList();
         var blockedAccountIds = await GetCachedBlockedAccountIds(accountId);
+        var mutedIds = await GetCachedMutedAccountIds(accountId);
+        var allHiddenIds = blockedAccountIds.Concat(mutedIds).ToHashSet();
 
         var filteredPublishers = await GetFilteredPublishers(filter, currentUser, userFriends);
         var filteredPublishersId = filteredPublishers?.Select(e => e.Id).ToList();
@@ -184,7 +187,7 @@ public class TimelineService(
                 isListing: true,
                 gatekeptPublisherIds,
                 followerPublisherIds,
-                blockedAccountIds
+                allHiddenIds
             )
             .Take(take * TimelineCandidateMultiplier);
 
@@ -2035,6 +2038,18 @@ public class TimelineService(
         var blockedIds = await remoteAccounts.ListAllBlockedAccountIds(accountId);
         await cache.SetAsync(cacheKey, blockedIds, BlockedIdsCacheTtl);
         return blockedIds;
+    }
+
+    private async Task<List<Guid>> GetCachedMutedAccountIds(Guid accountId)
+    {
+        var cacheKey = $"timeline:muted:{accountId}";
+        var cached = await cache.GetAsync<List<Guid>>(cacheKey);
+        if (cached is not null)
+            return cached;
+
+        var mutedIds = await remoteAccounts.ListMutedAccountIds(accountId);
+        await cache.SetAsync(cacheKey, mutedIds, MutedIdsCacheTtl);
+        return mutedIds;
     }
 
     private async Task<List<Guid>> GetCachedUserRealms(Guid accountId)

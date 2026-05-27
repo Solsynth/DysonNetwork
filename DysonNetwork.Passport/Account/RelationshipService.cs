@@ -22,6 +22,7 @@ public class RelationshipService(
 {
     private const string UserFriendsCacheKeyPrefix = "accounts:friends:";
     private const string UserBlockedCacheKeyPrefix = "accounts:blocked:";
+    private const string UserMutedCacheKeyPrefix = "accounts:muted:";
     private static readonly TimeSpan CacheExpiration = TimeSpan.FromHours(1);
 
     public async Task<bool> HasExistingRelationship(Guid accountId, Guid relatedId)
@@ -125,6 +126,41 @@ public class RelationshipService(
 
         CreateActionLog(sender.Id, ActionLogType.RelationshipUnblock, target.Id);
         await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Blocked);
+
+        return relationship;
+    }
+
+    public async Task<SnAccountRelationship> MuteAccount(SnAccount sender, SnAccount target)
+    {
+        var existing = await GetRelationship(sender.Id, target.Id, RelationshipStatus.Muted, ignoreExpired: true);
+        if (existing is not null)
+            throw new InvalidOperationException("You have already muted this user.");
+
+        var relationship = new SnAccountRelationship
+        {
+            AccountId = sender.Id,
+            RelatedId = target.Id,
+            Status = RelationshipStatus.Muted
+        };
+
+        db.AccountRelationships.Add(relationship);
+        await db.SaveChangesAsync();
+
+        CreateActionLog(sender.Id, ActionLogType.RelationshipMute, target.Id);
+        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Muted);
+
+        return relationship;
+    }
+
+    public async Task<SnAccountRelationship> UnmuteAccount(SnAccount sender, SnAccount target)
+    {
+        var relationship = await GetRelationship(sender.Id, target.Id, RelationshipStatus.Muted);
+        if (relationship is null) throw new ArgumentException("There is no mute relationship with this user.");
+        db.Remove(relationship);
+        await db.SaveChangesAsync();
+
+        CreateActionLog(sender.Id, ActionLogType.RelationshipUnmute, target.Id);
+        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Muted);
 
         return relationship;
     }
@@ -297,6 +333,11 @@ public class RelationshipService(
         return blockedIds;
     }
 
+    public async Task<List<Guid>> ListAccountMuted(Guid accountId)
+    {
+        return await GetCachedRelationships(accountId, RelationshipStatus.Muted, UserMutedCacheKeyPrefix);
+    }
+
     private void CreateActionLog(
         Guid accountId,
         string action,
@@ -407,6 +448,12 @@ public class RelationshipService(
                 ? (accountId, relatedId)
                 : (relatedId, accountId);
             keysToRemove.Add($"{UserBlockedCacheKeyPrefix}either:{smaller}:{larger}");
+        }
+
+        if (statuses.Contains(RelationshipStatus.Muted))
+        {
+            keysToRemove.Add($"{UserMutedCacheKeyPrefix}{accountId}:False");
+            keysToRemove.Add($"{UserMutedCacheKeyPrefix}{relatedId}:False");
         }
 
         var removeTasks = keysToRemove.Select(key => cache.RemoveAsync(key));

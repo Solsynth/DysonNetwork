@@ -193,4 +193,18 @@ public class RemoteAccountService(
             return [];
         }
     }
+
+    public async Task<List<Guid>> ListMutedAccountIds(Guid accountId)
+    {
+        try
+        {
+            var response = await profiles.ListMutedAsync(new DyListRelationshipSimpleRequest { AccountId = accountId.ToString() });
+            return response.AccountsId.Select(Guid.Parse).ToList();
+        }
+        catch (RpcException ex) when (ex.StatusCode is StatusCode.Unavailable or StatusCode.DeadlineExceeded)
+        {
+            logger.LogWarning(ex, "Profile service unavailable while listing muted accounts for {AccountId}", accountId);
+            return [];
+        }
+    }
 }

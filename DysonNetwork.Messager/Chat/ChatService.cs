@@ -1317,14 +1317,16 @@ public partial class ChatService(
             .Where(a => !subscribedMemberIds.Contains(Guid.Parse(a.Id)))
             .ToList();
 
-        // Filter out blocked accounts
+        // Filter out blocked and muted accounts
         if (sender.AccountId != Guid.Empty)
         {
             var blockedIds = await remoteAccounts.ListAllBlockedAccountIds(sender.AccountId);
-            if (blockedIds.Count > 0)
+            var mutedIds = await remoteAccounts.ListMutedAccountIds(sender.AccountId);
+            var hiddenIds = blockedIds.Concat(mutedIds).ToHashSet();
+            if (hiddenIds.Count > 0)
             {
                 accountsToNotify = accountsToNotify
-                    .Where(a => !blockedIds.Contains(Guid.Parse(a.Id)))
+                    .Where(a => !hiddenIds.Contains(Guid.Parse(a.Id)))
                     .ToList();
             }
         }

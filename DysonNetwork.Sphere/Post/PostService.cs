@@ -910,15 +910,17 @@ public partial class PostService(
         queryRequest.Id.AddRange(subscriptions.Select(s => s.AccountId.ToString()).Distinct());
         var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
 
-        // Filter out blocked accounts
+        // Filter out blocked and muted accounts
         if (post.Publisher?.AccountId.HasValue == true)
         {
             using var scope = serviceProvider.CreateScope();
             var remoteAccounts = scope.ServiceProvider.GetRequiredService<RemoteAccountService>();
             var blockedIds = await remoteAccounts.ListAllBlockedAccountIds(post.Publisher.AccountId.Value);
-            if (blockedIds.Count > 0)
+            var mutedIds = await remoteAccounts.ListMutedAccountIds(post.Publisher.AccountId.Value);
+            var hiddenIds = blockedIds.Concat(mutedIds).ToHashSet();
+            if (hiddenIds.Count > 0)
             {
-                var filtered = queryResponse.Accounts.Where(a => !blockedIds.Contains(Guid.Parse(a.Id))).ToList();
+                var filtered = queryResponse.Accounts.Where(a => !hiddenIds.Contains(Guid.Parse(a.Id))).ToList();
                 queryResponse.Accounts.Clear();
                 queryResponse.Accounts.AddRange(filtered);
             }
@@ -3176,7 +3178,8 @@ public static class PostQueryExtensions
         bool isListing = false,
         HashSet<Guid>? gatekeptPublisherIds = null,
         HashSet<Guid>? followerPublisherIds = null,
-        HashSet<Guid>? blockedAccountIds = null
+        HashSet<Guid>? blockedAccountIds = null,
+        HashSet<Guid>? mutedAccountIds = null
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -3246,6 +3249,15 @@ public static class PostQueryExtensions
                 e.Publisher == null
                 || e.Publisher.AccountId == null
                 || !blockedAccountIds.Contains(e.Publisher.AccountId.Value)
+            );
+        }
+
+        if (mutedAccountIds is { Count: > 0 })
+        {
+            result = result.Where(e =>
+                e.Publisher == null
+                || e.Publisher.AccountId == null
+                || !mutedAccountIds.Contains(e.Publisher.AccountId.Value)
             );
         }
 

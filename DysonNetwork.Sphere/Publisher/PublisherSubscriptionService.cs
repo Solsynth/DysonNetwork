@@ -150,13 +150,15 @@ public class PublisherSubscriptionService(
         queryRequest.Id.AddRange(requestAccountIds.Distinct());
         var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
 
-        // Filter out blocked accounts
+        // Filter out blocked and muted accounts
         if (post.Publisher.AccountId.HasValue)
         {
             var blockedIds = await remoteAccounts.ListAllBlockedAccountIds(post.Publisher.AccountId.Value);
-            if (blockedIds.Count > 0)
+            var mutedIds = await remoteAccounts.ListMutedAccountIds(post.Publisher.AccountId.Value);
+            var hiddenIds = blockedIds.Concat(mutedIds).ToHashSet();
+            if (hiddenIds.Count > 0)
             {
-                var filtered = queryResponse.Accounts.Where(a => !blockedIds.Contains(Guid.Parse(a.Id))).ToList();
+                var filtered = queryResponse.Accounts.Where(a => !hiddenIds.Contains(Guid.Parse(a.Id))).ToList();
                 queryResponse.Accounts.Clear();
                 queryResponse.Accounts.AddRange(filtered);
             }
@@ -220,13 +222,15 @@ public class PublisherSubscriptionService(
         queryRequest.Id.AddRange(requestAccountIds.Distinct());
         var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
 
-        // Filter out blocked accounts
+        // Filter out blocked and muted accounts
         if (post.Publisher?.AccountId.HasValue == true)
         {
             var blockedIds = await remoteAccounts.ListAllBlockedAccountIds(post.Publisher.AccountId.Value);
-            if (blockedIds.Count > 0)
+            var mutedIds = await remoteAccounts.ListMutedAccountIds(post.Publisher.AccountId.Value);
+            var hiddenIds = blockedIds.Concat(mutedIds).ToHashSet();
+            if (hiddenIds.Count > 0)
             {
-                var filtered = queryResponse.Accounts.Where(a => !blockedIds.Contains(Guid.Parse(a.Id))).ToList();
+                var filtered = queryResponse.Accounts.Where(a => !hiddenIds.Contains(Guid.Parse(a.Id))).ToList();
                 queryResponse.Accounts.Clear();
                 queryResponse.Accounts.AddRange(filtered);
             }

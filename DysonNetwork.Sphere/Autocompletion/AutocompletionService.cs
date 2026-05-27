@@ -46,7 +46,11 @@ public class AutocompletionService(AppDatabase db, RemoteAccountService remoteAc
 
         HashSet<Guid>? blockedIds = null;
         if (currentUserId.HasValue)
-            blockedIds = await remoteAccountsHelper.ListAllBlockedAccountIds(currentUserId.Value);
+        {
+            var blocked = await remoteAccountsHelper.ListAllBlockedAccountIds(currentUserId.Value);
+            var muted = await remoteAccountsHelper.ListMutedAccountIds(currentUserId.Value);
+            blockedIds = blocked.Concat(muted).ToHashSet();
+        }
 
         switch (type)
         {

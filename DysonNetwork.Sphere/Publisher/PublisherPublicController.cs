@@ -91,8 +91,10 @@ public class PublisherPublicController(
         if (currentUser is not null)
         {
             var blockedIds = await accounts.ListAllBlockedAccountIds(Guid.Parse(currentUser.Id));
-            if (blockedIds.Count > 0)
-                publishersQueryable = publishersQueryable.Where(p => p.AccountId == null || !blockedIds.Contains(p.AccountId.Value));
+            var mutedIds = await accounts.ListMutedAccountIds(Guid.Parse(currentUser.Id));
+            var hiddenIds = blockedIds.Concat(mutedIds).ToHashSet();
+            if (hiddenIds.Count > 0)
+                publishersQueryable = publishersQueryable.Where(p => p.AccountId == null || !hiddenIds.Contains(p.AccountId.Value));
         }
 
         var publishers = await ApplyPublisherSearchOrdering(

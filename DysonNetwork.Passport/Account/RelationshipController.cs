@@ -308,10 +308,51 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
     }
 
+    [HttpPost("{accountId:guid}/mute")]
+    [Authorize]
+    public async Task<ActionResult<SnAccountRelationship>> MuteUser(Guid accountId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var relatedUser = await accounts.GetAccount(accountId);
+        if (relatedUser is null) return NotFound("Account was not found.");
+
+        try
+        {
+            var relationship = await rls.MuteAccount(currentUser, relatedUser);
+            return relationship;
+        }
+        catch (InvalidOperationException err)
+        {
+            return BadRequest(err.Message);
+        }
+    }
+
+    [HttpDelete("{accountId:guid}/mute")]
+    [Authorize]
+    public async Task<ActionResult<SnAccountRelationship>> UnmuteUser(Guid accountId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var relatedUser = await accounts.GetAccount(accountId);
+        if (relatedUser is null) return NotFound("Account was not found.");
+
+        try
+        {
+            var relationship = await rls.UnmuteAccount(currentUser, relatedUser);
+            return relationship;
+        }
+        catch (InvalidOperationException err)
+        {
+            return BadRequest(err.Message);
+        }
+    }
+
     public class InspectRelationshipResponse
     {
         public List<SnAccount> Friends { get; set; } = [];
         public List<SnAccount> Blocked { get; set; } = [];
+        public List<SnAccount> Muted { get; set; } = [];
         public List<SnAccount> Pending { get; set; } = [];
     }
 
@@ -332,6 +373,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         {
             Friends = grouped.TryGetValue(RelationshipStatus.Friends, out var friends) ? friends : [],
             Blocked = grouped.TryGetValue(RelationshipStatus.Blocked, out var blocked) ? blocked : [],
+            Muted = grouped.TryGetValue(RelationshipStatus.Muted, out var muted) ? muted : [],
             Pending = grouped.TryGetValue(RelationshipStatus.Pending, out var pending) ? pending : []
         });
     }

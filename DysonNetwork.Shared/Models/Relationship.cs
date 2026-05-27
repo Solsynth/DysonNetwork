@@ -9,6 +9,7 @@ public enum RelationshipStatus : short
 {
     Friends = 100,
     Pending = 0,
+    Muted = -50,
     Blocked = -100
 }
 

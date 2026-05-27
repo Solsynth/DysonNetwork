@@ -379,6 +379,7 @@ public class PostController(
 
         List<Guid> userFriends = [];
         HashSet<Guid> blockedAccountIds = [];
+        List<Guid> mutedAccountIds = [];
         if (currentUser != null)
         {
             var friendsResponse = await accounts.ListFriendsAsync(
@@ -386,6 +387,7 @@ public class PostController(
             );
             userFriends = friendsResponse.AccountsId.Select(Guid.Parse).ToList();
             blockedAccountIds = await remoteAccountsHelper.ListAllBlockedAccountIds(accountId);
+            mutedAccountIds = await remoteAccountsHelper.ListMutedAccountIds(accountId);
         }
 
         var userPublishers = currentUser is null ? [] : await pub.GetUserPublishers(accountId);
@@ -523,7 +525,8 @@ public class PostController(
             isListing: true,
             gatekeptPublisherIds,
             subscriberPublisherIds,
-            blockedAccountIds
+            blockedAccountIds,
+            mutedAccountIds.ToHashSet()
         );
 
         if (shadowbannedPublisherIds != null && shadowbannedPublisherIds.Count > 0)
