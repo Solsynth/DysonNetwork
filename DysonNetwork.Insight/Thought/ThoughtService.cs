@@ -2267,7 +2267,13 @@ public class ThoughtService(
             "6. 历史消息里包含 <message_meta> 时间标签，仅用于你理解上下文时间先后。**严禁在你的回复中生成 <message_meta> 或任何类似的时间标签**，用户不需要看到这些。"
         );
         systemPromptBuilder.AppendLine(
-            "7. 在对话中多使用换行，系统会将换行视为一条新的消息。不要一行输出过多文字。"
+            "7. 适度多用换行；用户端会把每次换行渲染成一条新的消息，所以按聊天节奏分开发送，不要把太多内容挤在同一行。"
+        );
+        systemPromptBuilder.AppendLine(
+            "8. 不要使用表格 markdown，也不要使用复杂的多行语法（如代码块、引用块、层级很深的复杂排版），免得聊天界面显得生硬。"
+        );
+        systemPromptBuilder.AppendLine(
+            "9. 简单列表是可以的；当你需要列点时，用短的普通列表即可，保持像聊天消息而不是文档。"
         );
 
         var builder = new ConversationBuilder();

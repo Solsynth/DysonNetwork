@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using DysonNetwork.Insight.MiChan.Plugins;
+using DysonNetwork.Insight.Thought;
 using DysonNetwork.Insight.Thought.Memory;
 using DysonNetwork.Insight.Agent.Foundation;
 using DysonNetwork.Insight.Agent.Foundation.Models;
@@ -49,6 +50,8 @@ public class MiChanAutonomousBehavior
     private int _currentPageIndex;
     private const int MaxPageIndex = 10;
     private const int PageSize = 30;
+    private const int RecentConversationMessageLimit = 40;
+    private const int RecentConversationPromptLineLimit = 16;
 
     // Conversation tracking for proactive outreach
     private readonly Dictionary<Guid, DateTime> _recentlyContactedUsers = new();
@@ -1653,6 +1656,22 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
         List<MiChanMemoryRecord> Memories,
         int Score);
 
+    private enum ConversationOpeningStyle
+    {
+        FollowUp,
+        Callback,
+        ShareThought,
+        GentlePing,
+        AskQuestion
+    }
+
+    private sealed record RecentConversationSnapshot(
+        List<SnThinkingThought> Thoughts,
+        string PromptText,
+        bool HasRecentConversation,
+        bool UserSpokeLast,
+        bool AssistantAskedRecently);
+
     private static int CalculateConversationCandidateScore(MiChanUserProfile? profile, List<MiChanMemoryRecord> memories)
     {
         var score = 10 + Math.Min(memories.Count, 10) * 3;
@@ -1688,6 +1707,153 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
             score += Math.Min(profile.Tags.Count, 5) * 2;
 
         return Math.Max(1, score);
+    }
+
+    private static string GetThoughtText(SnThinkingThought thought)
+    {
+        return string.Join("\n", thought.Parts
+            .Where(p => p.Type == ThinkingMessagePartType.Text && !string.IsNullOrWhiteSpace(p.Text))
+            .Select(p => p.Text!.Trim()))
+            .Trim();
+    }
+
+    private static string BuildRecentConversationPromptText(List<SnThinkingThought> thoughts)
+    {
+        if (thoughts.Count == 0)
+            return string.Empty;
+
+        var relevantThoughts = thoughts
+            .Where(t => t.Role is ThinkingThoughtRole.User or ThinkingThoughtRole.Assistant)
+            .Select(t => new
+            {
+                Role = t.Role == ThinkingThoughtRole.User ? "用户" : "你",
+                Text = GetThoughtText(t)
+            })
+            .Where(t => !string.IsNullOrWhiteSpace(t.Text))
+            .TakeLast(RecentConversationPromptLineLimit)
+            .ToList();
+
+        if (relevantThoughts.Count == 0)
+            return string.Empty;
+
+        var builder = new StringBuilder();
+        builder.AppendLine("最近对话片段（从旧到新）:");
+        foreach (var thought in relevantThoughts)
+            builder.AppendLine($"[{thought.Role}] {thought.Text}");
+
+        builder.AppendLine();
+        return builder.ToString();
+    }
+
+    private static bool EndsWithQuestionLikeText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var trimmed = text.Trim();
+        return trimmed.EndsWith("?") || trimmed.EndsWith("？") ||
+               trimmed.EndsWith("吗") || trimmed.EndsWith("呢");
+    }
+
+    private async Task<RecentConversationSnapshot> LoadRecentConversationSnapshotAsync(Guid accountId)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var thoughtService = scope.ServiceProvider.GetRequiredService<ThoughtService>();
+        var sequence = await thoughtService.GetCanonicalMiChanSequenceAsync(accountId);
+        if (sequence == null)
+            return new RecentConversationSnapshot([], string.Empty, false, false, false);
+
+        var thoughts = await thoughtService.GetPreviousThoughtsAsync(sequence);
+        var chronologicalThoughts = thoughts
+            .Where(t => t.Role is ThinkingThoughtRole.User or ThinkingThoughtRole.Assistant)
+            .Take(RecentConversationMessageLimit)
+            .Reverse()
+            .ToList();
+
+        if (chronologicalThoughts.Count == 0)
+            return new RecentConversationSnapshot([], string.Empty, false, false, false);
+
+        var lastThought = chronologicalThoughts.LastOrDefault();
+        var assistantAskedRecently = chronologicalThoughts
+            .Where(t => t.Role == ThinkingThoughtRole.Assistant)
+            .TakeLast(3)
+            .Select(GetThoughtText)
+            .Count(EndsWithQuestionLikeText) >= 2;
+
+        return new RecentConversationSnapshot(
+            chronologicalThoughts,
+            BuildRecentConversationPromptText(chronologicalThoughts),
+            true,
+            lastThought?.Role == ThinkingThoughtRole.User,
+            assistantAskedRecently);
+    }
+
+    private ConversationOpeningStyle PickConversationOpeningStyle(RecentConversationSnapshot snapshot)
+    {
+        var choices = new List<ConversationOpeningStyle>();
+
+        if (snapshot.HasRecentConversation)
+        {
+            choices.AddRange([
+                ConversationOpeningStyle.FollowUp,
+                ConversationOpeningStyle.Callback,
+                ConversationOpeningStyle.ShareThought,
+                ConversationOpeningStyle.GentlePing
+            ]);
+
+            if (!snapshot.AssistantAskedRecently)
+                choices.Add(ConversationOpeningStyle.AskQuestion);
+
+            if (snapshot.UserSpokeLast)
+                choices.AddRange([
+                    ConversationOpeningStyle.FollowUp,
+                    ConversationOpeningStyle.FollowUp,
+                    ConversationOpeningStyle.Callback
+                ]);
+        }
+        else
+        {
+            choices.AddRange([
+                ConversationOpeningStyle.ShareThought,
+                ConversationOpeningStyle.GentlePing,
+                ConversationOpeningStyle.Callback
+            ]);
+
+            choices.Add(ConversationOpeningStyle.AskQuestion);
+        }
+
+        return choices[_random.Next(choices.Count)];
+    }
+
+    private static string GetConversationOpeningStyleInstruction(ConversationOpeningStyle style)
+    {
+        return style switch
+        {
+            ConversationOpeningStyle.FollowUp =>
+                "这次更像自然续上之前的话题。优先回应或承接最近对话里尚未落地的点，不要重新开一个生硬的新问题。",
+            ConversationOpeningStyle.Callback =>
+                "这次用轻微 callback 的方式开场。可以提到之前聊过的细节、梗、偏好或一个延续性的观察，让人感觉你真的记得对方。",
+            ConversationOpeningStyle.ShareThought =>
+                "这次以分享一个小想法、小观察或联想到的事情开场。以陈述句为主，像是你主动想到对方，而不是在盘问。",
+            ConversationOpeningStyle.GentlePing =>
+                "这次是低压力的轻触达。语气要松弛，不要求立刻回复，不查岗，也不要显得刻意经营关系。",
+            ConversationOpeningStyle.AskQuestion =>
+                "这次可以带一个很轻的问题，但问题必须建立在具体上下文上，而且整段最多一个问句。",
+            _ => "自然地开场。"
+        };
+    }
+
+    private static string GetConversationOpeningStyleLabel(ConversationOpeningStyle style)
+    {
+        return style switch
+        {
+            ConversationOpeningStyle.FollowUp => "延续跟进",
+            ConversationOpeningStyle.Callback => "旧话题回钩",
+            ConversationOpeningStyle.ShareThought => "分享念头",
+            ConversationOpeningStyle.GentlePing => "轻触达",
+            ConversationOpeningStyle.AskQuestion => "轻问题",
+            _ => "自然开场"
+        };
     }
 
     private ConversationCandidate PickConversationCandidate(List<ConversationCandidate> candidates)
@@ -1862,6 +2028,8 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
 
             var memoryContext = BuildMemoryContext(relevantMemories, "关于这个用户的记忆:");
             var profileContext = selectedProfile?.ToPrompt();
+            var recentConversation = await LoadRecentConversationSnapshotAsync(selectedUserId);
+            var openingStyle = PickConversationOpeningStyle(recentConversation);
 
             // Generate conversation starter message
             var promptBuilder = new StringBuilder();
@@ -1874,17 +2042,31 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
                 promptBuilder.AppendLine();
             }
 
-            promptBuilder.AppendLine("你想主动和这位用户开启一段对话。基于你对他们的了解，写一个自然、个性化的开场白。");
+            if (!string.IsNullOrWhiteSpace(recentConversation.PromptText))
+            {
+                promptBuilder.Append(recentConversation.PromptText);
+            }
+
+            promptBuilder.AppendLine("你想主动和这位用户开启一段对话。基于你对他们的了解，以及最近真实发生过的对话痕迹，写一个自然、个性化的开场白。");
+            promptBuilder.AppendLine();
+            promptBuilder.AppendLine($"这次开场模式: {GetConversationOpeningStyleLabel(openingStyle)}");
+            promptBuilder.AppendLine(GetConversationOpeningStyleInstruction(openingStyle));
             promptBuilder.AppendLine();
             promptBuilder.AppendLine("要求：");
             promptBuilder.AppendLine("- 语气友好、自然，就像朋友之间的闲聊");
-            promptBuilder.AppendLine("- 优先参考用户画像、好感度、亲密度、用户兴趣和近期记忆");
-            promptBuilder.AppendLine("- 可以分享一个想法、提出一个问题，或者跟进之前的话题");
+            promptBuilder.AppendLine("- 优先参考用户画像、好感度、亲密度、用户兴趣、长期记忆，以及最近对话片段");
+            promptBuilder.AppendLine("- 默认用陈述、分享、callback、延续话题来开场，不要总是提问");
+            promptBuilder.AppendLine("- 如果最近几轮你已经问过不少问题，这次更应该像自然表达或跟进，而不是继续追问");
+            promptBuilder.AppendLine("- 只有在问题确实能自然承接上下文时才提问，而且最多只能有一个问句");
+            promptBuilder.AppendLine("- 如果最近对话已经有明确主题，优先延续那个主题，不要突然切到无关的新话题");
             promptBuilder.AppendLine("- 不要显得黏人、催促、查岗或要求对方必须回复");
             promptBuilder.AppendLine("- 避免泛泛的'最近怎么样'，除非关系已经很亲近且上下文适合");
             promptBuilder.AppendLine("- 长度1-3句话，简洁但有温度");
             promptBuilder.AppendLine("- 使用简体中文");
             promptBuilder.AppendLine("- 不要使用表情符号");
+            promptBuilder.AppendLine("- 不要复述资料卡，不要像客服，也不要像采访");
+            promptBuilder.AppendLine("- 适度使用换行；用户端会把换行渲染成新的消息，所以可以用 Enter 把不同语气节拍拆开");
+            promptBuilder.AppendLine("- 不要使用表格 markdown 或复杂的多行语法；如果必须列点，简单短列表可以");
             promptBuilder.AppendLine();
             promptBuilder.AppendLine("直接输出你要发送的消息内容，不要添加任何前缀或格式。");
 
