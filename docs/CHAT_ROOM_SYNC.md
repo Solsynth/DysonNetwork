@@ -59,7 +59,7 @@ Each change contains:
 | room_id | uuid | Changed room id. |
 | type | string | One of `joined`, `updated`, or `removed`. |
 | room | object/null | Hydrated `SnChatRoom` for active changes. Null for removals when the room should be dropped locally. |
-| member | object/null | Current user's `SnChatMember` when the change came from membership state. |
+| member | object/null | Current user's hydrated `SnChatMember` when the change came from membership state. Includes account/profile data and realm identity fields when available. |
 | changed_at | timestamp | Effective change timestamp from `created_at`, `updated_at`, or `deleted_at`. |
 
 Each summary contains:
@@ -127,5 +127,6 @@ Example:
 - The current implementation returns up to 500 changes per request.
 - The current implementation returns up to 500 summary changes per request.
 - `room` is hydrated with realm data and direct-message member data for active rooms.
+- `member`, direct-message members, and `last_message.sender` are hydrated with account/profile data and realm identity fields when available.
 - `last_message` is selected using `created_at` descending and includes soft-deleted messages, matching the existing summary behavior.
 - Pending invitations with `joined_at = null`, left rooms with `leave_at != null`, and soft-deleted memberships are returned as `removed` for joined-room-list clients.

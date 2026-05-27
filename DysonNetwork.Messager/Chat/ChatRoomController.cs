@@ -143,6 +143,7 @@ public class ChatRoomController(
             .OrderBy(m => m.DeletedAt ?? m.UpdatedAt)
             .Take(RoomSyncLimit)
             .ToListAsync();
+        changedMembers = await crs.LoadMemberAccounts(changedMembers);
 
         var changedRoomIdsFromMembers = changedMembers.Select(m => m.ChatRoomId).ToHashSet();
         var changedRooms = await db.ChatRooms
