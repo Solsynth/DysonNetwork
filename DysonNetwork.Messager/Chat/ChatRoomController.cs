@@ -30,6 +30,37 @@ public class ChatRoomController(
 ) : ControllerBase
 {
     private const string DefaultMlsCiphersuite = "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519";
+    private const int RoomSyncLimit = 500;
+
+    public class ChatRoomSyncRequest
+    {
+        [Required] public long LastSyncTimestamp { get; set; }
+    }
+
+    public class ChatRoomSyncChange
+    {
+        public Guid RoomId { get; set; }
+        public string Type { get; set; } = string.Empty;
+        public SnChatRoom? Room { get; set; }
+        public SnChatMember? Member { get; set; }
+        public Instant ChangedAt { get; set; }
+    }
+
+    public class ChatRoomSyncResponse
+    {
+        public List<ChatRoomSyncChange> Changes { get; set; } = [];
+        public Instant CurrentTimestamp { get; set; }
+        public int TotalCount { get; set; }
+    }
+
+    private static Instant GetLatestModelTimestamp(ModelBase model)
+    {
+        var changedAt = model.UpdatedAt > model.CreatedAt ? model.UpdatedAt : model.CreatedAt;
+        if (model.DeletedAt.HasValue && model.DeletedAt.Value > changedAt)
+            changedAt = model.DeletedAt.Value;
+        return changedAt;
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<SnChatRoom>> GetChatRoom(Guid id)
     {
@@ -70,6 +101,100 @@ public class ChatRoomController(
         chatRooms = await crs.SortChatRoomByLastMessage(chatRooms);
 
         return Ok(chatRooms);
+    }
+
+    [HttpPost("rooms/sync")]
+    [Authorize]
+    public async Task<ActionResult<ChatRoomSyncResponse>> SyncJoinedChatRooms([FromBody] ChatRoomSyncRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+        var lastSyncInstant = Instant.FromUnixTimeMilliseconds(request.LastSyncTimestamp);
+
+        var activeMemberRoomIds = await db.ChatMembers
+            .Where(m => m.AccountId == accountId)
+            .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+            .Select(m => m.ChatRoomId)
+            .ToListAsync();
+
+        IQueryable<SnChatMember> changedMembersQuery = db.ChatMembers
+            .IgnoreQueryFilters()
+            .Where(m => m.AccountId == accountId)
+            .Where(m =>
+                m.CreatedAt > lastSyncInstant ||
+                m.UpdatedAt > lastSyncInstant ||
+                m.DeletedAt > lastSyncInstant)
+            .Include(m => m.ChatRoom);
+        if (request.LastSyncTimestamp == 0)
+            changedMembersQuery = changedMembersQuery.Where(m => m.JoinedAt != null && m.LeaveAt == null);
+
+        var changedMembers = await changedMembersQuery
+            .ToListAsync();
+
+        var changedRoomIdsFromMembers = changedMembers.Select(m => m.ChatRoomId).ToHashSet();
+        var changedRooms = await db.ChatRooms
+            .IgnoreQueryFilters()
+            .Where(r => activeMemberRoomIds.Contains(r.Id) && !changedRoomIdsFromMembers.Contains(r.Id))
+            .Where(r =>
+                r.CreatedAt > lastSyncInstant ||
+                r.UpdatedAt > lastSyncInstant ||
+                r.DeletedAt > lastSyncInstant)
+            .ToListAsync();
+
+        var roomsToHydrate = changedMembers
+            .Select(m => m.ChatRoom)
+            .Where(r => r is not null && r.DeletedAt == null)
+            .Concat(changedRooms.Where(r => r.DeletedAt == null))
+            .DistinctBy(r => r!.Id)
+            .Cast<SnChatRoom>()
+            .ToList();
+        roomsToHydrate = await crs.LoadChatRealms(roomsToHydrate);
+        roomsToHydrate = await crs.LoadDirectMessageMembers(roomsToHydrate, accountId);
+        var hydratedRooms = roomsToHydrate.ToDictionary(r => r.Id);
+
+        var changes = changedMembers
+            .Select(m =>
+            {
+                hydratedRooms.TryGetValue(m.ChatRoomId, out var room);
+                return new ChatRoomSyncChange
+                {
+                    RoomId = m.ChatRoomId,
+                    Type = m.DeletedAt != null || m.LeaveAt != null || m.JoinedAt == null
+                        ? "removed"
+                        : m.JoinedAt > lastSyncInstant
+                            ? "joined"
+                            : "updated",
+                    Room = room,
+                    Member = m,
+                    ChangedAt = GetLatestModelTimestamp(m)
+                };
+            })
+            .Concat(changedRooms.Select(r =>
+            {
+                hydratedRooms.TryGetValue(r.Id, out var room);
+                return new ChatRoomSyncChange
+                {
+                    RoomId = r.Id,
+                    Type = r.DeletedAt != null ? "removed" : "updated",
+                    Room = room,
+                    ChangedAt = GetLatestModelTimestamp(r)
+                };
+            }))
+            .OrderBy(c => c.ChangedAt)
+            .Take(RoomSyncLimit)
+            .ToList();
+
+        var latestTimestamp = changes.Count > 0
+            ? changes.Last().ChangedAt
+            : SystemClock.Instance.GetCurrentInstant();
+
+        return Ok(new ChatRoomSyncResponse
+        {
+            Changes = changes,
+            CurrentTimestamp = latestTimestamp,
+            TotalCount = changes.Count
+        });
     }
 
     public class DirectMessageRequest
