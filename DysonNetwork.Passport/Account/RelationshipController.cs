@@ -12,6 +12,36 @@ namespace DysonNetwork.Passport.Account;
 [Route("/api/relationships")]
 public class RelationshipController(AppDatabase db, RelationshipService rls, ActionLogService als, AccountService accounts) : ControllerBase
 {
+    public class RelationshipActionRequest
+    {
+        /// <summary>
+        /// Duration string like "1h", "24h", "7d", "30d". Null = permanent.
+        /// </summary>
+        public string? ExpiresIn { get; set; }
+
+        /// <summary>
+        /// Status to degrade to on expiry. Null = remove entirely.
+        /// Only meaningful when ExpiresIn is set.
+        /// </summary>
+        public RelationshipStatus? DegradeTo { get; set; }
+    }
+
+    private static Duration? ParseExpiresIn(string? expiresIn)
+    {
+        if (string.IsNullOrWhiteSpace(expiresIn))
+            return null;
+
+        var trimmed = expiresIn.Trim().ToLowerInvariant();
+        if (trimmed.EndsWith("d") && int.TryParse(trimmed[..^1], out var days))
+            return Duration.FromDays(days);
+        if (trimmed.EndsWith("h") && int.TryParse(trimmed[..^1], out var hours))
+            return Duration.FromHours(hours);
+        if (trimmed.EndsWith("m") && int.TryParse(trimmed[..^1], out var minutes))
+            return Duration.FromMinutes(minutes);
+
+        throw new ArgumentException($"Invalid ExpiresIn format: '{expiresIn}'. Use '1h', '24h', '7d', '30d', etc.");
+    }
+
     private async Task HydrateRelationshipAsync(SnAccountRelationship relationship)
     {
         relationship.Account = await accounts.GetAccount(relationship.AccountId)
@@ -270,7 +300,10 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpPost("{accountId:guid}/block")]
     [Authorize]
-    public async Task<ActionResult<SnAccountRelationship>> BlockUser(Guid accountId)
+    public async Task<ActionResult<SnAccountRelationship>> BlockUser(
+        Guid accountId,
+        [FromBody] RelationshipActionRequest? request = null
+    )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
@@ -279,8 +312,16 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
         try
         {
-            var relationship = await rls.BlockAccount(currentUser, relatedUser);
+            Duration? expiresIn = null;
+            if (request?.ExpiresIn is not null)
+                expiresIn = ParseExpiresIn(request.ExpiresIn);
+
+            var relationship = await rls.BlockAccount(currentUser, relatedUser, expiresIn, request?.DegradeTo);
             return relationship;
+        }
+        catch (ArgumentException err)
+        {
+            return BadRequest(err.Message);
         }
         catch (InvalidOperationException err)
         {
@@ -310,7 +351,10 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpPost("{accountId:guid}/mute")]
     [Authorize]
-    public async Task<ActionResult<SnAccountRelationship>> MuteUser(Guid accountId)
+    public async Task<ActionResult<SnAccountRelationship>> MuteUser(
+        Guid accountId,
+        [FromBody] RelationshipActionRequest? request = null
+    )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
@@ -319,8 +363,16 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
         try
         {
-            var relationship = await rls.MuteAccount(currentUser, relatedUser);
+            Duration? expiresIn = null;
+            if (request?.ExpiresIn is not null)
+                expiresIn = ParseExpiresIn(request.ExpiresIn);
+
+            var relationship = await rls.MuteAccount(currentUser, relatedUser, expiresIn, request?.DegradeTo);
             return relationship;
+        }
+        catch (ArgumentException err)
+        {
+            return BadRequest(err.Message);
         }
         catch (InvalidOperationException err)
         {

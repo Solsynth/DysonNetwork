@@ -88,14 +88,26 @@ public class RelationshipService(
         return relationship;
     }
 
-    public async Task<SnAccountRelationship> BlockAccount(SnAccount sender, SnAccount target)
+    public async Task<SnAccountRelationship> BlockAccount(
+        SnAccount sender,
+        SnAccount target,
+        Duration? expiresIn = null,
+        RelationshipStatus? degradeTo = null
+    )
     {
         var outgoingRelationship = await GetRelationship(sender.Id, target.Id, ignoreExpired: true);
 
         SnAccountRelationship relationship;
         if (outgoingRelationship is not null)
         {
-            relationship = await UpdateRelationship(sender.Id, target.Id, RelationshipStatus.Blocked);
+            outgoingRelationship.Status = RelationshipStatus.Blocked;
+            outgoingRelationship.ExpiredAt = expiresIn.HasValue
+                ? SystemClock.Instance.GetCurrentInstant() + expiresIn.Value
+                : null;
+            outgoingRelationship.DegradeToStatus = degradeTo;
+            db.Update(outgoingRelationship);
+            await db.SaveChangesAsync();
+            relationship = outgoingRelationship;
         }
         else
         {
@@ -105,7 +117,19 @@ public class RelationshipService(
                 db.Remove(incomingRelationship);
                 await db.SaveChangesAsync();
             }
-            relationship = await CreateRelationship(sender, target, RelationshipStatus.Blocked);
+            var newRelationship = new SnAccountRelationship
+            {
+                AccountId = sender.Id,
+                RelatedId = target.Id,
+                Status = RelationshipStatus.Blocked,
+                ExpiredAt = expiresIn.HasValue
+                    ? SystemClock.Instance.GetCurrentInstant() + expiresIn.Value
+                    : null,
+                DegradeToStatus = degradeTo
+            };
+            db.AccountRelationships.Add(newRelationship);
+            await db.SaveChangesAsync();
+            relationship = newRelationship;
         }
 
         CreateActionLog(
@@ -114,6 +138,7 @@ public class RelationshipService(
             target.Id,
             new Dictionary<string, object> { ["status"] = RelationshipStatus.Blocked.ToString().ToLowerInvariant() }
         );
+        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Blocked);
         return relationship;
     }
 
@@ -130,7 +155,12 @@ public class RelationshipService(
         return relationship;
     }
 
-    public async Task<SnAccountRelationship> MuteAccount(SnAccount sender, SnAccount target)
+    public async Task<SnAccountRelationship> MuteAccount(
+        SnAccount sender,
+        SnAccount target,
+        Duration? expiresIn = null,
+        RelationshipStatus? degradeTo = null
+    )
     {
         var existing = await GetRelationship(sender.Id, target.Id, RelationshipStatus.Muted, ignoreExpired: true);
         if (existing is not null)
@@ -140,7 +170,11 @@ public class RelationshipService(
         {
             AccountId = sender.Id,
             RelatedId = target.Id,
-            Status = RelationshipStatus.Muted
+            Status = RelationshipStatus.Muted,
+            ExpiredAt = expiresIn.HasValue
+                ? SystemClock.Instance.GetCurrentInstant() + expiresIn.Value
+                : null,
+            DegradeToStatus = degradeTo
         };
 
         db.AccountRelationships.Add(relationship);
@@ -336,6 +370,41 @@ public class RelationshipService(
     public async Task<List<Guid>> ListAccountMuted(Guid accountId)
     {
         return await GetCachedRelationships(accountId, RelationshipStatus.Muted, UserMutedCacheKeyPrefix);
+    }
+
+    public async Task<int> ProcessExpiredRelationshipsAsync(CancellationToken cancellationToken = default)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var expired = await db.AccountRelationships
+            .Where(r => r.ExpiredAt != null && r.ExpiredAt <= now)
+            .ToListAsync(cancellationToken);
+
+        if (expired.Count == 0)
+            return 0;
+
+        var purgeTasks = new List<Task>();
+        foreach (var rel in expired)
+        {
+            if (rel.DegradeToStatus.HasValue)
+            {
+                var oldStatus = rel.Status;
+                rel.Status = rel.DegradeToStatus.Value;
+                rel.ExpiredAt = null;
+                rel.DegradeToStatus = null;
+                db.Update(rel);
+                purgeTasks.Add(PurgeRelationshipCache(rel.AccountId, rel.RelatedId, oldStatus, rel.Status));
+            }
+            else
+            {
+                db.Remove(rel);
+                purgeTasks.Add(PurgeRelationshipCache(rel.AccountId, rel.RelatedId, rel.Status));
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        await Task.WhenAll(purgeTasks);
+
+        return expired.Count;
     }
 
     private void CreateActionLog(

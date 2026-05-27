@@ -21,6 +21,7 @@ public class SnAccountRelationship : ModelBase
     [NotMapped] public SnAccount Related { get; set; } = null!;
 
     public Instant? ExpiredAt { get; set; }
+    public RelationshipStatus? DegradeToStatus { get; set; }
 
     public RelationshipStatus Status { get; set; } = RelationshipStatus.Pending;
     

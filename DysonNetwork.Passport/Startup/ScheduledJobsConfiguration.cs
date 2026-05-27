@@ -88,6 +88,15 @@ public static class ScheduledJobsConfiguration
                 .ForJob("PresenceArtworkCleanup")
                 .WithIdentity("PresenceArtworkCleanupTrigger")
                 .WithCronSchedule(PresenceArtworkService.DefaultCleanupCron));
+
+            q.AddJob<RelationshipExpiryJob>(opts => opts.WithIdentity("RelationshipExpiry"));
+            q.AddTrigger(opts => opts
+                .ForJob("RelationshipExpiry")
+                .WithIdentity("RelationshipExpiryTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(5)
+                    .RepeatForever())
+            );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

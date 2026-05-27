@@ -103,11 +103,53 @@ Cache is purged on relationship changes via `PurgeRelationshipCache`.
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/api/relationships/{accountId}/block` | POST | Block a user |
+| `/api/relationships/{accountId}/block` | POST | Block a user (accepts optional expiry body) |
 | `/api/relationships/{accountId}/block` | DELETE | Unblock a user |
-| `/api/relationships/{accountId}/mute` | POST | Mute a user |
+| `/api/relationships/{accountId}/mute` | POST | Mute a user (accepts optional expiry body) |
 | `/api/relationships/{accountId}/mute` | DELETE | Unmute a user |
 | `/api/relationships/inspect/{accountId}` | GET | Lists friends, blocked, muted, pending |
+
+### Request Body (block/mute POST)
+
+```json
+{
+  "expires_in": "7d",
+  "degrade_to": -50
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `expires_in` | `string?` | Duration string: `30m`, `1h`, `24h`, `7d`, `30d`. Null = permanent. |
+| `degrade_to` | `int?` | `RelationshipStatus` value to transition to on expiry. Null = remove. `-50` = Muted. |
+
+Examples:
+- Block for 7 days, then remove: `{ "expires_in": "7d" }`
+- Block for 7 days, then mute: `{ "expires_in": "7d", "degrade_to": -50 }`
+- Mute for 24 hours: `{ "expires_in": "24h" }`
+
+## Expiry
+
+Block and mute support optional expiry with automatic degradation.
+
+### How It Works
+
+1. Relationship is created with `ExpiredAt` and optional `DegradeToStatus`
+2. A Quartz job (`RelationshipExpiryJob`) runs every 5 minutes
+3. For each expired relationship:
+   - If `DegradeToStatus` is set → status transitions (e.g., Block → Mute), `ExpiredAt` cleared
+   - If `DegradeToStatus` is null → relationship is deleted
+4. Cache is purged for both users
+
+### Model
+
+`SnAccountRelationship` has two expiry-related fields:
+- `ExpiredAt` (existing) — when the relationship expires
+- `DegradeToStatus` (new) — what status to transition to on expiry
+
+### Job
+
+`RelationshipExpiryJob` in `DysonNetwork.Passport/Account/` — registered in `ScheduledJobsConfiguration.cs`, runs every 5 minutes.
 
 ## What Does NOT Happen
 
@@ -130,12 +172,14 @@ Public profiles remain accessible read-only for both blocked and muted users. In
 - `proto/profile.proto` — `bool either_direction = 4` on `DyGetRelationshipRequest`, `rpc ListMuted`
 
 ### Passport
-- `Account/RelationshipService.cs` — `IsBlockedEitherDirection`, `ListAllBlockedAccountIds`, `MuteAccount`, `UnmuteAccount`, `ListAccountMuted`, cache purge
+- `Account/RelationshipService.cs` — `IsBlockedEitherDirection`, `ListAllBlockedAccountIds`, `MuteAccount`, `UnmuteAccount`, `ListAccountMuted`, `ProcessExpiredRelationshipsAsync`, cache purge
 - `Account/AccountServiceGrpc.cs` — `HasRelationship` handles `EitherDirection`, `ListMuted` implementation
-- `Account/RelationshipController.cs` — Mute/unmute endpoints, inspect includes muted
+- `Account/RelationshipController.cs` — Block/mute endpoints with expiry support, inspect includes muted
+- `Account/RelationshipExpiryJob.cs` — Quartz job for processing expired relationships
+- `Startup/ScheduledJobsConfiguration.cs` — Registers `RelationshipExpiryJob` (every 5 min)
 
 ### Shared
-- `Models/Relationship.cs` — `Muted = -50` enum value
+- `Models/Relationship.cs` — `Muted = -50` enum value, `DegradeToStatus` property
 - `Models/ActionLog.cs` — `RelationshipMute`, `RelationshipUnmute` constants
 - `Registry/RemoteAccountService.cs` — `IsBlockedEitherDirection`, `ListAllBlockedAccountIds`, `ListMutedAccountIds`
 
