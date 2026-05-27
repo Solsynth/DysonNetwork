@@ -49,8 +49,18 @@ public class ChatRoomController(
     public class ChatRoomSyncResponse
     {
         public List<ChatRoomSyncChange> Changes { get; set; } = [];
+        public List<ChatRoomSummarySyncChange> Summaries { get; set; } = [];
         public Instant CurrentTimestamp { get; set; }
         public int TotalCount { get; set; }
+        public int SummaryTotalCount { get; set; }
+    }
+
+    public class ChatRoomSummarySyncChange
+    {
+        public Guid RoomId { get; set; }
+        public int UnreadCount { get; set; }
+        public SnChatMessage? LastMessage { get; set; }
+        public Instant ChangedAt { get; set; }
     }
 
     private static Instant GetLatestModelTimestamp(ModelBase model)
@@ -130,6 +140,8 @@ public class ChatRoomController(
             changedMembersQuery = changedMembersQuery.Where(m => m.JoinedAt != null && m.LeaveAt == null);
 
         var changedMembers = await changedMembersQuery
+            .OrderBy(m => m.DeletedAt ?? m.UpdatedAt)
+            .Take(RoomSyncLimit)
             .ToListAsync();
 
         var changedRoomIdsFromMembers = changedMembers.Select(m => m.ChatRoomId).ToHashSet();
@@ -140,6 +152,25 @@ public class ChatRoomController(
                 r.CreatedAt > lastSyncInstant ||
                 r.UpdatedAt > lastSyncInstant ||
                 r.DeletedAt > lastSyncInstant)
+            .OrderBy(r => r.DeletedAt ?? r.UpdatedAt)
+            .Take(RoomSyncLimit)
+            .ToListAsync();
+
+        var changedMessageRoomIds = await db.ChatMessages
+            .IgnoreQueryFilters()
+            .Where(m => activeMemberRoomIds.Contains(m.ChatRoomId))
+            .Where(m =>
+                m.CreatedAt > lastSyncInstant ||
+                m.UpdatedAt > lastSyncInstant ||
+                m.DeletedAt > lastSyncInstant)
+            .GroupBy(m => m.ChatRoomId)
+            .Select(g => new
+            {
+                RoomId = g.Key,
+                ChangedAt = g.Max(m => m.DeletedAt ?? m.UpdatedAt)
+            })
+            .OrderBy(g => g.ChangedAt)
+            .Take(RoomSyncLimit)
             .ToListAsync();
 
         var roomsToHydrate = changedMembers
@@ -185,15 +216,100 @@ public class ChatRoomController(
             .Take(RoomSyncLimit)
             .ToList();
 
-        var latestTimestamp = changes.Count > 0
-            ? changes.Last().ChangedAt
-            : SystemClock.Instance.GetCurrentInstant();
+        var summaryChangedAt = changedMembers
+            .Where(m => activeMemberRoomIds.Contains(m.ChatRoomId))
+            .Select(m => new { m.ChatRoomId, ChangedAt = GetLatestModelTimestamp(m) })
+            .Concat(changedRooms
+                .Where(r => activeMemberRoomIds.Contains(r.Id))
+                .Select(r => new { ChatRoomId = r.Id, ChangedAt = GetLatestModelTimestamp(r) }))
+            .Concat(changedMessageRoomIds
+                .Select(m => new { ChatRoomId = m.RoomId, m.ChangedAt }))
+            .GroupBy(m => m.ChatRoomId)
+            .ToDictionary(g => g.Key, g => g.Max(m => m.ChangedAt));
+        var summaryRoomIds = summaryChangedAt
+            .OrderBy(r => r.Value)
+            .Take(RoomSyncLimit)
+            .Select(r => r.Key)
+            .ToList();
+
+        var summaryMembers = await db.ChatMembers
+            .Where(m => summaryRoomIds.Contains(m.ChatRoomId))
+            .Where(m => m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null)
+            .Select(m => new { m.Id, m.ChatRoomId, m.LastReadAt })
+            .ToListAsync();
+        var summaryMemberRoomIds = summaryMembers.Select(m => m.ChatRoomId).ToList();
+
+        var unreadCounts = await (
+            from member in db.ChatMembers
+            join msg in db.ChatMessages on member.ChatRoomId equals msg.ChatRoomId
+            where
+                summaryMemberRoomIds.Contains(member.ChatRoomId)
+                && member.AccountId == accountId
+                && member.LeaveAt == null
+                && member.JoinedAt != null
+                && msg.SenderId != member.Id
+                && (member.LastReadAt == null || msg.CreatedAt > member.LastReadAt)
+            group msg by member.ChatRoomId into grouped
+            select new { RoomId = grouped.Key, Count = grouped.Count() }
+        ).ToDictionaryAsync(x => x.RoomId, x => x.Count);
+
+        var lastMessages = await db.ChatMessages
+            .IgnoreQueryFilters()
+            .Include(m => m.Sender)
+            .Where(m => summaryMemberRoomIds.Contains(m.ChatRoomId))
+            .GroupBy(m => m.ChatRoomId)
+            .Select(g => g.OrderByDescending(m => m.CreatedAt).FirstOrDefault())
+            .ToListAsync();
+        var lastMessageMap = lastMessages
+            .OfType<SnChatMessage>()
+            .ToDictionary(m => m.ChatRoomId);
+
+        var lastMessageSenders = lastMessageMap.Values.Select(m => m.Sender).DistinctBy(s => s.Id).ToList();
+        lastMessageSenders = await crs.LoadMemberAccounts(lastMessageSenders);
+        foreach (var message in lastMessageMap.Values)
+        {
+            var sender = lastMessageSenders.FirstOrDefault(s => s.Id == message.SenderId);
+            if (sender != null)
+                message.Sender = sender;
+        }
+        await cs.HydrateMessageReactionsAsync(lastMessageMap.Values.ToList(), accountId);
+
+        var summaries = summaryMembers
+            .Select(m => new ChatRoomSummarySyncChange
+            {
+                RoomId = m.ChatRoomId,
+                UnreadCount = unreadCounts.GetValueOrDefault(m.ChatRoomId),
+                LastMessage = lastMessageMap.GetValueOrDefault(m.ChatRoomId),
+                ChangedAt = summaryChangedAt[m.ChatRoomId]
+            })
+            .OrderBy(s => s.ChangedAt)
+            .ToList();
+
+        var watermarks = new List<Instant>();
+        if (changes.Count > 0)
+            watermarks.Add(changes.Last().ChangedAt);
+        if (summaries.Count > 0)
+            watermarks.Add(summaries.Last().ChangedAt);
+
+        var cappedWatermarks = new List<Instant>();
+        if (changes.Count == RoomSyncLimit)
+            cappedWatermarks.Add(changes.Last().ChangedAt);
+        if (summaries.Count == RoomSyncLimit)
+            cappedWatermarks.Add(summaries.Last().ChangedAt);
+
+        var latestTimestamp = cappedWatermarks.Count > 0
+            ? cappedWatermarks.Min()
+            : watermarks.Count > 0
+                ? watermarks.Max()
+                : SystemClock.Instance.GetCurrentInstant();
 
         return Ok(new ChatRoomSyncResponse
         {
             Changes = changes,
+            Summaries = summaries,
             CurrentTimestamp = latestTimestamp,
-            TotalCount = changes.Count
+            TotalCount = changes.Count,
+            SummaryTotalCount = summaries.Count
         });
     }
 
