@@ -259,6 +259,64 @@ public class RelationshipService(
         return await GetCachedRelationships(accountId, RelationshipStatus.CloseFriend, UserCloseFriendsCacheKeyPrefix);
     }
 
+    public async Task<SnAccountRelationship> UpdateAlias(Guid accountId, Guid relatedId, string? alias)
+    {
+        var relationship = await db.AccountRelationships
+            .FirstOrDefaultAsync(r => r.AccountId == accountId && r.RelatedId == relatedId);
+        if (relationship is null)
+            throw new ArgumentException("There is no relationship between you and the user.");
+
+        relationship.Alias = string.IsNullOrWhiteSpace(alias) ? null : alias.Trim();
+        db.Update(relationship);
+        await db.SaveChangesAsync();
+
+        return relationship;
+    }
+
+    public async Task<List<Guid>> GetMutualFriends(Guid accountId, Guid otherAccountId)
+    {
+        var myFriends = await ListAccountFriends(accountId);
+        var theirFriends = await ListAccountFriends(otherAccountId);
+        return myFriends.Intersect(theirFriends).ToList();
+    }
+
+    public class RelationshipDelta
+    {
+        public List<SnAccountRelationship> Added { get; set; } = [];
+        public List<SnAccountRelationship> Updated { get; set; } = [];
+        public List<Guid> Removed { get; set; } = [];
+        public Instant ServerTimestamp { get; set; }
+    }
+
+    public async Task<RelationshipDelta> GetRelationshipDelta(Guid accountId, Instant since)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        var added = await db.AccountRelationships
+            .Where(r => r.AccountId == accountId && r.CreatedAt > since && r.DeletedAt == null)
+            .ToListAsync();
+
+        var updated = await db.AccountRelationships
+            .Where(r => r.AccountId == accountId
+                        && r.UpdatedAt > since
+                        && r.CreatedAt <= since
+                        && r.DeletedAt == null)
+            .ToListAsync();
+
+        var removed = await db.AccountRelationships
+            .Where(r => r.AccountId == accountId && r.DeletedAt != null && r.DeletedAt > since)
+            .Select(r => r.RelatedId)
+            .ToListAsync();
+
+        return new RelationshipDelta
+        {
+            Added = added,
+            Updated = updated,
+            Removed = removed,
+            ServerTimestamp = now
+        };
+    }
+
     public async Task<SnAccountRelationship> SendFriendRequest(SnAccount sender, SnAccount target)
     {
         if (await HasExistingRelationship(sender.Id, target.Id))

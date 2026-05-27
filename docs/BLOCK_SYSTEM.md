@@ -110,6 +110,9 @@ Cache is purged on relationship changes via `PurgeRelationshipCache`.
 | `/api/relationships/{accountId}/close-friend` | POST | Add user to close friends |
 | `/api/relationships/{accountId}/close-friend` | DELETE | Remove user from close friends |
 | `/api/relationships/close-friends` | GET | List current user's close friends |
+| `/api/relationships/{accountId}/alias` | PATCH | Set alias for a relationship |
+| `/api/relationships/{accountId}/mutual-friends` | GET | Get mutual friends with another user |
+| `/api/relationships/sync` | POST | Delta sync — returns changes since timestamp |
 | `/api/relationships/inspect/{accountId}` | GET | Lists friends, blocked, muted, pending, close friends |
 
 ### Request Body (block/mute POST)
@@ -173,6 +176,66 @@ A per-account curated list of up to **200** close friends. One-directional (like
 | `/api/relationships/{accountId}/close-friend` | DELETE | Remove from close friends |
 | `/api/relationships/close-friends` | GET | List close friends (returns hydrated accounts) |
 
+## Relationship Alias
+
+Users can set a custom display name (alias) for any related user. The alias is stored per-relationship (directional — A's alias for B is separate from B's alias for A).
+
+### API
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/relationships/{accountId}/alias` | PATCH | Set/clear alias. Body: `{ "alias": "nickname" }` (null to clear) |
+
+- Max 128 characters
+- Alias is included in the `DyRelationship` proto as `optional string alias`
+- Hydrated by the client from the sync endpoint
+
+## Mutual Friends
+
+Get the intersection of two users' friend lists.
+
+### API
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/relationships/{accountId}/mutual-friends` | GET | Returns `List<SnAccount>` of mutual friends |
+
+## Delta Sync
+
+Client-side sync endpoint that returns all relationship changes since a given timestamp. Uses `ModelBase.CreatedAt`, `UpdatedAt`, `DeletedAt` for tracking.
+
+### API
+
+```
+POST /api/relationships/sync
+Body: { "last_sync_timestamp": 1716940800000 }
+```
+
+### Response
+
+```json
+{
+  "added": [ /* new SnAccountRelationship objects */ ],
+  "updated": [ /* modified SnAccountRelationship objects */ ],
+  "removed": [ "guid-of-deleted-relationship", ... ],
+  "server_timestamp": 1716940800000
+}
+```
+
+| Field | Description |
+|---|---|
+| `added` | Relationships created since timestamp (hydrated with accounts) |
+| `updated` | Relationships modified since timestamp (hydrated with accounts) |
+| `removed` | Related IDs of soft-deleted relationships |
+| `server_timestamp` | Current server time — client stores this for next sync |
+
+### Client Flow
+
+1. First sync: pass `0` as `last_sync_timestamp` to get all relationships
+2. Store `server_timestamp` from response
+3. Next sync: pass stored `server_timestamp` as `last_sync_timestamp`
+4. Apply additions, updates, and removals to local DB
+
 ## Post Visibility
 
 Two new `PostVisibility` values:
@@ -217,16 +280,17 @@ Public profiles remain accessible read-only for both blocked and muted users. In
 ### DysonSpec (proto)
 - `proto/profile.proto` — `bool either_direction = 4` on `DyGetRelationshipRequest`, `rpc ListMuted`, `rpc ListCloseFriends`
 - `proto/post.proto` — `DY_POST_CLOSE_FRIENDS_ONLY = 5`, `DY_POST_SUBSCRIBER_ONLY = 6`
+- `proto/account.proto` — `optional string alias = 8` on `DyRelationship`
 
 ### Passport
-- `Account/RelationshipService.cs` — `IsBlockedEitherDirection`, `ListAllBlockedAccountIds`, `MuteAccount`, `UnmuteAccount`, `ListAccountMuted`, `AddCloseFriend`, `RemoveCloseFriend`, `ListCloseFriends`, `IsCloseFriend`, `ProcessExpiredRelationshipsAsync`, cache purge
+- `Account/RelationshipService.cs` — `IsBlockedEitherDirection`, `ListAllBlockedAccountIds`, `MuteAccount`, `UnmuteAccount`, `ListAccountMuted`, `AddCloseFriend`, `RemoveCloseFriend`, `ListCloseFriends`, `IsCloseFriend`, `UpdateAlias`, `GetMutualFriends`, `GetRelationshipDelta`, `ProcessExpiredRelationshipsAsync`, cache purge
 - `Account/AccountServiceGrpc.cs` — `HasRelationship` handles `EitherDirection`, `ListMuted`, `ListCloseFriends` implementation
-- `Account/RelationshipController.cs` — Block/mute/close-friend endpoints with expiry support, inspect includes muted + close friends
+- `Account/RelationshipController.cs` — Block/mute/close-friend endpoints with expiry support, alias PATCH, mutual-friends GET, sync POST, inspect includes muted + close friends
 - `Account/RelationshipExpiryJob.cs` — Quartz job for processing expired relationships
 - `Startup/ScheduledJobsConfiguration.cs` — Registers `RelationshipExpiryJob` (every 5 min)
 
 ### Shared
-- `Models/Relationship.cs` — `Muted = -50`, `CloseFriend = 200` enum values, `DegradeToStatus` property
+- `Models/Relationship.cs` — `Muted = -50`, `CloseFriend = 200` enum values, `DegradeToStatus`, `Alias` properties
 - `Models/Post.cs` — `CloseFriendsOnly`, `SubscriberOnly` in `PostVisibility` enum
 - `Models/ActionLog.cs` — `RelationshipMute`, `RelationshipUnmute`, `RelationshipCloseFriend`, `RelationshipUnCloseFriend` constants
 - `Registry/RemoteAccountService.cs` — `IsBlockedEitherDirection`, `ListAllBlockedAccountIds`, `ListMutedAccountIds`, `ListCloseFriendAccountIds`, `GetCloseFriendPublisherIds`, `IsCloseFriend`

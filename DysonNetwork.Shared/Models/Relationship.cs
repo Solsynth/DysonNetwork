@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using DysonNetwork.Shared.Proto;
 using NodaTime;
@@ -25,6 +26,8 @@ public class SnAccountRelationship : ModelBase
     public RelationshipStatus? DegradeToStatus { get; set; }
 
     public RelationshipStatus Status { get; set; } = RelationshipStatus.Pending;
+
+    [MaxLength(128)] public string? Alias { get; set; }
     
     public DyRelationship ToProtoValue() => new()
     {
@@ -34,6 +37,7 @@ public class SnAccountRelationship : ModelBase
         Related = Related?.ToProtoValue(),
         Status = (int)Status,
         CreatedAt = CreatedAt.ToDateTimeUtc() != default ? CreatedAt.ToTimestamp() : null,
-        UpdatedAt = UpdatedAt.ToDateTimeUtc() != default ? UpdatedAt.ToTimestamp() : null
+        UpdatedAt = UpdatedAt.ToDateTimeUtc() != default ? UpdatedAt.ToTimestamp() : null,
+        Alias = Alias
     };
 }

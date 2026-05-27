@@ -491,4 +491,81 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
             CloseFriends = grouped.TryGetValue(RelationshipStatus.CloseFriend, out var closeFriends) ? closeFriends : []
         });
     }
+
+    public class AliasRequest
+    {
+        [MaxLength(128)] public string? Alias { get; set; }
+    }
+
+    [HttpPatch("{accountId:guid}/alias")]
+    [Authorize]
+    public async Task<ActionResult<SnAccountRelationship>> UpdateAlias(Guid accountId, [FromBody] AliasRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        try
+        {
+            var relationship = await rls.UpdateAlias(currentUser.Id, accountId, request.Alias);
+            await HydrateRelationshipAsync(relationship);
+            return Ok(relationship);
+        }
+        catch (ArgumentException err)
+        {
+            return NotFound(err.Message);
+        }
+    }
+
+    [HttpGet("{accountId:guid}/mutual-friends")]
+    [Authorize]
+    public async Task<ActionResult<List<SnAccount>>> GetMutualFriends(Guid accountId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var mutualIds = await rls.GetMutualFriends(currentUser.Id, accountId);
+        if (mutualIds.Count == 0)
+            return Ok(new List<SnAccount>());
+
+        var result = new List<SnAccount>();
+        foreach (var id in mutualIds)
+        {
+            var account = await accounts.GetAccount(id);
+            if (account is not null)
+                result.Add(account);
+        }
+        return Ok(result);
+    }
+
+    public class SyncRequest
+    {
+        [Required] public long LastSyncTimestamp { get; set; }
+    }
+
+    public class RelationshipSyncResponse
+    {
+        public List<SnAccountRelationship> Added { get; set; } = [];
+        public List<SnAccountRelationship> Updated { get; set; } = [];
+        public List<Guid> Removed { get; set; } = [];
+        public Instant ServerTimestamp { get; set; }
+    }
+
+    [HttpPost("sync")]
+    [Authorize]
+    public async Task<ActionResult<RelationshipSyncResponse>> SyncRelationships([FromBody] SyncRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var since = Instant.FromUnixTimeMilliseconds(request.LastSyncTimestamp);
+        var delta = await rls.GetRelationshipDelta(currentUser.Id, since);
+
+        await HydrateRelationshipsAsync(delta.Added);
+        await HydrateRelationshipsAsync(delta.Updated);
+
+        return Ok(new RelationshipSyncResponse
+        {
+            Added = delta.Added,
+            Updated = delta.Updated,
+            Removed = delta.Removed,
+            ServerTimestamp = delta.ServerTimestamp
+        });
+    }
 }
