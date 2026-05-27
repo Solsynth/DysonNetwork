@@ -1188,7 +1188,7 @@ public partial class PostService(
 
         var postsRequireFollow = await ps.HasPostsRequireFollowFlag(publisherId.Value);
         HashSet<string>? followerAccountIds = null;
-        if (postsRequireFollow)
+        if (postsRequireFollow || post.Visibility == PostVisibility.SubscriberOnly)
         {
             var followerRequests = await db
                 .PublisherFollowRequests.Where(r =>
@@ -1225,6 +1225,19 @@ public partial class PostService(
             }
         }
 
+        HashSet<string>? closeFriendAccountIds = null;
+        if (post.Visibility == PostVisibility.CloseFriendsOnly)
+        {
+            using var scope = serviceProvider.CreateScope();
+            var remoteAccounts = scope.ServiceProvider.GetRequiredService<RemoteAccountService>();
+            var publisherAccountId = post.Publisher?.AccountId;
+            if (publisherAccountId.HasValue)
+            {
+                var closeFriendIds = await remoteAccounts.ListCloseFriendAccountIds(publisherAccountId.Value);
+                closeFriendAccountIds = closeFriendIds.Select(id => id.ToString()).ToHashSet();
+            }
+        }
+
         foreach (var userId in connectedUserIds)
         {
             var isMember = memberAccountIds.Contains(userId);
@@ -1240,6 +1253,18 @@ public partial class PostService(
                 case PostVisibility.Friends:
                 {
                     if (isMember || (friendAccountIds != null && friendAccountIds.Contains(userId)))
+                        filteredUserIds.Add(userId);
+                    continue;
+                }
+                case PostVisibility.CloseFriendsOnly:
+                {
+                    if (isMember || (closeFriendAccountIds != null && closeFriendAccountIds.Contains(userId)))
+                        filteredUserIds.Add(userId);
+                    continue;
+                }
+                case PostVisibility.SubscriberOnly:
+                {
+                    if (isMember || (followerAccountIds != null && followerAccountIds.Contains(userId)))
                         filteredUserIds.Add(userId);
                     continue;
                 }
@@ -3179,7 +3204,8 @@ public static class PostQueryExtensions
         HashSet<Guid>? gatekeptPublisherIds = null,
         HashSet<Guid>? followerPublisherIds = null,
         HashSet<Guid>? blockedAccountIds = null,
-        HashSet<Guid>? mutedAccountIds = null
+        HashSet<Guid>? mutedAccountIds = null,
+        HashSet<Guid>? closeFriendPublisherIds = null
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -3228,6 +3254,24 @@ public static class PostQueryExtensions
                     && userFriends.Contains(e.Publisher.AccountId.Value)
                 )
                 || publishersId.Contains(e.PublisherId!.Value)
+            )
+            .Where(e =>
+                e.Visibility != Shared.Models.PostVisibility.CloseFriendsOnly
+                || publishersId.Contains(e.PublisherId!.Value)
+                || (
+                    closeFriendPublisherIds != null
+                    && e.PublisherId.HasValue
+                    && closeFriendPublisherIds.Contains(e.PublisherId.Value)
+                )
+            )
+            .Where(e =>
+                e.Visibility != Shared.Models.PostVisibility.SubscriberOnly
+                || publishersId.Contains(e.PublisherId!.Value)
+                || (
+                    followerPublisherIds != null
+                    && e.PublisherId.HasValue
+                    && followerPublisherIds.Contains(e.PublisherId.Value)
+                )
             );
 
         if (

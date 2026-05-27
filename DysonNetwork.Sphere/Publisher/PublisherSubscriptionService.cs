@@ -85,15 +85,20 @@ public class PublisherSubscriptionService(
             return 0;
         if (post.RepliedPostId is not null)
             return 0;
-        if (post.Visibility != Shared.Models.PostVisibility.Public)
+        if (post.Visibility != Shared.Models.PostVisibility.Public && post.Visibility != Shared.Models.PostVisibility.SubscriberOnly && post.Visibility != Shared.Models.PostVisibility.CloseFriendsOnly)
             return 0;
         if (post.Publisher.IsShadowbanned)
             return 0;
 
         var postsRequireFollow = await pub.HasPostsRequireFollowFlag(post.PublisherId.Value);
-        if (postsRequireFollow)
+        if (postsRequireFollow || post.Visibility == Shared.Models.PostVisibility.SubscriberOnly)
         {
             return await NotifyFollowersPost(post);
+        }
+
+        if (post.Visibility == Shared.Models.PostVisibility.CloseFriendsOnly)
+        {
+            return await NotifyCloseFriendsPost(post);
         }
 
         // Gather subscribers
@@ -257,6 +262,68 @@ public class PublisherSubscriptionService(
                     {
                         ["notification_type"] = "subscription",
                         ["require_follow"] = true,
+                    }
+                );
+                var request = new DySendPushNotificationToUsersRequest
+                {
+                    Notification = notification,
+                };
+                request.UserIds.AddRange(target.Select(x => x.Id.ToString()));
+                await pusher.SendPushNotificationToUsersAsync(request);
+                notifiedCount++;
+            }
+            catch (Exception) { }
+        }
+
+        return notifiedCount;
+    }
+
+    private async Task<int> NotifyCloseFriendsPost(SnPost post)
+    {
+        if (post.Publisher?.AccountId is null)
+            return 0;
+
+        var closeFriendAccountIds = await remoteAccounts.ListCloseFriendAccountIds(post.Publisher.AccountId.Value);
+        if (closeFriendAccountIds.Count == 0)
+            return 0;
+
+        var requestAccountIds = closeFriendAccountIds.Select(x => x.ToString()).Distinct().ToList();
+
+        var queryRequest = new DyGetAccountBatchRequest();
+        queryRequest.Id.AddRange(requestAccountIds);
+        var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
+
+        // Filter out blocked and muted accounts
+        var blockedIds = await remoteAccounts.ListAllBlockedAccountIds(post.Publisher.AccountId.Value);
+        var mutedIds = await remoteAccounts.ListMutedAccountIds(post.Publisher.AccountId.Value);
+        var hiddenIds = blockedIds.Concat(mutedIds).ToHashSet();
+        if (hiddenIds.Count > 0)
+        {
+            var filtered = queryResponse.Accounts.Where(a => !hiddenIds.Contains(Guid.Parse(a.Id))).ToList();
+            queryResponse.Accounts.Clear();
+            queryResponse.Accounts.AddRange(filtered);
+        }
+
+        var notifiedCount = 0;
+        foreach (var target in queryResponse.Accounts.GroupBy(x => x.Language))
+        {
+            try
+            {
+                var message = ps.ChopPostForNotification(post, target.Key);
+
+                var notification = ps.BuildPostNotification(
+                    locale: target.Key,
+                    topic: "posts.close_friends",
+                    title: localizer.Get(
+                        "postCloseFriendTitle",
+                        locale: target.Key,
+                        args: new { publisher = post.Publisher!.Nick }
+                    ),
+                    body: message.content,
+                    post: post,
+                    extraMeta: new Dictionary<string, object?>
+                    {
+                        ["notification_type"] = "close_friends",
                     }
                 );
                 var request = new DySendPushNotificationToUsersRequest

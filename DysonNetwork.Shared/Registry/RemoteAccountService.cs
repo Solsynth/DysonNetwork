@@ -207,4 +207,60 @@ public class RemoteAccountService(
             return [];
         }
     }
+
+    public async Task<List<Guid>> ListCloseFriendAccountIds(Guid accountId)
+    {
+        try
+        {
+            var response = await profiles.ListCloseFriendsAsync(new DyListRelationshipSimpleRequest { AccountId = accountId.ToString() });
+            return response.AccountsId.Select(Guid.Parse).ToList();
+        }
+        catch (RpcException ex) when (ex.StatusCode is StatusCode.Unavailable or StatusCode.DeadlineExceeded)
+        {
+            logger.LogWarning(ex, "Profile service unavailable while listing close friends for {AccountId}", accountId);
+            return [];
+        }
+    }
+
+    public async Task<HashSet<Guid>> GetCloseFriendPublisherIds(Guid viewerAccountId, IEnumerable<Guid> publisherIds)
+    {
+        var result = new HashSet<Guid>();
+        foreach (var publisherId in publisherIds)
+        {
+            try
+            {
+                var publisher = await profiles.GetAccountAsync(new DyGetAccountRequest { Id = publisherId.ToString() });
+                if (publisher?.Id is not null)
+                {
+                    var publisherAccountId = Guid.Parse(publisher.Id);
+                    if (await IsCloseFriend(publisherAccountId, viewerAccountId))
+                        result.Add(publisherId);
+                }
+            }
+            catch (RpcException ex) when (ex.StatusCode is StatusCode.Unavailable or StatusCode.DeadlineExceeded)
+            {
+                logger.LogWarning(ex, "Profile service unavailable while checking close friend for publisher {PublisherId}", publisherId);
+            }
+        }
+        return result;
+    }
+
+    public async Task<bool> IsCloseFriend(Guid userId, Guid otherId)
+    {
+        try
+        {
+            var response = await profiles.HasRelationshipAsync(new DyGetRelationshipRequest
+            {
+                AccountId = userId.ToString(),
+                RelatedId = otherId.ToString(),
+                Status = (int)RelationshipStatus.CloseFriend
+            });
+            return response.Value;
+        }
+        catch (RpcException ex) when (ex.StatusCode is StatusCode.Unavailable or StatusCode.DeadlineExceeded)
+        {
+            logger.LogWarning(ex, "Profile service unavailable while checking close friend status for {UserId} and {OtherId}", userId, otherId);
+            return false;
+        }
+    }
 }

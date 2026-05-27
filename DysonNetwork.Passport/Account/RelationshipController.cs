@@ -400,12 +400,73 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
         }
     }
 
+    [HttpPost("{accountId:guid}/close-friend")]
+    [Authorize]
+    public async Task<ActionResult<SnAccountRelationship>> AddCloseFriend(Guid accountId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var relatedUser = await accounts.GetAccount(accountId);
+        if (relatedUser is null) return NotFound("Account was not found.");
+
+        try
+        {
+            var relationship = await rls.AddCloseFriend(currentUser, relatedUser);
+            return relationship;
+        }
+        catch (InvalidOperationException err)
+        {
+            return BadRequest(err.Message);
+        }
+    }
+
+    [HttpDelete("{accountId:guid}/close-friend")]
+    [Authorize]
+    public async Task<ActionResult<SnAccountRelationship>> RemoveCloseFriend(Guid accountId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var relatedUser = await accounts.GetAccount(accountId);
+        if (relatedUser is null) return NotFound("Account was not found.");
+
+        try
+        {
+            var relationship = await rls.RemoveCloseFriend(currentUser, relatedUser);
+            return relationship;
+        }
+        catch (ArgumentException err)
+        {
+            return NotFound(err.Message);
+        }
+    }
+
+    [HttpGet("close-friends")]
+    [Authorize]
+    public async Task<ActionResult<List<SnAccount>>> ListCloseFriends()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var closeFriendIds = await rls.ListCloseFriends(currentUser.Id);
+        if (closeFriendIds.Count == 0)
+            return Ok(new List<SnAccount>());
+
+        var accountsList = new List<SnAccount>();
+        foreach (var id in closeFriendIds)
+        {
+            var account = await accounts.GetAccount(id);
+            if (account is not null)
+                accountsList.Add(account);
+        }
+        return Ok(accountsList);
+    }
+
     public class InspectRelationshipResponse
     {
         public List<SnAccount> Friends { get; set; } = [];
         public List<SnAccount> Blocked { get; set; } = [];
         public List<SnAccount> Muted { get; set; } = [];
         public List<SnAccount> Pending { get; set; } = [];
+        public List<SnAccount> CloseFriends { get; set; } = [];
     }
 
     [HttpGet("inspect/{accountId:guid}")]
@@ -426,7 +487,8 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
             Friends = grouped.TryGetValue(RelationshipStatus.Friends, out var friends) ? friends : [],
             Blocked = grouped.TryGetValue(RelationshipStatus.Blocked, out var blocked) ? blocked : [],
             Muted = grouped.TryGetValue(RelationshipStatus.Muted, out var muted) ? muted : [],
-            Pending = grouped.TryGetValue(RelationshipStatus.Pending, out var pending) ? pending : []
+            Pending = grouped.TryGetValue(RelationshipStatus.Pending, out var pending) ? pending : [],
+            CloseFriends = grouped.TryGetValue(RelationshipStatus.CloseFriend, out var closeFriends) ? closeFriends : []
         });
     }
 }

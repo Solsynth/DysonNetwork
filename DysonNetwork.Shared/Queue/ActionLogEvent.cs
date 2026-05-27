@@ -27,6 +27,8 @@ public static class ProgressionActionLogRegistry
         Shared.Models.ActionLogType.RelationshipUnblock,
         Shared.Models.ActionLogType.RelationshipMute,
         Shared.Models.ActionLogType.RelationshipUnmute,
+        Shared.Models.ActionLogType.RelationshipCloseFriend,
+        Shared.Models.ActionLogType.RelationshipUnCloseFriend,
         Shared.Models.ActionLogType.AccountAvatar,
         Shared.Models.ActionLogType.AccountProfileComplete,
         Shared.Models.ActionLogType.AccountConnectionLink,

@@ -266,6 +266,14 @@ namespace DysonNetwork.Shared.Proto {
         __Marshaller_proto_DyListRelationshipSimpleRequest,
         __Marshaller_proto_DyListRelationshipSimpleResponse);
 
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> __Method_ListCloseFriends = new grpc::Method<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "ListCloseFriends",
+        __Marshaller_proto_DyListRelationshipSimpleRequest,
+        __Marshaller_proto_DyListRelationshipSimpleResponse);
+
     /// <summary>Service descriptor</summary>
     public static global::Google.Protobuf.Reflection.ServiceDescriptor Descriptor
     {
@@ -422,6 +430,12 @@ namespace DysonNetwork.Shared.Proto {
 
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> ListMuted(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> ListCloseFriends(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
@@ -995,6 +1009,26 @@ namespace DysonNetwork.Shared.Proto {
       {
         return CallInvoker.AsyncUnaryCall(__Method_ListMuted, null, options, request);
       }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse ListCloseFriends(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return ListCloseFriends(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse ListCloseFriends(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_ListCloseFriends, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> ListCloseFriendsAsync(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return ListCloseFriendsAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> ListCloseFriendsAsync(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_ListCloseFriends, null, options, request);
+      }
       /// <summary>Creates a new instance of client from given <c>ClientBaseConfiguration</c>.</summary>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       protected override DyProfileServiceClient NewInstance(ClientBaseConfiguration configuration)
@@ -1028,7 +1062,8 @@ namespace DysonNetwork.Shared.Proto {
           .AddMethod(__Method_HasRelationship, serviceImpl.HasRelationship)
           .AddMethod(__Method_ListFriends, serviceImpl.ListFriends)
           .AddMethod(__Method_ListBlocked, serviceImpl.ListBlocked)
-          .AddMethod(__Method_ListMuted, serviceImpl.ListMuted).Build();
+          .AddMethod(__Method_ListMuted, serviceImpl.ListMuted)
+          .AddMethod(__Method_ListCloseFriends, serviceImpl.ListCloseFriends).Build();
     }
 
     /// <summary>Register service method with a service binder with or without implementation. Useful when customizing the service binding logic.
@@ -1058,6 +1093,7 @@ namespace DysonNetwork.Shared.Proto {
       serviceBinder.AddMethod(__Method_ListFriends, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse>(serviceImpl.ListFriends));
       serviceBinder.AddMethod(__Method_ListBlocked, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse>(serviceImpl.ListBlocked));
       serviceBinder.AddMethod(__Method_ListMuted, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse>(serviceImpl.ListMuted));
+      serviceBinder.AddMethod(__Method_ListCloseFriends, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse>(serviceImpl.ListCloseFriends));
     }
 
   }

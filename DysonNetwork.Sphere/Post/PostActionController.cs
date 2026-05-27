@@ -259,6 +259,12 @@ public class PostActionController(
             Publisher = publisher,
         };
 
+        if (post.Visibility is Shared.Models.PostVisibility.CloseFriendsOnly or Shared.Models.PostVisibility.Friends)
+        {
+            if (publisher is null)
+                return BadRequest("CloseFriendsOnly and Friends visibility require a publisher.");
+        }
+
         if (request.RepliedPostId is not null)
         {
             var repliedPost = await db
@@ -993,6 +999,12 @@ public class PostActionController(
             post.Content = request.Content;
         if (request.Visibility is not null)
             post.Visibility = request.Visibility.Value;
+
+        if (post.Visibility is Shared.Models.PostVisibility.CloseFriendsOnly or Shared.Models.PostVisibility.Friends)
+        {
+            if (post.PublisherId is null)
+                return BadRequest("CloseFriendsOnly and Friends visibility require a publisher.");
+        }
         if (request.Type is not null)
             post.Type = request.Type.Value;
         if (request.Language is not null)

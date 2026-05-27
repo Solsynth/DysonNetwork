@@ -10,7 +10,8 @@ public enum RelationshipStatus : short
     Friends = 100,
     Pending = 0,
     Muted = -50,
-    Blocked = -100
+    Blocked = -100,
+    CloseFriend = 200,
 }
 
 public class SnAccountRelationship : ModelBase

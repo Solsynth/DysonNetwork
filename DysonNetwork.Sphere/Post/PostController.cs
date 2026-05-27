@@ -38,13 +38,13 @@ public class PostController(
 
     private sealed record PostSearchContext(string Query, bool UseFuzzyMatch);
 
-    private async Task<(HashSet<Guid>? gatekeptPublisherIds, HashSet<Guid>? subscriberPublisherIds)> GetGatekeepInfoAsync(
+    private async Task<(HashSet<Guid>? gatekeptPublisherIds, HashSet<Guid>? subscriberPublisherIds, HashSet<Guid> closeFriendPublisherIds)> GetGatekeepInfoAsync(
         IQueryable<Guid> publisherIdsInQuery,
         DyAccount? currentUser)
     {
         var publisherIds = await publisherIdsInQuery.Distinct().ToListAsync();
         if (publisherIds.Count == 0)
-            return (null, null);
+            return (null, null, []);
 
         var gatekeptPublisherIds = (await db.Publishers
             .Where(p => publisherIds.Contains(p.Id) && p.GatekeptFollows == true)
@@ -69,7 +69,33 @@ public class PostController(
             }
         }
 
-        return (gatekeptPublisherIds.Count > 0 ? gatekeptPublisherIds : null, subscriberPublisherIds);
+        var closeFriendPublisherIds = await GetCloseFriendPublisherIdsAsync(publisherIds, currentUser);
+
+        return (gatekeptPublisherIds.Count > 0 ? gatekeptPublisherIds : null, subscriberPublisherIds, closeFriendPublisherIds);
+    }
+
+    private async Task<HashSet<Guid>> GetCloseFriendPublisherIdsAsync(
+        List<Guid> publisherIds,
+        DyAccount? currentUser)
+    {
+        if (currentUser == null || publisherIds.Count == 0)
+            return [];
+
+        var currentAccountId = Guid.Parse(currentUser.Id);
+        var closeFriendAccountIds = await remoteAccountsHelper.ListCloseFriendAccountIds(currentAccountId);
+        if (closeFriendAccountIds.Count == 0)
+            return [];
+
+        var closeFriendSet = closeFriendAccountIds.ToHashSet();
+        var publisherAccountIds = await db.Publishers
+            .Where(p => publisherIds.Contains(p.Id) && p.AccountId != null)
+            .Select(p => new { p.Id, AccountId = p.AccountId!.Value })
+            .ToListAsync();
+
+        return publisherAccountIds
+            .Where(p => closeFriendSet.Contains(p.AccountId))
+            .Select(p => p.Id)
+            .ToHashSet();
     }
 
     public class ThreadedReplyNode
@@ -274,7 +300,7 @@ public class PostController(
             .Where(p => p.PublisherId != null)
             .Select(p => p.PublisherId!.Value);
 
-        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+        var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
             bookmarkedPostQuery,
             currentUser
         );
@@ -287,7 +313,8 @@ public class PostController(
                 userPublishers,
                 isListing: true,
                 gatekeptPublisherIds,
-                subscriberPublisherIds
+                subscriberPublisherIds,
+                closeFriendPublisherIds: closeFriendPublisherIds
             )
             .Select(p => p.Id)
             .ToListAsync();
@@ -518,6 +545,8 @@ public class PostController(
             }
         }
 
+        var closeFriendPublisherIds = await GetCloseFriendPublisherIdsAsync(publisherIdsInQuery, currentUser);
+
         query = query.FilterWithVisibility(
             currentUser,
             userFriends,
@@ -526,7 +555,8 @@ public class PostController(
             gatekeptPublisherIds,
             subscriberPublisherIds,
             blockedAccountIds,
-            mutedAccountIds.ToHashSet()
+            mutedAccountIds.ToHashSet(),
+            closeFriendPublisherIds
         );
 
         if (shadowbannedPublisherIds != null && shadowbannedPublisherIds.Count > 0)
@@ -666,7 +696,7 @@ public class PostController(
         if (post is null)
             return NotFound();
 
-        if (post.PublisherId.HasValue && post.Publisher?.GatekeptFollows == true)
+        if (post.PublisherId.HasValue && (post.Publisher?.GatekeptFollows == true || post.Visibility == Shared.Models.PostVisibility.SubscriberOnly))
         {
             if (currentUser == null)
                 return StatusCode(403, "Subscriber access required");
@@ -675,6 +705,19 @@ public class PostController(
                 .AnyAsync(s => s.PublisherId == post.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == post.PublisherId.Value))
                 return StatusCode(403, "Subscriber access required");
+        }
+
+        if (post.Visibility == Shared.Models.PostVisibility.CloseFriendsOnly)
+        {
+            if (currentUser == null)
+                return StatusCode(403, "Close friends access required");
+            if (post.Publisher?.AccountId != null)
+            {
+                var currentAccountId = Guid.Parse(currentUser.Id);
+                var isCloseFriend = await remoteAccountsHelper.IsCloseFriend(post.Publisher.AccountId.Value, currentAccountId);
+                if (!isCloseFriend && !userPublishers.Any(p => p.Id == post.PublisherId!.Value))
+                    return StatusCode(403, "Close friends access required");
+            }
         }
 
         post = await ps.LoadPostInfo(post, currentUser);
@@ -723,7 +766,7 @@ public class PostController(
         if (post is null)
             return NotFound();
 
-        if (post.PublisherId.HasValue && post.Publisher?.GatekeptFollows == true)
+        if (post.PublisherId.HasValue && (post.Publisher?.GatekeptFollows == true || post.Visibility == Shared.Models.PostVisibility.SubscriberOnly))
         {
             if (currentUser == null)
                 return StatusCode(403, "Subscriber access required");
@@ -732,6 +775,19 @@ public class PostController(
                 .AnyAsync(s => s.PublisherId == post.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == post.PublisherId.Value))
                 return StatusCode(403, "Subscriber access required");
+        }
+
+        if (post.Visibility == Shared.Models.PostVisibility.CloseFriendsOnly)
+        {
+            if (currentUser == null)
+                return StatusCode(403, "Close friends access required");
+            if (post.Publisher?.AccountId != null)
+            {
+                var currentAccountId = Guid.Parse(currentUser.Id);
+                var isCloseFriend = await remoteAccountsHelper.IsCloseFriend(post.Publisher.AccountId.Value, currentAccountId);
+                if (!isCloseFriend && !userPublishers.Any(p => p.Id == post.PublisherId!.Value))
+                    return StatusCode(403, "Close friends access required");
+            }
         }
 
         post = await ps.LoadPostInfo(post, currentUser);
@@ -852,7 +908,7 @@ public class PostController(
 
         baseQuery = ApplyPostTextSearch(baseQuery, CreatePostSearchContext(queryTerm));
 
-        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+        var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
             baseQuery.Where(p => p.PublisherId != null).Select(p => p.PublisherId!.Value),
             currentUser
         );
@@ -876,7 +932,7 @@ public class PostController(
         if (prevPost is null)
             return NotFound("No previous post found");
 
-        if (prevPost.PublisherId.HasValue && prevPost.Publisher?.GatekeptFollows == true)
+        if (prevPost.PublisherId.HasValue && (prevPost.Publisher?.GatekeptFollows == true || prevPost.Visibility == Shared.Models.PostVisibility.SubscriberOnly))
         {
             if (currentUser == null)
                 return StatusCode(403, "Subscriber access required");
@@ -885,6 +941,19 @@ public class PostController(
                 .AnyAsync(s => s.PublisherId == prevPost.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == prevPost.PublisherId.Value))
                 return StatusCode(403, "Subscriber access required");
+        }
+
+        if (prevPost.Visibility == Shared.Models.PostVisibility.CloseFriendsOnly)
+        {
+            if (currentUser == null)
+                return StatusCode(403, "Close friends access required");
+            if (prevPost.Publisher?.AccountId != null)
+            {
+                var currentAccountId = Guid.Parse(currentUser.Id);
+                var isCloseFriend = await remoteAccountsHelper.IsCloseFriend(prevPost.Publisher.AccountId.Value, currentAccountId);
+                if (!isCloseFriend && !userPublishers.Any(p => p.Id == prevPost.PublisherId!.Value))
+                    return StatusCode(403, "Close friends access required");
+            }
         }
 
         prevPost = await ps.LoadPostInfo(prevPost, currentUser);
@@ -1000,7 +1069,7 @@ public class PostController(
 
         baseQuery = ApplyPostTextSearch(baseQuery, CreatePostSearchContext(queryTerm));
 
-        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+        var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
             baseQuery.Where(p => p.PublisherId != null).Select(p => p.PublisherId!.Value),
             currentUser
         );
@@ -1024,7 +1093,7 @@ public class PostController(
         if (nextPost is null)
             return NotFound("No next post found");
 
-        if (nextPost.PublisherId.HasValue && nextPost.Publisher?.GatekeptFollows == true)
+        if (nextPost.PublisherId.HasValue && (nextPost.Publisher?.GatekeptFollows == true || nextPost.Visibility == Shared.Models.PostVisibility.SubscriberOnly))
         {
             if (currentUser == null)
                 return StatusCode(403, "Subscriber access required");
@@ -1033,6 +1102,19 @@ public class PostController(
                 .AnyAsync(s => s.PublisherId == nextPost.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == nextPost.PublisherId.Value))
                 return StatusCode(403, "Subscriber access required");
+        }
+
+        if (nextPost.Visibility == Shared.Models.PostVisibility.CloseFriendsOnly)
+        {
+            if (currentUser == null)
+                return StatusCode(403, "Close friends access required");
+            if (nextPost.Publisher?.AccountId != null)
+            {
+                var currentAccountId = Guid.Parse(currentUser.Id);
+                var isCloseFriend = await remoteAccountsHelper.IsCloseFriend(nextPost.Publisher.AccountId.Value, currentAccountId);
+                if (!isCloseFriend && !userPublishers.Any(p => p.Id == nextPost.PublisherId!.Value))
+                    return StatusCode(403, "Close friends access required");
+            }
         }
 
         nextPost = await ps.LoadPostInfo(nextPost, currentUser);
@@ -1124,7 +1206,7 @@ public class PostController(
             .Select(r => r.Post)
             .Where(p => p.PublisherId != null);
 
-        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+        var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
             localPostQuery.Select(p => p.PublisherId!.Value),
             currentUser
         );
@@ -1213,7 +1295,7 @@ public class PostController(
             ? []
             : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
-        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+        var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
             db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
             currentUser
         );
@@ -1224,7 +1306,7 @@ public class PostController(
             .OrderByDescending(p =>
                 p.Upvotes * 2 - p.Downvotes + ((p.CreatedAt - now).TotalMinutes < 60 ? 5 : 0)
             )
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, gatekeptPublisherIds: gatekeptPublisherIds, followerPublisherIds: subscriberPublisherIds)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, gatekeptPublisherIds: gatekeptPublisherIds, followerPublisherIds: subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
             .FirstOrDefaultAsync();
         if (post is null)
             return NotFound();
@@ -1252,7 +1334,7 @@ public class PostController(
             ? []
             : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
-        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+        var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
             db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
             currentUser
         );
@@ -1262,7 +1344,7 @@ public class PostController(
                 e.RepliedPostId == id && e.PinMode == Shared.Models.PostPinMode.ReplyPage
             )
             .OrderByDescending(p => p.CreatedAt)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, gatekeptPublisherIds: gatekeptPublisherIds, followerPublisherIds: subscriberPublisherIds)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, gatekeptPublisherIds: gatekeptPublisherIds, followerPublisherIds: subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
             .ToListAsync();
         posts = await ps.LoadPostInfo(posts, currentUser);
         await pcs.LoadPublisherCollectionsAsync(posts);
@@ -1297,14 +1379,14 @@ public class PostController(
         if (parent is null)
             return NotFound();
 
-        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+        var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
             db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
             currentUser
         );
 
         var totalCount = await db
             .Posts.Where(e => e.RepliedPostId == parent.Id)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
             .CountAsync();
         var posts = await db
             .Posts.Where(e => e.RepliedPostId == id)
@@ -1312,7 +1394,7 @@ public class PostController(
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .Include(e => e.FeaturedRecords)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(take)
@@ -1359,14 +1441,14 @@ public class PostController(
         if (parent is null)
             return NotFound();
 
-        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+        var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
             db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
             currentUser
         );
 
         var totalCount = await db
             .Posts.Where(e => e.RepliedPostId == parent.Id)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
             .CountAsync();
 
         var rootReplies = await db
@@ -1376,7 +1458,7 @@ public class PostController(
             .Include(e => e.Tags)
             .Include(e => e.FeaturedRecords)
             .AsNoTracking()
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(take)
@@ -1403,7 +1485,7 @@ public class PostController(
                 .Include(e => e.Tags)
                 .Include(e => e.FeaturedRecords)
                 .AsNoTracking()
-                .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
+                .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
                 .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
                 .ToListAsync();
 
@@ -1482,7 +1564,7 @@ public class PostController(
         if (currentPost is null)
             return NotFound();
 
-        if (currentPost.PublisherId.HasValue && currentPost.Publisher?.GatekeptFollows == true)
+        if (currentPost.PublisherId.HasValue && (currentPost.Publisher?.GatekeptFollows == true || currentPost.Visibility == Shared.Models.PostVisibility.SubscriberOnly))
         {
             if (currentUser == null)
                 return StatusCode(403, "Subscriber access required");
@@ -1491,6 +1573,19 @@ public class PostController(
                 .AnyAsync(s => s.PublisherId == currentPost.PublisherId.Value && s.AccountId == currentAccountId && s.EndedAt == null);
             if (!isSubscriber && !userPublishers.Any(p => p.Id == currentPost.PublisherId.Value))
                 return StatusCode(403, "Subscriber access required");
+        }
+
+        if (currentPost.Visibility == Shared.Models.PostVisibility.CloseFriendsOnly)
+        {
+            if (currentUser == null)
+                return StatusCode(403, "Close friends access required");
+            if (currentPost.Publisher?.AccountId != null)
+            {
+                var currentAccountId = Guid.Parse(currentUser.Id);
+                var isCloseFriend = await remoteAccountsHelper.IsCloseFriend(currentPost.Publisher.AccountId.Value, currentAccountId);
+                if (!isCloseFriend && !userPublishers.Any(p => p.Id == currentPost.PublisherId!.Value))
+                    return StatusCode(403, "Close friends access required");
+            }
         }
 
         currentPost = await ps.LoadPostInfo(currentPost, currentUser);
@@ -1565,7 +1660,7 @@ public class PostController(
             }
         }
 
-        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+        var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
             db.Posts.Where(e => e.RepliedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
             currentUser
         );
@@ -1577,7 +1672,7 @@ public class PostController(
             .Include(e => e.Tags)
             .Include(e => e.FeaturedRecords)
             .AsNoTracking()
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .ToListAsync();
 
@@ -1601,7 +1696,7 @@ public class PostController(
                     .Include(e => e.Tags)
                     .Include(e => e.FeaturedRecords)
                     .AsNoTracking()
-                    .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
+                    .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
                     .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
                     .ToListAsync();
 
@@ -1686,14 +1781,14 @@ public class PostController(
         if (parent is null)
             return NotFound();
 
-        var (gatekeptPublisherIds, subscriberPublisherIds) = await GetGatekeepInfoAsync(
+        var (gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds) = await GetGatekeepInfoAsync(
             db.Posts.Where(e => e.ForwardedPostId == id && e.PublisherId != null).Select(e => e.PublisherId!.Value),
             currentUser
         );
 
         var totalCount = await db
             .Posts.Where(e => e.ForwardedPostId == parent.Id)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
             .CountAsync();
 
         var posts = await db
@@ -1702,7 +1797,7 @@ public class PostController(
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .Include(e => e.FeaturedRecords)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
             .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
             .Skip(offset)
             .Take(take)

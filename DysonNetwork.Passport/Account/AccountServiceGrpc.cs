@@ -217,6 +217,25 @@ public class AccountServiceGrpc(
         }
     }
 
+    public override async Task<DyListRelationshipSimpleResponse> ListCloseFriends(
+        DyListRelationshipSimpleRequest request,
+        ServerCallContext context)
+    {
+        var resp = new DyListRelationshipSimpleResponse();
+        switch (request.RelationIdentifierCase)
+        {
+            case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.AccountId:
+                var accountId = Guid.Parse(request.AccountId);
+                var closeFriendIds = await relationships.ListCloseFriends(accountId);
+                resp.AccountsId.AddRange(closeFriendIds.Select(x => x.ToString()));
+                return resp;
+            case DyListRelationshipSimpleRequest.RelationIdentifierOneofCase.None:
+            default:
+                throw new RpcException(new Status(StatusCode.InvalidArgument,
+                    "The account_id must be provided."));
+        }
+    }
+
     public override async Task<DyAccountProfile> GetProfile(DyGetProfileRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.AccountId, out var accountId))

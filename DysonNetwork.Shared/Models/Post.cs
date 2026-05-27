@@ -23,6 +23,8 @@ public enum PostVisibility
     Friends,
     Unlisted,
     Private,
+    CloseFriendsOnly,
+    SubscriberOnly,
 }
 
 public enum PostContentType

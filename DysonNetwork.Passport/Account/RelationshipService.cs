@@ -23,6 +23,7 @@ public class RelationshipService(
     private const string UserFriendsCacheKeyPrefix = "accounts:friends:";
     private const string UserBlockedCacheKeyPrefix = "accounts:blocked:";
     private const string UserMutedCacheKeyPrefix = "accounts:muted:";
+    private const string UserCloseFriendsCacheKeyPrefix = "accounts:close_friends:";
     private static readonly TimeSpan CacheExpiration = TimeSpan.FromHours(1);
 
     public async Task<bool> HasExistingRelationship(Guid accountId, Guid relatedId)
@@ -197,6 +198,65 @@ public class RelationshipService(
         await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Muted);
 
         return relationship;
+    }
+
+    private const int MaxCloseFriends = 200;
+
+    public async Task<SnAccountRelationship> AddCloseFriend(SnAccount sender, SnAccount target)
+    {
+        var existing = await GetRelationship(sender.Id, target.Id, RelationshipStatus.CloseFriend, ignoreExpired: true);
+        if (existing is not null)
+            throw new InvalidOperationException("This user is already in your close friends list.");
+
+        var currentCount = await db.AccountRelationships
+            .Where(r => r.AccountId == sender.Id && r.Status == RelationshipStatus.CloseFriend)
+            .CountAsync();
+        if (currentCount >= MaxCloseFriends)
+            throw new InvalidOperationException($"You can have at most {MaxCloseFriends} close friends.");
+
+        var relationship = new SnAccountRelationship
+        {
+            AccountId = sender.Id,
+            RelatedId = target.Id,
+            Status = RelationshipStatus.CloseFriend
+        };
+
+        db.AccountRelationships.Add(relationship);
+        await db.SaveChangesAsync();
+
+        CreateActionLog(sender.Id, ActionLogType.RelationshipCloseFriend, target.Id);
+        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.CloseFriend);
+
+        return relationship;
+    }
+
+    public async Task<SnAccountRelationship> RemoveCloseFriend(SnAccount sender, SnAccount target)
+    {
+        var relationship = await GetRelationship(sender.Id, target.Id, RelationshipStatus.CloseFriend);
+        if (relationship is null) throw new ArgumentException("This user is not in your close friends list.");
+        db.Remove(relationship);
+        await db.SaveChangesAsync();
+
+        CreateActionLog(sender.Id, ActionLogType.RelationshipUnCloseFriend, target.Id);
+        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.CloseFriend);
+
+        return relationship;
+    }
+
+    public async Task<bool> IsCloseFriend(Guid userId, Guid otherId)
+    {
+        if (userId == Guid.Empty || otherId == Guid.Empty)
+            return false;
+        if (userId == otherId)
+            return false;
+
+        var relationship = await GetRelationship(userId, otherId, RelationshipStatus.CloseFriend);
+        return relationship is not null;
+    }
+
+    public async Task<List<Guid>> ListCloseFriends(Guid accountId)
+    {
+        return await GetCachedRelationships(accountId, RelationshipStatus.CloseFriend, UserCloseFriendsCacheKeyPrefix);
     }
 
     public async Task<SnAccountRelationship> SendFriendRequest(SnAccount sender, SnAccount target)
@@ -523,6 +583,12 @@ public class RelationshipService(
         {
             keysToRemove.Add($"{UserMutedCacheKeyPrefix}{accountId}:False");
             keysToRemove.Add($"{UserMutedCacheKeyPrefix}{relatedId}:False");
+        }
+
+        if (statuses.Contains(RelationshipStatus.CloseFriend))
+        {
+            keysToRemove.Add($"{UserCloseFriendsCacheKeyPrefix}{accountId}:False");
+            keysToRemove.Add($"{UserCloseFriendsCacheKeyPrefix}{relatedId}:False");
         }
 
         var removeTasks = keysToRemove.Select(key => cache.RemoveAsync(key));

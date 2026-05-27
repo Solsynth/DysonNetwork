@@ -69,6 +69,8 @@ public abstract class ActionLogType
     public const string RelationshipUnblock = "relationships.unblock";
     public const string RelationshipMute = "relationships.mute";
     public const string RelationshipUnmute = "relationships.unmute";
+    public const string RelationshipCloseFriend = "relationships.close_friend.add";
+    public const string RelationshipUnCloseFriend = "relationships.close_friend.remove";
     public const string AccountAvatar = "accounts.profile.avatar";
     public const string AccountProfileComplete = "accounts.profile.complete";
     public const string AccountConnectionLink = "accounts.connection.link";

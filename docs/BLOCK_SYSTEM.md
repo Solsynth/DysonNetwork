@@ -107,7 +107,10 @@ Cache is purged on relationship changes via `PurgeRelationshipCache`.
 | `/api/relationships/{accountId}/block` | DELETE | Unblock a user |
 | `/api/relationships/{accountId}/mute` | POST | Mute a user (accepts optional expiry body) |
 | `/api/relationships/{accountId}/mute` | DELETE | Unmute a user |
-| `/api/relationships/inspect/{accountId}` | GET | Lists friends, blocked, muted, pending |
+| `/api/relationships/{accountId}/close-friend` | POST | Add user to close friends |
+| `/api/relationships/{accountId}/close-friend` | DELETE | Remove user from close friends |
+| `/api/relationships/close-friends` | GET | List current user's close friends |
+| `/api/relationships/inspect/{accountId}` | GET | Lists friends, blocked, muted, pending, close friends |
 
 ### Request Body (block/mute POST)
 
@@ -151,6 +154,49 @@ Block and mute support optional expiry with automatic degradation.
 
 `RelationshipExpiryJob` in `DysonNetwork.Passport/Account/` — registered in `ScheduledJobsConfiguration.cs`, runs every 5 minutes.
 
+## Close Friends
+
+A per-account curated list of up to **200** close friends. One-directional (like Mute — A adding B doesn't mean B has A).
+
+### Behavior
+
+- `CloseFriend = 200` in `RelationshipStatus` enum
+- Adding/removing creates action logs: `relationships.close_friend.add`, `relationships.close_friend.remove`
+- Cache key: `accounts:close_friends:{accountId}`
+- Max 200 close friends per account (enforced in `RelationshipService.AddCloseFriend`)
+
+### API
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/relationships/{accountId}/close-friend` | POST | Add to close friends |
+| `/api/relationships/{accountId}/close-friend` | DELETE | Remove from close friends |
+| `/api/relationships/close-friends` | GET | List close friends (returns hydrated accounts) |
+
+## Post Visibility
+
+Two new `PostVisibility` values:
+
+### CloseFriendsOnly (4)
+
+- Only the publisher's close friends can see the post
+- Publisher members (owner/manager/editor/viewer) always see it
+- Requires a publisher (returns 400 if set on a post without publisher)
+- Notifications are sent only to close friends
+
+### SubscriberOnly (5)
+
+- Only users with an active subscription (accepted follow request) can see the post
+- Publisher members always see it
+- Requires a publisher (returns 400 if set on a post without publisher)
+- Works independently of publisher-level Gatekept (AND logic):
+  - If publisher is Gatekept AND post is SubscriberOnly → subscription satisfies both
+  - If publisher is not Gatekept but post is SubscriberOnly → subscription required for that post
+
+### Proto
+
+`DY_POST_CLOSE_FRIENDS_ONLY = 5`, `DY_POST_SUBSCRIBER_ONLY = 6` in `DyPostVisibility` enum.
+
 ## What Does NOT Happen
 
 Neither block nor mute cleans up existing data:
@@ -169,26 +215,28 @@ Public profiles remain accessible read-only for both blocked and muted users. In
 ## Files Changed
 
 ### DysonSpec (proto)
-- `proto/profile.proto` — `bool either_direction = 4` on `DyGetRelationshipRequest`, `rpc ListMuted`
+- `proto/profile.proto` — `bool either_direction = 4` on `DyGetRelationshipRequest`, `rpc ListMuted`, `rpc ListCloseFriends`
+- `proto/post.proto` — `DY_POST_CLOSE_FRIENDS_ONLY = 5`, `DY_POST_SUBSCRIBER_ONLY = 6`
 
 ### Passport
-- `Account/RelationshipService.cs` — `IsBlockedEitherDirection`, `ListAllBlockedAccountIds`, `MuteAccount`, `UnmuteAccount`, `ListAccountMuted`, `ProcessExpiredRelationshipsAsync`, cache purge
-- `Account/AccountServiceGrpc.cs` — `HasRelationship` handles `EitherDirection`, `ListMuted` implementation
-- `Account/RelationshipController.cs` — Block/mute endpoints with expiry support, inspect includes muted
+- `Account/RelationshipService.cs` — `IsBlockedEitherDirection`, `ListAllBlockedAccountIds`, `MuteAccount`, `UnmuteAccount`, `ListAccountMuted`, `AddCloseFriend`, `RemoveCloseFriend`, `ListCloseFriends`, `IsCloseFriend`, `ProcessExpiredRelationshipsAsync`, cache purge
+- `Account/AccountServiceGrpc.cs` — `HasRelationship` handles `EitherDirection`, `ListMuted`, `ListCloseFriends` implementation
+- `Account/RelationshipController.cs` — Block/mute/close-friend endpoints with expiry support, inspect includes muted + close friends
 - `Account/RelationshipExpiryJob.cs` — Quartz job for processing expired relationships
 - `Startup/ScheduledJobsConfiguration.cs` — Registers `RelationshipExpiryJob` (every 5 min)
 
 ### Shared
-- `Models/Relationship.cs` — `Muted = -50` enum value, `DegradeToStatus` property
-- `Models/ActionLog.cs` — `RelationshipMute`, `RelationshipUnmute` constants
-- `Registry/RemoteAccountService.cs` — `IsBlockedEitherDirection`, `ListAllBlockedAccountIds`, `ListMutedAccountIds`
+- `Models/Relationship.cs` — `Muted = -50`, `CloseFriend = 200` enum values, `DegradeToStatus` property
+- `Models/Post.cs` — `CloseFriendsOnly`, `SubscriberOnly` in `PostVisibility` enum
+- `Models/ActionLog.cs` — `RelationshipMute`, `RelationshipUnmute`, `RelationshipCloseFriend`, `RelationshipUnCloseFriend` constants
+- `Registry/RemoteAccountService.cs` — `IsBlockedEitherDirection`, `ListAllBlockedAccountIds`, `ListMutedAccountIds`, `ListCloseFriendAccountIds`, `GetCloseFriendPublisherIds`, `IsCloseFriend`
 
 ### Sphere
-- `Post/PostActionController.cs` — Bidirectional block checks for all post interactions + forward block
-- `Post/PostService.cs` — `FilterWithVisibility` block + mute params, notification filtering, mention stripping
-- `Timeline/TimelineService.cs` — Blocked + muted IDs loading and feed filtering
-- `Post/PostController.cs` — `ListPosts` block + mute filtering
-- `Publisher/PublisherSubscriptionService.cs` — Notification block + mute filtering
+- `Post/PostActionController.cs` — Bidirectional block checks for all post interactions + forward block, publisher-only visibility validation
+- `Post/PostService.cs` — `FilterWithVisibility` block + mute + close friends + subscriber only params, notification filtering, mention stripping, `FilterUsersByPostVisibility` new cases
+- `Timeline/TimelineService.cs` — Blocked + muted + close friends IDs loading and feed filtering
+- `Post/PostController.cs` — `ListPosts` block + mute + close friends + subscriber only filtering, inline subscriber/close-friend access checks, `GetCloseFriendPublisherIdsAsync` helper, `GetGatekeepInfoAsync` returns close friend publisher IDs
+- `Publisher/PublisherSubscriptionService.cs` — Notification block + mute filtering, `NotifyCloseFriendsPost`, `NotifySubscriberPost` handles `SubscriberOnly` and `CloseFriendsOnly`
 - `Publisher/PublisherPublicController.cs` — Search block + mute filtering
 - `Publisher/PublisherService.cs` — Follow request block check
 - `Autocompletion/AutocompletionService.cs` — Autocomplete block + mute filtering

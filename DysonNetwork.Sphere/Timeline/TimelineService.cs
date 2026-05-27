@@ -146,6 +146,7 @@ public class TimelineService(
         var blockedAccountIds = await GetCachedBlockedAccountIds(accountId);
         var mutedIds = await GetCachedMutedAccountIds(accountId);
         var allHiddenIds = blockedAccountIds.Concat(mutedIds).ToHashSet();
+        var closeFriendPublisherIds = await GetCachedCloseFriendPublisherIds(accountId);
 
         var filteredPublishers = await GetFilteredPublishers(filter, currentUser, userFriends);
         var filteredPublishersId = filteredPublishers?.Select(e => e.Id).ToList();
@@ -187,7 +188,8 @@ public class TimelineService(
                 isListing: true,
                 gatekeptPublisherIds,
                 followerPublisherIds,
-                allHiddenIds
+                allHiddenIds,
+                closeFriendPublisherIds: closeFriendPublisherIds
             )
             .Take(take * TimelineCandidateMultiplier);
 
@@ -2050,6 +2052,31 @@ public class TimelineService(
         var mutedIds = await remoteAccounts.ListMutedAccountIds(accountId);
         await cache.SetAsync(cacheKey, mutedIds, MutedIdsCacheTtl);
         return mutedIds;
+    }
+
+    private static readonly TimeSpan CloseFriendsCacheTtl = TimeSpan.FromMinutes(5);
+
+    private async Task<HashSet<Guid>> GetCachedCloseFriendPublisherIds(Guid accountId)
+    {
+        var cacheKey = $"timeline:close_friends:{accountId}";
+        var cached = await cache.GetAsync<HashSet<Guid>>(cacheKey);
+        if (cached is not null)
+            return cached;
+
+        var closeFriendAccountIds = await remoteAccounts.ListCloseFriendAccountIds(accountId);
+        if (closeFriendAccountIds.Count == 0)
+            return [];
+
+        // Map account IDs to publisher IDs
+        var closeFriendSet = closeFriendAccountIds.ToHashSet();
+        var publisherIds = await db.Publishers
+            .Where(p => p.AccountId != null && closeFriendSet.Contains(p.AccountId.Value))
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        var result = publisherIds.ToHashSet();
+        await cache.SetAsync(cacheKey, result, CloseFriendsCacheTtl);
+        return result;
     }
 
     private async Task<List<Guid>> GetCachedUserRealms(Guid accountId)
