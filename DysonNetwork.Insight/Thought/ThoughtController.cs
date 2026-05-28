@@ -575,6 +575,8 @@ public class ThoughtController(
 
             var attemptAssistantParts = new List<SnThinkingMessagePart>();
             var attemptFullResponse = new StringBuilder();
+            var sawTextDelta = false;
+            var sawReasoningDelta = false;
             var currentToolCalls = new List<(string Id, string Name, string Arguments)>();
             var streamErrorMessage = (string?)null;
             var shouldRetryWithCompaction = false;
@@ -591,7 +593,9 @@ public class ThoughtController(
                 switch (evt)
                 {
                     case StreamingChatEvent.Text text:
+                        sawTextDelta = true;
                         attemptFullResponse.Append(text.Delta);
+                        AppendStreamingTextPart(attemptAssistantParts, text.Delta);
                         var textJson = JsonSerializer.Serialize(
                             new { type = "text", data = text.Delta }
                         );
@@ -600,6 +604,8 @@ public class ThoughtController(
                         break;
 
                     case StreamingChatEvent.Reasoning reasoning:
+                        sawReasoningDelta = true;
+                        AppendStreamingReasoningPart(attemptAssistantParts, reasoning.Delta);
                         var reasoningJson = JsonSerializer.Serialize(
                             new { type = "reasoning", data = reasoning.Delta }
                         );
@@ -683,26 +689,13 @@ public class ThoughtController(
                         break;
 
                     case StreamingChatEvent.Finished finished:
-                        if (!string.IsNullOrEmpty(finished.FinalText))
-                        {
-                            attemptAssistantParts.Add(
-                                new SnThinkingMessagePart
-                                {
-                                    Type = ThinkingMessagePartType.Text,
-                                    Text = finished.FinalText,
-                                }
+                        if (!sawTextDelta && !string.IsNullOrEmpty(finished.FinalText))
+                            AppendStreamingTextPart(attemptAssistantParts, finished.FinalText);
+                        if (!sawReasoningDelta && !string.IsNullOrEmpty(finished.FinalReasoning))
+                            AppendStreamingReasoningPart(
+                                attemptAssistantParts,
+                                finished.FinalReasoning
                             );
-                        }
-                        if (!string.IsNullOrEmpty(finished.FinalReasoning))
-                        {
-                            attemptAssistantParts.Add(
-                                new SnThinkingMessagePart
-                                {
-                                    Type = ThinkingMessagePartType.Reasoning,
-                                    Reasoning = finished.FinalReasoning,
-                                }
-                            );
-                        }
                         break;
 
                     case StreamingChatEvent.Error error:
@@ -1101,6 +1094,8 @@ public class ThoughtController(
 
             var attemptAssistantParts = new List<SnThinkingMessagePart>();
             var attemptFullResponse = new StringBuilder();
+            var sawTextDelta = false;
+            var sawReasoningDelta = false;
             var currentToolCalls = new List<(string Id, string Name, string Arguments)>();
             var streamErrorMessage = (string?)null;
             var shouldRetryWithCompaction = false;
@@ -1117,7 +1112,9 @@ public class ThoughtController(
                 switch (evt)
                 {
                     case StreamingChatEvent.Text text:
+                        sawTextDelta = true;
                         attemptFullResponse.Append(text.Delta);
+                        AppendStreamingTextPart(attemptAssistantParts, text.Delta);
                         var textJson = JsonSerializer.Serialize(
                             new { type = "text", data = text.Delta }
                         );
@@ -1126,6 +1123,8 @@ public class ThoughtController(
                         break;
 
                     case StreamingChatEvent.Reasoning reasoning:
+                        sawReasoningDelta = true;
+                        AppendStreamingReasoningPart(attemptAssistantParts, reasoning.Delta);
                         var reasoningJson = JsonSerializer.Serialize(
                             new { type = "reasoning", data = reasoning.Delta }
                         );
@@ -1197,26 +1196,13 @@ public class ThoughtController(
                         break;
 
                     case StreamingChatEvent.Finished finished:
-                        if (!string.IsNullOrEmpty(finished.FinalText))
-                        {
-                            attemptAssistantParts.Add(
-                                new SnThinkingMessagePart
-                                {
-                                    Type = ThinkingMessagePartType.Text,
-                                    Text = finished.FinalText,
-                                }
+                        if (!sawTextDelta && !string.IsNullOrEmpty(finished.FinalText))
+                            AppendStreamingTextPart(attemptAssistantParts, finished.FinalText);
+                        if (!sawReasoningDelta && !string.IsNullOrEmpty(finished.FinalReasoning))
+                            AppendStreamingReasoningPart(
+                                attemptAssistantParts,
+                                finished.FinalReasoning
                             );
-                        }
-                        if (!string.IsNullOrEmpty(finished.FinalReasoning))
-                        {
-                            attemptAssistantParts.Add(
-                                new SnThinkingMessagePart
-                                {
-                                    Type = ThinkingMessagePartType.Reasoning,
-                                    Reasoning = finished.FinalReasoning,
-                                }
-                            );
-                        }
                         break;
 
                     case StreamingChatEvent.Error error:
@@ -1876,6 +1862,50 @@ public class ThoughtController(
             );
             return BadRequest(new { error = "整理对话失败，请稍后重试" });
         }
+    }
+
+    private static void AppendStreamingTextPart(
+        List<SnThinkingMessagePart> parts,
+        string? delta
+    )
+    {
+        if (string.IsNullOrEmpty(delta))
+        {
+            return;
+        }
+
+        if (parts.Count > 0 && parts[^1].Type == ThinkingMessagePartType.Text)
+        {
+            parts[^1].Text = (parts[^1].Text ?? "") + delta;
+            return;
+        }
+
+        parts.Add(new SnThinkingMessagePart { Type = ThinkingMessagePartType.Text, Text = delta });
+    }
+
+    private static void AppendStreamingReasoningPart(
+        List<SnThinkingMessagePart> parts,
+        string? delta
+    )
+    {
+        if (string.IsNullOrEmpty(delta))
+        {
+            return;
+        }
+
+        if (parts.Count > 0 && parts[^1].Type == ThinkingMessagePartType.Reasoning)
+        {
+            parts[^1].Reasoning = (parts[^1].Reasoning ?? "") + delta;
+            return;
+        }
+
+        parts.Add(
+            new SnThinkingMessagePart
+            {
+                Type = ThinkingMessagePartType.Reasoning,
+                Reasoning = delta,
+            }
+        );
     }
 
     private static bool IsContextTooLargeError(string? message)
