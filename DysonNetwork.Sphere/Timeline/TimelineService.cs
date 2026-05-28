@@ -227,7 +227,8 @@ public class TimelineService(
         await UpdateSoftCursorAsync(accountId);
 
         var postEvents = posts.Select(p => p.ToActivity()).ToList();
-        var presenceEvents = await GetCachedFriendsPresence(accountId, userFriends, effectiveCursor, take);
+        var presenceAccountIds = new List<Guid>(userFriends) { accountId };
+        var presenceEvents = await GetCachedFriendsPresence(accountId, presenceAccountIds, effectiveCursor, take);
 
         var mergedEvents = MergeEventsByTime(postEvents, presenceEvents, take);
 
