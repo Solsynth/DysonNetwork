@@ -78,6 +78,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ChatRoomService>();
             services.AddScoped<ChatService>();
             services.AddScoped<ChatVoiceService>();
+            services.AddScoped<ChatPinService>();
             services.AddScoped<IRealtimeService, LiveKitRealtimeService>();
             services.AddLazyGrpcClientFactory<DyStickerService.DyStickerServiceClient>();
 

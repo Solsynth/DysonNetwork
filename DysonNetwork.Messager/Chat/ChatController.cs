@@ -26,6 +26,7 @@ public partial class ChatController(
     AppDatabase db,
     ChatService cs,
     ChatRoomService crs,
+    ChatPinService cps,
     ChatVoiceService voice,
     DyFileService.DyFileServiceClient files,
     DyAccountService.DyAccountServiceClient accounts,
@@ -33,7 +34,8 @@ public partial class ChatController(
     DyPollService.DyPollServiceClient pollClient,
     DyAutocompletionService.DyAutocompletionServiceClient autocompleteClient,
     RemoteWebSocketService webSocket,
-    RemoteMlsService mlsService
+    RemoteMlsService mlsService,
+    RemoteRealmService realmService
 ) : ControllerBase
 {
     private const string E2EeCapabilityHeader = "X-Client-Ability";
@@ -1275,6 +1277,107 @@ public partial class ChatController(
         );
 
         return Ok();
+    }
+
+    private async Task<ActionResult?> EnsurePinPermissionAsync(SnChatRoom room, Guid accountId)
+    {
+        if (room.RealmId is not null)
+        {
+            if (!await realmService.IsMemberWithRole(room.RealmId.Value, accountId, [RealmMemberRole.Moderator]))
+                return StatusCode(403, "You need at least be a realm moderator to manage pins.");
+        }
+        else
+        {
+            switch (room.Type)
+            {
+                case ChatRoomType.DirectMessage:
+                    if (!await crs.IsChatMember(room.Id, accountId))
+                        return StatusCode(403, "You need be part of the DM to manage pins.");
+                    break;
+                case ChatRoomType.Group:
+                    if (room.AccountId != accountId)
+                        return StatusCode(403, "You need be the owner to manage pins.");
+                    break;
+            }
+        }
+        return null;
+    }
+
+    public class PinMessageRequest
+    {
+        [Required] public Guid MessageId { get; set; }
+        public Instant? ExpiresAt { get; set; }
+    }
+
+    [HttpPost("{roomId:guid}/pins")]
+    [Authorize]
+    public async Task<ActionResult<SnChatMessagePin>> PinMessage(Guid roomId, [FromBody] PinMessageRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
+        if (room is null) return NotFound();
+
+        var permissionError = await EnsurePinPermissionAsync(room, accountId);
+        if (permissionError is not null) return permissionError;
+
+        var member = await crs.GetRoomMember(accountId, roomId);
+        if (member is null)
+            return StatusCode(403, "You need to be a member to pin messages.");
+
+        try
+        {
+            var pin = await cps.PinMessageAsync(room, member, request.MessageId, request.ExpiresAt);
+            return Ok(pin);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpDelete("{roomId:guid}/pins/{pinId:guid}")]
+    [Authorize]
+    public async Task<ActionResult> UnpinMessage(Guid roomId, Guid pinId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var room = await db.ChatRooms.FirstOrDefaultAsync(r => r.Id == roomId);
+        if (room is null) return NotFound();
+
+        var permissionError = await EnsurePinPermissionAsync(room, accountId);
+        if (permissionError is not null) return permissionError;
+
+        var member = await crs.GetRoomMember(accountId, roomId);
+        if (member is null)
+            return StatusCode(403, "You need to be a member to unpin messages.");
+
+        try
+        {
+            await cps.UnpinMessageAsync(room, member, pinId);
+            return Ok();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpGet("{roomId:guid}/pins")]
+    public async Task<ActionResult<List<SnChatMessagePin>>> ListPins(
+        Guid roomId,
+        [FromQuery] bool includeExpired = false
+    )
+    {
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
+
+        var (room, roomError) = await GetReadableRoomAsync(roomId, currentUser);
+        if (roomError is not null) return roomError;
+
+        var pins = await cps.ListPinsAsync(roomId, includeExpired);
+        return Ok(pins);
     }
 
 }

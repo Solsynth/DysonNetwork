@@ -21,6 +21,7 @@ public class AppDatabase(
     public DbSet<SnRealtimeCall> ChatRealtimeCall { get; set; } = null!;
     public DbSet<SnChatReaction> ChatReactions { get; set; } = null!;
     public DbSet<SnChatVoiceClip> ChatVoiceClips { get; set; } = null!;
+    public DbSet<SnChatMessagePin> ChatMessagePins { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -83,6 +84,21 @@ public class AppDatabase(
             .WithMany()
             .HasForeignKey(v => v.SenderId)
             .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnChatMessagePin>()
+            .HasOne(p => p.Message)
+            .WithMany()
+            .HasForeignKey(p => p.MessageId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnChatMessagePin>()
+            .HasOne(p => p.PinnedBy)
+            .WithMany()
+            .HasForeignKey(p => p.PinnedByMemberId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<SnChatMessagePin>()
+            .HasIndex(p => new { p.ChatRoomId, p.MessageId })
+            .IsUnique();
+        modelBuilder.Entity<SnChatMessagePin>()
+            .HasIndex(p => new { p.ChatRoomId, p.ExpiresAt });
 
         modelBuilder.ApplySoftDeleteFilters();
     }
