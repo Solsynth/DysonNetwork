@@ -278,6 +278,12 @@ public class SnPresenceActivity : ModelBase
     public Guid Id { get; set; } = Guid.NewGuid();
     public PresenceType Type { get; set; } = PresenceType.Unknown;
 
+    [MaxLength(256)]
+    public string? Provider { get; set; }
+
+    [MaxLength(1024)]
+    public string? ReferenceId { get; set; }
+
     [MaxLength(4096)]
     public string? ManualId { get; set; }
 
@@ -301,6 +307,9 @@ public class SnPresenceActivity : ModelBase
 
     [MaxLength(4096)]
     public string? SubtitleUrl { get; set; }
+
+    [Column(TypeName = "jsonb")]
+    public string[] QueryableTerms { get; set; } = [];
 
     [Column(TypeName = "jsonb")]
     public Dictionary<string, object>? Meta { get; set; }
@@ -328,6 +337,13 @@ public class SnPresenceActivity : ModelBase
             IsActive = isActive,
         };
 
+        if (!string.IsNullOrWhiteSpace(Provider))
+            proto.Meta ??= new Google.Protobuf.WellKnownTypes.Struct();
+        if (!string.IsNullOrWhiteSpace(ReferenceId))
+            proto.Meta ??= new Google.Protobuf.WellKnownTypes.Struct();
+        if (QueryableTerms.Length > 0)
+            proto.Meta ??= new Google.Protobuf.WellKnownTypes.Struct();
+
         if (!string.IsNullOrWhiteSpace(ManualId))
             proto.ManualId = ManualId;
         if (!string.IsNullOrWhiteSpace(Title))
@@ -347,8 +363,27 @@ public class SnPresenceActivity : ModelBase
 
         if (Meta != null)
         {
-            proto.Meta = new Google.Protobuf.WellKnownTypes.Struct();
+            proto.Meta ??= new Google.Protobuf.WellKnownTypes.Struct();
             proto.Meta.Fields.Add(InfraObjectCoder.ConvertToValueMap(Meta));
+        }
+
+        if (proto.Meta != null)
+        {
+            if (!string.IsNullOrWhiteSpace(Provider))
+                proto.Meta.Fields["provider"] = Google.Protobuf.WellKnownTypes.Value.ForString(Provider);
+            if (!string.IsNullOrWhiteSpace(ReferenceId))
+                proto.Meta.Fields["reference_id"] = Google.Protobuf.WellKnownTypes.Value.ForString(ReferenceId);
+            if (QueryableTerms.Length > 0)
+                proto.Meta.Fields["queryable_terms"] = new Google.Protobuf.WellKnownTypes.Value
+                {
+                    ListValue = new Google.Protobuf.WellKnownTypes.ListValue
+                    {
+                        Values =
+                        {
+                            QueryableTerms.Select(Google.Protobuf.WellKnownTypes.Value.ForString)
+                        }
+                    }
+                };
         }
 
         if (DeletedAt.HasValue)
@@ -386,6 +421,24 @@ public class SnPresenceActivity : ModelBase
             activity.Meta = InfraObjectCoder.ConvertFromValueMap(proto.Meta.Fields)
                 .Where(kvp => kvp.Value != null)
                 .ToDictionary(kvp => kvp.Key, kvp => kvp.Value!);
+
+        if (activity.Meta != null)
+        {
+            if (activity.Meta.TryGetValue("provider", out var provider) && provider is string providerValue)
+                activity.Provider = providerValue;
+
+            if (activity.Meta.TryGetValue("reference_id", out var referenceId) && referenceId is string referenceIdValue)
+                activity.ReferenceId = referenceIdValue;
+
+            if (activity.Meta.TryGetValue("queryable_terms", out var queryableTerms))
+            {
+                activity.QueryableTerms = queryableTerms is IEnumerable<object> items
+                    ? items.OfType<string>()
+                        .Where(term => !string.IsNullOrWhiteSpace(term))
+                        .ToArray()
+                    : [];
+            }
+        }
 
         if (proto.DeletedAt != null)
             activity.DeletedAt = proto.DeletedAt.ToInstant();

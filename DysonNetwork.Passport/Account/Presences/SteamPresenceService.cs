@@ -203,6 +203,8 @@ public class SteamPresenceService(
             void UpdateActivityWithPresenceData(SnPresenceActivity activity)
             {
                 activity.Type = PresenceType.Gaming;
+                activity.Provider = presenceActivity.Provider;
+                activity.ReferenceId = presenceActivity.ReferenceId;
                 activity.Title = presenceActivity.Title;
                 activity.Subtitle = presenceActivity.Subtitle;
                 activity.Caption = presenceActivity.Caption;
@@ -210,6 +212,7 @@ public class SteamPresenceService(
                 activity.SmallImage = presenceActivity.SmallImage;
                 activity.TitleUrl = presenceActivity.TitleUrl;
                 activity.SubtitleUrl = presenceActivity.SubtitleUrl;
+                activity.QueryableTerms = presenceActivity.QueryableTerms;
                 activity.Meta = presenceActivity.Meta;
             }
 
@@ -310,6 +313,8 @@ public class SteamPresenceService(
         {
             AccountId = accountId,
             Type = PresenceType.Gaming,
+            Provider = "steam",
+            ReferenceId = gameId,
             ManualId = "steam",
             Title = gameName,
             Subtitle = "Playing on Steam",
@@ -318,6 +323,12 @@ public class SteamPresenceService(
             SmallImage = null,
             TitleUrl = $"https://store.steampowered.com/app/{gameId}",
             SubtitleUrl = $"https://steamcommunity.com/profiles/{playerSummary.SteamId}",
+            QueryableTerms =
+            [
+                "steam",
+                gameName.Trim().ToLowerInvariant(),
+                gameId.Trim().ToLowerInvariant()
+            ],
             Meta = meta
         };
     }

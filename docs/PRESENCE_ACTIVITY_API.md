@@ -4,7 +4,7 @@
 
 The Presence Activity API allows users to manage their current activities (e.g., gaming, music, workouts) with automatic expiration through a lease-based system. Activities can be created, updated, and deleted, with support for flexible metadata and both system-generated and user-defined identifiers.
 
-This service is handled by the DysonNetwork.Pass, when using with the gateway, replace the `/api` with the `/pass`
+This service is handled by DysonNetwork.Passport. When using the gateway, replace `/api` with `/passport`.
 
 For hash-addressed presence artwork uploads and references, see `docs/PASSPORT_PRESENCE_ARTWORK.md`.
 The production gateway path for artwork resources is `/passport/presence/artworks`.
@@ -40,8 +40,11 @@ Retrieve presence activities for the authenticated user. Supports filtering, sea
 | `include_expired` | bool | `false` | Include expired activities in results |
 | `offset` | int | `0` | Number of records to skip (pagination) |
 | `take` | int | `20` | Maximum records to return (pagination) |
-| `query` | string? | — | Search keyword matched against `title`, `subtitle`, `caption`, and `manual_id` |
+| `query` | string? | — | Search keyword matched against `title`, `subtitle`, `caption`, `manual_id`, `provider`, `reference_id`, and exact normalized `queryable_terms` entries |
 | `type` | string? | — | Filter by presence type: `Unknown`, `Gaming`, `Music`, `Workout` |
+| `provider` | string? | — | Filter by upstream provider such as `steam` |
+| `reference_id` | string? | — | Filter by upstream object identifier |
+| `term` | string? | — | Filter by one normalized value from `queryable_terms` |
 
 **Behavior:**
 
@@ -55,6 +58,8 @@ Retrieve presence activities for the authenticated user. Supports filtering, sea
   {
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "type": "Gaming",
+    "provider": "steam",
+    "reference_id": "1245620",
     "manual_id": "game-session-1",
     "title": "Playing Cyberpunk 2077",
     "subtitle": "Night City Exploration",
@@ -67,6 +72,11 @@ Retrieve presence activities for the authenticated user. Supports filtering, sea
       "appName": "Cyberpunk 2077",
       "platform": "Steam"
     },
+    "queryable_terms": [
+      "steam",
+      "cyberpunk 2077",
+      "1245620"
+    ],
     "lease_minutes": 10,
     "lease_expires_at": "2024-01-15T14:30:00Z",
     "account_id": "user-guid",
@@ -92,6 +102,15 @@ GET /api/activities?query=cyberpunk
 # Filter active activities by type
 GET /api/activities?type=Gaming
 
+# Filter active activities by provider
+GET /api/activities?provider=steam
+
+# Filter active activities by provider object id
+GET /api/activities?provider=steam&reference_id=1245620
+
+# Filter active activities by normalized term
+GET /api/activities?term=elden%20ring
+
 # Combine search and type filter
 GET /api/activities?query=elden&type=Gaming&include_expired=true&take=10
 
@@ -115,7 +134,9 @@ Create a new presence activity with a configurable lease period.
 ```json
 {
   "type": "Gaming",
-  "manualId": "my-game-session",
+  "provider": "steam",
+  "reference_id": "1245620",
+  "manual_id": "my-game-session",
   "title": "Playing Cyberpunk 2077",
   "subtitle": "Night City Mission",
   "caption": "Currently exploring downtown",
@@ -125,7 +146,8 @@ Create a new presence activity with a configurable lease period.
     "difficulty": "Hard",
     "mods": ["mod1", "mod2"]
   },
-  "leaseMinutes": 15
+  "queryable_terms": ["steam", "cyberpunk 2077", "1245620"],
+  "lease_minutes": 15
 }
 ```
 
@@ -133,10 +155,13 @@ Create a new presence activity with a configurable lease period.
 
 **Field Details:**
 - `type`: PresenceType enum (Unknown, Gaming, Music, Workout)
-- `manualId`: Optional user-defined string identifier
+- `provider`: Optional stable upstream provider key
+- `reference_id`: Optional stable upstream object identifier
+- `manual_id`: Optional user-defined string identifier
 - `title`, `subtitle`, `caption`: Display strings (max 4096 chars each)
+- `queryable_terms`: Optional normalized query surface for lookups and filtering
 - `meta`: Optional `Dictionary<string, object>` for custom data
-- `leaseMinutes`: 1-60 minutes (default: 5)
+- `lease_minutes`: 1-60 minutes (default: 5)
 
 **Response Codes:**
 - `200 OK` - Activity created successfully
@@ -149,22 +174,23 @@ Create a new presence activity with a configurable lease period.
 
 Update an existing activity using either its GUID or ManualId. Only provided fields are updated.
 
-**Endpoint:** `PUT /api/activities`
+**Endpoint:** `PUT /api/activities/{id:guid}`
 
-**Query Parameters:** (one required)
-- `id` - System-generated GUID (string)
-- `manualId` - User-defined identifier (string)
+Updates by `manualId` are handled through `POST /api/activities` when the supplied `manualId` already exists.
 
 **Request Body:** (all fields optional)
 ```json
 {
   "title": "Updated: Playing Cyberpunk 2077",
+  "provider": "steam",
+  "reference_id": "1245620",
+  "queryable_terms": ["steam", "cyberpunk 2077", "1245620"],
   "meta": {
     "appName": "Cyberpunk 2077",
     "platform": "Steam",
     "newProperty": "updated data"
   },
-  "leaseMinutes": 20
+  "lease_minutes": 20
 }
 ```
 
@@ -172,20 +198,14 @@ Update an existing activity using either its GUID or ManualId. Only provided fie
 
 **Response Codes:**
 - `200 OK` - Activity updated successfully
-- `400 Bad Request` - Missing or invalid ID parameters
+- `400 Bad Request` - Invalid request data
 - `401 Unauthorized` - Invalid authentication
 - `404 Not Found` - Activity not found or doesn't belong to user
 
 **Example cURL:**
 ```bash
-# Update by ManualId
-curl -X PUT "/api/activities?manualId=my-game-session" \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"leaseMinutes": 20}'
-
 # Update by GUID
-curl -X PUT "/api/activities?id=550e8400-e29b-41d4-a716-446655440000" \
+curl -X PUT "/api/activities/550e8400-e29b-41d4-a716-446655440000" \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"title": "Updated Title"}'
@@ -229,6 +249,10 @@ curl -X DELETE "/api/activities?manualId=my-game-session" \
 **Endpoint:** `GET /api/activities/{accountId:guid}`
 
 For administrative or debugging purposes. Returns activities for the specified account ID, regardless of authentication.
+
+## Related Changes
+
+- See [Presence Queryable Fields](./PRESENCE_QUERYABLE_FIELDS.md) for the new `provider`, `reference_id`, `queryable_terms`, timeline deduplication, and 90-day retention cleanup behavior.
 
 ---
 

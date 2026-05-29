@@ -24,6 +24,8 @@ A `presence.friend` timeline event contains the `SnPresenceActivity` payload und
     "activity": {
       "id": "550e8400-e29b-41d4-a716-446655440000",
       "type": "Gaming",
+      "provider": "steam",
+      "reference_id": "1245620",
       "manual_id": "elden-ring-session",
       "title": "Elden Ring",
       "subtitle": "Level 72 — Leyndell, Royal Capital",
@@ -36,6 +38,11 @@ A `presence.friend` timeline event contains the `SnPresenceActivity` payload und
         "platform": "Steam",
         "achievements": 31
       },
+      "queryable_terms": [
+        "steam",
+        "elden ring",
+        "1245620"
+      ],
       "lease_minutes": 10,
       "lease_expires_at": "2026-05-26T14:30:00Z",
       "account_id": "a1b2c3d4-a1b2-c3d4-e5f6-a1b2c3d4e5f6",
@@ -92,9 +99,9 @@ When an activity is no longer active (expired or deleted), `is_active` is `false
 
 ## Per-User Per-Type Limits
 
-To avoid flooding the timeline, each friend contributes at most **3 activities per type** from the last 24 hours. Only non-deleted activities are included.
+To avoid flooding the timeline, each friend now contributes at most **1 latest activity per type** from the last 24 hours. Only non-deleted activities are included.
 
-Example: if a friend played 5 different games and listened to 10 songs in the last 24 hours, the timeline includes at most 3 gaming and 3 music events from that friend.
+Example: if a friend played 5 different games and listened to 10 songs in the last 24 hours, the timeline includes at most 1 gaming and 1 music event from that friend, using the newest `updated_at` for each type.
 
 ## Cursor Pagination
 
@@ -124,7 +131,7 @@ rpc ListFriendsActivities(DyListFriendsActivitiesRequest)
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `account_ids` | repeated string | required | Friend account IDs to fetch presence for |
-| `max_per_type` | int32 | 3 | Maximum activities per `(account, type)` pair |
+| `max_per_type` | int32 | 1 | Maximum activities per `(account, type)` pair |
 | `cursor` | Timestamp? | — | Pagination cursor (exclusive, `updated_at < cursor`) |
 | `take` | int32 | 20 | Total results to return |
 
@@ -146,6 +153,7 @@ timeline:presence:{account_id}:{cursor_ticks}:{take}
 ## Related Docs
 
 - [Presence Activity API](./PRESENCE_ACTIVITY_API.md) — REST API for managing presence activities
+- [Presence Queryable Fields](./PRESENCE_QUERYABLE_FIELDS.md) — queryable presence schema additions and retention behavior
 - [WebSocket Presence Broadcasts](./WEBSOCKET_PRESENCE_BROADCASTS.md) — Real-time push to friends on activity change
 - [Passport Presence Artwork](./PASSPORT_PRESENCE_ARTWORK.md) — Hash-addressed presence artwork uploads
 - [Account Timeline API](./ACCOUNT_TIMELINE_API.md) — Per-account timeline (status + activity)

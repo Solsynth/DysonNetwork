@@ -119,6 +119,11 @@ public class AppDatabase(
         modelBuilder.Entity<SnAccountRelationship>()
             .HasKey(r => new { FromAccountId = r.AccountId, ToAccountId = r.RelatedId });
 
+        modelBuilder.Entity<SnPresenceActivity>()
+            .HasIndex(e => new { e.AccountId, e.Provider, e.DeletedAt });
+        modelBuilder.Entity<SnPresenceActivity>()
+            .HasIndex(e => new { e.Provider, e.ReferenceId, e.DeletedAt });
+
         modelBuilder.Entity<SnPresenceArtwork>()
             .HasKey(a => a.Hash);
 
@@ -176,6 +181,8 @@ public class AppDatabase(
 
 public class AppDatabaseRecyclingJob(AppDatabase db, ILogger<AppDatabaseRecyclingJob> logger) : IJob
 {
+    private static readonly Duration PresenceActivityRetention = Duration.FromDays(90);
+
     public async Task Execute(IJobExecutionContext context)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -202,6 +209,11 @@ public class AppDatabaseRecyclingJob(AppDatabase db, ILogger<AppDatabaseRecyclin
             .Where(x => x.ValidTo <= now - Duration.FromMinutes(5))
             .ExecuteDeleteAsync();
         logger.LogDebug("Removed {Count} expired nearby presence tokens.", affectedRows);
+        affectedRows = await db.PresenceActivities
+            .Where(x => x.DeletedAt == null && x.LeaseExpiresAt <= now - PresenceActivityRetention)
+            .ExecuteDeleteAsync();
+        logger.LogDebug("Removed {Count} expired presence activities older than {RetentionDays} days.", affectedRows,
+            PresenceActivityRetention.TotalDays);
 
         logger.LogInformation("Deleting soft-deleted records...");
 

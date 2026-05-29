@@ -18,13 +18,16 @@ public class PresenceActivityController(
     /// <summary>
     /// Retrieves active (non-expired) presence activities for the authenticated user.
     /// Optionally includes expired activities if includeExpired is true.
-    /// Supports filtering by query (searches title, subtitle, caption, manualId) and type.
+    /// Supports filtering by queryable presence fields and type.
     /// </summary>
     /// <param name="includeExpired">Whether to include expired activities</param>
     /// <param name="offset">The number of activities to skip for pagination</param>
     /// <param name="take">The maximum number of activities to return</param>
-    /// <param name="query">Search keyword for title, subtitle, caption, or manualId</param>
+    /// <param name="query">Search keyword for title, subtitle, caption, manualId, provider, referenceId, or queryableTerms</param>
     /// <param name="type">Filter by presence activity type</param>
+    /// <param name="provider">Filter by upstream provider such as steam or spotify</param>
+    /// <param name="referenceId">Filter by upstream object identifier</param>
+    /// <param name="term">Filter by normalized queryable term</param>
     /// <returns>List of presence activities</returns>
     [HttpGet]
     [ProducesResponseType<List<SnPresenceActivity>>(StatusCodes.Status200OK)]
@@ -34,13 +37,20 @@ public class PresenceActivityController(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
         [FromQuery] string? query = null,
-        [FromQuery] PresenceType? type = null
+        [FromQuery] PresenceType? type = null,
+        [FromQuery] string? provider = null,
+        [FromQuery] string? referenceId = null,
+        [FromQuery] string? term = null
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        var hasFilters = !string.IsNullOrWhiteSpace(query) || type.HasValue;
+        var hasFilters = !string.IsNullOrWhiteSpace(query)
+            || type.HasValue
+            || !string.IsNullOrWhiteSpace(provider)
+            || !string.IsNullOrWhiteSpace(referenceId)
+            || !string.IsNullOrWhiteSpace(term);
 
         if (!includeExpired && !hasFilters)
         {
@@ -54,6 +64,9 @@ public class PresenceActivityController(
             take,
             query,
             type,
+            provider,
+            referenceId,
+            term,
             isActive: includeExpired ? null : true);
 
         Response.Headers["X-Total"] = total.ToString();
@@ -124,6 +137,8 @@ public class PresenceActivityController(
                 {
                     if (request.Type.HasValue)
                         activity.Type = request.Type.Value;
+                    activity.Provider = NormalizeProvider(request.Provider);
+                    activity.ReferenceId = NormalizeNullableField(request.ReferenceId);
                     activity.Title = request.Title;
                     activity.Subtitle = request.Subtitle;
                     activity.Caption = request.Caption;
@@ -131,6 +146,7 @@ public class PresenceActivityController(
                     activity.SmallImage = request.SmallImage;
                     activity.TitleUrl = request.TitleUrl;
                     activity.SubtitleUrl = request.SubtitleUrl;
+                    activity.QueryableTerms = NormalizeQueryableTerms(request.QueryableTerms);
                     activity.Meta = request.Meta;
                 },
                 request.LeaseMinutes
@@ -149,6 +165,8 @@ public class PresenceActivityController(
         {
             AccountId = currentUser.Id,
             Type = request.Type.Value,
+            Provider = NormalizeProvider(request.Provider),
+            ReferenceId = NormalizeNullableField(request.ReferenceId),
             ManualId = request.ManualId,
             Title = request.Title,
             Subtitle = request.Subtitle,
@@ -157,6 +175,7 @@ public class PresenceActivityController(
             SmallImage = request.SmallImage,
             TitleUrl = request.TitleUrl,
             SubtitleUrl = request.SubtitleUrl,
+            QueryableTerms = NormalizeQueryableTerms(request.QueryableTerms),
             Meta = request.Meta,
         };
 
@@ -208,6 +227,10 @@ public class PresenceActivityController(
             {
                 if (request.Type.HasValue)
                     activity.Type = request.Type.Value;
+                if (request.Provider != null)
+                    activity.Provider = NormalizeProvider(request.Provider);
+                if (request.ReferenceId != null)
+                    activity.ReferenceId = NormalizeNullableField(request.ReferenceId);
                 if (request.Title != null)
                     activity.Title = request.Title;
                 if (request.Subtitle != null)
@@ -220,6 +243,8 @@ public class PresenceActivityController(
                     activity.LargeImage = request.LargeImage;
                 if (request.SmallImage != null)
                     activity.SmallImage = request.SmallImage;
+                if (request.QueryableTerms != null)
+                    activity.QueryableTerms = NormalizeQueryableTerms(request.QueryableTerms);
                 if (request.Meta != null)
                     activity.Meta = request.Meta;
             },
@@ -280,6 +305,12 @@ public class PresenceActivityController(
         /// <summary>User-defined identifier for the activity (optional, for easy reference)</summary>
         public string? ManualId { get; set; }
 
+        /// <summary>Upstream provider identifier such as steam or spotify</summary>
+        public string? Provider { get; set; }
+
+        /// <summary>Upstream object identifier such as a game id or track id</summary>
+        public string? ReferenceId { get; set; }
+
         /// <summary>Main title of the activity</summary>
         public string? Title { get; set; }
 
@@ -301,10 +332,32 @@ public class PresenceActivityController(
         /// <summary>Subtitle URL</summary>
         public string? SubtitleUrl { get; set; }
 
+        /// <summary>Normalized query terms for structured lookup such as artists, albums, app names, or platforms</summary>
+        public string[]? QueryableTerms { get; set; }
+
         /// <summary>Extensible metadata dictionary for custom developer data</summary>
         public Dictionary<string, object>? Meta { get; set; }
 
         /// <summary>Lease duration in minutes (1-60, default: 5)</summary>
         public int LeaseMinutes { get; set; } = 5;
+    }
+
+    private static string? NormalizeNullableField(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static string? NormalizeProvider(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToLowerInvariant();
+    }
+
+    private static string[] NormalizeQueryableTerms(IEnumerable<string>? terms)
+    {
+        return (terms ?? [])
+            .Where(term => !string.IsNullOrWhiteSpace(term))
+            .Select(term => term.Trim().ToLowerInvariant())
+            .Distinct()
+            .ToArray();
     }
 }

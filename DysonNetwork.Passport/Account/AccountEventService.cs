@@ -192,6 +192,8 @@ public class AccountEventService(
     private static bool PresenceActivityContentEqual(SnPresenceActivity a, SnPresenceActivity b)
     {
         return a.Type == b.Type
+            && a.Provider == b.Provider
+            && a.ReferenceId == b.ReferenceId
             && a.ManualId == b.ManualId
             && a.Title == b.Title
             && a.Subtitle == b.Subtitle
@@ -200,6 +202,7 @@ public class AccountEventService(
             && a.SmallImage == b.SmallImage
             && a.TitleUrl == b.TitleUrl
             && a.SubtitleUrl == b.SubtitleUrl
+            && a.QueryableTerms.SequenceEqual(b.QueryableTerms)
             && JsonSerializer.Serialize(a.Meta, InfraObjectCoder.SerializerOptions)
                 == JsonSerializer.Serialize(b.Meta, InfraObjectCoder.SerializerOptions);
     }
@@ -211,6 +214,8 @@ public class AccountEventService(
             Id = activity.Id,
             AccountId = activity.AccountId,
             Type = activity.Type,
+            Provider = activity.Provider,
+            ReferenceId = activity.ReferenceId,
             ManualId = activity.ManualId,
             Title = activity.Title,
             Subtitle = activity.Subtitle,
@@ -219,6 +224,7 @@ public class AccountEventService(
             SmallImage = activity.SmallImage,
             TitleUrl = activity.TitleUrl,
             SubtitleUrl = activity.SubtitleUrl,
+            QueryableTerms = activity.QueryableTerms.ToArray(),
             Meta = activity.Meta is null ? null : new Dictionary<string, object>(activity.Meta),
             LeaseExpiresAt = activity.LeaseExpiresAt,
             DeletedAt = activity.DeletedAt,
@@ -1530,6 +1536,9 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         int take = 20,
         string? query = null,
         PresenceType? type = null,
+        string? provider = null,
+        string? referenceId = null,
+        string? term = null,
         bool? isActive = null
     )
     {
@@ -1538,16 +1547,38 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
 
         if (!string.IsNullOrWhiteSpace(query))
         {
+            var normalizedQuery = query.Trim().ToLowerInvariant();
             baseQuery = baseQuery.Where(e =>
                 (e.Title != null && e.Title.Contains(query))
                 || (e.Subtitle != null && e.Subtitle.Contains(query))
                 || (e.Caption != null && e.Caption.Contains(query))
-                || (e.ManualId != null && e.ManualId.Contains(query)));
+                || (e.ManualId != null && e.ManualId.Contains(query))
+                || (e.Provider != null && e.Provider.Contains(query))
+                || (e.ReferenceId != null && e.ReferenceId.Contains(query))
+                || e.QueryableTerms.Contains(normalizedQuery));
         }
 
         if (type.HasValue)
         {
             baseQuery = baseQuery.Where(e => e.Type == type.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(provider))
+        {
+            var normalizedProvider = provider.Trim();
+            baseQuery = baseQuery.Where(e => e.Provider == normalizedProvider);
+        }
+
+        if (!string.IsNullOrWhiteSpace(referenceId))
+        {
+            var normalizedReferenceId = referenceId.Trim();
+            baseQuery = baseQuery.Where(e => e.ReferenceId == normalizedReferenceId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            var normalizedTerm = term.Trim().ToLowerInvariant();
+            baseQuery = baseQuery.Where(e => e.QueryableTerms.Contains(normalizedTerm));
         }
 
         var now = SystemClock.Instance.GetCurrentInstant();
