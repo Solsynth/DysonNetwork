@@ -40,6 +40,7 @@ public class TimelineService(
     private static readonly TimeSpan BlockedIdsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan MutedIdsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan FriendPresenceCacheTtl = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan FriendStatusCacheTtl = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan UserRealmsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan RecentServedPostsCacheTtl = TimeSpan.FromHours(24);
     private static readonly TimeSpan SoftCursorCacheTtl = TimeSpan.FromMinutes(5);
@@ -227,10 +228,11 @@ public class TimelineService(
         await UpdateSoftCursorAsync(accountId);
 
         var postEvents = posts.Select(p => p.ToActivity()).ToList();
+        var statusEvents = await GetCachedFriendsStatuses(accountId, userFriends);
         var presenceAccountIds = new List<Guid>(userFriends) { accountId };
         var presenceEvents = await GetCachedFriendsPresence(accountId, presenceAccountIds, effectiveCursor, take);
 
-        var mergedEvents = MergeEventsByTime(postEvents, presenceEvents, take);
+        var mergedEvents = MergeEventsByTime(postEvents, presenceEvents, statusEvents, take);
 
         var interleaved = new List<SnTimelineEvent>();
         SnTimelineEvent? personalizedDiscovery = null;
@@ -2130,19 +2132,53 @@ public class TimelineService(
         return events;
     }
 
+    private async Task<List<SnTimelineEvent>> GetCachedFriendsStatuses(
+        Guid accountId,
+        List<Guid> friendIds
+    )
+    {
+        if (friendIds.Count == 0)
+            return [];
+
+        var cacheKey = $"timeline:status:{accountId}";
+        var cached = await cache.GetAsync<List<SnTimelineEvent>>(cacheKey);
+        if (cached is not null)
+            return cached;
+
+        var statuses = await remoteAccounts.GetAccountStatusBatch(friendIds);
+        var events = statuses.Values
+            .Where(ShouldIncludeFriendStatus)
+            .Select(status => new FriendStatusEvent(status).ToActivity())
+            .OrderByDescending(e => e.CreatedAt)
+            .ToList();
+
+        await cache.SetAsync(cacheKey, events, FriendStatusCacheTtl);
+        return events;
+    }
+
     private static List<SnTimelineEvent> MergeEventsByTime(
         List<SnTimelineEvent> postEvents,
         List<SnTimelineEvent> presenceEvents,
+        List<SnTimelineEvent> statusEvents,
         int take
     )
     {
         var merged = postEvents
             .Concat(presenceEvents)
+            .Concat(statusEvents)
             .OrderByDescending(e => e.CreatedAt)
             .Take(take)
             .ToList();
 
         return merged;
+    }
+
+    private static bool ShouldIncludeFriendStatus(SnAccountStatus status)
+    {
+        return status.IsCustomized
+            && status.Type != StatusType.Invisible
+            && status.DeletedAt == null
+            && status.ClearedAt == null;
     }
 
     private IQueryable<SnPost> BuildPostsQuery(

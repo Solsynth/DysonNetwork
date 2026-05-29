@@ -1,18 +1,21 @@
-# Timeline Friend Presence
+# Timeline Friend Social Events
 
-The timeline now mixes friends' presence activities alongside posts and discovery suggestions. Presence events appear chronologically in the authenticated feed, showing what friends have been playing, listening to, or working out to in the last 24 hours.
+The Sphere home timeline now mixes friend social events alongside posts and discovery suggestions.
 
-## Event Type
+These social events are only included for authenticated users on `GET /api/timeline`.
 
-```
-type: "presence.friend"
-```
+Current friend social event types:
 
-Presence events are only included for authenticated users. Anonymous (`/api/timeline` without auth) and `ListEventsForAnyone` paths do not include them.
+- `presence.friend`
+- `status.friend`
 
-## Event Shape
+Anonymous timeline requests do not include either of these event types.
 
-A `presence.friend` timeline event contains the `SnPresenceActivity` payload under `data.activity`:
+## `presence.friend`
+
+`presence.friend` shows a friend's current or recent presence activity such as gaming, music, or workout activity.
+
+### Event Shape
 
 ```json
 {
@@ -58,104 +61,115 @@ A `presence.friend` timeline event contains the `SnPresenceActivity` payload und
 }
 ```
 
-### Finished Activity Example
+### Inclusion Rules
 
-When an activity is no longer active (expired or deleted), `is_active` is `false` and `ended_at` is populated:
+- Only authenticated timelines include friend presence.
+- Presence is fetched from Passport over `DyPresenceService.ListFriendsActivities`.
+- Each friend contributes at most `1` latest activity per presence type.
+- The current user’s own presence may also be included through the same fetch path.
+
+## `status.friend`
+
+`status.friend` shows a friend's explicit account status update.
+
+This is based on friend statuses from Passport and is merged into the Sphere home timeline as another timeline event type.
+
+### Event Shape
 
 ```json
 {
-  "id": "660f9511-f30c-52e5-b827-557766551111",
-  "type": "presence.friend",
-  "resource_identifier": "presence:a1b2c3d4-a1b2-c3d4-e5f6-a1b2c3d4e5f6:660f9511-f30c-52e5-b827-557766551111",
+  "id": "0f1e2d3c-4b5a-6978-8091-a2b3c4d5e6f7",
+  "type": "status.friend",
+  "resource_identifier": "status:a1b2c3d4-a1b2-c3d4-e5f6-a1b2c3d4e5f6:0f1e2d3c-4b5a-6978-8091-a2b3c4d5e6f7",
+  "meta": {},
   "data": {
-    "activity": {
-      "id": "660f9511-f30c-52e5-b827-557766551111",
-      "type": "Music",
-      "title": "Blinding Lights",
-      "subtitle": "The Weeknd",
-      "caption": "After Hours",
-      "lease_minutes": 3,
-      "lease_expires_at": "2026-05-26T12:03:00Z",
+    "status": {
+      "id": "0f1e2d3c-4b5a-6978-8091-a2b3c4d5e6f7",
+      "attitude": "Neutral",
+      "is_online": true,
+      "is_idle": false,
+      "idle_since": null,
+      "is_customized": true,
+      "type": "Busy",
+      "label": "heads down",
+      "symbol": ":hammer_and_wrench:",
+      "meta": {},
+      "cleared_at": null,
+      "app_identifier": null,
+      "is_automated": false,
       "account_id": "a1b2c3d4-a1b2-c3d4-e5f6-a1b2c3d4e5f6",
-      "created_at": "2026-05-26T12:00:00Z",
-      "updated_at": "2026-05-26T12:00:00Z",
-      "is_active": false,
-      "ended_at": "2026-05-26T12:03:00Z"
+      "created_at": "2026-05-29T13:10:00Z",
+      "updated_at": "2026-05-29T13:10:00Z",
+      "deleted_at": null
     }
   },
-  "created_at": "2026-05-26T12:00:00Z",
-  "updated_at": "2026-05-26T12:00:00Z"
+  "created_at": "2026-05-29T13:10:00Z",
+  "updated_at": "2026-05-29T13:12:00Z"
 }
 ```
 
-## Presence Types
+### Inclusion Rules
 
-| Type | Enum Value | Description |
-|------|-----------|-------------|
-| `Unknown` | 0 | Unspecified or generic presence |
-| `Gaming` | 1 | Playing a game |
-| `Music` | 2 | Listening to music |
-| `Workout` | 3 | Working out / fitness |
+- Only authenticated timelines include friend statuses.
+- Statuses are fetched from Passport via the existing profile status batch gRPC.
+- Only explicit customized statuses are included.
+- Synthesized default statuses like plain `"Online"` or `"Offline"` are not included.
+- Invisible statuses are not included.
+- Cleared or deleted statuses are not included.
+- The event represents the friend's current explicit status state, not a historical stream of every prior status change.
 
-## Per-User Per-Type Limits
+## Ordering And Pagination
 
-To avoid flooding the timeline, each friend now contributes at most **1 latest activity per type** from the last 24 hours. Only non-deleted activities are included.
+Friend social events are merged with post events and then sorted by timeline event `created_at` descending.
 
-Example: if a friend played 5 different games and listened to 10 songs in the last 24 hours, the timeline includes at most 1 gaming and 1 music event from that friend, using the newest `updated_at` for each type.
+For friend presence:
 
-## Cursor Pagination
+- event `created_at` uses the activity `updated_at`
 
-Presence events are ordered by `created_at` (which equals the activity's `updated_at`) and merged with posts before cursor pagination. The timeline's `next_cursor` is computed from the `created_at` of the oldest non-empty item in the combined set.
+For friend statuses:
 
-Presence events on page 1 that have `is_active: true` represent activities currently in progress. When the user paginates to page 2, the cursor filters out events with timestamps >= `next_cursor`, including any presence events already shown on page 1.
+- event `created_at` uses status `updated_at` when available
+- otherwise it falls back to status `created_at`
 
-## gRPC Contract
+These social events participate in the same merged `next_cursor` behavior as posts and discovery items.
 
-The timeline fetches presence data from Passport via gRPC.
+## Feed Behavior
 
-### Service
+The authenticated Sphere home timeline currently mixes:
 
-```
-proto.DyPresenceService
-```
+- post events
+- discovery items
+- `presence.friend`
+- `status.friend`
 
-### RPC
+Friend social events are fetched from Passport, converted into `SnTimelineEvent` payloads, and merged chronologically into the final page.
 
-```
-rpc ListFriendsActivities(DyListFriendsActivitiesRequest)
-    returns (DyListFriendsActivitiesResponse) {}
-```
+They are not part of the post-ranking formula itself, but they do share the same merged pagination window in the `GET /api/timeline` response.
 
-### Request
+## Caching
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `account_ids` | repeated string | required | Friend account IDs to fetch presence for |
-| `max_per_type` | int32 | 1 | Maximum activities per `(account, type)` pair |
-| `cursor` | Timestamp? | — | Pagination cursor (exclusive, `updated_at < cursor`) |
-| `take` | int32 | 20 | Total results to return |
+Sphere caches social event fetches from Passport:
 
-### Response
+- presence cache key: `timeline:presence:{account_id}:{cursor_ticks}:{take}`
+- status cache key: `timeline:status:{account_id}`
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `activities` | repeated DyPresenceActivity | Flat list of activities sorted by `updated_at DESC` |
-| `next_cursor` | Timestamp? | Cursor for next page, null if fewer than `take` results |
+Both currently use a `30` second TTL.
 
-### Caching
+## Home Timeline vs Account Timeline
 
-The timeline caches gRPC responses per `(account_id, cursor, take)` with a **30-second TTL** in Redis. Cache key format:
+There are two different timeline concepts in the codebase:
 
-```
-timeline:presence:{account_id}:{cursor_ticks}:{take}
-```
+- Sphere home timeline: `GET /api/timeline`
+  Includes posts, discovery, `presence.friend`, and `status.friend`.
+- Passport account timeline: `GET /api/accounts/{name}/timeline`
+  Includes that account’s own `StatusChange` and `Activity` history items.
+
+The account timeline is profile history. The Sphere timeline is the app homepage feed.
 
 ## Related Docs
 
-- [Presence Activity API](./PRESENCE_ACTIVITY_API.md) — REST API for managing presence activities
-- [Presence Queryable Fields](./PRESENCE_QUERYABLE_FIELDS.md) — queryable presence schema additions and retention behavior
-- [WebSocket Presence Broadcasts](./WEBSOCKET_PRESENCE_BROADCASTS.md) — Real-time push to friends on activity change
-- [Passport Presence Artwork](./PASSPORT_PRESENCE_ARTWORK.md) — Hash-addressed presence artwork uploads
-- [Account Timeline API](./ACCOUNT_TIMELINE_API.md) — Per-account timeline (status + activity)
-- [Timeline Ranking](./TIMELINE_RANKING.md) — Post ranking and personalization
-- [Timeline Discovery](./TIMELINE_DISCOVERY.md) — Discovery event types
+- [Presence Activity API](./PRESENCE_ACTIVITY_API.md)
+- [Presence Queryable Fields](./PRESENCE_QUERYABLE_FIELDS.md)
+- [Account Timeline API](./ACCOUNT_TIMELINE_API.md)
+- [Timeline Ranking](./TIMELINE_RANKING.md)
+- [Timeline Discovery](./TIMELINE_DISCOVERY.md)

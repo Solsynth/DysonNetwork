@@ -2,11 +2,22 @@
 
 Retrieves a unified timeline of account events, including status changes and presence activities.
 
+This is the Passport per-account profile timeline. It is not the same as the Sphere home timeline at `GET /api/timeline`.
+
 ## Endpoint
 
 ```
 GET /api/accounts/{name}/timeline
 ```
+
+## Scope
+
+This endpoint returns timeline history for one account only.
+
+It is separate from the Sphere homepage timeline:
+
+- Passport account timeline: one account's own `StatusChange` and `Activity` history
+- Sphere home timeline: feed of posts plus friend social events like `presence.friend` and `status.friend`
 
 ## Parameters
 
@@ -26,44 +37,44 @@ GET /api/accounts/{name}/timeline
 
 ### Body
 
-Returns an array of `AccountTimelineItem` objects ordered by `createdAt` descending (newest first).
+Returns an array of `AccountTimelineItem` objects ordered by `created_at` descending (newest first).
 
 ```json
 [
   {
     "id": "uuid",
-    "createdAt": "2024-01-15T10:30:00Z",
-    "eventType": "StatusChange",
+    "created_at": "2024-01-15T10:30:00Z",
+    "event_type": "StatusChange",
     "status": {
       "id": "uuid",
       "attitude": "Neutral",
       "type": "Default",
       "label": "Online",
       "symbol": null,
-      "isAutomated": false,
-      "accountId": "uuid",
-      "createdAt": "2024-01-15T10:30:00Z"
+      "is_automated": false,
+      "account_id": "uuid",
+      "created_at": "2024-01-15T10:30:00Z"
     },
     "activity": null
   },
   {
     "id": "uuid",
-    "createdAt": "2024-01-15T09:15:00Z",
-    "eventType": "Activity",
+    "created_at": "2024-01-15T09:15:00Z",
+    "event_type": "Activity",
     "status": null,
     "activity": {
       "id": "uuid",
       "type": "Gaming",
-      "manualId": "elden-ring",
+      "manual_id": "elden-ring",
       "title": "Elden Ring",
       "subtitle": "Level 45",
       "caption": "Leyndell, Royal Capital",
-      "largeImage": null,
-      "smallImage": null,
-      "leaseMinutes": 5,
-      "leaseExpiresAt": "2024-01-15T09:20:00Z",
-      "accountId": "uuid",
-      "createdAt": "2024-01-15T09:15:00Z"
+      "large_image": null,
+      "small_image": null,
+      "lease_minutes": 5,
+      "lease_expires_at": "2024-01-15T09:20:00Z",
+      "account_id": "uuid",
+      "created_at": "2024-01-15T09:15:00Z"
     }
   }
 ]

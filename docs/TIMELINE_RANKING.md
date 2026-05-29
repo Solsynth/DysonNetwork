@@ -188,6 +188,13 @@ Example timeline event payload shape:
 }
 ```
 
+For authenticated users, `items` may include more than ranked post events. The current merged feed can also contain friend social events such as:
+
+- `presence.friend`
+- `status.friend`
+
+These non-post items are merged into the final response by event time after they are fetched from Passport. They do not participate in the post-ranking score formula.
+
 Query parameters:
 
 - `cursor`: ISO-8601 timestamp returned by the previous response
