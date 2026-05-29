@@ -2109,7 +2109,7 @@ public class TimelineService(
 
         var request = new DyListFriendsActivitiesRequest
         {
-            MaxPerType = 3,
+            MaxPerType = 1,
             Take = take,
         };
         request.AccountIds.AddRange(friendIds.Select(id => id.ToString()));
@@ -2121,6 +2121,8 @@ public class TimelineService(
 
         var events = response.Activities
             .Select(SnPresenceActivity.FromProtoValue)
+            .GroupBy(activity => (activity.AccountId, activity.Type))
+            .Select(group => group.OrderByDescending(activity => activity.UpdatedAt).First())
             .Select(activity => new FriendPresenceEvent(activity).ToActivity())
             .ToList();
 
