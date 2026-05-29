@@ -2121,10 +2121,23 @@ public class TimelineService(
 
         var response = await presence.ListFriendsActivitiesAsync(request);
 
-        var events = response.Activities
+        var activities = response.Activities
             .Select(SnPresenceActivity.FromProtoValue)
             .GroupBy(activity => (activity.AccountId, activity.Type))
             .Select(group => group.OrderByDescending(activity => activity.UpdatedAt).First())
+            .ToList();
+
+        var accountIds = activities.Select(a => a.AccountId).Distinct().ToList();
+        if (accountIds.Count > 0)
+        {
+            var accounts = (await remoteAccounts.GetAccountBatch(accountIds))
+                .ToDictionary(a => Guid.Parse(a.Id), a => a);
+            foreach (var activity in activities)
+                if (accounts.TryGetValue(activity.AccountId, out var account))
+                    activity.Account = SnAccount.FromProtoValue(account);
+        }
+
+        var events = activities
             .Select(activity => new FriendPresenceEvent(activity).ToActivity())
             .ToList();
 
@@ -2146,6 +2159,17 @@ public class TimelineService(
             return cached;
 
         var statuses = await remoteAccounts.GetAccountStatusBatch(friendIds);
+
+        var accountIds = statuses.Values.Select(s => s.AccountId).Distinct().ToList();
+        if (accountIds.Count > 0)
+        {
+            var accounts = (await remoteAccounts.GetAccountBatch(accountIds))
+                .ToDictionary(a => Guid.Parse(a.Id), a => a);
+            foreach (var status in statuses.Values)
+                if (accounts.TryGetValue(status.AccountId, out var account))
+                    status.Account = SnAccount.FromProtoValue(account);
+        }
+
         var events = statuses.Values
             .Where(ShouldIncludeFriendStatus)
             .Select(status => new FriendStatusEvent(status).ToActivity())
