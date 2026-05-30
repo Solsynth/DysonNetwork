@@ -1047,7 +1047,8 @@ public class ChatRoomController(
         Guid roomId,
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0,
-        [FromQuery] bool withStatus = false
+        [FromQuery] bool withStatus = false,
+        [FromQuery] string? accountName = null
     )
     {
         var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
@@ -1066,10 +1067,21 @@ public class ChatRoomController(
             if (member is null) return StatusCode(403, "You need to be a member to see members of private chat room.");
         }
 
-        // The query should include the unjoined ones, to show the invites.
         var query = db.ChatMembers
             .Where(m => m.ChatRoomId == roomId)
             .Where(m => m.LeaveAt == null);
+
+        HashSet<Guid>? matchedAccountIds = null;
+        if (!string.IsNullOrWhiteSpace(accountName))
+        {
+            var searchResults = await remoteAccountsHelper.SearchAccounts(accountName);
+            matchedAccountIds = searchResults
+                .Select(a => Guid.Parse(a.Id))
+                .ToHashSet();
+            if (matchedAccountIds.Count == 0)
+                return Ok(new List<SnChatMember>());
+            query = query.Where(m => matchedAccountIds.Contains(m.AccountId));
+        }
 
         if (withStatus)
         {
