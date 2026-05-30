@@ -160,7 +160,7 @@ public class PublisherService(
 
     private const string PublisherMembersCacheKey = "publishers:{0}:members";
 
-    public async Task<List<SnPublisherMember>> GetPublisherMembers(Guid publisherId)
+    public async Task<List<SnPublisherMember>> GetPublisherMembers(Guid publisherId, bool includePending = false)
     {
         var cacheKey = string.Format(PublisherMembersCacheKey, publisherId);
 
@@ -171,6 +171,7 @@ public class PublisherService(
 
         // If not in cache, fetch from a database
         members = await db.PublisherMembers
+            .Where(p => includePending || p.JoinedAt.HasValue)
             .Where(p => p.PublisherId == publisherId)
             .ToListAsync();
 
@@ -739,7 +740,7 @@ public class PublisherService(
         // Get posts stats: count, publisher id, exclude content
         var postsInPeriod = await db.Posts
             .Where(p => p.CreatedAt >= periodStart && p.CreatedAt <= periodEnd)
-            .Select(p => new { Id = p.Id, PublisherId = p.PublisherId, AwardedScore = p.AwardedScore })
+            .Select(p => new { p.Id, p.PublisherId, p.AwardedScore })
             .ToListAsync();
 
         // Get reactions for these posts
@@ -761,7 +762,7 @@ public class PublisherService(
                     PostCount = g.Count(), Upvotes = 0, Downvotes = 0, AwardScore = g.Sum(p => (double)p.AwardedScore)
                 });
 
-        foreach (var reaction in reactions.Where(r => r.Attitude == Shared.Models.PostReactionAttitude.Positive))
+        foreach (var reaction in reactions.Where(r => r.Attitude == PostReactionAttitude.Positive))
         {
             if (!postIdToPublisher.TryGetValue(reaction.PostId, out var pubId) ||
                 !publisherStats.TryGetValue(pubId, out var stat)) continue;
@@ -769,7 +770,7 @@ public class PublisherService(
             publisherStats[pubId] = stat;
         }
 
-        foreach (var reaction in reactions.Where(r => r.Attitude == Shared.Models.PostReactionAttitude.Negative))
+        foreach (var reaction in reactions.Where(r => r.Attitude == PostReactionAttitude.Negative))
         {
             if (!postIdToPublisher.TryGetValue(reaction.PostId, out var pubId) ||
                 !publisherStats.TryGetValue(pubId, out var stat)) continue;

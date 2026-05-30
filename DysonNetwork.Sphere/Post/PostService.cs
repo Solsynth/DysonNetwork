@@ -42,11 +42,9 @@ public partial class PostService(
 {
     private sealed class ThreadReplyCountResult
     {
-        [Column("ancestor_id")]
-        public Guid AncestorId { get; set; }
+        [Column("ancestor_id")] public Guid AncestorId { get; set; }
 
-        [Column("count")]
-        public int Count { get; set; }
+        [Column("count")] public int Count { get; set; }
     }
 
     private const int PositiveReactionWeight = 2;
@@ -642,15 +640,15 @@ public partial class PostService(
     )
     {
         const string sql = """
-            INSERT INTO post_interest_profiles (id, account_id, kind, reference_id, score, interaction_count, last_interacted_at, last_signal_type, created_at, updated_at)
-            VALUES (@Id, @AccountId, @Kind, @ReferenceId, @Score, @InteractionCount, @LastInteractedAt, @LastSignalType, @CreatedAt, @UpdatedAt)
-            ON CONFLICT (account_id, kind, reference_id) DO UPDATE SET
-                score = EXCLUDED.score,
-                interaction_count = EXCLUDED.interaction_count,
-                last_interacted_at = EXCLUDED.last_interacted_at,
-                last_signal_type = EXCLUDED.last_signal_type,
-                updated_at = EXCLUDED.updated_at
-            """;
+                           INSERT INTO post_interest_profiles (id, account_id, kind, reference_id, score, interaction_count, last_interacted_at, last_signal_type, created_at, updated_at)
+                           VALUES (@Id, @AccountId, @Kind, @ReferenceId, @Score, @InteractionCount, @LastInteractedAt, @LastSignalType, @CreatedAt, @UpdatedAt)
+                           ON CONFLICT (account_id, kind, reference_id) DO UPDATE SET
+                               score = EXCLUDED.score,
+                               interaction_count = EXCLUDED.interaction_count,
+                               last_interacted_at = EXCLUDED.last_interacted_at,
+                               last_signal_type = EXCLUDED.last_signal_type,
+                               updated_at = EXCLUDED.updated_at
+                           """;
         await db.Database.ExecuteSqlRawAsync(
             sql,
             new NpgsqlParameter("@Id", profile.Id),
@@ -1283,6 +1281,7 @@ public partial class PostService(
                     {
                         filteredUserIds.Add(userId);
                     }
+
                     continue;
                 }
                 default:
@@ -1938,8 +1937,8 @@ public partial class PostService(
         return
             Uri.TryCreate(url, UriKind.Absolute, out var uri)
             && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
-            ? uri.ToString()
-            : null;
+                ? uri.ToString()
+                : null;
     }
 
     private async Task<SnPost> PreviewPostLinkAsync(SnPost item)
@@ -2285,12 +2284,14 @@ public partial class PostService(
                     )
                     .FirstOrDefaultAsync();
             }
+
             if (accountPublisher == null)
             {
                 accountPublisher = await db
                     .Publishers.Where(p => p.Members.Any(m => m.AccountId == accountId))
                     .FirstOrDefaultAsync();
             }
+
             var accountActor = accountPublisher is null
                 ? null
                 : await objFactory.GetLocalActorAsync(accountPublisher.Id);
@@ -2378,7 +2379,7 @@ public partial class PostService(
             using var scope = factory.CreateScope();
             var pub = scope.ServiceProvider.GetRequiredService<PublisherService>();
             var nty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
-            var accounts =
+            var accountsScoped =
                 scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
             try
             {
@@ -2387,7 +2388,7 @@ public partial class PostService(
                 var members = await pub.GetPublisherMembers(post.PublisherId.Value);
                 var queryRequest = new DyGetAccountBatchRequest();
                 queryRequest.Id.AddRange(members.Select(m => m.AccountId.ToString()));
-                var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
+                var queryResponse = await accountsScoped.GetAccountBatchAsync(queryRequest);
                 foreach (var member in queryResponse.Accounts)
                 {
                     if (member is null)
@@ -2749,9 +2750,9 @@ public partial class PostService(
         {
             // Anonymous user can only view public posts that are published
             return post.DraftedAt is null
-                && post.PublishedAt != null
-                && now >= post.PublishedAt
-                && post.Visibility == PostVisibility.Public;
+                   && post.PublishedAt != null
+                   && now >= post.PublishedAt
+                   && post.Visibility == PostVisibility.Public;
         }
 
         // Check publication status - either published or user is member
@@ -2769,8 +2770,8 @@ public partial class PostService(
             post.Visibility == PostVisibility.Friends
             && !(
                 post.Publisher is not null
-                    && post.Publisher.AccountId.HasValue
-                    && userFriends.Contains(post.Publisher.AccountId.Value)
+                && post.Publisher.AccountId.HasValue
+                && userFriends.Contains(post.Publisher.AccountId.Value)
                 || isMember
             )
         )
@@ -2913,12 +2914,12 @@ public partial class PostService(
                 {
                     PostId = postId,
                     Count = (reactionScores.GetValueOrDefault(postId, 0))
-                        + (repliesCounts.GetValueOrDefault(postId, 0))
-                        + (
-                            awardsScores.TryGetValue(postId, out var awardScore)
-                                ? (int)(awardScore / 10)
-                                : 0
-                        ),
+                            + (repliesCounts.GetValueOrDefault(postId, 0))
+                            + (
+                                awardsScores.TryGetValue(postId, out var awardScore)
+                                    ? (int)(awardScore / 10)
+                                    : 0
+                            ),
                 })
                 .OrderByDescending(e => e.Count)
                 .Take(5)
@@ -3232,6 +3233,7 @@ public static class PostQueryExtensions
                     !(e.PublisherId.HasValue && gatekeptPublisherIds.Contains(e.PublisherId.Value))
                 );
             }
+
             return source
                 .Where(e => e.DraftedAt == null)
                 .Where(e => e.PublishedAt != null && now >= e.PublishedAt)

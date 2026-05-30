@@ -70,8 +70,8 @@ public class PublisherController(
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var members = await db
-            .PublisherMembers.Where(m => m.AccountId == accountId)
+        var members = await db.PublisherMembers
+            .Where(m => m.AccountId == accountId)
             .Where(m => m.JoinedAt == null)
             .Include(e => e.Publisher)
             .ToListAsync();
