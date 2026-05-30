@@ -12,7 +12,6 @@ namespace DysonNetwork.Sphere.Publisher;
 public class PublisherSubscriptionService(
     AppDatabase db,
     Post.PostService ps,
-    PublisherService pub,
     ILocalizationService localizer,
     ICacheService cache,
     DyRingService.DyRingServiceClient pusher,
@@ -85,25 +84,18 @@ public class PublisherSubscriptionService(
             return 0;
         if (post.RepliedPostId is not null)
             return 0;
-        if (post.Visibility != Shared.Models.PostVisibility.Public && post.Visibility != Shared.Models.PostVisibility.SubscriberOnly && post.Visibility != Shared.Models.PostVisibility.CloseFriendsOnly)
+        if (post.Visibility != PostVisibility.Public && post.Visibility != PostVisibility.SubscriberOnly && post.Visibility != PostVisibility.CloseFriendsOnly)
             return 0;
         if (post.Publisher.IsShadowbanned)
             return 0;
 
-        var postsRequireFollow = await pub.HasPostsRequireFollowFlag(post.PublisherId.Value);
-        if (postsRequireFollow || post.Visibility == Shared.Models.PostVisibility.SubscriberOnly)
-        {
-            return await NotifyFollowersPost(post);
-        }
-
-        if (post.Visibility == Shared.Models.PostVisibility.CloseFriendsOnly)
-        {
+        if (post.Visibility == PostVisibility.CloseFriendsOnly)
             return await NotifyCloseFriendsPost(post);
-        }
 
         // Gather subscribers
-        var subscribers = await db
-            .PublisherSubscriptions.Where(p => p.PublisherId == post.PublisherId)
+        var subscribers = await db.PublisherSubscriptions
+            .Where(p => !p.EndedAt.HasValue)
+            .Where(p => p.PublisherId == post.PublisherId)
             .ToListAsync();
 
         List<SnPostCategorySubscription> topicSubscribers = [];
@@ -206,73 +198,6 @@ public class PublisherSubscriptionService(
                 // Log the error but continue with other notifications
                 // We don't want one failed notification to stop the others
             }
-        }
-
-        return notifiedCount;
-    }
-
-    private async Task<int> NotifyFollowersPost(SnPost post)
-    {
-        var followers = await db
-            .PublisherFollowRequests.Where(r =>
-                r.PublisherId == post.PublisherId && r.State == FollowRequestState.Accepted
-            )
-            .ToListAsync();
-        if (followers.Count == 0)
-            return 0;
-
-        var requestAccountIds = followers.Select(x => x.AccountId.ToString()).ToList();
-
-        var queryRequest = new DyGetAccountBatchRequest();
-        queryRequest.Id.AddRange(requestAccountIds.Distinct());
-        var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
-
-        // Filter out blocked and muted accounts
-        if (post.Publisher?.AccountId.HasValue == true)
-        {
-            var blockedIds = await remoteAccounts.ListAllBlockedAccountIds(post.Publisher.AccountId.Value);
-            var mutedIds = await remoteAccounts.ListMutedAccountIds(post.Publisher.AccountId.Value);
-            var hiddenIds = blockedIds.Concat(mutedIds).ToHashSet();
-            if (hiddenIds.Count > 0)
-            {
-                var filtered = queryResponse.Accounts.Where(a => !hiddenIds.Contains(Guid.Parse(a.Id))).ToList();
-                queryResponse.Accounts.Clear();
-                queryResponse.Accounts.AddRange(filtered);
-            }
-        }
-
-        var notifiedCount = 0;
-        foreach (var target in queryResponse.Accounts.GroupBy(x => x.Language))
-        {
-            try
-            {
-                var (title, message) = ps.ChopPostForNotification(post, target.Key);
-
-                var notification = ps.BuildPostNotification(
-                    locale: target.Key,
-                    topic: "posts.new",
-                    title: localizer.Get(
-                        "postSubscriptionTitle",
-                        locale: target.Key,
-                        args: new { publisher = post.Publisher!.Nick }
-                    ),
-                    body: message,
-                    post: post,
-                    extraMeta: new Dictionary<string, object?>
-                    {
-                        ["notification_type"] = "subscription",
-                        ["require_follow"] = true,
-                    }
-                );
-                var request = new DySendPushNotificationToUsersRequest
-                {
-                    Notification = notification,
-                };
-                request.UserIds.AddRange(target.Select(x => x.Id.ToString()));
-                await pusher.SendPushNotificationToUsersAsync(request);
-                notifiedCount++;
-            }
-            catch (Exception) { }
         }
 
         return notifiedCount;

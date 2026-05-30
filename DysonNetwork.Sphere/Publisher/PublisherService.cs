@@ -146,6 +146,7 @@ public class PublisherService(
         // If not in cache, fetch from a database
         var publishersId = await db.PublisherSubscriptions
             .Where(p => p.AccountId == userId)
+            .Where(p => !p.EndedAt.HasValue)
             .Select(p => p.PublisherId)
             .ToListAsync();
         publishers = await db.Publishers

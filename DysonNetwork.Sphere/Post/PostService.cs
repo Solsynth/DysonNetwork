@@ -2520,6 +2520,7 @@ public partial class PostService(
     /// </summary>
     /// <param name="postId">The ID of the post to mark as viewed</param>
     /// <param name="viewerId">Optional viewer ID for unique view counting (anonymous if null)</param>
+    /// <param name="isDetailView">When using with detail view, the interest will increase. It should be set to true only in the GET with post id situation</param>
     /// <returns>Task representing the asynchronous operation</returns>
     public async Task IncreaseViewCount(
         Guid postId,
