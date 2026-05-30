@@ -46,7 +46,7 @@ public class PresenceServiceGrpc(
             .ToListAsync(context.CancellationToken);
 
         var limitedActivities = allActivities
-            .GroupBy(e => (e.AccountId, e.Type))
+            .GroupBy(e => e.Type)
             .SelectMany(g => g.Take(maxPerType))
             .OrderByDescending(e => e.UpdatedAt)
             .Take(take)

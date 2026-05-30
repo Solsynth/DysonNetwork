@@ -2123,8 +2123,6 @@ public class TimelineService(
 
         var activities = response.Activities
             .Select(SnPresenceActivity.FromProtoValue)
-            .GroupBy(activity => (activity.AccountId, activity.Type))
-            .Select(group => group.OrderByDescending(activity => activity.UpdatedAt).First())
             .ToList();
 
         var accountIds = activities.Select(a => a.AccountId).Distinct().ToList();
