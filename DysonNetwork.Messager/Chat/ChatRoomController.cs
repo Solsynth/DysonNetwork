@@ -20,6 +20,7 @@ public class ChatRoomController(
     AppDatabase db,
     ChatRoomService crs,
     ChatService cs,
+    ChatGroupService cgs,
     RemoteRealmService rs,
     DyProfileService.DyProfileServiceClient accounts,
     DyFileService.DyFileServiceClient files,
@@ -50,6 +51,7 @@ public class ChatRoomController(
     {
         public List<ChatRoomSyncChange> Changes { get; set; } = [];
         public List<ChatRoomSummarySyncChange> Summaries { get; set; } = [];
+        public List<SnChatGroup>? Groups { get; set; }
         public Instant CurrentTimestamp { get; set; }
         public int TotalCount { get; set; }
         public int SummaryTotalCount { get; set; }
@@ -94,7 +96,7 @@ public class ChatRoomController(
 
     [HttpGet]
     [Authorize]
-    public async Task<ActionResult<List<SnChatRoom>>> ListJoinedChatRooms()
+    public async Task<ActionResult> ListJoinedChatRooms()
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
@@ -110,7 +112,9 @@ public class ChatRoomController(
         chatRooms = await crs.LoadDirectMessageMembers(chatRooms, accountId);
         chatRooms = await crs.SortChatRoomByLastMessage(chatRooms);
 
-        return Ok(chatRooms);
+        var groups = await cgs.ListGroupsAsync(accountId);
+
+        return Ok(new { rooms = chatRooms, groups });
     }
 
     [HttpPost("rooms/sync")]
@@ -308,6 +312,7 @@ public class ChatRoomController(
         {
             Changes = changes,
             Summaries = summaries,
+            Groups = await cgs.ListGroupsAsync(accountId),
             CurrentTimestamp = latestTimestamp,
             TotalCount = changes.Count,
             SummaryTotalCount = summaries.Count
@@ -1722,5 +1727,86 @@ public class ChatRoomController(
                 }
             }
         );
+    }
+
+    public class CreateGroupRequest
+    {
+        [Required]
+        [MaxLength(256)]
+        public string Name { get; set; } = null!;
+        [MaxLength(32)] public string? Color { get; set; }
+        [MaxLength(64)] public string? Icon { get; set; }
+        public int? Order { get; set; }
+    }
+
+    public class UpdateGroupRequest
+    {
+        [MaxLength(256)] public string? Name { get; set; }
+        [MaxLength(32)] public string? Color { get; set; }
+        [MaxLength(64)] public string? Icon { get; set; }
+        public int? Order { get; set; }
+    }
+
+    public class MoveToGroupRequest
+    {
+        public Guid? GroupId { get; set; }
+    }
+
+    [HttpGet("groups")]
+    [Authorize]
+    public async Task<ActionResult<List<SnChatGroup>>> ListGroups()
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+        var groups = await cgs.ListGroupsAsync(accountId);
+        return Ok(groups);
+    }
+
+    [HttpPost("groups")]
+    [Authorize]
+    public async Task<ActionResult<SnChatGroup>> CreateGroup([FromBody] CreateGroupRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+        var group = await cgs.CreateGroupAsync(accountId, request.Name, request.Color, request.Icon, request.Order);
+        return Ok(group);
+    }
+
+    [HttpPatch("groups/{groupId:guid}")]
+    [Authorize]
+    public async Task<ActionResult<SnChatGroup>> UpdateGroup(Guid groupId, [FromBody] UpdateGroupRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+        var group = await cgs.UpdateGroupAsync(groupId, accountId, request.Name, request.Color, request.Icon, request.Order);
+        if (group is null) return NotFound();
+        return Ok(group);
+    }
+
+    [HttpDelete("groups/{groupId:guid}")]
+    [Authorize]
+    public async Task<ActionResult> DeleteGroup(Guid groupId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+        var deleted = await cgs.DeleteGroupAsync(groupId, accountId);
+        if (!deleted) return NotFound();
+        return Ok();
+    }
+
+    [HttpPatch("rooms/{roomId:guid}/group")]
+    [Authorize]
+    public async Task<ActionResult> MoveToGroup(Guid roomId, [FromBody] MoveToGroupRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+        var moved = await cgs.MoveToGroupAsync(accountId, roomId, request.GroupId);
+        if (!moved) return BadRequest("Failed to move the room to the specified group.");
+        return Ok();
     }
 }

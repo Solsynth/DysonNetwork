@@ -17,6 +17,7 @@ public class AppDatabase(
 {
     public DbSet<SnChatRoom> ChatRooms { get; set; } = null!;
     public DbSet<SnChatMember> ChatMembers { get; set; } = null!;
+    public DbSet<SnChatGroup> ChatGroups { get; set; } = null!;
     public DbSet<SnChatMessage> ChatMessages { get; set; } = null!;
     public DbSet<SnRealtimeCall> ChatRealtimeCall { get; set; } = null!;
     public DbSet<SnChatReaction> ChatReactions { get; set; } = null!;
@@ -99,6 +100,14 @@ public class AppDatabase(
             .IsUnique();
         modelBuilder.Entity<SnChatMessagePin>()
             .HasIndex(p => new { p.ChatRoomId, p.ExpiresAt });
+
+        modelBuilder.Entity<SnChatGroup>()
+            .HasIndex(g => new { g.AccountId, g.Name });
+        modelBuilder.Entity<SnChatMember>()
+            .HasOne(m => m.ChatGroup)
+            .WithMany()
+            .HasForeignKey(m => m.ChatGroupId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.ApplySoftDeleteFilters();
     }

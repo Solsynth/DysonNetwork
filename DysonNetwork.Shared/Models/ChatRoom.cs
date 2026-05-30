@@ -101,6 +101,9 @@ public class SnChatMember : ModelBase
     [NotMapped] public double? RealmLevelingProgress { get; set; }
     [NotMapped] public SnRealmLabel? RealmLabel { get; set; }
 
+    public Guid? ChatGroupId { get; set; }
+    [NotMapped] public SnChatGroup? ChatGroup { get; set; }
+
     public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
     public Instant? LastReadAt { get; set; }
     public Instant? JoinedAt { get; set; }
@@ -131,6 +134,29 @@ public class SnChatMember : ModelBase
     public ChatTimeoutCause? TimeoutCause { get; set; }
 }
 
+public class SnChatGroup : ModelBase, IIdentifiedResource
+{
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
+
+    [MaxLength(256)]
+    public string Name { get; set; } = null!;
+
+    [MaxLength(32)]
+    public string? Color { get; set; }
+
+    [MaxLength(64)]
+    public string? Icon { get; set; }
+
+    public int Order { get; set; }
+
+    [NotMapped]
+    [JsonPropertyName("room_ids")]
+    public List<Guid> RoomIds { get; set; } = [];
+
+    public string ResourceIdentifier => $"chatgroup:{Id}";
+}
+
 public class ChatMemberTransmissionObject : ModelBase
 {
     public Guid Id { get; set; }
@@ -152,6 +178,9 @@ public class ChatMemberTransmissionObject : ModelBase
     public ChatMemberNotify Notify { get; set; } = ChatMemberNotify.All;
     public Instant? JoinedAt { get; set; }
     public Instant? LeaveAt { get; set; }
+
+    public Guid? ChatGroupId { get; set; }
+    [NotMapped] public SnChatGroup? ChatGroup { get; set; }
 
     public Guid? InvitedById { get; set; }
     [JsonIgnore]
@@ -179,6 +208,8 @@ public class ChatMemberTransmissionObject : ModelBase
             Notify = member.Notify,
             JoinedAt = member.JoinedAt,
             LeaveAt = member.LeaveAt,
+            ChatGroupId = member.ChatGroupId,
+            ChatGroup = member.ChatGroup,
             BreakUntil = member.BreakUntil,
             TimeoutUntil = member.TimeoutUntil,
             TimeoutCause = member.TimeoutCause,
