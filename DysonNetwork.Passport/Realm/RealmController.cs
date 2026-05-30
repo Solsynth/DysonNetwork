@@ -22,6 +22,7 @@ public class RealmController(
     RealmQuotaService quotaService,
     AccountService accounts,
     DyFileService.DyFileServiceClient files,
+    DyAccountService.DyAccountServiceClient accountGrpc,
     ActionLogService als,
     RelationshipService rels,
     AccountEventService accountEvents,
@@ -274,7 +275,9 @@ public class RealmController(
         string slug,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
-        [FromQuery] bool withStatus = false
+        [FromQuery] bool withStatus = false,
+        [FromQuery] string? accountName = null,
+        [FromQuery] Guid? labelId = null
     )
     {
         var realm = await db.Realms
@@ -289,11 +292,27 @@ public class RealmController(
                 return StatusCode(403, "You must be a member to view this realm's members.");
         }
 
-        // The query should include the unjoined ones, to show the invites.
         var query = db.RealmMembers
             .Include(m => m.Label)
             .Where(m => m.RealmId == realm.Id)
             .Where(m => m.LeaveAt == null);
+
+        if (labelId.HasValue)
+            query = query.Where(m => m.LabelId == labelId.Value);
+
+        HashSet<Guid>? matchedAccountIds = null;
+        if (!string.IsNullOrWhiteSpace(accountName))
+        {
+            var searchResult = await accountGrpc.SearchAccountAsync(
+                new DySearchAccountRequest { Query = accountName }
+            );
+            matchedAccountIds = searchResult.Accounts
+                .Select(a => Guid.Parse(a.Id))
+                .ToHashSet();
+            if (matchedAccountIds.Count == 0)
+                return Ok(new List<SnRealmMember>());
+            query = query.Where(m => matchedAccountIds.Contains(m.AccountId));
+        }
 
         if (withStatus)
         {
