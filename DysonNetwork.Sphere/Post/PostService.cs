@@ -2652,6 +2652,7 @@ public partial class PostService(
         }
 
         await ps.LoadIndividualPublisherAccounts(publishers.Values);
+        await ps.HydratePublisherRealmIdentity(publishers.Values);
 
         return posts;
     }

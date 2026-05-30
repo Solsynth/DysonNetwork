@@ -59,6 +59,13 @@ public class SnPublisher : ModelBase, IIdentifiedResource
     [NotMapped] public SnRealm? Realm { get; set; }
     [NotMapped] public SnAccount? Account { get; set; }
 
+    [NotMapped] public string? RealmNick { get; set; }
+    [NotMapped] public string? RealmBio { get; set; }
+    [NotMapped] public int? RealmExperience { get; set; }
+    [NotMapped] public int? RealmLevel { get; set; }
+    [NotMapped] public double? RealmLevelingProgress { get; set; }
+    [NotMapped] public SnRealmLabel? RealmLabel { get; set; }
+
     public PublisherShadowbanReason? ShadowbanReason { get; set; }
     public Instant? ShadowbannedAt { get; set; }
 

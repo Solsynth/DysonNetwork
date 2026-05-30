@@ -674,6 +674,42 @@ public class PublisherService(
         }).ToList();
     }
 
+    public async Task<List<SnPublisher>> HydratePublisherRealmIdentity(ICollection<SnPublisher> publishers)
+    {
+        var hydratedPublishers = publishers.ToList();
+        var placeholders = hydratedPublishers
+            .Where(p => p is { RealmId: not null, AccountId: not null, Type: PublisherType.Individual })
+            .Select(p => new SnRealmMember
+            {
+                RealmId = p.RealmId!.Value,
+                AccountId = p.AccountId!.Value
+            })
+            .DistinctBy(m => m.AccountId)
+            .ToList();
+
+        if (placeholders.Count == 0) return hydratedPublishers;
+
+        var realmMembers = await remoteRealms.LoadMemberAccounts(placeholders);
+        var realmMap = realmMembers
+            .GroupBy(m => m.AccountId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        foreach (var publisher in hydratedPublishers)
+        {
+            if (publisher.AccountId is null) continue;
+            if (!realmMap.TryGetValue(publisher.AccountId.Value, out var realmMember)) continue;
+
+            publisher.RealmNick = realmMember.Nick;
+            publisher.RealmBio = realmMember.Bio;
+            publisher.RealmExperience = realmMember.Experience;
+            publisher.RealmLevel = realmMember.Level;
+            publisher.RealmLevelingProgress = realmMember.LevelingProgress;
+            publisher.RealmLabel = realmMember.Label;
+        }
+
+        return hydratedPublishers;
+    }
+
     public class PublisherRewardPreview
     {
         public int Experience { get; set; }
