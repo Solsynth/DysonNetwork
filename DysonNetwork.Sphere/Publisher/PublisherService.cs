@@ -676,23 +676,49 @@ public class PublisherService(
 
     public async Task<List<SnPublisher>> HydratePublisherRealmIdentity(ICollection<SnPublisher> publishers)
     {
+        return await HydratePublisherRealmIdentity(publishers, null);
+    }
+
+    public async Task<List<SnPublisher>> HydratePublisherRealmIdentity(
+        ICollection<SnPublisher> publishers,
+        ICollection<SnPost>? posts)
+    {
         var hydratedPublishers = publishers.ToList();
-        var placeholders = hydratedPublishers
-            .Where(p => p is { RealmId: not null, AccountId: not null, Type: PublisherType.Individual })
-            .Select(p => new SnRealmMember
+
+        // Build (accountId, realmId) pairs from posts that have a RealmId.
+        // This ensures we use the post's realm context, not the publisher's.
+        var accountRealmPairs = new Dictionary<Guid, Guid>(); // accountId -> realmId
+        if (posts is not null)
+        {
+            foreach (var post in posts.Where(p => p.RealmId.HasValue))
             {
-                RealmId = p.RealmId!.Value,
-                AccountId = p.AccountId!.Value
-            })
-            .DistinctBy(m => m.AccountId)
+                var publisher = post.Publisher;
+                if (publisher?.AccountId is null || publisher.Type != PublisherType.Individual)
+                    continue;
+                if (!accountRealmPairs.ContainsKey(publisher.AccountId.Value))
+                    accountRealmPairs[publisher.AccountId.Value] = post.RealmId!.Value;
+            }
+        }
+
+        // Fallback: if no posts provided, use publisher's own RealmId
+        if (accountRealmPairs.Count == 0)
+        {
+            foreach (var p in hydratedPublishers.Where(p =>
+                p is { RealmId: not null, AccountId: not null, Type: PublisherType.Individual }))
+            {
+                if (!accountRealmPairs.ContainsKey(p.AccountId!.Value))
+                    accountRealmPairs[p.AccountId.Value] = p.RealmId!.Value;
+            }
+        }
+
+        if (accountRealmPairs.Count == 0) return hydratedPublishers;
+
+        var placeholders = accountRealmPairs
+            .Select(kv => new SnRealmMember { RealmId = kv.Value, AccountId = kv.Key })
             .ToList();
-
-        if (placeholders.Count == 0) return hydratedPublishers;
-
         var realmMembers = await remoteRealms.LoadMemberAccounts(placeholders);
         var realmMap = realmMembers
-            .GroupBy(m => m.AccountId)
-            .ToDictionary(g => g.Key, g => g.First());
+            .ToDictionary(m => m.AccountId, m => m);
 
         foreach (var publisher in hydratedPublishers)
         {
