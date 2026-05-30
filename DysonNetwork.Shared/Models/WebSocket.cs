@@ -13,6 +13,7 @@ public abstract class WebSocketPacketType
     public const string MessageReactionRemoved = "messages.reaction.removed";
     public const string MessagePinned = "messages.pinned";
     public const string MessageUnpinned = "messages.unpinned";
+    public const string MessageRead = "messages.read";
     public const string CallParticipantsUpdate = "call.participants.update";
     public const string ProgressionCompleted = "progression.completed";
     public const string AccountStatusUpdated = "account.status.updated";

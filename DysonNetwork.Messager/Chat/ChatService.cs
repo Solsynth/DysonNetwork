@@ -1732,6 +1732,23 @@ public partial class ChatService(
         await db.SaveChangesAsync();
     }
 
+    public async Task ReadAllChatRoomsAsync(Guid userId)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var members = await db
+            .ChatMembers.Where(m =>
+                m.AccountId == userId
+                && m.JoinedAt != null
+                && m.LeaveAt == null
+            )
+            .ToListAsync();
+
+        foreach (var member in members)
+            member.LastReadAt = now;
+
+        await db.SaveChangesAsync();
+    }
+
     public async Task<int> CountUnreadMessage(Guid userId, Guid chatRoomId)
     {
         var member = await db

@@ -180,6 +180,18 @@ public partial class ChatController(
         return Ok(totalUnreadCount);
     }
 
+    [HttpPost("read-all")]
+    [Authorize]
+    public async Task<ActionResult> MarkAllAsRead()
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        await cs.ReadAllChatRoomsAsync(accountId);
+
+        return Ok();
+    }
+
     [HttpGet("{roomId:guid}/subscriptions")]
     [Authorize]
     public async Task<ActionResult<List<ChatRoomService.RoomSubscriptionEntry>>> GetRoomSubscriptions(Guid roomId)
