@@ -49,6 +49,10 @@ public class PublisherController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
+        var defaultPublisherId = await db.PublishingSettings
+            .Where(s => s.AccountId == accountId)
+            .Select(s => s.DefaultPostingPublisherId)
+            .FirstOrDefaultAsync();
 
         var members = await db
             .PublisherMembers.Where(m => m.AccountId == accountId)
@@ -58,6 +62,16 @@ public class PublisherController(
 
         var publishers = members.Select(m => m.Publisher).ToList();
         publishers = await ps.HydratePublisherRealm(publishers);
+
+        if (defaultPublisherId is Guid defaultId)
+        {
+            var defaultPublisher = publishers.FirstOrDefault(p => p.Id == defaultId);
+            if (defaultPublisher != null)
+            {
+                publishers.Remove(defaultPublisher);
+                publishers.Insert(0, defaultPublisher);
+            }
+        }
 
         return publishers;
     }
