@@ -299,9 +299,6 @@ public class E2EeService(
             var package = await db.MlsKeyPackages
                 .Where(k => k.AccountId == accountId && k.DeviceId == device.DeviceId && !k.IsConsumed)
                 .OrderBy(k => k.CreatedAt)
-                .FirstOrDefaultAsync() ?? await db.MlsKeyPackages
-                .Where(k => k.AccountId == accountId && k.DeviceId == device.DeviceId)
-                .OrderByDescending(k => k.CreatedAt)
                 .FirstOrDefaultAsync();
             if (package is null) continue;
 
@@ -436,7 +433,14 @@ public class E2EeService(
         if (state is null)
             return null;
 
-        state.Epoch = Math.Max(state.Epoch, request.Epoch);
+        if (request.Epoch <= state.Epoch)
+            return state;
+
+        if (request.Epoch != state.Epoch + 1)
+            throw new InvalidOperationException(
+                $"MLS epoch mismatch. Current epoch is {state.Epoch}; requested epoch is {request.Epoch}.");
+
+        state.Epoch = request.Epoch;
         state.StateVersion += 1;
         state.LastCommitAt = SystemClock.Instance.GetCurrentInstant();
         state.Meta = request.Meta is null
@@ -635,6 +639,7 @@ public class E2EeService(
         {
             var accountId = accountGroup.Key;
             var accountPayloads = accountGroup
+                .Where(m => m.DeviceId != senderDeviceId)
                 .Select(m => new DeviceCiphertextEnvelope(
                     m.DeviceId,
                     request.ClientMessageId,
@@ -685,6 +690,7 @@ public class E2EeService(
         {
             var accountId = accountGroup.Key;
             var accountPayloads = accountGroup
+                .Where(m => m.DeviceId != senderDeviceId)
                 .Select(m => new DeviceCiphertextEnvelope(
                     m.DeviceId,
                     request.ClientMessageId,

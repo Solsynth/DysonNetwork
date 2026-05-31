@@ -59,7 +59,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     public class CommitMlsGroupBody
     {
         [Required] public long Epoch { get; set; }
-        [Required][MaxLength(128)] public string Reason { get; set; } = null!;
+        [MaxLength(128)] public string Reason { get; set; } = "client_commit";
         public Dictionary<string, object>? Meta { get; set; }
     }
 
@@ -92,6 +92,16 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     {
         [Required] public byte[] GroupInfo { get; set; } = [];
         [Required] public byte[] RatchetTree { get; set; } = [];
+    }
+
+    private static string GetCommitReason(Dictionary<string, object>? meta, string fallback)
+    {
+        if (meta is not null &&
+            meta.TryGetValue("reason", out var reason) &&
+            !string.IsNullOrWhiteSpace(reason?.ToString()))
+            return reason.ToString()!;
+
+        return fallback;
     }
 
 
@@ -417,6 +427,16 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
             return BadRequest("X-Device-Id header is required.");
 
         var currentState = await e2EeModule.GetMlsGroupStateByGroupIdAsync(groupId);
+        if (currentState != null && body.Epoch <= currentState.Epoch)
+        {
+            return Conflict(new
+            {
+                code = "e2ee.mls_stale_epoch",
+                currentEpoch = currentState.Epoch,
+                requestedEpoch = body.Epoch
+            });
+        }
+
         if (currentState != null && body.Epoch != currentState.Epoch + 1)
         {
             return Conflict(new
@@ -441,9 +461,10 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
             )
         );
 
-        await e2EeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
-            groupId, body.Epoch, "member_add", null
+        var state = await e2EeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
+            groupId, body.Epoch, GetCommitReason(body.Meta, "member_add"), body.Meta
         ));
+        if (state is null) return NotFound();
 
         return Ok(envelopes);
     }
@@ -569,10 +590,8 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         if (group is null) return NotFound();
 
         await e2EeModule.MarkAllDevicesReshareRequiredAsync(groupId, body.Reason ?? "group_reset");
-
-        await e2EeModule.DeleteMlsGroupAsync(groupId);
-
         await e2EeModule.NotifyGroupResetAsync(groupId, body.Reason);
+        await e2EeModule.DeleteMlsGroupAsync(groupId);
 
         var newState = await e2EeModule.CreateMlsGroupAsync(
             groupId,
