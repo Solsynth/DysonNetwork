@@ -685,45 +685,87 @@ public class PublisherService(
     {
         var hydratedPublishers = publishers.ToList();
 
-        // Build (accountId, realmId) pairs from posts that have a RealmId.
-        // This ensures we use the post's realm context, not the publisher's.
-        var accountRealmPairs = new Dictionary<Guid, Guid>(); // accountId -> realmId
         if (posts is not null)
         {
-            foreach (var post in posts.Where(p => p.RealmId.HasValue))
+            var targets = new List<(SnPublisher Publisher, Guid RealmId)>();
+            var visitedPostIds = new HashSet<Guid>();
+
+            void CollectRealmPublisherTargets(SnPost? post)
             {
-                var publisher = post.Publisher;
-                if (publisher?.AccountId is null || publisher.Type != PublisherType.Individual)
-                    continue;
-                if (!accountRealmPairs.ContainsKey(publisher.AccountId.Value))
-                    accountRealmPairs[publisher.AccountId.Value] = post.RealmId!.Value;
+                if (post is null || !visitedPostIds.Add(post.Id))
+                    return;
+
+                if (
+                    post.RealmId.HasValue
+                    && post.Publisher is { AccountId: not null, Type: PublisherType.Individual } publisher
+                )
+                {
+                    targets.Add((publisher, post.RealmId.Value));
+                }
+
+                CollectRealmPublisherTargets(post.RepliedPost);
+                CollectRealmPublisherTargets(post.ForwardedPost);
             }
+
+            foreach (var post in posts)
+                CollectRealmPublisherTargets(post);
+
+            if (targets.Count == 0)
+                return hydratedPublishers;
+
+            var placeholders = targets
+                .Select(t => new SnRealmMember
+                {
+                    RealmId = t.RealmId,
+                    AccountId = t.Publisher.AccountId!.Value
+                })
+                .DistinctBy(m => (m.RealmId, m.AccountId))
+                .ToList();
+            var realmMembers = await remoteRealms.LoadMemberAccounts(placeholders);
+            var realmMap = realmMembers.ToDictionary(m => (m.RealmId, m.AccountId), m => m);
+
+            foreach (var target in targets)
+            {
+                if (
+                    !realmMap.TryGetValue(
+                        (target.RealmId, target.Publisher.AccountId!.Value),
+                        out var realmMember
+                    )
+                )
+                    continue;
+
+                target.Publisher.RealmNick = realmMember.Nick;
+                target.Publisher.RealmBio = realmMember.Bio;
+                target.Publisher.RealmExperience = realmMember.Experience;
+                target.Publisher.RealmLevel = realmMember.Level;
+                target.Publisher.RealmLevelingProgress = realmMember.LevelingProgress;
+                target.Publisher.RealmLabel = realmMember.Label;
+            }
+
+            return hydratedPublishers;
         }
 
-        // Fallback: if no posts provided, use publisher's own RealmId
-        if (accountRealmPairs.Count == 0)
+        var accountRealmPairs = new Dictionary<Guid, Guid>();
+        foreach (var p in hydratedPublishers.Where(p =>
+            p is { RealmId: not null, AccountId: not null, Type: PublisherType.Individual }))
         {
-            foreach (var p in hydratedPublishers.Where(p =>
-                p is { RealmId: not null, AccountId: not null, Type: PublisherType.Individual }))
-            {
-                if (!accountRealmPairs.ContainsKey(p.AccountId!.Value))
-                    accountRealmPairs[p.AccountId.Value] = p.RealmId!.Value;
-            }
+            if (!accountRealmPairs.ContainsKey(p.AccountId!.Value))
+                accountRealmPairs[p.AccountId.Value] = p.RealmId!.Value;
         }
 
         if (accountRealmPairs.Count == 0) return hydratedPublishers;
 
-        var placeholders = accountRealmPairs
+        var fallbackPlaceholders = accountRealmPairs
             .Select(kv => new SnRealmMember { RealmId = kv.Value, AccountId = kv.Key })
             .ToList();
-        var realmMembers = await remoteRealms.LoadMemberAccounts(placeholders);
-        var realmMap = realmMembers
+        var fallbackRealmMembers = await remoteRealms.LoadMemberAccounts(fallbackPlaceholders);
+        var fallbackRealmMap = fallbackRealmMembers
             .ToDictionary(m => m.AccountId, m => m);
 
         foreach (var publisher in hydratedPublishers)
         {
             if (publisher.AccountId is null) continue;
-            if (!realmMap.TryGetValue(publisher.AccountId.Value, out var realmMember)) continue;
+            if (!fallbackRealmMap.TryGetValue(publisher.AccountId.Value, out var realmMember)) continue;
 
             publisher.RealmNick = realmMember.Nick;
             publisher.RealmBio = realmMember.Bio;

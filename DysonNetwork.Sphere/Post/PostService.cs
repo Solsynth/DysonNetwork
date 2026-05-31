@@ -2609,13 +2609,47 @@ public partial class PostService(
             .Where(e => actorIds.Contains(e.Id))
             .ToDictionaryAsync(e => e.Id);
 
+        static SnPublisher ClonePublisher(SnPublisher publisher)
+        {
+            return new SnPublisher
+            {
+                Id = publisher.Id,
+                Type = publisher.Type,
+                Name = publisher.Name,
+                Nick = publisher.Nick,
+                Bio = publisher.Bio,
+                Picture = publisher.Picture,
+                Background = publisher.Background,
+                Verification = publisher.Verification,
+                Meta = publisher.Meta,
+                AccountId = publisher.AccountId,
+                RealmId = publisher.RealmId,
+                Realm = publisher.Realm,
+                Account = publisher.Account,
+                RealmNick = publisher.RealmNick,
+                RealmBio = publisher.RealmBio,
+                RealmExperience = publisher.RealmExperience,
+                RealmLevel = publisher.RealmLevel,
+                RealmLevelingProgress = publisher.RealmLevelingProgress,
+                RealmLabel = publisher.RealmLabel,
+                ShadowbanReason = publisher.ShadowbanReason,
+                ShadowbannedAt = publisher.ShadowbannedAt,
+                GatekeptFollows = publisher.GatekeptFollows,
+                ModerateSubscription = publisher.ModerateSubscription,
+                Rating = publisher.Rating,
+                CreatedAt = publisher.CreatedAt,
+                UpdatedAt = publisher.UpdatedAt,
+                DeletedAt = publisher.DeletedAt,
+            };
+        }
+
         foreach (var post in posts)
         {
             if (
                 post.PublisherId.HasValue
                 && publishers.TryGetValue(post.PublisherId.Value, out var publisher)
             )
-                post.Publisher = publisher;
+                post.Publisher = ClonePublisher(publisher);
 
             if (post.ActorId.HasValue && actors.TryGetValue(post.ActorId.Value, out var actor))
                 post.Actor = actor;
@@ -2627,7 +2661,7 @@ public partial class PostService(
                     out var repliedPublisher
                 )
             )
-                post.RepliedPost.Publisher = repliedPublisher;
+                post.RepliedPost.Publisher = ClonePublisher(repliedPublisher);
 
             if (
                 post.RepliedPost?.ActorId != null
@@ -2642,7 +2676,7 @@ public partial class PostService(
                     out var forwardedPublisher
                 )
             )
-                post.ForwardedPost.Publisher = forwardedPublisher;
+                post.ForwardedPost.Publisher = ClonePublisher(forwardedPublisher);
 
             if (
                 post.ForwardedPost?.ActorId != null
@@ -2652,7 +2686,24 @@ public partial class PostService(
         }
 
         await ps.LoadIndividualPublisherAccounts(publishers.Values);
-        await ps.HydratePublisherRealmIdentity(publishers.Values, posts);
+        foreach (var post in posts)
+        {
+            if (post.Publisher?.AccountId is not null && post.PublisherId.HasValue)
+                post.Publisher.Account = publishers[post.PublisherId.Value].Account;
+
+            if (post.RepliedPost?.Publisher?.AccountId is not null && post.RepliedPost.PublisherId.HasValue)
+                post.RepliedPost.Publisher.Account = publishers[post.RepliedPost.PublisherId.Value].Account;
+
+            if (post.ForwardedPost?.Publisher?.AccountId is not null && post.ForwardedPost.PublisherId.HasValue)
+                post.ForwardedPost.Publisher.Account = publishers[post.ForwardedPost.PublisherId.Value].Account;
+        }
+
+        var postPublishers = posts
+            .SelectMany(p => new[] { p.Publisher, p.RepliedPost?.Publisher, p.ForwardedPost?.Publisher })
+            .Where(p => p is not null)
+            .Cast<SnPublisher>()
+            .ToList();
+        await ps.HydratePublisherRealmIdentity(postPublishers, posts);
 
         return posts;
     }

@@ -1156,6 +1156,30 @@ public partial class ChatController(
         public int TotalCount { get; set; }
     }
 
+    private async Task<List<SnChatMember>> HydrateMessageSendersByRoom(
+        ICollection<SnChatMessage> messages
+    )
+    {
+        var senders = messages.Select(m => m.Sender).DistinctBy(s => s.Id).ToList();
+        senders = await crs.LoadMemberAccounts(senders);
+
+        foreach (var group in messages.GroupBy(m => m.ChatRoomId))
+        {
+            var groupSenders = senders
+                .Where(s => group.Any(m => m.SenderId == s.Id))
+                .ToList();
+            var hydratedSenders = await crs.HydrateRealmIdentity(groupSenders, group.Key);
+            foreach (var hydratedSender in hydratedSenders)
+            {
+                var index = senders.FindIndex(s => s.Id == hydratedSender.Id);
+                if (index >= 0)
+                    senders[index] = hydratedSender;
+            }
+        }
+
+        return senders;
+    }
+
     [HttpPost("{roomId:guid}/sync")]
     public async Task<ActionResult<SyncResponse>> GetSyncData([FromBody] SyncRequest request, Guid roomId)
     {
@@ -1193,21 +1217,7 @@ public partial class ChatController(
             .Include(m => m.Sender)
             .ToListAsync();
 
-        var senders = messages.Select(m => m.Sender).DistinctBy(s => s.Id).ToList();
-        senders = await crs.LoadMemberAccounts(senders);
-        foreach (var group in messages.GroupBy(m => m.ChatRoomId))
-        {
-            var groupSenders = senders
-                .Where(s => group.Any(m => m.SenderId == s.Id))
-                .ToList();
-            var hydratedSenders = await crs.HydrateRealmIdentity(groupSenders, group.Key);
-            foreach (var hydratedSender in hydratedSenders)
-            {
-                var index = senders.FindIndex(s => s.Id == hydratedSender.Id);
-                if (index >= 0)
-                    senders[index] = hydratedSender;
-            }
-        }
+        var senders = await HydrateMessageSendersByRoom(messages);
 
         foreach (var message in messages)
         {

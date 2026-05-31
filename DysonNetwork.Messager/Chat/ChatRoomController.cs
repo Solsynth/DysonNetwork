@@ -73,6 +73,30 @@ public class ChatRoomController(
         return changedAt;
     }
 
+    private async Task<List<SnChatMember>> HydrateMessageSendersByRoom(
+        ICollection<SnChatMessage> messages
+    )
+    {
+        var senders = messages.Select(m => m.Sender).DistinctBy(s => s.Id).ToList();
+        senders = await crs.LoadMemberAccounts(senders);
+
+        foreach (var group in messages.GroupBy(m => m.ChatRoomId))
+        {
+            var groupSenders = senders
+                .Where(s => group.Any(m => m.SenderId == s.Id))
+                .ToList();
+            var hydratedSenders = await crs.HydrateRealmIdentity(groupSenders, group.Key);
+            foreach (var hydratedSender in hydratedSenders)
+            {
+                var index = senders.FindIndex(s => s.Id == hydratedSender.Id);
+                if (index >= 0)
+                    senders[index] = hydratedSender;
+            }
+        }
+
+        return senders;
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<SnChatRoom>> GetChatRoom(Guid id)
     {
@@ -148,6 +172,7 @@ public class ChatRoomController(
             .Take(RoomSyncLimit)
             .ToListAsync();
         changedMembers = await crs.LoadMemberAccounts(changedMembers);
+        changedMembers = await crs.HydrateRealmIdentity(changedMembers);
 
         var changedRoomIdsFromMembers = changedMembers.Select(m => m.ChatRoomId).ToHashSet();
         var changedRooms = await db.ChatRooms
@@ -269,8 +294,7 @@ public class ChatRoomController(
             .OfType<SnChatMessage>()
             .ToDictionary(m => m.ChatRoomId);
 
-        var lastMessageSenders = lastMessageMap.Values.Select(m => m.Sender).DistinctBy(s => s.Id).ToList();
-        lastMessageSenders = await crs.LoadMemberAccounts(lastMessageSenders);
+        var lastMessageSenders = await HydrateMessageSendersByRoom(lastMessageMap.Values.ToList());
         foreach (var message in lastMessageMap.Values)
         {
             var sender = lastMessageSenders.FirstOrDefault(s => s.Id == message.SenderId);
