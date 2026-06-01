@@ -900,14 +900,14 @@ Common error responses follow REST API conventions:
 - Automatic cache invalidation on mutations
 - Soft deletion with 7-day retention
 - Integration with existing relationship (friends) system
-- Notable days fetched from Nager.Holiday API with global holiday support
+- Local notable days system with multi-day holiday support (e.g., Labour Day 5-day holiday)
 - Status icon and background use shared attachment system (`SnCloudFileReferenceObject`)
 - File IDs are validated against `DyFileService` before storing references
 
-## Database Migration
+## Database Migrations
 
-The feature includes an EF Core migration (`AddUserCalendarEvents`) that creates the `user_calendar_events` table with:
-
+### AddUserCalendarEvents
+Creates the `user_calendar_events` table with:
 - UUID primary key
 - Title, description, location fields
 - Start/end timestamps with timezone
@@ -915,3 +915,146 @@ The feature includes an EF Core migration (`AddUserCalendarEvents`) that creates
 - JSONB columns for recurrence and metadata
 - Standard audit fields (created_at, updated_at, deleted_at)
 - Account ID foreign key (implicit)
+
+### AddNotableDaysTable
+Creates the `notable_days` table with:
+- UUID primary key
+- Name, description, local_name, localizable_key fields
+- Start/end dates for multi-day periods
+- Region code (defaults to "CN")
+- Tags array (Holiday, Event, Anniversary, Memorial, Festival)
+- Recurrence support (is_recurring, recurrence_pattern)
+- Period support (is_period, holiday_days)
+- Display order
+- Standard audit fields
+
+---
+
+## Notable Days API
+
+Manage system-wide notable days (holidays, events, festivals). These appear in calendar views and countdown.
+
+### Base URL: `/api/notable-days`
+
+### List Notable Days
+
+**Endpoint:** `GET /api/notable-days`
+
+**Query Parameters:**
+- `year` (int, optional) - Year, defaults to current
+- `region` (string, optional) - Region code, defaults to "CN"
+- `tag` (string, optional) - Filter by tag: "Holiday", "Event", "Anniversary", "Memorial", "Festival"
+- `offset` (int, optional) - Pagination offset
+- `take` (int, optional) - Number of results, defaults to 50
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "name": "Spring Festival",
+    "description": "Chinese New Year, the most important traditional festival in China",
+    "local_name": "春节",
+    "localizable_key": "SpringFestival",
+    "start_date": "2026-01-28T00:00:00Z",
+    "end_date": "2026-02-04T00:00:00Z",
+    "is_all_day": true,
+    "region": "CN",
+    "tags": ["Holiday", "Festival"],
+    "meta": null,
+    "is_recurring": true,
+    "recurrence_pattern": "01-01",
+    "is_period": true,
+    "holiday_days": ["01-28", "01-29", "01-30", "01-31", "02-01", "02-02", "02-03"],
+    "display_order": 1,
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-01-01T00:00:00Z"
+  }
+]
+```
+
+**Response Headers:**
+- `X-Total` - Total number of notable days matching the query
+
+### Create Notable Day
+
+**Endpoint:** `POST /api/notable-days`
+
+**Request Body:**
+```json
+{
+  "name": "Spring Festival",
+  "description": "Chinese New Year",
+  "local_name": "春节",
+  "localizable_key": "SpringFestival",
+  "start_date": "2026-01-28T00:00:00Z",
+  "end_date": "2026-02-04T00:00:00Z",
+  "is_all_day": true,
+  "region": "CN",
+  "tags": ["Holiday", "Festival"],
+  "is_recurring": true,
+  "recurrence_pattern": "01-01",
+  "is_period": true,
+  "holiday_days": ["01-28", "01-29", "01-30", "01-31", "02-01", "02-02", "02-03"],
+  "display_order": 1
+}
+```
+
+**Field Details:**
+- `name` (required, max 256 chars) - Event name
+- `description` (optional, max 4096 chars) - Event description
+- `local_name` (optional, max 256 chars) - Localized name
+- `localizable_key` (optional, max 256 chars) - Key for localization
+- `start_date` (required) - Start date/time
+- `end_date` (required) - End date/time
+- `region` (optional, default "CN") - Region code
+- `tags` (optional) - Array of tags: "Holiday", "Event", "Anniversary", "Memorial", "Festival"
+- `is_recurring` (optional) - Whether this recurs annually
+- `recurrence_pattern` (optional, max 16 chars) - MM-DD format for recurring events
+- `is_period` (optional) - Whether this is a multi-day period
+- `holiday_days` (optional) - Array of MM-DD strings indicating which days are actual holidays
+- `display_order` (optional) - Sort order
+
+**Response:** Returns the created `SnNotableDay` object (200 OK)
+
+**Response Codes:**
+- `200 OK` - Notable day created
+- `400 Bad Request` - Invalid data
+- `401 Unauthorized` - Invalid authentication
+- `403 Forbidden` - Missing required permissions
+
+### Update Notable Day
+
+**Endpoint:** `PUT /api/notable-days/{id}`
+
+**Request Body:** Same as create
+
+### Delete Notable Day
+
+**Endpoint:** `DELETE /api/notable-days/{id}`
+
+**Response:** No content (204)
+
+---
+
+## Pre-seeded Chinese Holidays
+
+The system automatically seeds the following Chinese holidays on startup:
+
+| Holiday | Local Name | Period | Tags |
+|---------|-----------|--------|------|
+| Spring Festival | 春节 | 7 days | Holiday, Festival |
+| Qingming Festival | 清明节 | 3 days | Holiday, Festival |
+| Labour Day | 劳动节 | 5 days | Holiday |
+| Dragon Boat Festival | 端午节 | 3 days | Holiday, Festival |
+| Mid-Autumn Festival | 中秋节 | 3 days | Holiday, Festival |
+| National Day | 国庆节 | 7 days | Holiday |
+| New Year's Day | 元旦 | 3 days | Holiday |
+| Arbor Day | 植树节 | 1 day | Event |
+| Youth Day | 五四青年节 | 1 day | Event, Memorial |
+| Children's Day | 儿童节 | 1 day | Event |
+| Teachers' Day | 教师节 | 1 day | Event |
+| Qixi Festival | 七夕节 | 1 day | Festival |
+| Double Ninth Festival | 重阳节 | 1 day | Festival |
+
+**Note:** Holiday days within multi-day periods are specified using `holiday_days` field (e.g., Labour Day has 5 holiday days from 05-01 to 05-05). Non-holiday days within a period (like weekends that are part of the extended break but not official holidays) are marked accordingly.

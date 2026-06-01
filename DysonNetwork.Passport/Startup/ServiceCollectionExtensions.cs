@@ -131,6 +131,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AccountEventService>();
         services.AddScoped<PresenceArtworkService>();
         services.AddScoped<NotableDaysService>();
+        services.AddScoped<NotableDaysSeedService>();
         services.AddScoped<RelationshipService>();
         services.AddScoped<MagicSpellService>();
         services.AddScoped<AccountUsernameService>();

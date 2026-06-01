@@ -509,6 +509,8 @@ public class AccountEventController(
     [ProducesResponseType<List<EventCountdownItem>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<List<EventCountdownItem>>> GetCountdown(
         [FromQuery] int take = 5,
+        [FromQuery] int offset = 0,
+        [FromQuery] bool includeNotableDays = true,
         [FromServices] NotableDaysService? notableDaysService = null)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -517,13 +519,16 @@ public class AccountEventController(
         var regionCode = currentUser.Region;
         if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
 
-        var countdownItems = await events.GetUpcomingEventsAsync(
+        var (countdownItems, totalCount) = await events.GetCountdownEventsAsync(
             currentUser,
             currentUser.Id,
             regionCode,
             notableDaysService,
-            take);
+            includeNotableDays,
+            take,
+            offset);
 
+        Response.Headers.Append("X-Total", totalCount.ToString());
         return Ok(countdownItems);
     }
 

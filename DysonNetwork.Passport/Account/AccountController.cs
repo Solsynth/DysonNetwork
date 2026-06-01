@@ -241,7 +241,9 @@ public class AccountController(
     [HttpGet("{name}/calendar/countdown")]
     public async Task<ActionResult<List<EventCountdownItem>>> GetOtherCountdown(
         string name,
-        [FromQuery] int take = 5)
+        [FromQuery] int take = 5,
+        [FromQuery] int offset = 0,
+        [FromQuery] bool includeNotableDays = true)
     {
         var account = await accounts.LookupAccount(name);
         if (account is null)
@@ -265,13 +267,16 @@ public class AccountController(
         var regionCode = account.Region;
         if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
 
-        var countdownItems = await events.GetUpcomingEventsAsync(
+        var (countdownItems, totalCount) = await events.GetCountdownEventsAsync(
             account,
             viewerId,
             regionCode,
             notableDaysService,
-            take);
+            includeNotableDays,
+            take,
+            offset);
 
+        Response.Headers.Append("X-Total", totalCount.ToString());
         return Ok(countdownItems);
     }
 

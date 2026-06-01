@@ -1,188 +1,171 @@
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
-using Nager.Holiday;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Passport.Account;
 
-public class InvalidRegionCodeException : Exception
-{
-    public InvalidRegionCodeException(string regionCode) : base($"Invalid or unknown region code: {regionCode}") { }
-}
-
-public static class NotableDayExtensions
-{
-    public static DysonNetwork.Shared.Models.NotableDay FromNagerHoliday(PublicHoliday holiday)
-    {
-        return new DysonNetwork.Shared.Models.NotableDay()
-        {
-            Date = Instant.FromDateTimeUtc(holiday.Date.ToUniversalTime()),
-            LocalName = holiday.LocalName,
-            GlobalName = holiday.Name,
-            CountryCode = holiday.CountryCode,
-            Holidays = holiday.Types?.Select(x => x switch
-            {
-                PublicHolidayType.Public => DysonNetwork.Shared.Models.NotableHolidayType.Public,
-                PublicHolidayType.Bank => DysonNetwork.Shared.Models.NotableHolidayType.Bank,
-                PublicHolidayType.School => DysonNetwork.Shared.Models.NotableHolidayType.School,
-                PublicHolidayType.Authorities => DysonNetwork.Shared.Models.NotableHolidayType.Authorities,
-                PublicHolidayType.Optional => DysonNetwork.Shared.Models.NotableHolidayType.Optional,
-                _ => DysonNetwork.Shared.Models.NotableHolidayType.Observance
-            }).ToArray() ?? [],
-        };
-    }
-}
-
-public class NotableDaysService(ICacheService cache)
+public class NotableDaysService(AppDatabase db, ICacheService cache)
 {
     private const string NotableDaysCacheKeyPrefix = "notable:";
 
-    public async Task<List<DysonNetwork.Shared.Models.NotableDay>> GetNotableDays(int? year, string regionCode)
+    public async Task<List<NotableDay>> GetNotableDays(int? year, string regionCode)
     {
         year ??= DateTime.UtcNow.Year;
 
-        // Generate cache key using year and region code
         var cacheKey = $"{NotableDaysCacheKeyPrefix}:{year}:{regionCode}";
-
-        // Try to get from cache first
-        var (found, cachedDays) = await cache.GetAsyncWithStatus<List<DysonNetwork.Shared.Models.NotableDay>>(cacheKey);
+        var (found, cachedDays) = await cache.GetAsyncWithStatus<List<NotableDay>>(cacheKey);
         if (found && cachedDays != null)
         {
             return cachedDays;
         }
 
-        // If not in cache, fetch from API
-        List<DysonNetwork.Shared.Models.NotableDay> days = [];
-        try
+        var startOfYear = Instant.FromDateTimeUtc(new DateTime(year.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        var endOfYear = Instant.FromDateTimeUtc(new DateTime(year.Value + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        var notableDays = await db.NotableDays
+            .AsNoTracking()
+            .Where(n => n.DeletedAt == null
+                && n.Region == regionCode
+                && n.StartDate < endOfYear
+                && n.EndDate >= startOfYear)
+            .OrderBy(n => n.DisplayOrder ?? 999)
+            .ThenBy(n => n.StartDate)
+            .ToListAsync();
+
+        var days = new List<NotableDay>();
+
+        foreach (var notableDay in notableDays)
         {
-            using var holidayClient = new HolidayClient();
-            var holidays = await holidayClient.GetHolidaysAsync(year.Value, regionCode);
-            days = holidays?.Select(NotableDayExtensions.FromNagerHoliday).ToList() ?? [];
-        }
-        catch (HolidayClientException)
-        {
-            // Invalid or unknown region code - try fallback to US
-            try
+            if (notableDay.IsPeriod && notableDay.IsRecurring)
             {
-                using var holidayClient = new HolidayClient();
-                var holidays = await holidayClient.GetHolidaysAsync(year.Value, "US");
-                days = holidays?.Select(NotableDayExtensions.FromNagerHoliday).ToList() ?? [];
+                // For recurring period holidays (like Labour Day), generate each day in the period
+                var periodDays = GeneratePeriodDays(notableDay, year.Value);
+                days.AddRange(periodDays);
             }
-            catch
+            else if (notableDay.IsRecurring)
             {
-                // If even US fails, just use global holidays
-                days = [];
+                // For recurring single-day events
+                var recurringDay = GenerateRecurringDay(notableDay, year.Value);
+                if (recurringDay != null)
+                    days.Add(recurringDay);
+            }
+            else
+            {
+                // For non-recurring events, just add if in the year
+                if (notableDay.StartDate.InUtc().Year == year.Value)
+                {
+                    days.Add(notableDay.ToNotableDay());
+                }
             }
         }
 
-        // Add global holidays that are available for all regions
+        // Add global holidays
         var globalDays = GetGlobalHolidays(year.Value);
-        foreach (
-            var globalDay in globalDays.Where(globalDay =>
-                !days.Any(d =>
-                    d.Date.Equals(globalDay.Date) && d.GlobalName == globalDay.GlobalName
-                )
-            )
-        )
+        foreach (var globalDay in globalDays)
         {
-            days.Add(globalDay);
+            if (!days.Any(d => d.Date.Equals(globalDay.Date) && d.GlobalName == globalDay.GlobalName))
+            {
+                days.Add(globalDay);
+            }
         }
 
-        // Cache the result for 1 day (holiday data doesn't change frequently)
-        await cache.SetAsync(cacheKey, days, TimeSpan.FromDays(1));
+        await cache.SetAsync(cacheKey, days, TimeSpan.FromHours(12));
+        return days;
+    }
+
+    private List<NotableDay> GeneratePeriodDays(SnNotableDay notableDay, int year)
+    {
+        var days = new List<NotableDay>();
+        var startDate = notableDay.StartDate.InUtc();
+        var endDate = notableDay.EndDate.InUtc();
+
+        // Adjust year for recurring events
+        var adjustedStart = new LocalDateTime(year, startDate.Month, startDate.Day, 0, 0, 0)
+            .InZoneLeniently(DateTimeZone.Utc).ToInstant();
+        var adjustedEnd = new LocalDateTime(year, endDate.Month, endDate.Day, 0, 0, 0)
+            .InZoneLeniently(DateTimeZone.Utc).ToInstant();
+
+        // If end is before start, it crosses year boundary
+        if (adjustedEnd < adjustedStart)
+        {
+            adjustedEnd = new LocalDateTime(year + 1, endDate.Month, endDate.Day, 0, 0, 0)
+                .InZoneLeniently(DateTimeZone.Utc).ToInstant();
+        }
+
+        var current = adjustedStart;
+        while (current < adjustedEnd)
+        {
+            var isHolidayDay = notableDay.HolidayDays == null
+                || notableDay.HolidayDays.Count == 0
+                || notableDay.HolidayDays.Contains(current.InUtc().Date.ToString("MM-dd", null));
+
+            days.Add(new NotableDay
+            {
+                Date = current,
+                LocalName = notableDay.LocalName ?? notableDay.Name,
+                GlobalName = notableDay.Name,
+                LocalizableKey = notableDay.LocalizableKey,
+                CountryCode = notableDay.Region,
+                Holidays = isHolidayDay ? [NotableHolidayType.Public] : [],
+            });
+
+            current = current.Plus(Duration.FromDays(1));
+        }
 
         return days;
     }
 
-    private static List<DysonNetwork.Shared.Models.NotableDay> GetGlobalHolidays(int year)
+    private NotableDay? GenerateRecurringDay(SnNotableDay notableDay, int year)
     {
-        var globalDays = new List<DysonNetwork.Shared.Models.NotableDay>();
+        var originalDate = notableDay.StartDate.InUtc();
+        var adjustedDate = new LocalDateTime(year, originalDate.Month, originalDate.Day, 0, 0, 0)
+            .InZoneLeniently(DateTimeZone.Utc).ToInstant();
 
-        // Christmas Day - December 25
-        globalDays.Add(new DysonNetwork.Shared.Models.NotableDay
+        return new NotableDay
         {
-            Date = Instant.FromDateTimeUtc(new DateTime(year, 12, 25, 0, 0, 0, DateTimeKind.Utc)),
-            LocalName = "Christmas",
-            GlobalName = "Christmas",
-            LocalizableKey = "Christmas",
-            CountryCode = null,
-            Holidays = [DysonNetwork.Shared.Models.NotableHolidayType.Public],
-        });
+            Date = adjustedDate,
+            LocalName = notableDay.LocalName ?? notableDay.Name,
+            GlobalName = notableDay.Name,
+            LocalizableKey = notableDay.LocalizableKey,
+            CountryCode = notableDay.Region,
+            Holidays = notableDay.Tags.Contains(NotableDayTag.Holiday)
+                ? [NotableHolidayType.Public]
+                : [],
+        };
+    }
 
-        // New Year's Day - January 1
-        globalDays.Add(new DysonNetwork.Shared.Models.NotableDay
+    private static List<NotableDay> GetGlobalHolidays(int year)
+    {
+        var globalDays = new List<NotableDay>();
+
+        globalDays.Add(new NotableDay
         {
             Date = Instant.FromDateTimeUtc(new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc)),
             LocalName = "New Year's Day",
             GlobalName = "New Year's Day",
             LocalizableKey = "NewYear",
             CountryCode = null,
-            Holidays = [DysonNetwork.Shared.Models.NotableHolidayType.Public],
+            Holidays = [NotableHolidayType.Public],
         });
 
-        // April Fools' Day - April 1
-        globalDays.Add(new DysonNetwork.Shared.Models.NotableDay
+        globalDays.Add(new NotableDay
         {
-            Date = Instant.FromDateTimeUtc(new DateTime(year, 4, 1, 0, 0, 0, DateTimeKind.Utc)),
-            LocalName = "April Fools' Day",
-            GlobalName = "April Fools' Day",
-            LocalizableKey = "AprilFoolsDay",
+            Date = Instant.FromDateTimeUtc(new DateTime(year, 12, 25, 0, 0, 0, DateTimeKind.Utc)),
+            LocalName = "Christmas",
+            GlobalName = "Christmas",
+            LocalizableKey = "Christmas",
             CountryCode = null,
-            Holidays = [DysonNetwork.Shared.Models.NotableHolidayType.Observance],
-        });
-
-        // International Workers' Day - May 1
-        globalDays.Add(new DysonNetwork.Shared.Models.NotableDay
-        {
-            Date = Instant.FromDateTimeUtc(new DateTime(year, 5, 1, 0, 0, 0, DateTimeKind.Utc)),
-            LocalName = "International Workers' Day",
-            GlobalName = "International Workers' Day",
-            LocalizableKey = "WorkersDay",
-            CountryCode = null,
-            Holidays = [DysonNetwork.Shared.Models.NotableHolidayType.Public],
-        });
-
-        // Children's Day - June 1
-        globalDays.Add(new DysonNetwork.Shared.Models.NotableDay
-        {
-            Date = Instant.FromDateTimeUtc(new DateTime(year, 6, 1, 0, 0, 0, DateTimeKind.Utc)),
-            LocalName = "Children's Day",
-            GlobalName = "Children's Day",
-            LocalizableKey = "ChildrenDay",
-            CountryCode = null,
-            Holidays = [DysonNetwork.Shared.Models.NotableHolidayType.Public],
-        });
-
-        // World Environment Day - June 5
-        globalDays.Add(new DysonNetwork.Shared.Models.NotableDay
-        {
-            Date = Instant.FromDateTimeUtc(new DateTime(year, 6, 5, 0, 0, 0, DateTimeKind.Utc)),
-            LocalName = "World Environment Day",
-            GlobalName = "World Environment Day",
-            LocalizableKey = "EnvironmentDay",
-            CountryCode = null,
-            Holidays = [DysonNetwork.Shared.Models.NotableHolidayType.Observance],
-        });
-
-        // Halloween - October 31
-        globalDays.Add(new DysonNetwork.Shared.Models.NotableDay
-        {
-            Date = Instant.FromDateTimeUtc(new DateTime(year, 10, 31, 0, 0, 0, DateTimeKind.Utc)),
-            LocalName = "Halloween",
-            GlobalName = "Halloween",
-            LocalizableKey = "Halloween",
-            CountryCode = null,
-            Holidays = [DysonNetwork.Shared.Models.NotableHolidayType.Observance],
+            Holidays = [NotableHolidayType.Public],
         });
 
         var anniversaryNumber = year - 2024;
-        var anniversaryNumberSuffixes = new[] { "st", "nd", "rd" };
-        var anniversaryNumberSuffix = anniversaryNumberSuffixes.ElementAtOrDefault(anniversaryNumber % 10 + 1);
-        globalDays.Add(new DysonNetwork.Shared.Models.NotableDay
+        globalDays.Add(new NotableDay
         {
             Date = Instant.FromDateTimeUtc(new DateTime(year, 3, 16, 0, 0, 0, DateTimeKind.Utc)),
             LocalName = $"Solar Network {anniversaryNumber} 周年",
-            GlobalName = $"Solar Network {anniversaryNumber}{anniversaryNumberSuffix ?? "th"} anniversary",
+            GlobalName = $"Solar Network {anniversaryNumber}th anniversary",
             LocalizableKey = "Anniversary",
             CountryCode = null,
             Holidays = [],
@@ -191,44 +174,37 @@ public class NotableDaysService(ICacheService cache)
         return globalDays;
     }
 
-    public async Task<DysonNetwork.Shared.Models.NotableDay?> GetNextHoliday(string regionCode)
+    public async Task<NotableDay?> GetNextHoliday(string regionCode)
     {
         var currentDate = SystemClock.Instance.GetCurrentInstant();
         var currentYear = currentDate.InUtc().Year;
 
-        // Get holidays for current year and next year to cover all possibilities
         var currentYearHolidays = await GetNotableDays(currentYear, regionCode);
         var nextYearHolidays = await GetNotableDays(currentYear + 1, regionCode);
 
         var allHolidays = currentYearHolidays.Concat(nextYearHolidays);
 
-        // Find the first holiday that is today or in the future
-        var nextHoliday = allHolidays
+        return allHolidays
             .Where(day => day.Date >= currentDate)
             .OrderBy(day => day.Date)
             .FirstOrDefault();
-
-        return nextHoliday;
     }
 
-    public async Task<DysonNetwork.Shared.Models.NotableDay?> GetCurrentHoliday(string regionCode)
+    public async Task<NotableDay?> GetCurrentHoliday(string regionCode)
     {
         var currentDate = SystemClock.Instance.GetCurrentInstant();
         var currentYear = currentDate.InUtc().Year;
 
         var currentYearHolidays = await GetNotableDays(currentYear, regionCode);
 
-        // Find the holiday that is today
-        var todayHoliday = currentYearHolidays.FirstOrDefault(day =>
+        return currentYearHolidays.FirstOrDefault(day =>
             day.Date.InUtc().Date == currentDate.InUtc().Date
         );
-
-        return todayHoliday;
     }
 
-    public async Task<List<DysonNetwork.Shared.Models.NotableDay>> GetCurrentAndNextHoliday(string regionCode)
+    public async Task<List<NotableDay>> GetCurrentAndNextHoliday(string regionCode)
     {
-        var result = new List<DysonNetwork.Shared.Models.NotableDay>();
+        var result = new List<NotableDay>();
 
         var current = await GetCurrentHoliday(regionCode);
         if (current != null)
@@ -243,5 +219,24 @@ public class NotableDaysService(ICacheService cache)
         }
 
         return result;
+    }
+
+    public async Task PurgeCache(string? regionCode = null, int? year = null)
+    {
+        if (regionCode != null && year != null)
+        {
+            var cacheKey = $"{NotableDaysCacheKeyPrefix}:{year}:{regionCode}";
+            await cache.RemoveAsync(cacheKey);
+        }
+        else
+        {
+            // Purge all notable days cache
+            var currentYear = SystemClock.Instance.GetCurrentInstant().InUtc().Year;
+            for (var y = currentYear - 1; y <= currentYear + 2; y++)
+            {
+                await cache.RemoveAsync($"{NotableDaysCacheKeyPrefix}:{y}:CN");
+                await cache.RemoveAsync($"{NotableDaysCacheKeyPrefix}:{y}:US");
+            }
+        }
     }
 }

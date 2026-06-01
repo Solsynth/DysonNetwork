@@ -1,4 +1,5 @@
 using DysonNetwork.Passport;
+using DysonNetwork.Passport.Account;
 using DysonNetwork.Passport.Startup;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
@@ -37,13 +38,15 @@ var app = builder.Build();
 
 app.MapDefaultEndpoints();
 
-// Run database migrations
+// Run database migrations and seed data
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
     await db.Database.MigrateAsync();
     var progressionSeed = scope.ServiceProvider.GetRequiredService<ProgressionSeedService>();
     await progressionSeed.EnsureSeededAsync();
+    var notableDaysSeed = scope.ServiceProvider.GetRequiredService<NotableDaysSeedService>();
+    await notableDaysSeed.EnsureSeededAsync();
 }
 
 // Configure application middleware pipeline

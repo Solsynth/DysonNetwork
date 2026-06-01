@@ -221,6 +221,86 @@ public class NotableDay
     public NotableHolidayType[] Holidays { get; set; } = [];
 }
 
+public enum NotableDayTag
+{
+    Holiday,
+    Event,
+    Anniversary,
+    Memorial,
+    Festival,
+}
+
+/// <summary>
+/// Local notable day stored in database, supports multi-day periods
+/// </summary>
+public class SnNotableDay : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    [MaxLength(256)]
+    public string Name { get; set; } = null!;
+
+    [MaxLength(4096)]
+    public string? Description { get; set; }
+
+    [MaxLength(256)]
+    public string? LocalName { get; set; }
+
+    [MaxLength(256)]
+    public string? LocalizableKey { get; set; }
+
+    public Instant StartDate { get; set; }
+    public Instant EndDate { get; set; }
+    public bool IsAllDay { get; set; } = true;
+
+    [MaxLength(8)]
+    public string Region { get; set; } = "CN";
+
+    [Column(TypeName = "jsonb")]
+    public List<NotableDayTag> Tags { get; set; } = [];
+
+    [Column(TypeName = "jsonb")]
+    public Dictionary<string, object>? Meta { get; set; }
+
+    public bool IsRecurring { get; set; }
+
+    /// <summary>
+    /// For recurring events: lunar calendar month/day (e.g., "01-01" for Spring Festival)
+    /// or solar calendar pattern (e.g., "05-01" for Labour Day)
+    /// </summary>
+    [MaxLength(16)]
+    public string? RecurrencePattern { get; set; }
+
+    /// <summary>
+    /// Whether this is a holiday period (multiple days off) or a single day event
+    /// </summary>
+    public bool IsPeriod { get; set; }
+
+    /// <summary>
+    /// For period holidays: the official holiday days within the period
+    /// Stored as JSON array of date strings
+    /// </summary>
+    [Column(TypeName = "jsonb")]
+    public List<string>? HolidayDays { get; set; }
+
+    public int? DisplayOrder { get; set; }
+
+    public NotableDay ToNotableDay()
+    {
+        return new NotableDay
+        {
+            Date = StartDate,
+            LocalName = LocalName ?? Name,
+            GlobalName = Name,
+            LocalizableKey = LocalizableKey,
+            CountryCode = Region,
+            Holidays = Tags.Contains(NotableDayTag.Holiday)
+                ? [NotableHolidayType.Public]
+                : [],
+        };
+    }
+}
+
 /// <summary>
 /// Represents a calendar event with merged data from multiple sources
 /// </summary>
