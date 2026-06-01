@@ -511,6 +511,7 @@ public class AccountEventController(
         [FromQuery] int take = 5,
         [FromQuery] int offset = 0,
         [FromQuery] bool includeNotableDays = true,
+        [FromQuery] string? tag = null,
         [FromServices] NotableDaysService? notableDaysService = null)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -519,12 +520,19 @@ public class AccountEventController(
         var regionCode = currentUser.Region;
         if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
 
+        NotableDayTag? tagFilter = null;
+        if (!string.IsNullOrWhiteSpace(tag) && Enum.TryParse<NotableDayTag>(tag, true, out var parsedTag))
+        {
+            tagFilter = parsedTag;
+        }
+
         var (countdownItems, totalCount) = await events.GetCountdownEventsAsync(
             currentUser,
             currentUser.Id,
             regionCode,
             notableDaysService,
             includeNotableDays,
+            tagFilter,
             take,
             offset);
 

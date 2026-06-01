@@ -243,7 +243,8 @@ public class AccountController(
         string name,
         [FromQuery] int take = 5,
         [FromQuery] int offset = 0,
-        [FromQuery] bool includeNotableDays = true)
+        [FromQuery] bool includeNotableDays = true,
+        [FromQuery] string? tag = null)
     {
         var account = await accounts.LookupAccount(name);
         if (account is null)
@@ -267,12 +268,19 @@ public class AccountController(
         var regionCode = account.Region;
         if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
 
+        NotableDayTag? tagFilter = null;
+        if (!string.IsNullOrWhiteSpace(tag) && Enum.TryParse<NotableDayTag>(tag, true, out var parsedTag))
+        {
+            tagFilter = parsedTag;
+        }
+
         var (countdownItems, totalCount) = await events.GetCountdownEventsAsync(
             account,
             viewerId,
             regionCode,
             notableDaysService,
             includeNotableDays,
+            tagFilter,
             take,
             offset);
 

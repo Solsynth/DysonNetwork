@@ -10,11 +10,11 @@ public class NotableDaysService(AppDatabase db, ICacheService cache)
 {
     private const string NotableDaysCacheKeyPrefix = "notable:";
 
-    public async Task<List<NotableDay>> GetNotableDays(int? year, string regionCode)
+    public async Task<List<NotableDay>> GetNotableDays(int? year, string regionCode, NotableDayTag? tag = null)
     {
         year ??= DateTime.UtcNow.Year;
 
-        var cacheKey = $"{NotableDaysCacheKeyPrefix}:{year}:{regionCode}";
+        var cacheKey = $"{NotableDaysCacheKeyPrefix}:{year}:{regionCode}:{tag}";
         var (found, cachedDays) = await cache.GetAsyncWithStatus<List<NotableDay>>(cacheKey);
         if (found && cachedDays != null)
         {
@@ -24,12 +24,19 @@ public class NotableDaysService(AppDatabase db, ICacheService cache)
         var startOfYear = Instant.FromDateTimeUtc(new DateTime(year.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc));
         var endOfYear = Instant.FromDateTimeUtc(new DateTime(year.Value + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
-        var notableDays = await db.NotableDays
+        var query = db.NotableDays
             .AsNoTracking()
             .Where(n => n.DeletedAt == null
                 && n.Region == regionCode
                 && n.StartDate < endOfYear
-                && n.EndDate >= startOfYear)
+                && n.EndDate >= startOfYear);
+
+        if (tag.HasValue)
+        {
+            query = query.Where(n => n.Tags.Contains(tag.Value));
+        }
+
+        var notableDays = await query
             .OrderBy(n => n.DisplayOrder ?? 999)
             .ThenBy(n => n.StartDate)
             .ToListAsync();

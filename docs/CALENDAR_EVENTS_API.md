@@ -539,6 +539,9 @@ Get upcoming events with countdown information, including currently ongoing even
 
 **Query Parameters:**
 - `take` (int, optional, default: 5) - Number of events to return
+- `offset` (int, optional, default: 0) - Pagination offset
+- `includeNotableDays` (bool, optional, default: true) - Include notable days (holidays/events)
+- `tag` (string, optional) - Filter notable days by tag: "Holiday", "Event", "Anniversary", "Memorial", "Festival"
 
 **Response:**
 ```json
@@ -578,8 +581,18 @@ Get upcoming events with countdown information, including currently ongoing even
 
 **Sorting Behavior:**
 - Ongoing events (`is_ongoing: true`) are always returned first
-- Upcoming events are sorted by `start_time` ascending
+- Upcoming events are sorted by distance from now (closest first)
 - Includes user calendar events and notable days (if region configured)
+
+**Response Headers:**
+- `X-Total` - Total number of events matching the query
+
+**Example Requests:**
+```
+GET /api/accounts/me/calendar/countdown?take=10
+GET /api/accounts/me/calendar/countdown?tag=Holiday&includeNotableDays=true
+GET /api/accounts/me/calendar/countdown?tag=Festival&offset=5&take=10
+```
 
 **Response Codes:**
 - `200 OK` - Success
@@ -692,7 +705,8 @@ public enum RecurrenceFrequency
   "global_name": "string | null",
   "localizable_key": "string | null",
   "country_code": "string | null",
-  "holidays": ["Public", "Bank", "School", "Authorities", "Optional", "Observance"]
+  "holidays": ["Public", "Bank", "School", "Authorities", "Optional", "Observance"],
+  "tags": ["Holiday", "Event", "Anniversary", "Memorial", "Festival"]
 }
 ```
 

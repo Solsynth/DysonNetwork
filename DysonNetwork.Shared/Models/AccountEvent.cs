@@ -219,6 +219,7 @@ public class NotableDay
     public string? LocalizableKey { get; set; }
     public string? CountryCode { get; set; }
     public NotableHolidayType[] Holidays { get; set; } = [];
+    public List<NotableDayTag> Tags { get; set; } = [];
 }
 
 public enum NotableDayTag
@@ -297,6 +298,7 @@ public class SnNotableDay : ModelBase
             Holidays = Tags.Contains(NotableDayTag.Holiday)
                 ? [NotableHolidayType.Public]
                 : [],
+            Tags = Tags,
         };
     }
 }
