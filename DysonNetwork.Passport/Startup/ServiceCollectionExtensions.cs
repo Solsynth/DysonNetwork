@@ -40,6 +40,8 @@ public static class ServiceCollectionExtensions
     {
         services.AddLocalization(options => options.ResourcesPath = "Resources");
 
+        services.Configure<BadgesOptions>(configuration.GetSection("Badges"));
+
         services.AddDbContext<AppDatabase>();
         services.AddHttpContextAccessor();
 
