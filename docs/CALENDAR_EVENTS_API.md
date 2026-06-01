@@ -531,6 +531,62 @@ Create or update the user's status with optional icon and background images.
 
 ---
 
+## Event Countdown
+
+Get upcoming events with countdown information, including currently ongoing events.
+
+**Endpoint:** `GET /api/accounts/me/calendar/countdown`
+
+**Query Parameters:**
+- `take` (int, optional, default: 5) - Number of events to return
+
+**Response:**
+```json
+[
+  {
+    "event_id": "770e8400-e29b-41d4-a716-446655440002",
+    "type": "UserEvent",
+    "title": "Team Meeting",
+    "description": "Weekly sync with the engineering team",
+    "location": "Conference Room A",
+    "start_time": "2026-06-02T14:00:00Z",
+    "end_time": "2026-06-02T15:00:00Z",
+    "is_all_day": false,
+    "days_remaining": 0,
+    "hours_remaining": 0,
+    "is_ongoing": true,
+    "meta": {},
+    "account_id": "user-guid"
+  },
+  {
+    "event_id": "880e8400-e29b-41d4-a716-446655440003",
+    "type": "UserEvent",
+    "title": "Birthday Party",
+    "description": null,
+    "location": "My House",
+    "start_time": "2026-06-15T18:00:00Z",
+    "end_time": "2026-06-15T22:00:00Z",
+    "is_all_day": false,
+    "days_remaining": 13,
+    "hours_remaining": 4,
+    "is_ongoing": false,
+    "meta": {},
+    "account_id": "user-guid"
+  }
+]
+```
+
+**Sorting Behavior:**
+- Ongoing events (`is_ongoing: true`) are always returned first
+- Upcoming events are sorted by `start_time` ascending
+- Includes user calendar events and notable days (if region configured)
+
+**Response Codes:**
+- `200 OK` - Success
+- `401 Unauthorized` - Invalid authentication
+
+---
+
 ## Data Models
 
 ### EventVisibility Enum
@@ -606,6 +662,25 @@ public enum RecurrenceFrequency
   "end_time": "ISO 8601 timestamp",
   "is_all_day": "boolean",
   "meta": "object | null"
+}
+```
+
+### EventCountdownItem
+```json
+{
+  "event_id": "uuid | null",
+  "type": "UserEvent | NotableDay",
+  "title": "string",
+  "description": "string | null",
+  "location": "string | null",
+  "start_time": "ISO 8601 timestamp",
+  "end_time": "ISO 8601 timestamp",
+  "is_all_day": "boolean",
+  "days_remaining": "integer",
+  "hours_remaining": "integer",
+  "is_ongoing": "boolean",
+  "meta": "object | null",
+  "account_id": "uuid | null"
 }
 ```
 
