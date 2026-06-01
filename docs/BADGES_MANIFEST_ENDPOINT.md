@@ -18,7 +18,7 @@ GET /.well-known/badges
 
 - No authentication required
 - Response cached for 1 hour (`Cache-Control: public, max-age=3600`)
-- Production gateway: `/passport/.well-known/badges`
+- Production gateway: `/.well-known/badges`
 
 ### Badge Icon (SVG)
 
@@ -29,7 +29,7 @@ GET /.well-known/badges/icons/{iconName}
 - Returns the SVG file for the given icon name (the `icon` field from the manifest)
 - Response cached for 24 hours (`Cache-Control: public, max-age=86400`)
 - Returns `404` if no icons folder is configured or the file does not exist
-- Production gateway: `/passport/.well-known/badges/icons/{iconName}`
+- Production gateway: `/.well-known/badges/icons/{iconName}`
 - SVGs are shared across badges with the same icon; the client applies the `color` from the manifest
 
 ## Configuration
