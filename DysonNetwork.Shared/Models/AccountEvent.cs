@@ -47,6 +47,12 @@ public class SnAccountStatus : ModelBase
     public string? Symbol { get; set; }
 
     [Column(TypeName = "jsonb")]
+    public SnCloudFileReferenceObject? Icon { get; set; }
+
+    [Column(TypeName = "jsonb")]
+    public SnCloudFileReferenceObject? Background { get; set; }
+
+    [Column(TypeName = "jsonb")]
     public Dictionary<string, object>? Meta { get; set; }
     public Instant? ClearedAt { get; set; }
 

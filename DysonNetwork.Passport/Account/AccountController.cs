@@ -82,6 +82,8 @@ public class AccountController(
         [MaxLength(1024)] public string? Label { get; set; }
         [MaxLength(128)] public string? Symbol { get; set; }
         [MaxLength(4096)] public string? AppIdentifier { get; set; }
+        [MaxLength(32)] public string? IconId { get; set; }
+        [MaxLength(32)] public string? BackgroundId { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
         public Instant? ClearedAt { get; set; }
     }

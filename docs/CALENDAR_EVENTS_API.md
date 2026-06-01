@@ -6,6 +6,8 @@ The Calendar Events API allows users to create, manage, and share personal calen
 
 This service is handled by the DysonNetwork.Passport service. When using with the gateway, replace `/api` with `/pass`.
 
+**Note:** Status endpoints (`/statuses`, `/check-in`, `/calendar`) are now handled by `AccountEventController`. Profile-related endpoints remain in `AccountCurrentController`.
+
 ## Key Features
 
 - **User-Created Events**: Create personal calendar events with title, description, location, and time
@@ -68,6 +70,20 @@ Retrieve the daily calendar for the authenticated user, including check-ins, sta
         "type": "Default",
         "label": "Feeling great today!",
         "symbol": "☀️",
+        "icon": {
+          "id": "file-guid",
+          "name": "happy.png",
+          "mime_type": "image/png",
+          "size": 12345,
+          "url": "/drive/files/file-guid"
+        },
+        "background": {
+          "id": "file-guid-2",
+          "name": "sunset.jpg",
+          "mime_type": "image/jpeg",
+          "size": 54321,
+          "url": "/drive/files/file-guid-2"
+        },
         "created_at": "2026-04-21T09:00:00Z"
       }
     ],
@@ -430,6 +446,91 @@ View another user's merged calendar (respects visibility settings).
 
 ---
 
+## Status Management
+
+### Create/Update Status
+
+Create or update the user's status with optional icon and background images.
+
+**Create Endpoint:** `POST /api/accounts/me/statuses`
+**Update Endpoint:** `PATCH /api/accounts/me/statuses`
+
+**Request Body:**
+```json
+{
+  "attitude": "Positive",
+  "type": "Default",
+  "label": "Working on new features",
+  "symbol": "💻",
+  "icon_id": "file-guid",
+  "background_id": "file-guid-2",
+  "is_automated": false,
+  "meta": {}
+}
+```
+
+**Field Details:**
+- `attitude` (required) - "Positive", "Negative", or "Neutral"
+- `type` (optional, default: "Default") - "Default", "Busy", "DoNotDisturb", "Invisible"
+- `label` (optional, max 1024 chars) - Status text
+- `symbol` (optional, max 128 chars) - Emoji or symbol
+- `icon_id` (optional, max 32 chars) - File ID for status icon (from shared attachment system)
+- `background_id` (optional, max 32 chars) - File ID for status background image
+- `is_automated` (optional) - Whether this is an automated status
+- `app_identifier` (optional, max 4096 chars) - For automated statuses
+- `meta` (optional) - Custom metadata dictionary
+- `cleared_at` (optional, ISO 8601) - When to clear the status
+
+**Response:** Returns the `SnAccountStatus` object with resolved icon/background objects
+
+---
+
+### Get Current Status
+
+**Endpoint:** `GET /api/accounts/me/statuses`
+
+**Response:**
+```json
+{
+  "id": "660e8400-e29b-41d4-a716-446655440001",
+  "attitude": "Positive",
+  "type": "Default",
+  "label": "Working on new features",
+  "symbol": "💻",
+  "icon": {
+    "id": "file-guid",
+    "name": "happy.png",
+    "mime_type": "image/png",
+    "size": 12345,
+    "url": "/drive/files/file-guid"
+  },
+  "background": {
+    "id": "file-guid-2",
+    "name": "sunset.jpg",
+    "mime_type": "image/jpeg",
+    "size": 54321,
+    "url": "/drive/files/file-guid-2"
+  },
+  "is_online": true,
+  "is_idle": false,
+  "account_id": "user-guid",
+  "created_at": "2026-04-21T09:00:00Z"
+}
+```
+
+---
+
+### Delete Status
+
+**Endpoint:** `DELETE /api/accounts/me/statuses`
+
+**Query Parameters:**
+- `app` (string, optional) - Delete only automated statuses from this app
+
+**Response:** No content (204)
+
+---
+
 ## Data Models
 
 ### EventVisibility Enum
@@ -517,6 +618,48 @@ public enum RecurrenceFrequency
   "localizable_key": "string | null",
   "country_code": "string | null",
   "holidays": ["Public", "Bank", "School", "Authorities", "Optional", "Observance"]
+}
+```
+
+### SnAccountStatus
+```json
+{
+  "id": "uuid",
+  "attitude": "Positive | Negative | Neutral",
+  "type": "Default | Busy | DoNotDisturb | Invisible",
+  "label": "string (max 1024, optional)",
+  "symbol": "string (max 128, optional)",
+  "icon": "SnCloudFileReferenceObject | null",
+  "background": "SnCloudFileReferenceObject | null",
+  "is_online": "boolean (not persisted)",
+  "is_idle": "boolean (not persisted)",
+  "is_customized": "boolean (not persisted)",
+  "is_automated": "boolean",
+  "app_identifier": "string (max 4096, optional)",
+  "meta": "object (optional, JSON)",
+  "cleared_at": "ISO 8601 timestamp (null if active)",
+  "account_id": "uuid",
+  "created_at": "ISO 8601 timestamp",
+  "updated_at": "ISO 8601 timestamp"
+}
+```
+
+### SnCloudFileReferenceObject (Attachment)
+```json
+{
+  "id": "string",
+  "name": "string",
+  "mime_type": "string | null",
+  "hash": "string | null",
+  "size": "long",
+  "url": "string | null",
+  "width": "integer | null",
+  "height": "integer | null",
+  "blurhash": "string | null",
+  "usage": "string | null",
+  "application_type": "string | null",
+  "created_at": "ISO 8601 timestamp",
+  "updated_at": "ISO 8601 timestamp"
 }
 ```
 
@@ -677,12 +820,14 @@ Common error responses follow REST API conventions:
 
 - Built with ASP.NET Core and Entity Framework Core
 - Uses NodaTime for precise timestamp handling
-- PostgreSQL with JSONB for metadata and recurrence pattern storage
+- PostgreSQL with JSONB for metadata, recurrence patterns, and file references
 - 24-hour caching via Redis for performance
 - Automatic cache invalidation on mutations
 - Soft deletion with 7-day retention
 - Integration with existing relationship (friends) system
 - Notable days fetched from Nager.Holiday API with global holiday support
+- Status icon and background use shared attachment system (`SnCloudFileReferenceObject`)
+- File IDs are validated against `DyFileService` before storing references
 
 ## Database Migration
 
