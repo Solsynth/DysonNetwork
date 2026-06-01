@@ -50,12 +50,7 @@ public class RelationshipService(
         if (accountId == Guid.Empty || relatedId == Guid.Empty)
             throw new ArgumentException("Account IDs cannot be empty.");
 
-        var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
-        var queries = db.AccountRelationships
-            .Where(r => r.AccountId == accountId && r.RelatedId == relatedId);
-        if (!ignoreExpired) queries = queries.Where(r => r.ExpiredAt == null || r.ExpiredAt > now);
-        if (status is not null) queries = queries.Where(r => r.Status == status);
-        var relationship = await queries.FirstOrDefaultAsync();
+        var relationship = await GetRelationshipEntity(accountId, relatedId, status, ignoreExpired);
         if (relationship is null) return null;
 
         relationship.Account = await accounts.GetAccount(relationship.AccountId)
@@ -75,14 +70,23 @@ public class RelationshipService(
         if (await HasExistingRelationship(sender.Id, target.Id))
             throw new InvalidOperationException("Found existing relationship between you and target user.");
 
-        var relationship = new SnAccountRelationship
+        var relationship = await GetRelationshipEntity(sender.Id, target.Id, ignoreExpired: true, includeDeleted: true);
+        if (relationship is not null)
         {
-            AccountId = sender.Id,
-            RelatedId = target.Id,
-            Status = status
-        };
+            RestoreRelationship(relationship, status);
+            db.Update(relationship);
+        }
+        else
+        {
+            relationship = new SnAccountRelationship
+            {
+                AccountId = sender.Id,
+                RelatedId = target.Id,
+                Status = status
+            };
 
-        db.AccountRelationships.Add(relationship);
+            db.AccountRelationships.Add(relationship);
+        }
         await db.SaveChangesAsync();
         await PurgeRelationshipCache(sender.Id, target.Id, status);
 
@@ -96,24 +100,25 @@ public class RelationshipService(
         RelationshipStatus? degradeTo = null
     )
     {
-        var outgoingRelationship = await GetRelationship(sender.Id, target.Id, ignoreExpired: true);
+        var outgoingRelationship = await GetRelationshipEntity(sender.Id, target.Id, ignoreExpired: true, includeDeleted: true);
 
         SnAccountRelationship relationship;
         if (outgoingRelationship is not null)
         {
-            outgoingRelationship.Status = RelationshipStatus.Blocked;
-            outgoingRelationship.ExpiredAt = expiresIn.HasValue
-                ? SystemClock.Instance.GetCurrentInstant() + expiresIn.Value
-                : null;
-            outgoingRelationship.DegradeToStatus = degradeTo;
+            RestoreRelationship(
+                outgoingRelationship,
+                RelationshipStatus.Blocked,
+                expiresIn.HasValue ? SystemClock.Instance.GetCurrentInstant() + expiresIn.Value : null,
+                degradeTo
+            );
             db.Update(outgoingRelationship);
             await db.SaveChangesAsync();
             relationship = outgoingRelationship;
         }
         else
         {
-            var incomingRelationship = await GetRelationship(target.Id, sender.Id, ignoreExpired: true);
-            if (incomingRelationship is not null)
+            var incomingRelationship = await GetRelationshipEntity(target.Id, sender.Id, ignoreExpired: true, includeDeleted: true);
+            if (incomingRelationship is not null && incomingRelationship.DeletedAt is null)
             {
                 db.Remove(incomingRelationship);
                 await db.SaveChangesAsync();
@@ -163,22 +168,35 @@ public class RelationshipService(
         RelationshipStatus? degradeTo = null
     )
     {
-        var existing = await GetRelationship(sender.Id, target.Id, RelationshipStatus.Muted, ignoreExpired: true);
-        if (existing is not null)
+        var relationship = await GetRelationshipEntity(sender.Id, target.Id, ignoreExpired: true, includeDeleted: true);
+        if (relationship is not null && relationship.DeletedAt is null && relationship.Status == RelationshipStatus.Muted)
             throw new InvalidOperationException("You have already muted this user.");
 
-        var relationship = new SnAccountRelationship
+        if (relationship is not null)
         {
-            AccountId = sender.Id,
-            RelatedId = target.Id,
-            Status = RelationshipStatus.Muted,
-            ExpiredAt = expiresIn.HasValue
-                ? SystemClock.Instance.GetCurrentInstant() + expiresIn.Value
-                : null,
-            DegradeToStatus = degradeTo
-        };
+            RestoreRelationship(
+                relationship,
+                RelationshipStatus.Muted,
+                expiresIn.HasValue ? SystemClock.Instance.GetCurrentInstant() + expiresIn.Value : null,
+                degradeTo
+            );
+            db.Update(relationship);
+        }
+        else
+        {
+            relationship = new SnAccountRelationship
+            {
+                AccountId = sender.Id,
+                RelatedId = target.Id,
+                Status = RelationshipStatus.Muted,
+                ExpiredAt = expiresIn.HasValue
+                    ? SystemClock.Instance.GetCurrentInstant() + expiresIn.Value
+                    : null,
+                DegradeToStatus = degradeTo
+            };
 
-        db.AccountRelationships.Add(relationship);
+            db.AccountRelationships.Add(relationship);
+        }
         await db.SaveChangesAsync();
 
         CreateActionLog(sender.Id, ActionLogType.RelationshipMute, target.Id);
@@ -204,8 +222,11 @@ public class RelationshipService(
 
     public async Task<SnAccountRelationship> AddCloseFriend(SnAccount sender, SnAccount target)
     {
-        var existing = await GetRelationship(sender.Id, target.Id, RelationshipStatus.CloseFriend, ignoreExpired: true);
-        if (existing is not null)
+        var relationship = await GetRelationshipEntity(sender.Id, target.Id, ignoreExpired: true, includeDeleted: true);
+        if (relationship is null || relationship.DeletedAt is not null || relationship.Status != RelationshipStatus.Friends && relationship.Status != RelationshipStatus.CloseFriend)
+            throw new InvalidOperationException("Only friends can be added to your close friends list.");
+
+        if (relationship.Status == RelationshipStatus.CloseFriend)
             throw new InvalidOperationException("This user is already in your close friends list.");
 
         var currentCount = await db.AccountRelationships
@@ -214,18 +235,14 @@ public class RelationshipService(
         if (currentCount >= MaxCloseFriends)
             throw new InvalidOperationException($"You can have at most {MaxCloseFriends} close friends.");
 
-        var relationship = new SnAccountRelationship
-        {
-            AccountId = sender.Id,
-            RelatedId = target.Id,
-            Status = RelationshipStatus.CloseFriend
-        };
-
-        db.AccountRelationships.Add(relationship);
+        relationship.Status = RelationshipStatus.CloseFriend;
+        relationship.ExpiredAt = null;
+        relationship.DegradeToStatus = null;
+        db.Update(relationship);
         await db.SaveChangesAsync();
 
         CreateActionLog(sender.Id, ActionLogType.RelationshipCloseFriend, target.Id);
-        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.CloseFriend);
+        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Friends, RelationshipStatus.CloseFriend);
 
         return relationship;
     }
@@ -234,11 +251,14 @@ public class RelationshipService(
     {
         var relationship = await GetRelationship(sender.Id, target.Id, RelationshipStatus.CloseFriend);
         if (relationship is null) throw new ArgumentException("This user is not in your close friends list.");
-        db.Remove(relationship);
+        relationship.Status = RelationshipStatus.Friends;
+        relationship.ExpiredAt = null;
+        relationship.DegradeToStatus = null;
+        db.Update(relationship);
         await db.SaveChangesAsync();
 
         CreateActionLog(sender.Id, ActionLogType.RelationshipUnCloseFriend, target.Id);
-        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.CloseFriend);
+        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Friends, RelationshipStatus.CloseFriend);
 
         return relationship;
     }
@@ -322,15 +342,28 @@ public class RelationshipService(
         if (await HasExistingRelationship(sender.Id, target.Id))
             throw new InvalidOperationException("Found existing relationship between you and target user.");
 
-        var relationship = new SnAccountRelationship
+        var relationship = await GetRelationshipEntity(sender.Id, target.Id, ignoreExpired: true, includeDeleted: true);
+        if (relationship is not null)
         {
-            AccountId = sender.Id,
-            RelatedId = target.Id,
-            Status = RelationshipStatus.Pending,
-            ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddDays(7))
-        };
+            RestoreRelationship(
+                relationship,
+                RelationshipStatus.Pending,
+                Instant.FromDateTimeUtc(DateTime.UtcNow.AddDays(7))
+            );
+            db.Update(relationship);
+        }
+        else
+        {
+            relationship = new SnAccountRelationship
+            {
+                AccountId = sender.Id,
+                RelatedId = target.Id,
+                Status = RelationshipStatus.Pending,
+                ExpiredAt = Instant.FromDateTimeUtc(DateTime.UtcNow.AddDays(7))
+            };
 
-        db.AccountRelationships.Add(relationship);
+            db.AccountRelationships.Add(relationship);
+        }
         await db.SaveChangesAsync();
 
         CreateActionLog(sender.Id, ActionLogType.RelationshipFriendRequest, target.Id);
@@ -381,15 +414,30 @@ public class RelationshipService(
         // the sender should always see the user as a friend since the sender ask for it
         relationship.Status = RelationshipStatus.Friends;
         relationship.ExpiredAt = null;
+        relationship.DegradeToStatus = null;
         db.Update(relationship);
 
-        var relationshipBackward = new SnAccountRelationship
+        var relationshipBackward = await GetRelationshipEntity(
+            relationship.RelatedId,
+            relationship.AccountId,
+            ignoreExpired: true,
+            includeDeleted: true
+        );
+        if (relationshipBackward is not null)
         {
-            AccountId = relationship.RelatedId,
-            RelatedId = relationship.AccountId,
-            Status = status
-        };
-        db.AccountRelationships.Add(relationshipBackward);
+            RestoreRelationship(relationshipBackward, status);
+            db.Update(relationshipBackward);
+        }
+        else
+        {
+            relationshipBackward = new SnAccountRelationship
+            {
+                AccountId = relationship.RelatedId,
+                RelatedId = relationship.AccountId,
+                Status = status
+            };
+            db.AccountRelationships.Add(relationshipBackward);
+        }
 
         await db.SaveChangesAsync();
 
@@ -598,7 +646,9 @@ public class RelationshipService(
         var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
         var query = db.AccountRelationships
             .Where(r => isRelated ? r.RelatedId == accountId : r.AccountId == accountId)
-            .Where(r => r.Status == status)
+            .Where(r => status == RelationshipStatus.Friends
+                ? r.Status == RelationshipStatus.Friends || r.Status == RelationshipStatus.CloseFriend
+                : r.Status == status)
             .Where(r => r.ExpiredAt == null || r.ExpiredAt > now)
             .Select(r => isRelated ? r.AccountId : r.RelatedId);
 
@@ -651,5 +701,53 @@ public class RelationshipService(
 
         var removeTasks = keysToRemove.Select(key => cache.RemoveAsync(key));
         await Task.WhenAll(removeTasks);
+    }
+
+    private IQueryable<SnAccountRelationship> BuildRelationshipQuery(
+        Guid accountId,
+        Guid relatedId,
+        RelationshipStatus? status = null,
+        bool ignoreExpired = false,
+        bool includeDeleted = false
+    )
+    {
+        var now = Instant.FromDateTimeUtc(DateTime.UtcNow);
+        IQueryable<SnAccountRelationship> query = includeDeleted
+            ? db.AccountRelationships.IgnoreQueryFilters()
+            : db.AccountRelationships;
+
+        query = query.Where(r => r.AccountId == accountId && r.RelatedId == relatedId);
+
+        if (!ignoreExpired)
+            query = query.Where(r => r.ExpiredAt == null || r.ExpiredAt > now);
+        if (status is not null)
+            query = query.Where(r => r.Status == status);
+
+        return query;
+    }
+
+    private Task<SnAccountRelationship?> GetRelationshipEntity(
+        Guid accountId,
+        Guid relatedId,
+        RelationshipStatus? status = null,
+        bool ignoreExpired = false,
+        bool includeDeleted = false
+    )
+    {
+        return BuildRelationshipQuery(accountId, relatedId, status, ignoreExpired, includeDeleted)
+            .FirstOrDefaultAsync();
+    }
+
+    private static void RestoreRelationship(
+        SnAccountRelationship relationship,
+        RelationshipStatus status,
+        Instant? expiredAt = null,
+        RelationshipStatus? degradeTo = null
+    )
+    {
+        relationship.DeletedAt = null;
+        relationship.Status = status;
+        relationship.ExpiredAt = expiredAt;
+        relationship.DegradeToStatus = degradeTo;
     }
 }
