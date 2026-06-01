@@ -440,22 +440,16 @@ Endpoints:
 - `GET /api/accounts/me/progression/quests`
 - `GET /api/accounts/me/progression/grants`
 
-User list payloads now include series fields for merged stepped ladders:
+### Badges Discovery API
 
-- `SeriesIdentifier`
-- `SeriesTitle`
-- `SeriesOrder`
-- `SeriesTotalSteps`
-- `SeriesCompletedSteps`
-- `SeriesStages` — array of all tiers with `Identifier`, `Title`, `SeriesOrder`, `TargetCount`, `IsCompleted`, `CompletedAt`
+Public endpoint for badge icon metadata and SVG serving:
 
-Achievement stats include hidden definitions in the totals:
+- [BADGES_MANIFEST_ENDPOINT.md](/Users/littlesheep/Documents/Projects/DysonNetwork/docs/BADGES_MANIFEST_ENDPOINT.md)
 
-- `TotalCount`
-- `CompletedCount`
-- `HiddenTotalCount`
-- `HiddenCompletedCount`
-- `CompletionPercentage`
+Endpoints:
+
+- `GET /.well-known/badges` — badge manifest with identifiers, colors, icons, and localization keys
+- `GET /.well-known/badges/icons/{iconName}` — SVG icon files
 
 ### Admin APIs
 

@@ -23,13 +23,14 @@ GET /.well-known/badges
 ### Badge Icon (SVG)
 
 ```
-GET /.well-known/badges/icons/{identifier}
+GET /.well-known/badges/icons/{iconName}
 ```
 
-- Returns the SVG file for the given badge identifier
+- Returns the SVG file for the given icon name (the `icon` field from the manifest)
 - Response cached for 24 hours (`Cache-Control: public, max-age=86400`)
 - Returns `404` if no icons folder is configured or the file does not exist
-- Production gateway: `/passport/.well-known/badges/icons/{identifier}`
+- Production gateway: `/passport/.well-known/badges/icons/{iconName}`
+- SVGs are shared across badges with the same icon; the client applies the `color` from the manifest
 
 ## Configuration
 
@@ -38,29 +39,36 @@ In `appsettings.json`:
 ```json
 {
   "Badges": {
-    "IconsPath": "./Resources/Badges"
+    "IconsPath": "./Resources/BadgeIcons"
   }
 }
 ```
 
 | Key | Type | Description |
 |---|---|---|
-| `IconsPath` | string | Path to a folder containing SVG files named `{identifier}.svg` |
+| `IconsPath` | string | Path to a folder containing SVG files named `{icon}.svg` |
 
 When `IconsPath` is set and the directory exists, each badge in the manifest will include an `icon_url` field pointing to the SVG endpoint. When unset or the directory is missing, `icon_url` will be `null` and the icon endpoint returns `404`.
 
 ### SVG File Naming
 
-Files must be named exactly after the badge identifier with a `.svg` extension:
+SVGs are named by **icon name** (not badge identifier). Multiple badges sharing the same icon use a single SVG file — the client applies the badge's `color` to it.
 
 ```
-Resources/Badges/
-├── progression.post.expert.svg
-├── progression.post.featured.svg
-├── progression.post.streak.30.svg
-├── progression.login.streak.365.svg
-├── progression.friends.50.svg
-└── ...
+Resources/BadgeIcons/
+├── draw.svg                → post.expert, post.streak.90
+├── recommend.svg           → post.featured, post.featured.expert
+├── calendar-add-on.svg     → post.streak.30, post.streak.365, login.streak.90, login.streak.365
+├── diversity-2.svg         → friends.50, friends.100, hidden.speed_friend
+├── bolt-boost.svg          → boost.50, reaction.expert
+├── shapes.svg              → post.topical.first, post.topical.50
+├── volunteer-activism.svg  → stellar.supporter.12, hidden.social_butterfly_day
+├── moon-stars.svg          → hidden.night_owl
+├── whatshot.svg            → post.downvote.5, post.downvote.20
+├── face.svg                → account.avatar
+├── badge.svg               → account.profile_complete
+├── do-not-step.svg         → chat.expert
+└── repeat.svg              → (unused, kept as spare)
 ```
 
 ## Response Format
@@ -74,9 +82,9 @@ Resources/Badges/
       "achievement_identifier": "expert-post",
       "label": "Better than 陆游",
       "caption": "Created over 9362 posts",
-      "icon": "ink",
+      "icon": "draw",
       "color": "#6366f1",
-      "icon_url": "/.well-known/badges/icons/progression.post.expert",
+      "icon_url": "/.well-known/badges/icons/draw",
       "localization_key": "badge.post_expert",
       "category": "post",
       "series": null,
@@ -94,9 +102,9 @@ Resources/Badges/
 | `achievement_identifier` | string | Links to the achievement definition in progression system |
 | `label` | string | Display name shown on the badge |
 | `caption` | string | Description or earn condition |
-| `icon` | string | Lucide icon name (fallback when no SVG is available) |
-| `color` | string | Hex color for badge rendering |
-| `icon_url` | string/null | URL to fetch the badge SVG, or null if not configured |
+| `icon` | string | Icon name — used as both the SVG filename and generic fallback |
+| `color` | string | Hex color for the client to apply to the SVG icon |
+| `icon_url` | string/null | URL to fetch the SVG by icon name, or null if not configured |
 | `localization_key` | string | i18n key for client-side translation |
 | `category` | string | Badge grouping |
 | `series` | object/null | Series metadata if badge belongs to a tier ladder |
@@ -140,6 +148,20 @@ Badge definitions are derived from:
 
 Only achievements that include a `Reward.Badge` are listed in the manifest.
 
+## Deployment
+
+SVG files are included in the publish output via the csproj:
+
+```xml
+<Content Include="Resources\BadgeIcons\**\*.svg">
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+</Content>
+```
+
+No Dockerfile changes are needed — `COPY . .` picks up the files and `dotnet publish` copies them to the output directory automatically.
+
+To add or update icons, place `.svg` files in `Resources/BadgeIcons/` and update the `BadgeEntries` array in the controller if new icon names are introduced.
+
 ## Localization
 
 The `localization_key` field follows the pattern `badge.<achievement_identifier_with_underscores>`.
@@ -160,6 +182,7 @@ Clients should resolve these keys against their own locale bundles. Example mapp
 1. Fetch `GET /.well-known/badges` on app start or periodically
 2. Cache the manifest client-side
 3. When rendering a user's badge (from progression reward grant), match `Reward.Badge.Type` against manifest `identifier`
-4. Use the matched entry's `color`, `label`, and `localization_key` for rendering
-5. Prefer `icon_url` for the badge image when available; fall back to `icon` (Lucide name) for a generic icon
-6. For hidden badges, show a placeholder or generic "Secret Badge" until the user unlocks it
+4. Fetch the SVG from `icon_url` and apply the badge's `color` to it (e.g. via CSS `fill`/`currentColor` or SVG manipulation)
+5. Use `label`, `caption`, and `localization_key` for text rendering
+6. Fall back to `icon` for a generic icon when `icon_url` is null
+7. For hidden badges, show a placeholder or generic "Secret Badge" until the user unlocks it
