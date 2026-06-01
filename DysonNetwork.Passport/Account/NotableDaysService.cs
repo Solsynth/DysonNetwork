@@ -68,13 +68,16 @@ public class NotableDaysService(AppDatabase db, ICacheService cache)
             }
         }
 
-        // Add global holidays
-        var globalDays = GetGlobalHolidays(year.Value);
-        foreach (var globalDay in globalDays)
+        // Add global holidays only when not filtering by tag
+        if (!tag.HasValue)
         {
-            if (!days.Any(d => d.Date.Equals(globalDay.Date) && d.GlobalName == globalDay.GlobalName))
+            var globalDays = GetGlobalHolidays(year.Value);
+            foreach (var globalDay in globalDays)
             {
-                days.Add(globalDay);
+                if (!days.Any(d => d.Date.Equals(globalDay.Date) && d.GlobalName == globalDay.GlobalName))
+                {
+                    days.Add(globalDay);
+                }
             }
         }
 

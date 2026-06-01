@@ -271,6 +271,8 @@ public partial class ChatController(
         public Guid? FundId { get; set; }
         public Guid? PollId { get; set; }
         public Guid? MeetId { get; set; }
+        public Guid? NotableDayId { get; set; }
+        public Guid? CalendarEventId { get; set; }
         [MaxLength(256)] public string? LocationName { get; set; }
         [MaxLength(1024)] public string? LocationAddress { get; set; }
         public string? LocationWkt { get; set; }
@@ -491,6 +493,16 @@ public partial class ChatController(
         {
             var meetEmbed = new MeetEmbed { Id = request.MeetId.Value };
             ChatMessageHelpers.AddEmbedToMessage(message, meetEmbed);
+        }
+        if (!e2eeMode && request.NotableDayId.HasValue)
+        {
+            var notableDayEmbed = new NotableDayEmbed { Id = request.NotableDayId.Value };
+            ChatMessageHelpers.AddEmbedToMessage(message, notableDayEmbed);
+        }
+        if (!e2eeMode && request.CalendarEventId.HasValue)
+        {
+            var calendarEventEmbed = new CalendarEventEmbed { Id = request.CalendarEventId.Value };
+            ChatMessageHelpers.AddEmbedToMessage(message, calendarEventEmbed);
         }
         if (!e2eeMode && ChatMessageHelpers.HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
         {
@@ -877,6 +889,28 @@ public partial class ChatController(
         else if (!e2eeMode)
         {
             ChatMessageHelpers.RemoveEmbedFromMessage(message, "meet");
+        }
+
+        if (!e2eeMode && request.NotableDayId.HasValue)
+        {
+            var notableDayEmbed = new NotableDayEmbed { Id = request.NotableDayId.Value };
+            ChatMessageHelpers.RemoveEmbedFromMessage(message, "notable_day");
+            ChatMessageHelpers.AddEmbedToMessage(message, notableDayEmbed);
+        }
+        else if (!e2eeMode)
+        {
+            ChatMessageHelpers.RemoveEmbedFromMessage(message, "notable_day");
+        }
+
+        if (!e2eeMode && request.CalendarEventId.HasValue)
+        {
+            var calendarEventEmbed = new CalendarEventEmbed { Id = request.CalendarEventId.Value };
+            ChatMessageHelpers.RemoveEmbedFromMessage(message, "calendar_event");
+            ChatMessageHelpers.AddEmbedToMessage(message, calendarEventEmbed);
+        }
+        else if (!e2eeMode)
+        {
+            ChatMessageHelpers.RemoveEmbedFromMessage(message, "calendar_event");
         }
 
         if (!e2eeMode && ChatMessageHelpers.HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))

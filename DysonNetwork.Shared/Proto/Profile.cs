@@ -128,63 +128,144 @@ namespace DysonNetwork.Shared.Proto {
             "CWFjY291bnRJZBIfCgpyZWxhdGVkX2lkGAIgASgJSABSCXJlbGF0ZWRJZEIV",
             "ChNyZWxhdGlvbl9pZGVudGlmaWVyIkMKIER5TGlzdFJlbGF0aW9uc2hpcFNp",
             "bXBsZVJlc3BvbnNlEh8KC2FjY291bnRzX2lkGAEgAygJUgphY2NvdW50c0lk",
-            "KmgKEER5U3RhdHVzQXR0aXR1ZGUSIgoeRFlfU1RBVFVTX0FUVElUVURFX1VO",
-            "U1BFQ0lGSUVEEAASDwoLRFlfUE9TSVRJVkUQARIPCgtEWV9ORUdBVElWRRAC",
-            "Eg4KCkRZX05FVVRSQUwQAyqrAQoTRHlBY2NvdW50U3RhdHVzVHlwZRIiCh5E",
-            "WV9BQ0NPVU5UX1NUQVRVU19UWVBFX0RFRkFVTFQQABIfChtEWV9BQ0NPVU5U",
-            "X1NUQVRVU19UWVBFX0JVU1kQARIpCiVEWV9BQ0NPVU5UX1NUQVRVU19UWVBF",
-            "X0RPX05PVF9ESVNUVVJCEAISJAogRFlfQUNDT1VOVF9TVEFUVVNfVFlQRV9J",
-            "TlZJU0lCTEUQAzLfDQoQRHlQcm9maWxlU2VydmljZRI8CgpHZXRBY2NvdW50",
-            "EhoucHJvdG8uRHlHZXRBY2NvdW50UmVxdWVzdBoQLnByb3RvLkR5QWNjb3Vu",
-            "dCIAEkIKDUdldEJvdEFjY291bnQSHS5wcm90by5EeUdldEJvdEFjY291bnRS",
-            "ZXF1ZXN0GhAucHJvdG8uRHlBY2NvdW50IgASVgoPR2V0QWNjb3VudEJhdGNo",
-            "Eh8ucHJvdG8uRHlHZXRBY2NvdW50QmF0Y2hSZXF1ZXN0GiAucHJvdG8uRHlH",
-            "ZXRBY2NvdW50QmF0Y2hSZXNwb25zZSIAElwKEkdldEJvdEFjY291bnRCYXRj",
-            "aBIiLnByb3RvLkR5R2V0Qm90QWNjb3VudEJhdGNoUmVxdWVzdBogLnByb3Rv",
-            "LkR5R2V0QWNjb3VudEJhdGNoUmVzcG9uc2UiABJcChJMb29rdXBBY2NvdW50",
-            "QmF0Y2gSIi5wcm90by5EeUxvb2t1cEFjY291bnRCYXRjaFJlcXVlc3QaIC5w",
-            "cm90by5EeUdldEFjY291bnRCYXRjaFJlc3BvbnNlIgASUgoNU2VhcmNoQWNj",
-            "b3VudBIdLnByb3RvLkR5U2VhcmNoQWNjb3VudFJlcXVlc3QaIC5wcm90by5E",
-            "eUdldEFjY291bnRCYXRjaFJlc3BvbnNlIgASTQoMTGlzdEFjY291bnRzEhwu",
-            "cHJvdG8uRHlMaXN0QWNjb3VudHNSZXF1ZXN0Gh0ucHJvdG8uRHlMaXN0QWNj",
-            "b3VudHNSZXNwb25zZSIAEkgKEEdldEFjY291bnRTdGF0dXMSGi5wcm90by5E",
-            "eUdldEFjY291bnRSZXF1ZXN0GhYucHJvdG8uRHlBY2NvdW50U3RhdHVzIgAS",
-            "YgoVR2V0QWNjb3VudFN0YXR1c0JhdGNoEh8ucHJvdG8uRHlHZXRBY2NvdW50",
-            "QmF0Y2hSZXF1ZXN0GiYucHJvdG8uRHlHZXRBY2NvdW50U3RhdHVzQmF0Y2hS",
-            "ZXNwb25zZSIAEkMKCkdldFByb2ZpbGUSGi5wcm90by5EeUdldFByb2ZpbGVS",
-            "ZXF1ZXN0GhcucHJvdG8uRHlBY2NvdW50UHJvZmlsZSIAEkkKDVVwZGF0ZVBy",
-            "b2ZpbGUSHS5wcm90by5EeVVwZGF0ZVByb2ZpbGVSZXF1ZXN0GhcucHJvdG8u",
-            "RHlBY2NvdW50UHJvZmlsZSIAEkcKCkxpc3RCYWRnZXMSGi5wcm90by5EeUxp",
-            "c3RCYWRnZXNSZXF1ZXN0GhsucHJvdG8uRHlMaXN0QmFkZ2VzUmVzcG9uc2Ui",
-            "ABJHCgpHcmFudEJhZGdlEhoucHJvdG8uRHlHcmFudEJhZGdlUmVxdWVzdBob",
-            "LnByb3RvLkR5R3JhbnRCYWRnZVJlc3BvbnNlIgASQQoIR2V0QmFkZ2USGC5w",
-            "cm90by5EeUdldEJhZGdlUmVxdWVzdBoZLnByb3RvLkR5R2V0QmFkZ2VSZXNw",
-            "b25zZSIAEkoKC1VwZGF0ZUJhZGdlEhsucHJvdG8uRHlVcGRhdGVCYWRnZVJl",
-            "cXVlc3QaHC5wcm90by5EeVVwZGF0ZUJhZGdlUmVzcG9uc2UiABJWCg9HZXRS",
-            "ZWxhdGlvbnNoaXASHy5wcm90by5EeUdldFJlbGF0aW9uc2hpcFJlcXVlc3Qa",
-            "IC5wcm90by5EeUdldFJlbGF0aW9uc2hpcFJlc3BvbnNlIgASUAoPSGFzUmVs",
-            "YXRpb25zaGlwEh8ucHJvdG8uRHlHZXRSZWxhdGlvbnNoaXBSZXF1ZXN0Ghou",
-            "Z29vZ2xlLnByb3RvYnVmLkJvb2xWYWx1ZSIAEmAKC0xpc3RGcmllbmRzEiYu",
-            "cHJvdG8uRHlMaXN0UmVsYXRpb25zaGlwU2ltcGxlUmVxdWVzdBonLnByb3Rv",
-            "LkR5TGlzdFJlbGF0aW9uc2hpcFNpbXBsZVJlc3BvbnNlIgASYAoLTGlzdEJs",
-            "b2NrZWQSJi5wcm90by5EeUxpc3RSZWxhdGlvbnNoaXBTaW1wbGVSZXF1ZXN0",
-            "GicucHJvdG8uRHlMaXN0UmVsYXRpb25zaGlwU2ltcGxlUmVzcG9uc2UiABJe",
-            "CglMaXN0TXV0ZWQSJi5wcm90by5EeUxpc3RSZWxhdGlvbnNoaXBTaW1wbGVS",
-            "ZXF1ZXN0GicucHJvdG8uRHlMaXN0UmVsYXRpb25zaGlwU2ltcGxlUmVzcG9u",
-            "c2UiABJlChBMaXN0Q2xvc2VGcmllbmRzEiYucHJvdG8uRHlMaXN0UmVsYXRp",
-            "b25zaGlwU2ltcGxlUmVxdWVzdBonLnByb3RvLkR5TGlzdFJlbGF0aW9uc2hp",
-            "cFNpbXBsZVJlc3BvbnNlIgAynAIKEkR5QWN0aW9uTG9nU2VydmljZRJWCg9D",
-            "cmVhdGVBY3Rpb25Mb2cSHy5wcm90by5EeUNyZWF0ZUFjdGlvbkxvZ1JlcXVl",
-            "c3QaIC5wcm90by5EeUNyZWF0ZUFjdGlvbkxvZ1Jlc3BvbnNlIgASUwoOTGlz",
-            "dEFjdGlvbkxvZ3MSHi5wcm90by5EeUxpc3RBY3Rpb25Mb2dzUmVxdWVzdBof",
-            "LnByb3RvLkR5TGlzdEFjdGlvbkxvZ3NSZXNwb25zZSIAElkKEFNlYXJjaEFj",
-            "dGlvbkxvZ3MSIC5wcm90by5EeVNlYXJjaEFjdGlvbkxvZ3NSZXF1ZXN0GiEu",
-            "cHJvdG8uRHlTZWFyY2hBY3Rpb25Mb2dzUmVzcG9uc2UiAEI9Wh9zcmMuc29s",
-            "c3ludGguZGV2L3Nvc3lzL2dvL3Byb3RvqgIZRHlzb25OZXR3b3JrLlNoYXJl",
-            "ZC5Qcm90b2IGcHJvdG8z"));
+            "IsYGCgxEeU5vdGFibGVEYXkSDgoCaWQYASABKAlSAmlkEhIKBG5hbWUYAiAB",
+            "KAlSBG5hbWUSPgoLZGVzY3JpcHRpb24YAyABKAsyHC5nb29nbGUucHJvdG9i",
+            "dWYuU3RyaW5nVmFsdWVSC2Rlc2NyaXB0aW9uEjsKCmxvY2FsX25hbWUYBCAB",
+            "KAsyHC5nb29nbGUucHJvdG9idWYuU3RyaW5nVmFsdWVSCWxvY2FsTmFtZRJF",
+            "Cg9sb2NhbGl6YWJsZV9rZXkYBSABKAsyHC5nb29nbGUucHJvdG9idWYuU3Ry",
+            "aW5nVmFsdWVSDmxvY2FsaXphYmxlS2V5EjkKCnN0YXJ0X2RhdGUYBiABKAsy",
+            "Gi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wUglzdGFydERhdGUSNQoIZW5k",
+            "X2RhdGUYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wUgdlbmRE",
+            "YXRlEhwKCmlzX2FsbF9kYXkYCCABKAhSCGlzQWxsRGF5EhYKBnJlZ2lvbhgJ",
+            "IAEoCVIGcmVnaW9uEioKBHRhZ3MYCiADKA4yFi5wcm90by5EeU5vdGFibGVE",
+            "YXlUYWdSBHRhZ3MSEgoEbWV0YRgLIAEoDFIEbWV0YRIhCgxpc19yZWN1cnJp",
+            "bmcYDCABKAhSC2lzUmVjdXJyaW5nEksKEnJlY3VycmVuY2VfcGF0dGVybhgN",
+            "IAEoCzIcLmdvb2dsZS5wcm90b2J1Zi5TdHJpbmdWYWx1ZVIRcmVjdXJyZW5j",
+            "ZVBhdHRlcm4SGwoJaXNfcGVyaW9kGA4gASgIUghpc1BlcmlvZBIhCgxob2xp",
+            "ZGF5X2RheXMYDyADKAlSC2hvbGlkYXlEYXlzEkAKDWRpc3BsYXlfb3JkZXIY",
+            "ECABKAsyGy5nb29nbGUucHJvdG9idWYuSW50MzJWYWx1ZVIMZGlzcGxheU9y",
+            "ZGVyEjkKCmNyZWF0ZWRfYXQYESABKAsyGi5nb29nbGUucHJvdG9idWYuVGlt",
+            "ZXN0YW1wUgljcmVhdGVkQXQSOQoKdXBkYXRlZF9hdBgSIAEoCzIaLmdvb2ds",
+            "ZS5wcm90b2J1Zi5UaW1lc3RhbXBSCXVwZGF0ZWRBdCKuBAoTRHlVc2VyQ2Fs",
+            "ZW5kYXJFdmVudBIOCgJpZBgBIAEoCVICaWQSFAoFdGl0bGUYAiABKAlSBXRp",
+            "dGxlEj4KC2Rlc2NyaXB0aW9uGAMgASgLMhwuZ29vZ2xlLnByb3RvYnVmLlN0",
+            "cmluZ1ZhbHVlUgtkZXNjcmlwdGlvbhI4Cghsb2NhdGlvbhgEIAEoCzIcLmdv",
+            "b2dsZS5wcm90b2J1Zi5TdHJpbmdWYWx1ZVIIbG9jYXRpb24SOQoKc3RhcnRf",
+            "dGltZRgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBSCXN0YXJ0",
+            "VGltZRI1CghlbmRfdGltZRgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1l",
+            "c3RhbXBSB2VuZFRpbWUSHAoKaXNfYWxsX2RheRgHIAEoCFIIaXNBbGxEYXkS",
+            "HgoKdmlzaWJpbGl0eRgIIAEoBVIKdmlzaWJpbGl0eRIeCgpyZWN1cnJlbmNl",
+            "GAkgASgMUgpyZWN1cnJlbmNlEhIKBG1ldGEYCiABKAxSBG1ldGESHQoKYWNj",
+            "b3VudF9pZBgLIAEoCVIJYWNjb3VudElkEjkKCmNyZWF0ZWRfYXQYDCABKAsy",
+            "Gi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wUgljcmVhdGVkQXQSOQoKdXBk",
+            "YXRlZF9hdBgNIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBSCXVw",
+            "ZGF0ZWRBdCLvBAoURHlFdmVudENvdW50ZG93bkl0ZW0SNwoIZXZlbnRfaWQY",
+            "ASABKAsyHC5nb29nbGUucHJvdG9idWYuU3RyaW5nVmFsdWVSB2V2ZW50SWQS",
+            "EgoEdHlwZRgCIAEoBVIEdHlwZRIUCgV0aXRsZRgDIAEoCVIFdGl0bGUSPgoL",
+            "ZGVzY3JpcHRpb24YBCABKAsyHC5nb29nbGUucHJvdG9idWYuU3RyaW5nVmFs",
+            "dWVSC2Rlc2NyaXB0aW9uEjgKCGxvY2F0aW9uGAUgASgLMhwuZ29vZ2xlLnBy",
+            "b3RvYnVmLlN0cmluZ1ZhbHVlUghsb2NhdGlvbhI5CgpzdGFydF90aW1lGAYg",
+            "ASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIJc3RhcnRUaW1lEjUK",
+            "CGVuZF90aW1lGAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIH",
+            "ZW5kVGltZRIcCgppc19hbGxfZGF5GAggASgIUghpc0FsbERheRIlCg5kYXlz",
+            "X3JlbWFpbmluZxgJIAEoBVINZGF5c1JlbWFpbmluZxInCg9ob3Vyc19yZW1h",
+            "aW5pbmcYCiABKAVSDmhvdXJzUmVtYWluaW5nEh0KCmlzX29uZ29pbmcYCyAB",
+            "KAhSCWlzT25nb2luZxISCgRtZXRhGAwgASgMUgRtZXRhEjsKCmFjY291bnRf",
+            "aWQYDSABKAsyHC5nb29nbGUucHJvdG9idWYuU3RyaW5nVmFsdWVSCWFjY291",
+            "bnRJZBIqCgR0YWdzGA4gAygOMhYucHJvdG8uRHlOb3RhYmxlRGF5VGFnUgR0",
+            "YWdzIsUBChdEeUdldE5vdGFibGVEYXlzUmVxdWVzdBIvCgR5ZWFyGAEgASgL",
+            "MhsuZ29vZ2xlLnByb3RvYnVmLkludDMyVmFsdWVSBHllYXISFgoGcmVnaW9u",
+            "GAIgASgJUgZyZWdpb24SLQoDdGFnGAMgASgOMhYucHJvdG8uRHlOb3RhYmxl",
+            "RGF5VGFnSABSA3RhZ4gBARIWCgZvZmZzZXQYBCABKAVSBm9mZnNldBISCgR0",
+            "YWtlGAUgASgFUgR0YWtlQgYKBF90YWciZAoYRHlHZXROb3RhYmxlRGF5c1Jl",
+            "c3BvbnNlEicKBGRheXMYASADKAsyEy5wcm90by5EeU5vdGFibGVEYXlSBGRh",
+            "eXMSHwoLdG90YWxfY291bnQYAiABKAVSCnRvdGFsQ291bnQimAIKHkR5R2V0",
+            "VXNlckNhbGVuZGFyRXZlbnRzUmVxdWVzdBIdCgphY2NvdW50X2lkGAEgASgJ",
+            "UglhY2NvdW50SWQSOQoJdmlld2VyX2lkGAIgASgLMhwuZ29vZ2xlLnByb3Rv",
+            "YnVmLlN0cmluZ1ZhbHVlUgh2aWV3ZXJJZBI5CgpzdGFydF90aW1lGAMgASgL",
+            "MhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIJc3RhcnRUaW1lEjUKCGVu",
+            "ZF90aW1lGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIHZW5k",
+            "VGltZRIWCgZvZmZzZXQYBSABKAVSBm9mZnNldBISCgR0YWtlGAYgASgFUgR0",
+            "YWtlInYKH0R5R2V0VXNlckNhbGVuZGFyRXZlbnRzUmVzcG9uc2USMgoGZXZl",
+            "bnRzGAEgAygLMhoucHJvdG8uRHlVc2VyQ2FsZW5kYXJFdmVudFIGZXZlbnRz",
+            "Eh8KC3RvdGFsX2NvdW50GAIgASgFUgp0b3RhbENvdW50IqQCChtEeUdldENv",
+            "dW50ZG93bkV2ZW50c1JlcXVlc3QSHQoKYWNjb3VudF9pZBgBIAEoCVIJYWNj",
+            "b3VudElkEjkKCXZpZXdlcl9pZBgCIAEoCzIcLmdvb2dsZS5wcm90b2J1Zi5T",
+            "dHJpbmdWYWx1ZVIIdmlld2VySWQSFgoGcmVnaW9uGAMgASgJUgZyZWdpb24S",
+            "MAoUaW5jbHVkZV9ub3RhYmxlX2RheXMYBCABKAhSEmluY2x1ZGVOb3RhYmxl",
+            "RGF5cxItCgN0YWcYBSABKA4yFi5wcm90by5EeU5vdGFibGVEYXlUYWdIAFID",
+            "dGFniAEBEhIKBHRha2UYBiABKAVSBHRha2USFgoGb2Zmc2V0GAcgASgFUgZv",
+            "ZmZzZXRCBgoEX3RhZyJ0ChxEeUdldENvdW50ZG93bkV2ZW50c1Jlc3BvbnNl",
+            "EjMKBmV2ZW50cxgBIAMoCzIbLnByb3RvLkR5RXZlbnRDb3VudGRvd25JdGVt",
+            "UgZldmVudHMSHwoLdG90YWxfY291bnQYAiABKAVSCnRvdGFsQ291bnQqaAoQ",
+            "RHlTdGF0dXNBdHRpdHVkZRIiCh5EWV9TVEFUVVNfQVRUSVRVREVfVU5TUEVD",
+            "SUZJRUQQABIPCgtEWV9QT1NJVElWRRABEg8KC0RZX05FR0FUSVZFEAISDgoK",
+            "RFlfTkVVVFJBTBADKqsBChNEeUFjY291bnRTdGF0dXNUeXBlEiIKHkRZX0FD",
+            "Q09VTlRfU1RBVFVTX1RZUEVfREVGQVVMVBAAEh8KG0RZX0FDQ09VTlRfU1RB",
+            "VFVTX1RZUEVfQlVTWRABEikKJURZX0FDQ09VTlRfU1RBVFVTX1RZUEVfRE9f",
+            "Tk9UX0RJU1RVUkIQAhIkCiBEWV9BQ0NPVU5UX1NUQVRVU19UWVBFX0lOVklT",
+            "SUJMRRADKtkBCg9EeU5vdGFibGVEYXlUYWcSIgoeRFlfTk9UQUJMRV9EQVlf",
+            "VEFHX1VOU1BFQ0lGSUVEEAASHgoaRFlfTk9UQUJMRV9EQVlfVEFHX0hPTElE",
+            "QVkQARIcChhEWV9OT1RBQkxFX0RBWV9UQUdfRVZFTlQQAhIiCh5EWV9OT1RB",
+            "QkxFX0RBWV9UQUdfQU5OSVZFUlNBUlkQAxIfChtEWV9OT1RBQkxFX0RBWV9U",
+            "QUdfTUVNT1JJQUwQBBIfChtEWV9OT1RBQkxFX0RBWV9UQUdfRkVTVElWQUwQ",
+            "BTL/DwoQRHlQcm9maWxlU2VydmljZRI8CgpHZXRBY2NvdW50EhoucHJvdG8u",
+            "RHlHZXRBY2NvdW50UmVxdWVzdBoQLnByb3RvLkR5QWNjb3VudCIAEkIKDUdl",
+            "dEJvdEFjY291bnQSHS5wcm90by5EeUdldEJvdEFjY291bnRSZXF1ZXN0GhAu",
+            "cHJvdG8uRHlBY2NvdW50IgASVgoPR2V0QWNjb3VudEJhdGNoEh8ucHJvdG8u",
+            "RHlHZXRBY2NvdW50QmF0Y2hSZXF1ZXN0GiAucHJvdG8uRHlHZXRBY2NvdW50",
+            "QmF0Y2hSZXNwb25zZSIAElwKEkdldEJvdEFjY291bnRCYXRjaBIiLnByb3Rv",
+            "LkR5R2V0Qm90QWNjb3VudEJhdGNoUmVxdWVzdBogLnByb3RvLkR5R2V0QWNj",
+            "b3VudEJhdGNoUmVzcG9uc2UiABJcChJMb29rdXBBY2NvdW50QmF0Y2gSIi5w",
+            "cm90by5EeUxvb2t1cEFjY291bnRCYXRjaFJlcXVlc3QaIC5wcm90by5EeUdl",
+            "dEFjY291bnRCYXRjaFJlc3BvbnNlIgASUgoNU2VhcmNoQWNjb3VudBIdLnBy",
+            "b3RvLkR5U2VhcmNoQWNjb3VudFJlcXVlc3QaIC5wcm90by5EeUdldEFjY291",
+            "bnRCYXRjaFJlc3BvbnNlIgASTQoMTGlzdEFjY291bnRzEhwucHJvdG8uRHlM",
+            "aXN0QWNjb3VudHNSZXF1ZXN0Gh0ucHJvdG8uRHlMaXN0QWNjb3VudHNSZXNw",
+            "b25zZSIAEkgKEEdldEFjY291bnRTdGF0dXMSGi5wcm90by5EeUdldEFjY291",
+            "bnRSZXF1ZXN0GhYucHJvdG8uRHlBY2NvdW50U3RhdHVzIgASYgoVR2V0QWNj",
+            "b3VudFN0YXR1c0JhdGNoEh8ucHJvdG8uRHlHZXRBY2NvdW50QmF0Y2hSZXF1",
+            "ZXN0GiYucHJvdG8uRHlHZXRBY2NvdW50U3RhdHVzQmF0Y2hSZXNwb25zZSIA",
+            "EkMKCkdldFByb2ZpbGUSGi5wcm90by5EeUdldFByb2ZpbGVSZXF1ZXN0Ghcu",
+            "cHJvdG8uRHlBY2NvdW50UHJvZmlsZSIAEkkKDVVwZGF0ZVByb2ZpbGUSHS5w",
+            "cm90by5EeVVwZGF0ZVByb2ZpbGVSZXF1ZXN0GhcucHJvdG8uRHlBY2NvdW50",
+            "UHJvZmlsZSIAEkcKCkxpc3RCYWRnZXMSGi5wcm90by5EeUxpc3RCYWRnZXNS",
+            "ZXF1ZXN0GhsucHJvdG8uRHlMaXN0QmFkZ2VzUmVzcG9uc2UiABJHCgpHcmFu",
+            "dEJhZGdlEhoucHJvdG8uRHlHcmFudEJhZGdlUmVxdWVzdBobLnByb3RvLkR5",
+            "R3JhbnRCYWRnZVJlc3BvbnNlIgASQQoIR2V0QmFkZ2USGC5wcm90by5EeUdl",
+            "dEJhZGdlUmVxdWVzdBoZLnByb3RvLkR5R2V0QmFkZ2VSZXNwb25zZSIAEkoK",
+            "C1VwZGF0ZUJhZGdlEhsucHJvdG8uRHlVcGRhdGVCYWRnZVJlcXVlc3QaHC5w",
+            "cm90by5EeVVwZGF0ZUJhZGdlUmVzcG9uc2UiABJWCg9HZXRSZWxhdGlvbnNo",
+            "aXASHy5wcm90by5EeUdldFJlbGF0aW9uc2hpcFJlcXVlc3QaIC5wcm90by5E",
+            "eUdldFJlbGF0aW9uc2hpcFJlc3BvbnNlIgASUAoPSGFzUmVsYXRpb25zaGlw",
+            "Eh8ucHJvdG8uRHlHZXRSZWxhdGlvbnNoaXBSZXF1ZXN0GhouZ29vZ2xlLnBy",
+            "b3RvYnVmLkJvb2xWYWx1ZSIAEmAKC0xpc3RGcmllbmRzEiYucHJvdG8uRHlM",
+            "aXN0UmVsYXRpb25zaGlwU2ltcGxlUmVxdWVzdBonLnByb3RvLkR5TGlzdFJl",
+            "bGF0aW9uc2hpcFNpbXBsZVJlc3BvbnNlIgASYAoLTGlzdEJsb2NrZWQSJi5w",
+            "cm90by5EeUxpc3RSZWxhdGlvbnNoaXBTaW1wbGVSZXF1ZXN0GicucHJvdG8u",
+            "RHlMaXN0UmVsYXRpb25zaGlwU2ltcGxlUmVzcG9uc2UiABJeCglMaXN0TXV0",
+            "ZWQSJi5wcm90by5EeUxpc3RSZWxhdGlvbnNoaXBTaW1wbGVSZXF1ZXN0Gicu",
+            "cHJvdG8uRHlMaXN0UmVsYXRpb25zaGlwU2ltcGxlUmVzcG9uc2UiABJlChBM",
+            "aXN0Q2xvc2VGcmllbmRzEiYucHJvdG8uRHlMaXN0UmVsYXRpb25zaGlwU2lt",
+            "cGxlUmVxdWVzdBonLnByb3RvLkR5TGlzdFJlbGF0aW9uc2hpcFNpbXBsZVJl",
+            "c3BvbnNlIgASUwoOR2V0Tm90YWJsZURheXMSHi5wcm90by5EeUdldE5vdGFi",
+            "bGVEYXlzUmVxdWVzdBofLnByb3RvLkR5R2V0Tm90YWJsZURheXNSZXNwb25z",
+            "ZSIAEmgKFUdldFVzZXJDYWxlbmRhckV2ZW50cxIlLnByb3RvLkR5R2V0VXNl",
+            "ckNhbGVuZGFyRXZlbnRzUmVxdWVzdBomLnByb3RvLkR5R2V0VXNlckNhbGVu",
+            "ZGFyRXZlbnRzUmVzcG9uc2UiABJfChJHZXRDb3VudGRvd25FdmVudHMSIi5w",
+            "cm90by5EeUdldENvdW50ZG93bkV2ZW50c1JlcXVlc3QaIy5wcm90by5EeUdl",
+            "dENvdW50ZG93bkV2ZW50c1Jlc3BvbnNlIgAynAIKEkR5QWN0aW9uTG9nU2Vy",
+            "dmljZRJWCg9DcmVhdGVBY3Rpb25Mb2cSHy5wcm90by5EeUNyZWF0ZUFjdGlv",
+            "bkxvZ1JlcXVlc3QaIC5wcm90by5EeUNyZWF0ZUFjdGlvbkxvZ1Jlc3BvbnNl",
+            "IgASUwoOTGlzdEFjdGlvbkxvZ3MSHi5wcm90by5EeUxpc3RBY3Rpb25Mb2dz",
+            "UmVxdWVzdBofLnByb3RvLkR5TGlzdEFjdGlvbkxvZ3NSZXNwb25zZSIAElkK",
+            "EFNlYXJjaEFjdGlvbkxvZ3MSIC5wcm90by5EeVNlYXJjaEFjdGlvbkxvZ3NS",
+            "ZXF1ZXN0GiEucHJvdG8uRHlTZWFyY2hBY3Rpb25Mb2dzUmVzcG9uc2UiAEI9",
+            "Wh9zcmMuc29sc3ludGguZGV2L3Nvc3lzL2dvL3Byb3RvqgIZRHlzb25OZXR3",
+            "b3JrLlNoYXJlZC5Qcm90b2IGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.FieldMaskReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.StructReflection.Descriptor, global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor, },
-          new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyStatusAttitude), typeof(global::DysonNetwork.Shared.Proto.DyAccountStatusType), }, null, new pbr::GeneratedClrTypeInfo[] {
+          new pbr::GeneratedClrTypeInfo(new[] {typeof(global::DysonNetwork.Shared.Proto.DyStatusAttitude), typeof(global::DysonNetwork.Shared.Proto.DyAccountStatusType), typeof(global::DysonNetwork.Shared.Proto.DyNotableDayTag), }, null, new pbr::GeneratedClrTypeInfo[] {
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyAccountStatus), global::DysonNetwork.Shared.Proto.DyAccountStatus.Parser, new[]{ "Id", "Attitude", "IsOnline", "IsCustomized", "IsInvisible", "IsNotDisturb", "Label", "ClearedAt", "AccountId", "Meta", "Type", "Symbol", "AppIdentifier", "IsAutomated", "CreatedAt", "UpdatedAt", "DeletedAt", "IsIdle", "IdleSince" }, new[]{ "Label", "Symbol", "AppIdentifier" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyLevelingInfo), global::DysonNetwork.Shared.Proto.DyLevelingInfo.Parser, new[]{ "CurrentLevel", "CurrentExperience", "NextLevelExperience", "PreviousLevelExperience", "LevelProgress", "ExperiencePerLevel" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyActionLog), global::DysonNetwork.Shared.Proto.DyActionLog.Parser, new[]{ "Id", "Action", "Meta", "UserAgent", "IpAddress", "Location", "AccountId", "SessionId", "CreatedAt" }, null, null, null, new pbr::GeneratedClrTypeInfo[] { null, }),
@@ -208,7 +289,16 @@ namespace DysonNetwork.Shared.Proto {
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest), global::DysonNetwork.Shared.Proto.DyGetRelationshipRequest.Parser, new[]{ "AccountId", "RelatedId", "Status", "EitherDirection" }, new[]{ "Status" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetRelationshipResponse), global::DysonNetwork.Shared.Proto.DyGetRelationshipResponse.Parser, new[]{ "Relationship" }, new[]{ "Relationship" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest), global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest.Parser, new[]{ "AccountId", "RelatedId" }, new[]{ "RelationIdentifier" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse), global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse.Parser, new[]{ "AccountsId" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse), global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse.Parser, new[]{ "AccountsId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyNotableDay), global::DysonNetwork.Shared.Proto.DyNotableDay.Parser, new[]{ "Id", "Name", "Description", "LocalName", "LocalizableKey", "StartDate", "EndDate", "IsAllDay", "Region", "Tags", "Meta", "IsRecurring", "RecurrencePattern", "IsPeriod", "HolidayDays", "DisplayOrder", "CreatedAt", "UpdatedAt" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyUserCalendarEvent), global::DysonNetwork.Shared.Proto.DyUserCalendarEvent.Parser, new[]{ "Id", "Title", "Description", "Location", "StartTime", "EndTime", "IsAllDay", "Visibility", "Recurrence", "Meta", "AccountId", "CreatedAt", "UpdatedAt" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyEventCountdownItem), global::DysonNetwork.Shared.Proto.DyEventCountdownItem.Parser, new[]{ "EventId", "Type", "Title", "Description", "Location", "StartTime", "EndTime", "IsAllDay", "DaysRemaining", "HoursRemaining", "IsOngoing", "Meta", "AccountId", "Tags" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetNotableDaysRequest), global::DysonNetwork.Shared.Proto.DyGetNotableDaysRequest.Parser, new[]{ "Year", "Region", "Tag", "Offset", "Take" }, new[]{ "Tag" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetNotableDaysResponse), global::DysonNetwork.Shared.Proto.DyGetNotableDaysResponse.Parser, new[]{ "Days", "TotalCount" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsRequest), global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsRequest.Parser, new[]{ "AccountId", "ViewerId", "StartTime", "EndTime", "Offset", "Take" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsResponse), global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsResponse.Parser, new[]{ "Events", "TotalCount" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetCountdownEventsRequest), global::DysonNetwork.Shared.Proto.DyGetCountdownEventsRequest.Parser, new[]{ "AccountId", "ViewerId", "Region", "IncludeNotableDays", "Tag", "Take", "Offset" }, new[]{ "Tag" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyGetCountdownEventsResponse), global::DysonNetwork.Shared.Proto.DyGetCountdownEventsResponse.Parser, new[]{ "Events", "TotalCount" }, null, null, null, null)
           }));
     }
     #endregion
@@ -227,6 +317,15 @@ namespace DysonNetwork.Shared.Proto {
     [pbr::OriginalName("DY_ACCOUNT_STATUS_TYPE_BUSY")] Busy = 1,
     [pbr::OriginalName("DY_ACCOUNT_STATUS_TYPE_DO_NOT_DISTURB")] DoNotDisturb = 2,
     [pbr::OriginalName("DY_ACCOUNT_STATUS_TYPE_INVISIBLE")] Invisible = 3,
+  }
+
+  public enum DyNotableDayTag {
+    [pbr::OriginalName("DY_NOTABLE_DAY_TAG_UNSPECIFIED")] Unspecified = 0,
+    [pbr::OriginalName("DY_NOTABLE_DAY_TAG_HOLIDAY")] Holiday = 1,
+    [pbr::OriginalName("DY_NOTABLE_DAY_TAG_EVENT")] Event = 2,
+    [pbr::OriginalName("DY_NOTABLE_DAY_TAG_ANNIVERSARY")] Anniversary = 3,
+    [pbr::OriginalName("DY_NOTABLE_DAY_TAG_MEMORIAL")] Memorial = 4,
+    [pbr::OriginalName("DY_NOTABLE_DAY_TAG_FESTIVAL")] Festival = 5,
   }
 
   #endregion
@@ -7587,6 +7686,4203 @@ namespace DysonNetwork.Shared.Proto {
             break;
           case 10: {
             accountsId_.AddEntriesFrom(ref input, _repeated_accountsId_codec);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DyNotableDay : pb::IMessage<DyNotableDay>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DyNotableDay> _parser = new pb::MessageParser<DyNotableDay>(() => new DyNotableDay());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DyNotableDay> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::DysonNetwork.Shared.Proto.ProfileReflection.Descriptor.MessageTypes[24]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyNotableDay() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyNotableDay(DyNotableDay other) : this() {
+      id_ = other.id_;
+      name_ = other.name_;
+      Description = other.Description;
+      LocalName = other.LocalName;
+      LocalizableKey = other.LocalizableKey;
+      startDate_ = other.startDate_ != null ? other.startDate_.Clone() : null;
+      endDate_ = other.endDate_ != null ? other.endDate_.Clone() : null;
+      isAllDay_ = other.isAllDay_;
+      region_ = other.region_;
+      tags_ = other.tags_.Clone();
+      meta_ = other.meta_;
+      isRecurring_ = other.isRecurring_;
+      RecurrencePattern = other.RecurrencePattern;
+      isPeriod_ = other.isPeriod_;
+      holidayDays_ = other.holidayDays_.Clone();
+      DisplayOrder = other.DisplayOrder;
+      createdAt_ = other.createdAt_ != null ? other.createdAt_.Clone() : null;
+      updatedAt_ = other.updatedAt_ != null ? other.updatedAt_.Clone() : null;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyNotableDay Clone() {
+      return new DyNotableDay(this);
+    }
+
+    /// <summary>Field number for the "id" field.</summary>
+    public const int IdFieldNumber = 1;
+    private string id_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Id {
+      get { return id_; }
+      set {
+        id_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "name" field.</summary>
+    public const int NameFieldNumber = 2;
+    private string name_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Name {
+      get { return name_; }
+      set {
+        name_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "description" field.</summary>
+    public const int DescriptionFieldNumber = 3;
+    private static readonly pb::FieldCodec<string> _single_description_codec = pb::FieldCodec.ForClassWrapper<string>(26);
+    private string description_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Description {
+      get { return description_; }
+      set {
+        description_ = value;
+      }
+    }
+
+
+    /// <summary>Field number for the "local_name" field.</summary>
+    public const int LocalNameFieldNumber = 4;
+    private static readonly pb::FieldCodec<string> _single_localName_codec = pb::FieldCodec.ForClassWrapper<string>(34);
+    private string localName_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string LocalName {
+      get { return localName_; }
+      set {
+        localName_ = value;
+      }
+    }
+
+
+    /// <summary>Field number for the "localizable_key" field.</summary>
+    public const int LocalizableKeyFieldNumber = 5;
+    private static readonly pb::FieldCodec<string> _single_localizableKey_codec = pb::FieldCodec.ForClassWrapper<string>(42);
+    private string localizableKey_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string LocalizableKey {
+      get { return localizableKey_; }
+      set {
+        localizableKey_ = value;
+      }
+    }
+
+
+    /// <summary>Field number for the "start_date" field.</summary>
+    public const int StartDateFieldNumber = 6;
+    private global::Google.Protobuf.WellKnownTypes.Timestamp startDate_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Google.Protobuf.WellKnownTypes.Timestamp StartDate {
+      get { return startDate_; }
+      set {
+        startDate_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "end_date" field.</summary>
+    public const int EndDateFieldNumber = 7;
+    private global::Google.Protobuf.WellKnownTypes.Timestamp endDate_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Google.Protobuf.WellKnownTypes.Timestamp EndDate {
+      get { return endDate_; }
+      set {
+        endDate_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "is_all_day" field.</summary>
+    public const int IsAllDayFieldNumber = 8;
+    private bool isAllDay_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool IsAllDay {
+      get { return isAllDay_; }
+      set {
+        isAllDay_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "region" field.</summary>
+    public const int RegionFieldNumber = 9;
+    private string region_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Region {
+      get { return region_; }
+      set {
+        region_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "tags" field.</summary>
+    public const int TagsFieldNumber = 10;
+    private static readonly pb::FieldCodec<global::DysonNetwork.Shared.Proto.DyNotableDayTag> _repeated_tags_codec
+        = pb::FieldCodec.ForEnum(82, x => (int) x, x => (global::DysonNetwork.Shared.Proto.DyNotableDayTag) x);
+    private readonly pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyNotableDayTag> tags_ = new pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyNotableDayTag>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyNotableDayTag> Tags {
+      get { return tags_; }
+    }
+
+    /// <summary>Field number for the "meta" field.</summary>
+    public const int MetaFieldNumber = 11;
+    private pb::ByteString meta_ = pb::ByteString.Empty;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pb::ByteString Meta {
+      get { return meta_; }
+      set {
+        meta_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "is_recurring" field.</summary>
+    public const int IsRecurringFieldNumber = 12;
+    private bool isRecurring_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool IsRecurring {
+      get { return isRecurring_; }
+      set {
+        isRecurring_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "recurrence_pattern" field.</summary>
+    public const int RecurrencePatternFieldNumber = 13;
+    private static readonly pb::FieldCodec<string> _single_recurrencePattern_codec = pb::FieldCodec.ForClassWrapper<string>(106);
+    private string recurrencePattern_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string RecurrencePattern {
+      get { return recurrencePattern_; }
+      set {
+        recurrencePattern_ = value;
+      }
+    }
+
+
+    /// <summary>Field number for the "is_period" field.</summary>
+    public const int IsPeriodFieldNumber = 14;
+    private bool isPeriod_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool IsPeriod {
+      get { return isPeriod_; }
+      set {
+        isPeriod_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "holiday_days" field.</summary>
+    public const int HolidayDaysFieldNumber = 15;
+    private static readonly pb::FieldCodec<string> _repeated_holidayDays_codec
+        = pb::FieldCodec.ForString(122);
+    private readonly pbc::RepeatedField<string> holidayDays_ = new pbc::RepeatedField<string>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<string> HolidayDays {
+      get { return holidayDays_; }
+    }
+
+    /// <summary>Field number for the "display_order" field.</summary>
+    public const int DisplayOrderFieldNumber = 16;
+    private static readonly pb::FieldCodec<int?> _single_displayOrder_codec = pb::FieldCodec.ForStructWrapper<int>(130);
+    private int? displayOrder_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int? DisplayOrder {
+      get { return displayOrder_; }
+      set {
+        displayOrder_ = value;
+      }
+    }
+
+
+    /// <summary>Field number for the "created_at" field.</summary>
+    public const int CreatedAtFieldNumber = 17;
+    private global::Google.Protobuf.WellKnownTypes.Timestamp createdAt_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Google.Protobuf.WellKnownTypes.Timestamp CreatedAt {
+      get { return createdAt_; }
+      set {
+        createdAt_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "updated_at" field.</summary>
+    public const int UpdatedAtFieldNumber = 18;
+    private global::Google.Protobuf.WellKnownTypes.Timestamp updatedAt_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Google.Protobuf.WellKnownTypes.Timestamp UpdatedAt {
+      get { return updatedAt_; }
+      set {
+        updatedAt_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DyNotableDay);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DyNotableDay other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (Id != other.Id) return false;
+      if (Name != other.Name) return false;
+      if (Description != other.Description) return false;
+      if (LocalName != other.LocalName) return false;
+      if (LocalizableKey != other.LocalizableKey) return false;
+      if (!object.Equals(StartDate, other.StartDate)) return false;
+      if (!object.Equals(EndDate, other.EndDate)) return false;
+      if (IsAllDay != other.IsAllDay) return false;
+      if (Region != other.Region) return false;
+      if(!tags_.Equals(other.tags_)) return false;
+      if (Meta != other.Meta) return false;
+      if (IsRecurring != other.IsRecurring) return false;
+      if (RecurrencePattern != other.RecurrencePattern) return false;
+      if (IsPeriod != other.IsPeriod) return false;
+      if(!holidayDays_.Equals(other.holidayDays_)) return false;
+      if (DisplayOrder != other.DisplayOrder) return false;
+      if (!object.Equals(CreatedAt, other.CreatedAt)) return false;
+      if (!object.Equals(UpdatedAt, other.UpdatedAt)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (Id.Length != 0) hash ^= Id.GetHashCode();
+      if (Name.Length != 0) hash ^= Name.GetHashCode();
+      if (description_ != null) hash ^= Description.GetHashCode();
+      if (localName_ != null) hash ^= LocalName.GetHashCode();
+      if (localizableKey_ != null) hash ^= LocalizableKey.GetHashCode();
+      if (startDate_ != null) hash ^= StartDate.GetHashCode();
+      if (endDate_ != null) hash ^= EndDate.GetHashCode();
+      if (IsAllDay != false) hash ^= IsAllDay.GetHashCode();
+      if (Region.Length != 0) hash ^= Region.GetHashCode();
+      hash ^= tags_.GetHashCode();
+      if (Meta.Length != 0) hash ^= Meta.GetHashCode();
+      if (IsRecurring != false) hash ^= IsRecurring.GetHashCode();
+      if (recurrencePattern_ != null) hash ^= RecurrencePattern.GetHashCode();
+      if (IsPeriod != false) hash ^= IsPeriod.GetHashCode();
+      hash ^= holidayDays_.GetHashCode();
+      if (displayOrder_ != null) hash ^= DisplayOrder.GetHashCode();
+      if (createdAt_ != null) hash ^= CreatedAt.GetHashCode();
+      if (updatedAt_ != null) hash ^= UpdatedAt.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (Id.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(Id);
+      }
+      if (Name.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Name);
+      }
+      if (description_ != null) {
+        _single_description_codec.WriteTagAndValue(output, Description);
+      }
+      if (localName_ != null) {
+        _single_localName_codec.WriteTagAndValue(output, LocalName);
+      }
+      if (localizableKey_ != null) {
+        _single_localizableKey_codec.WriteTagAndValue(output, LocalizableKey);
+      }
+      if (startDate_ != null) {
+        output.WriteRawTag(50);
+        output.WriteMessage(StartDate);
+      }
+      if (endDate_ != null) {
+        output.WriteRawTag(58);
+        output.WriteMessage(EndDate);
+      }
+      if (IsAllDay != false) {
+        output.WriteRawTag(64);
+        output.WriteBool(IsAllDay);
+      }
+      if (Region.Length != 0) {
+        output.WriteRawTag(74);
+        output.WriteString(Region);
+      }
+      tags_.WriteTo(output, _repeated_tags_codec);
+      if (Meta.Length != 0) {
+        output.WriteRawTag(90);
+        output.WriteBytes(Meta);
+      }
+      if (IsRecurring != false) {
+        output.WriteRawTag(96);
+        output.WriteBool(IsRecurring);
+      }
+      if (recurrencePattern_ != null) {
+        _single_recurrencePattern_codec.WriteTagAndValue(output, RecurrencePattern);
+      }
+      if (IsPeriod != false) {
+        output.WriteRawTag(112);
+        output.WriteBool(IsPeriod);
+      }
+      holidayDays_.WriteTo(output, _repeated_holidayDays_codec);
+      if (displayOrder_ != null) {
+        _single_displayOrder_codec.WriteTagAndValue(output, DisplayOrder);
+      }
+      if (createdAt_ != null) {
+        output.WriteRawTag(138, 1);
+        output.WriteMessage(CreatedAt);
+      }
+      if (updatedAt_ != null) {
+        output.WriteRawTag(146, 1);
+        output.WriteMessage(UpdatedAt);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (Id.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(Id);
+      }
+      if (Name.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Name);
+      }
+      if (description_ != null) {
+        _single_description_codec.WriteTagAndValue(ref output, Description);
+      }
+      if (localName_ != null) {
+        _single_localName_codec.WriteTagAndValue(ref output, LocalName);
+      }
+      if (localizableKey_ != null) {
+        _single_localizableKey_codec.WriteTagAndValue(ref output, LocalizableKey);
+      }
+      if (startDate_ != null) {
+        output.WriteRawTag(50);
+        output.WriteMessage(StartDate);
+      }
+      if (endDate_ != null) {
+        output.WriteRawTag(58);
+        output.WriteMessage(EndDate);
+      }
+      if (IsAllDay != false) {
+        output.WriteRawTag(64);
+        output.WriteBool(IsAllDay);
+      }
+      if (Region.Length != 0) {
+        output.WriteRawTag(74);
+        output.WriteString(Region);
+      }
+      tags_.WriteTo(ref output, _repeated_tags_codec);
+      if (Meta.Length != 0) {
+        output.WriteRawTag(90);
+        output.WriteBytes(Meta);
+      }
+      if (IsRecurring != false) {
+        output.WriteRawTag(96);
+        output.WriteBool(IsRecurring);
+      }
+      if (recurrencePattern_ != null) {
+        _single_recurrencePattern_codec.WriteTagAndValue(ref output, RecurrencePattern);
+      }
+      if (IsPeriod != false) {
+        output.WriteRawTag(112);
+        output.WriteBool(IsPeriod);
+      }
+      holidayDays_.WriteTo(ref output, _repeated_holidayDays_codec);
+      if (displayOrder_ != null) {
+        _single_displayOrder_codec.WriteTagAndValue(ref output, DisplayOrder);
+      }
+      if (createdAt_ != null) {
+        output.WriteRawTag(138, 1);
+        output.WriteMessage(CreatedAt);
+      }
+      if (updatedAt_ != null) {
+        output.WriteRawTag(146, 1);
+        output.WriteMessage(UpdatedAt);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (Id.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Id);
+      }
+      if (Name.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Name);
+      }
+      if (description_ != null) {
+        size += _single_description_codec.CalculateSizeWithTag(Description);
+      }
+      if (localName_ != null) {
+        size += _single_localName_codec.CalculateSizeWithTag(LocalName);
+      }
+      if (localizableKey_ != null) {
+        size += _single_localizableKey_codec.CalculateSizeWithTag(LocalizableKey);
+      }
+      if (startDate_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(StartDate);
+      }
+      if (endDate_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(EndDate);
+      }
+      if (IsAllDay != false) {
+        size += 1 + 1;
+      }
+      if (Region.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Region);
+      }
+      size += tags_.CalculateSize(_repeated_tags_codec);
+      if (Meta.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeBytesSize(Meta);
+      }
+      if (IsRecurring != false) {
+        size += 1 + 1;
+      }
+      if (recurrencePattern_ != null) {
+        size += _single_recurrencePattern_codec.CalculateSizeWithTag(RecurrencePattern);
+      }
+      if (IsPeriod != false) {
+        size += 1 + 1;
+      }
+      size += holidayDays_.CalculateSize(_repeated_holidayDays_codec);
+      if (displayOrder_ != null) {
+        size += _single_displayOrder_codec.CalculateSizeWithTag(DisplayOrder);
+      }
+      if (createdAt_ != null) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(CreatedAt);
+      }
+      if (updatedAt_ != null) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(UpdatedAt);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DyNotableDay other) {
+      if (other == null) {
+        return;
+      }
+      if (other.Id.Length != 0) {
+        Id = other.Id;
+      }
+      if (other.Name.Length != 0) {
+        Name = other.Name;
+      }
+      if (other.description_ != null) {
+        if (description_ == null || other.Description != "") {
+          Description = other.Description;
+        }
+      }
+      if (other.localName_ != null) {
+        if (localName_ == null || other.LocalName != "") {
+          LocalName = other.LocalName;
+        }
+      }
+      if (other.localizableKey_ != null) {
+        if (localizableKey_ == null || other.LocalizableKey != "") {
+          LocalizableKey = other.LocalizableKey;
+        }
+      }
+      if (other.startDate_ != null) {
+        if (startDate_ == null) {
+          StartDate = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+        }
+        StartDate.MergeFrom(other.StartDate);
+      }
+      if (other.endDate_ != null) {
+        if (endDate_ == null) {
+          EndDate = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+        }
+        EndDate.MergeFrom(other.EndDate);
+      }
+      if (other.IsAllDay != false) {
+        IsAllDay = other.IsAllDay;
+      }
+      if (other.Region.Length != 0) {
+        Region = other.Region;
+      }
+      tags_.Add(other.tags_);
+      if (other.Meta.Length != 0) {
+        Meta = other.Meta;
+      }
+      if (other.IsRecurring != false) {
+        IsRecurring = other.IsRecurring;
+      }
+      if (other.recurrencePattern_ != null) {
+        if (recurrencePattern_ == null || other.RecurrencePattern != "") {
+          RecurrencePattern = other.RecurrencePattern;
+        }
+      }
+      if (other.IsPeriod != false) {
+        IsPeriod = other.IsPeriod;
+      }
+      holidayDays_.Add(other.holidayDays_);
+      if (other.displayOrder_ != null) {
+        if (displayOrder_ == null || other.DisplayOrder != 0) {
+          DisplayOrder = other.DisplayOrder;
+        }
+      }
+      if (other.createdAt_ != null) {
+        if (createdAt_ == null) {
+          CreatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+        }
+        CreatedAt.MergeFrom(other.CreatedAt);
+      }
+      if (other.updatedAt_ != null) {
+        if (updatedAt_ == null) {
+          UpdatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+        }
+        UpdatedAt.MergeFrom(other.UpdatedAt);
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            Id = input.ReadString();
+            break;
+          }
+          case 18: {
+            Name = input.ReadString();
+            break;
+          }
+          case 26: {
+            string value = _single_description_codec.Read(input);
+            if (description_ == null || value != "") {
+              Description = value;
+            }
+            break;
+          }
+          case 34: {
+            string value = _single_localName_codec.Read(input);
+            if (localName_ == null || value != "") {
+              LocalName = value;
+            }
+            break;
+          }
+          case 42: {
+            string value = _single_localizableKey_codec.Read(input);
+            if (localizableKey_ == null || value != "") {
+              LocalizableKey = value;
+            }
+            break;
+          }
+          case 50: {
+            if (startDate_ == null) {
+              StartDate = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(StartDate);
+            break;
+          }
+          case 58: {
+            if (endDate_ == null) {
+              EndDate = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(EndDate);
+            break;
+          }
+          case 64: {
+            IsAllDay = input.ReadBool();
+            break;
+          }
+          case 74: {
+            Region = input.ReadString();
+            break;
+          }
+          case 82:
+          case 80: {
+            tags_.AddEntriesFrom(input, _repeated_tags_codec);
+            break;
+          }
+          case 90: {
+            Meta = input.ReadBytes();
+            break;
+          }
+          case 96: {
+            IsRecurring = input.ReadBool();
+            break;
+          }
+          case 106: {
+            string value = _single_recurrencePattern_codec.Read(input);
+            if (recurrencePattern_ == null || value != "") {
+              RecurrencePattern = value;
+            }
+            break;
+          }
+          case 112: {
+            IsPeriod = input.ReadBool();
+            break;
+          }
+          case 122: {
+            holidayDays_.AddEntriesFrom(input, _repeated_holidayDays_codec);
+            break;
+          }
+          case 130: {
+            int? value = _single_displayOrder_codec.Read(input);
+            if (displayOrder_ == null || value != 0) {
+              DisplayOrder = value;
+            }
+            break;
+          }
+          case 138: {
+            if (createdAt_ == null) {
+              CreatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(CreatedAt);
+            break;
+          }
+          case 146: {
+            if (updatedAt_ == null) {
+              UpdatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(UpdatedAt);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            Id = input.ReadString();
+            break;
+          }
+          case 18: {
+            Name = input.ReadString();
+            break;
+          }
+          case 26: {
+            string value = _single_description_codec.Read(ref input);
+            if (description_ == null || value != "") {
+              Description = value;
+            }
+            break;
+          }
+          case 34: {
+            string value = _single_localName_codec.Read(ref input);
+            if (localName_ == null || value != "") {
+              LocalName = value;
+            }
+            break;
+          }
+          case 42: {
+            string value = _single_localizableKey_codec.Read(ref input);
+            if (localizableKey_ == null || value != "") {
+              LocalizableKey = value;
+            }
+            break;
+          }
+          case 50: {
+            if (startDate_ == null) {
+              StartDate = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(StartDate);
+            break;
+          }
+          case 58: {
+            if (endDate_ == null) {
+              EndDate = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(EndDate);
+            break;
+          }
+          case 64: {
+            IsAllDay = input.ReadBool();
+            break;
+          }
+          case 74: {
+            Region = input.ReadString();
+            break;
+          }
+          case 82:
+          case 80: {
+            tags_.AddEntriesFrom(ref input, _repeated_tags_codec);
+            break;
+          }
+          case 90: {
+            Meta = input.ReadBytes();
+            break;
+          }
+          case 96: {
+            IsRecurring = input.ReadBool();
+            break;
+          }
+          case 106: {
+            string value = _single_recurrencePattern_codec.Read(ref input);
+            if (recurrencePattern_ == null || value != "") {
+              RecurrencePattern = value;
+            }
+            break;
+          }
+          case 112: {
+            IsPeriod = input.ReadBool();
+            break;
+          }
+          case 122: {
+            holidayDays_.AddEntriesFrom(ref input, _repeated_holidayDays_codec);
+            break;
+          }
+          case 130: {
+            int? value = _single_displayOrder_codec.Read(ref input);
+            if (displayOrder_ == null || value != 0) {
+              DisplayOrder = value;
+            }
+            break;
+          }
+          case 138: {
+            if (createdAt_ == null) {
+              CreatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(CreatedAt);
+            break;
+          }
+          case 146: {
+            if (updatedAt_ == null) {
+              UpdatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(UpdatedAt);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DyUserCalendarEvent : pb::IMessage<DyUserCalendarEvent>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DyUserCalendarEvent> _parser = new pb::MessageParser<DyUserCalendarEvent>(() => new DyUserCalendarEvent());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DyUserCalendarEvent> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::DysonNetwork.Shared.Proto.ProfileReflection.Descriptor.MessageTypes[25]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyUserCalendarEvent() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyUserCalendarEvent(DyUserCalendarEvent other) : this() {
+      id_ = other.id_;
+      title_ = other.title_;
+      Description = other.Description;
+      Location = other.Location;
+      startTime_ = other.startTime_ != null ? other.startTime_.Clone() : null;
+      endTime_ = other.endTime_ != null ? other.endTime_.Clone() : null;
+      isAllDay_ = other.isAllDay_;
+      visibility_ = other.visibility_;
+      recurrence_ = other.recurrence_;
+      meta_ = other.meta_;
+      accountId_ = other.accountId_;
+      createdAt_ = other.createdAt_ != null ? other.createdAt_.Clone() : null;
+      updatedAt_ = other.updatedAt_ != null ? other.updatedAt_.Clone() : null;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyUserCalendarEvent Clone() {
+      return new DyUserCalendarEvent(this);
+    }
+
+    /// <summary>Field number for the "id" field.</summary>
+    public const int IdFieldNumber = 1;
+    private string id_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Id {
+      get { return id_; }
+      set {
+        id_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "title" field.</summary>
+    public const int TitleFieldNumber = 2;
+    private string title_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Title {
+      get { return title_; }
+      set {
+        title_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "description" field.</summary>
+    public const int DescriptionFieldNumber = 3;
+    private static readonly pb::FieldCodec<string> _single_description_codec = pb::FieldCodec.ForClassWrapper<string>(26);
+    private string description_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Description {
+      get { return description_; }
+      set {
+        description_ = value;
+      }
+    }
+
+
+    /// <summary>Field number for the "location" field.</summary>
+    public const int LocationFieldNumber = 4;
+    private static readonly pb::FieldCodec<string> _single_location_codec = pb::FieldCodec.ForClassWrapper<string>(34);
+    private string location_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Location {
+      get { return location_; }
+      set {
+        location_ = value;
+      }
+    }
+
+
+    /// <summary>Field number for the "start_time" field.</summary>
+    public const int StartTimeFieldNumber = 5;
+    private global::Google.Protobuf.WellKnownTypes.Timestamp startTime_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Google.Protobuf.WellKnownTypes.Timestamp StartTime {
+      get { return startTime_; }
+      set {
+        startTime_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "end_time" field.</summary>
+    public const int EndTimeFieldNumber = 6;
+    private global::Google.Protobuf.WellKnownTypes.Timestamp endTime_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Google.Protobuf.WellKnownTypes.Timestamp EndTime {
+      get { return endTime_; }
+      set {
+        endTime_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "is_all_day" field.</summary>
+    public const int IsAllDayFieldNumber = 7;
+    private bool isAllDay_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool IsAllDay {
+      get { return isAllDay_; }
+      set {
+        isAllDay_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "visibility" field.</summary>
+    public const int VisibilityFieldNumber = 8;
+    private int visibility_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int Visibility {
+      get { return visibility_; }
+      set {
+        visibility_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "recurrence" field.</summary>
+    public const int RecurrenceFieldNumber = 9;
+    private pb::ByteString recurrence_ = pb::ByteString.Empty;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pb::ByteString Recurrence {
+      get { return recurrence_; }
+      set {
+        recurrence_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "meta" field.</summary>
+    public const int MetaFieldNumber = 10;
+    private pb::ByteString meta_ = pb::ByteString.Empty;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pb::ByteString Meta {
+      get { return meta_; }
+      set {
+        meta_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "account_id" field.</summary>
+    public const int AccountIdFieldNumber = 11;
+    private string accountId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string AccountId {
+      get { return accountId_; }
+      set {
+        accountId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "created_at" field.</summary>
+    public const int CreatedAtFieldNumber = 12;
+    private global::Google.Protobuf.WellKnownTypes.Timestamp createdAt_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Google.Protobuf.WellKnownTypes.Timestamp CreatedAt {
+      get { return createdAt_; }
+      set {
+        createdAt_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "updated_at" field.</summary>
+    public const int UpdatedAtFieldNumber = 13;
+    private global::Google.Protobuf.WellKnownTypes.Timestamp updatedAt_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Google.Protobuf.WellKnownTypes.Timestamp UpdatedAt {
+      get { return updatedAt_; }
+      set {
+        updatedAt_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DyUserCalendarEvent);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DyUserCalendarEvent other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (Id != other.Id) return false;
+      if (Title != other.Title) return false;
+      if (Description != other.Description) return false;
+      if (Location != other.Location) return false;
+      if (!object.Equals(StartTime, other.StartTime)) return false;
+      if (!object.Equals(EndTime, other.EndTime)) return false;
+      if (IsAllDay != other.IsAllDay) return false;
+      if (Visibility != other.Visibility) return false;
+      if (Recurrence != other.Recurrence) return false;
+      if (Meta != other.Meta) return false;
+      if (AccountId != other.AccountId) return false;
+      if (!object.Equals(CreatedAt, other.CreatedAt)) return false;
+      if (!object.Equals(UpdatedAt, other.UpdatedAt)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (Id.Length != 0) hash ^= Id.GetHashCode();
+      if (Title.Length != 0) hash ^= Title.GetHashCode();
+      if (description_ != null) hash ^= Description.GetHashCode();
+      if (location_ != null) hash ^= Location.GetHashCode();
+      if (startTime_ != null) hash ^= StartTime.GetHashCode();
+      if (endTime_ != null) hash ^= EndTime.GetHashCode();
+      if (IsAllDay != false) hash ^= IsAllDay.GetHashCode();
+      if (Visibility != 0) hash ^= Visibility.GetHashCode();
+      if (Recurrence.Length != 0) hash ^= Recurrence.GetHashCode();
+      if (Meta.Length != 0) hash ^= Meta.GetHashCode();
+      if (AccountId.Length != 0) hash ^= AccountId.GetHashCode();
+      if (createdAt_ != null) hash ^= CreatedAt.GetHashCode();
+      if (updatedAt_ != null) hash ^= UpdatedAt.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (Id.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(Id);
+      }
+      if (Title.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Title);
+      }
+      if (description_ != null) {
+        _single_description_codec.WriteTagAndValue(output, Description);
+      }
+      if (location_ != null) {
+        _single_location_codec.WriteTagAndValue(output, Location);
+      }
+      if (startTime_ != null) {
+        output.WriteRawTag(42);
+        output.WriteMessage(StartTime);
+      }
+      if (endTime_ != null) {
+        output.WriteRawTag(50);
+        output.WriteMessage(EndTime);
+      }
+      if (IsAllDay != false) {
+        output.WriteRawTag(56);
+        output.WriteBool(IsAllDay);
+      }
+      if (Visibility != 0) {
+        output.WriteRawTag(64);
+        output.WriteInt32(Visibility);
+      }
+      if (Recurrence.Length != 0) {
+        output.WriteRawTag(74);
+        output.WriteBytes(Recurrence);
+      }
+      if (Meta.Length != 0) {
+        output.WriteRawTag(82);
+        output.WriteBytes(Meta);
+      }
+      if (AccountId.Length != 0) {
+        output.WriteRawTag(90);
+        output.WriteString(AccountId);
+      }
+      if (createdAt_ != null) {
+        output.WriteRawTag(98);
+        output.WriteMessage(CreatedAt);
+      }
+      if (updatedAt_ != null) {
+        output.WriteRawTag(106);
+        output.WriteMessage(UpdatedAt);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (Id.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(Id);
+      }
+      if (Title.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Title);
+      }
+      if (description_ != null) {
+        _single_description_codec.WriteTagAndValue(ref output, Description);
+      }
+      if (location_ != null) {
+        _single_location_codec.WriteTagAndValue(ref output, Location);
+      }
+      if (startTime_ != null) {
+        output.WriteRawTag(42);
+        output.WriteMessage(StartTime);
+      }
+      if (endTime_ != null) {
+        output.WriteRawTag(50);
+        output.WriteMessage(EndTime);
+      }
+      if (IsAllDay != false) {
+        output.WriteRawTag(56);
+        output.WriteBool(IsAllDay);
+      }
+      if (Visibility != 0) {
+        output.WriteRawTag(64);
+        output.WriteInt32(Visibility);
+      }
+      if (Recurrence.Length != 0) {
+        output.WriteRawTag(74);
+        output.WriteBytes(Recurrence);
+      }
+      if (Meta.Length != 0) {
+        output.WriteRawTag(82);
+        output.WriteBytes(Meta);
+      }
+      if (AccountId.Length != 0) {
+        output.WriteRawTag(90);
+        output.WriteString(AccountId);
+      }
+      if (createdAt_ != null) {
+        output.WriteRawTag(98);
+        output.WriteMessage(CreatedAt);
+      }
+      if (updatedAt_ != null) {
+        output.WriteRawTag(106);
+        output.WriteMessage(UpdatedAt);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (Id.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Id);
+      }
+      if (Title.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Title);
+      }
+      if (description_ != null) {
+        size += _single_description_codec.CalculateSizeWithTag(Description);
+      }
+      if (location_ != null) {
+        size += _single_location_codec.CalculateSizeWithTag(Location);
+      }
+      if (startTime_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(StartTime);
+      }
+      if (endTime_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(EndTime);
+      }
+      if (IsAllDay != false) {
+        size += 1 + 1;
+      }
+      if (Visibility != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Visibility);
+      }
+      if (Recurrence.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeBytesSize(Recurrence);
+      }
+      if (Meta.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeBytesSize(Meta);
+      }
+      if (AccountId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(AccountId);
+      }
+      if (createdAt_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(CreatedAt);
+      }
+      if (updatedAt_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(UpdatedAt);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DyUserCalendarEvent other) {
+      if (other == null) {
+        return;
+      }
+      if (other.Id.Length != 0) {
+        Id = other.Id;
+      }
+      if (other.Title.Length != 0) {
+        Title = other.Title;
+      }
+      if (other.description_ != null) {
+        if (description_ == null || other.Description != "") {
+          Description = other.Description;
+        }
+      }
+      if (other.location_ != null) {
+        if (location_ == null || other.Location != "") {
+          Location = other.Location;
+        }
+      }
+      if (other.startTime_ != null) {
+        if (startTime_ == null) {
+          StartTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+        }
+        StartTime.MergeFrom(other.StartTime);
+      }
+      if (other.endTime_ != null) {
+        if (endTime_ == null) {
+          EndTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+        }
+        EndTime.MergeFrom(other.EndTime);
+      }
+      if (other.IsAllDay != false) {
+        IsAllDay = other.IsAllDay;
+      }
+      if (other.Visibility != 0) {
+        Visibility = other.Visibility;
+      }
+      if (other.Recurrence.Length != 0) {
+        Recurrence = other.Recurrence;
+      }
+      if (other.Meta.Length != 0) {
+        Meta = other.Meta;
+      }
+      if (other.AccountId.Length != 0) {
+        AccountId = other.AccountId;
+      }
+      if (other.createdAt_ != null) {
+        if (createdAt_ == null) {
+          CreatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+        }
+        CreatedAt.MergeFrom(other.CreatedAt);
+      }
+      if (other.updatedAt_ != null) {
+        if (updatedAt_ == null) {
+          UpdatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+        }
+        UpdatedAt.MergeFrom(other.UpdatedAt);
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            Id = input.ReadString();
+            break;
+          }
+          case 18: {
+            Title = input.ReadString();
+            break;
+          }
+          case 26: {
+            string value = _single_description_codec.Read(input);
+            if (description_ == null || value != "") {
+              Description = value;
+            }
+            break;
+          }
+          case 34: {
+            string value = _single_location_codec.Read(input);
+            if (location_ == null || value != "") {
+              Location = value;
+            }
+            break;
+          }
+          case 42: {
+            if (startTime_ == null) {
+              StartTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(StartTime);
+            break;
+          }
+          case 50: {
+            if (endTime_ == null) {
+              EndTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(EndTime);
+            break;
+          }
+          case 56: {
+            IsAllDay = input.ReadBool();
+            break;
+          }
+          case 64: {
+            Visibility = input.ReadInt32();
+            break;
+          }
+          case 74: {
+            Recurrence = input.ReadBytes();
+            break;
+          }
+          case 82: {
+            Meta = input.ReadBytes();
+            break;
+          }
+          case 90: {
+            AccountId = input.ReadString();
+            break;
+          }
+          case 98: {
+            if (createdAt_ == null) {
+              CreatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(CreatedAt);
+            break;
+          }
+          case 106: {
+            if (updatedAt_ == null) {
+              UpdatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(UpdatedAt);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            Id = input.ReadString();
+            break;
+          }
+          case 18: {
+            Title = input.ReadString();
+            break;
+          }
+          case 26: {
+            string value = _single_description_codec.Read(ref input);
+            if (description_ == null || value != "") {
+              Description = value;
+            }
+            break;
+          }
+          case 34: {
+            string value = _single_location_codec.Read(ref input);
+            if (location_ == null || value != "") {
+              Location = value;
+            }
+            break;
+          }
+          case 42: {
+            if (startTime_ == null) {
+              StartTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(StartTime);
+            break;
+          }
+          case 50: {
+            if (endTime_ == null) {
+              EndTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(EndTime);
+            break;
+          }
+          case 56: {
+            IsAllDay = input.ReadBool();
+            break;
+          }
+          case 64: {
+            Visibility = input.ReadInt32();
+            break;
+          }
+          case 74: {
+            Recurrence = input.ReadBytes();
+            break;
+          }
+          case 82: {
+            Meta = input.ReadBytes();
+            break;
+          }
+          case 90: {
+            AccountId = input.ReadString();
+            break;
+          }
+          case 98: {
+            if (createdAt_ == null) {
+              CreatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(CreatedAt);
+            break;
+          }
+          case 106: {
+            if (updatedAt_ == null) {
+              UpdatedAt = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(UpdatedAt);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DyEventCountdownItem : pb::IMessage<DyEventCountdownItem>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DyEventCountdownItem> _parser = new pb::MessageParser<DyEventCountdownItem>(() => new DyEventCountdownItem());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DyEventCountdownItem> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::DysonNetwork.Shared.Proto.ProfileReflection.Descriptor.MessageTypes[26]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyEventCountdownItem() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyEventCountdownItem(DyEventCountdownItem other) : this() {
+      EventId = other.EventId;
+      type_ = other.type_;
+      title_ = other.title_;
+      Description = other.Description;
+      Location = other.Location;
+      startTime_ = other.startTime_ != null ? other.startTime_.Clone() : null;
+      endTime_ = other.endTime_ != null ? other.endTime_.Clone() : null;
+      isAllDay_ = other.isAllDay_;
+      daysRemaining_ = other.daysRemaining_;
+      hoursRemaining_ = other.hoursRemaining_;
+      isOngoing_ = other.isOngoing_;
+      meta_ = other.meta_;
+      AccountId = other.AccountId;
+      tags_ = other.tags_.Clone();
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyEventCountdownItem Clone() {
+      return new DyEventCountdownItem(this);
+    }
+
+    /// <summary>Field number for the "event_id" field.</summary>
+    public const int EventIdFieldNumber = 1;
+    private static readonly pb::FieldCodec<string> _single_eventId_codec = pb::FieldCodec.ForClassWrapper<string>(10);
+    private string eventId_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string EventId {
+      get { return eventId_; }
+      set {
+        eventId_ = value;
+      }
+    }
+
+
+    /// <summary>Field number for the "type" field.</summary>
+    public const int TypeFieldNumber = 2;
+    private int type_;
+    /// <summary>
+    /// 0=UserEvent, 3=NotableDay
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int Type {
+      get { return type_; }
+      set {
+        type_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "title" field.</summary>
+    public const int TitleFieldNumber = 3;
+    private string title_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Title {
+      get { return title_; }
+      set {
+        title_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "description" field.</summary>
+    public const int DescriptionFieldNumber = 4;
+    private static readonly pb::FieldCodec<string> _single_description_codec = pb::FieldCodec.ForClassWrapper<string>(34);
+    private string description_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Description {
+      get { return description_; }
+      set {
+        description_ = value;
+      }
+    }
+
+
+    /// <summary>Field number for the "location" field.</summary>
+    public const int LocationFieldNumber = 5;
+    private static readonly pb::FieldCodec<string> _single_location_codec = pb::FieldCodec.ForClassWrapper<string>(42);
+    private string location_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Location {
+      get { return location_; }
+      set {
+        location_ = value;
+      }
+    }
+
+
+    /// <summary>Field number for the "start_time" field.</summary>
+    public const int StartTimeFieldNumber = 6;
+    private global::Google.Protobuf.WellKnownTypes.Timestamp startTime_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Google.Protobuf.WellKnownTypes.Timestamp StartTime {
+      get { return startTime_; }
+      set {
+        startTime_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "end_time" field.</summary>
+    public const int EndTimeFieldNumber = 7;
+    private global::Google.Protobuf.WellKnownTypes.Timestamp endTime_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Google.Protobuf.WellKnownTypes.Timestamp EndTime {
+      get { return endTime_; }
+      set {
+        endTime_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "is_all_day" field.</summary>
+    public const int IsAllDayFieldNumber = 8;
+    private bool isAllDay_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool IsAllDay {
+      get { return isAllDay_; }
+      set {
+        isAllDay_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "days_remaining" field.</summary>
+    public const int DaysRemainingFieldNumber = 9;
+    private int daysRemaining_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int DaysRemaining {
+      get { return daysRemaining_; }
+      set {
+        daysRemaining_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "hours_remaining" field.</summary>
+    public const int HoursRemainingFieldNumber = 10;
+    private int hoursRemaining_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int HoursRemaining {
+      get { return hoursRemaining_; }
+      set {
+        hoursRemaining_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "is_ongoing" field.</summary>
+    public const int IsOngoingFieldNumber = 11;
+    private bool isOngoing_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool IsOngoing {
+      get { return isOngoing_; }
+      set {
+        isOngoing_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "meta" field.</summary>
+    public const int MetaFieldNumber = 12;
+    private pb::ByteString meta_ = pb::ByteString.Empty;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pb::ByteString Meta {
+      get { return meta_; }
+      set {
+        meta_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "account_id" field.</summary>
+    public const int AccountIdFieldNumber = 13;
+    private static readonly pb::FieldCodec<string> _single_accountId_codec = pb::FieldCodec.ForClassWrapper<string>(106);
+    private string accountId_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string AccountId {
+      get { return accountId_; }
+      set {
+        accountId_ = value;
+      }
+    }
+
+
+    /// <summary>Field number for the "tags" field.</summary>
+    public const int TagsFieldNumber = 14;
+    private static readonly pb::FieldCodec<global::DysonNetwork.Shared.Proto.DyNotableDayTag> _repeated_tags_codec
+        = pb::FieldCodec.ForEnum(114, x => (int) x, x => (global::DysonNetwork.Shared.Proto.DyNotableDayTag) x);
+    private readonly pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyNotableDayTag> tags_ = new pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyNotableDayTag>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyNotableDayTag> Tags {
+      get { return tags_; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DyEventCountdownItem);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DyEventCountdownItem other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (EventId != other.EventId) return false;
+      if (Type != other.Type) return false;
+      if (Title != other.Title) return false;
+      if (Description != other.Description) return false;
+      if (Location != other.Location) return false;
+      if (!object.Equals(StartTime, other.StartTime)) return false;
+      if (!object.Equals(EndTime, other.EndTime)) return false;
+      if (IsAllDay != other.IsAllDay) return false;
+      if (DaysRemaining != other.DaysRemaining) return false;
+      if (HoursRemaining != other.HoursRemaining) return false;
+      if (IsOngoing != other.IsOngoing) return false;
+      if (Meta != other.Meta) return false;
+      if (AccountId != other.AccountId) return false;
+      if(!tags_.Equals(other.tags_)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (eventId_ != null) hash ^= EventId.GetHashCode();
+      if (Type != 0) hash ^= Type.GetHashCode();
+      if (Title.Length != 0) hash ^= Title.GetHashCode();
+      if (description_ != null) hash ^= Description.GetHashCode();
+      if (location_ != null) hash ^= Location.GetHashCode();
+      if (startTime_ != null) hash ^= StartTime.GetHashCode();
+      if (endTime_ != null) hash ^= EndTime.GetHashCode();
+      if (IsAllDay != false) hash ^= IsAllDay.GetHashCode();
+      if (DaysRemaining != 0) hash ^= DaysRemaining.GetHashCode();
+      if (HoursRemaining != 0) hash ^= HoursRemaining.GetHashCode();
+      if (IsOngoing != false) hash ^= IsOngoing.GetHashCode();
+      if (Meta.Length != 0) hash ^= Meta.GetHashCode();
+      if (accountId_ != null) hash ^= AccountId.GetHashCode();
+      hash ^= tags_.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (eventId_ != null) {
+        _single_eventId_codec.WriteTagAndValue(output, EventId);
+      }
+      if (Type != 0) {
+        output.WriteRawTag(16);
+        output.WriteInt32(Type);
+      }
+      if (Title.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(Title);
+      }
+      if (description_ != null) {
+        _single_description_codec.WriteTagAndValue(output, Description);
+      }
+      if (location_ != null) {
+        _single_location_codec.WriteTagAndValue(output, Location);
+      }
+      if (startTime_ != null) {
+        output.WriteRawTag(50);
+        output.WriteMessage(StartTime);
+      }
+      if (endTime_ != null) {
+        output.WriteRawTag(58);
+        output.WriteMessage(EndTime);
+      }
+      if (IsAllDay != false) {
+        output.WriteRawTag(64);
+        output.WriteBool(IsAllDay);
+      }
+      if (DaysRemaining != 0) {
+        output.WriteRawTag(72);
+        output.WriteInt32(DaysRemaining);
+      }
+      if (HoursRemaining != 0) {
+        output.WriteRawTag(80);
+        output.WriteInt32(HoursRemaining);
+      }
+      if (IsOngoing != false) {
+        output.WriteRawTag(88);
+        output.WriteBool(IsOngoing);
+      }
+      if (Meta.Length != 0) {
+        output.WriteRawTag(98);
+        output.WriteBytes(Meta);
+      }
+      if (accountId_ != null) {
+        _single_accountId_codec.WriteTagAndValue(output, AccountId);
+      }
+      tags_.WriteTo(output, _repeated_tags_codec);
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (eventId_ != null) {
+        _single_eventId_codec.WriteTagAndValue(ref output, EventId);
+      }
+      if (Type != 0) {
+        output.WriteRawTag(16);
+        output.WriteInt32(Type);
+      }
+      if (Title.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(Title);
+      }
+      if (description_ != null) {
+        _single_description_codec.WriteTagAndValue(ref output, Description);
+      }
+      if (location_ != null) {
+        _single_location_codec.WriteTagAndValue(ref output, Location);
+      }
+      if (startTime_ != null) {
+        output.WriteRawTag(50);
+        output.WriteMessage(StartTime);
+      }
+      if (endTime_ != null) {
+        output.WriteRawTag(58);
+        output.WriteMessage(EndTime);
+      }
+      if (IsAllDay != false) {
+        output.WriteRawTag(64);
+        output.WriteBool(IsAllDay);
+      }
+      if (DaysRemaining != 0) {
+        output.WriteRawTag(72);
+        output.WriteInt32(DaysRemaining);
+      }
+      if (HoursRemaining != 0) {
+        output.WriteRawTag(80);
+        output.WriteInt32(HoursRemaining);
+      }
+      if (IsOngoing != false) {
+        output.WriteRawTag(88);
+        output.WriteBool(IsOngoing);
+      }
+      if (Meta.Length != 0) {
+        output.WriteRawTag(98);
+        output.WriteBytes(Meta);
+      }
+      if (accountId_ != null) {
+        _single_accountId_codec.WriteTagAndValue(ref output, AccountId);
+      }
+      tags_.WriteTo(ref output, _repeated_tags_codec);
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (eventId_ != null) {
+        size += _single_eventId_codec.CalculateSizeWithTag(EventId);
+      }
+      if (Type != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Type);
+      }
+      if (Title.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Title);
+      }
+      if (description_ != null) {
+        size += _single_description_codec.CalculateSizeWithTag(Description);
+      }
+      if (location_ != null) {
+        size += _single_location_codec.CalculateSizeWithTag(Location);
+      }
+      if (startTime_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(StartTime);
+      }
+      if (endTime_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(EndTime);
+      }
+      if (IsAllDay != false) {
+        size += 1 + 1;
+      }
+      if (DaysRemaining != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(DaysRemaining);
+      }
+      if (HoursRemaining != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(HoursRemaining);
+      }
+      if (IsOngoing != false) {
+        size += 1 + 1;
+      }
+      if (Meta.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeBytesSize(Meta);
+      }
+      if (accountId_ != null) {
+        size += _single_accountId_codec.CalculateSizeWithTag(AccountId);
+      }
+      size += tags_.CalculateSize(_repeated_tags_codec);
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DyEventCountdownItem other) {
+      if (other == null) {
+        return;
+      }
+      if (other.eventId_ != null) {
+        if (eventId_ == null || other.EventId != "") {
+          EventId = other.EventId;
+        }
+      }
+      if (other.Type != 0) {
+        Type = other.Type;
+      }
+      if (other.Title.Length != 0) {
+        Title = other.Title;
+      }
+      if (other.description_ != null) {
+        if (description_ == null || other.Description != "") {
+          Description = other.Description;
+        }
+      }
+      if (other.location_ != null) {
+        if (location_ == null || other.Location != "") {
+          Location = other.Location;
+        }
+      }
+      if (other.startTime_ != null) {
+        if (startTime_ == null) {
+          StartTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+        }
+        StartTime.MergeFrom(other.StartTime);
+      }
+      if (other.endTime_ != null) {
+        if (endTime_ == null) {
+          EndTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+        }
+        EndTime.MergeFrom(other.EndTime);
+      }
+      if (other.IsAllDay != false) {
+        IsAllDay = other.IsAllDay;
+      }
+      if (other.DaysRemaining != 0) {
+        DaysRemaining = other.DaysRemaining;
+      }
+      if (other.HoursRemaining != 0) {
+        HoursRemaining = other.HoursRemaining;
+      }
+      if (other.IsOngoing != false) {
+        IsOngoing = other.IsOngoing;
+      }
+      if (other.Meta.Length != 0) {
+        Meta = other.Meta;
+      }
+      if (other.accountId_ != null) {
+        if (accountId_ == null || other.AccountId != "") {
+          AccountId = other.AccountId;
+        }
+      }
+      tags_.Add(other.tags_);
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            string value = _single_eventId_codec.Read(input);
+            if (eventId_ == null || value != "") {
+              EventId = value;
+            }
+            break;
+          }
+          case 16: {
+            Type = input.ReadInt32();
+            break;
+          }
+          case 26: {
+            Title = input.ReadString();
+            break;
+          }
+          case 34: {
+            string value = _single_description_codec.Read(input);
+            if (description_ == null || value != "") {
+              Description = value;
+            }
+            break;
+          }
+          case 42: {
+            string value = _single_location_codec.Read(input);
+            if (location_ == null || value != "") {
+              Location = value;
+            }
+            break;
+          }
+          case 50: {
+            if (startTime_ == null) {
+              StartTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(StartTime);
+            break;
+          }
+          case 58: {
+            if (endTime_ == null) {
+              EndTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(EndTime);
+            break;
+          }
+          case 64: {
+            IsAllDay = input.ReadBool();
+            break;
+          }
+          case 72: {
+            DaysRemaining = input.ReadInt32();
+            break;
+          }
+          case 80: {
+            HoursRemaining = input.ReadInt32();
+            break;
+          }
+          case 88: {
+            IsOngoing = input.ReadBool();
+            break;
+          }
+          case 98: {
+            Meta = input.ReadBytes();
+            break;
+          }
+          case 106: {
+            string value = _single_accountId_codec.Read(input);
+            if (accountId_ == null || value != "") {
+              AccountId = value;
+            }
+            break;
+          }
+          case 114:
+          case 112: {
+            tags_.AddEntriesFrom(input, _repeated_tags_codec);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            string value = _single_eventId_codec.Read(ref input);
+            if (eventId_ == null || value != "") {
+              EventId = value;
+            }
+            break;
+          }
+          case 16: {
+            Type = input.ReadInt32();
+            break;
+          }
+          case 26: {
+            Title = input.ReadString();
+            break;
+          }
+          case 34: {
+            string value = _single_description_codec.Read(ref input);
+            if (description_ == null || value != "") {
+              Description = value;
+            }
+            break;
+          }
+          case 42: {
+            string value = _single_location_codec.Read(ref input);
+            if (location_ == null || value != "") {
+              Location = value;
+            }
+            break;
+          }
+          case 50: {
+            if (startTime_ == null) {
+              StartTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(StartTime);
+            break;
+          }
+          case 58: {
+            if (endTime_ == null) {
+              EndTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(EndTime);
+            break;
+          }
+          case 64: {
+            IsAllDay = input.ReadBool();
+            break;
+          }
+          case 72: {
+            DaysRemaining = input.ReadInt32();
+            break;
+          }
+          case 80: {
+            HoursRemaining = input.ReadInt32();
+            break;
+          }
+          case 88: {
+            IsOngoing = input.ReadBool();
+            break;
+          }
+          case 98: {
+            Meta = input.ReadBytes();
+            break;
+          }
+          case 106: {
+            string value = _single_accountId_codec.Read(ref input);
+            if (accountId_ == null || value != "") {
+              AccountId = value;
+            }
+            break;
+          }
+          case 114:
+          case 112: {
+            tags_.AddEntriesFrom(ref input, _repeated_tags_codec);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DyGetNotableDaysRequest : pb::IMessage<DyGetNotableDaysRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DyGetNotableDaysRequest> _parser = new pb::MessageParser<DyGetNotableDaysRequest>(() => new DyGetNotableDaysRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    private int _hasBits0;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DyGetNotableDaysRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::DysonNetwork.Shared.Proto.ProfileReflection.Descriptor.MessageTypes[27]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetNotableDaysRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetNotableDaysRequest(DyGetNotableDaysRequest other) : this() {
+      _hasBits0 = other._hasBits0;
+      Year = other.Year;
+      region_ = other.region_;
+      tag_ = other.tag_;
+      offset_ = other.offset_;
+      take_ = other.take_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetNotableDaysRequest Clone() {
+      return new DyGetNotableDaysRequest(this);
+    }
+
+    /// <summary>Field number for the "year" field.</summary>
+    public const int YearFieldNumber = 1;
+    private static readonly pb::FieldCodec<int?> _single_year_codec = pb::FieldCodec.ForStructWrapper<int>(10);
+    private int? year_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int? Year {
+      get { return year_; }
+      set {
+        year_ = value;
+      }
+    }
+
+
+    /// <summary>Field number for the "region" field.</summary>
+    public const int RegionFieldNumber = 2;
+    private string region_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Region {
+      get { return region_; }
+      set {
+        region_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "tag" field.</summary>
+    public const int TagFieldNumber = 3;
+    private readonly static global::DysonNetwork.Shared.Proto.DyNotableDayTag TagDefaultValue = global::DysonNetwork.Shared.Proto.DyNotableDayTag.Unspecified;
+
+    private global::DysonNetwork.Shared.Proto.DyNotableDayTag tag_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::DysonNetwork.Shared.Proto.DyNotableDayTag Tag {
+      get { if ((_hasBits0 & 1) != 0) { return tag_; } else { return TagDefaultValue; } }
+      set {
+        _hasBits0 |= 1;
+        tag_ = value;
+      }
+    }
+    /// <summary>Gets whether the "tag" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasTag {
+      get { return (_hasBits0 & 1) != 0; }
+    }
+    /// <summary>Clears the value of the "tag" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearTag() {
+      _hasBits0 &= ~1;
+    }
+
+    /// <summary>Field number for the "offset" field.</summary>
+    public const int OffsetFieldNumber = 4;
+    private int offset_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int Offset {
+      get { return offset_; }
+      set {
+        offset_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "take" field.</summary>
+    public const int TakeFieldNumber = 5;
+    private int take_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int Take {
+      get { return take_; }
+      set {
+        take_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DyGetNotableDaysRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DyGetNotableDaysRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (Year != other.Year) return false;
+      if (Region != other.Region) return false;
+      if (Tag != other.Tag) return false;
+      if (Offset != other.Offset) return false;
+      if (Take != other.Take) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (year_ != null) hash ^= Year.GetHashCode();
+      if (Region.Length != 0) hash ^= Region.GetHashCode();
+      if (HasTag) hash ^= Tag.GetHashCode();
+      if (Offset != 0) hash ^= Offset.GetHashCode();
+      if (Take != 0) hash ^= Take.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (year_ != null) {
+        _single_year_codec.WriteTagAndValue(output, Year);
+      }
+      if (Region.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Region);
+      }
+      if (HasTag) {
+        output.WriteRawTag(24);
+        output.WriteEnum((int) Tag);
+      }
+      if (Offset != 0) {
+        output.WriteRawTag(32);
+        output.WriteInt32(Offset);
+      }
+      if (Take != 0) {
+        output.WriteRawTag(40);
+        output.WriteInt32(Take);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (year_ != null) {
+        _single_year_codec.WriteTagAndValue(ref output, Year);
+      }
+      if (Region.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Region);
+      }
+      if (HasTag) {
+        output.WriteRawTag(24);
+        output.WriteEnum((int) Tag);
+      }
+      if (Offset != 0) {
+        output.WriteRawTag(32);
+        output.WriteInt32(Offset);
+      }
+      if (Take != 0) {
+        output.WriteRawTag(40);
+        output.WriteInt32(Take);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (year_ != null) {
+        size += _single_year_codec.CalculateSizeWithTag(Year);
+      }
+      if (Region.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Region);
+      }
+      if (HasTag) {
+        size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) Tag);
+      }
+      if (Offset != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Offset);
+      }
+      if (Take != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Take);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DyGetNotableDaysRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.year_ != null) {
+        if (year_ == null || other.Year != 0) {
+          Year = other.Year;
+        }
+      }
+      if (other.Region.Length != 0) {
+        Region = other.Region;
+      }
+      if (other.HasTag) {
+        Tag = other.Tag;
+      }
+      if (other.Offset != 0) {
+        Offset = other.Offset;
+      }
+      if (other.Take != 0) {
+        Take = other.Take;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            int? value = _single_year_codec.Read(input);
+            if (year_ == null || value != 0) {
+              Year = value;
+            }
+            break;
+          }
+          case 18: {
+            Region = input.ReadString();
+            break;
+          }
+          case 24: {
+            Tag = (global::DysonNetwork.Shared.Proto.DyNotableDayTag) input.ReadEnum();
+            break;
+          }
+          case 32: {
+            Offset = input.ReadInt32();
+            break;
+          }
+          case 40: {
+            Take = input.ReadInt32();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            int? value = _single_year_codec.Read(ref input);
+            if (year_ == null || value != 0) {
+              Year = value;
+            }
+            break;
+          }
+          case 18: {
+            Region = input.ReadString();
+            break;
+          }
+          case 24: {
+            Tag = (global::DysonNetwork.Shared.Proto.DyNotableDayTag) input.ReadEnum();
+            break;
+          }
+          case 32: {
+            Offset = input.ReadInt32();
+            break;
+          }
+          case 40: {
+            Take = input.ReadInt32();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DyGetNotableDaysResponse : pb::IMessage<DyGetNotableDaysResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DyGetNotableDaysResponse> _parser = new pb::MessageParser<DyGetNotableDaysResponse>(() => new DyGetNotableDaysResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DyGetNotableDaysResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::DysonNetwork.Shared.Proto.ProfileReflection.Descriptor.MessageTypes[28]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetNotableDaysResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetNotableDaysResponse(DyGetNotableDaysResponse other) : this() {
+      days_ = other.days_.Clone();
+      totalCount_ = other.totalCount_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetNotableDaysResponse Clone() {
+      return new DyGetNotableDaysResponse(this);
+    }
+
+    /// <summary>Field number for the "days" field.</summary>
+    public const int DaysFieldNumber = 1;
+    private static readonly pb::FieldCodec<global::DysonNetwork.Shared.Proto.DyNotableDay> _repeated_days_codec
+        = pb::FieldCodec.ForMessage(10, global::DysonNetwork.Shared.Proto.DyNotableDay.Parser);
+    private readonly pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyNotableDay> days_ = new pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyNotableDay>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyNotableDay> Days {
+      get { return days_; }
+    }
+
+    /// <summary>Field number for the "total_count" field.</summary>
+    public const int TotalCountFieldNumber = 2;
+    private int totalCount_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int TotalCount {
+      get { return totalCount_; }
+      set {
+        totalCount_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DyGetNotableDaysResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DyGetNotableDaysResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if(!days_.Equals(other.days_)) return false;
+      if (TotalCount != other.TotalCount) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      hash ^= days_.GetHashCode();
+      if (TotalCount != 0) hash ^= TotalCount.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      days_.WriteTo(output, _repeated_days_codec);
+      if (TotalCount != 0) {
+        output.WriteRawTag(16);
+        output.WriteInt32(TotalCount);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      days_.WriteTo(ref output, _repeated_days_codec);
+      if (TotalCount != 0) {
+        output.WriteRawTag(16);
+        output.WriteInt32(TotalCount);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      size += days_.CalculateSize(_repeated_days_codec);
+      if (TotalCount != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(TotalCount);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DyGetNotableDaysResponse other) {
+      if (other == null) {
+        return;
+      }
+      days_.Add(other.days_);
+      if (other.TotalCount != 0) {
+        TotalCount = other.TotalCount;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            days_.AddEntriesFrom(input, _repeated_days_codec);
+            break;
+          }
+          case 16: {
+            TotalCount = input.ReadInt32();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            days_.AddEntriesFrom(ref input, _repeated_days_codec);
+            break;
+          }
+          case 16: {
+            TotalCount = input.ReadInt32();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DyGetUserCalendarEventsRequest : pb::IMessage<DyGetUserCalendarEventsRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DyGetUserCalendarEventsRequest> _parser = new pb::MessageParser<DyGetUserCalendarEventsRequest>(() => new DyGetUserCalendarEventsRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DyGetUserCalendarEventsRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::DysonNetwork.Shared.Proto.ProfileReflection.Descriptor.MessageTypes[29]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetUserCalendarEventsRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetUserCalendarEventsRequest(DyGetUserCalendarEventsRequest other) : this() {
+      accountId_ = other.accountId_;
+      ViewerId = other.ViewerId;
+      startTime_ = other.startTime_ != null ? other.startTime_.Clone() : null;
+      endTime_ = other.endTime_ != null ? other.endTime_.Clone() : null;
+      offset_ = other.offset_;
+      take_ = other.take_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetUserCalendarEventsRequest Clone() {
+      return new DyGetUserCalendarEventsRequest(this);
+    }
+
+    /// <summary>Field number for the "account_id" field.</summary>
+    public const int AccountIdFieldNumber = 1;
+    private string accountId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string AccountId {
+      get { return accountId_; }
+      set {
+        accountId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "viewer_id" field.</summary>
+    public const int ViewerIdFieldNumber = 2;
+    private static readonly pb::FieldCodec<string> _single_viewerId_codec = pb::FieldCodec.ForClassWrapper<string>(18);
+    private string viewerId_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string ViewerId {
+      get { return viewerId_; }
+      set {
+        viewerId_ = value;
+      }
+    }
+
+
+    /// <summary>Field number for the "start_time" field.</summary>
+    public const int StartTimeFieldNumber = 3;
+    private global::Google.Protobuf.WellKnownTypes.Timestamp startTime_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Google.Protobuf.WellKnownTypes.Timestamp StartTime {
+      get { return startTime_; }
+      set {
+        startTime_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "end_time" field.</summary>
+    public const int EndTimeFieldNumber = 4;
+    private global::Google.Protobuf.WellKnownTypes.Timestamp endTime_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Google.Protobuf.WellKnownTypes.Timestamp EndTime {
+      get { return endTime_; }
+      set {
+        endTime_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "offset" field.</summary>
+    public const int OffsetFieldNumber = 5;
+    private int offset_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int Offset {
+      get { return offset_; }
+      set {
+        offset_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "take" field.</summary>
+    public const int TakeFieldNumber = 6;
+    private int take_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int Take {
+      get { return take_; }
+      set {
+        take_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DyGetUserCalendarEventsRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DyGetUserCalendarEventsRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (AccountId != other.AccountId) return false;
+      if (ViewerId != other.ViewerId) return false;
+      if (!object.Equals(StartTime, other.StartTime)) return false;
+      if (!object.Equals(EndTime, other.EndTime)) return false;
+      if (Offset != other.Offset) return false;
+      if (Take != other.Take) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (AccountId.Length != 0) hash ^= AccountId.GetHashCode();
+      if (viewerId_ != null) hash ^= ViewerId.GetHashCode();
+      if (startTime_ != null) hash ^= StartTime.GetHashCode();
+      if (endTime_ != null) hash ^= EndTime.GetHashCode();
+      if (Offset != 0) hash ^= Offset.GetHashCode();
+      if (Take != 0) hash ^= Take.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (AccountId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(AccountId);
+      }
+      if (viewerId_ != null) {
+        _single_viewerId_codec.WriteTagAndValue(output, ViewerId);
+      }
+      if (startTime_ != null) {
+        output.WriteRawTag(26);
+        output.WriteMessage(StartTime);
+      }
+      if (endTime_ != null) {
+        output.WriteRawTag(34);
+        output.WriteMessage(EndTime);
+      }
+      if (Offset != 0) {
+        output.WriteRawTag(40);
+        output.WriteInt32(Offset);
+      }
+      if (Take != 0) {
+        output.WriteRawTag(48);
+        output.WriteInt32(Take);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (AccountId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(AccountId);
+      }
+      if (viewerId_ != null) {
+        _single_viewerId_codec.WriteTagAndValue(ref output, ViewerId);
+      }
+      if (startTime_ != null) {
+        output.WriteRawTag(26);
+        output.WriteMessage(StartTime);
+      }
+      if (endTime_ != null) {
+        output.WriteRawTag(34);
+        output.WriteMessage(EndTime);
+      }
+      if (Offset != 0) {
+        output.WriteRawTag(40);
+        output.WriteInt32(Offset);
+      }
+      if (Take != 0) {
+        output.WriteRawTag(48);
+        output.WriteInt32(Take);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (AccountId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(AccountId);
+      }
+      if (viewerId_ != null) {
+        size += _single_viewerId_codec.CalculateSizeWithTag(ViewerId);
+      }
+      if (startTime_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(StartTime);
+      }
+      if (endTime_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(EndTime);
+      }
+      if (Offset != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Offset);
+      }
+      if (Take != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Take);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DyGetUserCalendarEventsRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.AccountId.Length != 0) {
+        AccountId = other.AccountId;
+      }
+      if (other.viewerId_ != null) {
+        if (viewerId_ == null || other.ViewerId != "") {
+          ViewerId = other.ViewerId;
+        }
+      }
+      if (other.startTime_ != null) {
+        if (startTime_ == null) {
+          StartTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+        }
+        StartTime.MergeFrom(other.StartTime);
+      }
+      if (other.endTime_ != null) {
+        if (endTime_ == null) {
+          EndTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+        }
+        EndTime.MergeFrom(other.EndTime);
+      }
+      if (other.Offset != 0) {
+        Offset = other.Offset;
+      }
+      if (other.Take != 0) {
+        Take = other.Take;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            AccountId = input.ReadString();
+            break;
+          }
+          case 18: {
+            string value = _single_viewerId_codec.Read(input);
+            if (viewerId_ == null || value != "") {
+              ViewerId = value;
+            }
+            break;
+          }
+          case 26: {
+            if (startTime_ == null) {
+              StartTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(StartTime);
+            break;
+          }
+          case 34: {
+            if (endTime_ == null) {
+              EndTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(EndTime);
+            break;
+          }
+          case 40: {
+            Offset = input.ReadInt32();
+            break;
+          }
+          case 48: {
+            Take = input.ReadInt32();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            AccountId = input.ReadString();
+            break;
+          }
+          case 18: {
+            string value = _single_viewerId_codec.Read(ref input);
+            if (viewerId_ == null || value != "") {
+              ViewerId = value;
+            }
+            break;
+          }
+          case 26: {
+            if (startTime_ == null) {
+              StartTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(StartTime);
+            break;
+          }
+          case 34: {
+            if (endTime_ == null) {
+              EndTime = new global::Google.Protobuf.WellKnownTypes.Timestamp();
+            }
+            input.ReadMessage(EndTime);
+            break;
+          }
+          case 40: {
+            Offset = input.ReadInt32();
+            break;
+          }
+          case 48: {
+            Take = input.ReadInt32();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DyGetUserCalendarEventsResponse : pb::IMessage<DyGetUserCalendarEventsResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DyGetUserCalendarEventsResponse> _parser = new pb::MessageParser<DyGetUserCalendarEventsResponse>(() => new DyGetUserCalendarEventsResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DyGetUserCalendarEventsResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::DysonNetwork.Shared.Proto.ProfileReflection.Descriptor.MessageTypes[30]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetUserCalendarEventsResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetUserCalendarEventsResponse(DyGetUserCalendarEventsResponse other) : this() {
+      events_ = other.events_.Clone();
+      totalCount_ = other.totalCount_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetUserCalendarEventsResponse Clone() {
+      return new DyGetUserCalendarEventsResponse(this);
+    }
+
+    /// <summary>Field number for the "events" field.</summary>
+    public const int EventsFieldNumber = 1;
+    private static readonly pb::FieldCodec<global::DysonNetwork.Shared.Proto.DyUserCalendarEvent> _repeated_events_codec
+        = pb::FieldCodec.ForMessage(10, global::DysonNetwork.Shared.Proto.DyUserCalendarEvent.Parser);
+    private readonly pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyUserCalendarEvent> events_ = new pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyUserCalendarEvent>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyUserCalendarEvent> Events {
+      get { return events_; }
+    }
+
+    /// <summary>Field number for the "total_count" field.</summary>
+    public const int TotalCountFieldNumber = 2;
+    private int totalCount_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int TotalCount {
+      get { return totalCount_; }
+      set {
+        totalCount_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DyGetUserCalendarEventsResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DyGetUserCalendarEventsResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if(!events_.Equals(other.events_)) return false;
+      if (TotalCount != other.TotalCount) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      hash ^= events_.GetHashCode();
+      if (TotalCount != 0) hash ^= TotalCount.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      events_.WriteTo(output, _repeated_events_codec);
+      if (TotalCount != 0) {
+        output.WriteRawTag(16);
+        output.WriteInt32(TotalCount);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      events_.WriteTo(ref output, _repeated_events_codec);
+      if (TotalCount != 0) {
+        output.WriteRawTag(16);
+        output.WriteInt32(TotalCount);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      size += events_.CalculateSize(_repeated_events_codec);
+      if (TotalCount != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(TotalCount);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DyGetUserCalendarEventsResponse other) {
+      if (other == null) {
+        return;
+      }
+      events_.Add(other.events_);
+      if (other.TotalCount != 0) {
+        TotalCount = other.TotalCount;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            events_.AddEntriesFrom(input, _repeated_events_codec);
+            break;
+          }
+          case 16: {
+            TotalCount = input.ReadInt32();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            events_.AddEntriesFrom(ref input, _repeated_events_codec);
+            break;
+          }
+          case 16: {
+            TotalCount = input.ReadInt32();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DyGetCountdownEventsRequest : pb::IMessage<DyGetCountdownEventsRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DyGetCountdownEventsRequest> _parser = new pb::MessageParser<DyGetCountdownEventsRequest>(() => new DyGetCountdownEventsRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    private int _hasBits0;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DyGetCountdownEventsRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::DysonNetwork.Shared.Proto.ProfileReflection.Descriptor.MessageTypes[31]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetCountdownEventsRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetCountdownEventsRequest(DyGetCountdownEventsRequest other) : this() {
+      _hasBits0 = other._hasBits0;
+      accountId_ = other.accountId_;
+      ViewerId = other.ViewerId;
+      region_ = other.region_;
+      includeNotableDays_ = other.includeNotableDays_;
+      tag_ = other.tag_;
+      take_ = other.take_;
+      offset_ = other.offset_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetCountdownEventsRequest Clone() {
+      return new DyGetCountdownEventsRequest(this);
+    }
+
+    /// <summary>Field number for the "account_id" field.</summary>
+    public const int AccountIdFieldNumber = 1;
+    private string accountId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string AccountId {
+      get { return accountId_; }
+      set {
+        accountId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "viewer_id" field.</summary>
+    public const int ViewerIdFieldNumber = 2;
+    private static readonly pb::FieldCodec<string> _single_viewerId_codec = pb::FieldCodec.ForClassWrapper<string>(18);
+    private string viewerId_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string ViewerId {
+      get { return viewerId_; }
+      set {
+        viewerId_ = value;
+      }
+    }
+
+
+    /// <summary>Field number for the "region" field.</summary>
+    public const int RegionFieldNumber = 3;
+    private string region_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Region {
+      get { return region_; }
+      set {
+        region_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "include_notable_days" field.</summary>
+    public const int IncludeNotableDaysFieldNumber = 4;
+    private bool includeNotableDays_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool IncludeNotableDays {
+      get { return includeNotableDays_; }
+      set {
+        includeNotableDays_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "tag" field.</summary>
+    public const int TagFieldNumber = 5;
+    private readonly static global::DysonNetwork.Shared.Proto.DyNotableDayTag TagDefaultValue = global::DysonNetwork.Shared.Proto.DyNotableDayTag.Unspecified;
+
+    private global::DysonNetwork.Shared.Proto.DyNotableDayTag tag_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::DysonNetwork.Shared.Proto.DyNotableDayTag Tag {
+      get { if ((_hasBits0 & 1) != 0) { return tag_; } else { return TagDefaultValue; } }
+      set {
+        _hasBits0 |= 1;
+        tag_ = value;
+      }
+    }
+    /// <summary>Gets whether the "tag" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasTag {
+      get { return (_hasBits0 & 1) != 0; }
+    }
+    /// <summary>Clears the value of the "tag" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearTag() {
+      _hasBits0 &= ~1;
+    }
+
+    /// <summary>Field number for the "take" field.</summary>
+    public const int TakeFieldNumber = 6;
+    private int take_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int Take {
+      get { return take_; }
+      set {
+        take_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "offset" field.</summary>
+    public const int OffsetFieldNumber = 7;
+    private int offset_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int Offset {
+      get { return offset_; }
+      set {
+        offset_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DyGetCountdownEventsRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DyGetCountdownEventsRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (AccountId != other.AccountId) return false;
+      if (ViewerId != other.ViewerId) return false;
+      if (Region != other.Region) return false;
+      if (IncludeNotableDays != other.IncludeNotableDays) return false;
+      if (Tag != other.Tag) return false;
+      if (Take != other.Take) return false;
+      if (Offset != other.Offset) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (AccountId.Length != 0) hash ^= AccountId.GetHashCode();
+      if (viewerId_ != null) hash ^= ViewerId.GetHashCode();
+      if (Region.Length != 0) hash ^= Region.GetHashCode();
+      if (IncludeNotableDays != false) hash ^= IncludeNotableDays.GetHashCode();
+      if (HasTag) hash ^= Tag.GetHashCode();
+      if (Take != 0) hash ^= Take.GetHashCode();
+      if (Offset != 0) hash ^= Offset.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (AccountId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(AccountId);
+      }
+      if (viewerId_ != null) {
+        _single_viewerId_codec.WriteTagAndValue(output, ViewerId);
+      }
+      if (Region.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(Region);
+      }
+      if (IncludeNotableDays != false) {
+        output.WriteRawTag(32);
+        output.WriteBool(IncludeNotableDays);
+      }
+      if (HasTag) {
+        output.WriteRawTag(40);
+        output.WriteEnum((int) Tag);
+      }
+      if (Take != 0) {
+        output.WriteRawTag(48);
+        output.WriteInt32(Take);
+      }
+      if (Offset != 0) {
+        output.WriteRawTag(56);
+        output.WriteInt32(Offset);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (AccountId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(AccountId);
+      }
+      if (viewerId_ != null) {
+        _single_viewerId_codec.WriteTagAndValue(ref output, ViewerId);
+      }
+      if (Region.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(Region);
+      }
+      if (IncludeNotableDays != false) {
+        output.WriteRawTag(32);
+        output.WriteBool(IncludeNotableDays);
+      }
+      if (HasTag) {
+        output.WriteRawTag(40);
+        output.WriteEnum((int) Tag);
+      }
+      if (Take != 0) {
+        output.WriteRawTag(48);
+        output.WriteInt32(Take);
+      }
+      if (Offset != 0) {
+        output.WriteRawTag(56);
+        output.WriteInt32(Offset);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (AccountId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(AccountId);
+      }
+      if (viewerId_ != null) {
+        size += _single_viewerId_codec.CalculateSizeWithTag(ViewerId);
+      }
+      if (Region.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Region);
+      }
+      if (IncludeNotableDays != false) {
+        size += 1 + 1;
+      }
+      if (HasTag) {
+        size += 1 + pb::CodedOutputStream.ComputeEnumSize((int) Tag);
+      }
+      if (Take != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Take);
+      }
+      if (Offset != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Offset);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DyGetCountdownEventsRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.AccountId.Length != 0) {
+        AccountId = other.AccountId;
+      }
+      if (other.viewerId_ != null) {
+        if (viewerId_ == null || other.ViewerId != "") {
+          ViewerId = other.ViewerId;
+        }
+      }
+      if (other.Region.Length != 0) {
+        Region = other.Region;
+      }
+      if (other.IncludeNotableDays != false) {
+        IncludeNotableDays = other.IncludeNotableDays;
+      }
+      if (other.HasTag) {
+        Tag = other.Tag;
+      }
+      if (other.Take != 0) {
+        Take = other.Take;
+      }
+      if (other.Offset != 0) {
+        Offset = other.Offset;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            AccountId = input.ReadString();
+            break;
+          }
+          case 18: {
+            string value = _single_viewerId_codec.Read(input);
+            if (viewerId_ == null || value != "") {
+              ViewerId = value;
+            }
+            break;
+          }
+          case 26: {
+            Region = input.ReadString();
+            break;
+          }
+          case 32: {
+            IncludeNotableDays = input.ReadBool();
+            break;
+          }
+          case 40: {
+            Tag = (global::DysonNetwork.Shared.Proto.DyNotableDayTag) input.ReadEnum();
+            break;
+          }
+          case 48: {
+            Take = input.ReadInt32();
+            break;
+          }
+          case 56: {
+            Offset = input.ReadInt32();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            AccountId = input.ReadString();
+            break;
+          }
+          case 18: {
+            string value = _single_viewerId_codec.Read(ref input);
+            if (viewerId_ == null || value != "") {
+              ViewerId = value;
+            }
+            break;
+          }
+          case 26: {
+            Region = input.ReadString();
+            break;
+          }
+          case 32: {
+            IncludeNotableDays = input.ReadBool();
+            break;
+          }
+          case 40: {
+            Tag = (global::DysonNetwork.Shared.Proto.DyNotableDayTag) input.ReadEnum();
+            break;
+          }
+          case 48: {
+            Take = input.ReadInt32();
+            break;
+          }
+          case 56: {
+            Offset = input.ReadInt32();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DyGetCountdownEventsResponse : pb::IMessage<DyGetCountdownEventsResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DyGetCountdownEventsResponse> _parser = new pb::MessageParser<DyGetCountdownEventsResponse>(() => new DyGetCountdownEventsResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DyGetCountdownEventsResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::DysonNetwork.Shared.Proto.ProfileReflection.Descriptor.MessageTypes[32]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetCountdownEventsResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetCountdownEventsResponse(DyGetCountdownEventsResponse other) : this() {
+      events_ = other.events_.Clone();
+      totalCount_ = other.totalCount_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyGetCountdownEventsResponse Clone() {
+      return new DyGetCountdownEventsResponse(this);
+    }
+
+    /// <summary>Field number for the "events" field.</summary>
+    public const int EventsFieldNumber = 1;
+    private static readonly pb::FieldCodec<global::DysonNetwork.Shared.Proto.DyEventCountdownItem> _repeated_events_codec
+        = pb::FieldCodec.ForMessage(10, global::DysonNetwork.Shared.Proto.DyEventCountdownItem.Parser);
+    private readonly pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyEventCountdownItem> events_ = new pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyEventCountdownItem>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<global::DysonNetwork.Shared.Proto.DyEventCountdownItem> Events {
+      get { return events_; }
+    }
+
+    /// <summary>Field number for the "total_count" field.</summary>
+    public const int TotalCountFieldNumber = 2;
+    private int totalCount_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int TotalCount {
+      get { return totalCount_; }
+      set {
+        totalCount_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DyGetCountdownEventsResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DyGetCountdownEventsResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if(!events_.Equals(other.events_)) return false;
+      if (TotalCount != other.TotalCount) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      hash ^= events_.GetHashCode();
+      if (TotalCount != 0) hash ^= TotalCount.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      events_.WriteTo(output, _repeated_events_codec);
+      if (TotalCount != 0) {
+        output.WriteRawTag(16);
+        output.WriteInt32(TotalCount);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      events_.WriteTo(ref output, _repeated_events_codec);
+      if (TotalCount != 0) {
+        output.WriteRawTag(16);
+        output.WriteInt32(TotalCount);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      size += events_.CalculateSize(_repeated_events_codec);
+      if (TotalCount != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(TotalCount);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DyGetCountdownEventsResponse other) {
+      if (other == null) {
+        return;
+      }
+      events_.Add(other.events_);
+      if (other.TotalCount != 0) {
+        TotalCount = other.TotalCount;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            events_.AddEntriesFrom(input, _repeated_events_codec);
+            break;
+          }
+          case 16: {
+            TotalCount = input.ReadInt32();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            events_.AddEntriesFrom(ref input, _repeated_events_codec);
+            break;
+          }
+          case 16: {
+            TotalCount = input.ReadInt32();
             break;
           }
         }

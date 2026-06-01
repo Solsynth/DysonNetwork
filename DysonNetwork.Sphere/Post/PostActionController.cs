@@ -138,6 +138,8 @@ public class PostActionController(
         public Guid? FundId { get; set; }
         public Guid? MeetId { get; set; }
         public Guid? LiveStreamId { get; set; }
+        public Guid? NotableDayId { get; set; }
+        public Guid? CalendarEventId { get; set; }
         
         [MaxLength(128)]
         public string? FitnessReference { get; set; }
@@ -451,6 +453,34 @@ public class PostActionController(
                 post.Metadata["embeds"] = new List<Dictionary<string, object>>();
             var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
             embeds.Add(EmbeddableBase.ToDictionary(locationEmbed));
+            post.Metadata["embeds"] = embeds;
+        }
+
+        if (request.NotableDayId.HasValue)
+        {
+            var notableDayEmbed = new NotableDayEmbed { Id = request.NotableDayId.Value };
+            post.Metadata ??= new Dictionary<string, object>();
+            if (
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+            embeds.Add(EmbeddableBase.ToDictionary(notableDayEmbed));
+            post.Metadata["embeds"] = embeds;
+        }
+
+        if (request.CalendarEventId.HasValue)
+        {
+            var calendarEventEmbed = new CalendarEventEmbed { Id = request.CalendarEventId.Value };
+            post.Metadata ??= new Dictionary<string, object>();
+            if (
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+            embeds.Add(EmbeddableBase.ToDictionary(calendarEventEmbed));
             post.Metadata["embeds"] = embeds;
         }
 
@@ -1204,6 +1234,58 @@ public class PostActionController(
                 post.Metadata["embeds"] = new List<Dictionary<string, object>>();
             var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
             embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "location");
+        }
+
+        if (request.NotableDayId.HasValue)
+        {
+            var notableDayEmbed = new NotableDayEmbed { Id = request.NotableDayId.Value };
+            post.Metadata ??= new Dictionary<string, object>();
+            if (
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "notable_day");
+            embeds.Add(EmbeddableBase.ToDictionary(notableDayEmbed));
+            post.Metadata["embeds"] = embeds;
+        }
+        else
+        {
+            post.Metadata ??= new Dictionary<string, object>();
+            if (
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "notable_day");
+        }
+
+        if (request.CalendarEventId.HasValue)
+        {
+            var calendarEventEmbed = new CalendarEventEmbed { Id = request.CalendarEventId.Value };
+            post.Metadata ??= new Dictionary<string, object>();
+            if (
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "calendar_event");
+            embeds.Add(EmbeddableBase.ToDictionary(calendarEventEmbed));
+            post.Metadata["embeds"] = embeds;
+        }
+        else
+        {
+            post.Metadata ??= new Dictionary<string, object>();
+            if (
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "calendar_event");
         }
 
         if (request.ThumbnailId is not null)

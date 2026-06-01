@@ -574,6 +574,18 @@ public static class ServiceCollectionExtensions
                 ChatMessageHelpers.AddEmbedToMessage(message, meetEmbed);
             }
 
+            if (!e2eeMode && requestData.NotableDayId.HasValue)
+            {
+                var notableDayEmbed = new NotableDayEmbed { Id = requestData.NotableDayId.Value };
+                ChatMessageHelpers.AddEmbedToMessage(message, notableDayEmbed);
+            }
+
+            if (!e2eeMode && requestData.CalendarEventId.HasValue)
+            {
+                var calendarEventEmbed = new CalendarEventEmbed { Id = requestData.CalendarEventId.Value };
+                ChatMessageHelpers.AddEmbedToMessage(message, calendarEventEmbed);
+            }
+
             if (!e2eeMode && ChatMessageHelpers.HasLocationPayload(requestData.LocationName, requestData.LocationAddress, requestData.LocationWkt))
             {
                 if (!ChatMessageHelpers.TryParseLocation(requestData.LocationWkt, out var location, out var locationError))

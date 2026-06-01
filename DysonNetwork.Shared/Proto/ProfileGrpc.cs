@@ -105,6 +105,18 @@ namespace DysonNetwork.Shared.Proto {
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest> __Marshaller_proto_DyListRelationshipSimpleRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> __Marshaller_proto_DyListRelationshipSimpleResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetNotableDaysRequest> __Marshaller_proto_DyGetNotableDaysRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetNotableDaysRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetNotableDaysResponse> __Marshaller_proto_DyGetNotableDaysResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetNotableDaysResponse.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsRequest> __Marshaller_proto_DyGetUserCalendarEventsRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsResponse> __Marshaller_proto_DyGetUserCalendarEventsResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsResponse.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetCountdownEventsRequest> __Marshaller_proto_DyGetCountdownEventsRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetCountdownEventsRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyGetCountdownEventsResponse> __Marshaller_proto_DyGetCountdownEventsResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyGetCountdownEventsResponse.Parser));
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetAccountRequest, global::DysonNetwork.Shared.Proto.DyAccount> __Method_GetAccount = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetAccountRequest, global::DysonNetwork.Shared.Proto.DyAccount>(
@@ -274,6 +286,30 @@ namespace DysonNetwork.Shared.Proto {
         __Marshaller_proto_DyListRelationshipSimpleRequest,
         __Marshaller_proto_DyListRelationshipSimpleResponse);
 
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetNotableDaysRequest, global::DysonNetwork.Shared.Proto.DyGetNotableDaysResponse> __Method_GetNotableDays = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetNotableDaysRequest, global::DysonNetwork.Shared.Proto.DyGetNotableDaysResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "GetNotableDays",
+        __Marshaller_proto_DyGetNotableDaysRequest,
+        __Marshaller_proto_DyGetNotableDaysResponse);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsRequest, global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsResponse> __Method_GetUserCalendarEvents = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsRequest, global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "GetUserCalendarEvents",
+        __Marshaller_proto_DyGetUserCalendarEventsRequest,
+        __Marshaller_proto_DyGetUserCalendarEventsResponse);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyGetCountdownEventsRequest, global::DysonNetwork.Shared.Proto.DyGetCountdownEventsResponse> __Method_GetCountdownEvents = new grpc::Method<global::DysonNetwork.Shared.Proto.DyGetCountdownEventsRequest, global::DysonNetwork.Shared.Proto.DyGetCountdownEventsResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "GetCountdownEvents",
+        __Marshaller_proto_DyGetCountdownEventsRequest,
+        __Marshaller_proto_DyGetCountdownEventsResponse);
+
     /// <summary>Service descriptor</summary>
     public static global::Google.Protobuf.Reflection.ServiceDescriptor Descriptor
     {
@@ -436,6 +472,30 @@ namespace DysonNetwork.Shared.Proto {
 
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse> ListCloseFriends(global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      /// <summary>
+      /// Calendar &amp; Notable Days Operations
+      /// </summary>
+      /// <param name="request">The request received from the client.</param>
+      /// <param name="context">The context of the server-side call handler being invoked.</param>
+      /// <returns>The response to send back to the client (wrapped by a task).</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyGetNotableDaysResponse> GetNotableDays(global::DysonNetwork.Shared.Proto.DyGetNotableDaysRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsResponse> GetUserCalendarEvents(global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::DysonNetwork.Shared.Proto.DyGetCountdownEventsResponse> GetCountdownEvents(global::DysonNetwork.Shared.Proto.DyGetCountdownEventsRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
@@ -1029,6 +1089,94 @@ namespace DysonNetwork.Shared.Proto {
       {
         return CallInvoker.AsyncUnaryCall(__Method_ListCloseFriends, null, options, request);
       }
+      /// <summary>
+      /// Calendar &amp; Notable Days Operations
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
+      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
+      /// <param name="cancellationToken">An optional token for canceling the call.</param>
+      /// <returns>The response received from the server.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyGetNotableDaysResponse GetNotableDays(global::DysonNetwork.Shared.Proto.DyGetNotableDaysRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return GetNotableDays(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      /// <summary>
+      /// Calendar &amp; Notable Days Operations
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="options">The options for the call.</param>
+      /// <returns>The response received from the server.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyGetNotableDaysResponse GetNotableDays(global::DysonNetwork.Shared.Proto.DyGetNotableDaysRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_GetNotableDays, null, options, request);
+      }
+      /// <summary>
+      /// Calendar &amp; Notable Days Operations
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
+      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
+      /// <param name="cancellationToken">An optional token for canceling the call.</param>
+      /// <returns>The call object.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetNotableDaysResponse> GetNotableDaysAsync(global::DysonNetwork.Shared.Proto.DyGetNotableDaysRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return GetNotableDaysAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      /// <summary>
+      /// Calendar &amp; Notable Days Operations
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="options">The options for the call.</param>
+      /// <returns>The call object.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetNotableDaysResponse> GetNotableDaysAsync(global::DysonNetwork.Shared.Proto.DyGetNotableDaysRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_GetNotableDays, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsResponse GetUserCalendarEvents(global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return GetUserCalendarEvents(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsResponse GetUserCalendarEvents(global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_GetUserCalendarEvents, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsResponse> GetUserCalendarEventsAsync(global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return GetUserCalendarEventsAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsResponse> GetUserCalendarEventsAsync(global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_GetUserCalendarEvents, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyGetCountdownEventsResponse GetCountdownEvents(global::DysonNetwork.Shared.Proto.DyGetCountdownEventsRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return GetCountdownEvents(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::DysonNetwork.Shared.Proto.DyGetCountdownEventsResponse GetCountdownEvents(global::DysonNetwork.Shared.Proto.DyGetCountdownEventsRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_GetCountdownEvents, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetCountdownEventsResponse> GetCountdownEventsAsync(global::DysonNetwork.Shared.Proto.DyGetCountdownEventsRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return GetCountdownEventsAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::DysonNetwork.Shared.Proto.DyGetCountdownEventsResponse> GetCountdownEventsAsync(global::DysonNetwork.Shared.Proto.DyGetCountdownEventsRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_GetCountdownEvents, null, options, request);
+      }
       /// <summary>Creates a new instance of client from given <c>ClientBaseConfiguration</c>.</summary>
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       protected override DyProfileServiceClient NewInstance(ClientBaseConfiguration configuration)
@@ -1063,7 +1211,10 @@ namespace DysonNetwork.Shared.Proto {
           .AddMethod(__Method_ListFriends, serviceImpl.ListFriends)
           .AddMethod(__Method_ListBlocked, serviceImpl.ListBlocked)
           .AddMethod(__Method_ListMuted, serviceImpl.ListMuted)
-          .AddMethod(__Method_ListCloseFriends, serviceImpl.ListCloseFriends).Build();
+          .AddMethod(__Method_ListCloseFriends, serviceImpl.ListCloseFriends)
+          .AddMethod(__Method_GetNotableDays, serviceImpl.GetNotableDays)
+          .AddMethod(__Method_GetUserCalendarEvents, serviceImpl.GetUserCalendarEvents)
+          .AddMethod(__Method_GetCountdownEvents, serviceImpl.GetCountdownEvents).Build();
     }
 
     /// <summary>Register service method with a service binder with or without implementation. Useful when customizing the service binding logic.
@@ -1094,6 +1245,9 @@ namespace DysonNetwork.Shared.Proto {
       serviceBinder.AddMethod(__Method_ListBlocked, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse>(serviceImpl.ListBlocked));
       serviceBinder.AddMethod(__Method_ListMuted, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse>(serviceImpl.ListMuted));
       serviceBinder.AddMethod(__Method_ListCloseFriends, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleRequest, global::DysonNetwork.Shared.Proto.DyListRelationshipSimpleResponse>(serviceImpl.ListCloseFriends));
+      serviceBinder.AddMethod(__Method_GetNotableDays, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetNotableDaysRequest, global::DysonNetwork.Shared.Proto.DyGetNotableDaysResponse>(serviceImpl.GetNotableDays));
+      serviceBinder.AddMethod(__Method_GetUserCalendarEvents, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsRequest, global::DysonNetwork.Shared.Proto.DyGetUserCalendarEventsResponse>(serviceImpl.GetUserCalendarEvents));
+      serviceBinder.AddMethod(__Method_GetCountdownEvents, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyGetCountdownEventsRequest, global::DysonNetwork.Shared.Proto.DyGetCountdownEventsResponse>(serviceImpl.GetCountdownEvents));
     }
 
   }
