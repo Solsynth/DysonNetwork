@@ -84,7 +84,7 @@ public class PublisherSubscriptionService(
             return 0;
         if (post.RepliedPostId is not null)
             return 0;
-        if (post.Visibility != PostVisibility.Public && post.Visibility != PostVisibility.SubscriberOnly && post.Visibility != PostVisibility.CloseFriendsOnly)
+        if (post.Visibility != PostVisibility.Public && post.Visibility != PostVisibility.QuietPublic && post.Visibility != PostVisibility.CloseFriendsOnly)
             return 0;
         if (post.Publisher.IsShadowbanned)
             return 0;

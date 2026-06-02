@@ -1186,7 +1186,7 @@ public partial class PostService(
 
         var postsRequireFollow = await ps.HasPostsRequireFollowFlag(publisherId.Value);
         HashSet<string>? followerAccountIds = null;
-        if (postsRequireFollow || post.Visibility == PostVisibility.SubscriberOnly)
+        if (postsRequireFollow || post.Visibility == PostVisibility.QuietPublic)
         {
             var followerRequests = await db
                 .PublisherFollowRequests.Where(r =>
@@ -1260,7 +1260,7 @@ public partial class PostService(
                         filteredUserIds.Add(userId);
                     continue;
                 }
-                case PostVisibility.SubscriberOnly:
+                case PostVisibility.QuietPublic:
                 {
                     if (isMember || (followerAccountIds != null && followerAccountIds.Contains(userId)))
                         filteredUserIds.Add(userId);
@@ -3259,7 +3259,8 @@ public static class PostQueryExtensions
         HashSet<Guid>? followerPublisherIds = null,
         HashSet<Guid>? blockedAccountIds = null,
         HashSet<Guid>? mutedAccountIds = null,
-        HashSet<Guid>? closeFriendPublisherIds = null
+        HashSet<Guid>? closeFriendPublisherIds = null,
+        bool showQuietPublic = false
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -3320,7 +3321,8 @@ public static class PostQueryExtensions
                 )
             )
             .Where(e =>
-                e.Visibility != Shared.Models.PostVisibility.SubscriberOnly
+                e.Visibility != Shared.Models.PostVisibility.QuietPublic
+                || showQuietPublic
                 || publishersId.Contains(e.PublisherId!.Value)
                 || (
                     followerPublisherIds != null

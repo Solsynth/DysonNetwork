@@ -556,7 +556,8 @@ public class PostController(
             subscriberPublisherIds,
             blockedAccountIds,
             mutedAccountIds.ToHashSet(),
-            closeFriendPublisherIds
+            closeFriendPublisherIds,
+            showQuietPublic: pubName is not null
         );
 
         if (shadowbannedPublisherIds != null && shadowbannedPublisherIds.Count > 0)
@@ -696,7 +697,7 @@ public class PostController(
         if (post is null)
             return NotFound();
 
-        if (post.PublisherId.HasValue && (post.Publisher?.GatekeptFollows == true || post.Visibility == Shared.Models.PostVisibility.SubscriberOnly))
+        if (post.PublisherId.HasValue && (post.Publisher?.GatekeptFollows == true || post.Visibility == Shared.Models.PostVisibility.QuietPublic))
         {
             if (currentUser == null)
                 return StatusCode(403, "Subscriber access required");
@@ -766,7 +767,7 @@ public class PostController(
         if (post is null)
             return NotFound();
 
-        if (post.PublisherId.HasValue && (post.Publisher?.GatekeptFollows == true || post.Visibility == Shared.Models.PostVisibility.SubscriberOnly))
+        if (post.PublisherId.HasValue && (post.Publisher?.GatekeptFollows == true || post.Visibility == Shared.Models.PostVisibility.QuietPublic))
         {
             if (currentUser == null)
                 return StatusCode(403, "Subscriber access required");
@@ -932,7 +933,7 @@ public class PostController(
         if (prevPost is null)
             return NotFound("No previous post found");
 
-        if (prevPost.PublisherId.HasValue && (prevPost.Publisher?.GatekeptFollows == true || prevPost.Visibility == Shared.Models.PostVisibility.SubscriberOnly))
+        if (prevPost.PublisherId.HasValue && (prevPost.Publisher?.GatekeptFollows == true || prevPost.Visibility == Shared.Models.PostVisibility.QuietPublic))
         {
             if (currentUser == null)
                 return StatusCode(403, "Subscriber access required");
@@ -1093,7 +1094,7 @@ public class PostController(
         if (nextPost is null)
             return NotFound("No next post found");
 
-        if (nextPost.PublisherId.HasValue && (nextPost.Publisher?.GatekeptFollows == true || nextPost.Visibility == Shared.Models.PostVisibility.SubscriberOnly))
+        if (nextPost.PublisherId.HasValue && (nextPost.Publisher?.GatekeptFollows == true || nextPost.Visibility == Shared.Models.PostVisibility.QuietPublic))
         {
             if (currentUser == null)
                 return StatusCode(403, "Subscriber access required");
@@ -1564,7 +1565,7 @@ public class PostController(
         if (currentPost is null)
             return NotFound();
 
-        if (currentPost.PublisherId.HasValue && (currentPost.Publisher?.GatekeptFollows == true || currentPost.Visibility == Shared.Models.PostVisibility.SubscriberOnly))
+        if (currentPost.PublisherId.HasValue && (currentPost.Publisher?.GatekeptFollows == true || currentPost.Visibility == Shared.Models.PostVisibility.QuietPublic))
         {
             if (currentUser == null)
                 return StatusCode(403, "Subscriber access required");
