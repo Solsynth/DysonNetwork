@@ -310,4 +310,76 @@ public class AccountController(
         Response.Headers["X-Total"] = total.ToString();
         return Ok(timeline);
     }
+
+    [HttpGet("{name}/events")]
+    [ProducesResponseType<List<SnUserCalendarEvent>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<SnUserCalendarEvent>>> GetPublicCalendarEvents(
+        string name,
+        [FromQuery] Instant? startTime,
+        [FromQuery] Instant? endTime,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 50)
+    {
+        var account = await accounts.LookupAccount(name);
+        if (account is null)
+            return BadRequest(new ApiError
+            {
+                Code = "NOT_FOUND",
+                Message = "Account not found.",
+                Detail = name,
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
+
+        Guid? viewerId = null;
+        if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
+        {
+            viewerId = currentUser.Id;
+        }
+
+        var (userEvents, totalCount) = await events.GetUserCalendarEventsAsync(
+            account.Id,
+            viewerId,
+            startTime,
+            endTime,
+            offset,
+            take);
+
+        foreach (var e in userEvents)
+            e.Account = account;
+
+        Response.Headers.Append("X-Total", totalCount.ToString());
+        return Ok(userEvents);
+    }
+
+    [HttpGet("{name}/events/{id:guid}")]
+    [ProducesResponseType<SnUserCalendarEvent>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SnUserCalendarEvent>> GetPublicCalendarEvent(string name, Guid id)
+    {
+        var account = await accounts.LookupAccount(name);
+        if (account is null)
+            return BadRequest(new ApiError
+            {
+                Code = "NOT_FOUND",
+                Message = "Account not found.",
+                Detail = name,
+                Status = 400,
+                TraceId = HttpContext.TraceIdentifier
+            });
+
+        Guid? viewerId = null;
+        if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
+        {
+            viewerId = currentUser.Id;
+        }
+
+        var calendarEvent = await events.GetCalendarEventAsync(id, viewerId);
+
+        if (calendarEvent is null || calendarEvent.AccountId != account.Id)
+            return NotFound(ApiError.NotFound("calendar event", traceId: HttpContext.TraceIdentifier));
+
+        calendarEvent.Account = account;
+        return Ok(calendarEvent);
+    }
 }
