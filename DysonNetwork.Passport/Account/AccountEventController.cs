@@ -436,6 +436,27 @@ public class AccountEventController(
         try
         {
             var calendarEvent = await events.CreateCalendarEventAsync(currentUser.Id, request);
+
+            if (request.IconId is not null)
+            {
+                var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.IconId });
+                if (file is not null)
+                    calendarEvent.Icon = SnCloudFileReferenceObject.FromProtoValue(file);
+            }
+
+            if (request.BackgroundId is not null)
+            {
+                var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
+                if (file is not null)
+                    calendarEvent.Background = SnCloudFileReferenceObject.FromProtoValue(file);
+            }
+
+            if (request.IconId is not null || request.BackgroundId is not null)
+            {
+                db.Update(calendarEvent);
+                await db.SaveChangesAsync();
+            }
+
             return Created($"/api/accounts/me/calendar/events/{calendarEvent.Id}", calendarEvent);
         }
         catch (ArgumentException ex)
@@ -475,6 +496,27 @@ public class AccountEventController(
         try
         {
             var calendarEvent = await events.UpdateCalendarEventAsync(currentUser.Id, id, request);
+
+            if (request.IconId is not null)
+            {
+                var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.IconId });
+                if (file is not null)
+                    calendarEvent.Icon = SnCloudFileReferenceObject.FromProtoValue(file);
+            }
+
+            if (request.BackgroundId is not null)
+            {
+                var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
+                if (file is not null)
+                    calendarEvent.Background = SnCloudFileReferenceObject.FromProtoValue(file);
+            }
+
+            if (request.IconId is not null || request.BackgroundId is not null)
+            {
+                db.Update(calendarEvent);
+                await db.SaveChangesAsync();
+            }
+
             return Ok(calendarEvent);
         }
         catch (KeyNotFoundException)

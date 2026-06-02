@@ -278,7 +278,9 @@ Create a new calendar event.
   },
   "meta": {
     "meeting_link": "https://meet.example.com/abc123"
-  }
+  },
+  "icon_id": "file-guid",
+  "background_id": "file-guid-2"
 }
 ```
 
@@ -292,6 +294,8 @@ Create a new calendar event.
 - `visibility` (optional, default: "Private") - One of: "Private", "Friends", "Public"
 - `recurrence` (optional) - Recurrence pattern object
 - `meta` (optional) - Custom metadata dictionary
+- `icon_id` (optional) - File ID for event icon (from shared attachment system)
+- `background_id` (optional) - File ID for event background image
 
 **Recurrence Pattern:**
 - `frequency` (required if recurrence provided) - "None", "Daily", "Weekly", "Monthly", "Yearly"
@@ -365,7 +369,9 @@ Update an existing calendar event.
   "recurrence": null,
   "meta": {
     "meeting_link": "https://meet.example.com/updated"
-  }
+  },
+  "icon_id": "file-guid",
+  "background_id": "file-guid-2"
 }
 ```
 
@@ -700,6 +706,8 @@ public enum RecurrenceFrequency
     "month_of_year": "integer (optional, 1-12)"
   },
   "meta": "object (optional, JSON)",
+  "icon": "SnCloudFileReferenceObject | null",
+  "background": "SnCloudFileReferenceObject | null",
   "account_id": "uuid",
   "created_at": "ISO 8601 timestamp",
   "updated_at": "ISO 8601 timestamp",

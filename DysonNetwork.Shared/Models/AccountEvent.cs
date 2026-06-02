@@ -602,6 +602,12 @@ public class SnUserCalendarEvent : ModelBase
     [Column(TypeName = "jsonb")]
     public Dictionary<string, object>? Meta { get; set; }
 
+    [Column(TypeName = "jsonb")]
+    public SnCloudFileReferenceObject? Icon { get; set; }
+
+    [Column(TypeName = "jsonb")]
+    public SnCloudFileReferenceObject? Background { get; set; }
+
     public Guid AccountId { get; set; }
     [NotMapped] public SnAccount Account { get; set; } = null!;
 }
@@ -618,6 +624,8 @@ public class UserCalendarEventDto
     public EventVisibility Visibility { get; set; }
     public RecurrencePattern? Recurrence { get; set; }
     public Dictionary<string, object>? Meta { get; set; }
+    public SnCloudFileReferenceObject? Icon { get; set; }
+    public SnCloudFileReferenceObject? Background { get; set; }
     public Guid AccountId { get; set; }
     public Instant CreatedAt { get; set; }
     public Instant UpdatedAt { get; set; }
@@ -634,6 +642,8 @@ public class CreateCalendarEventRequest
     public EventVisibility Visibility { get; set; } = EventVisibility.Private;
     public RecurrencePattern? Recurrence { get; set; }
     public Dictionary<string, object>? Meta { get; set; }
+    public string? IconId { get; set; }
+    public string? BackgroundId { get; set; }
 }
 
 public class UpdateCalendarEventRequest
@@ -647,6 +657,8 @@ public class UpdateCalendarEventRequest
     public EventVisibility? Visibility { get; set; }
     public RecurrencePattern? Recurrence { get; set; }
     public Dictionary<string, object>? Meta { get; set; }
+    public string? IconId { get; set; }
+    public string? BackgroundId { get; set; }
 }
 
 /// <summary>
