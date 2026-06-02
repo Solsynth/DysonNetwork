@@ -99,6 +99,14 @@ public partial class ChatService(
         return urls;
     }
 
+    private static bool ShouldQueueLinkPreview(SnChatMessage message)
+    {
+        return !message.IsEncrypted
+            && message.Type == "text"
+            && !string.IsNullOrWhiteSpace(message.Content)
+            && ExtractPreviewUrls(message.Content, maxLinks: 1).Count > 0;
+    }
+
     private static string? NormalizePreviewUrl(string? rawUrl)
     {
         if (string.IsNullOrWhiteSpace(rawUrl))
@@ -620,7 +628,7 @@ public partial class ChatService(
         });
 
         // Process link preview in the background to avoid delaying message sending
-        if (message is { IsEncrypted: false, Type: "text" })
+        if (ShouldQueueLinkPreview(message))
         {
             var localMessageForPreview = message;
             _ = Task.Run(async () =>
@@ -2001,7 +2009,7 @@ public partial class ChatService(
         await db.SaveChangesAsync();
 
         // Process link preview in the background if content was updated
-        if (!message.IsEncrypted && isContentChanged)
+        if (isContentChanged && ShouldQueueLinkPreview(message))
             _ = Task.Run(async () => await CreateLinkPreviewBackgroundAsync(message));
 
         if (message.Sender.Account is null)

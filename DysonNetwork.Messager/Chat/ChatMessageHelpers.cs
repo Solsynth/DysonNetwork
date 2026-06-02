@@ -18,6 +18,8 @@ public interface ISendMessageRequest
     Guid? FundId { get; }
     Guid? PollId { get; }
     Guid? MeetId { get; }
+    Guid? NotableDayId { get; }
+    Guid? CalendarEventId { get; }
     string? LocationName { get; }
     string? LocationAddress { get; }
     string? LocationWkt { get; }
@@ -117,6 +119,8 @@ public static class ChatMessageHelpers
     public static bool HasMeetOrLocationPayload(ISendMessageRequest request)
     {
         return request.MeetId.HasValue ||
+               request.NotableDayId.HasValue ||
+               request.CalendarEventId.HasValue ||
                HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt);
     }
 
@@ -127,6 +131,8 @@ public static class ChatMessageHelpers
                !request.FundId.HasValue &&
                !request.MeetId.HasValue &&
                !request.PollId.HasValue &&
+               !request.NotableDayId.HasValue &&
+               !request.CalendarEventId.HasValue &&
                !HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt);
     }
 
@@ -136,6 +142,8 @@ public static class ChatMessageHelpers
                request.FundId.HasValue ||
                request.MeetId.HasValue ||
                request.PollId.HasValue ||
+               request.NotableDayId.HasValue ||
+               request.CalendarEventId.HasValue ||
                HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt);
     }
 
