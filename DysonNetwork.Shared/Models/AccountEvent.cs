@@ -679,4 +679,6 @@ public class EventCountdownItem
     public bool IsOngoing { get; set; }
     public Dictionary<string, object>? Meta { get; set; }
     public Guid? AccountId { get; set; }
+    public SnCloudFileReferenceObject? Icon { get; set; }
+    public SnCloudFileReferenceObject? Background { get; set; }
 }
