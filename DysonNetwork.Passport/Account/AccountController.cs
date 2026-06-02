@@ -382,4 +382,23 @@ public class AccountController(
         calendarEvent.Account = account;
         return Ok(calendarEvent);
     }
+
+    [HttpGet("unknown/calendar/events/{id:guid}")]
+    [ProducesResponseType<SnUserCalendarEvent>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SnUserCalendarEvent>> GetCalendarEventById(Guid id)
+    {
+        Guid? viewerId = null;
+        if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
+        {
+            viewerId = currentUser.Id;
+        }
+
+        var calendarEvent = await events.GetCalendarEventAsync(id, viewerId);
+
+        if (calendarEvent is null)
+            return NotFound(ApiError.NotFound("calendar event", traceId: HttpContext.TraceIdentifier));
+
+        return Ok(calendarEvent);
+    }
 }
