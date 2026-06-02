@@ -311,7 +311,7 @@ public class AccountController(
         return Ok(timeline);
     }
 
-    [HttpGet("{name}/events")]
+    [HttpGet("{name}/calendar/events")]
     [ProducesResponseType<List<SnUserCalendarEvent>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<List<SnUserCalendarEvent>>> GetPublicCalendarEvents(
         string name,
@@ -352,7 +352,7 @@ public class AccountController(
         return Ok(userEvents);
     }
 
-    [HttpGet("{name}/events/{id:guid}")]
+    [HttpGet("{name}/calendar/events/{id:guid}")]
     [ProducesResponseType<SnUserCalendarEvent>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<SnUserCalendarEvent>> GetPublicCalendarEvent(string name, Guid id)

@@ -446,6 +446,61 @@ View another user's merged calendar (respects visibility settings).
 
 ---
 
+## View Other User's Calendar Events
+
+List another user's calendar events with pagination. Respects visibility rules based on the viewer's relationship to the account owner.
+
+**Endpoint:** `GET /api/accounts/{name}/calendar/events`
+
+**Path Parameters:**
+- `name` (string, required) - Account name/username
+
+**Query Parameters:**
+- `startTime` (ISO 8601 timestamp, optional) - Filter events starting after this time
+- `endTime` (ISO 8601 timestamp, optional) - Filter events ending before this time
+- `offset` (int, optional) - Pagination offset, defaults to 0
+- `take` (int, optional) - Number of results to return, defaults to 50
+
+**Response:** Same format as `/api/accounts/me/calendar/events`, with each event including the resolved account object (with profile).
+
+**Visibility Rules:**
+- Unauthenticated users see only `Public` events
+- Authenticated non-friends see only `Public` events
+- Friends see `Public` and `Friends` events
+- The account owner sees all events (when authenticated as themselves)
+
+**Response Headers:**
+- `X-Total` - Total number of events matching the query
+
+**Response Codes:**
+- `200 OK` - Success
+- `400 Bad Request` - User not found
+
+---
+
+## View Specific Calendar Event by Username
+
+Retrieve a specific calendar event belonging to another user.
+
+**Endpoint:** `GET /api/accounts/{name}/calendar/events/{id}`
+
+**Path Parameters:**
+- `name` (string, required) - Account name/username
+- `id` (GUID, required) - Event ID
+
+**Response:** Returns the `SnUserCalendarEvent` object with the resolved account (including profile).
+
+**Visibility Rules:**
+- Same as "View Other User's Calendar Events" above
+- Returns 404 if the event doesn't belong to the specified account or is not visible to the viewer
+
+**Response Codes:**
+- `200 OK` - Success
+- `400 Bad Request` - User not found
+- `404 Not Found` - Event not found or not visible
+
+---
+
 ## Status Management
 
 ### Create/Update Status
