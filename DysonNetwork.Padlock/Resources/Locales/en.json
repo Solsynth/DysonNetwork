@@ -28,6 +28,8 @@
   "friendRequestBody": "You can go to relationships page and decide accept their request or not.",
   "newLoginTitle": "New login detected",
   "newLoginBody": "Your account logged on to a device named {deviceName} at {ipAddress}",
+  "loginAttemptTitle": "Login attempt detected",
+  "loginAttemptBody": "Someone is trying to log into your account from a device named {deviceName} at {ipAddress}",
   "chatInviteTitle": "New Chat Invitation",
   "chatInviteBody": "You just got invited to join {channel}",
   "chatInviteDirectBody": "{user} sent an direct message invitation to you",

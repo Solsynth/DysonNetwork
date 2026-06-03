@@ -245,6 +245,8 @@ public class AuthController(
         if (challenge.BlacklistFactors.Contains(factor.Id))
             return BadRequest("Auth factor already used.");
 
+        var isFirstFactor = challenge.BlacklistFactors.Count == 0;
+
         try
         {
             if (await accounts.VerifyFactorCode(factor, request.Password))
@@ -272,6 +274,22 @@ public class AuthController(
                 HttpContext.Request.Headers.UserAgent.ToString().Length);
 
             return BadRequest("Invalid password.");
+        }
+
+        if (isFirstFactor && challenge.StepRemain > 0)
+        {
+            await pusher.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
+            {
+                Notification = new DyPushNotification
+                {
+                    Topic = "auth.login_attempt",
+                    Title = localizer.Get("loginAttemptTitle", challenge.Account.Language),
+                    Body = localizer.Get("loginAttemptBody", locale: challenge.Account.Language, args: new
+                        { deviceName = challenge.DeviceName ?? "unknown", ipAddress = challenge.IpAddress ?? "unknown" }),
+                    IsSavable = true
+                },
+                UserId = challenge.AccountId.ToString()
+            });
         }
 
         if (challenge.StepRemain == 0)
@@ -362,6 +380,8 @@ public class AuthController(
         if (challenge.BlacklistFactors.Contains(factor.Id))
             return BadRequest("Auth factor already used.");
 
+        var isFirstFactor = challenge.BlacklistFactors.Count == 0;
+
         try
         {
             if (await accounts.VerifyPasskeyAssertionAsync(
@@ -396,6 +416,22 @@ public class AuthController(
                 HttpContext.Request.Headers.UserAgent.ToString().Length);
 
             return BadRequest("Invalid passkey assertion.");
+        }
+
+        if (isFirstFactor && challenge.StepRemain > 0)
+        {
+            await pusher.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
+            {
+                Notification = new DyPushNotification
+                {
+                    Topic = "auth.login_attempt",
+                    Title = localizer.Get("loginAttemptTitle", challenge.Account.Language),
+                    Body = localizer.Get("loginAttemptBody", locale: challenge.Account.Language, args: new
+                        { deviceName = challenge.DeviceName ?? "unknown", ipAddress = challenge.IpAddress ?? "unknown" }),
+                    IsSavable = true
+                },
+                UserId = challenge.AccountId.ToString()
+            });
         }
 
         if (challenge.StepRemain == 0)
