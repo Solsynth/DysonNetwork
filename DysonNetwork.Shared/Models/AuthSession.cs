@@ -155,6 +155,10 @@ public class SnAuthChallenge : ModelBase
     public Guid AccountId { get; set; }
     [JsonIgnore] public SnAccount Account { get; set; } = null!;
 
+    public Instant? ApprovedAt { get; set; }
+    public Instant? DeclinedAt { get; set; }
+    public Guid? ApprovedBySessionId { get; set; }
+
     public SnAuthChallenge Normalize()
     {
         if (StepRemain == 0 && BlacklistFactors.Count == 0) StepRemain = StepTotal;

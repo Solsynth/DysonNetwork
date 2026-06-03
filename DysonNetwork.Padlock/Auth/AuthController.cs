@@ -1,12 +1,14 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Padlock.Account;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +24,7 @@ public class AuthController(
     AuthService auth,
     GeoService geo,
     DyRingService.DyRingServiceClient pusher,
+    RemoteWebSocketService ws,
     IConfiguration configuration,
     ILocalizationService localizer,
     ILogger<AuthController> logger
@@ -138,6 +141,21 @@ public class AuthController(
 
         await db.AuthChallenges.AddAsync(challenge);
         await db.SaveChangesAsync();
+
+        var challengePayload = InfraObjectCoder.ConvertObjectToByteString(new
+        {
+            challenge_id = challenge.Id,
+            device_name = challenge.DeviceName,
+            ip_address = challenge.IpAddress,
+            platform = challenge.Platform.ToString(),
+            created_at = challenge.CreatedAt
+        }).ToByteArray();
+        await ws.PushWebSocketPacket(
+            account.Id.ToString(),
+            WebSocketPacketType.AuthChallengePending,
+            challengePayload,
+            [request.DeviceId]
+        );
 
         return challenge;
     }
@@ -452,6 +470,138 @@ public class AuthController(
 
         await db.SaveChangesAsync();
         return challenge;
+    }
+
+    [HttpGet("challenge/pending")]
+    [Authorize]
+    [RequireInteractiveSession]
+    public async Task<ActionResult<List<SnAuthChallenge>>> GetPendingChallenges()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount user)
+            return Unauthorized();
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var challenges = await db.AuthChallenges
+            .Where(c => c.AccountId == user.Id)
+            .Where(c => c.ApprovedAt == null && c.DeclinedAt == null)
+            .Where(c => c.StepRemain > 0)
+            .Where(c => c.ExpiredAt == null || now < c.ExpiredAt)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+
+        return Ok(challenges);
+    }
+
+    [HttpPost("challenge/{id:guid}/approve")]
+    [Authorize]
+    [RequireInteractiveSession]
+    public async Task<IActionResult> ApproveChallenge([FromRoute] Guid id, [FromBody] SudoRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount user)
+            return Unauthorized();
+        if (HttpContext.Items["CurrentSession"] is not SnAuthSession session)
+            return Unauthorized();
+
+        var valid = await auth.ValidateSudoMode(session, request.PinCode);
+        if (!valid) return BadRequest(new { error = "Invalid PIN code" });
+
+        var challenge = await db.AuthChallenges
+            .FirstOrDefaultAsync(c => c.Id == id && c.AccountId == user.Id);
+        if (challenge is null) return NotFound("Auth challenge was not found.");
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (challenge.ExpiredAt.HasValue && now > challenge.ExpiredAt.Value)
+            return BadRequest("Auth challenge has expired.");
+        if (challenge.ApprovedAt is not null) return BadRequest("Challenge already approved.");
+        if (challenge.DeclinedAt is not null) return BadRequest("Challenge already declined.");
+
+        challenge.StepRemain = 0;
+        challenge.ApprovedAt = now;
+        challenge.ApprovedBySessionId = session.Id;
+        db.Update(challenge);
+        await db.SaveChangesAsync();
+
+        var approvedPayload = InfraObjectCoder.ConvertObjectToByteString(new
+        {
+            challenge_id = challenge.Id,
+            approved_by_device = session.Id.ToString()
+        }).ToByteArray();
+        await ws.PushWebSocketPacket(
+            user.Id.ToString(),
+            WebSocketPacketType.AuthChallengeApproved,
+            approvedPayload,
+            [session.Id.ToString()]
+        );
+
+        await pusher.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
+        {
+            Notification = new DyPushNotification
+            {
+                Topic = "auth.challenge_approved",
+                Title = localizer.Get("challengeApprovedTitle", user.Language),
+                Body = localizer.Get("challengeApprovedBody", locale: user.Language, args: new
+                    { deviceName = challenge.DeviceName ?? "unknown" }),
+                IsSavable = false
+            },
+            UserId = user.Id.ToString()
+        });
+
+        return Ok();
+    }
+
+    [HttpPost("challenge/{id:guid}/decline")]
+    [Authorize]
+    [RequireInteractiveSession]
+    public async Task<IActionResult> DeclineChallenge([FromRoute] Guid id, [FromBody] SudoRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount user)
+            return Unauthorized();
+        if (HttpContext.Items["CurrentSession"] is not SnAuthSession session)
+            return Unauthorized();
+
+        var valid = await auth.ValidateSudoMode(session, request.PinCode);
+        if (!valid) return BadRequest(new { error = "Invalid PIN code" });
+
+        var challenge = await db.AuthChallenges
+            .FirstOrDefaultAsync(c => c.Id == id && c.AccountId == user.Id);
+        if (challenge is null) return NotFound("Auth challenge was not found.");
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (challenge.ExpiredAt.HasValue && now > challenge.ExpiredAt.Value)
+            return BadRequest("Auth challenge has expired.");
+        if (challenge.ApprovedAt is not null) return BadRequest("Challenge already approved.");
+        if (challenge.DeclinedAt is not null) return BadRequest("Challenge already declined.");
+
+        challenge.DeclinedAt = now;
+        db.Update(challenge);
+        await db.SaveChangesAsync();
+
+        var declinedPayload = InfraObjectCoder.ConvertObjectToByteString(new
+        {
+            challenge_id = challenge.Id,
+            declined_by_device = session.Id.ToString()
+        }).ToByteArray();
+        await ws.PushWebSocketPacket(
+            user.Id.ToString(),
+            WebSocketPacketType.AuthChallengeDeclined,
+            declinedPayload,
+            [session.Id.ToString()]
+        );
+
+        await pusher.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
+        {
+            Notification = new DyPushNotification
+            {
+                Topic = "auth.challenge_declined",
+                Title = localizer.Get("challengeDeclinedTitle", user.Language),
+                Body = localizer.Get("challengeDeclinedBody", locale: user.Language, args: new
+                    { deviceName = challenge.DeviceName ?? "unknown" }),
+                IsSavable = false
+            },
+            UserId = user.Id.ToString()
+        });
+
+        return Ok();
     }
 
     public class TokenExchangeRequest

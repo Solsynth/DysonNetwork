@@ -501,6 +501,7 @@ public class AuthService(
                 Audiences = challenge.Audiences,
                 ChallengeId = challenge.Id,
                 ClientId = device.Id,
+                ParentSessionId = challenge.ApprovedBySessionId,
             };
 
             challenge.ExpiredAt = now;

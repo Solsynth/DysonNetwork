@@ -20,4 +20,7 @@ public abstract class WebSocketPacketType
     public const string ChatPresenceUpdated = "chat.presence.updated";
     public const string AccountPresenceActivitiesUpdated = "account.presence.activities.updated";
     public const string ChatPresenceActivitiesUpdated = "chat.presence.activities.updated";
+    public const string AuthChallengePending = "auth.challenge.pending";
+    public const string AuthChallengeApproved = "auth.challenge.approved";
+    public const string AuthChallengeDeclined = "auth.challenge.declined";
 }
