@@ -142,21 +142,6 @@ public class AuthController(
         await db.AuthChallenges.AddAsync(challenge);
         await db.SaveChangesAsync();
 
-        var challengePayload = InfraObjectCoder.ConvertObjectToByteString(new
-        {
-            challenge_id = challenge.Id,
-            device_name = challenge.DeviceName,
-            ip_address = challenge.IpAddress,
-            platform = challenge.Platform.ToString(),
-            created_at = challenge.CreatedAt
-        }).ToByteArray();
-        await ws.PushWebSocketPacket(
-            account.Id.ToString(),
-            WebSocketPacketType.AuthChallengePending,
-            challengePayload,
-            [request.DeviceId]
-        );
-
         return challenge;
     }
 
@@ -296,6 +281,21 @@ public class AuthController(
 
         if (isFirstFactor && challenge.StepRemain > 0)
         {
+            var pendingPayload = InfraObjectCoder.ConvertObjectToByteString(new
+            {
+                challenge_id = challenge.Id,
+                device_name = challenge.DeviceName,
+                ip_address = challenge.IpAddress,
+                platform = challenge.Platform.ToString(),
+                created_at = challenge.CreatedAt
+            }).ToByteArray();
+            await ws.PushWebSocketPacket(
+                challenge.AccountId.ToString(),
+                WebSocketPacketType.AuthChallengePending,
+                pendingPayload,
+                [challenge.DeviceId]
+            );
+
             await pusher.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
             {
                 Notification = new DyPushNotification
@@ -438,6 +438,21 @@ public class AuthController(
 
         if (isFirstFactor && challenge.StepRemain > 0)
         {
+            var pendingPayload = InfraObjectCoder.ConvertObjectToByteString(new
+            {
+                challenge_id = challenge.Id,
+                device_name = challenge.DeviceName,
+                ip_address = challenge.IpAddress,
+                platform = challenge.Platform.ToString(),
+                created_at = challenge.CreatedAt
+            }).ToByteArray();
+            await ws.PushWebSocketPacket(
+                challenge.AccountId.ToString(),
+                WebSocketPacketType.AuthChallengePending,
+                pendingPayload,
+                [challenge.DeviceId]
+            );
+
             await pusher.SendPushNotificationToUserAsync(new DySendPushNotificationToUserRequest
             {
                 Notification = new DyPushNotification

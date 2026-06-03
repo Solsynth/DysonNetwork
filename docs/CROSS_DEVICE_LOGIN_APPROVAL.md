@@ -7,10 +7,13 @@ During multi-factor authentication, other logged-in devices can approve or decli
 ## Overview
 
 1. User starts login on Device A — a challenge is created with `step_remain > 0`
-2. Server pushes `auth.challenge.pending` to all other devices via WebSocket
-3. User opens Device B — fetches pending challenges, taps approve (PIN required)
-4. Server sets `step_remain = 0`, pushes `auth.challenge.approved` back to Device A
-5. Device A exchanges the challenge for tokens
+2. User completes at least one authentication factor on Device A
+3. Server pushes `auth.challenge.pending` to all other devices via WebSocket
+4. User opens Device B — fetches pending challenges, taps approve (PIN required)
+5. Server sets `step_remain = 0`, pushes `auth.challenge.approved` back to Device A
+6. Device A exchanges the challenge for tokens
+
+> **Important:** The `auth.challenge.pending` packet is only sent after the first factor is successfully completed on the initiating device. Challenges where no factors have been verified yet will not trigger cross-device approval.
 
 ## WebSocket Packets
 
