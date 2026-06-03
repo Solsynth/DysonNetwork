@@ -31,6 +31,7 @@ public class AppDatabase(
     public DbSet<SnPresenceActivity> PresenceActivities { get; set; } = null!;
     public DbSet<SnPresenceArtwork> PresenceArtworks { get; set; } = null!;
     public DbSet<SnUserCalendarEvent> UserCalendarEvents { get; set; } = null!;
+    public DbSet<SnCalendarEventSubscription> CalendarEventSubscriptions { get; set; } = null!;
     public DbSet<SnNotableDay> NotableDays { get; set; } = null!;
     public DbSet<SnAccountBadge> Badges { get; set; } = null!;
     

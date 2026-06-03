@@ -682,3 +682,11 @@ public class EventCountdownItem
     public SnCloudFileReferenceObject? Icon { get; set; }
     public SnCloudFileReferenceObject? Background { get; set; }
 }
+
+public class SnCalendarEventSubscription : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid SubscriberId { get; set; }
+    public Guid TargetAccountId { get; set; }
+    public bool Notify { get; set; } = true;
+}

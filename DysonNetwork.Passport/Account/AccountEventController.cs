@@ -583,4 +583,65 @@ public class AccountEventController(
     }
 
     #endregion
+
+    #region Calendar Event Subscriptions
+
+    [HttpGet("calendar/subscriptions")]
+    [ProducesResponseType<List<Guid>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<Guid>>> GetEventSubscriptions()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var subscriptions = await events.GetCalendarEventSubscriptionsAsync(currentUser.Id);
+        return Ok(subscriptions);
+    }
+
+    [HttpPost("calendar/subscriptions/{accountId:guid}")]
+    [ProducesResponseType<SnCalendarEventSubscription>(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<SnCalendarEventSubscription>> SubscribeToEvents(Guid accountId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        try
+        {
+            var subscription = await events.SubscribeToCalendarEventsAsync(currentUser.Id, accountId);
+            events.PurgeCalendarEventSubscriptionCache(currentUser.Id);
+            return Created($"/api/accounts/me/calendar/subscriptions/{accountId}", subscription);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+            {
+                ["request"] = new[] { ex.Message }
+            }, traceId: HttpContext.TraceIdentifier));
+        }
+    }
+
+    [HttpDelete("calendar/subscriptions/{accountId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> UnsubscribeFromEvents(Guid accountId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var removed = await events.UnsubscribeFromCalendarEventsAsync(currentUser.Id, accountId);
+        if (!removed)
+            return NotFound(ApiError.NotFound("subscription", traceId: HttpContext.TraceIdentifier));
+
+        events.PurgeCalendarEventSubscriptionCache(currentUser.Id);
+        return NoContent();
+    }
+
+    [HttpGet("calendar/subscriptions/subscribers")]
+    [ProducesResponseType<List<Guid>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<Guid>>> GetEventSubscribers()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var subscribers = await events.GetCalendarEventSubscribersAsync(currentUser.Id);
+        return Ok(subscribers);
+    }
+
+    #endregion
 }
