@@ -2,6 +2,8 @@
 
 During multi-factor authentication, other logged-in devices can approve or decline the login attempt in real-time via WebSocket. Once approved, the challenge becomes immediately eligible for token exchange.
 
+> **Note:** All endpoints below are prefixed with `/padlock` in production (e.g. `/padlock/auth/challenge/pending`). All request and response bodies use `snake_case` for JSON property names.
+
 ## Overview
 
 1. User starts login on Device A — a challenge is created with `step_remain > 0`
@@ -107,11 +109,11 @@ Approves a pending challenge. Requires sudo mode (PIN verification).
 
 ```json
 {
-  "pinCode": "123456"
+  "pin_code": "123456"
 }
 ```
 
-- `pinCode` — The user's PIN code. Can be `null` if the account has no PIN configured.
+- `pin_code` — The user's PIN code. Can be `null` if the account has no PIN configured.
 
 **Behavior:**
 
@@ -136,7 +138,7 @@ Declines a pending challenge. Requires sudo mode (PIN verification).
 
 ```json
 {
-  "pinCode": "123456"
+  "pin_code": "123456"
 }
 ```
 
@@ -156,7 +158,8 @@ Declines a pending challenge. Requires sudo mode (PIN verification).
 
 1. After creating the challenge and starting MFA, listen for WebSocket packets
 2. On receiving `auth.challenge.approved`:
-   - Call `POST /api/auth/token` with `grant_type: "authorization_code"` and `code: <challenge_id>`
+   - Call `POST /api/auth/token` with `grant_type: "authorization_code"` and `code: <challenge_id>`.
+     The request body uses `grant_type` and `code` as field names.
    - Complete the login flow
 3. On receiving `auth.challenge.declined`:
    - Show an error message ("Login was declined from another device")
@@ -168,9 +171,9 @@ Declines a pending challenge. Requires sudo mode (PIN verification).
 2. When received, show a notification or in-app prompt with the device info
 3. User taps "Approve":
    - Collect PIN if needed
-   - Call `POST /api/auth/challenge/{id}/approve` with `{ "pinCode": "..." }`
+   - Call `POST /api/auth/challenge/{id}/approve` with `{ "pin_code": "..." }`
 4. User taps "Decline":
-   - Call `POST /api/auth/challenge/{id}/decline` with `{ "pinCode": "..." }`
+   - Call `POST /api/auth/challenge/{id}/decline` with `{ "pin_code": "..." }`
 
 Alternatively, on app launch, call `GET /api/auth/challenge/pending` to fetch any pending challenges that arrived while the app was closed.
 
