@@ -4,7 +4,7 @@ namespace DysonNetwork.Padlock.Auth.OidcProvider.Responses;
 
 public class ClientInfoResponse
 {
-    public Guid ClientId { get; set; }
+    public string ClientId { get; set; } = null!;
     public SnCloudFileReferenceObject? Picture { get; set; }
     public SnCloudFileReferenceObject? Background { get; set; }
     public string? ClientName { get; set; }

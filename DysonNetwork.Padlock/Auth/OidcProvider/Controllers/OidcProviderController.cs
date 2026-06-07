@@ -23,6 +23,14 @@ public class OidcProviderController(
     ILogger<OidcProviderController> logger
 ) : ControllerBase
 {
+    private async Task<SnCustomApp?> FindClientByIdentifierAsync(string clientIdentifier)
+    {
+        if (Guid.TryParse(clientIdentifier, out var clientId))
+            return await oidcService.FindClientByIdAsync(clientId);
+
+        return await oidcService.FindClientBySlugAsync(clientIdentifier);
+    }
+
     [HttpGet("authorize")]
     [Produces("application/json")]
     public async Task<IActionResult> Authorize(
@@ -48,7 +56,7 @@ public class OidcProviderController(
             });
         }
 
-        var client = await oidcService.FindClientBySlugAsync(clientId);
+        var client = await FindClientByIdentifierAsync(clientId);
         if (client == null)
         {
             return BadRequest(new ErrorResponse
@@ -95,7 +103,7 @@ public class OidcProviderController(
         // Return client information
         var clientInfo = new ClientInfoResponse
         {
-            ClientId = client.Id,
+            ClientId = client.Slug,
             Picture = client.Picture,
             Background = client.Background,
             ClientName = client.Name,
@@ -131,7 +139,7 @@ public class OidcProviderController(
             return Unauthorized();
 
         // Find the client
-        var client = await oidcService.FindClientBySlugAsync(clientId);
+        var client = await FindClientByIdentifierAsync(clientId);
         if (client == null)
         {
             return BadRequest(new ErrorResponse
@@ -228,7 +236,7 @@ public class OidcProviderController(
         if (request.ClientId == null)
             return BadRequest(new ErrorResponse { Error = "invalid_request", ErrorDescription = "client_id is required" });
 
-        var client = await oidcService.FindClientBySlugAsync(request.ClientId);
+        var client = await FindClientByIdentifierAsync(request.ClientId);
         if (client == null)
             return BadRequest(new ErrorResponse { Error = "unauthorized_client", ErrorDescription = "Client not found" });
 
