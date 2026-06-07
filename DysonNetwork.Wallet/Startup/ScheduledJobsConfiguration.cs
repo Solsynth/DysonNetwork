@@ -43,6 +43,24 @@ public static class ScheduledJobsConfiguration
 
             );
 
+            q.AddJob<TransactionExpirationJob>(opts => opts.WithIdentity("TransactionExpiration"));
+            q.AddTrigger(opts => opts
+                .ForJob("TransactionExpiration")
+                .WithIdentity("TransactionExpirationTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(15)
+                    .RepeatForever())
+            );
+
+            q.AddJob<FundRaisingDeadlineJob>(opts => opts.WithIdentity("FundRaisingDeadline"));
+            q.AddTrigger(opts => opts
+                .ForJob("FundRaisingDeadline")
+                .WithIdentity("FundRaisingDeadlineTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(15)
+                    .RepeatForever())
+            );
+
             q.AddJob<Lotteries.LotteryDrawJob>(opts => opts.WithIdentity("LotteryDraw"));
             q.AddTrigger(opts => opts
                 .ForJob("LotteryDraw")

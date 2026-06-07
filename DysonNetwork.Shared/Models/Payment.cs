@@ -85,6 +85,15 @@ public enum TransactionType
     Order
 }
 
+public enum TransactionStatus
+{
+    Pending,      // Created, funds held from payer, not yet credited to payee
+    Frozen,       // Funds held for 24hr settlement period
+    Confirmed,    // Payee confirmed (or freeze period elapsed), funds released
+    Refunded,     // Returned to payer (rejection or expiration)
+    Cancelled     // Cancelled before funds were held
+}
+
 public class SnWalletTransaction : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -92,6 +101,14 @@ public class SnWalletTransaction : ModelBase
     public decimal Amount { get; set; }
     [MaxLength(4096)] public string? Remarks { get; set; }
     public TransactionType Type { get; set; }
+
+    // Transaction lifecycle status
+    public TransactionStatus Status { get; set; } = TransactionStatus.Confirmed;
+    public bool IsFrozen { get; set; } = false;
+    public bool RequireConfirmation { get; set; } = false;
+    public Instant? FrozenAt { get; set; }
+    public Instant? ExpiresAt { get; set; }
+    public Instant? ConfirmedAt { get; set; }
 
     // When the payer is null, it's pay from the system
     public Guid? PayerWalletId { get; set; }

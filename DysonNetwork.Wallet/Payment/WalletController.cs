@@ -458,6 +458,10 @@ public class WalletController(
         public Guid? PayeeWalletId { get; set; }
         public string? PayeePublicId { get; set; }
         public string? PinCode { get; set; }
+
+        // Transaction lifecycle options
+        public bool Freeze { get; set; } = false;
+        public bool RequireConfirmation { get; set; } = false;
     }
 
     [HttpPost("balance")]
@@ -560,7 +564,9 @@ public class WalletController(
                 payeeWallet.Id,
                 request.Currency,
                 request.Amount,
-                request.Remark
+                request.Remark,
+                freeze: request.Freeze,
+                requireConfirmation: request.RequireConfirmation
             );
 
             return Ok(transaction);
@@ -642,6 +648,14 @@ public class WalletController(
         public string? Message { get; set; }
         public int? ExpirationHours { get; set; } // Optional: hours until expiration
         public string? PinCode { get; set; }
+
+        // Raising mode options
+        public bool IsRaising { get; set; } = false;
+        public decimal TargetAmount { get; set; } = 0;
+        public Shared.Models.ContributionType ContributionType { get; set; } = Shared.Models.ContributionType.Free;
+        public decimal ContributionAmount { get; set; } = 0;
+        public bool IsOpen { get; set; } = true;
+        public Instant? DeadlineAt { get; set; }
     }
 
     [HttpPost("funds")]
@@ -659,16 +673,37 @@ public class WalletController(
                 expiration = Duration.FromHours(request.ExpirationHours.Value);
             }
 
-            var fund = await payment.CreateFundAsync(
-                creatorAccountId: Guid.Parse(currentUser.Id),
-                recipientAccountIds: request.RecipientAccountIds,
-                currency: request.Currency,
-                totalAmount: request.TotalAmount,
-                amountOfSplits: request.AmountOfSplits,
-                splitType: request.SplitType,
-                message: request.Message,
-                expiration: expiration
-            );
+            SnWalletFund fund;
+
+            if (request.IsRaising)
+            {
+                fund = await payment.CreateRaisingFundAsync(
+                    creatorAccountId: Guid.Parse(currentUser.Id),
+                    currency: request.Currency,
+                    targetAmount: request.TargetAmount,
+                    maxParticipants: request.AmountOfSplits,
+                    contributionType: request.ContributionType,
+                    contributionAmount: request.ContributionAmount,
+                    isOpen: request.IsOpen,
+                    invitedAccountIds: request.RecipientAccountIds,
+                    message: request.Message,
+                    expiration: expiration,
+                    deadlineAt: request.DeadlineAt
+                );
+            }
+            else
+            {
+                fund = await payment.CreateFundAsync(
+                    creatorAccountId: Guid.Parse(currentUser.Id),
+                    recipientAccountIds: request.RecipientAccountIds,
+                    currency: request.Currency,
+                    totalAmount: request.TotalAmount,
+                    amountOfSplits: request.AmountOfSplits,
+                    splitType: request.SplitType,
+                    message: request.Message,
+                    expiration: expiration
+                );
+            }
 
             return Ok(fund);
         }
@@ -785,5 +820,158 @@ public class WalletController(
         {
             return BadRequest(err.Message);
         }
+    }
+
+    // --- Transaction Lifecycle Endpoints ---
+
+    [HttpPost("transactions/{id:guid}/confirm")]
+    [Authorize]
+    public async Task<ActionResult<SnWalletTransaction>> ConfirmTransaction(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        try
+        {
+            var transaction = await payment.ConfirmTransactionAsync(id, Guid.Parse(currentUser.Id));
+            return Ok(transaction);
+        }
+        catch (Exception err)
+        {
+            return BadRequest(err.Message);
+        }
+    }
+
+    [HttpPost("transactions/{id:guid}/reject")]
+    [Authorize]
+    public async Task<ActionResult<SnWalletTransaction>> RejectTransaction(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        try
+        {
+            var transaction = await payment.RejectTransactionAsync(id, Guid.Parse(currentUser.Id));
+            return Ok(transaction);
+        }
+        catch (Exception err)
+        {
+            return BadRequest(err.Message);
+        }
+    }
+
+    [HttpGet("transactions/pending")]
+    [Authorize]
+    public async Task<ActionResult<List<SnWalletTransaction>>> GetPendingTransactions(
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var currentAccountId = Guid.Parse(currentUser.Id);
+
+        // Get user's wallet
+        var wallet = await ws.GetAccountWalletAsync(currentAccountId);
+        if (wallet is null) return NotFound("Wallet not found");
+
+        // Find pending/frozen transactions where user is the payee
+        var query = db.PaymentTransactions
+            .Where(t => t.PayeeWalletId == wallet.Id &&
+                        (t.Status == Shared.Models.TransactionStatus.Pending ||
+                         t.Status == Shared.Models.TransactionStatus.Frozen) &&
+                        t.RequireConfirmation)
+            .OrderByDescending(t => t.CreatedAt);
+
+        var totalCount = await query.CountAsync();
+        Response.Headers["X-Total"] = totalCount.ToString();
+
+        var transactions = await query
+            .Skip(offset)
+            .Take(take)
+            .Include(t => t.PayerWallet)
+            .ToListAsync();
+
+        // Load payer account info
+        var payerAccountIds = transactions
+            .Where(t => t.PayerWallet?.AccountId != null)
+            .Select(t => t.PayerWallet!.AccountId!.Value)
+            .Distinct()
+            .ToList();
+
+        var accounts = await remoteAccounts.GetAccountBatch(payerAccountIds);
+
+        foreach (var transaction in transactions)
+        {
+            if (transaction.PayerWallet?.AccountId != null)
+            {
+                var account = accounts.FirstOrDefault(a => a.Id == transaction.PayerWallet.AccountId.ToString());
+                if (account != null)
+                    transaction.PayerWallet.Account = SnAccount.FromProtoValue(account);
+            }
+        }
+
+        return Ok(transactions);
+    }
+
+    // --- Fund Raising Endpoints ---
+
+    public class ContributeFundRequest
+    {
+        public decimal Amount { get; set; } = 0; // For Free contribution type
+    }
+
+    [HttpPost("funds/{id:guid}/contribute")]
+    [Authorize]
+    public async Task<ActionResult<SnWalletTransaction>> ContributeToFund(Guid id, [FromBody] ContributeFundRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        try
+        {
+            var transaction = await payment.ContributeToFundAsync(
+                contributorAccountId: Guid.Parse(currentUser.Id),
+                fundId: id,
+                amount: request.Amount
+            );
+
+            return Ok(transaction);
+        }
+        catch (Exception err)
+        {
+            logger.LogError(err, "Failed to contribute to fund...");
+            return BadRequest(err.Message);
+        }
+    }
+
+    [HttpGet("funds/{id:guid}/contributors")]
+    public async Task<ActionResult<List<SnWalletFundRecipient>>> GetFundContributors(Guid id)
+    {
+        var fund = await db.WalletFunds
+            .Include(f => f.Recipients)
+            .FirstOrDefaultAsync(f => f.Id == id);
+
+        if (fund is null)
+            return NotFound("Fund not found");
+
+        if (!fund.IsRaising)
+            return BadRequest("This fund is not in raising mode");
+
+        // Load contributor account data
+        var contributorAccountIds = fund.Recipients
+            .Where(r => r.IsReceived)
+            .Select(r => r.RecipientAccountId)
+            .Distinct()
+            .ToList();
+
+        var accounts = await remoteAccounts.GetAccountBatch(contributorAccountIds);
+
+        // Assign account data to contributors
+        foreach (var contributor in fund.Recipients.Where(r => r.IsReceived))
+        {
+            var account = accounts.FirstOrDefault(a => a.Id == contributor.RecipientAccountId.ToString());
+            if (account != null)
+                contributor.RecipientAccount = SnAccount.FromProtoValue(account);
+        }
+
+        return Ok(fund.Recipients.Where(r => r.IsReceived).ToList());
     }
 }

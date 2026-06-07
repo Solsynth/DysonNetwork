@@ -63,8 +63,13 @@ public class SnWalletPocket : ModelBase
     [MaxLength(128)] public string Currency { get; set; } = null!;
     public decimal Amount { get; set; }
 
+    // Amount held in pending/frozen transactions (not yet credited to payee)
+    public decimal HeldAmount { get; set; } = 0;
+
     public Guid WalletId { get; set; }
     [IgnoreMember] [JsonIgnore] public SnWallet Wallet { get; set; } = null!;
+
+    [NotMapped] public decimal AvailableAmount => Amount - HeldAmount;
 
     public DyWalletPocket ToProtoValue() => new()
     {
@@ -98,6 +103,12 @@ public enum FundStatus
     Refunded
 }
 
+public enum ContributionType
+{
+    Free,   // Contributor chooses any amount
+    Fixed   // Contributor pays a predefined amount
+}
+
 public class SnWalletFund : ModelBase
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -110,15 +121,24 @@ public class SnWalletFund : ModelBase
     [MaxLength(4096)] public string? Message { get; set; }
     public bool IsOpen { get; set; }
 
+    // Raising mode (IsRaising=false: distribute, IsRaising=true: collect contributions)
+    public bool IsRaising { get; set; } = false;
+    public decimal TargetAmount { get; set; } = 0; // 0 = no target / unlimited
+    public ContributionType ContributionType { get; set; } = ContributionType.Free;
+    public decimal ContributionAmount { get; set; } = 0; // per-person amount when Fixed
+    public Instant? DeadlineAt { get; set; } // optional deadline for raising
+
     // Creator
     public Guid CreatorAccountId { get; set; }
     [NotMapped] public SnAccount CreatorAccount { get; set; } = null!;
 
-    // Recipients
+    // Recipients (distribute mode) or Contributors (raise mode)
     public List<SnWalletFundRecipient> Recipients { get; set; } = new List<SnWalletFundRecipient>();
 
     // Expiration
     public Instant ExpiredAt { get; set; }
+
+    [NotMapped] public decimal RaisedAmount => IsRaising ? Recipients.Where(r => r.IsReceived).Sum(r => r.Amount) : 0;
 
     public DyWalletFund ToProtoValue() => new()
     {

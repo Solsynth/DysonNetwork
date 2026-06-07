@@ -20,7 +20,8 @@ public class PaymentService(
     DyRingService.DyRingServiceClient pusher,
     ILocalizationService localizer,
     Shared.EventBus.IEventBus eventBus,
-    RemoteAccountService remoteAccounts
+    RemoteAccountService remoteAccounts,
+    ILogger<PaymentService> logger
 )
 {
     public async Task<SnWalletOrder> CreateOrderAsync(
@@ -117,21 +118,63 @@ public class PaymentService(
         Shared.Models.TransactionType type = Shared.Models.TransactionType.System,
         bool silent = false,
         bool autoSave = true,
-        bool force = false
+        bool force = false,
+        bool freeze = false,
+        bool requireConfirmation = false
     )
     {
         if (payerWalletId == null && payeeWalletId == null)
             throw new ArgumentException("At least one wallet must be specified.");
         if (amount <= 0) throw new ArgumentException("Cannot create transaction with negative or zero amount.");
 
+        var truncatedAmount = TruncateToThreeDecimals(amount);
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        // Determine transaction status based on flags
+        Shared.Models.TransactionStatus status;
+        Instant? expiresAt = null;
+        Instant? frozenAt = null;
+
+        if (!freeze && !requireConfirmation)
+        {
+            // Instant transfer
+            status = Shared.Models.TransactionStatus.Confirmed;
+        }
+        else if (freeze && !requireConfirmation)
+        {
+            // Frozen: hold for 24hr then auto-release
+            status = Shared.Models.TransactionStatus.Frozen;
+            frozenAt = now;
+            expiresAt = now.Plus(Duration.FromHours(24));
+        }
+        else if (!freeze && requireConfirmation)
+        {
+            // Confirm-required: wait for payee, auto-refund after 24hr
+            status = Shared.Models.TransactionStatus.Pending;
+            expiresAt = now.Plus(Duration.FromHours(24));
+        }
+        else
+        {
+            // Both frozen + confirm-required: freeze first, then payee must confirm
+            status = Shared.Models.TransactionStatus.Frozen;
+            frozenAt = now;
+            expiresAt = now.Plus(Duration.FromHours(24));
+        }
+
         var transaction = new SnWalletTransaction
         {
             PayerWalletId = payerWalletId,
             PayeeWalletId = payeeWalletId,
             Currency = currency,
-            Amount = TruncateToThreeDecimals(amount),
+            Amount = truncatedAmount,
             Remarks = remarks,
-            Type = type
+            Type = type,
+            Status = status,
+            IsFrozen = freeze,
+            RequireConfirmation = requireConfirmation,
+            FrozenAt = frozenAt,
+            ExpiresAt = expiresAt,
+            ConfirmedAt = status == Shared.Models.TransactionStatus.Confirmed ? now : null
         };
 
         SnWallet? payerWallet = null, payeeWallet = null;
@@ -144,27 +187,42 @@ public class PaymentService(
                 await wat.GetOrCreateWalletPocketAsync(payerWalletId.Value, currency);
 
             if (!force)
-                if (isNewlyCreated || payerPocket.Amount < amount)
+                if (isNewlyCreated || payerPocket.Amount < truncatedAmount)
                     throw new InvalidOperationException("Insufficient funds");
 
+            // Always deduct from payer pocket
             await db.WalletPockets
                 .Where(p => p.Id == payerPocket.Id)
                 .ExecuteUpdateAsync(s =>
-                    s.SetProperty(p => p.Amount, p => p.Amount - amount));
+                    s.SetProperty(p => p.Amount, p => p.Amount - truncatedAmount));
+
+            // If pending/frozen, track held amount
+            if (status is Shared.Models.TransactionStatus.Pending or Shared.Models.TransactionStatus.Frozen)
+            {
+                await db.WalletPockets
+                    .Where(p => p.Id == payerPocket.Id)
+                    .ExecuteUpdateAsync(s =>
+                        s.SetProperty(p => p.HeldAmount, p => p.HeldAmount + truncatedAmount));
+            }
         }
 
-        if (payeeWalletId.HasValue)
+        // Only credit payee immediately for instant (confirmed) transactions
+        if (payeeWalletId.HasValue && status == Shared.Models.TransactionStatus.Confirmed)
         {
             payeeWallet = await db.Wallets.FirstOrDefaultAsync(e => e.Id == payeeWalletId.Value);
 
             var (payeePocket, isNewlyCreated) =
-                await wat.GetOrCreateWalletPocketAsync(payeeWalletId.Value, currency, amount);
+                await wat.GetOrCreateWalletPocketAsync(payeeWalletId.Value, currency, truncatedAmount);
 
             if (!isNewlyCreated)
                 await db.WalletPockets
                     .Where(p => p.Id == payeePocket.Id)
                     .ExecuteUpdateAsync(s =>
-                        s.SetProperty(p => p.Amount, p => p.Amount + amount));
+                        s.SetProperty(p => p.Amount, p => p.Amount + truncatedAmount));
+        }
+        else if (payeeWalletId.HasValue)
+        {
+            payeeWallet = await db.Wallets.FirstOrDefaultAsync(e => e.Id == payeeWalletId.Value);
         }
 
         db.PaymentTransactions.Add(transaction);
@@ -487,7 +545,7 @@ public class PaymentService(
     }
 
     public async Task<SnWalletTransaction> TransferBetweenWalletsAsync(Guid payerWalletId, Guid payeeWalletId,
-        string currency, decimal amount, string? remarks = null)
+        string currency, decimal amount, string? remarks = null, bool freeze = false, bool requireConfirmation = false)
     {
         var payerWallet = await wat.GetWalletAsync(payerWalletId);
         if (payerWallet == null)
@@ -513,9 +571,12 @@ public class PaymentService(
             currency,
             truncatedAmount,
             remarks,
-            Shared.Models.TransactionType.Transfer
+            Shared.Models.TransactionType.Transfer,
+            freeze: freeze,
+            requireConfirmation: requireConfirmation
         );
 
+        // Fee is always instant (not frozen/confirm-required)
         await CreateTransactionAsync(
             payerWallet.Id,
             null,
@@ -934,6 +995,477 @@ public class PaymentService(
     private static decimal TruncateToThreeDecimals(decimal amount)
     {
         return Math.Truncate(amount * 1000) / 1000;
+    }
+
+    // --- Transaction Lifecycle Methods ---
+
+    public async Task<SnWalletTransaction> ConfirmTransactionAsync(Guid transactionId, Guid payeeAccountId)
+    {
+        await using var transactionScope = await db.Database.BeginTransactionAsync();
+
+        try
+        {
+            var transaction = await db.PaymentTransactions
+                .FirstOrDefaultAsync(t => t.Id == transactionId)
+                ?? throw new InvalidOperationException("Transaction not found");
+
+            if (transaction.Status != Shared.Models.TransactionStatus.Pending &&
+                transaction.Status != Shared.Models.TransactionStatus.Frozen)
+                throw new InvalidOperationException($"Transaction is in status {transaction.Status}, cannot confirm");
+
+            if (!transaction.ExpiresAt.HasValue || transaction.ExpiresAt.Value < SystemClock.Instance.GetCurrentInstant())
+                throw new InvalidOperationException("Transaction has expired");
+
+            // Verify payee is the intended recipient
+            if (transaction.PayeeWalletId.HasValue)
+            {
+                var payeeWallet = await db.Wallets.FirstOrDefaultAsync(w => w.Id == transaction.PayeeWalletId.Value);
+                if (payeeWallet?.AccountId != payeeAccountId)
+                    throw new InvalidOperationException("You are not the payee of this transaction");
+            }
+
+            var now = SystemClock.Instance.GetCurrentInstant();
+
+            // Release held amount from payer
+            if (transaction.PayerWalletId.HasValue)
+            {
+                await db.WalletPockets
+                    .Where(p => p.WalletId == transaction.PayerWalletId.Value && p.Currency == transaction.Currency)
+                    .ExecuteUpdateAsync(s =>
+                        s.SetProperty(p => p.HeldAmount, p => p.HeldAmount - transaction.Amount));
+            }
+
+            // Credit payee
+            if (transaction.PayeeWalletId.HasValue)
+            {
+                var (payeePocket, isNewlyCreated) =
+                    await wat.GetOrCreateWalletPocketAsync(transaction.PayeeWalletId.Value, transaction.Currency, transaction.Amount);
+
+                if (!isNewlyCreated)
+                    await db.WalletPockets
+                        .Where(p => p.Id == payeePocket.Id)
+                        .ExecuteUpdateAsync(s =>
+                            s.SetProperty(p => p.Amount, p => p.Amount + transaction.Amount));
+            }
+
+            transaction.Status = Shared.Models.TransactionStatus.Confirmed;
+            transaction.ConfirmedAt = now;
+            await db.SaveChangesAsync();
+            await transactionScope.CommitAsync();
+
+            return transaction;
+        }
+        catch
+        {
+            await transactionScope.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task<SnWalletTransaction> RejectTransactionAsync(Guid transactionId, Guid payeeAccountId)
+    {
+        await using var transactionScope = await db.Database.BeginTransactionAsync();
+
+        try
+        {
+            var transaction = await db.PaymentTransactions
+                .FirstOrDefaultAsync(t => t.Id == transactionId)
+                ?? throw new InvalidOperationException("Transaction not found");
+
+            if (transaction.Status != Shared.Models.TransactionStatus.Pending &&
+                transaction.Status != Shared.Models.TransactionStatus.Frozen)
+                throw new InvalidOperationException($"Transaction is in status {transaction.Status}, cannot reject");
+
+            // Verify payee is the intended recipient
+            if (transaction.PayeeWalletId.HasValue)
+            {
+                var payeeWallet = await db.Wallets.FirstOrDefaultAsync(w => w.Id == transaction.PayeeWalletId.Value);
+                if (payeeWallet?.AccountId != payeeAccountId)
+                    throw new InvalidOperationException("You are not the payee of this transaction");
+            }
+
+            // Refund: release held amount back to payer
+            if (transaction.PayerWalletId.HasValue)
+            {
+                // Release held amount
+                await db.WalletPockets
+                    .Where(p => p.WalletId == transaction.PayerWalletId.Value && p.Currency == transaction.Currency)
+                    .ExecuteUpdateAsync(s =>
+                        s.SetProperty(p => p.HeldAmount, p => p.HeldAmount - transaction.Amount));
+
+                // Return funds to payer pocket
+                await db.WalletPockets
+                    .Where(p => p.WalletId == transaction.PayerWalletId.Value && p.Currency == transaction.Currency)
+                    .ExecuteUpdateAsync(s =>
+                        s.SetProperty(p => p.Amount, p => p.Amount + transaction.Amount));
+            }
+
+            transaction.Status = Shared.Models.TransactionStatus.Refunded;
+            await db.SaveChangesAsync();
+            await transactionScope.CommitAsync();
+
+            return transaction;
+        }
+        catch
+        {
+            await transactionScope.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task ProcessExpiredTransactionsAsync()
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        // Find all expired pending/frozen transactions
+        var expiredTransactions = await db.PaymentTransactions
+            .Where(t => (t.Status == Shared.Models.TransactionStatus.Pending ||
+                         t.Status == Shared.Models.TransactionStatus.Frozen) &&
+                        t.ExpiresAt.HasValue && t.ExpiresAt.Value < now)
+            .ToListAsync();
+
+        foreach (var transaction in expiredTransactions)
+        {
+            try
+            {
+                if (transaction.IsFrozen && !transaction.RequireConfirmation)
+                {
+                    // Frozen-only: auto-release to payee
+                    await ReleaseTransactionAsync(transaction);
+                }
+                else if (transaction.RequireConfirmation)
+                {
+                    // Confirm-required (with or without freeze): auto-refund to payer
+                    await RefundExpiredTransactionAsync(transaction);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error processing expired transaction {TransactionId}", transaction.Id);
+            }
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private async Task ReleaseTransactionAsync(SnWalletTransaction transaction)
+    {
+        await using var transactionScope = await db.Database.BeginTransactionAsync();
+
+        try
+        {
+            var now = SystemClock.Instance.GetCurrentInstant();
+
+            // Release held amount from payer
+            if (transaction.PayerWalletId.HasValue)
+            {
+                await db.WalletPockets
+                    .Where(p => p.WalletId == transaction.PayerWalletId.Value && p.Currency == transaction.Currency)
+                    .ExecuteUpdateAsync(s =>
+                        s.SetProperty(p => p.HeldAmount, p => p.HeldAmount - transaction.Amount));
+            }
+
+            // Credit payee
+            if (transaction.PayeeWalletId.HasValue)
+            {
+                var (payeePocket, isNewlyCreated) =
+                    await wat.GetOrCreateWalletPocketAsync(transaction.PayeeWalletId.Value, transaction.Currency, transaction.Amount);
+
+                if (!isNewlyCreated)
+                    await db.WalletPockets
+                        .Where(p => p.Id == payeePocket.Id)
+                        .ExecuteUpdateAsync(s =>
+                            s.SetProperty(p => p.Amount, p => p.Amount + transaction.Amount));
+            }
+
+            transaction.Status = Shared.Models.TransactionStatus.Confirmed;
+            transaction.ConfirmedAt = now;
+            await db.SaveChangesAsync();
+            await transactionScope.CommitAsync();
+        }
+        catch
+        {
+            await transactionScope.RollbackAsync();
+            throw;
+        }
+    }
+
+    private async Task RefundExpiredTransactionAsync(SnWalletTransaction transaction)
+    {
+        await using var transactionScope = await db.Database.BeginTransactionAsync();
+
+        try
+        {
+            // Release held amount and return to payer
+            if (transaction.PayerWalletId.HasValue)
+            {
+                // Release held amount
+                await db.WalletPockets
+                    .Where(p => p.WalletId == transaction.PayerWalletId.Value && p.Currency == transaction.Currency)
+                    .ExecuteUpdateAsync(s =>
+                        s.SetProperty(p => p.HeldAmount, p => p.HeldAmount - transaction.Amount));
+
+                // Return funds to payer pocket
+                await db.WalletPockets
+                    .Where(p => p.WalletId == transaction.PayerWalletId.Value && p.Currency == transaction.Currency)
+                    .ExecuteUpdateAsync(s =>
+                        s.SetProperty(p => p.Amount, p => p.Amount + transaction.Amount));
+            }
+
+            transaction.Status = Shared.Models.TransactionStatus.Refunded;
+            await db.SaveChangesAsync();
+            await transactionScope.CommitAsync();
+        }
+        catch
+        {
+            await transactionScope.RollbackAsync();
+            throw;
+        }
+    }
+
+    // --- Fund Raising Methods ---
+
+    public async Task<SnWalletFund> CreateRaisingFundAsync(
+        Guid creatorAccountId,
+        string currency,
+        decimal targetAmount,
+        int maxParticipants,
+        Shared.Models.ContributionType contributionType,
+        decimal contributionAmount,
+        bool isOpen,
+        List<Guid>? invitedAccountIds = null,
+        string? message = null,
+        Duration? expiration = null,
+        Instant? deadlineAt = null)
+    {
+        if (targetAmount <= 0)
+            throw new ArgumentException("Target amount must be positive");
+
+        if (contributionType == Shared.Models.ContributionType.Fixed && contributionAmount <= 0)
+            throw new ArgumentException("Fixed contribution amount must be positive");
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        var fund = new SnWalletFund
+        {
+            CreatorAccountId = creatorAccountId,
+            Currency = currency,
+            TotalAmount = TruncateToThreeDecimals(targetAmount),
+            RemainingAmount = TruncateToThreeDecimals(targetAmount),
+            AmountOfSplits = maxParticipants,
+            SplitType = Shared.Models.FundSplitType.Even,
+            Message = message,
+            ExpiredAt = now.Plus(expiration ?? Duration.FromHours(24)),
+            IsOpen = isOpen,
+            IsRaising = true,
+            TargetAmount = TruncateToThreeDecimals(targetAmount),
+            ContributionType = contributionType,
+            ContributionAmount = contributionType == Shared.Models.ContributionType.Fixed
+                ? TruncateToThreeDecimals(contributionAmount)
+                : 0,
+            DeadlineAt = deadlineAt,
+            Recipients = invitedAccountIds?.Select(accountId => new SnWalletFundRecipient
+            {
+                RecipientAccountId = accountId,
+                Amount = 0
+            }).ToList() ?? new List<SnWalletFundRecipient>()
+        };
+
+        db.WalletFunds.Add(fund);
+        await db.SaveChangesAsync();
+
+        return fund;
+    }
+
+    public async Task<SnWalletTransaction> ContributeToFundAsync(
+        Guid contributorAccountId,
+        Guid fundId,
+        decimal amount)
+    {
+        await using var transactionScope = await db.Database.BeginTransactionAsync();
+
+        try
+        {
+            var fund = await db.WalletFunds
+                .Include(f => f.Recipients)
+                .FirstOrDefaultAsync(f => f.Id == fundId)
+                ?? throw new InvalidOperationException("Fund not found");
+
+            if (!fund.IsRaising)
+                throw new InvalidOperationException("This fund is not in raising mode");
+
+            if (fund.Status is Shared.Models.FundStatus.Expired or Shared.Models.FundStatus.FullyReceived)
+                throw new InvalidOperationException("Fund is no longer accepting contributions");
+
+            if (fund.DeadlineAt.HasValue && fund.DeadlineAt.Value < SystemClock.Instance.GetCurrentInstant())
+                throw new InvalidOperationException("Fund deadline has passed");
+
+            // Check if contributor already contributed
+            var existingContributor = fund.Recipients.FirstOrDefault(r => r.RecipientAccountId == contributorAccountId);
+            if (existingContributor != null)
+                throw new InvalidOperationException("You have already contributed to this fund");
+
+            // Determine contribution amount
+            decimal contributionAmount;
+            if (fund.ContributionType == Shared.Models.ContributionType.Fixed)
+            {
+                contributionAmount = fund.ContributionAmount;
+            }
+            else
+            {
+                // Free contribution: use provided amount
+                if (amount <= 0)
+                    throw new ArgumentException("Contribution amount must be positive");
+                contributionAmount = TruncateToThreeDecimals(amount);
+            }
+
+            // Check if contribution would exceed target
+            if (fund.TargetAmount > 0)
+            {
+                var currentRaised = fund.Recipients.Where(r => r.IsReceived).Sum(r => r.Amount);
+                if (currentRaised + contributionAmount > fund.TargetAmount)
+                    throw new InvalidOperationException("Contribution would exceed target amount");
+            }
+
+            // Check participant limit
+            if (!fund.IsOpen && fund.AmountOfSplits > 0)
+            {
+                var currentParticipants = fund.Recipients.Count;
+                if (currentParticipants >= fund.AmountOfSplits)
+                    throw new InvalidOperationException("Fund has reached maximum participants");
+
+                // For closed funds, check if contributor is invited
+                var isInvited = fund.Recipients.Any(r => r.RecipientAccountId == contributorAccountId);
+                if (!isInvited)
+                    throw new InvalidOperationException("You are not invited to contribute to this fund");
+            }
+
+            // Deduct from contributor's wallet
+            var contributorWallet = await wat.GetAccountWalletAsync(contributorAccountId)
+                ?? throw new InvalidOperationException("Contributor wallet not found");
+
+            var (contributorPocket, isNewlyCreated) =
+                await wat.GetOrCreateWalletPocketAsync(contributorWallet.Id, fund.Currency);
+
+            if (isNewlyCreated || contributorPocket.Amount < contributionAmount)
+                throw new InvalidOperationException("Insufficient funds");
+
+            await db.WalletPockets
+                .Where(p => p.Id == contributorPocket.Id)
+                .ExecuteUpdateAsync(s =>
+                    s.SetProperty(p => p.Amount, p => p.Amount - contributionAmount));
+
+            // Create or update contributor record
+            if (existingContributor != null)
+            {
+                // This shouldn't happen since we checked above, but just in case
+                existingContributor.Amount = contributionAmount;
+                existingContributor.IsReceived = true;
+                existingContributor.ReceivedAt = SystemClock.Instance.GetCurrentInstant();
+            }
+            else
+            {
+                var contributor = new SnWalletFundRecipient
+                {
+                    FundId = fundId,
+                    RecipientAccountId = contributorAccountId,
+                    Amount = contributionAmount,
+                    IsReceived = true,
+                    ReceivedAt = SystemClock.Instance.GetCurrentInstant()
+                };
+                db.WalletFundRecipients.Add(contributor);
+            }
+
+            // Update fund remaining amount
+            fund.RemainingAmount -= contributionAmount;
+
+            // Check if target reached
+            var totalRaised = fund.Recipients.Where(r => r.IsReceived).Sum(r => r.Amount) + contributionAmount;
+            if (fund.TargetAmount > 0 && totalRaised >= fund.TargetAmount)
+            {
+                fund.Status = Shared.Models.FundStatus.FullyReceived;
+            }
+            else
+            {
+                fund.Status = Shared.Models.FundStatus.PartiallyReceived;
+            }
+
+            await db.SaveChangesAsync();
+            await transactionScope.CommitAsync();
+
+            // Create a system transaction for the contribution
+            var transaction = await CreateTransactionAsync(
+                payerWalletId: null, // System credit
+                payeeWalletId: null, // No direct payee - funds go to the fund pool
+                currency: fund.Currency,
+                amount: contributionAmount,
+                remarks: $"Contribution to fund {fund.Id}",
+                type: Shared.Models.TransactionType.System,
+                silent: true
+            );
+
+            return transaction;
+        }
+        catch
+        {
+            await transactionScope.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task ProcessExpiredRaisingFundsAsync()
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        var expiredFunds = await db.WalletFunds
+            .Include(f => f.Recipients)
+            .Where(f => f.IsRaising &&
+                        (f.Status == Shared.Models.FundStatus.Created ||
+                         f.Status == Shared.Models.FundStatus.PartiallyReceived) &&
+                        f.DeadlineAt.HasValue && f.DeadlineAt.Value < now)
+            .ToListAsync();
+
+        foreach (var fund in expiredFunds)
+        {
+            try
+            {
+                var totalRaised = fund.Recipients.Where(r => r.IsReceived).Sum(r => r.Amount);
+
+                if (fund.TargetAmount > 0 && totalRaised >= fund.TargetAmount)
+                {
+                    // Target reached - mark as fully received
+                    fund.Status = Shared.Models.FundStatus.FullyReceived;
+                }
+                else
+                {
+                    // Target not reached - refund all contributions
+                    fund.Status = Shared.Models.FundStatus.Expired;
+
+                    foreach (var contributor in fund.Recipients.Where(r => r.IsReceived))
+                    {
+                        var contributorWallet = await wat.GetAccountWalletAsync(contributor.RecipientAccountId);
+                        if (contributorWallet != null)
+                        {
+                            await CreateTransactionAsync(
+                                payerWalletId: null, // System refund
+                                payeeWalletId: contributorWallet.Id,
+                                currency: fund.Currency,
+                                amount: contributor.Amount,
+                                remarks: $"Refund for expired raising fund {fund.Id}",
+                                type: Shared.Models.TransactionType.System,
+                                silent: true
+                            );
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error processing expired raising fund {FundId}", fund.Id);
+            }
+        }
+
+        await db.SaveChangesAsync();
     }
 }
 
