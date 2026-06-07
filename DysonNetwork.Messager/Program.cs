@@ -21,6 +21,7 @@ builder.Services.AddDriveService();
 builder.Services.AddSphereService();
 builder.Services.AddInsightService();
 builder.Services.AddWalletService();
+builder.Services.AddDevelopService();
 
 builder.Services.AddAppBusinessServices(builder.Configuration);
 builder.Services.AddAppScheduledJobs(builder.Configuration);
