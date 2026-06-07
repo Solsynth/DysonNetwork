@@ -23,4 +23,14 @@ public abstract class WebSocketPacketType
     public const string AuthChallengePending = "auth.challenge.pending";
     public const string AuthChallengeApproved = "auth.challenge.approved";
     public const string AuthChallengeDeclined = "auth.challenge.declined";
+    public const string PlaceholderUpdate = "messages.placeholder.update";
+    public const string PlaceholderFinalize = "messages.placeholder.finalize";
+    public const string PlaceholderExpired = "messages.placeholder.expired";
+    public const string WalletTransactionCreated = "wallet.transaction.created";
+    public const string WalletTransactionConfirmed = "wallet.transaction.confirmed";
+    public const string WalletTransactionRefunded = "wallet.transaction.refunded";
+    public const string WalletTransactionExpired = "wallet.transaction.expired";
+    public const string WalletPocketUpdated = "wallet.pocket.updated";
+    public const string WalletFundContributed = "wallet.fund.contributed";
+    public const string WalletFundCompleted = "wallet.fund.completed";
 }

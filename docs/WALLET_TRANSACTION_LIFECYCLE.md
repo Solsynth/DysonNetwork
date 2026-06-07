@@ -161,6 +161,52 @@ The existing `IsOpen` property is reused:
 
 ---
 
+## WebSocket Real-Time Events
+
+All wallet events are pushed to clients in real-time via WebSocket using the following packet types:
+
+| Packet Type | Payload | Trigger |
+|-------------|---------|---------|
+| `wallet.transaction.created` | Transaction object | New transaction created (all statuses) |
+| `wallet.transaction.confirmed` | Transaction object | Payee confirms / frozen hold auto-releases |
+| `wallet.transaction.refunded` | Transaction object | Payee rejects or transaction expires |
+| `wallet.transaction.expired` | Transaction object | Transaction expired without confirmation |
+| `wallet.pocket.updated` | `{ wallet_id, currency, amount, held_amount, available_amount }` | Pocket balance changes |
+| `wallet.fund.contributed` | `{ fund_id, contributor_account_id, amount, currency, raised_amount, target_amount, status }` | Contribution made to raising fund |
+| `wallet.fund.completed` | `{ fund_id, ... }` | Raising fund target reached |
+
+**Transaction Payload:**
+```json
+{
+  "id": "uuid",
+  "type": "Transfer",
+  "amount": 100.00,
+  "currency": "points",
+  "status": "Confirmed",
+  "remarks": "Thanks!",
+  "payer_wallet_id": "uuid",
+  "payee_wallet_id": "uuid",
+  "is_frozen": false,
+  "require_confirmation": false,
+  "frozen_at": null,
+  "expires_at": null,
+  "confirmed_at": "2024-01-15T10:30:00Z"
+}
+```
+
+**Pocket Payload:**
+```json
+{
+  "wallet_id": "uuid",
+  "currency": "points",
+  "amount": 1000.00,
+  "held_amount": 200.00,
+  "available_amount": 800.00
+}
+```
+
+---
+
 ## Fund Raising API
 
 ### Create Fund (Extended)

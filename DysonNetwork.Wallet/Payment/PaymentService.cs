@@ -21,6 +21,7 @@ public class PaymentService(
     ILocalizationService localizer,
     Shared.EventBus.IEventBus eventBus,
     RemoteAccountService remoteAccounts,
+    RemoteRingService ring,
     ILogger<PaymentService> logger
 )
 {
@@ -230,7 +231,20 @@ public class PaymentService(
             await db.SaveChangesAsync();
 
         if (!silent)
+        {
             await NotifyNewTransaction(transaction, payerWallet, payeeWallet);
+
+            // Send real-time WebSocket updates
+            await NotifyTransactionStatusChange(transaction,
+                Shared.Models.WebSocketPacketType.WalletTransactionCreated,
+                payerWallet?.AccountId, payeeWallet?.AccountId);
+        }
+
+        // Notify pocket balance updates via WebSocket
+        if (payerWalletId.HasValue)
+            await NotifyPocketUpdated(payerWalletId.Value, currency, 0, 0);
+        if (payeeWalletId.HasValue && transaction.Status == Shared.Models.TransactionStatus.Confirmed)
+            await NotifyPocketUpdated(payeeWalletId.Value, currency, 0, 0);
 
         return transaction;
     }
@@ -308,6 +322,82 @@ public class PaymentService(
             );
         }
     }
+
+    #region Wallet WebSocket Real-Time Updates
+
+    private async Task SendWalletWebSocketPacket(Guid accountId, string type, object data)
+    {
+        try
+        {
+            var jsonBytes = InfraObjectCoder.ConvertObjectToByteString(data).ToByteArray();
+            await ring.SendWebSocketPacketToUser(accountId.ToString(), type, jsonBytes);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to send wallet WebSocket packet {Type} to user {AccountId}", type, accountId);
+        }
+    }
+
+    private async Task NotifyTransactionStatusChange(SnWalletTransaction transaction, string packetType,
+        Guid? payerAccountId, Guid? payeeAccountId)
+    {
+        var payload = new
+        {
+            id = transaction.Id.ToString(),
+            type = transaction.Type,
+            amount = transaction.Amount,
+            currency = transaction.Currency,
+            status = transaction.Status,
+            remarks = transaction.Remarks,
+            payer_wallet_id = transaction.PayerWalletId?.ToString(),
+            payee_wallet_id = transaction.PayeeWalletId?.ToString(),
+            is_frozen = transaction.IsFrozen,
+            require_confirmation = transaction.RequireConfirmation,
+            frozen_at = transaction.FrozenAt,
+            expires_at = transaction.ExpiresAt,
+            confirmed_at = transaction.ConfirmedAt
+        };
+
+        var tasks = new List<Task>();
+
+        if (payerAccountId.HasValue)
+            tasks.Add(SendWalletWebSocketPacket(payerAccountId.Value, packetType, payload));
+
+        if (payeeAccountId.HasValue)
+            tasks.Add(SendWalletWebSocketPacket(payeeAccountId.Value, packetType, payload));
+
+        await Task.WhenAll(tasks);
+    }
+
+    private async Task NotifyPocketUpdated(Guid walletId, string currency, decimal amount, decimal heldAmount)
+    {
+        var pocket = await db.WalletPockets
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.WalletId == walletId && p.Currency == currency);
+
+        if (pocket == null) return;
+
+        var ownerAccountId = await db.Wallets
+            .Where(w => w.Id == walletId)
+            .Select(w => w.AccountId)
+            .FirstOrDefaultAsync();
+
+        if (!ownerAccountId.HasValue) return;
+
+        var payload = new
+        {
+            wallet_id = walletId.ToString(),
+            currency = pocket.Currency,
+            amount = pocket.Amount,
+            held_amount = pocket.HeldAmount,
+            available_amount = pocket.Amount - pocket.HeldAmount
+        };
+
+        await SendWalletWebSocketPacket(ownerAccountId.Value,
+            Shared.Models.WebSocketPacketType.WalletPocketUpdated, payload);
+    }
+
+    #endregion
 
     public async Task<SnWalletOrder> PayOrderAsync(Guid orderId, SnWallet payerWallet)
     {
@@ -1053,6 +1143,17 @@ public class PaymentService(
             await db.SaveChangesAsync();
             await transactionScope.CommitAsync();
 
+            // Send real-time WebSocket updates
+            await NotifyTransactionStatusChange(transaction,
+                Shared.Models.WebSocketPacketType.WalletTransactionConfirmed,
+                transaction.PayerWalletId.HasValue
+                    ? await db.Wallets.Where(w => w.Id == transaction.PayerWalletId.Value).Select(w => w.AccountId).FirstOrDefaultAsync()
+                    : null,
+                payeeAccountId);
+
+            if (transaction.PayeeWalletId.HasValue)
+                await NotifyPocketUpdated(transaction.PayeeWalletId.Value, transaction.Currency, 0, 0);
+
             return transaction;
         }
         catch
@@ -1103,6 +1204,17 @@ public class PaymentService(
             transaction.Status = Shared.Models.TransactionStatus.Refunded;
             await db.SaveChangesAsync();
             await transactionScope.CommitAsync();
+
+            // Send real-time WebSocket updates
+            await NotifyTransactionStatusChange(transaction,
+                Shared.Models.WebSocketPacketType.WalletTransactionRefunded,
+                transaction.PayerWalletId.HasValue
+                    ? await db.Wallets.Where(w => w.Id == transaction.PayerWalletId.Value).Select(w => w.AccountId).FirstOrDefaultAsync()
+                    : null,
+                payeeAccountId);
+
+            if (transaction.PayerWalletId.HasValue)
+                await NotifyPocketUpdated(transaction.PayerWalletId.Value, transaction.Currency, 0, 0);
 
             return transaction;
         }
@@ -1182,6 +1294,21 @@ public class PaymentService(
             transaction.ConfirmedAt = now;
             await db.SaveChangesAsync();
             await transactionScope.CommitAsync();
+
+            // Resolve account IDs for WebSocket notifications
+            var payerAccountId = transaction.PayerWalletId.HasValue
+                ? await db.Wallets.Where(w => w.Id == transaction.PayerWalletId.Value).Select(w => w.AccountId).FirstOrDefaultAsync()
+                : null;
+            var payeeAccountId = transaction.PayeeWalletId.HasValue
+                ? await db.Wallets.Where(w => w.Id == transaction.PayeeWalletId.Value).Select(w => w.AccountId).FirstOrDefaultAsync()
+                : null;
+
+            await NotifyTransactionStatusChange(transaction,
+                Shared.Models.WebSocketPacketType.WalletTransactionConfirmed,
+                payerAccountId, payeeAccountId);
+
+            if (transaction.PayeeWalletId.HasValue)
+                await NotifyPocketUpdated(transaction.PayeeWalletId.Value, transaction.Currency, 0, 0);
         }
         catch
         {
@@ -1215,6 +1342,21 @@ public class PaymentService(
             transaction.Status = Shared.Models.TransactionStatus.Refunded;
             await db.SaveChangesAsync();
             await transactionScope.CommitAsync();
+
+            // Resolve account IDs for WebSocket notifications
+            var payerAccountId = transaction.PayerWalletId.HasValue
+                ? await db.Wallets.Where(w => w.Id == transaction.PayerWalletId.Value).Select(w => w.AccountId).FirstOrDefaultAsync()
+                : null;
+            var payeeAccountId = transaction.PayeeWalletId.HasValue
+                ? await db.Wallets.Where(w => w.Id == transaction.PayeeWalletId.Value).Select(w => w.AccountId).FirstOrDefaultAsync()
+                : null;
+
+            await NotifyTransactionStatusChange(transaction,
+                Shared.Models.WebSocketPacketType.WalletTransactionExpired,
+                payerAccountId, payeeAccountId);
+
+            if (transaction.PayerWalletId.HasValue)
+                await NotifyPocketUpdated(transaction.PayerWalletId.Value, transaction.Currency, 0, 0);
         }
         catch
         {
@@ -1392,6 +1534,32 @@ public class PaymentService(
 
             await db.SaveChangesAsync();
             await transactionScope.CommitAsync();
+
+            // Notify fund creator and contributor via WebSocket
+            var fundPayload = new
+            {
+                fund_id = fund.Id.ToString(),
+                contributor_account_id = contributorAccountId.ToString(),
+                amount = contributionAmount,
+                currency = fund.Currency,
+                raised_amount = fund.Recipients.Where(r => r.IsReceived).Sum(r => r.Amount),
+                target_amount = fund.TargetAmount,
+                status = fund.Status
+            };
+
+            await SendWalletWebSocketPacket(contributorAccountId,
+                Shared.Models.WebSocketPacketType.WalletFundContributed, fundPayload);
+            await SendWalletWebSocketPacket(fund.CreatorAccountId,
+                Shared.Models.WebSocketPacketType.WalletFundContributed, fundPayload);
+
+            // Notify pocket balance update for contributor
+            await NotifyPocketUpdated(contributorWallet.Id, fund.Currency, 0, 0);
+
+            if (fund.Status == Shared.Models.FundStatus.FullyReceived)
+            {
+                await SendWalletWebSocketPacket(fund.CreatorAccountId,
+                    Shared.Models.WebSocketPacketType.WalletFundCompleted, fundPayload);
+            }
 
             // Create a system transaction for the contribution
             var transaction = await CreateTransactionAsync(
