@@ -1285,18 +1285,64 @@ public partial class ChatController(
         if (member == null)
             return StatusCode(403, "You need to be a member to use autocomplete here.");
 
+        var results = new List<Autocompletion>();
+        var content = request.Content;
+
+        // Handle @ mentions locally from chat members
+        if (content.StartsWith('@'))
+        {
+            var afterAt = content[1..];
+            var hadSlash = afterAt.Contains('/');
+            string type;
+            string query;
+
+            if (hadSlash)
+            {
+                var parts = afterAt.Split('/', 2);
+                type = parts[0];
+                query = parts.Length > 1 ? parts[1] : "";
+            }
+            else
+            {
+                type = "u";
+                query = afterAt;
+            }
+
+            // For user type, search locally from chat members
+            if (type == "u" && !string.IsNullOrWhiteSpace(query))
+            {
+                var members = await db.ChatMembers
+                    .Where(m => m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+                    .Where(m => m.Username != null && EF.Functions.Like(m.Username, $"{query}%"))
+                    .Take(10)
+                    .ToListAsync();
+
+                members = await crs.LoadMemberAccounts(members);
+
+                results.AddRange(members.Select(m => new Autocompletion
+                {
+                    Type = "user",
+                    Keyword = "@" + (hadSlash ? "u/" : "") + m.Username,
+                    Data = m.Account ?? (object)new { id = m.AccountId.ToString() }
+                }));
+
+                return Ok(results);
+            }
+        }
+
+        // For stickers and other types, still call gRPC
         var response = await autocompleteClient.AutocompleteAsync(new DyAutocompletionRequest
         {
             Content = request.Content,
             ChatId = roomId.ToString()
         });
 
-        var results = response.Results.Select(r => new Autocompletion
+        results.AddRange(response.Results.Select(r => new Autocompletion
         {
             Type = r.Type,
             Keyword = r.Keyword,
             Data = JsonSerializer.Deserialize<JsonElement>(r.Data, InfraObjectCoder.SerializerOptions),
-        }).ToList();
+        }));
 
         return Ok(results);
     }

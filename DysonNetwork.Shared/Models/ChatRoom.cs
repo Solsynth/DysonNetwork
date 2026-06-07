@@ -89,6 +89,7 @@ public class SnChatMember : ModelBase
     public Guid ChatRoomId { get; set; }
     public SnChatRoom ChatRoom { get; set; } = null!;
     public Guid AccountId { get; set; }
+    [MaxLength(256)] public string? Username { get; set; }
 
     [NotMapped] public SnAccount? Account { get; set; }
     [NotMapped] public SnAccountStatus? Status { get; set; }
@@ -166,6 +167,8 @@ public class ChatMemberTransmissionObject : ModelBase
     [NotMapped]
     public SnAccount Account { get; set; } = null!;
 
+    [MaxLength(256)] public string? Username { get; set; }
+
     [MaxLength(1024)]
     public string? Nick { get; set; }
     public string? RealmNick { get; set; }
@@ -198,6 +201,7 @@ public class ChatMemberTransmissionObject : ModelBase
             ChatRoomId = member.ChatRoomId,
             AccountId = member.AccountId,
             Account = member.Account!,
+            Username = member.Username,
             Nick = member.Nick,
             RealmNick = member.RealmNick,
             RealmBio = member.RealmBio,

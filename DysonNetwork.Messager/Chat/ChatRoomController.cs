@@ -413,11 +413,13 @@ public class ChatRoomController(
                 new()
                 {
                     AccountId = accountId,
+                    Username = currentUser.Name,
                     JoinedAt = SystemClock.Instance.GetCurrentInstant()
                 },
                 new()
                 {
                     AccountId = request.RelatedUserId,
+                    Username = relatedUser.Name,
                     JoinedAt = null, // Pending status
                 }
             }
@@ -526,6 +528,7 @@ public class ChatRoomController(
                 new()
                 {
                     AccountId = accountId,
+                    Username = currentUser.Name,
                     JoinedAt = SystemClock.Instance.GetCurrentInstant()
                 }
             }
@@ -1267,6 +1270,7 @@ public class ChatRoomController(
         {
             InvitedById = operatorMember.Id,
             AccountId = Guid.Parse(relatedUser.Id),
+            Username = relatedUser.Name,
             ChatRoomId = roomId,
         };
 
@@ -1665,6 +1669,7 @@ public class ChatRoomController(
         var newMember = new SnChatMember
         {
             AccountId = Guid.Parse(currentUser.Id),
+            Username = currentUser.Name,
             ChatRoomId = roomId,
             JoinedAt = SystemClock.Instance.GetCurrentInstant()
         };
