@@ -454,6 +454,13 @@ public partial class ChatController(
 
         var accountId = member.AccountId;
 
+        // Check realm permission for chat
+        if (member.ChatRoom.RealmId.HasValue)
+        {
+            if (!await realmService.HasPermission(member.ChatRoom.RealmId.Value, accountId, "chat.send"))
+                return StatusCode(403, "You do not have permission to send messages in this realm.");
+        }
+
         request.Content = TextSanitizer.Sanitize(request.Content);
 
         var locationError = TryParseLocation(request.LocationWkt, out var location);

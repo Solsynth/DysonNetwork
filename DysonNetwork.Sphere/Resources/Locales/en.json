@@ -24,5 +24,7 @@
     "followRequestRejectedTitle": "Follow request rejected",
     "followRequestRejectedBody": "{publisher} rejected your follow request",
     "subscriberAddedTitle": "You've been added to {publisher}",
-    "subscriberAddedBody": "{publisher} has added you as a subscriber"
+    "subscriberAddedBody": "{publisher} has added you as a subscriber",
+    "postRemovedFromRealmTitle": "Your post was removed from a realm",
+    "postRemovedFromRealmBody": "Your post was removed from the realm. Reason: {reason}"
 }

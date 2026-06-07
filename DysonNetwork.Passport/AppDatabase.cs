@@ -40,6 +40,9 @@ public class AppDatabase(
     public DbSet<SnRealmLabel> RealmLabels { get; set; } = null!;
     public DbSet<SnRealmBoostContribution> RealmBoostContributions { get; set; } = null!;
     public DbSet<SnRealmExperienceRecord> RealmExperienceRecords { get; set; } = null!;
+    public DbSet<SnRealmRolePermission> RealmRolePermissions { get; set; } = null!;
+    public DbSet<SnRealmUserPermission> RealmUserPermissions { get; set; } = null!;
+    public DbSet<SnRealmPostModerationLog> RealmPostModerationLogs { get; set; } = null!;
 
     public DbSet<SnSocialCreditRecord> SocialCreditRecords { get; set; } = null!;
     public DbSet<SnExperienceRecord> ExperienceRecords { get; set; } = null!;
@@ -144,6 +147,30 @@ public class AppDatabase(
         modelBuilder.Entity<SnRealmLabel>()
             .HasOne(l => l.Realm)
             .WithMany(r => r.Labels)
+            .HasForeignKey(l => l.RealmId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnRealmRolePermission>()
+            .HasOne(p => p.Realm)
+            .WithMany(r => r.RolePermissions)
+            .HasForeignKey(p => p.RealmId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnRealmRolePermission>()
+            .HasIndex(p => new { p.RealmId, p.RoleLevel })
+            .IsUnique();
+
+        modelBuilder.Entity<SnRealmUserPermission>()
+            .HasOne(p => p.Realm)
+            .WithMany(r => r.UserPermissions)
+            .HasForeignKey(p => p.RealmId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnRealmUserPermission>()
+            .HasIndex(p => new { p.RealmId, p.AccountId })
+            .IsUnique();
+
+        modelBuilder.Entity<SnRealmPostModerationLog>()
+            .HasOne(l => l.Realm)
+            .WithMany(r => r.PostModerationLogs)
             .HasForeignKey(l => l.RealmId)
             .OnDelete(DeleteBehavior.Cascade);
 

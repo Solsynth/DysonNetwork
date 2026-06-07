@@ -10,5 +10,9 @@
     "chatNotificationAttachmentOnlyBodyPlural": "{count} attachments",
     "chatReactionNotificationTitle": "{senderNick} reacted to your message ({roomSubject})",
     "chatReactionNotificationBodyAdded": "{senderNick} reacted to your message with {symbol}",
-    "chatReactionNotificationBodyRemoved": "{senderNick} removed their reaction {symbol} from your message"
+    "chatReactionNotificationBodyRemoved": "{senderNick} removed their reaction {symbol} from your message",
+    "messageDeletedTitle": "Your message was deleted",
+    "messageDeletedBody": "Your message was deleted by a moderator. Reason: {reason}",
+    "chatTimeoutTitle": "You have been timed out",
+    "chatTimeoutBody": "You have been timed out for {duration} minutes. Reason: {reason}"
 }

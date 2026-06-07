@@ -21,5 +21,7 @@
     "followRequestRejectedTitle": "关注请求被拒绝",
     "followRequestRejectedBody": "{publisher} 已拒绝您的关注请求",
     "subscriberAddedTitle": "您已被添加到 {publisher}",
-    "subscriberAddedBody": "{publisher} 已将您添加为订阅者"
+    "subscriberAddedBody": "{publisher} 已将您添加为订阅者",
+    "postRemovedFromRealmTitle": "您的帖子已从领域中移除",
+    "postRemovedFromRealmBody": "您的帖子已从领域中移除。原因：{reason}"
 }

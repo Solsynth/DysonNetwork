@@ -228,4 +228,15 @@ public class RealmServiceGrpc(
 
         return response;
     }
+
+    public override async Task<BoolValue> HasPermission(DyHasRealmPermissionRequest request, ServerCallContext context)
+    {
+        var realmId = Guid.Parse(request.RealmId);
+        var accountId = Guid.Parse(request.AccountId);
+        var permission = request.Permission;
+
+        var hasPermission = await realmService.HasPermission(realmId, accountId, permission);
+
+        return new BoolValue { Value = hasPermission };
+    }
 }

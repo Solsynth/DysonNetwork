@@ -26,6 +26,9 @@ public class SnRealm : ModelBase, IIdentifiedResource
 
     [IgnoreMember] [JsonIgnore] public List<SnRealmMember> Members { get; set; } = new List<SnRealmMember>();
     [IgnoreMember] [JsonIgnore] public List<SnRealmLabel> Labels { get; set; } = new List<SnRealmLabel>();
+    [IgnoreMember] [JsonIgnore] public List<SnRealmRolePermission> RolePermissions { get; set; } = new List<SnRealmRolePermission>();
+    [IgnoreMember] [JsonIgnore] public List<SnRealmUserPermission> UserPermissions { get; set; } = new List<SnRealmUserPermission>();
+    [IgnoreMember] [JsonIgnore] public List<SnRealmPostModerationLog> PostModerationLogs { get; set; } = new List<SnRealmPostModerationLog>();
 
     public Guid AccountId { get; set; }
     public decimal BoostPoints { get; set; }
@@ -305,4 +308,53 @@ public class SnRealmExperienceRecord : ModelBase
     [MaxLength(1024)] public string ReasonType { get; set; } = string.Empty;
     [MaxLength(1024)] public string Reason { get; set; } = string.Empty;
     public int Delta { get; set; }
+}
+
+public class SnRealmRolePermission : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid RealmId { get; set; }
+    public SnRealm Realm { get; set; } = null!;
+    
+    // Role this permission set applies to
+    public int RoleLevel { get; set; } = RealmMemberRole.Normal;
+    
+    // Permission flags
+    public bool CanChat { get; set; } = true;
+    public bool CanPost { get; set; } = true;
+    public bool CanComment { get; set; } = true;
+    public bool CanUploadMedia { get; set; } = true;
+    public bool CanModeratePosts { get; set; } = false;
+    public bool CanModerateChat { get; set; } = false;
+    public bool CanManageMembers { get; set; } = false;
+    public bool CanManageRealm { get; set; } = false;
+}
+
+public class SnRealmUserPermission : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid RealmId { get; set; }
+    public SnRealm Realm { get; set; } = null!;
+    public Guid AccountId { get; set; }
+    
+    // Permission overrides (null = use role default)
+    public bool? CanChat { get; set; }
+    public bool? CanPost { get; set; }
+    public bool? CanComment { get; set; }
+    public bool? CanUploadMedia { get; set; }
+    public bool? CanModeratePosts { get; set; }
+    public bool? CanModerateChat { get; set; }
+    public bool? CanManageMembers { get; set; }
+    public bool? CanManageRealm { get; set; }
+}
+
+public class SnRealmPostModerationLog : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid RealmId { get; set; }
+    public SnRealm Realm { get; set; } = null!;
+    public Guid PostId { get; set; }
+    public Guid ModeratorAccountId { get; set; }
+    [MaxLength(4096)] public string? Reason { get; set; }
+    public Instant ModeratedAt { get; set; } = SystemClock.Instance.GetCurrentInstant();
 }

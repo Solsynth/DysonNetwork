@@ -72,6 +72,8 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::Google.Protobuf.WellKnownTypes.BoolValue> __Marshaller_google_protobuf_BoolValue = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::Google.Protobuf.WellKnownTypes.BoolValue.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyHasRealmPermissionRequest> __Marshaller_proto_DyHasRealmPermissionRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyHasRealmPermissionRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyLoadMemberAccountRequest> __Marshaller_proto_DyLoadMemberAccountRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyLoadMemberAccountRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::DysonNetwork.Shared.Proto.DyRealmMember> __Marshaller_proto_DyRealmMember = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::DysonNetwork.Shared.Proto.DyRealmMember.Parser));
@@ -134,6 +136,14 @@ namespace DysonNetwork.Shared.Proto {
         __ServiceName,
         "IsMemberWithRole",
         __Marshaller_proto_DyIsMemberWithRoleRequest,
+        __Marshaller_google_protobuf_BoolValue);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::DysonNetwork.Shared.Proto.DyHasRealmPermissionRequest, global::Google.Protobuf.WellKnownTypes.BoolValue> __Method_HasPermission = new grpc::Method<global::DysonNetwork.Shared.Proto.DyHasRealmPermissionRequest, global::Google.Protobuf.WellKnownTypes.BoolValue>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "HasPermission",
+        __Marshaller_proto_DyHasRealmPermissionRequest,
         __Marshaller_google_protobuf_BoolValue);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
@@ -200,6 +210,12 @@ namespace DysonNetwork.Shared.Proto {
 
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       public virtual global::System.Threading.Tasks.Task<global::Google.Protobuf.WellKnownTypes.BoolValue> IsMemberWithRole(global::DysonNetwork.Shared.Proto.DyIsMemberWithRoleRequest request, grpc::ServerCallContext context)
+      {
+        throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+      }
+
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::System.Threading.Tasks.Task<global::Google.Protobuf.WellKnownTypes.BoolValue> HasPermission(global::DysonNetwork.Shared.Proto.DyHasRealmPermissionRequest request, grpc::ServerCallContext context)
       {
         throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
       }
@@ -386,6 +402,26 @@ namespace DysonNetwork.Shared.Proto {
         return CallInvoker.AsyncUnaryCall(__Method_IsMemberWithRole, null, options, request);
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::Google.Protobuf.WellKnownTypes.BoolValue HasPermission(global::DysonNetwork.Shared.Proto.DyHasRealmPermissionRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return HasPermission(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::Google.Protobuf.WellKnownTypes.BoolValue HasPermission(global::DysonNetwork.Shared.Proto.DyHasRealmPermissionRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_HasPermission, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.BoolValue> HasPermissionAsync(global::DysonNetwork.Shared.Proto.DyHasRealmPermissionRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return HasPermissionAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::Google.Protobuf.WellKnownTypes.BoolValue> HasPermissionAsync(global::DysonNetwork.Shared.Proto.DyHasRealmPermissionRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_HasPermission, null, options, request);
+      }
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       public virtual global::DysonNetwork.Shared.Proto.DyRealmMember LoadMemberAccount(global::DysonNetwork.Shared.Proto.DyLoadMemberAccountRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
       {
         return LoadMemberAccount(request, new grpc::CallOptions(headers, deadline, cancellationToken));
@@ -446,6 +482,7 @@ namespace DysonNetwork.Shared.Proto {
           .AddMethod(__Method_SearchRealms, serviceImpl.SearchRealms)
           .AddMethod(__Method_SendInviteNotify, serviceImpl.SendInviteNotify)
           .AddMethod(__Method_IsMemberWithRole, serviceImpl.IsMemberWithRole)
+          .AddMethod(__Method_HasPermission, serviceImpl.HasPermission)
           .AddMethod(__Method_LoadMemberAccount, serviceImpl.LoadMemberAccount)
           .AddMethod(__Method_LoadMemberAccounts, serviceImpl.LoadMemberAccounts).Build();
     }
@@ -464,6 +501,7 @@ namespace DysonNetwork.Shared.Proto {
       serviceBinder.AddMethod(__Method_SearchRealms, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DySearchRealmsRequest, global::DysonNetwork.Shared.Proto.DyGetPublicRealmsResponse>(serviceImpl.SearchRealms));
       serviceBinder.AddMethod(__Method_SendInviteNotify, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DySendInviteNotifyRequest, global::Google.Protobuf.WellKnownTypes.Empty>(serviceImpl.SendInviteNotify));
       serviceBinder.AddMethod(__Method_IsMemberWithRole, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyIsMemberWithRoleRequest, global::Google.Protobuf.WellKnownTypes.BoolValue>(serviceImpl.IsMemberWithRole));
+      serviceBinder.AddMethod(__Method_HasPermission, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyHasRealmPermissionRequest, global::Google.Protobuf.WellKnownTypes.BoolValue>(serviceImpl.HasPermission));
       serviceBinder.AddMethod(__Method_LoadMemberAccount, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyLoadMemberAccountRequest, global::DysonNetwork.Shared.Proto.DyRealmMember>(serviceImpl.LoadMemberAccount));
       serviceBinder.AddMethod(__Method_LoadMemberAccounts, serviceImpl == null ? null : new grpc::UnaryServerMethod<global::DysonNetwork.Shared.Proto.DyLoadMemberAccountsRequest, global::DysonNetwork.Shared.Proto.DyLoadMemberAccountsResponse>(serviceImpl.LoadMemberAccounts));
     }

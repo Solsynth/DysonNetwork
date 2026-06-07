@@ -48,6 +48,8 @@ public class AppDatabase(
     public DbSet<StickerPack> StickerPacks { get; set; } = null!;
     public DbSet<StickerPackOwnership> StickerPackOwnerships { get; set; } = null!;
 
+    public DbSet<SnRealmPostModerationLog> RealmPostModerationLogs { get; set; } = null!;
+
     public DbSet<SnFediverseInstance> FediverseInstances { get; set; } = null!;
     public DbSet<SnFediverseActor> FediverseActors { get; set; } = null!;
     public DbSet<SnFediverseRelationship> FediverseRelationships { get; set; } = null!;

@@ -639,12 +639,19 @@ public class PostController(
                 
                 if (!isSubscriber)
                 {
-                    var publisherOwnerName = publisherAccountId.HasValue
-                        ? await db.Accounts
-                            .Where(a => a.Id == publisherAccountId.Value.ToString())
-                            .Select(a => a.Nickname ?? a.Name)
-                            .FirstOrDefaultAsync()
-                        : null;
+                    string? publisherOwnerName = null;
+                    if (publisherAccountId.HasValue)
+                    {
+                        try
+                        {
+                            var account = await accounts.GetAccountAsync(new DyGetAccountRequest { Id = publisherAccountId.Value.ToString() });
+                            publisherOwnerName = account.Nick ?? account.Name;
+                        }
+                        catch
+                        {
+                            // Ignore if account not found
+                        }
+                    }
                     
                     return StatusCode(403, new ApiError
                     {

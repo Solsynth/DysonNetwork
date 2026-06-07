@@ -1763,4 +1763,72 @@ public class PostActionController(
 
         return Ok(boosts);
     }
+
+    [HttpPost("{id:guid}/realm/moderate")]
+    [Authorize]
+    [AskPermission("posts.moderate")]
+    public async Task<ActionResult> ModeratePostInRealm(Guid id, [FromBody] ModeratePostRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var post = await db.Posts
+            .Include(p => p.Publisher)
+            .FirstOrDefaultAsync(p => p.Id == id);
+        
+        if (post is null)
+            return NotFound();
+
+        if (post.RealmId is null)
+            return BadRequest("This post is not linked to a realm.");
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        // Check if user has permission to moderate posts in this realm
+        if (!await rs.HasPermission(post.RealmId.Value, accountId, "post.moderate"))
+            return StatusCode(403, "You do not have permission to moderate posts in this realm.");
+
+        // Check if post is already moderated
+        if (await db.RealmPostModerationLogs.AnyAsync(l => l.PostId == post.Id && l.RealmId == post.RealmId.Value && l.DeletedAt == null))
+            return BadRequest("This post has already been removed from the realm.");
+
+        // Create moderation log
+        var moderationLog = new SnRealmPostModerationLog
+        {
+            RealmId = post.RealmId.Value,
+            PostId = post.Id,
+            ModeratorAccountId = accountId,
+            Reason = request.Reason
+        };
+        db.RealmPostModerationLogs.Add(moderationLog);
+        await db.SaveChangesAsync();
+
+        // Remove post from realm
+        var result = await ps.RemovePostFromRealmAsync(post, accountId, request.Reason);
+
+        als.CreateActionLog(
+            accountId,
+            ActionLogType.PostModerate,
+            new Dictionary<string, object>
+            {
+                { "post_id", post.Id.ToString() },
+                { "realm_id", post.RealmId.ToString() ?? "" },
+                { "reason", request.Reason ?? "" }
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
+
+        return Ok(new
+        {
+            success = true,
+            message = "Post removed from realm",
+            post = result
+        });
+    }
+
+    public class ModeratePostRequest
+    {
+        [MaxLength(4096)] public string? Reason { get; set; }
+    }
 }

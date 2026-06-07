@@ -67,6 +67,18 @@ public class RemoteRealmService(DyRealmService.DyRealmServiceClient realms)
         return response.Value;
     }
 
+    public async Task<bool> HasPermission(Guid realmId, Guid accountId, string permission)
+    {
+        var request = new DyHasRealmPermissionRequest
+        {
+            RealmId = realmId.ToString(),
+            AccountId = accountId.ToString(),
+            Permission = permission
+        };
+        var response = await realms.HasPermissionAsync(request);
+        return response.Value;
+    }
+
     public async Task<SnRealmMember> LoadMemberAccount(SnRealmMember member)
     {
         var protoMember = member.ToProtoValue();

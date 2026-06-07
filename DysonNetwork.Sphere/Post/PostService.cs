@@ -2086,6 +2086,59 @@ public partial class PostService(
         }
     }
 
+    public async Task<SnPost> RemovePostFromRealmAsync(SnPost post, Guid moderatorAccountId, string? reason)
+    {
+        // Make post private
+        post.Visibility = PostVisibility.Private;
+        
+        // Remove realm link
+        post.RealmId = null;
+        
+        // Update post
+        db.Posts.Update(post);
+        await db.SaveChangesAsync();
+        
+        // Send notification to post author
+        if (post.Publisher?.AccountId != null)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = factory.CreateScope();
+                    var nty = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
+                    var accounts = scope.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
+                    var localizer = scope.ServiceProvider.GetRequiredService<ILocalizationService>();
+                    
+                    var account = await accounts.GetAccountAsync(new DyGetAccountRequest { Id = post.Publisher.AccountId.ToString() });
+                    if (account != null)
+                    {
+                        await nty.SendPushNotificationToUserAsync(
+                            new DySendPushNotificationToUserRequest
+                            {
+                                UserId = account.Id,
+                                Notification = new DyPushNotification
+                                {
+                                    Topic = "post.moderation",
+                                    Title = localizer.Get("postRemovedFromRealmTitle", account.Language),
+                                    Body = localizer.Get("postRemovedFromRealmBody", locale: account.Language, args: new { reason = reason ?? "No reason provided" }),
+                                    ActionUri = $"/posts/{post.Id}",
+                                    IsSavable = true
+                                }
+                            }
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Error sending post moderation notification");
+                }
+            });
+        }
+        
+        return post;
+    }
+
     public async Task<SnPost> PinPostAsync(SnPost post, DyAccount currentUser, PostPinMode pinMode)
     {
         var accountId = Guid.Parse(currentUser.Id);

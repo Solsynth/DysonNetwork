@@ -1065,4 +1065,169 @@ public class RealmController(
 
         return NoContent();
     }
+
+    #region Permission Endpoints
+
+    public class RealmRolePermissionRequest
+    {
+        [Required] public int RoleLevel { get; set; }
+        [Required] public bool CanChat { get; set; }
+        [Required] public bool CanPost { get; set; }
+        [Required] public bool CanComment { get; set; }
+        [Required] public bool CanUploadMedia { get; set; }
+        [Required] public bool CanModeratePosts { get; set; }
+        [Required] public bool CanModerateChat { get; set; }
+        [Required] public bool CanManageMembers { get; set; }
+        [Required] public bool CanManageRealm { get; set; }
+    }
+
+    public class RealmUserPermissionRequest
+    {
+        [Required] public Guid AccountId { get; set; }
+        public bool? CanChat { get; set; }
+        public bool? CanPost { get; set; }
+        public bool? CanComment { get; set; }
+        public bool? CanUploadMedia { get; set; }
+        public bool? CanModeratePosts { get; set; }
+        public bool? CanModerateChat { get; set; }
+        public bool? CanManageMembers { get; set; }
+        public bool? CanManageRealm { get; set; }
+    }
+
+    public class ModeratePostRequest
+    {
+        [MaxLength(4096)] public string? Reason { get; set; }
+    }
+
+    [HttpGet("{slug}/permissions/roles")]
+    [Authorize]
+    public async Task<ActionResult<List<SnRealmRolePermission>>> GetRolePermissions(string slug)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+
+        if (!await rs.HasPermission(realm.Id, currentUser.Id, "realm.manage"))
+            return StatusCode(403, "You do not have permission to manage realm permissions.");
+
+        var permissions = await rs.GetRolePermissions(realm.Id);
+        return Ok(permissions);
+    }
+
+    [HttpPost("{slug}/permissions/roles")]
+    [Authorize]
+    public async Task<ActionResult<SnRealmRolePermission>> UpdateRolePermissions(string slug, [FromBody] RealmRolePermissionRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+
+        if (!await rs.HasPermission(realm.Id, currentUser.Id, "realm.manage"))
+            return StatusCode(403, "You do not have permission to manage realm permissions.");
+
+        var permission = new SnRealmRolePermission
+        {
+            CanChat = request.CanChat,
+            CanPost = request.CanPost,
+            CanComment = request.CanComment,
+            CanUploadMedia = request.CanUploadMedia,
+            CanModeratePosts = request.CanModeratePosts,
+            CanModerateChat = request.CanModerateChat,
+            CanManageMembers = request.CanManageMembers,
+            CanManageRealm = request.CanManageRealm
+        };
+
+        var result = await rs.UpdateRolePermission(realm.Id, request.RoleLevel, permission);
+
+        als.CreateActionLogFromRequest(
+            "realms.permissions.role.update",
+            new Dictionary<string, object>()
+            {
+                { "realm_id", Value.ForString(realm.Id.ToString()) },
+                { "role_level", Value.ForNumber(request.RoleLevel) }
+            },
+            Request
+        );
+
+        return Ok(result);
+    }
+
+    [HttpGet("{slug}/permissions/users/{accountId:guid}")]
+    [Authorize]
+    public async Task<ActionResult<SnRealmUserPermission>> GetUserPermissions(string slug, Guid accountId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+
+        if (!await rs.HasPermission(realm.Id, currentUser.Id, "realm.manage"))
+            return StatusCode(403, "You do not have permission to manage realm permissions.");
+
+        var permission = await rs.GetUserPermission(realm.Id, accountId);
+        return Ok(permission);
+    }
+
+    [HttpPost("{slug}/permissions/users")]
+    [Authorize]
+    public async Task<ActionResult<SnRealmUserPermission>> UpdateUserPermissions(string slug, [FromBody] RealmUserPermissionRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+
+        if (!await rs.HasPermission(realm.Id, currentUser.Id, "realm.manage"))
+            return StatusCode(403, "You do not have permission to manage realm permissions.");
+
+        var permission = new SnRealmUserPermission
+        {
+            CanChat = request.CanChat,
+            CanPost = request.CanPost,
+            CanComment = request.CanComment,
+            CanUploadMedia = request.CanUploadMedia,
+            CanModeratePosts = request.CanModeratePosts,
+            CanModerateChat = request.CanModerateChat,
+            CanManageMembers = request.CanManageMembers,
+            CanManageRealm = request.CanManageRealm
+        };
+
+        var result = await rs.UpdateUserPermission(realm.Id, request.AccountId, permission);
+
+        als.CreateActionLogFromRequest(
+            "realms.permissions.user.update",
+            new Dictionary<string, object>()
+            {
+                { "realm_id", Value.ForString(realm.Id.ToString()) },
+                { "account_id", Value.ForString(request.AccountId.ToString()) }
+            },
+            Request
+        );
+
+        return Ok(result);
+    }
+
+    [HttpGet("{slug}/posts/moderation-logs")]
+    [Authorize]
+    public async Task<ActionResult> GetModerationLogs(string slug, [FromQuery] int offset = 0, [FromQuery] int take = 20)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var realm = await rs.GetBySlug(slug);
+        if (realm is null) return NotFound();
+
+        if (!await rs.HasPermission(realm.Id, currentUser.Id, "post.moderate"))
+            return StatusCode(403, "You do not have permission to view moderation logs.");
+
+        var logs = await rs.GetModerationLogs(realm.Id, offset, take);
+        var total = await rs.GetModerationLogsCount(realm.Id);
+
+        Response.Headers.Append("X-Total", total.ToString());
+
+        return Ok(logs);
+    }
+
+    #endregion
 }

@@ -266,7 +266,7 @@ namespace DysonNetwork.Shared.Proto {
     [pbr::OriginalName("DY_POST_UNLISTED")] DyPostUnlisted = 3,
     [pbr::OriginalName("DY_POST_PRIVATE")] DyPostPrivate = 4,
     [pbr::OriginalName("DY_POST_CLOSE_FRIENDS_ONLY")] DyPostCloseFriendsOnly = 5,
-    [pbr::OriginalName("DY_POST_SUBSCRIBER_ONLY")] DyPostQuietPublic = 6,
+    [pbr::OriginalName("DY_POST_SUBSCRIBER_ONLY")] DyPostSubscriberOnly = 6,
   }
 
   public enum DyPostPinMode {

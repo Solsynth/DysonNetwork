@@ -69,31 +69,35 @@ namespace DysonNetwork.Shared.Proto {
             "ZXN0EiwKBm1lbWJlchgBIAEoCzIULnByb3RvLkR5UmVhbG1NZW1iZXJSBm1l",
             "bWJlciJ8ChlEeUlzTWVtYmVyV2l0aFJvbGVSZXF1ZXN0EhkKCHJlYWxtX2lk",
             "GAEgASgJUgdyZWFsbUlkEh0KCmFjY291bnRfaWQYAiABKAlSCWFjY291bnRJ",
-            "ZBIlCg5yZXF1aXJlZF9yb2xlcxgDIAMoBVINcmVxdWlyZWRSb2xlcyJKChpE",
-            "eUxvYWRNZW1iZXJBY2NvdW50UmVxdWVzdBIsCgZtZW1iZXIYASABKAsyFC5w",
-            "cm90by5EeVJlYWxtTWVtYmVyUgZtZW1iZXIiTQobRHlMb2FkTWVtYmVyQWNj",
-            "b3VudHNSZXF1ZXN0Ei4KB21lbWJlcnMYASADKAsyFC5wcm90by5EeVJlYWxt",
-            "TWVtYmVyUgdtZW1iZXJzIk4KHER5TG9hZE1lbWJlckFjY291bnRzUmVzcG9u",
-            "c2USLgoHbWVtYmVycxgBIAMoCzIULnByb3RvLkR5UmVhbG1NZW1iZXJSB21l",
-            "bWJlcnMy6wUKDkR5UmVhbG1TZXJ2aWNlEjYKCEdldFJlYWxtEhgucHJvdG8u",
-            "RHlHZXRSZWFsbVJlcXVlc3QaDi5wcm90by5EeVJlYWxtIgASUAoNR2V0UmVh",
-            "bG1CYXRjaBIdLnByb3RvLkR5R2V0UmVhbG1CYXRjaFJlcXVlc3QaHi5wcm90",
-            "by5EeUdldFJlYWxtQmF0Y2hSZXNwb25zZSIAElAKDUdldFVzZXJSZWFsbXMS",
-            "HS5wcm90by5EeUdldFVzZXJSZWFsbXNSZXF1ZXN0Gh4ucHJvdG8uRHlHZXRV",
-            "c2VyUmVhbG1zUmVzcG9uc2UiABJWCg9HZXRQdWJsaWNSZWFsbXMSHy5wcm90",
-            "by5EeUdldFB1YmxpY1JlYWxtc1JlcXVlc3QaIC5wcm90by5EeUdldFB1Ymxp",
-            "Y1JlYWxtc1Jlc3BvbnNlIgASUAoMU2VhcmNoUmVhbG1zEhwucHJvdG8uRHlT",
-            "ZWFyY2hSZWFsbXNSZXF1ZXN0GiAucHJvdG8uRHlHZXRQdWJsaWNSZWFsbXNS",
-            "ZXNwb25zZSIAEk4KEFNlbmRJbnZpdGVOb3RpZnkSIC5wcm90by5EeVNlbmRJ",
-            "bnZpdGVOb3RpZnlSZXF1ZXN0GhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5IgAS",
-            "UgoQSXNNZW1iZXJXaXRoUm9sZRIgLnByb3RvLkR5SXNNZW1iZXJXaXRoUm9s",
-            "ZVJlcXVlc3QaGi5nb29nbGUucHJvdG9idWYuQm9vbFZhbHVlIgASTgoRTG9h",
-            "ZE1lbWJlckFjY291bnQSIS5wcm90by5EeUxvYWRNZW1iZXJBY2NvdW50UmVx",
-            "dWVzdBoULnByb3RvLkR5UmVhbG1NZW1iZXIiABJfChJMb2FkTWVtYmVyQWNj",
-            "b3VudHMSIi5wcm90by5EeUxvYWRNZW1iZXJBY2NvdW50c1JlcXVlc3QaIy5w",
-            "cm90by5EeUxvYWRNZW1iZXJBY2NvdW50c1Jlc3BvbnNlIgBCPVofc3JjLnNv",
-            "bHN5bnRoLmRldi9zb3N5cy9nby9wcm90b6oCGUR5c29uTmV0d29yay5TaGFy",
-            "ZWQuUHJvdG9iBnByb3RvMw=="));
+            "ZBIlCg5yZXF1aXJlZF9yb2xlcxgDIAMoBVINcmVxdWlyZWRSb2xlcyJ3ChtE",
+            "eUhhc1JlYWxtUGVybWlzc2lvblJlcXVlc3QSGQoIcmVhbG1faWQYASABKAlS",
+            "B3JlYWxtSWQSHQoKYWNjb3VudF9pZBgCIAEoCVIJYWNjb3VudElkEh4KCnBl",
+            "cm1pc3Npb24YAyABKAlSCnBlcm1pc3Npb24iSgoaRHlMb2FkTWVtYmVyQWNj",
+            "b3VudFJlcXVlc3QSLAoGbWVtYmVyGAEgASgLMhQucHJvdG8uRHlSZWFsbU1l",
+            "bWJlclIGbWVtYmVyIk0KG0R5TG9hZE1lbWJlckFjY291bnRzUmVxdWVzdBIu",
+            "CgdtZW1iZXJzGAEgAygLMhQucHJvdG8uRHlSZWFsbU1lbWJlclIHbWVtYmVy",
+            "cyJOChxEeUxvYWRNZW1iZXJBY2NvdW50c1Jlc3BvbnNlEi4KB21lbWJlcnMY",
+            "ASADKAsyFC5wcm90by5EeVJlYWxtTWVtYmVyUgdtZW1iZXJzMr4GCg5EeVJl",
+            "YWxtU2VydmljZRI2CghHZXRSZWFsbRIYLnByb3RvLkR5R2V0UmVhbG1SZXF1",
+            "ZXN0Gg4ucHJvdG8uRHlSZWFsbSIAElAKDUdldFJlYWxtQmF0Y2gSHS5wcm90",
+            "by5EeUdldFJlYWxtQmF0Y2hSZXF1ZXN0Gh4ucHJvdG8uRHlHZXRSZWFsbUJh",
+            "dGNoUmVzcG9uc2UiABJQCg1HZXRVc2VyUmVhbG1zEh0ucHJvdG8uRHlHZXRV",
+            "c2VyUmVhbG1zUmVxdWVzdBoeLnByb3RvLkR5R2V0VXNlclJlYWxtc1Jlc3Bv",
+            "bnNlIgASVgoPR2V0UHVibGljUmVhbG1zEh8ucHJvdG8uRHlHZXRQdWJsaWNS",
+            "ZWFsbXNSZXF1ZXN0GiAucHJvdG8uRHlHZXRQdWJsaWNSZWFsbXNSZXNwb25z",
+            "ZSIAElAKDFNlYXJjaFJlYWxtcxIcLnByb3RvLkR5U2VhcmNoUmVhbG1zUmVx",
+            "dWVzdBogLnByb3RvLkR5R2V0UHVibGljUmVhbG1zUmVzcG9uc2UiABJOChBT",
+            "ZW5kSW52aXRlTm90aWZ5EiAucHJvdG8uRHlTZW5kSW52aXRlTm90aWZ5UmVx",
+            "dWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eSIAElIKEElzTWVtYmVyV2l0",
+            "aFJvbGUSIC5wcm90by5EeUlzTWVtYmVyV2l0aFJvbGVSZXF1ZXN0GhouZ29v",
+            "Z2xlLnByb3RvYnVmLkJvb2xWYWx1ZSIAElEKDUhhc1Blcm1pc3Npb24SIi5w",
+            "cm90by5EeUhhc1JlYWxtUGVybWlzc2lvblJlcXVlc3QaGi5nb29nbGUucHJv",
+            "dG9idWYuQm9vbFZhbHVlIgASTgoRTG9hZE1lbWJlckFjY291bnQSIS5wcm90",
+            "by5EeUxvYWRNZW1iZXJBY2NvdW50UmVxdWVzdBoULnByb3RvLkR5UmVhbG1N",
+            "ZW1iZXIiABJfChJMb2FkTWVtYmVyQWNjb3VudHMSIi5wcm90by5EeUxvYWRN",
+            "ZW1iZXJBY2NvdW50c1JlcXVlc3QaIy5wcm90by5EeUxvYWRNZW1iZXJBY2Nv",
+            "dW50c1Jlc3BvbnNlIgBCPVofc3JjLnNvbHN5bnRoLmRldi9zb3N5cy9nby9w",
+            "cm90b6oCGUR5c29uTmV0d29yay5TaGFyZWQuUHJvdG9iBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Google.Protobuf.WellKnownTypes.TimestampReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.WrappersReflection.Descriptor, global::Google.Protobuf.WellKnownTypes.EmptyReflection.Descriptor, global::DysonNetwork.Shared.Proto.AccountReflection.Descriptor, global::DysonNetwork.Shared.Proto.FileReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
@@ -110,6 +114,7 @@ namespace DysonNetwork.Shared.Proto {
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DySearchRealmsRequest), global::DysonNetwork.Shared.Proto.DySearchRealmsRequest.Parser, new[]{ "Query", "Limit" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DySendInviteNotifyRequest), global::DysonNetwork.Shared.Proto.DySendInviteNotifyRequest.Parser, new[]{ "Member" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyIsMemberWithRoleRequest), global::DysonNetwork.Shared.Proto.DyIsMemberWithRoleRequest.Parser, new[]{ "RealmId", "AccountId", "RequiredRoles" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyHasRealmPermissionRequest), global::DysonNetwork.Shared.Proto.DyHasRealmPermissionRequest.Parser, new[]{ "RealmId", "AccountId", "Permission" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyLoadMemberAccountRequest), global::DysonNetwork.Shared.Proto.DyLoadMemberAccountRequest.Parser, new[]{ "Member" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyLoadMemberAccountsRequest), global::DysonNetwork.Shared.Proto.DyLoadMemberAccountsRequest.Parser, new[]{ "Members" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::DysonNetwork.Shared.Proto.DyLoadMemberAccountsResponse), global::DysonNetwork.Shared.Proto.DyLoadMemberAccountsResponse.Parser, new[]{ "Members" }, null, null, null, null)
@@ -4018,6 +4023,278 @@ namespace DysonNetwork.Shared.Proto {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DyHasRealmPermissionRequest : pb::IMessage<DyHasRealmPermissionRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DyHasRealmPermissionRequest> _parser = new pb::MessageParser<DyHasRealmPermissionRequest>(() => new DyHasRealmPermissionRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DyHasRealmPermissionRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[13]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyHasRealmPermissionRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyHasRealmPermissionRequest(DyHasRealmPermissionRequest other) : this() {
+      realmId_ = other.realmId_;
+      accountId_ = other.accountId_;
+      permission_ = other.permission_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DyHasRealmPermissionRequest Clone() {
+      return new DyHasRealmPermissionRequest(this);
+    }
+
+    /// <summary>Field number for the "realm_id" field.</summary>
+    public const int RealmIdFieldNumber = 1;
+    private string realmId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string RealmId {
+      get { return realmId_; }
+      set {
+        realmId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "account_id" field.</summary>
+    public const int AccountIdFieldNumber = 2;
+    private string accountId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string AccountId {
+      get { return accountId_; }
+      set {
+        accountId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "permission" field.</summary>
+    public const int PermissionFieldNumber = 3;
+    private string permission_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Permission {
+      get { return permission_; }
+      set {
+        permission_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DyHasRealmPermissionRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DyHasRealmPermissionRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (RealmId != other.RealmId) return false;
+      if (AccountId != other.AccountId) return false;
+      if (Permission != other.Permission) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (RealmId.Length != 0) hash ^= RealmId.GetHashCode();
+      if (AccountId.Length != 0) hash ^= AccountId.GetHashCode();
+      if (Permission.Length != 0) hash ^= Permission.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (RealmId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(RealmId);
+      }
+      if (AccountId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(AccountId);
+      }
+      if (Permission.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(Permission);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (RealmId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(RealmId);
+      }
+      if (AccountId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(AccountId);
+      }
+      if (Permission.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(Permission);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (RealmId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(RealmId);
+      }
+      if (AccountId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(AccountId);
+      }
+      if (Permission.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Permission);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DyHasRealmPermissionRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.RealmId.Length != 0) {
+        RealmId = other.RealmId;
+      }
+      if (other.AccountId.Length != 0) {
+        AccountId = other.AccountId;
+      }
+      if (other.Permission.Length != 0) {
+        Permission = other.Permission;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            RealmId = input.ReadString();
+            break;
+          }
+          case 18: {
+            AccountId = input.ReadString();
+            break;
+          }
+          case 26: {
+            Permission = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            RealmId = input.ReadString();
+            break;
+          }
+          case 18: {
+            AccountId = input.ReadString();
+            break;
+          }
+          case 26: {
+            Permission = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class DyLoadMemberAccountRequest : pb::IMessage<DyLoadMemberAccountRequest>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -4032,7 +4309,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[13]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[14]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -4239,7 +4516,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[14]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[15]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -4426,7 +4703,7 @@ namespace DysonNetwork.Shared.Proto {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[15]; }
+      get { return global::DysonNetwork.Shared.Proto.RealmReflection.Descriptor.MessageTypes[16]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

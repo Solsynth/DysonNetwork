@@ -24,6 +24,8 @@ public class AppDatabase(
     public DbSet<SnChatVoiceClip> ChatVoiceClips { get; set; } = null!;
     public DbSet<SnChatMessagePin> ChatMessagePins { get; set; } = null!;
 
+
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql(

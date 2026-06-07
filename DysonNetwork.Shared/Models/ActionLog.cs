@@ -87,6 +87,7 @@ public abstract class ActionLogType
     public const string PostUnboost = "posts.unboost";
     public const string PostBookmark = "posts.bookmark";
     public const string PostUnbookmark = "posts.unbookmark";
+    public const string PostModerate = "posts.moderate";
     public const string ChatUse = "chat.use";
     public const string MessageUpdate = "messages.update";
     public const string MessageDelete = "messages.delete";

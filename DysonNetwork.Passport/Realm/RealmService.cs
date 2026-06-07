@@ -204,4 +204,224 @@ public class RealmService(
             return m;
         }).ToList();
     }
+
+    #region Permission Methods
+
+    public async Task<bool> HasPermission(Guid realmId, Guid accountId, string permission)
+    {
+        // Check user-specific override first
+        var userPermission = await db.RealmUserPermissions
+            .FirstOrDefaultAsync(p => p.RealmId == realmId && p.AccountId == accountId && p.DeletedAt == null);
+        
+        if (userPermission != null)
+        {
+            var userValue = permission switch
+            {
+                "chat.send" => userPermission.CanChat,
+                "post.create" => userPermission.CanPost,
+                "post.comment" => userPermission.CanComment,
+                "media.upload" => userPermission.CanUploadMedia,
+                "post.moderate" => userPermission.CanModeratePosts,
+                "chat.moderate" => userPermission.CanModerateChat,
+                "members.manage" => userPermission.CanManageMembers,
+                "realm.manage" => userPermission.CanManageRealm,
+                _ => (bool?)null
+            };
+            
+            if (userValue.HasValue)
+                return userValue.Value;
+        }
+        
+        return await GetRolePermission(realmId, accountId, permission);
+    }
+
+    private async Task<bool> GetRolePermission(Guid realmId, Guid accountId, string permission)
+    {
+        var member = await GetActiveMember(realmId, accountId);
+        if (member == null) return false;
+        
+        var rolePermission = await db.RealmRolePermissions
+            .FirstOrDefaultAsync(p => p.RealmId == realmId && p.RoleLevel == member.Role && p.DeletedAt == null);
+        
+        if (rolePermission != null)
+        {
+            return permission switch
+            {
+                "chat.send" => rolePermission.CanChat,
+                "post.create" => rolePermission.CanPost,
+                "post.comment" => rolePermission.CanComment,
+                "media.upload" => rolePermission.CanUploadMedia,
+                "post.moderate" => rolePermission.CanModeratePosts,
+                "chat.moderate" => rolePermission.CanModerateChat,
+                "members.manage" => rolePermission.CanManageMembers,
+                "realm.manage" => rolePermission.CanManageRealm,
+                _ => false
+            };
+        }
+        
+        return GetDefaultPermission(member.Role, permission);
+    }
+
+    public bool GetDefaultPermission(int role, string permission)
+    {
+        // Default permissions for each role
+        return role switch
+        {
+            RealmMemberRole.Owner => true,
+            RealmMemberRole.Moderator => permission switch
+            {
+                "chat.send" => true,
+                "post.create" => true,
+                "post.comment" => true,
+                "media.upload" => true,
+                "post.moderate" => true,
+                "chat.moderate" => true,
+                "members.manage" => true,
+                "realm.manage" => false,
+                _ => false
+            },
+            RealmMemberRole.Normal => permission switch
+            {
+                "chat.send" => true,
+                "post.create" => true,
+                "post.comment" => true,
+                "media.upload" => true,
+                "post.moderate" => false,
+                "chat.moderate" => false,
+                "members.manage" => false,
+                "realm.manage" => false,
+                _ => false
+            },
+            _ => false
+        };
+    }
+
+    public async Task<List<SnRealmRolePermission>> GetRolePermissions(Guid realmId)
+    {
+        return await db.RealmRolePermissions
+            .Where(p => p.RealmId == realmId && p.DeletedAt == null)
+            .OrderBy(p => p.RoleLevel)
+            .ToListAsync();
+    }
+
+    public async Task<SnRealmRolePermission?> GetRolePermission(Guid realmId, int roleLevel)
+    {
+        return await db.RealmRolePermissions
+            .FirstOrDefaultAsync(p => p.RealmId == realmId && p.RoleLevel == roleLevel && p.DeletedAt == null);
+    }
+
+    public async Task<SnRealmRolePermission> UpdateRolePermission(Guid realmId, int roleLevel, SnRealmRolePermission permission)
+    {
+        var existing = await db.RealmRolePermissions
+            .FirstOrDefaultAsync(p => p.RealmId == realmId && p.RoleLevel == roleLevel && p.DeletedAt == null);
+        
+        if (existing != null)
+        {
+            existing.CanChat = permission.CanChat;
+            existing.CanPost = permission.CanPost;
+            existing.CanComment = permission.CanComment;
+            existing.CanUploadMedia = permission.CanUploadMedia;
+            existing.CanModeratePosts = permission.CanModeratePosts;
+            existing.CanModerateChat = permission.CanModerateChat;
+            existing.CanManageMembers = permission.CanManageMembers;
+            existing.CanManageRealm = permission.CanManageRealm;
+            
+            db.RealmRolePermissions.Update(existing);
+            await db.SaveChangesAsync();
+            
+            return existing;
+        }
+        
+        permission.RealmId = realmId;
+        permission.RoleLevel = roleLevel;
+        
+        db.RealmRolePermissions.Add(permission);
+        await db.SaveChangesAsync();
+        
+        return permission;
+    }
+
+    public async Task<SnRealmUserPermission?> GetUserPermission(Guid realmId, Guid accountId)
+    {
+        return await db.RealmUserPermissions
+            .FirstOrDefaultAsync(p => p.RealmId == realmId && p.AccountId == accountId && p.DeletedAt == null);
+    }
+
+    public async Task<SnRealmUserPermission> UpdateUserPermission(Guid realmId, Guid accountId, SnRealmUserPermission permission)
+    {
+        var existing = await db.RealmUserPermissions
+            .FirstOrDefaultAsync(p => p.RealmId == realmId && p.AccountId == accountId && p.DeletedAt == null);
+        
+        if (existing != null)
+        {
+            existing.CanChat = permission.CanChat;
+            existing.CanPost = permission.CanPost;
+            existing.CanComment = permission.CanComment;
+            existing.CanUploadMedia = permission.CanUploadMedia;
+            existing.CanModeratePosts = permission.CanModeratePosts;
+            existing.CanModerateChat = permission.CanModerateChat;
+            existing.CanManageMembers = permission.CanManageMembers;
+            existing.CanManageRealm = permission.CanManageRealm;
+            
+            db.RealmUserPermissions.Update(existing);
+            await db.SaveChangesAsync();
+            
+            return existing;
+        }
+        
+        permission.RealmId = realmId;
+        permission.AccountId = accountId;
+        
+        db.RealmUserPermissions.Add(permission);
+        await db.SaveChangesAsync();
+        
+        return permission;
+    }
+
+    public async Task<SnRealmPostModerationLog> ModeratePost(Guid realmId, Guid postId, Guid moderatorAccountId, string? reason)
+    {
+        // Check if post is already moderated
+        var existingLog = await db.RealmPostModerationLogs
+            .FirstOrDefaultAsync(l => l.PostId == postId && l.RealmId == realmId && l.DeletedAt == null);
+        
+        if (existingLog != null)
+            throw new InvalidOperationException("This post has already been removed from the realm.");
+        
+        var log = new SnRealmPostModerationLog
+        {
+            RealmId = realmId,
+            PostId = postId,
+            ModeratorAccountId = moderatorAccountId,
+            Reason = reason
+        };
+        
+        db.RealmPostModerationLogs.Add(log);
+        await db.SaveChangesAsync();
+        
+        return log;
+    }
+
+    public async Task<bool> IsPostModerated(Guid realmId, Guid postId)
+    {
+        return await db.RealmPostModerationLogs
+            .AnyAsync(l => l.PostId == postId && l.RealmId == realmId && l.DeletedAt == null);
+    }
+
+    public async Task<List<SnRealmPostModerationLog>> GetModerationLogs(Guid realmId, int offset = 0, int take = 20)
+    {
+        return await db.RealmPostModerationLogs
+            .Where(l => l.RealmId == realmId && l.DeletedAt == null)
+            .OrderByDescending(l => l.ModeratedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+    }
+
+    public async Task<int> GetModerationLogsCount(Guid realmId)
+    {
+        return await db.RealmPostModerationLogs
+            .CountAsync(l => l.RealmId == realmId && l.DeletedAt == null);
+    }
+
+    #endregion
 }

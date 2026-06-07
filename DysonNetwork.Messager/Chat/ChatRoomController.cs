@@ -1888,4 +1888,170 @@ public class ChatRoomController(
         if (!moved) return BadRequest("Failed to move the room to the specified group.");
         return Ok();
     }
+
+    #region Chat Moderation Endpoints
+
+    public class TimeoutUserRequest
+    {
+        [Required] public int DurationMinutes { get; set; }
+        [MaxLength(4096)] public string? Reason { get; set; }
+    }
+
+    [HttpDelete("rooms/{roomId:guid}/messages/{messageId:guid}")]
+    [Authorize]
+    public async Task<ActionResult> DeleteMessage(Guid roomId, Guid messageId, [FromBody] DeleteMessageRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var room = await db.ChatRooms.FindAsync(roomId);
+        if (room is null) return NotFound();
+
+        // Check if user has permission to moderate chat in this realm
+        if (room.RealmId.HasValue)
+        {
+            if (!await rs.HasPermission(room.RealmId.Value, accountId, "chat.moderate"))
+                return StatusCode(403, "You do not have permission to moderate chat in this realm.");
+        }
+        else
+        {
+            return StatusCode(403, "Chat moderation is only available for realm chat rooms.");
+        }
+
+        var message = await db.ChatMessages
+            .FirstOrDefaultAsync(m => m.Id == messageId && m.ChatRoomId == roomId);
+        
+        if (message is null) return NotFound();
+
+        // Soft delete the message
+        message.DeletedAt = SystemClock.Instance.GetCurrentInstant();
+        message.Content = "[Message deleted by moderator]";
+        
+        db.ChatMessages.Update(message);
+        await db.SaveChangesAsync();
+
+        // Send notification to message sender
+        if (message.Sender?.AccountId != null)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var account = await accounts.GetAccountAsync(new DyGetAccountRequest { Id = message.Sender.AccountId.ToString() });
+                    if (account != null)
+                    {
+                        await pusher.SendPushNotificationToUserAsync(
+                            new DySendPushNotificationToUserRequest
+                            {
+                                UserId = account.Id,
+                                Notification = new DyPushNotification
+                                {
+                                    Topic = "chat.moderation",
+                                    Title = localization.Get("messageDeletedTitle", account.Language),
+                                    Body = localization.Get("messageDeletedBody", locale: account.Language, args: new { reason = request.Reason ?? "No reason provided" }),
+                                    ActionUri = $"/chat/rooms/{roomId}",
+                                    IsSavable = true
+                                }
+                            }
+                        );
+                    }
+                }
+                catch (Exception)
+                {
+                    // Log error but don't fail the request
+                }
+            });
+        }
+
+        return NoContent();
+    }
+
+    [HttpPost("rooms/{roomId:guid}/members/{accountId:guid}/timeout")]
+    [Authorize]
+    public async Task<ActionResult> TimeoutUser(Guid roomId, Guid accountId, [FromBody] TimeoutUserRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var currentAccountId = Guid.Parse(currentUser.Id);
+
+        var room = await db.ChatRooms.FindAsync(roomId);
+        if (room is null) return NotFound();
+
+        // Check if user has permission to moderate chat in this realm
+        if (room.RealmId.HasValue)
+        {
+            if (!await rs.HasPermission(room.RealmId.Value, currentAccountId, "chat.moderate"))
+                return StatusCode(403, "You do not have permission to moderate chat in this realm.");
+        }
+        else
+        {
+            return StatusCode(403, "Chat moderation is only available for realm chat rooms.");
+        }
+
+        var member = await db.ChatMembers
+            .FirstOrDefaultAsync(m => m.ChatRoomId == roomId && m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null);
+        
+        if (member is null) return NotFound();
+
+        // Set timeout
+        var timeoutUntil = SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromMinutes(request.DurationMinutes));
+        member.TimeoutUntil = timeoutUntil;
+        member.TimeoutCause = new ChatTimeoutCause
+        {
+            Reason = request.Reason,
+            Type = ChatTimeoutCauseType.ByModerator,
+            SenderId = currentAccountId,
+            Since = SystemClock.Instance.GetCurrentInstant()
+        };
+        
+        db.ChatMembers.Update(member);
+        await db.SaveChangesAsync();
+
+        // Send notification to timed out user
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var account = await accounts.GetAccountAsync(new DyGetAccountRequest { Id = accountId.ToString() });
+                if (account != null)
+                {
+                    await pusher.SendPushNotificationToUserAsync(
+                        new DySendPushNotificationToUserRequest
+                        {
+                            UserId = account.Id,
+                            Notification = new DyPushNotification
+                            {
+                                Topic = "chat.timeout",
+                                Title = localization.Get("chatTimeoutTitle", account.Language),
+                                Body = localization.Get("chatTimeoutBody", locale: account.Language, args: new { duration = request.DurationMinutes, reason = request.Reason ?? "No reason provided" }),
+                                ActionUri = $"/chat/rooms/{roomId}",
+                                IsSavable = true
+                            }
+                        }
+                    );
+                }
+            }
+            catch (Exception)
+            {
+                // Log error but don't fail the request
+            }
+        });
+
+        return Ok(new
+        {
+            success = true,
+            message = "User timed out",
+            timeoutUntil = timeoutUntil
+        });
+    }
+
+    public class DeleteMessageRequest
+    {
+        [MaxLength(4096)] public string? Reason { get; set; }
+    }
+
+    #endregion
 }
