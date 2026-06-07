@@ -33,4 +33,36 @@ public class BotAccountPublicController(BotAccountService botService, DeveloperS
 
         return Ok(developer);
     }
+
+    [HttpGet("{botId:guid}/chat")]
+    public async Task<ActionResult<SnBotChatConfig>> GetBotChatConfig([FromRoute] Guid botId)
+    {
+        var bot = await botService.GetBotByIdAsync(botId);
+        if (bot is null) return NotFound("Bot not found");
+
+        var config = await botService.GetChatConfigOrNullAsync(botId);
+        if (config is null)
+        {
+            // Return default config
+            return Ok(new SnBotChatConfig
+            {
+                Id = botId,
+                AutoApproveDm = true,
+                SupportChat = true,
+                SubscribedEvents = ["messages.new"]
+            });
+        }
+
+        return Ok(config);
+    }
+
+    [HttpGet("{botId:guid}/commands")]
+    public async Task<ActionResult<List<SnBotCommand>>> GetBotCommands([FromRoute] Guid botId)
+    {
+        var bot = await botService.GetBotByIdAsync(botId);
+        if (bot is null) return NotFound("Bot not found");
+
+        var config = await botService.GetChatConfigOrNullAsync(botId);
+        return Ok(config?.Commands ?? []);
+    }
 }

@@ -194,4 +194,59 @@ public class BotAccountService(
 
         return bots;
     }
+
+    // --- Bot Chat Config ---
+
+    public async Task<SnBotChatConfig> GetChatConfigAsync(Guid botId)
+    {
+        var config = await db.BotChatConfigs
+            .FirstOrDefaultAsync(c => c.Id == botId);
+
+        if (config is null)
+        {
+            // Return a default config if none exists yet
+            config = new SnBotChatConfig
+            {
+                Id = botId,
+                CreatedAt = NodaTime.SystemClock.Instance.GetCurrentInstant(),
+                UpdatedAt = NodaTime.SystemClock.Instance.GetCurrentInstant()
+            };
+            db.BotChatConfigs.Add(config);
+            await db.SaveChangesAsync();
+        }
+
+        return config;
+    }
+
+    public async Task<SnBotChatConfig> UpdateChatConfigAsync(Guid botId, SnBotChatConfig updatedConfig)
+    {
+        var config = await db.BotChatConfigs
+            .FirstOrDefaultAsync(c => c.Id == botId);
+
+        if (config is null)
+        {
+            config = new SnBotChatConfig
+            {
+                Id = botId,
+                CreatedAt = NodaTime.SystemClock.Instance.GetCurrentInstant()
+            };
+            db.BotChatConfigs.Add(config);
+        }
+
+        config.Commands = updatedConfig.Commands;
+        config.Webhooks = updatedConfig.Webhooks;
+        config.AutoApproveDm = updatedConfig.AutoApproveDm;
+        config.SupportChat = updatedConfig.SupportChat;
+        config.SubscribedEvents = updatedConfig.SubscribedEvents;
+        config.UpdatedAt = NodaTime.SystemClock.Instance.GetCurrentInstant();
+
+        await db.SaveChangesAsync();
+        return config;
+    }
+
+    public async Task<SnBotChatConfig?> GetChatConfigOrNullAsync(Guid botId)
+    {
+        return await db.BotChatConfigs
+            .FirstOrDefaultAsync(c => c.Id == botId);
+    }
 }

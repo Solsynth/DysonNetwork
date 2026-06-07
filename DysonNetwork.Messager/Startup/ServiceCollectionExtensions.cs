@@ -220,6 +220,34 @@ public static class ServiceCollectionExtensions
                         opts.ConsumerName = "messager_account_presence_activities";
                         opts.MaxRetries = 3;
                     }
+                )
+                .AddListener<BotChatMessageEvent>(
+                    "bot.chat.message",
+                    async (evt, ctx) =>
+                    {
+                        await HandleBotChatMessage(evt, ctx);
+                    },
+                    opts =>
+                    {
+                        opts.UseJetStream = true;
+                        opts.StreamName = "bot_chat_events";
+                        opts.ConsumerName = "messager_bot_webhook_delivery";
+                        opts.MaxRetries = 3;
+                    }
+                )
+                .AddListener<BotChatConfigUpdatedEvent>(
+                    "bot.chat.config.updated",
+                    async (evt, ctx) =>
+                    {
+                        await HandleBotChatConfigUpdated(evt, ctx);
+                    },
+                    opts =>
+                    {
+                        opts.UseJetStream = true;
+                        opts.StreamName = "bot_chat_events";
+                        opts.ConsumerName = "messager_bot_config_cache_invalidation";
+                        opts.MaxRetries = 3;
+                    }
                 );
 
             return services;
@@ -953,6 +981,144 @@ public static class ServiceCollectionExtensions
             {
                 logger.LogError(ex, "Failed to finalize placeholder for account {AccountId}", evt.AccountId);
                 await SendErrorResponse(evt, "Failed to finalize placeholder.", ws);
+            }
+        }
+
+        private static async Task HandleBotChatMessage(BotChatMessageEvent evt, EventContext ctx)
+        {
+            var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+            var httpClientFactory = ctx.ServiceProvider.GetRequiredService<IHttpClientFactory>();
+            var configuration = ctx.ServiceProvider.GetRequiredService<IConfiguration>();
+
+            logger.LogInformation(
+                "Handling BotChatMessageEvent: BotId={BotId}, RoomId={RoomId}, MessageId={MessageId}",
+                evt.BotAccountId, evt.RoomId, evt.MessageId);
+
+            try
+            {
+                // Get bot chat config to find webhook URLs
+                var developBaseUrl = configuration["Services:Develop:BaseUrl"] ?? "https://_grpc.develop";
+                var httpClient = httpClientFactory.CreateClient();
+
+                var configResponse = await httpClient.GetAsync(
+                    $"{developBaseUrl}/api/bots/public/{evt.BotAccountId}/chat");
+
+                if (!configResponse.IsSuccessStatusCode)
+                {
+                    logger.LogWarning("Failed to get bot chat config for {BotId}: {StatusCode}",
+                        evt.BotAccountId, configResponse.StatusCode);
+                    return;
+                }
+
+                var configJson = await configResponse.Content.ReadAsStringAsync();
+                var config = JsonSerializer.Deserialize<SnBotChatConfig>(configJson, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+                });
+
+                if (config is null || config.Webhooks.Count == 0)
+                {
+                    logger.LogDebug("No webhooks configured for bot {BotId}", evt.BotAccountId);
+                    return;
+                }
+
+                // Deliver to each active webhook
+                var payload = JsonSerializer.Serialize(new
+                {
+                    bot_id = evt.BotAccountId,
+                    room_id = evt.RoomId,
+                    message_id = evt.MessageId,
+                    sender_account_id = evt.SenderAccountId,
+                    content = evt.Content,
+                    message_type = evt.MessageType,
+                    meta = evt.Meta,
+                    created_at = evt.CreatedAt.ToUnixTimeMilliseconds()
+                }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
+
+                foreach (var webhook in config.Webhooks.Where(w => w.IsActive))
+                {
+                    try
+                    {
+                        var request = new HttpRequestMessage(HttpMethod.Post, webhook.Url);
+                        request.Content = new StringContent(payload, System.Text.Encoding.UTF8, "application/json");
+
+                        // Add HMAC signature if secret is configured
+                        if (!string.IsNullOrEmpty(webhook.Secret))
+                        {
+                            var hmac = new System.Security.Cryptography.HMACSHA256(
+                                System.Text.Encoding.UTF8.GetBytes(webhook.Secret));
+                            var hash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(payload));
+                            var signature = Convert.ToHexString(hash).ToLowerInvariant();
+                            request.Headers.Add("X-Bot-Signature", $"sha256={signature}");
+                        }
+
+                        var response = await httpClient.SendAsync(request);
+                        if (response.IsSuccessStatusCode)
+                        {
+                            logger.LogInformation("Webhook delivered to {Url} for bot {BotId}",
+                                webhook.Url, evt.BotAccountId);
+                        }
+                        else
+                        {
+                            logger.LogWarning("Webhook delivery failed to {Url} for bot {BotId}: {StatusCode}",
+                                webhook.Url, evt.BotAccountId, response.StatusCode);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError(ex, "Error delivering webhook to {Url} for bot {BotId}",
+                            webhook.Url, evt.BotAccountId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error handling BotChatMessageEvent for bot {BotId}", evt.BotAccountId);
+            }
+        }
+
+        private static async Task HandleBotChatConfigUpdated(BotChatConfigUpdatedEvent evt, EventContext ctx)
+        {
+            var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+            var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
+            var cs = ctx.ServiceProvider.GetRequiredService<ChatService>();
+
+            logger.LogInformation(
+                "Handling BotChatConfigUpdatedEvent: BotId={BotId}",
+                evt.BotAccountId);
+
+            try
+            {
+                // Find all rooms where this bot is a member and invalidate cache
+                var botAccount = await db.ChatMembers
+                    .Where(m => m.JoinedAt != null && m.LeaveAt == null)
+                    .Select(m => new { m.ChatRoomId, m.AccountId })
+                    .Distinct()
+                    .ToListAsync(ctx.CancellationToken);
+
+                // We need to find the bot's account ID from the AutomatedId
+                // For now, we'll invalidate cache for all rooms - this is a safe approach
+                // In production, you might want to optimize this by tracking bot-to-room mappings
+
+                // Get all unique room IDs where the bot might be
+                var roomIds = botAccount
+                    .Select(m => m.ChatRoomId)
+                    .Distinct()
+                    .ToList();
+
+                foreach (var roomId in roomIds)
+                {
+                    await cs.InvalidateBotCommandsCacheAsync(roomId);
+                }
+
+                logger.LogInformation(
+                    "Invalidated bot commands cache for {RoomCount} rooms due to config update for bot {BotId}",
+                    roomIds.Count,
+                    evt.BotAccountId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error handling BotChatConfigUpdatedEvent for bot {BotId}", evt.BotAccountId);
             }
         }
 

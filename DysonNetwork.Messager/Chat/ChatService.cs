@@ -32,12 +32,63 @@ public partial class ChatService(
     IHttpContextAccessor httpContextAccessor,
     ILocalizationService localization,
     LazyGrpcClientFactory<DyStickerService.DyStickerServiceClient> stickerClientFactory,
-    RemoteAccountService remoteAccounts
+    RemoteAccountService remoteAccounts,
+    RemoteBotChatConfigService botChatConfigService
 )
 {
     public IRealtimeService Realtime { get; } = realtime;
     private const string ChatUseCooldownCacheKey = "actionlog:chat.use:";
     private static readonly TimeSpan ChatUseCooldown = TimeSpan.FromMinutes(1);
+    private const string BotCommandsCacheKeyPrefix = "chat:room:bot_commands:";
+    private static readonly TimeSpan BotCommandsCacheExpiry = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Gets all bot commands for bots in a specific chat room.
+    /// Results are cached for 5 minutes.
+    /// </summary>
+    public async Task<Dictionary<Guid, List<SnBotCommand>>> GetBotCommandsForRoomAsync(Guid roomId)
+    {
+        var cacheKey = $"{BotCommandsCacheKeyPrefix}{roomId}";
+        var cached = await cache.GetAsync<Dictionary<Guid, List<SnBotCommand>>>(cacheKey);
+        if (cached is not null)
+            return cached;
+
+        // Get all bot accounts in the room
+        var members = await db.ChatMembers
+            .Where(m => m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
+            .ToListAsync();
+
+        var result = new Dictionary<Guid, List<SnBotCommand>>();
+
+        foreach (var member in members)
+        {
+            // Check if this member is a bot account
+            var account = await remoteAccounts.TryGetAccount(member.AccountId);
+            if (account is null || string.IsNullOrEmpty(account.AutomatedId))
+                continue;
+
+            var botId = Guid.Parse(account.AutomatedId);
+            var config = await botChatConfigService.GetBotChatConfigAsync(botId);
+            if (config is not null && config.Commands.Count > 0)
+            {
+                result[botId] = config.Commands;
+            }
+        }
+
+        // Cache the result
+        await cache.SetAsync(cacheKey, result, BotCommandsCacheExpiry);
+        return result;
+    }
+
+    /// <summary>
+    /// Invalidates the bot commands cache for a specific room.
+    /// Call this when a bot joins/leaves a room or its manifest is updated.
+    /// </summary>
+    public async Task InvalidateBotCommandsCacheAsync(Guid roomId)
+    {
+        var cacheKey = $"{BotCommandsCacheKeyPrefix}{roomId}";
+        await cache.RemoveAsync(cacheKey);
+    }
 
     public async Task<SnChatMessage?> GetMessageByIdAsync(Guid messageId)
     {
@@ -603,6 +654,51 @@ public partial class ChatService(
         }
 
         await EmitChatUseActionLogAsync(message, sender, room, clientIpAddress);
+
+        // Emit BotChatMessageEvent for bot accounts in the room
+        if (!message.Type.StartsWith("system."))
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var members = await db.ChatMembers
+                        .Where(m => m.ChatRoomId == room.Id && m.JoinedAt != null && m.LeaveAt == null)
+                        .ToListAsync();
+
+                    foreach (var member in members)
+                    {
+                        if (member.AccountId == sender.AccountId)
+                            continue;
+
+                        // Check if this member is a bot account
+                        var memberAccount = await remoteAccounts.TryGetAccount(member.AccountId);
+                        if (memberAccount is not null && !string.IsNullOrEmpty(memberAccount.AutomatedId))
+                        {
+                            var botEvent = new BotChatMessageEvent
+                            {
+                                BotAccountId = Guid.Parse(memberAccount.AutomatedId),
+                                RoomId = room.Id,
+                                MessageId = message.Id,
+                                SenderAccountId = sender.AccountId,
+                                Content = message.Content,
+                                MessageType = message.Type,
+                                Meta = message.Meta,
+                                CreatedAt = message.CreatedAt
+                            };
+
+                            await eventBus.PublishAsync(botEvent);
+                            logger.LogDebug("Emitted BotChatMessageEvent for bot {BotId} in room {RoomId}",
+                                botEvent.BotAccountId, room.Id);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Error emitting BotChatMessageEvent for message {MessageId}", message.Id);
+                }
+            });
+        }
 
         // Copy the value to ensure the delivery is correct
         message.Sender = sender;

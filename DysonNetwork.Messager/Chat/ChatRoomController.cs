@@ -27,7 +27,8 @@ public class ChatRoomController(
     RemoteActionLogService als,
     DyRingService.DyRingServiceClient pusher,
     RemoteAccountService remoteAccountsHelper,
-    ILocalizationService localization
+    ILocalizationService localization,
+    RemoteBotChatConfigService botChatConfigService
 ) : ControllerBase
 {
     private const string DefaultMlsCiphersuite = "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519";
@@ -400,6 +401,20 @@ public class ChatRoomController(
         if (existingDm != null)
             return BadRequest("You already have a DM with this user.");
 
+        // Check if the related user is a bot account
+        var isBotAccount = !string.IsNullOrEmpty(relatedUser.AutomatedId);
+        SnBotChatConfig? botConfig = null;
+        
+        if (isBotAccount)
+        {
+            var botId = Guid.Parse(relatedUser.AutomatedId);
+            botConfig = await botChatConfigService.GetBotChatConfigAsync(botId);
+            
+            // Check if bot supports chat
+            if (botConfig is not null && !botConfig.SupportChat)
+                return StatusCode(403, "This bot does not support chat.");
+        }
+
         // Create new DM chat room
         var encryptionMode = requestedMode;
         var dmRoom = new SnChatRoom
@@ -420,7 +435,10 @@ public class ChatRoomController(
                 {
                     AccountId = request.RelatedUserId,
                     Username = relatedUser.Name,
-                    JoinedAt = null, // Pending status
+                    // Auto-approve DM for bots with AutoApproveDm=true
+                    JoinedAt = isBotAccount && botConfig?.AutoApproveDm != false 
+                        ? SystemClock.Instance.GetCurrentInstant() 
+                        : null,
                 }
             }
         };
@@ -438,7 +456,17 @@ public class ChatRoomController(
 
         var invitedMember = dmRoom.Members.First(m => m.AccountId == request.RelatedUserId);
         invitedMember.ChatRoom = dmRoom;
-        await SendInviteNotify(invitedMember, currentUser);
+        
+        // Only send invite notification if not auto-approved
+        if (invitedMember.JoinedAt == null)
+        {
+            await SendInviteNotify(invitedMember, currentUser);
+        }
+        else if (isBotAccount)
+        {
+            // Bot auto-joined - invalidate bot commands cache
+            _ = cs.InvalidateBotCommandsCacheAsync(dmRoom.Id);
+        }
 
         return Ok(dmRoom);
     }
@@ -1339,6 +1367,13 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
 
+        // Invalidate bot commands cache if the joining member is a bot
+        var joiningAccount = await remoteAccountsHelper.TryGetAccount(member.AccountId);
+        if (joiningAccount is not null && !string.IsNullOrEmpty(joiningAccount.AutomatedId))
+        {
+            _ = cs.InvalidateBotCommandsCacheAsync(roomId);
+        }
+
         var memberRoom = await db.ChatRooms
             .Where(r => r.Id == roomId)
             .FirstOrDefaultAsync();
@@ -1613,6 +1648,13 @@ public class ChatRoomController(
         await db.SaveChangesAsync();
         _ = crs.PurgeRoomMembersCache(roomId);
 
+        // Invalidate bot commands cache if the leaving member is a bot
+        var leavingAccount = await remoteAccountsHelper.TryGetAccount(member.AccountId);
+        if (leavingAccount is not null && !string.IsNullOrEmpty(leavingAccount.AutomatedId))
+        {
+            _ = cs.InvalidateBotCommandsCacheAsync(roomId);
+        }
+
         if (operatorMember is not null)
         {
             await cs.SendMemberLeftSystemMessageAsync(chatRoom, member, operatorMember);
@@ -1714,6 +1756,14 @@ public class ChatRoomController(
         db.Update(member);
         await db.SaveChangesAsync();
         await crs.PurgeRoomMembersCache(roomId);
+
+        // Invalidate bot commands cache if the leaving member is a bot
+        var leavingAccount = await remoteAccountsHelper.TryGetAccount(member.AccountId);
+        if (leavingAccount is not null && !string.IsNullOrEmpty(leavingAccount.AutomatedId))
+        {
+            _ = cs.InvalidateBotCommandsCacheAsync(roomId);
+        }
+
         await cs.SendMemberLeftSystemMessageAsync(chat, member);
         await EmitEncryptionMembershipChangedEventAsync(chat, member, member.AccountId, "member_left");
 

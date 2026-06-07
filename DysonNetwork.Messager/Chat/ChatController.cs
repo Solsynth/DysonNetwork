@@ -35,7 +35,10 @@ public partial class ChatController(
     DyAutocompletionService.DyAutocompletionServiceClient autocompleteClient,
     RemoteWebSocketService webSocket,
     RemoteMlsService mlsService,
-    RemoteRealmService realmService
+    RemoteRealmService realmService,
+    RemoteAccountService remoteAccountService,
+    RemoteBotChatConfigService botChatConfigService,
+    RemotePublisherService publisherService
 ) : ControllerBase
 {
     private const string E2EeCapabilityHeader = "X-Client-Ability";
@@ -93,6 +96,69 @@ public partial class ChatController(
         if (ChatMessageHelpers.TryParseLocation(locationWkt, out location, out var error))
             return null;
         return BadRequest(error);
+    }
+
+    /// <summary>
+    /// Resolves the chat identity for a request. If identity (botId) is provided,
+    /// validates the current user is a developer member and returns the bot's chat member.
+    /// Otherwise returns the current user's chat member.
+    /// </summary>
+    private async Task<(SnChatMember? Member, ActionResult? Error)> ResolveChatIdentity(
+        DyAccount currentUser,
+        Guid roomId,
+        Guid? identity,
+        bool requireWritePermission = false)
+    {
+        if (!identity.HasValue)
+        {
+            // No identity override - use current user
+            var member = await crs.GetRoomMember(Guid.Parse(currentUser.Id), roomId);
+            if (member is null)
+                return (null, StatusCode(403, "You are not a member of this chat room."));
+            return (member, null);
+        }
+
+        // Identity provided - resolve bot account
+        var botId = identity.Value;
+        var currentAccountId = Guid.Parse(currentUser.Id);
+        
+        // Get bot account info
+        var botAccount = await remoteAccountService.GetBotAccount(botId);
+        if (botAccount is null)
+            return (null, NotFound("Bot account not found."));
+
+        // Get bot's developer info to find the publisher ID
+        var developer = await botChatConfigService.GetBotDeveloperAsync(botId);
+        if (developer is null)
+            return (null, NotFound("Bot developer not found."));
+
+        // Validate publisher membership
+        // For read: require at least Viewer role
+        // For write: require at least Editor role
+        var requiredRole = requireWritePermission 
+            ? DyPublisherMemberRole.DyEditor 
+            : DyPublisherMemberRole.DyViewer;
+
+        var isMember = await publisherService.IsPublisherMember(
+            developer.PublisherId.ToString(),
+            currentAccountId.ToString(),
+            requiredRole);
+
+        if (!isMember)
+        {
+            var roleText = requireWritePermission ? "editor" : "viewer";
+            return (null, StatusCode(403, $"You must be a {roleText} of the bot's publisher to perform this action."));
+        }
+        
+        // Find the bot's chat member in the room
+        var botMember = await db.ChatMembers
+            .Where(m => m.AccountId == Guid.Parse(botAccount.Id) && m.ChatRoomId == roomId)
+            .FirstOrDefaultAsync();
+
+        if (botMember is null)
+            return (null, StatusCode(403, "The bot is not a member of this chat room."));
+
+        return (botMember, null);
     }
 
 
@@ -377,10 +443,16 @@ public partial class ChatController(
     [HttpPost("{roomId:guid}/messages")]
     [Authorize]
     [AskPermission("chat.messages.create")]
-    public async Task<ActionResult> SendMessage([FromBody] SendMessageRequest request, Guid roomId)
+    public async Task<ActionResult> SendMessage([FromBody] SendMessageRequest request, Guid roomId, [FromQuery] Guid? identity = null)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-        var accountId = Guid.Parse(currentUser.Id);
+
+        // Resolve identity - if identity is provided, use bot's member, otherwise use current user
+        var (member, identityError) = await ResolveChatIdentity(currentUser, roomId, identity, requireWritePermission: true);
+        if (identityError is not null) return identityError;
+        if (member is null) return StatusCode(403, "You need to be a member to send messages here.");
+
+        var accountId = member.AccountId;
 
         request.Content = TextSanitizer.Sanitize(request.Content);
 
@@ -388,9 +460,6 @@ public partial class ChatController(
         if (locationError is not null) return locationError;
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        var member = await crs.GetRoomMember(accountId, roomId);
-        if (member == null)
-            return StatusCode(403, "You need to be a member to send messages here.");
         if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
             return StatusCode(403, "You has been timed out in this chat.");
         var e2eeMode = member.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None;
@@ -1513,6 +1582,18 @@ public partial class ChatController(
 
         var pins = await cps.ListPinsAsync(roomId, includeExpired);
         return Ok(pins);
+    }
+
+    [HttpGet("{roomId:guid}/bots/commands")]
+    public async Task<ActionResult<Dictionary<Guid, List<SnBotCommand>>>> GetBotCommands(Guid roomId)
+    {
+        var currentUser = HttpContext.Items["CurrentUser"] as DyAccount;
+
+        var (room, roomError) = await GetReadableRoomAsync(roomId, currentUser);
+        if (roomError is not null) return roomError;
+
+        var botCommands = await cs.GetBotCommandsForRoomAsync(roomId);
+        return Ok(botCommands);
     }
 
 }

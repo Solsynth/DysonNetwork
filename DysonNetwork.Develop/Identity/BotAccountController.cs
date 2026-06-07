@@ -1,7 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Develop.Project;
+using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
@@ -21,7 +23,8 @@ public class BotAccountController(
     DevProjectService projectService,
     ILogger<BotAccountController> logger,
     RemoteAccountService remoteAccounts,
-    DyBotAccountReceiverService.DyBotAccountReceiverServiceClient accountsReceiver
+    DyBotAccountReceiverService.DyBotAccountReceiverServiceClient accountsReceiver,
+    IEventBus eventBus
 )
     : ControllerBase
 {
@@ -446,6 +449,102 @@ public class BotAccountController(
         {
             return NotFound("API key not found");
         }
+    }
+
+    // --- Bot Chat Config Endpoints ---
+
+    [HttpGet("{botId:guid}/chat")]
+    public async Task<ActionResult<SnBotChatConfig>> GetChatConfig(
+        [FromRoute] string pubName,
+        [FromRoute] Guid projectId,
+        [FromRoute] Guid botId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var (developer, project, bot) =
+            await ValidateBotAccess(pubName, projectId, botId, currentUser, DyPublisherMemberRole.DyViewer);
+        if (developer == null) return NotFound("Developer not found");
+        if (project == null) return NotFound("Project not found or you don't have access");
+        if (bot == null) return NotFound("Bot not found");
+
+        var config = await botService.GetChatConfigAsync(botId);
+        return Ok(config);
+    }
+
+    [HttpPut("{botId:guid}/chat")]
+    public async Task<ActionResult<SnBotChatConfig>> UpdateChatConfig(
+        [FromRoute] string pubName,
+        [FromRoute] Guid projectId,
+        [FromRoute] Guid botId,
+        [FromBody] SnBotChatConfig request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var (developer, project, bot) =
+            await ValidateBotAccess(pubName, projectId, botId, currentUser, DyPublisherMemberRole.DyEditor);
+        if (developer == null) return NotFound("Developer not found");
+        if (project == null) return NotFound("Project not found or you don't have access");
+        if (bot == null) return NotFound("Bot not found");
+
+        var config = await botService.UpdateChatConfigAsync(botId, request);
+
+        // Publish event to notify other services about the config change
+        await eventBus.PublishAsync(new BotChatConfigUpdatedEvent
+        {
+            BotAccountId = botId,
+            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
+        });
+
+        return Ok(config);
+    }
+
+    public class BotManifestRequest
+    {
+        public List<SnBotCommand> Commands { get; set; } = [];
+        public List<SnBotWebhook> Webhooks { get; set; } = [];
+        public bool? AutoApproveDm { get; set; }
+        public bool? SupportChat { get; set; }
+        public List<string>? SubscribedEvents { get; set; }
+    }
+
+    [HttpPost("{botId:guid}/chat/manifest")]
+    public async Task<ActionResult<SnBotChatConfig>> UpdateManifest(
+        [FromRoute] string pubName,
+        [FromRoute] Guid projectId,
+        [FromRoute] Guid botId,
+        [FromBody] BotManifestRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var (developer, project, bot) =
+            await ValidateBotAccess(pubName, projectId, botId, currentUser, DyPublisherMemberRole.DyEditor);
+        if (developer == null) return NotFound("Developer not found");
+        if (project == null) return NotFound("Project not found or you don't have access");
+        if (bot == null) return NotFound("Bot not found");
+
+        // Get existing config and merge
+        var existingConfig = await botService.GetChatConfigOrNullAsync(botId)
+            ?? new SnBotChatConfig { Id = botId };
+
+        existingConfig.Commands = request.Commands;
+        existingConfig.Webhooks = request.Webhooks;
+        if (request.AutoApproveDm.HasValue) existingConfig.AutoApproveDm = request.AutoApproveDm.Value;
+        if (request.SupportChat.HasValue) existingConfig.SupportChat = request.SupportChat.Value;
+        if (request.SubscribedEvents is not null) existingConfig.SubscribedEvents = request.SubscribedEvents;
+
+        var config = await botService.UpdateChatConfigAsync(botId, existingConfig);
+
+        // Publish event to notify other services about the config change
+        await eventBus.PublishAsync(new BotChatConfigUpdatedEvent
+        {
+            BotAccountId = botId,
+            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
+        });
+
+        return Ok(config);
     }
 
     private async Task<(SnDeveloper?, SnDevProject?, SnBotAccount?)> ValidateBotAccess(
