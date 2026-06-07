@@ -790,12 +790,27 @@ public class ThoughtController(
                     }
                 );
             }
+            
+            if (attemptAssistantParts.Count == 0)
+            {
+                logger.LogWarning(
+                    "SnChan returned an empty response for user {AccountId}, sequence {SequenceId}, provider {ProviderId}, model {ModelName}. sawTextDelta={SawTextDelta}, sawReasoningDelta={SawReasoningDelta}, fullResponseLength={FullResponseLength}, toolCallsCount={ToolCallsCount}",
+                    accountId,
+                    sequence.Id,
+                    provider.ProviderId,
+                    miChanConfig.ThinkingModel.ModelId,
+                    sawTextDelta,
+                    sawReasoningDelta,
+                    attemptFullResponse.Length,
+                    currentToolCalls.Count
+                );
+            }
 
             assistantParts = attemptAssistantParts;
             break;
         }
 
-        if (assistantParts == null)
+        if (assistantParts == null || assistantParts.Count == 0)
         {
             var errorJson = JsonSerializer.Serialize(
                 new { type = "error", data = "对话生成失败，请稍后重试" }
@@ -1303,11 +1318,15 @@ public class ThoughtController(
             if (attemptAssistantParts.Count == 0)
             {
                 logger.LogWarning(
-                    "MiChan returned an empty response for user {AccountId}, sequence {SequenceId}, provider {ProviderId}, model {ModelName}",
+                    "MiChan returned an empty response for user {AccountId}, sequence {SequenceId}, provider {ProviderId}, model {ModelName}. sawTextDelta={SawTextDelta}, sawReasoningDelta={SawReasoningDelta}, fullResponseLength={FullResponseLength}, toolCallsCount={ToolCallsCount}",
                     accountId,
                     sequence.Id,
                     provider.ProviderId,
-                    modelNameForAttempt
+                    modelNameForAttempt,
+                    sawTextDelta,
+                    sawReasoningDelta,
+                    attemptFullResponse.Length,
+                    currentToolCalls.Count
                 );
                 var errorJson = JsonSerializer.Serialize(
                     new { type = "error", data = "模型返回了空响应，请稍后重试" }

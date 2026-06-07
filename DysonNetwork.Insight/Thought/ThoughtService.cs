@@ -1479,13 +1479,34 @@ public class ThoughtService(
                 promptBuilder.ToString(),
                 options
             );
-            return result?[..Math.Min(result.Length, 4096)];
+            
+            if (string.IsNullOrWhiteSpace(result))
+            {
+                logger.LogWarning(
+                    "GenerateTopicAsync received empty response from provider. useMiChan={UseMiChan}, userMessageLength={Length}",
+                    useMiChan,
+                    userMessage?.Length ?? 0
+                );
+                return GenerateFallbackTopic(userMessage);
+            }
+            
+            return result[..Math.Min(result.Length, 4096)];
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to generate topic");
-            return null;
+            return GenerateFallbackTopic(userMessage);
         }
+    }
+    
+    private static string GenerateFallbackTopic(string? userMessage)
+    {
+        if (string.IsNullOrWhiteSpace(userMessage))
+            return "新对话";
+        
+        var trimmed = userMessage.Trim();
+        // Take first 50 characters as fallback topic
+        return trimmed.Length <= 50 ? trimmed : trimmed[..50] + "...";
     }
 
     #endregion
