@@ -16,7 +16,6 @@ namespace DysonNetwork.Sphere.Account;
 [Authorize]
 public class PublishingSettingsController(
     AppDatabase db,
-    RemoteAccountService remoteAccounts,
     ActivityRenderer objFactory,
     ILogger<PublishingSettingsController> logger
 ) : ControllerBase

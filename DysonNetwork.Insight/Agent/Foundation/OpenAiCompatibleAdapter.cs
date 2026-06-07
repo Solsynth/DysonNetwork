@@ -886,8 +886,8 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
                     Name = NormalizeToolNameForProvider(tool.Name),
                     Description = tool.Description,
                     Parameters = string.IsNullOrWhiteSpace(tool.ParametersJsonSchema)
-                        ? null
-                        : JsonNode.Parse(tool.ParametersJsonSchema)
+                        ? JsonNode.Parse("{}")!
+                        : JsonNode.Parse(tool.ParametersJsonSchema)!
                 }
             }).ToList();
         }

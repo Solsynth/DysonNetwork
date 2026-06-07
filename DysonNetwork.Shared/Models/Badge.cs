@@ -52,7 +52,7 @@ public class SnAccountBadge : ModelBase
             CreatedAt = CreatedAt.ToTimestamp(),
             UpdatedAt = UpdatedAt.ToTimestamp()
         };
-        proto.Meta.Add(InfraObjectCoder.ConvertToValueMap(Meta));
+        proto.Meta.Add(InfraObjectCoder.ConvertToValueMap(Meta!.ToDictionary(kv => kv.Key, kv => kv.Value!)));
 
         return proto;
     }
@@ -106,7 +106,7 @@ public class SnAccountBadgeRef : ModelBase
             ExpiredAt = ExpiredAt?.ToTimestamp(),
             AccountId = AccountId.ToString()
         };
-        proto.Meta.Add(InfraObjectCoder.ConvertToValueMap(Meta!));
+        proto.Meta.Add(InfraObjectCoder.ConvertToValueMap(Meta!.ToDictionary(kv => kv.Key, kv => kv.Value!)));
 
         return proto;
     }

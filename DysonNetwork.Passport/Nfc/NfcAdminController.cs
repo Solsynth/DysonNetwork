@@ -14,8 +14,7 @@ namespace DysonNetwork.Passport.Nfc;
 [Authorize]
 public class NfcAdminController(
     NfcService nfc,
-    DyPermissionService.DyPermissionServiceClient permissionService,
-    ILogger<NfcAdminController> logger
+    DyPermissionService.DyPermissionServiceClient permissionService
 ) : ControllerBase
 {
     private async Task<bool> HasAdminPermissionAsync()

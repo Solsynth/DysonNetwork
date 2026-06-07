@@ -275,7 +275,7 @@ public class PollController(
             new Dictionary<string, object>
             {
                 { "poll_id", poll.Id.ToString() },
-                { "title", poll.Title },
+                { "title", poll.Title ?? "" },
                 { "publisher_id", publisher.Id.ToString() }
             },
             userAgent: Request.Headers.UserAgent,
@@ -365,7 +365,7 @@ public class PollController(
                 new Dictionary<string, object>
                 {
                     { "poll_id", poll.Id.ToString() },
-                    { "title", poll.Title }
+                    { "title", poll.Title ?? "" }
                 },
                 userAgent: Request.Headers.UserAgent,
                 ipAddress: Request.GetClientIpAddress()

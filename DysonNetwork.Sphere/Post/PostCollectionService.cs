@@ -10,7 +10,6 @@ namespace DysonNetwork.Sphere.Post;
 public class PostCollectionService(
     AppDatabase db,
     PostService postService,
-    PublisherService publisherService,
     RemoteRealmService remoteRealmService
 )
 {

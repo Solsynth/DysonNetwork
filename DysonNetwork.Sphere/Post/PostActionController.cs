@@ -829,7 +829,7 @@ public class PostActionController(
         }
 
         var orderRemark = string.IsNullOrWhiteSpace(post.Title)
-            ? "from @" + post.Publisher.Name
+            ? "from @" + (post.Publisher?.Name ?? "unknown")
             : post.Title;
         var order = await remotePayments.CreateOrder(
             currency: "points",
@@ -1002,7 +1002,7 @@ public class PostActionController(
             return StatusCode(423, "This post is locked and cannot be edited.");
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(post.Publisher.Id, accountId, PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(post.Publisher!.Id, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to edit this publisher's post.");
 
         if (pubName is not null)
@@ -1366,7 +1366,7 @@ public class PostActionController(
 
         if (
             !await pub.IsMemberWithRole(
-                post.Publisher.Id,
+                post.Publisher!.Id,
                 Guid.Parse(currentUser.Id),
                 PublisherMemberRole.Editor
             )
@@ -1419,7 +1419,7 @@ public class PostActionController(
             return StatusCode(423, $"Post {lockedPost.Id} is locked and cannot be deleted.");
 
         var accountId = Guid.Parse(currentUser.Id);
-        foreach (var postGroup in posts.GroupBy(p => p.Publisher.Id))
+        foreach (var postGroup in posts.GroupBy(p => p.Publisher!.Id))
         {
             if (!await pub.IsMemberWithRole(postGroup.Key, accountId, PublisherMemberRole.Editor))
             {
@@ -1477,7 +1477,7 @@ public class PostActionController(
             return StatusCode(423, $"Post {lockedPost.Id} is locked and cannot be edited.");
 
         var accountId = Guid.Parse(currentUser.Id);
-        foreach (var postGroup in posts.GroupBy(p => p.Publisher.Id))
+        foreach (var postGroup in posts.GroupBy(p => p.Publisher!.Id))
         {
             if (!await pub.IsMemberWithRole(postGroup.Key, accountId, PublisherMemberRole.Editor))
             {
@@ -1533,7 +1533,7 @@ public class PostActionController(
             return NotFound();
 
         var accountId = Guid.Parse(currentUser.Id);
-        if (!await pub.IsMemberWithRole(post.Publisher.Id, accountId, PublisherMemberRole.Editor))
+        if (!await pub.IsMemberWithRole(post.Publisher!.Id, accountId, PublisherMemberRole.Editor))
             return StatusCode(403, "You need at least be an editor to publish this post.");
 
         if (post.DraftedAt is null)

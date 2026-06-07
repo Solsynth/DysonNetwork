@@ -438,7 +438,7 @@ public class ActivityRenderer(IConfiguration configuration, AppDatabase db)
         };
     }
 
-    public Dictionary<string, object> ToDictionary(ASObject obj)
+    public Dictionary<string, object?> ToDictionary(ASObject obj)
     {
         return ASDeserializer.ToDictionary(obj) ?? [];
     }

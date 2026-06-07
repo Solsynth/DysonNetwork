@@ -237,15 +237,15 @@ public class FediverseActorController(
 
         var postsQuery = db.Posts
             .Include(p => p.Publisher)
-            .Include(p => p.Actor)
+            .Include(p => p.Actor!)
             .ThenInclude(a => a.Instance)
-            .Where(p => p.ActorId == id || p.Actor.Uri == actor.Uri)
+            .Where(p => p.ActorId == id || p.Actor!.Uri == actor.Uri)
             .Where(p => p.DraftedAt == null)
             .Where(p => p.Visibility == PostVisibility.Public);
 
         var boostsQuery = db.Boosts
             .Include(b => b.Post)
-            .ThenInclude(p => p.Actor)
+            .ThenInclude(p => p.Actor!)
             .ThenInclude(a => a.Instance)
             .Include(b => b.Post)
             .ThenInclude(p => p.Publisher)

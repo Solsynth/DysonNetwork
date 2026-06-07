@@ -12,7 +12,6 @@ namespace DysonNetwork.Sphere.Live;
 public class LiveStreamService(
     AppDatabase db,
     LiveKitLivestreamService liveKitService,
-    PublisherSubscriptionService publisherSubscriptionService,
     RemotePaymentService paymentService,
     RemoteAccountService accountService,
     ILocalizationService localizer,
@@ -152,7 +151,7 @@ public class LiveStreamService(
             {
                 { "livestream_id", liveStream.Id.ToString() },
                 { "title", liveStream.Title ?? "" },
-                { "started_at", liveStream.StartedAt.ToString() }
+                { "started_at", liveStream.StartedAt?.ToString() ?? "" }
             });
 
         logger.LogInformation("Started streaming for LiveStream: {Id} (ingress: {HasIngress}, whip: {UseWhip})",
@@ -199,7 +198,7 @@ public class LiveStreamService(
             {
                 { "livestream_id", liveStream.Id.ToString() },
                 { "title", liveStream.Title ?? "" },
-                { "started_at", liveStream.StartedAt.ToString() }
+                { "started_at", liveStream.StartedAt?.ToString() ?? "" }
             });
 
         logger.LogInformation("Started in-app streaming for LiveStream: {Id}", id);
@@ -402,7 +401,7 @@ public class LiveStreamService(
             new Dictionary<string, object>
             {
                 { "livestream_id", liveStream.Id.ToString() },
-                { "ended_at", liveStream.EndedAt.ToString() }
+                { "ended_at", liveStream.EndedAt?.ToString() ?? "" }
             });
 
         logger.LogInformation("Ended LiveStream: {Id}", id);

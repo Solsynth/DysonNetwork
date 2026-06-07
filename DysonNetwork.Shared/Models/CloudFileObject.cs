@@ -6,7 +6,7 @@ namespace DysonNetwork.Shared.Models;
 
 public class SnFileObject : ModelBase
 {
-    [MaxLength(32)] public string Id { get; set; }
+    [MaxLength(32)] public string Id { get; set; } = null!;
 
     public long Size { get; set; }
 
@@ -32,7 +32,7 @@ public class SnFileReplica : ModelBase
 {
     public Guid Id { get; set; }
 
-    [MaxLength(32)] public string ObjectId { get; set; }
+    [MaxLength(32)] public string ObjectId { get; set; } = null!;
     [JsonIgnore] public SnFileObject Object { get; set; } = null!;
 
     public Guid? PoolId { get; set; }

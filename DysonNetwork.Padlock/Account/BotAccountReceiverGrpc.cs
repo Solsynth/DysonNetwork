@@ -51,12 +51,14 @@ public class BotAccountReceiverGrpc(
         if (request.PictureId is not null)
         {
             var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
+            account.Profile ??= new SnAccountProfile();
             account.Profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         if (request.BackgroundId is not null)
         {
             var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.BackgroundId });
+            account.Profile ??= new SnAccountProfile();
             account.Profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 

@@ -6,10 +6,8 @@ using Quartz;
 namespace DysonNetwork.Sphere.Publisher;
 
 public class PublisherFollowRequestCleanupJob(
-    AppDatabase db,
     PublisherService publisherService,
-    ILogger<PublisherFollowRequestCleanupJob> logger,
-    IClock clock)
+    ILogger<PublisherFollowRequestCleanupJob> logger)
     : IJob
 {
     public async Task Execute(IJobExecutionContext context)

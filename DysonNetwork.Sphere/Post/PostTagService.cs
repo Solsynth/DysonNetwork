@@ -4,7 +4,7 @@ using NodaTime;
 
 namespace DysonNetwork.Sphere.Post;
 
-public class PostTagService(AppDatabase db, ILogger<PostTagService> logger)
+public class PostTagService(AppDatabase db)
 {
     public async Task<SnPostTag> CreateTagAsync(
         string slug,
@@ -129,7 +129,7 @@ public class PostTagService(AppDatabase db, ILogger<PostTagService> logger)
         if (isEvent && endsAt is null)
             throw new InvalidOperationException("Event tags must have an end time.");
 
-        if (isEvent && endsAt.Value <= SystemClock.Instance.GetCurrentInstant())
+        if (isEvent && endsAt!.Value <= SystemClock.Instance.GetCurrentInstant())
             throw new InvalidOperationException("Event end time must be in the future.");
 
         tag.IsEvent = isEvent;

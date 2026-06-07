@@ -14,7 +14,6 @@ public class AccountController(
     DyAuthService.DyAuthServiceClient auth,
     AccountService accounts,
     AccountEventService events,
-    AppDatabase db,
     NotableDaysService notableDaysService
 ) : ControllerBase
 {

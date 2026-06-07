@@ -101,7 +101,7 @@ public class LiveStreamController(
             new Dictionary<string, object>
             {
                 { "livestream_id", liveStream.Id.ToString() },
-                { "title", liveStream.Title },
+                { "title", liveStream.Title ?? "" },
                 { "publisher_id", publisher.Id.ToString() }
             },
             userAgent: Request.Headers.UserAgent,
@@ -524,7 +524,7 @@ public class LiveStreamController(
             new Dictionary<string, object>
             {
                 { "livestream_id", liveStream.Id.ToString() },
-                { "title", liveStream.Title }
+                { "title", liveStream.Title ?? "" }
             },
             userAgent: Request.Headers.UserAgent,
             ipAddress: Request.GetClientIpAddress()

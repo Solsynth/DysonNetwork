@@ -9,18 +9,16 @@ namespace DysonNetwork.Sphere.ActivityPub;
 
 [ApiController]
 [Route("/quote-authorizations")]
-[AllowAnonymous]
 public class QuoteAuthorizationController(
     AppDatabase db,
-    ActivityPubDeliveryService deliveryService,
-    IConfiguration configuration,
-    ILogger<QuoteAuthorizationController> logger
+    IConfiguration configuration
 ) : ControllerBase
 {
     private string Domain => configuration["ActivityPub:Domain"] ?? "localhost";
     private string BaseUrl => $"https://{Domain}";
 
     [HttpGet("{id:guid}")]
+    [AllowAnonymous]
     public async Task<ActionResult> GetQuoteAuthorization(Guid id)
     {
         var auth = await db.QuoteAuthorizations

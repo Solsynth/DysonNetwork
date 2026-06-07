@@ -40,7 +40,7 @@ public class SnFediverseKey : ModelBase
     public SnFediverseActor? Actor { get; set; }
 
     [JsonPropertyName("created_at")]
-    public Instant CreatedAt { get; set; } = SystemClock.Instance.GetCurrentInstant();
+    public new Instant CreatedAt { get; set; } = SystemClock.Instance.GetCurrentInstant();
 
     [JsonPropertyName("rotated_at")]
     public Instant? RotatedAt { get; set; }

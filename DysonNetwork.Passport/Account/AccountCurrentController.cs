@@ -24,12 +24,10 @@ public class AccountCurrentController(
     AccountService accounts,
     ApplePassService applePasses,
     RemoteAccountContactService remoteContacts,
-    AccountEventService events,
     DyFileService.DyFileServiceClient files,
     Credit.SocialCreditService creditService,
     RemoteSubscriptionService remoteSubscription,
-    RemoteActionLogService remoteActionLogs,
-    DyAuthService.DyAuthServiceClient auth
+    RemoteActionLogService remoteActionLogs
 ) : ControllerBase
 {
     [HttpGet]

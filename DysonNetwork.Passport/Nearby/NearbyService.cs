@@ -41,8 +41,7 @@ public class NearbyService(
     AppDatabase db,
     IConfiguration configuration,
     AccountService accounts,
-    RelationshipService relationships,
-    ILogger<NearbyService> logger
+    RelationshipService relationships
 )
 {
     public const string DefaultServiceUuid = "FFF0";

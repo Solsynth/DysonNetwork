@@ -3,6 +3,7 @@ using DysonNetwork.Padlock.Account;
 
 namespace DysonNetwork.Padlock.Auth.OpenId;
 
+#pragma warning disable CS9107 // Parameter captured into state but also passed to base
 public class GoogleOidcService(
     IConfiguration configuration,
     IHttpClientFactory httpClientFactory,

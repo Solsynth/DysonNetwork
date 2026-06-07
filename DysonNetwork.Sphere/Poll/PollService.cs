@@ -211,7 +211,7 @@ public class PollService(AppDatabase db, ICacheService cache)
 
         foreach (var answer in answers)
         {
-            if (!answer.Answer.TryGetValue(questionId.ToString(), out var value))
+            if (answer.Answer?.TryGetValue(questionId.ToString(), out var value) != true)
                 continue;
 
             switch (question.Type)
@@ -258,7 +258,7 @@ public class PollService(AppDatabase db, ICacheService cache)
 
                     foreach (var rating in answers)
                     {
-                        if (!rating.Answer.TryGetValue(questionId.ToString(), out var ratingValue))
+                        if (rating.Answer?.TryGetValue(questionId.ToString(), out var ratingValue) != true)
                             continue;
 
                         if (ratingValue.ValueKind == JsonValueKind.Number &&

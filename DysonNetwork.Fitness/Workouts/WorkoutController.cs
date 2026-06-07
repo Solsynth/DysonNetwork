@@ -13,8 +13,8 @@ namespace DysonNetwork.Fitness.Workouts;
 public class WorkoutController(
     AppDatabase db,
     WorkoutService workoutService,
-    GoalService goalService,
-    ILogger<WorkoutController> logger) : ControllerBase
+    GoalService goalService
+) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<SnWorkout>>> ListWorkouts([FromQuery] int skip = 0, [FromQuery] int take = 20)

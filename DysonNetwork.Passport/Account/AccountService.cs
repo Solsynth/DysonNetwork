@@ -14,15 +14,8 @@ namespace DysonNetwork.Passport.Account;
 public class AccountService(
     AppDatabase db,
     MagicSpellService spells,
-    DyFileService.DyFileServiceClient files,
-    AccountUsernameService uname,
-    AffiliationSpellService ars,
-    EmailService mailer,
-    DyRingService.DyRingServiceClient pusher,
-    ILocalizationService localizer,
     ICacheService cache,
     ILogger<AccountService> logger,
-    Shared.EventBus.IEventBus eventBus,
     DyAccountService.DyAccountServiceClient accounts
 )
 {

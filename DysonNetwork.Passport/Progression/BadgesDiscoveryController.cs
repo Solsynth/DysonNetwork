@@ -11,8 +11,7 @@ public class BadgesOptions
 [ApiController]
 [Route(".well-known")]
 public class BadgesDiscoveryController(
-    IOptions<BadgesOptions> options,
-    ILogger<BadgesDiscoveryController> logger
+    IOptions<BadgesOptions> options
 ) : ControllerBase
 {
     [HttpGet("badges")]

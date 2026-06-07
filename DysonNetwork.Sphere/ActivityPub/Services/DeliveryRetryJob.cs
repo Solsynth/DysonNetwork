@@ -173,10 +173,8 @@ public class DeliveryDeadLetterService(
 }
 
 public class DeliveryBatchProcessingJob(
-    AppDatabase db,
     DeliveryBatchService batchService,
-    ILogger<DeliveryBatchProcessingJob> logger,
-    IClock clock
+    ILogger<DeliveryBatchProcessingJob> logger
 ) : IJob
 {
     public async Task Execute(IJobExecutionContext context)

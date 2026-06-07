@@ -12,8 +12,7 @@ namespace DysonNetwork.Padlock.Auth;
 [Authorize]
 public class ApiKeyController(
     AuthService auth,
-    AppDatabase db,
-    IHttpContextAccessor httpContextAccessor
+    AppDatabase db
 ) : ControllerBase
 {
     [HttpGet("")]

@@ -14,7 +14,7 @@ public class SnCloudFile : ModelBase, ICloudFile, IIdentifiedResource
     [MaxLength(32)]
     public string Id { get; set; } = Guid.NewGuid().ToString().Replace("-", string.Empty);
 
-    [MaxLength(1024)] public string Name { get; set; }
+    [MaxLength(1024)] public string Name { get; set; } = null!;
     [MaxLength(4096)] public string? Description { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, object?>? UserMeta { get; set; }
     [Column(TypeName = "jsonb")] public List<ContentSensitiveMark>? SensitiveMarks { get; set; } = [];

@@ -7,8 +7,7 @@ using DysonNetwork.Insight.Agent.Foundation;
 namespace DysonNetwork.Insight.SnChan.Plugins;
 
 public class SnChanMoodPlugin(
-    SnChanMoodService moodService,
-    ILogger<SnChanMoodPlugin> logger)
+    SnChanMoodService moodService)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

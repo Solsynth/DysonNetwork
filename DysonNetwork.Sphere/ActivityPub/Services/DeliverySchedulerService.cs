@@ -46,7 +46,7 @@ public class DeliveryStatistics
     public Dictionary<string, int> DeliveriesByType { get; set; } = [];
 }
 
-public class DeliveryMetricsService(AppDatabase db, ILogger<DeliveryMetricsService> logger)
+public class DeliveryMetricsService(AppDatabase db)
 {
     private readonly Dictionary<string, List<double>> _deliveryTimes = new();
     private readonly object _lock = new();
@@ -142,7 +142,7 @@ public static class DeliveryRetryCalculator
     }
 }
 
-public class DeliveryBatchService(AppDatabase db, ILogger<DeliveryBatchService> logger)
+public class DeliveryBatchService()
 {
     private readonly Dictionary<string, DeliveryBatch> _pendingBatches = new();
     private readonly object _lock = new();

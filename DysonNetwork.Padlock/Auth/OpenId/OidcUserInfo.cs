@@ -16,7 +16,7 @@ public class OidcUserInfo
 
     public Dictionary<string, object?> ToMetadata()
     {
-        var metadata = new Dictionary<string, object>();
+        var metadata = new Dictionary<string, object?>();
 
         if (!string.IsNullOrWhiteSpace(UserId))
             metadata["user_id"] = UserId;

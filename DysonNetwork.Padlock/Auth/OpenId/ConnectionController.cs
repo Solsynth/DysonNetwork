@@ -370,7 +370,7 @@ public class ConnectionController(
         if (connection != null)
         {
             // Login existing user
-            if (HttpContext.Items["CurrentSession"] is not SnAuthSession parentSession) parentSession = null;
+            var parentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
             
             var session = await oidcService.CreateSessionForUserAsync(
                 userInfo,
@@ -406,7 +406,7 @@ public class ConnectionController(
 
         await db.SaveChangesAsync();
 
-        if (HttpContext.Items["CurrentSession"] is not SnAuthSession registrationParentSession) registrationParentSession = null;
+        var registrationParentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
 
         var loginSession = await oidcService.CreateSessionForUserAsync(
             userInfo,

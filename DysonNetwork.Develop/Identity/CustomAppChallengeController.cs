@@ -8,8 +8,6 @@ namespace DysonNetwork.Develop.Identity;
 [ApiController]
 [Route("/api/connect")]
 public class CustomAppChallengeController(
-    DeveloperService ds,
-    DevProjectService projectService,
     CustomAppService customApps
 ) : ControllerBase
 {

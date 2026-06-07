@@ -167,7 +167,7 @@ public class MeetService(
         var nearbyMeets = await db.Meets
             .Include(m => m.Participants)
             .Where(m => m.Location != null)
-            .Where(m => m.Location.IsWithinDistance(location, distanceMeters))
+            .Where(m => m.Location!.IsWithinDistance(location, distanceMeters))
             .Where(m => m.Visibility == LocationVisibility.Public
                 || m.HostId == accountId
                 || m.Participants.Any(p => p.AccountId == accountId))
@@ -177,7 +177,7 @@ public class MeetService(
         var unlistedMeets = await db.Meets
             .Include(m => m.Participants)
             .Where(m => m.Location != null)
-            .Where(m => m.Location.IsWithinDistance(location, distanceMeters))
+            .Where(m => m.Location!.IsWithinDistance(location, distanceMeters))
             .Where(m => m.Visibility == LocationVisibility.Unlisted)
             .Where(m => friendIds.Contains(m.HostId) 
                 || m.Participants.Any(p => friendIds.Contains(p.AccountId)))

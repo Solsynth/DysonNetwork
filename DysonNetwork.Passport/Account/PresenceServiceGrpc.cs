@@ -7,8 +7,7 @@ using NodaTime.Serialization.Protobuf;
 namespace DysonNetwork.Passport.Account;
 
 public class PresenceServiceGrpc(
-    AppDatabase db,
-    ILogger<PresenceServiceGrpc> logger
+    AppDatabase db
 ) : DyPresenceService.DyPresenceServiceBase
 {
     private const int DefaultMaxPerType = 3;

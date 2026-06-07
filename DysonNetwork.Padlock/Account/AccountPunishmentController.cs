@@ -16,8 +16,7 @@ namespace DysonNetwork.Padlock.Account;
 [Route("/api/accounts")]
 public class AccountPunishmentController(
     AppDatabase db,
-    AccountService accounts,
-    DyProfileService.DyProfileServiceClient profiles
+    AccountService accounts
 ) : ControllerBase
 {
     [HttpGet("{name}/punishments")]

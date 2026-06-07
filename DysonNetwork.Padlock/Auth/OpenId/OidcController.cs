@@ -103,7 +103,7 @@ public class OidcController(
             // Find or create user account using existing logic
             var account = await FindOrCreateAccount(userInfo, "apple");
 
-            if (HttpContext.Items["CurrentSession"] is not SnAuthSession parentSession) parentSession = null;
+            var parentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
             
             // Create session using the OIDC service
             var session = await appleService.CreateSessionForUserAsync(

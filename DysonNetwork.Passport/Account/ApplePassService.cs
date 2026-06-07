@@ -22,9 +22,6 @@ public class ApplePassService(
     ILogger<ApplePassService> logger
 )
 {
-    private static readonly X509KeyStorageFlags CertificateFlags =
-        X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.Exportable;
-
     private readonly AppleWalletOptions _options = options.Value;
 
     public async Task<byte[]> GenerateMemberPassAsync(Guid accountId, CancellationToken cancellationToken = default)
@@ -293,7 +290,7 @@ public class ApplePassService(
         if (!File.Exists(absolutePath))
             throw new InvalidOperationException($"Certificate file was not found: {absolutePath}");
 
-        return new X509Certificate2(absolutePath, password, CertificateFlags);
+        return X509CertificateLoader.LoadCertificate(File.ReadAllBytes(absolutePath));
     }
 
     private async Task<byte[]?> TryLoadProfilePictureBytesAsync(SnAccount account, CancellationToken cancellationToken)

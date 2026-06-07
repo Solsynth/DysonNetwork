@@ -31,7 +31,7 @@ public interface ICloudFile
     /// <summary>
     /// Gets the user metadata dictionary.
     /// </summary>
-    Dictionary<string, object>? UserMeta { get; }
+    Dictionary<string, object?>? UserMeta { get; }
 
     /// <summary>
     /// Gets the MIME type of the file.

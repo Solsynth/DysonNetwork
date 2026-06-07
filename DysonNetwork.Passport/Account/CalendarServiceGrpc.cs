@@ -10,10 +10,8 @@ using Duration = NodaTime.Duration;
 namespace DysonNetwork.Passport.Account;
 
 public class CalendarServiceGrpc(
-    AppDatabase db,
     NotableDaysService notableDaysService,
-    AccountEventService accountEventService,
-    ILogger<CalendarServiceGrpc> logger
+    AccountEventService accountEventService
 ) : DyProfileService.DyProfileServiceBase
 {
     public override async Task<DyGetNotableDaysResponse> GetNotableDays(

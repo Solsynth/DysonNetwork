@@ -759,7 +759,7 @@ public static class ServiceCollectionExtensions
                         ["sender"] = sender,
                         ["timestamp"] = timestamp,
                         ["type"] = typingType,
-                        ["progress"] = requestData.Progress
+                        ["progress"] = requestData.Progress ?? (object)0
                     }).ToByteArray()
                 );
             }

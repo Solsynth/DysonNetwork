@@ -25,8 +25,7 @@ public class PublisherController(
     RemoteActionLogService als,
     RemoteRealmService remoteRealmService,
     IServiceScopeFactory factory,
-    RemoteAccountService remoteAccounts,
-    ILogger<PublisherController> logger
+    RemoteAccountService remoteAccounts
 ) : ControllerBase
 {
     [HttpGet("quota")]

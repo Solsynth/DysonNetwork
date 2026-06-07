@@ -266,35 +266,38 @@ public class PostAnalysisService
             sb.AppendLine($"账号年龄: {ageString}");
 
             // Profile info if available
-            if (!string.IsNullOrEmpty(account.Profile.Bio))
-                sb.AppendLine($"个人简介: {account.Profile.Bio}");
-
-            if (!string.IsNullOrEmpty(account.Profile.Location))
-                sb.AppendLine($"位置: {account.Profile.Location}");
-
-            // Last seen
-            if (account.Profile.LastSeenAt.HasValue)
+            if (account.Profile is not null)
             {
-                var lastSeen = DateTime.UtcNow - account.Profile.LastSeenAt.Value.ToDateTimeUtc();
-                var lastSeenStr = lastSeen.TotalMinutes switch
+                if (!string.IsNullOrEmpty(account.Profile.Bio))
+                    sb.AppendLine($"个人简介: {account.Profile.Bio}");
+
+                if (!string.IsNullOrEmpty(account.Profile.Location))
+                    sb.AppendLine($"位置: {account.Profile.Location}");
+
+                // Last seen
+                if (account.Profile.LastSeenAt.HasValue)
                 {
-                    < 1 => "刚刚",
-                    < 60 => $"{lastSeen.TotalMinutes:F0}分钟前",
-                    < 1440 => $"{lastSeen.TotalHours:F0}小时前",
-                    _ => $"{lastSeen.TotalDays:F0}天前"
-                };
-                sb.AppendLine($"上次活跃: {lastSeenStr}");
+                    var lastSeen = DateTime.UtcNow - account.Profile.LastSeenAt.Value.ToDateTimeUtc();
+                    var lastSeenStr = lastSeen.TotalMinutes switch
+                    {
+                        < 1 => "刚刚",
+                        < 60 => $"{lastSeen.TotalMinutes:F0}分钟前",
+                        < 1440 => $"{lastSeen.TotalHours:F0}小时前",
+                        _ => $"{lastSeen.TotalDays:F0}天前"
+                    };
+                    sb.AppendLine($"上次活跃: {lastSeenStr}");
+                }
+
+                // Badges
+                if (account.Badges?.Any() == true)
+                {
+                    var badgeLabels = account.Badges.Select(b => b.Label ?? b.Type).ToList();
+                    sb.AppendLine($"徽章: {string.Join(", ", badgeLabels)}");
+                }
             }
 
-            // Badges
-            if (account.Badges?.Any() == true)
-            {
-                var badgeLabels = account.Badges.Select(b => b.Label ?? b.Type).ToList();
-                sb.AppendLine($"徽章: {string.Join(", ", badgeLabels)}");
-            }
+            sb.AppendLine("===================");
         }
-
-        sb.AppendLine("===================");
 
         return sb.ToString();
     }

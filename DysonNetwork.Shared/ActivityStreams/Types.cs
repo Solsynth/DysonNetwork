@@ -237,34 +237,34 @@ public class ASArticle : ASObject { }
 public class ASImage : ASObject
 {
     [JsonPropertyName("blurhash")]
-    public string? Blurhash { get; set; }
+    public new string? Blurhash { get; set; }
 
     [JsonPropertyName("width")]
-    public int? Width { get; set; }
+    public new int? Width { get; set; }
 
     [JsonPropertyName("height")]
-    public int? Height { get; set; }
+    public new int? Height { get; set; }
 }
 
 public class ASVideo : ASObject
 {
     [JsonPropertyName("blurhash")]
-    public string? Blurhash { get; set; }
+    public new string? Blurhash { get; set; }
 
     [JsonPropertyName("width")]
-    public int? Width { get; set; }
+    public new int? Width { get; set; }
 
     [JsonPropertyName("height")]
-    public int? Height { get; set; }
+    public new int? Height { get; set; }
 
     [JsonPropertyName("duration")]
-    public double? Duration { get; set; }
+    public new double? Duration { get; set; }
 }
 
 public class ASAudio : ASObject
 {
     [JsonPropertyName("duration")]
-    public double? Duration { get; set; }
+    public new double? Duration { get; set; }
 }
 
 public class ASActivity : ASObject

@@ -153,7 +153,10 @@ public sealed class CacheServiceRedis(
     {
         var normalized = Normalize(key);
         var db = redis.GetDatabase();
-        await cache.SetStringAsync(normalized, FlagValue, expiry is null ? null : new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = expiry });
+        var options = new DistributedCacheEntryOptions();
+        if (expiry.HasValue)
+            options.AbsoluteExpirationRelativeToNow = expiry.Value;
+        await cache.SetStringAsync(normalized, FlagValue, options);
         if (expiry.HasValue)
             await db.KeyExpireAsync(normalized, expiry.Value);
         return true;

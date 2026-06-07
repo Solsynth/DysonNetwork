@@ -260,7 +260,7 @@ public class ActivityPubController : ControllerBase
 
                 if (item.IsBoost)
                 {
-                    postObject["_boostedAt"] = item.BoostedAt?.ToDateTimeOffset().ToString("O");
+                    postObject["_boostedAt"] = (object?)item.BoostedAt?.ToDateTimeOffset().ToString("O") ?? string.Empty;
                     if (item.BoostId.HasValue)
                     {
                         postObject["_boostId"] = item.BoostId.Value.ToString();

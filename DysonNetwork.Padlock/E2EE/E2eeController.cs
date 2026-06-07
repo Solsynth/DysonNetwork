@@ -44,7 +44,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     {
         [Required] public byte[] KeyPackage { get; set; } = [];
         [MaxLength(128)] public string Ciphersuite { get; set; } = "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519";
-        [Required][MaxLength(1024)] public string DeviceId { get; set; }
+        [Required][MaxLength(1024)] public string DeviceId { get; set; } = null!;
         [MaxLength(1024)] public string? DeviceLabel { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
     }
@@ -266,7 +266,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
                 body.RecipientAccountId,
                 body.ExpiresAt,
                 [.. body.Payloads.Select(x => new DeviceCiphertextEnvelope(
-                    x.RecipientDeviceId,
+                    x.RecipientDeviceId ?? string.Empty,
                     x.ClientMessageId,
                     x.Ciphertext,
                     x.Header,
@@ -382,7 +382,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
                 body.ExpiresAt,
                 body.IncludeSenderCopy,
                 [.. body.Payloads.Select(x => new DeviceCiphertextEnvelope(
-                    x.RecipientDeviceId,
+                    x.RecipientDeviceId ?? string.Empty,
                     x.ClientMessageId,
                     x.Ciphertext,
                     x.Header,

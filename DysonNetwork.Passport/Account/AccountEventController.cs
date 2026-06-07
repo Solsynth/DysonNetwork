@@ -21,11 +21,9 @@ namespace DysonNetwork.Passport.Account;
 [Route("/api/accounts/me")]
 public class AccountEventController(
     AppDatabase db,
-    AccountService accounts,
     AccountEventService events,
     DyFileService.DyFileServiceClient files,
     RemoteSubscriptionService remoteSubscription,
-    RemoteActionLogService remoteActionLogs,
     DyAuthService.DyAuthServiceClient auth
 ) : ControllerBase
 {

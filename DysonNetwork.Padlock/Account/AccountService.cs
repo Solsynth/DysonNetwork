@@ -1412,12 +1412,14 @@ public class AccountService(
         if (!string.IsNullOrEmpty(pictureId))
         {
             var file = await files.GetFileAsync(new DyGetFileRequest { Id = pictureId });
+            account.Profile ??= new SnAccountProfile();
             account.Profile.Picture = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 
         if (!string.IsNullOrEmpty(backgroundId))
         {
             var file = await files.GetFileAsync(new DyGetFileRequest { Id = backgroundId });
+            account.Profile ??= new SnAccountProfile();
             account.Profile.Background = SnCloudFileReferenceObject.FromProtoValue(file);
         }
 

@@ -17,7 +17,6 @@ public class SnChanDiaryJob(
     SnChanPublisherService publisherService,
     MemoryService memoryService,
     SnChanMoodService moodService,
-    Thought.ThoughtService thoughtService,
     FoundationChatStreamingService streamingService,
     ISnChanFoundationProvider foundationProvider,
     ILogger<SnChanDiaryJob> logger

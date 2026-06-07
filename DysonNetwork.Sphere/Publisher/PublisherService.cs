@@ -32,7 +32,6 @@ public class PublisherService(
     ILocalizationService localization,
     RemoteAccountService remoteAccounts,
     RemoteRealmService remoteRealms,
-    IKeyService keyService,
     IActorDiscoveryService discoveryService,
     IConfiguration configuration,
     ILogger<PublisherService> logger
@@ -1168,6 +1167,8 @@ public class PublisherService(
         var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
 
         var actor = await discoveryService.GetOrCreateActorAsync(actorUrl, publisher.Name, instance.Id);
+        if (actor is null)
+            throw new InvalidOperationException($"Failed to get or create actor for publisher {publisher.Name}");
 
         actor.Username = publisher.Name;
         actor.DisplayName = publisher.Nick;

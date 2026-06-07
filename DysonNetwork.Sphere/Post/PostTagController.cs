@@ -164,8 +164,7 @@ public class PostTagController(
 [Authorize]
 public class PostTagAdminController(
     AppDatabase db,
-    PostTagService tagService,
-    PublisherService pub
+    PostTagService tagService
 ) : ControllerBase
 {
     public class AssignTagRequest

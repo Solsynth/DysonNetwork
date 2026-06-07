@@ -9,7 +9,6 @@ using NodaTime.Serialization.Protobuf;
 namespace DysonNetwork.Padlock.E2EE;
 
 public class MlsServiceGrpc(
-    AppDatabase db,
     E2EeService e2ee,
     ILogger<MlsServiceGrpc> logger
 ) : DyMlsService.DyMlsServiceBase
@@ -131,6 +130,8 @@ public class MlsServiceGrpc(
             );
 
             var state = await e2ee.CommitMlsGroupAsync(Guid.Empty, commitRequest);
+            if (state is null)
+                throw new InvalidOperationException("Failed to commit MLS group: state is null");
 
             var response = new CommitGroupChangesResponse
             {

@@ -314,7 +314,7 @@ public class SnPublishingSettings : ModelBase
     [ForeignKey(nameof(DefaultFediversePublisherId))]
     public SnPublisher? DefaultFediversePublisher { get; set; }
 
-    public Instant? UpdatedAt { get; set; }
+    public new Instant? UpdatedAt { get; set; }
 }
 
 public class SnPublisherRatingRecord : ModelBase

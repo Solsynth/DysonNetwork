@@ -5,9 +5,6 @@ namespace DysonNetwork.Sphere.ActivityPub.Services;
 
 public class InboxValidationMiddleware(
     RequestDelegate next,
-    AppDatabase db,
-    ISignatureService signatureService,
-    FediverseModerationService moderationService,
     ILogger<InboxValidationMiddleware> logger
 )
 {
@@ -65,8 +62,6 @@ public class InboxValidationMiddleware(
 
 public class InboxActivityMiddleware(
     RequestDelegate next,
-    AppDatabase db,
-    IActorDiscoveryService discoveryService,
     ILogger<InboxActivityMiddleware> logger
 )
 {

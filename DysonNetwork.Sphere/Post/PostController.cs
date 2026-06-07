@@ -1150,7 +1150,7 @@ public class PostController(
 
         var reactions = await query
             .Include(r => r.Actor)
-            .ThenInclude(r => r.Instance)
+            .ThenInclude(r => r!.Instance)
             .Take(take)
             .Skip(offset)
             .ToListAsync();

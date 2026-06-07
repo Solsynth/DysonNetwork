@@ -263,7 +263,7 @@ public class AccountServiceGrpc(
         }
         else
         {
-            foreach (var path in request.UpdateMask.Paths)
+            foreach (var path in request.UpdateMask!.Paths)
             {
                 switch (path)
                 {

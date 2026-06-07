@@ -104,7 +104,7 @@ public class ThoughtController(
     {
         public string Id { get; set; } = null!;
         public string DisplayName { get; set; } = null!;
-        public string Description { get; set; }
+        public string Description { get; set; } = string.Empty;
         public int MinPerkLevel { get; set; }
         public bool IsDefault { get; set; }
     }
@@ -474,7 +474,7 @@ public class ThoughtController(
         string? topic = null;
         if (!request.SequenceId.HasValue)
         {
-            topic = await service.GenerateTopicAsync(request.UserMessage, useMiChan: false);
+            topic = await service.GenerateTopicAsync(request.UserMessage!, useMiChan: false);
             if (topic is null)
             {
                 return BadRequest("Default service not found or configured.");

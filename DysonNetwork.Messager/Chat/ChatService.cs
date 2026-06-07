@@ -828,14 +828,15 @@ public partial class ChatService(
     {
         return new Dictionary<string, object>
         {
+#pragma warning disable CS8601 // Possible null reference assignment
             ["id"] = sourceMessage.Id,
             ["type"] = sourceMessage.Type,
             ["content"] = sourceMessage.Content ?? string.Empty,
             ["meta"] = CloneRedirectMeta(sourceMessage.Meta),
-            ["nonce"] = sourceMessage.Nonce,
+            ["nonce"] = sourceMessage.Nonce ?? string.Empty,
             ["edited_at"] = sourceMessage.EditedAt?.ToUnixTimeMilliseconds(),
-            ["replied_message_id"] = sourceMessage.RepliedMessageId,
-            ["forwarded_message_id"] = sourceMessage.ForwardedMessageId,
+            ["replied_message_id"] = sourceMessage.RepliedMessageId?.ToString(),
+            ["forwarded_message_id"] = sourceMessage.ForwardedMessageId?.ToString(),
             ["sender_id"] = sourceMessage.SenderId,
             ["chat_room_id"] = sourceMessage.ChatRoomId,
             ["created_at"] = sourceMessage.CreatedAt.ToUnixTimeMilliseconds(),
@@ -844,6 +845,7 @@ public partial class ChatService(
             ["attachments"] = BuildRedirectAttachmentSnapshot(sourceMessage.Attachments),
             ["reactions_count"] = new Dictionary<string, int>(sourceMessage.ReactionsCount),
             ["chat_room"] = BuildRedirectRoomSnapshot(sourceMessage.ChatRoom),
+#pragma warning restore CS8601 // Possible null reference assignment
         };
     }
 
@@ -1114,7 +1116,7 @@ public partial class ChatService(
                 ["event"] = "e2ee_enabled",
                 ["room_id"] = room.Id,
                 ["mode"] = mode.ToString(),
-                ["mls_group_id"] = mlsGroupId,
+                ["mls_group_id"] = mlsGroupId ?? string.Empty,
             }
         );
     }
@@ -1135,7 +1137,7 @@ public partial class ChatService(
             {
                 ["event"] = "mls_epoch_changed",
                 ["room_id"] = room.Id,
-                ["mls_group_id"] = room.MlsGroupId,
+                ["mls_group_id"] = room.MlsGroupId ?? string.Empty,
                 ["epoch"] = epoch,
                 ["reason"] = reason,
             }
@@ -1160,7 +1162,7 @@ public partial class ChatService(
             {
                 ["event"] = "mls_reshare_required",
                 ["room_id"] = room.Id,
-                ["mls_group_id"] = room.MlsGroupId,
+                ["mls_group_id"] = room.MlsGroupId ?? string.Empty,
                 ["target_account_id"] = targetAccountId,
                 ["target_device_id"] = targetDeviceId,
                 ["epoch"] = epoch,
@@ -1446,7 +1448,7 @@ public partial class ChatService(
                     {
                         ["user_id"] = reactor.AccountId,
                         ["reactor_id"] = reactor.Id,
-                        ["reactor_name"] = reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick,
+                        ["reactor_name"] = reactor.Nick ?? reactor.RealmNick ?? reactor.Account?.Nick ?? string.Empty,
                         ["message_id"] = message.Id,
                         ["room_id"] = room.Id,
                         ["symbol"] = symbol ?? "",
@@ -1532,8 +1534,8 @@ public partial class ChatService(
             imageIds.FirstOrDefault()
         );
 
-        if (sender.Account!.Profile is not { Picture: null })
-            metaDict["pfp"] = sender.Account!.Profile.Picture.Id;
+        if (sender.Account?.Profile is not null && sender.Account!.Profile.Picture is { Id: not null })
+            metaDict["pfp"] = sender.Account.Profile.Picture.Id;
         if (!string.IsNullOrEmpty(room.Name))
             metaDict["room_name"] = room.Name;
 
@@ -1590,7 +1592,7 @@ public partial class ChatService(
         var notification = new DyPushNotification
         {
             Topic = "messages.new",
-            Title = $"{sender.Nick ?? sender.RealmNick ?? sender.Account.Nick} ({roomSubject})",
+            Title = $"{sender.Nick ?? sender.RealmNick ?? sender.Account?.Nick ?? "Someone"} ({roomSubject})",
             Meta = InfraObjectCoder.ConvertObjectToByteString(metaDict),
             ActionUri = $"/chat/{room.Id}",
             IsSavable = false,

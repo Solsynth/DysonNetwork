@@ -575,7 +575,7 @@ public class PublisherSubscriptionService(
             string.Format(PublisherService.SubscribedPublishersCacheKey, accountId)
         );
 
-        return await GetSubscriptionAsync(accountId, publisherId);
+        return (await GetSubscriptionAsync(accountId, publisherId))!;
     }
 
     /// <summary>

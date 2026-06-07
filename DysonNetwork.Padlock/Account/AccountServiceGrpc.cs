@@ -585,7 +585,7 @@ public class AccountServiceGrpc(
         };
 
         if (connection.Meta is not null)
-            proto.Meta.Add(InfraObjectCoder.ConvertToValueMap(connection.Meta));
+            proto.Meta.Add(InfraObjectCoder.ConvertToValueMap(connection.Meta.ToDictionary(kv => kv.Key, kv => kv.Value!)));
 
         return proto;
     }

@@ -157,14 +157,14 @@ public class EventBusBackgroundService(
         EventSubscription subscription,
         CancellationToken stoppingToken)
     {
-        return await ProcessMessageInternalAsync(msg.Data, msg.Headers, subscription, stoppingToken);
+        return await ProcessMessageInternalAsync(msg.Data ?? [], msg.Headers, subscription, stoppingToken);
     }
 
     private async Task<(bool Success, bool ShouldAck)> HandleJetStreamMessageAsync(INatsJSMsg<byte[]> msg,
         EventSubscription subscription,
         CancellationToken stoppingToken)
     {
-        return await ProcessMessageInternalAsync(msg.Data, msg.Headers, subscription, stoppingToken);
+        return await ProcessMessageInternalAsync(msg.Data ?? [], msg.Headers, subscription, stoppingToken);
     }
 
     private async Task<(bool Success, bool ShouldAck)> ProcessMessageInternalAsync(byte[] data, NatsHeaders? headers,
@@ -193,7 +193,7 @@ public class EventBusBackgroundService(
             var context = new EventContext
             {
                 Subject = subscription.Subject,
-                Headers = headers?.ToDictionary(h => h.Key, h => string.Join(",", h.Value)) ?? new(),
+                Headers = headers?.ToDictionary(h => h.Key, h => string.Join(",", h.Value.ToArray() ?? [])) ?? new(),
                 CancellationToken = stoppingToken,
                 ServiceProvider = scope.ServiceProvider
             };

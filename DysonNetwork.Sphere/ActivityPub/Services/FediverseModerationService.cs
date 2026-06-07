@@ -135,9 +135,9 @@ public class FediverseModerationService
                     return result;
                 }
             }
-            else if (rule.Type == FediverseModerationRuleType.DomainAllow)
+            else if (rule.Type == FediverseModerationRuleType.DomainAllow && !string.IsNullOrEmpty(rule.Domain))
             {
-                if (MatchesDomain(domainLower, rule.Domain.ToLowerInvariant(), rule.IsRegex))
+                if (MatchesDomain(domainLower, rule.Domain!.ToLowerInvariant(), rule.IsRegex))
                 {
                     logger.LogDebug("Instance {Domain} explicitly allowed by rule {RuleName}", domain, rule.Name);
                     return result;
