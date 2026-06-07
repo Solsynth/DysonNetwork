@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
@@ -625,6 +626,87 @@ public class PostController(
         query = ApplyPostOrdering(query, order, orderDesc, shuffle, searchContext);
 
         var totalCount = await query.CountAsync();
+
+        if (pubName is not null && totalCount == 0 && publisher is not null)
+        {
+            var publisherAccountId = publisher.AccountId;
+            
+            if (publisher.IsGatekept)
+            {
+                var isSubscriber = currentUser is not null
+                    && subscriberPublisherIds is not null
+                    && subscriberPublisherIds.Contains(publisher.Id);
+                
+                if (!isSubscriber)
+                {
+                    var publisherOwnerName = publisherAccountId.HasValue
+                        ? await db.Accounts
+                            .Where(a => a.Id == publisherAccountId.Value.ToString())
+                            .Select(a => a.Nickname ?? a.Name)
+                            .FirstOrDefaultAsync()
+                        : null;
+                    
+                    return StatusCode(403, new ApiError
+                    {
+                        Code = "PUBLISHER_GATEKEPT",
+                        Message = $"{publisher.Name}'s posts are only available to subscribers.",
+                        Status = 403,
+                        Detail = publisherOwnerName is not null
+                            ? $"Subscribe to {publisherOwnerName}'s publisher to access their posts."
+                            : "Subscribe to this publisher to access their posts.",
+                        Meta = new Dictionary<string, object?>
+                        {
+                            ["publisher"] = publisher.Name,
+                            ["is_gatekept"] = true,
+                            ["requires_subscription"] = true
+                        }
+                    });
+                }
+            }
+            
+            if (publisherAccountId.HasValue && currentUser is not null)
+            {
+                var currentAccountId = Guid.Parse(currentUser.Id);
+                var isBlocked = await remoteAccountsHelper.IsBlockedEitherDirection(currentAccountId, publisherAccountId.Value);
+                
+                if (isBlocked)
+                {
+                    var isBlockedByPublisher = blockedAccountIds.Contains(publisherAccountId.Value);
+                    
+                    return StatusCode(403, new ApiError
+                    {
+                        Code = isBlockedByPublisher ? "BLOCKED_BY_PUBLISHER" : "PUBLISHER_BLOCKED",
+                        Message = isBlockedByPublisher
+                            ? "You cannot view this publisher's posts because they have blocked you."
+                            : "You have blocked this publisher. Unblock them to view their posts.",
+                        Status = 403,
+                        Meta = new Dictionary<string, object?>
+                        {
+                            ["publisher"] = publisher.Name,
+                            ["is_blocked"] = true,
+                            ["blocked_by_publisher"] = isBlockedByPublisher
+                        }
+                    });
+                }
+            }
+            
+            if (currentUser is null && publisher.IsGatekept)
+            {
+                return StatusCode(401, new ApiError
+                {
+                    Code = "AUTHENTICATION_REQUIRED",
+                    Message = "Authentication is required to view this publisher's posts.",
+                    Status = 401,
+                    Detail = "This publisher requires subscribers to be authenticated.",
+                    Meta = new Dictionary<string, object?>
+                    {
+                        ["publisher"] = publisher.Name,
+                        ["is_gatekept"] = true,
+                        ["requires_authentication"] = true
+                    }
+                });
+            }
+        }
 
         var posts = await query.Skip(offset).Take(take).ToListAsync();
         foreach (var post in posts)
