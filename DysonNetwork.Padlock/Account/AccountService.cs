@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
+using OtpNet;
 using System.Buffers.Binary;
 using System.Formats.Cbor;
 
@@ -201,13 +202,7 @@ public class AccountService(
                 AccountId = account.Id,
                 EnabledAt = SystemClock.Instance.GetCurrentInstant(),
             },
-            AccountAuthFactorType.TimedCode => new SnAccountAuthFactor
-            {
-                Type = AccountAuthFactorType.TimedCode,
-                Trustworthy = 3,
-                AccountId = account.Id,
-                Secret = secret ?? Guid.NewGuid().ToString("N"),
-            },
+            AccountAuthFactorType.TimedCode => CreateTimedCodeFactor(account.Id, secret),
             AccountAuthFactorType.PinCode when !string.IsNullOrWhiteSpace(secret) => new SnAccountAuthFactor
             {
                 Type = AccountAuthFactorType.PinCode,
@@ -254,6 +249,24 @@ public class AccountService(
             new Dictionary<string, object> { ["factor_type"] = factor.Type.ToString() }
         );
         return factor;
+    }
+
+    private static SnAccountAuthFactor CreateTimedCodeFactor(Guid accountId, string? secret)
+    {
+        var totpSecret = string.IsNullOrWhiteSpace(secret)
+            ? Base32Encoding.ToString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(20))
+            : secret;
+        return new SnAccountAuthFactor
+        {
+            Type = AccountAuthFactorType.TimedCode,
+            Trustworthy = 3,
+            AccountId = accountId,
+            Secret = totpSecret,
+            CreatedResponse = new Dictionary<string, object>
+            {
+                ["secret"] = totpSecret
+            }
+        };
     }
 
     public async Task<SnAccountAuthFactor> EnableAuthFactor(SnAccountAuthFactor factor, string? code)
