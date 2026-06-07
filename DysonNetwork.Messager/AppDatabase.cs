@@ -65,6 +65,12 @@ public class AppDatabase(
         modelBuilder.Entity<SnChatMessage>()
             .HasIndex(m => new { m.ChatRoomId, m.SenderId, m.ClientMessageId })
             .HasFilter("client_message_id IS NOT NULL");
+
+        // Partial unique index: max 1 active placeholder per member per room
+        modelBuilder.Entity<SnChatMessage>()
+            .HasIndex(m => new { m.ChatRoomId, m.SenderId })
+            .IsUnique()
+            .HasFilter("type = 'placeholder' AND deleted_at IS NULL");
         modelBuilder.Entity<SnRealtimeCall>()
             .HasOne(m => m.Room)
             .WithMany()

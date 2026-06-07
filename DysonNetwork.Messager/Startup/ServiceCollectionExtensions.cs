@@ -160,6 +160,12 @@ public static class ServiceCollectionExtensions
                             case "messages.test":
                                 await HandleMessageTest(evt, packet, ctx);
                                 break;
+                            case WebSocketPacketType.PlaceholderUpdate:
+                                await HandlePlaceholderUpdate(evt, packet, ctx);
+                                break;
+                            case WebSocketPacketType.PlaceholderFinalize:
+                                await HandlePlaceholderFinalize(evt, packet, ctx);
+                                break;
                             default:
                                 logger.LogWarning("Unhandled websocket packet type: {Type}", packet.Type);
                                 var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
@@ -834,6 +840,122 @@ public static class ServiceCollectionExtensions
             );
         }
 
+        private static async Task HandlePlaceholderUpdate(WebSocketPacketEvent evt, WebSocketPacket packet, EventContext ctx)
+        {
+            var cs = ctx.ServiceProvider.GetRequiredService<ChatService>();
+            var crs = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
+            var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
+            var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+
+            if (packet.Data == null)
+            {
+                await SendErrorResponse(evt, "messages.placeholder.update requires request payload.", ws);
+                return;
+            }
+
+            var requestData = packet.GetData<PlaceholderUpdateWsRequest>();
+            if (requestData?.MessageId == Guid.Empty)
+            {
+                await SendErrorResponse(evt, "messages.placeholder.update requires a valid message_id.", ws);
+                return;
+            }
+
+            var message = await cs.GetMessageByIdAsync(requestData!.MessageId);
+            if (message is null || !ChatMessageHelpers.IsPlaceholderMessage(message))
+            {
+                await SendErrorResponse(evt, "Placeholder message not found.", ws);
+                return;
+            }
+
+            // Verify ownership
+            var sender = await crs.GetRoomMember(evt.AccountId, message.ChatRoomId);
+            if (sender is null || sender.Id != message.SenderId)
+            {
+                await SendErrorResponse(evt, "You can only update your own placeholders.", ws);
+                return;
+            }
+
+            try
+            {
+                await cs.UpdatePlaceholderAsync(message, requestData.ContentChunk, requestData.Progress);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to update placeholder for account {AccountId}", evt.AccountId);
+                await SendErrorResponse(evt, "Failed to update placeholder.", ws);
+            }
+        }
+
+        private static async Task HandlePlaceholderFinalize(WebSocketPacketEvent evt, WebSocketPacket packet, EventContext ctx)
+        {
+            var cs = ctx.ServiceProvider.GetRequiredService<ChatService>();
+            var crs = ctx.ServiceProvider.GetRequiredService<ChatRoomService>();
+            var files = ctx.ServiceProvider.GetRequiredService<DyFileService.DyFileServiceClient>();
+            var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
+            var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
+
+            if (packet.Data == null)
+            {
+                await SendErrorResponse(evt, "messages.placeholder.finalize requires request payload.", ws);
+                return;
+            }
+
+            var requestData = packet.GetData<PlaceholderFinalizeWsRequest>();
+            if (requestData?.MessageId == Guid.Empty)
+            {
+                await SendErrorResponse(evt, "messages.placeholder.finalize requires a valid message_id.", ws);
+                return;
+            }
+
+            var message = await cs.GetMessageByIdAsync(requestData!.MessageId);
+            if (message is null || !ChatMessageHelpers.IsPlaceholderMessage(message))
+            {
+                await SendErrorResponse(evt, "Placeholder message not found.", ws);
+                return;
+            }
+
+            // Verify ownership
+            var sender = await crs.GetRoomMember(evt.AccountId, message.ChatRoomId);
+            if (sender is null || sender.Id != message.SenderId)
+            {
+                await SendErrorResponse(evt, "You can only finalize your own placeholders.", ws);
+                return;
+            }
+
+            List<SnCloudFileReferenceObject>? attachments = null;
+            if (requestData.AttachmentsId is { Count: > 0 })
+            {
+                var queryRequest = new DyGetFileBatchRequest();
+                queryRequest.Ids.AddRange(requestData.AttachmentsId);
+                var queryResponse = await files.GetFileBatchAsync(queryRequest);
+                attachments = queryResponse.Files
+                    .OrderBy(f => requestData.AttachmentsId!.IndexOf(f.Id))
+                    .Select(SnCloudFileReferenceObject.FromProtoValue)
+                    .ToList();
+            }
+
+            try
+            {
+                await cs.FinalizePlaceholderAsync(
+                    message,
+                    requestData.Content,
+                    attachments
+                );
+
+                // Send confirmation to the sender
+                await ws.PushWebSocketPacketToDevice(
+                    evt.DeviceId,
+                    WebSocketPacketType.PlaceholderFinalize,
+                    InfraObjectCoder.ConvertObjectToByteString(message).ToByteArray()
+                );
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to finalize placeholder for account {AccountId}", evt.AccountId);
+                await SendErrorResponse(evt, "Failed to finalize placeholder.", ws);
+            }
+        }
+
         private static async Task SendErrorResponse(
             WebSocketPacketEvent evt,
             string message,
@@ -842,5 +964,19 @@ public static class ServiceCollectionExtensions
         {
             await ws.PushWebSocketPacketToDevice(evt.DeviceId, "error", System.Text.Encoding.UTF8.GetBytes(message), message);
         }
+    }
+
+    private class PlaceholderUpdateWsRequest
+    {
+        public Guid MessageId { get; set; }
+        public string? ContentChunk { get; set; }
+        public double? Progress { get; set; }
+    }
+
+    private class PlaceholderFinalizeWsRequest
+    {
+        public Guid MessageId { get; set; }
+        public string? Content { get; set; }
+        public List<string>? AttachmentsId { get; set; }
     }
 }

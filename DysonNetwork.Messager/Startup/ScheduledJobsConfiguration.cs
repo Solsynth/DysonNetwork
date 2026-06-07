@@ -1,4 +1,5 @@
 using Quartz;
+using DysonNetwork.Messager.Chat;
 using DysonNetwork.Messager.Chat.Voice;
 
 namespace DysonNetwork.Messager.Startup;
@@ -24,6 +25,13 @@ public static class ScheduledJobsConfiguration
                 .ForJob("ChatVoiceCleanup")
                 .WithIdentity("ChatVoiceCleanupTrigger")
                 .WithCronSchedule(voiceConfig.CleanupCron));
+
+            // Expire stale placeholder messages every minute
+            q.AddJob<PlaceholderExpirationJob>(opts => opts.WithIdentity("PlaceholderExpiration"));
+            q.AddTrigger(opts => opts
+                .ForJob("PlaceholderExpiration")
+                .WithIdentity("PlaceholderExpirationTrigger")
+                .WithCronSchedule("0 * * * * ?"));
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

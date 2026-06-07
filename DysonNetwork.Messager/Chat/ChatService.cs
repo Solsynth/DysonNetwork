@@ -39,6 +39,15 @@ public partial class ChatService(
     private const string ChatUseCooldownCacheKey = "actionlog:chat.use:";
     private static readonly TimeSpan ChatUseCooldown = TimeSpan.FromMinutes(1);
 
+    public async Task<SnChatMessage?> GetMessageByIdAsync(Guid messageId)
+    {
+        return await db.ChatMessages
+            .Where(m => m.Id == messageId)
+            .Include(m => m.Sender)
+            .Include(m => m.ChatRoom)
+            .FirstOrDefaultAsync();
+    }
+
     private static string NormalizeEncryptionMessageType(string? messageType, string fallbackType)
     {
         if (string.IsNullOrWhiteSpace(messageType))
@@ -61,6 +70,7 @@ public partial class ChatService(
                     "messages.update"
                     or "messages.delete"
                     or "messages.update.links"
+                    or "placeholder"
                     or WebSocketPacketType.MessageReactionAdded
                     or WebSocketPacketType.MessageReactionRemoved
                 )
@@ -1616,6 +1626,12 @@ public partial class ChatService(
                 case "voice":
                     body = "Voice message";
                     break;
+                case "placeholder":
+                    body = ChatMessageHelpers.GetPlaceholderKind(message)
+                        == ChatMessageHelpers.PlaceholderKindUploading
+                        ? localization.Get("chatPlaceholderUploading", locale)
+                        : localization.Get("chatPlaceholderStreaming", locale);
+                    break;
                 default:
                     if (
                         message.Meta?.TryGetValue("sticker_only_name", out var stickerOnlyName)
@@ -2403,6 +2419,328 @@ public partial class ChatService(
         );
 
         _ = SendReactionNotificationAsync(message, sender, room, isAdded: false, symbol);
+    }
+
+    // --- Placeholder message methods ---
+
+    private static readonly Duration PlaceholderDefaultTtl = Duration.FromMinutes(5);
+    private const string PlaceholderContentType = "placeholder";
+
+    /// <summary>
+    /// Creates a placeholder message for the given sender in the given room.
+    /// Enforces max-1 active placeholder per member per room: if one already exists,
+    /// it is finalized (if it has content) or expired before creating the new one.
+    /// </summary>
+    public async Task<SnChatMessage> SendPlaceholderMessageAsync(
+        SnChatRoom room,
+        SnChatMember sender,
+        string kind
+    )
+    {
+        if (kind is not (ChatMessageHelpers.PlaceholderKindStreaming or ChatMessageHelpers.PlaceholderKindUploading))
+            throw new ArgumentException($"Invalid placeholder kind: {kind}", nameof(kind));
+
+        // Enforce max-1 active placeholder per member per room
+        var existing = await db.ChatMessages
+            .Where(m =>
+                m.ChatRoomId == room.Id
+                && m.SenderId == sender.Id
+                && m.Type == PlaceholderContentType
+                && m.DeletedAt == null
+            )
+            .FirstOrDefaultAsync();
+
+        if (existing is not null)
+        {
+            var existingContent = ChatMessageHelpers.GetPlaceholderContent(existing);
+            if (!string.IsNullOrWhiteSpace(existingContent))
+            {
+                // Finalize the existing placeholder so its content is preserved
+                await FinalizePlaceholderAsync(existing, existingContent);
+            }
+            else
+            {
+                // No meaningful content — just expire it
+                await ExpirePlaceholderAsync(existing);
+            }
+        }
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var expiresAt = now + PlaceholderDefaultTtl;
+
+        var meta = new Dictionary<string, object>
+        {
+            ["placeholder_kind"] = kind,
+            ["placeholder_expires_at"] = expiresAt.ToUnixTimeMilliseconds(),
+        };
+
+        if (kind == ChatMessageHelpers.PlaceholderKindStreaming)
+            meta["placeholder_content"] = string.Empty;
+        if (kind == ChatMessageHelpers.PlaceholderKindUploading)
+            meta["placeholder_progress"] = 0.0;
+
+        var message = new SnChatMessage
+        {
+            Type = PlaceholderContentType,
+            SenderId = sender.Id,
+            ChatRoomId = room.Id,
+            Nonce = Guid.NewGuid().ToString(),
+            Meta = meta,
+            Attachments = [],
+            MembersMentioned = [],
+        };
+
+        db.ChatMessages.Add(message);
+        await db.SaveChangesAsync();
+
+        message.Sender = sender;
+        message.ChatRoom = room;
+
+        // Deliver via WebSocket only (no push notification for placeholders)
+        _ = DeliverMessageAsync(message, sender, room, notify: false);
+
+        return message;
+    }
+
+    /// <summary>
+    /// Updates an active placeholder with new content chunks or upload progress.
+    /// Broadcasts the update via a dedicated WebSocket packet type.
+    /// </summary>
+    public async Task<SnChatMessage> UpdatePlaceholderAsync(
+        SnChatMessage message,
+        string? contentChunk = null,
+        double? progress = null
+    )
+    {
+        if (!ChatMessageHelpers.IsPlaceholderMessage(message))
+            throw new InvalidOperationException("Message is not a placeholder.");
+
+        if (message.DeletedAt is not null)
+            throw new InvalidOperationException("Cannot update an expired or finalized placeholder.");
+
+        message.Meta ??= new Dictionary<string, object>();
+
+        var kind = ChatMessageHelpers.GetPlaceholderKind(message);
+
+        if (kind == ChatMessageHelpers.PlaceholderKindStreaming && contentChunk is not null)
+        {
+            var existing = ChatMessageHelpers.GetPlaceholderContent(message) ?? string.Empty;
+            message.Meta["placeholder_content"] = existing + contentChunk;
+        }
+
+        if (kind == ChatMessageHelpers.PlaceholderKindUploading && progress.HasValue)
+        {
+            message.Meta["placeholder_progress"] = Math.Clamp(progress.Value, 0.0, 1.0);
+        }
+
+        // Refresh TTL
+        var expiresAt = SystemClock.Instance.GetCurrentInstant() + PlaceholderDefaultTtl;
+        message.Meta["placeholder_expires_at"] = expiresAt.ToUnixTimeMilliseconds();
+
+        db.Update(message);
+        await db.SaveChangesAsync();
+
+        // Load sender for delivery
+        if (message.Sender.Account is null)
+            message.Sender = await crs.LoadMemberAccount(message.Sender);
+
+        // Broadcast update via dedicated packet type
+        _ = DeliverPlaceholderUpdateAsync(message);
+
+        return message;
+    }
+
+    /// <summary>
+    /// Finalizes a placeholder by converting it into a real text message.
+    /// </summary>
+    public async Task<SnChatMessage> FinalizePlaceholderAsync(
+        SnChatMessage message,
+        string? finalContent = null,
+        List<SnCloudFileReferenceObject>? attachments = null,
+        Dictionary<string, object>? extraMeta = null
+    )
+    {
+        if (!ChatMessageHelpers.IsPlaceholderMessage(message))
+            throw new InvalidOperationException("Message is not a placeholder.");
+
+        if (message.DeletedAt is not null)
+            throw new InvalidOperationException("Cannot finalize an expired or already-finalized placeholder.");
+
+        var placeholderContent = ChatMessageHelpers.GetPlaceholderContent(message);
+        var resolvedContent = finalContent ?? placeholderContent ?? string.Empty;
+
+        // Convert to real text message
+        message.Type = "text";
+        message.Content = resolvedContent;
+
+        if (attachments is not null)
+            message.Attachments = attachments;
+
+        // Strip placeholder-specific meta keys
+        message.Meta?.Remove("placeholder_kind");
+        message.Meta?.Remove("placeholder_content");
+        message.Meta?.Remove("placeholder_progress");
+        message.Meta?.Remove("placeholder_expires_at");
+
+        // Merge any extra meta
+        if (extraMeta is not null)
+        {
+            message.Meta ??= new Dictionary<string, object>();
+            foreach (var kv in extraMeta)
+                message.Meta[kv.Key] = kv.Value;
+        }
+
+        // Clean up empty meta
+        if (message.Meta?.Count == 0)
+            message.Meta = null;
+
+        db.Update(message);
+        await db.SaveChangesAsync();
+
+        // Load sender for delivery
+        if (message.Sender.Account is null)
+            message.Sender = await crs.LoadMemberAccount(message.Sender);
+
+        if (message.ChatRoom is null)
+        {
+            message.ChatRoom = await db.ChatRooms.FirstAsync(r => r.Id == message.ChatRoomId);
+        }
+
+        // Create and deliver a sync message so clients see the finalization
+        var syncMessage = new SnChatMessage
+        {
+            Type = "messages.update",
+            ChatRoomId = message.ChatRoomId,
+            SenderId = message.SenderId,
+            Content = message.Content,
+            Attachments = message.Attachments,
+            Nonce = Guid.NewGuid().ToString(),
+            Meta = message.Meta != null
+                ? new Dictionary<string, object>(message.Meta) { ["message_id"] = message.Id }
+                : new Dictionary<string, object> { ["message_id"] = message.Id },
+            CreatedAt = message.UpdatedAt,
+            UpdatedAt = message.UpdatedAt,
+        };
+
+        db.ChatMessages.Add(syncMessage);
+        await db.SaveChangesAsync();
+
+        syncMessage.Sender = message.Sender;
+        syncMessage.ChatRoom = message.ChatRoom;
+
+        _ = DeliverMessageAsync(syncMessage, syncMessage.Sender, syncMessage.ChatRoom,
+            type: WebSocketPacketType.MessageUpdate, notify: false);
+
+        // Process link preview in the background if applicable
+        if (ShouldQueueLinkPreview(message))
+            _ = Task.Run(async () => await CreateLinkPreviewBackgroundAsync(message));
+
+        return message;
+    }
+
+    /// <summary>
+    /// Expires (soft-deletes) a placeholder message and notifies clients.
+    /// </summary>
+    public async Task ExpirePlaceholderAsync(SnChatMessage message)
+    {
+        message.DeletedAt = SystemClock.Instance.GetCurrentInstant();
+        message.UpdatedAt = message.DeletedAt.Value;
+
+        db.Update(message);
+        await db.SaveChangesAsync();
+
+        // Load sender for delivery
+        if (message.Sender.Account is null)
+            message.Sender = await crs.LoadMemberAccount(message.Sender);
+
+        // Notify clients that this placeholder expired
+        _ = DeliverPlaceholderExpiredAsync(message);
+    }
+
+    /// <summary>
+    /// Background job: expire all stale placeholders whose TTL has passed.
+    /// </summary>
+    public async Task<int> ExpireStalePlaceholdersAsync()
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var nowMs = now.ToUnixTimeMilliseconds();
+
+        var stale = await db.ChatMessages
+            .Where(m => m.Type == PlaceholderContentType && m.DeletedAt == null)
+            .ToListAsync();
+
+        var toExpire = stale.Where(m =>
+        {
+            var expiresAt = ChatMessageHelpers.GetPlaceholderExpiresAt(m);
+            return expiresAt.HasValue && expiresAt.Value <= nowMs;
+        }).ToList();
+
+        foreach (var msg in toExpire)
+        {
+            msg.DeletedAt = now;
+            msg.UpdatedAt = now;
+        }
+
+        if (toExpire.Count > 0)
+            await db.SaveChangesAsync();
+
+        return toExpire.Count;
+    }
+
+    /// <summary>
+    /// Delivers a placeholder update via the dedicated WebSocket packet type.
+    /// </summary>
+    private async Task DeliverPlaceholderUpdateAsync(SnChatMessage message)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
+        var members = await scopedCrs.ListRoomMembers(message.ChatRoomId);
+
+        var scopedWs = scope.ServiceProvider.GetRequiredService<WebSocketService.WebSocketServiceClient>();
+        var payload = InfraObjectCoder.ConvertObjectToByteString(message);
+
+        var request = new DyPushWebSocketPacketToUsersRequest
+        {
+            Packet = new DyWebSocketPacket
+            {
+                Type = WebSocketPacketType.PlaceholderUpdate,
+                Data = payload,
+            },
+        };
+        var memberAccounts = members.Select(a => a.Account).Where(a => a is not null).ToList();
+        request.UserIds.AddRange(memberAccounts.Select(a => a!.Id.ToString()));
+
+        await scopedWs.PushWebSocketPacketToUsersAsync(request);
+    }
+
+    /// <summary>
+    /// Notifies clients that a placeholder has expired.
+    /// </summary>
+    private async Task DeliverPlaceholderExpiredAsync(SnChatMessage message)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
+        var members = await scopedCrs.ListRoomMembers(message.ChatRoomId);
+
+        var scopedWs = scope.ServiceProvider.GetRequiredService<WebSocketService.WebSocketServiceClient>();
+        var payload = InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
+        {
+            ["message_id"] = message.Id,
+            ["chat_room_id"] = message.ChatRoomId,
+        });
+
+        var request = new DyPushWebSocketPacketToUsersRequest
+        {
+            Packet = new DyWebSocketPacket
+            {
+                Type = WebSocketPacketType.PlaceholderExpired,
+                Data = payload,
+            },
+        };
+        var memberAccounts = members.Select(a => a.Account).Where(a => a is not null).ToList();
+        request.UserIds.AddRange(memberAccounts.Select(a => a!.Id.ToString()));
+
+        await scopedWs.PushWebSocketPacketToUsersAsync(request);
     }
 
     public async Task HydrateMessageReactionsAsync(

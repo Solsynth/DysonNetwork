@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
@@ -145,6 +146,54 @@ public static class ChatMessageHelpers
                request.NotableDayId.HasValue ||
                request.CalendarEventId.HasValue ||
                HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt);
+    }
+
+    // --- Placeholder message helpers ---
+
+    public const string PlaceholderKindStreaming = "streaming";
+    public const string PlaceholderKindUploading = "uploading";
+
+    public static bool IsPlaceholderMessage(SnChatMessage message)
+    {
+        return string.Equals(message.Type, "placeholder", StringComparison.Ordinal);
+    }
+
+    public static string? GetPlaceholderKind(SnChatMessage message)
+    {
+        if (message.Meta?.TryGetValue("placeholder_kind", out var kind) == true && kind is string k)
+            return k;
+        return null;
+    }
+
+    public static string? GetPlaceholderContent(SnChatMessage message)
+    {
+        if (message.Meta?.TryGetValue("placeholder_content", out var content) == true && content is string c)
+            return c;
+        return null;
+    }
+
+    public static double GetPlaceholderProgress(SnChatMessage message)
+    {
+        if (message.Meta?.TryGetValue("placeholder_progress", out var progress) == true)
+            return progress switch
+            {
+                double d => d,
+                JsonElement { ValueKind: JsonValueKind.Number } je => je.GetDouble(),
+                _ => 0.0
+            };
+        return 0.0;
+    }
+
+    public static long? GetPlaceholderExpiresAt(SnChatMessage message)
+    {
+        if (message.Meta?.TryGetValue("placeholder_expires_at", out var expires) == true)
+            return expires switch
+            {
+                long l => l,
+                JsonElement { ValueKind: JsonValueKind.Number } je => je.GetInt64(),
+                _ => null
+            };
+        return null;
     }
 
     public static void AddEmbedToMessage(SnChatMessage message, EmbeddableBase embed)

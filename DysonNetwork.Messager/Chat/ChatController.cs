@@ -650,6 +650,39 @@ public partial class ChatController(
         return Ok(result);
     }
 
+    public class SendPlaceholderMessageRequest
+    {
+        [Required] public string Kind { get; set; } = null!;
+    }
+
+    [HttpPost("{roomId:guid}/messages/placeholder")]
+    [Authorize]
+    [AskPermission("chat.messages.create")]
+    public async Task<ActionResult<SnChatMessage>> SendPlaceholderMessage([FromBody] SendPlaceholderMessageRequest request, Guid roomId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var member = await crs.GetRoomMember(accountId, roomId);
+        if (member == null)
+            return StatusCode(403, "You need to be a member to send messages here.");
+        if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
+            return StatusCode(403, "You has been timed out in this chat.");
+        if (member.ChatRoom.EncryptionMode != ChatRoomEncryptionMode.None)
+            return Conflict(new
+            {
+                code = "chat.e2ee_placeholder_not_supported",
+                error = "Placeholder messages are not supported in encrypted rooms."
+            });
+
+        if (request.Kind is not (ChatMessageHelpers.PlaceholderKindStreaming or ChatMessageHelpers.PlaceholderKindUploading))
+            return BadRequest($"Invalid placeholder kind. Must be '{ChatMessageHelpers.PlaceholderKindStreaming}' or '{ChatMessageHelpers.PlaceholderKindUploading}'.");
+
+        var result = await cs.SendPlaceholderMessageAsync(member.ChatRoom, member, request.Kind);
+        return Ok(result);
+    }
+
     [HttpPost("{roomId:guid}/messages/redirect")]
     [Authorize]
     [AskPermission("chat.messages.create")]
