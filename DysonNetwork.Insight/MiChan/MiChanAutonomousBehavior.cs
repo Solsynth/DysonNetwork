@@ -623,6 +623,27 @@ public class MiChanAutonomousBehavior
 
     private record MemoryEntry(string Type, string Content, float Confidence);
 
+    private static void AppendMemoryFormatInstructions(StringBuilder builder)
+    {
+        builder.AppendLine("记忆格式（K:V，每行一个键值对）：");
+        builder.AppendLine("MEMORY_TYPE: 类型");
+        builder.AppendLine("MEMORY_CONTENT: 内容");
+        builder.AppendLine("MEMORY_CONFIDENCE: 0.0-1.0");
+        builder.AppendLine();
+        builder.AppendLine("类型：user(用户信息), topic(话题), fact(事实), context(上下文), interaction(互动)");
+        builder.AppendLine("confidence 可省略，默认 0.7");
+        builder.AppendLine("每条记忆使用 2-3 行；多条记忆继续重复同样格式。");
+        builder.AppendLine();
+        builder.AppendLine("示例：");
+        builder.AppendLine("MEMORY_TYPE: user");
+        builder.AppendLine("MEMORY_CONTENT: 用户喜欢分享AI技术帖子");
+        builder.AppendLine("MEMORY_CONFIDENCE: 0.8");
+        builder.AppendLine();
+        builder.AppendLine("MEMORY_TYPE: fact");
+        builder.AppendLine("MEMORY_CONTENT: 某公司昨日发布新产品");
+        builder.AppendLine("MEMORY_CONFIDENCE: 0.9");
+    }
+
     private (PostActionDecision Decision, List<MemoryEntry> StoreActions) ParseDecisionText(string decision, string decisionText, Guid postId, CancellationToken cancellationToken)
     {
         _logger.LogInformation("AI decision for post {PostId}: {Decision}", postId, decision);
@@ -672,8 +693,73 @@ public class MiChanAutonomousBehavior
         return (actionDecision, storeActions);
     }
 
+    private static bool LooksLikeJsonArray(string text)
+    {
+        var trimmed = text.TrimStart();
+        return trimmed.StartsWith("[");
+    }
+
+    private static List<MemoryEntry> ParseMemoryEntriesFromKvLines(string response)
+    {
+        var entries = new List<MemoryEntry>();
+        string? currentType = null;
+        string? currentContent = null;
+        float currentConfidence = 0.7f;
+        var hasConfidence = false;
+
+        static void FlushCurrent(List<MemoryEntry> target, ref string? type, ref string? content, ref float confidence,
+            ref bool hasConfidence)
+        {
+            if (!string.IsNullOrWhiteSpace(type) && !string.IsNullOrWhiteSpace(content))
+            {
+                target.Add(new MemoryEntry(type.Trim(), content.Trim(), hasConfidence ? confidence : 0.7f));
+            }
+
+            type = null;
+            content = null;
+            confidence = 0.7f;
+            hasConfidence = false;
+        }
+
+        var lines = response.Split('\n', StringSplitOptions.TrimEntries);
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.Trim();
+            if (string.IsNullOrEmpty(line))
+                continue;
+
+            var separatorIndex = line.IndexOf(':');
+            if (separatorIndex <= 0)
+                continue;
+
+            var key = line[..separatorIndex].Trim();
+            var value = line[(separatorIndex + 1)..].Trim();
+
+            switch (key.ToUpperInvariant())
+            {
+                case "MEMORY_TYPE":
+                    FlushCurrent(entries, ref currentType, ref currentContent, ref currentConfidence, ref hasConfidence);
+                    currentType = value;
+                    break;
+                case "MEMORY_CONTENT":
+                    currentContent = value;
+                    break;
+                case "MEMORY_CONFIDENCE":
+                    if (float.TryParse(value, out var confidence))
+                    {
+                        currentConfidence = confidence;
+                        hasConfidence = true;
+                    }
+                    break;
+            }
+        }
+
+        FlushCurrent(entries, ref currentType, ref currentContent, ref currentConfidence, ref hasConfidence);
+        return entries;
+    }
+
     private async Task<List<MemoryEntry>> ParseAndStoreMemoriesAsync(
-        string jsonResponse,
+        string response,
         Guid postId,
         Guid? accountId,
         CancellationToken cancellationToken,
@@ -688,10 +774,18 @@ public class MiChanAutonomousBehavior
             attempt++;
             try
             {
-                var entries = JsonSerializer.Deserialize<List<MemoryEntry>>(jsonResponse, new JsonSerializerOptions
+                List<MemoryEntry>? entries = null;
+                if (LooksLikeJsonArray(response))
                 {
-                    PropertyNameCaseInsensitive = true
-                });
+                    entries = JsonSerializer.Deserialize<List<MemoryEntry>>(response, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+                }
+                else
+                {
+                    entries = ParseMemoryEntriesFromKvLines(response);
+                }
 
                 if (entries == null || entries.Count == 0)
                 {
@@ -722,7 +816,7 @@ public class MiChanAutonomousBehavior
             catch (JsonException ex)
             {
                 lastError = ex.Message;
-                _logger.LogWarning(ex, "JSON parsing failed (attempt {Attempt}/{MaxRetries}) for post {PostId}: {Error}",
+                _logger.LogWarning(ex, "Memory parsing failed (attempt {Attempt}/{MaxRetries}) for post {PostId}: {Error}",
                     attempt, maxRetries, postId, lastError);
 
                 if (attempt < maxRetries)
@@ -731,14 +825,26 @@ public class MiChanAutonomousBehavior
                     var provider = _foundationProvider.GetAutonomousAdapter();
                     var options = _foundationProvider.CreateAutonomousExecutionOptions();
 
-                    var retryPrompt = $"JSON解析失败: {lastError}\n\n请修正以下JSON并返回有效的JSON数组格式：\n{jsonResponse}";
+                    var retryPrompt = $"""
+                                      记忆解析失败: {lastError}
 
-                    jsonResponse = await _streamingService.CompletePromptAsync(provider, retryPrompt, options);
+                                      请把下面内容改写为 K:V 格式的记忆，不要输出 JSON，不要加解释。
+
+                                      格式要求：
+                                      MEMORY_TYPE: 类型
+                                      MEMORY_CONTENT: 内容
+                                      MEMORY_CONFIDENCE: 0.0-1.0
+
+                                      原始输出：
+                                      {response}
+                                      """;
+
+                    response = await _streamingService.CompletePromptAsync(provider, retryPrompt, options);
                 }
             }
         }
 
-        _logger.LogError("JSON parsing failed after {MaxRetries} attempts for post {PostId}. Last error: {Error}",
+        _logger.LogError("Memory parsing failed after {MaxRetries} attempts for post {PostId}. Last error: {Error}",
             maxRetries, postId, lastError);
 
         return memories;
@@ -915,16 +1021,10 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
                 decisionPrompt.AppendLine("- PIN:PublisherPage");
                 decisionPrompt.AppendLine("- IGNORE");
                 decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("记忆格式（JSON数组）：");
-                decisionPrompt.AppendLine(@"[{""type"": ""类型"", ""content"": ""内容"", ""confidence"": 0.0-1.0}]");
-                decisionPrompt.AppendLine("类型：user(用户信息), topic(话题), fact(事实), context(上下文), interaction(互动)");
-                decisionPrompt.AppendLine("confidence表示可信度，默认0.7");
-                decisionPrompt.AppendLine();
-                decisionPrompt.AppendLine("示例：");
-                decisionPrompt.AppendLine(@"[{""type"": ""user"", ""content"": ""用户喜欢分享AI技术帖子"", ""confidence"": 0.8}, {""type"": ""fact"", ""content"": ""某公司昨日发布新产品"", ""confidence"": 0.9}]");
+                AppendMemoryFormatInstructions(decisionPrompt);
                 decisionPrompt.AppendLine();
                 decisionPrompt.AppendLine("**强制要求 - 必须遵守**：");
-                decisionPrompt.AppendLine("1. 对每一条浏览的帖子，你必须保存至少1-3条记忆（JSON格式）。");
+                decisionPrompt.AppendLine("1. 对每一条浏览的帖子，你必须保存至少1-3条记忆（使用上述 K:V 格式）。");
                 decisionPrompt.AppendLine("2. 记忆是全局共享的 - 你看到的所有记忆来自所有用户的互动，保存的记忆也会帮助你在未来与任何人交流时参考。");
                 decisionPrompt.AppendLine("3. 尽可能多地记录：用户的兴趣、讨论的话题、有趣的观点、事实知识、互动模式。");
                 decisionPrompt.AppendLine("4. 即使只是简单的'用户分享了关于XX的内容'也要记录 - 积少成多。");
@@ -1033,8 +1133,8 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
             instructionText.AppendLine("当被提到时，你必须回复。如果很欣赏，也可以添加表情反应。");
             instructionText.AppendLine("回复时：使用简体中文，不要全大写，表达简洁有力，用最少的语言表达观点。不要使用表情符号。");
             instructionText.AppendLine();
-            instructionText.AppendLine("**重要 - 必须执行**：使用 JSON 格式保存多条记忆！");
-            instructionText.AppendLine("格式：[{type, content, confidence}]");
+            instructionText.AppendLine("**重要 - 必须执行**：使用 K:V 格式保存多条记忆！");
+            AppendMemoryFormatInstructions(instructionText);
             instructionText.AppendLine("- 保存用户的偏好、兴趣、性格特点");
             instructionText.AppendLine("- 记录讨论的话题和重要信息");
             instructionText.AppendLine("- 记忆是全局共享的，会帮助你以后与所有人交流");
@@ -1058,13 +1158,9 @@ decisionPrompt.AppendLine("你正在浏览帖子：");
             instructionText.AppendLine("- PIN:PublisherPage");
             instructionText.AppendLine("- IGNORE");
             instructionText.AppendLine();
-            instructionText.AppendLine("记忆格式（JSON数组）：");
-            instructionText.AppendLine(@"[{""type"": ""类型"", ""content"": ""内容"", ""confidence"": 0.0-1.0}]");
-            instructionText.AppendLine("类型：user(用户信息), topic(话题), fact(事实), context(上下文), interaction(互动)");
-            instructionText.AppendLine("confidence表示可信度，默认0.7");
-            instructionText.AppendLine();
+            AppendMemoryFormatInstructions(instructionText);
             instructionText.AppendLine("**强制要求 - 必须遵守**：");
-            instructionText.AppendLine("1. 对每一条浏览的帖子，你必须保存至少1-3条记忆（JSON格式）。");
+            instructionText.AppendLine("1. 对每一条浏览的帖子，你必须保存至少1-3条记忆（使用上述 K:V 格式）。");
             instructionText.AppendLine("2. 记忆是全局共享的 - 你看到的所有记忆来自所有用户的互动，保存的记忆也会帮助你在未来与任何人交流时参考。");
             instructionText.AppendLine("3. 尽可能多地记录：用户的兴趣、讨论的话题、有趣的观点、事实知识、互动模式。");
             instructionText.AppendLine("4. 即使只是简单的'用户分享了关于XX的内容'也要记录 - 积少成多。");
