@@ -44,6 +44,16 @@ public class SnChanConfig : IValidatableObject
     public ModelConfiguration? ReasoningModel { get; set; }
 
     /// <summary>
+    /// Default thinking-mode behavior for chat/thought requests when the caller does not specify it.
+    /// </summary>
+    public bool EnableThinking { get; set; } = true;
+
+    /// <summary>
+    /// Default tool availability for chat/thought requests when the caller does not specify it.
+    /// </summary>
+    public bool EnableTools { get; set; } = true;
+
+    /// <summary>
     /// Default model for SN-chan vision tasks.
     /// Falls back to DefaultChatModel if not set.
     /// </summary>

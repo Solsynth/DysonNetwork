@@ -8,7 +8,7 @@ public interface ISnChanFoundationProvider
 {
     IAgentProviderAdapter GetChatAdapter(string? modelId = null);
     IAgentProviderAdapter GetVisionAdapter(int? userPerkLevel = null);
-    AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true);
+    AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true, bool? enableTools = null);
     AgentExecutionOptions CreateVisionExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true);
 }
 
@@ -53,7 +53,7 @@ public class SnChanFoundationProvider : ISnChanFoundationProvider
         return _providerRegistry.GetProvider(fallbackProviderId);
     }
 
-    public AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true)
+    public AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true, bool? enableTools = null)
     {
         return new AgentExecutionOptions
         {
@@ -61,7 +61,7 @@ public class SnChanFoundationProvider : ISnChanFoundationProvider
             TopP = null,
             ReasoningEffort = enableThinking ? reasoningEffort ?? _defaultModel.GetEffectiveReasoningEffort() : null,
             EnableThinking = enableThinking,
-            EnableTools = _defaultModel.EnableFunctions,
+            EnableTools = enableTools ?? _defaultModel.EnableFunctions,
             AutoInvokeTools = false,
             MaxToolRounds = 10
         };

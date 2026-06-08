@@ -82,6 +82,7 @@ public class ThoughtController(
         public List<string> AcceptProposals { get; set; } = [];
         public string? ReasoningEffort { get; set; } // "low", "medium", "high"
         public bool? Thinking { get; set; } // Enable/disable thinking mode (default: true for capable models)
+        public bool? EnableTools { get; set; } // Enable/disable tools (default: config value)
         public string? Model { get; set; } // Custom model ID to use (optional)
         public string? Topic { get; set; } // Topic for new thread creation (when no sequenceId provided)
     }
@@ -561,16 +562,22 @@ public class ThoughtController(
                 userThought.Id
             );
 
-            toolRegistry.RegisterMiChanPlugins(serviceProvider);
-            conversation = new AgentConversation(conversation.Messages)
+            var enableThinking = request.Thinking ?? snChanConfig.EnableThinking;
+            var enableTools = request.EnableTools ?? snChanConfig.EnableTools;
+            if (enableTools)
             {
-                Tools = toolRegistry.GetAllDefinitions().ToList()
-            };
+                toolRegistry.RegisterMiChanPlugins(serviceProvider);
+                conversation = new AgentConversation(conversation.Messages)
+                {
+                    Tools = toolRegistry.GetAllDefinitions().ToList()
+                };
+            }
 
             var provider = snChanFoundationProvider.GetChatAdapter(request.Model);
             var options = snChanFoundationProvider.CreateExecutionOptions(
                 reasoningEffort: request.ReasoningEffort,
-                enableThinking: request.Thinking ?? true
+                enableThinking: enableThinking,
+                enableTools: enableTools
             );
             logger.LogInformation(
                 "SnChan thought request diagnostics for user {AccountId}, sequence {SequenceId}, provider {ProviderId}, model {ModelName}: {Diagnostics}",
@@ -580,6 +587,7 @@ public class ThoughtController(
                 request.Model ?? snChanConfig.DefaultChatModel?.ModelId ?? "(default)",
                 DescribeConversationDiagnostics(conversation, options)
             );
+            var conversationDiagnostics = DescribeConversationDiagnostics(conversation, options);
 
             var attemptAssistantParts = new List<SnThinkingMessagePart>();
             var attemptFullResponse = new StringBuilder();
@@ -804,7 +812,7 @@ public class ThoughtController(
             if (attemptAssistantParts.Count == 0)
             {
                 logger.LogWarning(
-                    "SnChan returned an empty response for user {AccountId}, sequence {SequenceId}, provider {ProviderId}, model {ModelName}. sawTextDelta={SawTextDelta}, sawReasoningDelta={SawReasoningDelta}, fullResponseLength={FullResponseLength}, toolCallsCount={ToolCallsCount}, responseStatusCode={ResponseStatusCode}, responseHeaders={ResponseHeaders}, responseBody={ResponseBody}",
+                    "SnChan returned an empty response for user {AccountId}, sequence {SequenceId}, provider {ProviderId}, model {ModelName}. sawTextDelta={SawTextDelta}, sawReasoningDelta={SawReasoningDelta}, fullResponseLength={FullResponseLength}, toolCallsCount={ToolCallsCount}, diagnostics={Diagnostics}, responseStatusCode={ResponseStatusCode}, responseHeaders={ResponseHeaders}, responseBody={ResponseBody}",
                     accountId,
                     sequence.Id,
                     provider.ProviderId,
@@ -813,6 +821,7 @@ public class ThoughtController(
                     sawReasoningDelta,
                     attemptFullResponse.Length,
                     currentToolCalls.Count,
+                    conversationDiagnostics,
                     GetResponseMetadataValue(streamResponseMetadata, "response_status_code"),
                     GetResponseMetadataValue(streamResponseMetadata, "response_headers"),
                     GetResponseMetadataValue(streamResponseMetadata, "response_body")
@@ -1090,16 +1099,20 @@ public class ThoughtController(
                 attempt + 1
             );
 
-            toolRegistry.RegisterMiChanPlugins(serviceProvider);
-            conversation = new AgentConversation(conversation.Messages)
+            var enableThinking = request.Thinking ?? miChanConfig.EnableThinking;
+            var enableTools = request.EnableTools ?? miChanConfig.EnableTools;
+            if (enableTools)
             {
-                Tools = toolRegistry.GetAllDefinitions().ToList()
-            };
+                toolRegistry.RegisterMiChanPlugins(serviceProvider);
+                conversation = new AgentConversation(conversation.Messages)
+                {
+                    Tools = toolRegistry.GetAllDefinitions().ToList()
+                };
+            }
 
             var provider = useVisionKernel
                 ? miChanFoundationProvider.GetVisionAdapter(currentUser.PerkLevel)
                 : miChanFoundationProvider.GetChatAdapter(currentUser.PerkLevel, request.Model);
-            var enableThinking = request.Thinking ?? true;
             var options = useVisionKernel
                 ? miChanFoundationProvider.CreateVisionExecutionOptions(
                     reasoningEffort: request.ReasoningEffort,
@@ -1107,7 +1120,8 @@ public class ThoughtController(
                 )
                 : miChanFoundationProvider.CreateExecutionOptions(
                     reasoningEffort: request.ReasoningEffort,
-                    enableThinking: enableThinking
+                    enableThinking: enableThinking,
+                    enableTools: enableTools
                 );
             var modelNameForAttempt = useVisionKernel
                 ? miChanConfig.Vision.VisionThinkingService
@@ -1127,6 +1141,7 @@ public class ThoughtController(
                 modelNameForAttempt,
                 DescribeConversationDiagnostics(conversation, options)
             );
+            var conversationDiagnostics = DescribeConversationDiagnostics(conversation, options);
 
             var attemptAssistantParts = new List<SnThinkingMessagePart>();
             var attemptFullResponse = new StringBuilder();
@@ -1341,7 +1356,7 @@ public class ThoughtController(
             if (attemptAssistantParts.Count == 0)
             {
                 logger.LogWarning(
-                    "MiChan returned an empty response for user {AccountId}, sequence {SequenceId}, provider {ProviderId}, model {ModelName}. sawTextDelta={SawTextDelta}, sawReasoningDelta={SawReasoningDelta}, fullResponseLength={FullResponseLength}, toolCallsCount={ToolCallsCount}, responseStatusCode={ResponseStatusCode}, responseHeaders={ResponseHeaders}, responseBody={ResponseBody}",
+                    "MiChan returned an empty response for user {AccountId}, sequence {SequenceId}, provider {ProviderId}, model {ModelName}. sawTextDelta={SawTextDelta}, sawReasoningDelta={SawReasoningDelta}, fullResponseLength={FullResponseLength}, toolCallsCount={ToolCallsCount}, diagnostics={Diagnostics}, responseStatusCode={ResponseStatusCode}, responseHeaders={ResponseHeaders}, responseBody={ResponseBody}",
                     accountId,
                     sequence.Id,
                     provider.ProviderId,
@@ -1350,6 +1365,7 @@ public class ThoughtController(
                     sawReasoningDelta,
                     attemptFullResponse.Length,
                     currentToolCalls.Count,
+                    conversationDiagnostics,
                     GetResponseMetadataValue(streamResponseMetadata, "response_status_code"),
                     GetResponseMetadataValue(streamResponseMetadata, "response_headers"),
                     GetResponseMetadataValue(streamResponseMetadata, "response_body")

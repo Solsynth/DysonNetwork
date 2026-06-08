@@ -11,7 +11,7 @@ public interface IMiChanFoundationProvider
     IAgentProviderAdapter GetAutonomousAdapter(int? userPerkLevel = null);
     IAgentProviderAdapter GetVisionAdapter(int? userPerkLevel = null);
     IAgentProviderAdapter GetCompactionAdapter(int? userPerkLevel = null);
-    AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true);
+    AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true, bool? enableTools = null);
     AgentExecutionOptions CreateAutonomousExecutionOptions(double? temperature = null, string? reasoningEffort = null);
     AgentExecutionOptions CreateVisionExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true);
 }
@@ -65,7 +65,7 @@ public class MiChanFoundationProvider : IMiChanFoundationProvider
         return _providerRegistry.GetProvider(providerId);
     }
 
-    public AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true)
+    public AgentExecutionOptions CreateExecutionOptions(double? temperature = null, string? reasoningEffort = null, bool enableThinking = true, bool? enableTools = null)
     {
         return new AgentExecutionOptions
         {
@@ -73,7 +73,7 @@ public class MiChanFoundationProvider : IMiChanFoundationProvider
             TopP = null,
             ReasoningEffort = enableThinking ? reasoningEffort ?? _config.ThinkingModel.GetEffectiveReasoningEffort() : null,
             EnableThinking = enableThinking,
-            EnableTools = _config.ThinkingModel.EnableFunctions,
+            EnableTools = enableTools ?? _config.ThinkingModel.EnableFunctions,
             AutoInvokeTools = false,
             MaxToolRounds = 10
         };

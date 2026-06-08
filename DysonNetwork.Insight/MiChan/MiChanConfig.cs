@@ -24,6 +24,16 @@ public class MiChanConfig : IValidatableObject
     public ModelConfiguration ThinkingModel { get; set; } = new() { ModelId = "deepseek-chat" };
 
     /// <summary>
+    /// Default thinking-mode behavior for chat/thought requests when the caller does not specify it.
+    /// </summary>
+    public bool EnableThinking { get; set; } = true;
+
+    /// <summary>
+    /// Default tool availability for chat/thought requests when the caller does not specify it.
+    /// </summary>
+    public bool EnableTools { get; set; } = true;
+
+    /// <summary>
     /// Model for autonomous behavior. Falls back to ThinkingModel if not set.
     /// </summary>
     public ModelConfiguration? AutonomousModel { get; set; }
