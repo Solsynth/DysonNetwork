@@ -1474,18 +1474,20 @@ public class ThoughtService(
                 ? miChanFoundationProvider.CreateExecutionOptions()
                 : snChanFoundationProvider.CreateExecutionOptions();
 
-            var result = await foundationStreamingService.CompletePromptAsync(
-                provider,
-                promptBuilder.ToString(),
-                options
-            );
+            var conversation = new AgentConversation();
+            conversation.AddSystemMessage(promptBuilder.ToString());
+            var response = await provider.CompleteChatAsync(conversation, options);
+            var result = response.Content ?? "";
             
             if (string.IsNullOrWhiteSpace(result))
             {
                 logger.LogWarning(
-                    "GenerateTopicAsync received empty response from provider. useMiChan={UseMiChan}, userMessageLength={Length}",
+                    "GenerateTopicAsync received empty response from provider. useMiChan={UseMiChan}, userMessageLength={Length}, responseStatusCode={ResponseStatusCode}, responseHeaders={ResponseHeaders}, responseBody={ResponseBody}",
                     useMiChan,
-                    userMessage?.Length ?? 0
+                    userMessage?.Length ?? 0,
+                    GetResponseMetadataValue(response.Metadata, "response_status_code"),
+                    GetResponseMetadataValue(response.Metadata, "response_headers"),
+                    GetResponseMetadataValue(response.Metadata, "response_body")
                 );
                 return GenerateFallbackTopic(userMessage);
             }
@@ -1507,6 +1509,19 @@ public class ThoughtService(
         var trimmed = userMessage.Trim();
         // Take first 50 characters as fallback topic
         return trimmed.Length <= 50 ? trimmed : trimmed[..50] + "...";
+    }
+
+    private static object? GetResponseMetadataValue(
+        IReadOnlyDictionary<string, object>? metadata,
+        string key
+    )
+    {
+        if (metadata == null)
+        {
+            return null;
+        }
+
+        return metadata.TryGetValue(key, out var value) ? value : null;
     }
 
     #endregion

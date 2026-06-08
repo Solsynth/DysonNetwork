@@ -18,6 +18,9 @@ using OpenAI.Responses;
 public class OpenAiCompatibleAdapter : IAgentProviderAdapter
 {
     private const string ToolNameDotEscape = "__dot__";
+    private const string ResponseStatusCodeMetadataKey = "response_status_code";
+    private const string ResponseHeadersMetadataKey = "response_headers";
+    private const string ResponseBodyMetadataKey = "response_body";
 
     private readonly ChatClient _chatClient;
     private readonly ResponsesClient _responsesClient;
@@ -1217,6 +1220,7 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
             AgentFinishReason finishReason = AgentFinishReason.Stop;
             int? inputTokens = null;
             int? outputTokens = null;
+            IReadOnlyDictionary<string, object>? completionMetadata = null;
 
             await foreach (var update in StreamRawChatCompletionAsync(currentConversation, options, cancellationToken))
             {
@@ -1277,13 +1281,19 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
                         finishReason = completed.FinishReason;
                         inputTokens = completed.InputTokens;
                         outputTokens = completed.OutputTokens;
+                        completionMetadata = completed.Metadata;
                         break;
                 }
             }
 
             if (!hasToolCalls || toolCalls.Count == 0)
             {
-                yield return new AgentStreamEvent.Completed(finishReason, inputTokens, outputTokens);
+                yield return new AgentStreamEvent.Completed(
+                    finishReason,
+                    inputTokens,
+                    outputTokens,
+                    completionMetadata
+                );
                 yield break;
             }
 
@@ -1324,7 +1334,12 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
             }
             else
             {
-                yield return new AgentStreamEvent.Completed(AgentFinishReason.ToolCalls, inputTokens, outputTokens);
+                yield return new AgentStreamEvent.Completed(
+                    AgentFinishReason.ToolCalls,
+                    inputTokens,
+                    outputTokens,
+                    completionMetadata
+                );
                 yield break;
             }
         }
@@ -1352,7 +1367,9 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         }
 
         using var document = JsonDocument.Parse(body);
-        return ParseRawCompletionResponse(document.RootElement);
+        var parsedResponse = ParseRawCompletionResponse(document.RootElement);
+        parsedResponse.Metadata = CreateResponseMetadata(response, body);
+        return parsedResponse;
     }
 
     private async IAsyncEnumerable<RawStreamUpdate> StreamRawChatCompletionAsync(
@@ -1378,9 +1395,11 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         AgentFinishReason finishReason = AgentFinishReason.Stop;
         int? inputTokens = null;
         int? outputTokens = null;
+        var responseBodyBuilder = new StringBuilder();
 
         while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
         {
+            responseBodyBuilder.AppendLine(line);
             if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:", StringComparison.Ordinal))
             {
                 continue;
@@ -1458,7 +1477,48 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
             }
         }
 
-        yield return new RawStreamUpdate.Completed(finishReason, inputTokens, outputTokens);
+        yield return new RawStreamUpdate.Completed(
+            finishReason,
+            inputTokens,
+            outputTokens,
+            CreateResponseMetadata(response, responseBodyBuilder.ToString())
+        );
+    }
+
+    private static IReadOnlyDictionary<string, object> CreateResponseMetadata(
+        HttpResponseMessage response,
+        string body
+    )
+    {
+        return new Dictionary<string, object>
+        {
+            [ResponseStatusCodeMetadataKey] = (int)response.StatusCode,
+            [ResponseHeadersMetadataKey] = FormatHeaders(response),
+            [ResponseBodyMetadataKey] = body,
+        };
+    }
+
+    private static string FormatHeaders(HttpResponseMessage response)
+    {
+        var builder = new StringBuilder();
+
+        foreach (var header in response.Headers)
+        {
+            builder.Append(header.Key);
+            builder.Append(": ");
+            builder.AppendJoin(", ", header.Value);
+            builder.AppendLine();
+        }
+
+        foreach (var header in response.Content.Headers)
+        {
+            builder.Append(header.Key);
+            builder.Append(": ");
+            builder.AppendJoin(", ", header.Value);
+            builder.AppendLine();
+        }
+
+        return builder.ToString().TrimEnd();
     }
 
     private HttpRequestMessage BuildRawChatRequestMessage(
@@ -2142,7 +2202,12 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         public sealed record TextDelta(string Delta) : RawStreamUpdate;
         public sealed record ReasoningDelta(string Delta) : RawStreamUpdate;
         public sealed record ToolCallDelta(int Index, string? Id, string? Name, string? ArgumentsDelta) : RawStreamUpdate;
-        public sealed record Completed(AgentFinishReason FinishReason, int? InputTokens, int? OutputTokens) : RawStreamUpdate;
+        public sealed record Completed(
+            AgentFinishReason FinishReason,
+            int? InputTokens,
+            int? OutputTokens,
+            IReadOnlyDictionary<string, object>? Metadata = null
+        ) : RawStreamUpdate;
     }
 
     private sealed class StreamingToolCallAccumulator

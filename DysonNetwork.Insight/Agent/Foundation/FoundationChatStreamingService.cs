@@ -39,6 +39,7 @@ public class FoundationChatStreamingService
             var reasoningBuilder = new StringBuilder();
             var toolCalls = new List<AgentToolCall>();
             var hasToolCalls = false;
+            IReadOnlyDictionary<string, object>? completionMetadata = null;
 
             var stream = provider.CompleteChatStreamingAsync(currentConversation, options, cancellationToken)
                 .GetAsyncEnumerator(cancellationToken);
@@ -111,6 +112,7 @@ public class FoundationChatStreamingService
                         break;
 
                     case AgentStreamEvent.Completed completed:
+                        completionMetadata = completed.Metadata;
                         if (completed.InputTokens.HasValue || completed.OutputTokens.HasValue)
                         {
                             yield return new StreamingChatEvent.TokenUsage(completed.InputTokens, completed.OutputTokens);
@@ -128,7 +130,11 @@ public class FoundationChatStreamingService
 
             if (!hasToolCalls || toolCalls.Count == 0)
             {
-                yield return new StreamingChatEvent.Finished(textBuilder.ToString(), reasoningBuilder.Length > 0 ? reasoningBuilder.ToString() : null);
+                yield return new StreamingChatEvent.Finished(
+                    textBuilder.ToString(),
+                    reasoningBuilder.Length > 0 ? reasoningBuilder.ToString() : null,
+                    completionMetadata
+                );
                 yield break;
             }
 
@@ -258,6 +264,10 @@ public abstract record StreamingChatEvent
     public record ToolResult(string Id, string Name, string Result, bool IsError) : StreamingChatEvent;
     public record ToolRoundCompleted(int ToolCount) : StreamingChatEvent;
     public record TokenUsage(int? InputTokens, int? OutputTokens) : StreamingChatEvent;
-    public record Finished(string? FinalText, string? FinalReasoning) : StreamingChatEvent;
+    public record Finished(
+        string? FinalText,
+        string? FinalReasoning,
+        IReadOnlyDictionary<string, object>? Metadata = null
+    ) : StreamingChatEvent;
     public record Error(string Message) : StreamingChatEvent;
 }

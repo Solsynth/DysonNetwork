@@ -578,6 +578,7 @@ public class ThoughtController(
             var sawTextDelta = false;
             var sawReasoningDelta = false;
             var currentToolCalls = new List<(string Id, string Name, string Arguments)>();
+            IReadOnlyDictionary<string, object>? streamResponseMetadata = null;
             var streamErrorMessage = (string?)null;
             var shouldRetryWithCompaction = false;
 
@@ -689,6 +690,7 @@ public class ThoughtController(
                         break;
 
                     case StreamingChatEvent.Finished finished:
+                        streamResponseMetadata = finished.Metadata;
                         if (!sawTextDelta && !string.IsNullOrEmpty(finished.FinalText))
                             AppendStreamingTextPart(attemptAssistantParts, finished.FinalText);
                         if (!sawReasoningDelta && !string.IsNullOrEmpty(finished.FinalReasoning))
@@ -794,7 +796,7 @@ public class ThoughtController(
             if (attemptAssistantParts.Count == 0)
             {
                 logger.LogWarning(
-                    "SnChan returned an empty response for user {AccountId}, sequence {SequenceId}, provider {ProviderId}, model {ModelName}. sawTextDelta={SawTextDelta}, sawReasoningDelta={SawReasoningDelta}, fullResponseLength={FullResponseLength}, toolCallsCount={ToolCallsCount}",
+                    "SnChan returned an empty response for user {AccountId}, sequence {SequenceId}, provider {ProviderId}, model {ModelName}. sawTextDelta={SawTextDelta}, sawReasoningDelta={SawReasoningDelta}, fullResponseLength={FullResponseLength}, toolCallsCount={ToolCallsCount}, responseStatusCode={ResponseStatusCode}, responseHeaders={ResponseHeaders}, responseBody={ResponseBody}",
                     accountId,
                     sequence.Id,
                     provider.ProviderId,
@@ -802,7 +804,10 @@ public class ThoughtController(
                     sawTextDelta,
                     sawReasoningDelta,
                     attemptFullResponse.Length,
-                    currentToolCalls.Count
+                    currentToolCalls.Count,
+                    GetResponseMetadataValue(streamResponseMetadata, "response_status_code"),
+                    GetResponseMetadataValue(streamResponseMetadata, "response_headers"),
+                    GetResponseMetadataValue(streamResponseMetadata, "response_body")
                 );
             }
 
@@ -1112,6 +1117,7 @@ public class ThoughtController(
             var sawTextDelta = false;
             var sawReasoningDelta = false;
             var currentToolCalls = new List<(string Id, string Name, string Arguments)>();
+            IReadOnlyDictionary<string, object>? streamResponseMetadata = null;
             var streamErrorMessage = (string?)null;
             var shouldRetryWithCompaction = false;
 
@@ -1211,6 +1217,7 @@ public class ThoughtController(
                         break;
 
                     case StreamingChatEvent.Finished finished:
+                        streamResponseMetadata = finished.Metadata;
                         if (!sawTextDelta && !string.IsNullOrEmpty(finished.FinalText))
                             AppendStreamingTextPart(attemptAssistantParts, finished.FinalText);
                         if (!sawReasoningDelta && !string.IsNullOrEmpty(finished.FinalReasoning))
@@ -1318,7 +1325,7 @@ public class ThoughtController(
             if (attemptAssistantParts.Count == 0)
             {
                 logger.LogWarning(
-                    "MiChan returned an empty response for user {AccountId}, sequence {SequenceId}, provider {ProviderId}, model {ModelName}. sawTextDelta={SawTextDelta}, sawReasoningDelta={SawReasoningDelta}, fullResponseLength={FullResponseLength}, toolCallsCount={ToolCallsCount}",
+                    "MiChan returned an empty response for user {AccountId}, sequence {SequenceId}, provider {ProviderId}, model {ModelName}. sawTextDelta={SawTextDelta}, sawReasoningDelta={SawReasoningDelta}, fullResponseLength={FullResponseLength}, toolCallsCount={ToolCallsCount}, responseStatusCode={ResponseStatusCode}, responseHeaders={ResponseHeaders}, responseBody={ResponseBody}",
                     accountId,
                     sequence.Id,
                     provider.ProviderId,
@@ -1326,7 +1333,10 @@ public class ThoughtController(
                     sawTextDelta,
                     sawReasoningDelta,
                     attemptFullResponse.Length,
-                    currentToolCalls.Count
+                    currentToolCalls.Count,
+                    GetResponseMetadataValue(streamResponseMetadata, "response_status_code"),
+                    GetResponseMetadataValue(streamResponseMetadata, "response_headers"),
+                    GetResponseMetadataValue(streamResponseMetadata, "response_body")
                 );
                 var errorJson = JsonSerializer.Serialize(
                     new { type = "error", data = "模型返回了空响应，请稍后重试" }
@@ -1944,5 +1954,18 @@ public class ThoughtController(
                    text.Contains("limit") ||
                    text.Contains("exceed")
                );
+    }
+
+    private static object? GetResponseMetadataValue(
+        IReadOnlyDictionary<string, object>? metadata,
+        string key
+    )
+    {
+        if (metadata == null)
+        {
+            return null;
+        }
+
+        return metadata.TryGetValue(key, out var value) ? value : null;
     }
 }
