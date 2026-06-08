@@ -257,20 +257,6 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
 
             if (!hasToolCalls || toolCalls.Count == 0)
             {
-                if (textBuilder.Length == 0)
-                {
-                    _logger?.LogWarning(
-                        "Streaming chat returned no visible output; falling back to non-streaming completion for provider {ProviderId}",
-                        ProviderId
-                    );
-                    var fallbackResponse = await CompleteChatAsync(conversation, options, cancellationToken);
-                    foreach (var fallbackEvent in ConvertResponseToStreamEvents(fallbackResponse))
-                    {
-                        yield return fallbackEvent;
-                    }
-                    yield break;
-                }
-
                 yield return new AgentStreamEvent.Completed(
                     ConvertFinishReason(finishReason),
                     inputTokens,
@@ -582,24 +568,6 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
 
             if (toolCalls.Count == 0)
             {
-                if (textBuilder.Length == 0 && reasoningBuilder.Length == 0)
-                {
-                    _logger?.LogWarning(
-                        "DeepSeek SDK streaming returned no visible output; falling back to non-streaming completion for provider {ProviderId}",
-                        ProviderId
-                    );
-                    var fallbackResponse = await CompleteWithDeepSeekSdkAsync(
-                        currentConversation,
-                        options,
-                        cancellationToken
-                    );
-                    foreach (var fallbackEvent in ConvertResponseToStreamEvents(fallbackResponse))
-                    {
-                        yield return fallbackEvent;
-                    }
-                    yield break;
-                }
-
                 yield return new AgentStreamEvent.Completed(AgentFinishReason.Stop, null, null);
                 yield break;
             }
@@ -782,24 +750,6 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
 
             if (finalizedToolCalls.Count == 0)
             {
-                if (textBuilder.Length == 0 && string.IsNullOrWhiteSpace(reasoningReplay))
-                {
-                    _logger?.LogWarning(
-                        "Responses API streaming returned no visible output; falling back to non-streaming completion for provider {ProviderId}",
-                        ProviderId
-                    );
-                    var fallbackResponse = await CompleteWithResponsesApiAsync(
-                        currentConversation,
-                        options,
-                        cancellationToken
-                    );
-                    foreach (var fallbackEvent in ConvertResponseToStreamEvents(fallbackResponse))
-                    {
-                        yield return fallbackEvent;
-                    }
-                    yield break;
-                }
-
                 if (finalResponse != null)
                 {
                     var completedResponse = ConvertResponsesResult(finalResponse);
@@ -1338,24 +1288,6 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
 
             if (!hasToolCalls || toolCalls.Count == 0)
             {
-                if (textBuilder.Length == 0 && reasoningBuilder.Length == 0)
-                {
-                    _logger?.LogWarning(
-                        "Raw streaming chat returned no visible output; falling back to non-streaming completion for provider {ProviderId}",
-                        ProviderId
-                    );
-                    var fallbackResponse = await CompleteChatWithReasoningReplayAsync(
-                        currentConversation,
-                        options,
-                        cancellationToken
-                    );
-                    foreach (var fallbackEvent in ConvertResponseToStreamEvents(fallbackResponse))
-                    {
-                        yield return fallbackEvent;
-                    }
-                    yield break;
-                }
-
                 yield return new AgentStreamEvent.Completed(
                     finishReason,
                     inputTokens,
@@ -1589,43 +1521,6 @@ public class OpenAiCompatibleAdapter : IAgentProviderAdapter
         return builder.ToString().TrimEnd();
     }
 
-    private static IEnumerable<AgentStreamEvent> ConvertResponseToStreamEvents(
-        AgentChatResponse response
-    )
-    {
-        if (!string.IsNullOrEmpty(response.Reasoning))
-        {
-            yield return new AgentStreamEvent.ReasoningDelta(response.Reasoning);
-        }
-
-        if (!string.IsNullOrEmpty(response.Content))
-        {
-            yield return new AgentStreamEvent.TextDelta(response.Content);
-        }
-
-        if (response.ToolCalls != null)
-        {
-            foreach (var toolCall in response.ToolCalls)
-            {
-                yield return new AgentStreamEvent.ToolCallStarted(toolCall.Id, toolCall.Name);
-                if (!string.IsNullOrEmpty(toolCall.Arguments))
-                {
-                    yield return new AgentStreamEvent.ToolCallDelta(
-                        toolCall.Id,
-                        toolCall.Name,
-                        toolCall.Arguments
-                    );
-                }
-            }
-        }
-
-        yield return new AgentStreamEvent.Completed(
-            response.FinishReason,
-            response.InputTokens,
-            response.OutputTokens,
-            response.Metadata
-        );
-    }
 
     private HttpRequestMessage BuildRawChatRequestMessage(
         AgentConversation conversation,

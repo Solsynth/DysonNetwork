@@ -572,6 +572,14 @@ public class ThoughtController(
                 reasoningEffort: request.ReasoningEffort,
                 enableThinking: request.Thinking ?? true
             );
+            logger.LogInformation(
+                "SnChan thought request diagnostics for user {AccountId}, sequence {SequenceId}, provider {ProviderId}, model {ModelName}: {Diagnostics}",
+                accountId,
+                sequence.Id,
+                provider.ProviderId,
+                request.Model ?? snChanConfig.DefaultChatModel?.ModelId ?? "(default)",
+                DescribeConversationDiagnostics(conversation, options)
+            );
 
             var attemptAssistantParts = new List<SnThinkingMessagePart>();
             var attemptFullResponse = new StringBuilder();
@@ -1110,6 +1118,14 @@ public class ThoughtController(
                 modelNameForAttempt,
                 sequence.Id,
                 attempt + 1
+            );
+            logger.LogInformation(
+                "MiChan thought request diagnostics for user {AccountId}, sequence {SequenceId}, provider {ProviderId}, model {ModelName}: {Diagnostics}",
+                accountId,
+                sequence.Id,
+                provider.ProviderId,
+                modelNameForAttempt,
+                DescribeConversationDiagnostics(conversation, options)
             );
 
             var attemptAssistantParts = new List<SnThinkingMessagePart>();
@@ -1967,5 +1983,50 @@ public class ThoughtController(
         }
 
         return metadata.TryGetValue(key, out var value) ? value : null;
+    }
+
+    private static string DescribeConversationDiagnostics(
+        AgentConversation conversation,
+        AgentExecutionOptions? options
+    )
+    {
+        var messages = conversation.Messages;
+        var assistantMessages = messages.Where(m => m.Role == AgentMessageRole.Assistant).ToList();
+        var toolMessages = messages.Where(m => m.Role == AgentMessageRole.Tool).ToList();
+        var reasoningAssistantMessages = assistantMessages.Count(m =>
+            !string.IsNullOrWhiteSpace(m.ReasoningContent)
+        );
+        var assistantToolCallMessages = assistantMessages.Count(m => m.ToolCalls is { Count: > 0 });
+        var assistantToolCalls = assistantMessages.Sum(m => m.ToolCalls?.Count ?? 0);
+        var totalTextChars = messages.Sum(GetMessageTextLength);
+        var totalReasoningChars = messages.Sum(m => m.ReasoningContent?.Length ?? 0);
+        var largestAssistantReasoningChars = assistantMessages.Max(m => m.ReasoningContent?.Length ?? 0);
+        var largestAssistantContentChars = assistantMessages.Max(GetMessageTextLength);
+        var recentAssistantShapes = string.Join(
+            " | ",
+            assistantMessages.TakeLast(5).Select(m =>
+                $"content={GetMessageTextLength(m)},reasoning={m.ReasoningContent?.Length ?? 0},toolCalls={m.ToolCalls?.Count ?? 0}"
+            )
+        );
+
+        return
+            $"messages={messages.Count}, system={messages.Count(m => m.Role == AgentMessageRole.System)}, user={messages.Count(m => m.Role == AgentMessageRole.User)}, assistant={assistantMessages.Count}, tool={toolMessages.Count}, "
+            + $"toolsDefined={conversation.Tools?.Count ?? 0}, enableTools={options?.EnableTools}, autoInvokeTools={options?.AutoInvokeTools}, enableThinking={options?.EnableThinking}, reasoningEffort={options?.ReasoningEffort ?? "(null)"}, temperature={options?.Temperature?.ToString() ?? "(null)"}, "
+            + $"assistantWithReasoning={reasoningAssistantMessages}, assistantWithToolCalls={assistantToolCallMessages}, assistantToolCalls={assistantToolCalls}, "
+            + $"totalTextChars={totalTextChars}, totalReasoningChars={totalReasoningChars}, largestAssistantContentChars={largestAssistantContentChars}, largestAssistantReasoningChars={largestAssistantReasoningChars}, "
+            + $"recentAssistantShapes=[{recentAssistantShapes}]";
+    }
+
+    private static int GetMessageTextLength(AgentMessage message)
+    {
+        var contentLength = message.Content?.Length ?? 0;
+        var partLength = message.ContentParts?.Sum(part =>
+            (part.Text?.Length ?? 0)
+            + (part.ImageUrl?.Length ?? 0)
+            + (part.FileUrl?.Length ?? 0)
+            + (part.FileName?.Length ?? 0)
+        ) ?? 0;
+        var toolResultLength = message.ToolResultContent?.Length ?? 0;
+        return contentLength + partLength + toolResultLength;
     }
 }
