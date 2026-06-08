@@ -2000,8 +2000,12 @@ public class ThoughtController(
         var assistantToolCalls = assistantMessages.Sum(m => m.ToolCalls?.Count ?? 0);
         var totalTextChars = messages.Sum(GetMessageTextLength);
         var totalReasoningChars = messages.Sum(m => m.ReasoningContent?.Length ?? 0);
-        var largestAssistantReasoningChars = assistantMessages.Max(m => m.ReasoningContent?.Length ?? 0);
-        var largestAssistantContentChars = assistantMessages.Max(GetMessageTextLength);
+        var largestAssistantReasoningChars = assistantMessages.Count > 0
+            ? assistantMessages.Max(m => m.ReasoningContent?.Length ?? 0)
+            : 0;
+        var largestAssistantContentChars = assistantMessages.Count > 0
+            ? assistantMessages.Max(GetMessageTextLength)
+            : 0;
         var recentAssistantShapes = string.Join(
             " | ",
             assistantMessages.TakeLast(5).Select(m =>
