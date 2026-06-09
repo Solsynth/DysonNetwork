@@ -349,6 +349,67 @@ public class WalletController(
         return Ok(transactions);
     }
 
+    [HttpGet("transactions/{id:guid}")]
+    [Authorize]
+    public async Task<ActionResult<SnWalletTransaction>> GetTransactionById(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var currentAccountId = Guid.Parse(currentUser.Id);
+        var transaction = await db.PaymentTransactions
+            .Include(t => t.PayerWallet)
+            .Include(t => t.PayeeWallet)
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (transaction is null)
+            return NotFound();
+
+        var accessibleWalletIds = new List<Guid>();
+        if (transaction.PayerWalletId.HasValue)
+        {
+            var payerWallet = await ResolveAccessibleWalletAsync(currentAccountId, transaction.PayerWalletId.Value);
+            if (payerWallet is not null)
+                accessibleWalletIds.Add(payerWallet.Id);
+        }
+
+        if (transaction.PayeeWalletId.HasValue)
+        {
+            var payeeWallet = await ResolveAccessibleWalletAsync(currentAccountId, transaction.PayeeWalletId.Value);
+            if (payeeWallet is not null)
+                accessibleWalletIds.Add(payeeWallet.Id);
+        }
+
+        if (!accessibleWalletIds.Contains(transaction.PayerWalletId ?? Guid.Empty) &&
+            !accessibleWalletIds.Contains(transaction.PayeeWalletId ?? Guid.Empty))
+            return NotFound();
+
+        var accountIds = new[] { transaction.PayerWallet?.AccountId, transaction.PayeeWallet?.AccountId }
+            .Where(accountId => accountId.HasValue)
+            .Select(accountId => accountId!.Value)
+            .Distinct()
+            .ToList();
+
+        var accounts = accountIds.Count > 0
+            ? await remoteAccounts.GetAccountBatch(accountIds)
+            : [];
+
+        if (transaction.PayerWallet?.AccountId != null)
+        {
+            var account = accounts.FirstOrDefault(a => a.Id == transaction.PayerWallet.AccountId.ToString());
+            if (account != null)
+                transaction.PayerWallet.Account = SnAccount.FromProtoValue(account);
+        }
+
+        if (transaction.PayeeWallet?.AccountId != null)
+        {
+            var account = accounts.FirstOrDefault(a => a.Id == transaction.PayeeWallet.AccountId.ToString());
+            if (account != null)
+                transaction.PayeeWallet.Account = SnAccount.FromProtoValue(account);
+        }
+
+        return Ok(transaction);
+    }
+
     [HttpGet("orders")]
     [Authorize]
     public async Task<ActionResult<List<SnWalletOrder>>> GetOrders(
