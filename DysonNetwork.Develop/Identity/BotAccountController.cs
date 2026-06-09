@@ -505,6 +505,7 @@ public class BotAccountController(
         public List<SnBotCommand> Commands { get; set; } = [];
         public List<SnBotWebhook> Webhooks { get; set; } = [];
         public bool? AutoApproveDm { get; set; }
+        public bool? AutoApproveGroupChat { get; set; }
         public bool? SupportChat { get; set; }
         public List<string>? SubscribedEvents { get; set; }
     }
@@ -532,6 +533,7 @@ public class BotAccountController(
         existingConfig.Commands = request.Commands;
         existingConfig.Webhooks = request.Webhooks;
         if (request.AutoApproveDm.HasValue) existingConfig.AutoApproveDm = request.AutoApproveDm.Value;
+        if (request.AutoApproveGroupChat.HasValue) existingConfig.AutoApproveGroupChat = request.AutoApproveGroupChat.Value;
         if (request.SupportChat.HasValue) existingConfig.SupportChat = request.SupportChat.Value;
         if (request.SubscribedEvents is not null) existingConfig.SubscribedEvents = request.SubscribedEvents;
 

@@ -1266,6 +1266,23 @@ public class ChatRoomController(
                 });
         }
 
+        // Check if the invited user is a bot and fetch its chat config for auto-approval
+        var isBotAccount = !string.IsNullOrEmpty(relatedUser.AutomatedId);
+        SnBotChatConfig? botConfig = null;
+        if (isBotAccount)
+        {
+            var botId = Guid.Parse(relatedUser.AutomatedId);
+            botConfig = await botChatConfigService.GetBotChatConfigAsync(botId);
+            
+            // Check if bot supports chat
+            if (botConfig is not null && !botConfig.SupportChat)
+                return StatusCode(403, "This bot does not support chat.");
+        }
+
+        var isGroupAutoApprove = chatRoom.Type == ChatRoomType.Group
+                                 && isBotAccount
+                                 && botConfig?.AutoApproveGroupChat == true;
+
         var existingMember = await db.ChatMembers
             .Where(m => m.AccountId == request.RelatedUserId)
             .Where(m => m.ChatRoomId == roomId)
@@ -1274,10 +1291,23 @@ public class ChatRoomController(
         {
             existingMember.InvitedById = operatorMember.Id;
             existingMember.LeaveAt = null;
-            existingMember.JoinedAt = null;
+            existingMember.JoinedAt = isGroupAutoApprove
+                ? SystemClock.Instance.GetCurrentInstant()
+                : null;
             db.ChatMembers.Update(existingMember);
             await db.SaveChangesAsync();
-            await SendInviteNotify(existingMember, currentUser);
+
+            if (isGroupAutoApprove)
+            {
+                _ = crs.PurgeRoomMembersCache(roomId);
+                _ = cs.InvalidateBotCommandsCacheAsync(roomId);
+                _ = cs.SendMemberJoinedSystemMessageAsync(chatRoom, existingMember);
+                _ = EmitEncryptionMembershipChangedEventAsync(chatRoom, existingMember, existingMember.AccountId, "member_joined");
+            }
+            else
+            {
+                await SendInviteNotify(existingMember, currentUser);
+            }
 
             als.CreateActionLog(
                 Guid.Parse(currentUser.Id),
@@ -1300,13 +1330,27 @@ public class ChatRoomController(
             AccountId = Guid.Parse(relatedUser.Id),
             Username = relatedUser.Name,
             ChatRoomId = roomId,
+            JoinedAt = isGroupAutoApprove
+                ? SystemClock.Instance.GetCurrentInstant()
+                : null,
         };
 
         db.ChatMembers.Add(newMember);
         await db.SaveChangesAsync();
 
         newMember.ChatRoom = chatRoom;
-        await SendInviteNotify(newMember, currentUser);
+
+        if (isGroupAutoApprove)
+        {
+            _ = crs.PurgeRoomMembersCache(roomId);
+            _ = cs.InvalidateBotCommandsCacheAsync(roomId);
+            _ = cs.SendMemberJoinedSystemMessageAsync(chatRoom, newMember);
+            _ = EmitEncryptionMembershipChangedEventAsync(chatRoom, newMember, newMember.AccountId, "member_joined");
+        }
+        else
+        {
+            await SendInviteNotify(newMember, currentUser);
+        }
 
         als.CreateActionLog(
             Guid.Parse(currentUser.Id),

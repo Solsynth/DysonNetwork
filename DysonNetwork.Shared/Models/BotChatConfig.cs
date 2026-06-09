@@ -32,6 +32,12 @@ public class SnBotChatConfig : ModelBase
     public bool AutoApproveDm { get; set; } = true;
 
     /// <summary>
+    /// If true, invites to group chats are automatically approved (no explicit accept needed).
+    /// Default is false for safety, since group membership is more sensitive.
+    /// </summary>
+    public bool AutoApproveGroupChat { get; set; } = false;
+
+    /// <summary>
     /// If false, the bot cannot participate in chat at all.
     /// </summary>
     public bool SupportChat { get; set; } = true;

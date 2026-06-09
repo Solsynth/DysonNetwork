@@ -48,6 +48,7 @@ public class BotAccountPublicController(BotAccountService botService, DeveloperS
             {
                 Id = botId,
                 AutoApproveDm = true,
+                AutoApproveGroupChat = false,
                 SupportChat = true,
                 SubscribedEvents = ["messages.new"]
             });
