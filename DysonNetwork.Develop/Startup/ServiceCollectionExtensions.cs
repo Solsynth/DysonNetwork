@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Develop.Identity;
 using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Pagination;
 
 namespace DysonNetwork.Develop.Startup;
@@ -51,6 +52,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<DevProjectService>();
         services.AddScoped<BotAccountService>();
         services.AddScoped<MiniApp.MiniAppService>();
+
+        services.AddEventBus();
 
         return services;
     }
