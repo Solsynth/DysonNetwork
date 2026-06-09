@@ -12,26 +12,26 @@ DysonNetwork/           # Main repository (this repo)
 ├── DysonNetwork.Messager/    # Real-time messaging
 ├── DysonNetwork.Drive/       # File storage & E2EE (migrated to DysonFS: ../DysonFS)
 ├── DysonNetwork.Wallet/      # Payments & subscriptions
-├── DysonNetwork.Fitness/     # Health & fitness tracking
 ├── DysonNetwork.Ring/        # Real-time communication (calls)
 ├── DysonNetwork.Zone/        # Zones & communities (discontinued)
 ├── DysonNetwork.Develop/     # Developer portal & app management
 ├── DysonNetwork.Insight/     # AI features
 └── DysonNetwork.Shared/      # Shared models, proto, utilities
 
-DysonSpec/              # Protobuf definitions (separate repo)
-├── proto/              # .proto files
-└── gen/                # Generated code
+Spec/                   # Protobuf definitions (separate repo: ../Spec)
+└── proto/              # .proto files
 ```
 
-## Protobuf Definitions (DysonSpec)
+## Protobuf Definitions (Spec)
 
 **Important:** Protocol Buffer definitions are maintained in a separate repository.
 
-- **Location:** `../DysonSpec/` (sibling to this repo)
-- **Proto files:** `../DysonSpec/proto/*.proto`
+- **Location:** `../Spec/` (sibling to this repo)
+- **Proto files:** `../Spec/proto/*.proto`
+- **Buf config:** `../Spec/buf.yaml`
+- **Generation config:** `DysonNetwork.Shared/buf.gen.yaml`
 - **Generated C# code:** `DysonNetwork.Shared/Proto/` (auto-generated, do not edit manually)
-  - When you finished editing the `.proto` file, ask the user to regenerate the code.
+  - Regenerate with: `buf generate` under `DysonNetwork.Shared/`
 
 ### Proto to C# Model Mapping
 
@@ -99,9 +99,7 @@ Production Gateway:    /{service}/controller/action
 | DysonNetwork.Messager | `/messager/...` |
 | DysonNetwork.Drive    | `/drive/...`    |
 | DysonNetwork.Wallet   | `/wallet/...`   |
-| DysonNetwork.Fitness  | `/fitness/...`  |
 | DysonNetwork.Ring     | `/ring/...`     |
-| DysonNetwork.Zone     | `/zone/...`     |
 | DysonNetwork.Develop  | `/develop/...`  |
 | DysonNetwork.Insight  | `/insight/...`  |
 
