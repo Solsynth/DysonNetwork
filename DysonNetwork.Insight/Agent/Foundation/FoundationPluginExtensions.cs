@@ -66,11 +66,6 @@ public static class FoundationPluginExtensions
             registry.RegisterPluginTools(moodPlugin, "mood");
         }
 
-        if (!excludedSet.Contains("fitness"))
-        {
-            var fitnessPlugin = serviceProvider.GetRequiredService<FitnessPlugin>();
-            registry.RegisterPluginTools(fitnessPlugin, "fitness");
-        }
 
         if (!excludedSet.Contains("docs"))
         {

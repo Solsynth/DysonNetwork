@@ -188,7 +188,6 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ScheduledTaskPlugin>();
             services.AddScoped<ConversationPlugin>();
             services.AddScoped<MoodPlugin>();
-            services.AddScoped<FitnessPlugin>();
 
             services.AddScoped<ScheduledTaskService>();
             services.AddScoped<ScheduledTaskJob>();

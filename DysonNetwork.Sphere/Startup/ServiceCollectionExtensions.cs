@@ -15,7 +15,6 @@ using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Sticker;
 using DysonNetwork.Sphere.Timeline;
-using DysonNetwork.Sphere.Fitness;
 using DysonNetwork.Sphere.Translation;
 using DysonNetwork.Sphere.Live;
 using DysonNetwork.Sphere.Automod;
