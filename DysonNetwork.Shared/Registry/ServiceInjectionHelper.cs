@@ -148,7 +148,7 @@ public static class ServiceInjectionHelper
                 "https://_grpc.develop",
                 "DyCustomAppService");
 
-            services.AddSingleton<RemoteBotChatConfigService>();
+            services.AddHttpClient<RemoteBotChatConfigService>();
 
             return services;
         }
