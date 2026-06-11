@@ -662,7 +662,12 @@ public partial class ChatService(
             {
                 try
                 {
-                    var members = await db.ChatMembers
+                    await using var scope = scopeFactory.CreateAsyncScope();
+                    var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+                    var scopedRemoteAccounts = scope.ServiceProvider.GetRequiredService<RemoteAccountService>();
+                    var scopedEventBus = scope.ServiceProvider.GetRequiredService<IEventBus>();
+
+                    var members = await scopedDb.ChatMembers
                         .Where(m => m.ChatRoomId == room.Id && m.JoinedAt != null && m.LeaveAt == null)
                         .ToListAsync();
 
@@ -672,7 +677,7 @@ public partial class ChatService(
                             continue;
 
                         // Check if this member is a bot account
-                        var memberAccount = await remoteAccounts.TryGetAccount(member.AccountId);
+                        var memberAccount = await scopedRemoteAccounts.TryGetAccount(member.AccountId);
                         if (memberAccount is not null && !string.IsNullOrEmpty(memberAccount.AutomatedId))
                         {
                             var botEvent = new BotChatMessageEvent
@@ -687,7 +692,7 @@ public partial class ChatService(
                                 CreatedAt = message.CreatedAt
                             };
 
-                            await eventBus.PublishAsync(botEvent);
+                            await scopedEventBus.PublishAsync(botEvent);
                             logger.LogDebug("Emitted BotChatMessageEvent for bot {BotId} in room {RoomId}",
                                 botEvent.BotAccountId, room.Id);
                         }
