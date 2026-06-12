@@ -234,7 +234,6 @@ public class BotAccountService(
         }
 
         config.Commands = updatedConfig.Commands;
-        config.Webhooks = updatedConfig.Webhooks;
         config.AutoApproveDm = updatedConfig.AutoApproveDm;
         config.AutoApproveGroupChat = updatedConfig.AutoApproveGroupChat;
         config.SupportChat = updatedConfig.SupportChat;

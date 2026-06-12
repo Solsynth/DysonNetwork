@@ -655,56 +655,6 @@ public partial class ChatService(
 
         await EmitChatUseActionLogAsync(message, sender, room, clientIpAddress);
 
-        // Emit BotChatMessageEvent for bot accounts in the room
-        if (!message.Type.StartsWith("system."))
-        {
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await using var scope = scopeFactory.CreateAsyncScope();
-                    var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
-                    var scopedRemoteAccounts = scope.ServiceProvider.GetRequiredService<RemoteAccountService>();
-                    var scopedEventBus = scope.ServiceProvider.GetRequiredService<IEventBus>();
-
-                    var members = await scopedDb.ChatMembers
-                        .Where(m => m.ChatRoomId == room.Id && m.JoinedAt != null && m.LeaveAt == null)
-                        .ToListAsync();
-
-                    foreach (var member in members)
-                    {
-                        if (member.AccountId == sender.AccountId)
-                            continue;
-
-                        // Check if this member is a bot account
-                        var memberAccount = await scopedRemoteAccounts.TryGetAccount(member.AccountId);
-                        if (memberAccount is not null && !string.IsNullOrEmpty(memberAccount.AutomatedId))
-                        {
-                            var botEvent = new BotChatMessageEvent
-                            {
-                                BotAccountId = Guid.Parse(memberAccount.AutomatedId),
-                                RoomId = room.Id,
-                                MessageId = message.Id,
-                                SenderAccountId = sender.AccountId,
-                                Content = message.Content,
-                                MessageType = message.Type,
-                                Meta = message.Meta,
-                                CreatedAt = message.CreatedAt
-                            };
-
-                            await scopedEventBus.PublishAsync(botEvent);
-                            logger.LogDebug("Emitted BotChatMessageEvent for bot {BotId} in room {RoomId}",
-                                botEvent.BotAccountId, room.Id);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Error emitting BotChatMessageEvent for message {MessageId}", message.Id);
-                }
-            });
-        }
-
         // Copy the value to ensure the delivery is correct
         message.Sender = sender;
         message.ChatRoom = room;

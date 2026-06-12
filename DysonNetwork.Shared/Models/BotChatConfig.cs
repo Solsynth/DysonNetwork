@@ -21,12 +21,6 @@ public class SnBotChatConfig : ModelBase
     public List<SnBotCommand> Commands { get; set; } = [];
 
     /// <summary>
-    /// Webhook endpoints the bot subscribes to.
-    /// </summary>
-    [Column(TypeName = "jsonb")]
-    public List<SnBotWebhook> Webhooks { get; set; } = [];
-
-    /// <summary>
     /// If true, DMs to this bot are automatically approved (no invite needed).
     /// </summary>
     public bool AutoApproveDm { get; set; } = true;
@@ -83,19 +77,4 @@ public class SnBotCommandParameter
     public string? Type { get; set; } // "string", "int", "user", etc.
 }
 
-/// <summary>
-/// A webhook endpoint configuration for a bot.
-/// </summary>
-public class SnBotWebhook
-{
-    [MaxLength(2048)]
-    public string Url { get; set; } = string.Empty;
 
-    [MaxLength(128)]
-    public string? Secret { get; set; } // HMAC signing secret
-
-    [Column(TypeName = "jsonb")]
-    public List<string> Events { get; set; } = ["messages.new"];
-
-    public bool IsActive { get; set; } = true;
-}

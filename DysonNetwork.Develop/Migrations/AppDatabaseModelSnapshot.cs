@@ -108,11 +108,6 @@ namespace DysonNetwork.Develop.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<List<SnBotWebhook>>("Webhooks")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("webhooks");
-
                     b.HasKey("Id")
                         .HasName("pk_bot_chat_configs");
 

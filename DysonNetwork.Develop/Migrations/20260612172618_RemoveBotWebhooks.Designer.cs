@@ -15,8 +15,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Develop.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    [Migration("20260607154050_AddBotChatConfig")]
-    partial class AddBotChatConfig
+    [Migration("20260612172618_RemoveBotWebhooks")]
+    partial class RemoveBotWebhooks
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -80,6 +80,10 @@ namespace DysonNetwork.Develop.Migrations
                     b.Property<bool>("AutoApproveDm")
                         .HasColumnType("boolean")
                         .HasColumnName("auto_approve_dm");
+
+                    b.Property<bool>("AutoApproveGroupChat")
+                        .HasColumnType("boolean")
+                        .HasColumnName("auto_approve_group_chat");
 
                     b.Property<List<SnBotCommand>>("Commands")
                         .IsRequired()

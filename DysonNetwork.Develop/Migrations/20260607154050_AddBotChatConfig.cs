@@ -20,7 +20,6 @@ namespace DysonNetwork.Develop.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     commands = table.Column<List<SnBotCommand>>(type: "jsonb", nullable: false),
-                    webhooks = table.Column<List<SnBotWebhook>>(type: "jsonb", nullable: false),
                     auto_approve_dm = table.Column<bool>(type: "boolean", nullable: false),
                     support_chat = table.Column<bool>(type: "boolean", nullable: false),
                     subscribed_events = table.Column<string>(type: "jsonb", nullable: false),
