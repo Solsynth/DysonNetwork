@@ -618,9 +618,16 @@ public class SubscriptionService(
         if (gift.Status != DysonNetwork.Shared.Models.GiftStatus.Created)
             throw new InvalidOperationException("Gift is not in payable status.");
 
-        // Mark gift as sent after payment
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        if (gift.RecipientId.HasValue)
+        {
+            await RedeemGiftToAccountAsync(gift, gift.RecipientId.Value, now);
+            return gift;
+        }
+
         gift.Status = DysonNetwork.Shared.Models.GiftStatus.Sent;
-        gift.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
+        gift.UpdatedAt = now;
 
         db.Update(gift);
         await db.SaveChangesAsync();
@@ -1434,11 +1441,23 @@ public class SubscriptionService(
         if (!gift.IsOpenGift && gift.RecipientId != redeemerId)
             throw new InvalidOperationException("This gift is not intended for you.");
 
+        var subscription = await RedeemGiftToAccountAsync(gift, redeemerId, now);
+
+        // Send notification to gifter if different from redeemer
+        if (gift.GifterId == redeemerId) return (gift, subscription);
+        await NotifyGiftClaimedByRecipient(gift, subscription, gift.GifterId, redeemer);
+
+        return (gift, subscription);
+    }
+
+    private async Task<SnWalletSubscription> RedeemGiftToAccountAsync(SnWalletGift gift, Guid redeemerId, Instant now)
+    {
         var definition = await catalog.GetDefinitionAsync(gift.SubscriptionIdentifier);
         if (definition is null)
             throw new InvalidOperationException("Invalid gift subscription type.");
         var giftPolicy = await catalog.GetGiftPolicyAsync(definition);
-        var cycleDuration = Duration.FromDays(giftPolicy.SubscriptionDurationDays ?? catalog.GetSettings().DefaultSubscriptionDurationDays);
+        var cycleDuration =
+            Duration.FromDays(giftPolicy.SubscriptionDurationDays ?? catalog.GetSettings().DefaultSubscriptionDurationDays);
         var subscription = await ApplyPaidSubscriptionAsync(
             redeemerId,
             definition,
@@ -1454,7 +1473,6 @@ public class SubscriptionService(
             coupon: gift.Coupon
         );
 
-        // Update the gift status
         gift.Status = DysonNetwork.Shared.Models.GiftStatus.Redeemed;
         gift.RedeemedAt = now;
         gift.RedeemerId = redeemerId;
@@ -1464,11 +1482,7 @@ public class SubscriptionService(
         db.WalletGifts.Update(gift);
         await db.SaveChangesAsync();
 
-        // Send notification to gifter if different from redeemer
-        if (gift.GifterId == redeemerId) return (gift, subscription);
-        await NotifyGiftClaimedByRecipient(gift, subscription, gift.GifterId, redeemer);
-
-        return (gift, subscription);
+        return subscription;
     }
 
     /// <summary>
