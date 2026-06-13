@@ -1943,7 +1943,7 @@ public class ChatRoomController(
 
     [HttpDelete("rooms/{roomId:guid}/messages/{messageId:guid}")]
     [Authorize]
-    public async Task<ActionResult> DeleteMessage(Guid roomId, Guid messageId, [FromBody] DeleteMessageRequest request)
+    public async Task<ActionResult> DeleteMessage(Guid roomId, Guid messageId, [FromBody] DeleteChatRoomMessageRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
@@ -2092,7 +2092,7 @@ public class ChatRoomController(
         });
     }
 
-    public class DeleteMessageRequest
+    public class DeleteChatRoomMessageRequest
     {
         [MaxLength(4096)] public string? Reason { get; set; }
     }

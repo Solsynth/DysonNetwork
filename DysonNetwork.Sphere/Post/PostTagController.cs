@@ -183,7 +183,7 @@ public class PostTagAdminController(
         public Instant? EndsAt { get; set; }
     }
 
-    public class UpdateTagRequest
+    public class AdminUpdateTagRequest
     {
         [MaxLength(256)] public string? Name { get; set; }
         [MaxLength(4096)] public string? Description { get; set; }
@@ -269,7 +269,7 @@ public class PostTagAdminController(
     }
 
     [HttpPatch("{slug}")]
-    public async Task<ActionResult<SnPostTag>> AdminUpdateTag(string slug, [FromBody] UpdateTagRequest request)
+    public async Task<ActionResult<SnPostTag>> AdminUpdateTag(string slug, [FromBody] AdminUpdateTagRequest request)
     {
         if (!await IsAdminAsync()) return StatusCode(403, "Admin permission required.");
 

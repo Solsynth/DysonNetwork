@@ -1,7 +1,13 @@
+using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DysonNetwork.Passport.Account;
+
+public class UploadArtworkRequest
+{
+    [Required] public IFormFile File { get; set; } = null!;
+}
 
 [ApiController]
 [Route("/api/presence/artworks")]
@@ -13,7 +19,7 @@ public class PresenceArtworkController(PresenceArtworkService artworkService) : 
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<PresenceArtworkResponse>> UploadArtwork(
-        [FromForm] IFormFile file,
+        [FromForm] UploadArtworkRequest request,
         CancellationToken cancellationToken
     )
     {
@@ -22,7 +28,7 @@ public class PresenceArtworkController(PresenceArtworkService artworkService) : 
 
         try
         {
-            var result = await artworkService.SaveArtworkAsync(file, cancellationToken);
+            var result = await artworkService.SaveArtworkAsync(request.File, cancellationToken);
             return Ok(PresenceArtworkResponse.FromModel(result.Artwork));
         }
         catch (InvalidOperationException ex)
