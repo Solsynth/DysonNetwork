@@ -110,6 +110,79 @@ public class PaymentService(
         );
     }
 
+    public async Task<SnWalletTransferRequest> CreateTransferRequestAsync(
+        Guid creatorAccountId,
+        Guid payeeWalletId,
+        string currency,
+        decimal amount,
+        string? remark = null,
+        Duration? expiration = null,
+        bool freeze = false,
+        bool requireConfirmation = false
+    )
+    {
+        if (amount <= 0)
+            throw new ArgumentException("Amount must be greater than zero.");
+
+        var wallet = await db.Wallets.FirstOrDefaultAsync(w => w.Id == payeeWalletId)
+            ?? throw new InvalidOperationException("Payee wallet not found.");
+        if (string.IsNullOrWhiteSpace(wallet.PublicId))
+            throw new InvalidOperationException("Payee wallet must have a public ID enabled.");
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var request = new SnWalletTransferRequest
+        {
+            CreatorAccountId = creatorAccountId,
+            PayeeWalletId = payeeWalletId,
+            Currency = currency,
+            Amount = TruncateToThreeDecimals(amount),
+            Remark = string.IsNullOrWhiteSpace(remark) ? null : remark.Trim(),
+            Freeze = freeze,
+            RequireConfirmation = requireConfirmation,
+            ExpiresAt = now.Plus(expiration ?? Duration.FromHours(24)),
+        };
+
+        db.WalletTransferRequests.Add(request);
+        await db.SaveChangesAsync();
+        return request;
+    }
+
+    public async Task<SnWalletTransferRequest?> GetTransferRequestAsync(Guid requestId)
+    {
+        var request = await db.WalletTransferRequests
+            .Include(r => r.PayeeWallet)
+            .FirstOrDefaultAsync(r => r.Id == requestId);
+        if (request == null) return null;
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (request.Status == WalletTransferRequestStatus.Active && request.ExpiresAt < now)
+        {
+            request.Status = WalletTransferRequestStatus.Expired;
+            await db.SaveChangesAsync();
+        }
+
+        return request;
+    }
+
+    public async Task<SnWalletTransferRequest> FulfillTransferRequestAsync(
+        Guid requestId,
+        Guid transactionId
+    )
+    {
+        var request = await db.WalletTransferRequests.FirstOrDefaultAsync(r => r.Id == requestId)
+            ?? throw new InvalidOperationException("Transfer request not found.");
+        if (request.Status != WalletTransferRequestStatus.Active)
+            throw new InvalidOperationException("Transfer request is no longer active.");
+        if (request.ExpiresAt < SystemClock.Instance.GetCurrentInstant())
+            throw new InvalidOperationException("Transfer request has expired.");
+
+        request.Status = WalletTransferRequestStatus.Fulfilled;
+        request.TransactionId = transactionId;
+        request.FulfilledAt = SystemClock.Instance.GetCurrentInstant();
+        await db.SaveChangesAsync();
+        return request;
+    }
+
     public async Task<SnWalletTransaction> CreateTransactionAsync(
         Guid? payerWalletId,
         Guid? payeeWalletId,

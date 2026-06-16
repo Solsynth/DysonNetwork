@@ -439,11 +439,8 @@ public class MeetService(
         meet.Host = await accounts.GetAccount(meet.HostId);
         foreach (var participant in meet.Participants)
             participant.Account = await accounts.GetAccount(participant.AccountId);
-        
-        if (meet.Location != null)
-        {
-            meet.Pins = await locationPins.ListMeetPinsAsync(meet.Id, meet.HostId, cancellationToken);
-        }
+
+        meet.Pins = await locationPins.ListMeetPinsAsync(meet.Id, meet.HostId, cancellationToken);
     }
 
     private async Task<SnCloudFileReferenceObject?> LoadImageAsync(string? imageId)

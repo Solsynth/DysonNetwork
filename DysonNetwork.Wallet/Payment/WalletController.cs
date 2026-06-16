@@ -523,6 +523,53 @@ public class WalletController(
         // Transaction lifecycle options
         public bool Freeze { get; set; } = false;
         public bool RequireConfirmation { get; set; } = false;
+        public Guid? TransferRequestId { get; set; }
+    }
+
+    public class CreateWalletTransferRequestRequest
+    {
+        [Required] public decimal Amount { get; set; }
+        [Required] public string Currency { get; set; } = null!;
+        public string? Remark { get; set; }
+        public Guid? WalletId { get; set; }
+        public int ExpirationHours { get; set; } = 24;
+        public bool Freeze { get; set; } = false;
+        public bool RequireConfirmation { get; set; } = false;
+    }
+
+    public class WalletTransferRequestResponse
+    {
+        public Guid Id { get; set; }
+        public WalletTransferRequestStatus Status { get; set; }
+        public string Currency { get; set; } = null!;
+        public decimal Amount { get; set; }
+        public string? Remark { get; set; }
+        public bool Freeze { get; set; }
+        public bool RequireConfirmation { get; set; }
+        public Instant ExpiresAt { get; set; }
+        public Instant? FulfilledAt { get; set; }
+        public Guid PayeeWalletId { get; set; }
+        public string? PayeePublicId { get; set; }
+        public Guid? TransactionId { get; set; }
+    }
+
+    private static WalletTransferRequestResponse MapTransferRequest(SnWalletTransferRequest request)
+    {
+        return new WalletTransferRequestResponse
+        {
+            Id = request.Id,
+            Status = request.Status,
+            Currency = request.Currency,
+            Amount = request.Amount,
+            Remark = request.Remark,
+            Freeze = request.Freeze,
+            RequireConfirmation = request.RequireConfirmation,
+            ExpiresAt = request.ExpiresAt,
+            FulfilledAt = request.FulfilledAt,
+            PayeeWalletId = request.PayeeWalletId,
+            PayeePublicId = request.PayeeWallet?.PublicId,
+            TransactionId = request.TransactionId,
+        };
     }
 
     [HttpPost("balance")]
@@ -597,7 +644,31 @@ public class WalletController(
             }
 
             SnWallet payeeWallet;
-            if (request.PayeeWalletId.HasValue)
+            decimal transferAmount = request.Amount;
+            string transferCurrency = request.Currency;
+            string? transferRemark = request.Remark;
+            bool freezeTransfer = request.Freeze;
+            bool requireConfirmation = request.RequireConfirmation;
+            SnWalletTransferRequest? transferRequest = null;
+
+            if (request.TransferRequestId.HasValue)
+            {
+                transferRequest = await payment.GetTransferRequestAsync(request.TransferRequestId.Value)
+                    ?? throw new InvalidOperationException("Transfer request not found.");
+                if (transferRequest.Status != WalletTransferRequestStatus.Active)
+                    throw new InvalidOperationException("Transfer request is no longer active.");
+                if (transferRequest.ExpiresAt < SystemClock.Instance.GetCurrentInstant())
+                    throw new InvalidOperationException("Transfer request has expired.");
+
+                payeeWallet = await ws.GetWalletAsync(transferRequest.PayeeWalletId)
+                    ?? throw new InvalidOperationException("Payee wallet not found.");
+                transferAmount = transferRequest.Amount;
+                transferCurrency = transferRequest.Currency;
+                transferRemark = transferRequest.Remark;
+                freezeTransfer = transferRequest.Freeze;
+                requireConfirmation = transferRequest.RequireConfirmation;
+            }
+            else if (request.PayeeWalletId.HasValue)
             {
                 payeeWallet = await ws.GetWalletAsync(request.PayeeWalletId.Value) ?? throw new InvalidOperationException("Payee wallet not found.");
             }
@@ -623,12 +694,15 @@ public class WalletController(
             var transaction = await payment.TransferBetweenWalletsAsync(
                 payerWallet.Id,
                 payeeWallet.Id,
-                request.Currency,
-                request.Amount,
-                request.Remark,
-                freeze: request.Freeze,
-                requireConfirmation: request.RequireConfirmation
+                transferCurrency,
+                transferAmount,
+                transferRemark,
+                freeze: freezeTransfer,
+                requireConfirmation: requireConfirmation
             );
+
+            if (transferRequest is not null)
+                await payment.FulfillTransferRequestAsync(transferRequest.Id, transaction.Id);
 
             return Ok(transaction);
         }
@@ -636,6 +710,71 @@ public class WalletController(
         {
             return BadRequest(err.Message);
         }
+    }
+
+    [HttpPost("transfer/requests")]
+    [Authorize]
+    public async Task<ActionResult<WalletTransferRequestResponse>> CreateTransferRequest(
+        [FromBody] CreateWalletTransferRequestRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        try
+        {
+            if (request.ExpirationHours <= 0 || request.ExpirationHours > 24 * 7)
+                return BadRequest("ExpirationHours must be between 1 and 168.");
+
+            var currentAccountId = Guid.Parse(currentUser.Id);
+            var wallet = await ResolveAccessibleWalletAsync(currentAccountId, request.WalletId);
+            if (wallet is null)
+                return NotFound("Wallet not found.");
+
+            if (wallet.AccountId == currentAccountId)
+            {
+            }
+            else if (wallet.RealmId.HasValue)
+            {
+                var publisher = (await publishers.ListPublishers(realmId: wallet.RealmId.Value.ToString())).FirstOrDefault();
+                if (publisher is null)
+                    return NotFound("Realm publisher was not found.");
+                if (!await publishers.IsMemberWithRole(publisher.Id, currentAccountId, PublisherMemberRole.Editor))
+                    return StatusCode(403, "You must be an editor of the realm publisher to create transfer requests for this wallet.");
+            }
+
+            if (string.IsNullOrWhiteSpace(wallet.PublicId))
+                return BadRequest("Wallet public ID is not enabled.");
+
+            var transferRequest = await payment.CreateTransferRequestAsync(
+                currentAccountId,
+                wallet.Id,
+                request.Currency,
+                request.Amount,
+                request.Remark,
+                Duration.FromHours(request.ExpirationHours),
+                request.Freeze,
+                request.RequireConfirmation
+            );
+            transferRequest.PayeeWallet = wallet;
+
+            return Ok(MapTransferRequest(transferRequest));
+        }
+        catch (Exception err)
+        {
+            return BadRequest(err.Message);
+        }
+    }
+
+    [HttpGet("transfer/requests/{id:guid}")]
+    [AllowAnonymous]
+    public async Task<ActionResult<WalletTransferRequestResponse>> GetTransferRequest(Guid id)
+    {
+        var request = await payment.GetTransferRequestAsync(id);
+        if (request is null) return NotFound();
+        if (request.Status != WalletTransferRequestStatus.Active) return NotFound();
+        if (request.ExpiresAt < SystemClock.Instance.GetCurrentInstant()) return NotFound();
+
+        return Ok(MapTransferRequest(request));
     }
 
     [HttpPost("{id:guid}/default")]

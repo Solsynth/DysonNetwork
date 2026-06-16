@@ -85,6 +85,14 @@ public enum TransactionType
     Order
 }
 
+public enum WalletTransferRequestStatus
+{
+    Active,
+    Fulfilled,
+    Expired,
+    Cancelled
+}
+
 public enum TransactionStatus
 {
     Pending,      // Created, funds held from payer, not yet credited to payee
@@ -140,4 +148,25 @@ public class SnWalletTransaction : ModelBase
         PayerWalletId = proto.PayerWalletId is not null ? Guid.Parse(proto.PayerWalletId) : null,
         PayeeWalletId = proto.PayeeWalletId is not null ? Guid.Parse(proto.PayeeWalletId) : null,
     };
+}
+
+public class SnWalletTransferRequest : ModelBase
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public WalletTransferRequestStatus Status { get; set; } = WalletTransferRequestStatus.Active;
+    [MaxLength(128)] public string Currency { get; set; } = null!;
+    public decimal Amount { get; set; }
+    [MaxLength(4096)] public string? Remark { get; set; }
+    public bool Freeze { get; set; }
+    public bool RequireConfirmation { get; set; }
+    public Instant ExpiresAt { get; set; }
+    public Instant? FulfilledAt { get; set; }
+
+    public Guid CreatorAccountId { get; set; }
+    public Guid PayeeWalletId { get; set; }
+    public SnWallet PayeeWallet { get; set; } = null!;
+    public Guid? TransactionId { get; set; }
+    public SnWalletTransaction? Transaction { get; set; }
+
+    [NotMapped] public bool IsExpired => Status == WalletTransferRequestStatus.Expired || ExpiresAt < SystemClock.Instance.GetCurrentInstant();
 }
