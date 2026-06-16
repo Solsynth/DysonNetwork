@@ -237,6 +237,14 @@ public class AccountService(
                 },
                 EnabledAt = SystemClock.Instance.GetCurrentInstant(),
             },
+            AccountAuthFactorType.QrLogin => new SnAccountAuthFactor
+            {
+                Type = AccountAuthFactorType.QrLogin,
+                Trustworthy = 3,
+                AccountId = account.Id,
+                Secret = null,
+                EnabledAt = SystemClock.Instance.GetCurrentInstant(),
+            },
             _ => null
         };
 

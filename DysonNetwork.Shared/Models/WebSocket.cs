@@ -33,4 +33,7 @@ public abstract class WebSocketPacketType
     public const string WalletPocketUpdated = "wallet.pocket.updated";
     public const string WalletFundContributed = "wallet.fund.contributed";
     public const string WalletFundCompleted = "wallet.fund.completed";
+    public const string QrLoginScanned = "auth.qr.scanned";
+    public const string QrLoginApproved = "auth.qr.approved";
+    public const string QrLoginDeclined = "auth.qr.declined";
 }

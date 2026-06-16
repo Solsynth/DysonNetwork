@@ -521,6 +521,7 @@ public enum AccountAuthFactorType
     RecoveryCode,
     NfcToken,
     Passkey,
+    QrLogin,
 }
 
 public class SnAccountConnection : ModelBase
