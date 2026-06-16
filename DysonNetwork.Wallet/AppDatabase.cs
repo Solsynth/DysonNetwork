@@ -27,8 +27,6 @@ public class AppDatabase(
     public DbSet<SnWalletGift> WalletGifts { get; set; } = null!;
     public DbSet<SnWalletCoupon> WalletCoupons { get; set; } = null!;
 
-    public DbSet<SnLottery> Lotteries { get; set; } = null!;
-    public DbSet<SnLotteryRecord> LotteryRecords { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

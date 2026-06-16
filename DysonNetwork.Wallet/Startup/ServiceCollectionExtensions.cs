@@ -14,7 +14,6 @@ using DysonNetwork.Shared.Registry;
 using DysonNetwork.Wallet.Localization;
 using DysonNetwork.Wallet.Payment;
 using DysonNetwork.Wallet.Payment.PaymentHandlers;
-using DysonNetwork.Wallet.Lotteries;
 
 namespace DysonNetwork.Wallet.Startup;
 
@@ -107,7 +106,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AfdianPaymentHandler>();
         services.AddScoped<AppleStorePaymentHandler>();
         services.AddScoped<PaddlePaymentHandler>();
-        services.AddScoped<LotteryService>();
         services.AddHostedService<LegacyInAppSubscriptionAvailabilityValidationService>();
 
         services.AddEventBus()
