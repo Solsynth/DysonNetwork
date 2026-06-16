@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,7 @@ public class AccountSecurityController(
     AppDatabase db,
     AccountService accounts,
     Auth.AuthService auth,
+    DyCustomAppService.DyCustomAppServiceClient customApps,
     ILogger<AccountSecurityController> logger
 ) : ControllerBase
 {
@@ -24,6 +26,9 @@ public class AccountSecurityController(
         AuthorizedAppType Type,
         string? AppSlug,
         string? AppName,
+        string? AppDescription,
+        SnCloudFileReferenceObject? Picture,
+        SnCloudFileReferenceObject? Background,
         NodaTime.Instant LastAuthorizedAt,
         NodaTime.Instant? LastUsedAt
     );
@@ -485,16 +490,40 @@ public class AccountSecurityController(
             .OrderByDescending(x => x.LastUsedAt ?? x.LastAuthorizedAt)
             .ToListAsync();
 
+        var appIds = apps.Select(x => x.AppId).Distinct().ToList();
+        var appDetails = new Dictionary<Guid, SnCustomApp>();
+
+        foreach (var appId in appIds)
+        {
+            try
+            {
+                var resp = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest { Id = appId.ToString() });
+                if (resp.App is not null)
+                    appDetails[appId] = SnCustomApp.FromProtoValue(resp.App);
+            }
+            catch (Grpc.Core.RpcException)
+            {
+                // App may have been deleted; skip
+            }
+        }
+
         return Ok(
-            apps.Select(x => new AuthorizedAppResponse(
-                x.Id,
-                x.AppId,
-                x.Type,
-                x.AppSlug,
-                x.AppName,
-                x.LastAuthorizedAt,
-                x.LastUsedAt
-            ))
+            apps.Select(x =>
+            {
+                appDetails.TryGetValue(x.AppId, out var detail);
+                return new AuthorizedAppResponse(
+                    x.Id,
+                    x.AppId,
+                    x.Type,
+                    x.AppSlug ?? detail?.Slug,
+                    x.AppName ?? detail?.Name,
+                    detail?.Description,
+                    detail?.Picture,
+                    detail?.Background,
+                    x.LastAuthorizedAt,
+                    x.LastUsedAt
+                );
+            })
         );
     }
 
