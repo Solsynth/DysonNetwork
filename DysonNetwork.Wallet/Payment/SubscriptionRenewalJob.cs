@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Wallet.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Quartz;

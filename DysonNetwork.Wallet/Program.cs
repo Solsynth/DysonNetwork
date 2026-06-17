@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Wallet.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Wallet;

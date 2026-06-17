@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using DysonNetwork.Wallet.Models;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore.Migrations;
 using NodaTime;

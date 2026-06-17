@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using DysonNetwork.Wallet.Models;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Data;

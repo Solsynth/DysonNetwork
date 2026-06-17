@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Wallet.Localization;
+using DysonNetwork.Wallet.Models;
 using DysonNetwork.Wallet.Payment.PaymentHandlers;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;

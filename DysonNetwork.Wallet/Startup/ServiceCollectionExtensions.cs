@@ -1,4 +1,5 @@
 using System.Globalization;
+using DysonNetwork.Wallet.Models;
 using Microsoft.AspNetCore.RateLimiting;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;

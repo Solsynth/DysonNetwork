@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Hosting;
+using DysonNetwork.Wallet.Models;
 
 namespace DysonNetwork.Wallet.Payment;
 
