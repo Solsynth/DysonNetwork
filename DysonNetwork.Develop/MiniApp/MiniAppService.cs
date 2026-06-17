@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Develop.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Develop.MiniApp;
