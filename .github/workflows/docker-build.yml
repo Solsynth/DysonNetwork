@@ -21,9 +21,9 @@ jobs:
               id: changed-files
               run: |
                   # Check submodule changes
-                  submodule_changes=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} -- DysonNetwork.Shared 2>/dev/null || echo "")
+                  submodule_changes=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} -- DysonNetwork.Shared 2>/dev/null | tr '\n' ' ' || echo "")
                   # Check regular file changes
-                  file_changes=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | xargs)
+                  file_changes=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | tr '\n' ' ')
                   echo "files=${file_changes} ${submodule_changes}" >> $GITHUB_OUTPUT
 
             - name: Determine changed services
