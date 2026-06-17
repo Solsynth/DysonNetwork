@@ -1,7 +1,8 @@
+using DysonNetwork.Shared.Models;
 using System.Text.Json.Serialization;
 using NodaTime;
 
-namespace DysonNetwork.Shared.Models;
+namespace DysonNetwork.Messager.Models;
 
 public class SnChatMessagePin : ModelBase
 {

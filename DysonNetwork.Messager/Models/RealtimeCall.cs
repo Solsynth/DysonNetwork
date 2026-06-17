@@ -1,9 +1,10 @@
+using DysonNetwork.Shared.Models;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
 
 using NodaTime;
 
-namespace DysonNetwork.Shared.Models;
+namespace DysonNetwork.Messager.Models;
 
 public class SnRealtimeCall : ModelBase
 {

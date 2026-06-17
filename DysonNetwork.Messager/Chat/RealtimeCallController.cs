@@ -1,4 +1,5 @@
 using DysonNetwork.Messager.Chat.Realtime;
+using DysonNetwork.Messager.Models;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
