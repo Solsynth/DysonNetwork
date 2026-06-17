@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using DysonNetwork.Passport.Models;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;

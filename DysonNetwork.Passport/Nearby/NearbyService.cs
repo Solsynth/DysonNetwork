@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using DysonNetwork.Passport.Account;
+using DysonNetwork.Passport.Models;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;

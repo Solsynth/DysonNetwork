@@ -1,3 +1,4 @@
+using DysonNetwork.Passport.Models;
 using DysonNetwork.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DysonNetwork.Passport.Account;
+using DysonNetwork.Passport.Models;
 using DysonNetwork.Passport.Nfc;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
