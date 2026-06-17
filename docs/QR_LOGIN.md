@@ -25,6 +25,7 @@ POST /api/factors
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │   Web/Desktop   │     │     Redis       │     │   Mobile App    │
+│  (unauthenticated)    │                 │     │ (authenticated) │
 │                 │     │                 │     │                 │
 │ 1. Generate QR  │────▶│ Store Challenge │     │                 │
 │                 │     │ (5min TTL)      │     │                 │
@@ -32,15 +33,17 @@ POST /api/factors
 │    solian://... │     │                 │     │                 │
 │                 │     │                 │     │                 │
 │ 3. Poll Status  │────▶│ Get Status      │     │                 │
-│                 │     │                 │     │ 4. Scan & Approve│
+│  (every 2s)     │     │                 │     │ 4. Scan & Approve│
 │                 │◀────│ Update Status   │◀────│                 │
-│ 5. WebSocket    │     │                 │     │                 │
-│    notification │     │                 │     │                 │
+│ 5. Status       │     │                 │     │                 │
+│    changed!     │     │                 │     │                 │
 │                 │     │                 │     │                 │
 │ 6. Exchange     │────▶│ Validate        │     │                 │
 │    Tokens       │     │                 │     │                 │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
 ```
+
+**Note:** The web/desktop client is unauthenticated and cannot connect to WebSocket. It must poll the status endpoint to detect approval. WebSocket events are only sent to the authenticated mobile device.
 
 ## Endpoints
 
@@ -149,9 +152,9 @@ POST /api/auth/qr/{id}/decline
 Authorization: Bearer <mobile_access_token>
 ```
 
-## WebSocket Events
+## WebSocket Events (Mobile Only)
 
-The web/desktop client receives real-time updates via WebSocket:
+These events are sent to the **mobile user's account** for multi-device sync scenarios. The web/desktop client must use polling since it's unauthenticated.
 
 ### `auth.qr.scanned`
 
@@ -250,27 +253,35 @@ const response = await fetch('/api/auth/qr/generate', {
     platform: 'Web'
   })
 });
-const { qr_data, qr_challenge_id } = await response.json();
+const { qr_data, qr_challenge_id, auth_challenge_id } = await response.json();
 
 // 2. Display QR code
 renderQRCode(qr_data);
 
-// 3. Poll for status or listen to WebSocket
-ws.on('auth.qr.approved', async (payload) => {
-  if (payload.qr_challenge_id === qr_challenge_id) {
+// 3. Poll for status (web/desktop cannot use WebSocket)
+const pollInterval = setInterval(async () => {
+  const statusResponse = await fetch(`/api/auth/qr/${qr_challenge_id}`);
+  const status = await statusResponse.json();
+  
+  if (status.status === 'Approved') {
+    clearInterval(pollInterval);
+    
     // 4. Exchange for tokens
     const tokenResponse = await fetch('/api/auth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         grant_type: 'authorization_code',
-        code: payload.auth_challenge_id
+        code: auth_challenge_id
       })
     });
     const tokens = await tokenResponse.json();
     // Store tokens and redirect
+  } else if (status.status === 'Declined') {
+    clearInterval(pollInterval);
+    showError('Login was declined');
   }
-});
+}, 2000); // Poll every 2 seconds
 ```
 
 ### Mobile App
