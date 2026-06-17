@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Sphere.ActivityPub.Services;
 using Microsoft.AspNetCore.Mvc;

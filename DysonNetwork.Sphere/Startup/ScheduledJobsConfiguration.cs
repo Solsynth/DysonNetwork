@@ -1,4 +1,5 @@
 using DysonNetwork.Sphere.ActivityPub;
+using DysonNetwork.Sphere.Models;
 using DysonNetwork.Sphere.ActivityPub.Services;
 using DysonNetwork.Sphere.Live;
 using DysonNetwork.Sphere.Post;

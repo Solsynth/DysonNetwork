@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
@@ -274,7 +275,7 @@ public class PublisherSubscriptionService(
     {
         if (!liveStream.PublisherId.HasValue || liveStream.Publisher is null)
             return 0;
-        if (liveStream.Visibility != Shared.Models.LiveStreamVisibility.Public)
+        if (liveStream.Visibility != LiveStreamVisibility.Public)
             return 0;
 
         var title = liveStream.Title ?? "Live Stream";
@@ -387,7 +388,7 @@ public class PublisherSubscriptionService(
             .LiveStreams.Where(ls =>
                 ls.PublisherId.HasValue
                 && ids.Contains(ls.PublisherId.Value)
-                && ls.Visibility == Shared.Models.LiveStreamVisibility.Public
+                && ls.Visibility == LiveStreamVisibility.Public
                 && ls.StartedAt != null
             )
             .GroupBy(ls => ls.PublisherId!.Value)

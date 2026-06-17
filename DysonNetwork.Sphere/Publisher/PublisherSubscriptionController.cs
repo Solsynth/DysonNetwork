@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Localization;
+using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -357,7 +358,7 @@ public class PublisherSubscriptionController(
         var livePublisherIds = await db
             .LiveStreams.Where(ls =>
                 publisherIds.Contains(ls.PublisherId ?? Guid.Empty)
-                && ls.Status == Shared.Models.LiveStreamStatus.Active
+                && ls.Status == LiveStreamStatus.Active
             )
             .Select(ls => ls.PublisherId)
             .Distinct()
@@ -627,8 +628,8 @@ public class PublisherSubscriptionController(
             .LiveStreams.Include(ls => ls.Publisher)
             .Where(ls =>
                 subscribedPublisherIds.Contains(ls.PublisherId ?? Guid.Empty)
-                && ls.Status == Shared.Models.LiveStreamStatus.Active
-                && ls.Visibility == Shared.Models.LiveStreamVisibility.Public
+                && ls.Status == LiveStreamStatus.Active
+                && ls.Visibility == LiveStreamVisibility.Public
             )
             .OrderByDescending(ls => ls.StartedAt)
             .Skip(offset)

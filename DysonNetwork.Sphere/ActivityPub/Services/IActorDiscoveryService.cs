@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Sphere.Models;
 
 namespace DysonNetwork.Sphere.ActivityPub.Services;
 

@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
@@ -5,9 +6,8 @@ using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using NodaTime;
 using Duration = NodaTime.Duration;
-using LiveStreamAwardAttitude = DysonNetwork.Shared.Models.LiveStreamAwardAttitude;
 
-namespace DysonNetwork.Shared.Models;
+namespace DysonNetwork.Sphere.Models;
 
 public class SnLiveStreamAward : ModelBase
 {

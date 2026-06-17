@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.ActivityPub.Services;
 using Microsoft.AspNetCore.Authorization;

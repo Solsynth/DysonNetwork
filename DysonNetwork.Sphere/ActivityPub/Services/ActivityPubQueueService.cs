@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.Data;
 using NATS.Client.Core;
 using NodaTime;

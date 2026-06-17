@@ -1,3 +1,4 @@
+using DysonNetwork.Shared.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
@@ -6,7 +7,7 @@ using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using NodaTime;
 
-namespace DysonNetwork.Shared.Models;
+namespace DysonNetwork.Sphere.Models;
 
 public enum LiveStreamStatus
 {

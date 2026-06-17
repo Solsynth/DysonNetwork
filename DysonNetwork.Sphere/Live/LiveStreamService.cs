@@ -1,11 +1,11 @@
 using DysonNetwork.Shared.Localization;
+using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using LiveStreamAwardAttitude = DysonNetwork.Shared.Models.LiveStreamAwardAttitude;
 
 namespace DysonNetwork.Sphere.Live;
 

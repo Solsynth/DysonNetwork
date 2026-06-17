@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Sphere.ActivityPub.Services;

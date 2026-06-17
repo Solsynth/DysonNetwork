@@ -1,4 +1,4 @@
-namespace DysonNetwork.Shared.Models;
+namespace DysonNetwork.Sphere.Models;
 
 public enum LiveStreamAwardAttitude
 {

@@ -1,4 +1,5 @@
 using System.Globalization;
+using DysonNetwork.Sphere.Models;
 using System.Text.Json;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Extensions;
@@ -90,8 +91,8 @@ public class LiveStreamController(
             request.Title,
             request.Description,
             request.Slug,
-            request.Type ?? Shared.Models.LiveStreamType.Regular,
-            request.Visibility ?? Shared.Models.LiveStreamVisibility.Public,
+            request.Type ?? LiveStreamType.Regular,
+            request.Visibility ?? LiveStreamVisibility.Public,
             request.Metadata,
             thumbnail);
 
@@ -175,7 +176,7 @@ public class LiveStreamController(
         if (liveStream == null)
             return NotFound(new { error = "LiveStream not found" });
 
-        if (liveStream.Status != Shared.Models.LiveStreamStatus.Active)
+        if (liveStream.Status != LiveStreamStatus.Active)
             return BadRequest(new { error = "LiveStream is not active" });
 
         string identity;
@@ -631,7 +632,7 @@ public class LiveStreamController(
         if (liveStream == null)
             return NotFound(new { error = "LiveStream not found" });
 
-        if (liveStream.Status != Shared.Models.LiveStreamStatus.Active)
+        if (liveStream.Status != LiveStreamStatus.Active)
             return BadRequest(new { error = "Stream is not active" });
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -888,8 +889,8 @@ public record CreateLiveStreamRequest
     public string? Description { get; init; }
     public string? Slug { get; init; }
     public string? ThumbnailId { get; init; }
-    public Shared.Models.LiveStreamType? Type { get; init; }
-    public Shared.Models.LiveStreamVisibility? Visibility { get; init; }
+    public LiveStreamType? Type { get; init; }
+    public LiveStreamVisibility? Visibility { get; init; }
     public Dictionary<string, object>? Metadata { get; init; }
 }
 
@@ -898,8 +899,8 @@ public record UpdateLiveStreamRequest
     public string? Title { get; init; }
     public string? Description { get; init; }
     public string? Slug { get; init; }
-    public Shared.Models.LiveStreamType? Type { get; init; }
-    public Shared.Models.LiveStreamVisibility? Visibility { get; init; }
+    public LiveStreamType? Type { get; init; }
+    public LiveStreamVisibility? Visibility { get; init; }
     public Dictionary<string, object>? Metadata { get; init; }
 }
 

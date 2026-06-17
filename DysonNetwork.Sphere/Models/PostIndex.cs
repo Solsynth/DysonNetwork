@@ -1,9 +1,10 @@
+using DysonNetwork.Shared.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using NodaTime;
 using Pgvector;
 
-namespace DysonNetwork.Shared.Models;
+namespace DysonNetwork.Sphere.Models;
 
 public class SnPostIndex : ModelBase
 {

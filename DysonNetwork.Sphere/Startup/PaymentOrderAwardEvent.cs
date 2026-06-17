@@ -1,7 +1,7 @@
 using System.Text.Json;
+using DysonNetwork.Sphere.Models;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Queue;
-using LiveStreamAwardAttitude = DysonNetwork.Shared.Models.LiveStreamAwardAttitude;
 
 namespace DysonNetwork.Sphere.Startup;
 

@@ -1,6 +1,6 @@
 using NodaTime;
 
-namespace DysonNetwork.Shared.Models;
+namespace DysonNetwork.Sphere.Models;
 
 public class ActivityHeatmap
 {

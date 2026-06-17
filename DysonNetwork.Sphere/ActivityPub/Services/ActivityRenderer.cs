@@ -1,4 +1,5 @@
 using System.Text;
+using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.ActivityStreams;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Registry;

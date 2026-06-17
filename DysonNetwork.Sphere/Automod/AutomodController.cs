@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Sphere.Models;
 using DysonNetwork.Sphere.Automod;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
