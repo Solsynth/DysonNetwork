@@ -1,4 +1,5 @@
 using DysonNetwork.Insight.MiChan;
+using DysonNetwork.Insight.Models;
 using DysonNetwork.Insight.SnDoc;
 using DysonNetwork.Insight.Thought.Voice;
 using DysonNetwork.Shared.Data;

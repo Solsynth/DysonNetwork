@@ -1,6 +1,7 @@
 namespace DysonNetwork.Insight.Agent.Foundation;
 
 using System.Text.Json;
+using DysonNetwork.Insight.Models;
 using DysonNetwork.Insight.Agent.Foundation.Models;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;

@@ -1,4 +1,5 @@
 using System.Text;
+using DysonNetwork.Insight.Models;
 using System.Text.Json;
 using DysonNetwork.Insight.Agent.Foundation;
 using DysonNetwork.Insight.Agent.Foundation.Providers;

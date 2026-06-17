@@ -1,4 +1,5 @@
 using DysonNetwork.Insight.MiChan;
+using DysonNetwork.Insight.Models;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;

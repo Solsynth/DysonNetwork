@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DysonNetwork.Insight.Models;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
