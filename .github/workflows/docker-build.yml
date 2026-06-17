@@ -16,11 +16,15 @@ jobs:
               uses: actions/checkout@v4
               with:
                   fetch-depth: 0
-
+                  submodules: recursive
             - name: Get changed files
               id: changed-files
               run: |
-                  echo "files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | xargs)" >> $GITHUB_OUTPUT
+                  # Check submodule changes
+                  submodule_changes=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} -- DysonNetwork.Shared 2>/dev/null || echo "")
+                  # Check regular file changes
+                  file_changes=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | xargs)
+                  echo "files=${file_changes} ${submodule_changes}" >> $GITHUB_OUTPUT
 
             - name: Determine changed services
               id: changes
@@ -89,6 +93,7 @@ jobs:
               uses: actions/checkout@v4
               with:
                   fetch-depth: 0
+                  submodules: recursive
 
             - name: Setup NBGV
               uses: dotnet/nbgv@master
