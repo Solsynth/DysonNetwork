@@ -1,10 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Padlock.Models;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
-using SnAccountPunishment = DysonNetwork.Shared.Models.SnAccountPunishment;
-using SnAccountProfile = DysonNetwork.Shared.Models.SnAccountProfile;
-using PunishmentType = DysonNetwork.Shared.Models.PunishmentType;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;

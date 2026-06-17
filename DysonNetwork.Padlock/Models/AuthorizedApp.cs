@@ -1,8 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using DysonNetwork.Shared.Models;
 using NodaTime;
 
-namespace DysonNetwork.Shared.Models;
+namespace DysonNetwork.Padlock.Models;
 
 public enum AuthorizedAppType
 {

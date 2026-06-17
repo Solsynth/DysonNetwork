@@ -1,4 +1,5 @@
 using DysonNetwork.Padlock.Auth.OpenId;
+using DysonNetwork.Padlock.Models;
 using DysonNetwork.Padlock.Mailer;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;

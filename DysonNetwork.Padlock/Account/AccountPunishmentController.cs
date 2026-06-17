@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Padlock.Models;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -8,7 +9,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using SnAccountProfile = DysonNetwork.Shared.Models.SnAccountProfile;
-using SnAccountPunishment = DysonNetwork.Shared.Models.SnAccountPunishment;
 
 namespace DysonNetwork.Padlock.Account;
 

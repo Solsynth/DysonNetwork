@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Padlock.Models;
 using DysonNetwork.Padlock.Account;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
