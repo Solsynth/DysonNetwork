@@ -16,7 +16,17 @@ DysonNetwork/           # Main repository (this repo)
 ├── DysonNetwork.Zone/        # Zones & communities (discontinued)
 ├── DysonNetwork.Develop/     # Developer portal & app management
 ├── DysonNetwork.Insight/     # AI features
-└── DysonNetwork.Shared/      # Shared models, proto, utilities
+└── DysonNetwork.Shared/      # Git submodule → NeTo repo
+
+NeTo/                   # Shared library (separate repo: ../NeTo)
+├── Models/             # Shared domain models
+├── Proto/              # Generated gRPC/proto code
+├── Registry/           # Service clients & helpers
+├── Cache/              # Redis caching abstractions
+├── EventBus/           # NATS event bus
+├── Auth/               # Authentication middleware
+├── Data/               # Database utilities
+└── ...                 # Other shared utilities
 
 Spec/                   # Protobuf definitions (separate repo: ../Spec)
 └── proto/              # .proto files
@@ -29,18 +39,120 @@ Spec/                   # Protobuf definitions (separate repo: ../Spec)
 - **Location:** `../Spec/` (sibling to this repo)
 - **Proto files:** `../Spec/proto/*.proto`
 - **Buf config:** `../Spec/buf.yaml`
-- **Generation config:** `DysonNetwork.Shared/buf.gen.yaml`
-- **Generated C# code:** `DysonNetwork.Shared/Proto/` (auto-generated, do not edit manually)
-  - Regenerate with: `buf generate` under `DysonNetwork.Shared/`
+- **Generation config:** `NeTo/buf.gen.yaml`
+- **Generated C# code:** `NeTo/Proto/` (auto-generated, do not edit manually)
+  - Regenerate with: `buf generate` under `NeTo/`
 
 ### Proto to C# Model Mapping
 
-Models in `DysonNetwork.Shared/Models/` have:
+Models in `NeTo/Models/` have:
 
 - `ToProto()` method for C# → Proto conversion
 - `FromProtoValue()` static method for Proto → C# conversion
 
 Always update both methods when adding new fields.
+
+## Shared Module (NeTo)
+
+**DysonNetwork.Shared is a git submodule pointing to the NeTo repository.**
+
+- **Repository:** `ssh://git@compute01.latxa-bushi.ts.net/SoSYS/NeTo.git`
+- **Submodule URL:** `https://src.solsynth.dev/SoSYS/NeTo.git`
+- **Local path:** `DysonNetwork.Shared/` (submodule)
+
+### What Goes in NeTo
+
+- Models used by **multiple services** (e.g., `SnAccount`, `SnPost`, `SnCloudFile`)
+- Proto/gRPC generated code
+- Shared utilities (Cache, EventBus, Registry, etc.)
+
+### What Stays in Service Repos
+
+- Models used by **only one service** (e.g., `SnLiveStream` in Sphere, `SnMiniApp` in Develop)
+- Service-specific logic, controllers, jobs
+
+### Updating the Submodule
+
+```bash
+# Pull latest NeTo changes
+cd DysonNetwork
+git submodule update --remote
+
+# Or init + update on fresh clone
+git submodule update --init --recursive
+```
+
+## Adding a New Shared Model / Proto
+
+When you need to add a new shared model or gRPC service definition, follow this workflow:
+
+### Step 1: Add Protobuf Definition to Spec
+
+```bash
+cd ../Spec
+
+# Edit or create .proto file
+vi proto/my_new_service.proto
+
+# Commit and push
+git add -A
+git commit -m "➕ add MyNewService proto definition"
+git push
+```
+
+### Step 2: Regenerate Code in NeTo
+
+```bash
+cd ../NeTo
+
+# Regenerate C# code from proto
+buf generate
+
+# Commit and push
+git add -A
+git commit -m "🔄 regenerate proto: add MyNewService"
+git push
+```
+
+### Step 3: Update Submodules in Consuming Repos
+
+```bash
+# In DysonNetwork
+cd ../DysonNetwork
+git submodule update --remote
+git add DysonNetwork.Shared
+git commit -m "⬆️ update NeTo submodule (add MyNewService)"
+git push
+
+# In WattEngine (if applicable)
+cd ../WattEngine
+git submodule update --remote
+git add NeTo
+git commit -m "⬆️ update NeTo submodule (add MyNewService)"
+git push
+```
+
+### Step 4: Add C# Model (if needed)
+
+If the new proto requires a corresponding C# model:
+
+```bash
+cd ../NeTo
+
+# Add model file
+vi Models/MyNewModel.cs
+
+# Ensure it has:
+# - ToProto() method
+# - FromProtoValue() static method
+
+# Commit and push
+git add -A
+git commit -m "➕ add MyNewModel with proto mapping"
+git push
+
+# Update submodules again (repeat Step 3)
+```
 
 ## JSON Serialization
 
@@ -163,9 +275,9 @@ public class ModelBase
 
 Services communicate via gRPC when possible:
 
-- Client factories: `DysonNetwork.Shared/Registry/LazyGrpcClientFactory.cs`
-- DI (prefer this way to add clients): `DysonNetwork.Shared/Registry/ServiceInjectionHelper.cs`
-- Service definitions: `DysonNetwork.Shared/Proto/*Grpc.cs`
+- Client factories: `NeTo/Registry/LazyGrpcClientFactory.cs`
+- DI (prefer this way to add clients): `NeTo/Registry/ServiceInjectionHelper.cs`
+- Service definitions: `NeTo/Proto/*Grpc.cs`
 - Service implementations: `*Grpc.cs` files in each service
 
 ### Common Pattern
