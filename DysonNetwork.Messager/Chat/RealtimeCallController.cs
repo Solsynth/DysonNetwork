@@ -212,6 +212,11 @@ public class RealtimeCallController(
             Token = userToken,
             CallId = call.Id,
             RoomName = call.SessionId,
+            RoomTitle = call.Room is { Type: ChatRoomType.DirectMessage, Name: null }
+                ? "DM"
+                : call.Room.Realm is not null
+                    ? $"{call.Room.Name ?? "Unknown"}, {call.Room.Realm.Name}"
+                    : call.Room.Name ?? "Unknown",
             IsAdmin = isAdmin,
             Participants = participants
         });
@@ -548,6 +553,11 @@ public class JoinCallResponse
     /// The room name in LiveKit
     /// </summary>
     public string RoomName { get; set; } = null!;
+
+    /// <summary>
+    /// Human-readable room title (e.g. "General", "DM")
+    /// </summary>
+    public string? RoomTitle { get; set; }
 
     /// <summary>
     /// Whether the user is the admin of the call
