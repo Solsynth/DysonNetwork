@@ -153,8 +153,8 @@ public class PushService
 
         // Build topics: alert = base bundle, voip = bundle.voip, etc.
         var topics = new Dictionary<string, string>(config.Topics);
-        if (apnsTopic is not null && !topics.ContainsKey("alert"))
-            topics["alert"] = apnsTopic;
+        if (apnsTopic is not null && !topics.ContainsKey("Alert"))
+            topics["Alert"] = apnsTopic;
 
         return new AppSenders(fcm, apns, apnsTopic, topics);
     }
@@ -579,7 +579,7 @@ public class PushService
                     if (!string.IsNullOrEmpty(notification.Content))
                         alertDict["body"] = notification.Content;
 
-                    var apnsPushTopic = senders.Topics.GetValueOrDefault("alert") ?? senders.ApnsTopic;
+                    var apnsPushTopic = senders.Topics.GetValueOrDefault("Alert") ?? senders.ApnsTopic;
                     var payload = new Dictionary<string, object?>
                     {
                         ["topic"] = apnsPushTopic,

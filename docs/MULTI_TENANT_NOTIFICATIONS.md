@@ -32,8 +32,8 @@ If `app_id` is null or omitted, the first configured app is used as fallback (ba
             "BundleIdentifier": "dev.solsynth.solian"
           },
           "Topics": {
-            "alert": "dev.solsynth.solian",
-            "voip": "dev.solsynth.solian.voip"
+            "Alert": "dev.solsynth.solian",
+            "VoIP": "dev.solsynth.solian.voip"
           }
         },
         "dev.solsynth.watt": {
@@ -46,8 +46,8 @@ If `app_id` is null or omitted, the first configured app is used as fallback (ba
             "BundleIdentifier": "dev.solsynth.watt"
           },
           "Topics": {
-            "alert": "dev.solsynth.watt",
-            "voip": "dev.solsynth.watt.voip"
+            "Alert": "dev.solsynth.watt",
+            "VoIP": "dev.solsynth.watt.voip"
           }
         }
       }
@@ -64,8 +64,8 @@ Each app can configure multiple APNS topics under `Topics`. The `alert` topic is
 
 ```json
 "Topics": {
-    "alert": "dev.solsynth.solian",
-    "voip": "dev.solsynth.solian.voip"
+    "Alert": "dev.solsynth.solian",
+    "VoIP": "dev.solsynth.solian.voip"
 }
 ```
 
