@@ -36,7 +36,8 @@ public class RingServiceGrpc(
                 ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
                 : [],
             AccountId = Guid.Parse(request.UserId),
-            AppId = request.Notification.HasAppId ? request.Notification.AppId : null
+            AppId = request.Notification.HasAppId ? request.Notification.AppId : null,
+            PushType = request.Notification.HasPushType ? request.Notification.PushType : null
         };
 
         if (request.Notification.ActionUri is not null)
@@ -66,7 +67,8 @@ public class RingServiceGrpc(
             Meta = request.Notification.HasMeta
                 ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
                 : [],
-            AppId = request.Notification.HasAppId ? request.Notification.AppId : null
+            AppId = request.Notification.HasAppId ? request.Notification.AppId : null,
+            PushType = request.Notification.HasPushType ? request.Notification.PushType : null
         };
 
         if (request.Notification.ActionUri is not null)

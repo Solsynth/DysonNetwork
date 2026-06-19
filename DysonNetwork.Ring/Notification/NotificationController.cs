@@ -199,6 +199,7 @@ public class NotificationController(
         [Required] [MaxLength(4096)] public string Content { get; set; } = null!;
         public Dictionary<string, object?>? Meta { get; set; }
         public int Priority { get; set; } = 10;
+        [MaxLength(64)] public string? PushType { get; set; }
     }
 
     public class NotificationWithAimRequest : NotificationRequest
@@ -225,6 +226,7 @@ public class NotificationController(
             Subtitle = request.Subtitle,
             Content = request.Content,
             AppId = appId,
+            PushType = request.PushType
         };
         if (request.Meta != null)
         {

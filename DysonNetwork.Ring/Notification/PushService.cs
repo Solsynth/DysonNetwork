@@ -323,7 +323,8 @@ public class PushService
         string? actionUri = null,
         bool isSilent = false,
         bool save = true,
-        string? appId = null)
+        string? appId = null,
+        string? pushType = null)
     {
         meta ??= [];
         if (title is null && subtitle is null && content is null)
@@ -345,7 +346,8 @@ public class PushService
             Content = content,
             Meta = meta,
             AccountId = accountId,
-            AppId = appId
+            AppId = appId,
+            PushType = pushType
         };
 
         if (save)
@@ -461,6 +463,7 @@ public class PushService
                 Priority = notification.Priority,
                 AccountId = accountId,
                 AppId = notification.AppId,
+                PushType = notification.PushType,
                 CreatedAt = now,
                 UpdatedAt = now
             }).ToList();
@@ -579,7 +582,7 @@ public class PushService
                     if (!string.IsNullOrEmpty(notification.Content))
                         alertDict["body"] = notification.Content;
 
-                    var apnsPushTopic = senders.Topics.GetValueOrDefault("Alert") ?? senders.ApnsTopic;
+                    var apnsPushTopic = senders.Topics.GetValueOrDefault(notification.PushType ?? "Alert") ?? senders.ApnsTopic;
                     var payload = new Dictionary<string, object?>
                     {
                         ["topic"] = apnsPushTopic,
