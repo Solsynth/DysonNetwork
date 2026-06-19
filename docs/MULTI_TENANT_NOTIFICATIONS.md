@@ -28,7 +28,8 @@ If `app_id` is null or omitted, the first configured app is used as fallback (ba
           "Apns": {
             "PrivateKeyPath": "./Keys/Solian.p8",
             "PrivateKeyId": "4US4KSX4W6",
-            "TeamId": "W7HPZ53V6B"
+            "TeamId": "W7HPZ53V6B",
+            "BundleIdentifier": "dev.solsynth.solian"
           }
         },
         "dev.solsynth.watt": {
@@ -37,7 +38,8 @@ If `app_id` is null or omitted, the first configured app is used as fallback (ba
           "Apns": {
             "PrivateKeyPath": "./Keys/Watt.p8",
             "PrivateKeyId": "ABC123",
-            "TeamId": "TEAM01"
+            "TeamId": "TEAM01",
+            "BundleIdentifier": "dev.solsynth.watt"
           }
         }
       }

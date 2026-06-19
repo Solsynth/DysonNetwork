@@ -26,6 +26,7 @@ public class ApnsAppConfig
     public string PrivateKeyPath { get; set; } = null!;
     public string PrivateKeyId { get; set; } = null!;
     public string TeamId { get; set; } = null!;
+    public string BundleIdentifier { get; set; } = null!;
 }
 
 public class PushService
@@ -105,7 +106,8 @@ public class PushService
                 {
                     PrivateKeyPath = apnsSection.GetValue<string>("PrivateKey") ?? "",
                     PrivateKeyId = apnsSection.GetValue<string>("PrivateKeyId") ?? "",
-                    TeamId = apnsSection.GetValue<string>("TeamId") ?? ""
+                    TeamId = apnsSection.GetValue<string>("TeamId") ?? "",
+                    BundleIdentifier = apnsSection.GetValue<string>("BundleIdentifier") ?? ""
                 };
             }
 
@@ -142,10 +144,10 @@ public class PushService
                 P8PrivateKey = File.ReadAllText(keyPath),
                 P8PrivateKeyId = config.Apns.PrivateKeyId,
                 TeamId = config.Apns.TeamId,
-                AppBundleIdentifier = appId,
+                AppBundleIdentifier = config.Apns.BundleIdentifier,
                 ServerType = config.Production ? ApnServerType.Production : ApnServerType.Development
             }, httpClient);
-            apnsTopic = appId;
+            apnsTopic = config.Apns.BundleIdentifier;
         }
 
         return new AppSenders(fcm, apns, apnsTopic);
