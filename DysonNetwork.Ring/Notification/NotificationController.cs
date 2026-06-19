@@ -20,14 +20,16 @@ public class NotificationController(
 {
     [HttpGet("count")]
     [Authorize]
-    public async Task<ActionResult<int>> CountUnreadNotifications()
+    public async Task<ActionResult<int>> CountUnreadNotifications([FromQuery] string? app = null)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         if (currentUserValue is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
+        var appId = app ?? nty.GetDefaultAppId();
 
         var count = await db.Notifications
             .Where(s => s.AccountId == accountId && s.ViewedAt == null)
+            .Where(s => appId == null || s.AppId == appId)
             .CountAsync();
         return Ok(count);
     }
@@ -36,21 +38,23 @@ public class NotificationController(
     [Authorize]
     public async Task<ActionResult<List<SnNotification>>> ListNotifications(
         [FromQuery] int offset = 0,
-        // The page size set to 5 is to avoid the client pulled the notification
-        // but didn't render it in the screen-viewable region.
         [FromQuery] int take = 8,
-        [FromQuery] bool unmark = false
+        [FromQuery] bool unmark = false,
+        [FromQuery] string? app = null
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         if (currentUserValue is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
+        var appId = app ?? nty.GetDefaultAppId();
 
         var totalCount = await db.Notifications
             .Where(s => s.AccountId == accountId)
+            .Where(s => appId == null || s.AppId == appId)
             .CountAsync();
         var notifications = await db.Notifications
             .Where(s => s.AccountId == accountId)
+            .Where(s => appId == null || s.AppId == appId)
             .OrderByDescending(e => e.CreatedAt)
             .Skip(offset)
             .Take(take)
@@ -65,13 +69,14 @@ public class NotificationController(
 
     [HttpPost("all/read")]
     [Authorize]
-    public async Task<ActionResult> MarkAllNotificationsViewed()
+    public async Task<ActionResult> MarkAllNotificationsViewed([FromQuery] string? app = null)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         if (currentUserValue is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
+        var appId = app ?? nty.GetDefaultAppId();
 
-        await nty.MarkAllNotificationsViewed(accountId);
+        await nty.MarkAllNotificationsViewed(accountId, appId);
         return Ok();
     }
 
@@ -80,6 +85,7 @@ public class NotificationController(
         [MaxLength(4096)] public string? DeviceToken { get; set; }
         [MaxLength(4096)] public string? DeviceName { get; set; }
         public PushProvider Provider { get; set; }
+        [MaxLength(1024)] public string? AppId { get; set; }
     }
 
     [HttpPut("subscription")]
@@ -114,7 +120,8 @@ public class NotificationController(
                 request.DeviceToken,
                 request.DeviceName,
                 request.Provider,
-                currentUser
+                currentUser,
+                appId: request.AppId
             );
 
         return Ok(result);
@@ -135,14 +142,21 @@ public class NotificationController(
 
     [HttpGet("subscription")]
     [Authorize]
-    public async Task<ActionResult<List<SnNotificationPushSubscription>>> ListPushSubscriptions()
+    public async Task<ActionResult<List<SnNotificationPushSubscription>>> ListPushSubscriptions(
+        [FromQuery] string? app = null
+    )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         if (currentUserValue is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
+        var appId = app ?? nty.GetDefaultAppId();
 
-        var subscriptions = await db.PushSubscriptions
-            .Where(s => s.AccountId == accountId)
+        var query = db.PushSubscriptions
+            .Where(s => s.AccountId == accountId);
+        if (appId is not null)
+            query = query.Where(s => s.AppId == appId);
+
+        var subscriptions = await query
             .OrderByDescending(s => s.UpdatedAt)
             .ToListAsync();
 
@@ -197,9 +211,11 @@ public class NotificationController(
     [AskPermission("notifications.send")]
     public async Task<ActionResult> SendNotification(
         [FromBody] NotificationWithAimRequest request,
-        [FromQuery] bool save = false
+        [FromQuery] bool save = false,
+        [FromQuery] string? app = null
     )
     {
+        var appId = app ?? nty.GetDefaultAppId();
         var notification = new SnNotification
         {
             CreatedAt = SystemClock.Instance.GetCurrentInstant(),
@@ -208,6 +224,7 @@ public class NotificationController(
             Title = request.Title,
             Subtitle = request.Subtitle,
             Content = request.Content,
+            AppId = appId,
         };
         if (request.Meta != null)
         {
@@ -220,7 +237,7 @@ public class NotificationController(
 
     [HttpGet("preferences")]
     [Authorize]
-    public async Task<ActionResult<List<SnNotificationPreference>>> ListPreferences()
+    public async Task<ActionResult<List<SnNotificationPreference>>> ListPreferences([FromQuery] string? app = null)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         if (currentUserValue is not DyAccount currentUser) return Unauthorized();

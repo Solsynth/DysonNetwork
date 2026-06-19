@@ -14,18 +14,33 @@ using System.Threading.Channels;
 
 namespace DysonNetwork.Ring.Notification;
 
+public class PushAppConfig
+{
+    public string? FcmKeyPath { get; set; }
+    public ApnsAppConfig? Apns { get; set; }
+}
+
+public class ApnsAppConfig
+{
+    public string PrivateKeyPath { get; set; } = null!;
+    public string PrivateKeyId { get; set; } = null!;
+    public string TeamId { get; set; } = null!;
+    public string BundleIdentifier { get; set; } = null!;
+}
+
 public class PushService
 {
     private sealed record SopStreamSubscription(string DeviceId, Channel<SnNotification> Channel);
+
+    private sealed record AppSenders(FirebaseSender? Fcm, ApnSender? Apns, string? ApnsTopic);
 
     private static readonly ConcurrentDictionary<Guid, ConcurrentDictionary<Guid, SopStreamSubscription>> SopStreams = new();
     private readonly AppDatabase _db;
     private readonly QueueService _queueService;
     private readonly ILogger<PushService> _logger;
-    private readonly FirebaseSender? _fcm;
-    private readonly ApnSender? _apns;
+    private readonly Dictionary<string, AppSenders> _appSenders = new();
+    private readonly string? _defaultAppId;
     private readonly FlushBufferService _fbs;
-    private readonly string? _apnsTopic;
     private readonly HttpClient _httpClient;
     private readonly RemoteWebSocketService _ws;
     private readonly NotificationPreferenceService _preferenceService;
@@ -59,30 +74,49 @@ public class PushService
     )
     {
         var cfgSection = config.GetSection("Notifications:Push");
+        var isProduction = cfgSection.GetValue<bool>("Production");
+        var httpClient = httpFactory.CreateClient();
 
-        // Set up Firebase Cloud Messaging
-        var fcmConfig = cfgSection.GetValue<string>("Google");
-        if (fcmConfig != null && File.Exists(fcmConfig))
-            _fcm = new FirebaseSender(File.ReadAllText(fcmConfig), httpFactory.CreateClient());
-
-        // Set up Apple Push Notification Service
-        var apnsKeyPath = cfgSection.GetValue<string>("Apple:PrivateKey");
-        if (apnsKeyPath != null && File.Exists(apnsKeyPath))
+        var appsSection = cfgSection.GetSection("Apps");
+        if (appsSection.Exists())
         {
-            _apns = new ApnSender(new ApnSettings
+            foreach (var appChild in appsSection.GetChildren())
             {
-                P8PrivateKey = File.ReadAllText(apnsKeyPath),
-                P8PrivateKeyId = cfgSection.GetValue<string>("Apple:PrivateKeyId"),
-                TeamId = cfgSection.GetValue<string>("Apple:TeamId"),
-                AppBundleIdentifier = cfgSection.GetValue<string>("Apple:BundleIdentifier"),
-                ServerType = cfgSection.GetValue<bool>("Production")
-                    ? ApnServerType.Production
-                    : ApnServerType.Development
-            }, httpFactory.CreateClient());
-            _apnsTopic = cfgSection.GetValue<string>("Apple:BundleIdentifier");
+                var appId = appChild.Key;
+                var appConfig = appChild.Get<PushAppConfig>();
+                if (appConfig is null) continue;
+
+                var senders = BuildAppSenders(appConfig, isProduction, httpClient);
+                _appSenders[appId] = senders;
+            }
+        }
+        else
+        {
+            // ponytail: backwards compat for old flat config (Google / Apple keys)
+            var legacy = new PushAppConfig();
+            var fcmPath = cfgSection.GetValue<string>("Google");
+            if (fcmPath != null) legacy.FcmKeyPath = fcmPath;
+
+            var apnsSection = cfgSection.GetSection("Apple");
+            if (apnsSection.Exists())
+            {
+                legacy.Apns = new ApnsAppConfig
+                {
+                    PrivateKeyPath = apnsSection.GetValue<string>("PrivateKey") ?? "",
+                    PrivateKeyId = apnsSection.GetValue<string>("PrivateKeyId") ?? "",
+                    TeamId = apnsSection.GetValue<string>("TeamId") ?? "",
+                    BundleIdentifier = apnsSection.GetValue<string>("BundleIdentifier") ?? ""
+                };
+            }
+
+            var legacyId = "_default";
+            _appSenders[legacyId] = BuildAppSenders(legacy, isProduction, httpClient);
+            _defaultAppId = legacyId;
         }
 
-        _httpClient = httpFactory.CreateClient();
+        _defaultAppId ??= _appSenders.Keys.FirstOrDefault();
+
+        _httpClient = httpClient;
         _ws = ws;
         _db = db;
         _fbs = fbs;
@@ -92,6 +126,39 @@ public class PushService
         _actionLogs = actionLogs;
         _sopReplayBuffer = sopReplayBuffer;
     }
+
+    private static AppSenders BuildAppSenders(PushAppConfig config, bool isProduction, HttpClient httpClient)
+    {
+        FirebaseSender? fcm = null;
+        if (config.FcmKeyPath != null && File.Exists(config.FcmKeyPath))
+            fcm = new FirebaseSender(File.ReadAllText(config.FcmKeyPath), httpClient);
+
+        ApnSender? apns = null;
+        string? apnsTopic = null;
+        if (config.Apns is { PrivateKeyPath: var keyPath } && File.Exists(keyPath))
+        {
+            apns = new ApnSender(new ApnSettings
+            {
+                P8PrivateKey = File.ReadAllText(keyPath),
+                P8PrivateKeyId = config.Apns.PrivateKeyId,
+                TeamId = config.Apns.TeamId,
+                AppBundleIdentifier = config.Apns.BundleIdentifier,
+                ServerType = isProduction ? ApnServerType.Production : ApnServerType.Development
+            }, httpClient);
+            apnsTopic = config.Apns.BundleIdentifier;
+        }
+
+        return new AppSenders(fcm, apns, apnsTopic);
+    }
+
+    private AppSenders? ResolveAppSenders(string? appId)
+    {
+        if (!string.IsNullOrEmpty(appId) && _appSenders.TryGetValue(appId, out var senders))
+            return senders;
+        return _defaultAppId is not null ? _appSenders.GetValueOrDefault(_defaultAppId) : null;
+    }
+
+    public string? GetDefaultAppId() => _defaultAppId;
 
     public async Task UnsubscribeDevice(string deviceId)
     {
@@ -106,7 +173,8 @@ public class PushService
         string? deviceName,
         PushProvider provider,
         DyAccount account,
-        bool isActivated = true
+        bool isActivated = true,
+        string? appId = null
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -141,6 +209,7 @@ public class PushService
             existingSubscription.LastUsedAt = now;
             existingSubscription.UpdatedAt = now;
             existingSubscription.DeviceName = deviceName;
+            existingSubscription.AppId = appId;
 
             _db.Update(existingSubscription);
             await _db.SaveChangesAsync();
@@ -154,6 +223,7 @@ public class PushService
             Provider = provider,
             IsActivated = isActivated,
             AccountId = accountId,
+            AppId = appId,
             CreatedAt = now,
             UpdatedAt = now,
             LastUsedAt = now
@@ -180,11 +250,12 @@ public class PushService
     public async Task<(string Token, SnNotificationPushSubscription Subscription)> RegisterSopToken(
         string deviceId,
         string? deviceName,
-        DyAccount account
+        DyAccount account,
+        string? appId = null
     )
     {
         var token = $"{Convert.ToHexString(Guid.NewGuid().ToByteArray()).ToLowerInvariant()}{Convert.ToHexString(Guid.NewGuid().ToByteArray()).ToLowerInvariant()}";
-        var subscription = await SubscribeDevice(deviceId, token, deviceName, PushProvider.Sop, account);
+        var subscription = await SubscribeDevice(deviceId, token, deviceName, PushProvider.Sop, account, appId: appId);
         return (token, subscription);
     }
 
@@ -243,7 +314,8 @@ public class PushService
         Dictionary<string, object?>? meta = null,
         string? actionUri = null,
         bool isSilent = false,
-        bool save = true)
+        bool save = true,
+        string? appId = null)
     {
         meta ??= [];
         if (title is null && subtitle is null && content is null)
@@ -265,6 +337,7 @@ public class PushService
             Content = content,
             Meta = meta,
             AccountId = accountId,
+            AppId = appId
         };
 
         if (save)
@@ -350,12 +423,13 @@ public class PushService
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.ViewedAt, now));
     }
 
-    public async Task MarkAllNotificationsViewed(Guid accountId)
+    public async Task MarkAllNotificationsViewed(Guid accountId, string? appId = null)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         await _db.Notifications
             .Where(n => n.AccountId == accountId)
             .Where(n => n.ViewedAt == null)
+            .Where(n => appId == null || n.AppId == appId)
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.ViewedAt, now));
     }
 
@@ -378,6 +452,7 @@ public class PushService
                 Meta = notification.Meta,
                 Priority = notification.Priority,
                 AccountId = accountId,
+                AppId = notification.AppId,
                 CreatedAt = now,
                 UpdatedAt = now
             }).ToList();
@@ -445,13 +520,15 @@ public class PushService
     {
         try
         {
+            var senders = ResolveAppSenders(subscription.AppId);
+
             _logger.LogDebug(
                 $"Pushing notification {notification.Topic} #{notification.Id} to device #{subscription.DeviceId}");
 
             switch (subscription.Provider)
             {
                 case PushProvider.Google:
-                    if (_fcm == null)
+                    if (senders?.Fcm == null)
                         throw new InvalidOperationException("Firebase Cloud Messaging is not initialized.");
 
                     var body = string.Empty;
@@ -463,7 +540,7 @@ public class PushService
                         ).Trim();
                     }
 
-                    var fcmResult = await _fcm.SendAsync(new Dictionary<string, object>
+                    var fcmResult = await senders.Fcm.SendAsync(new Dictionary<string, object>
                     {
                         ["message"] = new Dictionary<string, object>
                         {
@@ -472,14 +549,7 @@ public class PushService
                             {
                                 ["title"] = notification.Title ?? string.Empty,
                                 ["body"] = body
-                            },
-                            // You can re-enable data payloads if needed.
-                            // ["data"] = new Dictionary<string, object>
-                            // {
-                            //     ["Id"] = notification.Id,
-                            //     ["Topic"] = notification.Topic,
-                            //     ["Meta"] = notification.Meta
-                            // }
+                            }
                         }
                     });
 
@@ -490,7 +560,7 @@ public class PushService
                     break;
 
                 case PushProvider.Apple:
-                    if (_apns == null)
+                    if (senders?.Apns == null)
                         throw new InvalidOperationException("Apple Push Notification Service is not initialized.");
 
                     var alertDict = new Dictionary<string, object>();
@@ -503,7 +573,7 @@ public class PushService
 
                     var payload = new Dictionary<string, object?>
                     {
-                        ["topic"] = _apnsTopic,
+                        ["topic"] = senders.ApnsTopic,
                         ["type"] = notification.Topic,
                         ["aps"] = new Dictionary<string, object?>
                         {
@@ -514,7 +584,7 @@ public class PushService
                         ["meta"] = notification.Meta
                     };
 
-                    var apnResult = await _apns.SendAsync(
+                    var apnResult = await senders.Apns.SendAsync(
                         payload,
                         deviceToken: subscription.DeviceToken,
                         apnsId: notification.Id.ToString(),
@@ -663,26 +733,30 @@ public class PushService
         Guid accountId,
         int offset,
         int take,
+        string? appId = null,
         CancellationToken cancellationToken = default
     )
     {
         var replayNotifications = await _sopReplayBuffer.GetNotifications(accountId);
         var replayIds = replayNotifications.Select(n => n.Id).ToHashSet();
 
-        var dbTotalCount = await _db.Notifications
-            .Where(s => s.AccountId == accountId)
+        IQueryable<SnNotification> FilterApp(IQueryable<SnNotification> q) =>
+            appId is not null ? q.Where(s => s.AppId == appId) : q;
+
+        var dbTotalCount = await FilterApp(_db.Notifications
+            .Where(s => s.AccountId == accountId))
             .CountAsync(cancellationToken);
 
         var duplicateCount = replayIds.Count == 0
             ? 0
-            : await _db.Notifications
+            : await FilterApp(_db.Notifications
                 .Where(s => s.AccountId == accountId)
-                .Where(s => replayIds.Contains(s.Id))
+                .Where(s => replayIds.Contains(s.Id)))
                 .CountAsync(cancellationToken);
 
         var dbFetchCount = offset + take + replayNotifications.Count;
-        var dbNotifications = await _db.Notifications
-            .Where(s => s.AccountId == accountId)
+        var dbNotifications = await FilterApp(_db.Notifications
+            .Where(s => s.AccountId == accountId))
             .OrderByDescending(e => e.CreatedAt)
             .Take(dbFetchCount)
             .ToListAsync(cancellationToken);

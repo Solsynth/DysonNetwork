@@ -19,6 +19,7 @@ public class SopNotificationController(
     public class SopRegistrationRequest
     {
         [MaxLength(4096)] public string? DeviceName { get; set; }
+        [MaxLength(1024)] public string? AppId { get; set; }
     }
     
     public class SopRegistrationResponse
@@ -37,7 +38,7 @@ public class SopNotificationController(
             return Unauthorized();
 
         var sopDeviceId = $"{currentSession.ClientId}:sop";
-        var (token, subscription) = await nty.RegisterSopToken(sopDeviceId, request.DeviceName, currentUser);
+        var (token, subscription) = await nty.RegisterSopToken(sopDeviceId, request.DeviceName, currentUser, request.AppId);
         return Ok(new SopRegistrationResponse
         {
             Token = token,
@@ -49,7 +50,8 @@ public class SopNotificationController(
     [AllowAnonymous]
     public async Task<ActionResult<List<SnNotification>>> ListNotificationsBySopToken(
         [FromQuery] int offset = 0,
-        [FromQuery] int take = 8
+        [FromQuery] int take = 8,
+        [FromQuery] string? app = null
     )
     {
         var token = ExtractSopToken(Request);
@@ -58,10 +60,12 @@ public class SopNotificationController(
         var sopSub = await nty.GetSopSubscriptionByToken(token);
         if (sopSub is null) return Unauthorized();
 
+        var appId = app ?? nty.GetDefaultAppId();
         var (notifications, totalCount) = await nty.ListSopNotifications(
             sopSub.AccountId,
             offset,
             take,
+            appId,
             HttpContext.RequestAborted
         );
 
