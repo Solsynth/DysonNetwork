@@ -21,9 +21,9 @@ If `app_id` is null or omitted, the first configured app is used as fallback (ba
 {
   "Notifications": {
     "Push": {
-      "Production": true,
       "Apps": {
         "dev.solsynth.solian": {
+          "Production": true,
           "FcmKeyPath": "./Keys/Solian.json",
           "Apns": {
             "PrivateKeyPath": "./Keys/Solian.p8",
@@ -33,6 +33,7 @@ If `app_id` is null or omitted, the first configured app is used as fallback (ba
           }
         },
         "dev.solsynth.watt": {
+          "Production": false,
           "FcmKeyPath": "./Keys/Watt.json",
           "Apns": {
             "PrivateKeyPath": "./Keys/Watt.p8",

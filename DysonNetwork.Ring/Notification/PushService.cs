@@ -16,6 +16,7 @@ namespace DysonNetwork.Ring.Notification;
 
 public class PushAppConfig
 {
+    public bool Production { get; set; }
     public string? FcmKeyPath { get; set; }
     public ApnsAppConfig? Apns { get; set; }
 }
@@ -74,9 +75,7 @@ public class PushService
     )
     {
         var cfgSection = config.GetSection("Notifications:Push");
-        var isProduction = cfgSection.GetValue<bool>("Production");
         var httpClient = httpFactory.CreateClient();
-
         var appsSection = cfgSection.GetSection("Apps");
         if (appsSection.Exists())
         {
@@ -86,14 +85,17 @@ public class PushService
                 var appConfig = appChild.Get<PushAppConfig>();
                 if (appConfig is null) continue;
 
-                var senders = BuildAppSenders(appConfig, isProduction, httpClient);
+                var senders = BuildAppSenders(appConfig, httpClient);
                 _appSenders[appId] = senders;
             }
         }
         else
         {
             // ponytail: backwards compat for old flat config (Google / Apple keys)
-            var legacy = new PushAppConfig();
+            var legacy = new PushAppConfig
+            {
+                Production = cfgSection.GetValue<bool>("Production")
+            };
             var fcmPath = cfgSection.GetValue<string>("Google");
             if (fcmPath != null) legacy.FcmKeyPath = fcmPath;
 
@@ -110,7 +112,7 @@ public class PushService
             }
 
             var legacyId = "_default";
-            _appSenders[legacyId] = BuildAppSenders(legacy, isProduction, httpClient);
+            _appSenders[legacyId] = BuildAppSenders(legacy, httpClient);
             _defaultAppId = legacyId;
         }
 
@@ -127,7 +129,7 @@ public class PushService
         _sopReplayBuffer = sopReplayBuffer;
     }
 
-    private static AppSenders BuildAppSenders(PushAppConfig config, bool isProduction, HttpClient httpClient)
+    private static AppSenders BuildAppSenders(PushAppConfig config, HttpClient httpClient)
     {
         FirebaseSender? fcm = null;
         if (config.FcmKeyPath != null && File.Exists(config.FcmKeyPath))
@@ -143,7 +145,7 @@ public class PushService
                 P8PrivateKeyId = config.Apns.PrivateKeyId,
                 TeamId = config.Apns.TeamId,
                 AppBundleIdentifier = config.Apns.BundleIdentifier,
-                ServerType = isProduction ? ApnServerType.Production : ApnServerType.Development
+                ServerType = config.Production ? ApnServerType.Production : ApnServerType.Development
             }, httpClient);
             apnsTopic = config.Apns.BundleIdentifier;
         }
