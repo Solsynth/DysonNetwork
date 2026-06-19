@@ -19,6 +19,7 @@ public class PushAppConfig
     public bool Production { get; set; }
     public string? FcmKeyPath { get; set; }
     public ApnsAppConfig? Apns { get; set; }
+    public Dictionary<string, string> Topics { get; set; } = new();
 }
 
 public class ApnsAppConfig
@@ -33,7 +34,7 @@ public class PushService
 {
     private sealed record SopStreamSubscription(string DeviceId, Channel<SnNotification> Channel);
 
-    private sealed record AppSenders(FirebaseSender? Fcm, ApnSender? Apns, string? ApnsTopic);
+    private sealed record AppSenders(FirebaseSender? Fcm, ApnSender? Apns, string? ApnsTopic, Dictionary<string, string> Topics);
 
     private static readonly ConcurrentDictionary<Guid, ConcurrentDictionary<Guid, SopStreamSubscription>> SopStreams = new();
     private readonly AppDatabase _db;
@@ -150,7 +151,12 @@ public class PushService
             apnsTopic = config.Apns.BundleIdentifier;
         }
 
-        return new AppSenders(fcm, apns, apnsTopic);
+        // Build topics: alert = base bundle, voip = bundle.voip, etc.
+        var topics = new Dictionary<string, string>(config.Topics);
+        if (apnsTopic is not null && !topics.ContainsKey("alert"))
+            topics["alert"] = apnsTopic;
+
+        return new AppSenders(fcm, apns, apnsTopic, topics);
     }
 
     private AppSenders? ResolveAppSenders(string? appId)
@@ -573,9 +579,10 @@ public class PushService
                     if (!string.IsNullOrEmpty(notification.Content))
                         alertDict["body"] = notification.Content;
 
+                    var apnsPushTopic = senders.Topics.GetValueOrDefault("alert") ?? senders.ApnsTopic;
                     var payload = new Dictionary<string, object?>
                     {
-                        ["topic"] = senders.ApnsTopic,
+                        ["topic"] = apnsPushTopic,
                         ["type"] = notification.Topic,
                         ["aps"] = new Dictionary<string, object?>
                         {

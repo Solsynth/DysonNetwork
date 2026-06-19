@@ -30,6 +30,10 @@ If `app_id` is null or omitted, the first configured app is used as fallback (ba
             "PrivateKeyId": "4US4KSX4W6",
             "TeamId": "W7HPZ53V6B",
             "BundleIdentifier": "dev.solsynth.solian"
+          },
+          "Topics": {
+            "alert": "dev.solsynth.solian",
+            "voip": "dev.solsynth.solian.voip"
           }
         },
         "dev.solsynth.watt": {
@@ -40,6 +44,10 @@ If `app_id` is null or omitted, the first configured app is used as fallback (ba
             "PrivateKeyId": "ABC123",
             "TeamId": "TEAM01",
             "BundleIdentifier": "dev.solsynth.watt"
+          },
+          "Topics": {
+            "alert": "dev.solsynth.watt",
+            "voip": "dev.solsynth.watt.voip"
           }
         }
       }
@@ -49,6 +57,19 @@ If `app_id` is null or omitted, the first configured app is used as fallback (ba
 ```
 
 The first app in the config is the default when no `app` / `app_id` is specified.
+
+## APNS Topics
+
+Each app can configure multiple APNS topics under `Topics`. The `alert` topic is used for standard push notifications and defaults to the `BundleIdentifier` if not explicitly configured.
+
+```json
+"Topics": {
+    "alert": "dev.solsynth.solian",
+    "voip": "dev.solsynth.solian.voip"
+}
+```
+
+The `BundleIdentifier` in the `Apns` block is the base identifier registered with Apple. Topic keys like `voip` append a suffix to derive the full APNS topic (e.g. `<bundleId>.voip`).
 
 ## API Changes
 
