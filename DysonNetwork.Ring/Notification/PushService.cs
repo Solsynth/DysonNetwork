@@ -26,7 +26,6 @@ public class ApnsAppConfig
     public string PrivateKeyPath { get; set; } = null!;
     public string PrivateKeyId { get; set; } = null!;
     public string TeamId { get; set; } = null!;
-    public string BundleIdentifier { get; set; } = null!;
 }
 
 public class PushService
@@ -85,7 +84,7 @@ public class PushService
                 var appConfig = appChild.Get<PushAppConfig>();
                 if (appConfig is null) continue;
 
-                var senders = BuildAppSenders(appConfig, httpClient);
+                var senders = BuildAppSenders(appId, appConfig, httpClient);
                 _appSenders[appId] = senders;
             }
         }
@@ -106,13 +105,12 @@ public class PushService
                 {
                     PrivateKeyPath = apnsSection.GetValue<string>("PrivateKey") ?? "",
                     PrivateKeyId = apnsSection.GetValue<string>("PrivateKeyId") ?? "",
-                    TeamId = apnsSection.GetValue<string>("TeamId") ?? "",
-                    BundleIdentifier = apnsSection.GetValue<string>("BundleIdentifier") ?? ""
+                    TeamId = apnsSection.GetValue<string>("TeamId") ?? ""
                 };
             }
 
             var legacyId = "_default";
-            _appSenders[legacyId] = BuildAppSenders(legacy, httpClient);
+            _appSenders[legacyId] = BuildAppSenders(legacyId, legacy, httpClient);
             _defaultAppId = legacyId;
         }
 
@@ -129,7 +127,7 @@ public class PushService
         _sopReplayBuffer = sopReplayBuffer;
     }
 
-    private static AppSenders BuildAppSenders(PushAppConfig config, HttpClient httpClient)
+    private static AppSenders BuildAppSenders(string appId, PushAppConfig config, HttpClient httpClient)
     {
         FirebaseSender? fcm = null;
         if (config.FcmKeyPath != null && File.Exists(config.FcmKeyPath))
@@ -144,10 +142,10 @@ public class PushService
                 P8PrivateKey = File.ReadAllText(keyPath),
                 P8PrivateKeyId = config.Apns.PrivateKeyId,
                 TeamId = config.Apns.TeamId,
-                AppBundleIdentifier = config.Apns.BundleIdentifier,
+                AppBundleIdentifier = appId,
                 ServerType = config.Production ? ApnServerType.Production : ApnServerType.Development
             }, httpClient);
-            apnsTopic = config.Apns.BundleIdentifier;
+            apnsTopic = appId;
         }
 
         return new AppSenders(fcm, apns, apnsTopic);
