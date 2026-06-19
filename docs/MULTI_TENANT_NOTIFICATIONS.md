@@ -152,6 +152,12 @@ POST /api/notifications/send?app=dev.solsynth.solian
 
 The `app` param is stored on saved notifications and used for delivery routing.
 
+**Request Body:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `push_type` | string? | APNS topic type: `"Alert"` (default), `"VoIP"`, etc. Maps to the `Topics` dictionary in config. |
+
 ### SOP Endpoints
 
 #### List (SOP token auth)
@@ -176,10 +182,13 @@ Stream is app-agnostic — it delivers all notifications for the account regardl
 message DyPushNotification {
     // ...existing fields...
     optional string app_id = 9;
+    optional string push_type = 10;  // "Alert", "VoIP", etc.
 }
 ```
 
-Used by `SendPushNotificationToUser` and `SendPushNotificationToUsers`. When set, the notification is saved with that `app_id` and delivery resolves credentials from it.
+Used by `SendPushNotificationToUser` and `SendPushNotificationToUsers`. When set:
+- `app_id` — stored on notification, used for credential routing
+- `push_type` — resolves APNS topic from the app's `Topics` dictionary (defaults to `"Alert")`
 
 ## Data Model Changes
 
@@ -187,6 +196,7 @@ Used by `SendPushNotificationToUser` and `SendPushNotificationToUsers`. When set
 
 ```diff
 + [MaxLength(1024)] public string? AppId { get; set; }
++ [MaxLength(64)] public string? PushType { get; set; }
 ```
 
 ### SnNotificationPushSubscription
