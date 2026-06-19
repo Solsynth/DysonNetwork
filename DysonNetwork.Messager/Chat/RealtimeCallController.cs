@@ -1,5 +1,6 @@
 using DysonNetwork.Messager.Chat.Realtime;
 using DysonNetwork.Messager.Models;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
@@ -234,6 +235,75 @@ public class RealtimeCallController(
         // Backward compatible: this endpoint now only ensures the long-lived call record/session exists.
         var call = await EnsureRealtimeCallAsync(roomId, member);
         return Ok(call);
+    }
+
+    [HttpPost("{roomId:guid}/invite/{targetAccountId:guid}")]
+    [Authorize]
+    public async Task<IActionResult> InviteToCall(Guid roomId, Guid targetAccountId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        var member = await GetJoinedMemberAsync(roomId, accountId, includeRoom: true);
+        if (member is null)
+            return StatusCode(403, "You need to be a member to invite someone.");
+        if (member.TimeoutUntil.HasValue && member.TimeoutUntil.Value > now)
+            return StatusCode(403, "You have been timed out in this chat.");
+
+        // Target must also be a member of the room
+        var targetMember = await GetJoinedMemberAsync(roomId, targetAccountId, includeRoom: true);
+        if (targetMember is null)
+            return StatusCode(403, "Target user is not a member of this room.");
+
+        var call = await EnsureRealtimeCallAsync(roomId, member);
+        if (string.IsNullOrWhiteSpace(call.SessionId))
+            return BadRequest("Call session is not properly configured.");
+
+        // Fire-and-forget VoIP push via Ring gRPC
+        try
+        {
+            var ringClient = HttpContext.RequestServices
+                .GetRequiredService<DyRingService.DyRingServiceClient>();
+
+            var callerName = member.Nick ?? member.Account?.Nick ?? "Someone";
+            var roomSubject = call.Room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM"
+                : call.Room.Realm is not null ? $"{call.Room.Name ?? "Unknown"}, {call.Room.Realm.Name}"
+                : call.Room.Name ?? "Unknown";
+
+            var notification = new DyPushNotification
+            {
+                Topic = "call.incoming",
+                Title = callerName,
+                Subtitle = roomSubject,
+                PushType = "VoIP",
+                IsSavable = false,
+                Meta = InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
+                {
+                    ["room_id"] = roomId,
+                    ["call_id"] = call.Id,
+                    ["caller_id"] = accountId,
+                    ["caller_name"] = callerName,
+                    ["room_name"] = roomSubject,
+                    ["session_id"] = call.SessionId
+                })
+            };
+
+            var request = new DySendPushNotificationToUserRequest
+            {
+                UserId = targetAccountId.ToString(),
+                Notification = notification
+            };
+
+            _ = ringClient.SendPushNotificationToUserAsync(request);
+        }
+        catch (Exception)
+        {
+            // ponytail: VoIP push is best-effort, don't fail the endpoint
+        }
+
+        return NoContent();
     }
 
     [HttpDelete("{roomId:guid}")]

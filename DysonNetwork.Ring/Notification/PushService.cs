@@ -583,25 +583,34 @@ public class PushService
                         alertDict["body"] = notification.Content;
 
                     var apnsPushTopic = senders.Topics.GetValueOrDefault(notification.PushType ?? "Alert") ?? senders.ApnsTopic;
-                    var payload = new Dictionary<string, object?>
-                    {
-                        ["topic"] = apnsPushTopic,
-                        ["type"] = notification.Topic,
-                        ["aps"] = new Dictionary<string, object?>
+                    var isVoip = notification.PushType?.Equals("VoIP", StringComparison.OrdinalIgnoreCase) == true;
+
+                    // VoIP pushes use minimal aps; alert pushes include full alert/sound.
+                    var apsDict = isVoip
+                        ? new Dictionary<string, object?>()
+                        : new Dictionary<string, object?>
                         {
                             ["alert"] = alertDict,
                             ["sound"] = notification.Priority >= 5 ? "default" : null,
                             ["mutable-content"] = 1
-                        },
+                        };
+
+                    var payload = new Dictionary<string, object?>
+                    {
+                        ["topic"] = apnsPushTopic,
+                        ["type"] = notification.Topic,
+                        ["aps"] = apsDict,
                         ["meta"] = notification.Meta
                     };
+
+                    var apnPushType = isVoip ? ApnPushType.Voip : ApnPushType.Alert;
 
                     var apnResult = await senders.Apns.SendAsync(
                         payload,
                         deviceToken: subscription.DeviceToken,
                         apnsId: notification.Id.ToString(),
                         apnsPriority: notification.Priority,
-                        apnPushType: ApnPushType.Alert
+                        apnPushType: apnPushType
                     );
 
                     if (apnResult.StatusCode is 404 or 410 || IsInvalidApnsTokenError(apnResult.Error))
