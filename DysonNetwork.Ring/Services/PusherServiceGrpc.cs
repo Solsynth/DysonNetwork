@@ -26,6 +26,11 @@ public class RingServiceGrpc(
     public override async Task<Empty> SendPushNotificationToUser(DySendPushNotificationToUserRequest request,
         ServerCallContext context)
     {
+        var appId = pushService.ResolveAppId(
+            request.Notification.HasAppId ? request.Notification.AppId : null,
+            useDefaultIfMissing: true
+        );
+
         var notification = new SnNotification
         {
             Topic = request.Notification.Topic,
@@ -36,7 +41,7 @@ public class RingServiceGrpc(
                 ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
                 : [],
             AccountId = Guid.Parse(request.UserId),
-            AppId = request.Notification.HasAppId ? request.Notification.AppId : null,
+            AppId = appId,
             PushType = request.Notification.HasPushType ? request.Notification.PushType : null
         };
 
@@ -58,6 +63,11 @@ public class RingServiceGrpc(
     public override async Task<Empty> SendPushNotificationToUsers(DySendPushNotificationToUsersRequest request,
         ServerCallContext context)
     {
+        var appId = pushService.ResolveAppId(
+            request.Notification.HasAppId ? request.Notification.AppId : null,
+            useDefaultIfMissing: true
+        );
+
         var notification = new SnNotification
         {
             Topic = request.Notification.Topic,
@@ -67,7 +77,7 @@ public class RingServiceGrpc(
             Meta = request.Notification.HasMeta
                 ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
                 : [],
-            AppId = request.Notification.HasAppId ? request.Notification.AppId : null,
+            AppId = appId,
             PushType = request.Notification.HasPushType ? request.Notification.PushType : null
         };
 

@@ -383,6 +383,8 @@ public class PushService
         if (preference == NotificationPreferenceLevel.Reject)
             return;
 
+        appId = ResolveAppId(appId, useDefaultIfMissing: true);
+
         var notification = new SnNotification
         {
             Topic = topic,
