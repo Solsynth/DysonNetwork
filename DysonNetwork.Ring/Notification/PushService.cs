@@ -155,6 +155,8 @@ public class PushService
         var topics = new Dictionary<string, string>(config.Topics);
         if (apnsTopic is not null && !topics.ContainsKey("Alert"))
             topics["Alert"] = apnsTopic;
+        if (apnsTopic is not null && !topics.ContainsKey("VoIP"))
+            topics["VoIP"] = $"{apnsTopic}.voip";
 
         return new AppSenders(fcm, apns, apnsTopic, topics);
     }
@@ -195,6 +197,7 @@ public class PushService
                 .Where(s => s.DeviceId == deviceId)
                 .Where(s => s.DeletedAt == null)
                 .Where(s => s.IsActivated)
+                .Where(s => s.Provider == provider)
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(sub => sub.IsActivated, false)
                     .SetProperty(sub => sub.UpdatedAt, now)
@@ -398,7 +401,7 @@ public class PushService
             }
 
             var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
-            var subscriptionByDevice = SelectSubscriptionsByDevice(subscriptions, connectedSopDeviceIds);
+            var subscriptionByDevice = SelectSubscriptionsByDevice(subscriptions, connectedSopDeviceIds, notification);
 
             var websocketExclusions = BuildWebSocketExclusions(
                 connectedSopDeviceIds,
@@ -507,7 +510,7 @@ public class PushService
             }
 
             var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
-            var subscriptionByDevice = SelectSubscriptionsByDevice(subscriptions, connectedSopDeviceIds);
+            var subscriptionByDevice = SelectSubscriptionsByDevice(subscriptions, connectedSopDeviceIds, notification);
 
             var websocketExclusions = BuildWebSocketExclusions(
                 connectedSopDeviceIds,
@@ -582,8 +585,9 @@ public class PushService
                     if (!string.IsNullOrEmpty(notification.Content))
                         alertDict["body"] = notification.Content;
 
-                    var apnsPushTopic = senders.Topics.GetValueOrDefault(notification.PushType ?? "Alert") ?? senders.ApnsTopic;
-                    var isVoip = notification.PushType?.Equals("VoIP", StringComparison.OrdinalIgnoreCase) == true;
+                    var isVoip = false;
+                    var apnsTopicKey = IsVoipPush(notification) ? "Alert" : notification.PushType ?? "Alert";
+                    var apnsPushTopic = senders.Topics.GetValueOrDefault(apnsTopicKey) ?? senders.ApnsTopic;
 
                     // VoIP pushes use minimal aps; alert pushes include full alert/sound.
                     var apsDict = isVoip
@@ -617,6 +621,37 @@ public class PushService
                         _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
                     else if (apnResult.Error != null)
                         throw new Exception($"Notification pushed failed ({apnResult.StatusCode}) {apnResult.Error}");
+
+                    break;
+
+                case PushProvider.Appk:
+                    if (senders?.Apns == null)
+                        throw new InvalidOperationException("Apple PushKit is not initialized.");
+
+                    var appkTopic = senders.Topics.GetValueOrDefault("VoIP");
+                    if (string.IsNullOrWhiteSpace(appkTopic) && !string.IsNullOrWhiteSpace(senders.ApnsTopic))
+                        appkTopic = $"{senders.ApnsTopic}.voip";
+
+                    var appkPayload = new Dictionary<string, object?>
+                    {
+                        ["topic"] = appkTopic,
+                        ["type"] = notification.Topic,
+                        ["aps"] = new Dictionary<string, object?>(),
+                        ["meta"] = notification.Meta
+                    };
+
+                    var appkResult = await senders.Apns.SendAsync(
+                        appkPayload,
+                        deviceToken: subscription.DeviceToken,
+                        apnsId: notification.Id.ToString(),
+                        apnsPriority: notification.Priority,
+                        apnPushType: ApnPushType.Voip
+                    );
+
+                    if (appkResult.StatusCode is 404 or 410 || IsInvalidApnsTokenError(appkResult.Error))
+                        _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
+                    else if (appkResult.Error != null)
+                        throw new Exception($"Notification pushed failed ({appkResult.StatusCode}) {appkResult.Error}");
 
                     break;
 
@@ -666,28 +701,43 @@ public class PushService
 
     private static Dictionary<string, SnNotificationPushSubscription> SelectSubscriptionsByDevice(
         IEnumerable<SnNotificationPushSubscription> subscriptions,
-        IReadOnlySet<string> connectedSopDeviceIds
+        IReadOnlySet<string> connectedSopDeviceIds,
+        SnNotification notification
     )
     {
         return subscriptions
+            .Where(s => IsProviderCompatibleWithNotification(s.Provider, notification))
             .GroupBy(s => NormalizeSopDeviceId(s.DeviceId))
             .ToDictionary(
                 g => g.Key,
-                g => g.OrderByDescending(s => GetSubscriptionPriority(s, connectedSopDeviceIds)).First()
+                g => g.OrderByDescending(s => GetSubscriptionPriority(s, connectedSopDeviceIds, notification)).First()
             );
     }
 
     private static int GetSubscriptionPriority(
         SnNotificationPushSubscription subscription,
-        IReadOnlySet<string> connectedSopDeviceIds
+        IReadOnlySet<string> connectedSopDeviceIds,
+        SnNotification notification
     ) => subscription.Provider switch
     {
         PushProvider.Sop => connectedSopDeviceIds.Contains(NormalizeSopDeviceId(subscription.DeviceId)) ? 5 : 0,
+        PushProvider.Appk => IsVoipPush(notification) ? 4 : 0,
         PushProvider.Google => 2,
         PushProvider.UnifiedPush => 1,
-        PushProvider.Apple => 4,
+        PushProvider.Apple => IsVoipPush(notification) ? 3 : 4,
         _ => 0
     };
+
+    private static bool IsProviderCompatibleWithNotification(PushProvider provider, SnNotification notification)
+    {
+        if (!IsVoipPush(notification))
+            return provider != PushProvider.Appk;
+
+        return true;
+    }
+
+    private static bool IsVoipPush(SnNotification notification) =>
+        string.Equals(notification.PushType, "VoIP", StringComparison.OrdinalIgnoreCase);
 
     private static IReadOnlySet<string> GetConnectedSopWebSocketDeviceIds(Guid accountId)
     {

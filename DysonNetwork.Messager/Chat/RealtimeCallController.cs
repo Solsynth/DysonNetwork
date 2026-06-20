@@ -3,6 +3,7 @@ using DysonNetwork.Messager.Models;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -269,14 +270,23 @@ public class RealtimeCallController(
         // Fire-and-forget VoIP push via Ring gRPC
         try
         {
-            var ringClient = HttpContext.RequestServices
-                .GetRequiredService<DyRingService.DyRingServiceClient>();
-
             var callerName = member.Nick ?? member.Account?.Nick ?? "Someone";
             var roomSubject = call.Room is { Type: ChatRoomType.DirectMessage, Name: null } ? "DM"
                 : call.Room.Realm is not null ? $"{call.Room.Name ?? "Unknown"}, {call.Room.Realm.Name}"
                 : call.Room.Name ?? "Unknown";
+            var invitePayload = new Dictionary<string, object>
+            {
+                ["event"] = "call_invited",
+                ["room_id"] = roomId,
+                ["call_id"] = call.Id,
+                ["caller_id"] = accountId,
+                ["caller_name"] = callerName,
+                ["room_name"] = roomSubject,
+                ["session_id"] = call.SessionId
+            };
 
+            var ringClient = HttpContext.RequestServices
+                .GetRequiredService<DyRingService.DyRingServiceClient>();
             var notification = new DyPushNotification
             {
                 Topic = "call.incoming",
@@ -284,15 +294,7 @@ public class RealtimeCallController(
                 Subtitle = roomSubject,
                 PushType = "VoIP",
                 IsSavable = false,
-                Meta = InfraObjectCoder.ConvertObjectToByteString(new Dictionary<string, object>
-                {
-                    ["room_id"] = roomId,
-                    ["call_id"] = call.Id,
-                    ["caller_id"] = accountId,
-                    ["caller_name"] = callerName,
-                    ["room_name"] = roomSubject,
-                    ["session_id"] = call.SessionId
-                })
+                Meta = InfraObjectCoder.ConvertObjectToByteString(invitePayload)
             };
 
             var request = new DySendPushNotificationToUserRequest
@@ -302,6 +304,13 @@ public class RealtimeCallController(
             };
 
             _ = ringClient.SendPushNotificationToUserAsync(request);
+
+            var ws = HttpContext.RequestServices.GetRequiredService<RemoteWebSocketService>();
+            _ = ws.PushWebSocketPacket(
+                targetAccountId.ToString(),
+                WebSocketPacketType.CallInvited,
+                InfraObjectCoder.ConvertObjectToByteString(invitePayload).ToByteArray()
+            );
         }
         catch (Exception)
         {
