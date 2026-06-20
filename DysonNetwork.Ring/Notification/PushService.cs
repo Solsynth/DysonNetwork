@@ -170,6 +170,45 @@ public class PushService
 
     public string? GetDefaultAppId() => _defaultAppId;
 
+    public string? ResolveAppId(string? appId, bool useDefaultIfMissing = false)
+    {
+        if (!string.IsNullOrWhiteSpace(appId))
+            return appId;
+        return useDefaultIfMissing ? _defaultAppId : null;
+    }
+
+    public IQueryable<SnNotification> ApplyNotificationAppFilter(
+        IQueryable<SnNotification> query,
+        string? appId,
+        bool useDefaultIfMissing = false
+    )
+    {
+        var resolvedAppId = ResolveAppId(appId, useDefaultIfMissing);
+        if (resolvedAppId is null)
+            return query;
+
+        if (_defaultAppId is not null && resolvedAppId == _defaultAppId)
+            return query.Where(s => s.AppId == resolvedAppId || s.AppId == null || s.AppId == "");
+
+        return query.Where(s => s.AppId == resolvedAppId);
+    }
+
+    public IQueryable<SnNotificationPushSubscription> ApplySubscriptionAppFilter(
+        IQueryable<SnNotificationPushSubscription> query,
+        string? appId,
+        bool useDefaultIfMissing = false
+    )
+    {
+        var resolvedAppId = ResolveAppId(appId, useDefaultIfMissing);
+        if (resolvedAppId is null)
+            return query;
+
+        if (_defaultAppId is not null && resolvedAppId == _defaultAppId)
+            return query.Where(s => s.AppId == resolvedAppId || s.AppId == null || s.AppId == "");
+
+        return query.Where(s => s.AppId == resolvedAppId);
+    }
+
     public async Task UnsubscribeDevice(string deviceId)
     {
         await _db.PushSubscriptions
@@ -189,6 +228,7 @@ public class PushService
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var accountId = Guid.Parse(account.Id);
+        appId = ResolveAppId(appId, useDefaultIfMissing: true);
 
         if (isActivated)
         {
@@ -439,10 +479,13 @@ public class PushService
     public async Task MarkAllNotificationsViewed(Guid accountId, string? appId = null)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
-        await _db.Notifications
-            .Where(n => n.AccountId == accountId)
-            .Where(n => n.ViewedAt == null)
-            .Where(n => appId == null || n.AppId == appId)
+        await ApplyNotificationAppFilter(
+                _db.Notifications
+                    .Where(n => n.AccountId == accountId)
+                    .Where(n => n.ViewedAt == null),
+                appId,
+                useDefaultIfMissing: true
+            )
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.ViewedAt, now));
     }
 
@@ -810,24 +853,29 @@ public class PushService
     {
         var replayNotifications = await _sopReplayBuffer.GetNotifications(accountId);
         var replayIds = replayNotifications.Select(n => n.Id).ToHashSet();
+        appId = ResolveAppId(appId, useDefaultIfMissing: true);
 
-        IQueryable<SnNotification> FilterApp(IQueryable<SnNotification> q) =>
-            appId is not null ? q.Where(s => s.AppId == appId) : q;
-
-        var dbTotalCount = await FilterApp(_db.Notifications
-            .Where(s => s.AccountId == accountId))
+        var dbTotalCount = await ApplyNotificationAppFilter(
+                _db.Notifications.Where(s => s.AccountId == accountId),
+                appId
+            )
             .CountAsync(cancellationToken);
 
         var duplicateCount = replayIds.Count == 0
             ? 0
-            : await FilterApp(_db.Notifications
-                .Where(s => s.AccountId == accountId)
-                .Where(s => replayIds.Contains(s.Id)))
+            : await ApplyNotificationAppFilter(
+                    _db.Notifications
+                        .Where(s => s.AccountId == accountId)
+                        .Where(s => replayIds.Contains(s.Id)),
+                    appId
+                )
                 .CountAsync(cancellationToken);
 
         var dbFetchCount = offset + take + replayNotifications.Count;
-        var dbNotifications = await FilterApp(_db.Notifications
-            .Where(s => s.AccountId == accountId))
+        var dbNotifications = await ApplyNotificationAppFilter(
+                _db.Notifications.Where(s => s.AccountId == accountId),
+                appId
+            )
             .OrderByDescending(e => e.CreatedAt)
             .Take(dbFetchCount)
             .ToListAsync(cancellationToken);

@@ -60,12 +60,11 @@ public class SopNotificationController(
         var sopSub = await nty.GetSopSubscriptionByToken(token);
         if (sopSub is null) return Unauthorized();
 
-        var appId = app ?? nty.GetDefaultAppId();
         var (notifications, totalCount) = await nty.ListSopNotifications(
             sopSub.AccountId,
             offset,
             take,
-            appId,
+            app,
             HttpContext.RequestAborted
         );
 
