@@ -149,6 +149,9 @@ public class PostActionController(
         
         public string? ThumbnailId { get; set; }
 
+        // Client-controlled embeds list — when provided, bypasses per-field logic
+        public List<Dictionary<string, object>>? Embeds { get; set; }
+
         [MaxLength(16)]
         public string? Language { get; set; }
 
@@ -314,7 +317,15 @@ public class PostActionController(
             post.RealmId = realm.Id;
         }
 
-        if (request.PollId.HasValue)
+        // All the fields are updated when the request contains the specific fields
+        // But the Poll can be null, so it will be updated whatever it included in requests or not
+        // If client provides the complete embeds list, use it directly
+        if (request.Embeds is { Count: > 0 })
+        {
+            post.Metadata ??= new Dictionary<string, object>();
+            post.Metadata["embeds"] = request.Embeds;
+        }
+        else if (request.PollId.HasValue)
         {
             try
             {
@@ -326,6 +337,10 @@ public class PostActionController(
                 )
                     post.Metadata["embeds"] = new List<Dictionary<string, object>>();
                 var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+                // Remove all old poll embeds
+                embeds.RemoveAll(e =>
+                    e.TryGetValue("type", out var type) && type.ToString() == "poll"
+                );
                 embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
                 post.Metadata["embeds"] = embeds;
             }
@@ -334,7 +349,20 @@ public class PostActionController(
                 return BadRequest(ex.Message);
             }
         }
+        else
+        {
+            post.Metadata ??= new Dictionary<string, object>();
+            if (
+                !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                || existingEmbeds is not List<EmbeddableBase>
+            )
+                post.Metadata["embeds"] = new List<Dictionary<string, object>>();
+            var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
+            // Remove all old poll embeds
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "poll");
+        }
 
+        // Handle fund embeds
         if (request.FundId.HasValue)
         {
             try
@@ -1018,9 +1046,13 @@ public class PostActionController(
         // The same, this field can be null, so update it anyway.
         post.EmbedView = request.EmbedView;
 
-        // All the fields are updated when the request contains the specific fields
-        // But the Poll can be null, so it will be updated whatever it included in requests or not
-        if (request.PollId.HasValue)
+        // If client provides the complete embeds list, use it directly (replaces all)
+        if (request.Embeds is { Count: > 0 })
+        {
+            post.Metadata ??= new Dictionary<string, object>();
+            post.Metadata["embeds"] = request.Embeds;
+        }
+        else if (request.PollId.HasValue)
         {
             try
             {

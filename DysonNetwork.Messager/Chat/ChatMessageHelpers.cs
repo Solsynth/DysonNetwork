@@ -25,6 +25,7 @@ public interface ISendMessageRequest
     string? LocationAddress { get; }
     string? LocationWkt { get; }
     List<string>? AttachmentsId { get; }
+    List<Dictionary<string, object>>? Embeds { get; }
     Dictionary<string, object>? Meta { get; }
     Guid? RepliedMessageId { get; }
     Guid? ForwardedMessageId { get; }
@@ -134,6 +135,7 @@ public static class ChatMessageHelpers
                !request.PollId.HasValue &&
                !request.NotableDayId.HasValue &&
                !request.CalendarEventId.HasValue &&
+               (request.Embeds == null || request.Embeds.Count == 0) &&
                !HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt);
     }
 
@@ -145,6 +147,7 @@ public static class ChatMessageHelpers
                request.PollId.HasValue ||
                request.NotableDayId.HasValue ||
                request.CalendarEventId.HasValue ||
+               (request.Embeds is { Count: > 0 }) ||
                HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt);
     }
 

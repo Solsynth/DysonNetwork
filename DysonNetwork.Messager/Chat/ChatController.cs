@@ -344,6 +344,7 @@ public partial class ChatController(
         [MaxLength(1024)] public string? LocationAddress { get; set; }
         public string? LocationWkt { get; set; }
         public List<string>? AttachmentsId { get; set; }
+        public List<Dictionary<string, object>>? Embeds { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
         public Guid? RepliedMessageId { get; set; }
         public Guid? ForwardedMessageId { get; set; }
@@ -552,39 +553,47 @@ public partial class ChatController(
             ClientMessageId = request.ClientMessageId
         };
 
-        // Add embed for fund if provided
-        if (!e2eeMode && request.FundId.HasValue)
+        // If client provides the complete embeds list, use it directly
+        if (!e2eeMode && request.Embeds is { Count: > 0 })
         {
-            var fundEmbed = new FundEmbed { Id = request.FundId.Value };
-            ChatMessageHelpers.AddEmbedToMessage(message, fundEmbed);
+            message.Meta["embeds"] = request.Embeds;
         }
+        else
+        {
+            // Add embed for fund if provided
+            if (!e2eeMode && request.FundId.HasValue)
+            {
+                var fundEmbed = new FundEmbed { Id = request.FundId.Value };
+                ChatMessageHelpers.AddEmbedToMessage(message, fundEmbed);
+            }
 
-        // Add embed for poll if provided
-        if (!e2eeMode && request.PollId.HasValue)
-        {
-            var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest { Id = request.PollId.Value.ToString() });
-            var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
-            ChatMessageHelpers.AddEmbedToMessage(message, pollEmbed);
-        }
-        if (!e2eeMode && request.MeetId.HasValue)
-        {
-            var meetEmbed = new MeetEmbed { Id = request.MeetId.Value };
-            ChatMessageHelpers.AddEmbedToMessage(message, meetEmbed);
-        }
-        if (!e2eeMode && request.NotableDayId.HasValue)
-        {
-            var notableDayEmbed = new NotableDayEmbed { Id = request.NotableDayId.Value };
-            ChatMessageHelpers.AddEmbedToMessage(message, notableDayEmbed);
-        }
-        if (!e2eeMode && request.CalendarEventId.HasValue)
-        {
-            var calendarEventEmbed = new CalendarEventEmbed { Id = request.CalendarEventId.Value };
-            ChatMessageHelpers.AddEmbedToMessage(message, calendarEventEmbed);
-        }
-        if (!e2eeMode && ChatMessageHelpers.HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
-        {
-            var locationEmbed = ChatMessageHelpers.CreateLocationEmbed(request.LocationName, request.LocationAddress, location);
-            ChatMessageHelpers.AddEmbedToMessage(message, locationEmbed);
+            // Add embed for poll if provided
+            if (!e2eeMode && request.PollId.HasValue)
+            {
+                var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest { Id = request.PollId.Value.ToString() });
+                var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
+                ChatMessageHelpers.AddEmbedToMessage(message, pollEmbed);
+            }
+            if (!e2eeMode && request.MeetId.HasValue)
+            {
+                var meetEmbed = new MeetEmbed { Id = request.MeetId.Value };
+                ChatMessageHelpers.AddEmbedToMessage(message, meetEmbed);
+            }
+            if (!e2eeMode && request.NotableDayId.HasValue)
+            {
+                var notableDayEmbed = new NotableDayEmbed { Id = request.NotableDayId.Value };
+                ChatMessageHelpers.AddEmbedToMessage(message, notableDayEmbed);
+            }
+            if (!e2eeMode && request.CalendarEventId.HasValue)
+            {
+                var calendarEventEmbed = new CalendarEventEmbed { Id = request.CalendarEventId.Value };
+                ChatMessageHelpers.AddEmbedToMessage(message, calendarEventEmbed);
+            }
+            if (!e2eeMode && ChatMessageHelpers.HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
+            {
+                var locationEmbed = ChatMessageHelpers.CreateLocationEmbed(request.LocationName, request.LocationAddress, location);
+                ChatMessageHelpers.AddEmbedToMessage(message, locationEmbed);
+            }
         }
         if (!e2eeMode && request.Content is not null)
             message.Content = request.Content;
@@ -934,104 +943,112 @@ public partial class ChatController(
             message.MembersMentioned = updatedMentions;
         }
 
-        // Handle fund embeds for update
-        if (!e2eeMode && request.FundId.HasValue)
+        // If client provides the complete embeds list, use it directly
+        if (!e2eeMode && request.Embeds is { Count: > 0 })
         {
-            try
+            message.Meta["embeds"] = request.Embeds;
+        }
+        else if (!e2eeMode)
+        {
+            // Handle fund embeds for update
+            if (request.FundId.HasValue)
             {
-                var fundResponse = await paymentClient.GetWalletFundAsync(new DyGetWalletFundRequest
+                try
                 {
-                    FundId = request.FundId.Value.ToString()
-                });
+                    var fundResponse = await paymentClient.GetWalletFundAsync(new DyGetWalletFundRequest
+                    {
+                        FundId = request.FundId.Value.ToString()
+                    });
 
-                // Check if the fund was created by the current user
-                if (fundResponse.CreatorAccountId != accountId.ToString())
-                    return BadRequest("You can only share funds that you created.");
+                    // Check if the fund was created by the current user
+                    if (fundResponse.CreatorAccountId != accountId.ToString())
+                        return BadRequest("You can only share funds that you created.");
 
-                var fundEmbed = new FundEmbed { Id = request.FundId.Value };
+                    var fundEmbed = new FundEmbed { Id = request.FundId.Value };
+                    ChatMessageHelpers.RemoveEmbedFromMessage(message, "fund");
+                    ChatMessageHelpers.AddEmbedToMessage(message, fundEmbed);
+                }
+                catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+                {
+                    return BadRequest("The specified fund does not exist.");
+                }
+                catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
+                {
+                    return BadRequest("Invalid fund ID.");
+                }
+            }
+            else
+            {
                 ChatMessageHelpers.RemoveEmbedFromMessage(message, "fund");
-                ChatMessageHelpers.AddEmbedToMessage(message, fundEmbed);
             }
-            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
-            {
-                return BadRequest("The specified fund does not exist.");
-            }
-            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
-            {
-                return BadRequest("Invalid fund ID.");
-            }
-        }
-        else if (!e2eeMode)
-        {
-            ChatMessageHelpers.RemoveEmbedFromMessage(message, "fund");
-        }
 
-        // Handle poll embeds for update
-        if (!e2eeMode && request.PollId.HasValue)
-        {
-            try
+            // Handle poll embeds for update
+            if (request.PollId.HasValue)
             {
-                var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest { Id = request.PollId.Value.ToString() });
-                var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
+                try
+                {
+                    var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest { Id = request.PollId.Value.ToString() });
+                    var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
+                    ChatMessageHelpers.RemoveEmbedFromMessage(message, "poll");
+                    ChatMessageHelpers.AddEmbedToMessage(message, pollEmbed);
+                }
+                catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+                {
+                    return BadRequest("The specified poll does not exist.");
+                }
+                catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
+                {
+                    return BadRequest("Invalid poll ID.");
+                }
+            }
+            else
+            {
                 ChatMessageHelpers.RemoveEmbedFromMessage(message, "poll");
-                ChatMessageHelpers.AddEmbedToMessage(message, pollEmbed);
             }
-            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+
+            if (request.MeetId.HasValue)
             {
-                return BadRequest("The specified poll does not exist.");
+                var meetEmbed = new MeetEmbed { Id = request.MeetId.Value };
+                ChatMessageHelpers.RemoveEmbedFromMessage(message, "meet");
+                ChatMessageHelpers.AddEmbedToMessage(message, meetEmbed);
             }
-            catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument)
+            else
             {
-                return BadRequest("Invalid poll ID.");
+                ChatMessageHelpers.RemoveEmbedFromMessage(message, "meet");
             }
-        }
-        else if (!e2eeMode)
-        {
-            ChatMessageHelpers.RemoveEmbedFromMessage(message, "poll");
-        }
 
-        if (!e2eeMode && request.MeetId.HasValue)
-        {
-            var meetEmbed = new MeetEmbed { Id = request.MeetId.Value };
-            ChatMessageHelpers.RemoveEmbedFromMessage(message, "meet");
-            ChatMessageHelpers.AddEmbedToMessage(message, meetEmbed);
-        }
-        else if (!e2eeMode)
-        {
-            ChatMessageHelpers.RemoveEmbedFromMessage(message, "meet");
-        }
+            if (request.NotableDayId.HasValue)
+            {
+                var notableDayEmbed = new NotableDayEmbed { Id = request.NotableDayId.Value };
+                ChatMessageHelpers.RemoveEmbedFromMessage(message, "notable_day");
+                ChatMessageHelpers.AddEmbedToMessage(message, notableDayEmbed);
+            }
+            else
+            {
+                ChatMessageHelpers.RemoveEmbedFromMessage(message, "notable_day");
+            }
 
-        if (!e2eeMode && request.NotableDayId.HasValue)
-        {
-            var notableDayEmbed = new NotableDayEmbed { Id = request.NotableDayId.Value };
-            ChatMessageHelpers.RemoveEmbedFromMessage(message, "notable_day");
-            ChatMessageHelpers.AddEmbedToMessage(message, notableDayEmbed);
-        }
-        else if (!e2eeMode)
-        {
-            ChatMessageHelpers.RemoveEmbedFromMessage(message, "notable_day");
-        }
+            if (request.CalendarEventId.HasValue)
+            {
+                var calendarEventEmbed = new CalendarEventEmbed { Id = request.CalendarEventId.Value };
+                ChatMessageHelpers.RemoveEmbedFromMessage(message, "calendar_event");
+                ChatMessageHelpers.AddEmbedToMessage(message, calendarEventEmbed);
+            }
+            else
+            {
+                ChatMessageHelpers.RemoveEmbedFromMessage(message, "calendar_event");
+            }
 
-        if (!e2eeMode && request.CalendarEventId.HasValue)
-        {
-            var calendarEventEmbed = new CalendarEventEmbed { Id = request.CalendarEventId.Value };
-            ChatMessageHelpers.RemoveEmbedFromMessage(message, "calendar_event");
-            ChatMessageHelpers.AddEmbedToMessage(message, calendarEventEmbed);
-        }
-        else if (!e2eeMode)
-        {
-            ChatMessageHelpers.RemoveEmbedFromMessage(message, "calendar_event");
-        }
-
-        if (!e2eeMode && ChatMessageHelpers.HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
-        {
-            var locationEmbed = ChatMessageHelpers.CreateLocationEmbed(request.LocationName, request.LocationAddress, location);
-            ChatMessageHelpers.RemoveEmbedFromMessage(message, "location");
-            ChatMessageHelpers.AddEmbedToMessage(message, locationEmbed);
-        }
-        else if (!e2eeMode)
-        {
-            ChatMessageHelpers.RemoveEmbedFromMessage(message, "location");
+            if (ChatMessageHelpers.HasLocationPayload(request.LocationName, request.LocationAddress, request.LocationWkt))
+            {
+                var locationEmbed = ChatMessageHelpers.CreateLocationEmbed(request.LocationName, request.LocationAddress, location);
+                ChatMessageHelpers.RemoveEmbedFromMessage(message, "location");
+                ChatMessageHelpers.AddEmbedToMessage(message, locationEmbed);
+            }
+            else
+            {
+                ChatMessageHelpers.RemoveEmbedFromMessage(message, "location");
+            }
         }
 
         if (request.AttachmentsId is not null)
