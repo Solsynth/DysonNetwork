@@ -106,16 +106,25 @@ public class NotificationRetentionCleanupJob(AppDatabase db, ILogger<Notificatio
 {
     public async Task Execute(IJobExecutionContext context)
     {
-        var threshold = SystemClock.Instance.GetCurrentInstant() - Duration.FromDays(30);
-
-        var count = await db.Notifications
-            .Where(n => n.CreatedAt <= threshold)
-            .ExecuteDeleteAsync(context.CancellationToken);
+        var count = await db.Database.ExecuteSqlAsync(
+            $@"
+                DELETE FROM notifications
+                WHERE id IN (
+                    SELECT id FROM (
+                        SELECT id, ROW_NUMBER() OVER (
+                            PARTITION BY account_id, COALESCE(app_id, '') ORDER BY created_at DESC
+                        ) AS rn
+                        FROM notifications
+                    ) AS subq
+                    WHERE subq.rn > 100
+                )
+            ",
+            context.CancellationToken
+        );
 
         logger.LogInformation(
-            "Permanently deleted {Count} notifications created on or before {Threshold}.",
-            count,
-            threshold
+            "Deleted {Count} excess notifications, keeping max 100 per (account, app).",
+            count
         );
     }
 }

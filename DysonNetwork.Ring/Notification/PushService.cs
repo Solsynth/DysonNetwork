@@ -89,6 +89,8 @@ public class PushService
                 var senders = BuildAppSenders(appId, appConfig, httpClient);
                 _appSenders[appId] = senders;
             }
+
+            _defaultAppId = cfgSection.GetValue<string>("DefaultApp");
         }
         else
         {
