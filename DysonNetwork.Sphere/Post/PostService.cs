@@ -15,6 +15,7 @@ using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.ActivityPub;
 using DysonNetwork.Sphere.ActivityPub.Services;
 using DysonNetwork.Sphere.Publisher;
+using DysonNetwork.Sphere.Reader;
 using Markdig;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -35,7 +36,7 @@ public partial class PostService(
     DyFileService.DyFileServiceClient files,
     PublisherService ps,
     PostTagService tagService,
-    RemoteWebReaderService reader,
+    WebReaderService reader,
     DyProfileService.DyProfileServiceClient accounts,
     ActivityRenderer objFactory,
     RemoteActionLogService actionLogs
@@ -1972,7 +1973,7 @@ public partial class PostService(
                     continue;
 
                 // Preview the link
-                var linkEmbed = await reader.GetLinkPreview(url);
+                var linkEmbed = await reader.GetLinkPreviewAsync(url);
                 embeds.Add(EmbeddableBase.ToDictionary(linkEmbed));
             }
             catch
