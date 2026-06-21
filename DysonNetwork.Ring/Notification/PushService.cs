@@ -675,6 +675,15 @@ public class PushService
                         apnPushType: apnPushType
                     );
 
+                    _logger.LogInformation(
+                        "Apple push result: notificationId={NotificationId}, subscriptionId={SubscriptionId}, deviceId={DeviceId}, statusCode={StatusCode}, error={Error}",
+                        notification.Id,
+                        subscription.Id,
+                        subscription.DeviceId,
+                        apnResult.StatusCode,
+                        apnResult.Error
+                    );
+
                     if (apnResult.StatusCode is 404 or 410 || IsInvalidApnsTokenError(apnResult.Error))
                         _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
                     else if (apnResult.Error != null)
@@ -725,6 +734,15 @@ public class PushService
                         apnsId: notification.Id.ToString(),
                         apnsPriority: notification.Priority,
                         apnPushType: ApnPushType.Voip
+                    );
+
+                    _logger.LogInformation(
+                        "Appk VoIP push result: notificationId={NotificationId}, subscriptionId={SubscriptionId}, deviceId={DeviceId}, statusCode={StatusCode}, error={Error}",
+                        notification.Id,
+                        subscription.Id,
+                        subscription.DeviceId,
+                        appkResult.StatusCode,
+                        appkResult.Error
                     );
 
                     if (appkResult.StatusCode is 404 or 410 || IsInvalidApnsTokenError(appkResult.Error))
