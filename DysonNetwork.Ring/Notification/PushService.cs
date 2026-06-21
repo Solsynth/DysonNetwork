@@ -157,8 +157,6 @@ public class PushService
         var topics = new Dictionary<string, string>(config.Topics);
         if (apnsTopic is not null && !topics.ContainsKey("Alert"))
             topics["Alert"] = apnsTopic;
-        if (apnsTopic is not null && !topics.ContainsKey("VoIP"))
-            topics["VoIP"] = $"{apnsTopic}.voip";
 
         return new AppSenders(fcm, apns, apnsTopic, topics);
     }
@@ -676,16 +674,6 @@ public class PushService
                         throw new InvalidOperationException("Apple PushKit is not initialized.");
 
                     var appkTopic = senders.Topics.GetValueOrDefault("VoIP");
-                    if (string.IsNullOrWhiteSpace(appkTopic) && !string.IsNullOrWhiteSpace(senders.ApnsTopic))
-                        appkTopic = $"{senders.ApnsTopic}.voip";
-
-                    var appkAlertDict = new Dictionary<string, object>();
-                    if (!string.IsNullOrEmpty(notification.Title))
-                        appkAlertDict["title"] = notification.Title;
-                    if (!string.IsNullOrEmpty(notification.Subtitle))
-                        appkAlertDict["subtitle"] = notification.Subtitle;
-                    if (!string.IsNullOrEmpty(notification.Content))
-                        appkAlertDict["body"] = notification.Content;
 
                     var appkMeta = new Dictionary<string, object?>(notification.Meta);
                     if (!string.IsNullOrEmpty(notification.Title))
@@ -701,12 +689,7 @@ public class PushService
                     {
                         ["topic"] = appkTopic,
                         ["type"] = notification.Topic,
-                        ["aps"] = new Dictionary<string, object?>
-                        {
-                            ["alert"] = appkAlertDict.Count > 0 ? appkAlertDict : null,
-                            ["sound"] = notification.Priority >= 5 ? "default" : null,
-                            ["mutable-content"] = 1
-                        },
+                        ["aps"] = new Dictionary<string, object?>(),
                         ["meta"] = appkMeta
                     };
 
