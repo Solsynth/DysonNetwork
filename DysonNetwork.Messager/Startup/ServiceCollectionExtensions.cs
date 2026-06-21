@@ -572,49 +572,57 @@ public static class ServiceCollectionExtensions
                 ClientMessageId = requestData.ClientMessageId
             };
 
-            if (!e2eeMode && requestData.FundId.HasValue)
+            if (!e2eeMode && requestData.Embeds is { Count: > 0 })
             {
-                var fundEmbed = new FundEmbed { Id = requestData.FundId.Value };
-                ChatMessageHelpers.AddEmbedToMessage(message, fundEmbed);
+                message.Meta["embeds"] = requestData.Embeds;
             }
-
-            if (!e2eeMode && requestData.PollId.HasValue)
+            else
             {
-                var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest
+                if (!e2eeMode && requestData.FundId.HasValue)
                 {
-                    Id = requestData.PollId.Value.ToString()
-                });
-                var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
-                ChatMessageHelpers.AddEmbedToMessage(message, pollEmbed);
-            }
-
-            if (!e2eeMode && requestData.MeetId.HasValue)
-            {
-                var meetEmbed = new MeetEmbed { Id = requestData.MeetId.Value };
-                ChatMessageHelpers.AddEmbedToMessage(message, meetEmbed);
-            }
-
-            if (!e2eeMode && requestData.NotableDayId.HasValue)
-            {
-                var notableDayEmbed = new NotableDayEmbed { Id = requestData.NotableDayId.Value };
-                ChatMessageHelpers.AddEmbedToMessage(message, notableDayEmbed);
-            }
-
-            if (!e2eeMode && requestData.CalendarEventId.HasValue)
-            {
-                var calendarEventEmbed = new CalendarEventEmbed { Id = requestData.CalendarEventId.Value };
-                ChatMessageHelpers.AddEmbedToMessage(message, calendarEventEmbed);
-            }
-
-            if (!e2eeMode && ChatMessageHelpers.HasLocationPayload(requestData.LocationName, requestData.LocationAddress, requestData.LocationWkt))
-            {
-                if (!ChatMessageHelpers.TryParseLocation(requestData.LocationWkt, out var location, out var locationError))
-                {
-                    await SendErrorResponse(evt, locationError ?? "Invalid location WKT.", ws);
-                    return;
+                    var fundEmbed = new FundEmbed { Id = requestData.FundId.Value };
+                    ChatMessageHelpers.AddEmbedToMessage(message, fundEmbed);
                 }
-                var locationEmbed = ChatMessageHelpers.CreateLocationEmbed(requestData.LocationName, requestData.LocationAddress, location);
-                ChatMessageHelpers.AddEmbedToMessage(message, locationEmbed);
+
+                if (!e2eeMode && requestData.PollId.HasValue)
+                {
+                    var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest
+                    {
+                        Id = requestData.PollId.Value.ToString()
+                    });
+                    var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
+                    ChatMessageHelpers.AddEmbedToMessage(message, pollEmbed);
+                }
+
+                if (!e2eeMode && requestData.MeetId.HasValue)
+                {
+                    var meetEmbed = new MeetEmbed { Id = requestData.MeetId.Value };
+                    ChatMessageHelpers.AddEmbedToMessage(message, meetEmbed);
+                }
+
+                if (!e2eeMode && requestData.NotableDayId.HasValue)
+                {
+                    var notableDayEmbed = new NotableDayEmbed { Id = requestData.NotableDayId.Value };
+                    ChatMessageHelpers.AddEmbedToMessage(message, notableDayEmbed);
+                }
+
+                if (!e2eeMode && requestData.CalendarEventId.HasValue)
+                {
+                    var calendarEventEmbed = new CalendarEventEmbed { Id = requestData.CalendarEventId.Value };
+                    ChatMessageHelpers.AddEmbedToMessage(message, calendarEventEmbed);
+                }
+
+                if (!e2eeMode && ChatMessageHelpers.HasLocationPayload(requestData.LocationName, requestData.LocationAddress, requestData.LocationWkt))
+                {
+                    if (!ChatMessageHelpers.TryParseLocation(requestData.LocationWkt, out var location, out var locationError))
+                    {
+                        await SendErrorResponse(evt, locationError ?? "Invalid location WKT.", ws);
+                        return;
+                    }
+
+                    var locationEmbed = ChatMessageHelpers.CreateLocationEmbed(requestData.LocationName, requestData.LocationAddress, location);
+                    ChatMessageHelpers.AddEmbedToMessage(message, locationEmbed);
+                }
             }
 
             if (!e2eeMode && requestData.Content is not null)

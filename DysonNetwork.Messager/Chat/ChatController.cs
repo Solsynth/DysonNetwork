@@ -556,6 +556,7 @@ public partial class ChatController(
         // If client provides the complete embeds list, use it directly
         if (!e2eeMode && request.Embeds is { Count: > 0 })
         {
+            message.Meta ??= new Dictionary<string, object>();
             message.Meta["embeds"] = request.Embeds;
         }
         else
@@ -946,6 +947,7 @@ public partial class ChatController(
         // If client provides the complete embeds list, use it directly
         if (!e2eeMode && request.Embeds is { Count: > 0 })
         {
+            message.Meta ??= new Dictionary<string, object>();
             message.Meta["embeds"] = request.Embeds;
         }
         else if (!e2eeMode)
