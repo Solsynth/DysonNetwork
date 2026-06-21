@@ -2,6 +2,8 @@
     "chatInviteTitle": "聊天邀请",
     "chatInviteBodyDirectMessage": "{senderNick} 向您发送了一条私信",
     "chatInviteBodyGroupInvite": "您已被邀请加入 {roomName}",
+    "chatCallInviteTitle": "{senderName}（{roomName}）",
+    "chatCallInviteBody": "{senderName} 正在呼叫您",
     "chatNotificationMentionedBody": "[Mentioned] {body}",
     "chatStickerBody": "贴图",
     "chatStickerOnlyNotificationBody": "[贴图] {name}",

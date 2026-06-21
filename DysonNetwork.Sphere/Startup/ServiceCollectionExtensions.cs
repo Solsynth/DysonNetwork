@@ -14,6 +14,7 @@ using DysonNetwork.Sphere.Autocompletion;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
+using DysonNetwork.Sphere.Reader;
 using DysonNetwork.Sphere.Sticker;
 using DysonNetwork.Sphere.Timeline;
 using DysonNetwork.Sphere.Translation;
@@ -37,6 +38,12 @@ public static class ServiceCollectionExtensions
             services.AddHttpContextAccessor();
 
             services.AddHttpClient();
+            services.AddHttpClient("WebReader", client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(3);
+                client.MaxResponseContentBufferSize = 10 * 1024 * 1024;
+                client.DefaultRequestHeaders.Add("User-Agent", "facebookexternalhit/1.1");
+            });
 
             services
                 .AddControllers()
@@ -224,6 +231,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<TimelineService>();
             services.AddScoped<AutomodService>();
             services.AddScoped<PostService>();
+            services.AddScoped<WebReaderService>();
             services.AddScoped<PostCollectionService>();
             services.AddScoped<PostTagService>();
             services.AddScoped<PollService>();

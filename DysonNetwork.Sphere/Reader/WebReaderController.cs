@@ -2,41 +2,26 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models.Embed;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 
-namespace DysonNetwork.Insight.Reader;
+namespace DysonNetwork.Sphere.Reader;
 
-/// <summary>
-/// Controller for web scraping and link preview services
-/// </summary>
 [ApiController]
 [Route("/api/scrap")]
 public class WebReaderController(WebReaderService reader, ILogger<WebReaderController> logger)
     : ControllerBase
 {
-    /// <summary>
-    /// Retrieves a preview for the provided URL
-    /// </summary>
-    /// <param name="url">URL-encoded link to generate preview for</param>
-    /// <returns>Link preview data including title, description, and image</returns>
     [HttpGet("link")]
     public async Task<ActionResult<LinkEmbed>> ScrapLink([FromQuery] string url)
     {
         if (string.IsNullOrEmpty(url))
-        {
             return BadRequest(new { error = "URL parameter is required" });
-        }
 
         try
         {
-            // Ensure URL is properly decoded
             var decodedUrl = UrlDecoder.Decode(url);
 
-            // Validate URL format
             if (!Uri.TryCreate(decodedUrl, UriKind.Absolute, out _))
-            {
                 return BadRequest(new { error = "Invalid URL format" });
-            }
 
             var linkEmbed = await reader.GetLinkPreviewAsync(decodedUrl);
             return Ok(linkEmbed);
@@ -49,31 +34,25 @@ public class WebReaderController(WebReaderService reader, ILogger<WebReaderContr
         catch (Exception ex)
         {
             logger.LogError(ex, "Unexpected error scraping link: {Url}", url);
-            return StatusCode(StatusCodes.Status500InternalServerError, 
-                new { error = "An unexpected error occurred while processing the link" });
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new { error = "An unexpected error occurred while processing the link" }
+            );
         }
     }
 
-    /// <summary>
-    /// Force invalidates the cache for a specific URL
-    /// </summary>
     [HttpDelete("link/cache")]
     [Authorize]
     [AskPermission("cache.scrap")]
     public async Task<IActionResult> InvalidateCache([FromQuery] string url)
     {
         if (string.IsNullOrEmpty(url))
-        {
             return BadRequest(new { error = "URL parameter is required" });
-        }
 
         await reader.InvalidateCacheForUrlAsync(url);
         return Ok(new { message = "Cache invalidated for URL" });
     }
 
-    /// <summary>
-    /// Force invalidates all cached link previews
-    /// </summary>
     [HttpDelete("cache/all")]
     [Authorize]
     [AskPermission("cache.scrap")]
@@ -84,18 +63,12 @@ public class WebReaderController(WebReaderService reader, ILogger<WebReaderContr
     }
 }
 
-/// <summary>
-/// Helper class for URL decoding
-/// </summary>
 public static class UrlDecoder
 {
     public static string Decode(string url)
     {
-        // First check if URL is already decoded
         if (!url.Contains('%') && !url.Contains('+'))
-        {   
             return url;
-        }
 
         try
         {
@@ -103,7 +76,6 @@ public static class UrlDecoder
         }
         catch
         {
-            // If decoding fails, return the original string
             return url;
         }
     }

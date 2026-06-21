@@ -5,6 +5,7 @@ using DysonNetwork.Sphere.ActivityPub.Services;
 using DysonNetwork.Sphere.Poll;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
+using DysonNetwork.Sphere.Reader;
 using DysonNetwork.Sphere.Sticker;
 using DysonNetwork.Sphere.Autocompletion;
 using DysonNetwork.Sphere.Rewind;
@@ -38,6 +39,7 @@ public static class ApplicationConfiguration
         app.MapGrpcService<StickerServiceGrpc>();
         app.MapGrpcService<SphereRewindServiceGrpc>();
         app.MapGrpcService<AutocompletionServiceGrpc>();
+        app.MapGrpcService<WebReaderGrpcService>();
         app.MapGrpcReflectionService();
 
         return app;

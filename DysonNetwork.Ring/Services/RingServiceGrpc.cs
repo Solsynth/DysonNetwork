@@ -7,12 +7,13 @@ using Grpc.Core;
 
 namespace DysonNetwork.Ring.Services;
 
-public class RingServiceGrpc(
-    QueueService queueService,
-    PushService pushService
-) : DyRingService.DyRingServiceBase
+public class RingServiceGrpc(QueueService queueService, PushService pushService)
+    : DyRingService.DyRingServiceBase
 {
-    public override async Task<Empty> SendEmail(DySendEmailRequest request, ServerCallContext context)
+    public override async Task<Empty> SendEmail(
+        DySendEmailRequest request,
+        ServerCallContext context
+    )
     {
         await queueService.EnqueueEmail(
             request.Email.ToName,
@@ -23,8 +24,10 @@ public class RingServiceGrpc(
         return new Empty();
     }
 
-    public override async Task<Empty> SendPushNotificationToUser(DySendPushNotificationToUserRequest request,
-        ServerCallContext context)
+    public override async Task<Empty> SendPushNotificationToUser(
+        DySendPushNotificationToUserRequest request,
+        ServerCallContext context
+    )
     {
         var appId = pushService.ResolveAppId(
             request.Notification.HasAppId ? request.Notification.AppId : null,
@@ -38,11 +41,13 @@ public class RingServiceGrpc(
             Subtitle = request.Notification.Subtitle,
             Content = request.Notification.Body,
             Meta = request.Notification.HasMeta
-                ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
+                ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(
+                    request.Notification.Meta
+                ) ?? []
                 : [],
             AccountId = Guid.Parse(request.UserId),
             AppId = appId,
-            PushType = request.Notification.HasPushType ? request.Notification.PushType : null
+            PushType = request.Notification.HasPushType ? request.Notification.PushType : null,
         };
 
         if (request.Notification.ActionUri is not null)
@@ -60,8 +65,10 @@ public class RingServiceGrpc(
         return new Empty();
     }
 
-    public override async Task<Empty> SendPushNotificationToUsers(DySendPushNotificationToUsersRequest request,
-        ServerCallContext context)
+    public override async Task<Empty> SendPushNotificationToUsers(
+        DySendPushNotificationToUsersRequest request,
+        ServerCallContext context
+    )
     {
         var appId = pushService.ResolveAppId(
             request.Notification.HasAppId ? request.Notification.AppId : null,
@@ -75,10 +82,12 @@ public class RingServiceGrpc(
             Subtitle = request.Notification.Subtitle,
             Content = request.Notification.Body,
             Meta = request.Notification.HasMeta
-                ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(request.Notification.Meta) ?? []
+                ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(
+                    request.Notification.Meta
+                ) ?? []
                 : [],
             AppId = appId,
-            PushType = request.Notification.HasPushType ? request.Notification.PushType : null
+            PushType = request.Notification.HasPushType ? request.Notification.PushType : null,
         };
 
         if (request.Notification.ActionUri is not null)
@@ -88,21 +97,25 @@ public class RingServiceGrpc(
         if (request.Notification.IsSavable)
             await pushService.SaveNotification(notification, userIds);
 
-        var tasks = userIds
-            .Select(userId => queueService.EnqueuePushNotification(
+        var tasks = userIds.Select(userId =>
+            queueService.EnqueuePushNotification(
                 notification,
                 userId,
                 request.Notification.IsSavable
-            ));
+            )
+        );
 
         await Task.WhenAll(tasks);
         return new Empty();
     }
 
-    public override async Task<Empty> UnsubscribePushNotifications(DyUnsubscribePushNotificationsRequest request,
-        ServerCallContext context)
+    public override async Task<Empty> UnsubscribePushNotifications(
+        DyUnsubscribePushNotificationsRequest request,
+        ServerCallContext context
+    )
     {
         await pushService.UnsubscribeDevice(request.DeviceId);
         return new Empty();
     }
 }
+

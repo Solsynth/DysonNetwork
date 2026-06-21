@@ -1,7 +1,7 @@
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 
-namespace DysonNetwork.Insight.Reader;
+namespace DysonNetwork.Sphere.Reader;
 
 public class WebReaderGrpcService(WebReaderService service) : DyWebReaderService.DyWebReaderServiceBase
 {

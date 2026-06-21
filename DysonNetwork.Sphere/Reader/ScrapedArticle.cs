@@ -1,7 +1,7 @@
 using DysonNetwork.Shared.Proto;
 using EmbedLinkEmbed = DysonNetwork.Shared.Models.Embed.LinkEmbed;
 
-namespace DysonNetwork.Insight.Reader;
+namespace DysonNetwork.Sphere.Reader;
 
 public record ScrapedArticle
 {

@@ -2,6 +2,8 @@
     "chatInviteTitle": "Chat Invite",
     "chatInviteBodyDirectMessage": "{senderNick} sent you a direct message",
     "chatInviteBodyGroupInvite": "You have been invited to {roomName}",
+    "chatCallInviteTitle": "{senderName} ({roomName})",
+    "chatCallInviteBody": "{senderName} is calling you",
     "chatNotificationMentionedBody": "[Mentioned] {body}",
     "chatStickerBody": "Sticker",
     "chatStickerOnlyNotificationBody": "[Sticker] {name}",

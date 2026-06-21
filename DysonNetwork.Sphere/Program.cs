@@ -27,6 +27,7 @@ builder.Services.AddRingService();
 builder.Services.AddDriveService();
 builder.Services.AddInsightService();
 builder.Services.AddWalletService();
+builder.Services.AddDomainBlockService();
 
 builder.Services.AddAppFlushHandlers();
 builder.Services.AddAppBusinessServices(builder.Configuration);

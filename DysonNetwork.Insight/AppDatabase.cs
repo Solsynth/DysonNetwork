@@ -20,10 +20,6 @@ public class AppDatabase(
     public DbSet<SnThinkingVoiceClip> ThinkingVoiceClips { get; set; }
     public DbSet<SnUnpaidAccount> UnpaidAccounts { get; set; }
     
-    public DbSet<SnWebArticle> FeedArticles { get; set; }
-    public DbSet<SnWebFeed> Feeds { get; set; }
-    public DbSet<SnWebFeedSubscription> FeedSubscriptions { get; set; }
-    
     public DbSet<MiChanMemoryRecord> MemoryRecords { get; set; }
     public DbSet<MiChanUserProfile> UserProfiles { get; set; }
     public DbSet<MiChanScheduledTask> ScheduledTasks { get; set; }

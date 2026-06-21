@@ -1,5 +1,4 @@
 using DysonNetwork.Insight.MiChan;
-using DysonNetwork.Insight.Reader;
 using DysonNetwork.Insight.SnChan;
 using DysonNetwork.Insight.Thought;
 using Quartz;
@@ -27,20 +26,6 @@ public static class ScheduledJobsConfiguration
                 .ForJob("FreeQuotaReset")
                 .WithIdentity("FreeQuotaResetTrigger")
                 .WithCronSchedule("0 0 0 * * ?")
-            );
-
-            q.AddJob<WebFeedScraperJob>(opts => opts.WithIdentity("WebFeedScraper").StoreDurably());
-            q.AddTrigger(opts => opts
-                .ForJob("WebFeedScraper")
-                .WithIdentity("WebFeedScraperTrigger")
-                .WithCronSchedule("0 0 0 * * ?")
-            );
-
-            q.AddJob<WebFeedVerificationJob>(opts => opts.WithIdentity("WebFeedVerification").StoreDurably());
-            q.AddTrigger(opts => opts
-                .ForJob("WebFeedVerification")
-                .WithIdentity("WebFeedVerificationTrigger")
-                .WithCronSchedule("0 0 4 * * ?")
             );
 
             q.AddJob<ScheduledTaskJob>(opts => opts.WithIdentity("ScheduledTask").StoreDurably());

@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using DysonNetwork.Insight.Reader;
 using DysonNetwork.Insight.Services;
 using DysonNetwork.Insight.Thought;
 using DysonNetwork.Insight.MiChan;
@@ -33,12 +32,6 @@ public static class ServiceCollectionExtensions
             services.AddHttpContextAccessor();
 
             services.AddHttpClient();
-            services.AddHttpClient("WebReader", client =>
-            {
-                client.Timeout = TimeSpan.FromSeconds(3);
-                client.MaxResponseContentBufferSize = 10 * 1024 * 1024;
-                client.DefaultRequestHeaders.Add("User-Agent", "facebookexternalhit/1.1");
-            });
             services.AddHttpClient("DuckDuckGo", client =>
             {
                 client.Timeout = TimeSpan.FromSeconds(10);
@@ -105,8 +98,6 @@ public static class ServiceCollectionExtensions
             services.AddScoped<ThoughtProvider>();
             services.AddScoped<ThoughtService>();
             services.AddScoped<FreeQuotaService>();
-            services.AddScoped<Reader.WebFeedService>();
-            services.AddScoped<Reader.WebReaderService>();
             services.AddScoped<ThinkingVoiceService>();
             services.AddHostedService<SequenceSummaryRefreshHostedService>();
             services.AddHostedService<ThoughtPartBackfillHostedService>();
