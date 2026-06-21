@@ -802,8 +802,12 @@ public class PushService
         SnNotification notification
     )
     {
+        var subscriptionList = subscriptions.ToList();
+        var hasAnyAppk = IsVoipPush(notification)
+            && subscriptionList.Any(s => s.Provider == PushProvider.Appk);
+
         return subscriptions
-            .Where(s => IsProviderCompatibleWithNotification(s.Provider, notification))
+            .Where(s => IsProviderCompatibleWithNotification(s.Provider, notification, hasAnyAppk))
             .GroupBy(s => NormalizeSopDeviceId(s.DeviceId))
             .ToDictionary(
                 g => g.Key,
@@ -825,10 +829,17 @@ public class PushService
         _ => 0
     };
 
-    private static bool IsProviderCompatibleWithNotification(PushProvider provider, SnNotification notification)
+    private static bool IsProviderCompatibleWithNotification(
+        PushProvider provider,
+        SnNotification notification,
+        bool hasAnyAppk
+    )
     {
         if (!IsVoipPush(notification))
             return provider != PushProvider.Appk;
+
+        if (hasAnyAppk && provider == PushProvider.Apple)
+            return false;
 
         return true;
     }
