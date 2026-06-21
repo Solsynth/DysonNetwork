@@ -152,11 +152,14 @@ public class RelationshipService(
     {
         var relationship = await GetRelationship(sender.Id, target.Id, RelationshipStatus.Blocked);
         if (relationship is null) throw new ArgumentException("There is no relationship between you and the user.");
-        db.Remove(relationship);
+        relationship.Status = RelationshipStatus.Friends;
+        relationship.ExpiredAt = null;
+        relationship.DegradeToStatus = null;
+        db.Update(relationship);
         await db.SaveChangesAsync();
 
         CreateActionLog(sender.Id, ActionLogType.RelationshipUnblock, target.Id);
-        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Blocked);
+        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Blocked, RelationshipStatus.Friends);
 
         return relationship;
     }
@@ -209,11 +212,14 @@ public class RelationshipService(
     {
         var relationship = await GetRelationship(sender.Id, target.Id, RelationshipStatus.Muted);
         if (relationship is null) throw new ArgumentException("There is no mute relationship with this user.");
-        db.Remove(relationship);
+        relationship.Status = RelationshipStatus.Friends;
+        relationship.ExpiredAt = null;
+        relationship.DegradeToStatus = null;
+        db.Update(relationship);
         await db.SaveChangesAsync();
 
         CreateActionLog(sender.Id, ActionLogType.RelationshipUnmute, target.Id);
-        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Muted);
+        await PurgeRelationshipCache(sender.Id, target.Id, RelationshipStatus.Muted, RelationshipStatus.Friends);
 
         return relationship;
     }
