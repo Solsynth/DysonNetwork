@@ -654,6 +654,19 @@ public class PushService
 
                     var apnPushType = isVoip ? ApnPushType.Voip : ApnPushType.Alert;
 
+                    _logger.LogInformation(
+                        "Sending Apple push: notificationId={NotificationId}, subscriptionId={SubscriptionId}, deviceId={DeviceId}, pushType={PushType}, apnsPushType={ApnsPushType}, apnsTopic={ApnsTopic}, apsHasAlert={ApsHasAlert}, apsHasSound={ApsHasSound}, metaKeys={MetaKeys}",
+                        notification.Id,
+                        subscription.Id,
+                        subscription.DeviceId,
+                        notification.PushType,
+                        apnPushType,
+                        apnsPushTopic,
+                        apsDict.ContainsKey("alert"),
+                        apsDict.ContainsKey("sound") && apsDict["sound"] is not null,
+                        string.Join(",", notification.Meta.Keys)
+                    );
+
                     var apnResult = await senders.Apns.SendAsync(
                         payload,
                         deviceToken: subscription.DeviceToken,
@@ -692,6 +705,19 @@ public class PushService
                         ["aps"] = new Dictionary<string, object?>(),
                         ["meta"] = appkMeta
                     };
+
+                    _logger.LogInformation(
+                        "Sending Appk VoIP push: notificationId={NotificationId}, subscriptionId={SubscriptionId}, deviceId={DeviceId}, pushType={PushType}, apnsPushType={ApnsPushType}, apnsTopic={ApnsTopic}, apsHasAlert={ApsHasAlert}, apsHasSound={ApsHasSound}, metaKeys={MetaKeys}",
+                        notification.Id,
+                        subscription.Id,
+                        subscription.DeviceId,
+                        notification.PushType,
+                        ApnPushType.Voip,
+                        appkTopic,
+                        false,
+                        false,
+                        string.Join(",", appkMeta.Keys)
+                    );
 
                     var appkResult = await senders.Apns.SendAsync(
                         appkPayload,
