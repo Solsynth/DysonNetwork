@@ -10,6 +10,7 @@ API endpoints for managing push notification subscriptions across all providers.
 | APNS | `1` | Apple Push Notification Service (iOS) |
 | SOP | `2` | Solar Network Push (server-generated token, SSE) |
 | UnifiedPush | `3` | Decentralized push (self-hosted endpoints) |
+| Appk | `4` | Apple PushKit VoIP push token |
 
 ## Endpoints
 
@@ -49,6 +50,10 @@ PUT /api/notifications/subscription
 - Deactivates other active subscriptions on the same device before registering
 
 **Response:** `SnNotificationPushSubscription`
+
+The response includes both:
+
+- `provider`: numeric enum value
 
 ---
 
@@ -155,6 +160,18 @@ This works for all providers including SOP. To cancel an SOP subscription:
 | `provider` | Provider enum value |
 | `is_activated` | Whether this subscription is the active one for its device |
 
+## VoIP Subscriptions
+
+Apple VoIP subscriptions use:
+
+- `provider = 4`
+
+Normal Apple alert subscriptions use:
+
+- `provider = 1`
+
+Clients that support incoming calls should usually register both.
+
 ---
 
 ## SOP Token Transport
@@ -212,3 +229,4 @@ curl -X DELETE "/api/notifications/subscription/5c6ec8f6-..." \
 
 - [SOP Push API](SOP_PUSH_API.md) - SOP-specific list/stream endpoints
 - [Notification Preferences](NOTIFICATION_PREFERENCES.md) - Per-topic delivery control
+- [VOIP_NOTIFICATION_SUBSCRIPTIONS](VOIP_NOTIFICATION_SUBSCRIPTIONS.md) - VoIP-specific client guidance
