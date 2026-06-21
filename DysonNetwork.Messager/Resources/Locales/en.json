@@ -16,5 +16,6 @@
     "messageDeletedTitle": "Your message was deleted",
     "messageDeletedBody": "Your message was deleted by a moderator. Reason: {reason}",
     "chatTimeoutTitle": "You have been timed out",
-    "chatTimeoutBody": "You have been timed out for {duration} minutes. Reason: {reason}"
+    "chatTimeoutBody": "You have been timed out for {duration} minutes. Reason: {reason}",
+    "chatRedirectHistory": "Redirect chat history"
 }

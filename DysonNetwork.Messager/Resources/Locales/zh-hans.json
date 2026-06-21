@@ -16,5 +16,6 @@
     "messageDeletedTitle": "您的消息已被删除",
     "messageDeletedBody": "您的消息已被版主删除。原因：{reason}",
     "chatTimeoutTitle": "您已被禁言",
-    "chatTimeoutBody": "您已被禁言 {duration} 分钟。原因：{reason}"
+    "chatTimeoutBody": "您已被禁言 {duration} 分钟。原因：{reason}",
+    "chatRedirectHistory": "转发聊天记录"
 }

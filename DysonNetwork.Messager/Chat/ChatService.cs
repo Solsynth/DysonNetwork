@@ -1007,7 +1007,7 @@ public partial class ChatService(
             SenderId = redirector.Id,
             ChatRoomId = destinationRoom.Id,
             Nonce = Guid.NewGuid().ToString(),
-            Content = null,
+            Content = localization.Get("chatRedirectHistory", null),
             Meta = meta,
             Attachments = [],
             MembersMentioned = [],
