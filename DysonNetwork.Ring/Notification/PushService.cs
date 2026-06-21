@@ -1,3 +1,6 @@
+using System.Collections.Concurrent;
+using System.Net;
+using System.Threading.Channels;
 using CorePush.Apple;
 using CorePush.Firebase;
 using DysonNetwork.Ring.Services;
@@ -8,9 +11,6 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using System.Net;
-using System.Collections.Concurrent;
-using System.Threading.Channels;
 
 namespace DysonNetwork.Ring.Notification;
 
@@ -34,9 +34,17 @@ public class PushService
 {
     private sealed record SopStreamSubscription(string DeviceId, Channel<SnNotification> Channel);
 
-    private sealed record AppSenders(FirebaseSender? Fcm, ApnSender? Apns, string? ApnsTopic, Dictionary<string, string> Topics);
+    private sealed record AppSenders(
+        FirebaseSender? Fcm,
+        Dictionary<string, ApnSender> ApnsByTopic,
+        string? DefaultApnsTopic,
+        Dictionary<string, string> Topics
+    );
 
-    private static readonly ConcurrentDictionary<Guid, ConcurrentDictionary<Guid, SopStreamSubscription>> SopStreams = new();
+    private static readonly ConcurrentDictionary<
+        Guid,
+        ConcurrentDictionary<Guid, SopStreamSubscription>
+    > SopStreams = new();
     private readonly AppDatabase _db;
     private readonly QueueService _queueService;
     private readonly ILogger<PushService> _logger;
@@ -53,12 +61,14 @@ public class PushService
         "InvalidRegistration",
         "NotRegistered",
         "registration-token-not-registered",
-        "UNREGISTERED"
+        "UNREGISTERED",
     };
-    private static readonly HashSet<string> InvalidApnsErrors = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> InvalidApnsErrors = new(
+        StringComparer.OrdinalIgnoreCase
+    )
     {
         "BadDeviceToken",
-        "Unregistered"
+        "Unregistered",
     };
 
     public PushService(
@@ -75,7 +85,6 @@ public class PushService
     )
     {
         var cfgSection = config.GetSection("Notifications:Push");
-        var httpClient = httpFactory.CreateClient();
         var appsSection = cfgSection.GetSection("Apps");
         if (appsSection.Exists())
         {
@@ -83,9 +92,10 @@ public class PushService
             {
                 var appId = appChild.Key;
                 var appConfig = appChild.Get<PushAppConfig>();
-                if (appConfig is null) continue;
+                if (appConfig is null)
+                    continue;
 
-                var senders = BuildAppSenders(appId, appConfig, httpClient);
+                var senders = BuildAppSenders(appConfig, httpFactory);
                 _appSenders[appId] = senders;
             }
 
@@ -94,12 +104,10 @@ public class PushService
         else
         {
             // ponytail: backwards compat for old flat config (Google / Apple keys)
-            var legacy = new PushAppConfig
-            {
-                Production = cfgSection.GetValue<bool>("Production")
-            };
+            var legacy = new PushAppConfig { Production = cfgSection.GetValue<bool>("Production") };
             var fcmPath = cfgSection.GetValue<string>("Google");
-            if (fcmPath != null) legacy.FcmKeyPath = fcmPath;
+            if (fcmPath != null)
+                legacy.FcmKeyPath = fcmPath;
 
             var apnsSection = cfgSection.GetSection("Apple");
             if (apnsSection.Exists())
@@ -109,18 +117,18 @@ public class PushService
                     PrivateKeyPath = apnsSection.GetValue<string>("PrivateKey") ?? "",
                     PrivateKeyId = apnsSection.GetValue<string>("PrivateKeyId") ?? "",
                     TeamId = apnsSection.GetValue<string>("TeamId") ?? "",
-                    BundleIdentifier = apnsSection.GetValue<string>("BundleIdentifier") ?? ""
+                    BundleIdentifier = apnsSection.GetValue<string>("BundleIdentifier") ?? "",
                 };
             }
 
             var legacyId = "_default";
-            _appSenders[legacyId] = BuildAppSenders(legacyId, legacy, httpClient);
+            _appSenders[legacyId] = BuildAppSenders(legacy, httpFactory);
             _defaultAppId = legacyId;
         }
 
         _defaultAppId ??= _appSenders.Keys.FirstOrDefault();
 
-        _httpClient = httpClient;
+        _httpClient = httpFactory.CreateClient();
         _ws = ws;
         _db = db;
         _fbs = fbs;
@@ -131,33 +139,45 @@ public class PushService
         _sopReplayBuffer = sopReplayBuffer;
     }
 
-    private static AppSenders BuildAppSenders(string appId, PushAppConfig config, HttpClient httpClient)
+    private static AppSenders BuildAppSenders(PushAppConfig config, IHttpClientFactory httpFactory)
     {
         FirebaseSender? fcm = null;
         if (config.FcmKeyPath != null && File.Exists(config.FcmKeyPath))
-            fcm = new FirebaseSender(File.ReadAllText(config.FcmKeyPath), httpClient);
+            fcm = new FirebaseSender(
+                File.ReadAllText(config.FcmKeyPath),
+                httpFactory.CreateClient()
+            );
 
-        ApnSender? apns = null;
         string? apnsTopic = null;
+        var topics = new Dictionary<string, string>(config.Topics);
+        var apnsByTopic = new Dictionary<string, ApnSender>(StringComparer.Ordinal);
         if (config.Apns is { PrivateKeyPath: var keyPath } && File.Exists(keyPath))
         {
-            apns = new ApnSender(new ApnSettings
-            {
-                P8PrivateKey = File.ReadAllText(keyPath),
-                P8PrivateKeyId = config.Apns.PrivateKeyId,
-                TeamId = config.Apns.TeamId,
-                AppBundleIdentifier = config.Apns.BundleIdentifier,
-                ServerType = config.Production ? ApnServerType.Production : ApnServerType.Development
-            }, httpClient);
             apnsTopic = config.Apns.BundleIdentifier;
+            if (apnsTopic is not null && !topics.ContainsKey("Alert"))
+                topics["Alert"] = apnsTopic;
+
+            var privateKey = File.ReadAllText(keyPath);
+            var serverType = config.Production
+                ? ApnServerType.Production
+                : ApnServerType.Development;
+            foreach (var topic in topics.Values.Distinct(StringComparer.Ordinal))
+            {
+                apnsByTopic[topic] = new ApnSender(
+                    new ApnSettings
+                    {
+                        P8PrivateKey = privateKey,
+                        P8PrivateKeyId = config.Apns.PrivateKeyId,
+                        TeamId = config.Apns.TeamId,
+                        AppBundleIdentifier = topic,
+                        ServerType = serverType,
+                    },
+                    httpFactory.CreateClient()
+                );
+            }
         }
 
-        // Build topics: alert = base bundle, voip = bundle.voip, etc.
-        var topics = new Dictionary<string, string>(config.Topics);
-        if (apnsTopic is not null && !topics.ContainsKey("Alert"))
-            topics["Alert"] = apnsTopic;
-
-        return new AppSenders(fcm, apns, apnsTopic, topics);
+        return new AppSenders(fcm, apnsByTopic, apnsTopic, topics);
     }
 
     private AppSenders? ResolveAppSenders(string? appId)
@@ -210,9 +230,7 @@ public class PushService
 
     public async Task UnsubscribeDevice(string deviceId)
     {
-        await _db.PushSubscriptions
-            .Where(s => s.DeviceId == deviceId)
-            .ExecuteDeleteAsync();
+        await _db.PushSubscriptions.Where(s => s.DeviceId == deviceId).ExecuteDeleteAsync();
     }
 
     public async Task<SnNotificationPushSubscription> SubscribeDevice(
@@ -231,21 +249,21 @@ public class PushService
 
         if (isActivated)
         {
-            await _db.PushSubscriptions
-                .Where(s => s.AccountId == accountId)
+            await _db
+                .PushSubscriptions.Where(s => s.AccountId == accountId)
                 .Where(s => s.DeviceId == deviceId)
                 .Where(s => s.DeletedAt == null)
                 .Where(s => s.IsActivated)
                 .Where(s => s.Provider == provider)
-                .ExecuteUpdateAsync(s => s
-                    .SetProperty(sub => sub.IsActivated, false)
-                    .SetProperty(sub => sub.UpdatedAt, now)
+                .ExecuteUpdateAsync(s =>
+                    s.SetProperty(sub => sub.IsActivated, false)
+                        .SetProperty(sub => sub.UpdatedAt, now)
                 );
         }
 
         // Reuse an existing subscription for the same device/provider pair.
-        var existingSubscription = await _db.PushSubscriptions
-            .Where(s => s.AccountId == accountId)
+        var existingSubscription = await _db
+            .PushSubscriptions.Where(s => s.AccountId == accountId)
             .Where(s => s.DeviceId == deviceId)
             .Where(s => s.Provider == provider)
             .FirstOrDefaultAsync();
@@ -276,21 +294,24 @@ public class PushService
             AppId = appId,
             CreatedAt = now,
             UpdatedAt = now,
-            LastUsedAt = now
+            LastUsedAt = now,
         };
 
         _db.PushSubscriptions.Add(subscription);
         await _db.SaveChangesAsync();
 
-        var existingCount = await _db.PushSubscriptions
-            .Where(s => s.AccountId == accountId && s.DeletedAt == null)
+        var existingCount = await _db
+            .PushSubscriptions.Where(s => s.AccountId == accountId && s.DeletedAt == null)
             .CountAsync();
         if (existingCount <= 1)
         {
             _actionLogs.CreateActionLog(
                 accountId,
                 ActionLogType.AccountPushEnable,
-                new Dictionary<string, object> { ["provider"] = provider.ToString().ToLowerInvariant() }
+                new Dictionary<string, object>
+                {
+                    ["provider"] = provider.ToString().ToLowerInvariant(),
+                }
             );
         }
 
@@ -304,31 +325,45 @@ public class PushService
         string? appId = null
     )
     {
-        var token = $"{Convert.ToHexString(Guid.NewGuid().ToByteArray()).ToLowerInvariant()}{Convert.ToHexString(Guid.NewGuid().ToByteArray()).ToLowerInvariant()}";
-        var subscription = await SubscribeDevice(deviceId, token, deviceName, PushProvider.Sop, account, appId: appId);
+        var token =
+            $"{Convert.ToHexString(Guid.NewGuid().ToByteArray()).ToLowerInvariant()}{Convert.ToHexString(Guid.NewGuid().ToByteArray()).ToLowerInvariant()}";
+        var subscription = await SubscribeDevice(
+            deviceId,
+            token,
+            deviceName,
+            PushProvider.Sop,
+            account,
+            appId: appId
+        );
         return (token, subscription);
     }
 
     public async Task<SnNotificationPushSubscription?> GetSopSubscriptionByToken(string token)
     {
-        return await _db.PushSubscriptions
-            .Where(s => s.Provider == PushProvider.Sop)
+        return await _db
+            .PushSubscriptions.Where(s => s.Provider == PushProvider.Sop)
             .Where(s => s.DeviceToken == token)
             .Where(s => s.IsActivated)
             .FirstOrDefaultAsync();
     }
 
-    public async Task<List<SnNotificationPushSubscription>> GetCurrentDeviceSubscriptions(Guid accountId, string deviceId)
+    public async Task<List<SnNotificationPushSubscription>> GetCurrentDeviceSubscriptions(
+        Guid accountId,
+        string deviceId
+    )
     {
         var sopDeviceId = $"{deviceId}:sop";
-        return await _db.PushSubscriptions
-            .Where(s => s.AccountId == accountId)
+        return await _db
+            .PushSubscriptions.Where(s => s.AccountId == accountId)
             .Where(s => s.DeviceId == deviceId || s.DeviceId == sopDeviceId)
             .OrderByDescending(s => s.UpdatedAt)
             .ToListAsync();
     }
 
-    public async Task<SnNotificationPushSubscription?> GetCurrentDeviceActiveSubscription(Guid accountId, string deviceId)
+    public async Task<SnNotificationPushSubscription?> GetCurrentDeviceActiveSubscription(
+        Guid accountId,
+        string deviceId
+    )
     {
         var subscriptions = await GetCurrentDeviceSubscriptions(accountId, deviceId);
         return subscriptions
@@ -338,9 +373,15 @@ public class PushService
             .FirstOrDefault();
     }
 
-    public (Guid StreamId, ChannelReader<SnNotification> Reader) SubscribeSopStream(Guid accountId, string deviceId)
+    public (Guid StreamId, ChannelReader<SnNotification> Reader) SubscribeSopStream(
+        Guid accountId,
+        string deviceId
+    )
     {
-        var accountStreams = SopStreams.GetOrAdd(accountId, _ => new ConcurrentDictionary<Guid, SopStreamSubscription>());
+        var accountStreams = SopStreams.GetOrAdd(
+            accountId,
+            _ => new ConcurrentDictionary<Guid, SopStreamSubscription>()
+        );
         var streamId = Guid.NewGuid();
         var channel = Channel.CreateUnbounded<SnNotification>();
         accountStreams[streamId] = new SopStreamSubscription(deviceId, channel);
@@ -349,14 +390,16 @@ public class PushService
 
     public void UnsubscribeSopStream(Guid accountId, Guid streamId)
     {
-        if (!SopStreams.TryGetValue(accountId, out var accountStreams)) return;
+        if (!SopStreams.TryGetValue(accountId, out var accountStreams))
+            return;
         if (accountStreams.TryRemove(streamId, out var stream))
             stream.Channel.Writer.TryComplete();
         if (accountStreams.IsEmpty)
             SopStreams.TryRemove(accountId, out _);
     }
 
-    public async Task SendNotification(DyAccount account,
+    public async Task SendNotification(
+        DyAccount account,
         string topic,
         string? title = null,
         string? subtitle = null,
@@ -366,13 +409,15 @@ public class PushService
         bool isSilent = false,
         bool save = true,
         string? appId = null,
-        string? pushType = null)
+        string? pushType = null
+    )
     {
         meta ??= [];
         if (title is null && subtitle is null && content is null)
             throw new ArgumentException("Unable to send notification that is completely empty.");
 
-        if (actionUri is not null) meta["action_uri"] = actionUri;
+        if (actionUri is not null)
+            meta["action_uri"] = actionUri;
 
         var accountId = Guid.Parse(account.Id);
         var preference = await _preferenceService.GetPreferenceAsync(accountId, topic);
@@ -391,7 +436,7 @@ public class PushService
             Meta = meta,
             AccountId = accountId,
             AppId = appId,
-            PushType = pushType
+            PushType = pushType,
         };
 
         if (save)
@@ -408,7 +453,8 @@ public class PushService
         SnNotification notification,
         IReadOnlyCollection<string>? excludedWebSocketDeviceIds = null,
         bool isSavable = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         if (!isSavable)
             await _sopReplayBuffer.AppendNotification(notification);
@@ -424,14 +470,17 @@ public class PushService
             );
 
             // Get all push subscriptions for the account
-            var subscriptions = await _db.PushSubscriptions
-                .Where(s => s.AccountId == notification.AccountId)
+            var subscriptions = await _db
+                .PushSubscriptions.Where(s => s.AccountId == notification.AccountId)
                 .Where(s => s.IsActivated)
                 .ToListAsync(cancellationToken);
 
             if (subscriptions.Count == 0)
             {
-                _logger.LogInformation("No push subscriptions found for account {AccountId}", notification.AccountId);
+                _logger.LogInformation(
+                    "No push subscriptions found for account {AccountId}",
+                    notification.AccountId
+                );
                 await _ws.PushWebSocketPacket(
                     notification.AccountId.ToString(),
                     "notifications.new",
@@ -442,7 +491,11 @@ public class PushService
             }
 
             var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
-            var subscriptionByDevice = SelectSubscriptionsByDevice(subscriptions, connectedSopDeviceIds, notification);
+            var subscriptionByDevice = SelectSubscriptionsByDevice(
+                subscriptions,
+                connectedSopDeviceIds,
+                notification
+            );
 
             var websocketExclusions = BuildWebSocketExclusions(
                 connectedSopDeviceIds,
@@ -456,7 +509,9 @@ public class PushService
                 websocketExclusions
             );
 
-            var tasks = subscriptionByDevice.Values.Select(sub => SendPushNotificationAsync(sub, notification)).ToList();
+            var tasks = subscriptionByDevice
+                .Values.Select(sub => SendPushNotificationAsync(sub, notification))
+                .ToList();
             await Task.WhenAll(tasks);
         }
         catch (Exception ex)
@@ -470,10 +525,11 @@ public class PushService
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         var id = notifications.Where(n => n.ViewedAt == null).Select(n => n.Id).ToList();
-        if (id.Count == 0) return;
+        if (id.Count == 0)
+            return;
 
-        await _db.Notifications
-            .Where(n => id.Contains(n.Id))
+        await _db
+            .Notifications.Where(n => id.Contains(n.Id))
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.ViewedAt, now));
     }
 
@@ -481,8 +537,7 @@ public class PushService
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         await ApplyNotificationAppFilter(
-                _db.Notifications
-                    .Where(n => n.AccountId == accountId)
+                _db.Notifications.Where(n => n.AccountId == accountId)
                     .Where(n => n.ViewedAt == null),
                 appId,
                 useDefaultIfMissing: true
@@ -500,20 +555,22 @@ public class PushService
         if (save)
         {
             var now = SystemClock.Instance.GetCurrentInstant();
-            var notifications = accounts.Select(accountId => new SnNotification
-            {
-                Topic = notification.Topic,
-                Title = notification.Title,
-                Subtitle = notification.Subtitle,
-                Content = notification.Content,
-                Meta = notification.Meta,
-                Priority = notification.Priority,
-                AccountId = accountId,
-                AppId = notification.AppId,
-                PushType = notification.PushType,
-                CreatedAt = now,
-                UpdatedAt = now
-            }).ToList();
+            var notifications = accounts
+                .Select(accountId => new SnNotification
+                {
+                    Topic = notification.Topic,
+                    Title = notification.Title,
+                    Subtitle = notification.Subtitle,
+                    Content = notification.Content,
+                    Meta = notification.Meta,
+                    Priority = notification.Priority,
+                    AccountId = accountId,
+                    AppId = notification.AppId,
+                    PushType = notification.PushType,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                })
+                .ToList();
 
             if (notifications.Count != 0)
             {
@@ -537,8 +594,8 @@ public class PushService
                 await _sopReplayBuffer.AppendNotification(notification);
             BroadcastSopStream(notification);
 
-            var subscriptions = await _db.PushSubscriptions
-                .Where(s => s.AccountId == account)
+            var subscriptions = await _db
+                .PushSubscriptions.Where(s => s.AccountId == account)
                 .Where(s => s.IsActivated)
                 .ToListAsync();
 
@@ -554,7 +611,11 @@ public class PushService
             }
 
             var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
-            var subscriptionByDevice = SelectSubscriptionsByDevice(subscriptions, connectedSopDeviceIds, notification);
+            var subscriptionByDevice = SelectSubscriptionsByDevice(
+                subscriptions,
+                connectedSopDeviceIds,
+                notification
+            );
 
             var websocketExclusions = BuildWebSocketExclusions(
                 connectedSopDeviceIds,
@@ -568,58 +629,89 @@ public class PushService
                 websocketExclusions
             );
 
-            var tasks = subscriptionByDevice.Values.Select(sub => SendPushNotificationAsync(sub, notification)).ToList();
+            var tasks = subscriptionByDevice
+                .Values.Select(sub => SendPushNotificationAsync(sub, notification))
+                .ToList();
             await Task.WhenAll(tasks);
         }
     }
 
-    private async Task SendPushNotificationAsync(SnNotificationPushSubscription subscription,
-        SnNotification notification)
+    private async Task SendPushNotificationAsync(
+        SnNotificationPushSubscription subscription,
+        SnNotification notification
+    )
     {
         try
         {
             var senders = ResolveAppSenders(subscription.AppId);
 
             _logger.LogDebug(
-                $"Pushing notification {notification.Topic} #{notification.Id} to device #{subscription.DeviceId}");
+                $"Pushing notification {notification.Topic} #{notification.Id} to device #{subscription.DeviceId}"
+            );
 
             switch (subscription.Provider)
             {
                 case PushProvider.Google:
                     if (senders?.Fcm == null)
-                        throw new InvalidOperationException("Firebase Cloud Messaging is not initialized.");
+                        throw new InvalidOperationException(
+                            "Firebase Cloud Messaging is not initialized."
+                        );
 
                     var body = string.Empty;
-                    if (!string.IsNullOrEmpty(notification.Subtitle) || !string.IsNullOrEmpty(notification.Content))
+                    if (
+                        !string.IsNullOrEmpty(notification.Subtitle)
+                        || !string.IsNullOrEmpty(notification.Content)
+                    )
                     {
-                        body = string.Join("\n",
-                            notification.Subtitle ?? string.Empty,
-                            notification.Content ?? string.Empty
-                        ).Trim();
+                        body = string.Join(
+                                "\n",
+                                notification.Subtitle ?? string.Empty,
+                                notification.Content ?? string.Empty
+                            )
+                            .Trim();
                     }
 
-                    var fcmResult = await senders.Fcm.SendAsync(new Dictionary<string, object>
-                    {
-                        ["message"] = new Dictionary<string, object>
+                    var fcmResult = await senders.Fcm.SendAsync(
+                        new Dictionary<string, object>
                         {
-                            ["token"] = subscription.DeviceToken,
-                            ["notification"] = new Dictionary<string, object>
+                            ["message"] = new Dictionary<string, object>
                             {
-                                ["title"] = notification.Title ?? string.Empty,
-                                ["body"] = body
-                            }
+                                ["token"] = subscription.DeviceToken,
+                                ["notification"] = new Dictionary<string, object>
+                                {
+                                    ["title"] = notification.Title ?? string.Empty,
+                                    ["body"] = body,
+                                },
+                            },
                         }
-                    });
+                    );
 
-                    if (fcmResult.StatusCode is 404 or 410 || IsInvalidFcmTokenError(fcmResult.Error))
+                    if (
+                        fcmResult.StatusCode is 404 or 410
+                        || IsInvalidFcmTokenError(fcmResult.Error)
+                    )
                         _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
                     else if (fcmResult.Error != null)
-                        throw new Exception($"Notification pushed failed ({fcmResult.StatusCode}) {fcmResult.Error}");
+                        throw new Exception(
+                            $"Notification pushed failed ({fcmResult.StatusCode}) {fcmResult.Error}"
+                        );
                     break;
 
                 case PushProvider.Apple:
-                    if (senders?.Apns == null)
-                        throw new InvalidOperationException("Apple Push Notification Service is not initialized.");
+                    var apnsTopicKey = IsVoipPush(notification)
+                        ? "Alert"
+                        : notification.PushType ?? "Alert";
+                    var apnsPushTopic =
+                        senders?.Topics.GetValueOrDefault(apnsTopicKey)
+                        ?? senders?.DefaultApnsTopic;
+                    if (
+                        senders is null
+                        || string.IsNullOrWhiteSpace(apnsPushTopic)
+                        || !senders.ApnsByTopic.TryGetValue(apnsPushTopic, out var appleApns)
+                    )
+                        throw new InvalidOperationException(
+                            "Apple Push Notification Service is not initialized."
+                        );
 
                     var alertDict = new Dictionary<string, object>();
                     if (!string.IsNullOrEmpty(notification.Title))
@@ -630,8 +722,6 @@ public class PushService
                         alertDict["body"] = notification.Content;
 
                     var isVoip = false;
-                    var apnsTopicKey = IsVoipPush(notification) ? "Alert" : notification.PushType ?? "Alert";
-                    var apnsPushTopic = senders.Topics.GetValueOrDefault(apnsTopicKey) ?? senders.ApnsTopic;
 
                     // VoIP pushes use minimal aps; alert pushes include full alert/sound.
                     var apsDict = isVoip
@@ -640,7 +730,7 @@ public class PushService
                         {
                             ["alert"] = alertDict,
                             ["sound"] = notification.Priority >= 5 ? "default" : null,
-                            ["mutable-content"] = 1
+                            ["mutable-content"] = 1,
                         };
 
                     var payload = new Dictionary<string, object?>
@@ -648,7 +738,7 @@ public class PushService
                         ["topic"] = apnsPushTopic,
                         ["type"] = notification.Topic,
                         ["aps"] = apsDict,
-                        ["meta"] = notification.Meta
+                        ["meta"] = notification.Meta,
                     };
 
                     var apnPushType = isVoip ? ApnPushType.Voip : ApnPushType.Alert;
@@ -666,7 +756,7 @@ public class PushService
                         string.Join(",", notification.Meta.Keys)
                     );
 
-                    var apnResult = await senders.Apns.SendAsync(
+                    var apnResult = await appleApns.SendAsync(
                         payload,
                         deviceToken: subscription.DeviceToken,
                         apnsId: notification.Id.ToString(),
@@ -683,18 +773,26 @@ public class PushService
                         apnResult.Error
                     );
 
-                    if (apnResult.StatusCode is 404 or 410 || IsInvalidApnsTokenError(apnResult.Error))
+                    if (
+                        apnResult.StatusCode is 404 or 410
+                        || IsInvalidApnsTokenError(apnResult.Error)
+                    )
                         _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
                     else if (apnResult.Error != null)
-                        throw new Exception($"Notification pushed failed ({apnResult.StatusCode}) {apnResult.Error}");
+                        throw new Exception(
+                            $"Notification pushed failed ({apnResult.StatusCode}) {apnResult.Error}"
+                        );
 
                     break;
 
                 case PushProvider.Appk:
-                    if (senders?.Apns == null)
+                    var appkTopic = senders?.Topics.GetValueOrDefault("VoIP");
+                    if (
+                        senders is null
+                        || string.IsNullOrWhiteSpace(appkTopic)
+                        || !senders.ApnsByTopic.TryGetValue(appkTopic, out var appkApns)
+                    )
                         throw new InvalidOperationException("Apple PushKit is not initialized.");
-
-                    var appkTopic = senders.Topics.GetValueOrDefault("VoIP");
 
                     var appkMeta = new Dictionary<string, object?>(notification.Meta);
                     if (!string.IsNullOrEmpty(notification.Title))
@@ -711,7 +809,7 @@ public class PushService
                         ["topic"] = appkTopic,
                         ["type"] = notification.Topic,
                         ["aps"] = new Dictionary<string, object?>(),
-                        ["meta"] = appkMeta
+                        ["meta"] = appkMeta,
                     };
 
                     _logger.LogInformation(
@@ -727,7 +825,7 @@ public class PushService
                         string.Join(",", appkMeta.Keys)
                     );
 
-                    var appkResult = await senders.Apns.SendAsync(
+                    var appkResult = await appkApns.SendAsync(
                         appkPayload,
                         deviceToken: subscription.DeviceToken,
                         apnsId: notification.Id.ToString(),
@@ -744,10 +842,15 @@ public class PushService
                         appkResult.Error
                     );
 
-                    if (appkResult.StatusCode is 404 or 410 || IsInvalidApnsTokenError(appkResult.Error))
+                    if (
+                        appkResult.StatusCode is 404 or 410
+                        || IsInvalidApnsTokenError(appkResult.Error)
+                    )
                         _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
                     else if (appkResult.Error != null)
-                        throw new Exception($"Notification pushed failed ({appkResult.StatusCode}) {appkResult.Error}");
+                        throw new Exception(
+                            $"Notification pushed failed ({appkResult.StatusCode}) {appkResult.Error}"
+                        );
 
                     break;
 
@@ -756,15 +859,27 @@ public class PushService
                     break;
 
                 case PushProvider.UnifiedPush:
-                    using (var request = new HttpRequestMessage(HttpMethod.Post, subscription.DeviceToken))
+                    using (
+                        var request = new HttpRequestMessage(
+                            HttpMethod.Post,
+                            subscription.DeviceToken
+                        )
+                    )
                     {
                         // Without storing Web Push encryption metadata yet, send a wake-up ping so the client can sync.
                         request.Content = new ByteArrayContent([]);
                         request.Headers.TryAddWithoutValidation("TTL", "60");
-                        request.Headers.TryAddWithoutValidation("Urgency", notification.Priority >= 5 ? "high" : "normal");
+                        request.Headers.TryAddWithoutValidation(
+                            "Urgency",
+                            notification.Priority >= 5 ? "high" : "normal"
+                        );
 
                         var unifiedPushResult = await _httpClient.SendAsync(request);
-                        if (unifiedPushResult.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone)
+                        if (
+                            unifiedPushResult.StatusCode
+                            is HttpStatusCode.NotFound
+                                or HttpStatusCode.Gone
+                        )
                             _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
                         else if (!unifiedPushResult.IsSuccessStatusCode)
                             throw new Exception(
@@ -774,23 +889,29 @@ public class PushService
                     break;
 
                 default:
-                    throw new InvalidOperationException($"Push provider not supported: {subscription.Provider}");
+                    throw new InvalidOperationException(
+                        $"Push provider not supported: {subscription.Provider}"
+                    );
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
-                $"Failed to push notification #{notification.Id} to device {subscription.DeviceId}. {ex.Message}");
+            _logger.LogError(
+                ex,
+                $"Failed to push notification #{notification.Id} to device {subscription.DeviceId}. {ex.Message}"
+            );
             // Swallow here to keep worker alive; upstream is fire-and-forget.
         }
 
         _logger.LogInformation(
-            $"Successfully pushed notification #{notification.Id} to device {subscription.DeviceId} provider {subscription.Provider}");
+            $"Successfully pushed notification #{notification.Id} to device {subscription.DeviceId} provider {subscription.Provider}"
+        );
     }
 
     private static void BroadcastSopStream(SnNotification notification)
     {
-        if (!SopStreams.TryGetValue(notification.AccountId, out var accountStreams)) return;
+        if (!SopStreams.TryGetValue(notification.AccountId, out var accountStreams))
+            return;
         foreach (var stream in accountStreams.Values)
             stream.Channel.Writer.TryWrite(notification);
     }
@@ -802,15 +923,19 @@ public class PushService
     )
     {
         var subscriptionList = subscriptions.ToList();
-        var hasAnyAppk = IsVoipPush(notification)
-            && subscriptionList.Any(s => s.Provider == PushProvider.Appk);
+        var hasAnyAppk =
+            IsVoipPush(notification) && subscriptionList.Any(s => s.Provider == PushProvider.Appk);
 
         return subscriptions
             .Where(s => IsProviderCompatibleWithNotification(s.Provider, notification, hasAnyAppk))
             .GroupBy(s => NormalizeSopDeviceId(s.DeviceId))
             .ToDictionary(
                 g => g.Key,
-                g => g.OrderByDescending(s => GetSubscriptionPriority(s, connectedSopDeviceIds, notification)).First()
+                g =>
+                    g.OrderByDescending(s =>
+                            GetSubscriptionPriority(s, connectedSopDeviceIds, notification)
+                        )
+                        .First()
             );
     }
 
@@ -818,15 +943,20 @@ public class PushService
         SnNotificationPushSubscription subscription,
         IReadOnlySet<string> connectedSopDeviceIds,
         SnNotification notification
-    ) => subscription.Provider switch
-    {
-        PushProvider.Sop => connectedSopDeviceIds.Contains(NormalizeSopDeviceId(subscription.DeviceId)) ? 5 : 0,
-        PushProvider.Appk => IsVoipPush(notification) ? 4 : 0,
-        PushProvider.Google => 2,
-        PushProvider.UnifiedPush => 1,
-        PushProvider.Apple => IsVoipPush(notification) ? 3 : 4,
-        _ => 0
-    };
+    ) =>
+        subscription.Provider switch
+        {
+            PushProvider.Sop => connectedSopDeviceIds.Contains(
+                NormalizeSopDeviceId(subscription.DeviceId)
+            )
+                ? 5
+                : 0,
+            PushProvider.Appk => IsVoipPush(notification) ? 4 : 0,
+            PushProvider.Google => 2,
+            PushProvider.UnifiedPush => 1,
+            PushProvider.Apple => IsVoipPush(notification) ? 3 : 4,
+            _ => 0,
+        };
 
     private static bool IsProviderCompatibleWithNotification(
         PushProvider provider,
@@ -848,11 +978,10 @@ public class PushService
 
     private static IReadOnlySet<string> GetConnectedSopWebSocketDeviceIds(Guid accountId)
     {
-        if (!SopStreams.TryGetValue(accountId, out var accountStreams)) return new HashSet<string>();
+        if (!SopStreams.TryGetValue(accountId, out var accountStreams))
+            return new HashSet<string>();
 
-        return accountStreams.Values
-            .Select(s => NormalizeSopDeviceId(s.DeviceId))
-            .ToHashSet();
+        return accountStreams.Values.Select(s => NormalizeSopDeviceId(s.DeviceId)).ToHashSet();
     }
 
     private static string NormalizeSopDeviceId(string deviceId)
@@ -892,18 +1021,20 @@ public class PushService
 
     public async Task SaveNotification(SnNotification notification, List<Guid> accounts)
     {
-        _db.Notifications.AddRange(accounts.Select(a => new SnNotification
-        {
-            AccountId = a,
-            Topic = notification.Topic,
-            Content = notification.Content,
-            Title = notification.Title,
-            Subtitle = notification.Subtitle,
-            Meta = notification.Meta,
-            Priority = notification.Priority,
-            CreatedAt = notification.CreatedAt,
-            UpdatedAt = notification.UpdatedAt,
-        }));
+        _db.Notifications.AddRange(
+            accounts.Select(a => new SnNotification
+            {
+                AccountId = a,
+                Topic = notification.Topic,
+                Content = notification.Content,
+                Title = notification.Title,
+                Subtitle = notification.Subtitle,
+                Meta = notification.Meta,
+                Priority = notification.Priority,
+                CreatedAt = notification.CreatedAt,
+                UpdatedAt = notification.UpdatedAt,
+            })
+        );
         await _db.SaveChangesAsync();
     }
 
@@ -925,15 +1056,15 @@ public class PushService
             )
             .CountAsync(cancellationToken);
 
-        var duplicateCount = replayIds.Count == 0
-            ? 0
-            : await ApplyNotificationAppFilter(
-                    _db.Notifications
-                        .Where(s => s.AccountId == accountId)
-                        .Where(s => replayIds.Contains(s.Id)),
-                    appId
-                )
-                .CountAsync(cancellationToken);
+        var duplicateCount =
+            replayIds.Count == 0
+                ? 0
+                : await ApplyNotificationAppFilter(
+                        _db.Notifications.Where(s => s.AccountId == accountId)
+                            .Where(s => replayIds.Contains(s.Id)),
+                        appId
+                    )
+                    .CountAsync(cancellationToken);
 
         var dbFetchCount = offset + take + replayNotifications.Count;
         var dbNotifications = await ApplyNotificationAppFilter(
