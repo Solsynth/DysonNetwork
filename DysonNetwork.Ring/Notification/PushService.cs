@@ -679,12 +679,35 @@ public class PushService
                     if (string.IsNullOrWhiteSpace(appkTopic) && !string.IsNullOrWhiteSpace(senders.ApnsTopic))
                         appkTopic = $"{senders.ApnsTopic}.voip";
 
+                    var appkAlertDict = new Dictionary<string, object>();
+                    if (!string.IsNullOrEmpty(notification.Title))
+                        appkAlertDict["title"] = notification.Title;
+                    if (!string.IsNullOrEmpty(notification.Subtitle))
+                        appkAlertDict["subtitle"] = notification.Subtitle;
+                    if (!string.IsNullOrEmpty(notification.Content))
+                        appkAlertDict["body"] = notification.Content;
+
+                    var appkMeta = new Dictionary<string, object?>(notification.Meta);
+                    if (!string.IsNullOrEmpty(notification.Title))
+                        appkMeta.TryAdd("title", notification.Title);
+                    if (!string.IsNullOrEmpty(notification.Subtitle))
+                        appkMeta.TryAdd("subtitle", notification.Subtitle);
+                    if (!string.IsNullOrEmpty(notification.Content))
+                        appkMeta.TryAdd("body", notification.Content);
+                    if (!string.IsNullOrEmpty(notification.PushType))
+                        appkMeta.TryAdd("push_type", notification.PushType);
+
                     var appkPayload = new Dictionary<string, object?>
                     {
                         ["topic"] = appkTopic,
                         ["type"] = notification.Topic,
-                        ["aps"] = new Dictionary<string, object?>(),
-                        ["meta"] = notification.Meta
+                        ["aps"] = new Dictionary<string, object?>
+                        {
+                            ["alert"] = appkAlertDict.Count > 0 ? appkAlertDict : null,
+                            ["sound"] = notification.Priority >= 5 ? "default" : null,
+                            ["mutable-content"] = 1
+                        },
+                        ["meta"] = appkMeta
                     };
 
                     var appkResult = await senders.Apns.SendAsync(
