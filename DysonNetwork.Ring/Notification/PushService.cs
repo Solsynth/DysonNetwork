@@ -58,7 +58,6 @@ public class PushService
     private static readonly HashSet<string> InvalidApnsErrors = new(StringComparer.OrdinalIgnoreCase)
     {
         "BadDeviceToken",
-        "DeviceTokenNotForTopic",
         "Unregistered"
     };
 
