@@ -445,7 +445,7 @@ public partial class ChatService(
                     // Create and store sync message for link preview update
                     var syncMessage = new SnChatMessage
                     {
-                        Type = "messages.update.links",
+                        Type = "messages.sync.links",
                         ChatRoomId = dbMessage.ChatRoomId,
                         SenderId = dbMessage.SenderId,
                         Nonce = Guid.NewGuid().ToString(),
@@ -2046,7 +2046,7 @@ public partial class ChatService(
         // Create and store sync message for the update
         var syncMessage = new SnChatMessage
         {
-            Type = "messages.update",
+            Type = "messages.sync.finalize",
             ChatRoomId = message.ChatRoomId,
             SenderId = message.SenderId,
             Content = message.Content,
