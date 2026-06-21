@@ -109,6 +109,8 @@ public class QrLoginController(
         public Instant ExpiresAt { get; set; }
         public Instant? ApprovedAt { get; set; }
         public string? ApprovedDeviceId { get; set; }
+        public string? DeviceName { get; set; }
+        public ClientPlatform Platform { get; set; }
     }
 
     [HttpGet("{id:guid}")]
@@ -126,7 +128,9 @@ public class QrLoginController(
             Status = qrChallenge.Status,
             ExpiresAt = qrChallenge.ExpiresAt,
             ApprovedAt = qrChallenge.ApprovedAt,
-            ApprovedDeviceId = qrChallenge.ApprovedDeviceId
+            ApprovedDeviceId = qrChallenge.ApprovedDeviceId,
+            DeviceName = qrChallenge.DeviceName,
+            Platform = qrChallenge.Platform
         });
     }
 
