@@ -2662,7 +2662,7 @@ public partial class ChatService(
         // Create and deliver a sync message so clients see the finalization
         var syncMessage = new SnChatMessage
         {
-            Type = "messages.update",
+            Type = "messages.sync.finalize",
             ChatRoomId = message.ChatRoomId,
             SenderId = message.SenderId,
             Content = message.Content,
