@@ -1604,7 +1604,7 @@ public partial class PostService(
             _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
         }
 
-        if (isPublishedNow && post.Visibility == PostVisibility.Public)
+        if (isPublishedNow && post.Visibility == PostVisibility.Public && post.Type != PostType.Blog)
             QueuePostIndex(post.Id);
 
         // Send ActivityPub Create activity in background for public posts
@@ -1706,6 +1706,7 @@ public partial class PostService(
         var shouldReindex =
             isPublished
             && post.Visibility == PostVisibility.Public
+            && post.Type != PostType.Blog
             && (
                 !wasPublished
                 || previousVisibility != PostVisibility.Public

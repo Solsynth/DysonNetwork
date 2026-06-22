@@ -68,6 +68,7 @@ public class AppDatabase(
                     Nodes = new List<string>
                         {
                             "posts.create",
+                            "posts.create.blog",
                             "posts.react",
                             "publishers.create",
                             "files.create",

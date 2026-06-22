@@ -39,6 +39,7 @@ public class AppDatabase(
     public DbSet<SnPostInterestProfile> PostInterestProfiles { get; set; } = null!;
     public DbSet<SnDiscoveryPreference> DiscoveryPreferences { get; set; } = null!;
     public DbSet<SnPublishingSettings> PublishingSettings { get; set; } = null!;
+    public DbSet<SnPublisherVerifiedDomain> PublisherVerifiedDomains { get; set; } = null!;
     public DbSet<SnAutomodRule> AutomodRules { get; set; } = null!;
 
     public DbSet<SnPoll> Polls { get; set; } = null!;
@@ -130,6 +131,12 @@ public class AppDatabase(
             .HasOne(r => r.Publisher)
             .WithMany(p => p.RatingRecords)
             .HasForeignKey(r => r.PublisherId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnPublisherVerifiedDomain>()
+            .HasOne(d => d.Publisher)
+            .WithMany()
+            .HasForeignKey(d => d.PublisherId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnPost>()

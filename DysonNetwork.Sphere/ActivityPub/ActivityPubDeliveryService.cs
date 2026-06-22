@@ -588,7 +588,7 @@ public class ActivityPubDeliveryService(
         var announceObject = new Dictionary<string, object>
         {
             ["id"] = targetPostUri,
-            ["type"] = post.Type == PostType.Article ? "Article" : "Note",
+            ["type"] = post.Type is PostType.Article or PostType.Blog ? "Article" : "Note",
         };
 
         if (!string.IsNullOrEmpty(content))

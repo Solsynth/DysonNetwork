@@ -179,10 +179,33 @@ public class PostActionController(
     )
     {
         request.Content = TextSanitizer.Sanitize(request.Content);
-        if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
-            return BadRequest("Content is required.");
+        if (request.Type != PostType.Blog)
+        {
+            if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
+                return BadRequest("Content is required.");
+        }
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
+
+        // Blog posts require the posts.create.blog permission
+        if (request.Type == PostType.Blog)
+        {
+            if (!currentUser.IsSuperuser)
+            {
+                using var scope = HttpContext.RequestServices.CreateScope();
+                var permissionService = scope.ServiceProvider.GetRequiredService<DyPermissionService.DyPermissionServiceClient>();
+                var permResp = await permissionService.HasPermissionAsync(new DyHasPermissionRequest
+                {
+                    Actor = currentUser.Id,
+                    Key = "posts.create.blog"
+                });
+                if (!permResp.HasPermission)
+                    return StatusCode(403, "You do not have permission to create blog posts.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Content) || !Uri.TryCreate(request.Content, UriKind.Absolute, out _))
+                return BadRequest("Blog post content must be a valid URL.");
+        }
 
         if (!string.IsNullOrWhiteSpace(request.ThumbnailId) && request.Type != PostType.Article)
             return BadRequest("Thumbnail only supported in article.");
@@ -245,6 +268,21 @@ public class PostActionController(
         if (publisher is null)
             return BadRequest("Publisher was not found.");
 
+        // Domain verification for blog posts
+        if (request.Type == PostType.Blog && !currentUser.IsSuperuser)
+        {
+            if (!Uri.TryCreate(request.Content, UriKind.Absolute, out var blogUri))
+                return BadRequest("Blog post content must be a valid URL.");
+
+            var host = blogUri.Host.ToLowerInvariant();
+            var isDomainVerified = await db.PublisherVerifiedDomains
+                .AnyAsync(d => d.PublisherId == publisher.Id
+                    && d.Domain == host
+                    && d.Status == DomainVerificationStatus.Verified);
+            if (!isDomainVerified)
+                return StatusCode(403, "This domain is not verified for your publisher. Add it via the domains endpoint first.");
+        }
+
         var post = new SnPost
         {
             Title = request.Title,
@@ -256,7 +294,9 @@ public class PostActionController(
             PublishedAt = request.PublishedAt,
             Type = request.Type ?? PostType.Moment,
             Metadata = request.Meta,
-            EmbedView = request.EmbedView,
+            EmbedView = request.Type == PostType.Blog
+                ? new PostEmbedView { Uri = request.Content!, Renderer = PostEmbedViewRenderer.WebView }
+                : request.EmbedView,
             Language = request.Language,
             Publisher = publisher,
         };
@@ -970,8 +1010,11 @@ public class PostActionController(
     )
     {
         request.Content = TextSanitizer.Sanitize(request.Content);
-        if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
-            return BadRequest("Content is required.");
+        if (request.Type != PostType.Blog)
+        {
+            if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
+                return BadRequest("Content is required.");
+        }
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
@@ -1039,12 +1082,50 @@ public class PostActionController(
         if (request.DraftedAt is not null)
             post.DraftedAt = request.DraftedAt;
 
+        // Blog post validation on update
+        var effectiveType = request.Type ?? post.Type;
+        if (effectiveType == PostType.Blog)
+        {
+            if (!currentUser.IsSuperuser)
+            {
+                using var scope = HttpContext.RequestServices.CreateScope();
+                var permissionService = scope.ServiceProvider.GetRequiredService<DyPermissionService.DyPermissionServiceClient>();
+                var permResp = await permissionService.HasPermissionAsync(new DyHasPermissionRequest
+                {
+                    Actor = currentUser.Id,
+                    Key = "posts.create.blog"
+                });
+                if (!permResp.HasPermission)
+                    return StatusCode(403, "You do not have permission to create blog posts.");
+
+                // Verify domain if content changed
+                if (request.Content is not null)
+                {
+                    if (!Uri.TryCreate(request.Content, UriKind.Absolute, out var blogUri))
+                        return BadRequest("Blog post content must be a valid URL.");
+
+                    var host = blogUri.Host.ToLowerInvariant();
+                    var isDomainVerified = await db.PublisherVerifiedDomains
+                        .AnyAsync(d => d.PublisherId == post.PublisherId
+                            && d.Domain == host
+                            && d.Status == DomainVerificationStatus.Verified);
+                    if (!isDomainVerified)
+                        return StatusCode(403, "This domain is not verified for your publisher.");
+                }
+            }
+
+            // Update EmbedView to match blog URL
+            if (request.Content is not null)
+                post.EmbedView = new PostEmbedView { Uri = request.Content, Renderer = PostEmbedViewRenderer.WebView };
+        }
+
         var updateLocationError = TryParseLocation(request.LocationWkt, out var location);
         if (updateLocationError is not null)
             return updateLocationError;
 
         // The same, this field can be null, so update it anyway.
-        post.EmbedView = request.EmbedView;
+        if (effectiveType != PostType.Blog)
+            post.EmbedView = request.EmbedView;
 
         // If client provides the complete embeds list, use it directly (replaces all)
         if (request.Embeds is { Count: > 0 })

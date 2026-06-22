@@ -248,6 +248,7 @@ public class PostServiceGrpc(
             var types = request.Types_.Select(t => t switch
             {
                 DyPostType.DyArticle => PostType.Article,
+                DyPostType.DyBlog => PostType.Blog,
                 _ => PostType.Moment
             }).Distinct();
             query = query.Where(p => types.Contains(p.Type));

@@ -51,7 +51,7 @@ public class TimelineService(
     {
         var performanceScore =
             post.ReactionScore * 1.4 + post.ThreadRepliesCount * 0.8 + (double)post.AwardedScore / 10d;
-        if (post.Type == PostType.Article)
+        if (post.Type is PostType.Article or PostType.Blog)
             performanceScore += ArticleTypeBoost;
         if (post.Realm is not null && post.Realm.BoostLevel > 0)
             performanceScore += post.Realm.BoostLevel * RealmBoostLevelRankBonus;
@@ -1692,7 +1692,7 @@ public class TimelineService(
             0d,
             post.ReactionScore * 0.15d + (double)post.AwardedScore / 50d + post.RepliesCount * 0.08d
         );
-        var articleBonus = post.Type == PostType.Article ? 0.35d : 0d;
+        var articleBonus = post.Type is PostType.Article or PostType.Blog ? 0.35d : 0d;
         var ageDays = Math.Max(0d, (now - GetPostTimelineInstant(post)).TotalDays);
         var freshness = 1d / Math.Pow(ageDays + 1d, 0.35d);
         return (tagScore + categoryScore + collectionScore + engagementScore + articleBonus) * freshness;

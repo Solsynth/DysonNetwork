@@ -1044,4 +1044,136 @@ public class PublisherController(
             return StatusCode(403, ex.Message);
         }
     }
+
+    public class AddDomainRequest
+    {
+        [MaxLength(512)] public string Domain { get; set; } = string.Empty;
+    }
+
+    [HttpGet("{name}/domains")]
+    [Authorize]
+    public async Task<ActionResult<List<SnPublisherVerifiedDomain>>> ListDomains(string name)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+            return StatusCode(403, "You need at least be an editor to view domains.");
+
+        var domains = await db.PublisherVerifiedDomains
+            .Where(d => d.PublisherId == publisher.Id)
+            .OrderBy(d => d.Domain)
+            .ToListAsync();
+
+        return Ok(domains);
+    }
+
+    [HttpPost("{name}/domains")]
+    [Authorize]
+    public async Task<ActionResult<SnPublisherVerifiedDomain>> AddDomain(
+        string name,
+        [FromBody] AddDomainRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
+            return StatusCode(403, "You need at least be a manager to add domains.");
+
+        var domain = request.Domain.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(domain))
+            return BadRequest("Domain is required.");
+
+        var existing = await db.PublisherVerifiedDomains
+            .FirstOrDefaultAsync(d => d.PublisherId == publisher.Id && d.Domain == domain);
+        if (existing is not null)
+            return Conflict("This domain already exists for this publisher.");
+
+        var record = new SnPublisherVerifiedDomain
+        {
+            PublisherId = publisher.Id,
+            Domain = domain,
+            Status = DomainVerificationStatus.Pending
+        };
+        db.PublisherVerifiedDomains.Add(record);
+        await db.SaveChangesAsync();
+
+        // Trigger verification in background
+        using (var scope = factory.CreateScope())
+        {
+            var verificationService = scope.ServiceProvider.GetRequiredService<DomainVerificationService>();
+            _ = Task.Run(async () => await verificationService.VerifyDomainAsync(publisher.Id, domain));
+        }
+
+        return Ok(record);
+    }
+
+    [HttpDelete("{name}/domains/{domainId:guid}")]
+    [Authorize]
+    public async Task<ActionResult> RemoveDomain(string name, Guid domainId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
+            return StatusCode(403, "You need at least be a manager to remove domains.");
+
+        var domain = await db.PublisherVerifiedDomains
+            .FirstOrDefaultAsync(d => d.Id == domainId && d.PublisherId == publisher.Id);
+        if (domain is null)
+            return NotFound();
+
+        db.PublisherVerifiedDomains.Remove(domain);
+        await db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [HttpPost("{name}/domains/{domainId:guid}/recheck")]
+    [Authorize]
+    public async Task<ActionResult<SnPublisherVerifiedDomain>> RecheckDomain(string name, Guid domainId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
+            return StatusCode(403, "You need at least be a manager to recheck domains.");
+
+        var domain = await db.PublisherVerifiedDomains
+            .FirstOrDefaultAsync(d => d.Id == domainId && d.PublisherId == publisher.Id);
+        if (domain is null)
+            return NotFound();
+
+        domain.Status = DomainVerificationStatus.Pending;
+        await db.SaveChangesAsync();
+
+        using var scope = factory.CreateScope();
+        var verificationService = scope.ServiceProvider.GetRequiredService<DomainVerificationService>();
+        await verificationService.VerifyDomainAsync(publisher.Id, domain.Domain);
+
+        // Reload to get updated status
+        await db.Entry(domain).ReloadAsync();
+        return Ok(domain);
+    }
 }

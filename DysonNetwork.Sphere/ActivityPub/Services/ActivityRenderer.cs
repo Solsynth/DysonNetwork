@@ -105,7 +105,7 @@ public class ActivityRenderer(IConfiguration configuration, AppDatabase db)
         var postObject = new Dictionary<string, object>
         {
             ["id"] = postUrl,
-            ["type"] = post.Type == PostType.Article ? "Article" : "Note",
+            ["type"] = post.Type is PostType.Article or PostType.Blog ? "Article" : "Note",
             ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
             ["attributedTo"] = actorUrl,
             ["content"] = Markdown.ToHtml(finalContent),
