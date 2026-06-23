@@ -203,7 +203,7 @@ public class AccountService(
                 AccountId = account.Id,
                 EnabledAt = SystemClock.Instance.GetCurrentInstant(),
             },
-            AccountAuthFactorType.TimedCode => CreateTimedCodeFactor(account.Id, secret),
+            AccountAuthFactorType.TimedCode => CreateTimedCodeFactor(account.Id, secret, account.Name),
             AccountAuthFactorType.PinCode when !string.IsNullOrWhiteSpace(secret) => new SnAccountAuthFactor
             {
                 Type = AccountAuthFactorType.PinCode,
@@ -260,11 +260,13 @@ public class AccountService(
         return factor;
     }
 
-    private static SnAccountAuthFactor CreateTimedCodeFactor(Guid accountId, string? secret)
+    private static SnAccountAuthFactor CreateTimedCodeFactor(Guid accountId, string? secret, string? accountName = null)
     {
         var totpSecret = string.IsNullOrWhiteSpace(secret)
             ? Base32Encoding.ToString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(20))
             : secret;
+        var label = accountName ?? accountId.ToString();
+        var uri = $"otpauth://totp/SolarNetwork:{Uri.EscapeDataString(label)}?secret={totpSecret}&issuer=SolarNetwork&digits=6&period=30";
         return new SnAccountAuthFactor
         {
             Type = AccountAuthFactorType.TimedCode,
@@ -273,7 +275,8 @@ public class AccountService(
             Secret = totpSecret,
             CreatedResponse = new Dictionary<string, object>
             {
-                ["secret"] = totpSecret
+                ["secret"] = totpSecret,
+                ["uri"] = uri
             }
         };
     }
