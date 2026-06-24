@@ -1,6 +1,9 @@
+using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
+using DysonNetwork.Padlock.Auth.OidcProvider.Models;
 using DysonNetwork.Padlock.Auth.OidcProvider.Responses;
 using DysonNetwork.Padlock.Auth.OidcProvider.Services;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -10,6 +13,7 @@ using DysonNetwork.Padlock.Auth.OidcProvider.Options;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Shared.Models;
 using Microsoft.IdentityModel.Tokens;
+using NodaTime;
 
 namespace DysonNetwork.Padlock.Auth.OidcProvider.Controllers;
 
@@ -295,6 +299,39 @@ public class OidcProviderController(
                         });
                     }
                 }
+            case "urn:ietf:params:oauth:grant-type:device_code" when string.IsNullOrEmpty(request.DeviceCode):
+                return BadRequest(new ErrorResponse { Error = "invalid_request", ErrorDescription = "device_code is required" });
+            case "urn:ietf:params:oauth:grant-type:device_code":
+                {
+                    if (!isPublicClient)
+                    {
+                        if (string.IsNullOrEmpty(request.ClientSecret) ||
+                            !await oidcService.ValidateClientCredentialsAsync(client.Id, request.ClientSecret!))
+                            return BadRequest(new ErrorResponse { Error = "invalid_client", ErrorDescription = "Invalid client credentials" });
+                    }
+
+                    try
+                    {
+                        var tokenResponse = await oidcService.HandleDeviceCodeGrantAsync(request.DeviceCode!, client.Id);
+                        return Ok(tokenResponse);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        var errorCode = ex.Message switch
+                        {
+                            var m when m.Contains("pending") => "authorization_pending",
+                            var m when m.Contains("expired") => "expired_token",
+                            var m when m.Contains("declined") => "access_denied",
+                            _ => "invalid_grant"
+                        };
+
+                        return BadRequest(new ErrorResponse
+                        {
+                            Error = errorCode,
+                            ErrorDescription = ex.Message
+                        });
+                    }
+                }
             default:
                 return BadRequest(new ErrorResponse { Error = "unsupported_grant_type" });
         }
@@ -382,13 +419,14 @@ public class OidcProviderController(
         {
             issuer,
             authorization_endpoint = $"{siteUrl}/auth/authorize",
+            device_authorization_endpoint = $"{baseUrl}/padlock/auth/open/device/code",
             token_endpoint = $"{baseUrl}/padlock/auth/open/token",
             userinfo_endpoint = $"{baseUrl}/padlock/auth/open/userinfo",
             jwks_uri = $"{baseUrl}/.well-known/jwks",
             scopes_supported = new[] { "openid", "profile", "email" },
             response_types_supported = new[]
                 { "code", "token", "id_token", "code token", "code id_token", "token id_token", "code token id_token" },
-            grant_types_supported = new[] { "authorization_code", "refresh_token" },
+            grant_types_supported = new[] { "authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:device_code" },
             token_endpoint_auth_methods_supported = new[] { "client_secret_basic", "client_secret_post", "none" },
             id_token_signing_alg_values_supported = new[] { "HS256", "RS256" },
             subject_types_supported = new[] { "public" },
@@ -432,6 +470,125 @@ public class OidcProviderController(
             }
         });
     }
+
+    public class DeviceCodeRequest
+    {
+        [Required] [JsonPropertyName("client_id")] [FromForm(Name = "client_id")] public string ClientId { get; set; } = null!;
+        [JsonPropertyName("scope")] [FromForm(Name = "scope")] public string? Scope { get; set; }
+        [JsonPropertyName("nonce")] [FromForm(Name = "nonce")] public string? Nonce { get; set; }
+    }
+
+    [HttpPost("device/code")]
+    [Consumes("application/x-www-form-urlencoded")]
+    public async Task<IActionResult> RequestDeviceCode([FromForm] DeviceCodeRequest request)
+    {
+        if (string.IsNullOrEmpty(request.ClientId))
+            return BadRequest(new ErrorResponse { Error = "invalid_request", ErrorDescription = "client_id is required" });
+
+        var client = await FindClientByIdentifierAsync(request.ClientId);
+        if (client == null)
+            return BadRequest(new ErrorResponse { Error = "unauthorized_client", ErrorDescription = "Client not found" });
+
+        var siteUrl = configuration["SiteUrl"] ?? "https://solsynth.dev";
+        var scopes = request.Scope?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [];
+
+        var info = await oidcService.GenerateDeviceCodeAsync(client.Id, scopes, request.Nonce);
+
+        return Ok(new DeviceCodeResponse
+        {
+            DeviceCode = info.DeviceCode,
+            UserCode = info.UserCode,
+            VerificationUri = $"{siteUrl}/auth/device",
+            VerificationUriComplete = $"{siteUrl}/auth/device?code={info.UserCode}",
+            ExpiresIn = (int)(info.ExpiresAt - info.CreatedAt).TotalSeconds,
+            Interval = 5
+        });
+    }
+
+    public class DeviceCodeStatusResponse
+    {
+        [JsonPropertyName("user_code")] public string UserCode { get; set; } = string.Empty;
+        [JsonPropertyName("client_id")] public Guid ClientId { get; set; }
+        [JsonPropertyName("scopes")] public List<string> Scopes { get; set; } = [];
+        [JsonPropertyName("status")] public string Status { get; set; } = string.Empty;
+        [JsonPropertyName("expires_at")] public Instant ExpiresAt { get; set; }
+    }
+
+    [HttpGet("device/code/{userCode}")]
+    public async Task<IActionResult> GetDeviceCodeStatus(string userCode)
+    {
+        var info = await oidcService.GetDeviceCodeByUserCodeAsync(userCode.ToUpperInvariant());
+        if (info == null)
+            return NotFound(new ErrorResponse { Error = "not_found", ErrorDescription = "Device code not found or expired." });
+
+        return Ok(new DeviceCodeStatusResponse
+        {
+            UserCode = info.UserCode,
+            ClientId = info.ClientId,
+            Scopes = info.Scopes,
+            Status = info.Status.ToString().ToLowerInvariant(),
+            ExpiresAt = info.ExpiresAt
+        });
+    }
+
+    [Authorize]
+    [RequireInteractiveSession]
+    [HttpPost("device/code/{userCode}/approve")]
+    public async Task<IActionResult> ApproveDeviceCode(string userCode)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+        if (HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
+            return Unauthorized();
+
+        var info = await oidcService.GetDeviceCodeByUserCodeAsync(userCode.ToUpperInvariant());
+        if (info == null)
+            return NotFound(new ErrorResponse { Error = "not_found", ErrorDescription = "Device code not found or expired." });
+
+        if (info.Status != DeviceCodeStatus.Pending)
+            return BadRequest(new ErrorResponse { Error = "invalid_request", ErrorDescription = "Device code is no longer pending." });
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (now > info.ExpiresAt)
+        {
+            info.Status = DeviceCodeStatus.Expired;
+            await oidcService.UpdateDeviceCodeAsync(info);
+            return BadRequest(new ErrorResponse { Error = "expired_token", ErrorDescription = "Device code has expired." });
+        }
+
+        info.AccountId = currentUser.Id;
+        info.Status = DeviceCodeStatus.Approved;
+        info.ApprovedAt = now;
+        info.ApprovedBySessionId = currentSession.Id;
+        await oidcService.UpdateDeviceCodeAsync(info);
+
+        return Ok();
+    }
+
+    [Authorize]
+    [RequireInteractiveSession]
+    [HttpPost("device/code/{userCode}/decline")]
+    public async Task<IActionResult> DeclineDeviceCode(string userCode)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+        if (HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
+            return Unauthorized();
+
+        var info = await oidcService.GetDeviceCodeByUserCodeAsync(userCode.ToUpperInvariant());
+        if (info == null)
+            return NotFound(new ErrorResponse { Error = "not_found", ErrorDescription = "Device code not found or expired." });
+
+        if (info.Status != DeviceCodeStatus.Pending)
+            return BadRequest(new ErrorResponse { Error = "invalid_request", ErrorDescription = "Device code is no longer pending." });
+
+        info.Status = DeviceCodeStatus.Declined;
+        info.ApprovedAt = SystemClock.Instance.GetCurrentInstant();
+        info.ApprovedBySessionId = currentSession.Id;
+        await oidcService.UpdateDeviceCodeAsync(info);
+
+        return Ok();
+    }
 }
 
 public class TokenRequest
@@ -467,4 +624,8 @@ public class TokenRequest
     [JsonPropertyName("code_verifier")]
     [FromForm(Name = "code_verifier")]
     public string? CodeVerifier { get; set; }
+
+    [JsonPropertyName("device_code")]
+    [FromForm(Name = "device_code")]
+    public string? DeviceCode { get; set; }
 }

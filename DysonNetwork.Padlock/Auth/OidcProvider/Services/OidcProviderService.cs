@@ -34,9 +34,13 @@ public class OidcProviderService(
     private const string CacheKeyPrefixClientId = "auth:oidc-client:id:";
     private const string CacheKeyPrefixClientSlug = "auth:oidc-client:slug:";
     private const string CacheKeyPrefixAuthCode = "auth:oidc-code:";
+    private const string CacheKeyPrefixDeviceCode = "auth:device-code:";
+    private const string CacheKeyPrefixUserCode = "auth:user-code:";
     private const string AccountVersionPrefix = "auth:account_ver:";
     private const string CodeChallengeMethodS256 = "S256";
     private const string CodeChallengeMethodPlain = "PLAIN";
+
+    private static readonly TimeSpan DeviceCodeLifetime = TimeSpan.FromMinutes(10);
 
     public async Task<SnCustomApp?> FindClientByIdAsync(Guid clientId)
     {
@@ -722,5 +726,137 @@ public class OidcProviderService(
         var base64 = Base64UrlEncoder.Encode(hash);
 
         return string.Equals(base64, codeChallenge, StringComparison.Ordinal);
+    }
+
+    public async Task<DeviceCodeInfo> GenerateDeviceCodeAsync(Guid clientId, IEnumerable<string> scopes, string? nonce)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var deviceCode = GenerateRandomString(32);
+        var userCode = GenerateUserCode();
+
+        var info = new DeviceCodeInfo
+        {
+            DeviceCode = deviceCode,
+            UserCode = userCode,
+            ClientId = clientId,
+            Scopes = scopes.ToList(),
+            Nonce = nonce,
+            Status = DeviceCodeStatus.Pending,
+            CreatedAt = now,
+            ExpiresAt = now.Plus(Duration.FromTimeSpan(DeviceCodeLifetime))
+        };
+
+        await cache.SetAsync($"{CacheKeyPrefixDeviceCode}{deviceCode}", info, DeviceCodeLifetime);
+        await cache.SetAsync($"{CacheKeyPrefixUserCode}{userCode}", deviceCode, DeviceCodeLifetime);
+
+        return info;
+    }
+
+    public async Task<DeviceCodeInfo?> GetDeviceCodeByUserCodeAsync(string userCode)
+    {
+        var (found, deviceCode) = await cache.GetAsyncWithStatus<string>($"{CacheKeyPrefixUserCode}{userCode}");
+        if (!found || string.IsNullOrEmpty(deviceCode)) return null;
+
+        var (infoFound, info) = await cache.GetAsyncWithStatus<DeviceCodeInfo>($"{CacheKeyPrefixDeviceCode}{deviceCode}");
+        return infoFound ? info : null;
+    }
+
+    public async Task<DeviceCodeInfo?> GetDeviceCodeAsync(string deviceCode)
+    {
+        var (found, info) = await cache.GetAsyncWithStatus<DeviceCodeInfo>($"{CacheKeyPrefixDeviceCode}{deviceCode}");
+        return found ? info : null;
+    }
+
+    public async Task UpdateDeviceCodeAsync(DeviceCodeInfo info)
+    {
+        var remainingTtl = info.ExpiresAt - SystemClock.Instance.GetCurrentInstant();
+        if (remainingTtl.TotalSeconds <= 0) return;
+        await cache.SetAsync($"{CacheKeyPrefixDeviceCode}{info.DeviceCode}", info, remainingTtl.ToTimeSpan());
+    }
+
+    public async Task<TokenResponse> HandleDeviceCodeGrantAsync(string deviceCode, Guid clientId)
+    {
+        var info = await GetDeviceCodeAsync(deviceCode);
+        if (info == null)
+            throw new InvalidOperationException("Invalid device code.");
+
+        if (info.ClientId != clientId)
+            throw new InvalidOperationException("Device code was not issued to this client.");
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        if (now > info.ExpiresAt)
+        {
+            info.Status = DeviceCodeStatus.Expired;
+            await UpdateDeviceCodeAsync(info);
+            throw new InvalidOperationException("Device code has expired.");
+        }
+
+        if (info.Status == DeviceCodeStatus.Declined)
+            throw new InvalidOperationException("Device code authorization was declined.");
+
+        if (info.Status != DeviceCodeStatus.Approved || info.AccountId == null)
+            throw new InvalidOperationException("Authorization pending.");
+
+        var account = await db.Accounts
+            .Where(a => a.Id == info.AccountId)
+            .Include(a => a.Contacts)
+            .FirstOrDefaultAsync();
+        if (account == null)
+            throw new InvalidOperationException("Account not found.");
+
+        var session = await auth.CreateSessionForOidcAsync(account, now, clientId);
+        session.Account = account;
+
+        await auth.UpsertAuthorizedAppAsync(
+            session.AccountId,
+            clientId,
+            AuthorizedAppType.Oidc,
+            null,
+            null
+        );
+
+        var client = await FindClientByIdAsync(clientId);
+        var expiresIn = (int)_options.AccessTokenLifetime.TotalSeconds;
+        var expiresAt = now.Plus(Duration.FromSeconds(expiresIn));
+
+        var accessToken = await GenerateJwtToken(client!, session, expiresAt, info.Scopes);
+        var idToken = GenerateIdToken(client!, session, info.Nonce, info.Scopes);
+        var sessionVersion = await GetAccountVersionAsync(session.AccountId);
+        var refreshToken = authJwt.CreateRefreshToken(
+            session,
+            sessionVersion,
+            session.ExpiredAt ?? now.Plus(Duration.FromSeconds(_options.RefreshTokenLifetime.TotalSeconds))
+        );
+
+        // Clean up device code
+        await cache.RemoveAsync($"{CacheKeyPrefixDeviceCode}{deviceCode}");
+        await cache.RemoveAsync($"{CacheKeyPrefixUserCode}{info.UserCode}");
+
+        return new TokenResponse
+        {
+            AccessToken = accessToken,
+            IdToken = idToken,
+            ExpiresIn = expiresIn,
+            TokenType = "Bearer",
+            RefreshToken = refreshToken,
+            Scope = info.Scopes.Count > 0 ? string.Join(" ", info.Scopes) : null
+        };
+    }
+
+    private static string GenerateUserCode()
+    {
+        const string chars = "BCDFGHJKLMNPQRSTVWXYZ";
+        var random = RandomNumberGenerator.Create();
+        var code = new char[8];
+        var bytes = new byte[8];
+        random.GetBytes(bytes);
+
+        for (var i = 0; i < 8; i++)
+        {
+            if (i == 4) code[i] = '-';
+            else code[i] = chars[bytes[i] % chars.Length];
+        }
+
+        return new string(code);
     }
 }
