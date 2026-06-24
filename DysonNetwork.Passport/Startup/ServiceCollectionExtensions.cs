@@ -150,16 +150,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPresenceService, SteamPresenceService>();
 
         services.AddGrpcClientWithSharedChannel<DyAccountService.DyAccountServiceClient>(
-            "https://_grpc.padlock",
-            "DyAccountService");
+            configuration, "padlock", "DyAccountService");
         services.AddGrpcClientWithSharedChannel<DyProfileService.DyProfileServiceClient>(
-            "https://_grpc.passport",
-            "DyProfileService");
+            configuration, "passport", "DyProfileService");
         services.AddScoped<RemoteAccountContactService>();
         services.AddScoped<RemoteAccountConnectionService>();
         services.AddGrpcClientWithSharedChannel<DyActionLogService.DyActionLogServiceClient>(
-            "https://_grpc.padlock",
-            "DyActionLogService");
+            configuration, "padlock", "DyActionLogService");
         services.AddSingleton<RemoteActionLogService>();
 
         services.AddScoped<PassRewindService>();

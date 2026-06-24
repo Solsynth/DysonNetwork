@@ -13,18 +13,18 @@ builder.ConfigureAppKestrel(builder.Configuration);
 
 builder.Services.AddAppServices();
 builder.Services.AddAppAuthentication();
-builder.Services.AddDysonAuth();
-builder.Services.AddAccountService();
-builder.Services.AddBladeService();
-builder.Services.AddRingService();
-builder.Services.AddDriveService();
-builder.Services.AddSphereService();
-builder.Services.AddWalletService();
-builder.Services.AddDevelopService();
+builder.Services.AddDysonAuth(builder.Configuration);
+builder.Services.AddAccountService(builder.Configuration);
+builder.Services.AddBladeService(builder.Configuration);
+builder.Services.AddRingService(builder.Configuration);
+builder.Services.AddDriveService(builder.Configuration);
+builder.Services.AddSphereService(builder.Configuration);
+builder.Services.AddWalletService(builder.Configuration);
+builder.Services.AddDevelopService(builder.Configuration);
 
 builder.Services.AddAppBusinessServices(builder.Configuration);
 builder.Services.AddAppScheduledJobs(builder.Configuration);
-builder.Services.AddMlsService();
+builder.Services.AddMlsService(builder.Configuration);
 
 builder.AddSwaggerManifest(
     "DysonNetwork.Messager",
