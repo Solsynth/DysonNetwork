@@ -26,7 +26,7 @@ public class AccountEventService(
     RemoteWebSocketService ws,
     RemoteAccountConnectionService accountConnections,
     RelationshipService relationships,
-    DyAgentCompletionService.DyAgentCompletionServiceClient agentCompletion,
+    DyPersonalityService.DyPersonalityServiceClient personality,
     NotableDaysService notableDaysService,
     IEventBus eventBus,
     IConfiguration configuration,
@@ -789,12 +789,11 @@ public class AccountEventService(
 
         try
         {
-            var request = new DyAgentCompletionRequest
+            var request = new DyCompletePersonalityRequest
             {
-                Persona = DyAgentPersona.Michan,
+                AgentId = "michan",
                 AccountId = account.Id.ToString(),
-                Topic = $"每日签到运势 v{FortuneReportVersion}",
-                UserMessage = BuildCheckInFortunePrompt(
+                Message = BuildCheckInFortunePrompt(
                     account,
                     checkInDate,
                     isBirthday,
@@ -805,16 +804,13 @@ public class AccountEventService(
                     notableDays,
                     recentFortunes
                 ),
-                ReasoningEffort = "none",
-                Thinking = false,
-                EnableTools = false,
                 Temperature = temperature,
                 TopP = topP,
             };
             if (!string.IsNullOrWhiteSpace(model))
                 request.Model = model;
 
-            var response = await agentCompletion.CompleteAsync(
+            var response = await personality.CompleteAsync(
                 request,
                 deadline: DateTime.UtcNow.AddSeconds(timeoutSeconds)
             );
