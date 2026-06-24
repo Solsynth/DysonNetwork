@@ -170,7 +170,9 @@ public class AuthController(
         return challenge is null
             ? NotFound("Auth challenge was not found.")
             : challenge.Account.AuthFactors
-                .Where(e => e is { EnabledAt: not null, Trustworthy: >= 1 } && e.Type != AccountAuthFactorType.RecoveryCode)
+                .Where(e => e is { EnabledAt: not null, Trustworthy: >= 1 }
+                         && e.Type != AccountAuthFactorType.RecoveryCode
+                         && e.Type != AccountAuthFactorType.QrLogin)
                 .ToList();
     }
 

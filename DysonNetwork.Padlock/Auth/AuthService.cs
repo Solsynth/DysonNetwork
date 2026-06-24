@@ -59,12 +59,18 @@ public class AuthService(
     {
         var enabledFactors = await db.AccountAuthFactors
             .Where(f => f.AccountId == account.Id)
-            .Where(f => f.Type != AccountAuthFactorType.PinCode && f.Type != AccountAuthFactorType.RecoveryCode)
+            .Where(f => f.Type != AccountAuthFactorType.PinCode
+                     && f.Type != AccountAuthFactorType.RecoveryCode
+                     && f.Type != AccountAuthFactorType.QrLogin)
             .Where(f => f.EnabledAt != null)
             .ToListAsync();
         var maxSteps = enabledFactors.Count;
         if (maxSteps == 0)
             throw new ArgumentException("Account has no authentication factors configured.");
+
+        // ponytail: if password is the only factor, skip risk calculation
+        if (enabledFactors.All(f => f.Type == AccountAuthFactorType.Password))
+            return 1;
 
         var riskScore = 0.0;
         var recentSessions = await db.AuthSessions
