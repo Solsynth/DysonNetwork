@@ -24,6 +24,7 @@ public class AccountCurrentController(
     AccountService accounts,
     ApplePassService applePasses,
     RemoteAccountContactService remoteContacts,
+    RemoteAccountConnectionService remoteConnections,
     DyFileService.DyFileServiceClient files,
     Credit.SocialCreditService creditService,
     RemoteSubscriptionService remoteSubscription,
@@ -358,5 +359,18 @@ public class AccountCurrentController(
             .Take(take)
             .ToListAsync();
         return Ok(records);
+    }
+
+    [HttpGet("connections")]
+    [AskPermission("account.connections")]
+    [ProducesResponseType<List<SnAccountConnection>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<SnAccountConnection>>> GetConnections(
+        [FromQuery] string? provider = null
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var connections = await remoteConnections.ListConnectionsAsync(currentUser.Id, provider);
+        return Ok(connections);
     }
 }
