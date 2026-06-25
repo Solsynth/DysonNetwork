@@ -20,12 +20,12 @@ builder.Services.AddAppFlushHandlers();
 builder.Services.AddAppBusinessServices();
 builder.Services.AddAppScheduledJobs();
 
-builder.Services.AddDysonAuth();
-builder.Services.AddRingService();
-builder.Services.AddAccountService();
-builder.Services.AddSphereService();
-builder.Services.AddWalletService();
-builder.Services.AddDriveService();
+builder.Services.AddDysonAuth(builder.Configuration);
+builder.Services.AddRingService(builder.Configuration);
+builder.Services.AddAccountService(builder.Configuration);
+builder.Services.AddSphereService(builder.Configuration);
+builder.Services.AddWalletService(builder.Configuration);
+builder.Services.AddDriveService(builder.Configuration);
 builder.Services.AddThinkingServices(builder.Configuration);
 builder.Services.AddSnChanServices(builder.Configuration);
 builder.Services.AddMiChanServices(builder.Configuration);

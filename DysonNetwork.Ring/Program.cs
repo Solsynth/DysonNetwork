@@ -15,9 +15,9 @@ builder.ConfigureAppKestrel(builder.Configuration);
 // Add application services
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppAuthentication();
-builder.Services.AddBladeService();
-builder.Services.AddDysonAuth();
-builder.Services.AddAccountService();
+builder.Services.AddBladeService(builder.Configuration);
+builder.Services.AddDysonAuth(builder.Configuration);
+builder.Services.AddAccountService(builder.Configuration);
 
 builder.Services.AddAppFlushHandlers();
 builder.Services.AddAppBusinessServices();
