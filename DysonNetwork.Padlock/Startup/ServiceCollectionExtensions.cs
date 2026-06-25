@@ -153,17 +153,23 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IE2EeModule>(sp => sp.GetRequiredService<E2EeService>());
         services.AddScoped<IE2EeModule>(sp => sp.GetRequiredService<E2EeService>());
         services.AddGrpcClientWithSharedChannel<DyProfileService.DyProfileServiceClient>(
-            configuration, "passport", "DyProfileService");
+            "https://_grpc.passport",
+            "DyProfileService");
         services.AddGrpcClientWithSharedChannel<DySocialCreditService.DySocialCreditServiceClient>(
-            configuration, "passport", "DySocialCreditService");
+            "https://_grpc.passport",
+            "DySocialCreditService");
         services.AddGrpcClientWithSharedChannel<DyMagicSpellService.DyMagicSpellServiceClient>(
-            configuration, "passport", "DyMagicSpellService");
+            "https://_grpc.passport",
+            "DyMagicSpellService");
         services.AddGrpcClientWithSharedChannel<DyNfcService.DyNfcServiceClient>(
-            configuration, "passport", "DyNfcService");
+            "https://_grpc.passport",
+            "DyNfcService");
         services.AddGrpcClientWithSharedChannel<DyPublisherRatingService.DyPublisherRatingServiceClient>(
-            configuration, "sphere", "DyPublisherRatingService");
+            "https://_grpc.sphere",
+            "DyPublisherRatingService");
         services.AddGrpcClientWithSharedChannel<DyPublisherService.DyPublisherServiceClient>(
-            configuration, "sphere", "DyPublisherService");
+            "https://_grpc.sphere",
+            "DyPublisherService");
 
         services.Configure<OidcProviderOptions>(configuration.GetSection("OidcProvider"));
         services.AddScoped<OidcProviderService>();

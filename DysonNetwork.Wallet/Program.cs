@@ -15,12 +15,12 @@ builder.AddServiceDefaults();
 builder.ConfigureAppKestrel(builder.Configuration);
 
 // Add application services
-builder.Services.AddDysonAuth(builder.Configuration);
-builder.Services.AddAccountService(builder.Configuration);
-builder.Services.AddRingService(builder.Configuration);
-builder.Services.AddDriveService(builder.Configuration);
-builder.Services.AddDevelopService(builder.Configuration);
-builder.Services.AddSphereService(builder.Configuration);
+builder.Services.AddDysonAuth();
+builder.Services.AddAccountService();
+builder.Services.AddRingService();
+builder.Services.AddDriveService();
+builder.Services.AddDevelopService();
+builder.Services.AddSphereService();
 builder.Services.AddAppServices(builder.Configuration);
 
 builder.Services.AddAppFlushHandlers();

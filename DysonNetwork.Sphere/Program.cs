@@ -19,15 +19,15 @@ builder.ConfigureAppKestrel(builder.Configuration);
 
 builder.Services.AddAppServices();
 builder.Services.AddAppAuthentication();
-builder.Services.AddDysonAuth(builder.Configuration);
-builder.Services.AddAccountService(builder.Configuration);
-builder.Services.AddPresenceService(builder.Configuration);
-builder.Services.AddBladeService(builder.Configuration);
-builder.Services.AddRingService(builder.Configuration);
-builder.Services.AddDriveService(builder.Configuration);
-builder.Services.AddInsightService(builder.Configuration);
-builder.Services.AddWalletService(builder.Configuration);
-builder.Services.AddDomainBlockService(builder.Configuration);
+builder.Services.AddDysonAuth();
+builder.Services.AddAccountService();
+builder.Services.AddPresenceService();
+builder.Services.AddBladeService();
+builder.Services.AddRingService();
+builder.Services.AddDriveService();
+builder.Services.AddInsightService();
+builder.Services.AddWalletService();
+builder.Services.AddDomainBlockService();
 
 builder.Services.AddAppFlushHandlers();
 builder.Services.AddAppBusinessServices(builder.Configuration);
