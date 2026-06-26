@@ -33,6 +33,7 @@ public class PublisherService(
     ILocalizationService localization,
     RemoteAccountService remoteAccounts,
     RemoteRealmService remoteRealms,
+    RemotePaymentService payments,
     IActorDiscoveryService discoveryService,
     IConfiguration configuration,
     ILogger<PublisherService> logger
@@ -991,6 +992,130 @@ public class PublisherService(
                 ratingDelta,
                 publisherId
             );
+        }
+    }
+
+    public async Task SettlePostAwardsAsync()
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        var unsettledAwards = await db.PostAwards
+            .Where(a => a.SettledAt == null && a.Attitude == PostReactionAttitude.Positive)
+            .Select(a => new
+            {
+                a.Id,
+                a.Amount,
+                a.PostId,
+                PublisherId = a.Post.PublisherId
+            })
+            .ToListAsync();
+
+        if (unsettledAwards.Count == 0)
+            return;
+
+        var orphanAwardIds = unsettledAwards
+            .Where(x => x.PublisherId == null)
+            .Select(x => x.Id)
+            .ToList();
+        if (orphanAwardIds.Count > 0)
+        {
+            await db.PostAwards
+                .Where(a => orphanAwardIds.Contains(a.Id))
+                .ExecuteUpdateAsync(s => s.SetProperty(a => a.SettledAt, (Instant?)now));
+        }
+
+        var awardsByPublisher = unsettledAwards
+            .Where(x => x.PublisherId != null)
+            .GroupBy(x => x.PublisherId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        if (awardsByPublisher.Count == 0)
+            return;
+
+        var publisherIds = awardsByPublisher.Keys.ToList();
+        var publishers = await db.Publishers
+            .Where(p => publisherIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id);
+
+        foreach (var (publisherId, awards) in awardsByPublisher)
+        {
+            if (!publishers.TryGetValue(publisherId, out var publisher))
+                continue;
+
+            var totalAmount = awards.Sum(a => a.Amount);
+            var payoutAmount = totalAmount * 0.80m;
+            var awardIds = awards.Select(a => a.Id).ToList();
+
+            string? payeeAccountId = null;
+            string? payeeWalletId = null;
+
+            if (publisher.AccountId != null)
+            {
+                payeeAccountId = publisher.AccountId.Value.ToString();
+            }
+            else if (publisher.PayoutWalletId != null)
+            {
+                payeeWalletId = publisher.PayoutWalletId.Value.ToString();
+            }
+            else
+            {
+                logger.LogInformation(
+                    "Holding {Count} post awards for publisher {PublisherId}: no payout wallet configured",
+                    awards.Count, publisherId);
+                continue;
+            }
+
+            if (payoutAmount <= 0)
+            {
+                await db.PostAwards
+                    .Where(a => awardIds.Contains(a.Id))
+                    .ExecuteUpdateAsync(s => s.SetProperty(a => a.SettledAt, (Instant?)now));
+                continue;
+            }
+
+            var publisherName = publisher.Name;
+            var remarks = localization.Get("posts.award.distribution",
+                args: new { publisher = $"@{publisherName}" });
+
+            try
+            {
+                if (payeeAccountId != null)
+                {
+                    await payments.CreateTransactionWithAccount(
+                        payerAccountId: null,
+                        payeeAccountId: payeeAccountId,
+                        currency: "points",
+                        amount: payoutAmount.ToString(CultureInfo.InvariantCulture),
+                        remarks: remarks,
+                        DyTransactionType.System
+                    );
+                }
+                else
+                {
+                    await payments.CreateTransaction(
+                        payerWalletId: null,
+                        payeeWalletId: payeeWalletId,
+                        currency: "points",
+                        amount: payoutAmount.ToString(CultureInfo.InvariantCulture),
+                        remarks: remarks,
+                        DyTransactionType.System
+                    );
+                }
+
+                await db.PostAwards
+                    .Where(a => awardIds.Contains(a.Id))
+                    .ExecuteUpdateAsync(s => s.SetProperty(a => a.SettledAt, (Instant?)now));
+
+                logger.LogInformation(
+                    "Settled {Count} post awards for publisher {PublisherId}: paid {Amount} points (80% of {Total})",
+                    awards.Count, publisherId, payoutAmount, totalAmount);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex,
+                    "Failed to settle post awards for publisher {PublisherId}",
+                    publisherId);
+            }
         }
     }
 

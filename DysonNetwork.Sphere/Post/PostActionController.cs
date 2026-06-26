@@ -824,6 +824,24 @@ public class PostActionController(
         return Ok(awards);
     }
 
+    [HttpGet("{id:guid}/awards/pending")]
+    public async Task<ActionResult> GetPendingPostAwards(Guid id)
+    {
+        var pendingAwards = await db.PostAwards
+            .Where(a => a.PostId == id && a.SettledAt == null && a.Attitude == PostReactionAttitude.Positive)
+            .ToListAsync();
+
+        var totalAmount = pendingAwards.Sum(a => a.Amount);
+        var payoutAmount = totalAmount * 0.80m;
+
+        return Ok(new
+        {
+            count = pendingAwards.Count,
+            total_amount = totalAmount,
+            payout_amount = payoutAmount,
+        });
+    }
+
     public class PostAwardResponse
     {
         public Guid OrderId { get; set; }

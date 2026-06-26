@@ -8,5 +8,6 @@ public class PublisherSettlementJob(PublisherService publisherService) : IJob
     public async Task Execute(IJobExecutionContext context)
     {
         await publisherService.SettlePublisherRewards();
+        await publisherService.SettlePostAwardsAsync();
     }
 }

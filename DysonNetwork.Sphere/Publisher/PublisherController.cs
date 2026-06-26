@@ -347,6 +347,7 @@ public class PublisherController(
         public string? BackgroundId { get; set; }
         public List<string>? DefaultPostTags { get; set; }
         public List<string>? DefaultPostCategories { get; set; }
+        public Guid? PayoutWalletId { get; set; }
     }
 
     [HttpPost("individual")]
@@ -605,6 +606,9 @@ public class PublisherController(
                     .Distinct()
                     .ToList();
         }
+
+        if (request.PayoutWalletId.HasValue && member.Role >= PublisherMemberRole.Owner)
+            publisher.PayoutWalletId = request.PayoutWalletId;
 
         db.Update(publisher);
         await db.SaveChangesAsync();
@@ -941,6 +945,16 @@ public class PublisherController(
     public async Task<IActionResult> SettlePublisherAward()
     {
         await ps.SettlePublisherRewards();
+        await ps.SettlePostAwardsAsync();
+        return Ok();
+    }
+
+    [HttpPost("awards/settle")]
+    [Authorize]
+    [AskPermission("publishers.reward.settle")]
+    public async Task<IActionResult> SettlePostAwards()
+    {
+        await ps.SettlePostAwardsAsync();
         return Ok();
     }
 
