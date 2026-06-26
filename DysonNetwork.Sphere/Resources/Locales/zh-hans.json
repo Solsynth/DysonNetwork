@@ -24,5 +24,6 @@
     "subscriberAddedBody": "{publisher} 已将您添加为订阅者",
     "postRemovedFromRealmTitle": "您的帖子已从领域中移除",
     "postRemovedFromRealmBody": "您的帖子已从领域中移除。原因：{reason}",
-    "posts.award.distribution": "发布者 {publisher} 的帖子打赏结算"
+    "posts.award.distribution": "发布者 {publisher} 的帖子打赏结算",
+    "posts.sponsor.remarks": "赞助帖子 {title}"
 }

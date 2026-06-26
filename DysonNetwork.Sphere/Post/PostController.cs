@@ -25,7 +25,8 @@ public class PostController(
     DyProfileService.DyProfileServiceClient accounts,
     IConfiguration configuration,
     DyEmbeddingService.DyEmbeddingServiceClient embeddings,
-    RemoteRealmService rs
+    RemoteRealmService rs,
+    SponsorService sponsorService
 ) : ControllerBase
 {
     private const string OrderDate = "date";
@@ -224,6 +225,55 @@ public class PostController(
 
         var posts = await ps.ListFeaturedPostsAsync(currentUser);
         return Ok(posts);
+    }
+
+    [HttpGet("sponsor/current")]
+    public async Task<ActionResult> GetCurrentSponsoredPost()
+    {
+        var post = await sponsorService.GetCurrentSponsoredPostAsync();
+        if (post is null) return Ok(new { sponsored = false });
+        return Ok(new { sponsored = true, post });
+    }
+
+    [HttpGet("sponsor/leaderboard")]
+    public async Task<ActionResult> GetSponsorLeaderboard([FromQuery] int take = 20)
+    {
+        var entries = await sponsorService.GetLeaderboardAsync(take);
+        return Ok(entries);
+    }
+
+    [HttpGet("{id:guid}/sponsor")]
+    public async Task<ActionResult> GetPostSponsorship(Guid id)
+    {
+        var total = await sponsorService.GetPostTotalSponsorshipAsync(id);
+        return Ok(new { total_amount = total });
+    }
+
+    [HttpGet("{id:guid}/sponsor/history")]
+    [Authorize]
+    public async Task<ActionResult> GetPostSponsorHistory(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var requesterId = Guid.Parse(currentUser.Id);
+        var post = await db.Posts
+            .Where(p => p.Id == id)
+            .Select(p => new { p.PublisherId })
+            .FirstOrDefaultAsync();
+        if (post is null) return NotFound();
+
+        Guid? authorAccountId = null;
+        if (post.PublisherId.HasValue)
+        {
+            authorAccountId = await db.Publishers
+                .Where(p => p.Id == post.PublisherId.Value && p.AccountId.HasValue)
+                .Select(p => p.AccountId!.Value)
+                .FirstOrDefaultAsync();
+        }
+
+        var history = await sponsorService.GetBidHistoryAsync(id, requesterId, authorAccountId);
+        return Ok(history);
     }
 
     [HttpGet("drafts")]

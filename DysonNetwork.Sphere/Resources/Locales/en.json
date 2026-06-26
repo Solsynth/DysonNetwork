@@ -27,5 +27,6 @@
     "subscriberAddedBody": "{publisher} has added you as a subscriber",
     "postRemovedFromRealmTitle": "Your post was removed from a realm",
     "postRemovedFromRealmBody": "Your post was removed from the realm. Reason: {reason}",
-    "posts.award.distribution": "Post award settlement for {publisher}"
+    "posts.award.distribution": "Post award settlement for {publisher}",
+    "posts.sponsor.remarks": "Sponsor post {title}"
 }

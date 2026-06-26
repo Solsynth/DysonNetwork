@@ -35,6 +35,8 @@ public class AppDatabase(
     public DbSet<SnPostCollection> PostCollections { get; set; } = null!;
     public DbSet<SnPostCollectionItem> PostCollectionItems { get; set; } = null!;
     public DbSet<SnPostFeaturedRecord> PostFeaturedRecords { get; set; } = null!;
+    public DbSet<SnPostSponsorBid> PostSponsorBids { get; set; } = null!;
+    public DbSet<SnPostSponsorPlacement> PostSponsorPlacements { get; set; } = null!;
     public DbSet<SnPostCategorySubscription> PostCategorySubscriptions { get; set; } = null!;
     public DbSet<SnPostInterestProfile> PostInterestProfiles { get; set; } = null!;
     public DbSet<SnDiscoveryPreference> DiscoveryPreferences { get; set; } = null!;
@@ -220,6 +222,20 @@ public class AppDatabase(
             .HasOne(i => i.Post)
             .WithMany(p => p.CollectionItems)
             .HasForeignKey(i => i.PostId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnPostSponsorBid>()
+            .HasOne(b => b.Post)
+            .WithMany()
+            .HasForeignKey(b => b.PostId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnPostSponsorBid>()
+            .HasIndex(b => b.ExpiresAt);
+
+        modelBuilder.Entity<SnPostSponsorPlacement>()
+            .HasOne(p => p.Post)
+            .WithMany()
+            .HasForeignKey(p => p.PostId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnPostCategorySubscription>()

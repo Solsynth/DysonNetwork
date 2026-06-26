@@ -136,6 +136,27 @@ public static class ServiceCollectionExtensions
                                     evt.OrderId);
                                 break;
                             }
+                            case "ads.sponsor":
+                            {
+                                var sponsorEvt = JsonSerializer.Deserialize<PaymentOrderSponsorEvent>(
+                                    JsonSerializer.Serialize(evt, InfraObjectCoder.SerializerOptions),
+                                    InfraObjectCoder.SerializerOptions
+                                );
+                                if (sponsorEvt?.Meta == null) throw new ArgumentNullException(nameof(sponsorEvt));
+
+                                var meta = sponsorEvt.Meta;
+
+                                logger.LogInformation("Handling sponsor bid order: {OrderId}", evt.OrderId);
+
+                                var ss = ctx.ServiceProvider.GetRequiredService<SponsorService>();
+                                var amountNum = decimal.Parse(meta.Amount);
+
+                                await ss.ConfirmSponsorBidAsync(meta.PostId, meta.AccountId, amountNum);
+
+                                logger.LogInformation("Sponsor bid for order {OrderId} handled successfully.",
+                                    evt.OrderId);
+                                break;
+                            }
                         }
                     },
                     opts =>
@@ -232,6 +253,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<TimelineService>();
             services.AddScoped<AutomodService>();
             services.AddScoped<PostService>();
+            services.AddScoped<SponsorService>();
             services.AddScoped<WebReaderService>();
             services.AddScoped<PostCollectionService>();
             services.AddScoped<PostTagService>();

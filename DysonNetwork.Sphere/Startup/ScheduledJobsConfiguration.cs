@@ -117,6 +117,13 @@ public static class ScheduledJobsConfiguration
                 .WithIdentity("OutboxBackfillTrigger")
                 .WithCronSchedule("0 0 */6 * * ?")
             );
+
+            q.AddJob<PostSponsorAuctionJob>(opts => opts.WithIdentity("PostSponsorAuction"));
+            q.AddTrigger(opts => opts
+                .ForJob("PostSponsorAuction")
+                .WithIdentity("PostSponsorAuctionTrigger")
+                .WithCronSchedule("0 0 * * * ?")
+            );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

@@ -44,6 +44,7 @@ public class PostActionController(
     RemoteRealmService rs,
     LiveStreamService liveStreams,
     ActivityPubDeliveryService activityPubDelivery,
+    SponsorService sponsorService,
     ILogger<PostActionController> logger,
     IEventBus eventBus
 ) : ControllerBase
@@ -902,6 +903,53 @@ public class PostActionController(
         );
 
         return Ok(new PostAwardResponse() { OrderId = Guid.Parse(order.Id) });
+    }
+
+    public class PostSponsorRequest
+    {
+        public decimal Amount { get; set; }
+    }
+
+    public class PostSponsorResponse
+    {
+        public Guid OrderId { get; set; }
+        public decimal Amount { get; set; }
+    }
+
+    [HttpPost("{id:guid}/sponsor")]
+    [Authorize]
+    public async Task<ActionResult<PostSponsorResponse>> SponsorPost(
+        Guid id,
+        [FromBody] PostSponsorRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+        if (request.Amount < SponsorService.MinimumBidAmount)
+            return BadRequest($"Minimum sponsorship bid is {SponsorService.MinimumBidAmount} golds.");
+
+        var post = await db
+            .Posts.Where(e => e.Id == id)
+            .Include(e => e.Publisher)
+            .FirstOrDefaultAsync();
+        if (post is null)
+            return NotFound();
+        if (post.Visibility != Shared.Models.PostVisibility.Public)
+            return BadRequest("Only public posts can be sponsored.");
+        if (post.DeletedAt != null)
+            return BadRequest("This post is no longer available.");
+        if (post.ShadowbanReason is not null and not Shared.Models.PostShadowbanReason.None)
+            return BadRequest("This post cannot be sponsored.");
+
+        try
+        {
+            var (orderId, amount) = await sponsorService.CreateSponsorBidAsync(post, currentUser, request.Amount);
+            return Ok(new PostSponsorResponse { OrderId = orderId, Amount = amount });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     public class PostPinRequest

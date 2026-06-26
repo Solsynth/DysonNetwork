@@ -21,6 +21,7 @@ public class TimelineService(
     RemoteAccountService remoteAccounts,
     DysonNetwork.Shared.Cache.ICacheService cache,
     Automod.AutomodService automodService,
+    Post.SponsorService sponsorService,
     ILogger<TimelineService> logger
 )
 {
@@ -83,6 +84,10 @@ public class TimelineService(
         var posts = await GetAndProcessPosts(postsQuery);
         await LoadPostsRealmsAsync(posts, rs);
         posts = await RankPosts(posts, take, null, mode);
+
+        var sponsoredPost = await sponsorService.GetCurrentSponsoredPostAsync();
+        if (sponsoredPost is not null)
+            posts.Insert(0, sponsoredPost);
 
         var interleaved = new List<SnTimelineEvent>();
         var random = new Random();
@@ -227,6 +232,10 @@ public class TimelineService(
         logger.LogInformation("ListEvents: returning {PostCount} posts after ranking", posts.Count);
 
         await UpdateSoftCursorAsync(accountId);
+
+        var sponsoredPost = await sponsorService.GetCurrentSponsoredPostAsync();
+        if (sponsoredPost is not null)
+            posts.Insert(0, sponsoredPost);
 
         var postEvents = posts.Select(p => p.ToActivity()).ToList();
         var statusEvents = await GetCachedFriendsStatuses(accountId, userFriends);

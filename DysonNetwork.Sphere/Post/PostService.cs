@@ -3091,6 +3091,16 @@ public partial class PostService(
         posts = posts.OrderBy(e => featuredIds.IndexOf(e.Id)).ToList();
         posts = await LoadPostInfo(posts, currentUser, true);
 
+        var sponsoredPost = await serviceProvider.GetRequiredService<SponsorService>()
+            .GetCurrentSponsoredPostAsync();
+        if (sponsoredPost is not null)
+        {
+            if (currentUser is not null)
+                sponsoredPost = await LoadPostInfo([sponsoredPost], currentUser, true).ContinueWith(t => t.Result.FirstOrDefault());
+            sponsoredPost!.Sponsored = true;
+            posts.Insert(0, sponsoredPost);
+        }
+
         return posts;
     }
 
