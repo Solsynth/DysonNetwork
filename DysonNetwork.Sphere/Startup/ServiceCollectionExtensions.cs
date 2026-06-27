@@ -11,7 +11,7 @@ using DysonNetwork.Shared.Queue;
 using DysonNetwork.Sphere.ActivityPub;
 using DysonNetwork.Sphere.ActivityPub.Services;
 using DysonNetwork.Sphere.Autocompletion;
-using DysonNetwork.Sphere.Poll;
+using DysonNetwork.Sphere.Survey;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Reader;
@@ -257,7 +257,7 @@ public static class ServiceCollectionExtensions
             services.AddScoped<WebReaderService>();
             services.AddScoped<PostCollectionService>();
             services.AddScoped<PostTagService>();
-            services.AddScoped<PollService>();
+            services.AddScoped<SurveyService>();
             services.AddScoped<StickerService>();
             services.AddScoped<AutocompletionService>();
             services.AddScoped<ActivityPubKeyService>();

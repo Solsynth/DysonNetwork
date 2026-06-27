@@ -17,7 +17,7 @@ public interface ISendMessageRequest
     string? Nonce { get; }
     string? ClientMessageId { get; }
     Guid? FundId { get; }
-    Guid? PollId { get; }
+    Guid? SurveyId { get; }
     Guid? MeetId { get; }
     Guid? NotableDayId { get; }
     Guid? CalendarEventId { get; }
@@ -132,7 +132,7 @@ public static class ChatMessageHelpers
                (request.AttachmentsId == null || request.AttachmentsId.Count == 0) &&
                !request.FundId.HasValue &&
                !request.MeetId.HasValue &&
-               !request.PollId.HasValue &&
+               !request.SurveyId.HasValue &&
                !request.NotableDayId.HasValue &&
                !request.CalendarEventId.HasValue &&
                (request.Embeds == null || request.Embeds.Count == 0) &&
@@ -144,7 +144,7 @@ public static class ChatMessageHelpers
         return !string.IsNullOrWhiteSpace(request.Content) ||
                request.FundId.HasValue ||
                request.MeetId.HasValue ||
-               request.PollId.HasValue ||
+               request.SurveyId.HasValue ||
                request.NotableDayId.HasValue ||
                request.CalendarEventId.HasValue ||
                (request.Embeds is { Count: > 0 }) ||

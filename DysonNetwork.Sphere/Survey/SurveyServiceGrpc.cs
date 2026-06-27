@@ -4,26 +4,26 @@ using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
-namespace DysonNetwork.Sphere.Poll;
+namespace DysonNetwork.Sphere.Survey;
 
-public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyPollServiceBase
+public class SurveyServiceGrpc(AppDatabase db, SurveyService ss) : DySurveyService.DySurveyServiceBase
 {
-    public override async Task<DyPoll> GetPoll(DyGetPollRequest request, ServerCallContext context)
+    public override async Task<DySurvey> GetSurvey(DyGetSurveyRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.Id, out var id))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid poll id"));
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid survey id"));
 
-        var poll = await db.Polls
+        var survey = await db.Surveys
             .Include(p => p.Publisher)
             .Include(p => p.Questions)
             .FirstOrDefaultAsync(p => p.Id == id);
 
-        if (poll == null) throw new RpcException(new Status(StatusCode.NotFound, "poll not found"));
+        if (survey == null) throw new RpcException(new Status(StatusCode.NotFound, "survey not found"));
 
-        return poll.ToProtoValue();
+        return survey.ToProtoValue();
     }
 
-    public override async Task<DyGetPollBatchResponse> GetPollBatch(DyGetPollBatchRequest request,
+    public override async Task<DyGetSurveyBatchResponse> GetSurveyBatch(DyGetSurveyBatchRequest request,
         ServerCallContext context)
     {
         var ids = request.Ids
@@ -31,22 +31,22 @@ public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyP
             .Select(Guid.Parse)
             .ToList();
 
-        if (ids.Count == 0) return new DyGetPollBatchResponse();
+        if (ids.Count == 0) return new DyGetSurveyBatchResponse();
 
-        var polls = await db.Polls
+        var surveys = await db.Surveys
             .Include(p => p.Publisher)
             .Include(p => p.Questions)
             .Where(p => ids.Contains(p.Id))
             .ToListAsync();
 
-        var resp = new DyGetPollBatchResponse();
-        resp.Polls.AddRange(polls.Select(p => p.ToProtoValue()));
+        var resp = new DyGetSurveyBatchResponse();
+        resp.Surveys.AddRange(surveys.Select(p => p.ToProtoValue()));
         return resp;
     }
 
-    public override async Task<DyListPollsResponse> ListPolls(DyListPollsRequest request, ServerCallContext context)
+    public override async Task<DyListSurveysResponse> ListSurveys(DyListSurveysRequest request, ServerCallContext context)
     {
-        var query = db.Polls
+        var query = db.Surveys
             .Include(p => p.Publisher)
             .Include(p => p.Questions)
             .AsQueryable();
@@ -60,7 +60,7 @@ public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyP
         var pageToken = request.PageToken;
         var offset = string.IsNullOrEmpty(pageToken) ? 0 : int.Parse(pageToken);
 
-        IOrderedQueryable<SnPoll> orderedQuery;
+        IOrderedQueryable<SnSurvey> orderedQuery;
 
         if (!string.IsNullOrEmpty(request.OrderBy))
         {
@@ -90,30 +90,30 @@ public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyP
                 : query.OrderBy(q => q.CreatedAt);
         }
 
-        var polls = await orderedQuery
+        var surveys = await orderedQuery
             .Skip(offset)
             .Take(pageSize)
             .ToListAsync();
 
         var nextToken = offset + pageSize < totalSize ? (offset + pageSize).ToString() : string.Empty;
 
-        var resp = new DyListPollsResponse();
-        resp.Polls.AddRange(polls.Select(p => p.ToProtoValue()));
+        var resp = new DyListSurveysResponse();
+        resp.Surveys.AddRange(surveys.Select(p => p.ToProtoValue()));
         resp.NextPageToken = nextToken;
         resp.TotalSize = totalSize;
 
         return resp;
     }
 
-    public override async Task<DyPollAnswer> GetPollAnswer(DyGetPollAnswerRequest request, ServerCallContext context)
+    public override async Task<DySurveyAnswer> GetSurveyAnswer(DyGetSurveyAnswerRequest request, ServerCallContext context)
     {
-        if (!Guid.TryParse(request.PollId, out var pollId))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid poll id"));
+        if (!Guid.TryParse(request.SurveyId, out var surveyId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid survey id"));
 
         if (!Guid.TryParse(request.AccountId, out var accountId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid account id"));
 
-        var answer = await ps.GetPollAnswer(pollId, accountId);
+        var answer = await ss.GetSurveyAnswer(surveyId, accountId);
 
         if (answer == null)
             throw new RpcException(new Status(StatusCode.NotFound, "answer not found"));
@@ -121,14 +121,14 @@ public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyP
         return answer.ToProtoValue();
     }
 
-    public override async Task<DyGetPollStatsResponse> GetPollStats(DyGetPollStatsRequest request, ServerCallContext context)
+    public override async Task<DyGetSurveyStatsResponse> GetSurveyStats(DyGetSurveyStatsRequest request, ServerCallContext context)
     {
-        if (!Guid.TryParse(request.PollId, out var pollId))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid poll id"));
+        if (!Guid.TryParse(request.SurveyId, out var surveyId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid survey id"));
 
-        var stats = await ps.GetPollStats(pollId);
+        var stats = await ss.GetSurveyStats(surveyId);
 
-        var resp = new DyGetPollStatsResponse();
+        var resp = new DyGetSurveyStatsResponse();
         foreach (var stat in stats)
         {
             var statsJson = JsonSerializer.Serialize(stat.Value);
@@ -138,15 +138,15 @@ public class PollServiceGrpc(AppDatabase db, PollService ps) : DyPollService.DyP
         return resp;
     }
 
-    public override async Task<DyGetPollQuestionStatsResponse> GetPollQuestionStats(DyGetPollQuestionStatsRequest request,
+    public override async Task<DyGetSurveyQuestionStatsResponse> GetSurveyQuestionStats(DyGetSurveyQuestionStatsRequest request,
         ServerCallContext context)
     {
         if (!Guid.TryParse(request.QuestionId, out var questionId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid question id"));
 
-        var stats = await ps.GetPollQuestionStats(questionId);
+        var stats = await ss.GetSurveyQuestionStats(questionId);
 
-        var resp = new DyGetPollQuestionStatsResponse();
+        var resp = new DyGetSurveyQuestionStatsResponse();
         foreach (var stat in stats)
         {
             resp.Stats[stat.Key] = stat.Value;

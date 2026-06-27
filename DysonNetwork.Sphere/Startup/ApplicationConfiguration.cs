@@ -2,7 +2,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Sphere.ActivityPub;
 using DysonNetwork.Sphere.ActivityPub.Services;
-using DysonNetwork.Sphere.Poll;
+using DysonNetwork.Sphere.Survey;
 using DysonNetwork.Sphere.Post;
 using DysonNetwork.Sphere.Publisher;
 using DysonNetwork.Sphere.Reader;
@@ -33,7 +33,7 @@ public static class ApplicationConfiguration
 
         // Map gRPC services
         app.MapGrpcService<PostServiceGrpc>();
-        app.MapGrpcService<PollServiceGrpc>();
+        app.MapGrpcService<SurveyServiceGrpc>();
         app.MapGrpcService<PublisherServiceGrpc>();
         app.MapGrpcService<PublisherRatingServiceGrpc>();
         app.MapGrpcService<StickerServiceGrpc>();

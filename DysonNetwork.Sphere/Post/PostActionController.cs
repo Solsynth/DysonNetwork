@@ -11,7 +11,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.ActivityPub;
-using DysonNetwork.Sphere.Poll;
+using DysonNetwork.Sphere.Survey;
 using DysonNetwork.Sphere.Wallet;
 using DysonNetwork.Sphere.Live;
 
@@ -26,7 +26,7 @@ using Swashbuckle.AspNetCore.Annotations;
 using PostType = DysonNetwork.Shared.Models.PostType;
 using PublisherMemberRole = DysonNetwork.Shared.Models.PublisherMemberRole;
 using PublisherService = DysonNetwork.Sphere.Publisher.PublisherService;
-using PollsService = DysonNetwork.Sphere.Poll.PollService;
+using SurveysService = DysonNetwork.Sphere.Survey.SurveyService;
 
 namespace DysonNetwork.Sphere.Post;
 
@@ -40,7 +40,7 @@ public class PostActionController(
     DyProfileService.DyProfileServiceClient accounts,
     RemoteActionLogService als,
     RemotePaymentService remotePayments,
-    PollsService polls,
+    SurveysService surveys,
     RemoteRealmService rs,
     LiveStreamService liveStreams,
     ActivityPubDeliveryService activityPubDelivery,
@@ -134,7 +134,7 @@ public class PostActionController(
         public Guid? ForwardedPostId { get; set; }
         public Guid? RealmId { get; set; }
 
-        public Guid? PollId { get; set; }
+        public Guid? SurveyId { get; set; }
         public Guid? FundId { get; set; }
         public Guid? MeetId { get; set; }
         public Guid? LiveStreamId { get; set; }
@@ -366,11 +366,11 @@ public class PostActionController(
             post.Metadata ??= new Dictionary<string, object>();
             post.Metadata["embeds"] = request.Embeds;
         }
-        else if (request.PollId.HasValue)
+        else if (request.SurveyId.HasValue)
         {
             try
             {
-                var pollEmbed = await polls.MakePollEmbed(request.PollId.Value);
+                var surveyEmbed = await surveys.MakeSurveyEmbed(request.SurveyId.Value);
                 post.Metadata ??= new Dictionary<string, object>();
                 if (
                     !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
@@ -380,9 +380,9 @@ public class PostActionController(
                 var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
                 // Remove all old poll embeds
                 embeds.RemoveAll(e =>
-                    e.TryGetValue("type", out var type) && type.ToString() == "poll"
+                    e.TryGetValue("type", out var type) && (type.ToString() == "survey" || type.ToString() == "poll")
                 );
-                embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
+                embeds.Add(EmbeddableBase.ToDictionary(surveyEmbed));
                 post.Metadata["embeds"] = embeds;
             }
             catch (Exception ex)
@@ -400,7 +400,7 @@ public class PostActionController(
                 post.Metadata["embeds"] = new List<Dictionary<string, object>>();
             var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
             // Remove all old poll embeds
-            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "poll");
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && (type.ToString() == "survey" || type.ToString() == "poll"));
         }
 
         // Handle fund embeds
@@ -1199,11 +1199,11 @@ public class PostActionController(
             post.Metadata ??= new Dictionary<string, object>();
             post.Metadata["embeds"] = request.Embeds;
         }
-        else if (request.PollId.HasValue)
+        else if (request.SurveyId.HasValue)
         {
             try
             {
-                var pollEmbed = await polls.MakePollEmbed(request.PollId.Value);
+                var surveyEmbed = await surveys.MakeSurveyEmbed(request.SurveyId.Value);
                 post.Metadata ??= new Dictionary<string, object>();
                 if (
                     !post.Metadata.TryGetValue("embeds", out var existingEmbeds)
@@ -1213,9 +1213,9 @@ public class PostActionController(
                 var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
                 // Remove all old poll embeds
                 embeds.RemoveAll(e =>
-                    e.TryGetValue("type", out var type) && type.ToString() == "poll"
+                    e.TryGetValue("type", out var type) && (type.ToString() == "survey" || type.ToString() == "poll")
                 );
-                embeds.Add(EmbeddableBase.ToDictionary(pollEmbed));
+                embeds.Add(EmbeddableBase.ToDictionary(surveyEmbed));
                 post.Metadata["embeds"] = embeds;
             }
             catch (Exception ex)
@@ -1233,7 +1233,7 @@ public class PostActionController(
                 post.Metadata["embeds"] = new List<Dictionary<string, object>>();
             var embeds = (List<Dictionary<string, object>>)post.Metadata["embeds"];
             // Remove all old poll embeds
-            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "poll");
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && (type.ToString() == "survey" || type.ToString() == "poll"));
         }
 
         // Handle fund embeds

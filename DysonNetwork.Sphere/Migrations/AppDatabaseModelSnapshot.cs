@@ -462,155 +462,6 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("fediverse_relationships", (string)null);
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPoll", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("description");
-
-                    b.Property<Instant?>("EndedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("ended_at");
-
-                    b.Property<bool>("IsAnonymous")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_anonymous");
-
-                    b.Property<Guid>("PublisherId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("publisher_id");
-
-                    b.Property<string>("Title")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("title");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_polls");
-
-                    b.HasIndex("PublisherId")
-                        .HasDatabaseName("ix_polls_publisher_id");
-
-                    b.ToTable("polls", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPollAnswer", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("account_id");
-
-                    b.Property<Dictionary<string, JsonElement>>("Answer")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("answer");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Guid>("PollId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("poll_id");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_poll_answers");
-
-                    b.HasIndex("PollId")
-                        .HasDatabaseName("ix_poll_answers_poll_id");
-
-                    b.ToTable("poll_answers", (string)null);
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPollQuestion", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Instant>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Instant?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(4096)
-                        .HasColumnType("character varying(4096)")
-                        .HasColumnName("description");
-
-                    b.Property<bool>("IsRequired")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_required");
-
-                    b.Property<List<SnPollOption>>("Options")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("options");
-
-                    b.Property<int>("Order")
-                        .HasColumnType("integer")
-                        .HasColumnName("order");
-
-                    b.Property<Guid>("PollId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("poll_id");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("title");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasColumnName("type");
-
-                    b.Property<Instant>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_poll_questions");
-
-                    b.HasIndex("PollId")
-                        .HasDatabaseName("ix_poll_questions_poll_id");
-
-                    b.ToTable("poll_questions", (string)null);
-                });
-
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPost", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1193,6 +1044,101 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasDatabaseName("ix_post_reactions_post_id");
 
                     b.ToTable("post_reactions", (string)null);
+                });
+
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPostSponsorBid", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("amount");
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Instant>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid>("PostId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("post_id");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_post_sponsor_bids");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_post_sponsor_bids_expires_at");
+
+                    b.HasIndex("PostId")
+                        .HasDatabaseName("ix_post_sponsor_bids_post_id");
+
+                    b.ToTable("post_sponsor_bids", (string)null);
+                });
+
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPostSponsorPlacement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("PostId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("post_id");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("total_amount");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Instant>("ValidFrom")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("valid_from");
+
+                    b.Property<Instant>("ValidUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("valid_until");
+
+                    b.HasKey("Id")
+                        .HasName("pk_post_sponsor_placements");
+
+                    b.HasIndex("PostId")
+                        .HasDatabaseName("ix_post_sponsor_placements_post_id");
+
+                    b.HasIndex("ValidFrom")
+                        .IsUnique()
+                        .HasDatabaseName("ix_post_sponsor_placements_valid_from");
+
+                    b.ToTable("post_sponsor_placements", (string)null);
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPostSubscription", b =>
@@ -2003,6 +1949,193 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasDatabaseName("ix_stickers_slug");
 
                     b.ToTable("stickers", (string)null);
+                });
+
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnSurvey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<List<SnCloudFileReferenceObject>>("Attachments")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("attachments");
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("description");
+
+                    b.Property<Instant?>("EndedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ended_at");
+
+                    b.Property<bool>("IsAnonymous")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_anonymous");
+
+                    b.Property<bool>("NotifySubscribers")
+                        .HasColumnType("boolean")
+                        .HasColumnName("notify_subscribers");
+
+                    b.Property<Instant?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
+
+                    b.Property<Guid>("PublisherId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("publisher_id");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("title");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_surveys");
+
+                    b.HasIndex("PublisherId")
+                        .HasDatabaseName("ix_surveys_publisher_id");
+
+                    b.ToTable("surveys", (string)null);
+                });
+
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnSurveyAnswer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Dictionary<string, JsonElement>>("Answer")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("answer");
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("SurveyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("survey_id");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_survey_answers");
+
+                    b.HasIndex("SurveyId")
+                        .HasDatabaseName("ix_survey_answers_survey_id");
+
+                    b.ToTable("survey_answers", (string)null);
+                });
+
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnSurveyQuestion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<List<SnCloudFileReferenceObject>>("Attachments")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("attachments");
+
+                    b.Property<Instant>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Instant?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_required");
+
+                    b.Property<int?>("MaxLength")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_length");
+
+                    b.Property<int?>("MaxSelections")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_selections");
+
+                    b.Property<double?>("MaxValue")
+                        .HasColumnType("double precision")
+                        .HasColumnName("max_value");
+
+                    b.Property<double?>("MinValue")
+                        .HasColumnType("double precision")
+                        .HasColumnName("min_value");
+
+                    b.Property<List<SnSurveyOption>>("Options")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("options");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer")
+                        .HasColumnName("order");
+
+                    b.Property<Guid>("SurveyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("survey_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("title");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
+
+                    b.Property<Instant>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_survey_questions");
+
+                    b.HasIndex("SurveyId")
+                        .HasDatabaseName("ix_survey_questions_survey_id");
+
+                    b.ToTable("survey_questions", (string)null);
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.StickerPack", b =>
@@ -3038,42 +3171,6 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("TargetActor");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPoll", b =>
-                {
-                    b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Publisher")
-                        .WithMany("Polls")
-                        .HasForeignKey("PublisherId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_polls_publishers_publisher_id");
-
-                    b.Navigation("Publisher");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPollAnswer", b =>
-                {
-                    b.HasOne("DysonNetwork.Shared.Models.SnPoll", "Poll")
-                        .WithMany()
-                        .HasForeignKey("PollId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_poll_answers_polls_poll_id");
-
-                    b.Navigation("Poll");
-                });
-
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPollQuestion", b =>
-                {
-                    b.HasOne("DysonNetwork.Shared.Models.SnPoll", "Poll")
-                        .WithMany("Questions")
-                        .HasForeignKey("PollId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_poll_questions_polls_poll_id");
-
-                    b.Navigation("Poll");
-                });
-
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPost", b =>
                 {
                     b.HasOne("DysonNetwork.Shared.Models.SnFediverseActor", "Actor")
@@ -3228,6 +3325,30 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Post");
                 });
 
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPostSponsorBid", b =>
+                {
+                    b.HasOne("DysonNetwork.Shared.Models.SnPost", "Post")
+                        .WithMany()
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_post_sponsor_bids_posts_post_id");
+
+                    b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPostSponsorPlacement", b =>
+                {
+                    b.HasOne("DysonNetwork.Shared.Models.SnPost", "Post")
+                        .WithMany()
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_post_sponsor_placements_posts_post_id");
+
+                    b.Navigation("Post");
+                });
+
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPostSubscription", b =>
                 {
                     b.HasOne("DysonNetwork.Shared.Models.SnPost", "Post")
@@ -3378,6 +3499,42 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Pack");
                 });
 
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnSurvey", b =>
+                {
+                    b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Publisher")
+                        .WithMany("Surveys")
+                        .HasForeignKey("PublisherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_surveys_publishers_publisher_id");
+
+                    b.Navigation("Publisher");
+                });
+
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnSurveyAnswer", b =>
+                {
+                    b.HasOne("DysonNetwork.Shared.Models.SnSurvey", "Survey")
+                        .WithMany()
+                        .HasForeignKey("SurveyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_survey_answers_surveys_survey_id");
+
+                    b.Navigation("Survey");
+                });
+
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnSurveyQuestion", b =>
+                {
+                    b.HasOne("DysonNetwork.Shared.Models.SnSurvey", "Survey")
+                        .WithMany("Questions")
+                        .HasForeignKey("SurveyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_survey_questions_surveys_survey_id");
+
+                    b.Navigation("Survey");
+                });
+
             modelBuilder.Entity("DysonNetwork.Shared.Models.StickerPack", b =>
                 {
                     b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Publisher")
@@ -3516,11 +3673,6 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Actors");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPoll", b =>
-                {
-                    b.Navigation("Questions");
-                });
-
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPost", b =>
                 {
                     b.Navigation("Awards");
@@ -3547,13 +3699,18 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.Navigation("Members");
 
-                    b.Navigation("Polls");
-
                     b.Navigation("Posts");
 
                     b.Navigation("RatingRecords");
 
                     b.Navigation("Subscriptions");
+
+                    b.Navigation("Surveys");
+                });
+
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnSurvey", b =>
+                {
+                    b.Navigation("Questions");
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.StickerPack", b =>

@@ -44,9 +44,9 @@ public class AppDatabase(
     public DbSet<SnPublisherVerifiedDomain> PublisherVerifiedDomains { get; set; } = null!;
     public DbSet<SnAutomodRule> AutomodRules { get; set; } = null!;
 
-    public DbSet<SnPoll> Polls { get; set; } = null!;
-    public DbSet<SnPollQuestion> PollQuestions { get; set; } = null!;
-    public DbSet<SnPollAnswer> PollAnswers { get; set; } = null!;
+    public DbSet<SnSurvey> Surveys { get; set; } = null!;
+    public DbSet<SnSurveyQuestion> SurveyQuestions { get; set; } = null!;
+    public DbSet<SnSurveyAnswer> SurveyAnswers { get; set; } = null!;
 
     public DbSet<SnSticker> Stickers { get; set; } = null!;
     public DbSet<StickerPack> StickerPacks { get; set; } = null!;

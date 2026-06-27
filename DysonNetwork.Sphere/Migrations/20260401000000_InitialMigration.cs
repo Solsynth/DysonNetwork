@@ -965,7 +965,7 @@ namespace DysonNetwork.Sphere.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     type = table.Column<int>(type: "integer", nullable: false),
-                    options = table.Column<List<SnPollOption>>(type: "jsonb", nullable: true),
+                    options = table.Column<List<SnSurveyOption>>(type: "jsonb", nullable: true),
                     title = table.Column<string>(type: "character varying(1024)", maxLength: 1024, nullable: false),
                     description = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: true),
                     order = table.Column<int>(type: "integer", nullable: false),

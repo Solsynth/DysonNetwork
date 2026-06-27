@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 using DysonNetwork.Messager.Chat;
 using DysonNetwork.Messager.Chat.Voice;
 using DysonNetwork.Messager.Chat.Realtime;
-using DysonNetwork.Messager.Poll;
+using DysonNetwork.Messager.Survey;
 using DysonNetwork.Messager.Wallet;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.EventBus;
@@ -437,7 +437,7 @@ public static class ServiceCollectionExtensions
             var files = ctx.ServiceProvider.GetRequiredService<DyFileService.DyFileServiceClient>();
             var accounts = ctx.ServiceProvider.GetRequiredService<DyAccountService.DyAccountServiceClient>();
             var paymentClient = ctx.ServiceProvider.GetRequiredService<DyPaymentService.DyPaymentServiceClient>();
-            var pollClient = ctx.ServiceProvider.GetRequiredService<DyPollService.DyPollServiceClient>();
+            var surveyClient = ctx.ServiceProvider.GetRequiredService<DySurveyService.DySurveyServiceClient>();
             var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
             var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
 
@@ -534,12 +534,12 @@ public static class ServiceCollectionExtensions
                 }
             }
 
-            if (!e2eeMode && requestData.PollId.HasValue)
+            if (!e2eeMode && requestData.SurveyId.HasValue)
             {
                 try
                 {
-                    _ = await pollClient.GetPollAsync(new DyGetPollRequest
-                        { Id = requestData.PollId.Value.ToString() });
+                    _ = await surveyClient.GetSurveyAsync(new DyGetSurveyRequest
+                        { Id = requestData.SurveyId.Value.ToString() });
                 }
                 catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
                 {
@@ -584,14 +584,14 @@ public static class ServiceCollectionExtensions
                     ChatMessageHelpers.AddEmbedToMessage(message, fundEmbed);
                 }
 
-                if (!e2eeMode && requestData.PollId.HasValue)
+                if (!e2eeMode && requestData.SurveyId.HasValue)
                 {
-                    var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest
+                    var surveyResponse = await surveyClient.GetSurveyAsync(new DyGetSurveyRequest
                     {
-                        Id = requestData.PollId.Value.ToString()
+                        Id = requestData.SurveyId.Value.ToString()
                     });
-                    var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
-                    ChatMessageHelpers.AddEmbedToMessage(message, pollEmbed);
+                    var surveyEmbed = new SurveyEmbed { Id = Guid.Parse(surveyResponse.Id) };
+                    ChatMessageHelpers.AddEmbedToMessage(message, surveyEmbed);
                 }
 
                 if (!e2eeMode && requestData.MeetId.HasValue)

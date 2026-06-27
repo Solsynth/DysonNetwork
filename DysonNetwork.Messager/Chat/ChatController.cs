@@ -5,7 +5,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Messager.Poll;
+using DysonNetwork.Messager.Survey;
 using DysonNetwork.Messager.Wallet;
 using DysonNetwork.Messager.Chat.Voice;
 using DysonNetwork.Shared.Models.Embed;
@@ -32,7 +32,7 @@ public partial class ChatController(
     DyFileService.DyFileServiceClient files,
     DyAccountService.DyAccountServiceClient accounts,
     DyPaymentService.DyPaymentServiceClient paymentClient,
-    DyPollService.DyPollServiceClient pollClient,
+    DySurveyService.DySurveyServiceClient surveyClient,
     DyAutocompletionService.DyAutocompletionServiceClient autocompleteClient,
     RemoteWebSocketService webSocket,
     RemoteMlsService mlsService,
@@ -336,7 +336,7 @@ public partial class ChatController(
         [MaxLength(36)] public string? Nonce { get; set; }
         [MaxLength(128)] public string? ClientMessageId { get; set; }
         public Guid? FundId { get; set; }
-        public Guid? PollId { get; set; }
+        public Guid? SurveyId { get; set; }
         public Guid? MeetId { get; set; }
         public Guid? NotableDayId { get; set; }
         public Guid? CalendarEventId { get; set; }
@@ -517,11 +517,11 @@ public partial class ChatController(
         }
 
         // Validate poll if provided
-        if (!e2eeMode && request.PollId.HasValue)
+        if (!e2eeMode && request.SurveyId.HasValue)
         {
             try
             {
-                var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest { Id = request.PollId.Value.ToString() });
+                var surveyResponse = await surveyClient.GetSurveyAsync(new DyGetSurveyRequest { Id = request.SurveyId.Value.ToString() });
                 // Poll validation is handled by gRPC call
             }
             catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
@@ -569,11 +569,11 @@ public partial class ChatController(
             }
 
             // Add embed for poll if provided
-            if (!e2eeMode && request.PollId.HasValue)
+            if (!e2eeMode && request.SurveyId.HasValue)
             {
-                var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest { Id = request.PollId.Value.ToString() });
-                var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
-                ChatMessageHelpers.AddEmbedToMessage(message, pollEmbed);
+                var surveyResponse = await surveyClient.GetSurveyAsync(new DyGetSurveyRequest { Id = request.SurveyId.Value.ToString() });
+                var surveyEmbed = new SurveyEmbed { Id = Guid.Parse(surveyResponse.Id) };
+                ChatMessageHelpers.AddEmbedToMessage(message, surveyEmbed);
             }
             if (!e2eeMode && request.MeetId.HasValue)
             {
@@ -985,14 +985,14 @@ public partial class ChatController(
             }
 
             // Handle poll embeds for update
-            if (request.PollId.HasValue)
+            if (request.SurveyId.HasValue)
             {
                 try
                 {
-                    var pollResponse = await pollClient.GetPollAsync(new DyGetPollRequest { Id = request.PollId.Value.ToString() });
-                    var pollEmbed = new PollEmbed { Id = Guid.Parse(pollResponse.Id) };
+                    var surveyResponse = await surveyClient.GetSurveyAsync(new DyGetSurveyRequest { Id = request.SurveyId.Value.ToString() });
+                    var surveyEmbed = new SurveyEmbed { Id = Guid.Parse(surveyResponse.Id) };
                     ChatMessageHelpers.RemoveEmbedFromMessage(message, "poll");
-                    ChatMessageHelpers.AddEmbedToMessage(message, pollEmbed);
+                    ChatMessageHelpers.AddEmbedToMessage(message, surveyEmbed);
                 }
                 catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
                 {

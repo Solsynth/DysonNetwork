@@ -1078,7 +1078,7 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("live_stream_chat_messages", (string)null);
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPoll", b =>
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnSurvey", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1128,7 +1128,7 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("polls", (string)null);
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPollAnswer", b =>
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnSurveyAnswer", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1168,7 +1168,7 @@ namespace DysonNetwork.Sphere.Migrations
                     b.ToTable("poll_answers", (string)null);
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPollQuestion", b =>
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnSurveyQuestion", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -1192,7 +1192,7 @@ namespace DysonNetwork.Sphere.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_required");
 
-                    b.Property<List<SnPollOption>>("Options")
+                    b.Property<List<SnSurveyOption>>("Options")
                         .HasColumnType("jsonb")
                         .HasColumnName("options");
 
@@ -2709,10 +2709,10 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("LiveStream");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPoll", b =>
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnSurvey", b =>
                 {
                     b.HasOne("DysonNetwork.Shared.Models.SnPublisher", "Publisher")
-                        .WithMany("Polls")
+                        .WithMany("Surveys")
                         .HasForeignKey("PublisherId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
@@ -2721,28 +2721,28 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Publisher");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPollAnswer", b =>
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnSurveyAnswer", b =>
                 {
-                    b.HasOne("DysonNetwork.Shared.Models.SnPoll", "Poll")
+                    b.HasOne("DysonNetwork.Shared.Models.SnSurvey", "Survey")
                         .WithMany()
                         .HasForeignKey("PollId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_poll_answers_polls_poll_id");
 
-                    b.Navigation("Poll");
+                    b.Navigation("Survey");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPollQuestion", b =>
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnSurveyQuestion", b =>
                 {
-                    b.HasOne("DysonNetwork.Shared.Models.SnPoll", "Poll")
+                    b.HasOne("DysonNetwork.Shared.Models.SnSurvey", "Survey")
                         .WithMany("Questions")
                         .HasForeignKey("PollId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_poll_questions_polls_poll_id");
 
-                    b.Navigation("Poll");
+                    b.Navigation("Survey");
                 });
 
             modelBuilder.Entity("DysonNetwork.Shared.Models.SnPost", b =>
@@ -3099,7 +3099,7 @@ namespace DysonNetwork.Sphere.Migrations
                     b.Navigation("Actors");
                 });
 
-            modelBuilder.Entity("DysonNetwork.Shared.Models.SnPoll", b =>
+            modelBuilder.Entity("DysonNetwork.Shared.Models.SnSurvey", b =>
                 {
                     b.Navigation("Questions");
                 });
@@ -3130,7 +3130,7 @@ namespace DysonNetwork.Sphere.Migrations
 
                     b.Navigation("Members");
 
-                    b.Navigation("Polls");
+                    b.Navigation("Surveys");
 
                     b.Navigation("Posts");
 
