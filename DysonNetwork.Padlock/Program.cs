@@ -14,11 +14,11 @@ builder.ConfigureAppKestrel(builder.Configuration);
 
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppAuthentication();
-builder.Services.AddBladeService();
-builder.Services.AddRingService();
-builder.Services.AddDriveService();
-builder.Services.AddDevelopService();
-builder.Services.AddWalletService();
+builder.Services.AddBladeService(builder.Configuration);
+builder.Services.AddRingService(builder.Configuration);
+builder.Services.AddDriveService(builder.Configuration);
+builder.Services.AddDevelopService(builder.Configuration);
+builder.Services.AddWalletService(builder.Configuration);
 
 builder.Services.AddAppFlushHandlers();
 builder.Services.AddAppBusinessServices(builder.Configuration);

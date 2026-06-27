@@ -13,10 +13,10 @@ builder.ConfigureAppKestrel(builder.Configuration);
 
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddAppAuthentication();
-builder.Services.AddDysonAuth();
-builder.Services.AddSphereService();
-builder.Services.AddAccountService();
-builder.Services.AddDriveService();
+builder.Services.AddDysonAuth(builder.Configuration);
+builder.Services.AddSphereService(builder.Configuration);
+builder.Services.AddAccountService(builder.Configuration);
+builder.Services.AddDriveService(builder.Configuration);
 
 builder.AddSwaggerManifest(
     "DysonNetwork.Develop",
