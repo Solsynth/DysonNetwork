@@ -79,7 +79,7 @@ namespace DysonNetwork.Sphere.Migrations
                 name: "attachments",
                 table: "surveys",
                 type: "jsonb",
-                nullable: false);
+                nullable: true);
 
             migrationBuilder.AddColumn<bool>(
                 name: "notify_subscribers",
@@ -105,7 +105,7 @@ namespace DysonNetwork.Sphere.Migrations
                 name: "attachments",
                 table: "survey_questions",
                 type: "jsonb",
-                nullable: false);
+                nullable: true);
 
             migrationBuilder.AddColumn<int>(
                 name: "max_length",
@@ -130,6 +130,34 @@ namespace DysonNetwork.Sphere.Migrations
                 table: "survey_questions",
                 type: "double precision",
                 nullable: true);
+
+            migrationBuilder.Sql("""
+                UPDATE surveys
+                SET attachments = '[]'::jsonb
+                WHERE attachments IS NULL;
+
+                UPDATE survey_questions
+                SET attachments = '[]'::jsonb
+                WHERE attachments IS NULL;
+            """);
+
+            migrationBuilder.AlterColumn<List<SnCloudFileReferenceObject>>(
+                name: "attachments",
+                table: "surveys",
+                type: "jsonb",
+                nullable: false,
+                oldClrType: typeof(List<SnCloudFileReferenceObject>),
+                oldType: "jsonb",
+                oldNullable: true);
+
+            migrationBuilder.AlterColumn<List<SnCloudFileReferenceObject>>(
+                name: "attachments",
+                table: "survey_questions",
+                type: "jsonb",
+                nullable: false,
+                oldClrType: typeof(List<SnCloudFileReferenceObject>),
+                oldType: "jsonb",
+                oldNullable: true);
 
             // Backfill: all pre-existing rows were already live. Mark them Published so
             // prior submissions remain immutable under the new lifecycle, and mirror
