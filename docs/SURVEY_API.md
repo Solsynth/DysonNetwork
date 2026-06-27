@@ -422,6 +422,80 @@ descending. Each answer includes `account` (unless anonymous).
 
 ---
 
+## Subscriptions & Notifications
+
+A subscriber to a survey receives a push notification (topic `surveys.answer`) when any
+account answers it, **as long as** the survey's `notify_subscribers` flag is set. The
+answering user never receives their own answer notification.
+
+Notifications are pushed via the Ring service (`DyRingService.SendPushNotificationToUser`).
+Recipients who have been blocked or muted by the survey's publisher account are filtered
+out (mirrors `PostService.NotifyPostSubscribersAsync`). The notification itself is
+best-effort: if Ring is unreachable the answer write still succeeds.
+
+### Subscribe to a Survey
+
+Create (or return the existing) subscription for the current user. Idempotent — calling
+`subscribe` twice returns the same row.
+
+**Endpoint:** `POST /api/surveys/{id}/subscribe`
+
+**Authorization:** Required
+
+**Response:** `200 OK` with the `SurveySubscription`:
+
+```json
+{
+  "id": "uuid",
+  "survey_id": "uuid",
+  "account_id": "uuid",
+  "created_at": "timestamp",
+  "updated_at": "timestamp",
+  "deleted_at": null
+}
+```
+
+### Unsubscribe from a Survey
+
+Remove the current user's subscription. Returns `204` whether or not a subscription
+existed (idempotent).
+
+**Endpoint:** `POST /api/surveys/{id}/unsubscribe`
+
+**Authorization:** Required
+
+**Response:** `204 No Content`.
+
+### Get Current Subscription
+
+Fetch the current user's subscription to a survey, if any.
+
+**Endpoint:** `GET /api/surveys/{id}/subscription`
+
+**Authorization:** Required
+
+**Response:** `200 OK` with the `SurveySubscription`, or `404 Not Found` if no
+subscription exists.
+
+### Data Model
+
+```json
+{
+  "id": "uuid",
+  "survey_id": "uuid",
+  "account_id": "uuid",
+  "created_at": "timestamp",
+  "updated_at": "timestamp",
+  "deleted_at": "timestamp?"
+}
+```
+
+A unique partial index on `(account_id, survey_id, deleted_at)` enforces "at most one
+active subscription per account per survey". A cascade FK on `survey_id` ensures
+subscriptions are removed when the survey is hard-deleted.
+
+---
+
 ## Validation
 
 Structural validation runs on Create, Update, and Publish. Per-answer validation runs on
@@ -530,6 +604,9 @@ Tables (snake_case, EF Core convention):
 - `survey_questions` — one row per question. New columns: `attachments` (jsonb),
   `max_selections`, `max_length`, `min_value`, `max_value`.
 - `survey_answers` — one row per account submission. `answer` column is jsonb.
+- `survey_subscriptions` — per-survey push subscription. Unique partial index on
+  `(account_id, survey_id, deleted_at)`; cascade FK to `surveys`. (Added by
+  migration `20260627122542_AddSurveySubscriptions`.)
 
 Migration `20260627115823_RenamePollToSurvey`:
 

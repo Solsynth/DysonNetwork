@@ -1,13 +1,22 @@
 using System.Text.Json;
 using DysonNetwork.Shared.Cache;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Survey;
 
-public class SurveyService(AppDatabase db, ICacheService cache, DyFileService.DyFileServiceClient files)
+public class SurveyService(
+    AppDatabase db,
+    ICacheService cache,
+    DyFileService.DyFileServiceClient files,
+    DyAccountService.DyAccountServiceClient accounts,
+    DyRingService.DyRingServiceClient pusher,
+    IServiceProvider serviceProvider
+)
 {
     /// <summary>
     /// Resolves a list of cloud-file IDs into denormalized <see cref="SnCloudFileReferenceObject"/>
@@ -268,7 +277,97 @@ public class SurveyService(AppDatabase db, ICacheService cache, DyFileService.Dy
         // Invalidate all stats cache for this survey since answers have changed
         await cache.RemoveGroupAsync(SurveyCacheGroupPrefix + surveyId);
 
+        // Fire-and-forget: notify subscribers that a new answer was submitted.
+        // Only fires when the survey has opted into notifications. The answerer
+        // themselves is excluded; muted/blocked accounts on the publisher's side
+        // are also skipped (mirrors PostService.NotifyPostSubscribersAsync).
+        if (survey.NotifySubscribers)
+        {
+            _ = NotifySurveySubscribersAsync(survey, accountId);
+        }
+
         return answerRecord;
+    }
+
+    /// <summary>
+    /// Push a "new survey answer" notification to every active subscriber of the
+    /// given survey, excluding the answerer and any accounts the publisher has
+    /// blocked or muted. Failures are swallowed so a push outage never fails the
+    /// answer write.
+    /// </summary>
+    private async Task NotifySurveySubscribersAsync(SnSurvey survey, Guid answererAccountId)
+    {
+        try
+        {
+            var subscribers = await db.SurveySubscriptions
+                .Where(s => s.SurveyId == survey.Id && s.DeletedAt == null && s.AccountId != answererAccountId)
+                .ToListAsync();
+            if (subscribers.Count == 0)
+                return;
+
+            var accountIds = subscribers.Select(s => s.AccountId.ToString()).Distinct().ToList();
+            var queryRequest = new DyGetAccountBatchRequest();
+            queryRequest.Id.AddRange(accountIds);
+            var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
+
+            // Filter out accounts the survey's publisher has blocked or muted, mirroring
+            // PostService.NotifyPostSubscribersAsync. Need publisher.AccountId for that,
+            // which we fetch lazily so we don't penalize the common path.
+            var publisherAccountId = await db.Publishers
+                .Where(p => p.Id == survey.PublisherId)
+                .Select(p => p.AccountId)
+                .FirstOrDefaultAsync();
+
+            IEnumerable<DyAccount> recipients = queryResponse.Accounts;
+            if (publisherAccountId.HasValue && publisherAccountId.Value != Guid.Empty)
+            {
+                using var scope = serviceProvider.CreateScope();
+                var remoteAccounts = scope.ServiceProvider.GetRequiredService<RemoteAccountService>();
+                var hidden = (await remoteAccounts.ListAllBlockedAccountIds(publisherAccountId.Value))
+                    .Concat(await remoteAccounts.ListMutedAccountIds(publisherAccountId.Value))
+                    .ToHashSet();
+                if (hidden.Count > 0)
+                    recipients = recipients.Where(a => !hidden.Contains(Guid.Parse(a.Id)));
+            }
+
+            var surveyTitle = string.IsNullOrWhiteSpace(survey.Title) ? "a survey" : survey.Title;
+            foreach (var account in recipients)
+            {
+                if (account is null) continue;
+                try
+                {
+                    var notification = new DyPushNotification
+                    {
+                        Topic = "surveys.answer",
+                        Title = surveyTitle,
+                        Body = "Someone just answered your survey.",
+                        IsSavable = true,
+                        ActionUri = $"/surveys/{survey.Id}",
+                        Meta = InfraObjectCoder.ConvertObjectToByteString(new
+                        {
+                            survey_id = survey.Id.ToString(),
+                            publisher_id = survey.PublisherId.ToString(),
+                            answerer_id = answererAccountId.ToString(),
+                        }),
+                    };
+                    await pusher.SendPushNotificationToUserAsync(
+                        new DySendPushNotificationToUserRequest
+                        {
+                            UserId = account.Id,
+                            Notification = notification,
+                        }
+                    );
+                }
+                catch (Exception)
+                {
+                    // Per-account failures must not abort the loop.
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Best-effort notification; the answer write already succeeded.
+        }
     }
 
     public async Task<bool> UnAnswerSurvey(Guid surveyId, Guid accountId)

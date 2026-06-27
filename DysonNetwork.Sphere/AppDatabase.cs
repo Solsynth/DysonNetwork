@@ -47,6 +47,7 @@ public class AppDatabase(
     public DbSet<SnSurvey> Surveys { get; set; } = null!;
     public DbSet<SnSurveyQuestion> SurveyQuestions { get; set; } = null!;
     public DbSet<SnSurveyAnswer> SurveyAnswers { get; set; } = null!;
+    public DbSet<SnSurveySubscription> SurveySubscriptions { get; set; } = null!;
 
     public DbSet<SnSticker> Stickers { get; set; } = null!;
     public DbSet<StickerPack> StickerPacks { get; set; } = null!;
@@ -197,6 +198,15 @@ public class AppDatabase(
             .HasOne(s => s.Post)
             .WithMany()
             .HasForeignKey(s => s.PostId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnSurveySubscription>()
+            .HasIndex(s => new { s.AccountId, s.SurveyId, s.DeletedAt })
+            .IsUnique();
+        modelBuilder.Entity<SnSurveySubscription>()
+            .HasOne(s => s.Survey)
+            .WithMany()
+            .HasForeignKey(s => s.SurveyId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnPostCollection>()

@@ -236,6 +236,11 @@ public class SurveyController(
         public int Order { get; set; } = 0;
         public bool IsRequired { get; set; }
 
+        public int? MaxSelections { get; set; }
+        public int? MaxLength { get; set; }
+        public double? MinValue { get; set; }
+        public double? MaxValue { get; set; }
+
         public List<string>? Attachments { get; set; }
 
         private static Guid EnsureId(Guid id) => id == Guid.Empty ? Guid.NewGuid() : id;
@@ -254,7 +259,11 @@ public class SurveyController(
             Title = Title,
             Description = Description,
             Order = Order,
-            IsRequired = IsRequired
+            IsRequired = IsRequired,
+            MaxSelections = MaxSelections,
+            MaxLength = MaxLength,
+            MinValue = MinValue,
+            MaxValue = MaxValue
         };
     }
 
@@ -400,6 +409,10 @@ public class SurveyController(
                         existingQuestion.Description = incomingQuestion.Description;
                         existingQuestion.Order = incomingQuestion.Order;
                         existingQuestion.IsRequired = incomingQuestion.IsRequired;
+                        existingQuestion.MaxSelections = incomingQuestion.MaxSelections;
+                        existingQuestion.MaxLength = incomingQuestion.MaxLength;
+                        existingQuestion.MinValue = incomingQuestion.MinValue;
+                        existingQuestion.MaxValue = incomingQuestion.MaxValue;
                         if (requestQuestion.Attachments is not null)
                             existingQuestion.Attachments =
                                 await surveys.ResolveAttachmentsAsync(requestQuestion.Attachments);
@@ -637,5 +650,72 @@ public class SurveyController(
             await transaction.RollbackAsync();
             return StatusCode(500, "An error occurred while deleting the survey... " + ex.Message);
         }
+    }
+
+    // ---- Subscription endpoints ----------------------------------------------
+    //
+    // Per-survey subscriptions mirror SnPostSubscription. A subscriber receives a
+    // push notification (topic "surveys.answer") when someone answers the survey,
+    // as long as the survey's NotifySubscribers flag is set. A user can have at
+    // most one active subscription per survey; re-subscribing is idempotent.
+
+    [HttpPost("{id:guid}/subscribe")]
+    [Authorize]
+    public async Task<ActionResult<SnSurveySubscription>> SubscribeToSurvey(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var survey = await db.Surveys.FirstOrDefaultAsync(p => p.Id == id);
+        if (survey is null) return NotFound("Survey not found");
+
+        var existing = await db.SurveySubscriptions
+            .FirstOrDefaultAsync(s => s.SurveyId == id && s.AccountId == accountId);
+        if (existing is not null)
+            return Ok(existing);
+
+        var subscription = new SnSurveySubscription
+        {
+            Id = Guid.NewGuid(),
+            SurveyId = id,
+            AccountId = accountId
+        };
+        db.SurveySubscriptions.Add(subscription);
+        await db.SaveChangesAsync();
+
+        return Ok(subscription);
+    }
+
+    [HttpPost("{id:guid}/unsubscribe")]
+    [Authorize]
+    public async Task<IActionResult> UnsubscribeFromSurvey(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var subscription = await db.SurveySubscriptions
+            .FirstOrDefaultAsync(s => s.SurveyId == id && s.AccountId == accountId);
+        if (subscription is null) return NoContent();
+
+        db.SurveySubscriptions.Remove(subscription);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpGet("{id:guid}/subscription")]
+    [Authorize]
+    public async Task<ActionResult<SnSurveySubscription>> GetSurveySubscription(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var survey = await db.Surveys.FirstOrDefaultAsync(p => p.Id == id);
+        if (survey is null) return NotFound("Survey not found");
+
+        var subscription = await db.SurveySubscriptions
+            .FirstOrDefaultAsync(s => s.SurveyId == id && s.AccountId == accountId);
+        if (subscription is null) return NotFound("Subscription not found");
+
+        return Ok(subscription);
     }
 }
