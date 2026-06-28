@@ -52,6 +52,130 @@ stored in the database.
 
 ---
 
+## Developer Workflow
+
+End-to-end example: a developer creates an app, adds a product, and has a
+user purchase it.
+
+### 1. Create an ApiKey secret
+
+```bash
+POST /api/developers/my-studio/projects/{projectId}/apps/{appId}/secrets
+Authorization: Bearer <dev_token>
+
+{
+  "description": "Order signing key",
+  "type": "ApiKey"
+}
+
+# Response (201):
+{
+  "id": "sec_xxx",
+  "secret": "dGhpcyBpcyBhIHNlY3JldC4uLg",  // ← shown once, save it
+  "description": "Order signing key",
+  "type": "ApiKey",
+  "created_at": "2026-06-28T12:00:00Z",
+  "updated_at": "2026-06-28T12:00:00Z"
+}
+```
+
+### 2. Define products
+
+```bash
+POST /api/developers/my-studio/projects/{projectId}/apps/{appId}/products
+Authorization: Bearer <dev_token>
+
+{
+  "identifier": "premium_boost",
+  "display_name": "Premium Boost",
+  "description": "One-time account experience boost",
+  "currency": "golds",
+  "price": 500
+}
+
+# Response (201):
+{
+  "id": "prod_xxx",
+  "identifier": "premium_boost",
+  "display_name": "Premium Boost",
+  "description": "One-time account experience boost",
+  "currency": "golds",
+  "price": 500,
+  "app_id": "{appId}",
+  ...
+}
+```
+
+### 3. Create an order with that product
+
+```bash
+POST /api/orders
+
+{
+  "client_id": "my-app",          // app slug
+  "client_secret": "dGhpcyBpcyBhIHNlY3JldC4uLg",  // ApiKey from step 1
+  "duration_hours": 24,
+  "remarks": "Purchase via in-game shop",
+  "items": [
+    {
+      "product_identifier": "premium_boost",
+      "quantity": 2
+    }
+  ]
+}
+
+# Response (200):
+{
+  "id": "order_xxx",
+  "status": "unpaid",
+  "currency": "golds",
+  "amount": 1000,           // 500 × 2
+  "app_identifier": "developer.app:{appId}",
+  "items": [
+    {
+      "product_identifier": "premium_boost",
+      "quantity": 2,
+      "unit_price": 500,
+      "currency": "golds"
+    }
+  ],
+  "expired_at": "2026-06-29T12:00:00Z",
+  ...
+}
+```
+
+### 4. User pays the order
+
+```bash
+POST /api/orders/{orderId}/pay
+Authorization: Bearer <user_token>
+
+{ "pin_code": "1234" }
+
+# Response (200): status → "paid", transaction populated
+```
+
+### 5. Check order status (optional)
+
+```bash
+GET /api/orders/{orderId}
+# status: "paid" | "finished" | "cancelled" | "expired"
+```
+
+### 6. App marks order as finished (after delivering goods)
+
+```bash
+PATCH /api/orders/{orderId}/status
+
+{
+  "client_id": "my-app",
+  "client_secret": "dGhpcyBpcyBhIHNlY3JldC4uLg",
+  "status": "Finished"
+}
+```
+
+---
+
 ## App Products
 
 Products belong to a custom app and are managed via the Develop API.
