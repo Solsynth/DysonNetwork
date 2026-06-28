@@ -1,8 +1,8 @@
-# App Products & Extended Orders
+# App Products, Subscriptions & Extended Orders
 
-Custom apps can now define their own product catalog and create orders with
-product line items. The old `AppConnect` secret type has been renamed to
-`ApiKey` — a plain secret string, no HMAC challenge needed.
+Custom apps can now define products (one-time + recurring subscriptions),
+create orders with line items, and leverage the Wallet's full subscription
+engine. The old `AppConnect` secret type has been renamed to `ApiKey`.
 
 ---
 
@@ -19,43 +19,29 @@ product line items. The old `AppConnect` secret type has been renamed to
 | `CustomAppService.ValidateAppConnectChallengeSignatureAsync()` | **Removed** |
 | `CustomAppChallengeController` | **Removed** (entire file) |
 
-Secrets of type `ApiKey` are now validated by a direct string comparison
-against the stored secret hash (via the existing `CheckCustomAppSecret` gRPC).
-No challenge, no signature, no base64url/hex decoding. Just pass the secret
-as `client_secret` in order requests.
-
 ### Orders: line items vs legacy
 
 | Before | After |
 |--------|-------|
-| `POST /api/orders` — single `currency` + `amount` + optional `product_identifier` string tag | Same fields still supported **(backward compat)** |
-| — | `POST /api/orders` — new optional `items[]` array of `{ product_identifier, quantity }` |
-| — | Amount auto-calculated from items: Σ(product.price × item.quantity) |
+| `POST /api/orders` — single `currency` + `amount` + optional `product_identifier` | Same fields still supported **(backward compat)** |
+| — | New optional `items[]` array of `{ product_identifier, quantity }` |
+| — | Amount auto-calculated: Σ(product.price × item.quantity) |
 | — | Currency auto-derived from first item, must be uniform |
-| — | Each item validated against app's product catalog via `GetAppProduct` gRPC |
-| `SnWalletOrder.ProductIdentifier` (single string) | Still present on legacy orders; null on item-based orders |
+| — | Each item validated via `GetAppProduct` gRPC |
 | — | `SnWalletOrderItem` table stores per-line pricing snapshot |
 
-Internal services (SponsorService, Passport, etc.) continue using the legacy
-`currency` + `amount` + `product_identifier` path unchanged.
+### Subscriptions
 
-### Product identifier uniqueness
-
-Product identifiers (SKUs) are unique **per app** — two apps can each have
-a product named `"premium_boost"`. The uniqueness constraint is `(app_id, identifier)`.
-When an external caller (like Wallet) references a product, it passes both
-`app_id` and `identifier` to the `GetAppProduct` gRPC.
-
-For globally-unique external references, build a runtime namespace:
-`{project_slug}.{app_slug}.{sku}` — this is constructed at read time, not
-stored in the database.
+| Before | After |
+|--------|-------|
+| Subscriptions only for platform Stellar Program | Custom apps can offer recurring products |
+| Catalog seeded from `appsettings.json` only | Runtime registration via gRPC from Develop |
+| `SnWalletSubscriptionDefinition` — platform-owned | `AppIdentifier` field distinguishes app subs |
+| Renewal job: platform subs only | App subs auto-renew from user wallet too |
 
 ---
 
 ## Developer Workflow
-
-End-to-end example: a developer creates an app, adds a product, and has a
-user purchase it.
 
 ### 1. Create an ApiKey secret
 
@@ -67,19 +53,10 @@ Authorization: Bearer <dev_token>
   "description": "Order signing key",
   "type": "ApiKey"
 }
-
-# Response (201):
-{
-  "id": "sec_xxx",
-  "secret": "dGhpcyBpcyBhIHNlY3JldC4uLg",  // ← shown once, save it
-  "description": "Order signing key",
-  "type": "ApiKey",
-  "created_at": "2026-06-28T12:00:00Z",
-  "updated_at": "2026-06-28T12:00:00Z"
-}
 ```
+→ `201`: `SecretResponse` — save the `secret` field, shown only once.
 
-### 2. Define products
+### 2a. Define a one-time product
 
 ```bash
 POST /api/developers/my-studio/projects/{projectId}/apps/{appId}/products
@@ -88,61 +65,50 @@ Authorization: Bearer <dev_token>
 {
   "identifier": "premium_boost",
   "display_name": "Premium Boost",
-  "description": "One-time account experience boost",
+  "description": "One-time experience boost",
   "currency": "golds",
   "price": 500
 }
+```
+→ `201`: `SnAppProduct`
 
-# Response (201):
+### 2b. Define a subscription product
+
+```bash
+POST /api/developers/my-studio/projects/{projectId}/apps/{appId}/products
+Authorization: Bearer <dev_token>
+
 {
-  "id": "prod_xxx",
-  "identifier": "premium_boost",
-  "display_name": "Premium Boost",
-  "description": "One-time account experience boost",
+  "identifier": "monthly_vip",
+  "display_name": "Monthly VIP",
+  "description": "Premium membership, renewed every 30 days",
   "currency": "golds",
-  "price": 500,
-  "app_id": "{appId}",
-  ...
+  "price": 1200,
+  "recurrence": "monthly",
+  "group_identifier": "myapp.vip"      # optional, for tier groups
 }
 ```
+→ `201`: `SnAppProduct` (auto-registered as a subscription definition in Wallet)
 
-### 3. Create an order with that product
+### 3. Create an order
 
 ```bash
 POST /api/orders
 
 {
-  "client_id": "my-app",          // app slug
-  "client_secret": "dGhpcyBpcyBhIHNlY3JldC4uLg",  // ApiKey from step 1
+  "client_id": "my-app",
+  "client_secret": "<api_key_secret>",
   "duration_hours": 24,
   "remarks": "Purchase via in-game shop",
   "items": [
-    {
-      "product_identifier": "premium_boost",
-      "quantity": 2
-    }
+    { "product_identifier": "monthly_vip", "quantity": 1 }
   ]
 }
-
-# Response (200):
-{
-  "id": "order_xxx",
-  "status": "unpaid",
-  "currency": "golds",
-  "amount": 1000,           // 500 × 2
-  "app_identifier": "developer.app:{appId}",
-  "items": [
-    {
-      "product_identifier": "premium_boost",
-      "quantity": 2,
-      "unit_price": 500,
-      "currency": "golds"
-    }
-  ],
-  "expired_at": "2026-06-29T12:00:00Z",
-  ...
-}
 ```
+→ `200`: `SnWalletOrder` with `amount` = 1200, `items` populated
+
+For subscription products, the order meta carries subscription info.
+After payment, a `SnWalletSubscription` record is auto-created.
 
 ### 4. User pays the order
 
@@ -151,28 +117,16 @@ POST /api/orders/{orderId}/pay
 Authorization: Bearer <user_token>
 
 { "pin_code": "1234" }
-
-# Response (200): status → "paid", transaction populated
 ```
+→ `200`: status → `paid`, transaction populated, subscription created (if recurring)
 
-### 5. Check order status (optional)
+### 5. Check subscription state
 
 ```bash
-GET /api/orders/{orderId}
-# status: "paid" | "finished" | "cancelled" | "expired"
+GET /api/subscriptions/groups/myapp.vip
+Authorization: Bearer <user_token>
 ```
-
-### 6. App marks order as finished (after delivering goods)
-
-```bash
-PATCH /api/orders/{orderId}/status
-
-{
-  "client_id": "my-app",
-  "client_secret": "dGhpcyBpcyBhIHNlY3JldC4uLg",
-  "status": "Finished"
-}
-```
+→ `200`: group state with current active subscription, next tier, catalog
 
 ---
 
@@ -189,9 +143,11 @@ Products belong to a custom app and are managed via the Develop API.
 | `display_name` | string (1024) | Human-readable name |
 | `description` | string? (4096) | Optional |
 | `currency` | string (128) | e.g. `points`, `golds` |
-| `price` | decimal | Unit price |
+| `price` | decimal | Unit price (base price for subscriptions) |
 | `picture` | jsonb | `SnCloudFileReferenceObject`, optional |
 | `background` | jsonb | `SnCloudFileReferenceObject`, optional |
+| `recurrence` | int | `0`=None, `1`=Weekly, `2`=Monthly, `3`=Yearly |
+| `group_identifier` | string? (4096) | Subscription group for tier upgrades |
 | `app_id` | uuid | Owning app |
 
 ### Endpoints
@@ -222,36 +178,34 @@ Content-Type: application/json
 {
   "identifier": "premium_boost",
   "display_name": "Premium Boost",
-  "description": "One-time account boost",
   "currency": "golds",
   "price": 500,
-  "picture_id": "<file_id>",       // optional
-  "background_id": "<file_id>"     // optional
+  "recurrence": "monthly",          // none | weekly | monthly | yearly
+  "group_identifier": "myapp.vip",  // optional
+  "picture_id": "<file_id>",
+  "background_id": "<file_id>"
 }
 ```
-→ `201`: `SnAppProduct`
-→ `409`: Product with this identifier already exists
+→ `201`: `SnAppProduct` (recurring products auto-sync to Wallet subscription catalog)
+→ `409`: Product with this identifier already exists for this app
 
 **Update product**
 ```
 PATCH /api/developers/{pubName}/projects/{projectId}/apps/{appId}/products/{productId}
 Authorization: Bearer <token>
-Content-Type: application/json
 
 { "price": 600, "display_name": "Super Boost" }
 ```
-→ `200`: `SnAppProduct`
+→ `200`: `SnAppProduct` (catalog synced if recurrence fields change)
 
 **Delete product**
 ```
 DELETE /api/developers/{pubName}/projects/{projectId}/apps/{appId}/products/{productId}
 Authorization: Bearer <token>
 ```
-→ `204`
+→ `204` (subscription definition removed from Wallet if recurring)
 
 ### Public lookup
-
-No auth required.
 
 ```
 GET /api/apps/{slug}/products/{identifier}
@@ -261,11 +215,55 @@ GET /api/apps/{slug}/products/{identifier}
 
 ---
 
+## Subscriptions
+
+When a product has `recurrence != none`, it becomes a subscription product:
+
+- A corresponding `SnWalletSubscriptionDefinition` is registered in Wallet's catalog
+- Orders for that product tag meta with subscription parameters
+- On payment, a `SnWalletSubscription` record is created for the user
+- `SubscriptionRenewalJob` auto-renews from user wallet every cycle
+- Subscription groups enable tier upgrades via existing endpoints
+
+### Subscription definition sync
+
+| Trigger | Action |
+|---------|--------|
+| Create product with recurrence | `RegisterAppSubscriptionDefinition` gRPC → Wallet upserts definition |
+| Update product | Definition updated (price, name, cycle, group) |
+| Delete product | `Remove=true` → definition removed from Wallet catalog |
+
+The sync is best-effort; if Wallet is unreachable the product still saves.
+
+### Subscription lifecycle
+
+```
+Order created → User pays → Subscription created (Active)
+                                  ↓
+                            RenewalAt reached → RenewalJob creates order
+                                  ↓
+                            Wallet charged → Subscription extended
+                            Insufficient funds → Subscription expires
+```
+
+### Existing Wallet subscription endpoints
+
+All work for app subscriptions:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/subscriptions` | List user's subscriptions (includes app subs) |
+| `GET /api/subscriptions/{identifier}` | Get single subscription |
+| `GET /api/subscriptions/groups/{group}` | Group state (current tier, next tier, catalog) |
+| `POST /api/subscriptions/groups/{group}/activate` | Activate/upgrade tier within group |
+| `GET /api/subscriptions/catalog` | Full catalog (platform + app definitions) |
+
+---
+
 ## ApiKey Secrets (was AppConnect)
 
 Secrets of type `ApiKey` are plain strings used as client credentials when
-calling Wallet order endpoints. The old HMAC challenge-signature flow
-(`POST /api/connect/{appId}/validate`) has been removed.
+calling Wallet order endpoints.
 
 **Create an ApiKey secret**
 ```
@@ -280,20 +278,11 @@ Content-Type: application/json
 ```
 → `201`: `SecretResponse` (the `secret` field is only returned once)
 
-Use the returned `secret` value as `client_secret` when creating orders. The
-`CheckCustomAppSecret` gRPC validates it directly — no challenge/signature
-required.
-
 ---
 
-## Orders with Products
+## Orders
 
-`POST /api/orders` now accepts an optional `items` array. Each item references
-a product by identifier. The Wallet validates each product exists for the app
-via gRPC before creating the order. The order amount is auto-calculated from
-line items.
-
-### Create order with products (new)
+### Create order with products
 
 ```
 POST /api/orders
@@ -304,74 +293,44 @@ Content-Type: application/json
   "client_secret": "<api_key_secret>",
   "duration_hours": 24,
   "payee_wallet_id": "00000000-0000-0000-0000-000000000000",
-  "remarks": "Purchase of premium boost",
+  "remarks": "Purchase",
   "items": [
-    {
-      "product_identifier": "premium_boost",
-      "quantity": 2
-    }
+    { "product_identifier": "premium_boost", "quantity": 2 }
   ]
 }
 ```
-→ `200`: `SnWalletOrder` with `items` populated and `amount` = sum of line totals
+→ `200`: `SnWalletOrder` with `amount` = Σ items
 
-Validation:
-- Each `product_identifier` must match a product on the app
-- All products must use the same `currency`
-- `amount` = Σ(product.price × item.quantity)
-
-### Create order without products (legacy, unchanged)
+### Create order (legacy)
 
 ```
 POST /api/orders
-Content-Type: application/json
 
-{
-  "client_id": "internal",
-  "client_secret": "...",
-  "currency": "points",
-  "amount": 100,
-  "duration_hours": 24,
-  "product_identifier": "ads.sponsor",
-  "remarks": "Sponsorship"
-}
+{ "client_id": "internal", "client_secret": "...", "currency": "points", "amount": 100 }
 ```
-→ `200`: `SnWalletOrder` — no items, uses legacy `currency`/`amount` directly
 
 ### Pay order
 
-Unchanged. User pays via their wallet:
 ```
 POST /api/orders/{id}/pay
 Authorization: Bearer <token>
-Content-Type: application/json
-
 { "pin_code": "1234" }
 ```
 
 ### Metrics & payouts
 
-`POST /api/orders/metrics` and `POST /api/orders/payouts` are unchanged. The
-metrics endpoint groups by `product_identifier` — for item-based orders each
-product SKU appears in results.
+`POST /api/orders/metrics` and `POST /api/orders/payouts` are unchanged.
 
-### Order item snapshot behavior
+### Order item snapshot
 
-Each `SnWalletOrderItem` captures pricing at order time:
+| Field | Frozen at order time? |
+|-------|----------------------|
+| `product_identifier` | No — links back to catalog |
+| `quantity` | Yes |
+| `unit_price` | Yes — price changes won't affect paid orders |
+| `currency` | Yes |
 
-| Field | Source | Frozen? |
-|-------|--------|---------|
-| `product_identifier` | Product SKU | No — links back to catalog |
-| `quantity` | Request | Yes |
-| `unit_price` | `product.Price` at order creation | Yes — price changes won't affect paid orders |
-| `currency` | `product.Currency` | Yes |
-
-Product metadata (display name, description, picture, background) is **not**
-stored on the order. To display it, resolve the product by identifier through
-the app's product endpoints.
-
-The order's `amount` = Σ(`unit_price` × `quantity`) across all items.
-The order's `currency` must be uniform — cross-currency item orders are rejected.
+Product display metadata is NOT stored on order items — resolve via product endpoints.
 
 ---
 
@@ -380,36 +339,46 @@ The order's `currency` must be uniform — cross-currency item orders are reject
 ### `DyCustomAppService.GetAppProduct`
 
 ```
-DyGetAppProductRequest {
-  string app_id = 1;
-  string identifier = 2;
-}
-→ DyGetAppProductResponse {
-  DyAppProduct product = 1;
-}
+DyGetAppProductRequest { string app_id; string identifier; }
+→ DyGetAppProductResponse { DyAppProduct product; }
 ```
 
-Returns the product if it belongs to the specified app. Used by Wallet for
-validation during order creation.
+`DyAppProduct` now includes `recurrence` (string) and `group_identifier`.
+
+### `DyPaymentService.RegisterAppSubscriptionDefinition`
+
+```
+DyRegisterAppSubscriptionDefinitionRequest {
+  string identifier;           // product SKU
+  string app_identifier;       // "developer.app:{id}"
+  string display_name;
+  string currency;
+  string base_price;
+  string group_identifier;     // optional
+  int32 cycle_duration_days;   // 7, 30, 365
+  bool remove;                 // true = delete definition
+}
+→ DyRegisterAppSubscriptionDefinitionResponse { bool created; }
+```
+
+Called by Develop when products with recurrence are created/updated/deleted.
 
 ### `DyCreateOrderRequest` / `DyOrder`
 
-Both now carry `repeated DyOrderItem items`. Each `DyOrderItem` has:
-
+Both carry `repeated DyOrderItem items`:
 ```
-string product_identifier = 1;
-int32 quantity = 2;
-string unit_price = 3;
-string currency = 4;
+string product_identifier; int32 quantity; string unit_price; string currency;
 ```
 
 ---
 
 ## Migrations
 
-| Project | Migration | Table |
-|---------|-----------|-------|
+| Project | Migration | Table / Column |
+|---------|-----------|----------------|
 | Develop | `AddAppProducts` | `app_products` |
+| Develop | `AddProductRecurrence` | `app_products.recurrence`, `app_products.group_identifier` |
 | Wallet | `AddWalletOrderItems` | `wallet_order_items` |
+| Wallet | `AddAppIdentifierToSubscriptionDef` | `wallet_subscription_definitions.app_identifier` |
 
 Run `dotnet ef database update` in each project to apply.
