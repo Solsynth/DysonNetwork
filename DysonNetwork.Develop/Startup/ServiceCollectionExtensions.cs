@@ -53,6 +53,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<DevProjectService>();
         services.AddScoped<BotAccountService>();
         services.AddScoped<MiniApp.MiniAppService>();
+        services.AddScoped<AppProductService>();
 
         services.AddEventBus();
 
