@@ -6,6 +6,52 @@ product line items. The old `AppConnect` secret type has been renamed to
 
 ---
 
+## Behavior Changes
+
+### AppConnect → ApiKey
+
+| Before | After |
+|--------|-------|
+| `CustomAppSecretType.AppConnect` | `CustomAppSecretType.ApiKey` |
+| `AuthorizedAppType.AppConnect` | `AuthorizedAppType.ApiKey` |
+| `POST /api/connect/{appId}/validate` | **Removed** |
+| HMAC-SHA256 challenge-signature auth | Plain secret checked via `CheckCustomAppSecret` gRPC |
+| `CustomAppService.ValidateAppConnectChallengeSignatureAsync()` | **Removed** |
+| `CustomAppChallengeController` | **Removed** (entire file) |
+
+Secrets of type `ApiKey` are now validated by a direct string comparison
+against the stored secret hash (via the existing `CheckCustomAppSecret` gRPC).
+No challenge, no signature, no base64url/hex decoding. Just pass the secret
+as `client_secret` in order requests.
+
+### Orders: line items vs legacy
+
+| Before | After |
+|--------|-------|
+| `POST /api/orders` — single `currency` + `amount` + optional `product_identifier` string tag | Same fields still supported **(backward compat)** |
+| — | `POST /api/orders` — new optional `items[]` array of `{ product_identifier, quantity }` |
+| — | Amount auto-calculated from items: Σ(product.price × item.quantity) |
+| — | Currency auto-derived from first item, must be uniform |
+| — | Each item validated against app's product catalog via `GetAppProduct` gRPC |
+| `SnWalletOrder.ProductIdentifier` (single string) | Still present on legacy orders; null on item-based orders |
+| — | `SnWalletOrderItem` table stores per-line pricing snapshot |
+
+Internal services (SponsorService, Passport, etc.) continue using the legacy
+`currency` + `amount` + `product_identifier` path unchanged.
+
+### Product identifier uniqueness
+
+Product identifiers (SKUs) are unique **per app** — two apps can each have
+a product named `"premium_boost"`. The uniqueness constraint is `(app_id, identifier)`.
+When an external caller (like Wallet) references a product, it passes both
+`app_id` and `identifier` to the `GetAppProduct` gRPC.
+
+For globally-unique external references, build a runtime namespace:
+`{project_slug}.{app_slug}.{sku}` — this is constructed at read time, not
+stored in the database.
+
+---
+
 ## App Products
 
 Products belong to a custom app and are managed via the Develop API.
@@ -184,6 +230,24 @@ Content-Type: application/json
 `POST /api/orders/metrics` and `POST /api/orders/payouts` are unchanged. The
 metrics endpoint groups by `product_identifier` — for item-based orders each
 product SKU appears in results.
+
+### Order item snapshot behavior
+
+Each `SnWalletOrderItem` captures pricing at order time:
+
+| Field | Source | Frozen? |
+|-------|--------|---------|
+| `product_identifier` | Product SKU | No — links back to catalog |
+| `quantity` | Request | Yes |
+| `unit_price` | `product.Price` at order creation | Yes — price changes won't affect paid orders |
+| `currency` | `product.Currency` | Yes |
+
+Product metadata (display name, description, picture, background) is **not**
+stored on the order. To display it, resolve the product by identifier through
+the app's product endpoints.
+
+The order's `amount` = Σ(`unit_price` × `quantity`) across all items.
+The order's `currency` must be uniform — cross-currency item orders are rejected.
 
 ---
 
