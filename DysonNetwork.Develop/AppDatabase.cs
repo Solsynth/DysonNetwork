@@ -21,6 +21,7 @@ public class AppDatabase(
     public DbSet<SnBotAccount> BotAccounts { get; set; } = null!;
     public DbSet<SnBotChatConfig> BotChatConfigs { get; set; } = null!;
     public DbSet<SnMiniApp> MiniApps { get; set; }
+    public DbSet<SnAppProduct> AppProducts { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

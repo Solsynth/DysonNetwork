@@ -23,16 +23,26 @@ public class OrderController(
 
     public class CreateOrderRequest
     {
-        public string Currency { get; set; } = null!;
-        public decimal Amount { get; set; }
+        // Legacy: used when Items is null
+        public string? Currency { get; set; }
+        public decimal? Amount { get; set; }
         public string? Remarks { get; set; }
         public string? ProductIdentifier { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
         public int DurationHours { get; set; } = 24;
         public Guid? PayeeWalletId { get; set; }
 
+        // New: order line items referencing app products
+        public List<OrderItemRequest>? Items { get; set; }
+
         public string ClientId { get; set; } = null!;
         public string ClientSecret { get; set; } = null!;
+    }
+
+    public class OrderItemRequest
+    {
+        public string ProductIdentifier { get; set; } = null!;
+        public int Quantity { get; set; } = 1;
     }
 
     public class AppOrderMetricsRequest
@@ -114,10 +124,65 @@ public class OrderController(
             payeeWalletId = client.PaymentWalletId.Value;
         }
 
-        var order = await payment.CreateOrderAsync(
+        // New: order with product line items
+        if (request.Items is { Count: > 0 })
+        {
+            var items = new List<SnWalletOrderItem>();
+            decimal totalAmount = 0;
+            string? currency = null;
+
+            foreach (var item in request.Items)
+            {
+                // Validate product exists for this app via gRPC
+                var productResp = await customApps.GetAppProductAsync(new DyGetAppProductRequest
+                {
+                    AppId = client.Id.ToString(),
+                    Identifier = item.ProductIdentifier
+                });
+                if (productResp.Product is null)
+                    return BadRequest($"Product '{item.ProductIdentifier}' not found for this app.");
+
+                var product = SnAppProduct.FromProto(productResp.Product);
+
+                if (currency is null)
+                    currency = product.Currency;
+                else if (currency != product.Currency)
+                    return BadRequest("All items must use the same currency.");
+
+                var unitPrice = product.Price;
+                var lineTotal = unitPrice * item.Quantity;
+
+                items.Add(new SnWalletOrderItem
+                {
+                    ProductIdentifier = item.ProductIdentifier,
+                    Quantity = item.Quantity,
+                    UnitPrice = unitPrice,
+                    Currency = product.Currency
+                });
+
+                totalAmount += lineTotal;
+            }
+
+            var order = await payment.CreateOrderAsync(
+                payeeWalletId,
+                currency!,
+                totalAmount,
+                NodaTime.Duration.FromHours(request.DurationHours),
+                client.ResourceIdentifier,
+                productIdentifier: null,
+                request.Remarks,
+                request.Meta,
+                items: items
+            );
+
+            return Ok(order);
+        }
+
+        // Legacy: order without line items
+        var legacyOrder = await payment.CreateOrderAsync(
             payeeWalletId,
-            request.Currency,
-            request.Amount,
+            request.Currency!,
+            request.Amount!.Value,
             NodaTime.Duration.FromHours(request.DurationHours),
             client.ResourceIdentifier,
             request.ProductIdentifier,
@@ -125,7 +190,7 @@ public class OrderController(
             request.Meta
         );
 
-        return Ok(order);
+        return Ok(legacyOrder);
     }
 
     [HttpGet("{id:guid}")]

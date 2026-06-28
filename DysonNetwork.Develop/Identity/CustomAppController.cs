@@ -28,7 +28,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
     public record CreateSecretRequest(
         [MaxLength(4096)] string? Description,
         TimeSpan? ExpiresIn = null,
-        CustomAppSecretType Type = CustomAppSecretType.AppConnect
+        CustomAppSecretType Type = CustomAppSecretType.ApiKey
     );
 
     public record SecretResponse(
@@ -39,11 +39,6 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
         CustomAppSecretType Type,
         Instant CreatedAt,
         Instant UpdatedAt
-    );
-
-    public record ValidateAppConnectChallengeResponse(
-        bool Valid,
-        string? SecretId
     );
 
     [HttpGet]
@@ -417,7 +412,7 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
                     ? NodaTime.SystemClock.Instance.GetCurrentInstant()
                         .Plus(Duration.FromTimeSpan(request.ExpiresIn.Value))
                     : (NodaTime.Instant?)null,
-                Type = request?.Type ?? CustomAppSecretType.AppConnect
+                Type = request?.Type ?? CustomAppSecretType.ApiKey
             });
 
             return Ok(new SecretResponse(

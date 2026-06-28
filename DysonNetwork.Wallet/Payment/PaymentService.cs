@@ -34,12 +34,13 @@ public class PaymentService(
         string? productIdentifier = null,
         string? remarks = null,
         Dictionary<string, object>? meta = null,
-        bool reuseable = true
+        bool reuseable = true,
+        List<SnWalletOrderItem>? items = null
     )
     {
-        // Check if there's an existing unpaid order that can be reused
+        // ponytail: skip reuse check when items are present — line-item orders are never reused
         var now = SystemClock.Instance.GetCurrentInstant();
-        if (reuseable && appIdentifier != null)
+        if (items is not { Count: > 0 } && reuseable && appIdentifier != null)
         {
             var existingOrder = await db.PaymentOrders
                 .Where(o => o.Status == Shared.Models.OrderStatus.Unpaid &&
@@ -51,10 +52,8 @@ public class PaymentService(
                             o.ExpiredAt > now)
                 .FirstOrDefaultAsync();
 
-            // If an existing order is found, check if meta matches
             if (existingOrder != null && meta != null && existingOrder.Meta != null)
             {
-                // Compare the meta dictionary - if they are equivalent, reuse the order
                 var metaMatches = existingOrder.Meta.Count == meta.Count &&
                                   !existingOrder.Meta.Except(meta).Any();
                 if (metaMatches)
@@ -62,7 +61,6 @@ public class PaymentService(
             }
         }
 
-        // Create a new SnWalletOrder if no reusable order was found
         var order = new SnWalletOrder
         {
             PayeeWalletId = payeeWalletId,
@@ -76,6 +74,17 @@ public class PaymentService(
         };
 
         db.PaymentOrders.Add(order);
+
+        if (items is { Count: > 0 })
+        {
+            foreach (var item in items)
+            {
+                item.OrderId = order.Id;
+                item.Order = order;
+                db.WalletOrderItems.Add(item);
+            }
+        }
+
         await db.SaveChangesAsync();
         return order;
     }

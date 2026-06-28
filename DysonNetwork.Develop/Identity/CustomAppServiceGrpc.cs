@@ -63,7 +63,7 @@ public class CustomAppServiceGrpc(AppDatabase db) : DyCustomAppService.DyCustomA
         {
             var requestedType = request.IsOidc
                 ? CustomAppSecretType.Oidc
-                : CustomAppSecretType.AppConnect;
+                : CustomAppSecretType.ApiKey;
             var isOidc = requestedType == CustomAppSecretType.Oidc;
             q = q.Where(s => s.IsOidc == isOidc);
         }
@@ -71,5 +71,21 @@ public class CustomAppServiceGrpc(AppDatabase db) : DyCustomAppService.DyCustomA
         var now = NodaTime.SystemClock.Instance.GetCurrentInstant();
         var exists = await q.AnyAsync(s => s.Secret == request.Secret && (s.ExpiredAt == null || s.ExpiredAt > now));
         return new DyCheckCustomAppSecretResponse { Valid = exists };
+    }
+
+    public override async Task<DyGetAppProductResponse> GetAppProduct(DyGetAppProductRequest request, ServerCallContext context)
+    {
+        if (string.IsNullOrWhiteSpace(request.AppId) || string.IsNullOrWhiteSpace(request.Identifier))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "app_id and identifier required"));
+
+        if (!Guid.TryParse(request.AppId, out var appId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid app_id"));
+
+        var product = await db.AppProducts
+            .FirstOrDefaultAsync(p => p.AppId == appId && p.Identifier == request.Identifier);
+        if (product is null)
+            throw new RpcException(new Status(StatusCode.NotFound, "product not found"));
+
+        return new DyGetAppProductResponse { Product = product.ToProto() };
     }
 }

@@ -8,7 +8,7 @@ namespace DysonNetwork.Padlock.Models;
 public enum AuthorizedAppType
 {
     Oidc,
-    AppConnect
+    ApiKey
 }
 
 public class SnAuthorizedApp : ModelBase

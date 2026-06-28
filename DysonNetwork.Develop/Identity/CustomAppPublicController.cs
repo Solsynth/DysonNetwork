@@ -5,8 +5,11 @@ namespace DysonNetwork.Develop.Identity;
 
 [ApiController]
 [Route("api/apps")]
-public class CustomAppPublicController(CustomAppService customAppService, DeveloperService developerService)
-    : ControllerBase
+public class CustomAppPublicController(
+    CustomAppService customAppService,
+    DeveloperService developerService,
+    AppProductService productService
+) : ControllerBase
 {
     [HttpGet("{slug}")]
     public async Task<ActionResult<SnCustomApp>> GetCustomAppBySlug([FromRoute] string slug)
@@ -19,6 +22,20 @@ public class CustomAppPublicController(CustomAppService customAppService, Develo
         app.Project.Developer = await developerService.LoadDeveloperPublisher(developer);
 
         return Ok(app);
+    }
+
+    [HttpGet("{slug}/products/{identifier}")]
+    public async Task<ActionResult<SnAppProduct>> GetAppProductByIdentifier(
+        [FromRoute] string slug,
+        [FromRoute] string identifier)
+    {
+        var app = await customAppService.GetAppBySlugAsync(slug);
+        if (app is null) return NotFound("Custom app not found");
+
+        var product = await productService.GetProductByIdentifierAsync(app.Id, identifier);
+        if (product is null) return NotFound("Product not found");
+
+        return Ok(product);
     }
 }
 

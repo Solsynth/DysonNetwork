@@ -14,6 +14,10 @@ public class PaymentServiceGrpc(PaymentService paymentService, WalletService wal
         ServerCallContext context
     )
     {
+        var items = request.Items.Count > 0
+            ? request.Items.Select(SnWalletOrderItem.FromProto).ToList()
+            : null;
+
         var order = await paymentService.CreateOrderAsync(
             request.HasPayeeWalletId ? Guid.Parse(request.PayeeWalletId) : null,
             request.Currency,
@@ -27,7 +31,8 @@ public class PaymentServiceGrpc(PaymentService paymentService, WalletService wal
             request.HasMeta
                 ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object>>(request.Meta)
                 : null,
-            request.Reuseable
+            request.Reuseable,
+            items
         );
         return order.ToProtoValue();
     }
