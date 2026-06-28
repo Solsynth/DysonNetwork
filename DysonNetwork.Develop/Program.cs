@@ -17,6 +17,7 @@ builder.Services.AddDysonAuth();
 builder.Services.AddSphereService();
 builder.Services.AddAccountService();
 builder.Services.AddDriveService();
+builder.Services.AddWalletService();
 
 builder.AddSwaggerManifest(
     "DysonNetwork.Develop",

@@ -163,6 +163,39 @@ public class OrderController(
                 totalAmount += lineTotal;
             }
 
+            // Build subscription meta for recurring products
+            var meta = request.Meta ?? new Dictionary<string, object>();
+            var subscriptionItems = items
+                .Select(i => new { i.ProductIdentifier, i.Quantity })
+                .ToList();
+            // Resolve subscription products by checking the first item's product (ponytail: single-currency, single-recurrence per order)
+            var firstProduct = SnAppProduct.FromProto((await customApps.GetAppProductAsync(new DyGetAppProductRequest
+            {
+                AppId = client.Id.ToString(),
+                Identifier = request.Items[0].ProductIdentifier
+            })).Product!);
+            if (firstProduct.Recurrence != ProductRecurrence.None)
+            {
+                var cycleDays = firstProduct.Recurrence switch
+                {
+                    ProductRecurrence.Weekly => 7,
+                    ProductRecurrence.Monthly => 30,
+                    ProductRecurrence.Yearly => 365,
+                    _ => 30
+                };
+                meta["app_subscription"] = new Dictionary<string, object>
+                {
+                    ["identifier"] = firstProduct.Identifier,
+                    ["display_name"] = firstProduct.DisplayName,
+                    ["currency"] = firstProduct.Currency,
+                    ["base_price"] = firstProduct.Price.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    ["group_identifier"] = firstProduct.GroupIdentifier ?? string.Empty,
+                    ["cycle_duration_days"] = cycleDays,
+                    ["app_identifier"] = client.ResourceIdentifier,
+                    ["payment_method"] = SubscriptionPaymentMethod.InAppWallet
+                };
+            }
+
             var order = await payment.CreateOrderAsync(
                 payeeWalletId,
                 currency!,
@@ -171,7 +204,7 @@ public class OrderController(
                 client.ResourceIdentifier,
                 productIdentifier: null,
                 request.Remarks,
-                request.Meta,
+                meta,
                 items: items
             );
 

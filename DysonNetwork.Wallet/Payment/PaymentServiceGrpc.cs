@@ -6,8 +6,11 @@ using NodaTime;
 
 namespace DysonNetwork.Wallet.Payment;
 
-public class PaymentServiceGrpc(PaymentService paymentService, WalletService walletService)
-    : DyPaymentService.DyPaymentServiceBase
+public class PaymentServiceGrpc(
+    PaymentService paymentService,
+    WalletService walletService,
+    SubscriptionCatalogService catalogService
+) : DyPaymentService.DyPaymentServiceBase
 {
     public override async Task<DyOrder> CreateOrder(
         DyCreateOrderRequest request,
@@ -149,5 +152,32 @@ public class PaymentServiceGrpc(PaymentService paymentService, WalletService wal
     {
         var walletFund = await paymentService.GetWalletFundAsync(Guid.Parse(request.FundId));
         return walletFund?.ToProtoValueWithRecipients() ?? new DyWalletFund();
+    }
+
+    public override async Task<DyRegisterAppSubscriptionDefinitionResponse> RegisterAppSubscriptionDefinition(
+        DyRegisterAppSubscriptionDefinitionRequest request,
+        ServerCallContext context
+    )
+    {
+        if (string.IsNullOrWhiteSpace(request.Identifier) || string.IsNullOrWhiteSpace(request.AppIdentifier))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "identifier and app_identifier required"));
+
+        if (request.Remove)
+        {
+            var removed = await catalogService.RemoveAppDefinitionAsync(request.Identifier, request.AppIdentifier);
+            return new DyRegisterAppSubscriptionDefinitionResponse { Created = false };
+        }
+
+        var created = await catalogService.RegisterAppDefinitionAsync(
+            request.Identifier,
+            request.AppIdentifier,
+            request.DisplayName,
+            request.Currency,
+            decimal.Parse(request.BasePrice),
+            string.IsNullOrWhiteSpace(request.GroupIdentifier) ? null : request.GroupIdentifier,
+            request.CycleDurationDays
+        );
+
+        return new DyRegisterAppSubscriptionDefinitionResponse { Created = created };
     }
 }

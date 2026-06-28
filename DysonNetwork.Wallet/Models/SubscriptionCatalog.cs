@@ -25,6 +25,9 @@ public class SnWalletSubscriptionDefinition : ModelBase
     [Column(TypeName = "jsonb")] public SubscriptionGiftPolicy? GiftPolicy { get; set; }
     [Column(TypeName = "jsonb")] public Dictionary<string, List<string>> ProviderMappings { get; set; } = new();
 
+    // ponytail: null = platform subscription, set = app-owned subscription
+    [MaxLength(4096)] public string? AppIdentifier { get; set; }
+
     public bool IsPaymentMethodAllowed(string paymentMethod)
     {
         if (string.IsNullOrWhiteSpace(paymentMethod)) return false;

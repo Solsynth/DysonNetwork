@@ -353,4 +353,76 @@ public class SubscriptionCatalogService(
         var defaults = GetSettings().GiftPolicyDefaults.Clone();
         return defaults.Merge(definition.GiftPolicy);
     }
+
+    // --- App subscription definition management ---
+
+    public async Task<bool> RegisterAppDefinitionAsync(
+        string identifier,
+        string appIdentifier,
+        string displayName,
+        string currency,
+        decimal basePrice,
+        string? groupIdentifier,
+        int cycleDurationDays,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var existing = await _db.WalletSubscriptionDefinitions
+            .FirstOrDefaultAsync(x => x.Identifier == identifier, cancellationToken);
+
+        if (existing is not null)
+        {
+            // Update existing
+            existing.DisplayName = displayName;
+            existing.Currency = currency;
+            existing.BasePrice = basePrice;
+            existing.GroupIdentifier = string.IsNullOrWhiteSpace(groupIdentifier) ? null : groupIdentifier;
+            existing.AppIdentifier = appIdentifier;
+            existing.PaymentPolicy = new SubscriptionPaymentPolicy
+            {
+                AllowInternalWallet = true,
+                AllowExternal = false,
+                AllowInternalWalletRenewal = true,
+                AllowedMethods = [SubscriptionPaymentMethod.InAppWallet]
+            };
+            _db.WalletSubscriptionDefinitions.Update(existing);
+        }
+        else
+        {
+            _db.WalletSubscriptionDefinitions.Add(new SnWalletSubscriptionDefinition
+            {
+                Identifier = identifier,
+                DisplayName = displayName,
+                Currency = currency,
+                BasePrice = basePrice,
+                GroupIdentifier = string.IsNullOrWhiteSpace(groupIdentifier) ? null : groupIdentifier,
+                AppIdentifier = appIdentifier,
+                PaymentPolicy = new SubscriptionPaymentPolicy
+                {
+                    AllowInternalWallet = true,
+                    AllowExternal = false,
+                    AllowInternalWalletRenewal = true,
+                    AllowedMethods = [SubscriptionPaymentMethod.InAppWallet]
+                },
+                PerkLevel = 0
+            });
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return existing is null;
+    }
+
+    public async Task<bool> RemoveAppDefinitionAsync(
+        string identifier,
+        string appIdentifier,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var def = await _db.WalletSubscriptionDefinitions
+            .FirstOrDefaultAsync(x => x.Identifier == identifier && x.AppIdentifier == appIdentifier, cancellationToken);
+        if (def is null) return false;
+        _db.WalletSubscriptionDefinitions.Remove(def);
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
 }

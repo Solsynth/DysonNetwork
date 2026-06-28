@@ -1,10 +1,15 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Develop.Identity;
 
-public class AppProductService(AppDatabase db, DyFileService.DyFileServiceClient files)
+public class AppProductService(
+    AppDatabase db,
+    DyFileService.DyFileServiceClient files,
+    DyPaymentService.DyPaymentServiceClient wallet
+)
 {
     public async Task<SnCloudFileReferenceObject?> ResolveFileAsync(string? fileId)
     {
@@ -41,6 +46,10 @@ public class AppProductService(AppDatabase db, DyFileService.DyFileServiceClient
         product.AppId = appId;
         db.AppProducts.Add(product);
         await db.SaveChangesAsync();
+
+        // Sync to Wallet subscription catalog if recurring
+        await SyncSubscriptionDefinitionAsync(product);
+
         return product;
     }
 
@@ -48,6 +57,9 @@ public class AppProductService(AppDatabase db, DyFileService.DyFileServiceClient
     {
         db.AppProducts.Update(product);
         await db.SaveChangesAsync();
+
+        await SyncSubscriptionDefinitionAsync(product);
+
         return product;
     }
 
@@ -58,6 +70,63 @@ public class AppProductService(AppDatabase db, DyFileService.DyFileServiceClient
         if (product is null) return false;
         db.AppProducts.Remove(product);
         await db.SaveChangesAsync();
+
+        // Remove from Wallet subscription catalog
+        await RemoveSubscriptionDefinitionAsync(product);
+
         return true;
+    }
+
+    private async Task SyncSubscriptionDefinitionAsync(SnAppProduct product)
+    {
+        if (product.Recurrence == ProductRecurrence.None) return;
+
+        var app = await db.CustomApps.Include(a => a.Project).FirstOrDefaultAsync(a => a.Id == product.AppId);
+        if (app is null) return;
+
+        var cycleDays = product.Recurrence switch
+        {
+            ProductRecurrence.Weekly => 7,
+            ProductRecurrence.Monthly => 30,
+            ProductRecurrence.Yearly => 365,
+            _ => 30
+        };
+
+        try
+        {
+            await wallet.RegisterAppSubscriptionDefinitionAsync(new DyRegisterAppSubscriptionDefinitionRequest
+            {
+                Identifier = product.Identifier,
+                AppIdentifier = app.ResourceIdentifier,
+                DisplayName = product.DisplayName,
+                Currency = product.Currency,
+                BasePrice = product.Price.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                GroupIdentifier = product.GroupIdentifier ?? string.Empty,
+                CycleDurationDays = cycleDays
+            });
+        }
+        catch (Grpc.Core.RpcException)
+        {
+            // ponytail: Wallet unreachable — definition will be stale; next product update syncs it
+        }
+    }
+
+    private async Task RemoveSubscriptionDefinitionAsync(SnAppProduct product)
+    {
+        if (product.Recurrence == ProductRecurrence.None) return;
+
+        var app = await db.CustomApps.FirstOrDefaultAsync(a => a.Id == product.AppId);
+        if (app is null) return;
+
+        try
+        {
+            await wallet.RegisterAppSubscriptionDefinitionAsync(new DyRegisterAppSubscriptionDefinitionRequest
+            {
+                Identifier = product.Identifier,
+                AppIdentifier = app.ResourceIdentifier,
+                Remove = true
+            });
+        }
+        catch (Grpc.Core.RpcException) { }
     }
 }

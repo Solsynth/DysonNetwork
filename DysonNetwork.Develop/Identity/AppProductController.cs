@@ -23,7 +23,9 @@ public class AppProductController(
         [MaxLength(128)] string? Currency,
         decimal? Price,
         string? PictureId,
-        string? BackgroundId
+        string? BackgroundId,
+        string? Recurrence,
+        string? GroupIdentifier
     );
 
     private async Task<IActionResult> ResolveAppAsync(string pubName, Guid projectId, Guid appId, string role)
@@ -97,6 +99,8 @@ public class AppProductController(
             Description = request.Description,
             Currency = request.Currency,
             Price = request.Price ?? 0,
+            Recurrence = ParseRecurrence(request.Recurrence),
+            GroupIdentifier = request.GroupIdentifier,
         };
 
         if (request.PictureId is not null)
@@ -125,6 +129,8 @@ public class AppProductController(
         if (request.Description is not null) product.Description = request.Description;
         if (request.Currency is not null) product.Currency = request.Currency;
         if (request.Price.HasValue) product.Price = request.Price.Value;
+        if (request.Recurrence is not null) product.Recurrence = ParseRecurrence(request.Recurrence);
+        if (request.GroupIdentifier is not null) product.GroupIdentifier = request.GroupIdentifier;
         if (request.PictureId is not null)
             product.Picture = await productService.ResolveFileAsync(request.PictureId);
         if (request.BackgroundId is not null)
@@ -147,5 +153,13 @@ public class AppProductController(
 
         return NoContent();
     }
+
+    private static ProductRecurrence ParseRecurrence(string? value) => value?.ToLowerInvariant() switch
+    {
+        "weekly" => ProductRecurrence.Weekly,
+        "monthly" => ProductRecurrence.Monthly,
+        "yearly" => ProductRecurrence.Yearly,
+        _ => ProductRecurrence.None
+    };
 
 }

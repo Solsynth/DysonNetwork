@@ -124,7 +124,7 @@ public static class ServiceCollectionExtensions
                         evt.OrderId
                     );
 
-                    if (evt.ProductIdentifier is null)
+                    if (evt.ProductIdentifier is null && !evt.Meta.ContainsKey("app_subscription"))
                         return;
 
                     // Handle subscription orders
@@ -163,6 +163,48 @@ public static class ServiceCollectionExtensions
                         await subscriptions.HandleSubscriptionOrder(order);
 
                         logger.LogInformation("Subscription for order {OrderId} handled successfully.", evt.OrderId);
+                    }
+                    else if (evt.Meta.TryGetValue("app_subscription", out var appSub))
+                    {
+                        logger.LogInformation("Handling app subscription order: {OrderId}", evt.OrderId);
+
+                        var subMeta = appSub as Dictionary<string, object> ?? new Dictionary<string, object>();
+                        var identifier = subMeta.GetValueOrDefault("identifier")?.ToString();
+                        var currency = subMeta.GetValueOrDefault("currency")?.ToString();
+                        var basePriceStr = subMeta.GetValueOrDefault("base_price")?.ToString();
+                        var cycleDaysStr = subMeta.GetValueOrDefault("cycle_duration_days")?.ToString();
+
+                        if (identifier is null || currency is null || basePriceStr is null)
+                        {
+                            logger.LogWarning("App subscription order {OrderId} missing required meta", evt.OrderId);
+                            return;
+                        }
+
+                        var accountId = evt.AccountId;
+                        var basePrice = decimal.Parse(basePriceStr, System.Globalization.CultureInfo.InvariantCulture);
+                        var cycleDays = int.TryParse(cycleDaysStr, out var d) && d > 0 ? d : 30;
+
+                        var now = NodaTime.SystemClock.Instance.GetCurrentInstant();
+                        var subscription = new SnWalletSubscription
+                        {
+                            Identifier = identifier,
+                            AccountId = accountId,
+                            PaymentMethod = SubscriptionPaymentMethod.InAppWallet,
+                            PaymentDetails = new SnPaymentDetails { Currency = currency, OrderId = evt.OrderId.ToString() },
+                            BasePrice = basePrice,
+                            BegunAt = now,
+                            EndedAt = now.Plus(NodaTime.Duration.FromDays(cycleDays)),
+                            RenewalAt = now.Plus(NodaTime.Duration.FromDays(cycleDays)),
+                            Status = SubscriptionStatus.Active,
+                            IsActive = true,
+                            GroupIdentifier = subMeta.GetValueOrDefault("group_identifier")?.ToString(),
+                            DisplayName = subMeta.GetValueOrDefault("display_name")?.ToString()
+                        };
+
+                        db.WalletSubscriptions.Add(subscription);
+                        await db.SaveChangesAsync(ctx.CancellationToken);
+
+                        logger.LogInformation("App subscription {SubscriptionId} created for order {OrderId}", subscription.Id, evt.OrderId);
                     }
                 },
                 opts =>
