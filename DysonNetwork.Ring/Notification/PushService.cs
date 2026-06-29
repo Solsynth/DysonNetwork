@@ -456,7 +456,8 @@ public class PushService
         CancellationToken cancellationToken = default
     )
     {
-        if (!isSavable)
+        var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
+        if (ShouldQueueSopReplay(isSavable, connectedSopDeviceIds))
             await _sopReplayBuffer.AppendNotification(notification);
 
         BroadcastSopStream(notification);
@@ -490,7 +491,6 @@ public class PushService
                 return;
             }
 
-            var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
             var subscriptionByDevice = SelectSubscriptionsByDevice(
                 subscriptions,
                 connectedSopDeviceIds,
@@ -590,7 +590,8 @@ public class PushService
         foreach (var account in accounts)
         {
             notification.AccountId = account;
-            if (!save)
+            var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
+            if (ShouldQueueSopReplay(save, connectedSopDeviceIds))
                 await _sopReplayBuffer.AppendNotification(notification);
             BroadcastSopStream(notification);
 
@@ -610,7 +611,6 @@ public class PushService
                 continue;
             }
 
-            var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
             var subscriptionByDevice = SelectSubscriptionsByDevice(
                 subscriptions,
                 connectedSopDeviceIds,
@@ -991,6 +991,11 @@ public class PushService
             ? deviceId[..^sopSuffix.Length]
             : deviceId;
     }
+
+    internal static bool ShouldQueueSopReplay(
+        bool isSavable,
+        IReadOnlyCollection<string> connectedSopDeviceIds
+    ) => !isSavable && connectedSopDeviceIds.Count == 0;
 
     private static IReadOnlyCollection<string>? BuildWebSocketExclusions(
         IEnumerable<string> deviceIds,

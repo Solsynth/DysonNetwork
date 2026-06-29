@@ -339,7 +339,16 @@ public partial class PostService(
             return;
 
         foreach (var postId in postIds)
-            await IndexPostAsync(postId, cancellationToken);
+        {
+            try
+            {
+                await IndexPostAsync(postId, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to index post {PostId} during backfill, skipping", postId);
+            }
+        }
     }
 
     private async Task<List<string>> InferMatchingTopicSlugsAsync(
