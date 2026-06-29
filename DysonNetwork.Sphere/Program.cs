@@ -25,7 +25,7 @@ builder.Services.AddPresenceService();
 builder.Services.AddBladeService();
 builder.Services.AddRingService();
 builder.Services.AddDriveService();
-builder.Services.AddInsightService();
+builder.Services.AddPersonalityService();
 builder.Services.AddWalletService();
 builder.Services.AddDomainBlockService();
 

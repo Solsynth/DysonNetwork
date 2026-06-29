@@ -86,20 +86,18 @@ Birthday check-ins use `Special` and skip the normal random roll, preserving exi
 
 ## MiChan Generation
 
-`AccountEventService.CheckInDaily` calls Insight gRPC through `DyAgentCompletionService`.
+`AccountEventService.CheckInDaily` now calls Personality gRPC through `DyPersonalityService.Complete` as a stateless one-shot completion using the `michan` agent.
 
 Request settings:
 
 | Field | Value |
 | --- | --- |
-| `persona` | `DY_AGENT_PERSONA_MICHAN` |
+| `agent_id` | `michan` |
 | `account_id` | current account ID |
-| `topic` | `每日签到运势 v2` |
-| `enable_tools` | `false` |
-| `thinking` | `false` |
-| `reasoning_effort` | `low` |
-| effective temperature | at least `0.95` |
-| effective max tokens | at least `1800` |
+| `message` | generated fortune prompt |
+| `model` | optional config override |
+| `temperature` | configurable, with an effective floor of `0.95` |
+| `top_p` | configurable |
 | deadline | 10 seconds |
 
 Tools and persistence are disabled because check-in fortune generation should be a bounded copywriting task, not an autonomous action or memory update.

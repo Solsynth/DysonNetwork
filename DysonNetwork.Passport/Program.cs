@@ -23,7 +23,6 @@ builder.Services.AddRingService();
 builder.Services.AddDriveService();
 builder.Services.AddDevelopService();
 builder.Services.AddWalletService();
-builder.Services.AddInsightService();
 builder.Services.AddPersonalityService();
 
 builder.Services.AddAppFlushHandlers();
