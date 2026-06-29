@@ -2041,9 +2041,6 @@ public partial class PostService(
 
     public async Task DeletePostAsync(SnPost post)
     {
-        // Broadcast deletion before removing from database
-        _ = Task.Run(async () => await BroadcastPostUpdateAsync(post, "post.deleted"));
-
         var now = SystemClock.Instance.GetCurrentInstant();
         await using var transaction = await db.Database.BeginTransactionAsync();
         try
@@ -2068,6 +2065,8 @@ public partial class PostService(
             await transaction.RollbackAsync();
             throw;
         }
+
+        _ = Task.Run(async () => await BroadcastPostUpdateAsync(post, "post.deleted"));
 
         // Send ActivityPub Delete activity in background for public posts
         if (post.Visibility == PostVisibility.Public)
