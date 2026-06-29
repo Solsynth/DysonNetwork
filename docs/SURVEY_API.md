@@ -68,6 +68,7 @@ from the Publisher system.
   "status": "SurveyStatus",
   "published_at": "timestamp?",
   "notify_subscribers": "boolean",
+  "hide_results": "boolean",
   "attachments": [SnCloudFileReferenceObject],
   "publisher_id": "uuid",
   "questions": [SurveyQuestion],
@@ -132,7 +133,9 @@ When the survey is anonymous, `account` is not populated on feedback listings.
 ### Get Survey
 
 Fetch a single survey, including its questions. If the caller is authenticated, the
-response also includes the caller's answer (if any) and aggregate stats per question.
+response also includes the caller's answer (if any). Aggregate stats per question are
+included **only when** the survey's `hide_results` flag is `false` OR the caller is a
+member of the owning publisher (Viewer+ role); otherwise `stats` is an empty map.
 
 **Endpoint:** `GET /api/surveys/{id}`
 
@@ -208,6 +211,7 @@ Create a new survey in **Draft** status.
   "clear_ended_at": "boolean?",
   "is_anonymous": "boolean?",
   "notify_subscribers": "boolean?",
+  "hide_results": "boolean?",
   "attachments": ["string (file id)"]?,
   "questions": [
     {
@@ -257,6 +261,7 @@ field is `null`/omitted, it is left untouched. Notable PATCH semantics:
 
 - `clear_ended_at: true` clears `ended_at`; otherwise `ended_at` is set if provided.
 - `attachments` replaces the intro attachment list **only when non-null**.
+- `hide_results` replaces the flag **only when non-null**.
 - `questions` is replaced wholesale when provided. Each question's `attachments` is
   replaced only when non-null in that question's request object.
 - Per-question validation fields are honored when provided.
@@ -600,7 +605,7 @@ Proto lives in `Spec/proto/survey.proto`. Generated C# bindings are in
 Tables (snake_case, EF Core convention):
 
 - `surveys` — root survey row. New columns: `status`, `published_at`, `notify_subscribers`,
-  `attachments` (jsonb).
+  `hide_results`, `attachments` (jsonb).
 - `survey_questions` — one row per question. New columns: `attachments` (jsonb),
   `max_selections`, `max_length`, `min_value`, `max_value`.
 - `survey_answers` — one row per account submission. `answer` column is jsonb.
@@ -615,6 +620,10 @@ Migration `20260627115823_RenamePollToSurvey`:
 - Adds the new columns above.
 - Backfills existing rows: `status = 1` (Published) and `published_at = COALESCE(published_at, created_at)`
   so prior submissions remain immutable under the new lifecycle.
+
+Migration `20260629123628_AddSurveyHideResults`:
+- Adds `hide_results boolean NOT NULL DEFAULT false` to `surveys`. When `true`, aggregate
+  stats are hidden from non-publisher members in `GET /api/surveys/{id}`.
 
 ---
 

@@ -20,6 +20,7 @@ public class SurveyWithStats : SnSurvey
             Status = survey.Status,
             PublishedAt = survey.PublishedAt,
             NotifySubscribers = survey.NotifySubscribers,
+            HideResults = survey.HideResults,
             Attachments = survey.Attachments,
             PublisherId = survey.PublisherId,
             Publisher = survey.Publisher,

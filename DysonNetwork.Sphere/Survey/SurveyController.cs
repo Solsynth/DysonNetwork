@@ -38,7 +38,9 @@ public class SurveyController(
         var answer = await surveys.GetSurveyAnswer(id, accountId);
         if (answer is not null)
             surveyWithAnswer.UserAnswer = answer;
-        surveyWithAnswer.Stats = await surveys.GetSurveyStats(id);
+
+        if (!survey.HideResults || await pub.IsMemberWithRole(survey.PublisherId, accountId, PublisherMemberRole.Viewer))
+            surveyWithAnswer.Stats = await surveys.GetSurveyStats(id);
 
         return Ok(surveyWithAnswer);
     }
@@ -220,6 +222,7 @@ public class SurveyController(
         public bool? ClearEndedAt { get; set; }
         public bool? IsAnonymous { get; set; }
         public bool? NotifySubscribers { get; set; }
+        public bool? HideResults { get; set; }
         public List<string>? Attachments { get; set; }
         public List<SurveyRequestQuestion>? Questions { get; set; }
     }
@@ -288,6 +291,7 @@ public class SurveyController(
             EndedAt = request.EndedAt,
             IsAnonymous = request.IsAnonymous ?? false,
             NotifySubscribers = request.NotifySubscribers ?? false,
+            HideResults = request.HideResults ?? false,
             PublisherId = publisher.Id,
             Questions = request.Questions.Select(q => q.ToQuestion()).ToList()
         };
@@ -373,6 +377,7 @@ public class SurveyController(
             else if (request.EndedAt.HasValue) survey.EndedAt = request.EndedAt;
             if (request.IsAnonymous.HasValue) survey.IsAnonymous = request.IsAnonymous.Value;
             if (request.NotifySubscribers.HasValue) survey.NotifySubscribers = request.NotifySubscribers.Value;
+            if (request.HideResults.HasValue) survey.HideResults = request.HideResults.Value;
             if (request.Attachments is not null)
                 survey.Attachments = await surveys.ResolveAttachmentsAsync(request.Attachments);
 
