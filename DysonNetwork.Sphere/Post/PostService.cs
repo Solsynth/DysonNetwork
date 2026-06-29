@@ -1946,10 +1946,12 @@ public partial class PostService(
 
     private async Task<SnPost> PreviewPostLinkAsync(SnPost item)
     {
-        if (item.Type != PostType.Moment || string.IsNullOrEmpty(item.Content))
+        if (item.Type != PostType.Moment && item.Type != PostType.Blog || string.IsNullOrEmpty(item.Content))
             return item;
 
-        var urls = ExtractPreviewUrls(item.Content, maxLinks: 3);
+        var urls = item.Type == PostType.Blog
+            ? NormalizePreviewUrl(item.Content) is { } previewUrl ? [previewUrl] : []
+            : ExtractPreviewUrls(item.Content, maxLinks: 3);
         if (urls.Count == 0)
             return item;
 

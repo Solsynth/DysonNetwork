@@ -295,9 +295,7 @@ public class PostActionController(
             PublishedAt = request.PublishedAt,
             Type = request.Type ?? PostType.Moment,
             Metadata = request.Meta,
-            EmbedView = request.Type == PostType.Blog
-                ? new PostEmbedView { Uri = request.Content!, Renderer = PostEmbedViewRenderer.WebView }
-                : request.EmbedView,
+            EmbedView = request.EmbedView,
             Language = request.Language,
             Publisher = publisher,
         };
@@ -1180,9 +1178,6 @@ public class PostActionController(
                 }
             }
 
-            // Update EmbedView to match blog URL
-            if (request.Content is not null)
-                post.EmbedView = new PostEmbedView { Uri = request.Content, Renderer = PostEmbedViewRenderer.WebView };
         }
 
         var updateLocationError = TryParseLocation(request.LocationWkt, out var location);
@@ -1190,8 +1185,7 @@ public class PostActionController(
             return updateLocationError;
 
         // The same, this field can be null, so update it anyway.
-        if (effectiveType != PostType.Blog)
-            post.EmbedView = request.EmbedView;
+        post.EmbedView = request.EmbedView;
 
         // If client provides the complete embeds list, use it directly (replaces all)
         if (request.Embeds is { Count: > 0 })
