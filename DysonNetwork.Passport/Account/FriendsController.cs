@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Passport.Account;
 
@@ -54,9 +55,25 @@ public class FriendsController(
             })
             .ToList();
 
+        var onlineIds = statuses.Where(s => s.Value.IsOnline).Select(s => s.Key).ToHashSet();
+        var activeIds = activities.Where(a => a.Value.Count > 0).Select(a => a.Key).ToHashSet();
+        var visibleIds = onlineIds.Concat(activeIds).ToHashSet();
+
+        if (visibleIds.Count == 0)
+        {
+            var since = SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromHours(1));
+            var recentIds = await db.AccountStatuses
+                .Where(s => friendIds.Contains(s.AccountId) && s.UpdatedAt >= since && s.DeletedAt == null)
+                .Select(s => s.AccountId)
+                .ToListAsync();
+            visibleIds = recentIds.ToHashSet();
+        }
+
+        // ponytail: fallback to friends active in last hour when nobody is online/has activities
+
         var result = (from account in accountsList
             let status = statuses.GetValueOrDefault(account.Id)
-            where includeOffline || status is { IsOnline: true }
+            where includeOffline || visibleIds.Contains(account.Id)
             let accountActivities = activities.GetValueOrDefault(account.Id, new List<SnPresenceActivity>())
             select new FriendOverviewItem
             {
