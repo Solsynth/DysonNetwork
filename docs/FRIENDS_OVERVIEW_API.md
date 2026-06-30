@@ -18,7 +18,7 @@ Returns a list of friends with their account info, status, and activities.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `include_offline` | bool | `false` | When `true`, returns all friends regardless of online status. |
+| `includeOffline` | bool | `false` | When `true`, also includes friends who had status activity in the last 24 hours, on top of online/active friends. |
 
 **Response:** `200 OK` — `List<FriendOverviewItem>`
 
@@ -51,15 +51,15 @@ The endpoint intelligently decides which friends to show based on their activity
 
 | Priority | Condition | Behavior |
 |----------|-----------|----------|
-| 1 | `include_offline=true` | Returns all friends |
+| 1 | `includeOffline=true` | Online friends + friends with activities + friends active in last 24h |
 | 2 | Friend is online | Always shown |
 | 3 | Friend has active presence activities | Always shown (even if offline) |
-| 4 | No online friends and no friends with activities | Falls back to friends whose status was updated in the last **1 hour** |
+| 4 | No online friends and no friends with activities | Falls back to friends whose status was updated in the last **24 hours** |
 | 5 | None of the above | Returns empty list |
 
 ### Fallback Detail
 
-When the fallback (rule 4) triggers, the endpoint queries `AccountStatuses` for friends who have had any status change within the last hour (`UpdatedAt >= now - 1h`). This surfaces recently active friends even when nobody is currently online.
+When the fallback (rule 4) triggers, the endpoint queries `AccountStatuses` for friends who have had any status change within the last 24 hours (`UpdatedAt >= now - 24h`). This surfaces recently active friends even when nobody is currently online.
 
 ## Data Model
 

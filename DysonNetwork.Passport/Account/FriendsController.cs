@@ -59,21 +59,25 @@ public class FriendsController(
         var activeIds = activities.Where(a => a.Value.Count > 0).Select(a => a.Key).ToHashSet();
         var visibleIds = onlineIds.Concat(activeIds).ToHashSet();
 
-        if (visibleIds.Count == 0)
+        if (visibleIds.Count == 0 || includeOffline)
         {
-            var since = SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromHours(1));
+            var since = SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromHours(24));
             var recentIds = await db.AccountStatuses
                 .Where(s => friendIds.Contains(s.AccountId) && s.UpdatedAt >= since && s.DeletedAt == null)
                 .Select(s => s.AccountId)
                 .ToListAsync();
-            visibleIds = recentIds.ToHashSet();
+
+            if (includeOffline)
+                visibleIds.UnionWith(recentIds);
+            else
+                visibleIds = recentIds.ToHashSet();
         }
 
-        // ponytail: fallback to friends active in last hour when nobody is online/has activities
+        // ponytail: fallback to friends active in last 24h when nobody is online/has activities
 
         var result = (from account in accountsList
             let status = statuses.GetValueOrDefault(account.Id)
-            where includeOffline || visibleIds.Contains(account.Id)
+            where visibleIds.Contains(account.Id)
             let accountActivities = activities.GetValueOrDefault(account.Id, new List<SnPresenceActivity>())
             select new FriendOverviewItem
             {
