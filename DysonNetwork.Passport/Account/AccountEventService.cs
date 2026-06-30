@@ -26,6 +26,7 @@ public class AccountEventService(
     RemoteWebSocketService ws,
     RemoteAccountConnectionService accountConnections,
     RelationshipService relationships,
+    DyAccountService.DyAccountServiceClient accountGrpc,
     DyPersonalityService.DyPersonalityServiceClient personality,
     NotableDaysService notableDaysService,
     IEventBus eventBus,
@@ -1936,14 +1937,12 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         CreateCalendarEventRequest request
     )
     {
-        // Validate request
         if (string.IsNullOrWhiteSpace(request.Title))
             throw new ArgumentException("Title is required");
 
         if (request.EndTime <= request.StartTime)
             throw new ArgumentException("End time must be after start time");
 
-        // Default all-day events to 24 hours if not specified
         var endTime = request.EndTime;
         if (request.IsAllDay && request.EndTime == request.StartTime)
         {
@@ -1953,29 +1952,22 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         var calendarEvent = new SnUserCalendarEvent
         {
             Title = request.Title.Trim(),
-            Description = request.Description?.Trim(),
-            Location = request.Location?.Trim(),
+            Description = NormalizeNullableString(request.Description),
+            Location = NormalizeNullableString(request.Location),
             StartTime = request.StartTime,
             EndTime = endTime,
             IsAllDay = request.IsAllDay,
             Visibility = request.Visibility,
             Recurrence = request.Recurrence,
+            Tags = NormalizeCalendarTags(request.Tags),
             Meta = request.Meta,
             AccountId = accountId,
         };
 
         db.UserCalendarEvents.Add(calendarEvent);
         await db.SaveChangesAsync();
-
-        // Purge cache for affected months
-        var startMonth = calendarEvent.StartTime.InUtc().Date;
-        var endMonth = calendarEvent.EndTime.InUtc().Date;
-        PurgeCalendarEventCache(accountId, startMonth.Year, startMonth.Month);
-        if (startMonth.Month != endMonth.Month || startMonth.Year != endMonth.Year)
-        {
-            PurgeCalendarEventCache(accountId, endMonth.Year, endMonth.Month);
-        }
-
+        PurgeCalendarEventMonths(accountId, calendarEvent.StartTime, calendarEvent.EndTime);
+        await HydrateCalendarEventAccountsAsync([calendarEvent]);
         return calendarEvent;
     }
 
@@ -1998,19 +1990,14 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         var oldStartTime = calendarEvent.StartTime;
         var oldEndTime = calendarEvent.EndTime;
 
-        // Update properties
         if (request.Title != null)
             calendarEvent.Title = request.Title.Trim();
 
         if (request.Description != null)
-            calendarEvent.Description = string.IsNullOrEmpty(request.Description)
-                ? null
-                : request.Description.Trim();
+            calendarEvent.Description = NormalizeNullableString(request.Description);
 
         if (request.Location != null)
-            calendarEvent.Location = string.IsNullOrEmpty(request.Location)
-                ? null
-                : request.Location.Trim();
+            calendarEvent.Location = NormalizeNullableString(request.Location);
 
         if (request.StartTime.HasValue)
             calendarEvent.StartTime = request.StartTime.Value;
@@ -2027,14 +2014,15 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         if (request.Recurrence != null)
             calendarEvent.Recurrence = request.Recurrence;
 
+        if (request.Tags != null)
+            calendarEvent.Tags = NormalizeCalendarTags(request.Tags);
+
         if (request.Meta != null)
             calendarEvent.Meta = request.Meta;
 
-        // Validate times
         if (calendarEvent.EndTime <= calendarEvent.StartTime)
             throw new ArgumentException("End time must be after start time");
 
-        // Default all-day events
         if (calendarEvent.IsAllDay && calendarEvent.EndTime == calendarEvent.StartTime)
         {
             calendarEvent.EndTime = calendarEvent.StartTime.Plus(Duration.FromHours(24));
@@ -2043,30 +2031,9 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         calendarEvent.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
 
-        // Purge cache for affected months (old and new)
-        var oldStartMonth = oldStartTime.InUtc().Date;
-        var oldEndMonth = oldEndTime.InUtc().Date;
-        var newStartMonth = calendarEvent.StartTime.InUtc().Date;
-        var newEndMonth = calendarEvent.EndTime.InUtc().Date;
-
-        PurgeCalendarEventCache(accountId, oldStartMonth.Year, oldStartMonth.Month);
-        if (oldStartMonth.Month != oldEndMonth.Month || oldStartMonth.Year != oldEndMonth.Year)
-        {
-            PurgeCalendarEventCache(accountId, oldEndMonth.Year, oldEndMonth.Month);
-        }
-
-        if (newStartMonth.Year != oldStartMonth.Year || newStartMonth.Month != oldStartMonth.Month)
-        {
-            PurgeCalendarEventCache(accountId, newStartMonth.Year, newStartMonth.Month);
-        }
-        if (
-            (newEndMonth.Year != oldEndMonth.Year || newEndMonth.Month != oldEndMonth.Month)
-            && (newEndMonth.Year != newStartMonth.Year || newEndMonth.Month != newStartMonth.Month)
-        )
-        {
-            PurgeCalendarEventCache(accountId, newEndMonth.Year, newEndMonth.Month);
-        }
-
+        PurgeCalendarEventMonths(accountId, oldStartTime, oldEndTime);
+        PurgeCalendarEventMonths(accountId, calendarEvent.StartTime, calendarEvent.EndTime);
+        await HydrateCalendarEventAccountsAsync([calendarEvent]);
         return calendarEvent;
     }
 
@@ -2085,15 +2052,7 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         calendarEvent.DeletedAt = SystemClock.Instance.GetCurrentInstant();
         await db.SaveChangesAsync();
 
-        // Purge cache
-        var startMonth = calendarEvent.StartTime.InUtc().Date;
-        var endMonth = calendarEvent.EndTime.InUtc().Date;
-        PurgeCalendarEventCache(accountId, startMonth.Year, startMonth.Month);
-        if (startMonth.Month != endMonth.Month || startMonth.Year != endMonth.Year)
-        {
-            PurgeCalendarEventCache(accountId, endMonth.Year, endMonth.Month);
-        }
-
+        PurgeCalendarEventMonths(accountId, calendarEvent.StartTime, calendarEvent.EndTime);
         return true;
     }
 
@@ -2109,7 +2068,6 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         if (calendarEvent == null)
             return null;
 
-        // Check visibility
         if (viewerId.HasValue && viewerId.Value != calendarEvent.AccountId)
         {
             var isVisible = await IsEventVisibleToUserAsync(calendarEvent, viewerId.Value);
@@ -2117,7 +2075,19 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
                 return null;
         }
 
+        await HydrateCalendarEventAccountsAsync([calendarEvent]);
         return calendarEvent;
+    }
+
+    public async Task<List<string>> GetCalendarEventTagsAsync(Guid accountId)
+    {
+        var tagLists = await db.UserCalendarEvents
+            .AsNoTracking()
+            .Where(e => e.AccountId == accountId && e.DeletedAt == null)
+            .Select(e => e.Tags)
+            .ToListAsync();
+
+        return NormalizeCalendarTags(tagLists.SelectMany(tags => tags ?? []));
     }
 
     public async Task<(List<SnUserCalendarEvent>, int)> GetUserCalendarEventsAsync(
@@ -2126,55 +2096,64 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
         Instant? startTime = null,
         Instant? endTime = null,
         int offset = 0,
-        int take = 50
+        int take = 50,
+        string? query = null,
+        IEnumerable<string>? tags = null
     )
     {
+        var normalizedTags = NormalizeCalendarTags(tags);
         var isOwner = viewerId == accountId;
 
-        var query = db.UserCalendarEvents.Where(e =>
-            e.AccountId == accountId && e.DeletedAt == null
-        );
+        var eventQuery = db.UserCalendarEvents
+            .AsNoTracking()
+            .Where(e => e.AccountId == accountId && e.DeletedAt == null);
 
-        // Apply visibility filter if viewer is not the owner
         if (!isOwner && viewerId.HasValue)
         {
-            query = query.Where(e =>
+            eventQuery = eventQuery.Where(e =>
                 e.Visibility == EventVisibility.Public || e.Visibility == EventVisibility.Friends
             );
         }
         else if (!isOwner)
         {
-            // Anonymous viewer - only public events
-            query = query.Where(e => e.Visibility == EventVisibility.Public);
+            eventQuery = eventQuery.Where(e => e.Visibility == EventVisibility.Public);
         }
 
-        // Apply time range filter
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var normalizedQuery = query.Trim();
+            eventQuery = eventQuery.Where(e =>
+                e.Title.Contains(normalizedQuery)
+                || (e.Description != null && e.Description.Contains(normalizedQuery))
+                || (e.Location != null && e.Location.Contains(normalizedQuery))
+                || e.Tags.Contains(normalizedQuery.ToLowerInvariant())
+            );
+        }
+
+        foreach (var tag in normalizedTags)
+        {
+            eventQuery = eventQuery.Where(e => e.Tags.Contains(tag));
+        }
+
         if (startTime.HasValue)
-            query = query.Where(e => e.EndTime >= startTime.Value);
+            eventQuery = eventQuery.Where(e => e.Recurrence != null || e.EndTime >= startTime.Value);
 
         if (endTime.HasValue)
-            query = query.Where(e => e.StartTime <= endTime.Value);
+            eventQuery = eventQuery.Where(e => e.Recurrence != null || e.StartTime <= endTime.Value);
 
-        var totalCount = await query.CountAsync();
+        var calendarEvents = await eventQuery
+            .OrderBy(e => e.StartTime)
+            .ToListAsync();
 
-        var events = await query.OrderBy(e => e.StartTime).Skip(offset).Take(take).ToListAsync();
-
-        // For Friends visibility, we need to check if viewer is actually a friend
         if (!isOwner && viewerId.HasValue)
         {
-            var friendIds = await db
-                .AccountRelationships.Where(r =>
-                    r.AccountId == accountId
-                    && r.RelatedId == viewerId.Value
-                    && (r.Status == RelationshipStatus.Friends || r.Status == RelationshipStatus.CloseFriend)
-                )
-                .Select(r => r.RelatedId)
-                .ToListAsync();
+            var isFriend = await db.AccountRelationships.AnyAsync(r =>
+                r.AccountId == accountId
+                && r.RelatedId == viewerId.Value
+                && (r.Status == RelationshipStatus.Friends || r.Status == RelationshipStatus.CloseFriend)
+            );
 
-            var isFriend = friendIds.Contains(viewerId.Value);
-
-            // Filter out Friends-only events if not a friend
-            events = events
+            calendarEvents = calendarEvents
                 .Where(e =>
                     e.Visibility == EventVisibility.Public
                     || (e.Visibility == EventVisibility.Friends && isFriend)
@@ -2182,7 +2161,276 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
                 .ToList();
         }
 
-        return (events, totalCount);
+        var filteredEvents = ExpandCalendarEventsForRange(calendarEvents, startTime, endTime)
+            .OrderBy(e => e.StartTime)
+            .ThenBy(e => e.EndTime)
+            .ToList();
+
+        var totalCount = filteredEvents.Count;
+        var pagedEvents = filteredEvents.Skip(offset).Take(take).ToList();
+        await HydrateCalendarEventAccountsAsync(pagedEvents);
+        return (pagedEvents, totalCount);
+    }
+
+    public async Task<(List<SnUserCalendarEvent>, int)> GetAccessibleCalendarEventsAsync(
+        Guid viewerId,
+        Guid? accountId = null,
+        Instant? startTime = null,
+        Instant? endTime = null,
+        string? query = null,
+        IEnumerable<string>? tags = null,
+        int offset = 0,
+        int take = 50
+    )
+    {
+        var normalizedTags = NormalizeCalendarTags(tags);
+        var eventQuery = await BuildAccessibleCalendarEventsQueryAsync(
+            viewerId,
+            accountId,
+            startTime,
+            endTime,
+            query,
+            normalizedTags
+        );
+
+        var calendarEvents = await eventQuery
+            .OrderBy(e => e.StartTime)
+            .ToListAsync();
+
+        var filteredEvents = ExpandCalendarEventsForRange(calendarEvents, startTime, endTime)
+            .OrderBy(e => e.StartTime)
+            .ThenBy(e => e.EndTime)
+            .ToList();
+
+        var totalCount = filteredEvents.Count;
+        var pagedEvents = filteredEvents.Skip(offset).Take(take).ToList();
+        await HydrateCalendarEventAccountsAsync(pagedEvents);
+        return (pagedEvents, totalCount);
+    }
+
+    public async Task<(List<CalendarSearchResultItem>, int)> SearchCalendarAsync(
+        Guid viewerId,
+        string regionCode,
+        string? query = null,
+        Guid? accountId = null,
+        Instant? startTime = null,
+        Instant? endTime = null,
+        IEnumerable<string>? eventTags = null,
+        NotableDayTag? notableDayTag = null,
+        int offset = 0,
+        int take = 50
+    )
+    {
+        var (calendarEvents, _) = await GetAccessibleCalendarEventsAsync(
+            viewerId,
+            accountId,
+            startTime,
+            endTime,
+            query,
+            eventTags,
+            0,
+            int.MaxValue
+        );
+        var notableDays = await notableDaysService.SearchNotableDaysAsync(
+            regionCode,
+            startTime,
+            endTime,
+            query,
+            notableDayTag,
+            0,
+            int.MaxValue
+        );
+
+        var results = calendarEvents
+            .Select(evt => new CalendarSearchResultItem
+            {
+                Type = CalendarEventType.UserEvent,
+                StartTime = evt.StartTime,
+                EndTime = evt.EndTime,
+                UserEvent = evt,
+            })
+            .Concat(notableDays.Results.Select(day => new CalendarSearchResultItem
+            {
+                Type = CalendarEventType.NotableDay,
+                StartTime = day.Date,
+                EndTime = day.Date,
+                NotableDay = day,
+            }))
+            .OrderBy(item => item.StartTime)
+            .ThenBy(item => item.EndTime)
+            .ToList();
+
+        var totalCount = results.Count;
+        return (results.Skip(offset).Take(take).ToList(), totalCount);
+    }
+
+    private static string? NormalizeNullableString(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static List<string> NormalizeCalendarTags(IEnumerable<string>? tags)
+    {
+        return (tags ?? [])
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Select(tag => tag.Trim().ToLowerInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(tag => tag, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private void PurgeCalendarEventMonths(Guid accountId, Instant startTime, Instant endTime)
+    {
+        var startMonth = startTime.InUtc().Date;
+        var endMonth = endTime.InUtc().Date;
+        PurgeCalendarEventCache(accountId, startMonth.Year, startMonth.Month);
+        if (startMonth.Month != endMonth.Month || startMonth.Year != endMonth.Year)
+        {
+            PurgeCalendarEventCache(accountId, endMonth.Year, endMonth.Month);
+        }
+    }
+
+    private async Task<IQueryable<SnUserCalendarEvent>> BuildAccessibleCalendarEventsQueryAsync(
+        Guid viewerId,
+        Guid? accountId,
+        Instant? startTime,
+        Instant? endTime,
+        string? query,
+        IReadOnlyCollection<string> tags
+    )
+    {
+        var friendIds = (await GetFriendAccountIdsAsync(viewerId)).ToHashSet();
+        var subscribedIds = (await GetCalendarEventSubscriptionsAsync(viewerId)).ToHashSet();
+
+        if (accountId.HasValue
+            && accountId.Value != viewerId
+            && !friendIds.Contains(accountId.Value)
+            && !subscribedIds.Contains(accountId.Value))
+        {
+            return db.UserCalendarEvents.Where(_ => false);
+        }
+
+        var eventQuery = db.UserCalendarEvents
+            .AsNoTracking()
+            .Where(e => e.DeletedAt == null)
+            .Where(e =>
+                e.AccountId == viewerId
+                || (friendIds.Contains(e.AccountId)
+                    && (e.Visibility == EventVisibility.Public || e.Visibility == EventVisibility.Friends))
+                || (subscribedIds.Contains(e.AccountId) && e.Visibility == EventVisibility.Public)
+            );
+
+        if (accountId.HasValue)
+            eventQuery = eventQuery.Where(e => e.AccountId == accountId.Value);
+
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var normalizedQuery = query.Trim();
+            eventQuery = eventQuery.Where(e =>
+                e.Title.Contains(normalizedQuery)
+                || (e.Description != null && e.Description.Contains(normalizedQuery))
+                || (e.Location != null && e.Location.Contains(normalizedQuery))
+                || e.Tags.Contains(normalizedQuery.ToLowerInvariant())
+            );
+        }
+
+        foreach (var tag in tags)
+        {
+            eventQuery = eventQuery.Where(e => e.Tags.Contains(tag));
+        }
+
+        if (startTime.HasValue)
+            eventQuery = eventQuery.Where(e => e.Recurrence != null || e.EndTime >= startTime.Value);
+
+        if (endTime.HasValue)
+            eventQuery = eventQuery.Where(e => e.Recurrence != null || e.StartTime <= endTime.Value);
+
+        return eventQuery;
+    }
+
+    private List<SnUserCalendarEvent> ExpandCalendarEventsForRange(
+        List<SnUserCalendarEvent> calendarEvents,
+        Instant? startTime,
+        Instant? endTime
+    )
+    {
+        if (!startTime.HasValue && !endTime.HasValue)
+            return calendarEvents;
+
+        var (rangeStart, rangeEnd) = GetEventExpansionRange(startTime, endTime);
+        return ExpandRecurringEvents(calendarEvents, rangeStart, rangeEnd);
+    }
+
+    private static (Instant Start, Instant End) GetEventExpansionRange(
+        Instant? startTime,
+        Instant? endTime
+    )
+    {
+        if (startTime.HasValue && endTime.HasValue)
+            return (startTime.Value, endTime.Value);
+
+        // ponytail: cap inferred recurring expansion to one year when caller supplies only one bound.
+        if (startTime.HasValue)
+            return (startTime.Value, startTime.Value.Plus(Duration.FromDays(366)));
+
+        if (endTime.HasValue)
+            return (endTime.Value.Minus(Duration.FromDays(366)), endTime.Value);
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        return (now, now.Plus(Duration.FromDays(366)));
+    }
+
+    private async Task<Dictionary<Guid, SnAccount>> GetAccountsByIdsAsync(IEnumerable<Guid> accountIds)
+    {
+        var ids = accountIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return [];
+
+        var accountsTask = accountGrpc.GetAccountBatchAsync(new DyGetAccountBatchRequest
+        {
+            Id = { ids.Select(id => id.ToString()) }
+        }).ResponseAsync;
+        var profilesTask = db.AccountProfiles
+            .Where(profile => ids.Contains(profile.AccountId))
+            .ToDictionaryAsync(profile => profile.AccountId, profile => profile);
+
+        await Task.WhenAll(accountsTask, profilesTask);
+
+        return accountsTask.Result.Accounts
+            .Select(SnAccount.FromProtoValue)
+            .Select(account =>
+            {
+                if (profilesTask.Result.TryGetValue(account.Id, out var profile))
+                    account.Profile = profile;
+                return account;
+            })
+            .ToDictionary(account => account.Id, account => account);
+    }
+
+    private async Task HydrateCalendarEventAccountsAsync(ICollection<SnUserCalendarEvent> calendarEvents)
+    {
+        if (calendarEvents.Count == 0)
+            return;
+
+        var accounts = await GetAccountsByIdsAsync(calendarEvents.Select(evt => evt.AccountId));
+        foreach (var calendarEvent in calendarEvents)
+        {
+            if (accounts.TryGetValue(calendarEvent.AccountId, out var account))
+                calendarEvent.Account = account;
+        }
+    }
+
+    private async Task HydrateCalendarEventAccountsAsync(ICollection<UserCalendarEventDto> calendarEvents)
+    {
+        if (calendarEvents.Count == 0)
+            return;
+
+        var accounts = await GetAccountsByIdsAsync(calendarEvents.Select(evt => evt.AccountId));
+        foreach (var calendarEvent in calendarEvents)
+        {
+            if (accounts.TryGetValue(calendarEvent.AccountId, out var account))
+                calendarEvent.Account = account;
+        }
     }
 
     private async Task<bool> IsEventVisibleToUserAsync(
@@ -2377,8 +2625,12 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
                     IsAllDay = evt.IsAllDay,
                     Visibility = evt.Visibility,
                     Recurrence = null, // Mark as instance, not recurring
+                    Tags = [.. evt.Tags],
                     Meta = evt.Meta,
+                    Icon = evt.Icon,
+                    Background = evt.Background,
                     AccountId = evt.AccountId,
+                    Account = evt.Account,
                     CreatedAt = evt.CreatedAt,
                     UpdatedAt = evt.UpdatedAt,
                 };
@@ -2629,12 +2881,16 @@ TIP-: 忌提示标题 | 具体提醒，要写清今天不适合怎么做、容�
                 IsAllDay = e.IsAllDay,
                 Visibility = e.Visibility,
                 Recurrence = e.Recurrence,
+                Tags = [.. e.Tags],
                 Meta = e.Meta,
+                Icon = e.Icon,
+                Background = e.Background,
                 AccountId = e.AccountId,
                 CreatedAt = e.CreatedAt,
                 UpdatedAt = e.UpdatedAt,
             })
             .ToList();
+        await HydrateCalendarEventAccountsAsync(userEventDtos);
 
         // Fetch notable days
         var notableDays = new List<NotableDay>();

@@ -402,9 +402,20 @@ public class AccountEventController(
 
     #region Calendar Events
 
+    [HttpGet("calendar/tags")]
+    [ProducesResponseType<List<string>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<string>>> GetCalendarTags()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        return Ok(await events.GetCalendarEventTagsAsync(currentUser.Id));
+    }
+
     [HttpGet("calendar/events")]
     [ProducesResponseType<List<SnUserCalendarEvent>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<List<SnUserCalendarEvent>>> GetCalendarEvents(
+        [FromQuery] Guid? accountId,
+        [FromQuery] string? query,
+        [FromQuery] List<string>? tags,
         [FromQuery] Instant? startTime,
         [FromQuery] Instant? endTime,
         [FromQuery] int offset = 0,
@@ -412,11 +423,13 @@ public class AccountEventController(
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
-        var (userEvents, totalCount) = await events.GetUserCalendarEventsAsync(
+        var (userEvents, totalCount) = await events.GetAccessibleCalendarEventsAsync(
             currentUser.Id,
-            currentUser.Id,
+            accountId,
             startTime,
             endTime,
+            query,
+            tags,
             offset,
             take);
 
@@ -543,6 +556,65 @@ public class AccountEventController(
             return NotFound(ApiError.NotFound("calendar event", traceId: HttpContext.TraceIdentifier));
 
         return NoContent();
+    }
+
+    [HttpGet("calendar/notable-days/{occurrenceKey}")]
+    [ProducesResponseType<NotableDay>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<NotableDay>> GetGeneratedNotableDay(string occurrenceKey, [FromServices] NotableDaysService notableDaysService)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount) return Unauthorized();
+
+        var notableDay = await notableDaysService.GetGeneratedNotableDayAsync(occurrenceKey);
+        if (notableDay == null)
+            return NotFound(ApiError.NotFound("notable day", traceId: HttpContext.TraceIdentifier));
+
+        return Ok(notableDay);
+    }
+
+    [HttpGet("calendar/search")]
+    [ProducesResponseType<List<CalendarSearchResultItem>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<CalendarSearchResultItem>>> SearchCalendar(
+        [FromQuery] string? query,
+        [FromQuery] Guid? accountId,
+        [FromQuery] List<string>? tags,
+        [FromQuery] Instant? startTime,
+        [FromQuery] Instant? endTime,
+        [FromQuery] string? notableDayTag,
+        [FromQuery] string? region,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 50)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        var regionCode = string.IsNullOrWhiteSpace(region) ? currentUser.Region : region;
+        if (string.IsNullOrWhiteSpace(regionCode)) regionCode = "us";
+
+        NotableDayTag? parsedNotableDayTag = null;
+        if (!string.IsNullOrWhiteSpace(notableDayTag))
+        {
+            if (!Enum.TryParse<NotableDayTag>(notableDayTag, true, out var parsedTag))
+                return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
+                {
+                    [nameof(notableDayTag)] = new[] { "Invalid notable day tag." }
+                }, traceId: HttpContext.TraceIdentifier));
+            parsedNotableDayTag = parsedTag;
+        }
+
+        var (results, totalCount) = await events.SearchCalendarAsync(
+            currentUser.Id,
+            regionCode,
+            query,
+            accountId,
+            startTime,
+            endTime,
+            tags,
+            parsedNotableDayTag,
+            offset,
+            take);
+
+        Response.Headers.Append("X-Total", totalCount.ToString());
+        return Ok(results);
     }
 
     [HttpGet("calendar/countdown")]
