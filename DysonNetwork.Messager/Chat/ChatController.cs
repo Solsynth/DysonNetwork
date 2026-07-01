@@ -398,7 +398,8 @@ public partial class ChatController(
             .CountAsync();
         var messages = await db.ChatMessages
             .Where(m => m.ChatRoomId == roomId)
-            .OrderByDescending(m => m.CreatedAt)
+            .OrderByDescending(m => m.RoomSequence)
+            .ThenByDescending(m => m.CreatedAt)
             .Include(m => m.Sender)
             .Skip(offset)
             .Take(take)
@@ -1310,6 +1311,14 @@ public partial class ChatController(
     public class SyncRequest
     {
         [Required] public long LastSyncTimestamp { get; set; }
+        public List<long>? MissingSequences { get; set; }
+        public List<SyncSequenceRangeRequest>? MissingSequenceRanges { get; set; }
+    }
+
+    public class SyncSequenceRangeRequest
+    {
+        public long StartSequence { get; set; }
+        public long EndSequence { get; set; }
     }
 
     public class GlobalSyncResponse
@@ -1354,7 +1363,16 @@ public partial class ChatController(
 
         var accountId = Guid.Parse(currentUser.Id);
 
-        var response = await cs.GetSyncDataAsync(roomId, accountId, request.LastSyncTimestamp, 1000);
+        var response = await cs.GetSyncDataAsync(
+            roomId,
+            accountId,
+            request.LastSyncTimestamp,
+            request.MissingSequences,
+            request.MissingSequenceRanges?
+                .Select(range => new ChatSequenceRange(range.StartSequence, range.EndSequence))
+                .ToList(),
+            1000
+        );
         Response.Headers["X-Total"] = response.TotalCount.ToString();
         return Ok(response);
     }

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Linq.Expressions;
 using DysonNetwork.Messager.Chat.Realtime;
 using DysonNetwork.Messager.Chat.Voice;
 using DysonNetwork.Shared.Cache;
@@ -1928,21 +1929,36 @@ public partial class ChatService(
         Guid roomId,
         Guid? accountId,
         long lastSyncTimestamp,
+        IReadOnlyCollection<long>? missingSequences = null,
+        IReadOnlyCollection<ChatSequenceRange>? missingSequenceRanges = null,
         int limit = 500
     )
     {
-        var lastSyncInstant = Instant.FromUnixTimeMilliseconds(lastSyncTimestamp);
+        var requestedSequences = missingSequences?
+            .Where(sequence => sequence > 0)
+            .Distinct()
+            .OrderBy(sequence => sequence)
+            .ToList();
+        var normalizedRanges = NormalizeSequenceRanges(missingSequenceRanges);
+        var useSequenceRecovery =
+            requestedSequences is { Count: > 0 } || normalizedRanges.Count > 0;
 
-        // Count total newer messages
-        var totalCount = await db
-            .ChatMessages.Where(m => m.ChatRoomId == roomId && m.CreatedAt > lastSyncInstant)
-            .CountAsync();
+        IQueryable<SnChatMessage> query = db.ChatMessages.Where(m => m.ChatRoomId == roomId);
 
-        // Get up to limit messages that have been created since the last sync
-        var syncMessages = await db
-            .ChatMessages.Where(m => m.ChatRoomId == roomId)
-            .Where(m => m.CreatedAt > lastSyncInstant)
-            .OrderBy(m => m.CreatedAt)
+        if (useSequenceRecovery)
+        {
+            query = query.Where(BuildSequenceRecoveryPredicate(requestedSequences, normalizedRanges));
+        }
+        else
+        {
+            var lastSyncInstant = Instant.FromUnixTimeMilliseconds(lastSyncTimestamp);
+            query = query.Where(m => m.CreatedAt > lastSyncInstant);
+        }
+
+        var totalCount = await query.CountAsync();
+        var syncMessages = await query
+            .OrderBy(m => m.RoomSequence)
+            .ThenBy(m => m.CreatedAt)
             .Take(limit)
             .Include(m => m.Sender)
             .ToListAsync();
@@ -1974,6 +1990,81 @@ public partial class ChatService(
             CurrentTimestamp = latestTimestamp,
             TotalCount = totalCount,
         };
+    }
+
+    private static List<ChatSequenceRange> NormalizeSequenceRanges(
+        IReadOnlyCollection<ChatSequenceRange>? ranges
+    )
+    {
+        if (ranges is null || ranges.Count == 0)
+            return [];
+
+        var normalized = ranges
+            .Select(range => range.Normalize())
+            .Where(range => range.StartSequence > 0)
+            .OrderBy(range => range.StartSequence)
+            .ThenBy(range => range.EndSequence)
+            .ToList();
+
+        if (normalized.Count <= 1)
+            return normalized;
+
+        var merged = new List<ChatSequenceRange> { normalized[0] };
+        foreach (var range in normalized.Skip(1))
+        {
+            var previous = merged[^1];
+            if (range.StartSequence <= previous.EndSequence + 1)
+            {
+                merged[^1] = new ChatSequenceRange(
+                    previous.StartSequence,
+                    Math.Max(previous.EndSequence, range.EndSequence)
+                );
+                continue;
+            }
+
+            merged.Add(range);
+        }
+
+        return merged;
+    }
+
+    private static Expression<Func<SnChatMessage, bool>> BuildSequenceRecoveryPredicate(
+        IReadOnlyCollection<long>? missingSequences,
+        IReadOnlyCollection<ChatSequenceRange> missingSequenceRanges
+    )
+    {
+        var parameter = Expression.Parameter(typeof(SnChatMessage), "message");
+        var roomSequence = Expression.Property(parameter, nameof(SnChatMessage.RoomSequence));
+        Expression body = Expression.Constant(false);
+
+        if (missingSequences is { Count: > 0 })
+        {
+            var sequenceList = missingSequences.ToList();
+            var containsMethod = typeof(List<long>).GetMethod(nameof(List<long>.Contains), [typeof(long)])!;
+            body = Expression.OrElse(
+                body,
+                Expression.Call(
+                    Expression.Constant(sequenceList),
+                    containsMethod,
+                    roomSequence
+                )
+            );
+        }
+
+        foreach (var range in missingSequenceRanges)
+        {
+            var lowerBound = Expression.GreaterThanOrEqual(
+                roomSequence,
+                Expression.Constant(range.StartSequence)
+            );
+            var upperBound = Expression.LessThanOrEqual(
+                roomSequence,
+                Expression.Constant(range.EndSequence)
+            );
+            body = Expression.OrElse(body, Expression.AndAlso(lowerBound, upperBound));
+        }
+
+        return Expression.Lambda<Func<SnChatMessage, bool>>(body, parameter);
     }
 
     public async Task<SnChatMessage> UpdateMessageAsync(
@@ -2835,4 +2926,14 @@ public class SyncResponse
     public List<SnChatMessage> Messages { get; set; } = [];
     public Instant CurrentTimestamp { get; set; }
     public int TotalCount { get; set; } = 0;
+}
+
+public sealed record ChatSequenceRange(long StartSequence, long EndSequence)
+{
+    public ChatSequenceRange Normalize()
+    {
+        return StartSequence <= EndSequence
+            ? this
+            : new ChatSequenceRange(EndSequence, StartSequence);
+    }
 }
