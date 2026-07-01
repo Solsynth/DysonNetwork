@@ -796,7 +796,7 @@ public class PushService
 
                     var appkPayload = new Dictionary<string, object?>(notification.Meta)
                     {
-                        ["aps"] = new Dictionary<string, object?>(),
+                        ["aps"] = new Dictionary<string, object?> { ["content-available"] = 1 },
                     };
                     appkPayload.TryAdd("uuid", notification.Id.ToString());
 
