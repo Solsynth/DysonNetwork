@@ -308,6 +308,7 @@ public class RealtimeCallController(
         try
         {
             var callerName = member.Nick ?? member.Account?.Nick ?? "Someone";
+            var callerPfp = currentUser.Picture?.Id;
             var account = await accounts.GetAccountAsync(
                 new DyGetAccountRequest { Id = targetAccountId.ToString() }
             );
@@ -319,14 +320,16 @@ public class RealtimeCallController(
                     : call.Room.Name ?? "Unknown";
             var invitePayload = new Dictionary<string, object>
             {
-                ["event"] = "call_invited",
-                ["room_id"] = roomId,
-                ["call_id"] = call.Id,
+                ["uuid"] = Guid.NewGuid(),
                 ["caller_id"] = accountId,
                 ["caller_name"] = callerName,
+                ["room_id"] = roomId,
+                ["call_id"] = call.Id,
                 ["room_name"] = roomSubject,
                 ["session_id"] = call.SessionId,
             };
+            if (!string.IsNullOrWhiteSpace(callerPfp))
+                invitePayload["pfp"] = callerPfp;
 
             var ringClient =
                 HttpContext.RequestServices.GetRequiredService<DyRingService.DyRingServiceClient>();

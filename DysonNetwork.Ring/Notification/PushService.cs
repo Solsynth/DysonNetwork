@@ -794,23 +794,11 @@ public class PushService
                     )
                         throw new InvalidOperationException("Apple PushKit is not initialized.");
 
-                    var appkMeta = new Dictionary<string, object?>(notification.Meta);
-                    if (!string.IsNullOrEmpty(notification.Title))
-                        appkMeta.TryAdd("title", notification.Title);
-                    if (!string.IsNullOrEmpty(notification.Subtitle))
-                        appkMeta.TryAdd("subtitle", notification.Subtitle);
-                    if (!string.IsNullOrEmpty(notification.Content))
-                        appkMeta.TryAdd("body", notification.Content);
-                    if (!string.IsNullOrEmpty(notification.PushType))
-                        appkMeta.TryAdd("push_type", notification.PushType);
-
-                    var appkPayload = new Dictionary<string, object?>
+                    var appkPayload = new Dictionary<string, object?>(notification.Meta)
                     {
-                        ["topic"] = appkTopic,
-                        ["type"] = notification.Topic,
                         ["aps"] = new Dictionary<string, object?>(),
-                        ["meta"] = appkMeta,
                     };
+                    appkPayload.TryAdd("uuid", notification.Id.ToString());
 
                     _logger.LogInformation(
                         "Sending Appk VoIP push: notificationId={NotificationId}, subscriptionId={SubscriptionId}, deviceId={DeviceId}, pushType={PushType}, apnsPushType={ApnsPushType}, apnsTopic={ApnsTopic}, apsHasAlert={ApsHasAlert}, apsHasSound={ApsHasSound}, metaKeys={MetaKeys}",
@@ -822,7 +810,7 @@ public class PushService
                         appkTopic,
                         false,
                         false,
-                        string.Join(",", appkMeta.Keys)
+                        string.Join(",", appkPayload.Keys.Where(key => key != "aps"))
                     );
 
                     var appkResult = await appkApns.SendAsync(
