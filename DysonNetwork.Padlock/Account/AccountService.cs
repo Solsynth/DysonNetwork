@@ -490,22 +490,21 @@ public class AccountService(
     }
 
     /// <summary>
-    /// Verify an NFC SUN token by calling Passport's gRPC service.
-    /// The code parameter is expected to be the full hex-encoded UID data from the NFC scan URL.
-    /// E.g., for "solian://phpass?uid=D7E4AF3C6F49A801D351FB82974B7729000000",
-    /// the code would be "<tag hardware uid>:D7E4AF3C6F49A801D351FB82974B7729000000".
+    /// Verify an NFC token by calling Passport's gRPC service.
+    /// The code parameter is expected to be "<tag hardware uid>:<nfc payload>".
+    /// The payload may be either a legacy hex string or a full solian://phpass?... URL.
     /// </summary>
     private async Task<bool> VerifyNfcToken(string code)
     {
         if (string.IsNullOrWhiteSpace(code) || code.Length < 32)
             return false;
 
-        var parts = code.Split(":");
-        if (parts.Length != 2)
+        var separatorIndex = code.IndexOf(':');
+        if (separatorIndex <= 0 || separatorIndex >= code.Length - 1)
             return false;
 
-        var uid = parts[0];
-        var hex = parts[1];
+        var uid = code[..separatorIndex];
+        var hex = code[(separatorIndex + 1)..];
 
         try
         {
