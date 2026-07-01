@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Data;
 using DysonNetwork.Messager.Models;
 using DysonNetwork.Messager.Chat.Voice;
 using DysonNetwork.Shared.Data;
@@ -7,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Storage;
 using NodaTime;
 using Quartz;
 
@@ -174,6 +176,13 @@ public class AppDatabase(
         CancellationToken cancellationToken
     )
     {
+        var connection = Database.GetDbConnection();
+        var shouldCloseConnection = connection.State != ConnectionState.Open;
+        if (shouldCloseConnection)
+            await connection.OpenAsync(cancellationToken);
+
+        try
+        {
         foreach (var roomGroup in addedChatMessages.GroupBy(entry => entry.Entity.ChatRoomId))
         {
             var roomMessages = roomGroup
@@ -182,15 +191,28 @@ public class AppDatabase(
                 .ToList();
 
             var blockSize = roomMessages.Count;
-            var lastSequence = await Database
-                .SqlQuery<long>($"""
-                    INSERT INTO chat_room_counters (chat_room_id, last_sequence)
-                    VALUES ({roomGroup.Key}, {blockSize})
-                    ON CONFLICT (chat_room_id)
-                    DO UPDATE SET last_sequence = chat_room_counters.last_sequence + {blockSize}
-                    RETURNING last_sequence
-                    """)
-                .SingleAsync(cancellationToken);
+            await using var command = connection.CreateCommand();
+            command.Transaction = Database.CurrentTransaction?.GetDbTransaction();
+            command.CommandText = """
+                INSERT INTO chat_room_counters (chat_room_id, last_sequence)
+                VALUES (@chatRoomId, @blockSize)
+                ON CONFLICT (chat_room_id)
+                DO UPDATE SET last_sequence = chat_room_counters.last_sequence + @blockSize
+                RETURNING last_sequence
+                """;
+
+            var chatRoomIdParameter = command.CreateParameter();
+            chatRoomIdParameter.ParameterName = "@chatRoomId";
+            chatRoomIdParameter.Value = roomGroup.Key;
+            command.Parameters.Add(chatRoomIdParameter);
+
+            var blockSizeParameter = command.CreateParameter();
+            blockSizeParameter.ParameterName = "@blockSize";
+            blockSizeParameter.Value = blockSize;
+            command.Parameters.Add(blockSizeParameter);
+
+            var scalar = await command.ExecuteScalarAsync(cancellationToken);
+            var lastSequence = Convert.ToInt64(scalar);
 
             var nextSequence = lastSequence - blockSize + 1;
             foreach (var messageEntry in roomMessages)
@@ -198,6 +220,12 @@ public class AppDatabase(
                 messageEntry.Entity.RoomSequence = nextSequence;
                 nextSequence++;
             }
+        }
+        }
+        finally
+        {
+            if (shouldCloseConnection)
+                await connection.CloseAsync();
         }
     }
 }
