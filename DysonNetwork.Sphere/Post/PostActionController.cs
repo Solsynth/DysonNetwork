@@ -11,6 +11,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.ActivityPub;
+using DysonNetwork.Sphere.Reader;
 using DysonNetwork.Sphere.Survey;
 using DysonNetwork.Sphere.Wallet;
 using DysonNetwork.Sphere.Live;
@@ -43,12 +44,19 @@ public class PostActionController(
     SurveysService surveys,
     RemoteRealmService rs,
     LiveStreamService liveStreams,
+    WebReaderService webReader,
     ActivityPubDeliveryService activityPubDelivery,
     SponsorService sponsorService,
     ILogger<PostActionController> logger,
     IEventBus eventBus
 ) : ControllerBase
 {
+    private static string? NormalizeOptionalText(string? value)
+    {
+        var normalized = value?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
     private static bool HasLocationPayload(string? locationName, string? locationAddress, string? locationWkt)
     {
         return !string.IsNullOrWhiteSpace(locationName)
@@ -108,6 +116,114 @@ public class PostActionController(
         }
     }
 
+    private async Task<ActionResult?> PopulateBlogMetadataAsync(SnPost post)
+    {
+        if (post.Type != PostType.Blog)
+            return null;
+        if (string.IsNullOrWhiteSpace(post.Content))
+            return BadRequest("Blog post content must be a valid URL.");
+
+        try
+        {
+            var linkEmbed = await webReader.GetLinkPreviewAsync(post.Content);
+
+            if (string.IsNullOrWhiteSpace(post.Title))
+                post.Title = NormalizeOptionalText(linkEmbed.Title);
+            if (string.IsNullOrWhiteSpace(post.Description))
+                post.Description = NormalizeOptionalText(linkEmbed.Description);
+
+            post.Metadata ??= new Dictionary<string, object>();
+
+            List<Dictionary<string, object>> embeds;
+            if (post.Metadata.TryGetValue("embeds", out var existingEmbeds)
+                && existingEmbeds is List<Dictionary<string, object>> existingEmbedList)
+            {
+                embeds = existingEmbedList;
+            }
+            else
+            {
+                embeds = [];
+                post.Metadata["embeds"] = embeds;
+            }
+
+            embeds.RemoveAll(e => e.TryGetValue("type", out var type) && type.ToString() == "link");
+            embeds.Add(EmbeddableBase.ToDictionary(linkEmbed));
+            post.Metadata["embeds"] = embeds;
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to fetch blog preview for URL {Url}", post.Content);
+            return BadRequest("Unable to fetch a link preview for this blog URL.");
+        }
+    }
+
+    private sealed record BlogPermissionCheckResult(
+        bool PermissionNodeGranted,
+        bool PermissionGranted,
+        bool DomainVerified,
+        string Domain,
+        SnPublisher Publisher
+    )
+    {
+        public bool CanCreate => PermissionGranted && DomainVerified;
+    }
+
+    private async Task<SnPublisher?> ResolvePublisherForPostRequestAsync(Guid accountId, string? pubName, bool isReply)
+    {
+        if (pubName is not null)
+            return await pub.GetPublisherByName(pubName);
+
+        var settings = await db.PublishingSettings.FirstOrDefaultAsync(s => s.AccountId == accountId);
+        var defaultPublisherId = isReply
+            ? settings?.DefaultReplyPublisherId
+            : settings?.DefaultPostingPublisherId;
+
+        if (defaultPublisherId != null)
+        {
+            var defaultPublisher = await db.Publishers.FirstOrDefaultAsync(p => p.Id == defaultPublisherId);
+            if (defaultPublisher != null && await pub.IsMemberWithRole(defaultPublisher.Id, accountId, PublisherMemberRole.Editor))
+                return defaultPublisher;
+        }
+
+        return await db.Publishers.FirstOrDefaultAsync(e =>
+            e.AccountId == accountId && e.Type == Shared.Models.PublisherType.Individual
+        );
+    }
+
+    private async Task<BlogPermissionCheckResult> CheckBlogCreatePermissionAsync(
+        DyAccount currentUser,
+        SnPublisher publisher,
+        string url
+    )
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var blogUri))
+            throw new InvalidOperationException("Blog post content must be a valid URL.");
+
+        using var scope = HttpContext.RequestServices.CreateScope();
+        var permissionService = scope.ServiceProvider.GetRequiredService<DyPermissionService.DyPermissionServiceClient>();
+        var permissionResponse = await permissionService.HasPermissionAsync(new DyHasPermissionRequest
+        {
+            Actor = currentUser.Id,
+            Key = "posts.create.blog"
+        });
+
+        var host = blogUri.Host.ToLowerInvariant();
+        var isDomainVerified = await db.PublisherVerifiedDomains
+            .AnyAsync(d => d.PublisherId == publisher.Id
+                && d.Domain == host
+                && d.Status == DomainVerificationStatus.Verified);
+
+        return new BlogPermissionCheckResult(
+            PermissionNodeGranted: permissionResponse.HasPermission,
+            PermissionGranted: currentUser.IsSuperuser || permissionResponse.HasPermission,
+            DomainVerified: isDomainVerified,
+            Domain: host,
+            Publisher: publisher
+        );
+    }
+
     public class PostRequest
     {
         [MaxLength(1024)] public string? Title { get; set; }
@@ -159,6 +275,12 @@ public class PostActionController(
         [MaxLength(16)] public List<Guid>? CollectionIds { get; set; }
     }
 
+    public class BlogPermissionCheckRequest
+    {
+        [Required]
+        public string Url { get; set; } = null!;
+    }
+
     public class BatchDeleteRequest
     {
         public List<Guid> PostIds { get; set; } = [];
@@ -172,6 +294,50 @@ public class PostActionController(
         public Instant? PublishedAt { get; set; }
     }
 
+    [HttpPost("blog/check-permission")]
+    [Authorize]
+    public async Task<ActionResult> CheckBlogCreatePermission(
+        [FromBody] BlogPermissionCheckRequest request,
+        [FromQuery(Name = "pub")] string? pubName
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var normalizedUrl = NormalizeOptionalText(request.Url);
+        if (normalizedUrl is null)
+            return BadRequest("URL is required.");
+
+        var accountId = Guid.Parse(currentUser.Id);
+        var publisher = await ResolvePublisherForPostRequestAsync(accountId, pubName, isReply: false);
+        if (publisher is null)
+            return BadRequest("Publisher was not found.");
+
+        if (pubName is not null && !await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+            return StatusCode(403, "You need at least be an editor to post as this publisher.");
+
+        BlogPermissionCheckResult result;
+        try
+        {
+            result = await CheckBlogCreatePermissionAsync(currentUser, publisher, normalizedUrl);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+
+        return Ok(new
+        {
+            can_create = result.CanCreate,
+            permission_node_granted = result.PermissionNodeGranted,
+            permission_granted = result.PermissionGranted,
+            domain_verified = result.DomainVerified,
+            domain = result.Domain,
+            publisher_id = result.Publisher.Id,
+            publisher_name = result.Publisher.Name
+        });
+    }
+
     [HttpPost]
     [AskPermission("posts.create")]
     public async Task<ActionResult<SnPost>> CreatePost(
@@ -180,6 +346,8 @@ public class PostActionController(
     )
     {
         request.Content = TextSanitizer.Sanitize(request.Content);
+        request.Title = NormalizeOptionalText(request.Title);
+        request.Description = NormalizeOptionalText(request.Description);
         if (request.Type != PostType.Blog)
         {
             if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
@@ -221,66 +389,28 @@ public class PostActionController(
             return locationError;
 
         var accountId = Guid.Parse(currentUser.Id);
-
-        SnPublisher? publisher;
-        if (pubName is null)
-        {
-            var settings = await db.PublishingSettings
-                .FirstOrDefaultAsync(s => s.AccountId == accountId);
-            var isReply = request.RepliedPostId != null;
-            var defaultPublisherId = isReply
-                ? settings?.DefaultReplyPublisherId
-                : settings?.DefaultPostingPublisherId;
-
-            if (defaultPublisherId != null)
-            {
-                publisher = await db.Publishers
-                    .FirstOrDefaultAsync(p => p.Id == defaultPublisherId);
-                if (publisher != null && await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
-                {
-                    // Use default publisher
-                }
-                else
-                {
-                    publisher = null;
-                }
-            }
-            else
-            {
-                publisher = null;
-            }
-
-            if (publisher == null)
-            {
-                publisher = await db.Publishers.FirstOrDefaultAsync(e =>
-                    e.AccountId == accountId && e.Type == Shared.Models.PublisherType.Individual
-                );
-            }
-        }
-        else
-        {
-            publisher = await pub.GetPublisherByName(pubName);
-            if (publisher is null)
-                return BadRequest("Publisher was not found.");
-            if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
-                return StatusCode(403, "You need at least be an editor to post as this publisher.");
-        }
+        var publisher = await ResolvePublisherForPostRequestAsync(accountId, pubName, request.RepliedPostId != null);
 
         if (publisher is null)
             return BadRequest("Publisher was not found.");
+        if (pubName is not null && !await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
+            return StatusCode(403, "You need at least be an editor to post as this publisher.");
 
-        // Domain verification for blog posts
-        if (request.Type == PostType.Blog && !currentUser.IsSuperuser)
+        if (request.Type == PostType.Blog)
         {
-            if (!Uri.TryCreate(request.Content, UriKind.Absolute, out var blogUri))
-                return BadRequest("Blog post content must be a valid URL.");
+            BlogPermissionCheckResult blogPermission;
+            try
+            {
+                blogPermission = await CheckBlogCreatePermissionAsync(currentUser, publisher, request.Content!);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
 
-            var host = blogUri.Host.ToLowerInvariant();
-            var isDomainVerified = await db.PublisherVerifiedDomains
-                .AnyAsync(d => d.PublisherId == publisher.Id
-                    && d.Domain == host
-                    && d.Status == DomainVerificationStatus.Verified);
-            if (!isDomainVerified)
+            if (!blogPermission.PermissionGranted)
+                return StatusCode(403, "You do not have permission to create blog posts.");
+            if (!blogPermission.DomainVerified)
                 return StatusCode(403, "This domain is not verified for your publisher. Add it via the domains endpoint first.");
         }
 
@@ -523,6 +653,10 @@ public class PostActionController(
             post.Metadata ??= new Dictionary<string, object>();
             post.Metadata["thumbnail"] = request.ThumbnailId;
         }
+
+        var blogMetadataError = await PopulateBlogMetadataAsync(post);
+        if (blogMetadataError is not null)
+            return blogMetadataError;
 
         try
         {
@@ -1074,6 +1208,8 @@ public class PostActionController(
     )
     {
         request.Content = TextSanitizer.Sanitize(request.Content);
+        request.Title = NormalizeOptionalText(request.Title);
+        request.Description = NormalizeOptionalText(request.Description);
         if (request.Type != PostType.Blog)
         {
             if (string.IsNullOrWhiteSpace(request.Content) && request.Attachments is { Count: 0 })
@@ -1150,34 +1286,18 @@ public class PostActionController(
         var effectiveType = request.Type ?? post.Type;
         if (effectiveType == PostType.Blog)
         {
-            if (!currentUser.IsSuperuser)
+            try
             {
-                using var scope = HttpContext.RequestServices.CreateScope();
-                var permissionService = scope.ServiceProvider.GetRequiredService<DyPermissionService.DyPermissionServiceClient>();
-                var permResp = await permissionService.HasPermissionAsync(new DyHasPermissionRequest
-                {
-                    Actor = currentUser.Id,
-                    Key = "posts.create.blog"
-                });
-                if (!permResp.HasPermission)
+                var blogPermission = await CheckBlogCreatePermissionAsync(currentUser, post.Publisher!, post.Content!);
+                if (!blogPermission.PermissionGranted)
                     return StatusCode(403, "You do not have permission to create blog posts.");
-
-                // Verify domain if content changed
-                if (request.Content is not null)
-                {
-                    if (!Uri.TryCreate(request.Content, UriKind.Absolute, out var blogUri))
-                        return BadRequest("Blog post content must be a valid URL.");
-
-                    var host = blogUri.Host.ToLowerInvariant();
-                    var isDomainVerified = await db.PublisherVerifiedDomains
-                        .AnyAsync(d => d.PublisherId == post.PublisherId
-                            && d.Domain == host
-                            && d.Status == DomainVerificationStatus.Verified);
-                    if (!isDomainVerified)
-                        return StatusCode(403, "This domain is not verified for your publisher.");
-                }
+                if (!blogPermission.DomainVerified)
+                    return StatusCode(403, "This domain is not verified for your publisher.");
             }
-
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         var updateLocationError = TryParseLocation(request.LocationWkt, out var location);
@@ -1457,6 +1577,10 @@ public class PostActionController(
         {
             post.RealmId = null;
         }
+
+        var updateBlogMetadataError = await PopulateBlogMetadataAsync(post);
+        if (updateBlogMetadataError is not null)
+            return updateBlogMetadataError;
 
         try
         {

@@ -1609,8 +1609,8 @@ public partial class PostService(
             // Send mention notifications in the background
             _ = Task.Run(async () => await SendMentionNotificationsAsync(post));
 
-            // Process link preview in the background to avoid delaying post creation
-            _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
+            if (post.Type != PostType.Blog)
+                _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
         }
 
         if (isPublishedNow && post.Visibility == PostVisibility.Public && post.Type != PostType.Blog)
@@ -1846,8 +1846,8 @@ public partial class PostService(
 
         if (isPublished)
         {
-            // Process link preview in the background to avoid delaying post update
-            _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
+            if (post.Type != PostType.Blog)
+                _ = Task.Run(async () => await CreateLinkPreviewAsync(post));
         }
 
         if (shouldNotifyPostSubscribersAboutEdit)
