@@ -292,6 +292,7 @@ public class PushService
             IsActivated = isActivated,
             AccountId = accountId,
             AppId = appId,
+            DeviceName = deviceName,
             CreatedAt = now,
             UpdatedAt = now,
             LastUsedAt = now,
