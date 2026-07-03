@@ -226,15 +226,73 @@ public class OrderController(
         return Ok(legacyOrder);
     }
 
-    [HttpGet("{id:guid}")]
-    public async Task<ActionResult<SnWalletOrder>> GetOrderById(Guid id)
+    public class PaymentOrderResponse
     {
-        var order = await db.PaymentOrders.FindAsync(id);
+        public Guid Id { get; set; }
+        public OrderStatus Status { get; set; }
+        public string Currency { get; set; } = null!;
+        public string? Remarks { get; set; }
+        public string? AppIdentifier { get; set; }
+        public string? ProductIdentifier { get; set; }
+        public Dictionary<string, object>? Meta { get; set; }
+        public decimal Amount { get; set; }
+        public DateTimeOffset ExpiredAt { get; set; }
+        public Guid? PayeeWalletId { get; set; }
+        public Guid? TransactionId { get; set; }
+        public List<SnWalletOrderItem> Items { get; set; } = new();
 
-        if (order == null)
+        public DyCustomApp? App { get; set; }
+        public DyDeveloper? Developer { get; set; }
+
+        public static PaymentOrderResponse FromOrder(SnWalletOrder order, DyCustomApp? app, DyDeveloper? developer)
+        {
+            return new PaymentOrderResponse
+            {
+                Id = order.Id,
+                Status = order.Status,
+                Currency = order.Currency,
+                Remarks = order.Remarks,
+                AppIdentifier = order.AppIdentifier,
+                ProductIdentifier = order.ProductIdentifier,
+                Meta = order.Meta,
+                Amount = order.Amount,
+                ExpiredAt = new DateTimeOffset(order.ExpiredAt.ToDateTimeUtc(), TimeSpan.Zero),
+                PayeeWalletId = order.PayeeWalletId,
+                TransactionId = order.TransactionId,
+                Items = order.Items,
+                App = app,
+                Developer = developer
+            };
+        }
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<PaymentOrderResponse>> GetOrderById(Guid id)
+    {
+        var order = await db.PaymentOrders
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order is null)
             return NotFound();
 
-        return Ok(order);
+        DyCustomApp? app = null;
+        DyDeveloper? developer = null;
+        if (!string.IsNullOrWhiteSpace(order.AppIdentifier) && Guid.TryParse(order.AppIdentifier.Replace("developer.app:", ""), out var appId))
+        {
+            try
+            {
+                var devResp = await customApps.GetAppDeveloperAsync(new DyGetAppDeveloperRequest { AppId = appId.ToString() });
+                app = devResp.App;
+                developer = devResp.Developer;
+            }
+            catch (RpcException)
+            {
+                // App or developer may have been removed; skip enrichment
+            }
+        }
+
+        return Ok(PaymentOrderResponse.FromOrder(order, app, developer));
     }
 
     public class PayOrderRequest

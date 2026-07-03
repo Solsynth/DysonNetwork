@@ -76,6 +76,35 @@ public class CustomAppServiceGrpc(
         return new DyCheckCustomAppSecretResponse { Valid = exists };
     }
 
+    public override async Task<DyGetAppDeveloperResponse> GetAppDeveloper(DyGetAppDeveloperRequest request, ServerCallContext context)
+    {
+        if (string.IsNullOrWhiteSpace(request.AppId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "app_id required"));
+
+        if (!Guid.TryParse(request.AppId, out var appId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid app_id"));
+
+        var app = await db.CustomApps
+            .Include(a => a.Project)
+            .ThenInclude(p => p.Developer)
+            .FirstOrDefaultAsync(a => a.Id == appId);
+        if (app is null)
+            throw new RpcException(new Status(StatusCode.NotFound, "app not found"));
+
+        var publisher = await publisherService.GetPublisherAsync(new DyGetPublisherRequest { Id = app.Project.Developer.PublisherId.ToString() });
+
+        return new DyGetAppDeveloperResponse
+        {
+            App = app.ToProto(),
+            Developer = new DyDeveloper
+            {
+                Id = app.Project.Developer.Id.ToString(),
+                PublisherId = app.Project.Developer.PublisherId.ToString(),
+                PublisherName = publisher.Publisher.Name
+            }
+        };
+    }
+
     public override async Task<DyGetAppProductResponse> GetAppProduct(DyGetAppProductRequest request, ServerCallContext context)
     {
         if (string.IsNullOrWhiteSpace(request.Identifier))
