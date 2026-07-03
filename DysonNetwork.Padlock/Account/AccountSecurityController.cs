@@ -528,16 +528,16 @@ public class AccountSecurityController(
         );
     }
 
-    [HttpDelete("authorized-apps/{appId:guid}")]
+    [HttpDelete("authorized-apps/{id:guid}")]
     public async Task<ActionResult> DeauthorizeApp(
-        [FromRoute] Guid appId,
+        [FromRoute] Guid id,
         [FromQuery] AuthorizedAppType? type
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
-        var count = await auth.RevokeAuthorizedAppAccessAsync(currentUser.Id, appId, type);
+        var count = await auth.RevokeAuthorizedAppAccessByIdAsync(currentUser.Id, id, type);
         if (count == 0)
             return NotFound("Authorized app was not found.");
 

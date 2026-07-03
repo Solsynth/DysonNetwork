@@ -953,6 +953,23 @@ public class AuthService(
         return existing;
     }
 
+    public async Task<int> RevokeAuthorizedAppAccessByIdAsync(
+        Guid accountId,
+        Guid recordId,
+        AuthorizedAppType? type = null
+    )
+    {
+        var record = await db.AuthorizedApps
+            .Where(x => x.AccountId == accountId && x.Id == recordId && x.DeletedAt == null)
+            .Where(x => !type.HasValue || x.Type == type.Value)
+            .Select(x => new { x.AppId })
+            .FirstOrDefaultAsync();
+
+        if (record is null) return 0;
+
+        return await RevokeAuthorizedAppAccessAsync(accountId, record.AppId, type);
+    }
+
     public async Task<int> RevokeAuthorizedAppAccessAsync(
         Guid accountId,
         Guid appId,
