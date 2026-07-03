@@ -109,7 +109,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
     [HttpGet("categories/{slug}")]
     public async Task<ActionResult<SnPostCategory>> GetCategory(string slug)
     {
-        var category = await db.PostCategories.FirstOrDefaultAsync(e => e.Slug == slug);
+        var category = await db.PostCategories.FirstOrDefaultAsync(e => e.Slug.ToLower() == slug.ToLowerInvariant());
         if (category is null)
             return NotFound();
         return Ok(category);
@@ -122,7 +122,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var category = await db.PostCategories.FirstOrDefaultAsync(c => c.Slug == slug);
+        var category = await db.PostCategories.FirstOrDefaultAsync(c => c.Slug.ToLower() == slug.ToLowerInvariant());
         if (category == null)
         {
             return NotFound("Category not found.");
@@ -153,7 +153,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var category = await db.PostCategories.FirstOrDefaultAsync(c => c.Slug == slug);
+        var category = await db.PostCategories.FirstOrDefaultAsync(c => c.Slug.ToLower() == slug.ToLowerInvariant());
         if (category == null)
             return NotFound("Category not found.");
 
@@ -176,7 +176,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var category = await db.PostCategories.FirstOrDefaultAsync(c => c.Slug == slug);
+        var category = await db.PostCategories.FirstOrDefaultAsync(c => c.Slug.ToLower() == slug.ToLowerInvariant());
         if (category == null)
             return NotFound("Category not found.");
 
@@ -196,7 +196,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Slug == slug);
+        var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Slug.ToLower() == slug.ToLowerInvariant());
         if (tag == null)
         {
             return NotFound("Tag not found.");
@@ -229,7 +229,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Slug == slug);
+        var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Slug.ToLower() == slug.ToLowerInvariant());
         if (tag == null)
         {
             return NotFound("Tag not found.");
@@ -256,7 +256,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Slug == slug);
+        var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Slug.ToLower() == slug.ToLowerInvariant());
         if (tag == null)
         {
             return NotFound("Tag not found.");

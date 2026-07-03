@@ -68,7 +68,7 @@ public class PublisherLeaderboardService(AppDatabase db, ICacheService cache)
     public async Task<RatingOverview?> GetOverviewByName(string name)
     {
         var entries = await GetCachedEntries();
-        var entry = entries.FirstOrDefault(e => e.Name == name);
+        var entry = entries.FirstOrDefault(e => e.Name.ToLower() == name.ToLowerInvariant());
         if (entry is null) return null;
 
         return new RatingOverview

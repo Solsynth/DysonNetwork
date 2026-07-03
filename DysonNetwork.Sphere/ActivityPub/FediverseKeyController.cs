@@ -21,7 +21,7 @@ public class FediverseKeyController(
     [Produces("application/activity+json")]
     public async Task<IActionResult> GetMainKey(string username)
     {
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == username.ToLowerInvariant());
 
         if (publisher == null)
             return NotFound();

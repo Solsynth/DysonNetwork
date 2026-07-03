@@ -17,7 +17,7 @@ public class MiniAppService(AppDatabase db)
     {
         return await db.MiniApps
             .Include(m => m.Project)
-            .FirstOrDefaultAsync(m => m.Slug == slug);
+            .FirstOrDefaultAsync(m => m.Slug.ToLower() == slug.ToLowerInvariant());
     }
 
     public async Task<List<SnMiniApp>> GetMiniAppsByProjectAsync(Guid projectId)
@@ -35,7 +35,7 @@ public class MiniAppService(AppDatabase db)
 
         // Check if a mini app with this slug already exists globally
         var existingMiniApp = await db.MiniApps
-            .FirstOrDefaultAsync(m => m.Slug == slug);
+            .FirstOrDefaultAsync(m => m.Slug.ToLower() == slug.ToLowerInvariant());
 
         if (existingMiniApp != null)
             throw new InvalidOperationException("A mini app with this slug already exists.");
@@ -62,7 +62,7 @@ public class MiniAppService(AppDatabase db)
         {
             // Check if another mini app with this slug already exists globally
             var existingMiniApp = await db.MiniApps
-                .FirstOrDefaultAsync(m => m.Slug == slug && m.Id != miniApp.Id);
+                .FirstOrDefaultAsync(m => m.Slug.ToLower() == slug.ToLowerInvariant() && m.Id != miniApp.Id);
 
             if (existingMiniApp != null)
                 throw new InvalidOperationException("A mini app with this slug already exists.");

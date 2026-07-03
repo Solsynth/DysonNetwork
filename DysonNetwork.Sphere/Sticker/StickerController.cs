@@ -53,7 +53,7 @@ public class StickerController(
     {
         Shared.Models.SnPublisher? publisher = null;
         if (pubName is not null)
-            publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
+            publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == pubName.ToLowerInvariant());
 
         var queryable = db.StickerPacks
             .If(publisher is not null, q => q.Where(f => f.PublisherId == publisher!.Id));
@@ -155,7 +155,7 @@ public class StickerController(
 
         var accountId = Guid.Parse(currentUser.Id);
         var publisher =
-            await db.Publishers.FirstOrDefaultAsync(p => p.Name == publisherName && p.AccountId == accountId);
+            await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == publisherName.ToLowerInvariant() && p.AccountId == accountId);
         if (publisher == null)
             return BadRequest("Publisher not found");
 

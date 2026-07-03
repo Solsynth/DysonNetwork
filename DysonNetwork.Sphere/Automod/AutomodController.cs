@@ -137,7 +137,7 @@ public class AutomodController(
             foreach (var ruleDto in rules)
             {
                 var existingRule = await db.AutomodRules
-                    .FirstOrDefaultAsync(r => r.Name == ruleDto.Name);
+                    .FirstOrDefaultAsync(r => r.Name.ToLower() == ruleDto.Name.ToLowerInvariant());
 
                 if (existingRule is null)
                 {

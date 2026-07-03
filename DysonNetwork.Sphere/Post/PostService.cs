@@ -1362,9 +1362,10 @@ public partial class PostService(
                 try
                 {
                     // Find publisher by name/username
+                    var lowerUsername = username.ToLowerInvariant();
                     var mentionedPublisher = await scopedDb
                         .Publishers.Include(p => p.Members)
-                        .FirstOrDefaultAsync(p => p.Name == username);
+                        .FirstOrDefaultAsync(p => p.Name.ToLower() == lowerUsername);
 
                     if (mentionedPublisher == null)
                         continue;

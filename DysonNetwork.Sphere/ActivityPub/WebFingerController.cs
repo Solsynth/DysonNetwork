@@ -77,7 +77,7 @@ public class WebFingerController(
 
         var publisher = await db.Publishers
             .Include(p => p.Members)
-            .FirstOrDefaultAsync(p => p.Name == username);
+            .FirstOrDefaultAsync(p => p.Name.ToLower() == username.ToLowerInvariant());
 
         if (publisher == null)
             return NotFound();

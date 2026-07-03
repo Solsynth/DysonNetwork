@@ -49,7 +49,7 @@ public static class FediverseModerationConfiguration
             foreach (var ruleConfig in config.Rules)
             {
                 var existingRule = await db.FediverseModerationRules
-                    .FirstOrDefaultAsync(r => r.Name == ruleConfig.Name);
+                    .FirstOrDefaultAsync(r => r.Name.ToLower() == ruleConfig.Name.ToLowerInvariant());
 
                 var ruleType = ParseRuleType(ruleConfig.Type);
                 var ruleAction = ParseRuleAction(ruleConfig.Action);

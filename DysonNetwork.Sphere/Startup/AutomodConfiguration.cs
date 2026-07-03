@@ -47,7 +47,7 @@ public static class AutomodConfiguration
             foreach (var ruleConfig in config.Rules)
             {
                 var existingRule = await db.AutomodRules
-                    .FirstOrDefaultAsync(r => r.Name == ruleConfig.Name);
+                    .FirstOrDefaultAsync(r => r.Name.ToLower() == ruleConfig.Name.ToLowerInvariant());
 
                 var ruleType = ParseRuleType(ruleConfig.Type);
                 var ruleAction = ParseRuleAction(ruleConfig.Action);

@@ -16,9 +16,10 @@ public class PostCollectionService(
     public async Task<SnPostCollection?> GetCollectionBySlugAsync(string publisherName, string slug)
     {
         var normalizedSlug = NormalizeSlug(slug);
+        var lowerPublisherName = publisherName.ToLowerInvariant();
         return await db.PostCollections
             .Include(c => c.Publisher)
-            .FirstOrDefaultAsync(c => c.Publisher.Name == publisherName && c.Slug == normalizedSlug);
+            .FirstOrDefaultAsync(c => c.Publisher.Name.ToLower() == lowerPublisherName && c.Slug == normalizedSlug);
     }
 
     public async Task<SnPostCollection> CreateCollectionAsync(
@@ -32,7 +33,7 @@ public class PostCollectionService(
     {
         var normalizedSlug = NormalizeSlug(slug);
         var exists = await db.PostCollections.AnyAsync(c =>
-            c.PublisherId == publisher.Id && c.Slug == normalizedSlug
+            c.PublisherId == publisher.Id && c.Slug.ToLower() == normalizedSlug
         );
         if (exists)
             throw new InvalidOperationException("A collection with this slug already exists.");
@@ -77,9 +78,10 @@ public class PostCollectionService(
 
     public async Task<List<SnPostCollection>> ListCollectionsAsync(string publisherName)
     {
+        var lowerPublisherName = publisherName.ToLowerInvariant();
         return await db.PostCollections
             .Include(c => c.Publisher)
-            .Where(c => c.Publisher.Name == publisherName)
+            .Where(c => c.Publisher.Name.ToLower() == lowerPublisherName)
             .OrderBy(c => c.Name ?? c.Slug)
             .ThenBy(c => c.Slug)
             .ToListAsync();

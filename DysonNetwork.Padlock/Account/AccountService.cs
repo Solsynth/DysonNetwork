@@ -54,7 +54,8 @@ public class AccountService(
 
     public async Task<bool> CheckAccountNameHasTaken(string name)
     {
-        return await db.Accounts.AnyAsync(a => EF.Functions.ILike(a.Name, name));
+        var lowerName = name.ToLowerInvariant();
+        return await db.Accounts.AnyAsync(a => a.Name.ToLower() == lowerName);
     }
 
     public async Task<bool> CheckEmailHasBeenUsed(string email)
@@ -1412,7 +1413,7 @@ public class AccountService(
         if (dupeAutomateCount > 0)
             throw new InvalidOperationException("Automated ID has already been used.");
 
-        var dupeNameCount = await db.Set<SnAccount>().Where(a => a.Name == account.Name).CountAsync();
+        var dupeNameCount = await db.Set<SnAccount>().Where(a => a.Name.ToLower() == account.Name.ToLowerInvariant()).CountAsync();
         if (dupeNameCount > 0)
             throw new InvalidOperationException("Account name has already been taken.");
 

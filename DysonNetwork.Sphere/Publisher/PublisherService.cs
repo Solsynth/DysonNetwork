@@ -49,8 +49,9 @@ public class PublisherService(
 
     public async Task<SnPublisher?> GetPublisherByName(string name)
     {
+        var lowerName = name.ToLowerInvariant();
         return await db.Publishers
-            .Where(e => e.Name == name)
+            .Where(e => e.Name.ToLower() == lowerName)
             .FirstOrDefaultAsync();
     }
 
@@ -279,7 +280,8 @@ public class PublisherService(
         if (stats is not null)
             return stats;
 
-        var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name == name);
+        var lowerName = name.ToLowerInvariant();
+        var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name.ToLower() == lowerName);
         if (publisher is null) return null;
 
         var postsCount = await db.Posts.Where(e => e.PublisherId == publisher.Id).CountAsync();
@@ -323,7 +325,8 @@ public class PublisherService(
         if (heatmap is not null)
             return heatmap;
 
-        var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name == name);
+        var lowerName = name.ToLowerInvariant();
+        var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name.ToLower() == lowerName);
         if (publisher is null) return null;
 
         var now = SystemClock.Instance.GetCurrentInstant();

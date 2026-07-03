@@ -23,7 +23,7 @@ public class CustomAppServiceGrpc(AppDatabase db) : DyCustomAppService.DyCustomA
             }
             case DyGetCustomAppRequest.QueryOneofCase.Slug when !string.IsNullOrWhiteSpace(request.Slug):
             {
-                var appBySlug = await q.FirstOrDefaultAsync(a => a.Slug == request.Slug);
+                var appBySlug = await q.FirstOrDefaultAsync(a => a.Slug.ToLower() == request.Slug.ToLowerInvariant());
                 if (appBySlug is null)
                     throw new RpcException(new Status(StatusCode.NotFound, "app not found"));
                 return new DyGetCustomAppResponse { App = appBySlug.ToProto() };

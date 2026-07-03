@@ -26,7 +26,7 @@ public class RealmServiceGrpc(
             DyGetRealmRequest.QueryOneofCase.Id when !string.IsNullOrWhiteSpace(request.Id) => await db.Realms.FindAsync(
                 Guid.Parse(request.Id)),
             DyGetRealmRequest.QueryOneofCase.Slug when !string.IsNullOrWhiteSpace(request.Slug) => await db.Realms
-                .FirstOrDefaultAsync(r => r.Slug == request.Slug),
+                .FirstOrDefaultAsync(r => r.Slug.ToLower() == request.Slug.ToLowerInvariant()),
             _ => throw new RpcException(new Status(StatusCode.InvalidArgument, "Must provide either id or slug"))
         };
 

@@ -19,7 +19,8 @@ public class RealmService(
 
     public async Task<SnRealm?> GetBySlug(string slug)
     {
-        var realm = await db.Realms.FirstOrDefaultAsync(r => r.Slug == slug);
+        var lowerSlug = slug.ToLowerInvariant();
+        var realm = await db.Realms.FirstOrDefaultAsync(r => r.Slug.ToLower() == lowerSlug);
         if (realm is null) return null;
 
         await RefreshBoostState(realm);

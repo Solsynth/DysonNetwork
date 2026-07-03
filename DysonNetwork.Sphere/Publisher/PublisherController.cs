@@ -121,7 +121,8 @@ public class PublisherController(
         if (relatedUser == null)
             return BadRequest("Related user was not found");
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var lowerName = name.ToLowerInvariant();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == lowerName).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -161,9 +162,10 @@ public class PublisherController(
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
+        var lowerName = name.ToLowerInvariant();
         var member = await db
             .PublisherMembers.Where(m => m.AccountId == accountId)
-            .Where(m => m.Publisher.Name == name)
+            .Where(m => m.Publisher.Name.ToLower() == lowerName)
             .Where(m => m.JoinedAt == null)
             .FirstOrDefaultAsync();
         if (member is null)
@@ -197,9 +199,10 @@ public class PublisherController(
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
+        var lowerName = name.ToLowerInvariant();
         var member = await db
             .PublisherMembers.Where(m => m.AccountId == accountId)
-            .Where(m => m.Publisher.Name == name)
+            .Where(m => m.Publisher.Name.ToLower() == lowerName)
             .Where(m => m.JoinedAt == null)
             .FirstOrDefaultAsync();
         if (member is null)
@@ -230,7 +233,7 @@ public class PublisherController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -279,7 +282,7 @@ public class PublisherController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -370,7 +373,8 @@ public class PublisherController(
             return StatusCode(403, $"Publisher quota exceeded ({quota.Used}/{quota.Total}).");
 
         var takenName = request.Name ?? currentUser.Name;
-        var duplicateNameCount = await db.Publishers.Where(p => p.Name == takenName).CountAsync();
+        var lowerTakenName = takenName.ToLowerInvariant();
+        var duplicateNameCount = await db.Publishers.Where(p => p.Name.ToLower() == lowerTakenName).CountAsync();
         if (duplicateNameCount > 0)
             return BadRequest(
                 "The name you requested has already be taken, "
@@ -469,7 +473,8 @@ public class PublisherController(
             );
 
         var takenName = request.Name ?? realm.Slug;
-        var duplicateNameCount = await db.Publishers.Where(p => p.Name == takenName).CountAsync();
+        var lowerTakenName = takenName.ToLowerInvariant();
+        var duplicateNameCount = await db.Publishers.Where(p => p.Name.ToLower() == lowerTakenName).CountAsync();
         if (duplicateNameCount > 0)
             return BadRequest("The name you requested has already been taken");
 
@@ -538,7 +543,7 @@ public class PublisherController(
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -672,7 +677,7 @@ public class PublisherController(
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -713,7 +718,7 @@ public class PublisherController(
         [FromQuery] int take = 20
     )
     {
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -739,7 +744,7 @@ public class PublisherController(
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -760,7 +765,7 @@ public class PublisherController(
     [Authorize]
     public async Task<ActionResult<Dictionary<string, bool>>> ListPublisherFeatures(string name)
     {
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -783,7 +788,7 @@ public class PublisherController(
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -806,7 +811,7 @@ public class PublisherController(
             return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -834,7 +839,7 @@ public class PublisherController(
         [FromBody] PublisherFeatureRequest request
     )
     {
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -906,7 +911,7 @@ public class PublisherController(
         if (string.IsNullOrEmpty(flag))
             return BadRequest("Flag is required");
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -990,7 +995,7 @@ public class PublisherController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -1007,7 +1012,7 @@ public class PublisherController(
 
         var accountId = Guid.Parse(currentUser.Id);
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -1038,7 +1043,7 @@ public class PublisherController(
 
         var accountId = Guid.Parse(currentUser.Id);
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -1071,7 +1076,7 @@ public class PublisherController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -1097,7 +1102,7 @@ public class PublisherController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -1140,7 +1145,7 @@ public class PublisherController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -1166,7 +1171,7 @@ public class PublisherController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.Where(p => p.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 

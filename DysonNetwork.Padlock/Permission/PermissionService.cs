@@ -41,7 +41,7 @@ public class PermissionService(
 
     public async Task<HashSet<string>> GetBlockedPermissionsAsync(string actor)
     {
-        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name == actor);
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name.ToLower() == actor.ToLowerInvariant());
         if (account is null)
             return new HashSet<string>();
 

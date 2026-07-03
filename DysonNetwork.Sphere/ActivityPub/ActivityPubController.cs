@@ -52,7 +52,7 @@ public class ActivityPubController : ControllerBase
     {
         var publisher = await _db
             .Publishers.Include(p => p.Members)
-            .FirstOrDefaultAsync(p => p.Name == username);
+            .FirstOrDefaultAsync(p => p.Name.ToLower() == username.ToLowerInvariant());
 
         if (publisher == null)
             return NotFound();
@@ -173,7 +173,7 @@ public class ActivityPubController : ControllerBase
     )]
     public async Task<IActionResult> GetOutbox(string username, [FromQuery] int? page)
     {
-        var publisher = await _db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
+        var publisher = await _db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == username.ToLowerInvariant());
 
         if (publisher == null)
             return NotFound();
@@ -321,7 +321,7 @@ public class ActivityPubController : ControllerBase
     )]
     public async Task<IActionResult> GetFollowers(string username, [FromQuery] int? page)
     {
-        var publisher = await _db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
+        var publisher = await _db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == username.ToLowerInvariant());
 
         if (publisher == null)
             return NotFound();
@@ -388,7 +388,7 @@ public class ActivityPubController : ControllerBase
     )]
     public async Task<IActionResult> GetFollowing(string username, [FromQuery] int? page)
     {
-        var publisher = await _db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
+        var publisher = await _db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == username.ToLowerInvariant());
 
         if (publisher == null)
             return NotFound();
@@ -490,7 +490,7 @@ public class ActivityPubController : ControllerBase
     )]
     public async Task<IActionResult> GetFeatured(string username, [FromQuery] int? page)
     {
-        var publisher = await _db.Publishers.FirstOrDefaultAsync(p => p.Name == username);
+        var publisher = await _db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == username.ToLowerInvariant());
 
         if (publisher == null)
             return NotFound();

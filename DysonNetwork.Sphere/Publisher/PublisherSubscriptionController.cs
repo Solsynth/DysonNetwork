@@ -48,7 +48,7 @@ public class PublisherSubscriptionController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
         if (publisher == null)
             return NotFound("Publisher not found");
 
@@ -117,7 +117,7 @@ public class PublisherSubscriptionController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
         if (publisher == null)
             return NotFound("Publisher not found");
 
@@ -141,7 +141,7 @@ public class PublisherSubscriptionController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
         if (publisher == null)
             return NotFound("Publisher not found");
 
@@ -268,7 +268,7 @@ public class PublisherSubscriptionController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name == name);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(e => e.Name.ToLower() == name.ToLowerInvariant());
         if (publisher == null)
             return NotFound("Publisher not found");
 
@@ -414,7 +414,7 @@ public class PublisherSubscriptionController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
         if (publisher == null)
             return NotFound("Publisher not found");
 
@@ -462,7 +462,7 @@ public class PublisherSubscriptionController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
         if (publisher == null)
             return NotFound("Publisher not found");
 
@@ -521,7 +521,7 @@ public class PublisherSubscriptionController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
         if (publisher == null)
             return NotFound("Publisher not found");
 
@@ -548,7 +548,7 @@ public class PublisherSubscriptionController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
         if (publisher == null)
             return NotFound("Publisher not found");
 
@@ -577,7 +577,7 @@ public class PublisherSubscriptionController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
         if (publisher == null)
             return NotFound("Publisher not found");
 
@@ -653,7 +653,7 @@ public class PublisherSubscriptionController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
         if (publisher == null)
             return NotFound("Publisher not found");
 
@@ -691,7 +691,7 @@ public class PublisherSubscriptionController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
         if (publisher == null)
             return NotFound("Publisher not found");
 
@@ -745,7 +745,7 @@ public class PublisherSubscriptionController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name == name);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == name.ToLowerInvariant());
         if (publisher == null)
             return NotFound("Publisher not found");
 

@@ -37,7 +37,7 @@ public class BotAccountService(
     )
     {
         var existingBot = await db.BotAccounts
-            .FirstOrDefaultAsync(b => b.ProjectId == project.Id && b.Slug == slug);
+            .FirstOrDefaultAsync(b => b.ProjectId == project.Id && b.Slug.ToLower() == slug.ToLowerInvariant());
 
         if (existingBot != null)
             throw new InvalidOperationException("A bot with this slug already exists in this project.");

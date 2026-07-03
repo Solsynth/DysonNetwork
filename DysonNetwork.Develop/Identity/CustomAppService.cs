@@ -77,7 +77,7 @@ public class CustomAppService(
         return await db.CustomApps
             .Include(a => a.Project)
             .ThenInclude(p => p.Developer)
-            .FirstOrDefaultAsync(a => a.Slug == slug);
+            .FirstOrDefaultAsync(a => a.Slug.ToLower() == slug.ToLowerInvariant());
     }
 
     public async Task<List<SnCustomAppSecret>> GetAppSecretsAsync(Guid appId)

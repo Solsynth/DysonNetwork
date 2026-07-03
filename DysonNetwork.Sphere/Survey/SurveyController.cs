@@ -193,7 +193,7 @@ public class SurveyController(
         {
             publishers = await db.PublisherMembers
                 .Include(p => p.Publisher)
-                .Where(p => p.Publisher.Name == pubName && p.AccountId == accountId)
+                .Where(p => p.Publisher.Name.ToLower() == pubName.ToLowerInvariant() && p.AccountId == accountId)
                 .Select(p => p.PublisherId)
                 .ToListAsync();
         }

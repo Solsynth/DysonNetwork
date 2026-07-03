@@ -14,7 +14,7 @@ public class PostTagService(AppDatabase db)
     )
     {
         var normalizedSlug = NormalizeSlug(slug);
-        var existing = await db.PostTags.FirstOrDefaultAsync(t => t.Slug == normalizedSlug);
+        var existing = await db.PostTags.FirstOrDefaultAsync(t => t.Slug.ToLower() == normalizedSlug);
         if (existing is not null)
             throw new InvalidOperationException("A tag with this slug already exists.");
 
@@ -189,7 +189,7 @@ public class PostTagService(AppDatabase db)
     public async Task<SnPostTag?> FindBySlugAsync(string slug)
     {
         var normalized = NormalizeSlug(slug);
-        return await db.PostTags.FirstOrDefaultAsync(t => t.Slug == normalized);
+        return await db.PostTags.FirstOrDefaultAsync(t => t.Slug.ToLower() == normalized);
     }
 
     public bool IsTagAvailable(SnPostTag tag)

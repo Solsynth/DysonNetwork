@@ -477,7 +477,7 @@ public class PostController(
         var publisher =
             pubName == null
                 ? null
-                : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
+                : await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == pubName.ToLowerInvariant());
         var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
         var defaultSearchEngine = configuration["Posts:SearchEngineDefault"] ?? "semantic";
         var searchContext = CreatePostSearchContext(queryTerm);
@@ -825,7 +825,7 @@ public class PostController(
 
         var post = await db.Posts
             .Include(e => e.Publisher)
-            .Where(e => e.Slug == slug && e.Publisher != null && e.Publisher.Name == publisherName)
+            .Where(e => e.Slug.ToLower() == slug.ToLowerInvariant() && e.Publisher != null && e.Publisher.Name.ToLower() == publisherName.ToLowerInvariant())
             .Include(e => e.Tags)
             .Include(e => e.Categories)
             .Include(e => e.RepliedPost)
@@ -979,7 +979,7 @@ public class PostController(
 
         var publisher = pubName == null
             ? null
-            : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
+            : await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == pubName.ToLowerInvariant());
         var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
 
         Instant? periodStart = periodStartTime.HasValue
@@ -1140,7 +1140,7 @@ public class PostController(
 
         var publisher = pubName == null
             ? null
-            : await db.Publishers.FirstOrDefaultAsync(p => p.Name == pubName);
+            : await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == pubName.ToLowerInvariant());
         var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
 
         Instant? periodStart = periodStartTime.HasValue

@@ -113,7 +113,7 @@ public class PublisherPublicController(
     [HttpGet("{name}")]
     public async Task<ActionResult<SnPublisher>> GetPublisher(string name)
     {
-        var publisher = await db.Publishers.Where(e => e.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(e => e.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -163,7 +163,7 @@ public class PublisherPublicController(
     [HttpGet("{name}/rating")]
     public async Task<ActionResult<double>> GetPublisherRating(string name)
     {
-        var publisher = await db.Publishers.Where(e => e.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(e => e.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 
@@ -178,7 +178,7 @@ public class PublisherPublicController(
         [FromQuery] int offset = 0
     )
     {
-        var publisher = await db.Publishers.Where(e => e.Name == name).FirstOrDefaultAsync();
+        var publisher = await db.Publishers.Where(e => e.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
 

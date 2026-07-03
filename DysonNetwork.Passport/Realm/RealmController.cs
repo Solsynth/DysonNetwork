@@ -216,7 +216,7 @@ public class RealmController(
 
         var member = await db.RealmMembers
             .Where(m => m.AccountId == accountId)
-            .Where(m => m.Realm.Slug == slug)
+            .Where(m => m.Realm.Slug.ToLower() == slug.ToLowerInvariant())
             .Where(m => m.JoinedAt == null)
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
@@ -247,7 +247,7 @@ public class RealmController(
 
         var member = await db.RealmMembers
             .Where(m => m.AccountId == accountId)
-            .Where(m => m.Realm.Slug == slug)
+            .Where(m => m.Realm.Slug.ToLower() == slug.ToLowerInvariant())
             .Where(m => m.JoinedAt == null)
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
@@ -281,7 +281,7 @@ public class RealmController(
     )
     {
         var realm = await db.Realms
-            .Where(r => r.Slug == slug)
+            .Where(r => r.Slug.ToLower() == slug.ToLowerInvariant())
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 
@@ -372,7 +372,7 @@ public class RealmController(
 
         var member = await db.RealmMembers
             .Where(m => m.AccountId == accountId)
-            .Where(m => m.Realm.Slug == slug)
+            .Where(m => m.Realm.Slug.ToLower() == slug.ToLowerInvariant())
             .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
 
@@ -695,7 +695,7 @@ public class RealmController(
 
         var member = await db.RealmMembers
             .Where(m => m.AccountId == accountId)
-            .Where(m => m.Realm.Slug == slug)
+            .Where(m => m.Realm.Slug.ToLower() == slug.ToLowerInvariant())
             .Where(m => m.JoinedAt != null && m.LeaveAt == null)
             .FirstOrDefaultAsync();
         if (member is null) return NotFound();
@@ -747,7 +747,7 @@ public class RealmController(
         if (quota.Used >= quota.Total)
             return StatusCode(403, $"Realm quota exceeded ({quota.Used}/{quota.Total}).");
 
-        var slugExists = await db.Realms.AnyAsync(r => r.Slug == request.Slug);
+        var slugExists = await db.Realms.AnyAsync(r => r.Slug.ToLower() == request.Slug.ToLowerInvariant());
         if (slugExists) return BadRequest("Realm with this slug already exists.");
 
         var realm = new SnRealm
@@ -809,7 +809,7 @@ public class RealmController(
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var realm = await db.Realms
-            .Where(r => r.Slug == slug)
+            .Where(r => r.Slug.ToLower() == slug.ToLowerInvariant())
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 
@@ -822,7 +822,7 @@ public class RealmController(
 
         if (request.Slug is not null && request.Slug != realm.Slug)
         {
-            var slugExists = await db.Realms.AnyAsync(r => r.Slug == request.Slug);
+            var slugExists = await db.Realms.AnyAsync(r => r.Slug.ToLower() == request.Slug.ToLowerInvariant());
             if (slugExists) return BadRequest("Realm with this slug already exists.");
             realm.Slug = request.Slug;
         }
@@ -882,7 +882,7 @@ public class RealmController(
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var realm = await db.Realms
-            .Where(r => r.Slug == slug)
+            .Where(r => r.Slug.ToLower() == slug.ToLowerInvariant())
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 
@@ -949,7 +949,7 @@ public class RealmController(
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var realm = await db.Realms
-            .Where(r => r.Slug == slug)
+            .Where(r => r.Slug.ToLower() == slug.ToLowerInvariant())
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 
@@ -1027,7 +1027,7 @@ public class RealmController(
         var transaction = await db.Database.BeginTransactionAsync();
 
         var realm = await db.Realms
-            .Where(r => r.Slug == slug)
+            .Where(r => r.Slug.ToLower() == slug.ToLowerInvariant())
             .FirstOrDefaultAsync();
         if (realm is null) return NotFound();
 
