@@ -24,6 +24,16 @@ public class CustomAppPublicController(
         return Ok(app);
     }
 
+    [HttpGet("{slug}/products")]
+    public async Task<ActionResult<IEnumerable<SnAppProduct>>> GetAppProducts([FromRoute] string slug)
+    {
+        var app = await customAppService.GetAppBySlugAsync(slug);
+        if (app is null) return NotFound("Custom app not found");
+
+        var products = await productService.GetProductsByAppAsync(app.Id);
+        return Ok(products);
+    }
+
     [HttpGet("{slug}/products/{identifier}")]
     public async Task<ActionResult<SnAppProduct>> GetAppProductByIdentifier(
         [FromRoute] string slug,
