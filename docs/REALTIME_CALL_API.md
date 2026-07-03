@@ -68,13 +68,14 @@ Join call and get authentication token.
 
 **Endpoint:** `GET /{roomId:guid}/join`
 
-**Query:** `tool` (optional boolean)
+**Query:** `tool` (optional string suffix, `true` still works as legacy)
 
 **Behavior:**
 
 - Verifies caller is joined member and not timed out
 - Ensures call/session exists
 - Ensures LiveKit room exists before generating token
+- Appends the optional `tool` suffix to the participant identity as `username_tool_<suffix>`
 - Returns current participants snapshot
 
 **Response:** `JoinCallResponse`

@@ -188,7 +188,7 @@ public class RealtimeCallController(
     [Authorize]
     public async Task<ActionResult<JoinCallResponse>> JoinCall(
         Guid roomId,
-        [FromQuery(Name = "tool")] bool isTool = false
+        [FromQuery(Name = "tool")] string? tool = null
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -208,12 +208,15 @@ public class RealtimeCallController(
             return BadRequest("Call session is not properly configured.");
 
         var roomParticipants = await SyncProviderParticipantsAsync(call.SessionId);
-        var alreadyInCall = roomParticipants.Any(p => p.AccountId == accountId);
+        var defaultIdentity = realtime.GetParticipantIdentity(currentUser);
+        var participantIdentity = realtime.GetParticipantIdentity(currentUser, tool);
+        var isTool = participantIdentity != defaultIdentity;
+        var alreadyInCall = roomParticipants.Any(p => p.Identity == participantIdentity);
 
         var roomOwnerId = call.Room.AccountId ?? member.ChatRoom.AccountId;
         var isAdmin =
             member.AccountId == roomOwnerId || call.Room.Type == ChatRoomType.DirectMessage;
-        var userToken = realtime.GetUserToken(currentUser, call.SessionId, isAdmin, isTool);
+        var userToken = realtime.GetUserToken(currentUser, call.SessionId, isAdmin, tool);
 
         var endpoint =
             _config.Endpoint
@@ -221,7 +224,7 @@ public class RealtimeCallController(
 
         var participants = await BuildParticipantsAsync(roomId, roomParticipants);
 
-        if (!alreadyInCall)
+        if (!isTool && !alreadyInCall)
         {
             var memberName = member.Nick ?? member.Account?.Nick ?? "Someone";
             await cs.SendSystemMessageAsync(
@@ -376,7 +379,7 @@ public class RealtimeCallController(
 
     [HttpDelete("{roomId:guid}")]
     [Authorize]
-    public async Task<ActionResult> LeaveCall(Guid roomId)
+    public async Task<ActionResult> LeaveCall(Guid roomId, [FromQuery(Name = "tool")] string? tool = null)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
@@ -390,11 +393,15 @@ public class RealtimeCallController(
         if (string.IsNullOrWhiteSpace(call.SessionId))
             return NoContent();
 
+        var defaultIdentity = realtime.GetParticipantIdentity(currentUser);
+        var participantIdentity = realtime.GetParticipantIdentity(currentUser, tool);
+        var isTool = participantIdentity != defaultIdentity;
+
         var wasInCall = false;
         if (realtime is LiveKitRealtimeService livekitService)
         {
             var participants = await livekitService.SyncParticipantsAsync(call.SessionId);
-            var currentParticipant = participants.FirstOrDefault(p => p.AccountId == accountId);
+            var currentParticipant = participants.FirstOrDefault(p => p.Identity == participantIdentity);
             if (currentParticipant != null)
             {
                 await livekitService.KickParticipantAsync(
@@ -405,7 +412,7 @@ public class RealtimeCallController(
             }
         }
 
-        if (wasInCall)
+        if (wasInCall && !isTool)
         {
             var memberName = member.Nick ?? member.Account?.Nick ?? "Someone";
             await cs.SendSystemMessageAsync(

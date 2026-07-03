@@ -29,13 +29,18 @@ public interface IRealtimeService
     Task EndSessionAsync(string sessionId, RealtimeSessionConfig config);
 
     /// <summary>
+    /// Gets the provider participant identity for the user
+    /// </summary>
+    string GetParticipantIdentity(DyAccount account, string? tool = null);
+
+    /// <summary>
     /// Gets a token for user to join the session
     /// </summary>
     /// <param name="account">The user identifier</param>
     /// <param name="sessionId">The session identifier</param>
     /// <param name="isAdmin">The user is the admin of session</param>
     /// <returns>User-specific token for the session</returns>
-    string GetUserToken(DyAccount account, string sessionId, bool isAdmin = false, bool isTool = false);
+    string GetUserToken(DyAccount account, string sessionId, bool isAdmin = false, string? tool = null);
 
     /// <summary>
     /// Kicks a participant from the session

@@ -98,10 +98,19 @@ public class LiveKitRealtimeService : IRealtimeService
         }
     }
 
-    public string GetUserToken(DyAccount account, string sessionId, bool isAdmin = false, bool isTool = false)
+    public string GetParticipantIdentity(DyAccount account, string? tool = null)
     {
-        var identity = account.Name;
-        if (isTool) identity += "_tool";
+        var identity = account.Name ?? $"user_{account.Id:N}";
+        var toolName = NormalizeToolName(tool);
+        if (toolName is null)
+            return identity;
+
+        return toolName == "tool" ? $"{identity}_tool" : $"{identity}_tool_{toolName}";
+    }
+
+    public string GetUserToken(DyAccount account, string sessionId, bool isAdmin = false, string? tool = null)
+    {
+        var identity = GetParticipantIdentity(account, tool);
         var token = _accessToken.WithIdentity(identity)
             .WithName(account.Nick)
             .WithGrants(new VideoGrants
@@ -115,7 +124,10 @@ public class LiveKitRealtimeService : IRealtimeService
                 Room = sessionId
             })
             .WithMetadata(JsonSerializer.Serialize(new Dictionary<string, string>
-                { { "account_id", account.Id.ToString() } }))
+                {
+                    { "account_id", account.Id.ToString() },
+                    { "tool", NormalizeToolName(tool) ?? string.Empty }
+                }))
             .WithTtl(TimeSpan.FromHours(1));
         return token.ToJwt();
     }
@@ -217,6 +229,24 @@ public class LiveKitRealtimeService : IRealtimeService
 
     private static string _GetParticipantsKey(string roomName)
         => $"RoomParticipants_{roomName}";
+
+    private static string? NormalizeToolName(string? tool)
+    {
+        if (string.IsNullOrWhiteSpace(tool))
+            return null;
+
+        var value = tool.Trim();
+        if (value is "0" || value.Equals("false", StringComparison.OrdinalIgnoreCase))
+            return null;
+        if (value is "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase))
+            return "tool";
+
+        var sanitized = new string(value.Where(c => char.IsLetterOrDigit(c) || c is '_' or '-' or '.').ToArray());
+        if (string.IsNullOrWhiteSpace(sanitized))
+            return "tool";
+
+        return sanitized.Length > 64 ? sanitized[..64] : sanitized;
+    }
 
     public async Task<List<ParticipantCacheItem>> GetRoomParticipantsAsync(string roomName)
     {
