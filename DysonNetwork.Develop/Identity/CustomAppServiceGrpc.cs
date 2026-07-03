@@ -5,7 +5,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DysonNetwork.Develop.Identity;
 
-public class CustomAppServiceGrpc(AppDatabase db) : DyCustomAppService.DyCustomAppServiceBase
+public class CustomAppServiceGrpc(
+    AppDatabase db,
+    DyPublisherService.DyPublisherServiceClient publisherService
+) : DyCustomAppService.DyCustomAppServiceBase
 {
     public override async Task<DyGetCustomAppResponse> GetCustomApp(DyGetCustomAppRequest request, ServerCallContext context)
     {
@@ -75,14 +78,36 @@ public class CustomAppServiceGrpc(AppDatabase db) : DyCustomAppService.DyCustomA
 
     public override async Task<DyGetAppProductResponse> GetAppProduct(DyGetAppProductRequest request, ServerCallContext context)
     {
-        if (string.IsNullOrWhiteSpace(request.AppId) || string.IsNullOrWhiteSpace(request.Identifier))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "app_id and identifier required"));
+        if (string.IsNullOrWhiteSpace(request.Identifier))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "identifier required"));
 
-        if (!Guid.TryParse(request.AppId, out var appId))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid app_id"));
+        // Qualified identifier format: <publisherName>.<appSlug>.<sku>
+        // SKU may contain dots, so split into exactly 3 parts: take first two, rest is SKU.
+        var identifierParts = request.Identifier.Split('.');
+        if (identifierParts.Length < 3)
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid product identifier format"));
+
+        var publisherName = identifierParts[0];
+        var appSlug = identifierParts[1];
+        var sku = string.Join(".", identifierParts[2..]);
+
+        // Look up publisher by name
+        var pubResponse = await publisherService.GetPublisherAsync(new DyGetPublisherRequest { Name = publisherName });
+        var publisherId = Guid.Parse(pubResponse.Publisher.Id);
+
+        // Look up the app: join CustomApps -> DevProjects -> Developers by slug
+        var app = await db.CustomApps
+            .Include(a => a.Project)
+            .ThenInclude(p => p.Developer)
+            .Where(a => a.Slug.ToLower() == appSlug.ToLowerInvariant())
+            .Where(a => a.Project.Developer.PublisherId == publisherId)
+            .FirstOrDefaultAsync();
+
+        if (app is null)
+            throw new RpcException(new Status(StatusCode.NotFound, "app not found for this publisher"));
 
         var product = await db.AppProducts
-            .FirstOrDefaultAsync(p => p.AppId == appId && p.Identifier == request.Identifier);
+            .FirstOrDefaultAsync(p => p.AppId == app.Id && p.Identifier == sku);
         if (product is null)
             throw new RpcException(new Status(StatusCode.NotFound, "product not found"));
 
