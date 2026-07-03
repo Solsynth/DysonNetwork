@@ -823,9 +823,11 @@ public class PostController(
             ? []
             : await pub.GetUserPublishers(Guid.Parse(currentUser.Id));
 
+        var lowerSlug = slug?.ToLowerInvariant() ?? string.Empty;
+        var lowerPublisherName = publisherName?.ToLowerInvariant() ?? string.Empty;
         var post = await db.Posts
             .Include(e => e.Publisher)
-            .Where(e => e.Slug.ToLower() == slug.ToLowerInvariant() && e.Publisher != null && e.Publisher.Name.ToLower() == publisherName.ToLowerInvariant())
+            .Where(e => e.Slug.ToLower() == lowerSlug && e.Publisher != null && e.Publisher.Name.ToLower() == lowerPublisherName)
             .Include(e => e.Tags)
             .Include(e => e.Categories)
             .Include(e => e.RepliedPost)
