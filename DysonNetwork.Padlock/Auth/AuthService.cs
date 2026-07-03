@@ -916,10 +916,15 @@ public class AuthService(
         Guid appId,
         AuthorizedAppType type,
         string? appSlug = null,
-        string? appName = null
+        string? appName = null,
+        IEnumerable<string>? scopes = null
     )
     {
         var now = SystemClock.Instance.GetCurrentInstant();
+        var normalizedScopes = scopes?
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
         var existing = await db.AuthorizedApps
             .FirstOrDefaultAsync(x =>
                 x.AccountId == accountId &&
@@ -936,6 +941,7 @@ public class AuthService(
                 Type = type,
                 AppSlug = appSlug,
                 AppName = appName,
+                Scopes = normalizedScopes ?? [],
                 LastAuthorizedAt = now,
                 LastUsedAt = now
             };
@@ -948,6 +954,7 @@ public class AuthService(
         existing.LastUsedAt = now;
         if (!string.IsNullOrWhiteSpace(appSlug)) existing.AppSlug = appSlug;
         if (!string.IsNullOrWhiteSpace(appName)) existing.AppName = appName;
+        if (normalizedScopes is not null) existing.Scopes = normalizedScopes;
         db.AuthorizedApps.Update(existing);
         await db.SaveChangesAsync();
         return existing;

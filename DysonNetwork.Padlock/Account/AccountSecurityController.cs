@@ -30,6 +30,7 @@ public class AccountSecurityController(
         string? AppDescription,
         SnCloudFileReferenceObject? Picture,
         SnCloudFileReferenceObject? Background,
+        List<string> Scopes,
         NodaTime.Instant LastAuthorizedAt,
         NodaTime.Instant? LastUsedAt
     );
@@ -521,6 +522,7 @@ public class AccountSecurityController(
                     detail?.Description,
                     detail?.Picture,
                     detail?.Background,
+                    x.Scopes,
                     x.LastAuthorizedAt,
                     x.LastUsedAt
                 );

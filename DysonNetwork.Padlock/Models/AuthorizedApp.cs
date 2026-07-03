@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using DysonNetwork.Shared.Models;
 using NodaTime;
@@ -24,6 +25,7 @@ public class SnAuthorizedApp : ModelBase
 
     [MaxLength(1024)] public string? AppSlug { get; set; }
     [MaxLength(1024)] public string? AppName { get; set; }
+    [Column(TypeName = "jsonb")] public List<string> Scopes { get; set; } = [];
 
     public Instant LastAuthorizedAt { get; set; }
     public Instant? LastUsedAt { get; set; }

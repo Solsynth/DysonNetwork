@@ -374,7 +374,8 @@ public class OidcProviderService(
                     client.Id,
                     AuthorizedAppType.Oidc,
                     client.Slug,
-                    client.Name
+                    client.Name,
+                    scopes
                 );
                 var clock = SystemClock.Instance;
                 var now = clock.GetCurrentInstant();
@@ -424,7 +425,8 @@ public class OidcProviderService(
                 client.Id,
                 AuthorizedAppType.Oidc,
                 client.Slug,
-                client.Name
+                client.Name,
+                scopes
             );
             var clock = SystemClock.Instance;
             var now = clock.GetCurrentInstant();
@@ -812,7 +814,8 @@ public class OidcProviderService(
             clientId,
             AuthorizedAppType.Oidc,
             null,
-            null
+            null,
+            info.Scopes
         );
 
         var client = await FindClientByIdAsync(clientId);
