@@ -320,6 +320,8 @@ public class SurveyController(
         }
 
         db.Surveys.Add(survey);
+        if (survey.NotifySubscribers)
+            await EnsureSurveySubscriptionAsync(survey.Id, accountId);
         await db.SaveChangesAsync();
 
         als.CreateActionLog(
@@ -380,6 +382,9 @@ public class SurveyController(
             if (request.HideResults.HasValue) survey.HideResults = request.HideResults.Value;
             if (request.Attachments is not null)
                 survey.Attachments = await surveys.ResolveAttachmentsAsync(request.Attachments);
+
+            if (survey.NotifySubscribers)
+                await EnsureSurveySubscriptionAsync(survey.Id, accountId);
 
             db.Update(survey);
 
@@ -722,5 +727,20 @@ public class SurveyController(
         if (subscription is null) return NotFound("Subscription not found");
 
         return Ok(subscription);
+    }
+
+    private async Task EnsureSurveySubscriptionAsync(Guid surveyId, Guid accountId)
+    {
+        var existing = await db.SurveySubscriptions
+            .AnyAsync(s => s.SurveyId == surveyId && s.AccountId == accountId);
+        if (existing)
+            return;
+
+        db.SurveySubscriptions.Add(new SnSurveySubscription
+        {
+            Id = Guid.NewGuid(),
+            SurveyId = surveyId,
+            AccountId = accountId
+        });
     }
 }
