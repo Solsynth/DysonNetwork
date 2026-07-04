@@ -70,6 +70,76 @@ public class MerchantController(
     }
 
     /// <summary>
+    /// Lists app orders for a merchant by its linked payout wallet, newest first.
+    /// </summary>
+    [HttpGet("{merchant}/orders")]
+    [Authorize]
+    public async Task<IActionResult> ListOrders(
+        [FromRoute] string merchant,
+        [FromQuery] OrderStatus? status = null,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var merchantEntity = await GetMerchantAsync(merchant);
+        if (merchantEntity == null) return NotFound("Merchant not found");
+
+        if (!await IsMerchantOwner(currentUser, merchantEntity))
+            return StatusCode(403, "You do not have access to this merchant");
+
+        if (!merchantEntity.PaymentWalletId.HasValue)
+            return BadRequest("No payment wallet configured for this merchant");
+
+        var query = db.PaymentOrders
+            .Include(o => o.Items)
+            .Where(o => o.PayeeWalletId == merchantEntity.PaymentWalletId.Value && o.AppIdentifier != null)
+            .AsQueryable();
+
+        if (status.HasValue)
+            query = query.Where(o => o.Status == status.Value);
+
+        var total = await query.CountAsync();
+        Response.Headers["X-Total"] = total.ToString();
+
+        var orders = await query
+            .OrderByDescending(o => o.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .Select(o => new
+            {
+                o.Id,
+                o.Status,
+                o.Currency,
+                o.Remarks,
+                o.AppIdentifier,
+                o.ProductIdentifier,
+                o.Meta,
+                o.Amount,
+                o.ExpiredAt,
+                o.PayeeWalletId,
+                o.TransactionId,
+                o.CreatedAt,
+                o.UpdatedAt,
+                Items = o.Items.Select(i => new
+                {
+                    i.Id,
+                    i.OrderId,
+                    i.ProductIdentifier,
+                    i.Quantity,
+                    i.UnitPrice,
+                    i.Currency,
+                    i.CreatedAt,
+                    i.UpdatedAt
+                })
+            })
+            .ToListAsync();
+
+        return Ok(orders);
+    }
+
+    /// <summary>
     /// Returns pending settlement totals grouped by currency.
     /// </summary>
     [HttpGet("{merchant}/settlements/pending")]
