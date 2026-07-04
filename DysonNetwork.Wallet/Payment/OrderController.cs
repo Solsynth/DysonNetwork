@@ -234,8 +234,8 @@ public class OrderController(
         public string? ProductIdentifier { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
         public decimal Amount { get; set; }
-        public DateTimeOffset CreatedAt { get; set; }
-        public DateTimeOffset UpdatedAt { get; set; }
+        public Instant CreatedAt { get; set; }
+        public Instant UpdatedAt { get; set; }
         public DateTimeOffset ExpiredAt { get; set; }
         public Guid? PayeeWalletId { get; set; }
         public Guid? TransactionId { get; set; }
@@ -256,8 +256,8 @@ public class OrderController(
                 ProductIdentifier = order.ProductIdentifier,
                 Meta = order.Meta,
                 Amount = order.Amount,
-                CreatedAt = new DateTimeOffset(order.CreatedAt.ToDateTimeUtc(), TimeSpan.Zero),
-                UpdatedAt = new DateTimeOffset(order.UpdatedAt.ToDateTimeUtc(), TimeSpan.Zero),
+                CreatedAt = order.CreatedAt,
+                UpdatedAt = order.UpdatedAt,
                 ExpiredAt = new DateTimeOffset(order.ExpiredAt.ToDateTimeUtc(), TimeSpan.Zero),
                 PayeeWalletId = order.PayeeWalletId,
                 TransactionId = order.TransactionId,
