@@ -824,7 +824,7 @@ public class PublisherController(
     }
 
     [HttpGet("{name}/rating/history")]
-    public async Task<ActionResult<List<SnPublisherRatingRecord>>> GetPublisherRatingHistory(
+    public async Task<ActionResult> GetPublisherRatingHistory(
         string name,
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0
@@ -834,11 +834,18 @@ public class PublisherController(
         if (publisher is null)
             return NotFound();
 
+        HttpContext.Items.TryGetValue("CurrentUser", out var user);
+        var isMember = user is DyAccount u && await ps.IsMemberWithRole(
+            publisher.Id,
+            Guid.Parse(u.Id),
+            PublisherMemberRole.Viewer
+        );
+
         var total = await ratingService.GetRatingHistoryCount(publisher.Id);
         HttpContext.Response.Headers["X-Total"] = total.ToString();
 
         var records = await ratingService.GetRatingHistory(publisher.Id, take, offset);
-        return Ok(records);
+        return Ok(new { isMember, records });
     }
 
     public class PublisherFeatureRequest
