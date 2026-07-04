@@ -49,8 +49,9 @@ public class ActivityController(TimelineService acts) : ControllerBase
             return BadRequest("Invalid mode. Expected personalized, top, or latest.");
 
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
+        var anonymousViewerKey = $"anon:{HttpContext.Connection.RemoteIpAddress}:{Request.Headers.UserAgent}";
         return currentUserValue is not DyAccount currentUser
-            ? Ok(await acts.ListEventsForAnyone(take, cursorTimestamp, timelineMode.Value))
+            ? Ok(await acts.ListEventsForAnyone(take, cursorTimestamp, timelineMode.Value, anonymousViewerKey))
             : Ok(await acts.ListEvents(
                 take,
                 cursorTimestamp,

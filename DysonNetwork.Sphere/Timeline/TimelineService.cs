@@ -25,6 +25,8 @@ public class TimelineService(
     ILogger<TimelineService> logger
 )
 {
+    private const int AdInsertionIndex = 4;
+
     private const double ArticleTypeBoost = 1.5d;
     private const double RealmBoostLevelRankBonus = 0.6d;
     private const double PublisherRepeatPenalty = 1.35d;
@@ -67,7 +69,8 @@ public class TimelineService(
     public async Task<SnTimelinePage> ListEventsForAnyone(
         int take,
         Instant? cursor,
-        SnTimelineMode mode
+        SnTimelineMode mode,
+        string viewerKey
     )
     {
         var activities = new List<SnTimelineEvent>();
@@ -85,15 +88,13 @@ public class TimelineService(
         await LoadPostsRealmsAsync(posts, rs);
         posts = await RankPosts(posts, take, null, mode);
 
-        var sponsoredPost = await sponsorService.GetCurrentSponsoredPostAsync();
-        if (sponsoredPost is not null)
-            posts.Insert(0, sponsoredPost);
+        var rng = new Random();
+        await MaybeInsertAdAsync(posts, viewerKey, 0);
 
         var interleaved = new List<SnTimelineEvent>();
-        var random = new Random();
         foreach (var post in posts)
         {
-            if (random.NextDouble() < 0.15)
+            if (rng.NextDouble() < 0.15)
             {
                 var discovery = await MaybeGetDiscoveryActivity();
                 if (discovery != null)
@@ -233,9 +234,9 @@ public class TimelineService(
 
         await UpdateSoftCursorAsync(accountId);
 
-        var sponsoredPost = await sponsorService.GetCurrentSponsoredPostAsync();
-        if (sponsoredPost is not null)
-            posts.Insert(0, sponsoredPost);
+        var viewerKey = accountId.ToString();
+        var perkLevel = currentUser.PerkLevel;
+        await MaybeInsertAdAsync(posts, viewerKey, perkLevel);
 
         var postEvents = posts.Select(p => p.ToActivity()).ToList();
         var statusEvents = await GetCachedFriendsStatuses(accountId, userFriends);
@@ -1782,6 +1783,28 @@ public class TimelineService(
         }
 
         return selected;
+    }
+
+    private async Task MaybeInsertAdAsync(
+        List<SnPost> posts,
+        string viewerKey,
+        int perkLevel
+    )
+    {
+        if (posts.Count == 0)
+            return;
+
+        var adPost = await sponsorService.TryGetTimelineSponsoredPostAsync(viewerKey, perkLevel);
+        if (adPost is null)
+            return;
+
+        var insertIndex = Math.Min(AdInsertionIndex, posts.Count);
+        posts.Insert(insertIndex, adPost);
+
+        logger.LogDebug(
+            "Ad inserted at fixed index {InsertIndex}/{Total}, post={PostId}, viewerPerk={PerkLevel}",
+            insertIndex, posts.Count, adPost.Id, perkLevel
+        );
     }
 
     private static List<SnPost> SortLatestPosts(

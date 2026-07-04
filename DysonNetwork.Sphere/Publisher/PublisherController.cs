@@ -6,6 +6,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.ActivityPub;
+using DysonNetwork.Sphere.Post;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +27,8 @@ public class PublisherController(
     RemoteActionLogService als,
     RemoteRealmService remoteRealmService,
     IServiceScopeFactory factory,
-    RemoteAccountService remoteAccounts
+    RemoteAccountService remoteAccounts,
+    SponsorService sponsorService
 ) : ControllerBase
 {
     [HttpGet("quota")]
@@ -1217,4 +1219,32 @@ public class PublisherController(
         await db.Entry(domain).ReloadAsync();
         return Ok(domain);
     }
+
+    [HttpGet("{name}/ads")]
+    [Authorize]
+    public async Task<ActionResult<List<AdvertisingPostStats>>> ListAdvertisingPosts(
+        string name,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Viewer))
+            return StatusCode(403, "You need at least be a viewer to view advertising data for this publisher.");
+
+        var allStats = await sponsorService.ListAdvertisingPostsAsync(publisher.Id);
+        var totalCount = allStats.Count;
+        var pagedStats = allStats.Skip(offset).Take(take).ToList();
+
+        Response.Headers["X-Total"] = totalCount.ToString();
+        return Ok(pagedStats);
+    }
+
 }

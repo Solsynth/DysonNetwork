@@ -37,6 +37,7 @@ public class AppDatabase(
     public DbSet<SnPostFeaturedRecord> PostFeaturedRecords { get; set; } = null!;
     public DbSet<SnPostSponsorBid> PostSponsorBids { get; set; } = null!;
     public DbSet<SnPostSponsorPlacement> PostSponsorPlacements { get; set; } = null!;
+    public DbSet<SnPostAggregatedStats> PostAggregatedStats { get; set; } = null!;
     public DbSet<SnPostCategorySubscription> PostCategorySubscriptions { get; set; } = null!;
     public DbSet<SnPostInterestProfile> PostInterestProfiles { get; set; } = null!;
     public DbSet<SnDiscoveryPreference> DiscoveryPreferences { get; set; } = null!;
@@ -247,6 +248,15 @@ public class AppDatabase(
             .WithMany()
             .HasForeignKey(p => p.PostId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnPostAggregatedStats>()
+            .HasOne(s => s.Post)
+            .WithMany()
+            .HasForeignKey(s => s.PostId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SnPostAggregatedStats>()
+            .HasIndex(s => s.PostId)
+            .IsUnique();
 
         modelBuilder.Entity<SnPostCategorySubscription>()
             .HasIndex(s => s.CollectionId);
