@@ -266,13 +266,20 @@ public class MerchantController(
     /// </summary>
     private async Task<bool> IsMerchantOwner(DyAccount currentUser, SnMerchant merchant)
     {
+        if (!Guid.TryParse(currentUser.Id, out var accountId))
+            return false;
+
+        if (await publishers.IsMemberWithRole(merchant.PublisherId, accountId, PublisherMemberRole.Owner))
+            return true;
+        if (await publishers.IsMemberWithRole(merchant.PublisherId, accountId, PublisherMemberRole.Manager))
+            return true;
+
         if (!merchant.PaymentWalletId.HasValue)
             return false;
 
         var wallet = await db.Wallets
             .FirstOrDefaultAsync(w => w.Id == merchant.PaymentWalletId.Value);
 
-        // ponytail: wallet owner = merchant owner. For realm wallets, realm members check is deferred
-        return wallet?.AccountId == Guid.Parse(currentUser.Id);
+        return wallet?.AccountId == accountId;
     }
 }
