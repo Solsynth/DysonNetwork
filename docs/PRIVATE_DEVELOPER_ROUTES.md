@@ -101,7 +101,7 @@ Custom app notifications live in Padlock:
 
 Authentication:
 
-- `Authorization: Bearer {custom_app_api_key}`
+- `X-Api-Key: {custom_app_api_key}`
 
 Behavior:
 

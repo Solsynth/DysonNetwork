@@ -40,7 +40,7 @@ public class CustomAppNotificationController(
         CancellationToken ct
     )
     {
-        var secret = ExtractBearerToken(Request.Headers.Authorization.ToString());
+        var secret = ExtractApiKey(Request.Headers["X-Api-Key"].ToString());
         if (string.IsNullOrWhiteSpace(secret))
             return Unauthorized("Missing app API key.");
 
@@ -131,13 +131,9 @@ public class CustomAppNotificationController(
         });
     }
 
-    private static string? ExtractBearerToken(string? authorization)
+    private static string? ExtractApiKey(string? apiKey)
     {
-        if (string.IsNullOrWhiteSpace(authorization))
-            return null;
-        if (!authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-            return null;
-        var token = authorization["Bearer ".Length..].Trim();
+        var token = apiKey?.Trim();
         return string.IsNullOrWhiteSpace(token) ? null : token;
     }
 }

@@ -10,9 +10,9 @@ Custom app notifications are sent through Padlock:
 
 Authentication:
 
-- `Authorization: Bearer {custom_app_api_key}`
+- `X-Api-Key: {custom_app_api_key}`
 
-The bearer token must be a valid custom app API key from Develop.
+The API key must be a valid custom app API key from Develop.
 
 ## Authorization rules
 
