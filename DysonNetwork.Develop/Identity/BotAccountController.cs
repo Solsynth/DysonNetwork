@@ -14,7 +14,7 @@ using NodaTime.Serialization.Protobuf;
 namespace DysonNetwork.Develop.Identity;
 
 [ApiController]
-[Route("/api/developers/{pubName}/projects/{projectId:guid}/bots")]
+[Route("/api/private/bots")]
 [Authorize]
 public class BotAccountController(
     BotAccountService botService,
@@ -81,8 +81,8 @@ public class BotAccountController(
 
     [HttpGet]
     public async Task<IActionResult> ListBots(
-        [FromRoute] string pubName,
-        [FromRoute] Guid projectId)
+        [FromQuery(Name = "dev")] string pubName,
+        [FromQuery(Name = "proj")] Guid projectId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
@@ -105,8 +105,8 @@ public class BotAccountController(
 
     [HttpGet("{botId:guid}")]
     public async Task<IActionResult> GetBot(
-        [FromRoute] string pubName,
-        [FromRoute] Guid projectId,
+        [FromQuery(Name = "dev")] string pubName,
+        [FromQuery(Name = "proj")] Guid projectId,
         [FromRoute] Guid botId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -133,8 +133,8 @@ public class BotAccountController(
 
     [HttpPost]
     public async Task<IActionResult> CreateBot(
-        [FromRoute] string pubName,
-        [FromRoute] Guid projectId,
+        [FromQuery(Name = "dev")] string pubName,
+        [FromQuery(Name = "proj")] Guid projectId,
         [FromBody] BotCreateRequest createRequest
     )
     {
@@ -208,8 +208,8 @@ public class BotAccountController(
 
     [HttpPatch("{botId:guid}")]
     public async Task<IActionResult> UpdateBot(
-        [FromRoute] string pubName,
-        [FromRoute] Guid projectId,
+        [FromQuery(Name = "dev")] string pubName,
+        [FromQuery(Name = "proj")] Guid projectId,
         [FromRoute] Guid botId,
         [FromBody] UpdateBotRequest request
     )
@@ -271,8 +271,8 @@ public class BotAccountController(
 
     [HttpDelete("{botId:guid}")]
     public async Task<IActionResult> DeleteBot(
-        [FromRoute] string pubName,
-        [FromRoute] Guid projectId,
+        [FromQuery(Name = "dev")] string pubName,
+        [FromQuery(Name = "proj")] Guid projectId,
         [FromRoute] Guid botId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -308,8 +308,8 @@ public class BotAccountController(
 
     [HttpGet("{botId:guid}/keys")]
     public async Task<ActionResult<List<SnApiKey>>> ListBotKeys(
-        [FromRoute] string pubName,
-        [FromRoute] Guid projectId,
+        [FromQuery(Name = "dev")] string pubName,
+        [FromQuery(Name = "proj")] Guid projectId,
         [FromRoute] Guid botId
     )
     {
@@ -333,8 +333,8 @@ public class BotAccountController(
 
     [HttpGet("{botId:guid}/keys/{keyId:guid}")]
     public async Task<ActionResult<SnApiKey>> GetBotKey(
-        [FromRoute] string pubName,
-        [FromRoute] Guid projectId,
+        [FromQuery(Name = "dev")] string pubName,
+        [FromQuery(Name = "proj")] Guid projectId,
         [FromRoute] Guid botId,
         [FromRoute] Guid keyId)
     {
@@ -366,8 +366,8 @@ public class BotAccountController(
 
     [HttpPost("{botId:guid}/keys")]
     public async Task<ActionResult<SnApiKey>> CreateBotKey(
-        [FromRoute] string pubName,
-        [FromRoute] Guid projectId,
+        [FromQuery(Name = "dev")] string pubName,
+        [FromQuery(Name = "proj")] Guid projectId,
         [FromRoute] Guid botId,
         [FromBody] CreateApiKeyRequest request)
     {
@@ -399,8 +399,8 @@ public class BotAccountController(
 
     [HttpPost("{botId:guid}/keys/{keyId:guid}/rotate")]
     public async Task<ActionResult<SnApiKey>> RotateBotKey(
-        [FromRoute] string pubName,
-        [FromRoute] Guid projectId,
+        [FromQuery(Name = "dev")] string pubName,
+        [FromQuery(Name = "proj")] Guid projectId,
         [FromRoute] Guid botId,
         [FromRoute] Guid keyId)
     {
@@ -426,8 +426,8 @@ public class BotAccountController(
 
     [HttpDelete("{botId:guid}/keys/{keyId:guid}")]
     public async Task<IActionResult> DeleteBotKey(
-        [FromRoute] string pubName,
-        [FromRoute] Guid projectId,
+        [FromQuery(Name = "dev")] string pubName,
+        [FromQuery(Name = "proj")] Guid projectId,
         [FromRoute] Guid botId,
         [FromRoute] Guid keyId)
     {
@@ -455,8 +455,8 @@ public class BotAccountController(
 
     [HttpGet("{botId:guid}/chat")]
     public async Task<ActionResult<SnBotChatConfig>> GetChatConfig(
-        [FromRoute] string pubName,
-        [FromRoute] Guid projectId,
+        [FromQuery(Name = "dev")] string pubName,
+        [FromQuery(Name = "proj")] Guid projectId,
         [FromRoute] Guid botId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -474,8 +474,8 @@ public class BotAccountController(
 
     [HttpPut("{botId:guid}/chat")]
     public async Task<ActionResult<SnBotChatConfig>> UpdateChatConfig(
-        [FromRoute] string pubName,
-        [FromRoute] Guid projectId,
+        [FromQuery(Name = "dev")] string pubName,
+        [FromQuery(Name = "proj")] Guid projectId,
         [FromRoute] Guid botId,
         [FromBody] SnBotChatConfig request)
     {
@@ -511,8 +511,8 @@ public class BotAccountController(
 
     [HttpPost("{botId:guid}/chat/manifest")]
     public async Task<ActionResult<SnBotChatConfig>> UpdateManifest(
-        [FromRoute] string pubName,
-        [FromRoute] Guid projectId,
+        [FromQuery(Name = "dev")] string pubName,
+        [FromQuery(Name = "proj")] Guid projectId,
         [FromRoute] Guid botId,
         [FromBody] BotManifestRequest request)
     {

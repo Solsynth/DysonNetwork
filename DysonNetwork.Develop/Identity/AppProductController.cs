@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace DysonNetwork.Develop.Identity;
 
 [ApiController]
-[Route("/api/developers/{pubName}/projects/{projectId:guid}/apps/{appId:guid}/products")]
+[Route("/api/private/apps/{appId:guid}/products")]
 public class AppProductController(
     AppProductService productService,
     CustomAppService customApps,
@@ -28,12 +28,12 @@ public class AppProductController(
         string? GroupIdentifier
     );
 
-    private async Task<IActionResult> ResolveAppAsync(string pubName, Guid projectId, Guid appId, string role)
+    private async Task<IActionResult> ResolveAppAsync(string dev, Guid proj, Guid appId, string role)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var developer = await ds.GetDeveloperByName(pubName);
+        var developer = await ds.GetDeveloperByName(dev);
         if (developer is null) return NotFound("Developer not found");
 
         var accountId = Guid.Parse(currentUser.Id);
@@ -41,10 +41,10 @@ public class AppProductController(
                 role == "editor" ? DyPublisherMemberRole.DyEditor : DyPublisherMemberRole.DyViewer))
             return StatusCode(403, $"You must be a {role} of the developer.");
 
-        var project = await projectService.GetProjectAsync(projectId, developer.Id);
+        var project = await projectService.GetProjectAsync(proj, developer.Id);
         if (project is null) return NotFound("Project not found");
 
-        var app = await customApps.GetAppAsync(appId, projectId);
+        var app = await customApps.GetAppAsync(appId, proj);
         if (app is null) return NotFound("App not found");
 
         return Ok((developer, project, app));
@@ -52,10 +52,12 @@ public class AppProductController(
 
     [HttpGet]
     [Authorize]
-    public async Task<IActionResult> ListProducts([FromRoute] string pubName, [FromRoute] Guid projectId,
+    public async Task<IActionResult> ListProducts(
+        [FromQuery(Name = "dev")] string dev,
+        [FromQuery(Name = "proj")] Guid proj,
         [FromRoute] Guid appId)
     {
-        var resolved = await ResolveAppAsync(pubName, projectId, appId, "viewer");
+        var resolved = await ResolveAppAsync(dev, proj, appId, "viewer");
         if (resolved is not OkObjectResult ok) return resolved;
 
         var products = await productService.GetProductsByAppAsync(appId);
@@ -64,10 +66,13 @@ public class AppProductController(
 
     [HttpGet("{productId:guid}")]
     [Authorize]
-    public async Task<IActionResult> GetProduct([FromRoute] string pubName, [FromRoute] Guid projectId,
-        [FromRoute] Guid appId, [FromRoute] Guid productId)
+    public async Task<IActionResult> GetProduct(
+        [FromQuery(Name = "dev")] string dev,
+        [FromQuery(Name = "proj")] Guid proj,
+        [FromRoute] Guid appId,
+        [FromRoute] Guid productId)
     {
-        var resolved = await ResolveAppAsync(pubName, projectId, appId, "viewer");
+        var resolved = await ResolveAppAsync(dev, proj, appId, "viewer");
         if (resolved is not OkObjectResult) return resolved;
 
         var product = await productService.GetProductAsync(productId, appId);
@@ -78,10 +83,13 @@ public class AppProductController(
 
     [HttpPost]
     [Authorize]
-    public async Task<IActionResult> CreateProduct([FromRoute] string pubName, [FromRoute] Guid projectId,
-        [FromRoute] Guid appId, [FromBody] ProductRequest request)
+    public async Task<IActionResult> CreateProduct(
+        [FromQuery(Name = "dev")] string dev,
+        [FromQuery(Name = "proj")] Guid proj,
+        [FromRoute] Guid appId,
+        [FromBody] ProductRequest request)
     {
-        var resolved = await ResolveAppAsync(pubName, projectId, appId, "editor");
+        var resolved = await ResolveAppAsync(dev, proj, appId, "editor");
         if (resolved is not OkObjectResult) return resolved;
 
         if (string.IsNullOrWhiteSpace(request.Identifier) || string.IsNullOrWhiteSpace(request.DisplayName) ||
@@ -109,16 +117,19 @@ public class AppProductController(
             product.Background = await productService.ResolveFileAsync(request.BackgroundId);
 
         product = await productService.CreateProductAsync(appId, product);
-        return CreatedAtAction(nameof(GetProduct),
-            new { pubName, projectId, appId, productId = product.Id }, product);
+        return CreatedAtAction(nameof(GetProduct), new { dev, proj, appId, productId = product.Id }, product);
     }
 
     [HttpPatch("{productId:guid}")]
     [Authorize]
-    public async Task<IActionResult> UpdateProduct([FromRoute] string pubName, [FromRoute] Guid projectId,
-        [FromRoute] Guid appId, [FromRoute] Guid productId, [FromBody] ProductRequest request)
+    public async Task<IActionResult> UpdateProduct(
+        [FromQuery(Name = "dev")] string dev,
+        [FromQuery(Name = "proj")] Guid proj,
+        [FromRoute] Guid appId,
+        [FromRoute] Guid productId,
+        [FromBody] ProductRequest request)
     {
-        var resolved = await ResolveAppAsync(pubName, projectId, appId, "editor");
+        var resolved = await ResolveAppAsync(dev, proj, appId, "editor");
         if (resolved is not OkObjectResult) return resolved;
 
         var product = await productService.GetProductAsync(productId, appId);
@@ -142,10 +153,13 @@ public class AppProductController(
 
     [HttpDelete("{productId:guid}")]
     [Authorize]
-    public async Task<IActionResult> DeleteProduct([FromRoute] string pubName, [FromRoute] Guid projectId,
-        [FromRoute] Guid appId, [FromRoute] Guid productId)
+    public async Task<IActionResult> DeleteProduct(
+        [FromQuery(Name = "dev")] string dev,
+        [FromQuery(Name = "proj")] Guid proj,
+        [FromRoute] Guid appId,
+        [FromRoute] Guid productId)
     {
-        var resolved = await ResolveAppAsync(pubName, projectId, appId, "editor");
+        var resolved = await ResolveAppAsync(dev, proj, appId, "editor");
         if (resolved is not OkObjectResult) return resolved;
 
         var result = await productService.DeleteProductAsync(productId, appId);
@@ -161,5 +175,4 @@ public class AppProductController(
         "yearly" => ProductRecurrence.Yearly,
         _ => ProductRecurrence.None
     };
-
 }
