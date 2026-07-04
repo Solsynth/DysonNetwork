@@ -428,4 +428,49 @@ public class CustomAppController(CustomAppService customApps, DeveloperService d
             return BadRequest(ex.Message);
         }
     }
+
+    /// <summary>
+    /// Returns merchant info + pending settlement totals for this app.
+    /// </summary>
+    [HttpGet("{appId:guid}/settlements")]
+    [Authorize]
+    public async Task<IActionResult> GetAppSettlements(
+        [FromQuery(Name = "dev")] string dev,
+        [FromQuery(Name = "proj")] Guid proj,
+        [FromRoute] Guid appId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var developer = await ds.GetDeveloperByName(dev);
+        if (developer is null) return NotFound();
+
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
+            return StatusCode(403, "You must be an editor of the developer");
+
+        var project = await projectService.GetProjectAsync(proj, developer.Id);
+        if (project is null) return NotFound();
+
+        var app = await customApps.GetAppAsync(appId, proj);
+        if (app == null) return NotFound();
+
+        // Resolve publisher from the app's developer
+        var publisherId = await customApps.GetPublisherIdForApp(appId);
+        if (publisherId == Guid.Empty)
+            return Ok(new { merchantId = (Guid?)null, hasWallet = false, pending = new { } });
+
+        var merchant = await customApps.GetMerchantByPublisherAsync(publisherId);
+        if (merchant?.PaymentWalletId == null)
+            return Ok(new { merchantId = (Guid?)null, hasWallet = false, pending = new { } });
+
+        var totals = await customApps.GetMerchantPendingTotalsAsync(merchant.PaymentWalletId.Value);
+
+        return Ok(new
+        {
+            merchantId = merchant.Id,
+            hasWallet = true,
+            walletId = merchant.PaymentWalletId,
+            pending = totals.ToDictionary(kv => kv.Key, kv => new { count = kv.Value.Count, total = kv.Value.Total })
+        });
+    }
 }

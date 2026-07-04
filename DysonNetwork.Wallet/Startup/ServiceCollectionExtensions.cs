@@ -102,6 +102,7 @@ public static class ServiceCollectionExtensions
         // Register Wallet services
         services.AddScoped<WalletService>();
         services.AddScoped<PaymentService>();
+        services.AddScoped<MerchantService>();
         services.AddScoped<SubscriptionCatalogService>();
         services.AddScoped<SubscriptionService>();
         services.AddScoped<AfdianPaymentHandler>();

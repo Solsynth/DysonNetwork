@@ -22,6 +22,8 @@ public class AppDatabase(
     public DbSet<SnBotChatConfig> BotChatConfigs { get; set; } = null!;
     public DbSet<SnMiniApp> MiniApps { get; set; }
     public DbSet<SnAppProduct> AppProducts { get; set; }
+    public DbSet<SnMerchant> Merchants { get; set; } = null!;
+    public DbSet<SnMerchantSettlement> MerchantSettlements { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -46,6 +48,12 @@ public class AppDatabase(
     {
         base.OnModelCreating(modelBuilder);
         
+        modelBuilder.Entity<SnMerchantSettlement>()
+            .HasOne(s => s.Merchant)
+            .WithMany(m => m.Settlements)
+            .HasForeignKey(s => s.MerchantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.ApplySoftDeleteFilters();
     }
 }

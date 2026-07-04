@@ -203,7 +203,8 @@ public class PaymentService(
         bool autoSave = true,
         bool force = false,
         bool freeze = false,
-        bool requireConfirmation = false
+        bool requireConfirmation = false,
+        bool holdInEscrow = false
     )
     {
         if (payerWalletId == null && payeeWalletId == null)
@@ -290,7 +291,8 @@ public class PaymentService(
         }
 
         // Only credit payee immediately for instant (confirmed) transactions
-        if (payeeWalletId.HasValue && status == Shared.Models.TransactionStatus.Confirmed)
+        // Skip when holding in escrow: funds stay deducted from payer, not credited to payee yet
+        if (payeeWalletId.HasValue && status == Shared.Models.TransactionStatus.Confirmed && !holdInEscrow)
         {
             payeeWallet = await db.Wallets.FirstOrDefaultAsync(e => e.Id == payeeWalletId.Value);
 
@@ -519,20 +521,75 @@ public class PaymentService(
             throw new InvalidOperationException("Order has expired");
         }
 
+        var isAppOrder = !string.IsNullOrEmpty(order.AppIdentifier);
+
+        // Resolve or auto-create merchant for app orders (funds go to escrow, settled later)
+        Guid? merchantId = null;
+        if (isAppOrder && order.PayeeWalletId.HasValue)
+        {
+            var appIdStr = order.AppIdentifier!.Replace("developer.app:", "");
+            if (Guid.TryParse(appIdStr, out var appId))
+            {
+                // Resolve publisher via app → project → developer (raw SQL: Wallet doesn't own these tables)
+                var publisherId = await db.Database
+                    .SqlQuery<Guid>($"""
+                        SELECT d.publisher_id
+                        FROM custom_apps a
+                        JOIN dev_projects p ON a.project_id = p.id
+                        JOIN developers d ON p.developer_id = d.id
+                        WHERE a.id = {appId}
+                    """)
+                    .FirstOrDefaultAsync();
+
+                if (publisherId != Guid.Empty)
+                {
+                    var merchant = await db.Merchants
+                        .FirstOrDefaultAsync(m => m.PublisherId == publisherId);
+
+                    if (merchant == null)
+                    {
+                        merchant = new SnMerchant
+                        {
+                            PublisherId = publisherId,
+                            PaymentWalletId = order.PayeeWalletId.Value
+                        };
+                        db.Merchants.Add(merchant);
+                        await db.SaveChangesAsync();
+                    }
+
+                    merchantId = merchant.Id;
+                }
+            }
+        }
+
         var transaction = await CreateTransactionAsync(
             payerWallet.Id,
-            order.PayeeWalletId,
+            isAppOrder && merchantId.HasValue ? null : order.PayeeWalletId,
             order.Currency,
             order.Amount,
             order.Remarks ?? $"Payment for Order #{order.Id}",
             type: Shared.Models.TransactionType.Order,
-            silent: true);
+            silent: true,
+            holdInEscrow: isAppOrder && merchantId.HasValue);
 
         order.TransactionId = transaction.Id;
         order.Transaction = transaction;
         order.Status = Shared.Models.OrderStatus.Paid;
 
         await db.SaveChangesAsync();
+
+        // Create escrow settlement record for app orders
+        if (isAppOrder && merchantId.HasValue && order.PayeeWalletId.HasValue)
+        {
+            var merchantService = new MerchantService(db);
+            await merchantService.CreateSettlementAsync(
+                merchantId: merchantId.Value,
+                paymentTransactionId: transaction.Id,
+                paymentWalletId: order.PayeeWalletId.Value,
+                currency: order.Currency,
+                amount: order.Amount,
+                orderId: order.Id);
+        }
 
         await NotifyOrderPaid(order, payerWallet, order.PayeeWallet);
 

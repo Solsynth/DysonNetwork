@@ -206,6 +206,38 @@ public class CustomAppService(
         db.Update(app);
         await db.SaveChangesAsync();
 
+        // Auto-create/update merchant when PaymentWalletId is set
+        if (request.PaymentWalletId != null)
+        {
+            // Resolve publisher via app → project → developer
+            var publisherId = await db.CustomApps
+                .Where(a => a.Id == app.Id)
+                .Select(a => a.Project.Developer.PublisherId)
+                .FirstOrDefaultAsync();
+
+            if (publisherId != Guid.Empty)
+            {
+                var existingMerchant = await db.Merchants
+                    .FirstOrDefaultAsync(m => m.PublisherId == publisherId);
+                if (existingMerchant == null)
+                {
+                    db.Merchants.Add(new SnMerchant
+                    {
+                        PublisherId = publisherId,
+                        PaymentWalletId = app.PaymentWalletId,
+                        Name = app.Name
+                    });
+                    await db.SaveChangesAsync();
+                }
+                else if (existingMerchant.PaymentWalletId != app.PaymentWalletId)
+                {
+                    existingMerchant.PaymentWalletId = app.PaymentWalletId;
+                    existingMerchant.Name = app.Name;
+                    await db.SaveChangesAsync();
+                }
+            }
+        }
+
         if (oldStatus == CustomAppStatus.Production && app.Status != CustomAppStatus.Production)
         {
             if (app.Picture is not null)
@@ -229,5 +261,31 @@ public class CustomAppService(
         await db.SaveChangesAsync();
 
         return true;
+    }
+
+    public async Task<SnMerchant?> GetMerchantByPublisherAsync(Guid publisherId)
+    {
+        return await db.Merchants
+            .FirstOrDefaultAsync(m => m.PublisherId == publisherId);
+    }
+
+    public async Task<Guid> GetPublisherIdForApp(Guid appId)
+    {
+        return await db.CustomApps
+            .Where(a => a.Id == appId)
+            .Select(a => a.Project.Developer.PublisherId)
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<Dictionary<string, (int Count, decimal Total)>> GetMerchantPendingTotalsAsync(Guid paymentWalletId)
+    {
+        var settlements = await db.MerchantSettlements
+            .Where(s => s.Status == MerchantSettlementStatus.Pending
+                     && s.PaymentWalletId == paymentWalletId)
+            .GroupBy(s => s.Currency)
+            .Select(g => new { Currency = g.Key, Count = g.Count(), Total = g.Sum(s => s.Amount) })
+            .ToListAsync();
+
+        return settlements.ToDictionary(s => s.Currency, s => (s.Count, s.Total));
     }
 }

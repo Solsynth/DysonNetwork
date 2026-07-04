@@ -3139,6 +3139,47 @@ public partial class PostService(
         db.PostAwards.Add(award);
         await db.SaveChangesAsync();
 
+        // Create merchant settlement for positive awards (tips)
+        if (attitude == PostReactionAttitude.Positive && post.PublisherId.HasValue)
+        {
+            var publisher = await db.Publishers
+                .Where(p => p.Id == post.PublisherId.Value)
+                .Select(p => new { p.Id, p.PayoutWalletId, p.AccountId })
+                .FirstOrDefaultAsync();
+
+            if (publisher?.PayoutWalletId != null || publisher?.AccountId != null)
+            {
+                var merchant = await db.Merchants
+                    .FirstOrDefaultAsync(m => m.PublisherId == post.PublisherId.Value);
+
+                if (merchant == null && publisher.PayoutWalletId.HasValue)
+                {
+                    merchant = new SnMerchant
+                    {
+                        PublisherId = post.PublisherId.Value,
+                        PaymentWalletId = publisher.PayoutWalletId.Value
+                    };
+                    db.Merchants.Add(merchant);
+                    await db.SaveChangesAsync();
+                }
+
+                if (merchant != null)
+                {
+                    var settlementWalletId = merchant.PaymentWalletId ?? publisher.PayoutWalletId!.Value;
+                    db.MerchantSettlements.Add(new SnMerchantSettlement
+                    {
+                        MerchantId = merchant.Id,
+                        AwardId = award.Id,
+                        PaymentWalletId = settlementWalletId,
+                        Currency = "points",
+                        Amount = amount,
+                        Status = MerchantSettlementStatus.Pending
+                    });
+                    await db.SaveChangesAsync();
+                }
+            }
+        }
+
         var delta = award.Attitude == PostReactionAttitude.Positive ? amount : -amount;
 
         await db

@@ -61,6 +61,12 @@ public static class ScheduledJobsConfiguration
                     .RepeatForever())
             );
 
+            q.AddJob<AppSettlementJob>(opts => opts.WithIdentity("AppSettlement"));
+            q.AddTrigger(opts => opts
+                .ForJob("AppSettlement")
+                .WithIdentity("AppSettlementTrigger")
+                .WithCronSchedule("0 0 0 * * ?"));
+
 
         });
 

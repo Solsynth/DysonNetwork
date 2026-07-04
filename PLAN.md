@@ -1,188 +1,184 @@
-# Plan: Add Blog Post Type
+# Merchant Settlement System — Plan
 
 ## Context
 
-We need a new `PostType.Blog` — a post that links to an external website's blog post. The content is just a URL; we don't store the blog content. The client renders it in an in-app WebView. The post owner retains interactive features (reactions, replies, etc.).
+Two separate domains have the exact same problem:
 
-Key security constraint: publishers maintain a verified domains list, and users can only create blog posts from those domains. Superusers bypass this check. A separate permission node (`posts.create.blog`) controls access.
+### 1. Develop — CustomApp payments (`CustomAppController` / `PaymentService`)
 
-## Approach
+When a user buys an app product:
+- `OrderController.CreateOrder` resolves payee from `customApp.PaymentWalletId`
+- `PaymentService.PayOrderAsync` calls `CreateTransactionAsync(payer, payee, amount)` — payer is **deducted** and payee (developer's wallet) is **credited immediately**
+- If `PaymentWalletId` is null: payer is deducted but **nobody receives the funds** — money is silently burned
 
-### 1. Add `Blog` to `PostType` enum
-**File:** `DysonNetwork.Shared/Models/Post.cs` (line 17)
+### 2. Sphere — Publisher post award settlement (`PublisherService.SettlePostAwardsAsync`)
+
+When a user awards/tips a post:
+- `SnPostAward` record is created with `SettledAt = null`
+- Some scheduler invokes `SettlePostAwardsAsync()` which loops over unsettled awards
+- If `publisher.AccountId` is set → credits that account (via gRPC)
+- Else if `publisher.PayoutWalletId` is set → credits that wallet (via gRPC)
+- Else → **silently holds** (logs and skips): `"Holding {Count} post awards for publisher {PublisherId}: no payout wallet configured"`
+
+Both need the same thing: **hold funds on payment, then settle later** (daily batch or manual trigger).
+
+---
+
+## The Merchant Abstraction
+
+A "merchant" is any entity that receives incoming payments. We model it as a first-class concept in the Wallet domain.
+
+```
+┌─────────────────────────────────────────────────┐
+│                   Merchant                       │
+│  Id, Type (App|Publisher), EntityId,            │
+│  PaymentWalletId, CreatedAt, UpdatedAt          │
+└──────────────────┬──────────────────────────────┘
+                   │ 1:N
+                   ▼
+┌─────────────────────────────────────────────────┐
+│              MerchantSettlement                  │
+│  Id, MerchantId, OrderId/AwardId,               │
+│  TransactionId (escrow tx), Currency, Amount,   │
+│  Status (Pending|Settled|Cancelled),            │
+│  SettledBy (Automatic|Manual), SettledAt,       │
+│  SettlementTransactionId                        │
+└─────────────────────────────────────────────────┘
+```
+
+**MerchantTypes:**
+- `App` — maps to `SnCustomApp.Id`
+- `Publisher` — maps to `SnPublisher.Id`
+
+### Where the `PaymentWalletId` lives
+
+Currently `PaymentWalletId` is on `SnCustomApp` and `PayoutWalletId` is on `SnPublisher` — two different names for the same concept. The merchant record consolidates this: one field, one place to change it. The existing fields on the entity models stay as-is (for backward compat) but the **merchant record is the source of truth** for settlement destination.
+
+**Auto-creation:** When `SnCustomApp.PaymentWalletId` or `SnPublisher.PayoutWalletId` is set/changed, a `SnMerchant` record is created or updated. This can be done:
+- In `CustomAppService.UpdateAppAsync` (already detects when `PaymentWalletId` changes)
+- In `PublisherController` update method (already checks `request.PayoutWalletId.HasValue`)
+- Both call a shared `MerchantService.UpsertMerchantAsync(type, entityId, walletId)`
+
+---
+
+## Payment Flow Changes
+
+### For App payments
+
+**Before:** buyer pays → `PayOrderAsync` → `CreateTransactionAsync(payer, appWallet)` → developer wallet credited instantly
+
+**After:** buyer pays → `PayOrderAsync` detects order has `AppIdentifier`:
+1. `CreateTransactionAsync(payer, payee=null, holdInEscrow=true)` — payer deducted, **nobody credited yet**
+2. `MerchantService.CreateSettlementAsync(appId, orderId, txId, currency, amount)` — settlement record created, Status=Pending
+3. Funds are in escrow (deducted from payer, not credited to anyone)
+
+### For Publisher post awards
+
+**Before:** `SettlePostAwardsAsync()` called by a scheduler, iterates unsettled awards, immediately credits wallet
+
+**After:** When `SnPostAward` is created (positive attitude, i.e., tipping event):
+1. A `MerchantSettlement` record is created immediately, Status=Pending
+2. The existing `SettlePostAwardsAsync` is **replaced** by the merchant settlement system
+3. Award's `SettledAt` is set when the merchant settlement is settled
+
+---
+
+## Settlement Execution
+
+### Daily automatic settlement (Quartz cron: midnight)
+
+```
+AppSettlementJob.Execute():
+  1. Group all Pending settlements by PaymentWalletId + Currency
+  2. For each group:
+     a. Sum amounts
+     b. CreateTransactionAsync(payer=null, payee=wallet, total, remarks="Settlement: N orders/awards")
+     c. Mark each settlement: Status=Settled, SettledBy=Automatic, SettledAt=now
+     d. If PostAward: set award.SettledAt = now
+```
+
+### Manual settlement (developer/publisher API)
+
+```
+POST /api/merchants/{merchantId}/settle
+  → same logic as daily job but scoped to a single merchant
+  → SettledBy=Manual
+```
+
+---
+
+## Files to Create
+
+| File | Location | Purpose |
+|---|---|---|
+| `SnMerchant.cs` | `DysonNetwork.Shared/Models/` | Merchant + MerchantSettlement models |
+| `MerchantService.cs` | `DysonNetwork.Wallet/Payment/` | Core merchant/settlement logic |
+| `MerchantController.cs` | `DysonNetwork.Wallet/Payment/` | Settlement query + manual settle APIs |
+| `AppSettlementJob.cs` | `DysonNetwork.Wallet/Payment/` | Quartz daily settlement job |
+
+## Files to Modify
+
+| File | Change | Why |
+|---|---|---|
+| `SnCustomApp.cs` | No change needed (keep `PaymentWalletId`) | Backward compat; merchant record is new source of truth |
+| `SnPublisher.cs` | No change needed (keep `PayoutWalletId`) | Same reasoning |
+| `PaymentService.cs` (`PayOrderAsync`) | ~3 lines: detect app orders, skip payee credit, call `MerchantService.CreateSettlementAsync` | Escrow instead of instant payout |
+| `PaymentService.cs` (`CreateTransactionAsync`) | Add optional `holdInEscrow` parameter; skip payee credit when true | Reuses existing null-payee path |
+| `PublisherService.cs` (`SettlePostAwardsAsync`) | Replace with settlement-based flow; call `MerchantService.CreateSettlementAsync` per award | Unify into the merchant system |
+| `CustomAppService.cs` (`UpdateAppAsync`) | Call `MerchantService.UpsertMerchantAsync` when `PaymentWalletId` changes | Auto-create merchant record |
+| `PublisherController.cs` | Call `MerchantService.UpsertMerchantAsync` when `PayoutWalletId` changes | Auto-create merchant record |
+| `ScheduledJobsConfiguration.cs` (Wallet) | Register `AppSettlementJob` | Daily cron |
+| `EventBus` / post-award creation | When `SnPostAward` is created with `Positive` attitude → create `MerchantSettlement` | Hooks into the tipping flow |
+
+### Database (AppDatabase — shared across services)
 
 ```csharp
-public enum PostType
-{
-    Moment,
-    Article,
-    Blog,
-}
+public DbSet<SnMerchant> Merchants { get; set; }
+public DbSet<SnMerchantSettlement> MerchantSettlements { get; set; }
 ```
 
-Also update the generated proto file `DysonNetwork.Shared/Proto/Post.cs` (line 256) — add `DY_BLOG = 3` to `DyPostType` enum. Update `PostServiceGrpc.cs` (line 249) switch expression to map `DyBlog => PostType.Blog`. Update `ActivityRenderer.cs` (line 108) to map Blog to `"Article"` type in AP. Update `ActivityHandlerService.cs` (line 424) reverse mapping.
+---
 
-### 2. Create `SnPublisherVerifiedDomain` model (Sphere-local)
-**New file:** `DysonNetwork.Sphere/Models/PublisherVerifiedDomain.cs`
-
-A separate table in the Sphere project (not Shared) with metadata:
-
-```csharp
-public enum DomainVerificationStatus
-{
-    Pending,      // Added, awaiting .well-known check
-    Verified,     // .well-known file confirmed
-    Failed,       // Verification attempt failed
-    Revoked,      // Manually revoked
-}
-
-[Index(nameof(PublisherId), nameof(Domain), IsUnique = true)]
-public class SnPublisherVerifiedDomain : ModelBase
-{
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid PublisherId { get; set; }
-    public SnPublisher Publisher { get; set; } = null!;
-
-    [MaxLength(512)]
-    public string Domain { get; set; } = string.Empty;
-
-    public DomainVerificationStatus Status { get; set; } = DomainVerificationStatus.Pending;
-    public Instant? VerifiedAt { get; set; }
-    public Instant? LastCheckedAt { get; set; }
-    public int FailedAttempts { get; set; } = 0;
-    [MaxLength(4096)] public string? LastError { get; set; }
-}
-```
-
-Register `DbSet<SnPublisherVerifiedDomain>` in `DysonNetwork.Sphere/AppDatabase.cs`.
-
-### 3. Create domain verification service
-**New file:** `DysonNetwork.Sphere/Publisher/DomainVerificationService.cs`
-
-Implements `.well-known` verification:
-- Fetch `https://{domain}/.well-known/dyson-domains.txt`
-- File should contain the publisher name (one per line), confirming the domain belongs to that publisher
-- Uses `IHttpClientFactory` (same pattern as `ActivityPubDiscoveryService`)
-- Exposes `Task<bool> VerifyDomainAsync(Guid publisherId, string domain)` and `Task VerifyPendingDomainsAsync()` for batch re-check
-- Called on domain add + periodic background re-check
-
-### 4. Add DB migration
-
-Run EF CLI after all model changes are in place:
-
-```bash
-dotnet ef migrations add AddBlogPostType --project DysonNetwork.Sphere
-```
-
-This auto-generates the migration for the new `publisher_verified_domains` table and the `PostType` enum value change. Review the generated migration before applying.
-
-### 5. Seed new permission node
-**File:** `DysonNetwork.Padlock/AppDatabase.cs` (line 70)
-
-Add `"posts.create.blog"` to the default permission group seed:
-
-```csharp
-"posts.create",
-"posts.create.blog",  // <-- new
-"posts.react",
-```
-
-### 6. Add domain verification + blog post creation logic
-**File:** `DysonNetwork.Sphere/Post/PostActionController.cs`
-
-In `CreatePost` (around line 175), after resolving the publisher, add blog-specific logic:
-
-```csharp
-if (request.Type == PostType.Blog)
-{
-    // 1. Check permission — already covered by [AskPermission("posts.create.blog")]
-
-    // 2. Validate content is a URL
-    if (string.IsNullOrWhiteSpace(request.Content) || !Uri.TryCreate(request.Content, UriKind.Absolute, out var blogUri))
-        return BadRequest("Blog post content must be a valid URL.");
-
-    // 3. Domain verification (skip for superusers)
-    if (!currentUser.IsSuperuser)
-    {
-        var host = blogUri.Host.ToLowerInvariant();
-        var isDomainVerified = await db.PublisherVerifiedDomains
-            .AnyAsync(d => d.PublisherId == publisher.Id
-                && d.Domain == host
-                && d.Status == DomainVerificationStatus.Verified);
-        if (!isDomainVerified)
-            return StatusCode(403, "This domain is not verified for your publisher. Add it via the domains endpoint first.");
-    }
-
-    // 4. Set EmbedView so client knows to render in WebView
-    post.EmbedView = new PostEmbedView
-    {
-        Uri = request.Content,
-        Renderer = PostEmbedViewRenderer.WebView
-    };
-}
-```
-
-Same logic added to `UpdatePost` (~line 1034) for when type changes to Blog or URL changes.
-
-### 7. Publisher verified domains management endpoint
-**File:** `DysonNetwork.Sphere/Publisher/PublisherController.cs` (or wherever publisher management lives)
-
-Endpoints:
+## API Endpoints
 
 ```
-POST   /api/publishers/{name}/domains              # Add domain (triggers .well-known verification)
-Body: { "domain": "blog.example.com" }
-
-GET    /api/publishers/{name}/domains              # List domains + their status
-DELETE /api/publishers/{name}/domains/{id}         # Remove a verified domain
-POST   /api/publishers/{name}/domains/{id}/recheck # Manually re-trigger verification
+GET  /api/merchants/{merchantId}/settlements          → list settlements (paginated)
+GET  /api/merchants/{merchantId}/settlements/pending  → pending totals grouped by currency
+POST /api/merchants/{merchantId}/settlements/settle   → manual settlement (Auth: must be Owner/Editor of the underlying entity)
 ```
 
-Only Owner/Manager can add/remove. On `POST`, `DomainVerificationService` immediately checks `.well-known/dyson-domains.txt` and updates status. Returns the domain record with `status: Pending` or `Verified`.
+Authentication: resolve the entity from the merchant record (app → check developer membership; publisher → check publisher membership), then enforce `Editor` role minimum.
 
-### 8. Skip content processing for Blog posts
-**File:** `DysonNetwork.Sphere/Post/PostService.cs`
+---
 
-In `PostAsync` / `UpdatePostAsync`, skip content indexing/embedding generation for Blog posts since we don't store content — just the link.
+## Steps
 
-### 9. Update ActionLog constants
-**File:** `DysonNetwork.Shared/Models/ActionLog.cs`
+- [ ] 1. Create `SnMerchant` and `SnMerchantSettlement` models in `DysonNetwork.Shared/Models/Merchant.cs`
+- [ ] 2. Add `DbSet<SnMerchant>` and `DbSet<SnMerchantSettlement>` to `AppDatabase` (Wallet)
+- [ ] 3. Create migration
+- [ ] 4. Create `MerchantService` with:
+  - `UpsertMerchantAsync(type, entityId, walletId)` — creates/updates merchant
+  - `CreateSettlementAsync(merchantId, orderId/awardId, txId, currency, amount)` — creates pending settlement
+  - `GetPendingSettlementsAsync(walletId)` — grouped by wallet + currency
+  - `SettleAsync(walletId, trigger)` — groups pending by currency, credits wallet, marks settled
+- [ ] 5. Add `holdInEscrow` parameter to `CreateTransactionAsync` in `PaymentService`
+- [ ] 6. Modify `PayOrderAsync`: when `order.AppIdentifier` is set, pass `holdInEscrow=true` and call `MerchantService.CreateSettlementAsync`
+- [ ] 7. Modify `CustomAppService.UpdateAppAsync`: on `PaymentWalletId` change, call `MerchantService.UpsertMerchantAsync`
+- [ ] 8. Modify `PublisherController.Update` endpoint: on `PayoutWalletId` change, call `MerchantService.UpsertMerchantAsync`
+- [ ] 9. Modify `PublisherService.SettlePostAwardsAsync`: replace per-award settlement logic with `MerchantService.CreateSettlementAsync` per award + remove immediate payout
+- [ ] 10. Find where `SnPostAward` is created for tipping (positive attitude) — add `MerchantService.CreateSettlementAsync` call
+- [ ] 11. Add `MerchantController` with list/query/manual-settle endpoints
+- [ ] 12. Create `AppSettlementJob` (Quartz `IJob`) for daily batch settlement
+- [ ] 13. Register `AppSettlementJob` in `ScheduledJobsConfiguration` with midnight cron
+- [ ] 14. Handle cancellation/refund: when order is cancelled before settlement, mark settlement as `Cancelled` and refund payer
 
-```csharp
-public const string PostCreateBlog = "posts.create.blog";
-```
-
-## Files to modify
-
-1. `DysonNetwork.Shared/Models/Post.cs` — Add `Blog` to `PostType` enum
-2. **New:** `DysonNetwork.Sphere/Models/PublisherVerifiedDomain.cs` — Verified domain model with status tracking
-3. **New:** `DysonNetwork.Sphere/Publisher/DomainVerificationService.cs` — `.well-known` verification logic
-4. `DysonNetwork.Shared/Proto/Post.cs` — Add `DY_BLOG` to proto enum
-5. `DysonNetwork.Sphere/Post/PostActionController.cs` — Domain verification logic in CreatePost + UpdatePost
-6. `DysonNetwork.Sphere/Post/PostService.cs` — Skip content indexing for Blog type
-7. `DysonNetwork.Padlock/AppDatabase.cs` — Seed `posts.create.blog` permission
-8. `DysonNetwork.Sphere/AppDatabase.cs` — Add `DbSet<SnPublisherVerifiedDomain>` + FK config
-9. Publisher management controller — Add verified domains CRUD endpoints
-10. New migration file — Create `publisher_verified_domains` table
-
-## Reuse
-
-- `DomainTrustService.MatchesDomainPattern()` — reuse for matching domains against verified list (`DysonNetwork.Passport/DomainTrust/DomainTrustService.cs:132`)
-- `PostEmbedView` / `PostEmbedViewRenderer.WebView` — already exists, use as-is for client rendering signal
-- `AskPermission` attribute pattern — same as `posts.create`
-- `IsSuperuser` check — pattern used in many places already
-- `IHttpClientFactory` — same pattern as `ActivityPubDiscoveryService` for `.well-known` fetch
-- `SnDiscoveryPreference` — Sphere-local model pattern reference for new domain model
+---
 
 ## Verification
 
-1. Create a blog post with a URL from a verified domain → should succeed
-2. Create a blog post with a URL from an unverified domain → should get 403
-3. Superuser creates blog post from any domain → should succeed
-4. Create a blog post without `posts.create.blog` permission → should be denied
-5. Client receives `EmbedView` with the URL and WebView renderer
-6. Reactions and replies work on blog posts (same as regular posts)
-7. Add domain to publisher → `.well-known` check runs → status becomes Verified or Failed
-8. Domain with `Pending` status → blog post creation blocked
-9. Manually re-check domain → status updates
-10. List publisher domains → shows status, verified_at, last_checked_at
+1. **Unit test flow:** Create app → set wallet → create order → pay → verify settlement record is Pending → trigger daily job → verify settlement is Settled and wallet is credited
+2. **Manual settle flow:** Same as above but call `POST /api/merchants/{id}/settlements/settle` instead of waiting for job
+3. **Publisher awards:** Award a post → verify `SnMerchantSettlement` created → settle via job or API → verify `SnPostAward.SettledAt` is set
+4. **No wallet configured:** Create app/publisher without wallet → pay/award → verify merchant doesn't exist → order/award rejected or held gracefully (no silent burn)
+5. **Cancellation before settlement:** Cancel order → verify settlement record → `Cancelled`, refund transaction created to payer
+6. **No duplicate credits:** Verify settle is idempotent — calling settle twice on same records doesn't double-credit

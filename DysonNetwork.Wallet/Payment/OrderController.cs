@@ -350,6 +350,32 @@ public class OrderController(
         if (request.Status != Shared.Models.OrderStatus.Finished && request.Status != Shared.Models.OrderStatus.Cancelled)
             return BadRequest("Invalid status. Available statuses are Finished, Cancelled.");
 
+        // Handle cancellation: cancel pending settlements and refund payer
+        if (request.Status == Shared.Models.OrderStatus.Cancelled)
+        {
+            var merchantSvc = new MerchantService(db);
+            await merchantSvc.CancelSettlementsByOrderAsync(id);
+
+            // If the order was already paid, refund the payer
+            if (order.Status == Shared.Models.OrderStatus.Paid)
+            {
+                // Load the transaction to get the payer wallet
+                var tx = await db.PaymentTransactions.FindAsync(order.TransactionId);
+                if (tx?.PayerWalletId != null)
+                {
+                    // ponytail: escrow → payee was never credited, so refund from system
+                    var refundFromWallet = tx.PayeeWalletId; // null if escrow
+                    await payment.CreateTransactionAsync(
+                        payerWalletId: refundFromWallet,      // null = system pays
+                        payeeWalletId: tx.PayerWalletId,       // back to original payer
+                        currency: order.Currency,
+                        amount: order.Amount,
+                        remarks: $"Refund for cancelled order #{order.Id}",
+                        type: Shared.Models.TransactionType.System,
+                        silent: true);
+                }
+            }
+        }
 
         order.Status = request.Status;
         await db.SaveChangesAsync();

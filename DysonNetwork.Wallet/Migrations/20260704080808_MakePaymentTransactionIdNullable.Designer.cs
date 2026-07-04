@@ -6,6 +6,7 @@ using DysonNetwork.Wallet;
 using DysonNetwork.Wallet.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -15,9 +16,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DysonNetwork.Wallet.Migrations
 {
     [DbContext(typeof(AppDatabase))]
-    partial class AppDatabaseModelSnapshot : ModelSnapshot
+    [Migration("20260704080808_MakePaymentTransactionIdNullable")]
+    partial class MakePaymentTransactionIdNullable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -41,6 +44,10 @@ namespace DysonNetwork.Wallet.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("entity_id");
+
                     b.Property<string>("Name")
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")
@@ -50,9 +57,9 @@ namespace DysonNetwork.Wallet.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("payment_wallet_id");
 
-                    b.Property<Guid>("PublisherId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("publisher_id");
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
+                        .HasColumnName("type");
 
                     b.Property<Instant>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")

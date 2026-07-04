@@ -28,6 +28,8 @@ public class AppDatabase(
     public DbSet<SnWalletGift> WalletGifts { get; set; } = null!;
     public DbSet<SnWalletCoupon> WalletCoupons { get; set; } = null!;
     public DbSet<SnWalletOrderItem> WalletOrderItems { get; set; } = null!;
+    public DbSet<SnMerchant> Merchants { get; set; } = null!;
+    public DbSet<SnMerchantSettlement> MerchantSettlements { get; set; } = null!;
 
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -52,6 +54,12 @@ public class AppDatabase(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<SnMerchantSettlement>()
+            .HasOne(s => s.Merchant)
+            .WithMany(m => m.Settlements)
+            .HasForeignKey(s => s.MerchantId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.ApplySoftDeleteFilters();
     }
