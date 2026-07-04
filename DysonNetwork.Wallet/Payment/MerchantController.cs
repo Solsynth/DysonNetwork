@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,30 +14,31 @@ public class MerchantController(
     AppDatabase db,
     MerchantService merchantService,
     WalletService walletService,
-    PaymentService paymentService
+    PaymentService paymentService,
+    RemotePublisherService publishers
 ) : ControllerBase
 {
     /// <summary>
     /// List all settlements for a merchant, newest first.
     /// </summary>
-    [HttpGet("{merchantId:guid}/settlements")]
+    [HttpGet("{merchant}/settlements")]
     [Authorize]
     public async Task<IActionResult> ListSettlements(
-        [FromRoute] Guid merchantId,
+        [FromRoute] string merchant,
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var merchant = await db.Merchants.FindAsync(merchantId);
-        if (merchant == null) return NotFound("Merchant not found");
+        var merchantEntity = await GetMerchantAsync(merchant);
+        if (merchantEntity == null) return NotFound("Merchant not found");
 
-        if (!await IsMerchantOwner(currentUser, merchant))
+        if (!await IsMerchantOwner(currentUser, merchantEntity))
             return StatusCode(403, "You do not have access to this merchant");
 
         var query = db.MerchantSettlements
-            .Where(s => s.MerchantId == merchantId)
+            .Where(s => s.MerchantId == merchantEntity.Id)
             .OrderByDescending(s => s.CreatedAt);
 
         var total = await query.CountAsync();
@@ -53,28 +55,28 @@ public class MerchantController(
     /// <summary>
     /// Returns pending settlement totals grouped by currency.
     /// </summary>
-    [HttpGet("{merchantId:guid}/settlements/pending")]
+    [HttpGet("{merchant}/settlements/pending")]
     [Authorize]
-    public async Task<IActionResult> GetPendingSummary([FromRoute] Guid merchantId)
+    public async Task<IActionResult> GetPendingSummary([FromRoute] string merchant)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var merchant = await db.Merchants.FindAsync(merchantId);
-        if (merchant == null) return NotFound("Merchant not found");
+        var merchantEntity = await GetMerchantAsync(merchant);
+        if (merchantEntity == null) return NotFound("Merchant not found");
 
-        if (!await IsMerchantOwner(currentUser, merchant))
+        if (!await IsMerchantOwner(currentUser, merchantEntity))
             return StatusCode(403, "You do not have access to this merchant");
 
-        if (!merchant.PaymentWalletId.HasValue)
+        if (!merchantEntity.PaymentWalletId.HasValue)
             return BadRequest("No payment wallet configured for this merchant");
 
-        var totals = await merchantService.GetPendingTotalsAsync(merchant.PaymentWalletId.Value);
+        var totals = await merchantService.GetPendingTotalsAsync(merchantEntity.PaymentWalletId.Value);
 
         return Ok(new
         {
-            MerchantId = merchantId,
-            WalletId = merchant.PaymentWalletId,
+            MerchantId = merchantEntity.Id,
+            WalletId = merchantEntity.PaymentWalletId,
             Pending = totals.ToDictionary(
                 kv => kv.Key,
                 kv => new { Count = kv.Value.Count, Total = kv.Value.Total })
@@ -85,24 +87,24 @@ public class MerchantController(
     /// Manually settle all pending settlements for a merchant.
     /// Only the wallet owner may trigger this.
     /// </summary>
-    [HttpPost("{merchantId:guid}/settlements/settle")]
+    [HttpPost("{merchant}/settlements/settle")]
     [Authorize]
-    public async Task<IActionResult> ManualSettle([FromRoute] Guid merchantId)
+    public async Task<IActionResult> ManualSettle([FromRoute] string merchant)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var merchant = await db.Merchants.FindAsync(merchantId);
-        if (merchant == null) return NotFound("Merchant not found");
+        var merchantEntity = await GetMerchantAsync(merchant);
+        if (merchantEntity == null) return NotFound("Merchant not found");
 
-        if (!await IsMerchantOwner(currentUser, merchant))
+        if (!await IsMerchantOwner(currentUser, merchantEntity))
             return StatusCode(403, "You do not have permission to settle this merchant");
 
-        if (!merchant.PaymentWalletId.HasValue)
+        if (!merchantEntity.PaymentWalletId.HasValue)
             return BadRequest("No payment wallet configured for this merchant");
 
         var transactions = await merchantService.SettleWalletAsync(
-            merchant.PaymentWalletId.Value,
+            merchantEntity.PaymentWalletId.Value,
             MerchantSettlementTrigger.Manual,
             walletService,
             paymentService);
@@ -120,20 +122,20 @@ public class MerchantController(
     /// <summary>
     /// Returns overview stats for a merchant: total pending, settled, this-month, by-currency breakdowns.
     /// </summary>
-    [HttpGet("{merchantId:guid}/stats/overview")]
+    [HttpGet("{merchant}/stats/overview")]
     [Authorize]
-    public async Task<IActionResult> GetOverviewStats([FromRoute] Guid merchantId)
+    public async Task<IActionResult> GetOverviewStats([FromRoute] string merchant)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var merchant = await db.Merchants.FindAsync(merchantId);
-        if (merchant == null) return NotFound("Merchant not found");
+        var merchantEntity = await GetMerchantAsync(merchant);
+        if (merchantEntity == null) return NotFound("Merchant not found");
 
-        if (!await IsMerchantOwner(currentUser, merchant))
+        if (!await IsMerchantOwner(currentUser, merchantEntity))
             return StatusCode(403, "You do not have access to this merchant");
 
-        var stats = await merchantService.GetOverviewStatsAsync(merchantId);
+        var stats = await merchantService.GetOverviewStatsAsync(merchantEntity.Id);
 
         return Ok(new
         {
@@ -150,10 +152,10 @@ public class MerchantController(
     /// Returns incoming settlements within a date range, grouped by status and currency.
     /// Query: /stats/incoming?from=2026-01-01&to=2026-01-31&currency=points
     /// </summary>
-    [HttpGet("{merchantId:guid}/stats/incoming")]
+    [HttpGet("{merchant}/stats/incoming")]
     [Authorize]
     public async Task<IActionResult> GetPeriodIncoming(
-        [FromRoute] Guid merchantId,
+        [FromRoute] string merchant,
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
         [FromQuery] string? currency = null)
@@ -161,10 +163,10 @@ public class MerchantController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var merchant = await db.Merchants.FindAsync(merchantId);
-        if (merchant == null) return NotFound("Merchant not found");
+        var merchantEntity = await GetMerchantAsync(merchant);
+        if (merchantEntity == null) return NotFound("Merchant not found");
 
-        if (!await IsMerchantOwner(currentUser, merchant))
+        if (!await IsMerchantOwner(currentUser, merchantEntity))
             return StatusCode(403, "You do not have access to this merchant");
 
         var fromInstant = from.HasValue
@@ -175,7 +177,7 @@ public class MerchantController(
             : Instant.FromDateTimeUtc(DateTime.UtcNow.ToUniversalTime());
 
         var result = await merchantService.GetPeriodIncomingAsync(
-            merchantId, fromInstant, toInstant, currency);
+            merchantEntity.Id, fromInstant, toInstant, currency);
 
         return Ok(new
         {
@@ -205,10 +207,10 @@ public class MerchantController(
     /// Returns daily incoming totals for charting. Optional currency filter.
     /// Query: /stats/daily?from=2026-01-01&to=2026-01-31&currency=points
     /// </summary>
-    [HttpGet("{merchantId:guid}/stats/daily")]
+    [HttpGet("{merchant}/stats/daily")]
     [Authorize]
     public async Task<IActionResult> GetDailyIncoming(
-        [FromRoute] Guid merchantId,
+        [FromRoute] string merchant,
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
         [FromQuery] string? currency = null)
@@ -216,10 +218,10 @@ public class MerchantController(
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
 
-        var merchant = await db.Merchants.FindAsync(merchantId);
-        if (merchant == null) return NotFound("Merchant not found");
+        var merchantEntity = await GetMerchantAsync(merchant);
+        if (merchantEntity == null) return NotFound("Merchant not found");
 
-        if (!await IsMerchantOwner(currentUser, merchant))
+        if (!await IsMerchantOwner(currentUser, merchantEntity))
             return StatusCode(403, "You do not have access to this merchant");
 
         var fromInstant = from.HasValue
@@ -230,7 +232,7 @@ public class MerchantController(
             : Instant.FromDateTimeUtc(DateTime.UtcNow.ToUniversalTime());
 
         var result = await merchantService.GetDailyIncomingAsync(
-            merchantId, fromInstant, toInstant, currency);
+            merchantEntity.Id, fromInstant, toInstant, currency);
 
         return Ok(new
         {
@@ -245,6 +247,18 @@ public class MerchantController(
                 d.ByCurrency
             })
         });
+    }
+
+    private async Task<SnMerchant?> GetMerchantAsync(string merchant)
+    {
+        if (Guid.TryParse(merchant, out var merchantId))
+            return await db.Merchants.FirstOrDefaultAsync(m => m.Id == merchantId);
+
+        var publisher = await publishers.GetPublisherByName(merchant);
+        if (publisher != null)
+            return await db.Merchants.FirstOrDefaultAsync(m => m.PublisherId == publisher.Id);
+
+        return await db.Merchants.FirstOrDefaultAsync(m => m.Name == merchant);
     }
 
     /// <summary>
