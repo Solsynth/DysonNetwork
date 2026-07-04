@@ -69,9 +69,6 @@ public class AppDatabase(
     public DbSet<SnLiveStreamChatMessage> LiveStreamChatMessages { get; set; } = null!;
     public DbSet<SnLiveStreamAward> LiveStreamAwards { get; set; } = null!;
 
-    public DbSet<SnMerchant> Merchants { get; set; } = null!;
-    public DbSet<SnMerchantSettlement> MerchantSettlements { get; set; } = null!;
-
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.UseNpgsql(
@@ -318,18 +315,6 @@ public class AppDatabase(
             .WithMany()
             .HasForeignKey(s => s.DefaultFediversePublisherId)
             .OnDelete(DeleteBehavior.SetNull);
-
-        modelBuilder.Entity<SnMerchantSettlement>()
-            .HasOne(s => s.Merchant)
-            .WithMany(m => m.Settlements)
-            .HasForeignKey(s => s.MerchantId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        // ponytail: Sphere doesn't own wallet models — ignore navigations that reference them
-        modelBuilder.Entity<SnMerchantSettlement>().Ignore(s => s.Order);
-        modelBuilder.Entity<SnMerchantSettlement>().Ignore(s => s.Award);
-        modelBuilder.Entity<SnMerchantSettlement>().Ignore(s => s.PaymentTransaction);
-        modelBuilder.Entity<SnMerchantSettlement>().Ignore(s => s.SettlementTransaction);
 
         modelBuilder.ApplySoftDeleteFilters();
     }

@@ -22,6 +22,7 @@ public class PaymentService(
     Shared.EventBus.IEventBus eventBus,
     RemoteAccountService remoteAccounts,
     RemoteRingService ring,
+    DyCustomAppService.DyCustomAppServiceClient customApps,
     ILogger<PaymentService> logger
 )
 {
@@ -530,16 +531,10 @@ public class PaymentService(
             var appIdStr = order.AppIdentifier!.Replace("developer.app:", "");
             if (Guid.TryParse(appIdStr, out var appId))
             {
-                // Resolve publisher via app → project → developer (raw SQL: Wallet doesn't own these tables)
-                var publisherId = await db.Database
-                    .SqlQuery<Guid>($"""
-                        SELECT d.publisher_id
-                        FROM custom_apps a
-                        JOIN dev_projects p ON a.project_id = p.id
-                        JOIN developers d ON p.developer_id = d.id
-                        WHERE a.id = {appId}
-                    """)
-                    .FirstOrDefaultAsync();
+                // Resolve publisher via gRPC (custom_apps table is in Develop's DB, not Wallet's)
+                var devResp = await customApps.GetAppDeveloperAsync(
+                    new DyGetAppDeveloperRequest { AppId = appId.ToString() });
+                var publisherId = Guid.Parse(devResp.Developer.PublisherId);
 
                 if (publisherId != Guid.Empty)
                 {

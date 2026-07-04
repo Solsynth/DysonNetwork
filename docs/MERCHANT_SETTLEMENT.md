@@ -1,171 +1,198 @@
 # Merchant Settlement System
 
-The merchant settlement system unifies payout handling for apps and publishers. Instead of funds being credited to the developer/publisher wallet immediately, they are **held in escrow** and released through a settlement step — either automatically at midnight or manually on request.
+The merchant settlement system centralizes payout handling for apps and publishers in the Wallet service. Instead of crediting wallets immediately, funds are **held in escrow** and released through settlement — either daily (midnight cron) or manual API call.
 
-## Overview
+## Core Concept
 
-Two entities can receive payments:
+**Merchant = publisher identity in Wallet.** A developer in Develop is a copy of the same publisher. Both share the same `PublisherId`. The merchant is Wallet's mirror of that identity.
 
-| Entity | Wallet field | Source of funds |
-|---|---|---|
-| **Custom App** (`SnCustomApp`) | `PaymentWalletId` | Product purchases via orders |
-| **Publisher** (`SnPublisher`) | `PayoutWalletId` | Post awards / tips |
+```
+Sphere/Develop                 Wallet
+─────────────                  ──────
+SnPublisher (id: X)  ←→  SnMerchant (publisher_id: X)
+SnDeveloper (publisher_id: X)    ↕
+                                 SnMerchantSettlement[]
+```
 
-Both are modeled as a **Merchant** (`SnMerchant`), auto-created when a wallet is configured. Incoming payments create **Merchant Settlement** records (`SnMerchantSettlement`) in `Pending` status. The actual wallet credit happens only on settlement.
+One merchant per publisher. Settlements from all apps and post awards under that publisher flow through the same merchant.
+
+## Architecture
+
+```
+Sphere (dyson_sphere)               Wallet (dyson_wallet)
+───────────────────                 ──────────────────
+SnPublisher                         SnMerchant (publisher_id)
+SnDeveloper ──────────────────→     SnMerchantSettlement[]
+SnPostAward
+
+HTTP endpoints:                    HTTP endpoints:
+  /api/publishers                   /api/merchants/{id}/settlements
+  /api/posts/{id}/awards            /api/merchants/{id}/settlements/pending
+                                    /api/merchants/{id}/settlements/settle
+
+gRPC client:                       gRPC server:
+  RemoteMerchantService ────────→   MerchantServiceGrpc
+```
+
+| Component | Service | Location | Purpose |
+|---|---|---|---|
+| `DyMerchantService` proto | Shared | `Spec/proto/wallet.proto` | gRPC contract |
+| `RemoteMerchantService` | Sphere, Develop | `Shared/Registry/` | Client wrapper |
+| `MerchantServiceGrpc` | **Wallet** | `Wallet/Payment/` | gRPC server implementation |
+| `MerchantService` | **Wallet** | `Wallet/Payment/` | Business logic |
+| `MerchantController` | **Wallet** | `Wallet/Payment/` | HTTP API for queries + manual settle |
+| `AppSettlementJob` | **Wallet** | `Wallet/Payment/` | Quartz midnight batch settlement |
+| `SnMerchant` model | **Wallet** | `Shared/Models/Merchant.cs` | Merchant entity |
+| `SnMerchantSettlement` model | **Wallet** | `Shared/Models/Merchant.cs` | Settlement entity |
 
 ## API Endpoints
 
-### Check settlement status
+### Wallet Service (`DysonNetwork.Wallet`)
 
-Resolves the merchant for an app or publisher and returns pending totals by currency.
+| Method | Endpoint | Auth | Purpose |
+|---|---|---|---|
+| `GET` | `/api/merchants/{merchantId}/settlements?offset=0&take=20` | wallet owner | List settlements (paginated) |
+| `GET` | `/api/merchants/{merchantId}/settlements/pending` | wallet owner | Pending totals by currency |
+| `POST` | `/api/merchants/{merchantId}/settlements/settle` | wallet owner | Manual instant settlement |
 
-**App:**
-```
-GET /api/private/apps/{appId}/settlements?dev={dev}&proj={proj}
-```
-Authorization: must be an editor of the developer.
+### Sphere Service (`DysonNetwork.Sphere`)
 
-**Publisher:**
-```
-GET /api/publishers/{name}/settlements
-```
-Authorization: must be an editor of the publisher.
+| Method | Endpoint | Auth | Purpose |
+|---|---|---|---|
+| `POST` | `/api/publishers` | account | Create publisher (triggers merchant creation via gRPC) |
+| `PATCH` | `/api/publishers/{name}` | owner | Update publisher — setting `PayoutWalletId` triggers `UpsertMerchant` gRPC |
+| `POST` | `/api/posts/{id}/awards` | account | Award a post — triggers `CreateMerchantSettlement` gRPC for positive tips |
 
-**Response (200):**
-```json
-{
-  "merchantId": "a1b2c3d4-...",
-  "hasWallet": true,
-  "walletId": "e5f6g7h8-...",
-  "pending": {
-    "points": { "count": 12, "total": 1500.0 },
-    "golds":  { "count": 3,  "total": 300.0 }
-  }
-}
-```
+### Develop Service (`DysonNetwork.Develop`)
 
-If no wallet is configured:
-```json
-{
-  "merchantId": null,
-  "hasWallet": false,
-  "pending": {}
-}
-```
+| Method | Endpoint | Auth | Purpose |
+|---|---|---|---|
+| `POST` | `/api/private/apps` | editor | Create app (no merchant side-effect) |
+| `PATCH` | `/api/private/apps/{appId}` | editor | Update app — stores `PaymentWalletId` for reference, no merchant RPC |
 
-### List all settlements (paginated)
-```
-GET /api/merchants/{merchantId}/settlements?offset=0&take=20
-```
-Authorization: wallet owner (the account that owns the payout wallet).
+### Cross-Service gRPC (`DyMerchantService`)
 
-Returns a paginated list of `SnMerchantSettlement` objects, newest first.
-
-### Manual settlement
-```
-POST /api/merchants/{merchantId}/settlements/settle
-```
-Authorization: wallet owner.
-
-Settles all pending settlements for this merchant immediately. Funds are credited to the wallet in one transaction per currency.
-
-**Response (200):**
-```json
-{
-  "message": "Settled 2 currency group(s)",
-  "transactions": [
-    { "id": "...", "currency": "points", "amount": 1500.0 },
-    { "id": "...", "currency": "golds", "amount": 300.0 }
-  ]
-}
-```
-
-If nothing is pending:
-```json
-{ "message": "No pending funds to settle" }
-```
+| RPC | Request | Response | Called by | Handles in |
+|---|---|---|---|---|
+| `UpsertMerchant` | publisherId, walletId?, name? | DyMerchant | Sphere, Develop | Wallet |
+| `CreateMerchantSettlement` | publisherId, orderId?, awardId?, currency, amount | DyMerchantSettlement | Sphere | Wallet |
+| `GetPendingSettlements` | paymentWalletId | settlements[] | Sphere, Develop | Wallet |
+| `SettleMerchant` | paymentWalletId | transactions[] | Sphere, Develop | Wallet |
 
 ## Lifecycle
 
+### App Product Purchase
+
+| Step | Service | What happens |
+|---|---|---|
+| 1 | Sphere | User creates order for app product → `POST /api/orders` |
+| 2 | Sphere | User pays order → `POST /api/orders/{id}/pay` |
+| 3 | **Wallet** | `PayOrderAsync` resolves publisherId via `GetAppDeveloperAsync` gRPC to Develop |
+| 4 | **Wallet** | Finds or auto-creates merchant for that publisher |
+| 5 | **Wallet** | Deducts payer wallet, creates settlement (Status = Pending). Nobody credited yet. |
+| 6 | **Wallet** | `AppSettlementJob` (midnight) or manual `POST /settle` → credits merchant wallet |
+
+### Post Award
+
+| Step | Service | What happens |
+|---|---|---|
+| 1 | Sphere | User awards post → `PostService.AwardPost` |
+| 2 | Sphere → **Wallet** | `CreateMerchantSettlementAsync` gRPC with awardId, publisherId, amount |
+| 3 | **Wallet** | Finds or auto-creates merchant; creates settlement (80% of award) |
+| 4 | **Wallet** | `AppSettlementJob` settles to publisher wallet |
+
+### Publisher Wallet Configuration
+
+| Step | Service | What happens |
+|---|---|---|
+| 1 | Sphere | `PATCH /api/publishers/{name}` with `PayoutWalletId` |
+| 2 | Sphere → **Wallet** | `UpsertMerchantAsync` gRPC |
+| 3 | **Wallet** | Creates/updates merchant record with the wallet |
+
+### Cancellation
+
+| Step | Service | What happens |
+|---|---|---|
+| 1 | Sphere | `PATCH /api/orders/{id}/status` → `Cancelled` |
+| 2 | **Wallet** | Cancels pending settlement + refunds payer (system → payer) |
+
+### Merchant Auto-Creation
+
+| Trigger | Service | How |
+|---|---|---|
+| Publisher sets `PayoutWalletId` | Sphere → **Wallet** | `UpsertMerchantAsync` gRPC |
+| First app order paid | **Wallet** | `PayOrderAsync` auto-creates merchant with order's wallet |
+| First post award | Sphere → **Wallet** | `CreateMerchantSettlementAsync` gRPC auto-creates merchant |
+
+## Data Model
+
 ```
-┌──────────────┐     ┌───────────────┐     ┌──────────────┐
-│ Payment made │ ──→ │ Settlement    │ ──→ │ Funds        │
-│ (order/award)│     │ Pending       │     │ in wallet    │
-└──────────────┘     └───────┬───────┘     └──────────────┘
-                             │
-                    ┌────────┴────────┐
-                    │                 │
-              Daily job         Manual API
-              (midnight)     (POST /settle)
-```
-
-### App Product Purchase Flow
-
-1. User creates an order for an app product (`POST /api/orders`)
-2. User pays the order (`POST /api/orders/{id}/pay`)
-3. Payer's wallet is **deducted**. Funds are NOT credited to the developer yet.
-4. A `SnMerchantSettlement` is created (Status = `Pending`)
-5. At midnight, `AppSettlementJob` settles all pending settlements:
-   - Groups by wallet + currency
-   - Creates one credit transaction per group: system → developer wallet
-   - Marks settlements as `Settled`
-6. Or the developer calls manual settle to trigger step 5 immediately.
-
-### Post Award Flow
-
-1. User awards a post with a positive attitude (`POST /api/posts/{id}/awards`)
-2. Award record is created (`SnPostAward` with `SettledAt = null`)
-3. A `SnMerchantSettlement` is created for 80% of the award amount
-4. `PublisherService.SettlePostAwardsAsync` (midnight) ensures all awards have settlements and marks them settled
-5. `AppSettlementJob` (midnight, after step 4) transfers funds to publisher wallets
-
-### Cancellation / Refund
-
-When an app order is cancelled **before settlement**:
-1. `PATCH /api/orders/{id}/status` with `Status = Cancelled`
-2. Pending settlement is cancelled (`Status = Cancelled`)
-3. Payer is refunded: system → payer wallet (since funds were held in escrow, not yet credited to developer)
-
-If cancelled **after settlement**, the standard `RefundOrderAsync` path applies (developer wallet → payer).
-
-## Settlement Data Model
-
-```
-SnMerchant                          (one per publisher)
+SnMerchant (in Wallet's DB, publisher_id is the key)
 ├── Id
-├── PublisherId                     (SnPublisher.Id — works for both app-developers
-│                                   and standalone publishers)
-├── PaymentWalletId                 (target wallet for payouts)
+├── PublisherId          ← SnPublisher.Id
+├── PaymentWalletId      ← where settled funds land
 ├── Name
 └── Settlements[] → SnMerchantSettlement
-                     ├── OrderId / AwardId      (source reference)
-                     ├── PaymentTransactionId   (escrow tx, nullable for awards)
-                     ├── PaymentWalletId        (where funds land)
+                     ├── OrderId? / AwardId?
+                     ├── PaymentWalletId
                      ├── Currency, Amount
-                     ├── Status (Pending|Settled|Cancelled)
-                     ├── SettledBy (Automatic|Manual)
-                     ├── SettledAt
-                     └── SettlementTransactionId (system → wallet credit tx)
+                     ├── Status (Pending|Settlement|Cancelled)
+                     ├── SettledBy (Automatic|Manual?)
+                     ├── SettledAt?
+                     └── SettlementTransactionId?
 ```
 
-Apps and publishers share the same merchant concept: the **publisher** is the entity that receives money. An app belongs to a developer, which has a publisher — so the app's publisher is the merchant. A standalone publisher is its own merchant. One merchant per publisher, regardless of how many apps they own.
+## RPC Methods
 
-## Scheduled Jobs
+| Method | Request | Response | Called by |
+|---|---|---|---|
+| `UpsertMerchant` | publisherId, walletId?, name? | DyMerchant | Sphere, Develop |
+| `CreateMerchantSettlement` | publisherId, orderId?, awardId?, currency, amount | DyMerchantSettlement | Sphere |
+| `GetPendingSettlements` | paymentWalletId | settlements[] | Sphere, Develop |
+| `SettleMerchant` | paymentWalletId | transactions[] | Frontend (via MerchantController) |
 
-| Job | Schedule | What it does |
-|---|---|---|
-| `AppSettlementJob` | Midnight daily (`0 0 0 * * ?`) | Settles all pending settlements grouped by wallet+currency |
-| `SettlePostAwardsAsync` | Midnight daily (via Quartz in Sphere) | Ensures awards have settlements; marks `SnPostAward.SettledAt` |
+## Registration
+
+### Wallet service — gRPC server + job
+
+In `ApplicationConfiguration.ConfigureAppMiddleware`:
+```csharp
+app.MapGrpcService<MerchantServiceGrpc>();
+```
+
+In `ServiceCollectionExtensions.AddAppBusinessServices`:
+```csharp
+services.AddScoped<MerchantService>();
+services.AddScoped<MerchantServiceGrpc>();
+```
+
+In `ScheduledJobsConfiguration`:
+```csharp
+q.AddJob<AppSettlementJob>(opts => opts.WithIdentity("AppSettlement"));
+q.AddTrigger(opts => opts
+    .ForJob("AppSettlement")
+    .WithCronSchedule("0 0 0 * * ?"));  // midnight UTC
+```
+
+### Sphere / Develop services — gRPC client
+
+In `ServiceInjectionHelper.AddWalletService()`:
+```csharp
+services.AddGrpcClientWithSharedChannel<DyMerchantService.DyMerchantServiceClient>(
+    "https://_grpc.wallet", "DyMerchantService");
+services.AddSingleton<RemoteMerchantService>();
+```
+
+### Sphere — RemotePaymentService (existing, related)
+
+```csharp
+services.AddGrpcClientWithSharedChannel<DyPaymentService.DyPaymentServiceClient>(
+    "https://_grpc.wallet", "DyPaymentService");
+services.AddSingleton<RemotePaymentService>();
+```
 
 ## Idempotency
 
-- `SettleWalletAsync` only processes settlements with `Status = Pending`. Calling it twice on the same wallet is safe — the second call finds nothing pending.
-- `SettlePostAwardsAsync` skips awards that already have a corresponding `MerchantSettlement` (checked via `existingSettlementAwardIds`).
-- Cancelling an already-settled settlement is a no-op (check: `Status == Pending`).
-
-## Migration Notes
-
-When deploying this system:
-1. Run the `AddMerchantSettlement` migration (creates `merchants` and `merchant_settlements` tables)
-2. Run the `MakePaymentTransactionIdNullable` migration
-3. Merchants are auto-created on-the-fly when a payment arrives for an app or publisher with a configured wallet. No manual backfill needed.
+- `SettleWalletAsync` only processes settlements with `Status = Pending`. Calling twice is safe.
+- `SettlePostAwardsAsync` calls `CreateMerchantSettlementAsync` gRPC for each award; Wallet is idempotent per awardId (merchant auto-creates if needed).
+- Cancelling an already-settled settlement is no-op.

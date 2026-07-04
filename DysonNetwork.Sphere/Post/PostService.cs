@@ -3139,45 +3139,27 @@ public partial class PostService(
         db.PostAwards.Add(award);
         await db.SaveChangesAsync();
 
-        // Create merchant settlement for positive awards (tips)
+        // Create merchant settlement via gRPC for positive awards (tips)
         if (attitude == PostReactionAttitude.Positive && post.PublisherId.HasValue)
         {
-            var publisher = await db.Publishers
-                .Where(p => p.Id == post.PublisherId.Value)
-                .Select(p => new { p.Id, p.PayoutWalletId, p.AccountId })
-                .FirstOrDefaultAsync();
-
-            if (publisher?.PayoutWalletId != null || publisher?.AccountId != null)
+            _ = Task.Run(async () =>
             {
-                var merchant = await db.Merchants
-                    .FirstOrDefaultAsync(m => m.PublisherId == post.PublisherId.Value);
-
-                if (merchant == null && publisher.PayoutWalletId.HasValue)
+                using var scope = factory.CreateScope();
+                var merchantRpc = scope.ServiceProvider.GetRequiredService<RemoteMerchantService>();
+                try
                 {
-                    merchant = new SnMerchant
-                    {
-                        PublisherId = post.PublisherId.Value,
-                        PaymentWalletId = publisher.PayoutWalletId.Value
-                    };
-                    db.Merchants.Add(merchant);
-                    await db.SaveChangesAsync();
+                    await merchantRpc.CreateMerchantSettlementAsync(
+                        publisherId: post.PublisherId!.Value.ToString(),
+                        currency: "points",
+                        amount: amount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        awardId: award.Id.ToString());
                 }
-
-                if (merchant != null)
+                catch (Exception ex)
                 {
-                    var settlementWalletId = merchant.PaymentWalletId ?? publisher.PayoutWalletId!.Value;
-                    db.MerchantSettlements.Add(new SnMerchantSettlement
-                    {
-                        MerchantId = merchant.Id,
-                        AwardId = award.Id,
-                        PaymentWalletId = settlementWalletId,
-                        Currency = "points",
-                        Amount = amount,
-                        Status = MerchantSettlementStatus.Pending
-                    });
-                    await db.SaveChangesAsync();
+                    var errLogger = scope.ServiceProvider.GetRequiredService<ILogger<PostService>>();
+                    errLogger.LogError(ex, "Failed to create merchant settlement for award {AwardId}", award.Id);
                 }
-            }
+            });
         }
 
         var delta = award.Attitude == PostReactionAttitude.Positive ? amount : -amount;

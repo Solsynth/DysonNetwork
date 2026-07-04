@@ -618,27 +618,26 @@ public class PublisherController(
         db.Update(publisher);
         await db.SaveChangesAsync();
 
-        // Auto-create/update merchant when PayoutWalletId is changed
+        // Notify Wallet of merchant update via gRPC
         if (request.PayoutWalletId.HasValue)
         {
-            var existingMerchant = await db.Merchants
-                .FirstOrDefaultAsync(m => m.PublisherId == publisher.Id);
-            if (existingMerchant == null)
+            _ = Task.Run(async () =>
             {
-                db.Merchants.Add(new SnMerchant
+                using var scope = factory.CreateScope();
+                var merchantRpc = scope.ServiceProvider.GetRequiredService<RemoteMerchantService>();
+                try
                 {
-                    PublisherId = publisher.Id,
-                    PaymentWalletId = publisher.PayoutWalletId,
-                    Name = publisher.Name
-                });
-                await db.SaveChangesAsync();
-            }
-            else if (existingMerchant.PaymentWalletId != publisher.PayoutWalletId)
-            {
-                existingMerchant.PaymentWalletId = publisher.PayoutWalletId;
-                existingMerchant.Name = publisher.Name;
-                await db.SaveChangesAsync();
-            }
+                    await merchantRpc.UpsertMerchantAsync(
+                        publisherId: publisher.Id.ToString(),
+                        paymentWalletId: publisher.PayoutWalletId?.ToString(),
+                        name: publisher.Name);
+                }
+                catch (Exception ex)
+                {
+                    var errLogger = scope.ServiceProvider.GetRequiredService<ILogger<PublisherController>>();
+                    errLogger.LogError(ex, "Failed to upsert merchant for publisher {Id}", publisher.Id);
+                }
+            });
         }
 
         als.CreateActionLog(
@@ -1217,43 +1216,5 @@ public class PublisherController(
         // Reload to get updated status
         await db.Entry(domain).ReloadAsync();
         return Ok(domain);
-    }
-
-    /// <summary>
-    /// Returns merchant info + pending settlement totals for this publisher.
-    /// </summary>
-    [HttpGet("{name}/settlements")]
-    [Authorize]
-    public async Task<IActionResult> GetPublisherSettlements([FromRoute] string name)
-    {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
-
-        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
-        if (publisher is null) return NotFound();
-
-        var accountId = Guid.Parse(currentUser.Id);
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
-            return StatusCode(403, "You need at least editor role to view settlements.");
-
-        var merchant = await db.Merchants
-            .FirstOrDefaultAsync(m => m.PublisherId == publisher.Id);
-
-        if (merchant?.PaymentWalletId == null)
-            return Ok(new { merchantId = (Guid?)null, hasWallet = false, pending = new { } });
-
-        var totals = await db.MerchantSettlements
-            .Where(s => s.Status == MerchantSettlementStatus.Pending && s.PaymentWalletId == merchant.PaymentWalletId.Value)
-            .GroupBy(s => s.Currency)
-            .Select(g => new { Currency = g.Key, Count = g.Count(), Total = g.Sum(s => s.Amount) })
-            .ToListAsync();
-
-        return Ok(new
-        {
-            merchantId = merchant.Id,
-            hasWallet = true,
-            walletId = merchant.PaymentWalletId,
-            pending = totals.ToDictionary(s => s.Currency, s => new { count = s.Count, total = s.Total })
-        });
     }
 }

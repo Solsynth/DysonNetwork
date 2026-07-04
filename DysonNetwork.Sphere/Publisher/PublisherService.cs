@@ -35,7 +35,8 @@ public class PublisherService(
     RemoteRealmService remoteRealms,
     IActorDiscoveryService discoveryService,
     IConfiguration configuration,
-    ILogger<PublisherService> logger
+    ILogger<PublisherService> logger,
+    RemoteMerchantService merchantRpc
 )
 {
     public async Task<SnPublisher?> GetPublisherLoaded(Guid id)
@@ -1015,122 +1016,40 @@ public class PublisherService(
         if (unsettledAwards.Count == 0)
             return;
 
-        // Orphan awards (no publisher) — just mark settled
-        var orphanAwardIds = unsettledAwards
-            .Where(x => x.PublisherId == null)
-            .Select(x => x.Id)
+        // Publish merchant award events for all unsettled awards with publishers
+        // Wallet handles settlement creation idempotently
+        var awardsWithPublisher = unsettledAwards
+            .Where(x => x.PublisherId != null)
             .ToList();
-        if (orphanAwardIds.Count > 0)
+
+        if (awardsWithPublisher.Count > 0)
         {
-            await db.PostAwards
-                .Where(a => orphanAwardIds.Contains(a.Id))
-                .ExecuteUpdateAsync(s => s.SetProperty(a => a.SettledAt, (Instant?)now));
+            foreach (var award in awardsWithPublisher)
+            {
+                try
+                {
+                    await merchantRpc.CreateMerchantSettlementAsync(
+                        publisherId: award.PublisherId!.Value.ToString(),
+                        currency: "points",
+                        amount: award.Amount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        awardId: award.Id.ToString());
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to create merchant settlement for award {AwardId}", award.Id);
+                }
+            }
         }
 
-        var awardsByPublisher = unsettledAwards
-            .Where(x => x.PublisherId != null)
-            .GroupBy(x => x.PublisherId!.Value)
-            .ToDictionary(g => g.Key, g => g.ToList());
+        // Mark all awards as settled
+        var allIds = unsettledAwards.Select(x => x.Id).ToList();
+        await db.PostAwards
+            .Where(a => allIds.Contains(a.Id))
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.SettledAt, (Instant?)now));
 
-        if (awardsByPublisher.Count == 0)
-            return;
-
-        var publisherIds = awardsByPublisher.Keys.ToList();
-        var publishers = await db.Publishers
-            .Where(p => publisherIds.Contains(p.Id))
-            .Select(p => new { p.Id, p.Name, p.PayoutWalletId, p.AccountId })
-            .ToDictionaryAsync(p => p.Id);
-
-        // Collect all award IDs to check existing settlements
-        var allAwardIds = unsettledAwards
-            .Where(x => x.PublisherId != null)
-            .Select(x => x.Id)
-            .ToList();
-        var existingSettlementAwardIds = await db.MerchantSettlements
-            .Where(s => s.AwardId != null && allAwardIds.Contains(s.AwardId.Value))
-            .Select(s => s.AwardId!.Value)
-            .ToListAsync();
-        var existingSet = existingSettlementAwardIds.ToHashSet();
-
-        foreach (var (publisherId, awards) in awardsByPublisher)
-        {
-            if (!publishers.TryGetValue(publisherId, out var publisher))
-                continue;
-
-            // Awards that already have settlements → just mark settled
-            var alreadySettled = awards.Where(a => existingSet.Contains(a.Id)).ToList();
-            if (alreadySettled.Count > 0)
-            {
-                await db.PostAwards
-                    .Where(a => alreadySettled.Select(x => x.Id).Contains(a.Id))
-                    .ExecuteUpdateAsync(s => s.SetProperty(a => a.SettledAt, (Instant?)now));
-            }
-
-            // Awards without settlements → create them now (catch-up for pre-feature awards)
-            var needSettlements = awards.Where(a => !existingSet.Contains(a.Id)).ToList();
-            if (needSettlements.Count == 0)
-                continue;
-
-            var walletId = publisher.PayoutWalletId;
-            if (walletId == null && publisher.AccountId == null)
-            {
-                logger.LogInformation(
-                    "Holding {Count} post awards for publisher {PublisherId}: no payout wallet configured",
-                    needSettlements.Count, publisherId);
-                continue;
-            }
-
-            var merchant = await db.Merchants
-                .FirstOrDefaultAsync(m => m.PublisherId == publisherId);
-
-            if (merchant == null && walletId == null)
-            {
-                logger.LogInformation(
-                    "Holding {Count} post awards for publisher {PublisherId}: no wallet configured",
-                    needSettlements.Count, publisherId);
-                continue;
-            }
-
-            if (merchant == null)
-            {
-                merchant = new SnMerchant
-                {
-                    PublisherId = publisherId,
-                    PaymentWalletId = walletId
-                };
-                db.Merchants.Add(merchant);
-                await db.SaveChangesAsync();
-            }
-
-            var settlementWalletId = merchant.PaymentWalletId!.Value;
-
-            foreach (var award in needSettlements)
-            {
-                var payoutAmount = award.Amount * 0.80m;
-                if (payoutAmount <= 0) continue;
-
-                db.MerchantSettlements.Add(new SnMerchantSettlement
-                {
-                    MerchantId = merchant.Id,
-                    AwardId = award.Id,
-                    PaymentWalletId = settlementWalletId,
-                    Currency = "points",
-                    Amount = payoutAmount,
-                    Status = MerchantSettlementStatus.Pending
-                });
-            }
-
-            await db.SaveChangesAsync();
-
-            // Mark awards as settled now that settlements exist
-            await db.PostAwards
-                .Where(a => needSettlements.Select(x => x.Id).Contains(a.Id))
-                .ExecuteUpdateAsync(s => s.SetProperty(a => a.SettledAt, (Instant?)now));
-
-            logger.LogInformation(
-                "Created {Count} settlements for publisher {PublisherId}: {Total} points",
-                needSettlements.Count, publisherId, needSettlements.Sum(a => a.Amount * 0.80m));
-        }
+        logger.LogInformation(
+            "SettlePostAwardsAsync: marked {Count} awards as settled, {WithPublisher} with publisher",
+            unsettledAwards.Count, awardsWithPublisher.Count);
     }
 
     public async Task<Dictionary<Guid, double>> AggressiveResettle(
