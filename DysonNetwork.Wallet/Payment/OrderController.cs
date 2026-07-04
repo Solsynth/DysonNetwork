@@ -115,13 +115,11 @@ public class OrderController(
 
             payeeWalletId = request.PayeeWalletId.Value;
         }
-        else if (client.PaymentWalletId.HasValue)
+        else
         {
-            var walletExists = await db.Wallets.AnyAsync(w => w.Id == client.PaymentWalletId.Value);
-            if (!walletExists)
-                return BadRequest("Configured payout wallet was not found.");
-
-            payeeWalletId = client.PaymentWalletId.Value;
+            payeeWalletId = await ResolveMerchantWalletIdAsync(client);
+            if (!payeeWalletId.HasValue)
+                return BadRequest("Merchant payout wallet was not configured.");
         }
 
         // New: order with product line items
@@ -236,6 +234,8 @@ public class OrderController(
         public string? ProductIdentifier { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
         public decimal Amount { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset UpdatedAt { get; set; }
         public DateTimeOffset ExpiredAt { get; set; }
         public Guid? PayeeWalletId { get; set; }
         public Guid? TransactionId { get; set; }
@@ -256,6 +256,8 @@ public class OrderController(
                 ProductIdentifier = order.ProductIdentifier,
                 Meta = order.Meta,
                 Amount = order.Amount,
+                CreatedAt = new DateTimeOffset(order.CreatedAt.ToDateTimeUtc(), TimeSpan.Zero),
+                UpdatedAt = new DateTimeOffset(order.UpdatedAt.ToDateTimeUtc(), TimeSpan.Zero),
                 ExpiredAt = new DateTimeOffset(order.ExpiredAt.ToDateTimeUtc(), TimeSpan.Zero),
                 PayeeWalletId = order.PayeeWalletId,
                 TransactionId = order.TransactionId,
@@ -437,12 +439,13 @@ public class OrderController(
         var client = await ValidateClientAsync(request.ClientId, request.ClientSecret);
         if (client is null) return BadRequest("Invalid client credentials");
 
-        if (!client.PaymentWalletId.HasValue)
-            return BadRequest("This app does not have a configured payout wallet.");
+        var merchantWalletId = await ResolveMerchantWalletIdAsync(client);
+        if (!merchantWalletId.HasValue)
+            return BadRequest("Merchant payout wallet was not configured.");
 
-        var payerWallet = await db.Wallets.FirstOrDefaultAsync(w => w.Id == client.PaymentWalletId.Value);
+        var payerWallet = await db.Wallets.FirstOrDefaultAsync(w => w.Id == merchantWalletId.Value);
         if (payerWallet is null)
-            return BadRequest("Configured payout wallet was not found.");
+            return BadRequest("Merchant payout wallet was not found.");
 
         if (payerWallet.AccountId == request.PayeeAccountId)
             return BadRequest("Cannot pay the payout wallet owner.");
@@ -467,6 +470,23 @@ public class OrderController(
         catch (Exception err)
         {
             return BadRequest(err.Message);
+        }
+    }
+
+    private async Task<Guid?> ResolveMerchantWalletIdAsync(SnCustomApp client)
+    {
+        try
+        {
+            var devResp = await customApps.GetAppDeveloperAsync(new DyGetAppDeveloperRequest { AppId = client.Id.ToString() });
+            if (!Guid.TryParse(devResp.Developer.PublisherId, out var publisherId))
+                return null;
+
+            var merchant = await db.Merchants.FirstOrDefaultAsync(m => m.PublisherId == publisherId);
+            return merchant?.PaymentWalletId;
+        }
+        catch (RpcException)
+        {
+            return null;
         }
     }
 

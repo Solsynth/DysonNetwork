@@ -18,6 +18,11 @@ public class MerchantController(
     RemotePublisherService publishers
 ) : ControllerBase
 {
+    public class UpdateMerchantWalletRequest
+    {
+        public Guid? WalletId { get; set; }
+    }
+
     /// <summary>
     /// List all settlements for a merchant, newest first.
     /// </summary>
@@ -137,6 +142,43 @@ public class MerchantController(
             .ToListAsync();
 
         return Ok(orders);
+    }
+
+    /// <summary>
+    /// Updates the linked payout wallet for a merchant.
+    /// </summary>
+    [HttpPatch("{merchant}/wallet")]
+    [Authorize]
+    public async Task<IActionResult> UpdateWallet([FromRoute] string merchant, [FromBody] UpdateMerchantWalletRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var merchantEntity = await GetMerchantAsync(merchant);
+        if (merchantEntity == null) return NotFound("Merchant not found");
+
+        if (!await IsMerchantOwner(currentUser, merchantEntity))
+            return StatusCode(403, "You do not have access to this merchant");
+
+        if (request.WalletId.HasValue)
+        {
+            var wallet = await db.Wallets.FirstOrDefaultAsync(w => w.Id == request.WalletId.Value);
+            if (wallet == null)
+                return BadRequest("Wallet was not found.");
+            if (!await CanManageWalletAsync(currentUser, wallet))
+                return StatusCode(403, "You do not have access to this wallet");
+        }
+
+        merchantEntity.PaymentWalletId = request.WalletId;
+        await db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            merchantEntity.Id,
+            merchantEntity.PublisherId,
+            merchantEntity.PaymentWalletId,
+            merchantEntity.Name
+        });
     }
 
     /// <summary>
@@ -346,6 +388,24 @@ public class MerchantController(
             return await db.Merchants.FirstOrDefaultAsync(m => m.PublisherId == publisher.Id);
 
         return await db.Merchants.FirstOrDefaultAsync(m => m.Name == merchant);
+    }
+
+    private async Task<bool> CanManageWalletAsync(DyAccount currentUser, SnWallet wallet)
+    {
+        if (!Guid.TryParse(currentUser.Id, out var accountId))
+            return false;
+
+        if (wallet.AccountId == accountId)
+            return true;
+
+        if (!wallet.RealmId.HasValue)
+            return false;
+
+        var publisher = (await publishers.ListPublishers(realmId: wallet.RealmId.Value.ToString())).FirstOrDefault();
+        if (publisher == null)
+            return false;
+
+        return await publishers.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor);
     }
 
     /// <summary>

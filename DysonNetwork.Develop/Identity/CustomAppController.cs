@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
@@ -14,8 +13,7 @@ namespace DysonNetwork.Develop.Identity;
 public class CustomAppController(
     CustomAppService customApps,
     DeveloperService ds,
-    DevProjectService projectService,
-    RemoteMerchantService merchants)
+    DevProjectService projectService)
     : ControllerBase
 {
     public record CustomAppRequest(
@@ -24,7 +22,6 @@ public class CustomAppController(
         [MaxLength(4096)] string? Description,
         string? PictureId,
         string? BackgroundId,
-        Guid? PaymentWalletId,
         Shared.Models.CustomAppStatus? Status,
         SnCustomAppLinks? Links,
         SnCustomAppOauthConfig? OauthConfig
@@ -124,7 +121,6 @@ public class CustomAppController(
             if (app == null)
                 return BadRequest("Failed to create app");
 
-            await merchants.UpsertMerchantAsync(developer.PublisherId.ToString(), app.PaymentWalletId?.ToString(), dev);
             return CreatedAtAction(nameof(GetApp), new { dev, proj, appId = app.Id }, app);
         }
         catch (InvalidOperationException ex)
@@ -163,7 +159,6 @@ public class CustomAppController(
         try
         {
             app = await customApps.UpdateAppAsync(app, request);
-            await merchants.UpsertMerchantAsync(developer.PublisherId.ToString(), app.PaymentWalletId?.ToString(), dev);
             return Ok(app);
         }
         catch (InvalidOperationException ex)
