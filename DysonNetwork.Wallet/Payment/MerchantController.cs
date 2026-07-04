@@ -47,6 +47,23 @@ public class MerchantController(
         var settlements = await query
             .Skip(offset)
             .Take(take)
+            .Select(s => new
+            {
+                s.Id,
+                s.MerchantId,
+                s.OrderId,
+                s.AwardId,
+                s.PaymentTransactionId,
+                s.PaymentWalletId,
+                s.Currency,
+                s.Amount,
+                s.Status,
+                s.SettledBy,
+                s.SettledAt,
+                s.SettlementTransactionId,
+                s.CreatedAt,
+                s.UpdatedAt
+            })
             .ToListAsync();
 
         return Ok(settlements);
