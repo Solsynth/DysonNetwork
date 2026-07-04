@@ -824,23 +824,15 @@ public class PublisherController(
     }
 
     [HttpGet("{name}/rating/history")]
-    [Authorize]
     public async Task<ActionResult<List<SnPublisherRatingRecord>>> GetPublisherRatingHistory(
         string name,
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return Unauthorized();
-        var accountId = Guid.Parse(currentUser.Id);
-
         var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
         if (publisher is null)
             return NotFound();
-
-        if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Viewer))
-            return StatusCode(403, "You are not allowed to view rating data of this publisher.");
 
         var total = await ratingService.GetRatingHistoryCount(publisher.Id);
         HttpContext.Response.Headers["X-Total"] = total.ToString();

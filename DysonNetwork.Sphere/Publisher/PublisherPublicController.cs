@@ -171,24 +171,6 @@ public class PublisherPublicController(
         return Ok(rating);
     }
 
-    [HttpGet("{name}/rating/history")]
-    public async Task<ActionResult<List<SnPublisherRatingRecord>>> GetPublisherRatingHistory(
-        string name,
-        [FromQuery] int take = 20,
-        [FromQuery] int offset = 0
-    )
-    {
-        var publisher = await db.Publishers.Where(e => e.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
-        if (publisher is null)
-            return NotFound();
-
-        var total = await ratingService.GetRatingHistoryCount(publisher.Id);
-        HttpContext.Response.Headers["X-Total"] = total.ToString();
-
-        var records = await ratingService.GetRatingHistory(publisher.Id, take, offset);
-        return Ok(records);
-    }
-
     [HttpGet("leaderboard")]
     public async Task<
         ActionResult<List<PublisherLeaderboardService.LeaderboardEntry>>
