@@ -54,6 +54,9 @@ gRPC client:                       gRPC server:
 | `GET` | `/api/merchants/{merchantId}/settlements?offset=0&take=20` | wallet owner | List settlements (paginated) |
 | `GET` | `/api/merchants/{merchantId}/settlements/pending` | wallet owner | Pending totals by currency |
 | `POST` | `/api/merchants/{merchantId}/settlements/settle` | wallet owner | Manual instant settlement |
+| `GET` | `/api/merchants/{merchantId}/stats/overview` | wallet owner | Overview stats: pending/settled/all-time counts + by-currency breakdowns |
+| `GET` | `/api/merchants/{merchantId}/stats/incoming?from&to&currency` | wallet owner | Period incoming: settlements in date range, grouped by status + currency |
+| `GET` | `/api/merchants/{merchantId}/stats/daily?from&to&currency` | wallet owner | Daily incoming totals for charting |
 
 ### Sphere Service (`DysonNetwork.Sphere`)
 
@@ -78,6 +81,74 @@ gRPC client:                       gRPC server:
 | `CreateMerchantSettlement` | publisherId, orderId?, awardId?, currency, amount | DyMerchantSettlement | Sphere | Wallet |
 | `GetPendingSettlements` | paymentWalletId | settlements[] | Sphere, Develop | Wallet |
 | `SettleMerchant` | paymentWalletId | transactions[] | Sphere, Develop | Wallet |
+
+## Stats & Reporting
+
+All stats endpoints require wallet owner auth and operate on the merchant's settlement data.
+
+### Overview `GET /api/merchants/{merchantId}/stats/overview`
+
+Returns aggregate counts and by-currency breakdowns for pending, settled, and current-month settlements.
+
+```json
+{
+  "totalPending": 12,
+  "totalSettled": 145,
+  "totalAllTime": 157,
+  "pending": {
+    "points": { "count": 5, "total": 250.0 },
+    " premium": { "count": 7, "total": 700.0 }
+  },
+  "settled": {
+    "points": { "count": 80, "total": 4000.0 },
+    "premium": { "count": 65, "total": 6500.0 }
+  },
+  "thisMonth": {
+    "points": { "count": 20, "total": 1000.0 },
+    "premium": { "count": 15, "total": 1500.0 }
+  }
+}
+```
+
+### Period Incoming `GET /api/merchants/{merchantId}/stats/incoming?from&to&currency`
+
+Returns settlements created within a date range, grouped by status and currency.
+`from` / `to` are optional `DateTime` (UTC); defaults to last 30 days.
+
+```json
+{
+  "from": "2026-01-01T00:00:00Z",
+  "to": "2026-01-31T00:00:00Z",
+  "currency": null,
+  "totalCount": 42,
+  "totalAmount": 3150.0,
+  "byStatus": {
+    "Pending": { "count": 5, "total": 250.0 },
+    "Settled": { "count": 37, "total": 2900.0 }
+  },
+  "byCurrency": {
+    "points": { "count": 30, "total": 1500.0 },
+    "premium": { "count": 12, "total": 1650.0 }
+  },
+  "settlements": [ { "id": "...", "amount": 50.0, "currency": "points", ... } ]
+}
+```
+
+### Daily Incoming `GET /api/merchants/{merchantId}/stats/daily?from&to&currency`
+
+Returns daily totals for charting revenue over time.
+
+```json
+{
+  "from": "2026-01-01T00:00:00Z",
+  "to": "2026-01-31T00:00:00Z",
+  "currency": null,
+  "daily": [
+    { "date": "2026-01-01", "count": 3, "total": 150.0, "byCurrency": { "points": 100.0, "premium": 50.0 } },
+    { "date": "2026-01-02", "count": 5, "total": 250.0, "byCurrency": { "points": 200.0, "premium": 50.0 } }
+  ]
+}
+```
 
 ## Lifecycle
 

@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace DysonNetwork.Wallet.Payment;
 
@@ -113,6 +114,136 @@ public class MerchantController(
         {
             Message = $"Settled {transactions.Count} currency group(s)",
             Transactions = transactions.Select(t => new { t.Id, t.Currency, t.Amount })
+        });
+    }
+
+    /// <summary>
+    /// Returns overview stats for a merchant: total pending, settled, this-month, by-currency breakdowns.
+    /// </summary>
+    [HttpGet("{merchantId:guid}/stats/overview")]
+    [Authorize]
+    public async Task<IActionResult> GetOverviewStats([FromRoute] Guid merchantId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var merchant = await db.Merchants.FindAsync(merchantId);
+        if (merchant == null) return NotFound("Merchant not found");
+
+        if (!await IsMerchantOwner(currentUser, merchant))
+            return StatusCode(403, "You do not have access to this merchant");
+
+        var stats = await merchantService.GetOverviewStatsAsync(merchantId);
+
+        return Ok(new
+        {
+            stats.TotalPending,
+            stats.TotalSettled,
+            stats.TotalAllTime,
+            Pending = stats.PendingByCurrency.ToDictionary(kv => kv.Key, kv => new { kv.Value.Count, kv.Value.Total }),
+            Settled = stats.SettledByCurrency.ToDictionary(kv => kv.Key, kv => new { kv.Value.Count, kv.Value.Total }),
+            ThisMonth = stats.ThisMonthByCurrency.ToDictionary(kv => kv.Key, kv => new { kv.Value.Count, kv.Value.Total })
+        });
+    }
+
+    /// <summary>
+    /// Returns incoming settlements within a date range, grouped by status and currency.
+    /// Query: /stats/incoming?from=2026-01-01&to=2026-01-31&currency=points
+    /// </summary>
+    [HttpGet("{merchantId:guid}/stats/incoming")]
+    [Authorize]
+    public async Task<IActionResult> GetPeriodIncoming(
+        [FromRoute] Guid merchantId,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        [FromQuery] string? currency = null)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var merchant = await db.Merchants.FindAsync(merchantId);
+        if (merchant == null) return NotFound("Merchant not found");
+
+        if (!await IsMerchantOwner(currentUser, merchant))
+            return StatusCode(403, "You do not have access to this merchant");
+
+        var fromInstant = from.HasValue
+            ? Instant.FromDateTimeUtc(from.Value.ToUniversalTime())
+            : Instant.FromDateTimeUtc(DateTime.UtcNow.AddMonths(-1).ToUniversalTime());
+        var toInstant = to.HasValue
+            ? Instant.FromDateTimeUtc(to.Value.ToUniversalTime())
+            : Instant.FromDateTimeUtc(DateTime.UtcNow.ToUniversalTime());
+
+        var result = await merchantService.GetPeriodIncomingAsync(
+            merchantId, fromInstant, toInstant, currency);
+
+        return Ok(new
+        {
+            result.From,
+            result.To,
+            result.Currency,
+            result.TotalCount,
+            result.TotalAmount,
+            ByStatus = result.ByStatus.ToDictionary(kv => kv.Key.ToString(), kv => new { kv.Value.Count, kv.Value.Total }),
+            ByCurrency = result.ByCurrency.ToDictionary(kv => kv.Key, kv => new { kv.Value.Count, kv.Value.Total }),
+            Settlements = result.Settlements.Select(s => new
+            {
+                s.Id,
+                s.OrderId,
+                s.AwardId,
+                s.Currency,
+                s.Amount,
+                s.Status,
+                s.CreatedAt,
+                s.SettledAt,
+                s.SettledBy
+            })
+        });
+    }
+
+    /// <summary>
+    /// Returns daily incoming totals for charting. Optional currency filter.
+    /// Query: /stats/daily?from=2026-01-01&to=2026-01-31&currency=points
+    /// </summary>
+    [HttpGet("{merchantId:guid}/stats/daily")]
+    [Authorize]
+    public async Task<IActionResult> GetDailyIncoming(
+        [FromRoute] Guid merchantId,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        [FromQuery] string? currency = null)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var merchant = await db.Merchants.FindAsync(merchantId);
+        if (merchant == null) return NotFound("Merchant not found");
+
+        if (!await IsMerchantOwner(currentUser, merchant))
+            return StatusCode(403, "You do not have access to this merchant");
+
+        var fromInstant = from.HasValue
+            ? Instant.FromDateTimeUtc(from.Value.ToUniversalTime())
+            : Instant.FromDateTimeUtc(DateTime.UtcNow.AddMonths(-1).ToUniversalTime());
+        var toInstant = to.HasValue
+            ? Instant.FromDateTimeUtc(to.Value.ToUniversalTime())
+            : Instant.FromDateTimeUtc(DateTime.UtcNow.ToUniversalTime());
+
+        var result = await merchantService.GetDailyIncomingAsync(
+            merchantId, fromInstant, toInstant, currency);
+
+        return Ok(new
+        {
+            From = fromInstant,
+            To = toInstant,
+            Currency = currency,
+            Daily = result.Select(d => new
+            {
+                Date = d.Date.ToString("yyyy-MM-dd", null),
+                d.Count,
+                d.Total,
+                d.ByCurrency
+            })
         });
     }
 

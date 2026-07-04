@@ -195,4 +195,155 @@ public class MerchantService(AppDatabase db)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(x => x.Status, MerchantSettlementStatus.Cancelled));
     }
+
+    /// <summary>
+    /// Returns overview stats for a merchant: total pending, total settled, total all-time.
+    /// </summary>
+    public async Task<MerchantOverviewStats> GetOverviewStatsAsync(Guid merchantId)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var nowDt = now.InUtc();
+        var startOfMonth = Instant.FromDateTimeUtc(new DateTime(nowDt.Year, nowDt.Month, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        var settlements = await db.MerchantSettlements
+            .Where(s => s.MerchantId == merchantId)
+            .ToListAsync();
+
+        var pending = settlements.Where(s => s.Status == MerchantSettlementStatus.Pending).ToList();
+        var settled = settlements.Where(s => s.Status == MerchantSettlementStatus.Settled).ToList();
+        var thisMonth = settlements.Where(s => s.CreatedAt >= startOfMonth).ToList();
+
+        return new MerchantOverviewStats
+        {
+            TotalPending = pending.Count,
+            TotalSettled = settled.Count,
+            TotalAllTime = settlements.Count,
+            PendingByCurrency = pending
+                .GroupBy(s => s.Currency)
+                .ToDictionary(g => g.Key, g => new CurrencyStat { Count = g.Count(), Total = g.Sum(s => s.Amount) }),
+            SettledByCurrency = settled
+                .GroupBy(s => s.Currency)
+                .ToDictionary(g => g.Key, g => new CurrencyStat { Count = g.Count(), Total = g.Sum(s => s.Amount) }),
+            ThisMonthByCurrency = thisMonth
+                .GroupBy(s => s.Currency)
+                .ToDictionary(g => g.Key, g => new CurrencyStat { Count = g.Count(), Total = g.Sum(s => s.Amount) })
+        };
+    }
+
+    /// <summary>
+    /// Returns settlements created within a date range, grouped by currency and status.
+    /// Useful for period incoming reports.
+    /// </summary>
+    public async Task<PeriodIncomingResult> GetPeriodIncomingAsync(
+        Guid merchantId,
+        Instant from,
+        Instant to,
+        string? currency = null)
+    {
+        var query = db.MerchantSettlements
+            .Where(s => s.MerchantId == merchantId && s.CreatedAt >= from && s.CreatedAt <= to);
+
+        if (!string.IsNullOrEmpty(currency))
+            query = query.Where(s => s.Currency == currency);
+
+        var settlements = await query.OrderByDescending(s => s.CreatedAt).ToListAsync();
+
+        return new PeriodIncomingResult
+        {
+            From = from,
+            To = to,
+            Currency = currency,
+            TotalCount = settlements.Count,
+            TotalAmount = settlements.Sum(s => s.Amount),
+            ByStatus = settlements
+                .GroupBy(s => s.Status)
+                .ToDictionary(g => g.Key, g => new StatusStat
+                {
+                    Count = g.Count(),
+                    Total = g.Sum(s => s.Amount)
+                }),
+            ByCurrency = settlements
+                .GroupBy(s => s.Currency)
+                .ToDictionary(g => g.Key, g => new CurrencyStat
+                {
+                    Count = g.Count(),
+                    Total = g.Sum(s => s.Amount)
+                }),
+            Settlements = settlements
+        };
+    }
+
+    /// <summary>
+    /// Returns daily incoming totals for a merchant within a date range.
+    /// Useful for charting revenue over time.
+    /// </summary>
+    public async Task<List<DailyStat>> GetDailyIncomingAsync(
+        Guid merchantId,
+        Instant from,
+        Instant to,
+        string? currency = null)
+    {
+        var query = db.MerchantSettlements
+            .Where(s => s.MerchantId == merchantId && s.CreatedAt >= from && s.CreatedAt <= to);
+
+        if (!string.IsNullOrEmpty(currency))
+            query = query.Where(s => s.Currency == currency);
+
+        var settlements = await query.ToListAsync();
+
+        return settlements
+            .GroupBy(s => s.CreatedAt.InUtc().Date)
+            .OrderBy(g => g.Key)
+            .Select(g => new DailyStat
+            {
+                Date = g.Key,
+                Count = g.Count(),
+                Total = g.Sum(s => s.Amount),
+                ByCurrency = g.GroupBy(s => s.Currency)
+                    .ToDictionary(c => c.Key, c => c.Sum(s => s.Amount))
+            })
+            .ToList();
+    }
+}
+
+public class MerchantOverviewStats
+{
+    public int TotalPending { get; set; }
+    public int TotalSettled { get; set; }
+    public int TotalAllTime { get; set; }
+    public Dictionary<string, CurrencyStat> PendingByCurrency { get; set; } = new();
+    public Dictionary<string, CurrencyStat> SettledByCurrency { get; set; } = new();
+    public Dictionary<string, CurrencyStat> ThisMonthByCurrency { get; set; } = new();
+}
+
+public class PeriodIncomingResult
+{
+    public Instant From { get; set; }
+    public Instant To { get; set; }
+    public string? Currency { get; set; }
+    public int TotalCount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public Dictionary<MerchantSettlementStatus, StatusStat> ByStatus { get; set; } = new();
+    public Dictionary<string, CurrencyStat> ByCurrency { get; set; } = new();
+    public List<SnMerchantSettlement> Settlements { get; set; } = new();
+}
+
+public class CurrencyStat
+{
+    public int Count { get; set; }
+    public decimal Total { get; set; }
+}
+
+public class StatusStat
+{
+    public int Count { get; set; }
+    public decimal Total { get; set; }
+}
+
+public class DailyStat
+{
+    public LocalDate Date { get; set; }
+    public int Count { get; set; }
+    public decimal Total { get; set; }
+    public Dictionary<string, decimal> ByCurrency { get; set; } = new();
 }
