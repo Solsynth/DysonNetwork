@@ -30,6 +30,7 @@ public class PostController(
 ) : ControllerBase
 {
     private const string OrderDate = "date";
+    private const string OrderCreatedAt = "created_at";
     private const string OrderPopularity = "popularity";
 
     public class UserReactionListingItem
@@ -177,8 +178,12 @@ public class PostController(
         if (shuffle)
             return query.OrderBy(e => EF.Functions.Random());
 
-        var normalizedOrder = order?.Trim().ToLowerInvariant();
-        var orderByDate = normalizedOrder == OrderDate;
+        var normalizedOrder = order?.Trim().ToLowerInvariant() switch
+        {
+            "createdat" or "created_at" or "created" => OrderCreatedAt,
+            _ => order?.Trim().ToLowerInvariant(),
+        };
+        var orderByDate = normalizedOrder == OrderDate || normalizedOrder == OrderCreatedAt;
 
         if (searchContext is { UseFuzzyMatch: true } && !orderByDate)
         {
@@ -1498,7 +1503,9 @@ public class PostController(
     public async Task<ActionResult<List<SnPost>>> ListReplies(
         Guid id,
         [FromQuery] int offset = 0,
-        [FromQuery] int take = 20
+        [FromQuery] int take = 20,
+        [FromQuery(Name = "order")] string? order = null,
+        [FromQuery(Name = "orderDesc")] bool orderDesc = true
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -1530,14 +1537,16 @@ public class PostController(
             .Posts.Where(e => e.RepliedPostId == parent.Id)
             .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
             .CountAsync();
-        var posts = await db
+        var postsQuery = db
             .Posts.Where(e => e.RepliedPostId == id)
             .Include(e => e.ForwardedPost)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .Include(e => e.FeaturedRecords)
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
-            .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds);
+        postsQuery = ApplyPostOrdering(postsQuery, order, orderDesc, false, null);
+
+        var posts = await postsQuery
             .Skip(offset)
             .Take(take)
             .ToListAsync();
@@ -1560,7 +1569,9 @@ public class PostController(
     public async Task<ActionResult<List<ThreadedReplyNode>>> ListThreadedReplies(
         Guid id,
         [FromQuery] int offset = 0,
-        [FromQuery] int take = 20
+        [FromQuery] int take = 20,
+        [FromQuery(Name = "order")] string? order = null,
+        [FromQuery(Name = "orderDesc")] bool orderDesc = true
     )
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -1593,15 +1604,17 @@ public class PostController(
             .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
             .CountAsync();
 
-        var rootReplies = await db
+        var rootRepliesQuery = db
             .Posts.Where(e => e.RepliedPostId == id)
             .Include(e => e.ForwardedPost)
             .Include(e => e.Categories)
             .Include(e => e.Tags)
             .Include(e => e.FeaturedRecords)
             .AsNoTracking()
-            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
-            .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
+            .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds);
+        rootRepliesQuery = ApplyPostOrdering(rootRepliesQuery, order, orderDesc, false, null);
+
+        var rootReplies = await rootRepliesQuery
             .Skip(offset)
             .Take(take)
             .ToListAsync();
@@ -1620,16 +1633,17 @@ public class PostController(
 
         while (frontier.Count > 0)
         {
-            var children = await db
+            var childrenQuery = db
                 .Posts.Where(e => e.RepliedPostId != null && frontier.Contains(e.RepliedPostId.Value))
                 .Include(e => e.ForwardedPost)
                 .Include(e => e.Categories)
                 .Include(e => e.Tags)
                 .Include(e => e.FeaturedRecords)
                 .AsNoTracking()
-                .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds)
-                .OrderByDescending(e => e.PublishedAt ?? e.CreatedAt)
-                .ToListAsync();
+                .FilterWithVisibility(currentUser, userFriends, userPublishers, isListing: true, gatekeptPublisherIds, subscriberPublisherIds, closeFriendPublisherIds: closeFriendPublisherIds);
+            childrenQuery = ApplyPostOrdering(childrenQuery, order, orderDesc, false, null);
+
+            var children = await childrenQuery.ToListAsync();
 
             children = children.Where(e => visited.Add(e.Id)).ToList();
             if (children.Count == 0)
