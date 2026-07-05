@@ -2,6 +2,7 @@ using DysonNetwork.Padlock.Account;
 using DysonNetwork.Padlock.Auth;
 using DysonNetwork.Padlock.E2EE;
 using DysonNetwork.Padlock.Permission;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
 
 namespace DysonNetwork.Padlock.Startup;
@@ -79,6 +80,29 @@ public static class ApplicationConfiguration
                             },
                         }
                     );
+                }
+            )
+            .AllowAnonymous();
+
+        app.MapGet(
+                "/.well-known/permissions",
+                () =>
+                {
+                    var keys = typeof(PermissionKeys)
+                        .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+                        .Where(f => f.IsLiteral && f.FieldType == typeof(string))
+                        .Select(f => new
+                        {
+                            key = (string)f.GetRawConstantValue()!,
+                            name = f.Name
+                        })
+                        .OrderBy(k => k.key)
+                        .ToList();
+                    return Results.Json(new
+                    {
+                        count = keys.Count,
+                        permissions = keys
+                    });
                 }
             )
             .AllowAnonymous();

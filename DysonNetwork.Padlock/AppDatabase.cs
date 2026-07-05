@@ -62,24 +62,17 @@ public class AppDatabase(
                 .FirstOrDefaultAsync(g => g.Key == "default", cancellationToken);
             if (defaultPermissionGroup is null)
             {
+                var allPermissionKeys = typeof(DysonNetwork.Shared.Auth.PermissionKeys)
+                    .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+                    .Where(f => f.IsLiteral && f.FieldType == typeof(string))
+                    .Select(f => (string)f.GetRawConstantValue()!)
+                    .ToList();
+
                 context.Set<SnPermissionGroup>().Add(new SnPermissionGroup
                 {
                     Key = "default",
-                    Nodes = new List<string>
-                        {
-                            "posts.create",
-                            "posts.create.blog",
-                            "posts.react",
-                            "publishers.create",
-                            "files.create",
-                            "chat.create",
-                            "chat.messages.create",
-                            "chat.realtime.create",
-                            "accounts.statuses.create",
-                            "accounts.statuses.update",
-                            "stickers.packs.create",
-                            "stickers.create"
-                        }.Select(permission =>
+                    Nodes = allPermissionKeys
+                        .Select(permission =>
                             PermissionService.NewPermissionNode("group:default", permission, true))
                         .ToList()
                 });
