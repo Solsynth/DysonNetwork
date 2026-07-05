@@ -132,9 +132,12 @@ public class OidcController(
         {
             return Unauthorized($"Invalid identity token: {ex.Message}");
         }
+        catch (Grpc.Core.RpcException ex)
+        {
+            return BadRequest($"Authentication failed: {ex.Status.Detail}");
+        }
         catch (Exception ex)
         {
-            // Log the error
             return StatusCode(500, $"Authentication failed: {ex.Message}");
         }
     }

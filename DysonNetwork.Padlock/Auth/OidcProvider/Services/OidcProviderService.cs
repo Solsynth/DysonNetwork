@@ -10,6 +10,7 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -51,11 +52,18 @@ public class OidcProviderService(
             return cachedApp;
         }
 
-        var resp = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest { Id = clientId.ToString() });
-        if (resp.App == null) return null;
-        var app = SnCustomApp.FromProtoValue(resp.App);
-        await cache.SetAsync(cacheKey, app, TimeSpan.FromMinutes(5));
-        return app;
+        try
+        {
+            var resp = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest { Id = clientId.ToString() });
+            if (resp.App == null) return null;
+            var app = SnCustomApp.FromProtoValue(resp.App);
+            await cache.SetAsync(cacheKey, app, TimeSpan.FromMinutes(5));
+            return app;
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
+        {
+            return null;
+        }
     }
 
     public async Task<SnCustomApp?> FindClientBySlugAsync(string slug)
@@ -65,11 +73,18 @@ public class OidcProviderService(
         if (found && cachedApp != null)
             return cachedApp;
 
-        var resp = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest { Slug = slug });
-        if (resp.App == null) return null;
-        var app = SnCustomApp.FromProtoValue(resp.App);
-        await cache.SetAsync(cacheKey, app, TimeSpan.FromMinutes(5));
-        return app;
+        try
+        {
+            var resp = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest { Slug = slug });
+            if (resp.App == null) return null;
+            var app = SnCustomApp.FromProtoValue(resp.App);
+            await cache.SetAsync(cacheKey, app, TimeSpan.FromMinutes(5));
+            return app;
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
+        {
+            return null;
+        }
     }
 
     private async Task<SnAuthSession?> FindValidSessionAsync(Guid accountId, Guid clientId, bool withAccount = false)
