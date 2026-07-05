@@ -11,6 +11,7 @@ using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Auth;
 
 namespace DysonNetwork.Wallet.Payment;
 
@@ -200,6 +201,7 @@ public class SubscriptionController(
 
     [HttpPost("groups/{groupIdentifier}/activate")]
     [Authorize]
+    [AskPermission(PermissionKeys.SubscriptionsGroupsManage)]
     public async Task<ActionResult<SubscriptionGroupStateResponse>> ActivateSubscriptionInGroup(
         string groupIdentifier,
         [FromBody] ActivateSubscriptionRequest request
@@ -444,6 +446,7 @@ public class SubscriptionController(
 
     [HttpPost("{identifier}/cancel")]
     [Authorize]
+    [AskPermission(PermissionKeys.SubscriptionsCancel)]
     public async Task<ActionResult<SnWalletSubscription>> CancelSubscription(string identifier)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -473,6 +476,7 @@ public class SubscriptionController(
 
     [HttpPost("{identifier}/order")]
     [Authorize]
+    [AskPermission(PermissionKeys.SubscriptionsOrderManage)]
     public async Task<ActionResult<SnWalletOrder>> CreateSubscriptionOrder(string identifier)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -564,6 +568,7 @@ public class SubscriptionController(
 
     [HttpPost("{identifier}/checkout/paddle")]
     [Authorize]
+    [AskPermission(PermissionKeys.SubscriptionsCheckout)]
     public async Task<ActionResult<PaddleCheckoutResponse>> CreatePaddleCheckout(
         string identifier,
         [FromBody] CreatePaddleCheckoutRequest? request = null
@@ -611,6 +616,7 @@ public class SubscriptionController(
 
     [HttpPost("{identifier}/checkout/afdian")]
     [Authorize]
+    [AskPermission(PermissionKeys.SubscriptionsCheckout)]
     public async Task<ActionResult<AfdianCheckoutResponse>> CreateAfdianCheckout(
         string identifier,
         [FromBody] CreatePaddleCheckoutRequest? request = null

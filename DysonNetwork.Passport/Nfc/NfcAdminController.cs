@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Auth;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -67,6 +68,7 @@ public class NfcAdminController(
     /// Auto-detects format: if it looks like hex (all hex chars, no padding), uses hex decode.
     /// </summary>
     [HttpPost("tags")]
+    [AskPermission(PermissionKeys.NfcAdminManage)]
     public async Task<ActionResult<EncryptedTagDto>> CreateEncryptedTag(
         [FromBody] CreateEncryptedTagRequest request,
         CancellationToken cancellationToken)

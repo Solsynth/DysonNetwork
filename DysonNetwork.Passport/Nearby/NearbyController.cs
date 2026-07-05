@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Passport.Account;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
@@ -81,6 +82,7 @@ public class NearbyController(
 
     [HttpPost("presence-tokens")]
     [Authorize]
+    [AskPermission(PermissionKeys.NearbyPresenceManage)]
     public async Task<ActionResult<PresenceTokensResponse>> IssuePresenceTokens(
         [FromBody] PresenceTokensRequest request,
         CancellationToken cancellationToken
@@ -114,6 +116,7 @@ public class NearbyController(
 
     [HttpPost("resolve")]
     [Authorize]
+    [AskPermission(PermissionKeys.NearbyResolve)]
     public async Task<ActionResult<ResolveResponse>> Resolve(
         [FromBody] ResolveRequest request,
         CancellationToken cancellationToken

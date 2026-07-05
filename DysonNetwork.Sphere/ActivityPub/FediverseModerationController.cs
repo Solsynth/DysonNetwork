@@ -1,6 +1,8 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Sphere.Models;
 using DysonNetwork.Sphere.ActivityPub.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -9,6 +11,7 @@ namespace DysonNetwork.Sphere.ActivityPub;
 
 [ApiController]
 [Route("/api/fediverse/moderation")]
+[Authorize]
 public class FediverseModerationController(
     AppDatabase db,
     FediverseModerationService moderationService
@@ -46,6 +49,7 @@ public class FediverseModerationController(
     }
 
     [HttpPost("rules")]
+    [AskPermission(PermissionKeys.FediverseModerationRulesManage)]
     public async Task<ActionResult<SnFediverseModerationRule>> CreateRule([FromBody] CreateFediverseModerationRuleRequest request)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -76,6 +80,7 @@ public class FediverseModerationController(
     }
 
     [HttpPut("rules/{id:guid}")]
+    [AskPermission(PermissionKeys.FediverseModerationRulesManage)]
     public async Task<ActionResult<SnFediverseModerationRule>> UpdateRule(
         Guid id,
         [FromBody] UpdateFediverseModerationRuleRequest request
@@ -118,6 +123,7 @@ public class FediverseModerationController(
     }
 
     [HttpDelete("rules/{id:guid}")]
+    [AskPermission(PermissionKeys.FediverseModerationRulesManage)]
     public async Task<IActionResult> DeleteRule(Guid id)
     {
         var rule = await db.FediverseModerationRules.FindAsync(id);
@@ -135,6 +141,7 @@ public class FediverseModerationController(
     }
 
     [HttpPost("rules/{id:guid}/toggle")]
+    [AskPermission(PermissionKeys.FediverseModerationRulesManage)]
     public async Task<IActionResult> ToggleRule(Guid id, [FromBody] ToggleRuleRequest request)
     {
         var rule = await db.FediverseModerationRules.FindAsync(id);
@@ -154,6 +161,7 @@ public class FediverseModerationController(
     }
 
     [HttpPost("check-domain")]
+    [AskPermission(PermissionKeys.FediverseModerationCheck)]
     public async Task<ActionResult<FediverseModerationResult>> CheckDomain([FromBody] CheckDomainRequest request)
     {
         var result = await moderationService.CheckDomainAsync(request.Domain);
@@ -161,6 +169,7 @@ public class FediverseModerationController(
     }
 
     [HttpPost("check-actor")]
+    [AskPermission(PermissionKeys.FediverseModerationCheck)]
     public async Task<ActionResult<FediverseModerationResult>> CheckActor([FromBody] CheckActorRequest request)
     {
         var result = await moderationService.CheckActorAsync(request.ActorUri, request.Content, request.ActorDomain);

@@ -2,6 +2,7 @@ using System.Text.Json;
 using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Sphere.ActivityPub.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -1100,6 +1101,7 @@ public class FediverseActorController(
     }
 
     [HttpPost("{id:guid}/follow")]
+    [AskPermission(PermissionKeys.PostsBoost)]
     [Authorize]
     public async Task<ActionResult> FollowActor(Guid id)
     {
@@ -1137,6 +1139,7 @@ public class FediverseActorController(
     }
 
     [HttpPost("{id:guid}/unfollow")]
+    [AskPermission(PermissionKeys.PostsBoost)]
     [Authorize]
     public async Task<ActionResult> UnfollowActor(Guid id)
     {

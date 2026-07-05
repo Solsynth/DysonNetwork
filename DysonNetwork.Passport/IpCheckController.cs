@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Geometry;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DysonNetwork.Passport;
@@ -35,6 +36,7 @@ public class IpCheckController(GeoService geoService) : ControllerBase
     }
     
     [HttpGet]
+    [AskPermission(PermissionKeys.AdminIpCheck)]
     public ActionResult<IpCheckResponse> GetIpCheck()
     {
         var clientIp = HttpContext.GetClientIpAddress();

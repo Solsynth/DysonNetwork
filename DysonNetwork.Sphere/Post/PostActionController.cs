@@ -836,6 +836,7 @@ public class PostActionController(
     }
 
     [HttpPost("{id:guid}/bookmark")]
+    [AskPermission(PermissionKeys.PostsBookmark)]
     [Authorize]
     public async Task<ActionResult<SnPostBookmark>> BookmarkPost(Guid id)
     {
@@ -887,6 +888,7 @@ public class PostActionController(
     }
 
     [HttpDelete("{id:guid}/bookmark")]
+    [AskPermission(PermissionKeys.PostsBookmark)]
     [Authorize]
     public async Task<ActionResult> UnbookmarkPost(Guid id)
     {
@@ -981,6 +983,7 @@ public class PostActionController(
     }
 
     [HttpPost("{id:guid}/awards")]
+    [AskPermission(PermissionKeys.PostsAward)]
     [Authorize]
     public async Task<ActionResult<PostAwardResponse>> AwardPost(
         Guid id,
@@ -1049,6 +1052,7 @@ public class PostActionController(
     }
 
     [HttpPost("{id:guid}/sponsor")]
+    [AskPermission(PermissionKeys.PostsSponsor)]
     [Authorize]
     public async Task<ActionResult<PostSponsorResponse>> SponsorPost(
         Guid id,
@@ -1090,6 +1094,7 @@ public class PostActionController(
     }
 
     [HttpPost("{id:guid}/pin")]
+    [AskPermission(PermissionKeys.PostsPin)]
     [Authorize]
     public async Task<ActionResult<SnPost>> PinPost(Guid id, [FromBody] PostPinRequest request)
     {
@@ -1146,6 +1151,7 @@ public class PostActionController(
     }
 
     [HttpDelete("{id:guid}/pin")]
+    [AskPermission(PermissionKeys.PostsPin)]
     [Authorize]
     public async Task<ActionResult<SnPost>> UnpinPost(Guid id)
     {
@@ -1657,6 +1663,7 @@ public class PostActionController(
     }
 
     [HttpPost("batch/delete")]
+    [AskPermission(PermissionKeys.PostsBatchDelete)]
     [Authorize]
     public async Task<ActionResult> BatchDeletePosts([FromBody] BatchDeleteRequest request)
     {
@@ -1712,6 +1719,7 @@ public class PostActionController(
     }
 
     [HttpPost("batch/visibility")]
+    [AskPermission(PermissionKeys.PostsBatchDelete)]
     [Authorize]
     public async Task<ActionResult> BatchUpdateVisibility([FromBody] BatchVisibilityRequest request)
     {
@@ -1942,6 +1950,7 @@ public class PostActionController(
     }
 
     [HttpDelete("{id:guid}/boost")]
+    [AskPermission(PermissionKeys.PostsBoost)]
     [Authorize]
     public async Task<IActionResult> UnboostPost(Guid id)
     {

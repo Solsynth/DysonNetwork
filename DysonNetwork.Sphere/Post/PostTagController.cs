@@ -113,6 +113,7 @@ public class PostTagController(
     }
 
     [HttpPost("{slug}/claim")]
+    [AskPermission(PermissionKeys.PostTagsClaim)]
     [Authorize]
     public async Task<ActionResult<SnPostTag>> ClaimTag(
         string slug,

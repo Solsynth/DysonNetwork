@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -213,6 +214,7 @@ public class TicketController(
 
     [HttpPost("")]
     [Authorize]
+    [AskPermission(PermissionKeys.TicketsCreate)]
     [ProducesResponseType<SnTicket>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<SnTicket>> CreateTicket([FromBody] CreateTicketRequest request)
@@ -314,6 +316,7 @@ public class TicketController(
 
     [HttpPut("{id}")]
     [Authorize]
+    [AskPermission(PermissionKeys.TicketsUpdate)]
     [ProducesResponseType<SnTicket>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -346,6 +349,7 @@ public class TicketController(
 
     [HttpDelete("{id}")]
     [Authorize]
+    [AskPermission(PermissionKeys.TicketsDelete)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -371,6 +375,7 @@ public class TicketController(
 
     [HttpPost("{id:guid}/messages")]
     [Authorize]
+    [AskPermission(PermissionKeys.TicketsMessagesCreate)]
     [ProducesResponseType<SnTicketMessage>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -402,6 +407,7 @@ public class TicketController(
 
     [HttpPost("{id:guid}/status")]
     [Authorize]
+    [AskPermission(PermissionKeys.TicketsStatusUpdate)]
     [ProducesResponseType<SnTicket>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -437,6 +443,7 @@ public class TicketController(
 
     [HttpPost("{id:guid}/assign")]
     [Authorize]
+    [AskPermission(PermissionKeys.TicketsAssign)]
     [ProducesResponseType<SnTicket>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

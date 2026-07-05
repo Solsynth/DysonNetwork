@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Auth;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,6 +18,7 @@ public class MagicSpellController(
 {
     [HttpPost("activation/resend")]
     [Authorize]
+    [AskPermission(PermissionKeys.AuthAppsAuthorize)]
     public async Task<ActionResult> ResendActivationMagicSpell()
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();

@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -114,6 +115,7 @@ public class PostCollectionController(
     }
 
     [HttpPost("{slug}/subscribe")]
+    [AskPermission(PermissionKeys.PostCollectionsPostsManage)]
     [Authorize]
     public async Task<ActionResult<SnPostCategorySubscription>> SubscribeCollection(string publisherName, string slug)
     {
@@ -148,6 +150,7 @@ public class PostCollectionController(
     }
 
     [HttpPost("{slug}/unsubscribe")]
+    [AskPermission(PermissionKeys.PostCollectionsPostsManage)]
     [Authorize]
     public async Task<IActionResult> UnsubscribeCollection(string publisherName, string slug)
     {
@@ -264,6 +267,7 @@ public class PostCollectionController(
     }
 
     [HttpPost("{slug}/posts")]
+    [AskPermission(PermissionKeys.PostCollectionsPostsManage)]
     [Authorize]
     public async Task<ActionResult> AddCollectionPost(
         string publisherName,
@@ -294,6 +298,7 @@ public class PostCollectionController(
     }
 
     [HttpPost("{slug}/posts/batch")]
+    [AskPermission(PermissionKeys.PostCollectionsPostsManage)]
     [Authorize]
     public async Task<ActionResult> BatchAddCollectionPosts(
         string publisherName,
@@ -321,6 +326,7 @@ public class PostCollectionController(
     }
 
     [HttpPost("{slug}/posts/batch/remove")]
+    [AskPermission(PermissionKeys.PostCollectionsPostsManage)]
     [Authorize]
     public async Task<ActionResult> BatchRemoveCollectionPosts(
         string publisherName,
@@ -341,6 +347,7 @@ public class PostCollectionController(
     }
 
     [HttpDelete("{slug}/posts/{postId:guid}")]
+    [AskPermission(PermissionKeys.PostCollectionsPostsManage)]
     [Authorize]
     public async Task<ActionResult> RemoveCollectionPost(string publisherName, string slug, Guid postId)
     {
@@ -357,6 +364,7 @@ public class PostCollectionController(
     }
 
     [HttpPut("{slug}/posts/reorder")]
+    [AskPermission(PermissionKeys.PostCollectionsPostsManage)]
     [Authorize]
     public async Task<ActionResult> ReorderCollectionPosts(
         string publisherName,

@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
@@ -107,6 +108,7 @@ public class DomainTrustController(
 
     [HttpPatch("{id:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.DomainTrustUpdate)]
     public async Task<ActionResult<SnDomainBlock>> UpdateRule(Guid id, [FromBody] UpdateBlockRuleRequest request)
     {
         var rule = await service.UpdateRuleAsync(id, r =>
@@ -126,6 +128,7 @@ public class DomainTrustController(
 
     [HttpDelete("{id:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.DomainTrustDelete)]
     public async Task<ActionResult> DeleteRule(Guid id)
     {
         var deleted = await service.DeleteRuleAsync(id);

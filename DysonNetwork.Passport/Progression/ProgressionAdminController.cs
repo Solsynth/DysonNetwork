@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,7 @@ public class ProgressionAdminController(
     }
 
     [HttpPost("achievements")]
+    [AskPermission(PermissionKeys.ProgressionAchievementsManage)]
     public async Task<ActionResult<SnAchievementDefinition>> CreateAchievement([FromBody] ProgressionDefinitionUpsertRequest request)
     {
         if (!await IsAdminAsync()) return Forbid();
@@ -36,6 +38,7 @@ public class ProgressionAdminController(
     }
 
     [HttpPut("achievements/{identifier}")]
+    [AskPermission(PermissionKeys.ProgressionAchievementsManage)]
     public async Task<ActionResult<SnAchievementDefinition>> UpdateAchievement(string identifier, [FromBody] ProgressionDefinitionUpsertRequest request)
     {
         if (!await IsAdminAsync()) return Forbid();
@@ -47,6 +50,7 @@ public class ProgressionAdminController(
     }
 
     [HttpPost("achievements/{identifier}/enable")]
+    [AskPermission(PermissionKeys.ProgressionAchievementsManage)]
     public async Task<ActionResult<SnAchievementDefinition>> ToggleAchievement(string identifier, [FromQuery] bool enabled = true)
     {
         if (!await IsAdminAsync()) return Forbid();
@@ -65,6 +69,7 @@ public class ProgressionAdminController(
     }
 
     [HttpPost("quests")]
+    [AskPermission(PermissionKeys.ProgressionQuestsManage)]
     public async Task<ActionResult<SnQuestDefinition>> CreateQuest([FromBody] QuestDefinitionUpsertRequest request)
     {
         if (!await IsAdminAsync()) return Forbid();
@@ -76,6 +81,7 @@ public class ProgressionAdminController(
     }
 
     [HttpPut("quests/{identifier}")]
+    [AskPermission(PermissionKeys.ProgressionQuestsManage)]
     public async Task<ActionResult<SnQuestDefinition>> UpdateQuest(string identifier, [FromBody] QuestDefinitionUpsertRequest request)
     {
         if (!await IsAdminAsync()) return Forbid();
@@ -87,6 +93,7 @@ public class ProgressionAdminController(
     }
 
     [HttpPost("quests/{identifier}/enable")]
+    [AskPermission(PermissionKeys.ProgressionQuestsManage)]
     public async Task<ActionResult<SnQuestDefinition>> ToggleQuest(string identifier, [FromQuery] bool enabled = true)
     {
         if (!await IsAdminAsync()) return Forbid();
@@ -98,6 +105,7 @@ public class ProgressionAdminController(
     }
 
     [HttpPost("sync")]
+    [AskPermission(PermissionKeys.ProgressionSync)]
     public async Task<IActionResult> SyncSeeds()
     {
         if (!await IsAdminAsync()) return Forbid();

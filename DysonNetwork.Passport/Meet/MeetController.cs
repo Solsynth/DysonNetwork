@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -186,6 +187,7 @@ public class MeetController(
 
     [HttpPost("{id:guid}/complete")]
     [Authorize]
+    [AskPermission(PermissionKeys.MeetComplete)]
     public async Task<ActionResult<SnMeet>> CompleteMeet(Guid id, CancellationToken cancellationToken)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -217,6 +219,7 @@ public class MeetController(
 
     [HttpDelete("{id:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.MeetDelete)]
     public async Task<ActionResult> DeleteMeet(Guid id, CancellationToken cancellationToken)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -243,6 +246,7 @@ public class MeetController(
 
     [HttpPatch("{id:guid}/visibility")]
     [Authorize]
+    [AskPermission(PermissionKeys.MeetVisibilityUpdate)]
     public async Task<ActionResult<SnMeet>> UpdateVisibility(Guid id, [FromBody] UpdateVisibilityRequest request, CancellationToken cancellationToken)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -282,6 +286,7 @@ public class MeetController(
 
     [HttpPost("{id:guid}/join")]
     [Authorize]
+    [AskPermission(PermissionKeys.MeetJoin)]
     public async Task JoinMeet(Guid id, CancellationToken cancellationToken)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
@@ -378,6 +383,7 @@ public class MeetController(
 
     [HttpPost("{id:guid}/pin")]
     [Authorize]
+    [AskPermission(PermissionKeys.MeetPinManage)]
     public async Task<ActionResult<SnLocationPin>> CreateOrUpdatePin(
         Guid id,
         [FromBody] CreateOrUpdatePinRequest request,
@@ -430,6 +436,7 @@ public class MeetController(
 
     [HttpDelete("{id:guid}/pin")]
     [Authorize]
+    [AskPermission(PermissionKeys.MeetPinManage)]
     public async Task<ActionResult> RemovePin(
         Guid id,
         CancellationToken cancellationToken

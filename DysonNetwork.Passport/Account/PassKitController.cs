@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -46,6 +47,7 @@ public class PassKitController(ApplePassService passService) : ControllerBase
     }
 
     [HttpPost("devices/{deviceLibraryIdentifier}/registrations/{passTypeIdentifier}/{serialNumber}")]
+    [AskPermission(PermissionKeys.PresencesManage)]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType<ApiError>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ApiError>(StatusCodes.Status404NotFound)]
@@ -71,6 +73,7 @@ public class PassKitController(ApplePassService passService) : ControllerBase
     }
 
     [HttpDelete("devices/{deviceLibraryIdentifier}/registrations/{passTypeIdentifier}/{serialNumber}")]
+    [AskPermission(PermissionKeys.PresencesManage)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType<ApiError>(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult> UnregisterDevice(
@@ -135,6 +138,7 @@ public class PassKitController(ApplePassService passService) : ControllerBase
     }
 
     [HttpPost("log")]
+    [AskPermission(PermissionKeys.PresencesManage)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult Log([FromBody] PassLogRequest request, ILogger<PassKitController> logger)
     {

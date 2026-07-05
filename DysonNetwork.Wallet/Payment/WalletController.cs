@@ -574,6 +574,7 @@ public class WalletController(
 
     [HttpPost("balance")]
     [Authorize]
+    [AskPermission(PermissionKeys.WalletsBalanceModify)]
     [AskPermission("wallets.balance.modify")]
     public async Task<ActionResult<SnWalletTransaction>> ModifyWalletBalance([FromBody] WalletBalanceRequest request)
     {
@@ -608,6 +609,7 @@ public class WalletController(
 
     [HttpPost("transfer")]
     [Authorize]
+    [AskPermission(PermissionKeys.WalletsTransactionsManage)]
     public async Task<ActionResult<SnWalletTransaction>> Transfer([FromBody] WalletTransferRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -714,6 +716,7 @@ public class WalletController(
 
     [HttpPost("transfer/requests")]
     [Authorize]
+    [AskPermission(PermissionKeys.WalletsTransferRequestsManage)]
     public async Task<ActionResult<WalletTransferRequestResponse>> CreateTransferRequest(
         [FromBody] CreateWalletTransferRequestRequest request
     )
@@ -779,6 +782,7 @@ public class WalletController(
 
     [HttpPost("{id:guid}/default")]
     [Authorize]
+    [AskPermission(PermissionKeys.WalletsManage)]
     public async Task<ActionResult<SnWallet>> SetDefaultWallet(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -792,6 +796,7 @@ public class WalletController(
 
     [HttpPost("{id:guid}/public-id/enable")]
     [Authorize]
+    [AskPermission(PermissionKeys.WalletsPublicIdManage)]
     public async Task<ActionResult<SnWallet>> EnablePublicId(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -816,6 +821,7 @@ public class WalletController(
 
     [HttpPost("{id:guid}/public-id/disable")]
     [Authorize]
+    [AskPermission(PermissionKeys.WalletsPublicIdManage)]
     public async Task<ActionResult<SnWallet>> DisablePublicId(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -860,6 +866,7 @@ public class WalletController(
 
     [HttpPost("funds")]
     [Authorize]
+    [AskPermission(PermissionKeys.WalletsFundsManage)]
     public async Task<ActionResult<SnWalletFund>> CreateFund([FromBody] CreateFundRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -977,6 +984,7 @@ public class WalletController(
 
     [HttpPost("funds/{id:guid}/receive")]
     [Authorize]
+    [AskPermission(PermissionKeys.WalletsFundsManage)]
     public async Task<ActionResult<SnWalletTransaction>> ReceiveFund(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -1026,6 +1034,7 @@ public class WalletController(
 
     [HttpPost("transactions/{id:guid}/confirm")]
     [Authorize]
+    [AskPermission(PermissionKeys.WalletsTransactionsManage)]
     public async Task<ActionResult<SnWalletTransaction>> ConfirmTransaction(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -1043,6 +1052,7 @@ public class WalletController(
 
     [HttpPost("transactions/{id:guid}/reject")]
     [Authorize]
+    [AskPermission(PermissionKeys.WalletsTransactionsManage)]
     public async Task<ActionResult<SnWalletTransaction>> RejectTransaction(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -1121,6 +1131,7 @@ public class WalletController(
 
     [HttpPost("funds/{id:guid}/contribute")]
     [Authorize]
+    [AskPermission(PermissionKeys.WalletsFundsManage)]
     public async Task<ActionResult<SnWalletTransaction>> ContributeToFund(Guid id, [FromBody] ContributeFundRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();

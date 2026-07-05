@@ -108,6 +108,7 @@ public class PublisherController(
 
     [HttpPost("invites/{name}")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersInvitesManage)]
     public async Task<ActionResult<SnPublisherMember>> InviteMember(
         string name,
         [FromBody] PublisherMemberRequest request
@@ -158,6 +159,7 @@ public class PublisherController(
 
     [HttpPost("invites/{name}/accept")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersInvitesManage)]
     public async Task<ActionResult<SnPublisher>> AcceptMemberInvite(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -195,6 +197,7 @@ public class PublisherController(
 
     [HttpPost("invites/{name}/decline")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersInvitesManage)]
     public async Task<ActionResult> DeclineMemberInvite(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -230,6 +233,7 @@ public class PublisherController(
 
     [HttpDelete("{name}/members/{memberId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersMembersManage)]
     public async Task<ActionResult> RemoveMember(string name, Guid memberId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -273,6 +277,7 @@ public class PublisherController(
 
     [HttpPatch("{name}/members/{memberId:guid}/role")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersMembersManage)]
     public async Task<ActionResult<SnPublisherMember>> UpdateMemberRole(
         string name,
         Guid memberId,
@@ -536,6 +541,7 @@ public class PublisherController(
 
     [HttpPatch("{name}")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersUpdate)]
     public async Task<ActionResult<SnPublisher>> UpdatePublisher(
         string name,
         PublisherRequest request
@@ -695,6 +701,7 @@ public class PublisherController(
 
     [HttpDelete("{name}")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersDelete)]
     public async Task<ActionResult<SnPublisher>> DeletePublisher(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -857,6 +864,7 @@ public class PublisherController(
 
     [HttpPost("{name}/features")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersFeaturesManage)]
     public async Task<ActionResult<SnPublisherFeature>> AddPublisherFeature(
         string name,
         [FromBody] PublisherFeatureRequest request
@@ -926,6 +934,7 @@ public class PublisherController(
 
     [HttpDelete("{name}/features")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersFeaturesManage)]
     public async Task<ActionResult> RemovePublisherFeature(
         string name,
         [FromQuery(Name = "flag")] string? flag
@@ -1028,6 +1037,7 @@ public class PublisherController(
 
     [HttpPost("{name}/fediverse")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersFediverseManage)]
     public async Task<ActionResult<FediverseStatus>> EnableFediverse(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -1059,6 +1069,7 @@ public class PublisherController(
 
     [HttpDelete("{name}/fediverse")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersFediverseManage)]
     public async Task<ActionResult> DisableFediverse(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -1117,6 +1128,7 @@ public class PublisherController(
 
     [HttpPost("{name}/domains")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersDomainsManage)]
     public async Task<ActionResult<SnPublisherVerifiedDomain>> AddDomain(
         string name,
         [FromBody] AddDomainRequest request
@@ -1163,6 +1175,7 @@ public class PublisherController(
 
     [HttpDelete("{name}/domains/{domainId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersDomainsManage)]
     public async Task<ActionResult> RemoveDomain(string name, Guid domainId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -1189,6 +1202,7 @@ public class PublisherController(
 
     [HttpPost("{name}/domains/{domainId:guid}/recheck")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersDomainsManage)]
     public async Task<ActionResult<SnPublisherVerifiedDomain>> RecheckDomain(string name, Guid domainId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)

@@ -3,6 +3,7 @@ using DysonNetwork.Develop.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Auth;
 
 namespace DysonNetwork.Develop.Project;
 
@@ -40,6 +41,7 @@ public class DevProjectController(DevProjectService ps, DeveloperService ds) : C
 
     [HttpPost]
     [Authorize]
+    [AskPermission(PermissionKeys.DevProjectsCreate)]
     public async Task<IActionResult> CreateProject([FromQuery(Name = "dev")] string dev, [FromBody] DevProjectRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -61,6 +63,7 @@ public class DevProjectController(DevProjectService ps, DeveloperService ds) : C
 
     [HttpPut("{id:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.DevProjectsUpdate)]
     public async Task<IActionResult> UpdateProject(
         [FromQuery(Name = "dev")] string dev,
         [FromRoute] Guid id,
@@ -87,6 +90,7 @@ public class DevProjectController(DevProjectService ps, DeveloperService ds) : C
 
     [HttpDelete("{id:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.DevProjectsDelete)]
     public async Task<IActionResult> DeleteProject([FromQuery(Name = "dev")] string dev, [FromRoute] Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)

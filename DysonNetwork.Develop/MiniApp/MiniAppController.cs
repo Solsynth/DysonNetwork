@@ -3,6 +3,7 @@ using DysonNetwork.Develop.Models;
 using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -34,6 +35,7 @@ public class MiniAppController(MiniAppService miniAppService, Identity.Developer
 
     [HttpGet]
     [Authorize]
+    [AskPermission(PermissionKeys.MiniAppsCreate)]
     public async Task<IActionResult> ListMiniApps([FromQuery(Name = "dev")] string dev, [FromQuery(Name = "proj")] Guid proj)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -114,6 +116,7 @@ public class MiniAppController(MiniAppService miniAppService, Identity.Developer
 
     [HttpPatch("{miniAppId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.MiniAppsUpdate)]
     public async Task<IActionResult> UpdateMiniApp(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,
@@ -152,6 +155,7 @@ public class MiniAppController(MiniAppService miniAppService, Identity.Developer
 
     [HttpDelete("{miniAppId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.MiniAppsDelete)]
     public async Task<IActionResult> DeleteMiniApp(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,

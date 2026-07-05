@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -31,6 +32,7 @@ public class PostSubscriptionController(
     }
 
     [HttpPost("{id:guid}/subscribe")]
+    [AskPermission(PermissionKeys.PostSubscriptionsManage)]
     [Authorize]
     public async Task<ActionResult<SnPostSubscription>> SubscribePost(
         Guid id,
@@ -70,6 +72,7 @@ public class PostSubscriptionController(
     }
 
     [HttpPost("{id:guid}/unsubscribe")]
+    [AskPermission(PermissionKeys.PostSubscriptionsManage)]
     [Authorize]
     public async Task<IActionResult> UnsubscribePost(Guid id)
     {

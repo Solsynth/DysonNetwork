@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
@@ -45,6 +46,7 @@ public class CustomAppController(
 
     [HttpGet]
     [Authorize]
+    [AskPermission(PermissionKeys.CustomAppsCreate)]
     public async Task<IActionResult> ListApps([FromQuery(Name = "dev")] string dev, [FromQuery(Name = "proj")] Guid proj)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -131,6 +133,7 @@ public class CustomAppController(
 
     [HttpPatch("{appId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.CustomAppsUpdate)]
     public async Task<IActionResult> UpdateApp(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,
@@ -169,6 +172,7 @@ public class CustomAppController(
 
     [HttpDelete("{appId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.CustomAppsDelete)]
     public async Task<IActionResult> DeleteApp(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,
@@ -239,6 +243,7 @@ public class CustomAppController(
 
     [HttpPost("{appId:guid}/secrets")]
     [Authorize]
+    [AskPermission(PermissionKeys.CustomAppsSecretsManage)]
     public async Task<IActionResult> CreateSecret(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,
@@ -339,6 +344,7 @@ public class CustomAppController(
 
     [HttpDelete("{appId:guid}/secrets/{secretId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.CustomAppsSecretsManage)]
     public async Task<IActionResult> DeleteSecret(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,
@@ -376,6 +382,7 @@ public class CustomAppController(
 
     [HttpPost("{appId:guid}/secrets/{secretId:guid}/rotate")]
     [Authorize]
+    [AskPermission(PermissionKeys.CustomAppsSecretsManage)]
     public async Task<IActionResult> RotateSecret(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,

@@ -22,6 +22,7 @@ public static class ApplicationConfiguration
         app.UseWebSockets();
         app.UseAuthentication();
         app.UseDyAuthModelProjection();
+        app.UseMiddleware<RemotePermissionMiddleware>();
         app.UseAuthorization();
 
         app.MapControllers();

@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Sphere.Models;
 using DysonNetwork.Sphere.Automod;
 using Microsoft.AspNetCore.Mvc;
@@ -46,6 +47,7 @@ public class AutomodController(
     }
 
     [HttpPost("rules")]
+    [AskPermission(PermissionKeys.AutomodRulesManage)]
     public async Task<ActionResult<SnAutomodRule>> CreateRule([FromBody] CreateAutomodRuleRequest request)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -74,6 +76,7 @@ public class AutomodController(
     }
 
     [HttpPut("rules/{id:guid}")]
+    [AskPermission(PermissionKeys.AutomodRulesManage)]
     public async Task<ActionResult<SnAutomodRule>> UpdateRule(
         Guid id,
         [FromBody] UpdateAutomodRuleRequest request

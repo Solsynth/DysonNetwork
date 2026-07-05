@@ -6,6 +6,7 @@ using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -230,6 +231,7 @@ public class LiveStreamController(
 
     [HttpPost("{id:guid}/start")]
     [Authorize]
+    [AskPermission(PermissionKeys.LiveStreamsStart)]
     public async Task<IActionResult> StartStreaming(Guid id, [FromBody] StartStreamingRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -282,6 +284,7 @@ public class LiveStreamController(
 
     [HttpPost("{id:guid}/egress")]
     [Authorize]
+    [AskPermission(PermissionKeys.LiveStreamsEgress)]
     public async Task<IActionResult> StartEgress(Guid id, [FromBody] StartEgressRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -313,6 +316,7 @@ public class LiveStreamController(
 
     [HttpPost("{id:guid}/egress/stop")]
     [Authorize]
+    [AskPermission(PermissionKeys.LiveStreamsEgress)]
     public async Task<IActionResult> StopEgress(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -337,6 +341,7 @@ public class LiveStreamController(
 
     [HttpPost("{id:guid}/hls")]
     [Authorize]
+    [AskPermission(PermissionKeys.LiveStreamsHls)]
     public async Task<IActionResult> StartHlsEgress(Guid id, [FromBody] StartHlsEgressRequest? request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -387,6 +392,7 @@ public class LiveStreamController(
 
     [HttpPost("{id:guid}/hls/stop")]
     [Authorize]
+    [AskPermission(PermissionKeys.LiveStreamsHls)]
     public async Task<IActionResult> StopHlsEgress(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -411,6 +417,7 @@ public class LiveStreamController(
 
     [HttpPost("{id:guid}/end")]
     [Authorize]
+    [AskPermission(PermissionKeys.LiveStreamsEnd)]
     public async Task<IActionResult> End(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -435,6 +442,7 @@ public class LiveStreamController(
 
     [HttpPatch("{id:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.LiveStreamsUpdate)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateLiveStreamRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -500,6 +508,7 @@ public class LiveStreamController(
 
     [HttpDelete("{id:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.LiveStreamsDelete)]
     public async Task<IActionResult> Delete(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -559,6 +568,7 @@ public class LiveStreamController(
 
     [HttpPatch("{id:guid}/thumbnail")]
     [Authorize]
+    [AskPermission(PermissionKeys.LiveStreamsThumbnail)]
     public async Task<IActionResult> UpdateThumbnail(Guid id, [FromBody] UpdateThumbnailRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -624,6 +634,7 @@ public class LiveStreamController(
 
     [HttpPost("{id:guid}/chat")]
     [Authorize]
+    [AskPermission(PermissionKeys.LiveStreamsPin)]
     public async Task<IActionResult> SendChatMessage(Guid id, [FromBody] SendChatMessageRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -672,6 +683,7 @@ public class LiveStreamController(
 
     [HttpDelete("{id:guid}/chat/{messageId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.LiveStreamsChatModerate)]
     public async Task<IActionResult> DeleteChatMessage(Guid id, Guid messageId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -696,6 +708,7 @@ public class LiveStreamController(
 
     [HttpPost("{id:guid}/chat/{messageId:guid}/timeout")]
     [Authorize]
+    [AskPermission(PermissionKeys.LiveStreamsChatModerate)]
     public async Task<IActionResult> TimeoutUser(Guid id, Guid messageId, [FromBody] TimeoutRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -845,6 +858,7 @@ public class LiveStreamController(
 
     [HttpPost("{id:guid}/awards")]
     [Authorize]
+    [AskPermission(PermissionKeys.LiveStreamsAwards)]
     public async Task<IActionResult> AwardLiveStream(
         Guid id,
         [FromBody] LiveStreamAwardRequest request

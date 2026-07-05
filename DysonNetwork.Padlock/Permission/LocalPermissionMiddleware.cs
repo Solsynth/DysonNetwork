@@ -9,24 +9,28 @@ public class LocalPermissionMiddleware(RequestDelegate next, ILogger<LocalPermis
     {
         var endpoint = httpContext.GetEndpoint();
 
-        var attr = endpoint?.Metadata
+        var attrs = endpoint?.Metadata
             .OfType<AskPermissionAttribute>()
-            .FirstOrDefault();
+            .ToList();
 
-        if (attr != null)
+        if (attrs is { Count: > 0 })
         {
             if (httpContext.Items["CurrentUser"] is not SnAccount currentUser)
             {
-                await next(httpContext);
+                httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await httpContext.Response.WriteAsync("Unauthorized");
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(attr.Key))
+            foreach (var attr in attrs)
             {
-                logger.LogWarning("Invalid permission attribute: Key='{Key}'", attr.Key);
-                httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
-                await httpContext.Response.WriteAsync("Server configuration error");
-                return;
+                if (string.IsNullOrWhiteSpace(attr.Key))
+                {
+                    logger.LogWarning("Invalid permission attribute: Key='{Key}'", attr.Key);
+                    httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                    await httpContext.Response.WriteAsync("Server configuration error");
+                    return;
+                }
             }
 
             var currentSession = httpContext.Items["CurrentSession"] as SnAuthSession;
@@ -37,56 +41,63 @@ public class LocalPermissionMiddleware(RequestDelegate next, ILogger<LocalPermis
                 return;
             }
 
-            if (PermissionScopeGate.ShouldEnforcePermissionScope(currentSession) &&
-                !PermissionScopeGate.IsPermissionEnabled(currentSession!.Scopes, attr.Key))
+            if (PermissionScopeGate.ShouldEnforcePermissionScope(currentSession))
             {
-                logger.LogWarning(
-                    "Permission omitted by token scope for user {UserId}: required_key={RequiredKey}, matched_scope={MatchedScope}",
-                    currentUser.Id,
-                    attr.Key,
-                    PermissionScopeGate.GetMatchedPermissionScope(currentSession.Scopes, attr.Key) ?? "<none>"
-                );
-                httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await httpContext.Response.WriteAsync("Permission omitted by token scope");
-                return;
+                foreach (var attr in attrs)
+                {
+                    if (PermissionScopeGate.IsPermissionEnabled(currentSession!.Scopes, attr.Key))
+                        continue;
+
+                    logger.LogWarning(
+                        "Permission omitted by token scope for user {UserId}: required_key={RequiredKey}, matched_scope={MatchedScope}",
+                        currentUser.Id,
+                        attr.Key,
+                        PermissionScopeGate.GetMatchedPermissionScope(currentSession.Scopes, attr.Key) ?? "<none>"
+                    );
+                    httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    await httpContext.Response.WriteAsync($"Permission {attr.Key} was omitted by token scope.");
+                    return;
+                }
             }
 
             if (currentUser.IsSuperuser)
             {
-                // Bypass the permission check for performance
-                logger.LogDebug("Superuser {UserId} bypassing permission check for {Key}", currentUser.Id, attr.Key);
+                logger.LogDebug("Superuser {UserId} bypassing permission checks", currentUser.Id);
                 await next(httpContext);
                 return;
             }
 
             var actor = currentUser.Id.ToString();
-            try
+            foreach (var attr in attrs)
             {
-                var permNode = await pm.GetPermissionAsync<bool>(actor, attr.Key);
-
-                if (!permNode)
+                try
                 {
-                    logger.LogWarning(
-                        "Permission denied for user {UserId}: required_key={RequiredKey}, matched_scope={MatchedScope}",
-                        currentUser.Id,
-                        attr.Key,
-                        currentSession is not null
-                            ? PermissionScopeGate.GetMatchedPermissionScope(currentSession.Scopes, attr.Key) ?? "<none>"
-                            : "<session-unavailable>"
-                    );
-                    httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
-                    await httpContext.Response.WriteAsync("Insufficient permissions");
+                    var permNode = await pm.GetPermissionAsync<bool>(actor, attr.Key);
+
+                    if (!permNode)
+                    {
+                        logger.LogWarning(
+                            "Permission denied for user {UserId}: required_key={RequiredKey}, matched_scope={MatchedScope}",
+                            currentUser.Id,
+                            attr.Key,
+                            currentSession is not null
+                                ? PermissionScopeGate.GetMatchedPermissionScope(currentSession.Scopes, attr.Key) ?? "<none>"
+                                : "<session-unavailable>"
+                        );
+                        httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        await httpContext.Response.WriteAsync($"Permission {attr.Key} was required.");
+                        return;
+                    }
+
+                    logger.LogDebug("Permission granted for user {UserId}: {Key}", currentUser.Id, attr.Key);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Error checking permission for user {UserId}: {Key}", currentUser.Id, attr.Key);
+                    httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                    await httpContext.Response.WriteAsync("Permission check failed");
                     return;
                 }
-
-                logger.LogDebug("Permission granted for user {UserId}: {Key}", currentUser.Id, attr.Key);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error checking permission for user {UserId}: {Key}", currentUser.Id, attr.Key);
-                httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
-                await httpContext.Response.WriteAsync("Permission check failed");
-                return;
             }
         }
 

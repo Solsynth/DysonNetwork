@@ -249,6 +249,7 @@ public partial class ChatController(
 
     [HttpPost("read-all")]
     [Authorize]
+    [AskPermission(PermissionKeys.ChatReadAll)]
     public async Task<ActionResult> MarkAllAsRead()
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -893,6 +894,7 @@ public partial class ChatController(
 
     [HttpPatch("{roomId:guid}/messages/{messageId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.ChatMessagesUpdate)]
     public async Task<ActionResult> UpdateMessage([FromBody] SendMessageRequest request, Guid roomId, Guid messageId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -1111,6 +1113,7 @@ public partial class ChatController(
 
     [HttpDelete("{roomId:guid}/messages/{messageId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.ChatMessagesDelete)]
     public async Task<ActionResult> DeleteMessage(Guid roomId, Guid messageId, [FromBody] DeleteMessageRequest? request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -1177,6 +1180,7 @@ public partial class ChatController(
 
     [HttpPost("{roomId:guid}/messages/{messageId:guid}/reactions")]
     [Authorize]
+    [AskPermission(PermissionKeys.ChatMessagesReact)]
     public async Task<ActionResult<SnChatReaction>> ReactMessage(
         Guid roomId,
         Guid messageId,
@@ -1227,6 +1231,7 @@ public partial class ChatController(
 
     [HttpDelete("{roomId:guid}/messages/{messageId:guid}/reactions/{symbol}")]
     [Authorize]
+    [AskPermission(PermissionKeys.ChatMessagesReact)]
     public async Task<ActionResult> RemoveReactionMessage(
         Guid roomId,
         Guid messageId,
@@ -1379,6 +1384,7 @@ public partial class ChatController(
 
     [HttpPost("sync")]
     [Authorize]
+    [AskPermission(PermissionKeys.ChatSync)]
     public async Task<ActionResult<GlobalSyncResponse>> GetGlobalSyncData([FromBody] SyncRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -1560,6 +1566,7 @@ public partial class ChatController(
 
     [HttpPost("{roomId:guid}/pins")]
     [Authorize]
+    [AskPermission(PermissionKeys.ChatPinsManage)]
     public async Task<ActionResult<SnChatMessagePin>> PinMessage(Guid roomId, [FromBody] PinMessageRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -1588,6 +1595,7 @@ public partial class ChatController(
 
     [HttpDelete("{roomId:guid}/pins/{pinId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.ChatPinsManage)]
     public async Task<ActionResult> UnpinMessage(Guid roomId, Guid pinId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();

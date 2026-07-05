@@ -5,6 +5,7 @@ using NodaTime;
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Auth;
 
 namespace DysonNetwork.Wallet.Payment;
 
@@ -163,6 +164,7 @@ public class SubscriptionGiftController(
     /// </summary>
     [HttpPost("purchase")]
     [Authorize]
+    [AskPermission(PermissionKeys.SubscriptionGiftsPurchase)]
     public async Task<ActionResult<SnWalletGift>> PurchaseGift([FromBody] PurchaseGiftRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -211,6 +213,7 @@ public class SubscriptionGiftController(
     /// </summary>
     [HttpPost("redeem")]
     [Authorize]
+    [AskPermission(PermissionKeys.SubscriptionGiftsRedeem)]
     public async Task<ActionResult<RedeemGiftResponse>> RedeemGift([FromBody] RedeemGiftRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -242,6 +245,7 @@ public class SubscriptionGiftController(
     /// </summary>
     [HttpPost("{giftId}/send")]
     [Authorize]
+    [AskPermission(PermissionKeys.SubscriptionGiftsSend)]
     public async Task<ActionResult<SnWalletGift>> SendGift(Guid giftId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -262,6 +266,7 @@ public class SubscriptionGiftController(
     /// </summary>
     [HttpPost("{giftId}/cancel")]
     [Authorize]
+    [AskPermission(PermissionKeys.SubscriptionGiftsCancel)]
     public async Task<ActionResult<SnWalletGift>> CancelGift(Guid giftId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -282,6 +287,7 @@ public class SubscriptionGiftController(
     /// </summary>
     [HttpPost("{giftId}/order")]
     [Authorize]
+    [AskPermission(PermissionKeys.SubscriptionsOrderManage)]
     public async Task<ActionResult<SnWalletOrder>> CreateGiftOrder(Guid giftId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();

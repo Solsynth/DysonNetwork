@@ -69,6 +69,7 @@ public class NotificationController(
 
     [HttpPost("all/read")]
     [Authorize]
+    [AskPermission(PermissionKeys.NotificationsReadAll)]
     public async Task<ActionResult> MarkAllNotificationsViewed([FromQuery] string? app = null)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -89,6 +90,7 @@ public class NotificationController(
 
     [HttpPut("subscription")]
     [Authorize]
+    [AskPermission(PermissionKeys.NotificationsSubscriptionsManage)]
     public async Task<ActionResult<SnNotificationPushSubscription>> SubscribeToPushNotification(
         [FromBody] PushNotificationSubscribeRequest request,
         [FromQuery] bool force = false
@@ -177,6 +179,7 @@ public class NotificationController(
 
     [HttpDelete("subscription/{subscriptionId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.NotificationsSubscriptionsManage)]
     public async Task<ActionResult<int>> UnsubscribeFromPushNotification(Guid subscriptionId)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -266,6 +269,7 @@ public class NotificationController(
 
     [HttpPut("preferences/{topic}")]
     [Authorize]
+    [AskPermission(PermissionKeys.NotificationsPreferencesManage)]
     public async Task<ActionResult> SetPreference(string topic, [FromBody] SetPreferenceRequest request)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
@@ -278,6 +282,7 @@ public class NotificationController(
 
     [HttpDelete("preferences/{topic}")]
     [Authorize]
+    [AskPermission(PermissionKeys.NotificationsPreferencesManage)]
     public async Task<ActionResult> DeletePreference(string topic)
     {
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);

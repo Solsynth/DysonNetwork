@@ -1,5 +1,6 @@
 using DysonNetwork.Passport.Models;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -28,6 +29,7 @@ public class AccountRewindController(AccountRewindService rewindSrv) : Controlle
 
     [HttpPost("me/{year:int}/public")]
     [Authorize]
+    [AskPermission(PermissionKeys.RewindCreate)]
     public async Task<ActionResult<SnRewindPoint>> SetRewindPointPublic([FromRoute] int year)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -44,6 +46,7 @@ public class AccountRewindController(AccountRewindService rewindSrv) : Controlle
 
     [HttpPost("me/{year:int}/private")]
     [Authorize]
+    [AskPermission(PermissionKeys.RewindCreate)]
     public async Task<ActionResult<SnRewindPoint>> SetRewindPointPrivate([FromRoute] int year)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();

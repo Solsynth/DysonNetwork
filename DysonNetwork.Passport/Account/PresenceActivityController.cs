@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DysonNetwork.Passport.Account;
@@ -191,6 +192,7 @@ public class PresenceActivityController(
     /// <returns>The updated activity</returns>
     /// <remarks>One of 'id' or 'manualId' must be provided and non-empty.</remarks>
     [HttpPut("{id:guid}")]
+    [AskPermission(PermissionKeys.PresencesActivityManage)]
     [ProducesResponseType<SnPresenceActivity>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -262,6 +264,7 @@ public class PresenceActivityController(
     /// <returns>NoContent on success</returns>
     /// <remarks>One of 'id' or 'manualId' must be provided and non-empty. Soft-deletes the activity.</remarks>
     [HttpDelete]
+    [AskPermission(PermissionKeys.PresencesActivityManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

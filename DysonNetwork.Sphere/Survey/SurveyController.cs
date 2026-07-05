@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -51,6 +52,7 @@ public class SurveyController(
     }
 
     [HttpPost("{id:guid}/answer")]
+    [AskPermission(PermissionKeys.SurveysAnswer)]
     [Authorize]
     public async Task<ActionResult<SnSurveyAnswer>> AnswerSurvey(Guid id, [FromBody] SurveyAnswerRequest request)
     {
@@ -88,6 +90,7 @@ public class SurveyController(
     }
 
     [HttpDelete("{id:guid}/answer")]
+    [AskPermission(PermissionKeys.SurveysAnswer)]
     [Authorize]
     public async Task<IActionResult> DeleteSurveyAnswer(Guid id)
     {
@@ -478,6 +481,7 @@ public class SurveyController(
     // ---- Lifecycle endpoints --------------------------------------------------
 
     [HttpPost("{id:guid}/publish")]
+    [AskPermission(PermissionKeys.SurveysPublish)]
     [Authorize]
     public async Task<ActionResult<SnSurvey>> PublishSurvey(Guid id)
     {
@@ -518,6 +522,7 @@ public class SurveyController(
     }
 
     [HttpPost("{id:guid}/archive")]
+    [AskPermission(PermissionKeys.SurveysArchive)]
     [Authorize]
     public async Task<ActionResult<SnSurvey>> ArchiveSurvey(Guid id)
     {
@@ -554,6 +559,7 @@ public class SurveyController(
     }
 
     [HttpPost("{id:guid}/clone")]
+    [AskPermission(PermissionKeys.SurveysClone)]
     [Authorize]
     public async Task<ActionResult<SnSurvey>> CloneSurvey(Guid id)
     {
@@ -670,6 +676,7 @@ public class SurveyController(
     // most one active subscription per survey; re-subscribing is idempotent.
 
     [HttpPost("{id:guid}/subscribe")]
+    [AskPermission(PermissionKeys.SurveysSubscribe)]
     [Authorize]
     public async Task<ActionResult<SnSurveySubscription>> SubscribeToSurvey(Guid id)
     {
@@ -697,6 +704,7 @@ public class SurveyController(
     }
 
     [HttpPost("{id:guid}/unsubscribe")]
+    [AskPermission(PermissionKeys.SurveysSubscribe)]
     [Authorize]
     public async Task<IActionResult> UnsubscribeFromSurvey(Guid id)
     {

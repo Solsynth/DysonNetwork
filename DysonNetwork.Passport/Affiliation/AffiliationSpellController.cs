@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -141,6 +142,7 @@ public class AffiliationSpellController(AppDatabase db, AffiliationSpellService 
 
     [HttpDelete("{id:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.AffiliationsManage)]
     public async Task<ActionResult> DeleteSpell([FromRoute] Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();

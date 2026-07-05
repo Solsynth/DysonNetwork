@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Queue;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Auth;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -132,6 +133,7 @@ public class BotAccountController(
     }
 
     [HttpPost]
+    [AskPermission(PermissionKeys.BotAccountsCreate)]
     public async Task<IActionResult> CreateBot(
         [FromQuery(Name = "dev")] string pubName,
         [FromQuery(Name = "proj")] Guid projectId,
@@ -207,6 +209,7 @@ public class BotAccountController(
     }
 
     [HttpPatch("{botId:guid}")]
+    [AskPermission(PermissionKeys.BotAccountsUpdate)]
     public async Task<IActionResult> UpdateBot(
         [FromQuery(Name = "dev")] string pubName,
         [FromQuery(Name = "proj")] Guid projectId,
@@ -270,6 +273,7 @@ public class BotAccountController(
     }
 
     [HttpDelete("{botId:guid}")]
+    [AskPermission(PermissionKeys.BotAccountsDelete)]
     public async Task<IActionResult> DeleteBot(
         [FromQuery(Name = "dev")] string pubName,
         [FromQuery(Name = "proj")] Guid projectId,
@@ -365,6 +369,7 @@ public class BotAccountController(
     }
 
     [HttpPost("{botId:guid}/keys")]
+    [AskPermission(PermissionKeys.BotAccountsKeysManage)]
     public async Task<ActionResult<SnApiKey>> CreateBotKey(
         [FromQuery(Name = "dev")] string pubName,
         [FromQuery(Name = "proj")] Guid projectId,
@@ -398,6 +403,7 @@ public class BotAccountController(
     }
 
     [HttpPost("{botId:guid}/keys/{keyId:guid}/rotate")]
+    [AskPermission(PermissionKeys.BotAccountsKeysManage)]
     public async Task<ActionResult<SnApiKey>> RotateBotKey(
         [FromQuery(Name = "dev")] string pubName,
         [FromQuery(Name = "proj")] Guid projectId,
@@ -425,6 +431,7 @@ public class BotAccountController(
     }
 
     [HttpDelete("{botId:guid}/keys/{keyId:guid}")]
+    [AskPermission(PermissionKeys.BotAccountsKeysManage)]
     public async Task<IActionResult> DeleteBotKey(
         [FromQuery(Name = "dev")] string pubName,
         [FromQuery(Name = "proj")] Guid projectId,
@@ -473,6 +480,7 @@ public class BotAccountController(
     }
 
     [HttpPut("{botId:guid}/chat")]
+    [AskPermission(PermissionKeys.BotAccountsChatManage)]
     public async Task<ActionResult<SnBotChatConfig>> UpdateChatConfig(
         [FromQuery(Name = "dev")] string pubName,
         [FromQuery(Name = "proj")] Guid projectId,
@@ -510,6 +518,7 @@ public class BotAccountController(
     }
 
     [HttpPost("{botId:guid}/chat/manifest")]
+    [AskPermission(PermissionKeys.BotAccountsChatManage)]
     public async Task<ActionResult<SnBotChatConfig>> UpdateManifest(
         [FromQuery(Name = "dev")] string pubName,
         [FromQuery(Name = "proj")] Guid projectId,

@@ -3,6 +3,7 @@ using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -133,6 +134,7 @@ public class PublisherSubscriptionController(
 
     [HttpPost("{name}/subscribe")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersSubscriptionsManage)]
     public async Task<ActionResult<SubscriptionStatusResponse>> Subscribe(
         string name,
         [FromBody] SubscribeRequest? request = null
@@ -263,6 +265,7 @@ public class PublisherSubscriptionController(
 
     [HttpPost("{name}/unsubscribe")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersSubscriptionsManage)]
     public async Task<ActionResult<SubscriptionStatusResponse>> Unsubscribe(string name)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -457,6 +460,7 @@ public class PublisherSubscriptionController(
 
     [HttpPost("{name}/subscribers/{accountId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersSubscriptionsManage)]
     public async Task<ActionResult<SubscriberResponse>> AddSubscriber(string name, Guid accountId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -516,6 +520,7 @@ public class PublisherSubscriptionController(
 
     [HttpDelete("{name}/subscribers/{accountId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersSubscriptionsManage)]
     public async Task<ActionResult> RemoveSubscriber(string name, Guid accountId)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -540,6 +545,7 @@ public class PublisherSubscriptionController(
 
     [HttpPatch("{name}/subscription/me/notify")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersSubscriptionsManage)]
     public async Task<ActionResult<SnPublisherSubscription>> UpdateMySubscriptionNotify(
         string name,
         [FromBody] UpdateNotifyRequest request
@@ -567,6 +573,7 @@ public class PublisherSubscriptionController(
 
     [HttpPut("{name}/subscription/read-status")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersSubscriptionsManage)]
     public async Task<
         ActionResult<PublisherSubscriptionService.SubscriptionReadStatus>
     > UpdateSubscriptionReadStatus(
@@ -683,6 +690,7 @@ public class PublisherSubscriptionController(
 
     [HttpPost("{name}/subscription/requests/{requestId}/approve")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersSubscriptionsManage)]
     public async Task<ActionResult<SnPublisherFollowRequest>> ApproveFollowRequest(
         string name,
         Guid requestId
@@ -736,6 +744,7 @@ public class PublisherSubscriptionController(
 
     [HttpPost("{name}/subscription/requests/{requestId}/reject")]
     [Authorize]
+    [AskPermission(PermissionKeys.PublishersSubscriptionsManage)]
     public async Task<ActionResult<SnPublisherFollowRequest>> RejectFollowRequest(
         string name,
         Guid requestId,

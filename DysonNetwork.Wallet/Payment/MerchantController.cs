@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -149,6 +150,7 @@ public class MerchantController(
     /// </summary>
     [HttpPatch("{merchant}/wallet")]
     [Authorize]
+    [AskPermission(PermissionKeys.MerchantsManage)]
     public async Task<IActionResult> UpdateWallet([FromRoute] string merchant, [FromBody] UpdateMerchantWalletRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -218,6 +220,7 @@ public class MerchantController(
     /// </summary>
     [HttpPost("{merchant}/settlements/settle")]
     [Authorize]
+    [AskPermission(PermissionKeys.MerchantsSettlementsManage)]
     public async Task<IActionResult> ManualSettle([FromRoute] string merchant)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)

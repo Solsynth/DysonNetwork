@@ -1,4 +1,5 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,7 @@ public class PostAdminController(AppDatabase db) : ControllerBase
     }
 
     [HttpPost("{id:guid}/lock")]
+    [AskPermission(PermissionKeys.PostsLock)]
     public async Task<ActionResult> LockPost(Guid id)
     {
         var post = await db.Posts.FindAsync(id);
@@ -38,6 +40,7 @@ public class PostAdminController(AppDatabase db) : ControllerBase
     }
 
     [HttpDelete("{id:guid}/lock")]
+    [AskPermission(PermissionKeys.PostsLock)]
     public async Task<ActionResult> UnlockPost(Guid id)
     {
         var post = await db.Posts.FindAsync(id);
@@ -54,6 +57,7 @@ public class PostAdminController(AppDatabase db) : ControllerBase
     }
 
     [HttpPost("{id:guid}/lock/batch")]
+    [AskPermission(PermissionKeys.PostsLock)]
     public async Task<ActionResult> LockPostsBatch([FromBody] List<Guid> ids)
     {
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -70,6 +74,7 @@ public class PostAdminController(AppDatabase db) : ControllerBase
     }
 
     [HttpDelete("lock/batch")]
+    [AskPermission(PermissionKeys.PostsLock)]
     public async Task<ActionResult> UnlockPostsBatch([FromBody] List<Guid> ids)
     {
         var posts = await db.Posts.Where(p => ids.Contains(p.Id)).ToListAsync();

@@ -183,6 +183,7 @@ public class StickerController(
     }
 
     [HttpPatch("{id:guid}")]
+    [AskPermission(PermissionKeys.StickersPacksUpdate)]
     public async Task<ActionResult<StickerPack>> UpdateStickerPack(Guid id, [FromBody] StickerPackRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
@@ -528,6 +529,7 @@ public class StickerController(
     }
 
     [HttpPost("{packId:guid}/own")]
+    [AskPermission(PermissionKeys.StickersPacksOwn)]
     [Authorize]
     public async Task<ActionResult<StickerPackOwnership>> AcquireStickerPack([FromRoute] Guid packId)
     {
@@ -556,6 +558,7 @@ public class StickerController(
     }
 
     [HttpDelete("{packId:guid}/own")]
+    [AskPermission(PermissionKeys.StickersPacksOwn)]
     [Authorize]
     public async Task<IActionResult> ReleaseStickerPack([FromRoute] Guid packId)
     {
@@ -586,6 +589,7 @@ public class StickerController(
     }
 
     [HttpPatch("me/order")]
+    [AskPermission(PermissionKeys.StickersPacksOrder)]
     [Authorize]
     public async Task<IActionResult> ReorderOwnedStickerPacks([FromBody] ReorderRequest request)
     {
@@ -614,6 +618,7 @@ public class StickerController(
     }
 
     [HttpPatch("{packId:guid}/content/order")]
+    [AskPermission(PermissionKeys.StickersContentUpdate)]
     [Authorize]
     public async Task<IActionResult> ReorderStickers(Guid packId, [FromBody] ReorderRequest request)
     {

@@ -4,6 +4,7 @@ using DysonNetwork.Passport.Account;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -450,6 +451,7 @@ public class NfcController(
     /// </summary>
     [HttpPost("tags")]
     [Authorize]
+    [AskPermission(PermissionKeys.NfcTagsCreate)]
     public async Task<ActionResult<NfcTagResponse>> RegisterTag(
         [FromBody] RegisterTagRequest request,
         CancellationToken cancellationToken)
@@ -494,6 +496,7 @@ public class NfcController(
     /// </summary>
     [HttpPost("tags/claim")]
     [Authorize]
+    [AskPermission(PermissionKeys.NfcTagsClaim)]
     public async Task<ActionResult<NfcTagResponse>> ClaimTag(
         [FromBody] ClaimTagRequest request,
         CancellationToken cancellationToken
@@ -551,6 +554,7 @@ public class NfcController(
     /// </summary>
     [HttpPatch("tags/{tagId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.NfcTagsUpdate)]
     public async Task<ActionResult<NfcTagResponse>> UpdateTag(
         Guid tagId,
         [FromBody] UpdateTagRequest request,
@@ -587,6 +591,7 @@ public class NfcController(
     /// </summary>
     [HttpPost("tags/{tagId:guid}/lock")]
     [Authorize]
+    [AskPermission(PermissionKeys.NfcTagsLock)]
     public async Task<ActionResult<NfcTagResponse>> LockTag(
         Guid tagId,
         CancellationToken cancellationToken)
@@ -617,6 +622,7 @@ public class NfcController(
     /// </summary>
     [HttpDelete("tags/{tagId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.NfcTagsDelete)]
     public async Task<ActionResult> UnregisterTag(
         Guid tagId,
         CancellationToken cancellationToken)

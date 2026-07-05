@@ -1,5 +1,5 @@
-using DysonNetwork.Shared.Auth;
 using DysonNetwork.Padlock.Models;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
@@ -145,20 +145,12 @@ public class AccountSecurityController(
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
-        if (
-            !await accounts.CheckAuthFactorEnabled(
-                currentUser,
-                AccountAuthFactorType.RecoveryCode
-            )
-        )
+        if (!await accounts.CheckAuthFactorEnabled(currentUser, AccountAuthFactorType.RecoveryCode))
             return BadRequest(
                 ApiError.Validation(
                     new Dictionary<string, string[]>
                     {
-                        ["factor"] =
-                        [
-                            "Recovery code must be enabled before creating passkey.",
-                        ],
+                        ["factor"] = ["Recovery code must be enabled before creating passkey."],
                     },
                     traceId: HttpContext.TraceIdentifier
                 )
@@ -166,28 +158,29 @@ public class AccountSecurityController(
         if (await accounts.CheckAuthFactorExists(currentUser, AccountAuthFactorType.Passkey))
             return BadRequest(
                 ApiError.Validation(
-                    new Dictionary<string, string[]>
-                    {
-                        ["factor"] = ["Passkey already exists."],
-                    },
+                    new Dictionary<string, string[]> { ["factor"] = ["Passkey already exists."] },
                     traceId: HttpContext.TraceIdentifier
                 )
             );
 
         var challenge = await accounts.GeneratePasskeyChallengeAsync(currentUser, request.DeviceId);
 
-        return Ok(new PasskeyRegistrationStartResponse
-        {
-            Challenge = challenge,
-            RpId = request.RpId,
-            RpName = request.RpName,
-            UserId = currentUser.Id.ToString(),
-            UserName = currentUser.Name,
-            DisplayName = string.IsNullOrEmpty(currentUser.Nick) ? currentUser.Name : currentUser.Nick,
-            PubKeyCredParams = [new PublicKeyCredentialParameters()],
-            Timeout = 60000,
-            AuthenticatorSelection = new AuthenticatorSelectionCriteria()
-        });
+        return Ok(
+            new PasskeyRegistrationStartResponse
+            {
+                Challenge = challenge,
+                RpId = request.RpId,
+                RpName = request.RpName,
+                UserId = currentUser.Id.ToString(),
+                UserName = currentUser.Name,
+                DisplayName = string.IsNullOrEmpty(currentUser.Nick)
+                    ? currentUser.Name
+                    : currentUser.Nick,
+                PubKeyCredParams = [new PublicKeyCredentialParameters()],
+                Timeout = 60000,
+                AuthenticatorSelection = new AuthenticatorSelectionCriteria(),
+            }
+        );
     }
 
     public class PasskeyRegistrationCompleteRequest
@@ -217,7 +210,11 @@ public class AccountSecurityController(
             return BadRequest("Passkey registration failed.");
 
         var credentialJson = System.Text.Json.JsonSerializer.Serialize(credential);
-        var factor = await accounts.CreateAuthFactor(currentUser, AccountAuthFactorType.Passkey, credentialJson);
+        var factor = await accounts.CreateAuthFactor(
+            currentUser,
+            AccountAuthFactorType.Passkey,
+            credentialJson
+        );
         if (factor == null)
         {
             logger.LogWarning(
@@ -308,7 +305,9 @@ public class AccountSecurityController(
 
         Response.Headers.Append("X-Auth-Session", currentSession.Id.ToString());
 
-        var baseQuery = db.AuthClients.Where(device => device.AccountId == currentUser.Id && device.DeletedAt == null);
+        var baseQuery = db.AuthClients.Where(device =>
+            device.AccountId == currentUser.Id && device.DeletedAt == null
+        );
 
         var total = await baseQuery.CountAsync();
         Response.Headers.Append("X-Total", total.ToString());
@@ -351,8 +350,7 @@ public class AccountSecurityController(
         )
             return Unauthorized();
 
-        var query = db
-            .AuthSessions.Where(session => session.AccountId == currentUser.Id);
+        var query = db.AuthSessions.Where(session => session.AccountId == currentUser.Id);
 
         // By default (includeChildren not specified), show all sessions
         // Set includeChildren=false to show only root sessions (no parent)
@@ -379,8 +377,10 @@ public class AccountSecurityController(
         var sessionIds = sessions.Select(s => s.Id).ToList();
         if (sessionIds.Count > 0)
         {
-            var childrenCounts = await db.AuthSessions
-                .Where(s => s.ParentSessionId.HasValue && sessionIds.Contains(s.ParentSessionId.Value))
+            var childrenCounts = await db
+                .AuthSessions.Where(s =>
+                    s.ParentSessionId.HasValue && sessionIds.Contains(s.ParentSessionId.Value)
+                )
                 .GroupBy(s => s.ParentSessionId!.Value)
                 .ToDictionaryAsync(g => g.Key, g => g.Count());
 
@@ -407,14 +407,16 @@ public class AccountSecurityController(
             return Unauthorized();
 
         // Verify the session belongs to current user
-        var parentSession = await db.AuthSessions
-            .FirstOrDefaultAsync(s => s.Id == id && s.AccountId == currentUser.Id);
+        var parentSession = await db.AuthSessions.FirstOrDefaultAsync(s =>
+            s.Id == id && s.AccountId == currentUser.Id
+        );
 
         if (parentSession is null)
             return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
 
-        var query = db.AuthSessions
-            .Where(s => s.ParentSessionId == id && s.AccountId == currentUser.Id);
+        var query = db.AuthSessions.Where(s =>
+            s.ParentSessionId == id && s.AccountId == currentUser.Id
+        );
 
         var total = await query.CountAsync();
         Response.Headers.Append("X-Total", total.ToString());
@@ -430,8 +432,10 @@ public class AccountSecurityController(
         var childIds = children.Select(s => s.Id).ToList();
         if (childIds.Count > 0)
         {
-            var grandChildrenCounts = await db.AuthSessions
-                .Where(s => s.ParentSessionId.HasValue && childIds.Contains(s.ParentSessionId.Value))
+            var grandChildrenCounts = await db
+                .AuthSessions.Where(s =>
+                    s.ParentSessionId.HasValue && childIds.Contains(s.ParentSessionId.Value)
+                )
                 .GroupBy(s => s.ParentSessionId!.Value)
                 .ToDictionaryAsync(g => g.Key, g => g.Count());
 
@@ -499,7 +503,9 @@ public class AccountSecurityController(
         {
             try
             {
-                var resp = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest { Id = appId.ToString() });
+                var resp = await customApps.GetCustomAppAsync(
+                    new DyGetCustomAppRequest { Id = appId.ToString() }
+                );
                 if (resp.App is not null)
                     appDetails[appId] = SnCustomApp.FromProtoValue(resp.App);
             }
@@ -533,6 +539,8 @@ public class AccountSecurityController(
     public record AuthorizeAppScopesRequest(List<string> Scopes);
 
     [HttpPost("authorized-apps/{appId:guid}/scopes")]
+    [Authorize]
+    [AskPermission(PermissionKeys.AccountAuthorizedAppsManage)]
     public async Task<ActionResult<AuthorizedAppResponse>> AuthorizeAppScopes(
         [FromRoute] Guid appId,
         [FromBody] AuthorizeAppScopesRequest request
@@ -547,7 +555,9 @@ public class AccountSecurityController(
         DyGetCustomAppResponse appResponse;
         try
         {
-            appResponse = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest { Id = appId.ToString() });
+            appResponse = await customApps.GetCustomAppAsync(
+                new DyGetCustomAppRequest { Id = appId.ToString() }
+            );
         }
         catch (Grpc.Core.RpcException)
         {
@@ -557,16 +567,22 @@ public class AccountSecurityController(
         if (appResponse.App is null)
             return NotFound("App was not found.");
 
-        var allowedScopes = appResponse.App.OauthConfig?.AllowedScopes?.ToHashSet(StringComparer.Ordinal) ?? [];
-        var scopes = request.Scopes
-            .Where(x => !string.IsNullOrWhiteSpace(x))
+        var allowedScopes =
+            appResponse.App.OauthConfig?.AllowedScopes?.ToHashSet(StringComparer.Ordinal) ?? [];
+        var scopes = request
+            .Scopes.Where(x => !string.IsNullOrWhiteSpace(x))
             .Distinct(StringComparer.Ordinal)
             .ToList();
-        var existingScopes = await db.AuthorizedApps
-            .Where(x => x.AccountId == currentUser.Id && x.AppId == appId && x.Type == AuthorizedAppType.Oidc)
-            .Where(x => x.DeletedAt == null)
-            .Select(x => x.Scopes)
-            .FirstOrDefaultAsync() ?? [];
+        var existingScopes =
+            await db
+                .AuthorizedApps.Where(x =>
+                    x.AccountId == currentUser.Id
+                    && x.AppId == appId
+                    && x.Type == AuthorizedAppType.Oidc
+                )
+                .Where(x => x.DeletedAt == null)
+                .Select(x => x.Scopes)
+                .FirstOrDefaultAsync() ?? [];
         scopes = existingScopes.Concat(scopes).Distinct(StringComparer.Ordinal).ToList();
         if (scopes.Any(x => !allowedScopes.Contains(x)))
             return BadRequest("One or more scopes are not allowed by this app.");
@@ -577,25 +593,30 @@ public class AccountSecurityController(
             AuthorizedAppType.Oidc,
             appResponse.App.Slug,
             appResponse.App.Name,
-            scopes);
+            scopes
+        );
 
         var detail = SnCustomApp.FromProtoValue(appResponse.App);
-        return Ok(new AuthorizedAppResponse(
-            authorized.Id,
-            authorized.AppId,
-            authorized.Type,
-            authorized.AppSlug ?? detail.Slug,
-            authorized.AppName ?? detail.Name,
-            detail.Description,
-            detail.Picture,
-            detail.Background,
-            authorized.Scopes,
-            authorized.LastAuthorizedAt,
-            authorized.LastUsedAt
-        ));
+        return Ok(
+            new AuthorizedAppResponse(
+                authorized.Id,
+                authorized.AppId,
+                authorized.Type,
+                authorized.AppSlug ?? detail.Slug,
+                authorized.AppName ?? detail.Name,
+                detail.Description,
+                detail.Picture,
+                detail.Background,
+                authorized.Scopes,
+                authorized.LastAuthorizedAt,
+                authorized.LastUsedAt
+            )
+        );
     }
 
     [HttpDelete("authorized-apps/{id:guid}")]
+    [Authorize]
+    [AskPermission(PermissionKeys.AccountAuthorizedAppsManage)]
     public async Task<ActionResult> DeauthorizeApp(
         [FromRoute] Guid id,
         [FromQuery] AuthorizedAppType? type

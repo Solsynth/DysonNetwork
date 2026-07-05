@@ -4,6 +4,7 @@ using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Auth;
 using Google.Protobuf.WellKnownTypes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -125,6 +126,7 @@ public class RealmController(
 
     [HttpPost("invites/{slug}")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsInvitesManage)]
     public async Task<ActionResult<SnRealmMember>> InviteMember(string slug,
         [FromBody] RealmMemberRequest request)
     {
@@ -209,6 +211,7 @@ public class RealmController(
 
     [HttpPost("invites/{slug}/accept")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsInvitesManage)]
     public async Task<ActionResult<SnRealm>> AcceptMemberInvite(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -240,6 +243,7 @@ public class RealmController(
 
     [HttpPost("invites/{slug}/decline")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsInvitesManage)]
     public async Task<ActionResult> DeclineMemberInvite(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -382,6 +386,7 @@ public class RealmController(
 
     [HttpPatch("{slug}/members/me/profile")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsMembersManage)]
     public async Task<ActionResult<SnRealmMember>> UpdateCurrentIdentity(string slug, [FromBody] RealmMemberProfileRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -403,6 +408,7 @@ public class RealmController(
 
     [HttpDelete("{slug}/members/me/profile")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsMembersManage)]
     public async Task<ActionResult<SnRealmMember>> DeleteCurrentIdentity(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -443,6 +449,7 @@ public class RealmController(
 
     [HttpPost("{slug}/labels")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsLabelsManage)]
     public async Task<ActionResult<SnRealmLabel>> CreateLabel(string slug, [FromBody] RealmLabelRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -474,6 +481,7 @@ public class RealmController(
 
     [HttpPatch("{slug}/labels/{labelId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsLabelsManage)]
     public async Task<ActionResult<SnRealmLabel>> UpdateLabel(string slug, Guid labelId, [FromBody] RealmLabelRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -498,6 +506,7 @@ public class RealmController(
 
     [HttpDelete("{slug}/labels/{labelId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsLabelsManage)]
     public async Task<ActionResult> DeleteLabel(string slug, Guid labelId)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -521,6 +530,7 @@ public class RealmController(
 
     [HttpPatch("{slug}/members/{memberId:guid}/label")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsMembersManage)]
     public async Task<ActionResult<SnRealmMember>> UpdateMemberLabel(string slug, Guid memberId, [FromBody] RealmLabelAssignmentRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -551,6 +561,7 @@ public class RealmController(
 
     [HttpPost("{slug}/boosts")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsBoostsManage)]
     public async Task<ActionResult<RealmBoostResponse>> BoostRealm(string slug, [FromBody] RealmBoostRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -688,6 +699,7 @@ public class RealmController(
 
     [HttpDelete("{slug}/members/me")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsMembersManage)]
     public async Task<ActionResult> LeaveRealm(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -804,6 +816,7 @@ public class RealmController(
 
     [HttpPatch("{slug}")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsUpdate)]
     public async Task<ActionResult<SnRealm>> Update(string slug, [FromBody] RealmRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -877,6 +890,8 @@ public class RealmController(
 
     [HttpPost("{slug}/members/me")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsMembersManage)]
+    [AskPermission(PermissionKeys.RealmsMembersManage)]
     public async Task<ActionResult<SnRealmMember>> JoinRealm(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -944,6 +959,7 @@ public class RealmController(
 
     [HttpDelete("{slug}/members/{memberId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsMembersManage)]
     public async Task<ActionResult> RemoveMember(string slug, Guid memberId)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -980,6 +996,7 @@ public class RealmController(
 
     [HttpPatch("{slug}/members/{memberId:guid}/role")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsMembersManage)]
     public async Task<ActionResult<SnRealmMember>> UpdateMemberRole(string slug, Guid memberId, [FromBody] int newRole)
     {
         if (newRole >= RealmMemberRole.Owner) return BadRequest("Unable to set realm member to owner or greater role.");
@@ -1020,6 +1037,7 @@ public class RealmController(
 
     [HttpDelete("{slug}")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsDelete)]
     public async Task<ActionResult> Delete(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -1117,6 +1135,7 @@ public class RealmController(
 
     [HttpPost("{slug}/permissions/roles")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsPermissionsManage)]
     public async Task<ActionResult<SnRealmRolePermission>> UpdateRolePermissions(string slug, [FromBody] RealmRolePermissionRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -1172,6 +1191,7 @@ public class RealmController(
 
     [HttpPost("{slug}/permissions/users")]
     [Authorize]
+    [AskPermission(PermissionKeys.RealmsPermissionsManage)]
     public async Task<ActionResult<SnRealmUserPermission>> UpdateUserPermissions(string slug, [FromBody] RealmUserPermissionRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();

@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -65,6 +66,7 @@ public class AppProductController(
 
     [HttpGet]
     [Authorize]
+    [AskPermission(PermissionKeys.AppProductsCreate)]
     public async Task<IActionResult> ListProducts(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,
@@ -141,6 +143,7 @@ public class AppProductController(
 
     [HttpPatch("{productId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.AppProductsUpdate)]
     public async Task<IActionResult> UpdateProduct(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,
@@ -197,6 +200,7 @@ public class AppProductController(
 
     [HttpDelete("{productId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.AppProductsDelete)]
     public async Task<IActionResult> DeleteProduct(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,

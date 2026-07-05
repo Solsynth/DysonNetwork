@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DysonNetwork.Passport.Account;
@@ -14,6 +16,8 @@ public class UploadArtworkRequest
 public class PresenceArtworkController(PresenceArtworkService artworkService) : ControllerBase
 {
     [HttpPost]
+    [Authorize]
+    [AskPermission(PermissionKeys.PresencesArtworkManage)]
     [RequestSizeLimit(1024 * 1024)]
     [ProducesResponseType<PresenceArtworkResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

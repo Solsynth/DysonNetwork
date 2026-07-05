@@ -1,4 +1,5 @@
 using DysonNetwork.Ring.Services;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
 
 namespace DysonNetwork.Ring.Startup;
@@ -13,6 +14,7 @@ public static class ApplicationConfiguration
 
         app.UseWebSockets();
         app.UseAuthentication();
+        app.UseMiddleware<RemotePermissionMiddleware>();
         app.UseAuthorization();
 
         app.MapControllers();

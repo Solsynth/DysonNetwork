@@ -2,6 +2,7 @@ using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -283,6 +284,7 @@ public class PostController(
 
     [HttpGet("drafts")]
     [Authorize]
+    [AskPermission(PermissionKeys.PostsView)]
     public async Task<ActionResult<List<SnPost>>> ListDrafts(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,
@@ -334,6 +336,7 @@ public class PostController(
 
     [HttpGet("bookmarks")]
     [Authorize]
+    [AskPermission(PermissionKeys.PostsBookmark)]
     public async Task<ActionResult<List<SnPost>>> ListBookmarks(
         [FromQuery] int offset = 0,
         [FromQuery] int take = 20,

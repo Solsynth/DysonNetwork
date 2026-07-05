@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using DysonNetwork.Padlock.Auth;
 using DysonNetwork.Shared.Models;
+using SharedAuth = DysonNetwork.Shared.Auth;
 using NodaTime;
 
 namespace DysonNetwork.Padlock.Auth;
@@ -31,6 +32,8 @@ public class ApiKeyController(
     }
 
     [HttpPost("")]
+    [Authorize]
+    [SharedAuth.AskPermission(SharedAuth.PermissionKeys.AuthApiKeysManage)]
     public async Task<IActionResult> CreateApiKey([FromBody] CreateApiKeyRequest request, CancellationToken ct)
     {
         var user = HttpContext.Items["CurrentUser"] as SnAccount;
@@ -48,6 +51,8 @@ public class ApiKeyController(
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize]
+    [SharedAuth.AskPermission(SharedAuth.PermissionKeys.AuthApiKeysManage)]
     public async Task<IActionResult> RevokeApiKey(Guid id, CancellationToken ct)
     {
         var user = HttpContext.Items["CurrentUser"] as SnAccount;
@@ -61,6 +66,8 @@ public class ApiKeyController(
     }
 
     [HttpPost("{id:guid}/rotate")]
+    [Authorize]
+    [SharedAuth.AskPermission(SharedAuth.PermissionKeys.AuthApiKeysManage)]
     public async Task<IActionResult> RotateApiKey(Guid id, CancellationToken ct)
     {
         var user = HttpContext.Items["CurrentUser"] as SnAccount;

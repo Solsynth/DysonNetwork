@@ -102,6 +102,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpPost("{accountId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.RelationshipsCreate)]
     public async Task<ActionResult<SnAccountRelationship>> CreateRelationship(Guid accountId,
         [FromBody] RelationshipRequest request)
     {
@@ -136,6 +137,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpPatch("{accountId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.RelationshipsUpdate)]
     public async Task<ActionResult<SnAccountRelationship>> UpdateRelationship(Guid accountId,
         [FromBody] RelationshipRequest request)
     {
@@ -169,6 +171,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpDelete("{accountId:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.RelationshipsDelete)]
     public async Task<ActionResult<SnAccountRelationship>> DeleteRelationship(Guid accountId)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -218,6 +221,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpPost("{accountId:guid}/friends")]
     [Authorize]
+    [AskPermission(PermissionKeys.RelationshipsFriendsManage)]
     public async Task<ActionResult<SnAccountRelationship>> SendFriendRequest(Guid accountId)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -243,6 +247,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpDelete("{accountId:guid}/friends")]
     [Authorize]
+    [AskPermission(PermissionKeys.RelationshipsFriendsManage)]
     public async Task<ActionResult> DeleteFriendRequest(Guid accountId)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -260,6 +265,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpPost("{accountId:guid}/friends/accept")]
     [Authorize]
+    [AskPermission(PermissionKeys.RelationshipsFriendsManage)]
     public async Task<ActionResult<SnAccountRelationship>> AcceptFriendRequest(Guid accountId)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -280,6 +286,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpPost("{accountId:guid}/friends/decline")]
     [Authorize]
+    [AskPermission(PermissionKeys.RelationshipsFriendsManage)]
     public async Task<ActionResult<SnAccountRelationship>> DeclineFriendRequest(Guid accountId)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -300,6 +307,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpPost("{accountId:guid}/block")]
     [Authorize]
+    [AskPermission(PermissionKeys.RelationshipsBlockManage)]
     public async Task<ActionResult<SnAccountRelationship>> BlockUser(
         Guid accountId,
         [FromBody] RelationshipActionRequest? request = null
@@ -331,6 +339,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpDelete("{accountId:guid}/block")]
     [Authorize]
+    [AskPermission(PermissionKeys.RelationshipsBlockManage)]
     public async Task<ActionResult<SnAccountRelationship>> UnblockUser(Guid accountId)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -351,6 +360,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpPost("{accountId:guid}/mute")]
     [Authorize]
+    [AskPermission(PermissionKeys.RelationshipsMuteManage)]
     public async Task<ActionResult<SnAccountRelationship>> MuteUser(
         Guid accountId,
         [FromBody] RelationshipActionRequest? request = null
@@ -382,6 +392,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpDelete("{accountId:guid}/mute")]
     [Authorize]
+    [AskPermission(PermissionKeys.RelationshipsMuteManage)]
     public async Task<ActionResult<SnAccountRelationship>> UnmuteUser(Guid accountId)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -402,6 +413,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpPost("{accountId:guid}/close-friend")]
     [Authorize]
+    [AskPermission(PermissionKeys.RelationshipsCloseFriendsManage)]
     public async Task<ActionResult<SnAccountRelationship>> AddCloseFriend(Guid accountId)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -422,6 +434,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpDelete("{accountId:guid}/close-friend")]
     [Authorize]
+    [AskPermission(PermissionKeys.RelationshipsCloseFriendsManage)]
     public async Task<ActionResult<SnAccountRelationship>> RemoveCloseFriend(Guid accountId)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -499,6 +512,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpPatch("{accountId:guid}/alias")]
     [Authorize]
+    [AskPermission(PermissionKeys.RelationshipsAliasManage)]
     public async Task<ActionResult<SnAccountRelationship>> UpdateAlias(Guid accountId, [FromBody] AliasRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
@@ -550,6 +564,7 @@ public class RelationshipController(AppDatabase db, RelationshipService rls, Act
 
     [HttpPost("sync")]
     [Authorize]
+    [AskPermission(PermissionKeys.RelationshipsSync)]
     public async Task<ActionResult<RelationshipSyncResponse>> SyncRelationships([FromBody] SyncRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();

@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Sphere.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,6 +22,7 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
     }
 
     [HttpPost("uninterested")]
+    [AskPermission(PermissionKeys.TimelinesFeedback)]
     public async Task<ActionResult<SnDiscoveryPreference>> MarkUninterested(
         [FromBody] DiscoveryPreferenceRequest request
     )
@@ -42,6 +44,7 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
     }
 
     [HttpDelete("uninterested")]
+    [AskPermission(PermissionKeys.TimelinesFeedback)]
     public async Task<ActionResult> RemoveUninterested(
         [FromQuery] string kind,
         [FromQuery] Guid referenceId
@@ -63,6 +66,7 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
     }
 
     [HttpPost("feedback")]
+    [AskPermission(PermissionKeys.TimelinesFeedback)]
     public async Task<ActionResult<RecommendationFeedbackResult>> LeaveFeedback(
         [FromBody] RecommendationFeedbackRequest request
     )
@@ -92,6 +96,7 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
     }
 
     [HttpPut("weights")]
+    [AskPermission(PermissionKeys.TimelinesWeightsManage)]
     public async Task<ActionResult<SnPostInterestProfile>> AdjustWeight(
         [FromBody] RecommendationWeightChangeRequest request
     )
@@ -115,6 +120,7 @@ public class TimelineDiscoveryController(TimelineService timeline) : ControllerB
     }
 
     [HttpPost("reset")]
+    [AskPermission(PermissionKeys.TimelinesReset)]
     public async Task<ActionResult<int>> ResetInterests()
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)

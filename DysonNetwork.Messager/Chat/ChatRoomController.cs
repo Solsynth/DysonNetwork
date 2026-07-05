@@ -143,6 +143,7 @@ public class ChatRoomController(
     }
 
     [HttpPost("rooms/sync")]
+    [AskPermission(PermissionKeys.ChatSync)]
     [Authorize]
     public async Task<ActionResult<ChatRoomSyncResponse>> SyncJoinedChatRooms([FromBody] ChatRoomSyncRequest request)
     {
@@ -351,6 +352,7 @@ public class ChatRoomController(
     }
 
     [HttpPost("direct")]
+    [AskPermission(PermissionKeys.ChatCreate)]
     [Authorize]
     public async Task<ActionResult<SnChatRoom>> CreateDirectMessage([FromBody] DirectMessageRequest request)
     {
@@ -626,6 +628,7 @@ public class ChatRoomController(
 
 
     [HttpPatch("{id:guid}")]
+    [AskPermission(PermissionKeys.ChatUpdate)]
     public async Task<ActionResult<SnChatRoom>> UpdateChatRoom(Guid id, [FromBody] ChatRoomRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -895,6 +898,7 @@ public class ChatRoomController(
     }
 
     [HttpDelete("{id:guid}")]
+    [AskPermission(PermissionKeys.ChatDelete)]
     public async Task<ActionResult> DeleteChatRoom(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -985,6 +989,7 @@ public class ChatRoomController(
     }
 
     [HttpPatch("{roomId:guid}/members/me/profile")]
+    [AskPermission(PermissionKeys.ChatMembersManage)]
     [Authorize]
     public async Task<ActionResult<SnChatMember>> UpdateRoomIdentity(Guid roomId, [FromBody] ChatMemberProfileRequest request)
     {
@@ -1195,6 +1200,7 @@ public class ChatRoomController(
     }
 
     [HttpPost("invites/{roomId:guid}")]
+    [AskPermission(PermissionKeys.ChatInvitesManage)]
     [Authorize]
     public async Task<ActionResult<SnChatMember>> InviteMember(Guid roomId, [FromBody] ChatMemberRequest request)
     {
@@ -1503,6 +1509,7 @@ public class ChatRoomController(
     }
 
     [HttpPost("{roomId:guid}/members/{memberId:guid}/timeout")]
+    [AskPermission(PermissionKeys.ChatMembersTimeout)]
     [Authorize]
     public async Task<ActionResult> TimeoutChatMember(Guid roomId, Guid memberId, [FromBody] ChatTimeoutRequest request)
     {
@@ -1646,6 +1653,7 @@ public class ChatRoomController(
     }
 
     [HttpDelete("{roomId:guid}/members/{memberId:guid}")]
+    [AskPermission(PermissionKeys.ChatMembersKick)]
     [Authorize]
     public async Task<ActionResult> RemoveChatMember(Guid roomId, Guid memberId)
     {
@@ -1887,6 +1895,7 @@ public class ChatRoomController(
     }
 
     [HttpPost("groups")]
+    [AskPermission(PermissionKeys.ChatGroupsManage)]
     [Authorize]
     public async Task<ActionResult<SnChatGroup>> CreateGroup([FromBody] CreateGroupRequest request)
     {
@@ -1942,6 +1951,7 @@ public class ChatRoomController(
     }
 
     [HttpDelete("rooms/{roomId:guid}/messages/{messageId:guid}")]
+    [AskPermission(PermissionKeys.ChatMessagesDelete)]
     [Authorize]
     public async Task<ActionResult> DeleteMessage(Guid roomId, Guid messageId, [FromBody] DeleteChatRoomMessageRequest request)
     {

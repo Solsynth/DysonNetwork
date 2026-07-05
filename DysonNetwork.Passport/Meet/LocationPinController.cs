@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -88,6 +89,7 @@ public class LocationPinController(
 
     [HttpPut("{id:guid}/location")]
     [Authorize]
+    [AskPermission(PermissionKeys.LocationPinsUpdate)]
     public async Task<ActionResult<SnLocationPin>> UpdateLocation(
         Guid id,
         [FromBody] UpdateLocationRequest request,
@@ -134,6 +136,7 @@ public class LocationPinController(
 
     [HttpDelete("{id:guid}")]
     [Authorize]
+    [AskPermission(PermissionKeys.LocationPinsDelete)]
     public async Task<ActionResult> RemovePin(
         Guid id,
         CancellationToken cancellationToken
@@ -230,6 +233,7 @@ public class LocationPinController(
 
     [HttpPost("{id:guid}/disconnect")]
     [Authorize]
+    [AskPermission(PermissionKeys.LocationPinsDelete)]
     public async Task<ActionResult> DisconnectPin(
         Guid id,
         [FromBody] DisconnectRequest request,

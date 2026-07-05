@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -117,6 +118,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
 
     [HttpPost("categories/{slug}/subscribe")]
     [Authorize]
+    [AskPermission(PermissionKeys.PostCategoriesSubscribe)]
     public async Task<ActionResult<SnPostCategorySubscription>> SubscribeCategory(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -148,6 +150,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
 
     [HttpPost("categories/{slug}/unsubscribe")]
     [Authorize]
+    [AskPermission(PermissionKeys.PostCategoriesSubscribe)]
     public async Task<IActionResult> UnsubscribeCategory(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -191,6 +194,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
 
     [HttpPost("tags/{slug}/subscribe")]
     [Authorize]
+    [AskPermission(PermissionKeys.PostCategoriesSubscribe)]
     public async Task<ActionResult<SnPostCategorySubscription>> SubscribeTag(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -224,6 +228,7 @@ public class PostCategoryController(AppDatabase db) : ControllerBase
 
     [HttpPost("tags/{slug}/unsubscribe")]
     [Authorize]
+    [AskPermission(PermissionKeys.PostCategoriesSubscribe)]
     public async Task<IActionResult> UnsubscribeTag(string slug)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();

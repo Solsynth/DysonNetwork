@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -56,6 +57,7 @@ public class RealtimeCallController(
     }
 
     [HttpPost("{roomId:guid}/kick/{targetAccountId:guid}")]
+    [AskPermission(PermissionKeys.ChatCallKick)]
     [Authorize]
     public async Task<IActionResult> KickParticipant(
         Guid roomId,
@@ -154,6 +156,7 @@ public class RealtimeCallController(
     }
 
     [HttpPost("{roomId:guid}/mute/{targetAccountId:guid}")]
+    [AskPermission(PermissionKeys.ChatCallMute)]
     [Authorize]
     public async Task<IActionResult> MuteParticipant(Guid roomId, Guid targetAccountId)
     {
@@ -161,6 +164,7 @@ public class RealtimeCallController(
     }
 
     [HttpPost("{roomId:guid}/unmute/{targetAccountId:guid}")]
+    [AskPermission(PermissionKeys.ChatCallMute)]
     [Authorize]
     public async Task<IActionResult> UnmuteParticipant(Guid roomId, Guid targetAccountId)
     {
@@ -283,6 +287,7 @@ public class RealtimeCallController(
     }
 
     [HttpPost("{roomId:guid}/invite/{targetAccountId:guid}")]
+    [AskPermission(PermissionKeys.ChatCallInvite)]
     [Authorize]
     public async Task<IActionResult> InviteToCall(Guid roomId, Guid targetAccountId)
     {

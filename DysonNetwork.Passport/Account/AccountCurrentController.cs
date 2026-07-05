@@ -290,6 +290,7 @@ public class AccountCurrentController(
 
     [HttpPost("badges/{id:guid}/active")]
     [Authorize]
+    [AskPermission(PermissionKeys.ProgressionBadgesManage)]
     public async Task<ActionResult<SnAccountBadge>> ActivateBadge(Guid id)
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
