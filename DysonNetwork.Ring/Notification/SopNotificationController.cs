@@ -30,7 +30,7 @@ public class SopNotificationController(
 
     [HttpPost("subscription")]
     [Authorize]
-    [AskPermission(PermissionKeys.SopNotificationsSubscribe)]
+    [AskPermission(PermissionKeys.NotificationsSopSubscribe)]
     public async Task<ActionResult<SopRegistrationResponse>> RegisterSopToken([FromBody] SopRegistrationRequest request)
     {
         HttpContext.Items.TryGetValue("CurrentSession", out var currentSessionValue);
