@@ -246,17 +246,17 @@ public class OrderController(
         public string? ProductIdentifier { get; set; }
         public Dictionary<string, object>? Meta { get; set; }
         public decimal Amount { get; set; }
-        public Instant CreatedAt { get; set; }
-        public Instant UpdatedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset UpdatedAt { get; set; }
         public DateTimeOffset ExpiredAt { get; set; }
         public Guid? PayeeWalletId { get; set; }
         public Guid? TransactionId { get; set; }
         public List<SnWalletOrderItem> Items { get; set; } = new();
 
-        public DyCustomApp? App { get; set; }
-        public DyDeveloper? Developer { get; set; }
+        public SnCustomApp? App { get; set; }
+        public AppDeveloperResponse? Developer { get; set; }
 
-        public static PaymentOrderResponse FromOrder(SnWalletOrder order, DyCustomApp? app, DyDeveloper? developer)
+        public static PaymentOrderResponse FromOrder(SnWalletOrder order, SnCustomApp? app, AppDeveloperResponse? developer)
         {
             return new PaymentOrderResponse
             {
@@ -268,9 +268,9 @@ public class OrderController(
                 ProductIdentifier = order.ProductIdentifier,
                 Meta = order.Meta,
                 Amount = order.Amount,
-                CreatedAt = order.CreatedAt,
-                UpdatedAt = order.UpdatedAt,
-                ExpiredAt = new DateTimeOffset(order.ExpiredAt.ToDateTimeUtc(), TimeSpan.Zero),
+                CreatedAt = ToDateTimeOffset(order.CreatedAt),
+                UpdatedAt = ToDateTimeOffset(order.UpdatedAt),
+                ExpiredAt = ToDateTimeOffset(order.ExpiredAt),
                 PayeeWalletId = order.PayeeWalletId,
                 TransactionId = order.TransactionId,
                 Items = order.Items,
@@ -278,6 +278,22 @@ public class OrderController(
                 Developer = developer
             };
         }
+
+        private static DateTimeOffset ToDateTimeOffset(Instant instant) => new(instant.ToDateTimeUtc(), TimeSpan.Zero);
+    }
+
+    public class AppDeveloperResponse
+    {
+        public Guid Id { get; set; }
+        public Guid PublisherId { get; set; }
+        public string? PublisherName { get; set; }
+
+        public static AppDeveloperResponse FromProto(DyDeveloper developer) => new()
+        {
+            Id = Guid.Parse(developer.Id),
+            PublisherId = Guid.Parse(developer.PublisherId),
+            PublisherName = string.IsNullOrWhiteSpace(developer.PublisherName) ? null : developer.PublisherName
+        };
     }
 
     [HttpGet("{id:guid}")]
@@ -292,15 +308,17 @@ public class OrderController(
         if (order is null)
             return NotFound();
 
-        DyCustomApp? app = null;
-        DyDeveloper? developer = null;
+        SnCustomApp? app = null;
+        AppDeveloperResponse? developer = null;
         if (!string.IsNullOrWhiteSpace(order.AppIdentifier) && Guid.TryParse(order.AppIdentifier.Replace("developer.app:", ""), out var appId))
         {
             try
             {
                 var devResp = await customApps.GetAppDeveloperAsync(new DyGetAppDeveloperRequest { AppId = appId.ToString() });
-                app = devResp.App;
-                developer = devResp.Developer;
+                if (devResp.App is not null)
+                    app = SnCustomApp.FromProtoValue(devResp.App);
+                if (devResp.Developer is not null)
+                    developer = AppDeveloperResponse.FromProto(devResp.Developer);
             }
             catch (RpcException)
             {
