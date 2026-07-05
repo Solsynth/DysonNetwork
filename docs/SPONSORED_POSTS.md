@@ -312,6 +312,52 @@ Returns advertising stats for all sponsored posts belonging to the publisher. **
 
 This endpoint reads from `SnPostAggregatedStats`, so it is a cheap query with no complex subqueries across bids or placements.
 
+### List Public Publisher Advertising Posts
+
+```http
+GET /api/ads/{name}?offset=0&take=20
+```
+
+Returns public advertising stats for the publisher's public, timeline-eligible sponsored posts, including each post's current chance to win timeline placement.
+
+**Response headers:**
+
+| Header | Description |
+|--------|-------------|
+| `X-Total` | Total count of advertising posts |
+
+**Response body:**
+
+```json
+[
+  {
+    "post_id": "uuid",
+    "title": "My Product Launch",
+    "slug": "my-product-launch",
+    "active_bid_total": 250.0,
+    "bid_count": 18,
+    "is_currently_placed": true,
+    "shown_count": 142,
+    "last_shown_at": "2026-07-04T15:32:00Z",
+    "display_chance": 0.125
+  }
+]
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `post_id` | `uuid` | Post identifier |
+| `title` | `string?` | Post title |
+| `slug` | `string?` | Post slug |
+| `active_bid_total` | `decimal` | Sum of all still-active bids |
+| `bid_count` | `int` | Number of still-active bids |
+| `is_currently_placed` | `bool` | Whether this post won the current hour's auction |
+| `shown_count` | `long` | Lifetime impressions across all placements |
+| `last_shown_at` | `Instant?` | Most recent impression time |
+| `display_chance` | `decimal` | Current auction chance as a 0-1 ratio across all valid active sponsor bids |
+
+This endpoint combines active bids, current placement, and aggregated impression stats so posts with live bids are visible even before they win their first placement.
+
 ## Auction Algorithm
 
 The `PostSponsorAuctionJob` runs hourly via Quartz (cron `0 0 * * * ?`):
@@ -431,6 +477,7 @@ Aggregate data is **public**:
 - `GET /api/posts/sponsor/leaderboard` — total amounts per post are visible to everyone.
 - `GET /api/posts/{id}/sponsor` — the total active sponsorship for a post is visible to everyone.
 - `GET /api/publishers/{name}/ads` — aggregate stats for publisher members only.
+- `GET /api/ads/{name}` — public aggregate ad stats plus current display chance.
 
 ## Payment Flow
 

@@ -345,6 +345,95 @@ public class SponsorService(
             LastShownAt = s.LastShownAt,
         }).ToList();
     }
+
+    public async Task<List<PublicAdvertisingPostStats>> ListPublicAdvertisingPostsAsync(Guid publisherId)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+
+        var activeBids = await db.PostSponsorBids
+            .Where(b => b.ExpiresAt > now)
+            .GroupBy(b => b.PostId)
+            .Select(g => new
+            {
+                PostId = g.Key,
+                TotalAmount = g.Sum(b => b.Amount),
+                BidCount = g.Count(),
+            })
+            .ToListAsync();
+
+        var validCandidateIds = (await db.Posts
+            .Where(p => activeBids.Select(b => b.PostId).Contains(p.Id))
+            .Where(p => p.DeletedAt == null)
+            .Where(p => p.Visibility == PostVisibility.Public)
+            .Where(p => p.ShadowbanReason == null || p.ShadowbanReason == PostShadowbanReason.None)
+            .Where(p => p.PublisherId == null || !db.Publishers.Any(pub =>
+                pub.Id == p.PublisherId && pub.ShadowbanReason != null && pub.ShadowbanReason != PublisherShadowbanReason.None))
+            .Select(p => p.Id)
+            .ToListAsync()).ToHashSet();
+
+        var totalDisplayWeight = activeBids
+            .Where(b => validCandidateIds.Contains(b.PostId))
+            .Sum(b => b.TotalAmount);
+        var activeBidByPostId = activeBids.ToDictionary(b => b.PostId);
+
+        var posts = await db.Posts
+            .Where(p => p.PublisherId == publisherId)
+            .Where(p => p.DeletedAt == null)
+            .Where(p => p.Visibility == PostVisibility.Public)
+            .Where(p => p.ShadowbanReason == null || p.ShadowbanReason == PostShadowbanReason.None)
+            .Select(p => new
+            {
+                p.Id,
+                p.Title,
+                p.Slug,
+            })
+            .ToListAsync();
+        var postIds = posts.Select(p => p.Id).ToList();
+
+        var aggregatedStats = await db.PostAggregatedStats
+            .Where(s => postIds.Contains(s.PostId))
+            .Select(s => new
+            {
+                s.PostId,
+                s.ShownCount,
+                s.LastShownAt,
+            })
+            .ToListAsync();
+        var aggregatedStatsByPostId = aggregatedStats.ToDictionary(s => s.PostId);
+
+        var currentPlacementIds = (await db.PostSponsorPlacements
+            .Where(p => postIds.Contains(p.PostId))
+            .Where(p => p.ValidFrom <= now && p.ValidUntil > now)
+            .Select(p => p.PostId)
+            .ToListAsync()).ToHashSet();
+
+        return posts
+            .Select(post =>
+            {
+                activeBidByPostId.TryGetValue(post.Id, out var bid);
+                aggregatedStatsByPostId.TryGetValue(post.Id, out var stats);
+
+                var activeBidTotal = bid?.TotalAmount ?? 0m;
+                return new PublicAdvertisingPostStats
+                {
+                    PostId = post.Id,
+                    Title = post.Title,
+                    Slug = post.Slug,
+                    ActiveBidTotal = activeBidTotal,
+                    BidCount = bid?.BidCount ?? 0,
+                    IsCurrentlyPlaced = currentPlacementIds.Contains(post.Id),
+                    ShownCount = stats?.ShownCount ?? 0,
+                    LastShownAt = stats?.LastShownAt,
+                    DisplayChance = totalDisplayWeight > 0m && validCandidateIds.Contains(post.Id)
+                        ? activeBidTotal / totalDisplayWeight
+                        : 0m,
+                };
+            })
+            .Where(s => s.ActiveBidTotal > 0 || s.ShownCount > 0 || s.IsCurrentlyPlaced)
+            .OrderByDescending(s => s.ActiveBidTotal)
+            .ThenByDescending(s => s.ShownCount)
+            .ToList();
+    }
 }
 
 public class SponsorLeaderboardEntry
@@ -364,4 +453,9 @@ public class AdvertisingPostStats
     public bool IsCurrentlyPlaced { get; set; }
     public long ShownCount { get; set; }
     public Instant? LastShownAt { get; set; }
+}
+
+public class PublicAdvertisingPostStats : AdvertisingPostStats
+{
+    public decimal DisplayChance { get; set; }
 }
