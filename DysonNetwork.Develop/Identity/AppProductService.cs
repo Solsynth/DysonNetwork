@@ -23,6 +23,7 @@ public class AppProductService(
     public async Task<List<SnAppProduct>> GetProductsByAppAsync(Guid appId)
     {
         return await db.AppProducts
+            .Include(p => p.State)
             .Where(p => p.AppId == appId)
             .OrderBy(p => p.Identifier)
             .ToListAsync();
@@ -31,12 +32,14 @@ public class AppProductService(
     public async Task<SnAppProduct?> GetProductAsync(Guid id, Guid appId)
     {
         return await db.AppProducts
+            .Include(p => p.State)
             .FirstOrDefaultAsync(p => p.Id == id && p.AppId == appId);
     }
 
     public async Task<SnAppProduct?> GetProductByIdentifierAsync(Guid appId, string identifier)
     {
         return await db.AppProducts
+            .Include(p => p.State)
             .FirstOrDefaultAsync(p => p.AppId == appId && p.Identifier == identifier);
     }
 
@@ -44,6 +47,8 @@ public class AppProductService(
     {
         product.Id = Guid.NewGuid();
         product.AppId = appId;
+        product.State ??= new SnAppProductState();
+        product.State.ProductId = product.Id;
         db.AppProducts.Add(product);
         await db.SaveChangesAsync();
 
@@ -55,6 +60,9 @@ public class AppProductService(
 
     public async Task<SnAppProduct?> UpdateProductAsync(SnAppProduct product)
     {
+        if (product.State is not null)
+            product.State.ProductId = product.Id;
+
         db.AppProducts.Update(product);
         await db.SaveChangesAsync();
 
@@ -66,6 +74,7 @@ public class AppProductService(
     public async Task<bool> DeleteProductAsync(Guid id, Guid appId)
     {
         var product = await db.AppProducts
+            .Include(p => p.State)
             .FirstOrDefaultAsync(p => p.Id == id && p.AppId == appId);
         if (product is null) return false;
         db.AppProducts.Remove(product);

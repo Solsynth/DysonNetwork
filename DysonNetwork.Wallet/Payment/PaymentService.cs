@@ -26,6 +26,23 @@ public class PaymentService(
     ILogger<PaymentService> logger
 )
 {
+    public async Task ExpireOverdueOrdersAsync(CancellationToken cancellationToken = default)
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var expiredOrders = await db.PaymentOrders
+            .Where(o => o.Status == Shared.Models.OrderStatus.Unpaid)
+            .Where(o => o.ExpiredAt < now)
+            .ToListAsync(cancellationToken);
+
+        if (expiredOrders.Count == 0)
+            return;
+
+        foreach (var order in expiredOrders)
+            order.Status = Shared.Models.OrderStatus.Expired;
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<SnWalletOrder> CreateOrderAsync(
         Guid? payeeWalletId,
         string currency,

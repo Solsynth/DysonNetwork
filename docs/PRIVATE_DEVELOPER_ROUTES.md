@@ -59,6 +59,9 @@ Products:
 - `PATCH /api/private/apps/{appId}/products/{productId}?dev={developer_slug}&proj={project_id}`
 - `DELETE /api/private/apps/{appId}/products/{productId}?dev={developer_slug}&proj={project_id}`
 
+Product payloads also support `fulfillment` and `state`.
+See `docs/APP_PRODUCTS.md`.
+
 ### Bots
 
 Base:

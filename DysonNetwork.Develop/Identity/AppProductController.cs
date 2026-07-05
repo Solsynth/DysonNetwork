@@ -16,6 +16,17 @@ public class AppProductController(
     DevProjectService projectService
 ) : ControllerBase
 {
+    public record ProductFulfillmentRequest(
+        bool? IsAddressRequired,
+        List<string>? RequiredScopes
+    );
+
+    public record ProductStateRequest(
+        bool? IsEnabled,
+        string? StockMode,
+        int? StockQuantity
+    );
+
     public record ProductRequest(
         [MaxLength(1024)] string? Identifier,
         [MaxLength(1024)] string? DisplayName,
@@ -25,7 +36,9 @@ public class AppProductController(
         string? PictureId,
         string? BackgroundId,
         string? Recurrence,
-        string? GroupIdentifier
+        string? GroupIdentifier,
+        ProductFulfillmentRequest? Fulfillment,
+        ProductStateRequest? State
     );
 
     private async Task<IActionResult> ResolveAppAsync(string dev, Guid proj, Guid appId, string role)
@@ -109,6 +122,12 @@ public class AppProductController(
             Price = request.Price ?? 0,
             Recurrence = ParseRecurrence(request.Recurrence),
             GroupIdentifier = request.GroupIdentifier,
+            Fulfillment = request.Fulfillment is null ? null : new SnAppProductFulfillment
+            {
+                IsAddressRequired = request.Fulfillment.IsAddressRequired ?? false,
+                RequiredScopes = request.Fulfillment.RequiredScopes?.Distinct(StringComparer.Ordinal).ToArray() ?? []
+            },
+            State = BuildState(request.State)
         };
 
         if (request.PictureId is not null)
@@ -142,6 +161,31 @@ public class AppProductController(
         if (request.Price.HasValue) product.Price = request.Price.Value;
         if (request.Recurrence is not null) product.Recurrence = ParseRecurrence(request.Recurrence);
         if (request.GroupIdentifier is not null) product.GroupIdentifier = request.GroupIdentifier;
+        if (request.Fulfillment is not null)
+        {
+            product.Fulfillment ??= new SnAppProductFulfillment();
+            if (request.Fulfillment.IsAddressRequired.HasValue)
+                product.Fulfillment.IsAddressRequired = request.Fulfillment.IsAddressRequired.Value;
+            if (request.Fulfillment.RequiredScopes is not null)
+                product.Fulfillment.RequiredScopes = request.Fulfillment.RequiredScopes.Distinct(StringComparer.Ordinal).ToArray();
+        }
+        if (request.State is not null)
+        {
+            product.State ??= new SnAppProductState { ProductId = product.Id };
+            if (request.State.IsEnabled.HasValue)
+                product.State.IsEnabled = request.State.IsEnabled.Value;
+            if (request.State.StockMode is not null)
+                product.State.StockMode = ParseStockMode(request.State.StockMode);
+            if (request.State.StockQuantity.HasValue)
+            {
+                product.State.StockQuantity = request.State.StockQuantity.Value;
+                if (product.State.StockMode == ProductStockMode.Manual)
+                {
+                    product.State.LastRestockedAt = NodaTime.SystemClock.Instance.GetCurrentInstant();
+                    product.State.LastRestockedQuantity = request.State.StockQuantity.Value;
+                }
+            }
+        }
         if (request.PictureId is not null)
             product.Picture = await productService.ResolveFileAsync(request.PictureId);
         if (request.BackgroundId is not null)
@@ -168,11 +212,39 @@ public class AppProductController(
         return NoContent();
     }
 
+    private static SnAppProductState BuildState(ProductStateRequest? request)
+    {
+        var state = new SnAppProductState
+        {
+            IsEnabled = request?.IsEnabled ?? true,
+            StockMode = ParseStockMode(request?.StockMode),
+            StockQuantity = request?.StockQuantity
+        };
+
+        if (state.StockMode == ProductStockMode.Manual && request?.StockQuantity is not null)
+        {
+            state.LastRestockedAt = NodaTime.SystemClock.Instance.GetCurrentInstant();
+            state.LastRestockedQuantity = request.StockQuantity.Value;
+        }
+
+        return state;
+    }
+
     private static ProductRecurrence ParseRecurrence(string? value) => value?.ToLowerInvariant() switch
     {
         "weekly" => ProductRecurrence.Weekly,
         "monthly" => ProductRecurrence.Monthly,
         "yearly" => ProductRecurrence.Yearly,
         _ => ProductRecurrence.None
+    };
+
+    private static ProductStockMode ParseStockMode(string? value) => value?.ToLowerInvariant() switch
+    {
+        "daily" => ProductStockMode.Daily,
+        "weekly" => ProductStockMode.Weekly,
+        "monthly" => ProductStockMode.Monthly,
+        "yearly" => ProductStockMode.Yearly,
+        "manual" => ProductStockMode.Manual,
+        _ => ProductStockMode.Unlimited
     };
 }

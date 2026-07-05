@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
@@ -16,7 +17,8 @@ public class OrderController(
     AppDatabase db,
     DyCustomAppService.DyCustomAppServiceClient customApps,
     WalletService ws,
-    RemotePublisherService publishers
+    RemotePublisherService publishers,
+    RemoteAccountContactService remoteContacts
 ) : ControllerBase
 {
     private const string NoPinProvided = "NO_PIN_PROVEDED";
@@ -125,13 +127,18 @@ public class OrderController(
         // New: order with product line items
         if (request.Items is { Count: > 0 })
         {
+            await payment.ExpireOverdueOrdersAsync();
+
             var items = new List<SnWalletOrderItem>();
+            var products = new List<(OrderItemRequest Item, SnAppProduct Product)>();
             decimal totalAmount = 0;
             string? currency = null;
 
             foreach (var item in request.Items)
             {
-                // Validate product exists for this app via gRPC
+                if (item.Quantity <= 0)
+                    return BadRequest("Item quantity must be greater than zero.");
+
                 var productResp = await customApps.GetAppProductAsync(new DyGetAppProductRequest
                 {
                     AppId = client.Id.ToString(),
@@ -141,11 +148,17 @@ public class OrderController(
                     return BadRequest($"Product '{item.ProductIdentifier}' not found for this app.");
 
                 var product = SnAppProduct.FromProto(productResp.Product);
+                if (product.State?.IsEnabled == false)
+                    return BadRequest($"Product '{item.ProductIdentifier}' is not selling right now.");
 
                 if (currency is null)
                     currency = product.Currency;
                 else if (currency != product.Currency)
                     return BadRequest("All items must use the same currency.");
+
+                var stockError = await ValidateStockAsync(client.ResourceIdentifier, item.ProductIdentifier, product, item.Quantity);
+                if (stockError is not null)
+                    return BadRequest(stockError);
 
                 var unitPrice = product.Price;
                 var lineTotal = unitPrice * item.Quantity;
@@ -157,21 +170,20 @@ public class OrderController(
                     UnitPrice = unitPrice,
                     Currency = product.Currency
                 });
-
+                products.Add((item, product));
                 totalAmount += lineTotal;
             }
 
-            // Build subscription meta for recurring products
-            var meta = request.Meta ?? new Dictionary<string, object>();
-            var subscriptionItems = items
-                .Select(i => new { i.ProductIdentifier, i.Quantity })
-                .ToList();
-            // Resolve subscription products by checking the first item's product (ponytail: single-currency, single-recurrence per order)
-            var firstProduct = SnAppProduct.FromProto((await customApps.GetAppProductAsync(new DyGetAppProductRequest
+            Dictionary<string, object> meta;
+            try
             {
-                AppId = client.Id.ToString(),
-                Identifier = request.Items[0].ProductIdentifier
-            })).Product!);
+                meta = BuildFulfillmentMeta(request.Meta, products);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            var firstProduct = products[0].Product; // ponytail: single-currency order, recurring metadata follows first product
             if (firstProduct.Recurrence != ProductRecurrence.None)
             {
                 var cycleDays = firstProduct.Recurrence switch
@@ -271,6 +283,8 @@ public class OrderController(
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<PaymentOrderResponse>> GetOrderById(Guid id)
     {
+        await payment.ExpireOverdueOrdersAsync();
+
         var order = await db.PaymentOrders
             .Include(o => o.Items)
             .FirstOrDefaultAsync(o => o.Id == id);
@@ -316,6 +330,12 @@ public class OrderController(
             var wallet = await ResolveAccessiblePayerWalletAsync(currentAccountId, request.PayerWalletId);
             if (wallet == null)
                 return BadRequest("Wallet was not found.");
+
+            var order = await db.PaymentOrders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == id);
+            if (order is null)
+                return NotFound();
+
+            await ValidateOrderFulfillmentContactsAsync(currentAccountId, order);
 
             var paidOrder = await payment.PayOrderAsync(id, wallet);
             return Ok(paidOrder);
@@ -471,6 +491,134 @@ public class OrderController(
         {
             return BadRequest(err.Message);
         }
+    }
+
+    private async Task<string?> ValidateStockAsync(string appIdentifier, string productIdentifier, SnAppProduct product, int requestedQuantity)
+    {
+        var state = product.State;
+        if (state is null || !state.IsEnabled)
+            return $"Product '{product.Identifier}' is not selling right now.";
+
+        if (state.StockMode == ProductStockMode.Unlimited)
+            return null;
+
+        if (!state.StockQuantity.HasValue || state.StockQuantity.Value < 0)
+            return $"Product '{product.Identifier}' is missing stock configuration.";
+
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var windowStart = GetStockWindowStart(state, now);
+        var orderQuery = db.PaymentOrders
+            .AsNoTracking()
+            .Include(o => o.Items)
+            .Where(o => o.AppIdentifier == appIdentifier)
+            .Where(o => o.Status != OrderStatus.Cancelled && o.Status != OrderStatus.Expired)
+            .Where(o => o.Items.Any(i => i.ProductIdentifier == productIdentifier));
+
+        if (windowStart.HasValue)
+            orderQuery = orderQuery.Where(o => o.CreatedAt >= windowStart.Value);
+
+        // ponytail: expired unpaid orders are already excluded after ExpireOverdueOrdersAsync; paid/finished still consume stock.
+        var reserved = await orderQuery
+            .SelectMany(o => o.Items)
+            .Where(i => i.ProductIdentifier == productIdentifier)
+            .SumAsync(i => (int?)i.Quantity) ?? 0;
+
+        var remaining = state.StockQuantity.Value - reserved;
+        return remaining >= requestedQuantity
+            ? null
+            : $"Product '{product.Identifier}' does not have enough stock.";
+    }
+
+    private static Instant? GetStockWindowStart(SnAppProductState state, Instant now)
+    {
+        var utcNow = now.ToDateTimeUtc();
+        return state.StockMode switch
+        {
+            ProductStockMode.Daily => Instant.FromDateTimeUtc(utcNow.Date),
+            ProductStockMode.Weekly => Instant.FromDateTimeUtc(utcNow.Date.AddDays(-(int)((7 + (utcNow.DayOfWeek - DayOfWeek.Monday)) % 7))),
+            ProductStockMode.Monthly => Instant.FromDateTimeUtc(new DateTime(utcNow.Year, utcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc)),
+            ProductStockMode.Yearly => Instant.FromDateTimeUtc(new DateTime(utcNow.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc)),
+            ProductStockMode.Manual => state.LastRestockedAt,
+            _ => null
+        };
+    }
+
+    private static Dictionary<string, object> BuildFulfillmentMeta(
+        Dictionary<string, object>? requestMeta,
+        List<(OrderItemRequest Item, SnAppProduct Product)> products)
+    {
+        var meta = requestMeta is null
+            ? new Dictionary<string, object>()
+            : new Dictionary<string, object>(requestMeta);
+
+        if (!products.Any(x => x.Product.Fulfillment?.IsAddressRequired == true))
+            return meta;
+
+        if (!TryGetGuid(requestMeta, "address_contact_id", out var addressContactId))
+            throw new InvalidOperationException("Address contact id is required for this order.");
+
+        var addressSnapshot = TryGetString(requestMeta, "address_snapshot");
+        if (string.IsNullOrWhiteSpace(addressSnapshot))
+            throw new InvalidOperationException("Address snapshot is required for this order.");
+
+        meta["fulfillment"] = new Dictionary<string, object>
+        {
+            ["address_contact_id"] = addressContactId.ToString(),
+            ["address_snapshot"] = addressSnapshot,
+            ["requires_address"] = true
+        };
+
+        return meta;
+    }
+
+    private async Task ValidateOrderFulfillmentContactsAsync(Guid accountId, SnWalletOrder order)
+    {
+        if (order.Meta is null || !order.Meta.TryGetValue("fulfillment", out var fulfillmentObj))
+            return;
+
+        var contactIdText = fulfillmentObj switch
+        {
+            JsonElement fulfillmentJson when fulfillmentJson.TryGetProperty("address_contact_id", out var contactIdProp) => contactIdProp.GetString(),
+            Dictionary<string, object> fulfillmentMap when fulfillmentMap.TryGetValue("address_contact_id", out var contactIdObj) => contactIdObj?.ToString(),
+            _ => null
+        };
+        if (!Guid.TryParse(contactIdText, out var contactId))
+            throw new InvalidOperationException("Order is missing a valid address contact id.");
+
+        var contacts = await remoteContacts.ListContactsAsync(accountId, AccountContactType.Address, cancellationToken: HttpContext.RequestAborted);
+        var contact = contacts.FirstOrDefault(c => c.Id == contactId);
+        if (contact is null)
+            throw new InvalidOperationException("Address contact was not found for the current account.");
+
+        order.Meta ??= new Dictionary<string, object>();
+        order.Meta["fulfillment"] = new Dictionary<string, object>
+        {
+            ["address_contact_id"] = contact.Id.ToString(),
+            ["address_snapshot"] = contact.Content,
+            ["requires_address"] = true
+        };
+        await db.SaveChangesAsync();
+    }
+
+    private static bool TryGetGuid(Dictionary<string, object>? meta, string key, out Guid value)
+    {
+        value = Guid.Empty;
+        var str = TryGetString(meta, key);
+        return str is not null && Guid.TryParse(str, out value);
+    }
+
+    private static string? TryGetString(Dictionary<string, object>? meta, string key)
+    {
+        if (meta is null || !meta.TryGetValue(key, out var raw) || raw is null)
+            return null;
+
+        return raw switch
+        {
+            string str => str,
+            JsonElement json when json.ValueKind == JsonValueKind.String => json.GetString(),
+            JsonElement json => json.ToString(),
+            _ => raw.ToString()
+        };
     }
 
     private async Task<Guid?> ResolveMerchantWalletIdAsync(SnCustomApp client)

@@ -530,6 +530,71 @@ public class AccountSecurityController(
         );
     }
 
+    public record AuthorizeAppScopesRequest(List<string> Scopes);
+
+    [HttpPost("authorized-apps/{appId:guid}/scopes")]
+    public async Task<ActionResult<AuthorizedAppResponse>> AuthorizeAppScopes(
+        [FromRoute] Guid appId,
+        [FromBody] AuthorizeAppScopesRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+
+        if (request.Scopes is not { Count: > 0 })
+            return BadRequest("At least one scope is required.");
+
+        DyGetCustomAppResponse appResponse;
+        try
+        {
+            appResponse = await customApps.GetCustomAppAsync(new DyGetCustomAppRequest { Id = appId.ToString() });
+        }
+        catch (Grpc.Core.RpcException)
+        {
+            return NotFound("App was not found.");
+        }
+
+        if (appResponse.App is null)
+            return NotFound("App was not found.");
+
+        var allowedScopes = appResponse.App.OauthConfig?.AllowedScopes?.ToHashSet(StringComparer.Ordinal) ?? [];
+        var scopes = request.Scopes
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var existingScopes = await db.AuthorizedApps
+            .Where(x => x.AccountId == currentUser.Id && x.AppId == appId && x.Type == AuthorizedAppType.Oidc)
+            .Where(x => x.DeletedAt == null)
+            .Select(x => x.Scopes)
+            .FirstOrDefaultAsync() ?? [];
+        scopes = existingScopes.Concat(scopes).Distinct(StringComparer.Ordinal).ToList();
+        if (scopes.Any(x => !allowedScopes.Contains(x)))
+            return BadRequest("One or more scopes are not allowed by this app.");
+
+        var authorized = await auth.UpsertAuthorizedAppAsync(
+            currentUser.Id,
+            appId,
+            AuthorizedAppType.Oidc,
+            appResponse.App.Slug,
+            appResponse.App.Name,
+            scopes);
+
+        var detail = SnCustomApp.FromProtoValue(appResponse.App);
+        return Ok(new AuthorizedAppResponse(
+            authorized.Id,
+            authorized.AppId,
+            authorized.Type,
+            authorized.AppSlug ?? detail.Slug,
+            authorized.AppName ?? detail.Name,
+            detail.Description,
+            detail.Picture,
+            detail.Background,
+            authorized.Scopes,
+            authorized.LastAuthorizedAt,
+            authorized.LastUsedAt
+        ));
+    }
+
     [HttpDelete("authorized-apps/{id:guid}")]
     public async Task<ActionResult> DeauthorizeApp(
         [FromRoute] Guid id,

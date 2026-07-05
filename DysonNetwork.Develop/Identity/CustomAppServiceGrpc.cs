@@ -136,6 +136,7 @@ public class CustomAppServiceGrpc(
             throw new RpcException(new Status(StatusCode.NotFound, "app not found for this publisher"));
 
         var product = await db.AppProducts
+            .Include(p => p.State)
             .FirstOrDefaultAsync(p => p.AppId == app.Id && p.Identifier == sku);
         if (product is null)
             throw new RpcException(new Status(StatusCode.NotFound, "product not found"));

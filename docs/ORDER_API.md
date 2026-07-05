@@ -1,14 +1,19 @@
 # Order API Reference
 
-All order operations. Custom apps authenticate with an `ApiKey` secret (client_id + client_secret).
+All order operations.
+Custom apps authenticate with an `ApiKey` secret (`client_id` + `client_secret`).
 Users authenticate with a Bearer token.
+
+Related docs:
+- `docs/APP_PRODUCTS.md`
+- `docs/CUSTOM_APP_WALLET_PAYOUTS.md`
 
 ---
 
-## Order Statuses
+## Order statuses
 
 | Status | Meaning |
-|--------|---------|
+|---|---|
 | `Unpaid` | Created, awaiting payment |
 | `Paid` | Payment received |
 | `Finished` | App marked as delivered |
@@ -17,64 +22,120 @@ Users authenticate with a Bearer token.
 
 ---
 
-## Create Order
+## Create order
 
-```
+```http
 POST /api/orders
 ```
 
-Creates an unpaid order. Supports two modes: line items (with product validation)
-or legacy (direct amount + currency).
+Creates an unpaid order.
+Supports two modes:
+- item-based orders using app products
+- legacy direct amount orders
 
-**Auth:** ApiKey (`client_id` + `client_secret` in body).
+Auth: `ApiKey` in the request body.
 
-### With items (recommended)
+### Create order with items
 
 ```json
 {
-  "client_id": "my-app",
+  "client_id": "shop-app",
   "client_secret": "<api_key_secret>",
   "duration_hours": 24,
-  "payee_wallet_id": "00000000-0000-0000-0000-000000000000",
-  "remarks": "Purchase via in-game shop",
+  "remarks": "Purchase via shop",
   "items": [
-    { "product_identifier": "premium_boost", "quantity": 2 },
-    { "product_identifier": "sticker_pack", "quantity": 1 }
-  ]
+    { "product_identifier": "physical-poster", "quantity": 1 }
+  ],
+  "meta": {
+    "address_contact_id": "00000000-0000-0000-0000-000000000001",
+    "address_snapshot": "John Doe, 1 Main St, City, Country"
+  }
 }
 ```
 
-**Response `200`:**
+Response `200`:
+
 ```json
 {
   "id": "a1b2c3d4-...",
   "status": "unpaid",
   "currency": "golds",
-  "amount": 1500,
+  "amount": 250,
   "app_identifier": "developer.app:{guid}",
-  "remarks": "Purchase via in-game shop",
+  "remarks": "Purchase via shop",
   "items": [
-    { "product_identifier": "premium_boost", "quantity": 2, "unit_price": 500, "currency": "golds" },
-    { "product_identifier": "sticker_pack", "quantity": 1, "unit_price": 500, "currency": "golds" }
+    {
+      "product_identifier": "physical-poster",
+      "quantity": 1,
+      "unit_price": 250,
+      "currency": "golds"
+    }
   ],
-  "expired_at": "2026-06-29T12:00:00Z",
-  "payee_wallet_id": "00000000-...",
-  "meta": null
+  "expired_at": "2026-07-05T12:00:00Z",
+  "meta": {
+    "fulfillment": {
+      "address_contact_id": "00000000-0000-0000-0000-000000000001",
+      "address_snapshot": "John Doe, 1 Main St, City, Country",
+      "requires_address": true
+    }
+  }
 }
 ```
 
-Validation:
-- Each `product_identifier` must exist in the app's product catalog
-- All items must use the same currency
-- `amount` = Σ(product.price × item.quantity)
-- For subscription products (`recurrence != none`), meta carries subscription parameters
-  and a `SnWalletSubscription` is created after payment
+### Validation rules for item-based orders
 
-**Errors:**
-- `400` — invalid credentials, product not found, currency mismatch
-- `400` — payee wallet not found (falls back to app's configured `payment_wallet_id`)
+- each `product_identifier` must exist in the app's catalog
+- each item `quantity` must be greater than zero
+- all items must use the same currency
+- `amount` is calculated from product price snapshots
+- disabled products cannot be ordered
+- stock must be available for the product's stock mode/window
+- if any selected product requires an address, `meta.address_contact_id` and `meta.address_snapshot` are required
+- recurring products inject subscription metadata automatically
 
-### Legacy (no items)
+### Stock behavior
+
+Stock is reserved on order creation.
+
+Availability is derived from:
+- the product's `state`
+- currently active orders in the matching stock window
+
+Orders with status `cancelled` or `expired` do not consume stock.
+Expired unpaid orders are marked expired before new stock checks run.
+
+### Fulfillment metadata
+
+Wallet stores normalized fulfillment metadata under `meta.fulfillment`.
+
+It keeps both:
+- `address_contact_id`
+- `address_snapshot`
+
+That keeps historical orders readable even if the user later edits their saved address.
+
+### Recurring products
+
+If a product has `recurrence != none`:
+- order metadata receives subscription parameters
+- payment creates the wallet subscription record
+- renewal continues through the existing Wallet subscription engine
+
+### Errors
+
+`400` for:
+- invalid credentials
+- product not found
+- quantity <= 0
+- currency mismatch
+- disabled product
+- insufficient stock
+- missing required address metadata
+- payee wallet not found
+
+---
+
+## Create legacy order
 
 ```json
 {
@@ -88,90 +149,54 @@ Validation:
 }
 ```
 
-`currency` + `amount` are required when `items` is absent. `product_identifier` is a freeform tag.
+Use this only when the app is not purchasing from the app product catalog.
 
 ---
 
-## Get Order
+## Get order
 
-```
+```http
 GET /api/orders/{id}
 ```
 
-**Auth:** none.
+Auth: none.
 
-```json
-{
-  "id": "a1b2c3d4-...",
-  "status": "paid",
-  "currency": "golds",
-  "amount": 1500,
-  "app_identifier": "developer.app:{guid}",
-  "items": [
-    { "product_identifier": "premium_boost", "quantity": 2, "unit_price": 500, "currency": "golds" }
-  ],
-  "transaction_id": "txn-...",
-  "expired_at": "2026-06-29T12:00:00Z",
-  "payee_wallet_id": "00000000-...",
-  "created_at": "2026-06-28T12:00:00Z",
-  "updated_at": "2026-06-28T12:05:00Z"
-}
-```
-
-**Errors:** `404` — order not found.
+The endpoint also normalizes overdue unpaid orders to `expired` before returning the order.
 
 ---
 
-## Pay Order
+## Pay order
 
-```
+```http
 POST /api/orders/{id}/pay
+Authorization: Bearer <user_token>
 ```
-
-User pays the order from their wallet. After payment, subscription records are
-created automatically for recurring products.
-
-**Auth:** Bearer (user token).
 
 ```json
 {
   "pin_code": "1234",
-  "payer_wallet_id": "00000000-0000-0000-0000-000000000000"   // optional, defaults to user's primary
+  "payer_wallet_id": "00000000-0000-0000-0000-000000000000"
 }
 ```
 
-- `pin_code` — optional. If the user has a pin set, it must match.
-- `payer_wallet_id` — optional. Which wallet to pay from. Defaults to user's primary wallet.
+Rules:
+- payer wallet must be accessible to the current user
+- if the order carries required address fulfillment data, the selected contact must still belong to the current account
+- the stored fulfillment snapshot is refreshed from the current contact before payment succeeds
 
-**Response `200`:**
-```json
-{
-  "id": "a1b2c3d4-...",
-  "status": "paid",
-  "currency": "golds",
-  "amount": 1500,
-  "transaction_id": "txn-...",
-  "transaction": { "id": "txn-...", "type": "order", "amount": "1500", "currency": "golds", ... },
-  "items": [ ... ],
-  ...
-}
-```
-
-**Errors:**
-- `400` — wallet not found, insufficient funds, order already paid/expired/cancelled
-- `401` — invalid or missing Bearer token
+Errors:
+- `400` wallet not found, insufficient funds, order already paid/expired/cancelled, invalid fulfillment contact
+- `401` invalid or missing Bearer token
 
 ---
 
-## Update Order Status
+## Update order status
 
-```
+```http
 PATCH /api/orders/{id}/status
 ```
 
-App marks the order as finished (goods delivered) or cancelled.
-
-**Auth:** ApiKey.
+Auth: `ApiKey`.
 
 ```json
 {
@@ -181,100 +206,45 @@ App marks the order as finished (goods delivered) or cancelled.
 }
 ```
 
-- `status` — `Finished` or `Cancelled` only.
-- Order must belong to the app (app_identifier match).
-
-**Response `200`:**
-```json
-{
-  "id": "a1b2c3d4-...",
-  "status": "finished",
-  ...
-}
-```
-
-**Errors:**
-- `400` — invalid credentials, order doesn't belong to this app, invalid status
-- `404` — order not found
+Allowed terminal updates:
+- `Finished`
+- `Cancelled`
 
 ---
 
-## Order Metrics
+## Order metrics
 
-```
+```http
 POST /api/orders/metrics
 ```
 
-Aggregate stats for an app's orders.
+Auth: `ApiKey`.
 
-**Auth:** ApiKey.
-
-```json
-{
-  "client_id": "my-app",
-  "client_secret": "<api_key_secret>",
-  "start_date": "2026-06-01T00:00:00Z",   // optional
-  "end_date": "2026-07-01T00:00:00Z"       // optional
-}
-```
-
-**Response `200`:**
-```json
-{
-  "app_identifier": "developer.app:{guid}",
-  "total_orders": 42,
-  "paid_orders": 35,
-  "unpaid_orders": 3,
-  "finished_orders": 30,
-  "cancelled_orders": 4,
-  "expired_orders": 3,
-  "total_incoming_amount": 52500,
-  "paid_incoming_amount": 45000,
-  "product_incoming_amounts": { "premium_boost": 30000, "sticker_pack": 15000 },
-  "product_order_counts": { "premium_boost": 20, "sticker_pack": 15 }
-}
-```
-
-Date filters are optional. Product breakdowns use the `product_identifier` from
-order items (line-item orders) or the legacy `product_identifier` field.
+Returns app-level aggregate counts and amounts, including `expired_orders`.
 
 ---
 
-## App Payout
+## App payouts
 
-```
+```http
 POST /api/orders/payouts
 ```
 
-Transfer funds from the app's configured payout wallet to a user account.
+Auth: `ApiKey`.
 
-**Auth:** ApiKey. App must have a `payment_wallet_id` configured.
+Creates a payout from the merchant wallet associated with the app's publisher.
 
-```json
-{
-  "client_id": "my-app",
-  "client_secret": "<api_key_secret>",
-  "payee_account_id": "00000000-0000-0000-0000-000000000000",
-  "currency": "golds",
-  "amount": 1000,
-  "remarks": "Weekly creator payout"
-}
-```
+---
 
-**Response `200`:**
-```json
-{
-  "id": "txn-...",
-  "payer_wallet_id": "app-wallet-...",
-  "payee_wallet_id": "user-wallet-...",
-  "currency": "golds",
-  "amount": "1000",
-  "type": "transfer",
-  "remarks": "Weekly creator payout",
-  "status": "confirmed",
-  ...
-}
-```
+## Order item snapshot
 
-**Errors:**
-- `400` — no payout wallet configured, wallet not found, cannot pay self
+`SnWalletOrderItem` freezes these values at order creation:
+
+| Field | Snapshot? |
+|---|---|
+| `product_identifier` | yes |
+| `quantity` | yes |
+| `unit_price` | yes |
+| `currency` | yes |
+
+Display metadata is still resolved from the product catalog, not copied into order items.
