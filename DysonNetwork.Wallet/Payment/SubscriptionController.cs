@@ -19,6 +19,7 @@ namespace DysonNetwork.Wallet.Payment;
 [Route("/api/subscriptions")]
 public class SubscriptionController(
     SubscriptionService subscriptions,
+    WalletProductService walletProducts,
     SubscriptionCatalogService catalog,
     AfdianPaymentHandler afdian,
     AppleStorePaymentHandler appleStore,
@@ -659,7 +660,10 @@ public class SubscriptionController(
         var response = await afdian.HandleWebhook(Request, async webhookData =>
         {
             var order = webhookData.AfdianOrder;
-            await subscriptions.CreateSubscriptionFromOrder(order);
+            if (walletProducts.IsGoldCurrencyPurchase(order))
+                await walletProducts.CreateOrApplyGoldsResupplyPackPurchaseAsync(order, HttpContext.RequestAborted);
+            else
+                await subscriptions.CreateSubscriptionFromOrder(order);
         });
 
         return Ok(response);
@@ -670,7 +674,10 @@ public class SubscriptionController(
     {
         var response = await paddle.HandleWebhook(Request, async transaction =>
         {
-            await subscriptions.CreateSubscriptionFromOrder(transaction);
+            if (walletProducts.IsGoldCurrencyPurchase(transaction))
+                await walletProducts.CreateOrApplyGoldsResupplyPackPurchaseAsync(transaction, HttpContext.RequestAborted);
+            else
+                await subscriptions.CreateSubscriptionFromOrder(transaction);
         }, HttpContext.RequestAborted);
 
         return response.IsSuccess ? Ok() : Unauthorized();
@@ -681,7 +688,10 @@ public class SubscriptionController(
     {
         var response = await appleStore.HandleWebhook(Request, async transaction =>
         {
-            await subscriptions.CreateSubscriptionFromOrder(transaction);
+            if (walletProducts.IsGoldCurrencyPurchase(transaction))
+                await walletProducts.CreateOrApplyGoldsResupplyPackPurchaseAsync(transaction, HttpContext.RequestAborted);
+            else
+                await subscriptions.CreateSubscriptionFromOrder(transaction);
         }, HttpContext.RequestAborted);
 
         return response.IsSuccess ? Ok() : Unauthorized();

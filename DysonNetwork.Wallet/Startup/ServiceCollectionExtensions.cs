@@ -105,6 +105,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<MerchantService>();
         services.AddScoped<SubscriptionCatalogService>();
         services.AddScoped<SubscriptionService>();
+        services.AddScoped<WalletProductService>();
         services.AddScoped<AfdianPaymentHandler>();
         services.AddScoped<AppleStorePaymentHandler>();
         services.AddScoped<PaddlePaymentHandler>();
@@ -118,6 +119,7 @@ public static class ServiceCollectionExtensions
                     var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
                     var db = ctx.ServiceProvider.GetRequiredService<AppDatabase>();
                     var subscriptions = ctx.ServiceProvider.GetRequiredService<SubscriptionService>();
+                    var walletProducts = ctx.ServiceProvider.GetRequiredService<WalletProductService>();
 
                     logger.LogInformation(
                         "Received order event: {ProductIdentifier} {OrderId}",
@@ -125,7 +127,9 @@ public static class ServiceCollectionExtensions
                         evt.OrderId
                     );
 
-                    if (evt.ProductIdentifier is null && !evt.Meta.ContainsKey("app_subscription"))
+                    if (evt.ProductIdentifier is null &&
+                        !evt.Meta.ContainsKey("app_subscription") &&
+                        !evt.Meta.ContainsKey("wallet_product"))
                         return;
 
                     // Handle subscription orders
@@ -206,6 +210,14 @@ public static class ServiceCollectionExtensions
                         await db.SaveChangesAsync(ctx.CancellationToken);
 
                         logger.LogInformation("App subscription {SubscriptionId} created for order {OrderId}", subscription.Id, evt.OrderId);
+                    }
+                    else if (evt.Meta.TryGetValue("wallet_product", out _))
+                    {
+                        logger.LogInformation("Handling wallet product order: {OrderId}", evt.OrderId);
+
+                        await walletProducts.ApplyPaidWalletProductOrderAsync(evt.OrderId, ctx.CancellationToken);
+
+                        logger.LogInformation("Wallet product for order {OrderId} handled successfully.", evt.OrderId);
                     }
                 },
                 opts =>

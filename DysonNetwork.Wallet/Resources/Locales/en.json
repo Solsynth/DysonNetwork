@@ -10,6 +10,8 @@
     "subscriptionAppliedBody": "Your subscription for {duration} days of {subscription} has been applied",
     "giftClaimedTitle": "Gift Claimed",
     "giftClaimedBody": "Your gift of {subscription} has been claimed by {user}",
+    "walletProductAppliedTitle": "Purchase Applied",
+    "walletProductAppliedBody": "{product} added {amount} {currency} to your wallet. New balance: {balance} {currency}",
     "transferRemark": "Transfer from {payer} to {payee}",
     "transferFeeRemark": "Transfer fee of #{id}",
     "stellarProgramPerkGoldenPoints": "Stellar Program Golden Points",
