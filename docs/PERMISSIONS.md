@@ -136,16 +136,16 @@ public async Task<IActionResult> GivePermission(...)
 - `accounts.connections.view`
 
 ### Authentication & Security
-- `auth.sessions.manage`, `auth.factors.manage`, `auth.api-keys.manage`
+- `auth.sessions.manage`, `auth.factors.manage`, `auth.api.keys.manage`
 - `auth.apps.authorize`, `auth.recover`
-- `account.contacts.manage`, `account.devices.manage`, `account.authorized-apps.manage`
+- `account.contacts.manage`, `account.devices.manage`, `account.authorized.apps.manage`
 
 ### Chat
 - `chat.create`, `chat.update`, `chat.delete`
 - `chat.messages.create`, `chat.messages.update`, `chat.messages.delete`, `chat.messages.react`
 - `chat.members.manage`, `chat.members.kick`, `chat.members.timeout`
 - `chat.invites.manage`, `chat.e2ee.manage`, `chat.groups.manage`
-- `chat.pins.manage`, `chat.read-all`, `chat.sync`
+- `chat.pins.manage`, `chat.read.all`, `chat.sync`
 - `chat.call.start`, `chat.call.end`, `chat.call.invite`, `chat.call.kick`, `chat.call.mute`
 
 ### Posts
@@ -155,16 +155,16 @@ public async Task<IActionResult> GivePermission(...)
 - `posts.batch.delete`, `posts.batch.visibility`
 
 ### Post Collections
-- `post-collections.create`, `post-collections.update`, `post-collections.delete`
-- `post-collections.posts.manage`
+- `post.collections.create`, `post.collections.update`, `post.collections.delete`
+- `post.collections.posts.manage`
 
 ### Post Categories & Tags
-- `post-categories.manage`, `post-categories.subscribe`
-- `post-tags.create`, `post-tags.update`, `post-tags.assign`
-- `post-tags.claim`, `post-tags.protect`, `post-tags.event`
+- `post.categories.manage`, `post.categories.subscribe`
+- `posts.tags.create`, `posts.tags.update`, `posts.tags.assign`
+- `posts.tags.claim`, `posts.tags.protect`, `posts.tags.event`
 
 ### Post Subscriptions
-- `post-subscriptions.manage`
+- `post.subscriptions.manage`
 
 ### Publishers
 - `publishers.create`, `publishers.update`, `publishers.delete`
@@ -181,8 +181,8 @@ public async Task<IActionResult> GivePermission(...)
 - `automod.rules.manage`, `automod.rules.test`
 
 ### Fediverse
-- `fediverse-moderation.rules.manage`, `fediverse-moderation.check`
-- `fediverse-keys.manage`
+- `fediverse.moderation.rules.manage`, `fediverse.moderation.check`
+- `fediverse.keys.manage`
 
 ### Stickers
 - `stickers.packs.create`, `stickers.packs.update`, `stickers.packs.delete`
@@ -195,11 +195,11 @@ public async Task<IActionResult> GivePermission(...)
 - `surveys.answer`, `surveys.subscribe`
 
 ### Live Streams
-- `live-streams.create`, `live-streams.update`, `live-streams.delete`
-- `live-streams.start`, `live-streams.end`
-- `live-streams.egress`, `live-streams.hls`
-- `live-streams.pin`, `live-streams.thumbnail`
-- `live-streams.chat.moderate`, `live-streams.awards`
+- `live.streams.create`, `live.streams.update`, `live.streams.delete`
+- `live.streams.start`, `live.streams.end`
+- `live.streams.egress`, `live.streams.hls`
+- `live.streams.pin`, `live.streams.thumbnail`
+- `live.streams.chat.moderate`, `live.streams.awards`
 
 ### Ads
 - `ads.manage`, `ads.leaderboard.view`
@@ -214,7 +214,7 @@ public async Task<IActionResult> GivePermission(...)
 - `wallets.manage`, `wallets.create`, `wallets.delete`
 - `wallets.balance.modify`
 - `wallets.funds.manage`, `wallets.transactions.manage`
-- `wallets.transfer-requests.manage`, `wallets.public-id.manage`
+- `wallets.transfer.requests.manage`, `wallets.public.id.manage`
 
 ### Orders
 - `orders.create`, `orders.update`, `orders.pay`
@@ -227,13 +227,13 @@ public async Task<IActionResult> GivePermission(...)
 - `subscriptions.create`, `subscriptions.cancel`, `subscriptions.activate`
 - `subscriptions.order.manage`, `subscriptions.checkout`
 - `subscriptions.groups.manage`
-- `subscription-gifts.purchase`, `subscription-gifts.redeem`
-- `subscription-gifts.send`, `subscription-gifts.cancel`
+- `subscription.gifts.purchase`, `subscription.gifts.redeem`
+- `subscription.gifts.send`, `subscription.gifts.cancel`
 
 ### Notifications
-- `notifications.send`, `notifications.put`, `notifications.read-all`
+- `notifications.send`, `notifications.put`, `notifications.read.all`
 - `notifications.preferences.manage`, `notifications.subscriptions.manage`
-- `sop-notifications.subscribe`
+- `notifications.sop.subscribe`
 
 ### Social Credits
 - `credits.validate.perform`, `credits.manage`
@@ -245,7 +245,7 @@ public async Task<IActionResult> GivePermission(...)
 ### Relationships
 - `relationships.create`, `relationships.update`, `relationships.delete`
 - `relationships.friends.manage`, `relationships.block.manage`
-- `relationships.mute.manage`, `relationships.close-friends.manage`
+- `relationships.mute.manage`, `relationships.close.friends.manage`
 - `relationships.alias.manage`, `relationships.inspect`
 - `relationships.sync`
 
@@ -256,7 +256,7 @@ public async Task<IActionResult> GivePermission(...)
 - `realms.permissions.manage`
 
 ### Notable Days
-- `notable-days.create`, `notable-days.update`, `notable-days.delete`
+- `notable.days.create`, `notable.days.update`, `notable.days.delete`
 
 ### NFC
 - `nfc.tags.create`, `nfc.tags.update`, `nfc.tags.delete`
@@ -272,13 +272,13 @@ public async Task<IActionResult> GivePermission(...)
 - `progression.sync`, `progression.badges.manage`
 
 ### Domain Trust
-- `domain-trust.create`, `domain-trust.update`, `domain-trust.delete`
-- `domain-trust.validate`
+- `domain.trust.create`, `domain.trust.update`, `domain.trust.delete`
+- `domain.trust.validate`
 
 ### Meet / Location
 - `meet.create`, `meet.update`, `meet.delete`, `meet.complete`
 - `meet.join`, `meet.pin.manage`, `meet.visibility.update`
-- `location-pins.create`, `location-pins.update`, `location-pins.delete`
+- `location.pins.create`, `location.pins.update`, `location.pins.delete`
 
 ### Calendar
 - `calendar.events.create`, `calendar.events.update`, `calendar.events.delete`
@@ -297,29 +297,29 @@ public async Task<IActionResult> GivePermission(...)
 - `e2ee.keys.manage`, `e2ee.mls.manage`, `e2ee.devices.manage`
 
 ### Auth
-- `auth.sessions.manage`, `auth.factors.manage`, `auth.api-keys.manage`
+- `auth.sessions.manage`, `auth.factors.manage`, `auth.api.keys.manage`
 - `auth.apps.authorize`, `auth.recover`
 
 ### Account Security
 - `account.contacts.manage`, `account.devices.manage`
-- `account.authorized-apps.manage`
+- `account.authorized.apps.manage`
 
 ### Reader / Cache
 - `cache.scrap`
 
 ### Developers
 - `developers.create`, `developers.manage`
-- `custom-apps.create`, `custom-apps.update`, `custom-apps.delete`
-- `custom-apps.secrets.manage`
-- `bot-accounts.create`, `bot-accounts.update`, `bot-accounts.delete`
-- `bot-accounts.keys.manage`, `bot-accounts.chat.manage`
-- `app-products.create`, `app-products.update`, `app-products.delete`
-- `dev-projects.create`, `dev-projects.update`, `dev-projects.delete`
-- `mini-apps.create`, `mini-apps.update`, `mini-apps.delete`
+- `custom.apps.create`, `custom.apps.update`, `custom.apps.delete`
+- `custom.apps.secrets.manage`
+- `bot.accounts.create`, `bot.accounts.update`, `bot.accounts.delete`
+- `bot.accounts.keys.manage`, `bot.accounts.chat.manage`
+- `app.products.create`, `app.products.update`, `app.products.delete`
+- `dev.projects.create`, `dev.projects.update`, `dev.projects.delete`
+- `mini.apps.create`, `mini.apps.update`, `mini.apps.delete`
 - `quotas.manage`
 
 ### Admin
-- `admin.ip-check`
+- `admin.ip.check`
 
 ### Permissions (Padlock admin)
 - `permissions.check`, `permissions.manage`

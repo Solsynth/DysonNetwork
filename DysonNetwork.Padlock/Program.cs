@@ -38,6 +38,9 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDatabase>();
     await db.Database.MigrateAsync();
+
+    var seedService = scope.ServiceProvider.GetRequiredService<PermissionSeedService>();
+    await seedService.EnsureSeededAsync();
 }
 
 app.ConfigureAppMiddleware(builder.Configuration);

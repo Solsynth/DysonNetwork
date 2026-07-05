@@ -143,6 +143,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<GeoService>();
         services.AddScoped<EmailService>();
         services.AddScoped<PermissionService>();
+        services.AddScoped<PermissionSeedService>();
         services.AddScoped<AccountService>();
         services.AddScoped<ActionLogService>();
         services.AddSingleton<AuthTokenKeyProvider>();
