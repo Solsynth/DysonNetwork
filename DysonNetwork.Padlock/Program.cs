@@ -32,7 +32,6 @@ var app = builder.Build();
 
 app.MapDefaultEndpoints();
 LocalizationServiceLocator.Service = app.Services.GetRequiredService<ILocalizationService>();
-app.UseMiddleware<LocalPermissionMiddleware>();
 
 using (var scope = app.Services.CreateScope())
 {

@@ -22,6 +22,7 @@ public static class ApplicationConfiguration
 
         app.UseWebSockets();
         app.UseAuthentication();
+        app.UseMiddleware<LocalPermissionMiddleware>();
         app.UseAuthorization();
 
         app.MapControllers();
