@@ -27,11 +27,17 @@ public class OidcProviderController(
     ILogger<OidcProviderController> logger
 ) : ControllerBase
 {
+    private static readonly string[] SupportedCodeChallengeMethods = ["S256", "plain"];
+
     private string GetDeviceVerificationUri() =>
         $"{(configuration["SiteUrl"] ?? "https://solsynth.dev").TrimEnd('/')}/auth/device";
 
     private static string NormalizeUserCode(string userCode) =>
         userCode.Trim().ToUpperInvariant();
+
+    private static bool IsSupportedCodeChallengeMethod(string? codeChallengeMethod) =>
+        string.IsNullOrEmpty(codeChallengeMethod)
+        || SupportedCodeChallengeMethods.Contains(codeChallengeMethod, StringComparer.OrdinalIgnoreCase);
 
     private async Task<SnCustomApp?> FindClientByIdentifierAsync(string clientIdentifier)
     {
@@ -121,6 +127,17 @@ public class OidcProviderController(
             );
         }
 
+        if (!string.IsNullOrEmpty(codeChallenge) && !IsSupportedCodeChallengeMethod(codeChallengeMethod))
+        {
+            return BadRequest(
+                new ErrorResponse
+                {
+                    Error = "invalid_request",
+                    ErrorDescription = "Unsupported code_challenge_method.",
+                }
+            );
+        }
+
         // Return client information
         var clientInfo = new ClientInfoResponse
         {
@@ -182,6 +199,17 @@ public class OidcProviderController(
                     Error = "invalid_request",
                     ErrorDescription =
                         "PKCE is required for public clients. Please provide code_challenge.",
+                }
+            );
+        }
+
+        if (!string.IsNullOrEmpty(codeChallenge) && !IsSupportedCodeChallengeMethod(codeChallengeMethod))
+        {
+            return BadRequest(
+                new ErrorResponse
+                {
+                    Error = "invalid_request",
+                    ErrorDescription = "Unsupported code_challenge_method.",
                 }
             );
         }
@@ -567,7 +595,7 @@ public class OidcProviderController(
                 id_token_signing_alg_values_supported = new[] { "HS256", "RS256" },
                 subject_types_supported = new[] { "public" },
                 claims_supported = new[] { "sub", "name", "email", "email_verified" },
-                code_challenge_methods_supported = new[] { "S256" },
+                code_challenge_methods_supported = new[] { "S256", "plain" },
                 response_modes_supported = new[] { "query", "fragment", "form_post" },
                 request_parameter_supported = true,
                 request_uri_parameter_supported = true,

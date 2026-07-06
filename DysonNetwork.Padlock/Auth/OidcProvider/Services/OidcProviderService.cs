@@ -695,14 +695,11 @@ public class OidcProviderService(
                 return null;
             }
 
-            var isValid = authCode.CodeChallengeMethod?.ToUpperInvariant() switch
-            {
-                CodeChallengeMethodS256 => VerifyCodeChallenge(codeVerifier, authCode.CodeChallenge,
-                    CodeChallengeMethodS256),
-                CodeChallengeMethodPlain => VerifyCodeChallenge(codeVerifier, authCode.CodeChallenge,
-                    CodeChallengeMethodPlain),
-                _ => false // Unsupported code challenge method
-            };
+            var isValid = VerifyCodeChallengeWithFallback(
+                codeVerifier,
+                authCode.CodeChallenge,
+                authCode.CodeChallengeMethod
+            );
 
             if (!isValid)
             {
@@ -745,6 +742,24 @@ public class OidcProviderService(
         var base64 = Base64UrlEncoder.Encode(hash);
 
         return string.Equals(base64, codeChallenge, StringComparison.Ordinal);
+    }
+
+    private static bool VerifyCodeChallengeWithFallback(
+        string codeVerifier,
+        string codeChallenge,
+        string? codeChallengeMethod
+    )
+    {
+        var normalizedMethod = codeChallengeMethod?.ToUpperInvariant();
+
+        if (normalizedMethod == CodeChallengeMethodS256)
+            return VerifyCodeChallenge(codeVerifier, codeChallenge, CodeChallengeMethodS256);
+
+        if (normalizedMethod == CodeChallengeMethodPlain)
+            return VerifyCodeChallenge(codeVerifier, codeChallenge, CodeChallengeMethodPlain);
+
+        return VerifyCodeChallenge(codeVerifier, codeChallenge, CodeChallengeMethodS256)
+            || VerifyCodeChallenge(codeVerifier, codeChallenge, CodeChallengeMethodPlain);
     }
 
     public async Task<DeviceCodeInfo> GenerateDeviceCodeAsync(Guid clientId, IEnumerable<string> scopes, string? nonce)
