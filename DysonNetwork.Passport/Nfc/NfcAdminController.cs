@@ -1,9 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.Auth;
 using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -22,14 +22,12 @@ public class NfcAdminController(
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return false;
+        if (currentUser.IsSuperuser)
+            return true;
 
-        if (currentUser.IsSuperuser) return true;
-
-        var response = await permissionService.HasPermissionAsync(new DyHasPermissionRequest
-        {
-            Actor = currentUser.Id.ToString(),
-            Key = "nfc.admin"
-        });
+        var response = await permissionService.HasPermissionAsync(
+            new DyHasPermissionRequest { Actor = currentUser.Id.ToString(), Key = "nfc.admin" }
+        );
 
         return response.HasPermission;
     }
@@ -71,10 +69,11 @@ public class NfcAdminController(
     [AskPermission(PermissionKeys.NfcAdminManage)]
     public async Task<ActionResult<EncryptedTagDto>> CreateEncryptedTag(
         [FromBody] CreateEncryptedTagRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         if (!await HasAdminPermissionAsync())
-            return Forbid();
+            return StatusCode(403, "Permission denied.");
 
         try
         {
@@ -83,41 +82,49 @@ public class NfcAdminController(
                 request.Uid,
                 sunKey,
                 request.AssignedUserId,
-                cancellationToken);
+                cancellationToken
+            );
 
-            return Ok(new EncryptedTagDto
-            {
-                Id = tag.Id,
-                Uid = tag.Uid,
-                UserId = tag.AccountId == Guid.Empty ? null : tag.AccountId,
-                IsActive = tag.IsActive,
-                IsLocked = tag.LockedAt.HasValue,
-                LastSeenAt = tag.LastSeenAt,
-                CreatedAt = tag.CreatedAt
-            });
+            return Ok(
+                new EncryptedTagDto
+                {
+                    Id = tag.Id,
+                    Uid = tag.Uid,
+                    UserId = tag.AccountId == Guid.Empty ? null : tag.AccountId,
+                    IsActive = tag.IsActive,
+                    IsLocked = tag.LockedAt.HasValue,
+                    LastSeenAt = tag.LastSeenAt,
+                    CreatedAt = tag.CreatedAt,
+                }
+            );
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(new ApiError
-            {
-                Code = "NFC_TAG_EXISTS",
-                Message = ex.Message,
-                Status = 409
-            });
+            return Conflict(
+                new ApiError
+                {
+                    Code = "NFC_TAG_EXISTS",
+                    Message = ex.Message,
+                    Status = 409,
+                }
+            );
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
-            {
-                ["sun_key"] = [ex.Message]
-            }));
+            return BadRequest(
+                ApiError.Validation(new Dictionary<string, string[]> { ["sun_key"] = [ex.Message] })
+            );
         }
         catch (FormatException)
         {
-            return BadRequest(ApiError.Validation(new Dictionary<string, string[]>
-            {
-                ["sun_key"] = ["Invalid key format. Provide Base64 or hex string."]
-            }));
+            return BadRequest(
+                ApiError.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        ["sun_key"] = ["Invalid key format. Provide Base64 or hex string."],
+                    }
+                )
+            );
         }
     }
 
@@ -133,7 +140,8 @@ public class NfcAdminController(
 
         // Check if it looks like hex (all hex chars, reasonable length for 16 or 32 byte key)
         var isHex = sunKey.All(c =>
-            (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'));
+            (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')
+        );
 
         if (isHex && (sunKey.Length == 32 || sunKey.Length == 64))
         {
@@ -148,7 +156,9 @@ public class NfcAdminController(
         }
         catch (FormatException)
         {
-            throw new FormatException($"Cannot decode sun_key. Provide hex (32 or 64 chars) or Base64.");
+            throw new FormatException(
+                $"Cannot decode sun_key. Provide hex (32 or 64 chars) or Base64."
+            );
         }
     }
 
@@ -158,22 +168,25 @@ public class NfcAdminController(
     /// </summary>
     [HttpGet("tags")]
     public async Task<ActionResult<List<EncryptedTagDto>>> ListEncryptedTags(
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         if (!await HasAdminPermissionAsync())
             return Forbid();
 
         var tags = await nfc.ListAllEncryptedTagsAsync(cancellationToken);
 
-        return Ok(tags.Select(t => new EncryptedTagDto
-        {
-            Id = t.Id,
-            Uid = t.Uid,
-            UserId = t.AccountId == Guid.Empty ? null : t.AccountId,
-            IsActive = t.IsActive,
-            IsLocked = t.LockedAt.HasValue,
-            LastSeenAt = t.LastSeenAt,
-            CreatedAt = t.CreatedAt
-        }));
+        return Ok(
+            tags.Select(t => new EncryptedTagDto
+            {
+                Id = t.Id,
+                Uid = t.Uid,
+                UserId = t.AccountId == Guid.Empty ? null : t.AccountId,
+                IsActive = t.IsActive,
+                IsLocked = t.LockedAt.HasValue,
+                LastSeenAt = t.LastSeenAt,
+                CreatedAt = t.CreatedAt,
+            })
+        );
     }
 }
