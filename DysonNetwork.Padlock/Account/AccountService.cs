@@ -455,13 +455,15 @@ public class AccountService(
                     return;
                 }
 
+                var recipientName = string.IsNullOrWhiteSpace(account.Nick) ? account.Name : account.Nick;
+
                 await mailer
                     .SendTemplatedEmailAsync(
-                        account.Nick,
+                        recipientName,
                         contact.Content,
                         localizer.Get("codeEmailTitle", account.Language),
                         "FactorCode",
-                        new { name = account.Name, code },
+                        new { nick = recipientName, code },
                         account.Language
                     );
 

@@ -110,7 +110,7 @@ public class MagicSpellService(
                         contact.Content,
                         localizer.Get("regConfirmTitle", accountLanguage),
                         "Welcome",
-                        new { name = account.Name, link },
+                        new { nick = recipientName, link },
                         accountLanguage
                     );
                     break;
@@ -120,7 +120,7 @@ public class MagicSpellService(
                         contact.Content,
                         localizer.Get("accountDeletionTitle", accountLanguage),
                         "AccountDeletion",
-                        new { name = account.Name, link },
+                        new { nick = recipientName, link },
                         accountLanguage
                     );
                     break;
@@ -130,7 +130,7 @@ public class MagicSpellService(
                         contact.Content,
                         localizer.Get("passwordResetTitle", accountLanguage),
                         "PasswordReset",
-                        new { name = account.Name, link },
+                        new { nick = recipientName, link },
                         accountLanguage
                     );
                     break;
@@ -143,7 +143,7 @@ public class MagicSpellService(
                         contactMethod,
                         localizer.Get("contractMethodVerificationTitle", accountLanguage),
                         "ContactVerification",
-                        new { name = account.Name, link },
+                        new { nick = recipientName, link },
                         accountLanguage
                     );
                     break;
