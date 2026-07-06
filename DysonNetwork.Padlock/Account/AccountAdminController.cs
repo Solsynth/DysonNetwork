@@ -1,9 +1,12 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using System.Text.Json;
 using DysonNetwork.Padlock.Models;
+using DysonNetwork.Padlock.Permission;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Authorization;
@@ -20,6 +23,7 @@ namespace DysonNetwork.Padlock.Account;
 public class AccountAdminController(
     AppDatabase db,
     AccountService accounts,
+    PermissionService permissions,
     RemoteRingService ring,
     ILocalizationService localizer,
     DyProfileService.DyProfileServiceClient profiles,
@@ -274,11 +278,14 @@ public class AccountAdminController(
     }
 
     [HttpPost("notifications")]
-    [AskPermission(PermissionKeys.NotificationsSend)]
     public async Task<ActionResult<AdminMessageDispatchResponse>> SendNotification(
         [FromBody] SendAdminNotificationRequest request
     )
     {
+        var permissionCheck = await EnsureAdminNotificationPermissionAsync();
+        if (permissionCheck is not null)
+            return permissionCheck;
+
         if (!request.BroadcastToAll && !request.AccountId.HasValue && request.AccountIds is not { Count: > 0 })
             return BadRequest("Provide account_id, account_ids, or set broadcast_to_all=true.");
         if (string.IsNullOrWhiteSpace(request.Topic))
@@ -321,6 +328,73 @@ public class AccountAdminController(
             Skipped = 0,
             BroadcastToAll = request.BroadcastToAll
         });
+    }
+
+    private async Task<ActionResult?> EnsureAdminNotificationPermissionAsync()
+    {
+        var actorId = GetCurrentActorId();
+        if (string.IsNullOrWhiteSpace(actorId))
+        {
+            return Unauthorized(
+                ApiError.Unauthorized(
+                    "Authentication is required before permission checks can run.",
+                    traceId: HttpContext.TraceIdentifier
+                )
+            );
+        }
+
+        var currentSession = HttpContext.Items["CurrentSession"] as SnAuthSession;
+        if (PermissionScopeGate.HasFullScope(currentSession))
+            return null;
+
+        if (PermissionScopeGate.ShouldEnforcePermissionScope(currentSession)
+            && !PermissionScopeGate.IsPermissionEnabled(
+                currentSession!.Scopes,
+                PermissionKeys.NotificationsSend
+            ))
+        {
+            return StatusCode(
+                StatusCodes.Status403Forbidden,
+                ApiError.Unauthorized(
+                    $"Permission {PermissionKeys.NotificationsSend} was omitted by token scope.",
+                    forbidden: true,
+                    traceId: HttpContext.TraceIdentifier
+                )
+            );
+        }
+
+        if (IsCurrentUserSuperuser())
+            return null;
+
+        if (!await permissions.HasPermissionAsync(actorId, PermissionKeys.NotificationsSend))
+        {
+            return StatusCode(
+                StatusCodes.Status403Forbidden,
+                ApiError.Unauthorized(
+                    $"Permission {PermissionKeys.NotificationsSend} was required.",
+                    forbidden: true,
+                    traceId: HttpContext.TraceIdentifier
+                )
+            );
+        }
+
+        return null;
+    }
+
+    private string? GetCurrentActorId()
+    {
+        if (HttpContext.Items["CurrentUser"] is SnAccount currentUser)
+            return currentUser.Id.ToString();
+
+        return User.FindFirstValue("user_id");
+    }
+
+    private bool IsCurrentUserSuperuser()
+    {
+        if (HttpContext.Items["CurrentUser"] is SnAccount currentUser && currentUser.IsSuperuser)
+            return true;
+
+        return User.HasClaim("is_superuser", "1");
     }
 
     [HttpPost("emails")]
