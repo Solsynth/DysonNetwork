@@ -13,6 +13,8 @@ public class DeviceCodeInfo
     public DeviceCodeStatus Status { get; set; } = DeviceCodeStatus.Pending;
     public Instant CreatedAt { get; set; }
     public Instant ExpiresAt { get; set; }
+    public int PollingIntervalSeconds { get; set; } = 5;
+    public Instant? LastPolledAt { get; set; }
     public Instant? ApprovedAt { get; set; }
     public Guid? ApprovedBySessionId { get; set; }
 }

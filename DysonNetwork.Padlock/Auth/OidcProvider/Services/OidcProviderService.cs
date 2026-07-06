@@ -40,6 +40,8 @@ public class OidcProviderService(
     private const string AccountVersionPrefix = "auth:account_ver:";
     private const string CodeChallengeMethodS256 = "S256";
     private const string CodeChallengeMethodPlain = "PLAIN";
+    private const int DeviceCodePollingIntervalSeconds = 5;
+    private const int DeviceCodeSlowDownStepSeconds = 5;
 
     private static readonly TimeSpan DeviceCodeLifetime = TimeSpan.FromMinutes(10);
 
@@ -760,7 +762,8 @@ public class OidcProviderService(
             Nonce = nonce,
             Status = DeviceCodeStatus.Pending,
             CreatedAt = now,
-            ExpiresAt = now.Plus(Duration.FromTimeSpan(DeviceCodeLifetime))
+            ExpiresAt = now.Plus(Duration.FromTimeSpan(DeviceCodeLifetime)),
+            PollingIntervalSeconds = DeviceCodePollingIntervalSeconds
         };
 
         await cache.SetAsync($"{CacheKeyPrefixDeviceCode}{deviceCode}", info, DeviceCodeLifetime);
@@ -789,6 +792,7 @@ public class OidcProviderService(
         var remainingTtl = info.ExpiresAt - SystemClock.Instance.GetCurrentInstant();
         if (remainingTtl.TotalSeconds <= 0) return;
         await cache.SetAsync($"{CacheKeyPrefixDeviceCode}{info.DeviceCode}", info, remainingTtl.ToTimeSpan());
+        await cache.SetAsync($"{CacheKeyPrefixUserCode}{info.UserCode}", info.DeviceCode, remainingTtl.ToTimeSpan());
     }
 
     public async Task<TokenResponse> HandleDeviceCodeGrantAsync(string deviceCode, Guid clientId)
@@ -812,7 +816,22 @@ public class OidcProviderService(
             throw new InvalidOperationException("Device code authorization was declined.");
 
         if (info.Status != DeviceCodeStatus.Approved || info.AccountId == null)
+        {
+            if (
+                info.LastPolledAt.HasValue
+                && now < info.LastPolledAt.Value.Plus(Duration.FromSeconds(info.PollingIntervalSeconds))
+            )
+            {
+                info.PollingIntervalSeconds += DeviceCodeSlowDownStepSeconds;
+                info.LastPolledAt = now;
+                await UpdateDeviceCodeAsync(info);
+                throw new InvalidOperationException("Slow down.");
+            }
+
+            info.LastPolledAt = now;
+            await UpdateDeviceCodeAsync(info);
             throw new InvalidOperationException("Authorization pending.");
+        }
 
         var account = await db.Accounts
             .Where(a => a.Id == info.AccountId)
@@ -821,8 +840,9 @@ public class OidcProviderService(
         if (account == null)
             throw new InvalidOperationException("Account not found.");
 
-        var session = await auth.CreateSessionForOidcAsync(account, now, clientId);
-        session.Account = account;
+        var session = await FindValidSessionAsync(account.Id, clientId, withAccount: true)
+                      ?? await auth.CreateSessionForOidcAsync(account, now, clientId);
+        session.Account ??= account;
 
         await auth.UpsertAuthorizedAppAsync(
             session.AccountId,
@@ -865,14 +885,18 @@ public class OidcProviderService(
     {
         const string chars = "BCDFGHJKLMNPQRSTVWXYZ";
         var random = RandomNumberGenerator.Create();
-        var code = new char[8];
+        var code = new char[9];
         var bytes = new byte[8];
         random.GetBytes(bytes);
 
-        for (var i = 0; i < 8; i++)
+        for (var i = 0; i < code.Length; i++)
         {
             if (i == 4) code[i] = '-';
-            else code[i] = chars[bytes[i] % chars.Length];
+            else
+            {
+                var sourceIndex = i > 4 ? i - 1 : i;
+                code[i] = chars[bytes[sourceIndex] % chars.Length];
+            }
         }
 
         return new string(code);

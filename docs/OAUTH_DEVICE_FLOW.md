@@ -1,268 +1,130 @@
-# OAuth Device Authorization Grant
+# OAuth Device Flow Implementation Notes
 
-Device authorization allows users to authenticate on devices with limited input capabilities (smart TVs, CLI tools, game consoles) by entering a user code on a separate device with a browser.
+This document describes how the Padlock OIDC provider implements the OAuth 2.0 Device Authorization Grant defined by [RFC 8628](https://datatracker.ietf.org/doc/html/rfc8628).
 
-This implements [RFC 8628](https://tools.ietf.org/html/rfc8628) (OAuth 2.0 Device Authorization Grant).
-
-## Overview
-
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Device Client  │     │     Redis       │     │  User's Browser │
-│ (limited input) │     │                 │     │ (authenticated) │
-│                 │     │                 │     │                 │
-│ 1. Request Code │────▶│ Store Device    │     │                 │
-│                 │     │ Code (10min TTL)│     │                 │
-│ 2. Show User    │     │                 │     │                 │
-│    Code + URI   │     │                 │     │                 │
-│                 │     │                 │     │ 3. Enter Code   │
-│                 │     │                 │◀────│    & Approve    │
-│                 │     │                 │     │                 │
-│ 4. Poll Token   │────▶│ Validate        │     │                 │
-│  (every 5s)     │     │                 │     │                 │
-│                 │◀────│ Return Tokens   │     │                 │
-│ 5. Authenticated│     │                 │     │                 │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-```
-
-## Grant Type
-
-```
-urn:ietf:params:oauth:grant-type:device_code
-```
+For application developers who want to call this provider, see [OIDC_DEVICE_PROVIDER_USAGE.md](/Users/littlesheep/Documents/Projects/SolarNetwork/DysonNetwork/docs/OIDC_DEVICE_PROVIDER_USAGE.md).
 
 ## Endpoints
 
-All endpoints are prefixed with `/padlock` in production.
+Production endpoints are exposed through the gateway under `/padlock`.
 
-### Request Device Code
+| Purpose | Local route | Production route |
+| --- | --- | --- |
+| Device authorization | `/api/auth/open/device/code` | `/padlock/auth/open/device/code` |
+| Device status | `/api/auth/open/device/code/{user_code}` | `/padlock/auth/open/device/code/{user_code}` |
+| Approve device code | `/api/auth/open/device/code/{user_code}/approve` | `/padlock/auth/open/device/code/{user_code}/approve` |
+| Decline device code | `/api/auth/open/device/code/{user_code}/decline` | `/padlock/auth/open/device/code/{user_code}/decline` |
+| Token exchange | `/api/auth/open/token` | `/padlock/auth/open/token` |
 
-Initiate the device authorization flow.
+## Request Flow
 
-```
-POST /api/auth/open/device/code
-Content-Type: application/x-www-form-urlencoded
-```
+1. The client calls `POST /auth/open/device/code` with `client_id`, optional `scope`, and optional `nonce`.
+2. Padlock generates:
+   - a random `device_code`
+   - a user-facing `user_code` in `XXXX-XXXX` format
+   - a 10 minute expiration window
+   - an initial polling `interval` of 5 seconds
+3. The client shows `user_code` plus `verification_uri` or `verification_uri_complete`.
+4. The verification UI loads device request details from `GET /auth/open/device/code/{user_code}`.
+5. An authenticated interactive browser session approves or declines the request.
+6. The device polls `POST /auth/open/token` with `grant_type=urn:ietf:params:oauth:grant-type:device_code`.
+7. On approval, Padlock issues `access_token`, `id_token`, and `refresh_token`, then invalidates the device code.
 
-**Request Body:**
+## Stored State
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `client_id` | string | ✅ | OAuth client identifier (slug or UUID) |
-| `scope` | string | ❌ | Space-delimited list of scopes |
-| `nonce` | string | ❌ | Nonce for ID token |
+Device flow state lives in cache:
 
-**Example:**
+- `auth:device-code:{device_code}` stores the full `DeviceCodeInfo`
+- `auth:user-code:{user_code}` maps the displayed code back to `device_code`
 
-```bash
-curl -X POST https://api.solsynth.dev/padlock/auth/open/device/code \
-  -d "client_id=my-cli-tool" \
-  -d "scope=openid profile email"
-```
+The cached payload includes:
 
-**Response:**
+- `client_id`
+- requested scopes
+- optional OIDC `nonce`
+- `status`
+- `created_at`
+- `expires_at`
+- `polling_interval_seconds`
+- `last_polled_at`
+- approval metadata
 
-```json
-{
-  "device_code": "GmRhmhcxhwAzkoEqiMEg_DnyEysNkuNhszIySk9eS",
-  "user_code": "WDJB-MJHT",
-  "verification_uri": "https://solsynth.dev/auth/device",
-  "verification_uri_complete": "https://solsynth.dev/auth/device?code=WDJB-MJHT",
-  "expires_in": 600,
-  "interval": 5
-}
-```
+## Polling Behavior
 
-| Field | Description |
-|-------|-------------|
-| `device_code` | Used by the device to poll for tokens |
-| `user_code` | Displayed to the user, entered on verification page |
-| `verification_uri` | URL where user enters the code |
-| `verification_uri_complete` | Direct link with code pre-filled |
-| `expires_in` | Seconds until device code expires |
-| `interval` | Minimum seconds between polling requests |
+Padlock now tracks device polling cadence.
 
-### Check Device Code Status
+- Initial `interval` is 5 seconds.
+- If the client polls before the current interval elapses, the token endpoint returns `slow_down`.
+- Each `slow_down` response increases the stored polling interval by 5 seconds for subsequent attempts.
+- If the request is still waiting on user approval, the token endpoint returns `authorization_pending`.
 
-Check the current status of a device code (used by the verification page).
+## Status Endpoint Contract
 
-```
-GET /api/auth/open/device/code/{user_code}
-```
-
-**Response:**
+`GET /api/auth/open/device/code/{user_code}` returns display-friendly data for the verification page:
 
 ```json
 {
   "user_code": "WDJB-MJHT",
-  "client_id": "550e8400-e29b-41d4-a716-446655440000",
+  "client_id": "my-cli-tool",
+  "client_name": "My CLI Tool",
+  "client_slug": "my-cli-tool",
   "scopes": ["openid", "profile", "email"],
   "status": "pending",
-  "expires_at": "2024-01-15T10:15:00Z"
+  "expires_at": "2026-07-06T12:15:00Z",
+  "expires_in": 534,
+  "interval": 5,
+  "verification_uri": "https://solsynth.dev/auth/device"
 }
 ```
 
-**Status Values:**
+Notes:
 
-| Status | Description |
-|--------|-------------|
-| `pending` | Awaiting user approval |
-| `approved` | User approved, device can exchange for tokens |
-| `declined` | User declined the request |
-| `expired` | Device code expired |
+- `client_id` is returned as the app slug when available, otherwise the app UUID.
+- `user_code` lookup is normalized to uppercase trimmed input.
+- expired or missing codes return `404 not_found`.
 
-### Approve Device Code
+## Approval Rules
 
-Approve the device authorization from an authenticated browser session.
+Approval and decline endpoints require:
 
-```
-POST /api/auth/open/device/code/{user_code}/approve
-Authorization: Bearer <access_token>
-```
+- a valid authenticated session
+- an interactive session via `RequireInteractiveSession`
+- the device code still being `pending`
+- the device code not being expired
 
-**Response:** `200 OK`
+On approval, the device code is bound to:
 
-### Decline Device Code
+- `account_id`
+- `approved_at`
+- `approved_by_session_id`
 
-Decline the device authorization from an authenticated browser session.
+## Token Exchange Rules
 
-```
-POST /api/auth/open/device/code/{user_code}/decline
-Authorization: Bearer <access_token>
-```
+`POST /api/auth/open/token` supports the device flow grant:
 
-**Response:** `200 OK`
-
-### Token Exchange
-
-Exchange the device code for tokens after approval.
-
-```
-POST /api/auth/open/token
-Content-Type: application/x-www-form-urlencoded
+```text
+grant_type=urn:ietf:params:oauth:grant-type:device_code
 ```
 
-**Request Body:**
+Rules:
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `grant_type` | string | ✅ | `urn:ietf:params:oauth:grant-type:device_code` |
-| `device_code` | string | ✅ | The device code from the initial request |
-| `client_id` | string | ✅ | Same client ID used in initial request |
-| `client_secret` | string | ❌ | Required for confidential clients |
+- `client_id` is always required
+- confidential clients must also provide a valid `client_secret`
+- the device code must belong to the same client
+- expired codes return `expired_token`
+- declined codes return `access_denied`
+- early polling returns `slow_down`
+- pending approvals return `authorization_pending`
 
-**Example:**
+On success:
 
-```bash
-curl -X POST https://api.solsynth.dev/padlock/auth/open/token \
-  -d "grant_type=urn:ietf:params:oauth:grant-type:device_code" \
-  -d "device_code=GmRhmhcxhwAzkoEqiMEg_DnyEysNkuNhszIySk9eS" \
-  -d "client_id=my-cli-tool"
-```
-
-**Success Response (after approval):**
-
-```json
-{
-  "access_token": "eyJhbGciOiJSUzI1NiIs...",
-  "id_token": "eyJhbGciOiJSUzI1NiIs...",
-  "refresh_token": "dGhpcyBpcyBhIHJlZnJl...",
-  "expires_in": 3600,
-  "token_type": "Bearer",
-  "scope": "openid profile email"
-}
-```
-
-**Error Responses (while pending or on failure):**
-
-| Error | Description |
-|-------|-------------|
-| `authorization_pending` | User hasn't approved yet, keep polling |
-| `slow_down` | Polling too frequently |
-| `expired_token` | Device code expired |
-| `access_denied` | User declined |
-
-**Example Error:**
-
-```json
-{
-  "error": "authorization_pending",
-  "error_description": "Authorization pending."
-}
-```
-
-## Client Implementation
-
-### Device Client (CLI, TV, etc.)
-
-```javascript
-// Step 1: Request device code
-const codeResp = await fetch('/padlock/auth/open/device/code', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  body: 'client_id=my-cli-tool&scope=openid profile'
-});
-const { device_code, user_code, verification_uri, interval } = await codeResp.json();
-
-// Step 2: Display to user
-console.log(`Visit ${verification_uri} and enter code: ${user_code}`);
-
-// Step 3: Poll for tokens
-while (true) {
-  await sleep(interval * 1000);
-  
-  const tokenResp = await fetch('/padlock/auth/open/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=${device_code}&client_id=my-cli-tool`
-  });
-  
-  const tokens = await tokenResp.json();
-  
-  if (tokens.error === 'authorization_pending') continue;
-  if (tokens.error === 'slow_down') { interval += 5; continue; }
-  if (tokens.error) throw new Error(tokens.error_description);
-  
-  // Success!
-  console.log('Authenticated!', tokens.access_token);
-  break;
-}
-```
-
-### Verification Page (Web App)
-
-```javascript
-// Step 1: Get code from URL or user input
-const urlParams = new URLSearchParams(window.location.search);
-const userCode = urlParams.get('code') || document.getElementById('code-input').value;
-
-// Step 2: Check status and get client info
-const statusResp = await fetch(`/padlock/auth/open/device/code/${userCode}`);
-const status = await statusResp.json();
-
-if (status.status === 'pending') {
-  // Show approval UI with client name and requested scopes
-  document.getElementById('client-name').textContent = status.client_id;
-  document.getElementById('scopes').textContent = status.scopes.join(', ');
-}
-
-// Step 3: Handle approval
-async function approve() {
-  await fetch(`/padlock/auth/open/device/code/${userCode}/approve`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${accessToken}` }
-  });
-  alert('Device authorized! You can close this page.');
-}
-```
+- Padlock reuses an existing valid OAuth session for the same account and client when possible
+- otherwise it creates a fresh OAuth session
+- the device code and user code cache entries are deleted
 
 ## Discovery
 
-The device authorization endpoint is advertised in the OpenID Connect discovery document:
-
-```
-GET /.well-known/openid-configuration
-```
+The OpenID discovery document advertises the device flow:
 
 ```json
 {
@@ -275,11 +137,9 @@ GET /.well-known/openid-configuration
 }
 ```
 
-## Security Considerations
+## Current Defaults
 
-- Device codes expire after **10 minutes**
-- User codes are **8 characters** (format: `XXXX-XXXX`, consonants only to avoid ambiguous words)
-- Minimum polling interval is **5 seconds**; clients should respect the `interval` field
-- Device codes are single-use; successful token exchange invalidates the code
-- Public clients don't need `client_secret`; confidential clients do
-- User approval requires an active authenticated session
+- Device code lifetime: 10 minutes
+- Initial polling interval: 5 seconds
+- Slow-down increment: 5 seconds
+- User code format: `XXXX-XXXX`

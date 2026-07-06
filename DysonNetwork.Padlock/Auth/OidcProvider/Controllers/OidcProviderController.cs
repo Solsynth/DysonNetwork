@@ -27,6 +27,12 @@ public class OidcProviderController(
     ILogger<OidcProviderController> logger
 ) : ControllerBase
 {
+    private string GetDeviceVerificationUri() =>
+        $"{(configuration["SiteUrl"] ?? "https://solsynth.dev").TrimEnd('/')}/auth/device";
+
+    private static string NormalizeUserCode(string userCode) =>
+        userCode.Trim().ToUpperInvariant();
+
     private async Task<SnCustomApp?> FindClientByIdentifierAsync(string clientIdentifier)
     {
         if (Guid.TryParse(clientIdentifier, out var clientId))
@@ -426,6 +432,8 @@ public class OidcProviderController(
                     var errorCode = ex.Message switch
                     {
                         var m when m.Contains("pending") => "authorization_pending",
+                        var m when m.Contains("slow down", StringComparison.OrdinalIgnoreCase) =>
+                            "slow_down",
                         var m when m.Contains("expired") => "expired_token",
                         var m when m.Contains("declined") => "access_denied",
                         _ => "invalid_grant",
@@ -642,20 +650,21 @@ public class OidcProviderController(
                 }
             );
 
-        var siteUrl = configuration["SiteUrl"] ?? "https://solsynth.dev";
         var scopes = request.Scope?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [];
 
         var info = await oidcService.GenerateDeviceCodeAsync(client.Id, scopes, request.Nonce);
+        var verificationUri = GetDeviceVerificationUri();
 
         return Ok(
             new DeviceCodeResponse
             {
                 DeviceCode = info.DeviceCode,
                 UserCode = info.UserCode,
-                VerificationUri = $"{siteUrl}/auth/device",
-                VerificationUriComplete = $"{siteUrl}/auth/device?code={info.UserCode}",
+                VerificationUri = verificationUri,
+                VerificationUriComplete =
+                    $"{verificationUri}?code={Uri.EscapeDataString(info.UserCode)}",
                 ExpiresIn = (int)(info.ExpiresAt - info.CreatedAt).TotalSeconds,
-                Interval = 5,
+                Interval = info.PollingIntervalSeconds,
             }
         );
     }
@@ -666,7 +675,13 @@ public class OidcProviderController(
         public string UserCode { get; set; } = string.Empty;
 
         [JsonPropertyName("client_id")]
-        public Guid ClientId { get; set; }
+        public string ClientId { get; set; } = string.Empty;
+
+        [JsonPropertyName("client_name")]
+        public string ClientName { get; set; } = string.Empty;
+
+        [JsonPropertyName("client_slug")]
+        public string ClientSlug { get; set; } = string.Empty;
 
         [JsonPropertyName("scopes")]
         public List<string> Scopes { get; set; } = [];
@@ -676,12 +691,21 @@ public class OidcProviderController(
 
         [JsonPropertyName("expires_at")]
         public Instant ExpiresAt { get; set; }
+
+        [JsonPropertyName("expires_in")]
+        public int ExpiresIn { get; set; }
+
+        [JsonPropertyName("interval")]
+        public int Interval { get; set; }
+
+        [JsonPropertyName("verification_uri")]
+        public string VerificationUri { get; set; } = string.Empty;
     }
 
     [HttpGet("device/code/{userCode}")]
     public async Task<IActionResult> GetDeviceCodeStatus(string userCode)
     {
-        var info = await oidcService.GetDeviceCodeByUserCodeAsync(userCode.ToUpperInvariant());
+        var info = await oidcService.GetDeviceCodeByUserCodeAsync(NormalizeUserCode(userCode));
         if (info == null)
             return NotFound(
                 new ErrorResponse
@@ -691,14 +715,22 @@ public class OidcProviderController(
                 }
             );
 
+        var client = await oidcService.FindClientByIdAsync(info.ClientId);
+        var now = SystemClock.Instance.GetCurrentInstant();
+
         return Ok(
             new DeviceCodeStatusResponse
             {
                 UserCode = info.UserCode,
-                ClientId = info.ClientId,
+                ClientId = client?.Slug ?? info.ClientId.ToString(),
+                ClientName = client?.Name ?? client?.Slug ?? info.ClientId.ToString(),
+                ClientSlug = client?.Slug ?? string.Empty,
                 Scopes = info.Scopes,
                 Status = info.Status.ToString().ToLowerInvariant(),
                 ExpiresAt = info.ExpiresAt,
+                ExpiresIn = Math.Max(0, (int)(info.ExpiresAt - now).TotalSeconds),
+                Interval = info.PollingIntervalSeconds,
+                VerificationUri = GetDeviceVerificationUri(),
             }
         );
     }
@@ -713,7 +745,7 @@ public class OidcProviderController(
         if (HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
             return Unauthorized();
 
-        var info = await oidcService.GetDeviceCodeByUserCodeAsync(userCode.ToUpperInvariant());
+        var info = await oidcService.GetDeviceCodeByUserCodeAsync(NormalizeUserCode(userCode));
         if (info == null)
             return NotFound(
                 new ErrorResponse
@@ -765,7 +797,7 @@ public class OidcProviderController(
         if (HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
             return Unauthorized();
 
-        var info = await oidcService.GetDeviceCodeByUserCodeAsync(userCode.ToUpperInvariant());
+        var info = await oidcService.GetDeviceCodeByUserCodeAsync(NormalizeUserCode(userCode));
         if (info == null)
             return NotFound(
                 new ErrorResponse
