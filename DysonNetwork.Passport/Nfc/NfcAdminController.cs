@@ -1,10 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
-using DysonNetwork.Shared.Proto;
-using DysonNetwork.Shared.Registry;
-using Grpc.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,25 +9,8 @@ namespace DysonNetwork.Passport.Nfc;
 [ApiController]
 [Route("/api/admin/nfc")]
 [Authorize]
-public class NfcAdminController(
-    NfcService nfc,
-    DyPermissionService.DyPermissionServiceClient permissionService
-) : ControllerBase
+public class NfcAdminController(NfcService nfc) : ControllerBase
 {
-    private async Task<bool> HasAdminPermissionAsync()
-    {
-        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
-            return false;
-        if (currentUser.IsSuperuser)
-            return true;
-
-        var response = await permissionService.HasPermissionAsync(
-            new DyHasPermissionRequest { Actor = currentUser.Id.ToString(), Key = "nfc.admin" }
-        );
-
-        return response.HasPermission;
-    }
-
     public class CreateEncryptedTagRequest
     {
         [Required]
@@ -72,9 +51,6 @@ public class NfcAdminController(
         CancellationToken cancellationToken
     )
     {
-        if (!await HasAdminPermissionAsync())
-            return StatusCode(403, "Permission denied.");
-
         try
         {
             var sunKey = ParseSunKey(request.SunKey);
@@ -167,13 +143,11 @@ public class NfcAdminController(
     /// Requires nfc.admin permission.
     /// </summary>
     [HttpGet("tags")]
+    [AskPermission(PermissionKeys.NfcAdminManage)]
     public async Task<ActionResult<List<EncryptedTagDto>>> ListEncryptedTags(
         CancellationToken cancellationToken
     )
     {
-        if (!await HasAdminPermissionAsync())
-            return Forbid();
-
         var tags = await nfc.ListAllEncryptedTagsAsync(cancellationToken);
 
         return Ok(
