@@ -1,11 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
-using DysonNetwork.Shared.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -27,20 +27,25 @@ public class SurveyController(
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<SurveyWithStats>> GetSurvey(Guid id)
     {
-        var survey = await db.Surveys
-            .Include(p => p.Questions)
+        var survey = await db
+            .Surveys.Include(p => p.Questions)
             .FirstOrDefaultAsync(p => p.Id == id);
-        if (survey is null) return NotFound("Survey not found");
+        if (survey is null)
+            return NotFound("Survey not found");
         var surveyWithAnswer = SurveyWithStats.FromSurvey(survey);
 
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Ok(surveyWithAnswer);
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Ok(surveyWithAnswer);
 
         var accountId = Guid.Parse(currentUser.Id);
         var answer = await surveys.GetSurveyAnswer(id, accountId);
         if (answer is not null)
             surveyWithAnswer.UserAnswer = answer;
 
-        if (!survey.HideResults || await pub.IsMemberWithRole(survey.PublisherId, accountId, PublisherMemberRole.Viewer))
+        if (
+            !survey.HideResults
+            || await pub.IsMemberWithRole(survey.PublisherId, accountId, PublisherMemberRole.Viewer)
+        )
             surveyWithAnswer.Stats = await surveys.GetSurveyStats(id);
 
         return Ok(surveyWithAnswer);
@@ -54,9 +59,13 @@ public class SurveyController(
     [HttpPost("{id:guid}/answer")]
     [AskPermission(PermissionKeys.SurveysAnswer)]
     [Authorize]
-    public async Task<ActionResult<SnSurveyAnswer>> AnswerSurvey(Guid id, [FromBody] SurveyAnswerRequest request)
+    public async Task<ActionResult<SnSurveyAnswer>> AnswerSurvey(
+        Guid id,
+        [FromBody] SurveyAnswerRequest request
+    )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
         try
         {
@@ -65,10 +74,7 @@ public class SurveyController(
             als.CreateActionLog(
                 accountId,
                 "surveys.answer",
-                new Dictionary<string, object>
-                {
-                    { "survey_id", id.ToString() }
-                },
+                new Dictionary<string, object> { { "survey_id", id.ToString() } },
                 userAgent: Request.Headers.UserAgent,
                 ipAddress: Request.GetClientIpAddress()
             );
@@ -81,11 +87,25 @@ public class SurveyController(
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(new ApiError { Code = "INVALID_STATE", Message = ex.Message, Status = 409 });
+            return Conflict(
+                new ApiError
+                {
+                    Code = "INVALID_STATE",
+                    Message = ex.Message,
+                    Status = 409,
+                }
+            );
         }
         catch (Exception ex)
         {
-            return BadRequest(new ApiError { Code = "SERVER_ERROR", Message = ex.Message, Status = 400 });
+            return BadRequest(
+                new ApiError
+                {
+                    Code = "SERVER_ERROR",
+                    Message = ex.Message,
+                    Status = 400,
+                }
+            );
         }
     }
 
@@ -94,7 +114,8 @@ public class SurveyController(
     [Authorize]
     public async Task<IActionResult> DeleteSurveyAnswer(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
         try
         {
@@ -103,10 +124,7 @@ public class SurveyController(
             als.CreateActionLog(
                 accountId,
                 "surveys.answer.delete",
-                new Dictionary<string, object>
-                {
-                    { "survey_id", id.ToString() }
-                },
+                new Dictionary<string, object> { { "survey_id", id.ToString() } },
                 userAgent: Request.Headers.UserAgent,
                 ipAddress: Request.GetClientIpAddress()
             );
@@ -119,11 +137,25 @@ public class SurveyController(
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(new ApiError { Code = "INVALID_STATE", Message = ex.Message, Status = 409 });
+            return Conflict(
+                new ApiError
+                {
+                    Code = "INVALID_STATE",
+                    Message = ex.Message,
+                    Status = 409,
+                }
+            );
         }
         catch (Exception ex)
         {
-            return BadRequest(new ApiError { Code = "SERVER_ERROR", Message = ex.Message, Status = 400 });
+            return BadRequest(
+                new ApiError
+                {
+                    Code = "SERVER_ERROR",
+                    Message = ex.Message,
+                    Status = 400,
+                }
+            );
         }
     }
 
@@ -134,23 +166,22 @@ public class SurveyController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         // Cap pagination to prevent unbounded result sets.
         take = Math.Clamp(take, 1, 100);
         offset = Math.Max(offset, 0);
 
-        var survey = await db.Surveys
-            .FirstOrDefaultAsync(p => p.Id == id);
-        if (survey is null) return NotFound("Survey not found");
+        var survey = await db.Surveys.FirstOrDefaultAsync(p => p.Id == id);
+        if (survey is null)
+            return NotFound("Survey not found");
 
         if (!await pub.IsMemberWithRole(survey.PublisherId, accountId, PublisherMemberRole.Viewer))
             return StatusCode(403, "You need to be a viewer to view this survey's feedback.");
 
-        var answerQuery = db.SurveyAnswers
-            .Where(a => a.SurveyId == id)
-            .AsQueryable();
+        var answerQuery = db.SurveyAnswers.Where(a => a.SurveyId == id).AsQueryable();
 
         var total = await answerQuery.CountAsync();
         Response.Headers.Append("X-Total", total.ToString());
@@ -169,7 +200,9 @@ public class SurveyController(
             // Populate Account field for each answer
             foreach (var answer in answers)
             {
-                var protoValue = answeredAccounts.FirstOrDefault(a => a.Id == answer.AccountId.ToString());
+                var protoValue = answeredAccounts.FirstOrDefault(a =>
+                    a.Id == answer.AccountId.ToString()
+                );
                 if (protoValue is not null)
                     answer.Account = SnAccount.FromProtoValue(protoValue);
             }
@@ -187,24 +220,33 @@ public class SurveyController(
         [FromQuery] int take = 20
     )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         List<Guid> publishers;
-        if (pubName is null) publishers = (await pub.GetUserPublishers(accountId)).Select(p => p.Id).ToList();
+        if (pubName is null)
+        {
+            publishers = (await pub.GetUserPublishers(accountId)).Select(p => p.Id).ToList();
+        }
         else
         {
-            publishers = await db.PublisherMembers
-                .Include(p => p.Publisher)
-                .Where(p => p.Publisher.Name.ToLower() == pubName.ToLowerInvariant() && p.AccountId == accountId)
+            publishers = await db
+                .PublisherMembers.Include(p => p.Publisher)
+                .Where(p =>
+                    p.Publisher.Name.ToLower() == pubName.ToLowerInvariant()
+                    && p.AccountId == accountId
+                )
                 .Select(p => p.PublisherId)
                 .ToListAsync();
         }
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        var query = db.Surveys
+        var query = db
+            .Surveys.OrderByDescending(e => e.CreatedAt)
             .Where(e => publishers.Contains(e.PublisherId));
-        if (active) query = query.Where(e => !e.EndedAt.HasValue || e.EndedAt > now);
+        if (active)
+            query = query.Where(e => !e.EndedAt.HasValue || e.EndedAt > now);
 
         var totalCount = await query.CountAsync();
         HttpContext.Response.Headers.Append("X-Total", totalCount.ToString());
@@ -237,8 +279,11 @@ public class SurveyController(
         public SurveyQuestionType Type { get; set; }
         public List<SnSurveyOption>? Options { get; set; }
 
-        [MaxLength(1024)] public string Title { get; set; } = null!;
-        [MaxLength(4096)] public string? Description { get; set; }
+        [MaxLength(1024)]
+        public string Title { get; set; } = null!;
+
+        [MaxLength(4096)]
+        public string? Description { get; set; }
         public int Order { get; set; } = 0;
         public bool IsRequired { get; set; }
 
@@ -251,41 +296,52 @@ public class SurveyController(
 
         private static Guid EnsureId(Guid id) => id == Guid.Empty ? Guid.NewGuid() : id;
 
-        public SnSurveyQuestion ToQuestion() => new()
-        {
-            Id = EnsureId(Id),
-            Type = Type,
-            Options = Options?.Select(option => new SnSurveyOption
+        public SnSurveyQuestion ToQuestion() =>
+            new()
             {
-                Id = EnsureId(option.Id),
-                Label = option.Label,
-                Description = option.Description,
-                Order = option.Order
-            }).ToList(),
-            Title = Title,
-            Description = Description,
-            Order = Order,
-            IsRequired = IsRequired,
-            MaxSelections = MaxSelections,
-            MaxLength = MaxLength,
-            MinValue = MinValue,
-            MaxValue = MaxValue
-        };
+                Id = EnsureId(Id),
+                Type = Type,
+                Options = Options
+                    ?.Select(option => new SnSurveyOption
+                    {
+                        Id = EnsureId(option.Id),
+                        Label = option.Label,
+                        Description = option.Description,
+                        Order = option.Order,
+                    })
+                    .ToList(),
+                Title = Title,
+                Description = Description,
+                Order = Order,
+                IsRequired = IsRequired,
+                MaxSelections = MaxSelections,
+                MaxLength = MaxLength,
+                MinValue = MinValue,
+                MaxValue = MaxValue,
+            };
     }
 
     [HttpPost]
     [Authorize]
-    public async Task<ActionResult<SnSurvey>> CreateSurvey([FromBody] SurveyRequest request,
-        [FromQuery(Name = "pub")] string pubName)
+    public async Task<ActionResult<SnSurvey>> CreateSurvey(
+        [FromBody] SurveyRequest request,
+        [FromQuery(Name = "pub")] string pubName
+    )
     {
-        if (request.Questions is null) return BadRequest("Questions are required.");
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (request.Questions is null)
+            return BadRequest("Questions are required.");
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var publisher = await pub.GetPublisherByName(pubName);
-        if (publisher is null) return BadRequest("Publisher was not found.");
+        if (publisher is null)
+            return BadRequest("Publisher was not found.");
         if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Editor))
-            return StatusCode(403, "You need at least be an editor to create surveys as this publisher.");
+            return StatusCode(
+                403,
+                "You need at least be an editor to create surveys as this publisher."
+            );
 
         var survey = new SnSurvey
         {
@@ -296,7 +352,7 @@ public class SurveyController(
             NotifySubscribers = request.NotifySubscribers ?? false,
             HideResults = request.HideResults ?? false,
             PublisherId = publisher.Id,
-            Questions = request.Questions.Select(q => q.ToQuestion()).ToList()
+            Questions = request.Questions.Select(q => q.ToQuestion()).ToList(),
         };
 
         // Resolve attachment IDs into denormalized SnCloudFileReferenceObject snapshots
@@ -305,8 +361,9 @@ public class SurveyController(
         if (request.Questions is not null)
         {
             for (var i = 0; i < request.Questions.Count; i++)
-                survey.Questions[i].Attachments =
-                    await surveys.ResolveAttachmentsAsync(request.Questions[i].Attachments);
+                survey.Questions[i].Attachments = await surveys.ResolveAttachmentsAsync(
+                    request.Questions[i].Attachments
+                );
         }
 
         try
@@ -319,7 +376,14 @@ public class SurveyController(
         }
         catch (Exception ex)
         {
-            return BadRequest(new ApiError { Code = "SERVER_ERROR", Message = ex.Message, Status = 400 });
+            return BadRequest(
+                new ApiError
+                {
+                    Code = "SERVER_ERROR",
+                    Message = ex.Message,
+                    Status = 400,
+                }
+            );
         }
 
         db.Surveys.Add(survey);
@@ -334,7 +398,7 @@ public class SurveyController(
             {
                 { "survey_id", survey.Id.ToString() },
                 { "title", survey.Title ?? "" },
-                { "publisher_id", publisher.Id.ToString() }
+                { "publisher_id", publisher.Id.ToString() },
             },
             userAgent: Request.Headers.UserAgent,
             ipAddress: Request.GetClientIpAddress()
@@ -345,9 +409,13 @@ public class SurveyController(
 
     [HttpPatch("{id:guid}")]
     [Authorize]
-    public async Task<ActionResult<SnSurvey>> UpdateSurvey(Guid id, [FromBody] SurveyRequest request)
+    public async Task<ActionResult<SnSurvey>> UpdateSurvey(
+        Guid id,
+        [FromBody] SurveyRequest request
+    )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         // Start a transaction
@@ -355,34 +423,51 @@ public class SurveyController(
 
         try
         {
-            var survey = await db.Surveys
-                .Include(p => p.Questions)
+            var survey = await db
+                .Surveys.Include(p => p.Questions)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
-            if (survey == null) return NotFound("Survey not found");
+            if (survey == null)
+                return NotFound("Survey not found");
 
             // Check if user is an editor of the publisher that owns the survey
-            if (!await pub.IsMemberWithRole(survey.PublisherId, accountId, PublisherMemberRole.Editor))
+            if (
+                !await pub.IsMemberWithRole(
+                    survey.PublisherId,
+                    accountId,
+                    PublisherMemberRole.Editor
+                )
+            )
                 return StatusCode(403, "You need to be at least an editor to update this survey.");
 
             // Only Drafts can be edited. Published surveys are immutable (clone to revise),
             // and Archived surveys are fully locked.
             if (survey.Status != SurveyStatus.Draft)
-                return Conflict(new ApiError
-                {
-                    Code = "SURVEY_IMMUTABLE",
-                    Message = $"Survey in {survey.Status} status is immutable; clone a new draft to revise.",
-                    Status = 409
-                });
+                return Conflict(
+                    new ApiError
+                    {
+                        Code = "SURVEY_IMMUTABLE",
+                        Message =
+                            $"Survey in {survey.Status} status is immutable; clone a new draft to revise.",
+                        Status = 409,
+                    }
+                );
 
             // Update properties if they are provided in the request
-            if (request.Title != null) survey.Title = request.Title;
-            if (request.Description != null) survey.Description = request.Description;
-            if (request.ClearEndedAt == true) survey.EndedAt = null;
-            else if (request.EndedAt.HasValue) survey.EndedAt = request.EndedAt;
-            if (request.IsAnonymous.HasValue) survey.IsAnonymous = request.IsAnonymous.Value;
-            if (request.NotifySubscribers.HasValue) survey.NotifySubscribers = request.NotifySubscribers.Value;
-            if (request.HideResults.HasValue) survey.HideResults = request.HideResults.Value;
+            if (request.Title != null)
+                survey.Title = request.Title;
+            if (request.Description != null)
+                survey.Description = request.Description;
+            if (request.ClearEndedAt == true)
+                survey.EndedAt = null;
+            else if (request.EndedAt.HasValue)
+                survey.EndedAt = request.EndedAt;
+            if (request.IsAnonymous.HasValue)
+                survey.IsAnonymous = request.IsAnonymous.Value;
+            if (request.NotifySubscribers.HasValue)
+                survey.NotifySubscribers = request.NotifySubscribers.Value;
+            if (request.HideResults.HasValue)
+                survey.HideResults = request.HideResults.Value;
             if (request.Attachments is not null)
                 survey.Attachments = await surveys.ResolveAttachmentsAsync(request.Attachments);
 
@@ -394,17 +479,16 @@ public class SurveyController(
             // Update questions if provided
             if (request.Questions != null)
             {
-                var incomingQuestions = request.Questions
-                    .Select(q => q.ToQuestion())
-                    .ToList();
-                var incomingQuestionIds = incomingQuestions
-                    .Select(q => q.Id)
-                    .ToHashSet();
+                var incomingQuestions = request.Questions.Select(q => q.ToQuestion()).ToList();
+                var incomingQuestionIds = incomingQuestions.Select(q => q.Id).ToHashSet();
 
-                var existingQuestions = survey.Questions
-                    .ToDictionary(q => q.Id);
+                var existingQuestions = survey.Questions.ToDictionary(q => q.Id);
 
-                foreach (var existingQuestion in survey.Questions.Where(q => !incomingQuestionIds.Contains(q.Id)).ToList())
+                foreach (
+                    var existingQuestion in survey
+                        .Questions.Where(q => !incomingQuestionIds.Contains(q.Id))
+                        .ToList()
+                )
                     db.SurveyQuestions.Remove(existingQuestion);
 
                 // Walk in parallel with request.Questions so we can resolve attachments per-question.
@@ -414,7 +498,9 @@ public class SurveyController(
                     var requestQuestion = request.Questions[i];
                     incomingQuestion.SurveyId = survey.Id;
 
-                    if (existingQuestions.TryGetValue(incomingQuestion.Id, out var existingQuestion))
+                    if (
+                        existingQuestions.TryGetValue(incomingQuestion.Id, out var existingQuestion)
+                    )
                     {
                         existingQuestion.Type = incomingQuestion.Type;
                         existingQuestion.Options = incomingQuestion.Options;
@@ -427,14 +513,16 @@ public class SurveyController(
                         existingQuestion.MinValue = incomingQuestion.MinValue;
                         existingQuestion.MaxValue = incomingQuestion.MaxValue;
                         if (requestQuestion.Attachments is not null)
-                            existingQuestion.Attachments =
-                                await surveys.ResolveAttachmentsAsync(requestQuestion.Attachments);
+                            existingQuestion.Attachments = await surveys.ResolveAttachmentsAsync(
+                                requestQuestion.Attachments
+                            );
                     }
                     else
                     {
                         if (requestQuestion.Attachments is not null)
-                            incomingQuestion.Attachments =
-                                await surveys.ResolveAttachmentsAsync(requestQuestion.Attachments);
+                            incomingQuestion.Attachments = await surveys.ResolveAttachmentsAsync(
+                                requestQuestion.Attachments
+                            );
                         survey.Questions.Add(incomingQuestion);
                     }
                 }
@@ -453,7 +541,7 @@ public class SurveyController(
                 new Dictionary<string, object>
                 {
                     { "survey_id", survey.Id.ToString() },
-                    { "title", survey.Title ?? "" }
+                    { "title", survey.Title ?? "" },
                 },
                 userAgent: Request.Headers.UserAgent,
                 ipAddress: Request.GetClientIpAddress()
@@ -469,12 +557,26 @@ public class SurveyController(
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync();
-            return Conflict(new ApiError { Code = "INVALID_STATE", Message = ex.Message, Status = 409 });
+            return Conflict(
+                new ApiError
+                {
+                    Code = "INVALID_STATE",
+                    Message = ex.Message,
+                    Status = 409,
+                }
+            );
         }
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
-            return BadRequest(new ApiError { Code = "SERVER_ERROR", Message = ex.Message, Status = 400 });
+            return BadRequest(
+                new ApiError
+                {
+                    Code = "SERVER_ERROR",
+                    Message = ex.Message,
+                    Status = 400,
+                }
+            );
         }
     }
 
@@ -485,12 +587,16 @@ public class SurveyController(
     [Authorize]
     public async Task<ActionResult<SnSurvey>> PublishSurvey(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var existing = await db.Surveys.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
-        if (existing is null) return NotFound("Survey not found");
-        if (!await pub.IsMemberWithRole(existing.PublisherId, accountId, PublisherMemberRole.Editor))
+        if (existing is null)
+            return NotFound("Survey not found");
+        if (
+            !await pub.IsMemberWithRole(existing.PublisherId, accountId, PublisherMemberRole.Editor)
+        )
             return StatusCode(403, "You need at least editor rights to publish this survey.");
 
         try
@@ -513,11 +619,25 @@ public class SurveyController(
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(new ApiError { Code = "INVALID_STATE", Message = ex.Message, Status = 409 });
+            return Conflict(
+                new ApiError
+                {
+                    Code = "INVALID_STATE",
+                    Message = ex.Message,
+                    Status = 409,
+                }
+            );
         }
         catch (Exception ex)
         {
-            return BadRequest(new ApiError { Code = "SERVER_ERROR", Message = ex.Message, Status = 400 });
+            return BadRequest(
+                new ApiError
+                {
+                    Code = "SERVER_ERROR",
+                    Message = ex.Message,
+                    Status = 400,
+                }
+            );
         }
     }
 
@@ -526,12 +646,16 @@ public class SurveyController(
     [Authorize]
     public async Task<ActionResult<SnSurvey>> ArchiveSurvey(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var existing = await db.Surveys.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
-        if (existing is null) return NotFound("Survey not found");
-        if (!await pub.IsMemberWithRole(existing.PublisherId, accountId, PublisherMemberRole.Editor))
+        if (existing is null)
+            return NotFound("Survey not found");
+        if (
+            !await pub.IsMemberWithRole(existing.PublisherId, accountId, PublisherMemberRole.Editor)
+        )
             return StatusCode(403, "You need at least editor rights to archive this survey.");
 
         try
@@ -550,11 +674,25 @@ public class SurveyController(
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(new ApiError { Code = "INVALID_STATE", Message = ex.Message, Status = 409 });
+            return Conflict(
+                new ApiError
+                {
+                    Code = "INVALID_STATE",
+                    Message = ex.Message,
+                    Status = 409,
+                }
+            );
         }
         catch (Exception ex)
         {
-            return BadRequest(new ApiError { Code = "SERVER_ERROR", Message = ex.Message, Status = 400 });
+            return BadRequest(
+                new ApiError
+                {
+                    Code = "SERVER_ERROR",
+                    Message = ex.Message,
+                    Status = 400,
+                }
+            );
         }
     }
 
@@ -563,12 +701,16 @@ public class SurveyController(
     [Authorize]
     public async Task<ActionResult<SnSurvey>> CloneSurvey(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var existing = await db.Surveys.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
-        if (existing is null) return NotFound("Survey not found");
-        if (!await pub.IsMemberWithRole(existing.PublisherId, accountId, PublisherMemberRole.Editor))
+        if (existing is null)
+            return NotFound("Survey not found");
+        if (
+            !await pub.IsMemberWithRole(existing.PublisherId, accountId, PublisherMemberRole.Editor)
+        )
             return StatusCode(403, "You need at least editor rights to clone this survey.");
 
         try
@@ -581,7 +723,7 @@ public class SurveyController(
                 new Dictionary<string, object>
                 {
                     { "source_survey_id", id.ToString() },
-                    { "new_survey_id", result.Id.ToString() }
+                    { "new_survey_id", result.Id.ToString() },
                 },
                 userAgent: Request.Headers.UserAgent,
                 ipAddress: Request.GetClientIpAddress()
@@ -591,11 +733,25 @@ public class SurveyController(
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(new ApiError { Code = "INVALID_STATE", Message = ex.Message, Status = 409 });
+            return Conflict(
+                new ApiError
+                {
+                    Code = "INVALID_STATE",
+                    Message = ex.Message,
+                    Status = 409,
+                }
+            );
         }
         catch (Exception ex)
         {
-            return BadRequest(new ApiError { Code = "SERVER_ERROR", Message = ex.Message, Status = 400 });
+            return BadRequest(
+                new ApiError
+                {
+                    Code = "SERVER_ERROR",
+                    Message = ex.Message,
+                    Status = 400,
+                }
+            );
         }
     }
 
@@ -603,7 +759,8 @@ public class SurveyController(
     [Authorize]
     public async Task<IActionResult> DeleteSurvey(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         // Start a transaction
@@ -611,20 +768,25 @@ public class SurveyController(
 
         try
         {
-            var survey = await db.Surveys
-                .Include(p => p.Questions)
+            var survey = await db
+                .Surveys.Include(p => p.Questions)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
-            if (survey == null) return NotFound("Survey not found");
+            if (survey == null)
+                return NotFound("Survey not found");
 
             // Check if user is an editor of the publisher that owns the survey
-            if (!await pub.IsMemberWithRole(survey.PublisherId, accountId, PublisherMemberRole.Editor))
+            if (
+                !await pub.IsMemberWithRole(
+                    survey.PublisherId,
+                    accountId,
+                    PublisherMemberRole.Editor
+                )
+            )
                 return StatusCode(403, "You need to be at least an editor to delete this survey.");
 
             // Delete all answers for this survey
-            var answers = await db.SurveyAnswers
-                .Where(a => a.SurveyId == id)
-                .ToListAsync();
+            var answers = await db.SurveyAnswers.Where(a => a.SurveyId == id).ToListAsync();
 
             if (answers.Count != 0)
                 db.SurveyAnswers.RemoveRange(answers);
@@ -650,7 +812,7 @@ public class SurveyController(
                 {
                     { "survey_id", surveyId.ToString() },
                     { "title", surveyTitle ?? "" },
-                    { "publisher_id", publisherId.ToString() }
+                    { "publisher_id", publisherId.ToString() },
                 },
                 userAgent: Request.Headers.UserAgent,
                 ipAddress: Request.GetClientIpAddress()
@@ -680,14 +842,17 @@ public class SurveyController(
     [Authorize]
     public async Task<ActionResult<SnSurveySubscription>> SubscribeToSurvey(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var survey = await db.Surveys.FirstOrDefaultAsync(p => p.Id == id);
-        if (survey is null) return NotFound("Survey not found");
+        if (survey is null)
+            return NotFound("Survey not found");
 
-        var existing = await db.SurveySubscriptions
-            .FirstOrDefaultAsync(s => s.SurveyId == id && s.AccountId == accountId);
+        var existing = await db.SurveySubscriptions.FirstOrDefaultAsync(s =>
+            s.SurveyId == id && s.AccountId == accountId
+        );
         if (existing is not null)
             return Ok(existing);
 
@@ -695,7 +860,7 @@ public class SurveyController(
         {
             Id = Guid.NewGuid(),
             SurveyId = id,
-            AccountId = accountId
+            AccountId = accountId,
         };
         db.SurveySubscriptions.Add(subscription);
         await db.SaveChangesAsync();
@@ -708,12 +873,15 @@ public class SurveyController(
     [Authorize]
     public async Task<IActionResult> UnsubscribeFromSurvey(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
-        var subscription = await db.SurveySubscriptions
-            .FirstOrDefaultAsync(s => s.SurveyId == id && s.AccountId == accountId);
-        if (subscription is null) return NoContent();
+        var subscription = await db.SurveySubscriptions.FirstOrDefaultAsync(s =>
+            s.SurveyId == id && s.AccountId == accountId
+        );
+        if (subscription is null)
+            return NoContent();
 
         db.SurveySubscriptions.Remove(subscription);
         await db.SaveChangesAsync();
@@ -724,31 +892,38 @@ public class SurveyController(
     [Authorize]
     public async Task<ActionResult<SnSurveySubscription>> GetSurveySubscription(Guid id)
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
         var accountId = Guid.Parse(currentUser.Id);
 
         var survey = await db.Surveys.FirstOrDefaultAsync(p => p.Id == id);
-        if (survey is null) return NotFound("Survey not found");
+        if (survey is null)
+            return NotFound("Survey not found");
 
-        var subscription = await db.SurveySubscriptions
-            .FirstOrDefaultAsync(s => s.SurveyId == id && s.AccountId == accountId);
-        if (subscription is null) return NotFound("Subscription not found");
+        var subscription = await db.SurveySubscriptions.FirstOrDefaultAsync(s =>
+            s.SurveyId == id && s.AccountId == accountId
+        );
+        if (subscription is null)
+            return NotFound("Subscription not found");
 
         return Ok(subscription);
     }
 
     private async Task EnsureSurveySubscriptionAsync(Guid surveyId, Guid accountId)
     {
-        var existing = await db.SurveySubscriptions
-            .AnyAsync(s => s.SurveyId == surveyId && s.AccountId == accountId);
+        var existing = await db.SurveySubscriptions.AnyAsync(s =>
+            s.SurveyId == surveyId && s.AccountId == accountId
+        );
         if (existing)
             return;
 
-        db.SurveySubscriptions.Add(new SnSurveySubscription
-        {
-            Id = Guid.NewGuid(),
-            SurveyId = surveyId,
-            AccountId = accountId
-        });
+        db.SurveySubscriptions.Add(
+            new SnSurveySubscription
+            {
+                Id = Guid.NewGuid(),
+                SurveyId = surveyId,
+                AccountId = accountId,
+            }
+        );
     }
 }
