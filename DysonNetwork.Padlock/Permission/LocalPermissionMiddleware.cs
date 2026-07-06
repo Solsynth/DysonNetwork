@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Networking;
 
 namespace DysonNetwork.Padlock.Permission;
 
@@ -17,8 +18,13 @@ public class LocalPermissionMiddleware(RequestDelegate next, ILogger<LocalPermis
         {
             if (httpContext.Items["CurrentUser"] is not SnAccount currentUser)
             {
-                httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await httpContext.Response.WriteAsync("Unauthorized");
+                httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await httpContext.Response.WriteAsJsonAsync(
+                    ApiError.Unauthorized(
+                        "Authentication is required before permission checks can run.",
+                        traceId: httpContext.TraceIdentifier
+                    )
+                );
                 return;
             }
 
@@ -55,7 +61,13 @@ public class LocalPermissionMiddleware(RequestDelegate next, ILogger<LocalPermis
                         PermissionScopeGate.GetMatchedPermissionScope(currentSession.Scopes, attr.Key) ?? "<none>"
                     );
                     httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
-                    await httpContext.Response.WriteAsync($"Permission {attr.Key} was omitted by token scope.");
+                    await httpContext.Response.WriteAsJsonAsync(
+                        ApiError.Unauthorized(
+                            $"Permission {attr.Key} was omitted by token scope.",
+                            forbidden: true,
+                            traceId: httpContext.TraceIdentifier
+                        )
+                    );
                     return;
                 }
             }
@@ -85,7 +97,13 @@ public class LocalPermissionMiddleware(RequestDelegate next, ILogger<LocalPermis
                                 : "<session-unavailable>"
                         );
                         httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
-                        await httpContext.Response.WriteAsync($"Permission {attr.Key} was required.");
+                        await httpContext.Response.WriteAsJsonAsync(
+                            ApiError.Unauthorized(
+                                $"Permission {attr.Key} was required.",
+                                forbidden: true,
+                                traceId: httpContext.TraceIdentifier
+                            )
+                        );
                         return;
                     }
 
