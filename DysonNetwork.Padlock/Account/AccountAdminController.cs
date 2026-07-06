@@ -324,7 +324,7 @@ public class AccountAdminController(
     }
 
     [HttpPost("emails")]
-    [AskPermission(PermissionKeys.EmailsSend)]
+    [AskPermission("emails.send")]
     public async Task<ActionResult<AdminMessageDispatchResponse>> SendEmails(
         [FromBody] SendAdminEmailRequest request,
         [FromServices] DysonNetwork.Padlock.Mailer.EmailService mailer

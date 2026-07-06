@@ -529,8 +529,7 @@ public class SubscriptionController(
         var order = await afdian.GetOrderAsync(request.OrderId);
         if (order is null) return NotFound($"Order with ID {request.OrderId} was not found.");
 
-        var subscription = await subscriptions.CreateSubscriptionFromOrder(order);
-        return Ok(subscription);
+        return Ok(await ApplyRestoredProviderOrderAsync(order));
     }
 
     [HttpPost("order/restore/paddle")]
@@ -540,8 +539,7 @@ public class SubscriptionController(
         var order = await paddle.GetTransactionAsync(request.OrderId, HttpContext.RequestAborted);
         if (order is null) return NotFound($"Transaction with ID {request.OrderId} was not found.");
 
-        var subscription = await subscriptions.CreateSubscriptionFromOrder(order);
-        return Ok(subscription);
+        return Ok(await ApplyRestoredProviderOrderAsync(order));
     }
 
     [HttpPost("order/restore/apple")]
@@ -563,8 +561,7 @@ public class SubscriptionController(
         if (!string.Equals(transaction.AccountId, currentUser.Id, StringComparison.OrdinalIgnoreCase))
             return BadRequest("Apple transaction account token does not match the current user.");
 
-        var subscription = await subscriptions.CreateSubscriptionFromOrder(transaction);
-        return Ok(subscription);
+        return Ok(await ApplyRestoredProviderOrderAsync(transaction));
     }
 
     [HttpPost("{identifier}/checkout/paddle")]
@@ -659,11 +656,7 @@ public class SubscriptionController(
     {
         var response = await afdian.HandleWebhook(Request, async webhookData =>
         {
-            var order = webhookData.AfdianOrder;
-            if (walletProducts.IsGoldCurrencyPurchase(order))
-                await walletProducts.CreateOrApplyGoldsResupplyPackPurchaseAsync(order, HttpContext.RequestAborted);
-            else
-                await subscriptions.CreateSubscriptionFromOrder(order);
+            await ApplyProviderOrderAsync(webhookData.AfdianOrder);
         });
 
         return Ok(response);
@@ -674,10 +667,7 @@ public class SubscriptionController(
     {
         var response = await paddle.HandleWebhook(Request, async transaction =>
         {
-            if (walletProducts.IsGoldCurrencyPurchase(transaction))
-                await walletProducts.CreateOrApplyGoldsResupplyPackPurchaseAsync(transaction, HttpContext.RequestAborted);
-            else
-                await subscriptions.CreateSubscriptionFromOrder(transaction);
+            await ApplyProviderOrderAsync(transaction);
         }, HttpContext.RequestAborted);
 
         return response.IsSuccess ? Ok() : Unauthorized();
@@ -688,12 +678,22 @@ public class SubscriptionController(
     {
         var response = await appleStore.HandleWebhook(Request, async transaction =>
         {
-            if (walletProducts.IsGoldCurrencyPurchase(transaction))
-                await walletProducts.CreateOrApplyGoldsResupplyPackPurchaseAsync(transaction, HttpContext.RequestAborted);
-            else
-                await subscriptions.CreateSubscriptionFromOrder(transaction);
+            await ApplyProviderOrderAsync(transaction);
         }, HttpContext.RequestAborted);
 
         return response.IsSuccess ? Ok() : Unauthorized();
+    }
+
+    private async Task<object> ApplyRestoredProviderOrderAsync(ISubscriptionOrder order)
+    {
+        if (walletProducts.IsGoldCurrencyPurchase(order))
+            return await walletProducts.CreateOrApplyGoldsResupplyPackPurchaseAsync(order, HttpContext.RequestAborted);
+
+        return await subscriptions.CreateSubscriptionFromOrder(order);
+    }
+
+    private async Task ApplyProviderOrderAsync(ISubscriptionOrder order)
+    {
+        _ = await ApplyRestoredProviderOrderAsync(order);
     }
 }

@@ -1,7 +1,4 @@
-using System.Security.Cryptography;
-using System.Text.Json;
 using DysonNetwork.Shared.Auth;
-using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Wallet.Payment.PaymentHandlers;
 using Microsoft.AspNetCore.Authorization;
@@ -14,23 +11,12 @@ namespace DysonNetwork.Wallet.Payment;
 public class WalletProductController(
     WalletProductService walletProducts,
     AfdianPaymentHandler afdian,
-    AppleStorePaymentHandler appleStore,
     PaddlePaymentHandler paddle
 ) : ControllerBase
 {
     public class ProviderCheckoutRequest
     {
         public string? ProviderReferenceId { get; set; }
-    }
-
-    public class RestorePurchaseRequest
-    {
-        public string OrderId { get; set; } = null!;
-    }
-
-    public class RestoreApplePurchaseRequest
-    {
-        public string SignedTransactionInfo { get; set; } = null!;
     }
 
     public class PaddleCheckoutResponse
@@ -114,51 +100,6 @@ public class WalletProductController(
         {
             return BadRequest(ex.Message);
         }
-    }
-
-    [HttpPost("order/restore/afdian")]
-    [Authorize]
-    public async Task<IActionResult> RestorePurchaseFromAfdian([FromBody] RestorePurchaseRequest request)
-    {
-        var order = await afdian.GetOrderAsync(request.OrderId);
-        if (order is null) return NotFound($"Order with ID {request.OrderId} was not found.");
-
-        var appliedOrder = await walletProducts.CreateOrApplyGoldsResupplyPackPurchaseAsync(order, HttpContext.RequestAborted);
-        return Ok(appliedOrder);
-    }
-
-    [HttpPost("order/restore/paddle")]
-    [Authorize]
-    public async Task<IActionResult> RestorePurchaseFromPaddle([FromBody] RestorePurchaseRequest request)
-    {
-        var order = await paddle.GetTransactionAsync(request.OrderId, HttpContext.RequestAborted);
-        if (order is null) return NotFound($"Transaction with ID {request.OrderId} was not found.");
-
-        var appliedOrder = await walletProducts.CreateOrApplyGoldsResupplyPackPurchaseAsync(order, HttpContext.RequestAborted);
-        return Ok(appliedOrder);
-    }
-
-    [HttpPost("order/restore/apple")]
-    [Authorize]
-    public async Task<IActionResult> RestorePurchaseFromAppleStore([FromBody] RestoreApplePurchaseRequest request)
-    {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
-
-        AppleAppStoreTransaction transaction;
-        try
-        {
-            transaction = appleStore.ParseSignedTransaction(request.SignedTransactionInfo);
-        }
-        catch (Exception ex) when (ex is JsonException or InvalidOperationException or ArgumentException or CryptographicException)
-        {
-            return BadRequest(ex.Message);
-        }
-
-        if (!string.Equals(transaction.AccountId, currentUser.Id, StringComparison.OrdinalIgnoreCase))
-            return BadRequest("Apple transaction account token does not match the current user.");
-
-        var appliedOrder = await walletProducts.CreateOrApplyGoldsResupplyPackPurchaseAsync(transaction, HttpContext.RequestAborted);
-        return Ok(appliedOrder);
     }
 
 }
