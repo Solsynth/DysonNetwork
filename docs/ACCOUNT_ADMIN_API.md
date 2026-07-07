@@ -26,10 +26,13 @@ There is no single monolithic admin controller for the whole account domain.
 | `accounts.view` | View admin account lists and details |
 | `accounts.manage` | Perform account management actions such as revoking sessions |
 | `accounts.delete` | Delete an account |
+| `account.contacts.manage` | Create, update, verify, and remove account contacts |
+| `auth.factors.manage` | Create, enable, disable, reset, and remove auth factors |
 | `punishments.view` | View created punishments |
 | `punishments.create` | Create punishments and suspensions |
 | `punishments.update` | Update punishments |
 | `punishments.delete` | Remove punishments |
+| `progression.badges.manage` | Grant, activate, and revoke account badges |
 | `accounts.statuses.update` | Run admin presence scan operations |
 | `credits.validate.perform` | Invalidate social credit cache |
 | `notifications.send` | Send admin push notifications |
@@ -146,6 +149,85 @@ Example response:
   "active_device_count": 2,
   "active_punishment": null,
   "active_punishments": []
+}
+```
+
+### Contact management
+
+These endpoints let admins inspect and mutate auth-side contact methods.
+
+Routes:
+
+- `GET /api/admin/accounts/{name}/contacts`
+- `POST /api/admin/accounts/{name}/contacts`
+- `PATCH /api/admin/accounts/{name}/contacts/{contact_id}`
+- `POST /api/admin/accounts/{name}/contacts/{contact_id}/verify/request`
+- `POST /api/admin/accounts/{name}/contacts/{contact_id}/verify`
+- `DELETE /api/admin/accounts/{name}/contacts/{contact_id}/verify`
+- `POST /api/admin/accounts/{name}/contacts/{contact_id}/primary`
+- `POST /api/admin/accounts/{name}/contacts/{contact_id}/visibility`
+- `DELETE /api/admin/accounts/{name}/contacts/{contact_id}`
+
+Permissions:
+
+- viewing requires `accounts.view`
+- mutations require `account.contacts.manage`
+
+Notes:
+
+- changing `type` or `content` clears `verified_at`
+- `verify/request` sends the normal contact verification flow
+- `verify` immediately marks the contact verified, defaulting `verified_at` to now if omitted
+- `visibility` accepts `{ "is_public": true | false }`
+
+Create request example:
+
+```json
+{
+  "type": 0,
+  "content": "alice@example.com"
+}
+```
+
+Immediate verify request example:
+
+```json
+{
+  "verified_at": "2026-07-07T10:00:00Z"
+}
+```
+
+### Auth factor management
+
+These endpoints let admins inspect and mutate auth-side factors without exposing raw secrets.
+
+Routes:
+
+- `GET /api/admin/accounts/{name}/factors`
+- `POST /api/admin/accounts/{name}/factors`
+- `POST /api/admin/accounts/{name}/factors/{factor_id}/enable`
+- `POST /api/admin/accounts/{name}/factors/{factor_id}/disable`
+- `POST /api/admin/accounts/{name}/factors/password/reset`
+- `DELETE /api/admin/accounts/{name}/factors/{factor_id}`
+
+Permissions:
+
+- viewing requires `accounts.view`
+- mutations require `auth.factors.manage`
+
+Notes:
+
+- `POST /factors` reuses the same factor creation rules as self-service security APIs
+- factors that are already enabled on creation stay enabled
+- password resets can optionally revoke all sessions with `{ "revoke_sessions": true }`
+- factor responses are summarized and expose `has_secret` instead of the secret payload
+
+Password reset request example:
+
+```json
+{
+  "new_password": "replace-me",
+  "revoke_sessions": true
 }
 ```
 
@@ -325,6 +407,13 @@ Base route:
 
 These endpoints live in `DysonNetwork.Passport/Account/AccountAdminController.cs`.
 
+Passport does not own the `accounts`, `account_contacts`, or `account_auth_factors` tables anymore.
+Because of that:
+
+- use Passport admin routes to inspect hydrated contact/factor state from the profile side
+- use Padlock admin routes for contact/factor mutations
+- use Passport admin routes for profile verification, badge moderation, and status/presence data
+
 ### GET /api/admin/accounts
 
 Lists hydrated accounts for admin tooling with Passport-side metadata.
@@ -388,7 +477,105 @@ Response fields:
 - `account`
 - `status`
 - `activities`
+- `contacts`
+- `auth_factors`
+- `badges`
 - `badge_count`
+
+`contacts` and `auth_factors` are loaded from Padlock over gRPC so the Passport admin view can show security state without becoming a second write authority.
+
+### GET /api/admin/accounts/{identifier}/contacts
+
+Returns the current contact methods for the account as seen from Passport admin.
+
+Required permission:
+
+- `accounts.view`
+
+### GET /api/admin/accounts/{identifier}/factors
+
+Returns summarized auth factors for the account as seen from Passport admin.
+
+Required permission:
+
+- `accounts.view`
+
+Notes:
+
+- this is a read-only view
+- unknown factor kinds from the current gRPC contract are returned as `type: "unspecified"`
+
+### POST /api/admin/accounts/{identifier}/verification
+
+Sets or replaces the account profile verification mark.
+
+Required permission:
+
+- `accounts.manage`
+
+Request example:
+
+```json
+{
+  "type": 0,
+  "title": "Official",
+  "description": "Verified by platform staff",
+  "verified_by": "trust-and-safety"
+}
+```
+
+### DELETE /api/admin/accounts/{identifier}/verification
+
+Clears the account profile verification mark.
+
+Required permission:
+
+- `accounts.manage`
+
+### GET /api/admin/accounts/{identifier}/badges
+
+Lists all badges attached to the account.
+
+Required permission:
+
+- `accounts.view`
+
+### POST /api/admin/accounts/{identifier}/badges
+
+Grants a badge to the account.
+
+Required permission:
+
+- `progression.badges.manage`
+
+Request example:
+
+```json
+{
+  "type": "staff",
+  "label": "Staff",
+  "caption": "Platform team",
+  "meta": {
+    "color": "blue"
+  }
+}
+```
+
+### POST /api/admin/accounts/{identifier}/badges/{badge_id}/activate
+
+Marks one badge as the active badge on the profile.
+
+Required permission:
+
+- `progression.badges.manage`
+
+### DELETE /api/admin/accounts/{identifier}/badges/{badge_id}
+
+Revokes a badge from the account.
+
+Required permission:
+
+- `progression.badges.manage`
 
 Example response:
 

@@ -100,6 +100,42 @@ public class AccountAdminController(
         [MaxLength(1_000_000)] public string HtmlBody { get; set; } = string.Empty;
     }
 
+    public class AdminAccountContactRequest
+    {
+        public AccountContactType Type { get; set; }
+        [MaxLength(1024)] public string Content { get; set; } = string.Empty;
+    }
+
+    public class UpdateAdminAccountContactRequest
+    {
+        public AccountContactType? Type { get; set; }
+        [MaxLength(1024)] public string? Content { get; set; }
+    }
+
+    public class SetAdminContactVisibilityRequest
+    {
+        public bool IsPublic { get; set; }
+    }
+
+    public class AdminContactVerificationRequest
+    {
+        public Instant? VerifiedAt { get; set; }
+    }
+
+    public class AdminAccountAuthFactorRequest
+    {
+        public AccountAuthFactorType Type { get; set; }
+        public string? Secret { get; set; }
+        public bool Enable { get; set; } = true;
+        public string? Code { get; set; }
+    }
+
+    public class AdminResetPasswordFactorRequest
+    {
+        [MaxLength(4096)] public string NewPassword { get; set; } = string.Empty;
+        public bool RevokeSessions { get; set; } = true;
+    }
+
     public class AdminMessageDispatchResponse
     {
         public int Requested { get; set; }
@@ -271,6 +307,337 @@ public class AccountAdminController(
             ActivePunishment = SelectMostSeverePunishment(activePunishments),
             ActivePunishments = activePunishments
         });
+    }
+
+    [HttpGet("{name}/contacts")]
+    [AskPermission(PermissionKeys.AccountsView)]
+    public async Task<ActionResult<List<SnAccountContact>>> ListAccountContacts(string name)
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var contacts = await db.AccountContacts
+            .AsNoTracking()
+            .Where(c => c.AccountId == account.Id)
+            .OrderByDescending(c => c.IsPrimary)
+            .ThenBy(c => c.Type)
+            .ThenBy(c => c.Content)
+            .ToListAsync();
+
+        return Ok(contacts);
+    }
+
+    [HttpPost("{name}/contacts")]
+    [AskPermission(PermissionKeys.AccountContactsManage)]
+    public async Task<ActionResult<SnAccountContact>> CreateAccountContact(
+        string name,
+        [FromBody] AdminAccountContactRequest request
+    )
+    {
+        if (string.IsNullOrWhiteSpace(request.Content))
+            return BadRequest("Content is required.");
+
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var contact = await accounts.CreateContactMethod(account, request.Type, request.Content.Trim());
+        return Ok(contact);
+    }
+
+    [HttpPatch("{name}/contacts/{contactId:guid}")]
+    [AskPermission(PermissionKeys.AccountContactsManage)]
+    public async Task<ActionResult<SnAccountContact>> UpdateAccountContact(
+        string name,
+        Guid contactId,
+        [FromBody] UpdateAdminAccountContactRequest request
+    )
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var contact = await db.AccountContacts
+            .FirstOrDefaultAsync(c => c.AccountId == account.Id && c.Id == contactId);
+        if (contact is null)
+            return NotFound();
+
+        var typeChanged = request.Type.HasValue && contact.Type != request.Type.Value;
+        var contentChanged = request.Content is not null && !string.Equals(contact.Content, request.Content, StringComparison.Ordinal);
+
+        if (request.Type.HasValue)
+            contact.Type = request.Type.Value;
+        if (request.Content is not null)
+            contact.Content = request.Content.Trim();
+
+        if (typeChanged || contentChanged)
+            contact.VerifiedAt = null;
+
+        db.AccountContacts.Update(contact);
+        await db.SaveChangesAsync();
+        return Ok(contact);
+    }
+
+    [HttpPost("{name}/contacts/{contactId:guid}/verify/request")]
+    [AskPermission(PermissionKeys.AccountContactsManage)]
+    public async Task<ActionResult<SnAccountContact>> RequestAccountContactVerification(string name, Guid contactId)
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var contact = await db.AccountContacts
+            .FirstOrDefaultAsync(c => c.AccountId == account.Id && c.Id == contactId);
+        if (contact is null)
+            return NotFound();
+
+        try
+        {
+            await accounts.RequestContactVerification(account, contact);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+
+        return Ok(contact);
+    }
+
+    [HttpPost("{name}/contacts/{contactId:guid}/verify")]
+    [AskPermission(PermissionKeys.AccountContactsManage)]
+    public async Task<ActionResult<SnAccountContact>> VerifyAccountContact(
+        string name,
+        Guid contactId,
+        [FromBody] AdminContactVerificationRequest? request = null
+    )
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var verifiedAt = request?.VerifiedAt ?? SystemClock.Instance.GetCurrentInstant();
+        var updated = await accounts.MarkContactMethodVerified(account.Id, contactId, verifiedAt);
+        if (!updated)
+            return NotFound();
+
+        var contact = await db.AccountContacts
+            .AsNoTracking()
+            .FirstAsync(c => c.AccountId == account.Id && c.Id == contactId);
+        return Ok(contact);
+    }
+
+    [HttpDelete("{name}/contacts/{contactId:guid}/verify")]
+    [AskPermission(PermissionKeys.AccountContactsManage)]
+    public async Task<ActionResult<SnAccountContact>> UnverifyAccountContact(string name, Guid contactId)
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var contact = await db.AccountContacts
+            .FirstOrDefaultAsync(c => c.AccountId == account.Id && c.Id == contactId);
+        if (contact is null)
+            return NotFound();
+
+        contact.VerifiedAt = null;
+        db.AccountContacts.Update(contact);
+        await db.SaveChangesAsync();
+        return Ok(contact);
+    }
+
+    [HttpPost("{name}/contacts/{contactId:guid}/primary")]
+    [AskPermission(PermissionKeys.AccountContactsManage)]
+    public async Task<ActionResult<SnAccountContact>> SetPrimaryAccountContact(string name, Guid contactId)
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var contact = await db.AccountContacts
+            .FirstOrDefaultAsync(c => c.AccountId == account.Id && c.Id == contactId);
+        if (contact is null)
+            return NotFound();
+
+        contact = await accounts.SetContactMethodPrimary(account, contact);
+        return Ok(contact);
+    }
+
+    [HttpPost("{name}/contacts/{contactId:guid}/visibility")]
+    [AskPermission(PermissionKeys.AccountContactsManage)]
+    public async Task<ActionResult<SnAccountContact>> SetAccountContactVisibility(
+        string name,
+        Guid contactId,
+        [FromBody] SetAdminContactVisibilityRequest request
+    )
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var contact = await db.AccountContacts
+            .FirstOrDefaultAsync(c => c.AccountId == account.Id && c.Id == contactId);
+        if (contact is null)
+            return NotFound();
+
+        contact = await accounts.SetContactMethodPublic(account, contact, request.IsPublic);
+        return Ok(contact);
+    }
+
+    [HttpDelete("{name}/contacts/{contactId:guid}")]
+    [AskPermission(PermissionKeys.AccountContactsManage)]
+    public async Task<IActionResult> DeleteAccountContact(string name, Guid contactId)
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var contact = await db.AccountContacts
+            .FirstOrDefaultAsync(c => c.AccountId == account.Id && c.Id == contactId);
+        if (contact is null)
+            return NotFound();
+
+        await accounts.DeleteContactMethod(account, contact);
+        return NoContent();
+    }
+
+    [HttpGet("{name}/factors")]
+    [AskPermission(PermissionKeys.AccountsView)]
+    public async Task<ActionResult<List<AccountAuthFactorSummary>>> ListAccountAuthFactors(string name)
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var factors = await db.AccountAuthFactors
+            .AsNoTracking()
+            .Where(f => f.AccountId == account.Id)
+            .OrderBy(f => f.Type)
+            .ThenByDescending(f => f.EnabledAt)
+            .ToListAsync();
+
+        return Ok(factors.Select(ToAuthFactorSummary).ToList());
+    }
+
+    [HttpPost("{name}/factors")]
+    [AskPermission(PermissionKeys.AuthFactorsManage)]
+    public async Task<ActionResult<AccountAuthFactorSummary>> CreateAccountAuthFactor(
+        string name,
+        [FromBody] AdminAccountAuthFactorRequest request
+    )
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        if (await accounts.CheckAuthFactorExists(account, request.Type))
+            return BadRequest($"Auth factor with type {request.Type} already exists.");
+
+        try
+        {
+            var factor = await accounts.CreateAuthFactor(account, request.Type, request.Secret);
+            if (factor is null)
+                return BadRequest("Invalid factor request.");
+
+            if (request.Enable && factor.EnabledAt is null)
+                factor = await accounts.EnableAuthFactor(factor, request.Code);
+
+            return Ok(ToAuthFactorSummary(factor));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("{name}/factors/{factorId:guid}/enable")]
+    [AskPermission(PermissionKeys.AuthFactorsManage)]
+    public async Task<ActionResult<AccountAuthFactorSummary>> EnableAccountAuthFactor(
+        string name,
+        Guid factorId,
+        [FromBody] string? code
+    )
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var factor = await db.AccountAuthFactors
+            .FirstOrDefaultAsync(f => f.AccountId == account.Id && f.Id == factorId);
+        if (factor is null)
+            return NotFound();
+
+        try
+        {
+            factor = await accounts.EnableAuthFactor(factor, code);
+            return Ok(ToAuthFactorSummary(factor));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("{name}/factors/{factorId:guid}/disable")]
+    [AskPermission(PermissionKeys.AuthFactorsManage)]
+    public async Task<ActionResult<AccountAuthFactorSummary>> DisableAccountAuthFactor(string name, Guid factorId)
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var factor = await db.AccountAuthFactors
+            .FirstOrDefaultAsync(f => f.AccountId == account.Id && f.Id == factorId);
+        if (factor is null)
+            return NotFound();
+
+        try
+        {
+            factor = await accounts.DisableAuthFactor(factor);
+            return Ok(ToAuthFactorSummary(factor));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("{name}/factors/password/reset")]
+    [AskPermission(PermissionKeys.AuthFactorsManage)]
+    public async Task<ActionResult<AccountAuthFactorSummary>> ResetAccountPasswordFactor(
+        string name,
+        [FromBody] AdminResetPasswordFactorRequest request
+    )
+    {
+        if (string.IsNullOrWhiteSpace(request.NewPassword))
+            return BadRequest("new_password is required.");
+
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var factor = await accounts.ResetPasswordFactor(account.Id, request.NewPassword);
+        if (request.RevokeSessions)
+            await accounts.DeleteAllSessions(account);
+
+        return Ok(ToAuthFactorSummary(factor));
+    }
+
+    [HttpDelete("{name}/factors/{factorId:guid}")]
+    [AskPermission(PermissionKeys.AuthFactorsManage)]
+    public async Task<IActionResult> DeleteAccountAuthFactor(string name, Guid factorId)
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var factor = await db.AccountAuthFactors
+            .FirstOrDefaultAsync(f => f.AccountId == account.Id && f.Id == factorId);
+        if (factor is null)
+            return NotFound();
+
+        await accounts.DeleteAuthFactor(factor);
+        return NoContent();
     }
 
     [HttpPost("notifications")]

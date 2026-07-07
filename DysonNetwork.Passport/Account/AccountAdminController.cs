@@ -1,11 +1,14 @@
 using DysonNetwork.Passport.Credit;
 using DysonNetwork.Passport.Account.Presences;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
+using NodaTime.Serialization.Protobuf;
 
 namespace DysonNetwork.Passport.Account;
 
@@ -18,9 +21,23 @@ public class AccountAdminController(
     AccountEventService accountEventService,
     AccountService accountService,
     SteamPresenceService steamPresenceService,
-    DyProfileService.DyProfileServiceClient profiles
+    DyProfileService.DyProfileServiceClient profiles,
+    DyAccountService.DyAccountServiceClient accountGrpc
 ) : ControllerBase
 {
+    public class AccountAuthFactorSummary
+    {
+        public Guid Id { get; set; }
+        public string Type { get; set; } = string.Empty;
+        public int Trustworthy { get; set; }
+        public bool HasSecret { get; set; }
+        public Dictionary<string, object?>? Config { get; set; }
+        public Instant? EnabledAt { get; set; }
+        public Instant? ExpiredAt { get; set; }
+        public Instant CreatedAt { get; set; }
+        public Instant UpdatedAt { get; set; }
+    }
+
     public class AdminAccountSummaryResponse
     {
         public SnAccount Account { get; set; } = null!;
@@ -34,7 +51,28 @@ public class AccountAdminController(
         public SnAccount Account { get; set; } = null!;
         public SnAccountStatus Status { get; set; } = null!;
         public List<SnPresenceActivity> Activities { get; set; } = [];
+        public List<SnAccountContact> Contacts { get; set; } = [];
+        public List<AccountAuthFactorSummary> AuthFactors { get; set; } = [];
+        public List<SnAccountBadge> Badges { get; set; } = [];
         public int BadgeCount { get; set; }
+    }
+
+    public class UpdateAccountVerificationRequest
+    {
+        public VerificationMarkType Type { get; set; }
+        public string? Title { get; set; }
+        public string? Description { get; set; }
+        public string? VerifiedBy { get; set; }
+    }
+
+    public class AdminBadgeRequest
+    {
+        public string Type { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+        public string? Caption { get; set; }
+        public Dictionary<string, object?>? Meta { get; set; }
+        public Instant? ActivatedAt { get; set; }
+        public Instant? ExpiredAt { get; set; }
     }
 
     [HttpGet]
@@ -101,17 +139,173 @@ public class AccountAdminController(
 
         var status = await accountEventService.GetStatus(account.Id);
         var activities = await accountEventService.GetActiveActivities(account.Id);
-        var badgeCount = await db.Badges
+        var badges = await db.Badges
             .AsNoTracking()
-            .CountAsync(b => b.AccountId == account.Id);
+            .Where(b => b.AccountId == account.Id)
+            .OrderByDescending(b => b.CreatedAt)
+            .ToListAsync();
+        var contacts = await accountGrpc.ListContactsAsync(new DyListContactsRequest
+        {
+            AccountId = account.Id.ToString(),
+            VerifiedOnly = false,
+            Type = DyAccountContactType.Unspecified
+        });
+        var factors = await accountGrpc.ListAuthFactorsAsync(new DyListAuthFactorsRequest
+        {
+            AccountId = account.Id.ToString(),
+            ActiveOnly = false
+        });
 
         return Ok(new AdminAccountDetailResponse
         {
             Account = account,
             Status = status,
             Activities = activities,
-            BadgeCount = badgeCount
+            Contacts = contacts.Contacts.Select(SnAccountContact.FromProtoValue).ToList(),
+            AuthFactors = factors.Factors.Select(ToAuthFactorSummary).ToList(),
+            Badges = badges,
+            BadgeCount = badges.Count
         });
+    }
+
+    [HttpGet("{identifier}/contacts")]
+    [AskPermission(PermissionKeys.AccountsView)]
+    public async Task<ActionResult<List<SnAccountContact>>> GetAccountContacts(string identifier)
+    {
+        var account = await LookupAccountAsync(identifier);
+        if (account is null)
+            return NotFound();
+
+        var contacts = await accountGrpc.ListContactsAsync(new DyListContactsRequest
+        {
+            AccountId = account.Id.ToString(),
+            VerifiedOnly = false,
+            Type = DyAccountContactType.Unspecified
+        });
+
+        return Ok(contacts.Contacts.Select(SnAccountContact.FromProtoValue).ToList());
+    }
+
+    [HttpGet("{identifier}/factors")]
+    [AskPermission(PermissionKeys.AccountsView)]
+    public async Task<ActionResult<List<AccountAuthFactorSummary>>> GetAccountAuthFactors(string identifier)
+    {
+        var account = await LookupAccountAsync(identifier);
+        if (account is null)
+            return NotFound();
+
+        var factors = await accountGrpc.ListAuthFactorsAsync(new DyListAuthFactorsRequest
+        {
+            AccountId = account.Id.ToString(),
+            ActiveOnly = false
+        });
+
+        return Ok(factors.Factors.Select(ToAuthFactorSummary).ToList());
+    }
+
+    [HttpPost("{identifier}/verification")]
+    [AskPermission(PermissionKeys.AccountsManage)]
+    public async Task<ActionResult<SnVerificationMark>> SetAccountVerification(
+        string identifier,
+        [FromBody] UpdateAccountVerificationRequest request
+    )
+    {
+        var account = await LookupAccountAsync(identifier);
+        if (account is null)
+            return NotFound();
+
+        var profile = await accountService.GetOrCreateAccountProfileAsync(account.Id);
+        profile.Verification = new SnVerificationMark
+        {
+            Type = request.Type,
+            Title = request.Title,
+            Description = request.Description,
+            VerifiedBy = request.VerifiedBy
+        };
+
+        db.AccountProfiles.Update(profile);
+        await db.SaveChangesAsync();
+        return Ok(profile.Verification);
+    }
+
+    [HttpDelete("{identifier}/verification")]
+    [AskPermission(PermissionKeys.AccountsManage)]
+    public async Task<IActionResult> ClearAccountVerification(string identifier)
+    {
+        var account = await LookupAccountAsync(identifier);
+        if (account is null)
+            return NotFound();
+
+        var profile = await accountService.GetOrCreateAccountProfileAsync(account.Id);
+        profile.Verification = null;
+
+        db.AccountProfiles.Update(profile);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpGet("{identifier}/badges")]
+    [AskPermission(PermissionKeys.AccountsView)]
+    public async Task<ActionResult<List<SnAccountBadge>>> GetAccountBadges(string identifier)
+    {
+        var account = await LookupAccountAsync(identifier);
+        if (account is null)
+            return NotFound();
+
+        var badges = await db.Badges
+            .AsNoTracking()
+            .Where(b => b.AccountId == account.Id)
+            .OrderByDescending(b => b.CreatedAt)
+            .ToListAsync();
+        return Ok(badges);
+    }
+
+    [HttpPost("{identifier}/badges")]
+    [AskPermission(PermissionKeys.ProgressionBadgesManage)]
+    public async Task<ActionResult<SnAccountBadge>> GrantBadge(
+        string identifier,
+        [FromBody] AdminBadgeRequest request
+    )
+    {
+        var account = await LookupAccountAsync(identifier);
+        if (account is null)
+            return NotFound();
+
+        var badge = await accountService.GrantBadge(account, new SnAccountBadge
+        {
+            Type = request.Type,
+            Label = request.Label,
+            Caption = request.Caption,
+            Meta = request.Meta ?? new Dictionary<string, object?>(),
+            ActivatedAt = request.ActivatedAt,
+            ExpiredAt = request.ExpiredAt
+        });
+
+        return Ok(badge);
+    }
+
+    [HttpPost("{identifier}/badges/{badgeId:guid}/activate")]
+    [AskPermission(PermissionKeys.ProgressionBadgesManage)]
+    public async Task<IActionResult> ActivateBadge(string identifier, Guid badgeId)
+    {
+        var account = await LookupAccountAsync(identifier);
+        if (account is null)
+            return NotFound();
+
+        await accountService.ActiveBadge(account, badgeId);
+        return Ok();
+    }
+
+    [HttpDelete("{identifier}/badges/{badgeId:guid}")]
+    [AskPermission(PermissionKeys.ProgressionBadgesManage)]
+    public async Task<IActionResult> RevokeBadge(string identifier, Guid badgeId)
+    {
+        var account = await LookupAccountAsync(identifier);
+        if (account is null)
+            return NotFound();
+
+        await accountService.RevokeBadge(account, badgeId);
+        return NoContent();
     }
 
     [HttpPost("{name}/credits")]
@@ -216,6 +410,33 @@ public class AccountAdminController(
             IsOnline = false,
             Label = "Offline",
             Type = StatusType.Default
+        };
+    }
+
+    private static AccountAuthFactorSummary ToAuthFactorSummary(DyAccountAuthFactor factor)
+    {
+        return new AccountAuthFactorSummary
+        {
+            Id = Guid.Parse(factor.Id),
+            Type = factor.Type switch
+            {
+                DyAccountAuthFactorType.DyPassword => "password",
+                DyAccountAuthFactorType.DyEmailCode => "email_code",
+                DyAccountAuthFactorType.DyInAppCode => "in_app_code",
+                DyAccountAuthFactorType.DyTimedCode => "timed_code",
+                DyAccountAuthFactorType.DyPinCode => "pin_code",
+                DyAccountAuthFactorType.DyPasskey => "passkey",
+                _ => "unspecified"
+            },
+            Trustworthy = factor.Trustworthy,
+            HasSecret = !string.IsNullOrWhiteSpace(factor.Secret),
+            Config = factor.Config is { Count: > 0 }
+                ? InfraObjectCoder.ConvertFromValueMap(factor.Config).ToDictionary()
+                : null,
+            EnabledAt = factor.EnabledAt?.ToInstant(),
+            ExpiredAt = factor.ExpiredAt?.ToInstant(),
+            CreatedAt = factor.CreatedAt?.ToInstant() ?? default,
+            UpdatedAt = factor.UpdatedAt?.ToInstant() ?? default
         };
     }
 }
