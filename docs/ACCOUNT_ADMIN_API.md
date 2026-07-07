@@ -27,7 +27,9 @@ There is no single monolithic admin controller for the whole account domain.
 | `accounts.manage` | Perform account management actions such as revoking sessions |
 | `accounts.delete` | Delete an account |
 | `account.contacts.manage` | Create, update, verify, and remove account contacts |
+| `account.devices.manage` | Update labels and remove auth devices |
 | `auth.factors.manage` | Create, enable, disable, reset, and remove auth factors |
+| `auth.sessions.manage` | Revoke individual or device-scoped sessions |
 | `punishments.view` | View created punishments |
 | `punishments.create` | Create punishments and suspensions |
 | `punishments.update` | Update punishments |
@@ -150,6 +152,81 @@ Example response:
   "active_punishment": null,
   "active_punishments": []
 }
+```
+
+### Device management
+
+These endpoints let admins inspect and manage auth devices for an account.
+
+Routes:
+
+- `GET /api/admin/accounts/{name}/devices`
+- `PATCH /api/admin/accounts/{name}/devices/{device_id}/label`
+- `POST /api/admin/accounts/{name}/devices/{device_id}/sessions/revoke`
+- `DELETE /api/admin/accounts/{name}/devices/{device_id}`
+
+Permissions:
+
+- viewing requires `accounts.view`
+- label updates and device deletion require `account.devices.manage`
+- revoking sessions on one device requires `auth.sessions.manage`
+
+Query parameters for `GET /devices`:
+
+- `take` default `20`, max `200`
+- `offset` default `0`
+- `include_deleted` default `false`
+- `include_sessions` default `true`
+
+Notes:
+
+- `device_id` is the stable device identifier string, not the auth client row GUID
+- `POST /sessions/revoke` currently uses the same underlying behavior as device deletion: expire all sessions on the device and mark the auth client deleted
+- `DELETE /devices/{device_id}` returns `204 No Content`
+
+Label update request example:
+
+```json
+{
+  "label": "Alice's MacBook Pro"
+}
+```
+
+### Session management
+
+These endpoints let admins inspect sessions, drill into child sessions, and revoke one session without revoking every session on the account.
+
+Routes:
+
+- `GET /api/admin/accounts/{name}/sessions`
+- `GET /api/admin/accounts/{name}/sessions/{session_id}/children`
+- `DELETE /api/admin/accounts/{name}/sessions/{session_id}`
+
+Permissions:
+
+- viewing requires `accounts.view`
+- revocation requires `auth.sessions.manage`
+
+Query parameters for `GET /sessions`:
+
+- `take` default `20`, max `200`
+- `offset` default `0`
+- `type` optional session type enum
+- `client_id` optional auth client GUID
+- `include_children` default `false`
+- `active_only` default `false`
+
+Notes:
+
+- by default, `GET /sessions` returns only root sessions
+- each session includes `children_count`
+- `GET /sessions/{session_id}/children` paginates child sessions and also computes `children_count` for them
+- `DELETE /sessions/{session_id}` only revokes the targeted session
+
+Session list example:
+
+```text
+GET /api/admin/accounts/alice/sessions?active_only=true&include_children=false
 ```
 
 ### Contact management

@@ -136,6 +136,11 @@ public class AccountAdminController(
         public bool RevokeSessions { get; set; } = true;
     }
 
+    public class UpdateAdminDeviceLabelRequest
+    {
+        [MaxLength(1024)] public string Label { get; set; } = string.Empty;
+    }
+
     public class AdminMessageDispatchResponse
     {
         public int Requested { get; set; }
@@ -307,6 +312,244 @@ public class AccountAdminController(
             ActivePunishment = SelectMostSeverePunishment(activePunishments),
             ActivePunishments = activePunishments
         });
+    }
+
+    [HttpGet("{name}/devices")]
+    [AskPermission(PermissionKeys.AccountsView)]
+    public async Task<ActionResult<List<SnAuthClientWithSessions>>> ListAccountDevices(
+        string name,
+        [FromQuery] int take = 20,
+        [FromQuery] int offset = 0,
+        [FromQuery] bool includeDeleted = false,
+        [FromQuery] bool includeSessions = true
+    )
+    {
+        take = Math.Clamp(take, 1, 200);
+        offset = Math.Max(0, offset);
+
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var query = db.AuthClients
+            .AsNoTracking()
+            .Where(device => device.AccountId == account.Id);
+        if (!includeDeleted)
+            query = query.Where(device => device.DeletedAt == null);
+
+        var total = await query.CountAsync();
+        Response.Headers.Append("X-Total", total.ToString());
+
+        var devices = await query
+            .OrderByDescending(d => d.CreatedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        var response = devices.Select(SnAuthClientWithSessions.FromClient).ToList();
+        if (!includeSessions || response.Count == 0)
+            return Ok(response);
+
+        var clientIds = response.Select(x => x.Id).ToList();
+        var sessionsByClientId = await db.AuthSessions
+            .AsNoTracking()
+            .Where(s => s.ClientId.HasValue && clientIds.Contains(s.ClientId.Value))
+            .OrderByDescending(s => s.LastGrantedAt)
+            .GroupBy(s => s.ClientId!.Value)
+            .ToDictionaryAsync(g => g.Key, g => g.ToList());
+
+        foreach (var device in response)
+            if (sessionsByClientId.TryGetValue(device.Id, out var sessions))
+                device.Sessions = sessions;
+
+        return Ok(response);
+    }
+
+    [HttpPatch("{name}/devices/{deviceId}/label")]
+    [AskPermission(PermissionKeys.AccountDevicesManage)]
+    public async Task<IActionResult> UpdateAccountDeviceLabel(
+        string name,
+        string deviceId,
+        [FromBody] UpdateAdminDeviceLabelRequest request
+    )
+    {
+        if (string.IsNullOrWhiteSpace(request.Label))
+            return BadRequest("label is required.");
+
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        await accounts.UpdateDeviceName(account, deviceId, request.Label.Trim());
+        return NoContent();
+    }
+
+    [HttpPost("{name}/devices/{deviceId}/sessions/revoke")]
+    [AskPermission(PermissionKeys.AuthSessionsManage)]
+    public async Task<IActionResult> RevokeAccountDeviceSessions(string name, string deviceId)
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        try
+        {
+            await accounts.DeleteDevice(account, deviceId);
+            return Ok();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    [HttpDelete("{name}/devices/{deviceId}")]
+    [AskPermission(PermissionKeys.AccountDevicesManage)]
+    public async Task<IActionResult> DeleteAccountDevice(string name, string deviceId)
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        try
+        {
+            await accounts.DeleteDevice(account, deviceId);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    [HttpGet("{name}/sessions")]
+    [AskPermission(PermissionKeys.AccountsView)]
+    public async Task<ActionResult<List<SnAuthSession>>> ListAccountSessions(
+        string name,
+        [FromQuery] int take = 20,
+        [FromQuery] int offset = 0,
+        [FromQuery] SessionType? type = null,
+        [FromQuery] Guid? clientId = null,
+        [FromQuery] bool includeChildren = false,
+        [FromQuery] bool activeOnly = false
+    )
+    {
+        take = Math.Clamp(take, 1, 200);
+        offset = Math.Max(0, offset);
+
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var query = db.AuthSessions
+            .AsNoTracking()
+            .Where(session => session.AccountId == account.Id);
+
+        if (!includeChildren)
+            query = query.Where(session => session.ParentSessionId == null);
+        if (type.HasValue)
+            query = query.Where(session => session.Type == type.Value);
+        if (clientId.HasValue)
+            query = query.Where(session => session.ClientId == clientId.Value);
+        if (activeOnly)
+        {
+            var now = SystemClock.Instance.GetCurrentInstant();
+            query = query.Where(session => session.ExpiredAt == null || session.ExpiredAt > now);
+        }
+
+        var total = await query.CountAsync();
+        Response.Headers.Append("X-Total", total.ToString());
+
+        var sessions = await query
+            .OrderByDescending(x => x.LastGrantedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        var sessionIds = sessions.Select(s => s.Id).ToList();
+        if (sessionIds.Count > 0)
+        {
+            var childrenCounts = await db.AuthSessions
+                .AsNoTracking()
+                .Where(s => s.ParentSessionId.HasValue && sessionIds.Contains(s.ParentSessionId.Value))
+                .GroupBy(s => s.ParentSessionId!.Value)
+                .ToDictionaryAsync(g => g.Key, g => g.Count());
+
+            foreach (var session in sessions)
+                session.ChildrenCount = childrenCounts.GetValueOrDefault(session.Id, 0);
+        }
+
+        return Ok(sessions);
+    }
+
+    [HttpGet("{name}/sessions/{sessionId:guid}/children")]
+    [AskPermission(PermissionKeys.AccountsView)]
+    public async Task<ActionResult<List<SnAuthSession>>> ListAccountSessionChildren(
+        string name,
+        Guid sessionId,
+        [FromQuery] int take = 20,
+        [FromQuery] int offset = 0
+    )
+    {
+        take = Math.Clamp(take, 1, 200);
+        offset = Math.Max(0, offset);
+
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        var parentSession = await db.AuthSessions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == sessionId && s.AccountId == account.Id);
+        if (parentSession is null)
+            return NotFound();
+
+        var query = db.AuthSessions
+            .AsNoTracking()
+            .Where(s => s.ParentSessionId == sessionId && s.AccountId == account.Id);
+
+        var total = await query.CountAsync();
+        Response.Headers.Append("X-Total", total.ToString());
+
+        var sessions = await query
+            .OrderByDescending(x => x.LastGrantedAt)
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        var childIds = sessions.Select(s => s.Id).ToList();
+        if (childIds.Count > 0)
+        {
+            var childrenCounts = await db.AuthSessions
+                .AsNoTracking()
+                .Where(s => s.ParentSessionId.HasValue && childIds.Contains(s.ParentSessionId.Value))
+                .GroupBy(s => s.ParentSessionId!.Value)
+                .ToDictionaryAsync(g => g.Key, g => g.Count());
+
+            foreach (var session in sessions)
+                session.ChildrenCount = childrenCounts.GetValueOrDefault(session.Id, 0);
+        }
+
+        return Ok(sessions);
+    }
+
+    [HttpDelete("{name}/sessions/{sessionId:guid}")]
+    [AskPermission(PermissionKeys.AuthSessionsManage)]
+    public async Task<IActionResult> RevokeAccountSession(string name, Guid sessionId)
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        try
+        {
+            await accounts.DeleteSession(account, sessionId);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ex.Message);
+        }
     }
 
     [HttpGet("{name}/contacts")]
