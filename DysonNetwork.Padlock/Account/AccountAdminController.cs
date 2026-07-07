@@ -976,14 +976,12 @@ public class AccountAdminController(
             .ToList();
 
         foreach (var recipient in recipients)
-        {
             await mailer.SendEmailAsync(
                 string.IsNullOrWhiteSpace(recipient.Account.Nick) ? recipient.Account.Name : recipient.Account.Nick,
                 recipient.Content,
                 request.Subject,
                 request.HtmlBody
             );
-        }
 
         return Ok(new AdminMessageDispatchResponse
         {

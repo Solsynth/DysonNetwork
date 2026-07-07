@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using DysonNetwork.Ring.Email;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,9 @@ public class AppDatabase(
     public DbSet<SnNotification> Notifications { get; set; } = null!;
     public DbSet<SnNotificationPushSubscription> PushSubscriptions { get; set; } = null!;
     public DbSet<SnNotificationPreference> NotificationPreferences { get; set; } = null!;
+    public DbSet<SnEmailSendingPlan> EmailSendingPlans { get; set; } = null!;
+    public DbSet<SnEmailSendingPlanRecipient> EmailSendingPlanRecipients { get; set; } = null!;
+    public DbSet<SnEmailSendingPlanAdvance> EmailSendingPlanAdvances { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -42,6 +46,21 @@ public class AppDatabase(
 
         modelBuilder.Entity<SnNotificationPreference>()
             .HasIndex(p => new { p.AccountId, p.Topic, p.DeletedAt })
+            .HasFilter("deleted_at IS NULL")
+            .IsUnique();
+
+        modelBuilder.Entity<SnEmailSendingPlan>()
+            .HasIndex(p => new { p.SendingPlanKey, p.DeletedAt })
+            .HasFilter("deleted_at IS NULL AND sending_plan_key IS NOT NULL")
+            .IsUnique();
+
+        modelBuilder.Entity<SnEmailSendingPlanRecipient>()
+            .HasIndex(p => new { p.PlanId, p.AccountId, p.DeletedAt })
+            .HasFilter("deleted_at IS NULL")
+            .IsUnique();
+
+        modelBuilder.Entity<SnEmailSendingPlanAdvance>()
+            .HasIndex(p => new { p.PlanId, p.IntervalNumber, p.DeletedAt })
             .HasFilter("deleted_at IS NULL")
             .IsUnique();
 

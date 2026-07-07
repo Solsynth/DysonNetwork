@@ -423,6 +423,8 @@ Notes:
 - The caller is responsible for providing the full HTML body.
 - Delivery uses the account's verified email contacts.
 - If an account has no verified email contact, it is counted in `skipped`.
+- For scheduled or rate-limited batch delivery, use the Ring admin email sending-plan APIs instead of this immediate-send endpoint.
+- See also: `docs/EMAIL_SENDING_PLAN_API.md`
 
 ### POST /api/admin/accounts/{name}/suspend
 

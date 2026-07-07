@@ -1,4 +1,5 @@
 using DysonNetwork.Ring.Services;
+using DysonNetwork.Ring.Email;
 using Quartz;
 
 namespace DysonNetwork.Ring.Startup;
@@ -30,7 +31,16 @@ public static class ScheduledJobsConfiguration
                 .WithSimpleSchedule(o => o
                     .WithIntervalInMinutes(5)
                     .RepeatForever())
-            ); 
+            );
+
+            q.AddJob<EmailSendingPlanAdvanceJob>(opts => opts.WithIdentity("EmailSendingPlanAdvance"));
+            q.AddTrigger(opts => opts
+                .ForJob("EmailSendingPlanAdvance")
+                .WithIdentity("EmailSendingPlanAdvanceTrigger")
+                .WithSimpleSchedule(o => o
+                    .WithIntervalInMinutes(1)
+                    .RepeatForever())
+            );
         });
         services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
 

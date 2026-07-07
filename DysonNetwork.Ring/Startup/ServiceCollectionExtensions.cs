@@ -62,6 +62,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAppBusinessServices(this IServiceCollection services)
     {
         services.AddScoped<EmailService>();
+        services.AddScoped<EmailSendingPlanService>();
         services.AddScoped<SopNotificationReplayBuffer>();
         services.AddScoped<PushService>();
         services.AddScoped<NotificationPreferenceService>();
