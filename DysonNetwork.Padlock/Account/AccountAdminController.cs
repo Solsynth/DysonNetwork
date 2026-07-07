@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text;
 using System.Text.Json;
 using DysonNetwork.Padlock.Models;
 using DysonNetwork.Shared.Auth;
@@ -98,6 +99,13 @@ public class AccountAdminController(
         public bool BroadcastToAll { get; set; }
         [MaxLength(1024)] public string Subject { get; set; } = string.Empty;
         [MaxLength(1_000_000)] public string HtmlBody { get; set; } = string.Empty;
+    }
+
+    public class ExportAdminEmailContactsRequest
+    {
+        public Guid? AccountId { get; set; }
+        public List<Guid>? AccountIds { get; set; }
+        public bool BroadcastToAll { get; set; }
     }
 
     public class AdminAccountContactRequest
@@ -993,6 +1001,48 @@ public class AccountAdminController(
         });
     }
 
+    [HttpGet("emails/export")]
+    [AskPermission("emails.send")]
+    public async Task<IActionResult> ExportEmailContactsCsv(
+        [FromQuery] ExportAdminEmailContactsRequest request
+    )
+    {
+        if (!request.BroadcastToAll && !request.AccountId.HasValue && request.AccountIds is not { Count: > 0 })
+            return BadRequest("Provide account_id, account_ids, or set broadcast_to_all=true.");
+
+        var targetIds = await ResolveTargetAccountIds(request.AccountId, request.AccountIds, request.BroadcastToAll);
+        var emailContacts = await db.AccountContacts
+            .AsNoTracking()
+            .Where(c => targetIds.Contains(c.AccountId) && c.Type == AccountContactType.Email)
+            .Include(c => c.Account)
+            .ToListAsync();
+
+        var recipients = emailContacts
+            .GroupBy(c => c.AccountId)
+            .Select(g => g
+                .OrderByDescending(c => c.IsPrimary)
+                .ThenBy(c => c.CreatedAt)
+                .First())
+            .OrderBy(c => string.IsNullOrWhiteSpace(c.Account.Nick) ? c.Account.Name : c.Account.Nick)
+            .ToList();
+
+        var csv = new StringBuilder();
+        csv.AppendLine("EmailAddr,UserName");
+        foreach (var recipient in recipients)
+        {
+            var userName = string.IsNullOrWhiteSpace(recipient.Account.Nick) ? recipient.Account.Name : recipient.Account.Nick;
+            csv.Append(EscapeCsv(recipient.Content));
+            csv.Append(',');
+            csv.Append(EscapeCsv(userName));
+            csv.AppendLine();
+        }
+
+        var payload = Encoding.UTF8.GetPreamble()
+            .Concat(Encoding.UTF8.GetBytes(csv.ToString()))
+            .ToArray();
+        return File(payload, "text/csv; charset=utf-8", $"account-email-contacts-{DateTime.UtcNow:yyyyMMddHHmmss}.csv");
+    }
+
     [HttpGet("punishments/created")]
     [Authorize]
     [AskPermission(PermissionKeys.PunishmentsView)]
@@ -1286,6 +1336,15 @@ public class AccountAdminController(
                 requestedIds.Add(id);
 
         return requestedIds.Count;
+    }
+
+    private static string EscapeCsv(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        var escaped = value.Replace("\"", "\"\"");
+        return escaped.IndexOfAny([',', '"', '\r', '\n']) >= 0 ? $"\"{escaped}\"" : escaped;
     }
 
     private async Task<SnAccountPunishment> CreatePunishmentInternal(

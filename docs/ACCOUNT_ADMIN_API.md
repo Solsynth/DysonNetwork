@@ -426,6 +426,53 @@ Notes:
 - For scheduled or rate-limited batch delivery, use the Ring admin email sending-plan APIs instead of this immediate-send endpoint.
 - See also: `docs/EMAIL_SENDING_PLAN_API.md`
 
+### GET /api/admin/accounts/emails/export
+
+Exports account email contacts as CSV for specific accounts or all accounts.
+
+Required permission:
+
+- `emails.send`
+
+Targeting modes:
+
+- `account_id`
+- `account_ids`
+- `broadcast_to_all`
+
+Query parameters:
+
+- `account_id` optional single account id
+- `account_ids` optional repeated account id query parameter
+- `broadcast_to_all` default `false`
+
+Example:
+
+```text
+/api/admin/accounts/emails/export?account_ids=550e8400-e29b-41d4-a716-446655440000&account_ids=7a1bd1c9-9d7d-4e77-b25c-c48a7c6b8956
+```
+
+Response:
+
+- `200 OK`
+- content type: `text/csv; charset=utf-8`
+- filename example: `account-email-contacts-20260708123045.csv`
+
+CSV shape:
+
+```csv
+EmailAddr,UserName
+test1@abc.com,张三
+test2@abc.com,李四
+```
+
+Notes:
+
+- For each account, the export uses the primary email contact when present.
+- If no primary email is marked, the export falls back to the first email contact for that account.
+- `UserName` uses the account nick when available, otherwise the account name.
+- The response is UTF-8 with BOM so spreadsheet tools handle Chinese text more reliably.
+
 ### POST /api/admin/accounts/{name}/suspend
 
 Creates a suspension-oriented punishment directly from the admin account surface.
