@@ -22,20 +22,19 @@ Production gateway routes:
 
 ### `GET /api/admin/cache/stats`
 
-Returns aggregate cache counters collected by the shared Redis-backed cache service.
+Returns Redis-native cache and server stats collected from Redis `INFO` sections.
 
 Example response:
 
 ```json
 {
-  "read_hits": 120,
-  "read_misses": 30,
-  "write_count": 44,
-  "remove_count": 10,
-  "group_add_count": 18,
-  "group_remove_count": 2,
-  "clear_all_count": 1,
-  "cleared_key_count": 57,
+  "keyspace_hits": 120,
+  "keyspace_misses": 30,
+  "total_commands_processed": 8421,
+  "evicted_keys": 0,
+  "expired_keys": 16,
+  "connected_clients": 12,
+  "used_memory_bytes": 10485760,
   "read_count": 150,
   "hit_ratio": 0.8
 }
@@ -43,21 +42,20 @@ Example response:
 
 Field meanings:
 
-- `read_hits`: successful cache reads
-- `read_misses`: unsuccessful cache reads
-- `write_count`: cache write operations
-- `remove_count`: single-key delete operations
-- `group_add_count`: number of key-to-group associations added
-- `group_remove_count`: number of group clear operations
-- `clear_all_count`: number of namespace-wide clears
-- `cleared_key_count`: cumulative number of keys removed by namespace-wide clears
-- `read_count`: computed as `read_hits + read_misses`
-- `hit_ratio`: computed as `read_hits / read_count`, or `0` when no reads have occurred
+- `keyspace_hits`: Redis `keyspace_hits`
+- `keyspace_misses`: Redis `keyspace_misses`
+- `total_commands_processed`: Redis `total_commands_processed`
+- `evicted_keys`: Redis `evicted_keys`
+- `expired_keys`: Redis `expired_keys`
+- `connected_clients`: Redis `connected_clients`
+- `used_memory_bytes`: Redis `used_memory`
+- `read_count`: computed as `keyspace_hits + keyspace_misses`
+- `hit_ratio`: computed as `keyspace_hits / read_count`, or `0` when no reads have occurred
 
 Notes:
 
-- These counters are service-level counters, not Redis server-native metrics.
-- `hit_ratio` only reflects cache reads going through the shared `ICacheService`.
+- These values come from Redis server `INFO` output instead of custom application counters.
+- In multi-endpoint Redis deployments, Padlock aggregates the numeric values from connected endpoints.
 
 ## Inspect Group
 
