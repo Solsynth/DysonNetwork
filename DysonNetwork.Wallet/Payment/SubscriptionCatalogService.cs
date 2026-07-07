@@ -412,6 +412,73 @@ public class SubscriptionCatalogService(
         return existing is null;
     }
 
+    public async Task<(SnWalletSubscriptionDefinition Definition, bool Created)> UpsertDefinitionAsync(
+        SnWalletSubscriptionDefinition definition,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var existing = await _db.WalletSubscriptionDefinitions
+            .FirstOrDefaultAsync(x => x.Identifier == definition.Identifier, cancellationToken);
+
+        if (existing is not null)
+        {
+            existing.GroupIdentifier = string.IsNullOrWhiteSpace(definition.GroupIdentifier) ? null : definition.GroupIdentifier;
+            existing.DisplayName = definition.DisplayName;
+            existing.Currency = definition.Currency;
+            existing.BasePrice = definition.BasePrice;
+            existing.PerkLevel = definition.PerkLevel;
+            existing.MinimumAccountLevel = definition.MinimumAccountLevel;
+            existing.ExperienceMultiplier = definition.ExperienceMultiplier;
+            existing.GoldenPointReward = definition.GoldenPointReward;
+            existing.DisplayConfig = definition.DisplayConfig?.Clone();
+            existing.PaymentPolicy = ClonePaymentPolicy(definition.PaymentPolicy);
+            existing.GiftPolicy = definition.GiftPolicy?.Clone();
+            existing.ProviderMappings = CloneProviderMappings(definition.ProviderMappings);
+            existing.AppIdentifier = string.IsNullOrWhiteSpace(definition.AppIdentifier) ? null : definition.AppIdentifier;
+
+            _db.WalletSubscriptionDefinitions.Update(existing);
+            await _db.SaveChangesAsync(cancellationToken);
+            return (existing, false);
+        }
+
+        var created = new SnWalletSubscriptionDefinition
+        {
+            Identifier = definition.Identifier,
+            GroupIdentifier = string.IsNullOrWhiteSpace(definition.GroupIdentifier) ? null : definition.GroupIdentifier,
+            DisplayName = definition.DisplayName,
+            Currency = definition.Currency,
+            BasePrice = definition.BasePrice,
+            PerkLevel = definition.PerkLevel,
+            MinimumAccountLevel = definition.MinimumAccountLevel,
+            ExperienceMultiplier = definition.ExperienceMultiplier,
+            GoldenPointReward = definition.GoldenPointReward,
+            DisplayConfig = definition.DisplayConfig?.Clone(),
+            PaymentPolicy = ClonePaymentPolicy(definition.PaymentPolicy),
+            GiftPolicy = definition.GiftPolicy?.Clone(),
+            ProviderMappings = CloneProviderMappings(definition.ProviderMappings),
+            AppIdentifier = string.IsNullOrWhiteSpace(definition.AppIdentifier) ? null : definition.AppIdentifier
+        };
+
+        _db.WalletSubscriptionDefinitions.Add(created);
+        await _db.SaveChangesAsync(cancellationToken);
+        return (created, true);
+    }
+
+    public async Task<bool> DeleteDefinitionAsync(
+        string identifier,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var definition = await _db.WalletSubscriptionDefinitions
+            .FirstOrDefaultAsync(x => x.Identifier == identifier, cancellationToken);
+        if (definition is null)
+            return false;
+
+        _db.WalletSubscriptionDefinitions.Remove(definition);
+        await _db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<bool> RemoveAppDefinitionAsync(
         string identifier,
         string appIdentifier,
