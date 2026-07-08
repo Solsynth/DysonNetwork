@@ -22,6 +22,7 @@ namespace DysonNetwork.Passport.Account;
 public class AccountCurrentController(
     AppDatabase db,
     AccountService accounts,
+    AccountBoardService boards,
     ApplePassService applePasses,
     RemoteAccountContactService remoteContacts,
     RemoteAccountConnectionService remoteConnections,
@@ -104,6 +105,31 @@ public class AccountCurrentController(
         [MaxLength(32)] public string? BackgroundId { get; set; }
     }
 
+    public class BoardItemRequest
+    {
+        public Guid? Id { get; set; }
+        public int Order { get; set; }
+        public SnAccountBoardItemKind Kind { get; set; }
+        [MaxLength(256)] public string? WidgetKey { get; set; }
+        public Guid? CustomAppId { get; set; }
+        public bool IsEnabled { get; set; } = true;
+        public Dictionary<string, object?>? Payload { get; set; }
+
+        public SnAccountBoardItem ToModel()
+        {
+            return new SnAccountBoardItem
+            {
+                Id = Id ?? Guid.NewGuid(),
+                Order = Order,
+                Kind = Kind,
+                WidgetKey = WidgetKey,
+                CustomAppId = CustomAppId,
+                IsEnabled = IsEnabled,
+                Payload = Payload ?? []
+            };
+        }
+    }
+
     [HttpPatch("profile")]
     public async Task<ActionResult<SnAccountProfile>> UpdateProfile([FromBody] ProfileRequest request)
     {
@@ -180,6 +206,32 @@ public class AccountCurrentController(
         await accounts.PurgeAccountCache(currentUser);
 
         return profile;
+    }
+
+    [HttpGet("board")]
+    [AskPermission(PermissionKeys.AccountsProfileBoardManage)]
+    public async Task<ActionResult<List<SnAccountBoardItem>>> GetBoard()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        return Ok(await boards.GetBoardAsync(currentUser.Id));
+    }
+
+    [HttpPut("board")]
+    [AskPermission(PermissionKeys.AccountsProfileBoardManage)]
+    public async Task<ActionResult<List<SnAccountBoardItem>>> ReplaceBoard([FromBody] List<BoardItemRequest> request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+
+        try
+        {
+            var board = await boards.ReplaceBoardAsync(currentUser.Id, request.Select(x => x.ToModel()));
+            await accounts.PurgeAccountCache(currentUser);
+            return Ok(board);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     private static bool IsProfileComplete(SnAccountProfile p)

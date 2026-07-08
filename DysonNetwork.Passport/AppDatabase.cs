@@ -24,6 +24,7 @@ public class AppDatabase(
 
     public DbSet<SnMagicSpell> MagicSpells { get; set; } = null!;
     public DbSet<SnAccountProfile> AccountProfiles { get; set; } = null!;
+    public DbSet<SnAccountBoardItem> AccountBoardItems { get; set; } = null!;
     public DbSet<SnApplePass> ApplePasses { get; set; } = null!;
     public DbSet<SnApplePassRegistration> ApplePassRegistrations { get; set; } = null!;
     public DbSet<SnAccountRelationship> AccountRelationships { get; set; } = null!;
@@ -192,6 +193,11 @@ public class AppDatabase(
         // Passport no longer owns auth/account rows; keep profile as an account-id keyed read model only.
         modelBuilder.Entity<SnAccountProfile>()
             .Ignore(p => p.Account);
+        modelBuilder.Entity<SnAccountProfile>()
+            .Ignore(p => p.Board);
+        modelBuilder.Entity<SnAccountBoardItem>()
+            .HasIndex(x => new { x.AccountId, x.Order })
+            .IsUnique();
 
         modelBuilder.Entity<SnApplePassRegistration>()
             .HasOne(r => r.Pass)

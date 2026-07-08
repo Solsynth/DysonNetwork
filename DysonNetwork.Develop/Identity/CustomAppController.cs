@@ -25,7 +25,8 @@ public class CustomAppController(
         string? BackgroundId,
         Shared.Models.CustomAppStatus? Status,
         SnCustomAppLinks? Links,
-        SnCustomAppOauthConfig? OauthConfig
+        SnCustomAppOauthConfig? OauthConfig,
+        SnBoardWidgetManifest? BoardWidget
     );
 
     public record CreateSecretRequest(

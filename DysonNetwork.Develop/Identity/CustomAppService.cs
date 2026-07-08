@@ -3,6 +3,7 @@ using DysonNetwork.Shared.Proto;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 namespace DysonNetwork.Develop.Identity;
 
@@ -31,6 +32,7 @@ public class CustomAppService(
             Status = request.Status ?? Shared.Models.CustomAppStatus.Developing,
             Links = request.Links,
             OauthConfig = request.OauthConfig,
+            BoardWidget = request.BoardWidget,
             ProjectId = projectId
         };
 
@@ -182,6 +184,8 @@ public class CustomAppService(
             app.Links = request.Links;
         if (request.OauthConfig is not null)
             app.OauthConfig = request.OauthConfig;
+        if (request.BoardWidget is not null)
+            app.BoardWidget = request.BoardWidget;
 
         if (request.PictureId is not null)
         {
@@ -226,5 +230,80 @@ public class CustomAppService(
         await db.SaveChangesAsync();
 
         return true;
+    }
+
+    public async Task<(SnCustomApp App, SnBoardWidgetManifest Widget)> GetBoardWidgetAsync(Guid appId)
+    {
+        var app = await db.CustomApps.FirstOrDefaultAsync(a => a.Id == appId);
+        if (app is null)
+            throw new InvalidOperationException("App not found");
+        if (app.BoardWidget is null)
+            throw new InvalidOperationException("Board widget is not configured for this app");
+
+        return (app, app.BoardWidget);
+    }
+
+    public (bool Valid, string? Message, Dictionary<string, object?> NormalizedPayload, SnBoardWidgetManifest Widget)
+        ValidateBoardWidgetPayload(SnCustomApp app, Dictionary<string, object?>? payload)
+    {
+        var widget = app.BoardWidget;
+        if (widget is null)
+            return (false, "Board widget is not configured for this app.", [], new SnBoardWidgetManifest());
+        if (!widget.IsEnabled)
+            return (false, "Board widget is disabled for this app.", [], widget);
+        if (app.Status != CustomAppStatus.Production)
+            return (false, "Only production custom apps can be used as board widgets.", [], widget);
+
+        var normalizedPayload = payload ?? [];
+        var payloadJson = JsonSerializer.Serialize(normalizedPayload);
+        if (widget.MaxPayloadBytes.HasValue && Encoding.UTF8.GetByteCount(payloadJson) > widget.MaxPayloadBytes.Value)
+            return (false, $"Board widget payload exceeds {widget.MaxPayloadBytes.Value} bytes.", normalizedPayload, widget);
+
+        foreach (var requiredField in widget.RequiredFields)
+        {
+            if (!normalizedPayload.ContainsKey(requiredField))
+                return (false, $"Board widget payload is missing required field '{requiredField}'.", normalizedPayload, widget);
+        }
+
+        foreach (var fieldType in widget.FieldTypes)
+        {
+            if (!normalizedPayload.TryGetValue(fieldType.Key, out var value))
+                continue;
+
+            if (!IsValueMatchingType(value, fieldType.Value))
+                return (false, $"Board widget payload field '{fieldType.Key}' must be of type '{fieldType.Value}'.", normalizedPayload, widget);
+        }
+
+        return (true, null, normalizedPayload, widget);
+    }
+
+    private static bool IsValueMatchingType(object? value, string expectedType)
+    {
+        if (value is null)
+            return true;
+
+        if (value is JsonElement element)
+        {
+            return expectedType.ToLowerInvariant() switch
+            {
+                "string" => element.ValueKind == JsonValueKind.String,
+                "number" => element.ValueKind == JsonValueKind.Number,
+                "boolean" => element.ValueKind == JsonValueKind.True || element.ValueKind == JsonValueKind.False,
+                "object" => element.ValueKind == JsonValueKind.Object,
+                "array" => element.ValueKind == JsonValueKind.Array,
+                "null" => element.ValueKind == JsonValueKind.Null,
+                _ => true
+            };
+        }
+
+        return expectedType.ToLowerInvariant() switch
+        {
+            "string" => value is string,
+            "number" => value is sbyte or byte or short or ushort or int or uint or long or ulong or float or double or decimal,
+            "boolean" => value is bool,
+            "object" => value is Dictionary<string, object?>,
+            "array" => value is IEnumerable<object>,
+            _ => true
+        };
     }
 }

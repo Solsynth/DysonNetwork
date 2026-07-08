@@ -16,7 +16,8 @@ public class AccountService(
     MagicSpellService spells,
     ICacheService cache,
     ILogger<AccountService> logger,
-    DyAccountService.DyAccountServiceClient accounts
+    DyAccountService.DyAccountServiceClient accounts,
+    AccountBoardService boards
 )
 {
     public const string AccountCachePrefix = "account:";
@@ -88,7 +89,11 @@ public class AccountService(
     {
         var profile = await db.AccountProfiles
             .FirstOrDefaultAsync(p => p.AccountId == accountId);
-        if (profile is not null) return profile;
+        if (profile is not null)
+        {
+            await boards.HydrateBoardAsync(profile);
+            return profile;
+        }
 
         profile = new SnAccountProfile
         {
@@ -99,17 +104,23 @@ public class AccountService(
         try
         {
             await db.SaveChangesAsync();
+            profile.Board = [];
             return profile;
         }
         catch (DbUpdateException)
         {
             // Handle concurrent create race by reloading; if still missing, retry create once.
             var existing = await db.AccountProfiles.FirstOrDefaultAsync(p => p.AccountId == accountId);
-            if (existing is not null) return existing;
+            if (existing is not null)
+            {
+                await boards.HydrateBoardAsync(existing);
+                return existing;
+            }
 
             profile = new SnAccountProfile { AccountId = accountId };
             db.AccountProfiles.Add(profile);
             await db.SaveChangesAsync();
+            profile.Board = [];
             return profile;
         }
     }

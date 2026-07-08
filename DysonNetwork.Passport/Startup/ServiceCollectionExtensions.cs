@@ -129,6 +129,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<EmailService>();
         services.AddScoped<ActionLogService>();
         services.AddScoped<AccountService>();
+        services.AddScoped<AccountBoardService>();
         services.AddScoped<ApplePassService>();
         services.AddScoped<AccountEventService>();
         services.AddScoped<PresenceArtworkService>();

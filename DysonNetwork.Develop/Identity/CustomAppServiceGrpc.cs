@@ -1,13 +1,17 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using Google.Protobuf;
+using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace DysonNetwork.Develop.Identity;
 
 public class CustomAppServiceGrpc(
     AppDatabase db,
-    DyPublisherService.DyPublisherServiceClient publisherService
+    DyPublisherService.DyPublisherServiceClient publisherService,
+    CustomAppService customApps
 ) : DyCustomAppService.DyCustomAppServiceBase
 {
     public override async Task<DyGetCustomAppResponse> GetCustomApp(DyGetCustomAppRequest request, ServerCallContext context)
@@ -142,5 +146,55 @@ public class CustomAppServiceGrpc(
             throw new RpcException(new Status(StatusCode.NotFound, "product not found"));
 
         return new DyGetAppProductResponse { Product = product.ToProto() };
+    }
+
+    public override async Task<DyGetBoardWidgetResponse> GetBoardWidget(DyGetBoardWidgetRequest request, ServerCallContext context)
+    {
+        if (!Guid.TryParse(request.AppId, out var appId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid app_id"));
+
+        try
+        {
+            var (app, widget) = await customApps.GetBoardWidgetAsync(appId);
+            return new DyGetBoardWidgetResponse
+            {
+                App = app.ToProto(),
+                Widget = widget.ToProtoValue()
+            };
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
+        }
+    }
+
+    public override async Task<DyValidateBoardWidgetPayloadResponse> ValidateBoardWidgetPayload(
+        DyValidateBoardWidgetPayloadRequest request,
+        ServerCallContext context
+    )
+    {
+        if (!Guid.TryParse(request.AppId, out var appId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid app_id"));
+
+        var app = await db.CustomApps.FirstOrDefaultAsync(a => a.Id == appId);
+        if (app is null)
+            throw new RpcException(new Status(StatusCode.NotFound, "app not found"));
+
+        var payload = JsonSerializer.Deserialize<Dictionary<string, object?>>(
+            JsonFormatter.Default.Format(request.Payload)
+        );
+        var result = customApps.ValidateBoardWidgetPayload(app, payload);
+
+        return new DyValidateBoardWidgetPayloadResponse
+        {
+            Valid = result.Valid,
+            Message = result.Message ?? string.Empty,
+            Widget = result.Widget.ToProtoValue(),
+            NormalizedPayload = JsonParser.Default.Parse<Struct>(JsonSerializer.Serialize(result.NormalizedPayload))
+        };
     }
 }

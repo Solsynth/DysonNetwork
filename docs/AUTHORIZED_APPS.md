@@ -25,6 +25,7 @@ Supported types:
 Scope names should match the existing permission-node naming style, for example:
 - `contacts.read`
 - `notifications.send`
+- `accounts.profile.board.manage`
 
 ---
 
@@ -123,6 +124,20 @@ Endpoint:
 ```http
 GET /api/private/apps/{appId}/accounts/{accountId}/contacts
 X-Api-Key: <custom_app_api_key>
+```
+
+### Account board access
+
+Self board management through Passport only works when:
+
+- auth record is active
+- scopes include `accounts.profile.board.manage`
+
+Endpoints:
+
+```http
+GET /api/accounts/me/board
+PUT /api/accounts/me/board
 ```
 
 ---
