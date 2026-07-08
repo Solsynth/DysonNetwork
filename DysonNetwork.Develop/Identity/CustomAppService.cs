@@ -239,15 +239,59 @@ public class CustomAppService(
         return app;
     }
 
-    public async Task<SnCustomApp?> UpdateBoardWidgetsAsync(Guid appId, List<SnBoardWidgetManifest> boardWidgets)
+    public async Task<SnBoardWidgetManifest?> CreateBoardWidgetAsync(Guid appId, SnBoardWidgetManifest widget)
     {
         var app = await db.CustomApps.FirstOrDefaultAsync(a => a.Id == appId);
         if (app is null)
             return null;
 
-        app.BoardWidgets = boardWidgets;
+        app.BoardWidgets ??= [];
+
+        if (app.BoardWidgets.Any(x => string.Equals(x.Key, widget.Key, StringComparison.OrdinalIgnoreCase)))
+            return null; // already exists
+
+        app.BoardWidgets.Add(widget);
         await db.SaveChangesAsync();
-        return app;
+        return widget;
+    }
+
+    public async Task<SnBoardWidgetManifest?> UpdateBoardWidgetAsync(Guid appId, string widgetKey, SnBoardWidgetManifest widget)
+    {
+        var app = await db.CustomApps.FirstOrDefaultAsync(a => a.Id == appId);
+        if (app is null)
+            return null;
+
+        var existing = app.BoardWidgets?
+            .FirstOrDefault(x => string.Equals(x.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
+        if (existing is null)
+            return null;
+
+        existing.IsEnabled = widget.IsEnabled;
+        existing.RendererType = string.IsNullOrWhiteSpace(widget.RendererType) ? "data" : widget.RendererType;
+        existing.PayloadType = widget.PayloadType;
+        existing.FieldTypes = widget.FieldTypes;
+        existing.RequiredFields = widget.RequiredFields;
+        existing.MaxPayloadBytes = widget.MaxPayloadBytes;
+        existing.AllowMultiple = widget.AllowMultiple;
+
+        await db.SaveChangesAsync();
+        return existing;
+    }
+
+    public async Task<bool> DeleteBoardWidgetAsync(Guid appId, string widgetKey)
+    {
+        var app = await db.CustomApps.FirstOrDefaultAsync(a => a.Id == appId);
+        if (app is null)
+            return false;
+
+        var existing = app.BoardWidgets?
+            .FirstOrDefault(x => string.Equals(x.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
+        if (existing is null)
+            return false;
+
+        app.BoardWidgets.Remove(existing);
+        await db.SaveChangesAsync();
+        return true;
     }
 
     public async Task<bool> DeleteAppAsync(Guid id)

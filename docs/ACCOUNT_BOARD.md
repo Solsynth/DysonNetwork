@@ -29,6 +29,8 @@ Every board widget payload — whether prebuilt or custom-app — uses **one** e
 This contract is enforced on every write path:
 - `PUT /api/accounts/me/board` — both prebuilt and custom-app payloads
 - `POST /api/private/apps/{app_id}/board/payload` — custom-app developer push
+- `POST /api/private/apps/{app_id}/board` — widget config create
+- `PUT /api/private/apps/{app_id}/board/{widget_key}` — widget config update
 - Internally by `Passport.AccountBoardService` and `Develop.CustomAppService.ValidateBoardWidgetPayload`
 
 Any payload field that does not conform to this envelope is rejected.
@@ -286,6 +288,101 @@ Behavior:
 - Passport verifies that the board item belongs to the specified account, custom app, and widget key before updating only the payload
 - board order, enabled state, and board placement still remain Passport-owned and are not changed by this endpoint
 
+## Developer Board Widget Config API
+
+Custom apps manage their board widget definitions through these endpoints. Each endpoint operates on a single widget definition identified by `key`.
+
+Base route:
+
+```text
+/api/private/apps/{app_id}
+```
+
+Authentication:
+
+- standard developer auth (`dev` + `proj` query params, editor role required)
+- `CustomAppsUpdate` permission
+
+### POST /api/private/apps/{app_id}/board
+
+Creates a single board widget definition for the app.
+
+Request shape:
+
+```json
+{
+    "key": "littlesheep_mood",
+    "is_enabled": true,
+    "renderer_type": "hero",
+    "field_types": [
+        {"name": "image", "type": "string", "label": "Image", "format": "", "required": true},
+        {"name": "background", "type": "string", "label": "Background", "format": "", "required": true},
+        {"name": "mood", "type": "string", "label": "Mood", "format": "", "required": false}
+    ],
+    "required_fields": ["image", "background"],
+    "max_payload_bytes": 2048,
+    "allow_multiple": false
+}
+```
+
+Behavior:
+
+- `key` must be unique within the app's board widgets
+- `renderer_type` defaults to `"data"` when omitted
+- `payload_type` is fixed to `object`
+- returns `400` if a widget with the same `key` already exists
+- returns the created widget on success
+
+### PUT /api/private/apps/{app_id}/board/{widget_key}
+
+Updates an existing board widget definition by key.
+
+Request shape — same as POST:
+
+```json
+{
+    "key": "littlesheep_mood",
+    "is_enabled": true,
+    "renderer_type": "hero",
+    "field_types": [
+        {"name": "image", "type": "string", "label": "Image", "format": "", "required": true},
+        {"name": "background", "type": "string", "label": "Background", "format": "", "required": true},
+        {"name": "mood", "type": "string", "label": "Mood", "format": "", "required": false}
+    ],
+    "required_fields": ["image", "background"],
+    "max_payload_bytes": 2048,
+    "allow_multiple": false
+}
+```
+
+Behavior:
+
+- `widget_key` in the path identifies which widget to update
+- all fields on the existing widget are replaced with the request values
+- returns `404` if no widget with the given key exists
+- returns the updated widget on success
+
+### DELETE /api/private/apps/{app_id}/board/{widget_key}
+
+Removes a board widget definition by key.
+
+Behavior:
+
+- returns `204 No Content` on success
+- returns `404` if no widget with the given key exists
+
+### Field types model
+
+`field_types` is an array of field definitions, each with:
+
+- `name` — the field key in payload data (e.g. `"image"`)
+- `type` — the expected JSON type (`"string"`, `"number"`, `"boolean"`, `"object"`, `"array"`)
+- `label` — human-readable label for the field
+- `format` — optional client formatter hint (e.g. `"date"`, `"currency"`)
+- `required` — whether this field must be present in payloads
+
+The corresponding field in the stored payload must conform to this type during `ValidateBoardWidgetPayload`.
+
 ## Develop gRPC Contract
 
 Service:
@@ -305,10 +402,10 @@ Fields:
 - `key`
 - `is_enabled`
 - `renderer_type`
-- `field_types`
-- `required_fields`
-- `max_payload_bytes`
-- `allow_multiple`
+- `field_types` — array of `{name, type, label, format, required}` (stored as JSONB; proto serializes as `map<string,string>` of `name→type`)
+- `required_fields` — list of field names that must be present in payloads
+- `max_payload_bytes` — optional payload size limit
+- `allow_multiple` — whether multiple instances of this widget are allowed per board
 
 `payload_type` is fixed to `object` for Board widgets in this v1 shape.
 
