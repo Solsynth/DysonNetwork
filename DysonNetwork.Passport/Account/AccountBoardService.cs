@@ -92,7 +92,11 @@ public class AccountBoardService(
         if (!string.Equals(item.CustomAppWidgetKey, customAppWidgetKey, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Board item does not belong to the specified custom app widget.");
 
-        item.Payload = payload ?? [];
+        var (ok, error, normalizedPayload) = BoardPayloadContract.ValidateAndNormalize(payload);
+        if (!ok)
+            throw new InvalidOperationException(error ?? "Invalid board payload.");
+
+        item.Payload = normalizedPayload;
         await db.SaveChangesAsync(cancellationToken);
         await PurgeAccountCacheAsync(accountId);
         return item;
@@ -144,7 +148,12 @@ public class AccountBoardService(
 
         item.CustomAppId = null;
         item.CustomAppWidgetKey = null;
-        item.Payload ??= [];
+
+        // Prebuilt widget payloads also enforce the universal envelope contract.
+        var (ok, error, normalizedPayload) = BoardPayloadContract.ValidateAndNormalize(item.Payload);
+        if (!ok)
+            throw new InvalidOperationException(error ?? "Invalid prebuilt board payload.");
+        item.Payload = normalizedPayload;
     }
 
     private async Task ValidateCustomWidgetAsync(

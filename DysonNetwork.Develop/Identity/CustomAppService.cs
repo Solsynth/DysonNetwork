@@ -281,6 +281,8 @@ public class CustomAppService(
             return (false, "Board widget is disabled for this app.", [], widget);
         if (app.Status != CustomAppStatus.Production)
             return (false, "Only production custom apps can be used as board widgets.", [], widget);
+        if (!string.Equals(widget.PayloadType, "object", StringComparison.OrdinalIgnoreCase))
+            return (false, "Board widget payload_type must be 'object'.", [], widget);
 
         var normalizedPayload = payload ?? [];
         var payloadJson = JsonSerializer.Serialize(normalizedPayload);
@@ -293,16 +295,25 @@ public class CustomAppService(
                 return (false, $"Board widget payload is missing required field '{requiredField}'.", normalizedPayload, widget);
         }
 
+        // Enforce the universal payload envelope contract on every field.
+        var (ok, error, envelopePayload) = BoardPayloadContract.ValidateAndNormalize(normalizedPayload);
+        if (!ok)
+            return (false, error, normalizedPayload, widget);
+
+        // Validate field_types against the nested value.
         foreach (var fieldType in widget.FieldTypes)
         {
-            if (!normalizedPayload.TryGetValue(fieldType.Key, out var value))
+            if (!envelopePayload.TryGetValue(fieldType.Key, out var fieldObj))
                 continue;
 
-            if (!IsValueMatchingType(value, fieldType.Value))
-                return (false, $"Board widget payload field '{fieldType.Key}' must be of type '{fieldType.Value}'.", normalizedPayload, widget);
+            if (!BoardPayloadContract.TryExtractValue(fieldObj, out var fieldValue))
+                return (false, $"Board widget payload field '{fieldType.Key}' must be an object with 'value', 'label', and optional 'format'.", envelopePayload, widget);
+
+            if (!IsValueMatchingType(fieldValue, fieldType.Value))
+                return (false, $"Board widget payload field '{fieldType.Key}' must be of type '{fieldType.Value}'.", envelopePayload, widget);
         }
 
-        return (true, null, normalizedPayload, widget);
+        return (true, null, envelopePayload, widget);
     }
 
     private static bool IsValueMatchingType(object? value, string expectedType)

@@ -8,6 +8,31 @@ This document describes the `Board` customization surface added across:
 
 All JSON fields are serialized as `snake_case`.
 
+## Universal Payload Contract
+
+Every board widget payload — whether prebuilt or custom-app — uses **one** envelope format. No other payload shape is accepted anywhere in the system.
+
+```json
+{
+    "field_name": {
+        "value": "<any JSON value>",
+        "label": "<non-empty human-readable string>",
+        "format": "<optional client formatter enum>"
+    }
+}
+```
+
+- `value` — required. Any JSON value (`string`, `number`, `boolean`, `null`, `object`, `array`).
+- `label` — required. A non-empty string describing the field.
+- `format` — optional. An enum hint for the client renderer (e.g. `"boolean"`, `"number"`, `"date"`, `"currency"`). When absent, the client infers rendering from the value type.
+
+This contract is enforced on every write path:
+- `PUT /api/accounts/me/board` — both prebuilt and custom-app payloads
+- `POST /api/private/apps/{app_id}/board/payload` — custom-app developer push
+- Internally by `Passport.AccountBoardService` and `Develop.CustomAppService.ValidateBoardWidgetPayload`
+
+Any payload field that does not conform to this envelope is rejected.
+
 ## Overview
 
 `Board` is a public account-profile extension that lets each account arrange profile widgets in a custom order.
@@ -127,7 +152,13 @@ Response shape:
         "custom_app_id": null,
         "custom_app_widget_key": null,
         "is_enabled": true,
-        "payload": {}
+        "payload": {
+            "display_count": {
+                "value": 5,
+                "label": "Display count",
+                "format": "number"
+            }
+        }
     }
 ]
 ```
@@ -152,7 +183,13 @@ Request shape:
         "kind": "prebuilt",
         "widget_key": "badges",
         "is_enabled": true,
-        "payload": {}
+        "payload": {
+            "display_count": {
+                "value": 5,
+                "label": "Display count",
+                "format": "number"
+            }
+        }
     },
     {
         "order": 1,
@@ -161,8 +198,15 @@ Request shape:
         "custom_app_widget_key": "summary_card",
         "is_enabled": true,
         "payload": {
-            "title": "My widget",
-            "show_points": true
+            "title": {
+                "value": "My widget",
+                "label": "Title"
+            },
+            "show_points": {
+                "value": true,
+                "label": "Show points",
+                "format": "boolean"
+            }
         }
     }
 ]
@@ -194,6 +238,8 @@ Custom apps can manually push payload updates into an already-installed board wi
 
 This endpoint lives in Develop, authenticates with a custom app API secret, validates the payload against the app's widget manifest in Develop, and then persists the normalized payload in Passport through gRPC.
 
+This endpoint enforces the same universal payload contract described above. Every field in the payload **must** use the `{value, label, format?}` envelope. No other shape is accepted.
+
 Route:
 
 ```text
@@ -220,8 +266,15 @@ Request shape:
     "board_item_id": "de305d54-75b4-431b-adb2-eb6b9e546014",
     "widget_key": "summary_card",
     "payload": {
-        "title": "Updated from app backend",
-        "show_points": false
+        "title": {
+            "value": "Updated from app backend",
+            "label": "Title"
+        },
+        "show_points": {
+            "value": false,
+            "label": "Show points",
+            "format": "boolean"
+        }
     }
 }
 ```
@@ -252,11 +305,12 @@ Fields:
 - `key`
 - `is_enabled`
 - `renderer_type`
-- `payload_type`
 - `field_types`
 - `required_fields`
 - `max_payload_bytes`
 - `allow_multiple`
+
+`payload_type` is fixed to `object` for Board widgets in this v1 shape.
 
 ### GetBoardWidget
 
@@ -319,10 +373,15 @@ Custom widgets must satisfy all of the following:
 - app has a matching entry in `board_widgets`
 - `board_widgets[n].is_enabled` is `true`
 - app status is `Production`
+- widget `payload_type` is `object`
 - payload size does not exceed `max_payload_bytes` when configured
 - all `required_fields` are present
-- field values match `field_types` when configured
+- **every payload field conforms to the universal payload envelope** (`{value, label, format?}`)
 - singleton behavior respects `allow_multiple = false`
+
+### Prebuilt widgets
+
+Prebuilt widgets also enforce the universal payload envelope on every field. Pass raw `{}` or non-envelope values and the write is rejected.
 
 ## Migrations
 
