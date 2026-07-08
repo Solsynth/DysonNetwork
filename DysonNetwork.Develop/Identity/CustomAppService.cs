@@ -324,6 +324,28 @@ public class CustomAppService(
         return (app, widget);
     }
 
+    public async Task<List<SnCustomApp>> GetBoardCapableAppsWithPublisherAsync(int take = 20, int offset = 0)
+    {
+        // BoardWidgets is stored as jsonb — filter on persisted columns in SQL,
+        // then refine client-side for the JSON-baked fields.
+        var candidates = await db.CustomApps
+            .Include(a => a.Project)
+                .ThenInclude(p => p.Developer)
+            .Where(a => a.Status == CustomAppStatus.Production
+                        && a.OauthConfig != null
+                        && a.OauthConfig.AllowedScopes.Contains(PermissionKeys.AccountsProfileBoard))
+            .OrderBy(a => a.Name)
+            .ToListAsync();
+
+        var filtered = candidates
+            .Where(a => a.BoardWidgets != null && a.BoardWidgets.Any(w => w.IsEnabled))
+            .Skip(offset)
+            .Take(take)
+            .ToList();
+
+        return filtered;
+    }
+
     public (bool Valid, string? Message, Dictionary<string, object?> NormalizedPayload, SnBoardWidgetManifest Widget)
         ValidateBoardWidgetPayload(SnCustomApp app, string widgetKey, Dictionary<string, object?>? payload)
     {

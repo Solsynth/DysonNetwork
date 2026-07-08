@@ -222,6 +222,96 @@ Behavior:
 - replaces all existing board items in one transaction
 - purges cached account hydration after mutation
 
+## User Widget Discovery & Installation
+
+Users discover and install custom-app board widgets through a public discovery API, then add them to their board via the self-board PUT endpoint.
+
+### Step 1: Discover available widgets
+
+Public endpoint — no auth required:
+
+```
+GET /api/apps/board?take=20&offset=0
+```
+
+Optional filter by app slug:
+
+```
+GET /api/apps/board?slug=my-app-slug
+```
+
+Response:
+
+```json
+[
+    {
+        "id": "1b9d6d7f-4d92-4af6-b4ec-7b8d2f9e0c91",
+        "slug": "my-app",
+        "name": "My App",
+        "description": "An app that provides board widgets",
+        "publisher_name": "littlesheep",
+        "board_widgets": [
+            {
+                "key": "summary_card",
+                "slug": "littlesheep.my-app.summary_card",
+                "is_enabled": true,
+                "renderer_type": "hero",
+                "field_types": [
+                    {"name": "title", "type": "string", "label": "Title", "format": "", "required": true}
+                ],
+                "required_fields": ["title"],
+                "max_payload_bytes": 2048,
+                "allow_multiple": false
+            }
+        ]
+    }
+]
+```
+
+Only returns apps that:
+
+- have `Production` status
+- declare the `accounts.profile.board` OAuth scope
+- have at least one enabled board widget
+
+### Widget slug format
+
+Each widget slug is dynamically built as:
+
+```text
+{publisher_name}.{app_slug}.{widget_key}
+```
+
+- `publisher_name` — the publisher's unique identifier (not nick/display name)
+- `app_slug` — the custom app's slug
+- `widget_key` — the widget definition key within the app
+
+This mirrors the product slug pattern and gives every widget a globally unique, human-readable identifier without requiring a separate stored field.
+
+### Step 2: Add widget to board
+
+Once a user knows the `custom_app_id` and `custom_app_widget_key`, they include it in their board layout via `PUT /api/accounts/me/board`:
+
+```json
+[
+    {
+        "order": 0,
+        "kind": "custom_app",
+        "custom_app_id": "1b9d6d7f-4d92-4af6-b4ec-7b8d2f9e0c91",
+        "custom_app_widget_key": "summary_card",
+        "is_enabled": true,
+        "payload": {
+            "title": {
+                "value": "My widget",
+                "label": "Title"
+            }
+        }
+    }
+]
+```
+
+The board service validates the custom widget against Develop gRPC (manifest exists, is enabled, payload conforms to field_types) before accepting.
+
 ## Profile Hydration
 
 Board data is included in:
