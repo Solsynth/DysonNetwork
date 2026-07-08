@@ -56,6 +56,10 @@ public class CustomAppController(
         Dictionary<string, object?>? Payload
     );
 
+    public record BoardWidgetsRequest(
+        List<SnBoardWidgetManifest> Widgets
+    );
+
     [HttpGet]
     [Authorize]
     [AskPermission(PermissionKeys.CustomAppsCreate)]
@@ -112,7 +116,7 @@ public class CustomAppController(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,
         [FromRoute] Guid appId,
-        [FromBody] List<SnBoardWidgetManifest> request)
+        [FromBody] BoardWidgetsRequest request)
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
             return Unauthorized();
@@ -133,7 +137,7 @@ public class CustomAppController(
 
         try
         {
-            var updated = await customApps.UpdateBoardWidgetsAsync(appId, request);
+            var updated = await customApps.UpdateBoardWidgetsAsync(appId, request.Widgets);
             if (updated is null)
                 return NotFound();
             return Ok(updated.BoardWidgets ?? new List<SnBoardWidgetManifest>());
