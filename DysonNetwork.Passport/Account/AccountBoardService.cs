@@ -74,7 +74,7 @@ public class AccountBoardService(
             throw new InvalidOperationException($"Duplicate board order '{duplicateOrders.Key}' is not allowed.");
 
         var singletonPrebuiltUsage = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var singletonCustomApps = new HashSet<Guid>();
+        var singletonCustomWidgets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in items)
         {
@@ -84,7 +84,7 @@ public class AccountBoardService(
                     ValidatePrebuiltWidget(item, singletonPrebuiltUsage);
                     break;
                 case SnAccountBoardItemKind.CustomApp:
-                    await ValidateCustomWidgetAsync(item, singletonCustomApps, cancellationToken);
+                    await ValidateCustomWidgetAsync(item, singletonCustomWidgets, cancellationToken);
                     break;
                 default:
                     throw new InvalidOperationException($"Unsupported board item kind '{item.Kind}'.");
@@ -107,23 +107,27 @@ public class AccountBoardService(
             throw new InvalidOperationException($"Prebuilt widget '{item.WidgetKey}' can only appear once.");
 
         item.CustomAppId = null;
+        item.CustomAppWidgetKey = null;
         item.Payload ??= [];
     }
 
     private async Task ValidateCustomWidgetAsync(
         SnAccountBoardItem item,
-        ISet<Guid> singletonCustomApps,
+        ISet<string> singletonCustomWidgets,
         CancellationToken cancellationToken
     )
     {
         if (!item.CustomAppId.HasValue)
             throw new InvalidOperationException("Custom app board widgets require custom_app_id.");
+        if (string.IsNullOrWhiteSpace(item.CustomAppWidgetKey))
+            throw new InvalidOperationException("Custom app board widgets require custom_app_widget_key.");
 
         var payload = item.Payload ?? [];
         var response = await customApps.ValidateBoardWidgetPayloadAsync(
             new DyValidateBoardWidgetPayloadRequest
             {
                 AppId = item.CustomAppId.Value.ToString(),
+                WidgetKey = item.CustomAppWidgetKey,
                 Payload = JsonParser.Default.Parse<Struct>(JsonSerializer.Serialize(payload))
             },
             cancellationToken: cancellationToken
@@ -136,13 +140,15 @@ public class AccountBoardService(
 
         if (response.Widget is not null && !response.Widget.AllowMultiple)
         {
-            if (!singletonCustomApps.Add(item.CustomAppId.Value))
+            var widgetInstanceKey = $"{item.CustomAppId.Value}:{item.CustomAppWidgetKey}";
+            if (!singletonCustomWidgets.Add(widgetInstanceKey))
                 throw new InvalidOperationException(
-                    $"Custom app widget '{item.CustomAppId}' can only appear once."
+                    $"Custom app widget '{item.CustomAppId}:{item.CustomAppWidgetKey}' can only appear once."
                 );
         }
 
         item.WidgetKey = null;
+        item.CustomAppWidgetKey = response.Widget?.Key ?? item.CustomAppWidgetKey;
         item.Payload = JsonSerializer.Deserialize<Dictionary<string, object?>>(
             JsonFormatter.Default.Format(response.NormalizedPayload),
             Shared.Data.InfraObjectCoder.SerializerOptions

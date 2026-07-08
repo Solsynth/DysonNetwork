@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Auth;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using System.Text;
@@ -12,6 +13,11 @@ public class CustomAppService(
     DyFileService.DyFileServiceClient files
 )
 {
+    private static bool HasBoardScope(SnCustomApp app)
+    {
+        return app.OauthConfig?.AllowedScopes?.Contains(PermissionKeys.AccountsProfileBoard, StringComparer.OrdinalIgnoreCase) == true;
+    }
+
     public async Task<SnCustomApp?> CreateAppAsync(
         Guid projectId,
         CustomAppController.CustomAppRequest request
@@ -32,7 +38,7 @@ public class CustomAppService(
             Status = request.Status ?? Shared.Models.CustomAppStatus.Developing,
             Links = request.Links,
             OauthConfig = request.OauthConfig,
-            BoardWidget = request.BoardWidget,
+            BoardWidgets = request.BoardWidgets,
             ProjectId = projectId
         };
 
@@ -184,8 +190,8 @@ public class CustomAppService(
             app.Links = request.Links;
         if (request.OauthConfig is not null)
             app.OauthConfig = request.OauthConfig;
-        if (request.BoardWidget is not null)
-            app.BoardWidget = request.BoardWidget;
+        if (request.BoardWidgets is not null)
+            app.BoardWidgets = request.BoardWidgets;
 
         if (request.PictureId is not null)
         {
@@ -232,23 +238,30 @@ public class CustomAppService(
         return true;
     }
 
-    public async Task<(SnCustomApp App, SnBoardWidgetManifest Widget)> GetBoardWidgetAsync(Guid appId)
+    public async Task<(SnCustomApp App, SnBoardWidgetManifest Widget)> GetBoardWidgetAsync(Guid appId, string widgetKey)
     {
         var app = await db.CustomApps.FirstOrDefaultAsync(a => a.Id == appId);
         if (app is null)
             throw new InvalidOperationException("App not found");
-        if (app.BoardWidget is null)
+        if (!HasBoardScope(app))
+            throw new InvalidOperationException($"Custom app must declare '{PermissionKeys.AccountsProfileBoard}' scope to provide board widgets.");
+        if (app.BoardWidgets is null || app.BoardWidgets.Count == 0)
             throw new InvalidOperationException("Board widget is not configured for this app");
+        var widget = app.BoardWidgets.FirstOrDefault(x => string.Equals(x.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
+        if (widget is null)
+            throw new InvalidOperationException($"Board widget '{widgetKey}' is not configured for this app");
 
-        return (app, app.BoardWidget);
+        return (app, widget);
     }
 
     public (bool Valid, string? Message, Dictionary<string, object?> NormalizedPayload, SnBoardWidgetManifest Widget)
-        ValidateBoardWidgetPayload(SnCustomApp app, Dictionary<string, object?>? payload)
+        ValidateBoardWidgetPayload(SnCustomApp app, string widgetKey, Dictionary<string, object?>? payload)
     {
-        var widget = app.BoardWidget;
+        var widget = app.BoardWidgets?.FirstOrDefault(x => string.Equals(x.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
         if (widget is null)
             return (false, "Board widget is not configured for this app.", [], new SnBoardWidgetManifest());
+        if (!HasBoardScope(app))
+            return (false, $"Custom app must declare '{PermissionKeys.AccountsProfileBoard}' scope to provide board widgets.", [], widget);
         if (!widget.IsEnabled)
             return (false, "Board widget is disabled for this app.", [], widget);
         if (app.Status != CustomAppStatus.Production)

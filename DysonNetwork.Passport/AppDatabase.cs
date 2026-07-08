@@ -198,6 +198,8 @@ public class AppDatabase(
         modelBuilder.Entity<SnAccountBoardItem>()
             .HasIndex(x => new { x.AccountId, x.Order })
             .IsUnique();
+        modelBuilder.Entity<SnAccountBoardItem>()
+            .HasIndex(x => new { x.AccountId, x.CustomAppId, x.CustomAppWidgetKey });
 
         modelBuilder.Entity<SnApplePassRegistration>()
             .HasOne(r => r.Pass)

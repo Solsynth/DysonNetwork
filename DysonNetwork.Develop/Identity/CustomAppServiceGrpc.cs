@@ -152,10 +152,12 @@ public class CustomAppServiceGrpc(
     {
         if (!Guid.TryParse(request.AppId, out var appId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid app_id"));
+        if (string.IsNullOrWhiteSpace(request.WidgetKey))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "widget_key required"));
 
         try
         {
-            var (app, widget) = await customApps.GetBoardWidgetAsync(appId);
+            var (app, widget) = await customApps.GetBoardWidgetAsync(appId, request.WidgetKey);
             return new DyGetBoardWidgetResponse
             {
                 App = app.ToProto(),
@@ -179,6 +181,8 @@ public class CustomAppServiceGrpc(
     {
         if (!Guid.TryParse(request.AppId, out var appId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid app_id"));
+        if (string.IsNullOrWhiteSpace(request.WidgetKey))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "widget_key required"));
 
         var app = await db.CustomApps.FirstOrDefaultAsync(a => a.Id == appId);
         if (app is null)
@@ -187,7 +191,7 @@ public class CustomAppServiceGrpc(
         var payload = JsonSerializer.Deserialize<Dictionary<string, object?>>(
             JsonFormatter.Default.Format(request.Payload)
         );
-        var result = customApps.ValidateBoardWidgetPayload(app, payload);
+        var result = customApps.ValidateBoardWidgetPayload(app, request.WidgetKey, payload);
 
         return new DyValidateBoardWidgetPayloadResponse
         {

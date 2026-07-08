@@ -112,6 +112,7 @@ public class AccountCurrentController(
         public SnAccountBoardItemKind Kind { get; set; }
         [MaxLength(256)] public string? WidgetKey { get; set; }
         public Guid? CustomAppId { get; set; }
+        [MaxLength(256)] public string? CustomAppWidgetKey { get; set; }
         public bool IsEnabled { get; set; } = true;
         public Dictionary<string, object?>? Payload { get; set; }
 
@@ -124,6 +125,7 @@ public class AccountCurrentController(
                 Kind = Kind,
                 WidgetKey = WidgetKey,
                 CustomAppId = CustomAppId,
+                CustomAppWidgetKey = CustomAppWidgetKey,
                 IsEnabled = IsEnabled,
                 Payload = Payload ?? []
             };
