@@ -105,6 +105,45 @@ public class CustomAppController(
         return Ok(app);
     }
 
+    [HttpPost("{appId:guid}/board-widgets")]
+    [Authorize]
+    [AskPermission(PermissionKeys.CustomAppsUpdate)]
+    public async Task<IActionResult> UpdateBoardWidgets(
+        [FromQuery(Name = "dev")] string dev,
+        [FromQuery(Name = "proj")] Guid proj,
+        [FromRoute] Guid appId,
+        [FromBody] List<SnBoardWidgetManifest> request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var developer = await ds.GetDeveloperByName(dev);
+        if (developer is null) return NotFound();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyEditor))
+            return StatusCode(403, "You must be an editor of the developer to update board widgets");
+
+        var project = await projectService.GetProjectAsync(proj, developer.Id);
+        if (project is null) return NotFound();
+
+        var app = await customApps.GetAppAsync(appId, proj);
+        if (app is null)
+            return NotFound();
+
+        try
+        {
+            var updated = await customApps.UpdateBoardWidgetsAsync(appId, request);
+            if (updated is null)
+                return NotFound();
+            return Ok(updated.BoardWidgets ?? new List<SnBoardWidgetManifest>());
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpPost]
     [Authorize]
     public async Task<IActionResult> CreateApp(

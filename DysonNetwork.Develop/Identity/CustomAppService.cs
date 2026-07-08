@@ -239,6 +239,17 @@ public class CustomAppService(
         return app;
     }
 
+    public async Task<SnCustomApp?> UpdateBoardWidgetsAsync(Guid appId, List<SnBoardWidgetManifest> boardWidgets)
+    {
+        var app = await db.CustomApps.FirstOrDefaultAsync(a => a.Id == appId);
+        if (app is null)
+            return null;
+
+        app.BoardWidgets = boardWidgets;
+        await db.SaveChangesAsync();
+        return app;
+    }
+
     public async Task<bool> DeleteAppAsync(Guid id)
     {
         var app = await db.CustomApps.FindAsync(id);
@@ -303,14 +314,14 @@ public class CustomAppService(
         // Validate field_types against the nested value.
         foreach (var fieldType in widget.FieldTypes)
         {
-            if (!envelopePayload.TryGetValue(fieldType.Key, out var fieldObj))
+            if (!envelopePayload.TryGetValue(fieldType.Name, out var fieldObj))
                 continue;
 
             if (!BoardPayloadContract.TryExtractValue(fieldObj, out var fieldValue))
-                return (false, $"Board widget payload field '{fieldType.Key}' must be an object with 'value', 'label', and optional 'format'.", envelopePayload, widget);
+                return (false, $"Board widget payload field '{fieldType.Name}' must be an object with 'value', 'label', and optional 'format'.", envelopePayload, widget);
 
-            if (!IsValueMatchingType(fieldValue, fieldType.Value))
-                return (false, $"Board widget payload field '{fieldType.Key}' must be of type '{fieldType.Value}'.", envelopePayload, widget);
+            if (!IsValueMatchingType(fieldValue, fieldType.Type))
+                return (false, $"Board widget payload field '{fieldType.Name}' must be of type '{fieldType.Type}'.", envelopePayload, widget);
         }
 
         return (true, null, envelopePayload, widget);
