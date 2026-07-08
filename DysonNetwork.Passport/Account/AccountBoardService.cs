@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf;
@@ -10,6 +11,7 @@ namespace DysonNetwork.Passport.Account;
 
 public class AccountBoardService(
     AppDatabase db,
+    ICacheService cache,
     DyCustomAppService.DyCustomAppServiceClient customApps)
 {
     private static readonly Dictionary<string, bool> PrebuiltWidgets = new(StringComparer.OrdinalIgnoreCase)
@@ -64,7 +66,41 @@ public class AccountBoardService(
         }
 
         await transaction.CommitAsync(cancellationToken);
+        await PurgeAccountCacheAsync(accountId);
         return materialized.OrderBy(x => x.Order).ToList();
+    }
+
+    public async Task<SnAccountBoardItem> UpdateCustomAppPayloadAsync(
+        Guid accountId,
+        Guid boardItemId,
+        Guid customAppId,
+        string customAppWidgetKey,
+        Dictionary<string, object?>? payload,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var item = await db.AccountBoardItems.FirstOrDefaultAsync(
+            x => x.Id == boardItemId && x.AccountId == accountId,
+            cancellationToken
+        );
+        if (item is null)
+            throw new KeyNotFoundException("Board item not found.");
+        if (item.Kind != SnAccountBoardItemKind.CustomApp)
+            throw new InvalidOperationException("Only custom app board items can be updated through this endpoint.");
+        if (item.CustomAppId != customAppId)
+            throw new InvalidOperationException("Board item does not belong to the specified custom app.");
+        if (!string.Equals(item.CustomAppWidgetKey, customAppWidgetKey, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Board item does not belong to the specified custom app widget.");
+
+        item.Payload = payload ?? [];
+        await db.SaveChangesAsync(cancellationToken);
+        await PurgeAccountCacheAsync(accountId);
+        return item;
+    }
+
+    private Task PurgeAccountCacheAsync(Guid accountId)
+    {
+        return cache.RemoveGroupAsync($"{AccountService.AccountCachePrefix}{accountId}");
     }
 
     private async Task ValidateBoardAsync(List<SnAccountBoardItem> items, CancellationToken cancellationToken)

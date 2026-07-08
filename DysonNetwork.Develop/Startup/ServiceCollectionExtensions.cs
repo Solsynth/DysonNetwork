@@ -9,6 +9,8 @@ using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.EventBus;
 using DysonNetwork.Shared.Pagination;
+using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 
 namespace DysonNetwork.Develop.Startup;
 
@@ -54,6 +56,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<BotAccountService>();
         services.AddScoped<MiniApp.MiniAppService>();
         services.AddScoped<AppProductService>();
+
+        services.AddGrpcClientWithSharedChannel<DyProfileService.DyProfileServiceClient>(
+            "https://_grpc.passport",
+            "DyProfileService");
 
         services.AddEventBus();
 

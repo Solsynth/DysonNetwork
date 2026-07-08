@@ -101,6 +101,21 @@ public class CustomAppService(
             .FirstOrDefaultAsync(s => s.Id == secretId && s.AppId == appId);
     }
 
+    public async Task<bool> ValidateApiSecretAsync(Guid appId, string secret, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(secret))
+            return false;
+
+        var now = NodaTime.SystemClock.Instance.GetCurrentInstant();
+        return await db.CustomAppSecrets.AnyAsync(
+            s => s.AppId == appId
+                 && !s.IsOidc
+                 && s.Secret == secret
+                 && (s.ExpiredAt == null || s.ExpiredAt > now),
+            cancellationToken
+        );
+    }
+
     public async Task<SnCustomAppSecret> CreateAppSecretAsync(SnCustomAppSecret secret)
     {
         if (string.IsNullOrWhiteSpace(secret.Secret))

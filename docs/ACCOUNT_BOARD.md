@@ -188,6 +188,51 @@ Board items are always returned ordered by `order`.
 
 Only the dedicated self board endpoints require the board-management scope. Public profile hydration stays public.
 
+## Developer Payload Push API
+
+Custom apps can manually push payload updates into an already-installed board widget instance for a user.
+
+This endpoint lives in Develop, authenticates with a custom app API secret, validates the payload against the app's widget manifest in Develop, and then persists the normalized payload in Passport through gRPC.
+
+Route:
+
+```text
+/api/private/apps/{app_id}/board/payload
+```
+
+Authentication:
+
+- `Authorization: Bearer <custom_app_secret>`
+- or `X-App-Secret: <custom_app_secret>`
+
+Requirements:
+
+- the secret must be a valid non-OIDC custom app secret for the `app_id`
+- the app must declare `accounts.profile.board`
+- the target widget manifest must exist and be enabled
+- the target board item must already exist on the user's board
+
+Request shape:
+
+```json
+{
+    "account_id": "550e8400-e29b-41d4-a716-446655440000",
+    "board_item_id": "de305d54-75b4-431b-adb2-eb6b9e546014",
+    "widget_key": "summary_card",
+    "payload": {
+        "title": "Updated from app backend",
+        "show_points": false
+    }
+}
+```
+
+Behavior:
+
+- `board_item_id` is required because one custom app can expose multiple widget definitions and each definition may allow multiple installed instances
+- Develop validates and normalizes the payload before sending it to Passport
+- Passport verifies that the board item belongs to the specified account, custom app, and widget key before updating only the payload
+- board order, enabled state, and board placement still remain Passport-owned and are not changed by this endpoint
+
 ## Develop gRPC Contract
 
 Service:
@@ -247,6 +292,8 @@ Response:
 - `widget`
 
 Passport uses this before saving any custom-app board item.
+
+Develop also uses the same validation logic before forwarding developer-initiated payload pushes to Passport.
 
 ## Validation Rules
 

@@ -1,6 +1,8 @@
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
+using System.Text.Json;
+using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +18,7 @@ public class AccountServiceGrpc(
     RelationshipService relationships,
     RemoteSubscriptionService remoteSubscription,
     RemoteAccountContactService remoteContacts,
+    AccountBoardService boardService,
     AccountService accountService,
     DyAccountService.DyAccountServiceClient padlockAccounts,
     NotableDaysService notableDaysService,
@@ -329,6 +332,47 @@ public class AccountServiceGrpc(
         await _db.SaveChangesAsync(context.CancellationToken);
 
         return profile.ToProtoValue();
+    }
+
+    public override async Task<DyAccountBoardItem> UpdateBoardItemPayload(
+        DyUpdateBoardItemPayloadRequest request,
+        ServerCallContext context
+    )
+    {
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
+        if (!Guid.TryParse(request.BoardItemId, out var boardItemId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid board item ID format"));
+        if (!Guid.TryParse(request.CustomAppId, out var customAppId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid custom app ID format"));
+        if (string.IsNullOrWhiteSpace(request.CustomAppWidgetKey))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "custom_app_widget_key is required"));
+
+        var payload = JsonSerializer.Deserialize<Dictionary<string, object?>>(
+            JsonFormatter.Default.Format(request.Payload),
+            Shared.Data.InfraObjectCoder.SerializerOptions
+        ) ?? [];
+
+        try
+        {
+            var item = await boardService.UpdateCustomAppPayloadAsync(
+                accountId,
+                boardItemId,
+                customAppId,
+                request.CustomAppWidgetKey,
+                payload,
+                context.CancellationToken
+            );
+            return item.ToProtoValue();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw new RpcException(new Status(StatusCode.NotFound, ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
+        }
     }
 
     public override async Task<DyListBadgesResponse> ListBadges(DyListBadgesRequest request, ServerCallContext context)

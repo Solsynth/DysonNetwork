@@ -3,9 +3,12 @@ using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Auth;
+using Google.Protobuf;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime;
+using System.Text.Json;
+using Struct = Google.Protobuf.WellKnownTypes.Struct;
 
 namespace DysonNetwork.Develop.Identity;
 
@@ -14,7 +17,8 @@ namespace DysonNetwork.Develop.Identity;
 public class CustomAppController(
     CustomAppService customApps,
     DeveloperService ds,
-    DevProjectService projectService)
+    DevProjectService projectService,
+    DyProfileService.DyProfileServiceClient profiles)
     : ControllerBase
 {
     public record CustomAppRequest(
@@ -43,6 +47,13 @@ public class CustomAppController(
         CustomAppSecretType Type,
         Instant CreatedAt,
         Instant UpdatedAt
+    );
+
+    public record UpdateBoardPayloadRequest(
+        string AccountId,
+        string BoardItemId,
+        [MaxLength(128)] string WidgetKey,
+        Dictionary<string, object?>? Payload
     );
 
     [HttpGet]
@@ -205,6 +216,51 @@ public class CustomAppController(
         return NoContent();
     }
 
+    [HttpPost("{appId:guid}/board/payload")]
+    public async Task<IActionResult> UpdateBoardPayload(
+        [FromRoute] Guid appId,
+        [FromBody] UpdateBoardPayloadRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        var app = await customApps.GetAppAsync(appId);
+        if (app is null)
+            return NotFound("App not found");
+
+        var secret = GetAppSecretFromRequest();
+        if (string.IsNullOrWhiteSpace(secret) || !await customApps.ValidateApiSecretAsync(appId, secret, cancellationToken))
+            return Unauthorized();
+
+        var validation = customApps.ValidateBoardWidgetPayload(app, request.WidgetKey, request.Payload);
+        if (!validation.Valid)
+            return BadRequest(validation.Message ?? "Invalid board payload.");
+
+        try
+        {
+            var updated = await profiles.UpdateBoardItemPayloadAsync(
+                new DyUpdateBoardItemPayloadRequest
+                {
+                    AccountId = request.AccountId,
+                    BoardItemId = request.BoardItemId,
+                    CustomAppId = appId.ToString(),
+                    CustomAppWidgetKey = validation.Widget.Key,
+                    Payload = JsonParser.Default.Parse<Struct>(JsonSerializer.Serialize(validation.NormalizedPayload))
+                },
+                cancellationToken: cancellationToken
+            );
+            return Ok(SnAccountBoardItem.FromProtoValue(updated));
+        }
+        catch (Grpc.Core.RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+        {
+            return NotFound(ex.Status.Detail);
+        }
+        catch (Grpc.Core.RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.InvalidArgument
+                                                || ex.StatusCode == Grpc.Core.StatusCode.FailedPrecondition)
+        {
+            return BadRequest(ex.Status.Detail);
+        }
+    }
+
     [HttpGet("{appId:guid}/secrets")]
     [Authorize]
     public async Task<IActionResult> ListSecrets(
@@ -242,6 +298,20 @@ public class CustomAppController(
         )));
     }
 
+    private string? GetAppSecretFromRequest()
+    {
+        var authorization = Request.Headers.Authorization.ToString();
+        if (authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            var token = authorization["Bearer ".Length..].Trim();
+            if (!string.IsNullOrWhiteSpace(token))
+                return token;
+        }
+
+        var headerSecret = Request.Headers["X-App-Secret"].ToString().Trim();
+        return string.IsNullOrWhiteSpace(headerSecret) ? null : headerSecret;
+    }
+
     [HttpPost("{appId:guid}/secrets")]
     [Authorize]
     [AskPermission(PermissionKeys.CustomAppsSecretsManage)]
@@ -277,7 +347,7 @@ public class CustomAppController(
                 Description = request.Description,
                 ExpiredAt = request.ExpiresIn.HasValue
                     ? NodaTime.SystemClock.Instance.GetCurrentInstant()
-                        .Plus(Duration.FromTimeSpan(request.ExpiresIn.Value))
+                        .Plus(NodaTime.Duration.FromTimeSpan(request.ExpiresIn.Value))
                     : (NodaTime.Instant?)null,
                 Type = request.Type
             });
@@ -418,7 +488,7 @@ public class CustomAppController(
                 Description = request?.Description,
                 ExpiredAt = request?.ExpiresIn.HasValue == true
                     ? NodaTime.SystemClock.Instance.GetCurrentInstant()
-                        .Plus(Duration.FromTimeSpan(request.ExpiresIn.Value))
+                        .Plus(NodaTime.Duration.FromTimeSpan(request.ExpiresIn.Value))
                     : (NodaTime.Instant?)null,
                 Type = request?.Type ?? CustomAppSecretType.ApiKey
             });
