@@ -29,7 +29,7 @@ public class PostServiceGrpc(
                 break;
             case DyGetPostRequest.IdentifierOneofCase.Slug:
                 var lowerRequestSlug = request.Slug?.ToLowerInvariant() ?? string.Empty;
-                postQuery = postQuery.Where(p => p.Slug.ToLower() == lowerRequestSlug);
+                postQuery = postQuery.Where(p => p.Slug != null && p.Slug.ToLower() == lowerRequestSlug);
                 break;
             default:
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "invalid identifier case"));

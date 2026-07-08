@@ -835,7 +835,7 @@ public class PostController(
         var lowerPublisherName = publisherName?.ToLowerInvariant() ?? string.Empty;
         var post = await db.Posts
             .Include(e => e.Publisher)
-            .Where(e => e.Slug.ToLower() == lowerSlug && e.Publisher != null && e.Publisher.Name.ToLower() == lowerPublisherName)
+            .Where(e => e.Slug != null && e.Slug.ToLower() == lowerSlug && e.Publisher != null && e.Publisher.Name.ToLower() == lowerPublisherName)
             .Include(e => e.Tags)
             .Include(e => e.Categories)
             .Include(e => e.RepliedPost)
