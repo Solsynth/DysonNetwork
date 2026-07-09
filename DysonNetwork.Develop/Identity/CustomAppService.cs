@@ -259,7 +259,7 @@ public class CustomAppService(
     public async Task<SnBoardWidgetManifest?> CreateBoardWidgetAsync(Guid appId, SnBoardWidgetManifest widget)
     {
         var existing = await db.BoardWidgets.FirstOrDefaultAsync(
-            w => w.AppId == appId && string.Equals(w.Key, widget.Key, StringComparison.OrdinalIgnoreCase));
+            w => w.AppId == appId && EF.Functions.ILike(w.Key, widget.Key));
         if (existing is not null)
             return null; // already exists
 
@@ -272,7 +272,7 @@ public class CustomAppService(
     public async Task<SnBoardWidgetManifest?> UpdateBoardWidgetAsync(Guid appId, string widgetKey, SnBoardWidgetManifest widget)
     {
         var existing = await db.BoardWidgets.FirstOrDefaultAsync(
-            w => w.AppId == appId && string.Equals(w.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
+            w => w.AppId == appId && EF.Functions.ILike(w.Key, widgetKey));
         if (existing is null)
             return null;
 
@@ -291,7 +291,7 @@ public class CustomAppService(
     public async Task<bool> DeleteBoardWidgetAsync(Guid appId, string widgetKey)
     {
         var existing = await db.BoardWidgets.FirstOrDefaultAsync(
-            w => w.AppId == appId && string.Equals(w.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
+            w => w.AppId == appId && EF.Functions.ILike(w.Key, widgetKey));
         if (existing is null)
             return false;
 
@@ -323,7 +323,7 @@ public class CustomAppService(
             throw new InvalidOperationException($"Custom app must declare '{PermissionKeys.AccountsProfileBoard}' scope to provide board widgets.");
 
         var widget = await db.BoardWidgets.FirstOrDefaultAsync(
-            w => w.AppId == appId && string.Equals(w.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
+            w => w.AppId == appId && EF.Functions.ILike(w.Key, widgetKey));
         if (widget is null)
             throw new InvalidOperationException($"Board widget '{widgetKey}' is not configured for this app");
 
@@ -359,7 +359,7 @@ public class CustomAppService(
         ValidateBoardWidgetPayload(SnCustomApp app, string widgetKey, Dictionary<string, object?>? payload)
     {
         var widget = await db.BoardWidgets.FirstOrDefaultAsync(
-            w => w.AppId == app.Id && string.Equals(w.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
+            w => w.AppId == app.Id && EF.Functions.ILike(w.Key, widgetKey));
         if (widget is null)
             return (false, "Board widget is not configured for this app.", [], new SnBoardWidgetManifest());
         if (!HasBoardScope(app))
@@ -368,7 +368,7 @@ public class CustomAppService(
             return (false, "Board widget is disabled for this app.", [], widget.ToManifest());
         if (app.Status != CustomAppStatus.Production)
             return (false, "Only production custom apps can be used as board widgets.", [], widget.ToManifest());
-        if (!string.Equals(widget.PayloadType, "object", StringComparison.OrdinalIgnoreCase))
+        if (!EF.Functions.ILike(widget.PayloadType, "object"))
             return (false, "Board widget payload_type must be 'object'.", [], widget.ToManifest());
 
         var normalizedPayload = payload ?? [];

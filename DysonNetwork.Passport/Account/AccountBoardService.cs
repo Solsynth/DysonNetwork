@@ -84,7 +84,7 @@ public class AccountBoardService(
                 x => x.AccountId == accountId
                      && x.Kind == SnAccountBoardItemKind.CustomApp
                      && x.CustomAppId == customAppId
-                     && string.Equals(x.CustomAppWidgetKey, customAppWidgetKey, StringComparison.OrdinalIgnoreCase),
+                     && EF.Functions.ILike(x.CustomAppWidgetKey, customAppWidgetKey),
                 cancellationToken
               )
             : await db.AccountBoardItems.FirstOrDefaultAsync(
