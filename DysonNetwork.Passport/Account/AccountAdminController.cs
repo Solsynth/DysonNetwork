@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using DysonNetwork.Passport.Credit;
 using DysonNetwork.Passport.Account.Presences;
 using DysonNetwork.Shared.Auth;
@@ -20,6 +22,7 @@ public class AccountAdminController(
     SocialCreditService socialCreditService,
     AccountEventService accountEventService,
     AccountService accountService,
+    AccountBoardService boardService,
     SteamPresenceService steamPresenceService,
     DyProfileService.DyProfileServiceClient profiles,
     DyAccountService.DyAccountServiceClient accountGrpc
@@ -55,6 +58,7 @@ public class AccountAdminController(
         public List<AccountAuthFactorSummary> AuthFactors { get; set; } = [];
         public List<SnAccountBadge> Badges { get; set; } = [];
         public int BadgeCount { get; set; }
+        public List<SnAccountBoardItem> Board { get; set; } = [];
     }
 
     public class UpdateAccountVerificationRequest
@@ -156,6 +160,8 @@ public class AccountAdminController(
             ActiveOnly = false
         });
 
+        var board = await boardService.GetBoardAsync(account.Id);
+
         return Ok(new AdminAccountDetailResponse
         {
             Account = account,
@@ -164,7 +170,8 @@ public class AccountAdminController(
             Contacts = contacts.Contacts.Select(SnAccountContact.FromProtoValue).ToList(),
             AuthFactors = factors.Factors.Select(ToAuthFactorSummary).ToList(),
             Badges = badges,
-            BadgeCount = badges.Count
+            BadgeCount = badges.Count,
+            Board = board
         });
     }
 
@@ -305,6 +312,120 @@ public class AccountAdminController(
             return NotFound();
 
         await accountService.RevokeBadge(account, badgeId);
+        return NoContent();
+    }
+
+    // ── Board Management ──
+
+    public class AdminBoardItemRequest
+    {
+        public Guid? Id { get; set; }
+        public int Order { get; set; }
+        public SnAccountBoardItemKind Kind { get; set; }
+        [MaxLength(256)] public string? WidgetKey { get; set; }
+        public Guid? CustomAppId { get; set; }
+        [MaxLength(256)] public string? CustomAppWidgetKey { get; set; }
+        public bool IsEnabled { get; set; } = true;
+        public Dictionary<string, object?>? Payload { get; set; }
+
+        public SnAccountBoardItem ToModel()
+        {
+            return new SnAccountBoardItem
+            {
+                Id = Id ?? Guid.Empty,
+                Order = Order,
+                Kind = Kind,
+                WidgetKey = WidgetKey,
+                CustomAppId = CustomAppId,
+                CustomAppWidgetKey = CustomAppWidgetKey,
+                IsEnabled = IsEnabled,
+                Payload = Payload ?? []
+            };
+        }
+    }
+
+    public class AdminPushBoardPayloadRequest
+    {
+        public Dictionary<string, object?> Payload { get; set; } = [];
+    }
+
+    [HttpGet("{identifier}/board")]
+    [AskPermission(PermissionKeys.AccountsView)]
+    public async Task<ActionResult<List<SnAccountBoardItem>>> GetAccountBoard(string identifier)
+    {
+        var account = await LookupAccountAsync(identifier);
+        if (account is null)
+            return NotFound();
+
+        return Ok(await boardService.GetBoardAsync(account.Id));
+    }
+
+    [HttpPut("{identifier}/board")]
+    [AskPermission(PermissionKeys.AccountsBoardManage)]
+    public async Task<ActionResult<List<SnAccountBoardItem>>> ReplaceAccountBoard(
+        string identifier,
+        [FromBody] List<AdminBoardItemRequest> request
+    )
+    {
+        var account = await LookupAccountAsync(identifier);
+        if (account is null)
+            return NotFound();
+
+        try
+        {
+            var result = await boardService.ReplaceBoardAsync(account.Id, request.Select(x => x.ToModel()));
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("{identifier}/board/items/{itemId:guid}/payload")]
+    [AskPermission(PermissionKeys.AccountsBoardManage)]
+    public async Task<ActionResult<SnAccountBoardItem>> PushBoardItemPayload(
+        string identifier,
+        Guid itemId,
+        [FromBody] AdminPushBoardPayloadRequest request
+    )
+    {
+        var account = await LookupAccountAsync(identifier);
+        if (account is null)
+            return NotFound();
+
+        try
+        {
+            var result = await boardService.AdminUpdateBoardItemPayloadAsync(
+                account.Id, itemId, request.Payload);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpDelete("{identifier}/board/items/{itemId:guid}")]
+    [AskPermission(PermissionKeys.AccountsBoardManage)]
+    public async Task<IActionResult> RemoveBoardItem(string identifier, Guid itemId)
+    {
+        var account = await LookupAccountAsync(identifier);
+        if (account is null)
+            return NotFound();
+
+        var item = await db.AccountBoardItems
+            .Where(x => x.Id == itemId && x.AccountId == account.Id)
+            .FirstOrDefaultAsync();
+        if (item is null)
+            return NotFound();
+
+        db.AccountBoardItems.Remove(item);
+        await db.SaveChangesAsync();
         return NoContent();
     }
 

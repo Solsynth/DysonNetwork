@@ -111,6 +111,71 @@ public class AccountBoardService(
         return item;
     }
 
+    /// <summary>
+    /// Admin-level payload update for any board item (prebuilt or custom-app).
+    /// Bypasses custom-app ownership checks — the admin is acting on behalf of the user.
+    /// Still validates payloads against the universal envelope contract and, for custom-app
+    /// items, against the widget schema via Develop gRPC.
+    /// </summary>
+    public async Task<SnAccountBoardItem> AdminUpdateBoardItemPayloadAsync(
+        Guid accountId,
+        Guid boardItemId,
+        Dictionary<string, object?>? payload,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var item = await db.AccountBoardItems.FirstOrDefaultAsync(
+            x => x.Id == boardItemId && x.AccountId == accountId,
+            cancellationToken
+        );
+        if (item is null)
+            throw new KeyNotFoundException("Board item not found.");
+
+        switch (item.Kind)
+        {
+            case SnAccountBoardItemKind.Prebuilt:
+            {
+                var (ok, error, normalizedPayload) = BoardPayloadContract.ValidateAndNormalize(payload);
+                if (!ok)
+                    throw new InvalidOperationException(error ?? "Invalid board payload.");
+                item.Payload = normalizedPayload;
+                break;
+            }
+            case SnAccountBoardItemKind.CustomApp:
+            {
+                if (!item.CustomAppId.HasValue)
+                    throw new InvalidOperationException("Custom app board item is missing custom_app_id.");
+
+                var response = await customApps.ValidateBoardWidgetPayloadAsync(
+                    new DyValidateBoardWidgetPayloadRequest
+                    {
+                        AppId = item.CustomAppId.Value.ToString(),
+                        WidgetKey = item.CustomAppWidgetKey!,
+                        Payload = JsonParser.Default.Parse<Struct>(JsonSerializer.Serialize(payload ?? new()))
+                    },
+                    cancellationToken: cancellationToken
+                );
+
+                if (!response.Valid)
+                    throw new InvalidOperationException(string.IsNullOrWhiteSpace(response.Message)
+                        ? "Custom app board payload is invalid."
+                        : response.Message);
+
+                item.Payload = JsonSerializer.Deserialize<Dictionary<string, object?>>(
+                    JsonFormatter.Default.Format(response.NormalizedPayload),
+                    Shared.Data.InfraObjectCoder.SerializerOptions
+                ) ?? [];
+                break;
+            }
+            default:
+                throw new InvalidOperationException($"Unsupported board item kind '{item.Kind}'.");
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        await PurgeAccountCacheAsync(accountId);
+        return item;
+    }
+
     private Task PurgeAccountCacheAsync(Guid accountId)
     {
         return cache.RemoveGroupAsync($"{AccountService.AccountCachePrefix}{accountId}");

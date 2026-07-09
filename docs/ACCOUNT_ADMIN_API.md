@@ -35,7 +35,7 @@ There is no single monolithic admin controller for the whole account domain.
 | `punishments.update` | Update punishments |
 | `punishments.delete` | Remove punishments |
 | `progression.badges.manage` | Grant, activate, and revoke account badges |
-| `accounts.statuses.update` | Run admin presence scan operations |
+| `accounts.board.manage` | Manage account board widgets (push changes, replace layout) |
 | `credits.validate.perform` | Invalidate social credit cache |
 | `notifications.send` | Send admin push notifications |
 | `emails.send` | Send admin HTML emails |
@@ -728,6 +728,48 @@ Example response:
 }
 ```
 
+## Account Board Admin Routes
+
+These Passport admin endpoints let admins inspect, replace, and push payload changes to a user's board widgets.
+
+Routes:
+
+- `GET /api/admin/accounts/{identifier}/board` — list board items for an account
+- `PUT /api/admin/accounts/{identifier}/board` — replace the entire board layout
+- `POST /api/admin/accounts/{identifier}/board/items/{item_id}/payload` — push a payload update to a specific board widget
+- `DELETE /api/admin/accounts/{identifier}/board/items/{item_id}` — remove a board item
+
+Permissions:
+
+- viewing requires `accounts.view`
+- all mutations require `accounts.board.manage`
+
+Board items use the [universal payload contract](../ACCOUNT_BOARD.md#universal-payload-contract) — every field must be `{ "value": ..., "label": "...", "format": "optional" }`.
+
+### GET Board Example
+
+```text
+GET /api/admin/accounts/alice/board
+```
+
+Returns the same `account_board_items` array as the self-board endpoint.
+
+### Push Mood Widget Payload Example
+
+```text
+POST /api/admin/accounts/alice/board/items/de305d54-75b4-431b-adb2-eb6b9e546014/payload
+```
+
+```json
+{
+  "payload": {
+    "image": { "value": "file_abc123", "label": "Image" },
+    "background": { "value": "file_def456", "label": "Background" },
+    "mood": { "value": "Feeling great today!", "label": "Mood" }
+  }
+}
+```
+
 ## Presence Scan Admin Routes
 
 These Passport admin routes were already present and remain part of the same controller:
@@ -772,3 +814,4 @@ Use Passport when you need to:
 - `docs/SESSION_MANAGEMENT_API.md`
 - `docs/STATUS_AND_CHAT_ONLINE_API.md`
 - `docs/PRESENCE_ACTIVITY_API.md`
+- `docs/ACCOUNT_BOARD.md`
