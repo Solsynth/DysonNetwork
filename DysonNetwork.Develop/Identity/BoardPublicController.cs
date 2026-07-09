@@ -130,9 +130,10 @@ public class BoardPublicController(
         await db.Entry(app.Project).Reference(p => p.Developer).LoadAsync();
         if (app.Project.Developer is null)
             return string.Empty;
-        await db.Entry(app.Project.Developer).Reference(d => d.Publisher).LoadAsync();
-        if (app.Project.Developer.Publisher is null)
+        // Publisher is [NotMapped] on SnDeveloper; load by FK directly
+        if (app.Project.Developer.PublisherId == Guid.Empty)
             return string.Empty;
-        return app.Project.Developer.Publisher.Name;
+        var publisher = await db.Publishers.FindAsync(app.Project.Developer.PublisherId);
+        return publisher?.Name ?? string.Empty;
     }
 }

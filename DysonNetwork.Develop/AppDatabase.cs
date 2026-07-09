@@ -13,6 +13,7 @@ public class AppDatabase(
 ) : DbContext(options)
 {
     public DbSet<SnDeveloper> Developers { get; set; } = null!;
+    public DbSet<SnPublisher> Publishers { get; set; } = null!;
 
     public DbSet<SnDevProject> DevProjects { get; set; } = null!;
     
