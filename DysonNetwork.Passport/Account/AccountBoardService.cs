@@ -79,10 +79,19 @@ public class AccountBoardService(
         CancellationToken cancellationToken = default
     )
     {
-        var item = await db.AccountBoardItems.FirstOrDefaultAsync(
-            x => x.Id == boardItemId && x.AccountId == accountId,
-            cancellationToken
-        );
+        var item = boardItemId == Guid.Empty
+            ? await db.AccountBoardItems.FirstOrDefaultAsync(
+                x => x.AccountId == accountId
+                     && x.Kind == SnAccountBoardItemKind.CustomApp
+                     && x.CustomAppId == customAppId
+                     && string.Equals(x.CustomAppWidgetKey, customAppWidgetKey, StringComparison.OrdinalIgnoreCase),
+                cancellationToken
+              )
+            : await db.AccountBoardItems.FirstOrDefaultAsync(
+                x => x.Id == boardItemId && x.AccountId == accountId,
+                cancellationToken
+              );
+
         if (item is null)
             throw new KeyNotFoundException("Board item not found.");
         if (item.Kind != SnAccountBoardItemKind.CustomApp)

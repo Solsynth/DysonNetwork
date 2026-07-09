@@ -341,12 +341,15 @@ public class AccountServiceGrpc(
     {
         if (!Guid.TryParse(request.AccountId, out var accountId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
-        if (!Guid.TryParse(request.BoardItemId, out var boardItemId))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid board item ID format"));
         if (!Guid.TryParse(request.CustomAppId, out var customAppId))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid custom app ID format"));
         if (string.IsNullOrWhiteSpace(request.CustomAppWidgetKey))
             throw new RpcException(new Status(StatusCode.InvalidArgument, "custom_app_widget_key is required"));
+
+        // board_item_id is optional — when omitted, auto-find the first matching entry.
+        var boardItemId = Guid.Empty;
+        if (!string.IsNullOrWhiteSpace(request.BoardItemId) && !Guid.TryParse(request.BoardItemId, out boardItemId))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid board item ID format"));
 
         var payload = JsonSerializer.Deserialize<Dictionary<string, object?>>(
             JsonFormatter.Default.Format(request.Payload),

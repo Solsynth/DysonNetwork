@@ -355,7 +355,6 @@ Request shape:
 ```json
 {
     "account_id": "550e8400-e29b-41d4-a716-446655440000",
-    "board_item_id": "de305d54-75b4-431b-adb2-eb6b9e546014",
     "widget_key": "summary_card",
     "payload": {
         "title": {
@@ -371,9 +370,21 @@ Request shape:
 }
 ```
 
+Or, when `allow_multiple` is `true` and a specific instance must be targeted:
+
+```json
+{
+    "account_id": "550e8400-e29b-41d4-a716-446655440000",
+    "board_item_id": "de305d54-75b4-431b-adb2-eb6b9e546014",
+    "widget_key": "summary_card",
+    "payload": { ... }
+}
+```
+
 Behavior:
 
-- `board_item_id` is required because one custom app can expose multiple widget definitions and each definition may allow multiple installed instances
+- `board_item_id` is optional. When omitted, Passport auto-finds the first matching board item for the given account, custom app, and widget key.
+- When `allow_multiple` is `true` and multiple instances exist, include `board_item_id` to target a specific instance.
 - Develop validates and normalizes the payload before sending it to Passport
 - Passport verifies that the board item belongs to the specified account, custom app, and widget key before updating only the payload
 - board order, enabled state, and board placement still remain Passport-owned and are not changed by this endpoint

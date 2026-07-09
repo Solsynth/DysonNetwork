@@ -51,7 +51,7 @@ public class CustomAppController(
 
     public record UpdateBoardPayloadRequest(
         string AccountId,
-        string BoardItemId,
+        string? BoardItemId,
         [MaxLength(128)] string WidgetKey,
         Dictionary<string, object?>? Payload
     );
