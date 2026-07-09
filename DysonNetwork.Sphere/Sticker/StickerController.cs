@@ -53,7 +53,11 @@ public class StickerController(
     {
         Shared.Models.SnPublisher? publisher = null;
         if (pubName is not null)
+        {
             publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == pubName.ToLowerInvariant());
+            if (publisher is null)
+                return NotFound("Publisher not found.");
+        }
 
         var queryable = db.StickerPacks
             .If(publisher is not null, q => q.Where(f => f.PublisherId == publisher!.Id));
@@ -141,7 +145,7 @@ public class StickerController(
     [AskPermission("stickers.packs.create")]
     public async Task<ActionResult<StickerPack>> CreateStickerPack(
         [FromBody] StickerPackRequest request,
-        [FromQuery(Name = "pub")] string publisherName
+        [FromQuery(Name = "pub")] string? publisherName = null
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -154,6 +158,9 @@ public class StickerController(
             return BadRequest("Prefix must only contain ASCII characters");
 
         var accountId = Guid.Parse(currentUser.Id);
+        if (publisherName is null)
+            return BadRequest("Publisher not found");
+
         var publisher =
             await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == publisherName.ToLowerInvariant() && p.AccountId == accountId);
         if (publisher == null)

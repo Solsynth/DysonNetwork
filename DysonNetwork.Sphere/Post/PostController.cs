@@ -482,10 +482,11 @@ public class PostController(
         var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
         var visibleRealmIds = userRealms.Concat(publicRealmIds).Distinct().ToList();
 
-        var publisher =
-            pubName == null
-                ? null
-                : await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == pubName.ToLowerInvariant());
+        var publisher = pubName == null
+            ? null
+            : await pub.GetPublisherByName(pubName);
+        if (pubName is not null && publisher is null)
+            return NotFound("Publisher not found.");
         var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
         var defaultSearchEngine = configuration["Posts:SearchEngineDefault"] ?? "semantic";
         var searchContext = CreatePostSearchContext(queryTerm);
@@ -989,7 +990,9 @@ public class PostController(
 
         var publisher = pubName == null
             ? null
-            : await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == pubName.ToLowerInvariant());
+            : await pub.GetPublisherByName(pubName);
+        if (pubName is not null && publisher is null)
+            return NotFound("Publisher not found.");
         var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
 
         Instant? periodStart = periodStartTime.HasValue
@@ -1150,7 +1153,9 @@ public class PostController(
 
         var publisher = pubName == null
             ? null
-            : await db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == pubName.ToLowerInvariant());
+            : await pub.GetPublisherByName(pubName);
+        if (pubName is not null && publisher is null)
+            return NotFound("Publisher not found.");
         var realm = realmName == null ? null : await rs.GetRealmBySlug(realmName);
 
         Instant? periodStart = periodStartTime.HasValue
