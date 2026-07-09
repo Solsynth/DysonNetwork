@@ -9,6 +9,7 @@ namespace DysonNetwork.Develop.Identity;
 [Route("/api/apps")]
 public class BoardPublicController(
     CustomAppService customApps,
+    DeveloperService developers,
     AppDatabase db)
     : ControllerBase
 {
@@ -130,10 +131,10 @@ public class BoardPublicController(
         await db.Entry(app.Project).Reference(p => p.Developer).LoadAsync();
         if (app.Project.Developer is null)
             return string.Empty;
-        // Publisher is [NotMapped] on SnDeveloper; load by FK directly
+        // Publishers live in Sphere; hydrate via gRPC (not local EF).
         if (app.Project.Developer.PublisherId == Guid.Empty)
             return string.Empty;
-        var publisher = await db.Publishers.FindAsync(app.Project.Developer.PublisherId);
-        return publisher?.Name ?? string.Empty;
+        await developers.LoadDeveloperPublisher(app.Project.Developer);
+        return app.Project.Developer.Publisher?.Name ?? string.Empty;
     }
 }
