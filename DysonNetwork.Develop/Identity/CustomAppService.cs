@@ -477,8 +477,8 @@ public class CustomAppService(
             "string" => value is string,
             "number" => value is sbyte or byte or short or ushort or int or uint or long or ulong or float or double or decimal,
             "boolean" => value is bool,
-            "object" => value is Dictionary<string, object?>,
-            "array" => value is IEnumerable<object>,
+            "object" => value is IDictionary<string, object?> || value is System.Collections.IDictionary,
+            "array" => value is System.Collections.IEnumerable && value is not string,
             _ => true
         };
     }

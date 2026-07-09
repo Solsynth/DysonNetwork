@@ -22,7 +22,7 @@ Every board widget payload — whether prebuilt or custom-app — uses **one** e
 }
 ```
 
-- `value` — required. Any JSON value (`string`, `number`, `boolean`, `null`, `object`, `array`).
+- `value` — required. Any JSON value (`string`, `number`, `boolean`, `null`, `object`, `array`). Objects and arrays may contain arbitrarily nested JSON values.
 - `label` — required. A non-empty string describing the field.
 - `format` — optional. An enum hint for the client renderer (e.g. `"boolean"`, `"number"`, `"date"`, `"currency"`). When absent, the client infers rendering from the value type.
 
