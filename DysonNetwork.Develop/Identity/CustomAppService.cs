@@ -412,7 +412,7 @@ public class CustomAppService(
             return (false, $"Custom app must declare '{PermissionKeys.AccountsProfileBoard}' scope to provide board widgets.", [], widget.ToManifest());
         if (!widget.IsEnabled)
             return (false, "Board widget is disabled for this app.", [], widget.ToManifest());
-        if (!EF.Functions.ILike(widget.PayloadType, "object"))
+        if (!string.Equals(widget.PayloadType, "object", StringComparison.OrdinalIgnoreCase))
             return (false, "Board widget payload_type must be 'object'.", [], widget.ToManifest());
 
         var normalizedPayload = payload ?? [];
