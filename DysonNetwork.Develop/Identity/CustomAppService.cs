@@ -323,6 +323,8 @@ public class CustomAppService(
         if (existing is null)
             return null;
 
+        existing.Name = widget.Name;
+        existing.Description = widget.Description;
         existing.IsEnabled = widget.IsEnabled;
         existing.RendererType = string.IsNullOrWhiteSpace(widget.RendererType) ? "data" : widget.RendererType;
         existing.PayloadType = widget.PayloadType;
