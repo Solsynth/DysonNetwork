@@ -46,7 +46,7 @@ There are two widget sources:
 - prebuilt widgets owned by Passport
 - custom widgets backed by Develop `CustomApp`
 
-Each custom app can publish multiple board widget definitions. Passport stores the selected app identity plus the selected widget definition key for each board item.
+Each custom app can publish multiple board widget definitions. `key` is the stable machine-readable identifier, while `name` and `description` are human-readable display metadata. Passport stores the selected app identity plus the selected widget definition key for each board item.
 
 Passport owns:
 
@@ -429,6 +429,8 @@ Request shape:
 ```json
 {
     "key": "littlesheep_mood",
+    "name": "Mood Card",
+    "description": "Shows the user's current mood and background.",
     "is_enabled": true,
     "renderer_type": "hero",
     "field_types": [
@@ -445,6 +447,8 @@ Request shape:
 Behavior:
 
 - `key` must be unique within the app's board widgets
+- `name` is required and is the human-readable widget name shown to users
+- `description` is required and explains what the widget displays
 - `renderer_type` defaults to `"data"` when omitted
 - `payload_type` is fixed to `object`
 - returns `400` if a widget with the same `key` already exists
@@ -459,6 +463,8 @@ Request shape — same as POST:
 ```json
 {
     "key": "littlesheep_mood",
+    "name": "Mood Card",
+    "description": "Shows the user's current mood and background.",
     "is_enabled": true,
     "renderer_type": "hero",
     "field_types": [
@@ -517,6 +523,8 @@ Manifest model:
 Fields:
 
 - `key`
+- `name` — required human-readable widget name
+- `description` — required human-readable explanation of the widget
 - `is_enabled`
 - `renderer_type`
 - `field_types` — array of `{name, type, label, format, required}` (stored as JSONB; proto serializes as `map<string,string>` of `name→type`)

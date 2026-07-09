@@ -15,6 +15,8 @@ public class BoardPublicController(
 {
     public record BoardWidgetDto(
         string Key,
+        string Name,
+        string Description,
         string Slug,
         bool IsEnabled,
         string RendererType,
@@ -102,6 +104,8 @@ public class BoardPublicController(
             .Select(w => w.ToManifest())
             .Select(w => new BoardWidgetDto(
                 Key: w.Key,
+                Name: w.Name,
+                Description: w.Description,
                 Slug: w.BuildSlug(publisherName, app.Slug),
                 IsEnabled: w.IsEnabled,
                 RendererType: w.RendererType,
