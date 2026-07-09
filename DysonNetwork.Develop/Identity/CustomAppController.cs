@@ -107,6 +107,35 @@ public class CustomAppController(
         return Ok(app);
     }
 
+    [HttpGet("{appId:guid}/board")]
+    [Authorize]
+    [AskPermission(PermissionKeys.CustomAppsUpdate)]
+    public async Task<IActionResult> ListBoardWidgets(
+        [FromQuery(Name = "dev")] string dev,
+        [FromQuery(Name = "proj")] Guid proj,
+        [FromRoute] Guid appId)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var developer = await ds.GetDeveloperByName(dev);
+        if (developer is null) return NotFound();
+
+        var accountId = Guid.Parse(currentUser.Id);
+        if (!await ds.IsMemberWithRole(developer.PublisherId, accountId, DyPublisherMemberRole.DyEditor))
+            return StatusCode(403, "You must be an editor of the developer to manage board widgets");
+
+        var project = await projectService.GetProjectAsync(proj, developer.Id);
+        if (project is null) return NotFound();
+
+        var app = await customApps.GetAppAsync(appId, proj);
+        if (app == null)
+            return NotFound();
+
+        var widgets = await customApps.GetBoardWidgetsAsync(appId);
+        return Ok(widgets);
+    }
+
     [HttpPost("{appId:guid}/board")]
     [Authorize]
     [AskPermission(PermissionKeys.CustomAppsUpdate)]

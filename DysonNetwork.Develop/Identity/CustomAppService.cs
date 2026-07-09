@@ -269,6 +269,15 @@ public class CustomAppService(
         return entity.ToManifest();
     }
 
+    public async Task<List<SnBoardWidgetManifest>> GetBoardWidgetsAsync(Guid appId)
+    {
+        var widgets = await db.BoardWidgets
+            .Where(w => w.AppId == appId)
+            .OrderBy(w => w.Key)
+            .ToListAsync();
+        return widgets.Select(w => w.ToManifest()).ToList();
+    }
+
     public async Task<SnBoardWidgetManifest?> UpdateBoardWidgetAsync(Guid appId, string widgetKey, SnBoardWidgetManifest widget)
     {
         var existing = await db.BoardWidgets.FirstOrDefaultAsync(
