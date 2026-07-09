@@ -577,15 +577,7 @@ This endpoint is called by the Develop `BoardDiscoveryController` when a logged-
 
 ### Prebuilt widgets
 
-Passport currently allows these widget keys:
-
-- `badges`
-- `bio`
-- `links`
-- `notable_days`
-- `social_credits`
-
-They are currently treated as singleton widgets.
+Prebuilt widgets are controlled by the client. The server does not validate prebuilt widget keys, singleton usage, or payload structure — it only clears `custom_app_id` and `custom_app_widget_key` to keep the data clean. Any widget key is accepted.
 
 ### Custom-app widgets
 

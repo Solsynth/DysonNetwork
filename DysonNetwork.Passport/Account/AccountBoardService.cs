@@ -14,14 +14,7 @@ public class AccountBoardService(
     ICacheService cache,
     DyCustomAppService.DyCustomAppServiceClient customApps)
 {
-    private static readonly Dictionary<string, bool> PrebuiltWidgets = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["badges"] = false,
-        ["bio"] = false,
-        ["links"] = false,
-        ["notable_days"] = false,
-        ["social_credits"] = false
-    };
+
 
     public async Task<List<SnAccountBoardItem>> GetBoardAsync(Guid accountId, CancellationToken cancellationToken = default)
     {
@@ -187,7 +180,6 @@ public class AccountBoardService(
         if (duplicateOrders is not null)
             throw new InvalidOperationException($"Duplicate board order '{duplicateOrders.Key}' is not allowed.");
 
-        var singletonPrebuiltUsage = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var singletonCustomWidgets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in items)
@@ -195,7 +187,7 @@ public class AccountBoardService(
             switch (item.Kind)
             {
                 case SnAccountBoardItemKind.Prebuilt:
-                    ValidatePrebuiltWidget(item, singletonPrebuiltUsage);
+                    ValidatePrebuiltWidget(item);
                     break;
                 case SnAccountBoardItemKind.CustomApp:
                     await ValidateCustomWidgetAsync(item, singletonCustomWidgets, cancellationToken);
@@ -206,28 +198,12 @@ public class AccountBoardService(
         }
     }
 
-    private static void ValidatePrebuiltWidget(
-        SnAccountBoardItem item,
-        ISet<string> singletonPrebuiltUsage
-    )
+    private static void ValidatePrebuiltWidget(SnAccountBoardItem item)
     {
-        if (string.IsNullOrWhiteSpace(item.WidgetKey))
-            throw new InvalidOperationException("Prebuilt board widgets require widget_key.");
-
-        if (!PrebuiltWidgets.TryGetValue(item.WidgetKey, out var allowMultiple))
-            throw new InvalidOperationException($"Unsupported prebuilt widget '{item.WidgetKey}'.");
-
-        if (!allowMultiple && !singletonPrebuiltUsage.Add(item.WidgetKey))
-            throw new InvalidOperationException($"Prebuilt widget '{item.WidgetKey}' can only appear once.");
-
+        // Prebuilt widget validation is controlled by the client.
+        // Just clear custom-app fields to keep the data clean.
         item.CustomAppId = null;
         item.CustomAppWidgetKey = null;
-
-        // Prebuilt widget payloads also enforce the universal envelope contract.
-        var (ok, error, normalizedPayload) = BoardPayloadContract.ValidateAndNormalize(item.Payload);
-        if (!ok)
-            throw new InvalidOperationException(error ?? "Invalid prebuilt board payload.");
-        item.Payload = normalizedPayload;
     }
 
     private async Task ValidateCustomWidgetAsync(
