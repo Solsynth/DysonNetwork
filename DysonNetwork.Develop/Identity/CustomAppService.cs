@@ -416,6 +416,12 @@ public class CustomAppService(
             return (false, "Board widget payload_type must be 'object'.", [], widget.ToManifest());
 
         var normalizedPayload = payload ?? [];
+
+        // Placement may leave the payload empty; the custom app fills it later via secret push.
+        // Only validate content when the developer (or admin) actually supplies a payload.
+        if (normalizedPayload.Count == 0)
+            return (true, null, normalizedPayload, widget.ToManifest());
+
         var payloadJson = JsonSerializer.Serialize(normalizedPayload);
         if (widget.MaxPayloadBytes.HasValue && Encoding.UTF8.GetByteCount(payloadJson) > widget.MaxPayloadBytes.Value)
             return (false, $"Board widget payload exceeds {widget.MaxPayloadBytes.Value} bytes.", normalizedPayload, widget.ToManifest());
