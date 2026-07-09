@@ -129,9 +129,13 @@ OAuth / authorized-app scope for self board access:
 
 - `accounts.profile.board.manage`
 
-Custom apps that want to expose board widgets must also declare:
+Custom apps that want to expose board widgets must declare in OAuth **allowed scopes**:
 
 - `accounts.profile.board`
+
+That is the app's capability declaration (`CustomApp.OauthConfig.AllowedScopes`), not the per-user authorized-app grant.
+
+To push payload updates for a user, that user must also have authorized the app with the same scope (stored on Padlock `AuthorizedApp.Scopes` after OIDC consent).
 
 ### GET /api/accounts/me/board
 
@@ -270,7 +274,6 @@ Response:
 
 Only returns apps that:
 
-- have `Production` status
 - declare the `accounts.profile.board` OAuth scope
 - have at least one enabled board widget
 
@@ -346,7 +349,8 @@ Authentication:
 Requirements:
 
 - the secret must be a valid non-OIDC custom app secret for the `app_id`
-- the app must declare `accounts.profile.board`
+- the app must declare `accounts.profile.board` in `oauth_config.allowed_scopes` (capability)
+- the target user must have an active OIDC `AuthorizedApp` record for this app that includes `accounts.profile.board` (user consent)
 - the target widget manifest must exist and be enabled
 - the target board item must already exist on the user's board
 
@@ -557,7 +561,7 @@ Server: Padlock (owns `AuthorizedApps`). Client: Develop.
 
 ### QueryAuthorizedBoardApps
 
-Returns the list of production apps that a user has authorized (via OAuth) that also expose board widgets. Payloads are JSON-serialized DTOs wrapped in `ByteString`.
+Returns the list of apps that a user has authorized (via OAuth) that also expose board widgets. Payloads are JSON-serialized DTOs wrapped in `ByteString`.
 
 Request: `DyQueryAuthorizedBoardAppsRequest`
 
@@ -585,15 +589,18 @@ Custom widgets must satisfy all of the following:
 
 - `custom_app_id` exists
 - `custom_app_widget_key` exists
-- app OAuth config includes `accounts.profile.board`
+- app OAuth config includes `accounts.profile.board` in **allowed scopes**
 - app has a matching entry in `board_widgets`
 - `board_widgets[n].is_enabled` is `true`
-- app status is `Production`
 - widget `payload_type` is `object`
 - payload size does not exceed `max_payload_bytes` when configured
 - all `required_fields` are present
 - **every payload field conforms to the universal payload envelope** (`{value, label, format?}`)
 - singleton behavior respects `allow_multiple = false`
+
+Developer payload push (`POST /api/private/apps/{app_id}/board/payload`) additionally requires:
+
+- the target user has authorized the app with `accounts.profile.board` (Padlock `AuthorizedApp`)
 
 ### Prebuilt widgets
 

@@ -351,8 +351,7 @@ public class CustomAppService(
         var candidates = await db.CustomApps
             .Include(a => a.Project)
                 .ThenInclude(p => p.Developer)
-            .Where(a => a.Status == CustomAppStatus.Production
-                        && a.OauthConfig != null
+            .Where(a => a.OauthConfig != null
                         && appIdsWithWidgets.Contains(a.Id))
             .OrderBy(a => a.Name)
             .ToListAsync();
@@ -375,8 +374,6 @@ public class CustomAppService(
             return (false, $"Custom app must declare '{PermissionKeys.AccountsProfileBoard}' scope to provide board widgets.", [], widget.ToManifest());
         if (!widget.IsEnabled)
             return (false, "Board widget is disabled for this app.", [], widget.ToManifest());
-        if (app.Status != CustomAppStatus.Production)
-            return (false, "Only production custom apps can be used as board widgets.", [], widget.ToManifest());
         if (!EF.Functions.ILike(widget.PayloadType, "object"))
             return (false, "Board widget payload_type must be 'object'.", [], widget.ToManifest());
 

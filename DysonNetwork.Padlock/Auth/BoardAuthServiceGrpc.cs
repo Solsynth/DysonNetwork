@@ -3,7 +3,6 @@ using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json;
 
 namespace DysonNetwork.Padlock.Auth;
 
@@ -19,20 +18,23 @@ public class BoardAuthServiceGrpc(AppDatabase db) : DyAuthorizedAppService.DyAut
         // Scopes is stored as jsonb — filter on persisted columns in SQL,
         // then refine client-side for the JSON-baked scope filter.
         var candidates = await db.AuthorizedApps
+            .AsNoTracking()
             .Where(x => x.AccountId == accountId)
             .Where(x => x.Type == AuthorizedAppType.Oidc)
+            .Where(x => x.DeletedAt == null)
             .ToListAsync();
 
         var filtered = candidates
-            .Where(x => x.Scopes.Contains(PermissionKeys.AccountsProfileBoard))
-            .AsEnumerable();
-
-        var totalCount = filtered.Count();
+            .Where(x => x.Scopes.Contains(PermissionKeys.AccountsProfileBoard, StringComparer.OrdinalIgnoreCase));
 
         if (!string.IsNullOrWhiteSpace(request.AppSlug))
-            filtered = filtered.Where(x => x.AppSlug == request.AppSlug);
+            filtered = filtered.Where(x =>
+                string.Equals(x.AppSlug, request.AppSlug, StringComparison.OrdinalIgnoreCase));
 
-        var authorized = filtered
+        var matched = filtered.ToList();
+        var totalCount = matched.Count;
+
+        var authorized = matched
             .Skip(request.Offset)
             .Take(request.Take > 0 ? request.Take : 20)
             .ToList();

@@ -18,7 +18,8 @@ public class CustomAppController(
     CustomAppService customApps,
     DeveloperService ds,
     DevProjectService projectService,
-    DyProfileService.DyProfileServiceClient profiles)
+    DyProfileService.DyProfileServiceClient profiles,
+    DyAuthorizedAppService.DyAuthorizedAppServiceClient authorizedApps)
     : ControllerBase
 {
     public record CustomAppRequest(
@@ -373,6 +374,35 @@ public class CustomAppController(
         var secret = GetAppSecretFromRequest();
         if (string.IsNullOrWhiteSpace(secret) || !await customApps.ValidateApiSecretAsync(appId, secret, cancellationToken))
             return Unauthorized();
+
+        // App capability: must declare accounts.profile.board in OauthConfig.AllowedScopes.
+        // User consent: must have authorized this app with that scope (AuthorizedApp).
+        if (app.OauthConfig?.AllowedScopes?.Contains(
+                PermissionKeys.AccountsProfileBoard, StringComparer.OrdinalIgnoreCase) != true)
+        {
+            return StatusCode(403,
+                $"Custom app must declare '{PermissionKeys.AccountsProfileBoard}' scope to provide board widgets.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.AccountId) || !Guid.TryParse(request.AccountId, out _))
+            return BadRequest("account_id is required.");
+
+        var authorized = await authorizedApps.QueryAuthorizedBoardAppsAsync(
+            new DyQueryAuthorizedBoardAppsRequest
+            {
+                AccountId = request.AccountId,
+                AppSlug = app.Slug,
+                Take = 1,
+                Offset = 0
+            },
+            cancellationToken: cancellationToken);
+
+        var appIdString = appId.ToString();
+        if (authorized.Apps.All(a => !string.Equals(a.AppId, appIdString, StringComparison.OrdinalIgnoreCase)))
+        {
+            return StatusCode(403,
+                $"User has not authorized this app with scope '{PermissionKeys.AccountsProfileBoard}'.");
+        }
 
         var validation = await customApps.ValidateBoardWidgetPayload(app, request.WidgetKey, request.Payload);
         if (!validation.Valid)

@@ -143,6 +143,22 @@ GET /api/accounts/me/board
 PUT /api/accounts/me/board
 ```
 
+### Board widget payload updates (custom app)
+
+A custom app may push board widget payload updates for a user only when:
+
+- the app declares `accounts.profile.board` in its OAuth **allowed scopes**
+- the user has an active OIDC authorized-app record for that app
+- authorized scopes include `accounts.profile.board`
+
+Endpoint (Develop, app API secret):
+
+```http
+POST /api/private/apps/{appId}/board/payload
+```
+
+OIDC authorize / device-code flows reject any requested scope that is not in the client's `allowed_scopes` (`invalid_scope`).
+
 ---
 
 ## Notes

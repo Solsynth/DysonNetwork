@@ -126,6 +126,41 @@ public class OidcProviderService(
         return client.OauthConfig?.IsPublicClient ?? false;
     }
 
+    /// <summary>
+    /// Validates requested OAuth scopes against the client's OauthConfig.AllowedScopes.
+    /// Returns normalized distinct scopes on success, or an invalid_scope description on failure.
+    /// </summary>
+    public (bool IsValid, List<string> Scopes, string? ErrorDescription) ValidateRequestedScopes(
+        SnCustomApp client,
+        IEnumerable<string>? requestedScopes
+    )
+    {
+        var requested = (requestedScopes ?? [])
+            .Select(s => s.Trim())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var allowed = client.OauthConfig?.AllowedScopes?
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
+
+        var disallowed = requested
+            .Where(s => !allowed.Contains(s))
+            .ToList();
+
+        if (disallowed.Count > 0)
+        {
+            return (
+                false,
+                [],
+                $"The following scopes are not allowed for this client: {string.Join(' ', disallowed)}"
+            );
+        }
+
+        return (true, requested, null);
+    }
+
     private static bool IsWildcardRedirectUriMatch(string allowedUri, string redirectUri)
     {
         if (string.IsNullOrEmpty(allowedUri) || string.IsNullOrEmpty(redirectUri))

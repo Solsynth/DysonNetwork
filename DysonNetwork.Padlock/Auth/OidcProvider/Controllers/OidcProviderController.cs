@@ -138,6 +138,20 @@ public class OidcProviderController(
             );
         }
 
+        var requestedScopes = scope?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [];
+        var (scopesValid, normalizedScopes, scopeError) =
+            oidcService.ValidateRequestedScopes(client, requestedScopes);
+        if (!scopesValid)
+        {
+            return BadRequest(
+                new ErrorResponse
+                {
+                    Error = "invalid_scope",
+                    ErrorDescription = scopeError,
+                }
+            );
+        }
+
         // Return client information
         var clientInfo = new ClientInfoResponse
         {
@@ -149,7 +163,7 @@ public class OidcProviderController(
             PolicyUri = client.Links?.PrivacyPolicy,
             TermsOfServiceUri = client.Links?.TermsOfService,
             ResponseTypes = responseType,
-            Scopes = scope?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [],
+            Scopes = normalizedScopes.ToArray(),
             State = state,
             Nonce = nonce,
             CodeChallenge = codeChallenge,
@@ -262,6 +276,20 @@ public class OidcProviderController(
             );
         }
 
+        var requestedScopes = scope?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [];
+        var (scopesValid, normalizedScopes, scopeError) =
+            oidcService.ValidateRequestedScopes(client, requestedScopes);
+        if (!scopesValid)
+        {
+            return BadRequest(
+                new ErrorResponse
+                {
+                    Error = "invalid_scope",
+                    ErrorDescription = scopeError,
+                }
+            );
+        }
+
         try
         {
             // Generate authorization code and create session
@@ -269,7 +297,7 @@ public class OidcProviderController(
                 client.Id,
                 account.Id,
                 redirectUri,
-                scope?.Split(' ') ?? [],
+                normalizedScopes,
                 codeChallenge,
                 codeChallengeMethod,
                 nonce
@@ -678,9 +706,21 @@ public class OidcProviderController(
                 }
             );
 
-        var scopes = request.Scope?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [];
+        var requestedScopes = request.Scope?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [];
+        var (scopesValid, normalizedScopes, scopeError) =
+            oidcService.ValidateRequestedScopes(client, requestedScopes);
+        if (!scopesValid)
+        {
+            return BadRequest(
+                new ErrorResponse
+                {
+                    Error = "invalid_scope",
+                    ErrorDescription = scopeError,
+                }
+            );
+        }
 
-        var info = await oidcService.GenerateDeviceCodeAsync(client.Id, scopes, request.Nonce);
+        var info = await oidcService.GenerateDeviceCodeAsync(client.Id, normalizedScopes, request.Nonce);
         var verificationUri = GetDeviceVerificationUri();
 
         return Ok(

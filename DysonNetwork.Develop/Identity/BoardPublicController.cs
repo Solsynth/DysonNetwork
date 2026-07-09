@@ -75,8 +75,7 @@ public class BoardPublicController(
         var candidates = await db.CustomApps
             .Include(a => a.Project)
                 .ThenInclude(p => p.Developer)
-            .Where(a => a.Status == CustomAppStatus.Production
-                        && a.OauthConfig != null
+            .Where(a => a.OauthConfig != null
                         && appIdsWithWidgets.Contains(a.Id))
             .OrderBy(a => a.Name)
             .ToListAsync();
