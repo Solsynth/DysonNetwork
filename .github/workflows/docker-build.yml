@@ -5,6 +5,21 @@ on:
         branches:
             - master
     workflow_dispatch:
+        inputs:
+            module:
+                description: "Module to build (or 'all' for everything)"
+                required: true
+                default: "all"
+                type: choice
+                options:
+                    - all
+                    - Sphere
+                    - Passport
+                    - Padlock
+                    - Ring
+                    - Develop
+                    - Messager
+                    - Wallet
 
 jobs:
     determine-changes:
@@ -32,15 +47,26 @@ jobs:
                   services=("Sphere" "Passport" "Padlock" "Ring" "Develop" "Messager" "Wallet")
                   images=("sphere" "passport" "padlock" "ring" "develop" "messager" "wallet")
 
-                  # On manual dispatch, build all services
+                  # On manual dispatch, build selected module(s)
                   if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+                    selected="${{ github.event.inputs.module }}"
                     json_objects=""
-                    for i in "${!services[@]}"; do
-                      json_objects+="{\"service\":\"${services[$i]}\",\"image\":\"${images[$i]}\"},"
-                    done
+                    if [[ "$selected" == "all" ]]; then
+                      for i in "${!services[@]}"; do
+                        json_objects+="{\"service\":\"${services[$i]}\",\"image\":\"${images[$i]}\"},"
+                      done
+                      echo "Building all services on manual dispatch"
+                    else
+                      for i in "${!services[@]}"; do
+                        if [[ "${services[$i]}" == "$selected" ]]; then
+                          json_objects+="{\"service\":\"${services[$i]}\",\"image\":\"${images[$i]}\"},"
+                          break
+                        fi
+                      done
+                      echo "Building $selected on manual dispatch"
+                    fi
                     matrix="{\"include\":[${json_objects%,}]}"
                     echo "matrix=$matrix" >> $GITHUB_OUTPUT
-                    echo "Building all services on manual dispatch"
                     exit 0
                   fi
 
