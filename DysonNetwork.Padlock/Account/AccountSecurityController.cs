@@ -538,11 +538,11 @@ public class AccountSecurityController(
 
     public record AuthorizeAppScopesRequest(List<string> Scopes);
 
-    [HttpPost("authorized-apps/{appId:guid}/scopes")]
+    [HttpPost("authorized-apps/{id:guid}/scopes")]
     [Authorize]
     [AskPermission(PermissionKeys.AccountAuthorizedAppsManage)]
     public async Task<ActionResult<AuthorizedAppResponse>> AuthorizeAppScopes(
-        [FromRoute] Guid appId,
+        [FromRoute] Guid id,
         [FromBody] AuthorizeAppScopesRequest request
     )
     {
@@ -552,11 +552,19 @@ public class AccountSecurityController(
         if (request.Scopes is not { Count: > 0 })
             return BadRequest("At least one scope is required.");
 
+        var authorized = await db
+            .AuthorizedApps.Where(x =>
+                x.Id == id && x.AccountId == currentUser.Id && x.DeletedAt == null
+            )
+            .FirstOrDefaultAsync();
+        if (authorized is null)
+            return NotFound("Authorized app was not found.");
+
         DyGetCustomAppResponse appResponse;
         try
         {
             appResponse = await customApps.GetCustomAppAsync(
-                new DyGetCustomAppRequest { Id = appId.ToString() }
+                new DyGetCustomAppRequest { Id = authorized.AppId.ToString() }
             );
         }
         catch (Grpc.Core.RpcException)
@@ -573,24 +581,14 @@ public class AccountSecurityController(
             .Scopes.Where(x => !string.IsNullOrWhiteSpace(x))
             .Distinct(StringComparer.Ordinal)
             .ToList();
-        var existingScopes =
-            await db
-                .AuthorizedApps.Where(x =>
-                    x.AccountId == currentUser.Id
-                    && x.AppId == appId
-                    && x.Type == AuthorizedAppType.Oidc
-                )
-                .Where(x => x.DeletedAt == null)
-                .Select(x => x.Scopes)
-                .FirstOrDefaultAsync() ?? [];
-        scopes = existingScopes.Concat(scopes).Distinct(StringComparer.Ordinal).ToList();
+        scopes = authorized.Scopes.Concat(scopes).Distinct(StringComparer.Ordinal).ToList();
         if (scopes.Any(x => !allowedScopes.Contains(x)))
             return BadRequest("One or more scopes are not allowed by this app.");
 
-        var authorized = await auth.UpsertAuthorizedAppAsync(
+        authorized = await auth.UpsertAuthorizedAppAsync(
             currentUser.Id,
-            appId,
-            AuthorizedAppType.Oidc,
+            authorized.AppId,
+            authorized.Type,
             appResponse.App.Slug,
             appResponse.App.Name,
             scopes

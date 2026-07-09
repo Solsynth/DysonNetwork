@@ -59,9 +59,11 @@ POST /api/orders/payouts
 ### User consent route
 
 ```http
-POST /api/authorized-apps/{appId}/scopes
+POST /api/authorized-apps/{id}/scopes
 Authorization: Bearer <user_token>
 ```
+
+Path `{id}` is the authorized-app record id (not the custom app id).
 
 ### App-authorized routes
 

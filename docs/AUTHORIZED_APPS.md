@@ -67,7 +67,7 @@ Response shape:
 ## Grant extra scopes to an app
 
 ```http
-POST /api/authorized-apps/{appId}/scopes
+POST /api/authorized-apps/{id}/scopes
 Authorization: Bearer <user_token>
 Content-Type: application/json
 ```
@@ -78,13 +78,16 @@ Content-Type: application/json
 }
 ```
 
-Behavior:
-- the app must exist
-- each requested scope must already be allowed by the app's OAuth config
-- scopes are merged with the user's existing scopes for that app
-- authorization is stored in `SnAuthorizedApp`
+Notes:
+- path id is the authorized-app record id (`SnAuthorizedApp.Id`), not the custom app id
 
-This is the endpoint a client should call when asking the user to let a merchant app read saved contacts.
+Behavior:
+- the authorized-app record must already exist for the current user
+- the linked custom app must still exist
+- each requested scope must already be allowed by the app's OAuth config
+- scopes are merged with the user's existing scopes for that record
+
+This is the endpoint a client should call when asking the user to let a merchant app read saved contacts (after an initial OAuth authorization exists).
 
 ---
 

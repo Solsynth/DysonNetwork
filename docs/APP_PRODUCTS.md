@@ -254,7 +254,7 @@ If the merchant app needs to read the user's saved contacts, the client should a
 Padlock endpoint:
 
 ```http
-POST /api/authorized-apps/{appId}/scopes
+POST /api/authorized-apps/{id}/scopes
 Authorization: Bearer <user_token>
 Content-Type: application/json
 
@@ -263,7 +263,7 @@ Content-Type: application/json
 }
 ```
 
-The requested scopes must already be allowed by the app's OAuth config.
+Path `{id}` is the authorized-app record id from `GET /api/authorized-apps`. The requested scopes must already be allowed by the app's OAuth config.
 
 ---
 
