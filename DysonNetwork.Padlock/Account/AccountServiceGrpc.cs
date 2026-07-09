@@ -579,6 +579,7 @@ public class AccountServiceGrpc(
             AccessToken = connection.AccessToken,
             RefreshToken = connection.RefreshToken,
             LastUsedAt = connection.LastUsedAt?.ToTimestamp(),
+            IsPublic = connection.IsPublic,
             AccountId = connection.AccountId.ToString(),
             CreatedAt = connection.CreatedAt.ToTimestamp(),
             UpdatedAt = connection.UpdatedAt.ToTimestamp()
