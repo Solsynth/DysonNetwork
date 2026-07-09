@@ -547,6 +547,32 @@ Passport uses this before saving any custom-app board item.
 
 Develop also uses the same validation logic before forwarding developer-initiated payload pushes to Passport.
 
+## Board Discovery gRPC Contract
+
+Service:
+
+- `DyBoardAuthService`
+
+Server: Padlock (owns `AuthorizedApps`). Client: Develop.
+
+### QueryAuthorizedBoardApps
+
+Returns the list of production apps that a user has authorized (via OAuth) that also expose board widgets. Payloads are JSON-serialized DTOs wrapped in `ByteString`.
+
+Request: `DyQueryAuthorizedBoardAppsRequest`
+
+- `account_id` — the user's account ID
+- `take` — max results (default 20)
+- `offset` — pagination offset
+- `app_slug` — optional: filter by app slug
+
+Response: `DyQueryAuthorizedBoardAppsResponse`
+
+- `apps` — list of `DyAuthorizedBoardAppDto` (`app_id`, `app_slug`, `app_name`, `publisher_name`)
+- `total_count` — total matching results
+
+This endpoint is called by the Develop `BoardDiscoveryController` when a logged-in user requests `GET /api/apps/board`. When the user is unauthenticated, the controller falls back to listing all board-capable apps without authorization filtering.
+
 ## Validation Rules
 
 ### Prebuilt widgets

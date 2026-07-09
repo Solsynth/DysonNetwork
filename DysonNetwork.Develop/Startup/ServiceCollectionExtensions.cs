@@ -61,6 +61,10 @@ public static class ServiceCollectionExtensions
             "https://_grpc.passport",
             "DyProfileService");
 
+        services.AddGrpcClientWithSharedChannel<DyAuthorizedAppService.DyAuthorizedAppServiceClient>(
+            "https://_grpc.padlock",
+            "DyAuthorizedAppService");
+
         services.AddEventBus();
 
         return services;

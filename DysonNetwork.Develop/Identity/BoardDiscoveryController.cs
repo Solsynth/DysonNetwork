@@ -1,5 +1,6 @@
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Proto;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,7 +10,8 @@ namespace DysonNetwork.Develop.Identity;
 [Route("/api/apps")]
 public class BoardDiscoveryController(
     CustomAppService customApps,
-    AppDatabase db)
+    AppDatabase db,
+    DyAuthorizedAppService.DyAuthorizedAppServiceClient boardAuthClient)
     : ControllerBase
 {
     public record BoardWidgetDto(
@@ -36,7 +38,79 @@ public class BoardDiscoveryController(
     public async Task<ActionResult<List<BoardAppDto>>> DiscoverBoardWidgets(
         [FromQuery] int take = 20,
         [FromQuery] int offset = 0,
-        [FromQuery] string? slug = null)
+        [FromQuery] string? slug = null
+    )
+    {
+        string? currentAccountId = ResolveCurrentAccountId();
+
+        // If no user is authenticated, fall back to listing all board-capable apps (public discovery)
+        if (string.IsNullOrEmpty(currentAccountId))
+        {
+            return await DiscoverPublicBoardWidgets(take, offset, slug);
+        }
+
+        // Authenticated: return authorized apps' board widgets via Padlock gRPC
+        return await DiscoverAuthorizedBoardWidgets(currentAccountId, take, offset, slug);
+    }
+
+    private async Task<ActionResult<List<BoardAppDto>>> DiscoverAuthorizedBoardWidgets(
+        string accountId, int take, int offset, string? slug)
+    {
+        var request = new DyQueryAuthorizedBoardAppsRequest
+        {
+            AccountId = accountId,
+            Take = take,
+            Offset = offset,
+            AppSlug = slug ?? string.Empty
+        };
+
+        var grpcResponse = await boardAuthClient.QueryAuthorizedBoardAppsAsync(request);
+
+        var results = new List<BoardAppDto>();
+        foreach (var authorizedApp in grpcResponse.Apps)
+        {
+            var app = await db.CustomApps
+                .Include(a => a.Project)
+                    .ThenInclude(p => p.Developer)
+                .Where(a => a.Id.ToString() == authorizedApp.AppId
+                            && a.BoardWidgets != null
+                            && a.BoardWidgets.Any(w => w.IsEnabled))
+                .FirstOrDefaultAsync();
+
+            if (app is null) continue;
+
+            var publisherName = await ResolvePublisherName(app.Project?.Developer?.PublisherId ?? Guid.Empty, authorizedApp.PublisherName);
+            var widgets = (app.BoardWidgets ?? new List<SnBoardWidgetManifest>())
+                .Where(w => w.IsEnabled)
+                .Select(w => new BoardWidgetDto(
+                    Key: w.Key,
+                    Slug: w.BuildSlug(publisherName, app.Slug),
+                    IsEnabled: w.IsEnabled,
+                    RendererType: w.RendererType,
+                    FieldTypes: w.FieldTypes,
+                    RequiredFields: w.RequiredFields,
+                    MaxPayloadBytes: w.MaxPayloadBytes,
+                    AllowMultiple: w.AllowMultiple
+                ))
+                .ToList();
+
+            if (widgets.Count == 0) continue;
+
+            results.Add(new BoardAppDto(
+                Id: app.Id.ToString(),
+                Slug: app.Slug,
+                Name: app.Name,
+                Description: app.Description,
+                PublisherName: publisherName,
+                BoardWidgets: widgets
+            ));
+        }
+
+        return Ok(results);
+    }
+
+    private async Task<ActionResult<List<BoardAppDto>>> DiscoverPublicBoardWidgets(
+        int take, int offset, string? slug)
     {
         if (!string.IsNullOrWhiteSpace(slug))
         {
@@ -44,19 +118,34 @@ public class BoardDiscoveryController(
             if (app is null || app.BoardWidgets is null || app.BoardWidgets.Count == 0)
                 return Ok(new List<BoardAppDto>());
 
-            return Ok(new List<BoardAppDto>
-            {
-                await MapToDto(app)
-            });
+            return Ok(new List<BoardAppDto> { await MapToDto(app) });
         }
 
-        var apps = await customApps.GetBoardCapableAppsWithPublisherAsync(take, offset);
+        var apps = await GetBoardCapableAppsWithPublisherAsync(take, offset);
         var dtos = new List<BoardAppDto>();
         foreach (var app in apps)
         {
             dtos.Add(await MapToDto(app));
         }
         return Ok(dtos);
+    }
+
+    private async Task<List<SnCustomApp>> GetBoardCapableAppsWithPublisherAsync(int take, int offset)
+    {
+        var candidates = await db.CustomApps
+            .Include(a => a.Project)
+                .ThenInclude(p => p.Developer)
+            .Where(a => a.Status == CustomAppStatus.Production
+                        && a.OauthConfig != null)
+            .OrderBy(a => a.Name)
+            .ToListAsync();
+
+        return candidates
+            .Where(a => a.OauthConfig!.AllowedScopes.Contains(PermissionKeys.AccountsProfileBoard))
+            .Where(a => a.BoardWidgets != null && a.BoardWidgets.Any(w => w.IsEnabled))
+            .Skip(offset)
+            .Take(take)
+            .ToList();
     }
 
     private async Task<BoardAppDto> MapToDto(SnCustomApp app)
@@ -90,10 +179,24 @@ public class BoardDiscoveryController(
     private async Task<string> GetPublisherNameAsync(SnCustomApp app)
     {
         await db.Entry(app).Reference(a => a.Project).LoadAsync();
-        if (app.Project is null) return string.Empty;
+        if (app.Project is null)
+            return string.Empty;
         await db.Entry(app.Project).Reference(p => p.Developer).LoadAsync();
-        if (app.Project.Developer is null) return string.Empty;
-        await db.Entry(app.Project.Developer).Reference(d => d.Publisher).LoadAsync();
-        return app.Project.Developer.Publisher?.Name ?? string.Empty;
+        if (app.Project.Developer is null)
+            return string.Empty;
+        return await ResolvePublisherName(app.Project.Developer.PublisherId, string.Empty);
+    }
+
+    private Task<string> ResolvePublisherName(Guid publisherId, string fallback)
+    {
+        // Publisher name resolution via gRPC; fallback for now
+        return Task.FromResult(fallback);
+    }
+
+    private string? ResolveCurrentAccountId()
+    {
+        if (HttpContext.Items.TryGetValue("CurrentUser", out var user) && user is DyAccount account)
+            return account.Id;
+        return null;
     }
 }

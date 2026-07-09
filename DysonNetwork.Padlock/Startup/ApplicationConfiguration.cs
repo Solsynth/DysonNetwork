@@ -119,6 +119,7 @@ public static class ApplicationConfiguration
         app.MapGrpcService<ActionLogServiceGrpc>();
         app.MapGrpcService<PermissionServiceGrpc>();
         app.MapGrpcService<MlsServiceGrpc>();
+        app.MapGrpcService<BoardAuthServiceGrpc>();
         app.MapGrpcReflectionService();
 
         return app;
