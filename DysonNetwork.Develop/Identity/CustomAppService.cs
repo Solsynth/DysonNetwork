@@ -326,18 +326,18 @@ public class CustomAppService(
 
     public async Task<List<SnCustomApp>> GetBoardCapableAppsWithPublisherAsync(int take = 20, int offset = 0)
     {
-        // BoardWidgets is stored as jsonb — filter on persisted columns in SQL,
-        // then refine client-side for the JSON-baked fields.
+        // OauthConfig and BoardWidgets are stored as jsonb — filter persisted
+        // columns in SQL, then refine client-side for the JSON-baked fields.
         var candidates = await db.CustomApps
             .Include(a => a.Project)
                 .ThenInclude(p => p.Developer)
             .Where(a => a.Status == CustomAppStatus.Production
-                        && a.OauthConfig != null
-                        && a.OauthConfig.AllowedScopes.Contains(PermissionKeys.AccountsProfileBoard))
+                        && a.OauthConfig != null)
             .OrderBy(a => a.Name)
             .ToListAsync();
 
         var filtered = candidates
+            .Where(a => a.OauthConfig!.AllowedScopes.Contains(PermissionKeys.AccountsProfileBoard))
             .Where(a => a.BoardWidgets != null && a.BoardWidgets.Any(w => w.IsEnabled))
             .Skip(offset)
             .Take(take)
