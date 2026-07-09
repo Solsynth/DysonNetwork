@@ -62,6 +62,21 @@ Products:
 Product payloads also support `fulfillment` and `state`.
 See `docs/APP_PRODUCTS.md`.
 
+Board widget manifests (developer JWT + editor):
+
+- `GET /api/private/apps/{appId}/board?dev={developer_slug}&proj={project_id}`
+- `POST /api/private/apps/{appId}/board?dev={developer_slug}&proj={project_id}`
+- `PUT /api/private/apps/{appId}/board/{widgetKey}?dev={developer_slug}&proj={project_id}`
+- `DELETE /api/private/apps/{appId}/board/{widgetKey}?dev={developer_slug}&proj={project_id}`
+
+Board runtime (app secret — not developer JWT):
+
+- `GET /api/private/apps/{appId}/board/widgets`
+- `POST /api/private/apps/{appId}/board/payload`
+
+Auth for runtime board endpoints: `Authorization: Bearer {app_secret}` or `X-App-Secret: {app_secret}`.
+See `docs/CUSTOM_APP_BOARD_PRIVATE_API.md` and `docs/ACCOUNT_BOARD.md`.
+
 ### Bots
 
 Base:

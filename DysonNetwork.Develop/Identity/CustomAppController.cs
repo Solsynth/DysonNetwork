@@ -360,6 +360,31 @@ public class CustomAppController(
         return NoContent();
     }
 
+    [HttpGet("{appId:guid}/board/widgets")]
+    public async Task<IActionResult> ListOwnBoardWidgets(
+        [FromRoute] Guid appId,
+        CancellationToken cancellationToken
+    )
+    {
+        var app = await customApps.GetAppAsync(appId);
+        if (app is null)
+            return NotFound("App not found");
+
+        var secret = GetAppSecretFromRequest();
+        if (string.IsNullOrWhiteSpace(secret) || !await customApps.ValidateApiSecretAsync(appId, secret, cancellationToken))
+            return Unauthorized();
+
+        if (app.OauthConfig?.AllowedScopes?.Contains(
+                PermissionKeys.AccountsProfileBoard, StringComparer.OrdinalIgnoreCase) != true)
+        {
+            return StatusCode(403,
+                $"Custom app must declare '{PermissionKeys.AccountsProfileBoard}' scope to provide board widgets.");
+        }
+
+        var widgets = await customApps.GetBoardWidgetsAsync(appId);
+        return Ok(widgets);
+    }
+
     [HttpPost("{appId:guid}/board/payload")]
     public async Task<IActionResult> UpdateBoardPayload(
         [FromRoute] Guid appId,

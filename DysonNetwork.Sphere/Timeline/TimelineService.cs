@@ -25,6 +25,16 @@ public class TimelineService(
     ILogger<TimelineService> logger
 )
 {
+    public sealed record TimelineFeedScope(
+        string? RequestedPublisherName,
+        string? RequestedCollectionSlug,
+        SnPublisher? Publisher,
+        SnPostCollection? Collection
+    )
+    {
+        public bool HasExplicitScope => Publisher is not null || Collection is not null;
+    }
+
     private const int AdInsertionIndex = 4;
 
     private const double ArticleTypeBoost = 1.5d;
@@ -70,17 +80,19 @@ public class TimelineService(
         int take,
         Instant? cursor,
         SnTimelineMode mode,
-        string viewerKey
+        string viewerKey,
+        TimelineFeedScope? scope = null
     )
     {
         var activities = new List<SnTimelineEvent>();
+        scope ??= new TimelineFeedScope(null, null, null, null);
 
         var publicRealms = await rs.GetPublicRealms();
         var publicRealmIds = publicRealms.Select(r => r.Id).ToList();
 
         var gatekeptPublisherIds = await GetGatekeptPublisherIds(publicRealmIds);
 
-        var postsQuery = BuildPostsQuery(cursor, null, publicRealmIds)
+        var postsQuery = BuildPostsQuery(cursor, null, publicRealmIds, scope.Publisher?.Id, scope.Collection?.Id)
             .FilterWithVisibility(null, [], [], isListing: true, gatekeptPublisherIds)
             .Take(take * TimelineCandidateMultiplier);
 
@@ -88,23 +100,30 @@ public class TimelineService(
         await LoadPostsRealmsAsync(posts, rs);
         posts = await RankPosts(posts, take, null, mode);
 
-        var rng = new Random();
-        await MaybeInsertAdAsync(posts, viewerKey, 0);
-
-        var interleaved = new List<SnTimelineEvent>();
-        foreach (var post in posts)
+        if (scope.HasExplicitScope)
         {
-            if (rng.NextDouble() < 0.15)
+            activities.AddRange(posts.Select(p => p.ToActivity()));
+        }
+        else
+        {
+            var rng = new Random();
+            await MaybeInsertAdAsync(posts, viewerKey, 0);
+
+            var interleaved = new List<SnTimelineEvent>();
+            foreach (var post in posts)
             {
-                var discovery = await MaybeGetDiscoveryActivity();
-                if (discovery != null)
-                    interleaved.Add(discovery);
+                if (rng.NextDouble() < 0.15)
+                {
+                    var discovery = await MaybeGetDiscoveryActivity();
+                    if (discovery != null)
+                        interleaved.Add(discovery);
+                }
+
+                interleaved.Add(post.ToActivity());
             }
 
-            interleaved.Add(post.ToActivity());
+            activities.AddRange(interleaved);
         }
-
-        activities.AddRange(interleaved);
 
         if (activities.Count == 0)
             activities.Add(SnTimelineEvent.Empty());
@@ -137,10 +156,12 @@ public class TimelineService(
         DyAccount currentUser,
         SnTimelineMode mode,
         string? filter = null,
+        TimelineFeedScope? scope = null,
         bool aggressive = true
     )
     {
         var activities = new List<SnTimelineEvent>();
+        scope ??= new TimelineFeedScope(null, null, null, null);
 
         var accountId = Guid.Parse(currentUser.Id);
 
@@ -171,7 +192,13 @@ public class TimelineService(
             accountId, mode, filter, cursor, effectiveCursor, userRealms.Count, boostedPostIds.Count, visibleFediverseActorIds.Count
         );
 
-        var postsQuery = BuildPostsQuery(effectiveCursor, filteredPublishersId, userRealms);
+        var postsQuery = BuildPostsQuery(
+            effectiveCursor,
+            filteredPublishersId,
+            userRealms,
+            scope.Publisher?.Id,
+            scope.Collection?.Id
+        );
         postsQuery = postsQuery.Where(p => p.FediverseUri == null || (p.ActorId.HasValue && visibleFediverseActorIds.Contains(p.ActorId.Value)));
 
         var timelinePublishers = filter is null ? userPublishers : [];
@@ -233,6 +260,14 @@ public class TimelineService(
         logger.LogInformation("ListEvents: returning {PostCount} posts after ranking", posts.Count);
 
         await UpdateSoftCursorAsync(accountId);
+
+        if (scope.HasExplicitScope)
+        {
+            activities.AddRange(posts.Select(p => p.ToActivity()));
+            if (activities.Count == 0)
+                activities.Add(SnTimelineEvent.Empty());
+            return BuildTimelinePage(activities, mode);
+        }
 
         var viewerKey = accountId.ToString();
         var perkLevel = currentUser.PerkLevel;
@@ -2239,7 +2274,9 @@ public class TimelineService(
     private IQueryable<SnPost> BuildPostsQuery(
         Instant? cursor,
         List<Guid>? filteredPublishersId = null,
-        List<Guid>? userRealms = null
+        List<Guid>? userRealms = null,
+        Guid? scopedPublisherId = null,
+        Guid? scopedCollectionId = null
     )
     {
         var query = db
@@ -2255,6 +2292,15 @@ public class TimelineService(
             .AsNoTracking()
             .AsQueryable();
 
+        if (scopedPublisherId.HasValue)
+            query = query.Where(p => p.PublisherId == scopedPublisherId.Value);
+        if (scopedCollectionId.HasValue)
+        {
+            query = query.Where(p => db.PostCollectionItems
+                .Where(i => i.CollectionId == scopedCollectionId.Value)
+                .Select(i => i.PostId)
+                .Contains(p.Id));
+        }
         if (filteredPublishersId != null && filteredPublishersId.Count != 0)
             query = query.Where(p =>
                 p.PublisherId.HasValue && filteredPublishersId.Contains(p.PublisherId.Value)
@@ -2267,6 +2313,30 @@ public class TimelineService(
             query = query.Where(p => p.RealmId == null || userRealms.Contains(p.RealmId.Value));
 
         return query;
+    }
+
+    public async Task<TimelineFeedScope> ResolveFeedScopeAsync(string? publisherName, string? collectionSlug)
+    {
+        var normalizedPublisherName = NormalizeFeedScopeValue(publisherName);
+        var normalizedCollectionSlug = NormalizeFeedScopeValue(collectionSlug);
+
+        if (normalizedCollectionSlug is not null && normalizedPublisherName is null)
+            throw new ArgumentException("Collection timeline scope requires ?pub={publisherName}.");
+
+        SnPublisher? publisher = null;
+        if (normalizedPublisherName is not null)
+            publisher = await pub.GetPublisherByName(normalizedPublisherName);
+
+        SnPostCollection? collection = null;
+        if (publisher is not null && normalizedCollectionSlug is not null)
+        {
+            var expectedSlug = Post.PostCollectionService.NormalizeSlug(normalizedCollectionSlug);
+            collection = await db.PostCollections
+                .Include(c => c.Publisher)
+                .FirstOrDefaultAsync(c => c.PublisherId == publisher.Id && c.Slug == expectedSlug);
+        }
+
+        return new TimelineFeedScope(normalizedPublisherName, normalizedCollectionSlug, publisher, collection);
     }
 
     private async Task<List<SnPublisher>?> GetFilteredPublishers(
@@ -2284,6 +2354,12 @@ public class TimelineService(
                 .ToList(),
             _ => null,
         };
+    }
+
+    private static string? NormalizeFeedScopeValue(string? value)
+    {
+        var normalized = value?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 
     private static async Task LoadPostsRealmsAsync(List<SnPost> posts, RemoteRealmService rs)

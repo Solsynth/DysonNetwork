@@ -6,6 +6,7 @@ Related docs:
 - `docs/APP_PRODUCTS.md`
 - `docs/APP_PRODUCTS_AND_APIKEY.md`
 - `docs/ACCOUNT_BOARD.md`
+- `docs/CUSTOM_APP_BOARD_PRIVATE_API.md`
 
 ---
 

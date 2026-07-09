@@ -26,6 +26,8 @@ public class ActivityController(TimelineService acts) : ControllerBase
     public async Task<ActionResult<SnTimelinePage>> ListEvents(
         [FromQuery] string? cursor,
         [FromQuery] string? filter,
+        [FromQuery(Name = "pub")] string? pubName,
+        [FromQuery] string? collection,
         [FromQuery] int take = 20,
         [FromQuery] string? mode = null,
         [FromQuery] bool aggressive = true
@@ -48,16 +50,32 @@ public class ActivityController(TimelineService acts) : ControllerBase
         if (timelineMode == null)
             return BadRequest("Invalid mode. Expected personalized, top, or latest.");
 
+        TimelineService.TimelineFeedScope scope;
+        try
+        {
+            scope = await acts.ResolveFeedScopeAsync(pubName, collection);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+
+        if (scope.RequestedPublisherName is not null && scope.Publisher is null)
+            return NotFound("Publisher not found.");
+        if (scope.RequestedCollectionSlug is not null && scope.Collection is null)
+            return NotFound("Collection not found.");
+
         HttpContext.Items.TryGetValue("CurrentUser", out var currentUserValue);
         var anonymousViewerKey = $"anon:{HttpContext.Connection.RemoteIpAddress}:{Request.Headers.UserAgent}";
         return currentUserValue is not DyAccount currentUser
-            ? Ok(await acts.ListEventsForAnyone(take, cursorTimestamp, timelineMode.Value, anonymousViewerKey))
+            ? Ok(await acts.ListEventsForAnyone(take, cursorTimestamp, timelineMode.Value, anonymousViewerKey, scope))
             : Ok(await acts.ListEvents(
                 take,
                 cursorTimestamp,
                 currentUser,
                 timelineMode.Value,
                 filter,
+                scope,
                 aggressive
             ));
     }

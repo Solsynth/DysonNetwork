@@ -26,14 +26,16 @@ Every board widget payload — whether prebuilt or custom-app — uses **one** e
 - `label` — required. A non-empty string describing the field.
 - `format` — optional. An enum hint for the client renderer (e.g. `"boolean"`, `"number"`, `"date"`, `"currency"`). When absent, the client infers rendering from the value type.
 
-This contract is enforced on every write path:
-- `PUT /api/accounts/me/board` — both prebuilt and custom-app payloads
-- `POST /api/private/apps/{app_id}/board/payload` — custom-app developer push
-- `POST /api/private/apps/{app_id}/board` — widget config create
-- `PUT /api/private/apps/{app_id}/board/{widget_key}` — widget config update
-- Internally by `Passport.AccountBoardService` and `Develop.CustomAppService.ValidateBoardWidgetPayload`
+This contract is enforced on every write path that accepts payload content:
 
-Any payload field that does not conform to this envelope is rejected.
+- `PUT /api/accounts/me/board` — **prebuilt** payloads only (custom-app payloads are app-owned; see below)
+- `POST /api/private/apps/{app_id}/board/payload` — custom-app secret push
+- Admin board payload push
+- Internally by `Develop.CustomAppService.ValidateBoardWidgetPayload` for non-empty custom-app payloads
+
+Any non-empty payload field that does not conform to this envelope is rejected.
+
+For custom-app widgets, see also `docs/CUSTOM_APP_BOARD_PRIVATE_API.md`.
 
 ## Overview
 
@@ -51,13 +53,25 @@ Passport owns:
 - which widgets an account has on its board
 - widget ordering
 - per-widget enabled state
-- stored widget payload
+- stored widget payload (persisted rows)
+- prebuilt widget payload writes from the user client
 
 Develop owns:
 
 - whether a `CustomApp` is board-widget capable
-- widget renderer/type metadata
-- payload validation rules
+- widget renderer/type metadata (manifests)
+- payload schema validation for custom-app widgets
+- **custom-app payload writes** via the app secret private API
+
+### Custom-app payload ownership
+
+| Writer | Can set custom-app payload? |
+|--------|-----------------------------|
+| User `PUT /api/accounts/me/board` | **No** — client payload ignored; existing server payload preserved |
+| App secret `POST .../board/payload` | **Yes** — only widgets for that `app_id` |
+| Admin push | **Yes** (admin override) |
+
+Initial placement uses an empty payload. The custom app configures the widget later with its secret.
 
 Inter-service communication for board widgets is gRPC only.
 
@@ -203,17 +217,7 @@ Request shape:
         "custom_app_id": "1b9d6d7f-4d92-4af6-b4ec-7b8d2f9e0c91",
         "custom_app_widget_key": "summary_card",
         "is_enabled": true,
-        "payload": {
-            "title": {
-                "value": "My widget",
-                "label": "Title"
-            },
-            "show_points": {
-                "value": true,
-                "label": "Show points",
-                "format": "boolean"
-            }
-        }
+        "payload": {}
     }
 ]
 ```
@@ -221,8 +225,11 @@ Request shape:
 Behavior:
 
 - validates duplicate `order` values
-- validates prebuilt widget keys against Passport allowlist
-- validates custom widget availability and payload through Develop gRPC
+- prebuilt widgets: accepts client payload (envelope enforced where applied); clears custom-app fields
+- custom-app widgets: validates widget exists and is enabled via Develop `GetBoardWidget` gRPC
+- custom-app widgets: **ignores** client-supplied `payload`
+- custom-app widgets: **preserves** previously stored payload across replace (match by item `id`, then by `custom_app_id` + `custom_app_widget_key`)
+- new custom-app placements start with empty payload until the app pushes data
 - replaces all existing board items in one transaction
 - purges cached account hydration after mutation
 
@@ -303,17 +310,12 @@ Once a user knows the `custom_app_id` and `custom_app_widget_key`, they include 
         "custom_app_id": "1b9d6d7f-4d92-4af6-b4ec-7b8d2f9e0c91",
         "custom_app_widget_key": "summary_card",
         "is_enabled": true,
-        "payload": {
-            "title": {
-                "value": "My widget",
-                "label": "Title"
-            }
-        }
+        "payload": {}
     }
 ]
 ```
 
-The board service validates the custom widget against Develop gRPC (manifest exists, is enabled, payload conforms to field_types) before accepting.
+The board service validates the custom widget against Develop gRPC (manifest exists, is enabled, board scope, `allow_multiple`). Payload content is **not** supplied by the user; the custom app fills it later via the private payload API.
 
 ## Profile Hydration
 
@@ -327,32 +329,35 @@ Board items are always returned ordered by `order`.
 
 Only the dedicated self board endpoints require the board-management scope. Public profile hydration stays public.
 
-## Developer Payload Push API
+## Custom App Private API (app secret)
 
-Custom apps can manually push payload updates into an already-installed board widget instance for a user.
+Focused guide: `docs/CUSTOM_APP_BOARD_PRIVATE_API.md`.
 
-This endpoint lives in Develop, authenticates with a custom app API secret, validates the payload against the app's widget manifest in Develop, and then persists the normalized payload in Passport through gRPC.
+These endpoints live in Develop and authenticate with a custom app API secret (not developer JWT).
 
-This endpoint enforces the same universal payload contract described above. Every field in the payload **must** use the `{value, label, format?}` envelope. No other shape is accepted.
-
-Route:
-
-```text
-/api/private/apps/{app_id}/board/payload
-```
-
-Authentication:
+Authentication for both:
 
 - `Authorization: Bearer <custom_app_secret>`
 - or `X-App-Secret: <custom_app_secret>`
 
-Requirements:
+The secret must be a valid non-OIDC custom app secret for the path `app_id`. The app must declare `accounts.profile.board` in `oauth_config.allowed_scopes`.
 
-- the secret must be a valid non-OIDC custom app secret for the `app_id`
-- the app must declare `accounts.profile.board` in `oauth_config.allowed_scopes` (capability)
+### GET /api/private/apps/{app_id}/board/widgets
+
+Lists **only this app’s** board widget manifests. Does not return other apps’ widgets, prebuilt widgets, or user board layouts.
+
+Response: array of `SnBoardWidgetManifest` (key, enabled, renderer, field types, required fields, etc.).
+
+### POST /api/private/apps/{app_id}/board/payload
+
+Pushes payload into an already-installed board widget instance for a user.
+
+Additional requirements:
+
 - the target user must have an active OIDC `AuthorizedApp` record for this app that includes `accounts.profile.board` (user consent)
 - the target widget manifest must exist and be enabled
 - the target board item must already exist on the user's board
+- non-empty payload must satisfy `required_fields`, field types, size limit, and the universal envelope
 
 Request shape:
 
@@ -381,7 +386,7 @@ Or, when `allow_multiple` is `true` and a specific instance must be targeted:
     "account_id": "550e8400-e29b-41d4-a716-446655440000",
     "board_item_id": "de305d54-75b4-431b-adb2-eb6b9e546014",
     "widget_key": "summary_card",
-    "payload": { ... }
+    "payload": { }
 }
 ```
 
@@ -391,7 +396,8 @@ Behavior:
 - When `allow_multiple` is `true` and multiple instances exist, include `board_item_id` to target a specific instance.
 - Develop validates and normalizes the payload before sending it to Passport
 - Passport verifies that the board item belongs to the specified account, custom app, and widget key before updating only the payload
-- board order, enabled state, and board placement still remain Passport-owned and are not changed by this endpoint
+- board order, enabled state, and board placement remain Passport-owned and are not changed by this endpoint
+- this API cannot update another app’s widgets or prebuilt widgets
 
 ## Developer Board Widget Config API
 
@@ -407,6 +413,12 @@ Authentication:
 
 - standard developer auth (`dev` + `proj` query params, editor role required)
 - `CustomAppsUpdate` permission
+
+These are **not** the app-secret private APIs. Use them from the developer console to create/update/delete manifests. Runtime backends should use `GET .../board/widgets` + `POST .../board/payload` with the app secret.
+
+### GET /api/private/apps/{app_id}/board
+
+Lists widget manifests for the app (developer JWT). Same data as the secret `GET .../board/widgets` list, but requires editor access to the developer project.
 
 ### POST /api/private/apps/{app_id}/board
 
@@ -547,9 +559,11 @@ Response:
 - `normalized_payload`
 - `widget`
 
-Passport uses this before saving any custom-app board item.
+Passport uses `GetBoardWidget` when placing custom-app widgets on a board (existence / enabled / scope).
 
-Develop also uses the same validation logic before forwarding developer-initiated payload pushes to Passport.
+Develop uses `ValidateBoardWidgetPayload` before forwarding app-secret (and admin) payload pushes to Passport.
+
+Empty payload is valid (widget not yet configured). Non-empty payloads must include all `required_fields` and pass envelope / type checks.
 
 ## Board Discovery gRPC Contract
 
@@ -583,28 +597,20 @@ This endpoint is called by the Develop `BoardDiscoveryController` when a logged-
 
 Prebuilt widgets are controlled by the client. The server does not validate prebuilt widget keys, singleton usage, or payload structure — it only clears `custom_app_id` and `custom_app_widget_key` to keep the data clean. Any widget key is accepted.
 
-### Custom-app widgets
+### Custom-app widgets — placement (`PUT` board)
 
-Custom widgets must satisfy all of the following:
-
-- `custom_app_id` exists
-- `custom_app_widget_key` exists
+- `custom_app_id` and `custom_app_widget_key` required
 - app OAuth config includes `accounts.profile.board` in **allowed scopes**
-- app has a matching entry in `board_widgets`
-- `board_widgets[n].is_enabled` is `true`
-- widget `payload_type` is `object`
-- payload size does not exceed `max_payload_bytes` when configured
-- all `required_fields` are present
-- **every payload field conforms to the universal payload envelope** (`{value, label, format?}`)
+- matching widget exists and `is_enabled` is `true`
 - singleton behavior respects `allow_multiple = false`
+- client payload is ignored; server payload is empty (new) or preserved (existing)
 
-Developer payload push (`POST /api/private/apps/{app_id}/board/payload`) additionally requires:
+### Custom-app widgets — payload push (app secret)
 
-- the target user has authorized the app with `accounts.profile.board` (Padlock `AuthorizedApp`)
-
-### Prebuilt widgets
-
-Prebuilt widgets also enforce the universal payload envelope on every field. Pass raw `{}` or non-envelope values and the write is rejected.
+- widget exists, enabled, `payload_type` is `object`
+- non-empty payload: size ≤ `max_payload_bytes`, all `required_fields` present, envelope + field types
+- board item belongs to this app + widget key
+- target user has authorized the app with `accounts.profile.board` (Padlock `AuthorizedApp`)
 
 ## Migrations
 

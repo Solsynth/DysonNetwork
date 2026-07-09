@@ -41,7 +41,54 @@ public class AccountBoardService(
     )
     {
         var materialized = items.ToList();
+
+        // Custom-app widget payloads are owned by the app's private API (app secret),
+        // not by the user layout endpoint. Preserve any existing payloads across replace.
+        var existingCustom = await db.AccountBoardItems
+            .AsNoTracking()
+            .Where(x => x.AccountId == accountId && x.Kind == SnAccountBoardItemKind.CustomApp)
+            .Select(x => new { x.Id, x.CustomAppId, x.CustomAppWidgetKey, x.Payload })
+            .ToListAsync(cancellationToken);
+
+        var existingById = existingCustom.ToDictionary(x => x.Id);
+        var remainingByWidget = existingCustom
+            .GroupBy(x => WidgetInstanceKey(x.CustomAppId, x.CustomAppWidgetKey), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(x => (x.Id, Payload: x.Payload ?? new Dictionary<string, object?>())).ToList(),
+                StringComparer.OrdinalIgnoreCase
+            );
+
         await ValidateBoardAsync(materialized, cancellationToken);
+
+        foreach (var item in materialized)
+        {
+            if (item.Kind != SnAccountBoardItemKind.CustomApp)
+                continue;
+
+            var key = WidgetInstanceKey(item.CustomAppId, item.CustomAppWidgetKey);
+
+            if (item.Id != Guid.Empty
+                && existingById.TryGetValue(item.Id, out var byId)
+                && byId.CustomAppId == item.CustomAppId
+                && string.Equals(byId.CustomAppWidgetKey, item.CustomAppWidgetKey, StringComparison.OrdinalIgnoreCase))
+            {
+                item.Payload = byId.Payload ?? [];
+                if (remainingByWidget.TryGetValue(key, out var idList))
+                    idList.RemoveAll(x => x.Id == item.Id);
+                continue;
+            }
+
+            if (remainingByWidget.TryGetValue(key, out var remaining) && remaining.Count > 0)
+            {
+                item.Payload = remaining[0].Payload;
+                remaining.RemoveAt(0);
+            }
+            else
+            {
+                item.Payload = [];
+            }
+        }
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await db.AccountBoardItems.Where(x => x.AccountId == accountId).ExecuteDeleteAsync(cancellationToken);
@@ -174,6 +221,9 @@ public class AccountBoardService(
         return cache.RemoveGroupAsync($"{AccountService.AccountCachePrefix}{accountId}");
     }
 
+    private static string WidgetInstanceKey(Guid? customAppId, string? widgetKey)
+        => $"{customAppId}:{widgetKey}";
+
     private async Task ValidateBoardAsync(List<SnAccountBoardItem> items, CancellationToken cancellationToken)
     {
         var duplicateOrders = items.GroupBy(x => x.Order).FirstOrDefault(x => x.Count() > 1);
@@ -217,25 +267,33 @@ public class AccountBoardService(
         if (string.IsNullOrWhiteSpace(item.CustomAppWidgetKey))
             throw new InvalidOperationException("Custom app board widgets require custom_app_widget_key.");
 
-        var payload = item.Payload ?? [];
-        var response = await customApps.ValidateBoardWidgetPayloadAsync(
-            new DyValidateBoardWidgetPayloadRequest
-            {
-                AppId = item.CustomAppId.Value.ToString(),
-                WidgetKey = item.CustomAppWidgetKey,
-                Payload = JsonParser.Default.Parse<Struct>(JsonSerializer.Serialize(payload))
-            },
-            cancellationToken: cancellationToken
-        );
-
-        if (!response.Valid)
-            throw new InvalidOperationException(string.IsNullOrWhiteSpace(response.Message)
-                ? "Custom app board payload is invalid."
-                : response.Message);
-
-        if (response.Widget is not null && !response.Widget.AllowMultiple)
+        // Layout placement only checks that the widget exists and is usable.
+        // Payload content is written later by the custom app private API (app secret).
+        DyGetBoardWidgetResponse response;
+        try
         {
-            var widgetInstanceKey = $"{item.CustomAppId.Value}:{item.CustomAppWidgetKey}";
+            response = await customApps.GetBoardWidgetAsync(
+                new DyGetBoardWidgetRequest
+                {
+                    AppId = item.CustomAppId.Value.ToString(),
+                    WidgetKey = item.CustomAppWidgetKey
+                },
+                cancellationToken: cancellationToken
+            );
+        }
+        catch (RpcException ex) when (ex.StatusCode is StatusCode.NotFound or StatusCode.FailedPrecondition)
+        {
+            throw new InvalidOperationException(ex.Status.Detail);
+        }
+
+        if (response.Widget is null)
+            throw new InvalidOperationException("Board widget is not configured for this app.");
+        if (!response.Widget.IsEnabled)
+            throw new InvalidOperationException("Board widget is disabled for this app.");
+
+        if (!response.Widget.AllowMultiple)
+        {
+            var widgetInstanceKey = WidgetInstanceKey(item.CustomAppId, item.CustomAppWidgetKey);
             if (!singletonCustomWidgets.Add(widgetInstanceKey))
                 throw new InvalidOperationException(
                     $"Custom app widget '{item.CustomAppId}:{item.CustomAppWidgetKey}' can only appear once."
@@ -243,10 +301,10 @@ public class AccountBoardService(
         }
 
         item.WidgetKey = null;
-        item.CustomAppWidgetKey = response.Widget?.Key ?? item.CustomAppWidgetKey;
-        item.Payload = JsonSerializer.Deserialize<Dictionary<string, object?>>(
-            JsonFormatter.Default.Format(response.NormalizedPayload),
-            Shared.Data.InfraObjectCoder.SerializerOptions
-        ) ?? [];
+        item.CustomAppWidgetKey = string.IsNullOrWhiteSpace(response.Widget.Key)
+            ? item.CustomAppWidgetKey
+            : response.Widget.Key;
+        // Client-supplied payload is ignored; preserved from DB (or empty) in ReplaceBoardAsync.
+        item.Payload = [];
     }
 }
