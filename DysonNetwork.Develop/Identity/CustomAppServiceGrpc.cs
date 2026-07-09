@@ -191,7 +191,7 @@ public class CustomAppServiceGrpc(
         var payload = JsonSerializer.Deserialize<Dictionary<string, object?>>(
             JsonFormatter.Default.Format(request.Payload)
         );
-        var result = customApps.ValidateBoardWidgetPayload(app, request.WidgetKey, payload);
+        var result = await customApps.ValidateBoardWidgetPayload(app, request.WidgetKey, payload);
 
         return new DyValidateBoardWidgetPayloadResponse
         {

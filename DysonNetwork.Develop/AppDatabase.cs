@@ -17,6 +17,7 @@ public class AppDatabase(
     public DbSet<SnDevProject> DevProjects { get; set; } = null!;
     
     public DbSet<SnCustomApp> CustomApps { get; set; } = null!;
+    public DbSet<SnBoardWidget> BoardWidgets { get; set; } = null!;
     public DbSet<SnCustomAppSecret> CustomAppSecrets { get; set; } = null!;
     public DbSet<SnBotAccount> BotAccounts { get; set; } = null!;
     public DbSet<SnBotChatConfig> BotChatConfigs { get; set; } = null!;
@@ -53,6 +54,16 @@ public class AppDatabase(
             .HasForeignKey<SnAppProductState>(s => s.ProductId)
             .OnDelete(DeleteBehavior.Cascade);
         
+        modelBuilder.Entity<SnBoardWidget>()
+            .HasOne<SnCustomApp>()
+            .WithMany(a => a.BoardWidgets)
+            .HasForeignKey(w => w.AppId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnBoardWidget>()
+            .HasIndex(w => new { w.AppId, w.Key })
+            .IsUnique();
+
         modelBuilder.ApplySoftDeleteFilters();
     }
 }

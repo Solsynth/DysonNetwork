@@ -613,11 +613,37 @@ Passport migration:
 
 - `AddAccountBoardItems`
 
-Develop migration:
+Develop migrations:
 
-- `AddBoardWidgetManifest`
+- `AddBoardWidgetManifest` (original JSONB approach)
+- `SupportMultipleBoardWidgets`
+- `AddBoardWidgetTable` (migrates from JSONB to separate table)
 
 These must be applied together when deploying the full feature.
+
+## Board Widget Data Model
+
+Board widget definitions are stored in a separate table (`board_widgets`) instead of JSONB inside `custom_apps`. This avoids EF Core translation issues with JSON-baked columns and enables efficient querying.
+
+Table: `board_widgets`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid PK | |
+| `app_id` | uuid FK → custom_apps.id | cascade delete |
+| `key` | varchar(128) | widget identifier |
+| `is_enabled` | bool | |
+| `renderer_type` | varchar(128) | default `"data"` |
+| `payload_type` | varchar(128) | fixed `"object"` |
+| `field_types` | jsonb | `[{name, type, label, format, required}]` |
+| `required_fields` | jsonb | string array |
+| `max_payload_bytes` | int | optional |
+| `allow_multiple` | bool | default true |
+| standard timestamps | | `created_at`, `updated_at`, `deleted_at` |
+
+Unique constraint: `(app_id, key)` — one widget definition per key per app.
+
+Proto serialization still uses `repeated DyBoardWidgetManifest board_widgets` on `DyCustomApp`, with `SnBoardWidget.ToProtoValue()` handling the conversion.
 
 ## Implementation Notes
 

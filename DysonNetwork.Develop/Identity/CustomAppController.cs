@@ -345,7 +345,7 @@ public class CustomAppController(
         if (string.IsNullOrWhiteSpace(secret) || !await customApps.ValidateApiSecretAsync(appId, secret, cancellationToken))
             return Unauthorized();
 
-        var validation = customApps.ValidateBoardWidgetPayload(app, request.WidgetKey, request.Payload);
+        var validation = await customApps.ValidateBoardWidgetPayload(app, request.WidgetKey, request.Payload);
         if (!validation.Valid)
             return BadRequest(validation.Message ?? "Invalid board payload.");
 

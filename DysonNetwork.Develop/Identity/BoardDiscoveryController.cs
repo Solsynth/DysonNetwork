@@ -72,15 +72,17 @@ public class BoardDiscoveryController(
             var app = await db.CustomApps
                 .Include(a => a.Project)
                     .ThenInclude(p => p.Developer)
-                .Where(a => a.Id.ToString() == authorizedApp.AppId
-                            && a.BoardWidgets != null
-                            && a.BoardWidgets.Any(w => w.IsEnabled))
+                .Where(a => a.Id.ToString() == authorizedApp.AppId)
                 .FirstOrDefaultAsync();
 
             if (app is null) continue;
 
             var publisherName = await ResolvePublisherName(app.Project?.Developer?.PublisherId ?? Guid.Empty, authorizedApp.PublisherName);
-            var widgets = (app.BoardWidgets ?? new List<SnBoardWidgetManifest>())
+            var widgetEntities = await db.BoardWidgets
+                .Where(w => w.AppId == app.Id && w.IsEnabled)
+                .ToListAsync();
+            var widgets = widgetEntities
+                .Select(w => w.ToManifest())
                 .Where(w => w.IsEnabled)
                 .Select(w => new BoardWidgetDto(
                     Key: w.Key,
@@ -115,7 +117,8 @@ public class BoardDiscoveryController(
         if (!string.IsNullOrWhiteSpace(slug))
         {
             var app = await customApps.GetAppBySlugAsync(slug);
-            if (app is null || app.BoardWidgets is null || app.BoardWidgets.Count == 0)
+            var widgetCount = await db.BoardWidgets.CountAsync(w => w.AppId == app.Id && w.IsEnabled);
+            if (widgetCount == 0)
                 return Ok(new List<BoardAppDto>());
 
             return Ok(new List<BoardAppDto> { await MapToDto(app) });
@@ -140,9 +143,15 @@ public class BoardDiscoveryController(
             .OrderBy(a => a.Name)
             .ToListAsync();
 
+        var appIdsWithWidgets = await db.BoardWidgets
+            .Where(w => w.IsEnabled)
+            .Select(w => w.AppId)
+            .Distinct()
+            .ToListAsync();
+
         return candidates
             .Where(a => a.OauthConfig!.AllowedScopes.Contains(PermissionKeys.AccountsProfileBoard))
-            .Where(a => a.BoardWidgets != null && a.BoardWidgets.Any(w => w.IsEnabled))
+            .Where(a => appIdsWithWidgets.Contains(a.Id))
             .Skip(offset)
             .Take(take)
             .ToList();
@@ -152,8 +161,11 @@ public class BoardDiscoveryController(
     {
         var publisherName = await GetPublisherNameAsync(app);
 
-        var widgets = (app.BoardWidgets ?? new List<SnBoardWidgetManifest>())
-            .Where(w => w.IsEnabled)
+        var widgetEntities = await db.BoardWidgets
+            .Where(w => w.AppId == app.Id && w.IsEnabled)
+            .ToListAsync();
+        var widgets = widgetEntities
+            .Select(w => w.ToManifest())
             .Select(w => new BoardWidgetDto(
                 Key: w.Key,
                 Slug: w.BuildSlug(publisherName, app.Slug),

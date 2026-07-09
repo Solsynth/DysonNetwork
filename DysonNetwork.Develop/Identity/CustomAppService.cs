@@ -38,7 +38,6 @@ public class CustomAppService(
             Status = request.Status ?? Shared.Models.CustomAppStatus.Developing,
             Links = request.Links,
             OauthConfig = request.OauthConfig,
-            BoardWidgets = request.BoardWidgets,
             ProjectId = projectId
         };
 
@@ -63,6 +62,16 @@ public class CustomAppService(
 
         db.CustomApps.Add(app);
         await db.SaveChangesAsync();
+
+        // Create board widget entries in the separate table
+        if (request.BoardWidgets is not null)
+        {
+            foreach (var widget in request.BoardWidgets)
+            {
+                db.BoardWidgets.Add(SnBoardWidget.FromManifest(app.Id, widget));
+            }
+            await db.SaveChangesAsync();
+        }
 
         return app;
     }
@@ -206,7 +215,15 @@ public class CustomAppService(
         if (request.OauthConfig is not null)
             app.OauthConfig = request.OauthConfig;
         if (request.BoardWidgets is not null)
-            app.BoardWidgets = request.BoardWidgets;
+        {
+            // Replace all board widgets: delete existing, insert new
+            var existing = await db.BoardWidgets.Where(w => w.AppId == app.Id).ToListAsync();
+            db.BoardWidgets.RemoveRange(existing);
+            foreach (var widget in request.BoardWidgets)
+            {
+                db.BoardWidgets.Add(SnBoardWidget.FromManifest(app.Id, widget));
+            }
+        }
 
         if (request.PictureId is not null)
         {
@@ -241,28 +258,21 @@ public class CustomAppService(
 
     public async Task<SnBoardWidgetManifest?> CreateBoardWidgetAsync(Guid appId, SnBoardWidgetManifest widget)
     {
-        var app = await db.CustomApps.FirstOrDefaultAsync(a => a.Id == appId);
-        if (app is null)
-            return null;
-
-        app.BoardWidgets ??= [];
-
-        if (app.BoardWidgets.Any(x => string.Equals(x.Key, widget.Key, StringComparison.OrdinalIgnoreCase)))
+        var existing = await db.BoardWidgets.FirstOrDefaultAsync(
+            w => w.AppId == appId && string.Equals(w.Key, widget.Key, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
             return null; // already exists
 
-        app.BoardWidgets.Add(widget);
+        var entity = SnBoardWidget.FromManifest(appId, widget);
+        db.BoardWidgets.Add(entity);
         await db.SaveChangesAsync();
-        return widget;
+        return entity.ToManifest();
     }
 
     public async Task<SnBoardWidgetManifest?> UpdateBoardWidgetAsync(Guid appId, string widgetKey, SnBoardWidgetManifest widget)
     {
-        var app = await db.CustomApps.FirstOrDefaultAsync(a => a.Id == appId);
-        if (app is null)
-            return null;
-
-        var existing = app.BoardWidgets?
-            .FirstOrDefault(x => string.Equals(x.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
+        var existing = await db.BoardWidgets.FirstOrDefaultAsync(
+            w => w.AppId == appId && string.Equals(w.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
         if (existing is null)
             return null;
 
@@ -275,21 +285,17 @@ public class CustomAppService(
         existing.AllowMultiple = widget.AllowMultiple;
 
         await db.SaveChangesAsync();
-        return existing;
+        return existing.ToManifest();
     }
 
     public async Task<bool> DeleteBoardWidgetAsync(Guid appId, string widgetKey)
     {
-        var app = await db.CustomApps.FirstOrDefaultAsync(a => a.Id == appId);
-        if (app is null)
-            return false;
-
-        var existing = app.BoardWidgets?
-            .FirstOrDefault(x => string.Equals(x.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
+        var existing = await db.BoardWidgets.FirstOrDefaultAsync(
+            w => w.AppId == appId && string.Equals(w.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
         if (existing is null)
             return false;
 
-        app.BoardWidgets.Remove(existing);
+        db.BoardWidgets.Remove(existing);
         await db.SaveChangesAsync();
         return true;
     }
@@ -315,67 +321,71 @@ public class CustomAppService(
             throw new InvalidOperationException("App not found");
         if (!HasBoardScope(app))
             throw new InvalidOperationException($"Custom app must declare '{PermissionKeys.AccountsProfileBoard}' scope to provide board widgets.");
-        if (app.BoardWidgets is null || app.BoardWidgets.Count == 0)
-            throw new InvalidOperationException("Board widget is not configured for this app");
-        var widget = app.BoardWidgets.FirstOrDefault(x => string.Equals(x.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
+
+        var widget = await db.BoardWidgets.FirstOrDefaultAsync(
+            w => w.AppId == appId && string.Equals(w.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
         if (widget is null)
             throw new InvalidOperationException($"Board widget '{widgetKey}' is not configured for this app");
 
-        return (app, widget);
+        return (app, widget.ToManifest());
     }
 
     public async Task<List<SnCustomApp>> GetBoardCapableAppsWithPublisherAsync(int take = 20, int offset = 0)
     {
-        // OauthConfig and BoardWidgets are stored as jsonb — filter persisted
-        // columns in SQL, then refine client-side for the JSON-baked fields.
+        // Query apps that have at least one enabled board widget (now a proper table join)
+        var appIdsWithWidgets = await db.BoardWidgets
+            .Where(w => w.IsEnabled)
+            .Select(w => w.AppId)
+            .Distinct()
+            .ToListAsync();
+
         var candidates = await db.CustomApps
             .Include(a => a.Project)
                 .ThenInclude(p => p.Developer)
             .Where(a => a.Status == CustomAppStatus.Production
-                        && a.OauthConfig != null)
+                        && a.OauthConfig != null
+                        && appIdsWithWidgets.Contains(a.Id))
             .OrderBy(a => a.Name)
             .ToListAsync();
 
-        var filtered = candidates
+        return candidates
             .Where(a => a.OauthConfig!.AllowedScopes.Contains(PermissionKeys.AccountsProfileBoard))
-            .Where(a => a.BoardWidgets != null && a.BoardWidgets.Any(w => w.IsEnabled))
             .Skip(offset)
             .Take(take)
             .ToList();
-
-        return filtered;
     }
 
-    public (bool Valid, string? Message, Dictionary<string, object?> NormalizedPayload, SnBoardWidgetManifest Widget)
+    public async Task<(bool Valid, string? Message, Dictionary<string, object?> NormalizedPayload, SnBoardWidgetManifest Widget)>
         ValidateBoardWidgetPayload(SnCustomApp app, string widgetKey, Dictionary<string, object?>? payload)
     {
-        var widget = app.BoardWidgets?.FirstOrDefault(x => string.Equals(x.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
+        var widget = await db.BoardWidgets.FirstOrDefaultAsync(
+            w => w.AppId == app.Id && string.Equals(w.Key, widgetKey, StringComparison.OrdinalIgnoreCase));
         if (widget is null)
             return (false, "Board widget is not configured for this app.", [], new SnBoardWidgetManifest());
         if (!HasBoardScope(app))
-            return (false, $"Custom app must declare '{PermissionKeys.AccountsProfileBoard}' scope to provide board widgets.", [], widget);
+            return (false, $"Custom app must declare '{PermissionKeys.AccountsProfileBoard}' scope to provide board widgets.", [], widget.ToManifest());
         if (!widget.IsEnabled)
-            return (false, "Board widget is disabled for this app.", [], widget);
+            return (false, "Board widget is disabled for this app.", [], widget.ToManifest());
         if (app.Status != CustomAppStatus.Production)
-            return (false, "Only production custom apps can be used as board widgets.", [], widget);
+            return (false, "Only production custom apps can be used as board widgets.", [], widget.ToManifest());
         if (!string.Equals(widget.PayloadType, "object", StringComparison.OrdinalIgnoreCase))
-            return (false, "Board widget payload_type must be 'object'.", [], widget);
+            return (false, "Board widget payload_type must be 'object'.", [], widget.ToManifest());
 
         var normalizedPayload = payload ?? [];
         var payloadJson = JsonSerializer.Serialize(normalizedPayload);
         if (widget.MaxPayloadBytes.HasValue && Encoding.UTF8.GetByteCount(payloadJson) > widget.MaxPayloadBytes.Value)
-            return (false, $"Board widget payload exceeds {widget.MaxPayloadBytes.Value} bytes.", normalizedPayload, widget);
+            return (false, $"Board widget payload exceeds {widget.MaxPayloadBytes.Value} bytes.", normalizedPayload, widget.ToManifest());
 
         foreach (var requiredField in widget.RequiredFields)
         {
             if (!normalizedPayload.ContainsKey(requiredField))
-                return (false, $"Board widget payload is missing required field '{requiredField}'.", normalizedPayload, widget);
+                return (false, $"Board widget payload is missing required field '{requiredField}'.", normalizedPayload, widget.ToManifest());
         }
 
         // Enforce the universal payload envelope contract on every field.
         var (ok, error, envelopePayload) = BoardPayloadContract.ValidateAndNormalize(normalizedPayload);
         if (!ok)
-            return (false, error, normalizedPayload, widget);
+            return (false, error, normalizedPayload, widget.ToManifest());
 
         // Validate field_types against the nested value.
         foreach (var fieldType in widget.FieldTypes)
@@ -384,13 +394,13 @@ public class CustomAppService(
                 continue;
 
             if (!BoardPayloadContract.TryExtractValue(fieldObj, out var fieldValue))
-                return (false, $"Board widget payload field '{fieldType.Name}' must be an object with 'value', 'label', and optional 'format'.", envelopePayload, widget);
+                return (false, $"Board widget payload field '{fieldType.Name}' must be an object with 'value', 'label', and optional 'format'.", envelopePayload, widget.ToManifest());
 
             if (!IsValueMatchingType(fieldValue, fieldType.Type))
-                return (false, $"Board widget payload field '{fieldType.Name}' must be of type '{fieldType.Type}'.", envelopePayload, widget);
+                return (false, $"Board widget payload field '{fieldType.Name}' must be of type '{fieldType.Type}'.", envelopePayload, widget.ToManifest());
         }
 
-        return (true, null, envelopePayload, widget);
+        return (true, null, envelopePayload, widget.ToManifest());
     }
 
     private static bool IsValueMatchingType(object? value, string expectedType)
