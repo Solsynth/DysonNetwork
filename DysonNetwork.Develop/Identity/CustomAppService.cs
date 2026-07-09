@@ -199,6 +199,44 @@ public class CustomAppService(
             .ToListAsync();
     }
 
+    public async Task<(List<CustomAppPublicController.CustomAppDiscoveryResponse> Apps, int Total)> GetActiveAppsForDiscoveryAsync(
+        int take = 20,
+        int offset = 0,
+        string? search = null)
+    {
+        var query = db.CustomApps
+            .AsNoTracking()
+            .Where(a => a.Status == CustomAppStatus.Production);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var probe = $"%{search.Trim()}%";
+            query = query.Where(a =>
+                EF.Functions.ILike(a.Slug, probe) ||
+                EF.Functions.ILike(a.Name, probe) ||
+                (a.Description != null && EF.Functions.ILike(a.Description, probe)));
+        }
+
+        var total = await query.CountAsync();
+
+        var apps = await query
+            .OrderBy(a => a.Name)
+            .ThenBy(a => a.Slug)
+            .Skip(offset)
+            .Take(take)
+            .Select(a => new CustomAppPublicController.CustomAppDiscoveryResponse(
+                Id: a.Id,
+                Slug: a.Slug,
+                Title: a.Name,
+                Description: a.Description,
+                ProductsCount: db.AppProducts.Count(p => p.AppId == a.Id),
+                WidgetsCount: db.BoardWidgets.Count(w => w.AppId == a.Id)
+            ))
+            .ToListAsync();
+
+        return (apps, total);
+    }
+
     public async Task<SnCustomApp?> UpdateAppAsync(SnCustomApp app, CustomAppController.CustomAppRequest request)
     {
         var oldStatus = app.Status;

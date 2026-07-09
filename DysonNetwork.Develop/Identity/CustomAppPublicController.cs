@@ -11,6 +11,26 @@ public class CustomAppPublicController(
     AppProductService productService
 ) : ControllerBase
 {
+    public record CustomAppDiscoveryResponse(
+        Guid Id,
+        string Slug,
+        string Title,
+        string? Description,
+        int ProductsCount,
+        int WidgetsCount
+    );
+
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<CustomAppDiscoveryResponse>>> DiscoverApps(
+        [FromQuery] int take = 20,
+        [FromQuery] int offset = 0,
+        [FromQuery] string? search = null)
+    {
+        var (apps, total) = await customAppService.GetActiveAppsForDiscoveryAsync(take, offset, search);
+        Response.Headers.Append("X-Total", total.ToString());
+        return Ok(apps);
+    }
+
     [HttpGet("{slug}")]
     public async Task<ActionResult<SnCustomApp>> GetCustomAppBySlug([FromRoute] string slug)
     {
@@ -48,4 +68,3 @@ public class CustomAppPublicController(
         return Ok(product);
     }
 }
-
