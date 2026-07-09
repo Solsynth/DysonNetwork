@@ -57,6 +57,105 @@ public class PostCollectionController(
         public List<Guid> PostIds { get; set; } = [];
     }
 
+    private sealed record CollectionSearchContext(string Query, bool UseFuzzyMatch);
+
+    private static CollectionSearchContext? CreateSearchContext(string? query)
+    {
+        var normalized = query?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : new CollectionSearchContext(normalized, normalized.Length >= 3);
+    }
+
+    private static IQueryable<SnPostCollection> ApplyCollectionSearch(
+        IQueryable<SnPostCollection> query,
+        CollectionSearchContext? searchContext
+    )
+    {
+        if (searchContext is null)
+            return query;
+
+        var searchPattern = $"%{searchContext.Query}%";
+        if (!searchContext.UseFuzzyMatch)
+        {
+            return query.Where(c =>
+                EF.Functions.ILike(c.Slug, searchPattern)
+                || (c.Name != null && EF.Functions.ILike(c.Name, searchPattern))
+                || (c.Description != null && EF.Functions.ILike(c.Description, searchPattern))
+                || EF.Functions.ILike(c.Publisher.Name, searchPattern)
+                || EF.Functions.ILike(c.Publisher.Nick, searchPattern)
+            );
+        }
+
+        return query.Where(c =>
+            EF.Functions.ILike(c.Slug, searchPattern)
+            || (c.Name != null && EF.Functions.ILike(c.Name, searchPattern))
+            || (c.Description != null && EF.Functions.ILike(c.Description, searchPattern))
+            || EF.Functions.ILike(c.Publisher.Name, searchPattern)
+            || EF.Functions.ILike(c.Publisher.Nick, searchPattern)
+            || EF.Functions.TrigramsAreSimilar(c.Slug, searchContext.Query)
+            || (c.Name != null && EF.Functions.TrigramsAreSimilar(c.Name, searchContext.Query))
+            || (c.Description != null && EF.Functions.TrigramsAreWordSimilar(searchContext.Query, c.Description))
+            || EF.Functions.TrigramsAreSimilar(c.Publisher.Name, searchContext.Query)
+            || EF.Functions.TrigramsAreSimilar(c.Publisher.Nick, searchContext.Query)
+        );
+    }
+
+    private static IOrderedQueryable<SnPostCollection> ApplyCollectionSearchOrdering(
+        IQueryable<SnPostCollection> query,
+        CollectionSearchContext? searchContext
+    )
+    {
+        if (searchContext is not { UseFuzzyMatch: true })
+            return query.OrderBy(c => c.Name ?? c.Slug).ThenBy(c => c.Slug);
+
+        var searchPattern = $"%{searchContext.Query}%";
+        return query
+            .OrderByDescending(c =>
+                EF.Functions.ILike(c.Slug, searchPattern)
+                || (c.Name != null && EF.Functions.ILike(c.Name, searchPattern))
+                || (c.Description != null && EF.Functions.ILike(c.Description, searchPattern))
+                || EF.Functions.ILike(c.Publisher.Name, searchPattern)
+                || EF.Functions.ILike(c.Publisher.Nick, searchPattern)
+            )
+            .ThenByDescending(c => EF.Functions.TrigramsSimilarity(c.Slug, searchContext.Query))
+            .ThenByDescending(c => c.Name != null ? EF.Functions.TrigramsSimilarity(c.Name, searchContext.Query) : 0.0f)
+            .ThenByDescending(c => c.Description != null ? EF.Functions.TrigramsWordSimilarity(searchContext.Query, c.Description) : 0.0f)
+            .ThenByDescending(c => EF.Functions.TrigramsSimilarity(c.Publisher.Name, searchContext.Query))
+            .ThenByDescending(c => EF.Functions.TrigramsSimilarity(c.Publisher.Nick, searchContext.Query))
+            .ThenBy(c => c.Name ?? c.Slug)
+            .ThenBy(c => c.Slug);
+    }
+
+    [HttpGet("/api/collections")]
+    public async Task<ActionResult<List<SnPostCollection>>> ListAllCollections(
+        [FromQuery] string? query = null,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 20
+    )
+    {
+        take = Math.Clamp(take, 1, 100);
+        offset = Math.Max(0, offset);
+
+        var searchContext = CreateSearchContext(query);
+
+        var collectionsQuery = db.PostCollections
+            .AsNoTracking()
+            .Include(c => c.Publisher)
+            .AsQueryable();
+
+        collectionsQuery = ApplyCollectionSearch(collectionsQuery, searchContext);
+        collectionsQuery = ApplyCollectionSearchOrdering(collectionsQuery, searchContext);
+
+        var totalCount = await collectionsQuery.CountAsync();
+        Response.Headers.Append("X-Total", totalCount.ToString());
+
+        var collections = await collectionsQuery
+            .Skip(offset)
+            .Take(take)
+            .ToListAsync();
+
+        return Ok(collections);
+    }
+
     [HttpGet]
     public async Task<ActionResult<List<SnPostCollection>>> ListCollections(string publisherName)
     {

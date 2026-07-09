@@ -52,6 +52,56 @@ Collection membership is stored as ordered items.
 /api/publishers/{publisherName}/collections
 ```
 
+## Public Discovery
+
+```http
+GET /api/collections?query=featured&offset=0&take=20
+```
+
+Returns a public, paginated list of collections across all publishers.
+
+### Query Parameters
+
+| Param | Description |
+|-------|-------------|
+| `query` | Full text search across slug, name, description, and publisher name |
+| `offset` | Pagination offset |
+| `take` | Page size |
+
+### Response Headers
+
+| Header | Description |
+|--------|-------------|
+| `X-Total` | Total number of matching collections |
+
+### Search Behavior
+
+- Short queries use case-insensitive `ILIKE` matching.
+- Longer queries also use trigram similarity ranking for discovery-style results.
+- Results default to `name`, then `slug` ordering when no fuzzy ranking is active.
+
+### Example Response
+
+```json
+[
+  {
+    "id": "8f7b3f8e-6758-4f10-a4d4-cbe8ce7c5278",
+    "slug": "featured-articles",
+    "name": "Featured Articles",
+    "description": "Long-form editorial posts",
+    "publisher_id": "f37d7331-7305-4f2d-8e85-d5dfb04f2bd9",
+    "publisher": {
+      "id": "f37d7331-7305-4f2d-8e85-d5dfb04f2bd9",
+      "name": "solsynth"
+    },
+    "background": null,
+    "icon": null,
+    "created_at": "2026-05-10T12:00:00Z",
+    "updated_at": "2026-05-10T12:00:00Z"
+  }
+]
+```
+
 ## Collection Endpoints
 
 ### List Collections
