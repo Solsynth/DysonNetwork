@@ -110,6 +110,11 @@ Base:
 - `GET /api/private/miniapps/{miniAppId}?dev={developer_slug}&proj={project_id}`
 - `PATCH /api/private/miniapps/{miniAppId}?dev={developer_slug}&proj={project_id}`
 - `DELETE /api/private/miniapps/{miniAppId}?dev={developer_slug}&proj={project_id}`
+- `POST /api/private/miniapps/{miniAppId}/package?dev={developer_slug}&proj={project_id}`
+
+The package endpoint accepts a multipart `File` field containing a ZIP plugin
+package up to 5 MiB. The archive must contain a valid `manifest.json`; the
+response includes the S3 object URL, size, and lowercase SHA-256 checksum.
 
 ## Notifications endpoint
 

@@ -16,6 +16,7 @@
         <PackageReference Include="NodaTime.Serialization.Protobuf" />
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
         <PackageReference Include="Grpc.AspNetCore.Server" />
+        <PackageReference Include="Minio" />
   </ItemGroup>
  
   <ItemGroup>

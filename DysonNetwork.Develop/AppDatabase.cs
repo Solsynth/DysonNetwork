@@ -64,6 +64,10 @@ public class AppDatabase(
             .HasIndex(w => new { w.AppId, w.Key })
             .IsUnique();
 
+        modelBuilder.Entity<SnMiniApp>()
+            .HasIndex(m => m.PluginId)
+            .IsUnique();
+
         modelBuilder.ApplySoftDeleteFilters();
     }
 }

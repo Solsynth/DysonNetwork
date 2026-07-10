@@ -55,6 +55,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<DevProjectService>();
         services.AddScoped<BotAccountService>();
         services.AddScoped<MiniApp.MiniAppService>();
+        services.AddScoped<MiniApp.MiniAppStorageService>();
         services.AddScoped<AppProductService>();
 
         services.AddGrpcClientWithSharedChannel<DyProfileService.DyProfileServiceClient>(

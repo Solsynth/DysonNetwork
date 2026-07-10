@@ -148,6 +148,11 @@ public async Task<IActionResult> GivePermission(...)
 - `chat.pins.manage`, `chat.read.all`, `chat.sync`
 - `chat.call.start`, `chat.call.end`, `chat.call.invite`, `chat.call.kick`, `chat.call.mute`
 
+### Plugin marketplace
+- `mini.apps.view`
+- `mini.apps.create`, `mini.apps.update`, `mini.apps.delete`
+- `mini.apps.package.upload`
+
 ### Posts
 - `posts.view`, `posts.create`, `posts.update`, `posts.delete`, `posts.publish`
 - `posts.react`, `posts.boost`, `posts.moderate`, `posts.lock`
