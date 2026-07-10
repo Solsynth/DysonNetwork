@@ -161,6 +161,7 @@ public class MiniAppController(
 
     [HttpPost]
     [Authorize]
+    [AskPermission(PermissionKeys.MiniAppsCreate)]
     public async Task<IActionResult> CreateMiniApp(
         [FromQuery(Name = "dev")] string dev,
         [FromQuery(Name = "proj")] Guid proj,

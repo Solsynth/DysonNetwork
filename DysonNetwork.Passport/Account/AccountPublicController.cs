@@ -16,6 +16,7 @@ public class AccountPublicController(
     SocialCreditService socialCreditService,
     RemoteSubscriptionService remoteSubscription,
     DyAccountService.DyAccountServiceClient accountGrpc,
+    AccountBoardService boardService,
     IConfiguration configuration
 ) : ControllerBase
 {
@@ -127,6 +128,18 @@ public class AccountPublicController(
         return account is null
             ? NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier))
             : await db.Badges.Where(b => b.AccountId == account.Id).ToListAsync();
+    }
+
+    [HttpGet("{name}/board")]
+    [ProducesResponseType<List<SnAccountBoardItem>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<SnAccountBoardItem>>> GetAccountBoard(string name)
+    {
+        var account = await accountService.LookupAccount(name);
+        if (account is null)
+            return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
+
+        return Ok(await boardService.GetBoardAsync(account.Id));
     }
 
     [HttpGet("{name}/credits")]
