@@ -66,6 +66,8 @@ public class MiniAppService(AppDatabase db, DyFileService.DyFileServiceClient fi
     public async Task<List<SnMiniApp>> GetMiniAppsByProjectAsync(Guid projectId)
     {
         return await db.MiniApps
+            .Include(m => m.Project)
+                .ThenInclude(p => p.Developer)
             .Where(m => m.ProjectId == projectId)
             .ToListAsync();
     }

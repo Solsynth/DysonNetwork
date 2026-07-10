@@ -123,6 +123,11 @@ public class MiniAppController(
         if (project is null) return NotFound("Project not found or you don't have access");
 
         var miniApps = await miniAppService.GetMiniAppsByProjectAsync(proj);
+        var developers = miniApps.Select(m => m.Project.Developer).ToList();
+        await ds.LoadDeveloperPublisher(developers);
+        foreach (var miniApp in miniApps)
+            miniApp.Developer = miniApp.Project.Developer;
+
         return Ok(miniApps);
     }
 
