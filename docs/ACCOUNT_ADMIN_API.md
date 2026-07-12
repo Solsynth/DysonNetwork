@@ -253,9 +253,11 @@ Permissions:
 Notes:
 
 - changing `type` or `content` clears `verified_at`
-- `verify/request` sends the normal contact verification flow
+- contact types are `0` for email, `1` for phone number, and `2` for address
+- `verify/request` sends the normal email verification flow and is available only for email contacts
 - `verify` immediately marks the contact verified, defaulting `verified_at` to now if omitted
 - `visibility` accepts `{ "is_public": true | false }`
+- `primary` makes the selected contact primary among contacts of the same type
 
 Create request example:
 
@@ -265,6 +267,24 @@ Create request example:
   "content": "alice@example.com"
 }
 ```
+
+Update request example:
+
+```json
+{
+  "content": "alice+new@example.com"
+}
+```
+
+Only supplied fields are changed. Updating either `type` or `content` clears the existing verification timestamp, so request a new verification token or use the immediate verification endpoint afterwards.
+
+Manual verification request:
+
+```text
+POST /api/admin/accounts/alice/contacts/550e8400-e29b-41d4-a716-446655440000/verify/request
+```
+
+The token is sent to that contact's email address, not necessarily the account's primary email address.
 
 Immediate verify request example:
 
