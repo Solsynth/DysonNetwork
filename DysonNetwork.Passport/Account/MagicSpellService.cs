@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using DysonNetwork.Passport.Mailer;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.EventBus;
@@ -24,6 +25,18 @@ public class MagicSpellService(
     DyAccountService.DyAccountServiceClient remoteAccounts
 )
 {
+    private static string? GetMetaString(SnMagicSpell spell, string key)
+    {
+        if (!spell.Meta.TryGetValue(key, out var value)) return null;
+
+        return value switch
+        {
+            string text => text,
+            JsonElement { ValueKind: JsonValueKind.String } element => element.GetString(),
+            _ => null
+        };
+    }
+
     public async Task<SnMagicSpell> CreateMagicSpell(
         SnAccount account,
         MagicSpellType type,
@@ -78,15 +91,27 @@ public class MagicSpellService(
         if (!spell.AccountId.HasValue)
             throw new ArgumentException("Spell is missing account id.");
 
-        var contacts = await remoteContacts.ListContactsAsync(
-            spell.AccountId.Value,
-            AccountContactType.Email,
-            verifiedOnly: !bypassVerify
-        );
-        var contact = contacts
-            .OrderByDescending(c => c.IsPrimary)
-            .FirstOrDefault();
-        if (contact is null) throw new ArgumentException("Account has no contact method that can use");
+        string recipient;
+        if (spell.Type == MagicSpellType.ContactVerification)
+        {
+            var contactMethod = GetMetaString(spell, "contact_method");
+            if (string.IsNullOrWhiteSpace(contactMethod))
+                throw new InvalidOperationException("Contact method is not found.");
+
+            recipient = contactMethod;
+        }
+        else
+        {
+            var contacts = await remoteContacts.ListContactsAsync(
+                spell.AccountId.Value,
+                AccountContactType.Email,
+                verifiedOnly: !bypassVerify
+            );
+            recipient = contacts
+                .OrderByDescending(c => c.IsPrimary)
+                .Select(c => c.Content)
+                .FirstOrDefault() ?? throw new ArgumentException("Account has no contact method that can use");
+        }
 
         var account = await remoteAccounts.GetAccountAsync(new DyGetAccountRequest
         {
@@ -107,7 +132,7 @@ public class MagicSpellService(
                 case MagicSpellType.AccountActivation:
                     await email.SendTemplatedEmailAsync(
                         recipientName,
-                        contact.Content,
+                        recipient,
                         localizer.Get("regConfirmTitle", accountLanguage),
                         "Welcome",
                         new { nick = recipientName, link },
@@ -117,7 +142,7 @@ public class MagicSpellService(
                 case MagicSpellType.AccountRemoval:
                     await email.SendTemplatedEmailAsync(
                         recipientName,
-                        contact.Content,
+                        recipient,
                         localizer.Get("emailAccountDeletionTitle", accountLanguage),
                         "AccountDeletion",
                         new { nick = recipientName, link },
@@ -127,7 +152,7 @@ public class MagicSpellService(
                 case MagicSpellType.AuthPasswordReset:
                     await email.SendTemplatedEmailAsync(
                         recipientName,
-                        contact.Content,
+                        recipient,
                         localizer.Get("passwordResetTitle", accountLanguage),
                         "PasswordReset",
                         new { nick = recipientName, link },
@@ -135,12 +160,9 @@ public class MagicSpellService(
                     );
                     break;
                 case MagicSpellType.ContactVerification:
-                    if (!spell.Meta.TryGetValue("contact_method", out var contactMethodValue) ||
-                        contactMethodValue is not string contactMethod)
-                        throw new InvalidOperationException("Contact method is not found.");
                     await email.SendTemplatedEmailAsync(
                         recipientName,
-                        contactMethod,
+                        recipient,
                         localizer.Get("contractMethodVerificationTitle", accountLanguage),
                         "ContactVerification",
                         new { nick = recipientName, link },
@@ -209,12 +231,24 @@ public class MagicSpellService(
                         AccountId = spell.AccountId.Value,
                         ActivatedAt = activatedAt
                     };
+
+                    if (Guid.TryParse(GetMetaString(spell, "contact_id"), out var activationContactId))
+                    {
+                        accountContactVerifiedEvent = new AccountContactVerifiedEvent
+                        {
+                            AccountId = spell.AccountId.Value,
+                            ContactId = activationContactId,
+                            SpellId = spell.Id,
+                            VerifiedAt = activatedAt
+                        };
+                    }
                 }
                 break;
             case MagicSpellType.ContactVerification:
                 if (!spell.AccountId.HasValue)
                     throw new InvalidOperationException("Contact verification spell is missing account id.");
-                if (!spell.Meta.TryGetValue("contact_id", out var contactIdValue) || contactIdValue is not string contactIdRaw)
+                var contactIdRaw = GetMetaString(spell, "contact_id");
+                if (contactIdRaw is null)
                     throw new InvalidOperationException("Contact verification spell is missing contact id.");
                 if (!Guid.TryParse(contactIdRaw, out var contactId))
                     throw new InvalidOperationException("Contact verification spell contains an invalid contact id.");

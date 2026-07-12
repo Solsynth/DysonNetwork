@@ -1266,6 +1266,8 @@ public class AccountService(
             throw new InvalidOperationException("Contact does not belong to the account.");
         if (contact.VerifiedAt is not null)
             throw new InvalidOperationException("Contact has already been verified.");
+        if (contact.Type != AccountContactType.Email)
+            throw new InvalidOperationException("Only email contact methods can be verified.");
 
         var request = new DyCreateMagicSpellRequest
         {
@@ -1372,6 +1374,7 @@ public class AccountService(
             Language = account.Language,
             Region = account.Region,
             PrimaryEmail = primaryEmail?.Content,
+            PrimaryEmailContactId = primaryEmail?.Id,
             PrimaryEmailVerifiedAt = primaryEmail?.VerifiedAt,
             ActivatedAt = account.ActivatedAt,
             IsSuperuser = account.IsSuperuser,

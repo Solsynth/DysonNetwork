@@ -186,7 +186,9 @@ public static class ServiceCollectionExtensions
                 
                 logger.LogInformation("Handling account creation event for @{UserName}", evt.Name);
 
-                if (evt.ActivatedAt is null && !string.IsNullOrWhiteSpace(evt.PrimaryEmail))
+                if (evt.ActivatedAt is null &&
+                    !string.IsNullOrWhiteSpace(evt.PrimaryEmail) &&
+                    evt.PrimaryEmailContactId.HasValue)
                 {
                     var spell = await spells.CreateMagicSpell(
                         new SnAccount
@@ -200,7 +202,8 @@ public static class ServiceCollectionExtensions
                         MagicSpellType.AccountActivation,
                         new Dictionary<string, object>
                         {
-                            { "contact_method", evt.PrimaryEmail! }
+                            { "contact_method", evt.PrimaryEmail! },
+                            { "contact_id", evt.PrimaryEmailContactId.Value.ToString() }
                         },
                         preventRepeat: true
                     );
