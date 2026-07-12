@@ -1080,4 +1080,7 @@ public class PushService
 
         return (notifications, dbTotalCount + replayNotifications.Count - duplicateCount);
     }
+
+    public Task RemoveSopReplayNotifications(Guid accountId, IEnumerable<Guid> notificationIds) =>
+        _sopReplayBuffer.RemoveNotifications(accountId, notificationIds);
 }

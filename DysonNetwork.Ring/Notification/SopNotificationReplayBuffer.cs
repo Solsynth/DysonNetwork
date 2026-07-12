@@ -36,6 +36,26 @@ public class SopNotificationReplayBuffer(ICacheService cache)
         );
     }
 
+    public async Task RemoveNotifications(Guid accountId, IEnumerable<Guid> notificationIds)
+    {
+        var ids = notificationIds.ToHashSet();
+        if (ids.Count == 0) return;
+
+        await cache.ExecuteWithLockAsync(
+            GetLockKey(accountId),
+            async () =>
+            {
+                var notifications = await GetNotifications(accountId);
+                if (notifications.RemoveAll(n => ids.Contains(n.Id)) == 0) return;
+
+                await cache.SetData(GetCacheKey(accountId), notifications, ReplayTtl);
+            },
+            expiry: TimeSpan.FromSeconds(10),
+            waitTime: TimeSpan.FromSeconds(2),
+            retryInterval: TimeSpan.FromMilliseconds(100)
+        );
+    }
+
     private static string GetCacheKey(Guid accountId) => $"ring:sop:replay:{accountId}";
 
     private static string GetLockKey(Guid accountId) => $"ring:sop:replay:{accountId}";

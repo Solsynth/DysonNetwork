@@ -70,6 +70,7 @@ public class SopNotificationController(
         );
 
         Response.Headers["X-Total"] = totalCount.ToString();
+        await nty.RemoveSopReplayNotifications(sopSub.AccountId, notifications.Select(n => n.Id));
         return Ok(notifications);
     }
 
