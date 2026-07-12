@@ -96,7 +96,8 @@ public class QueueBackgroundService(
             emailMessage.ToName,
             emailMessage.ToAddress,
             emailMessage.Subject,
-            emailMessage.Body);
+            emailMessage.Body,
+            "queue");
     }
 
     private static async Task ProcessPushNotificationMessageAsync(QueueMessage message, IServiceScope scope,

@@ -1,5 +1,6 @@
 using MailKit.Net.Smtp;
 using MimeKit;
+using System.Diagnostics;
 
 namespace DysonNetwork.Ring.Email;
 
@@ -27,28 +28,67 @@ public class EmailService
         _logger = logger;
     }
 
-    public async Task SendEmailAsync(string? recipientName, string recipientEmail, string subject, string htmlBody)
+    public async Task SendEmailAsync(
+        string? recipientName,
+        string recipientEmail,
+        string subject,
+        string htmlBody,
+        string source = "direct"
+    )
     {
         subject = $"[{_configuration.SubjectPrefix}] {subject}";
-        
+
         _logger.LogInformation($"Sending email to {recipientEmail} with subject {subject}");
 
-        var emailMessage = new MimeMessage();
-        emailMessage.From.Add(new MailboxAddress(_configuration.FromName, _configuration.FromAddress));
-        emailMessage.To.Add(new MailboxAddress(recipientName, recipientEmail));
-        emailMessage.Subject = subject;
+        using var activity = EmailTelemetry.ActivitySource.StartActivity("emails.deliver.smtp");
+        activity?.SetTag("email.source", source);
+        activity?.SetTag("email.provider", "smtp");
+        var metricTags = new TagList
+        {
+            { "source", source },
+            { "provider", "smtp" }
+        };
+        EmailTelemetry.DeliveryAttempts.Add(1, metricTags);
+        var startedAt = Stopwatch.GetTimestamp();
+        var outcome = "failure";
 
-        var bodyBuilder = new BodyBuilder { HtmlBody = htmlBody };
+        try
+        {
+            var emailMessage = new MimeMessage();
+            emailMessage.From.Add(new MailboxAddress(_configuration.FromName, _configuration.FromAddress));
+            emailMessage.To.Add(new MailboxAddress(recipientName, recipientEmail));
+            emailMessage.Subject = subject;
 
-        emailMessage.Body = bodyBuilder.ToMessageBody();
+            var bodyBuilder = new BodyBuilder { HtmlBody = htmlBody };
 
-        using var client = new SmtpClient();
-        await client.ConnectAsync(_configuration.Server, _configuration.Port, _configuration.UseSsl);
-        await client.AuthenticateAsync(_configuration.Username, _configuration.Password);
-        await client.SendAsync(emailMessage);
-        await client.DisconnectAsync(true);
-        
-        _logger.LogInformation($"Email {subject} sent for {recipientEmail}");
+            emailMessage.Body = bodyBuilder.ToMessageBody();
+
+            using var client = new SmtpClient();
+            await client.ConnectAsync(_configuration.Server, _configuration.Port, _configuration.UseSsl);
+            await client.AuthenticateAsync(_configuration.Username, _configuration.Password);
+            await client.SendAsync(emailMessage);
+            await client.DisconnectAsync(true);
+
+            outcome = "success";
+            activity?.SetStatus(ActivityStatusCode.Ok);
+            _logger.LogInformation($"Email {subject} sent for {recipientEmail}");
+        }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            throw;
+        }
+        finally
+        {
+            var resultTags = new TagList
+            {
+                { "source", source },
+                { "provider", "smtp" },
+                { "outcome", outcome }
+            };
+            EmailTelemetry.DeliveryResults.Add(1, resultTags);
+            EmailTelemetry.DeliveryDuration.Record(Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds, resultTags);
+        }
     }
 
     private static string _ConvertHtmlToPlainText(string html)

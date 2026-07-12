@@ -275,7 +275,8 @@ public class EmailSendingPlanService(
                     recipient.RecipientNameSnapshot,
                     contact.Content,
                     plan.Subject,
-                    plan.HtmlBody
+                    plan.HtmlBody,
+                    "sending_plan"
                 );
 
                 recipient.Status = EmailSendingPlanRecipientStatus.Sent;
