@@ -141,8 +141,6 @@ public class AccountCurrentController(
         var profile = await accounts.GetOrCreateAccountProfileAsync(userId);
         var changedFields = new List<string>();
 
-        var wasProfileComplete = IsProfileComplete(profile);
-
         if (request.FirstName is not null) { profile.FirstName = request.FirstName; changedFields.Add("first_name"); }
         if (request.MiddleName is not null) { profile.MiddleName = request.MiddleName; changedFields.Add("middle_name"); }
         if (request.LastName is not null) { profile.LastName = request.LastName; changedFields.Add("last_name"); }
@@ -155,7 +153,6 @@ public class AccountCurrentController(
         if (request.Links is not null) { profile.Links = request.Links; changedFields.Add("links"); }
         if (request.UsernameColor is not null) { profile.UsernameColor = request.UsernameColor; changedFields.Add("username_color"); }
 
-        var hadPicture = profile.Picture is not null;
         if (request.PictureId is not null)
         {
             var file = await files.GetFileAsync(new DyGetFileRequest { Id = request.PictureId });
@@ -183,7 +180,7 @@ public class AccountCurrentController(
             );
         }
 
-        if (!hadPicture && profile.Picture is not null)
+        if (request.PictureId is not null && profile.Picture is not null)
         {
             remoteActionLogs.CreateActionLog(
                 userId,
@@ -194,7 +191,7 @@ public class AccountCurrentController(
             );
         }
 
-        if (!wasProfileComplete && IsProfileComplete(profile))
+        if (IsProfileComplete(profile))
         {
             remoteActionLogs.CreateActionLog(
                 userId,

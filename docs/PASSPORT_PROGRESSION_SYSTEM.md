@@ -285,16 +285,15 @@ Current behavior:
 
 Current behavior:
 
-- emitted only when the user sets a profile picture for the first time (old `Picture` field was null)
+- emitted whenever the user sets a profile picture
 - fires alongside the general `accounts.profile.update` log
 - metadata: empty dictionary
 
 Emission logic:
 
 ```csharp
-var hadPicture = profile.Picture is not null;
 // ... update profile ...
-if (!hadPicture && profile.Picture is not null)
+if (request.PictureId is not null && profile.Picture is not null)
 {
     remoteActionLogs.CreateActionLog(userId, ActionLogType.AccountAvatar, ...);
 }
@@ -351,8 +350,8 @@ This means both the sender and receiver of a friend request get progression cred
 
 Current behavior:
 
-- emitted when the user's profile transitions from incomplete to complete
-- checks before and after the profile update to avoid duplicate emissions
+- emitted after any profile update when the profile is complete
+- progression deduplicates the completed achievement and its reward
 - metadata: empty dictionary
 
 Profile complete requires all of the following fields to be non-null and non-empty:

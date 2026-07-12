@@ -919,7 +919,7 @@ public class RealmController(
             await db.SaveChangesAsync();
 
             als.CreateActionLogFromRequest(
-                "realms.members.join",
+                ActionLogType.RealmJoin,
                 new Dictionary<string, object>()
                 {
                     { "realm_id", Value.ForString(existingMember.RealmId.ToString()) },
@@ -944,7 +944,7 @@ public class RealmController(
         await db.SaveChangesAsync();
 
         als.CreateActionLogFromRequest(
-            "realms.members.join",
+            ActionLogType.RealmJoin,
             new Dictionary<string, object>()
             {
                 { "realm_id", Value.ForString(realm.Id.ToString()) },
