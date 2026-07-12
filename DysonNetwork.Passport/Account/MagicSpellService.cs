@@ -118,7 +118,7 @@ public class MagicSpellService(
                     await email.SendTemplatedEmailAsync(
                         recipientName,
                         contact.Content,
-                        localizer.Get("accountDeletionTitle", accountLanguage),
+                        localizer.Get("emailAccountDeletionTitle", accountLanguage),
                         "AccountDeletion",
                         new { nick = recipientName, link },
                         accountLanguage
