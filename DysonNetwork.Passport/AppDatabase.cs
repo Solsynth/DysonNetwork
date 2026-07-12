@@ -126,6 +126,9 @@ public class AppDatabase(
         modelBuilder.Entity<SnAccountRelationship>()
             .HasKey(r => new { FromAccountId = r.AccountId, ToAccountId = r.RelatedId });
 
+        modelBuilder.Entity<SnAccountProfile>()
+            .HasIndex(p => p.LastSeenAt);
+
         modelBuilder.Entity<SnPresenceActivity>()
             .HasIndex(e => new { e.AccountId, e.Provider, e.DeletedAt });
         modelBuilder.Entity<SnPresenceActivity>()

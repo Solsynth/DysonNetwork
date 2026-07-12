@@ -45,6 +45,8 @@ Base route:
 /api/admin/payments
 ```
 
+Wallet-wide totals are available from `GET /api/admin/stats`; see [Admin Stats API](./ADMIN_STATS_API.md).
+
 ### GET /api/admin/payments/transactions
 
 Returns wallet transactions across the system.

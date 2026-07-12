@@ -61,6 +61,22 @@ public class AccountAdminController(
         public List<SnAccountBoardItem> Board { get; set; } = [];
     }
 
+    public class AdminAccountActivityMetricsResponse
+    {
+        public Instant CalculatedAt { get; set; }
+        public Instant CurrentDayStartedAt { get; set; }
+        public int DailyActiveUsers { get; set; }
+        public int WeeklyActiveUsers { get; set; }
+        public int MonthlyActiveUsers { get; set; }
+        public int PreviousDailyActiveUsers { get; set; }
+        public int PreviousWeeklyActiveUsers { get; set; }
+        public int PreviousMonthlyActiveUsers { get; set; }
+        public int NewAccountsToday { get; set; }
+        public int NewAccountsThisWeek { get; set; }
+        public int NewAccountsThisMonth { get; set; }
+        public int TotalProfiledAccounts { get; set; }
+    }
+
     public class UpdateAccountVerificationRequest
     {
         public VerificationMarkType Type { get; set; }
@@ -77,6 +93,50 @@ public class AccountAdminController(
         public Dictionary<string, object?>? Meta { get; set; }
         public Instant? ActivatedAt { get; set; }
         public Instant? ExpiredAt { get; set; }
+    }
+
+    [HttpGet("metrics/activity")]
+    [AskPermission(PermissionKeys.AccountsView)]
+    public async Task<ActionResult<AdminAccountActivityMetricsResponse>> GetActivityMetrics()
+    {
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var currentDayStartedAt = now.InUtc().Date.AtStartOfDayInZone(DateTimeZone.Utc).ToInstant();
+        var currentWeekStartedAt = currentDayStartedAt - Duration.FromDays(6);
+        var currentMonthStartedAt = currentDayStartedAt - Duration.FromDays(29);
+        var previousDayStartedAt = currentDayStartedAt - Duration.FromDays(1);
+        var previousWeekStartedAt = currentWeekStartedAt - Duration.FromDays(7);
+        var previousMonthStartedAt = currentMonthStartedAt - Duration.FromDays(30);
+
+        var profiles = db.AccountProfiles.AsNoTracking();
+        var dailyActiveUsers = await profiles.CountAsync(p => p.LastSeenAt >= currentDayStartedAt);
+        var weeklyActiveUsers = await profiles.CountAsync(p => p.LastSeenAt >= currentWeekStartedAt);
+        var monthlyActiveUsers = await profiles.CountAsync(p => p.LastSeenAt >= currentMonthStartedAt);
+        var previousDailyActiveUsers = await profiles.CountAsync(p =>
+            p.LastSeenAt >= previousDayStartedAt && p.LastSeenAt < currentDayStartedAt);
+        var previousWeeklyActiveUsers = await profiles.CountAsync(p =>
+            p.LastSeenAt >= previousWeekStartedAt && p.LastSeenAt < currentWeekStartedAt);
+        var previousMonthlyActiveUsers = await profiles.CountAsync(p =>
+            p.LastSeenAt >= previousMonthStartedAt && p.LastSeenAt < currentMonthStartedAt);
+        var newAccountsToday = await profiles.CountAsync(p => p.CreatedAt >= currentDayStartedAt);
+        var newAccountsThisWeek = await profiles.CountAsync(p => p.CreatedAt >= currentWeekStartedAt);
+        var newAccountsThisMonth = await profiles.CountAsync(p => p.CreatedAt >= currentMonthStartedAt);
+        var totalProfiledAccounts = await profiles.CountAsync();
+
+        return Ok(new AdminAccountActivityMetricsResponse
+        {
+            CalculatedAt = now,
+            CurrentDayStartedAt = currentDayStartedAt,
+            DailyActiveUsers = dailyActiveUsers,
+            WeeklyActiveUsers = weeklyActiveUsers,
+            MonthlyActiveUsers = monthlyActiveUsers,
+            PreviousDailyActiveUsers = previousDailyActiveUsers,
+            PreviousWeeklyActiveUsers = previousWeeklyActiveUsers,
+            PreviousMonthlyActiveUsers = previousMonthlyActiveUsers,
+            NewAccountsToday = newAccountsToday,
+            NewAccountsThisWeek = newAccountsThisWeek,
+            NewAccountsThisMonth = newAccountsThisMonth,
+            TotalProfiledAccounts = totalProfiledAccounts
+        });
     }
 
     [HttpGet]

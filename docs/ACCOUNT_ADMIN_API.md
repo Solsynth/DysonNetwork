@@ -615,6 +615,45 @@ Because of that:
 - use Padlock admin routes for contact/factor mutations
 - use Passport admin routes for profile verification, badge moderation, and status/presence data
 
+### GET /api/admin/accounts/metrics/activity
+
+Returns the current Passport-side account activity and acquisition summary.
+
+Required permission:
+
+- `accounts.view`
+
+Response shape:
+
+```json
+{
+  "calculated_at": "2026-07-12T10:30:00Z",
+  "current_day_started_at": "2026-07-12T00:00:00Z",
+  "daily_active_users": 182,
+  "weekly_active_users": 640,
+  "monthly_active_users": 1850,
+  "previous_daily_active_users": 174,
+  "previous_weekly_active_users": 612,
+  "previous_monthly_active_users": 1762,
+  "new_accounts_today": 9,
+  "new_accounts_this_week": 42,
+  "new_accounts_this_month": 180,
+  "total_profiled_accounts": 5200
+}
+```
+
+Metric definitions:
+
+- `daily_active_users` (DAU) is the number of profiles with `last_seen_at` since the current UTC day began.
+- `weekly_active_users` (WAU) and `monthly_active_users` (MAU) use trailing 7-day and 30-day windows, respectively, including the current UTC day.
+- `previous_*` values are the immediately preceding, non-overlapping window, useful for client-side change calculations.
+- New-account and total counts are Passport profile counts. Accounts that have not yet received a profile are intentionally excluded.
+- This is a current-window summary. `last_seen_at` retains only an account's most recent activity, so it is not suitable for a historical DAU time series.
+
+### GET /api/admin/stats
+
+Passport also provides the cross-account summary route documented in [Admin Stats API](./ADMIN_STATS_API.md). Its registration and activity figures use rolling 1-day, 7-day, and 30-day windows from the response's `calculated_at` timestamp.
+
 ### GET /api/admin/accounts
 
 Lists hydrated accounts for admin tooling with Passport-side metadata.
