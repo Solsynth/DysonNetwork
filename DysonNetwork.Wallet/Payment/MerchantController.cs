@@ -16,12 +16,40 @@ public class MerchantController(
     MerchantService merchantService,
     WalletService walletService,
     PaymentService paymentService,
-    RemotePublisherService publishers
+    RemotePublisherService publishers,
+    RemoteAccountService accounts
 ) : ControllerBase
 {
     public class UpdateMerchantWalletRequest
     {
         public Guid? WalletId { get; set; }
+    }
+
+    /// <summary>
+    /// Returns merchant profile including linked payout wallet.
+    /// </summary>
+    [HttpGet("{merchant}")]
+    [Authorize]
+    public async Task<IActionResult> GetMerchant([FromRoute] string merchant)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var merchantEntity = await GetMerchantAsync(merchant);
+        if (merchantEntity == null) return NotFound("Merchant not found");
+
+        if (!await IsMerchantOwner(currentUser, merchantEntity))
+            return StatusCode(403, "You do not have access to this merchant");
+
+        return Ok(new
+        {
+            merchantEntity.Id,
+            merchantEntity.PublisherId,
+            merchantEntity.PaymentWalletId,
+            merchantEntity.Name,
+            merchantEntity.CreatedAt,
+            merchantEntity.UpdatedAt
+        });
     }
 
     /// <summary>
@@ -147,6 +175,7 @@ public class MerchantController(
 
     /// <summary>
     /// Updates the linked payout wallet for a merchant.
+    /// Creates the merchant record if it does not exist yet (resolved by publisher name).
     /// </summary>
     [HttpPatch("{merchant}/wallet")]
     [Authorize]
@@ -157,7 +186,46 @@ public class MerchantController(
             return Unauthorized();
 
         var merchantEntity = await GetMerchantAsync(merchant);
-        if (merchantEntity == null) return NotFound("Merchant not found");
+        if (merchantEntity == null)
+        {
+            // Auto-provision merchant from publisher name so settings can configure payouts
+            // before any orders/awards exist.
+            if (Guid.TryParse(merchant, out _))
+                return NotFound("Merchant not found");
+
+            var publisher = await ResolvePublisherAsync(merchant);
+            if (publisher == null)
+                return NotFound("Merchant not found");
+
+            if (!Guid.TryParse(currentUser.Id, out var accountId))
+                return Unauthorized();
+
+            if (!await publishers.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Owner)
+                && !await publishers.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
+                return StatusCode(403, "You do not have access to this merchant");
+
+            if (request.WalletId.HasValue)
+            {
+                var wallet = await db.Wallets.FirstOrDefaultAsync(w => w.Id == request.WalletId.Value);
+                if (wallet == null)
+                    return BadRequest("Wallet was not found.");
+                if (!await CanManageWalletAsync(currentUser, wallet))
+                    return StatusCode(403, "You do not have access to this wallet");
+            }
+
+            merchantEntity = await merchantService.UpsertMerchantAsync(
+                publisher.Id,
+                request.WalletId,
+                name: publisher.Name);
+
+            return Ok(new
+            {
+                merchantEntity.Id,
+                merchantEntity.PublisherId,
+                merchantEntity.PaymentWalletId,
+                merchantEntity.Name
+            });
+        }
 
         if (!await IsMerchantOwner(currentUser, merchantEntity))
             return StatusCode(403, "You do not have access to this merchant");
@@ -386,11 +454,26 @@ public class MerchantController(
         if (Guid.TryParse(merchant, out var merchantId))
             return await db.Merchants.FirstOrDefaultAsync(m => m.Id == merchantId);
 
-        var publisher = await publishers.GetPublisherByName(merchant);
+        var publisher = await ResolvePublisherAsync(merchant);
         if (publisher != null)
             return await db.Merchants.FirstOrDefaultAsync(m => m.PublisherId == publisher.Id);
 
         return await db.Merchants.FirstOrDefaultAsync(m => m.Name == merchant);
+    }
+
+    private async Task<SnPublisher?> ResolvePublisherAsync(string value)
+    {
+        var publisher = await publishers.GetPublisherByName(value);
+        if (publisher != null)
+            return publisher;
+
+        var account = (await accounts.SearchAccounts(value))
+            .FirstOrDefault(a => string.Equals(a.Name, value, StringComparison.OrdinalIgnoreCase));
+        if (account == null || !Guid.TryParse(account.Id, out var accountId))
+            return null;
+
+        return (await publishers.GetUserPublishers(accountId))
+            .FirstOrDefault(p => p.Type == PublisherType.Individual);
     }
 
     private async Task<bool> CanManageWalletAsync(DyAccount currentUser, SnWallet wallet)
