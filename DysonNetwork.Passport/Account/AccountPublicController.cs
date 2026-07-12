@@ -17,10 +17,17 @@ public class AccountPublicController(
     RemoteSubscriptionService remoteSubscription,
     DyAccountService.DyAccountServiceClient accountGrpc,
     RemoteAccountContactService remoteContacts,
+    RemoteAccountConnectionService remoteConnections,
     AccountBoardService boardService,
     IConfiguration configuration
 ) : ControllerBase
 {
+    public class PublicAccountConnectionResponse
+    {
+        public string Provider { get; set; } = string.Empty;
+        public string ProvidedIdentifier { get; set; } = string.Empty;
+    }
+
     [HttpGet("{name}")]
     [ProducesResponseType<SnAccount>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -68,6 +75,37 @@ public class AccountPublicController(
         }
 
         return account;
+    }
+
+    [HttpGet("{name}/connections")]
+    [ProducesResponseType<List<PublicAccountConnectionResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<PublicAccountConnectionResponse>>> GetPublicConnections(string name)
+    {
+        SnAccount? account = null;
+        if (Guid.TryParse(name, out var guid))
+        {
+            account = await accountService.GetAccount(guid);
+        }
+        else
+        {
+            var candidates = (await accountGrpc.SearchAccountAsync(new DySearchAccountRequest { Query = name })).Accounts;
+            var hit = candidates.FirstOrDefault(a => string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (hit is not null)
+                account = SnAccount.FromProtoValue(hit);
+        }
+
+        if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
+
+        var connections = await remoteConnections.ListConnectionsAsync(account.Id);
+        return Ok(connections
+            .Where(connection => connection.IsPublic)
+            .Select(connection => new PublicAccountConnectionResponse
+            {
+                Provider = connection.Provider,
+                ProvidedIdentifier = connection.ProvidedIdentifier
+            })
+            .ToList());
     }
 
     [HttpGet("{name}/picture")]

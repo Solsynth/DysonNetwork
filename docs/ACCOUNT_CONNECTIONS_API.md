@@ -57,6 +57,7 @@ Authorization: Bearer {access_token}
       "avatar": "https://avatars.steamstatic.com/abc123.jpg",
       "profile_url": "https://steamcommunity.com/id/example"
     },
+    "is_public": false,
     "last_used_at": "2025-06-20T12:00:00Z",
     "account_id": "f47ac10b-58cc-...",
     "created_at": "2025-01-15T08:30:00Z",
@@ -70,6 +71,40 @@ Authorization: Bearer {access_token}
 - `access_token` and `refresh_token` are never included in the response.
 - `meta` is a free-form JSON object whose keys vary by provider.
 - An empty array `[]` is returned when the user has no connections (or none matching the `provider` filter).
+
+### Set a connection's public visibility
+
+```
+POST /api/connections/{id}/visibility
+Authorization: Bearer {access_token}
+```
+
+```json
+{ "is_public": true }
+```
+
+Only the connection owner can change this setting. When enabled, the connection appears in `GET /api/accounts/{name}/connections`.
+
+### List an account's public connections
+
+```
+GET /api/accounts/{name}/connections
+```
+
+No authorization is required. The route accepts an account name or UUID and returns only connections the account has marked public.
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "provider": "steam",
+    "provided_identifier": "76561198012345678"
+  }
+]
+```
+
+Connection metadata, access and refresh tokens, and usage information are never included. An empty array `[]` is returned when the account has no public connections.
 
 ### Error responses
 

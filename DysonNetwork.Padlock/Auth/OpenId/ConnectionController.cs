@@ -24,6 +24,11 @@ public class ConnectionController(
     ILogger<ConnectionController> logger
 ) : ControllerBase
 {
+    public class SetConnectionVisibilityRequest
+    {
+        public bool IsPublic { get; set; }
+    }
+
     private const string StateCachePrefix = "oidc-state:";
     private const string ReturnUrlCachePrefix = "oidc-returning:";
     private static readonly TimeSpan StateExpiration = TimeSpan.FromMinutes(15);
@@ -45,6 +50,7 @@ public class ConnectionController(
                 c.ProvidedIdentifier,
                 c.Meta,
                 c.LastUsedAt,
+                c.IsPublic,
                 c.CreatedAt,
                 c.UpdatedAt,
             })
@@ -68,6 +74,26 @@ public class ConnectionController(
         await db.SaveChangesAsync();
 
         return Ok();
+    }
+
+    [HttpPost("{id:guid}/visibility")]
+    public async Task<ActionResult<SnAccountConnection>> SetConnectionVisibility(
+        Guid id,
+        [FromBody] SetConnectionVisibilityRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+
+        var connection = await db.AccountConnections
+            .FirstOrDefaultAsync(c => c.Id == id && c.AccountId == currentUser.Id);
+        if (connection is null)
+            return NotFound();
+
+        connection.IsPublic = request.IsPublic;
+        await db.SaveChangesAsync();
+
+        return Ok(connection);
     }
 
     [HttpPost("/api/auth/connect/apple/mobile")]
