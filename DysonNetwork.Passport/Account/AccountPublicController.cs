@@ -26,6 +26,7 @@ public class AccountPublicController(
     {
         public string Provider { get; set; } = string.Empty;
         public string ProvidedIdentifier { get; set; } = string.Empty;
+        public string Url { get; set; } = string.Empty;
     }
 
     [HttpGet("{name}")]
@@ -103,9 +104,23 @@ public class AccountPublicController(
             .Select(connection => new PublicAccountConnectionResponse
             {
                 Provider = connection.Provider,
-                ProvidedIdentifier = connection.ProvidedIdentifier
+                ProvidedIdentifier = connection.ProvidedIdentifier,
+                Url = BuildPublicConnectionUrl(connection)
             })
             .ToList());
+    }
+
+    private static string BuildPublicConnectionUrl(SnAccountConnection connection)
+    {
+        if (string.Equals(connection.Provider, "steam", StringComparison.OrdinalIgnoreCase))
+            return $"https://steamcommunity.com/profiles/{Uri.EscapeDataString(connection.ProvidedIdentifier)}";
+
+        if (string.Equals(connection.Provider, "github", StringComparison.OrdinalIgnoreCase) &&
+            connection.Meta.TryGetValue("preferred_username", out var preferredUsername) &&
+            preferredUsername is string username && !string.IsNullOrWhiteSpace(username))
+            return $"https://github.com/{Uri.EscapeDataString(username)}";
+
+        return string.Empty;
     }
 
     [HttpGet("{name}/picture")]

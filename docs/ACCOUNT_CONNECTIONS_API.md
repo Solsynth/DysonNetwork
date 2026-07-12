@@ -99,12 +99,13 @@ No authorization is required. The route accepts an account name or UUID and retu
 [
   {
     "provider": "steam",
-    "provided_identifier": "76561198012345678"
+    "provided_identifier": "76561198012345678",
+    "url": "https://steamcommunity.com/profiles/76561198012345678"
   }
 ]
 ```
 
-Connection metadata, access and refresh tokens, and usage information are never included. An empty array `[]` is returned when the account has no public connections.
+`url` is derived for supported providers: Steam uses its provided identifier and GitHub uses the connection metadata's `preferred_username`. Unsupported providers return an empty string. Connection metadata, access and refresh tokens, and usage information are never included. An empty array `[]` is returned when the account has no public connections.
 
 ### Error responses
 
