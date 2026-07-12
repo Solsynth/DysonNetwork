@@ -5,6 +5,7 @@ using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace DysonNetwork.Passport.Account;
 
@@ -117,10 +118,28 @@ public class AccountPublicController(
 
         if (string.Equals(connection.Provider, "github", StringComparison.OrdinalIgnoreCase) &&
             connection.Meta.TryGetValue("preferred_username", out var preferredUsername) &&
-            preferredUsername is string username && !string.IsNullOrWhiteSpace(username))
+            GetMetadataString(preferredUsername) is { } username && !string.IsNullOrWhiteSpace(username))
             return $"https://github.com/{Uri.EscapeDataString(username)}";
 
         return string.Empty;
+    }
+
+    private static string? GetMetadataString(object? value)
+    {
+        if (value is JsonElement { ValueKind: JsonValueKind.String } element)
+            return element.GetString();
+
+        if (value is not string stringValue)
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<string>(stringValue) ?? stringValue;
+        }
+        catch (JsonException)
+        {
+            return stringValue;
+        }
     }
 
     [HttpGet("{name}/picture")]
