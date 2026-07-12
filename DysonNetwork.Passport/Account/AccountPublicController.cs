@@ -16,6 +16,7 @@ public class AccountPublicController(
     SocialCreditService socialCreditService,
     RemoteSubscriptionService remoteSubscription,
     DyAccountService.DyAccountServiceClient accountGrpc,
+    RemoteAccountContactService remoteContacts,
     AccountBoardService boardService,
     IConfiguration configuration
 ) : ControllerBase
@@ -41,7 +42,9 @@ public class AccountPublicController(
         if (account is null) return NotFound(ApiError.NotFound(name, traceId: HttpContext.TraceIdentifier));
         await EnsureProfileAsync(account);
         account.Badges = await db.Badges.Where(b => b.AccountId == account.Id).ToListAsync();
-        account.Contacts = [];
+        account.Contacts = (await remoteContacts.ListContactsAsync(account.Id))
+            .Where(contact => contact.IsPublic)
+            .ToList();
 
         // Populate PerkSubscription from Wallet service via gRPC
         try
