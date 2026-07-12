@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Passport.Account;
+using DysonNetwork.Passport.Mailer;
 using DysonNetwork.Shared.Localization;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
@@ -17,7 +18,11 @@ public class TicketController(
     DyPermissionService.DyPermissionServiceClient permissionService,
     RemoteRingService ringService,
     ILocalizationService localizationService,
-    AccountService accountService
+    AccountService accountService,
+    ILogger<TicketController> logger,
+    EmailService emailService,
+    RemoteAccountContactService accountContactService,
+    IConfiguration configuration
 ) : ControllerBase
 {
     public class CreateTicketRequest
@@ -196,19 +201,90 @@ public class TicketController(
 
     private async Task NotifyTicketCreatedAsync(SnTicket ticket)
     {
-        var superusers = await accountService.GetAllSuperusersAsync();
-
-        foreach (var superuser in superusers)
+        try
         {
-            var locale = superuser.Language;
-            var title = localizationService.Get("ticketCreatedTitle", locale);
-            var body = localizationService.Get("ticketCreatedBody", locale, new
-            {
-                creatorName = ticket.Creator.Nick,
-                ticketTitle = ticket.Title
-            });
+            var superusers = await accountService.GetAllSuperusersAsync();
 
-            _ = ringService.SendPushNotificationToUser(superuser.Id.ToString(), "ticket.created", title, null, body);
+            foreach (var superuser in superusers)
+            {
+                var locale = superuser.Language;
+                var title = localizationService.Get("ticketCreatedTitle", locale);
+                var body = localizationService.Get("ticketCreatedBody", locale, new
+                {
+                    creatorName = ticket.Creator.Nick,
+                    ticketTitle = ticket.Title
+                });
+
+                try
+                {
+                    await ringService.SendPushNotificationToUser(
+                        superuser.Id.ToString(),
+                        "ticket.created",
+                        title,
+                        null,
+                        body
+                    );
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(
+                        ex,
+                        "Failed to send new-ticket notification for ticket {TicketId} to superuser {SuperuserId}",
+                        ticket.Id,
+                        superuser.Id
+                    );
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to notify superusers about new ticket {TicketId}", ticket.Id);
+        }
+    }
+
+    private async Task SendTicketCreatorEmailAsync(
+        SnTicket ticket,
+        string subject,
+        string message,
+        string? latestMessage = null
+    )
+    {
+        try
+        {
+            var contact = (await accountContactService.ListContactsAsync(
+                    ticket.CreatorId,
+                    AccountContactType.Email,
+                    verifiedOnly: true
+                ))
+                .OrderByDescending(contact => contact.IsPrimary)
+                .FirstOrDefault();
+            if (contact is null) return;
+
+            var recipientName = string.IsNullOrWhiteSpace(ticket.Creator.Nick)
+                ? ticket.Creator.Name
+                : ticket.Creator.Nick;
+            var siteUrl = configuration.GetValue<string>("SiteUrl")?.TrimEnd('/');
+            var link = $"{siteUrl}/tickets/{ticket.Id}";
+
+            await emailService.SendTemplatedEmailAsync(
+                recipientName,
+                contact.Content,
+                subject,
+                "TicketUpdate",
+                new
+                {
+                    nick = recipientName,
+                    ticketTitle = ticket.Title,
+                    message,
+                    latestMessage,
+                    link
+                },
+                ticket.Creator.Language
+            );
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to email ticket update for ticket {TicketId} to its creator", ticket.Id);
         }
     }
 
@@ -233,7 +309,7 @@ public class TicketController(
                 request.Resources
             );
 
-            _ = NotifyTicketCreatedAsync(ticket);
+            await NotifyTicketCreatedAsync(ticket);
 
             return Ok(ticket);
         }
@@ -427,6 +503,41 @@ public class TicketController(
             if (oldStatus != request.Status)
             {
                 await NotifyTicketStatusChangedAsync(ticket, oldStatus, request.Status, currentUser!);
+
+                if (request.Status is TicketStatus.Resolved or TicketStatus.Closed)
+                {
+                    await SendTicketCreatorEmailAsync(
+                        ticket,
+                        localizationService.Get("ticketStatusUpdatedTitle", ticket.Creator.Language),
+                        localizationService.Get("ticketStatusUpdatedBody", ticket.Creator.Language, new
+                        {
+                            ticketTitle = ticket.Title,
+                            oldStatus = oldStatus.ToString(),
+                            newStatus = request.Status.ToString(),
+                            updaterName = currentUser!.Nick
+                        })
+                    );
+                }
+                else if (request.Status is TicketStatus.WaitingForCustomer or TicketStatus.WaitingForMoreInformation)
+                {
+                    var latestAdminMessage = ticket.Messages
+                        .Where(message => message.SenderId != ticket.CreatorId)
+                        .OrderByDescending(message => message.CreatedAt)
+                        .FirstOrDefault();
+
+                    await SendTicketCreatorEmailAsync(
+                        ticket,
+                        localizationService.Get("ticketStatusUpdatedTitle", ticket.Creator.Language),
+                        localizationService.Get("ticketStatusUpdatedBody", ticket.Creator.Language, new
+                        {
+                            ticketTitle = ticket.Title,
+                            oldStatus = oldStatus.ToString(),
+                            newStatus = request.Status.ToString(),
+                            updaterName = currentUser!.Nick
+                        }),
+                        latestAdminMessage?.Content
+                    );
+                }
             }
 
             return Ok(ticket);

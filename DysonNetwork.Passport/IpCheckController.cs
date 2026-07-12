@@ -35,6 +35,28 @@ public class IpCheckController(GeoService geoService) : ControllerBase
         public string? Headers { get; set; }
     }
     
+    /// <summary>
+    /// Public geo lookup for the caller's IP (city/region/coords only).
+    /// Used by clients as a weather/location fallback without device GPS.
+    /// Does not require authentication.
+    /// </summary>
+    [HttpGet("geo")]
+    public ActionResult<GeoIpResponse> GetClientGeo()
+    {
+        var clientIp = HttpContext.GetClientIpAddress();
+        var geo = geoService.GetFromIp(clientIp);
+        if (geo is null)
+            return NotFound(new { code = "GEO_NOT_FOUND", message = "Could not resolve geo location for client IP." });
+
+        if (geo.Location is not { HasCoordinates: true })
+            return NotFound(new { code = "GEO_NO_COORDINATES", message = "Geo location has no coordinates." });
+
+        return Ok(ToGeoResponse(geo));
+    }
+
+    /// <summary>
+    /// Admin-only diagnostic endpoint with full client IP / header dump.
+    /// </summary>
     [HttpGet]
     [AskPermission(PermissionKeys.AdminIpCheck)]
     public ActionResult<IpCheckResponse> GetIpCheck()
@@ -58,21 +80,21 @@ public class IpCheckController(GeoService geoService) : ControllerBase
             XForwardedHost = xForwardedHost,
             XRealIp = realIp,
             CfConnectingIp = cfConnectingIp,
-            Geo = geo is null
-                ? null
-                : new GeoIpResponse
-                {
-                    City = geo.City.Name,
-                    Country = geo.Country.Name,
-                    CountryCode = geo.Country.IsoCode,
-                    Subdivision = geo.MostSpecificSubdivision.Name,
-                    SubdivisionCode = geo.MostSpecificSubdivision.IsoCode,
-                    ContinentCode = geo.Continent.Code,
-                    TimeZone = geo.Location.TimeZone,
-                    Latitude = geo.Location.Latitude,
-                    Longitude = geo.Location.Longitude
-                },
+            Geo = geo is null ? null : ToGeoResponse(geo),
             Headers = string.Join('\n', Request.Headers.Select(h => $"{h.Key}: {h.Value}")),
         });
-    } 
+    }
+
+    private static GeoIpResponse ToGeoResponse(MaxMind.GeoIP2.Responses.CityResponse geo) => new()
+    {
+        City = geo.City.Name,
+        Country = geo.Country.Name,
+        CountryCode = geo.Country.IsoCode,
+        Subdivision = geo.MostSpecificSubdivision.Name,
+        SubdivisionCode = geo.MostSpecificSubdivision.IsoCode,
+        ContinentCode = geo.Continent.Code,
+        TimeZone = geo.Location.TimeZone,
+        Latitude = geo.Location.Latitude,
+        Longitude = geo.Location.Longitude
+    };
 }

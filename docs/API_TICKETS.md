@@ -31,6 +31,8 @@ Tickets also carry an optional `resources` field for structured related links or
 | `1` | Ticket is being worked on |
 | `2` | Ticket has been resolved |
 | `3` | Ticket is closed |
+| `4` | Waiting for a response or action from the ticket creator |
+| `5` | Waiting for additional information from the ticket creator |
 
 ### Ticket Priority
 
@@ -242,6 +244,11 @@ Add a message to a ticket.
 
 **Authorization:** Required
 
+This endpoint is restricted to ticket administrators. Sending a reply by itself
+does not send an email to the ticket creator. To notify the creator by email,
+save the reply first and then move the ticket to `WaitingForCustomer` or
+`WaitingForMoreInformation` through the status endpoint.
+
 **Request Body:**
 
 ```json
@@ -306,6 +313,8 @@ Update the status of a ticket.
 
 **Authorization:** Required
 
+This endpoint is restricted to ticket administrators.
+
 **Request Body:**
 
 ```json
@@ -315,6 +324,22 @@ Update the status of a ticket.
 ```
 
 **Response:** `200 OK`
+
+#### Customer notification behavior
+
+When an administrator changes a ticket status, the ticket creator receives an
+in-app push notification. The following status transitions also send a
+localized email to the creator's primary verified email contact:
+
+| New status | Email content |
+|------------|---------------|
+| `Resolved` (`2`) | Status-change summary |
+| `Closed` (`3`) | Status-change summary |
+| `WaitingForCustomer` (`4`) | Status-change summary and the latest administrator reply already saved on the ticket |
+| `WaitingForMoreInformation` (`5`) | Status-change summary and the latest administrator reply already saved on the ticket |
+
+For either waiting state, call `POST /api/tickets/{id}/messages` before
+`POST /api/tickets/{id}/status` so that the reply is included in the email.
 
 ---
 

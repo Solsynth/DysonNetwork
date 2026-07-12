@@ -1,0 +1,13 @@
+<div role="article" aria-roledescription="email" aria-label lang="zh-CN" style="font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; color: #475569">
+    <h1 style="font-size: 24px; color: #0f172a">亲爱的 {{ nick }}，</h1>
+    <p>{{ message }}</p>
+    <p><strong>工单：</strong>{{ ticketTitle }}</p>
+    {% if latestMessage %}
+    <p><strong>最新回复：</strong></p>
+    <p style="white-space: pre-wrap">{{ latestMessage }}</p>
+    {% endif %}
+    <p>
+        <a href="{{ link }}" style="display: inline-block; padding: 12px 18px; border-radius: 4px; color: #fffffe; background-color: #020617; text-decoration: none">查看工单</a>
+    </p>
+    <p>感谢您，<br><strong>Solar Network 团队</strong></p>
+</div>
