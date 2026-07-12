@@ -39,6 +39,10 @@ There is no single monolithic admin controller for the whole account domain.
 | `credits.validate.perform` | Invalidate social credit cache |
 | `notifications.send` | Send admin push notifications |
 | `emails.send` | Send admin HTML emails |
+| `permissions.check` | Inspect direct and effective permissions |
+| `permissions.manage` | Manage permission nodes |
+| `permissions.groups.check` | Inspect permission groups and memberships |
+| `permissions.groups.manage` | Create, edit, and assign permission groups |
 
 ## Padlock Admin Routes
 
@@ -49,6 +53,57 @@ Base route:
 ```
 
 These endpoints live in `DysonNetwork.Padlock/Account/AccountAdminController.cs`.
+
+## Permission Admin Routes
+
+Permission groups and grants are managed through Padlock at:
+
+```text
+/api/admin/permissions
+```
+
+These endpoints live in `DysonNetwork.Padlock/Permission/PermissionAdminController.cs`.
+
+Routes:
+
+- `GET /api/admin/permissions/groups?query=` lists groups with node and member counts.
+- `GET /api/admin/permissions/groups/{group_id}` returns the group, all permission nodes, and members.
+- `POST /api/admin/permissions/groups` creates a group with `{ "key": "moderators" }`.
+- `PATCH /api/admin/permissions/groups/{group_id}` changes the group key.
+- `DELETE /api/admin/permissions/groups/{group_id}` removes a non-default group, its nodes, and memberships.
+- `PUT /api/admin/permissions/groups/{group_id}/permissions/{key}` creates or updates a group permission node.
+- `DELETE /api/admin/permissions/groups/{group_id}/permissions/{key}` removes a group permission node.
+- `PUT /api/admin/permissions/groups/{group_id}/members/{actor}` creates or updates membership activation and expiry.
+- `DELETE /api/admin/permissions/groups/{group_id}/members/{actor}` removes an actor from a group.
+- `GET /api/admin/permissions/actors/{actor}` returns the actor's direct permissions, effective permissions, and group memberships.
+
+Permissions:
+
+- group reads require `permissions.groups.check`
+- group and membership writes require `permissions.groups.manage`
+- group-node writes additionally require `permissions.manage`
+- actor permission inspection requires both `permissions.check` and `permissions.groups.check`
+
+Group permission upsert request example:
+
+```json
+{
+  "value": true,
+  "affected_at": null,
+  "expired_at": null
+}
+```
+
+Membership upsert request example:
+
+```json
+{
+  "affected_at": null,
+  "expired_at": "2026-08-01T00:00:00Z"
+}
+```
+
+Permission-group changes clear the permission cache for every affected member. The seeded `default` group cannot be renamed or deleted.
 
 ### GET /api/admin/accounts
 
