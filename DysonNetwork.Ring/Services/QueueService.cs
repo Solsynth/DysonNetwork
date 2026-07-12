@@ -1,6 +1,4 @@
 using System.Text.Json;
-using System.Diagnostics;
-using DysonNetwork.Ring.Email;
 using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Proto;
 using NATS.Client.Core;
@@ -27,7 +25,6 @@ public class QueueService(INatsConnection nats)
         };
         var rawMessage = InfraObjectCoder.ConvertObjectToByteString(message).ToByteArray();
         await nats.PublishAsync(QueueBackgroundService.QueueName, rawMessage);
-        EmailTelemetry.EnqueueRequests.Add(1, new TagList { { "source", "grpc" } });
     }
 
     public async Task EnqueuePushNotification(

@@ -1,6 +1,5 @@
 using MailKit.Net.Smtp;
 using MimeKit;
-using System.Diagnostics;
 
 namespace DysonNetwork.Ring.Email;
 
@@ -20,12 +19,18 @@ public class EmailService
 {
     private readonly EmailServiceConfiguration _configuration;
     private readonly ILogger<EmailService> _logger;
+    private readonly DeliveryObservabilityService _observability;
 
-    public EmailService(IConfiguration configuration, ILogger<EmailService> logger)
+    public EmailService(
+        IConfiguration configuration,
+        ILogger<EmailService> logger,
+        DeliveryObservabilityService observability
+    )
     {
         var cfg = configuration.GetSection("Email").Get<EmailServiceConfiguration>();
         _configuration = cfg ?? throw new ArgumentException("Email service was not configured.");
         _logger = logger;
+        _observability = observability;
     }
 
     public async Task SendEmailAsync(
@@ -40,17 +45,9 @@ public class EmailService
 
         _logger.LogInformation($"Sending email to {recipientEmail} with subject {subject}");
 
-        using var activity = EmailTelemetry.ActivitySource.StartActivity("emails.deliver.smtp");
-        activity?.SetTag("email.source", source);
-        activity?.SetTag("email.provider", "smtp");
-        var metricTags = new TagList
-        {
-            { "source", source },
-            { "provider", "smtp" }
-        };
-        EmailTelemetry.DeliveryAttempts.Add(1, metricTags);
-        var startedAt = Stopwatch.GetTimestamp();
-        var outcome = "failure";
+        var startedAt = Environment.TickCount64;
+        var outcome = DeliveryOutcome.Failure;
+        Exception? exception = null;
 
         try
         {
@@ -69,25 +66,22 @@ public class EmailService
             await client.SendAsync(emailMessage);
             await client.DisconnectAsync(true);
 
-            outcome = "success";
-            activity?.SetStatus(ActivityStatusCode.Ok);
+            outcome = DeliveryOutcome.Success;
             _logger.LogInformation($"Email {subject} sent for {recipientEmail}");
         }
         catch (Exception ex)
         {
-            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            exception = ex;
             throw;
         }
         finally
         {
-            var resultTags = new TagList
-            {
-                { "source", source },
-                { "provider", "smtp" },
-                { "outcome", outcome }
-            };
-            EmailTelemetry.DeliveryResults.Add(1, resultTags);
-            EmailTelemetry.DeliveryDuration.Record(Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds, resultTags);
+            await _observability.RecordEmailAsync(
+                source,
+                outcome,
+                Environment.TickCount64 - startedAt,
+                exception
+            );
         }
     }
 

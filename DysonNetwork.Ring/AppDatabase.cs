@@ -21,6 +21,9 @@ public class AppDatabase(
     public DbSet<SnEmailSendingPlan> EmailSendingPlans { get; set; } = null!;
     public DbSet<SnEmailSendingPlanRecipient> EmailSendingPlanRecipients { get; set; } = null!;
     public DbSet<SnEmailSendingPlanAdvance> EmailSendingPlanAdvances { get; set; } = null!;
+    public DbSet<SnEmailDeliveryRecord> EmailDeliveryRecords { get; set; } = null!;
+    public DbSet<SnNotificationDeliveryRecord> NotificationDeliveryRecords { get; set; } = null!;
+    public DbSet<SnNotificationSendRecord> NotificationSendRecords { get; set; } = null!;
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -63,6 +66,15 @@ public class AppDatabase(
             .HasIndex(p => new { p.PlanId, p.IntervalNumber, p.DeletedAt })
             .HasFilter("deleted_at IS NULL")
             .IsUnique();
+
+        modelBuilder.Entity<SnEmailDeliveryRecord>()
+            .HasIndex(r => new { r.CreatedAt, r.Outcome });
+
+        modelBuilder.Entity<SnNotificationDeliveryRecord>()
+            .HasIndex(r => new { r.CreatedAt, r.Topic, r.Provider, r.Outcome });
+
+        modelBuilder.Entity<SnNotificationSendRecord>()
+            .HasIndex(r => new { r.CreatedAt, r.Topic });
 
         modelBuilder.ApplySoftDeleteFilters();
     }

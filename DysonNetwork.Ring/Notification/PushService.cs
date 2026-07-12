@@ -56,6 +56,7 @@ public class PushService
     private readonly NotificationPreferenceService _preferenceService;
     private readonly RemoteActionLogService _actionLogs;
     private readonly SopNotificationReplayBuffer _sopReplayBuffer;
+    private readonly DeliveryObservabilityService _observability;
     private static readonly HashSet<string> InvalidFcmErrors = new(StringComparer.OrdinalIgnoreCase)
     {
         "InvalidRegistration",
@@ -81,7 +82,8 @@ public class PushService
         RemoteWebSocketService ws,
         NotificationPreferenceService preferenceService,
         RemoteActionLogService actionLogs,
-        SopNotificationReplayBuffer sopReplayBuffer
+        SopNotificationReplayBuffer sopReplayBuffer,
+        DeliveryObservabilityService observability
     )
     {
         var cfgSection = config.GetSection("Notifications:Push");
@@ -137,6 +139,7 @@ public class PushService
         _preferenceService = preferenceService;
         _actionLogs = actionLogs;
         _sopReplayBuffer = sopReplayBuffer;
+        _observability = observability;
     }
 
     private static AppSenders BuildAppSenders(PushAppConfig config, IHttpClientFactory httpFactory)
@@ -457,6 +460,7 @@ public class PushService
         CancellationToken cancellationToken = default
     )
     {
+        await _observability.RecordNotificationSendAsync(notification, "queue");
         var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
         if (ShouldQueueSopReplay(isSavable, connectedSopDeviceIds))
             await _sopReplayBuffer.AppendNotification(notification);
@@ -483,12 +487,7 @@ public class PushService
                     "No push subscriptions found for account {AccountId}",
                     notification.AccountId
                 );
-                await _ws.PushWebSocketPacket(
-                    notification.AccountId.ToString(),
-                    "notifications.new",
-                    InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray(),
-                    excludedWebSocketDeviceIds
-                );
+                await SendWebSocketNotificationAsync(notification, excludedWebSocketDeviceIds);
                 return;
             }
 
@@ -503,12 +502,7 @@ public class PushService
                 excludedWebSocketDeviceIds
             );
 
-            await _ws.PushWebSocketPacket(
-                notification.AccountId.ToString(),
-                "notifications.new",
-                InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray(),
-                websocketExclusions
-            );
+            await SendWebSocketNotificationAsync(notification, websocketExclusions);
 
             var tasks = subscriptionByDevice
                 .Values.Select(sub => SendPushNotificationAsync(sub, notification))
@@ -591,6 +585,7 @@ public class PushService
         foreach (var account in accounts)
         {
             notification.AccountId = account;
+            await _observability.RecordNotificationSendAsync(notification, "batch");
             var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
             if (ShouldQueueSopReplay(save, connectedSopDeviceIds))
                 await _sopReplayBuffer.AppendNotification(notification);
@@ -603,12 +598,7 @@ public class PushService
 
             if (subscriptions.Count == 0)
             {
-                await _ws.PushWebSocketPacket(
-                    notification.AccountId.ToString(),
-                    "notifications.new",
-                    InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray(),
-                    excludedWebSocketDeviceIds
-                );
+                await SendWebSocketNotificationAsync(notification, excludedWebSocketDeviceIds);
                 continue;
             }
 
@@ -623,12 +613,7 @@ public class PushService
                 excludedWebSocketDeviceIds
             );
 
-            await _ws.PushWebSocketPacket(
-                notification.AccountId.ToString(),
-                "notifications.new",
-                InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray(),
-                websocketExclusions
-            );
+            await SendWebSocketNotificationAsync(notification, websocketExclusions);
 
             var tasks = subscriptionByDevice
                 .Values.Select(sub => SendPushNotificationAsync(sub, notification))
@@ -642,6 +627,9 @@ public class PushService
         SnNotification notification
     )
     {
+        var startedAt = Environment.TickCount64;
+        var outcome = DeliveryOutcome.Failure;
+        Exception? exception = null;
         try
         {
             var senders = ResolveAppSenders(subscription.AppId);
@@ -691,7 +679,10 @@ public class PushService
                         fcmResult.StatusCode is 404 or 410
                         || IsInvalidFcmTokenError(fcmResult.Error)
                     )
+                    {
                         _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
+                        outcome = DeliveryOutcome.InvalidToken;
+                    }
                     else if (fcmResult.Error != null)
                         throw new Exception(
                             $"Notification pushed failed ({fcmResult.StatusCode}) {fcmResult.Error}"
@@ -778,7 +769,10 @@ public class PushService
                         apnResult.StatusCode is 404 or 410
                         || IsInvalidApnsTokenError(apnResult.Error)
                     )
+                    {
                         _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
+                        outcome = DeliveryOutcome.InvalidToken;
+                    }
                     else if (apnResult.Error != null)
                         throw new Exception(
                             $"Notification pushed failed ({apnResult.StatusCode}) {apnResult.Error}"
@@ -835,7 +829,10 @@ public class PushService
                         appkResult.StatusCode is 404 or 410
                         || IsInvalidApnsTokenError(appkResult.Error)
                     )
+                    {
                         _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
+                        outcome = DeliveryOutcome.InvalidToken;
+                    }
                     else if (appkResult.Error != null)
                         throw new Exception(
                             $"Notification pushed failed ({appkResult.StatusCode}) {appkResult.Error}"
@@ -845,6 +842,7 @@ public class PushService
 
                 case PushProvider.Sop:
                     // SOP delivers via Ring APIs (list + SSE stream), no provider push is needed here.
+                    outcome = DeliveryOutcome.Skipped;
                     break;
 
                 case PushProvider.UnifiedPush:
@@ -869,7 +867,10 @@ public class PushService
                             is HttpStatusCode.NotFound
                                 or HttpStatusCode.Gone
                         )
+                        {
                             _fbs.Enqueue(new PushSubRemovalRequest { SubId = subscription.Id });
+                            outcome = DeliveryOutcome.InvalidToken;
+                        }
                         else if (!unifiedPushResult.IsSuccessStatusCode)
                             throw new Exception(
                                 $"Notification push failed ({(int)unifiedPushResult.StatusCode}) {unifiedPushResult.ReasonPhrase}"
@@ -882,9 +883,13 @@ public class PushService
                         $"Push provider not supported: {subscription.Provider}"
                     );
             }
+
+            if (outcome == DeliveryOutcome.Failure)
+                outcome = DeliveryOutcome.Success;
         }
         catch (Exception ex)
         {
+            exception = ex;
             _logger.LogError(
                 ex,
                 $"Failed to push notification #{notification.Id} to device {subscription.DeviceId}. {ex.Message}"
@@ -892,10 +897,69 @@ public class PushService
             // Swallow here to keep worker alive; upstream is fire-and-forget.
         }
 
-        _logger.LogInformation(
-            $"Successfully pushed notification #{notification.Id} to device {subscription.DeviceId} provider {subscription.Provider}"
-        );
+        finally
+        {
+            await _observability.RecordNotificationAsync(
+                notification,
+                GetProviderName(subscription.Provider),
+                outcome,
+                Environment.TickCount64 - startedAt,
+                exception
+            );
+        }
+
+        if (outcome == DeliveryOutcome.Success)
+            _logger.LogInformation(
+                "Successfully pushed notification {NotificationId} to device {DeviceId} provider {Provider}",
+                notification.Id,
+                subscription.DeviceId,
+                subscription.Provider
+            );
     }
+
+    private async Task SendWebSocketNotificationAsync(
+        SnNotification notification,
+        IReadOnlyCollection<string>? excludedDeviceIds
+    )
+    {
+        var startedAt = Environment.TickCount64;
+        try
+        {
+            await _ws.PushWebSocketPacket(
+                notification.AccountId.ToString(),
+                "notifications.new",
+                InfraObjectCoder.ConvertObjectToByteString(notification).ToByteArray(),
+                excludedDeviceIds
+            );
+            await _observability.RecordNotificationAsync(
+                notification,
+                "websocket",
+                DeliveryOutcome.Success,
+                Environment.TickCount64 - startedAt
+            );
+        }
+        catch (Exception ex)
+        {
+            await _observability.RecordNotificationAsync(
+                notification,
+                "websocket",
+                DeliveryOutcome.Failure,
+                Environment.TickCount64 - startedAt,
+                ex
+            );
+            throw;
+        }
+    }
+
+    private static string GetProviderName(PushProvider provider) => provider switch
+    {
+        PushProvider.Google => "google",
+        PushProvider.Apple => "apple",
+        PushProvider.Appk => "appk",
+        PushProvider.Sop => "sop",
+        PushProvider.UnifiedPush => "unifiedpush",
+        _ => provider.ToString().ToLowerInvariant()
+    };
 
     private static void BroadcastSopStream(SnNotification notification)
     {

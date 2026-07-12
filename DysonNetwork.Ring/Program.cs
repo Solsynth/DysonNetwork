@@ -1,19 +1,13 @@
 using DysonNetwork.Ring;
-using DysonNetwork.Ring.Email;
 using DysonNetwork.Ring.Startup;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Networking;
 using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
-builder.Services.AddOpenTelemetry()
-    .WithMetrics(metrics => metrics.AddMeter(EmailTelemetry.MeterName))
-    .WithTracing(tracing => tracing.AddSource(EmailTelemetry.ActivitySourceName));
 
 // Configure Kestrel and server options
 builder.ConfigureAppKestrel(builder.Configuration);
