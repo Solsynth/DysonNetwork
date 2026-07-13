@@ -233,6 +233,33 @@ public class PostTagService(AppDatabase db)
         return tag;
     }
 
+    /// <summary>
+    /// Owner publisher releases ownership. Clears protection if set, then unassigns.
+    /// Caller must be a manager (or above) of <paramref name="publisher"/>.
+    /// </summary>
+    public async Task<SnPostTag> ReleaseTagAsync(Guid tagId, SnPublisher publisher, Guid accountId)
+    {
+        var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Id == tagId)
+            ?? throw new InvalidOperationException("Tag not found.");
+
+        if (tag.OwnerPublisherId is null)
+            throw new InvalidOperationException("This tag has no owner.");
+
+        if (tag.OwnerPublisherId != publisher.Id)
+            throw new InvalidOperationException("This tag is not owned by the specified publisher.");
+
+        var isManager = await db.Publishers
+            .Where(p => p.Id == publisher.Id)
+            .SelectMany(p => p.Members)
+            .AnyAsync(m => m.AccountId == accountId && m.Role >= PublisherMemberRole.Manager);
+
+        if (!isManager)
+            throw new InvalidOperationException(
+                "You must be a manager or above of the owning publisher to release this tag.");
+
+        return await UnassignTagAsync(tagId);
+    }
+
     public async Task DeleteTagAsync(Guid tagId)
     {
         var tag = await db.PostTags

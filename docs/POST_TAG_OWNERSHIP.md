@@ -36,9 +36,10 @@ See also [SPHERE_ADMIN_API.md](./SPHERE_ADMIN_API.md) for full admin tag list/cr
 
 1. **Unclaimed tags:** Tags with no owner are available to everyone
 2. **First claim:** A publisher can manually claim an unowned tag via `POST /{slug}/claim`
-3. **Admin assignment:** Admins can assign ownership to any publisher via `POST /{slug}/assign`
-4. **Protected tags:** When a tag is protected, only the owning publisher can use it on new posts
-5. **Event tags:** When an event tag expires, existing posts keep the tag but new posts cannot use it
+3. **Release:** A manager of the owning publisher can release ownership via `POST /{slug}/release` (also clears protection)
+4. **Admin assignment:** Admins can assign ownership to any publisher via `POST /{slug}/assign`
+5. **Protected tags:** When a tag is protected, only the owning publisher can use it on new posts
+6. **Event tags:** When an event tag expires, existing posts keep the tag but new posts cannot use it
 
 ### Protected Tag Quota
 
@@ -183,6 +184,33 @@ POST /api/posts/tags/{slug}/claim?pub={publisherName}
 |--------|-----------|
 | `400 Bad Request` | Tag is already owned by a publisher |
 | `400 Bad Request` | Cannot resolve publisher |
+| `404 Not Found` | Tag not found |
+
+---
+
+### Release Tag
+
+Release ownership of a tag you own. Only a manager (or above) of the owning publisher can release it.
+If the tag was protected, protection is cleared as well so the tag becomes fully unclaimed/public again.
+
+```
+POST /api/posts/tags/{slug}/release?pub={publisherName}
+```
+
+**Query Parameters:**
+
+| Param | Description |
+|-------|-------------|
+| `pub` | Publisher name that currently owns the tag (must match owner) |
+
+**Response:** `200 OK` — updated tag with `owner_publisher_id: null`, `is_protected: false`
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| `400 Bad Request` | Cannot resolve publisher, or tag has no owner |
+| `403 Forbidden` | Tag is not owned by this publisher, or you are not a manager of the owning publisher |
 | `404 Not Found` | Tag not found |
 
 ---

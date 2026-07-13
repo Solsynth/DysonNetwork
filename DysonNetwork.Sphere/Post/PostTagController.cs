@@ -144,6 +144,42 @@ public class PostTagController(
     }
 
     /// <summary>
+    /// Release ownership of a tag. Only a manager of the owning publisher can release it.
+    /// Also clears protected status if set.
+    /// </summary>
+    [HttpPost("{slug}/release")]
+    [Authorize]
+    public async Task<ActionResult<SnPostTag>> ReleaseTag(
+        string slug,
+        [FromQuery(Name = "pub")] string? pubName
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var publisher = await ResolvePublisherAsync(accountId, pubName);
+        if (publisher is null)
+            return BadRequest("Cannot resolve publisher. Specify one via ?pub= or set a default.");
+
+        var tag = await tagService.FindBySlugAsync(slug);
+        if (tag is null) return NotFound();
+
+        try
+        {
+            tag = await tagService.ReleaseTagAsync(tag.Id, publisher, accountId);
+            return Ok(tag);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Ownership / role failures vs not-found style business rules
+            if (ex.Message.Contains("manager", StringComparison.OrdinalIgnoreCase) ||
+                ex.Message.Contains("not owned", StringComparison.OrdinalIgnoreCase))
+                return StatusCode(403, ex.Message);
+            return BadRequest(ex.Message);
+        }
+    }
+
+    /// <summary>
     /// Publisher-scoped protected-tag quota and owned tag list.
     /// </summary>
     /// <remarks>
