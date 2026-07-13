@@ -189,11 +189,19 @@ POST /api/posts/tags/{slug}/claim?pub={publisherName}
 
 ### Get Protected Tag Quota
 
-Check how many protected tags a publisher has used and their remaining quota.
+Check how many protected tags a publisher has used, their remaining quota, and list **all tags owned by that publisher**.
 
 ```
-GET /api/posts/tags/{slug}/quota?pub={publisherName}
+GET /api/posts/tags/quota?pub={publisherName}
 ```
+
+Legacy alias (slug is ignored): `GET /api/posts/tags/{slug}/quota?pub={publisherName}`
+
+**Query Parameters:**
+
+| Param | Description |
+|-------|-------------|
+| `pub` | Publisher name. If omitted, uses default posting publisher or individual publisher |
 
 **Response:** `200 OK`
 ```json
@@ -207,16 +215,38 @@ GET /api/posts/tags/{slug}/quota?pub={publisherName}
     {
       "id": "...",
       "slug": "exclusive-content",
-      "name": "Exclusive Content"
+      "name": "Exclusive Content",
+      "description": null,
+      "is_protected": true,
+      "is_event": false,
+      "event_ends_at": null
     },
     {
       "id": "...",
-      "slug": "members-only",
-      "name": "Members Only"
+      "slug": "photography",
+      "name": "Photography",
+      "description": "Gear and techniques",
+      "is_protected": false,
+      "is_event": false,
+      "event_ends_at": null
     }
   ]
 }
 ```
+
+| Field | Description |
+|-------|-------------|
+| `total` | Protected-tag quota for the publisher |
+| `used` | Number of **protected** tags owned by the publisher |
+| `remaining` | `total - used` |
+| `records` | All tags owned by the publisher (protected and unprotected), protected first |
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| `400 Bad Request` | Cannot resolve publisher |
+| `401 Unauthorized` | Not authenticated |
 
 ---
 

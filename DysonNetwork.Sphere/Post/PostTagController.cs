@@ -143,11 +143,19 @@ public class PostTagController(
         }
     }
 
+    /// <summary>
+    /// Publisher-scoped protected-tag quota and owned tag list.
+    /// </summary>
+    /// <remarks>
+    /// Path is intentionally <c>/quota</c> (not under a tag slug). The optional
+    /// legacy alias <c>/{slug}/quota</c> remains for older clients and ignores slug.
+    /// </remarks>
+    [HttpGet("quota")]
     [HttpGet("{slug}/quota")]
     [Authorize]
     public async Task<ActionResult<ResourceQuotaResponse<ProtectedTagQuotaRecord>>> GetProtectedTagQuota(
-        string slug,
-        [FromQuery(Name = "pub")] string? pubName
+        [FromQuery(Name = "pub")] string? pubName,
+        string? slug = null
     )
     {
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
@@ -155,7 +163,7 @@ public class PostTagController(
 
         var publisher = await ResolvePublisherAsync(accountId, pubName);
         if (publisher is null)
-            return BadRequest("Cannot resolve publisher.");
+            return BadRequest("Cannot resolve publisher. Specify one via ?pub= or set a default.");
 
         var quota = await tagService.GetProtectedTagQuotaAsync(publisher);
         return Ok(quota);

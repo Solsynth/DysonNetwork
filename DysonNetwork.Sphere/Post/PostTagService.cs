@@ -156,33 +156,52 @@ public class PostTagService(AppDatabase db)
 
     public async Task<ResourceQuotaResponse<ProtectedTagQuotaRecord>> GetProtectedTagQuotaAsync(SnPublisher publisher)
     {
-        var account = await db.Publishers
+        // Load account + profile so level / perk level are available for quota math.
+        var accountInfo = await db.Publishers
+            .AsNoTracking()
             .Where(p => p.Id == publisher.Id)
-            .Select(p => p.Account)
+            .Select(p => new
+            {
+                Level = p.Account != null && p.Account.Profile != null
+                    ? p.Account.Profile.Level
+                    : 0,
+                PerkLevel = p.Account != null ? p.Account.PerkLevel : 0,
+            })
             .FirstOrDefaultAsync();
 
-        var level = account?.Profile?.Level ?? 0;
-        var perkLevel = account?.PerkLevel ?? 0;
+        var level = accountInfo?.Level ?? 0;
+        var perkLevel = accountInfo?.PerkLevel ?? 0;
         var total = ResourceQuotaCalculator.GetProtectedTagQuota(level, perkLevel);
 
-        var protectedTags = await db.PostTags
-            .Where(t => t.OwnerPublisherId == publisher.Id && t.IsProtected)
+        // Return all owned tags (not only protected). Quota usage still counts
+        // protected tags only — protection is applied by admins.
+        var ownedTags = await db.PostTags
+            .AsNoTracking()
+            .Where(t => t.OwnerPublisherId == publisher.Id)
+            .OrderByDescending(t => t.IsProtected)
+            .ThenByDescending(t => t.UpdatedAt)
             .Select(t => new ProtectedTagQuotaRecord
             {
                 Id = t.Id,
                 Slug = t.Slug,
                 Name = t.Name,
+                Description = t.Description,
+                IsProtected = t.IsProtected,
+                IsEvent = t.IsEvent,
+                EventEndsAt = t.EventEndsAt,
             })
             .ToListAsync();
+
+        var used = ownedTags.Count(t => t.IsProtected);
 
         return new ResourceQuotaResponse<ProtectedTagQuotaRecord>
         {
             Total = total,
-            Used = protectedTags.Count,
-            Remaining = Math.Max(0, total - protectedTags.Count),
+            Used = used,
+            Remaining = Math.Max(0, total - used),
             Level = level,
             PerkLevel = perkLevel,
-            Records = protectedTags,
+            Records = ownedTags,
         };
     }
 
