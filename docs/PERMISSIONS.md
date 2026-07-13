@@ -165,19 +165,24 @@ public async Task<IActionResult> GivePermission(...)
 
 ### Post Categories & Tags
 - `post.categories.manage`, `post.categories.subscribe`
-- `posts.tags.create`, `posts.tags.update`, `posts.tags.assign`
+- `posts.tags.create`, `posts.tags.update`, `posts.tags.delete`, `posts.tags.assign`
 - `posts.tags.claim`, `posts.tags.protect`, `posts.tags.event`
 
 ### Post Subscriptions
 - `post.subscriptions.manage`
 
 ### Publishers
-- `publishers.create`, `publishers.update`, `publishers.delete`
+- `publishers.create`, `publishers.update`, `publishers.delete`, `publishers.moderate`
 - `publishers.members.manage`, `publishers.invites.manage`
 - `publishers.features.manage`, `publishers.fediverse.manage`
 - `publishers.domains.manage`
 - `publishers.rewards.settle`, `publishers.rewards.resettle`
 - `publishers.subscriptions.manage`
+
+### Realms
+- `realms.create`, `realms.update`, `realms.delete`, `realms.moderate`
+- `realms.invites.manage`, `realms.members.manage`
+- `realms.labels.manage`, `realms.boosts.manage`, `realms.permissions.manage`
 
 ### Timelines
 - `timelines.feedback`, `timelines.weights.manage`, `timelines.reset`

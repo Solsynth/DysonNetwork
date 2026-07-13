@@ -189,7 +189,41 @@ public class PostTagService(AppDatabase db)
     public async Task<SnPostTag?> FindBySlugAsync(string slug)
     {
         var normalized = NormalizeSlug(slug);
-        return await db.PostTags.FirstOrDefaultAsync(t => t.Slug.ToLower() == normalized);
+        return await db.PostTags
+            .Include(t => t.OwnerPublisher)
+            .FirstOrDefaultAsync(t => t.Slug.ToLower() == normalized);
+    }
+
+    public async Task<SnPostTag?> FindByIdAsync(Guid id)
+    {
+        return await db.PostTags
+            .Include(t => t.OwnerPublisher)
+            .FirstOrDefaultAsync(t => t.Id == id);
+    }
+
+    public async Task<SnPostTag> UnassignTagAsync(Guid tagId)
+    {
+        var tag = await db.PostTags.FirstOrDefaultAsync(t => t.Id == tagId)
+            ?? throw new InvalidOperationException("Tag not found.");
+
+        if (tag.IsProtected)
+            tag.IsProtected = false;
+
+        tag.OwnerPublisherId = null;
+        await db.SaveChangesAsync();
+        return tag;
+    }
+
+    public async Task DeleteTagAsync(Guid tagId)
+    {
+        var tag = await db.PostTags
+            .Include(t => t.Posts)
+            .FirstOrDefaultAsync(t => t.Id == tagId)
+            ?? throw new InvalidOperationException("Tag not found.");
+
+        tag.Posts.Clear();
+        db.PostTags.Remove(tag);
+        await db.SaveChangesAsync();
     }
 
     public bool IsTagAvailable(SnPostTag tag)

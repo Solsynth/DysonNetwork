@@ -1,7 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Extensions;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
+using DysonNetwork.Shared.Registry;
 using DysonNetwork.Sphere.Publisher;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -161,13 +163,22 @@ public class PostTagController(
 }
 
 [ApiController]
-[Route("/api/admin/posts/tags")]
+[Route("/api/admin/tags")]
 [Authorize]
 public class PostTagAdminController(
     AppDatabase db,
-    PostTagService tagService
+    PostTagService tagService,
+    RemoteActionLogService als
 ) : ControllerBase
 {
+    public class CreateAdminTagRequest
+    {
+        [MaxLength(128)] public string Slug { get; set; } = null!;
+        [MaxLength(256)] public string? Name { get; set; }
+        [MaxLength(4096)] public string? Description { get; set; }
+        public Guid? OwnerPublisherId { get; set; }
+    }
+
     public class AssignTagRequest
     {
         public Guid PublisherId { get; set; }
@@ -190,33 +201,139 @@ public class PostTagAdminController(
         [MaxLength(4096)] public string? Description { get; set; }
     }
 
-    private async Task<bool> IsAdminAsync()
+    /// <summary>Backward-compatible route for older clients. </summary>
+    [HttpGet("/api/admin/posts/tags")]
+    [HttpGet]
+    [AskPermission(PermissionKeys.PostsModerate)]
+    public async Task<ActionResult<List<SnPostTag>>> ListTags(
+        [FromQuery] string? query = null,
+        [FromQuery] Guid? ownerPublisherId = null,
+        [FromQuery] bool? isProtected = null,
+        [FromQuery] bool? isEvent = null,
+        [FromQuery] bool? unowned = null,
+        [FromQuery] string? order = null,
+        [FromQuery] int offset = 0,
+        [FromQuery] int take = 50
+    )
     {
-        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
-            return false;
-        if (currentUser.IsSuperuser) return true;
+        take = Math.Clamp(take, 1, 200);
+        offset = Math.Max(0, offset);
 
-        using var scope = HttpContext.RequestServices.CreateScope();
-        var permissionService = scope.ServiceProvider.GetRequiredService<DyPermissionService.DyPermissionServiceClient>();
-        var response = await permissionService.HasPermissionAsync(new DyHasPermissionRequest
+        var tagsQuery = db.PostTags
+            .AsNoTracking()
+            .Include(t => t.OwnerPublisher)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(query))
         {
-            Actor = currentUser.Id.ToString(),
-            Key = "posts.tags.admin"
-        });
-        return response.HasPermission;
+            var probe = query.Trim();
+            tagsQuery = tagsQuery.Where(t =>
+                EF.Functions.ILike(t.Slug, $"%{probe}%") ||
+                (t.Name != null && EF.Functions.ILike(t.Name, $"%{probe}%")) ||
+                (t.Description != null && EF.Functions.ILike(t.Description, $"%{probe}%")));
+        }
+
+        if (ownerPublisherId.HasValue)
+            tagsQuery = tagsQuery.Where(t => t.OwnerPublisherId == ownerPublisherId.Value);
+        if (unowned == true)
+            tagsQuery = tagsQuery.Where(t => t.OwnerPublisherId == null);
+        if (isProtected.HasValue)
+            tagsQuery = tagsQuery.Where(t => t.IsProtected == isProtected.Value);
+        if (isEvent.HasValue)
+            tagsQuery = tagsQuery.Where(t => t.IsEvent == isEvent.Value);
+
+        tagsQuery = order switch
+        {
+            "usage" => tagsQuery.OrderByDescending(t => t.Posts.Count).ThenBy(t => t.Slug),
+            "name" => tagsQuery.OrderBy(t => t.Name ?? t.Slug),
+            "created" => tagsQuery.OrderByDescending(t => t.CreatedAt),
+            _ => tagsQuery.OrderByDescending(t => t.UpdatedAt)
+        };
+
+        var total = await tagsQuery.CountAsync(HttpContext.RequestAborted);
+        Response.Headers.Append("X-Total", total.ToString());
+
+        var rows = await tagsQuery
+            .Skip(offset)
+            .Take(take)
+            .Select(t => new { Tag = t, PostCount = t.Posts.Count })
+            .ToListAsync(HttpContext.RequestAborted);
+
+        var result = rows.Select(x =>
+        {
+            x.Tag.Usage = x.PostCount;
+            return x.Tag;
+        }).ToList();
+
+        return Ok(result);
     }
 
+    [HttpGet("/api/admin/posts/tags/{slug}")]
+    [HttpGet("{slug}")]
+    [AskPermission(PermissionKeys.PostsModerate)]
+    public async Task<ActionResult<SnPostTag>> GetTag(string slug)
+    {
+        var tag = await tagService.FindBySlugAsync(slug);
+        if (tag is null) return NotFound();
+
+        tag.Usage = await db.Posts
+            .Where(p => p.Tags.Any(t => t.Id == tag.Id))
+            .CountAsync(HttpContext.RequestAborted);
+
+        return Ok(tag);
+    }
+
+    [HttpPost("/api/admin/posts/tags")]
+    [HttpPost]
+    [AskPermission(PermissionKeys.PostsTagsCreate)]
+    public async Task<ActionResult<SnPostTag>> CreateTag([FromBody] CreateAdminTagRequest request)
+    {
+        SnPublisher? owner = null;
+        if (request.OwnerPublisherId.HasValue)
+        {
+            owner = await db.Publishers.FirstOrDefaultAsync(
+                p => p.Id == request.OwnerPublisherId.Value,
+                HttpContext.RequestAborted
+            );
+            if (owner is null)
+                return BadRequest("Owner publisher not found.");
+        }
+
+        try
+        {
+            var tag = await tagService.CreateTagAsync(
+                request.Slug,
+                request.Name,
+                request.Description,
+                owner
+            );
+            LogTagAction("create", tag.Id, new Dictionary<string, object>
+            {
+                ["slug"] = tag.Slug
+            });
+            return CreatedAtAction(nameof(GetTag), new { slug = tag.Slug }, tag);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("/api/admin/posts/tags/{slug}/assign")]
     [HttpPost("{slug}/assign")]
+    [AskPermission(PermissionKeys.PostsTagsAssign)]
     public async Task<ActionResult<SnPostTag>> AssignTag(string slug, [FromBody] AssignTagRequest request)
     {
-        if (!await IsAdminAsync()) return StatusCode(403, "Admin permission required.");
-
         var tag = await tagService.FindBySlugAsync(slug);
         if (tag is null) return NotFound();
 
         try
         {
             tag = await tagService.AssignTagAsync(tag.Id, request.PublisherId);
+            LogTagAction("assign", tag.Id, new Dictionary<string, object>
+            {
+                ["publisher_id"] = request.PublisherId.ToString()
+            });
             return Ok(tag);
         }
         catch (InvalidOperationException ex)
@@ -225,23 +342,50 @@ public class PostTagAdminController(
         }
     }
 
+    [HttpDelete("/api/admin/posts/tags/{slug}/assign")]
+    [HttpDelete("{slug}/assign")]
+    [AskPermission(PermissionKeys.PostsTagsAssign)]
+    public async Task<ActionResult<SnPostTag>> UnassignTag(string slug)
+    {
+        var tag = await tagService.FindBySlugAsync(slug);
+        if (tag is null) return NotFound();
+
+        try
+        {
+            tag = await tagService.UnassignTagAsync(tag.Id);
+            LogTagAction("unassign", tag.Id);
+            return Ok(tag);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPatch("/api/admin/posts/tags/{slug}/protect")]
     [HttpPatch("{slug}/protect")]
+    [AskPermission(PermissionKeys.PostsTagsProtect)]
     public async Task<ActionResult<SnPostTag>> SetProtected(string slug, [FromBody] SetProtectedRequest request)
     {
-        if (!await IsAdminAsync()) return StatusCode(403, "Admin permission required.");
-
         var tag = await tagService.FindBySlugAsync(slug);
         if (tag is null) return NotFound();
 
         if (tag.OwnerPublisherId is null)
             return BadRequest("Tag has no owner. Assign ownership first.");
 
-        var publisher = await db.Publishers.FirstOrDefaultAsync(p => p.Id == tag.OwnerPublisherId.Value);
+        var publisher = await db.Publishers.FirstOrDefaultAsync(
+            p => p.Id == tag.OwnerPublisherId.Value,
+            HttpContext.RequestAborted
+        );
         if (publisher is null) return BadRequest("Owner publisher not found.");
 
         try
         {
             tag = await tagService.SetProtectedAsync(tag.Id, request.IsProtected, publisher);
+            LogTagAction("set_protected", tag.Id, new Dictionary<string, object>
+            {
+                ["is_protected"] = request.IsProtected
+            });
             return Ok(tag);
         }
         catch (InvalidOperationException ex)
@@ -250,17 +394,22 @@ public class PostTagAdminController(
         }
     }
 
+    [HttpPatch("/api/admin/posts/tags/{slug}/event")]
     [HttpPatch("{slug}/event")]
+    [AskPermission(PermissionKeys.PostsTagsEvent)]
     public async Task<ActionResult<SnPostTag>> SetEvent(string slug, [FromBody] SetEventRequest request)
     {
-        if (!await IsAdminAsync()) return StatusCode(403, "Admin permission required.");
-
         var tag = await tagService.FindBySlugAsync(slug);
         if (tag is null) return NotFound();
 
         try
         {
             tag = await tagService.SetEventAsync(tag.Id, request.IsEvent, request.EndsAt);
+            LogTagAction("set_event", tag.Id, new Dictionary<string, object>
+            {
+                ["is_event"] = request.IsEvent,
+                ["ends_at"] = request.EndsAt?.ToString() ?? string.Empty
+            });
             return Ok(tag);
         }
         catch (InvalidOperationException ex)
@@ -269,17 +418,79 @@ public class PostTagAdminController(
         }
     }
 
+    [HttpPatch("/api/admin/posts/tags/{slug}")]
     [HttpPatch("{slug}")]
+    [AskPermission(PermissionKeys.PostsTagsUpdate)]
     public async Task<ActionResult<SnPostTag>> AdminUpdateTag(string slug, [FromBody] AdminUpdateTagRequest request)
     {
-        if (!await IsAdminAsync()) return StatusCode(403, "Admin permission required.");
-
         var tag = await tagService.FindBySlugAsync(slug);
         if (tag is null) return NotFound();
 
         if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
 
-        tag = await tagService.UpdateTagAsync(tag.Id, request.Name, request.Description, Guid.Parse(currentUser.Id), isAdmin: true);
-        return Ok(tag);
+        try
+        {
+            tag = await tagService.UpdateTagAsync(
+                tag.Id,
+                request.Name,
+                request.Description,
+                Guid.Parse(currentUser.Id),
+                isAdmin: true
+            );
+            LogTagAction("update", tag.Id);
+            return Ok(tag);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpDelete("/api/admin/posts/tags/{slug}")]
+    [HttpDelete("{slug}")]
+    [AskPermission(PermissionKeys.PostsTagsDelete)]
+    public async Task<IActionResult> DeleteTag(string slug)
+    {
+        var tag = await tagService.FindBySlugAsync(slug);
+        if (tag is null) return NotFound();
+
+        try
+        {
+            await tagService.DeleteTagAsync(tag.Id);
+            LogTagAction("delete", tag.Id, new Dictionary<string, object>
+            {
+                ["slug"] = tag.Slug
+            });
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    private void LogTagAction(string operation, Guid tagId, Dictionary<string, object>? extraMeta = null)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return;
+
+        var meta = new Dictionary<string, object>
+        {
+            ["tag_id"] = tagId.ToString(),
+            ["operation"] = operation
+        };
+        if (extraMeta is not null)
+        {
+            foreach (var (key, value) in extraMeta)
+                meta[key] = value;
+        }
+
+        als.CreateActionLog(
+            Guid.Parse(currentUser.Id),
+            ActionLogType.PostsTagsAdmin,
+            meta,
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
     }
 }

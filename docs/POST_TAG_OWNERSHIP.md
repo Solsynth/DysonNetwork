@@ -8,8 +8,10 @@ Adds ownership, protection, and event lifecycle to post tags. Tags can be owned 
 
 ```
 /api/posts/tags        — Publisher endpoints
-/api/admin/posts/tags  — Admin endpoints
+/api/admin/tags        — Admin endpoints (alias: /api/admin/posts/tags)
 ```
+
+See also [SPHERE_ADMIN_API.md](./SPHERE_ADMIN_API.md) for full admin tag list/create/delete endpoints.
 
 ---
 
