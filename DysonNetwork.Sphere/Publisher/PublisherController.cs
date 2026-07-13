@@ -250,6 +250,8 @@ public class PublisherController(
         var accountId = Guid.Parse(currentUser.Id);
         if (member is null)
             return NotFound("Member was not found");
+        if (member.AccountId == accountId && member.Role >= PublisherMemberRole.Owner)
+            return BadRequest("You cannot remove yourself as the publisher owner.");
         if (!await ps.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
             return StatusCode(
                 403,
@@ -267,6 +269,46 @@ public class PublisherController(
                 { "publisher_id", publisher.Id.ToString() },
                 { "account_id", memberId.ToString() },
                 { "kicked_by", currentUser.Id },
+            },
+            userAgent: Request.Headers.UserAgent,
+            ipAddress: Request.GetClientIpAddress()
+        );
+
+        return NoContent();
+    }
+
+    [HttpDelete("{name}/members/me")]
+    [Authorize]
+    public async Task<ActionResult> LeavePublisher(string name)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var publisher = await db.Publishers.Where(p => p.Name.ToLower() == name.ToLowerInvariant()).FirstOrDefaultAsync();
+        if (publisher is null)
+            return NotFound();
+
+        var member = await db
+            .PublisherMembers.Where(m => m.AccountId == accountId)
+            .Where(m => m.PublisherId == publisher.Id)
+            .Where(m => m.JoinedAt != null)
+            .FirstOrDefaultAsync();
+        if (member is null)
+            return NotFound();
+        if (member.Role >= PublisherMemberRole.Owner)
+            return BadRequest("You cannot leave your own publisher.");
+
+        db.PublisherMembers.Remove(member);
+        await db.SaveChangesAsync();
+
+        als.CreateActionLog(
+            accountId,
+            "publishers.members.leave",
+            new Dictionary<string, object>
+            {
+                { "publisher_id", publisher.Id.ToString() },
+                { "account_id", accountId.ToString() },
             },
             userAgent: Request.Headers.UserAgent,
             ipAddress: Request.GetClientIpAddress()
