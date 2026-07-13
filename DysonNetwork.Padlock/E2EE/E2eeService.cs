@@ -286,13 +286,15 @@ public class E2EeService(
     {
         var now = SystemClock.Instance.GetCurrentInstant();
         await PurgeExpiredMlsKeyPackagesAsync(accountId, now);
+        await using var transaction = consume
+            ? await db.Database.BeginTransactionAsync(IsolationLevel.Serializable)
+            : null;
         var activeDevices = await db.E2eeDevices
             .Where(d => d.AccountId == accountId && !d.IsRevoked)
             .ToListAsync();
         var responses = new List<MlsDeviceKeyPackageResponse>();
         var dirty = false;
-        string? consumedDeviceId = null;
-        string? consumedDeviceLabel = null;
+        var consumedDevices = new List<(string DeviceId, string? DeviceLabel)>();
 
         foreach (var device in activeDevices)
         {
@@ -308,8 +310,7 @@ public class E2EeService(
                 package.ConsumedAt = now;
                 package.ConsumedByAccountId = requesterId;
                 dirty = true;
-                consumedDeviceId = device.DeviceId;
-                consumedDeviceLabel = device.DeviceLabel;
+                consumedDevices.Add((device.DeviceId, device.DeviceLabel));
             }
 
             responses.Add(new MlsDeviceKeyPackageResponse(
@@ -324,10 +325,13 @@ public class E2EeService(
 
         if (!dirty) return responses;
         await db.SaveChangesAsync();
-        if (consumedDeviceId is not null)
-        {
-            await CheckAndNotifyKpDepletedAsync(accountId, consumedDeviceId, consumedDeviceLabel);
-        }
+        if (transaction is not null)
+            await transaction.CommitAsync();
+        foreach (var consumedDevice in consumedDevices)
+            await CheckAndNotifyKpDepletedAsync(
+                accountId,
+                consumedDevice.DeviceId,
+                consumedDevice.DeviceLabel);
 
         return responses;
     }
@@ -401,28 +405,32 @@ public class E2EeService(
 
     public async Task<SnMlsGroupState> BootstrapMlsGroupAsync(Guid accountId, BootstrapMlsGroupRequest request)
     {
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var existing = await db.MlsGroupStates
             .FirstOrDefaultAsync(s => s.MlsGroupId == request.GroupId);
         if (existing is not null)
         {
-            existing.Epoch = request.Epoch;
-            existing.StateVersion = request.StateVersion;
-            existing.Meta = request.Meta;
-            existing.LastCommitAt = SystemClock.Instance.GetCurrentInstant();
-            await db.SaveChangesAsync();
+            // Bootstrap is a create-if-absent operation. Replaying it must never
+            // roll an established group back to epoch zero or replace ownership
+            // metadata from the device that actually created the group.
             return existing;
         }
 
+        var meta = request.Meta is null
+            ? new Dictionary<string, object>()
+            : new Dictionary<string, object>(request.Meta);
+        meta["bootstrap_account_id"] = accountId.ToString();
         var state = new SnMlsGroupState
         {
             MlsGroupId = request.GroupId,
             Epoch = request.Epoch,
             StateVersion = request.StateVersion,
             LastCommitAt = SystemClock.Instance.GetCurrentInstant(),
-            Meta = request.Meta
+            Meta = meta
         };
         db.MlsGroupStates.Add(state);
         await db.SaveChangesAsync();
+        await transaction.CommitAsync();
         return state;
     }
 
@@ -619,6 +627,14 @@ public class E2EeService(
             .FirstOrDefaultAsync(s => s.MlsGroupId == groupId);
     }
 
+    public async Task<bool> IsMlsGroupMemberAsync(Guid accountId, string deviceId, string groupId)
+    {
+        return await db.MlsDeviceMemberships.AnyAsync(m =>
+            m.AccountId == accountId &&
+            m.DeviceId == deviceId &&
+            m.MlsGroupId == groupId);
+    }
+
     public async Task<List<SnE2eeEnvelope>> FanoutMlsCommitAsync(
         Guid senderId,
         string senderDeviceId,
@@ -811,13 +827,20 @@ public class E2EeService(
         return state;
     }
 
-    public async Task<UploadGroupInfoResponse> UploadGroupInfoAsync(string groupId, byte[] groupInfo, byte[] ratchetTree)
+    public async Task<UploadGroupInfoResponse> UploadGroupInfoAsync(
+        string groupId,
+        byte[] groupInfo,
+        byte[] ratchetTree,
+        long? expectedEpoch = null)
     {
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var state = await db.MlsGroupStates
             .FirstOrDefaultAsync(s => s.MlsGroupId == groupId);
 
         if (state is null)
         {
+            if (expectedEpoch.HasValue)
+                return new UploadGroupInfoResponse(false, groupId, -1);
             state = new SnMlsGroupState
             {
                 MlsGroupId = groupId,
@@ -831,11 +854,14 @@ public class E2EeService(
         }
         else
         {
+            if (expectedEpoch.HasValue && state.Epoch != expectedEpoch.Value)
+                return new UploadGroupInfoResponse(false, state.MlsGroupId, state.Epoch);
             state.GroupInfo = groupInfo;
             state.RatchetTree = ratchetTree;
         }
 
         await db.SaveChangesAsync();
+        await transaction.CommitAsync();
         return new UploadGroupInfoResponse(true, state.MlsGroupId, state.Epoch);
     }
 

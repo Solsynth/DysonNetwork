@@ -47,13 +47,19 @@ public interface IE2EeModule
     Task<bool> CompleteMlsReshareAsync(Guid accountId, string deviceId, string groupId);
     Task<int> MarkAllDevicesReshareRequiredAsync(string groupId, string reason);
     Task<SnMlsGroupState?> GetMlsGroupStateByGroupIdAsync(string groupId);
+    Task<bool> IsMlsGroupMemberAsync(Guid accountId, string deviceId, string groupId);
     Task<List<SnE2eeEnvelope>> FanoutMlsCommitAsync(Guid senderId, string senderDeviceId, FanoutMlsCommitRequest request);
     Task<List<SnE2eeEnvelope>> FanoutMlsMessageToGroupAsync(Guid senderId, string senderDeviceId, FanoutMlsGroupMessageRequest request, SnE2eeEnvelopeType envelopeType = SnE2eeEnvelopeType.MlsApplication);
     Task<List<MlsDeviceKeyPackageResponse>> GetCapableDevicesAsync(string groupId);
     Task<int> DeleteMlsGroupAsync(string groupId);
     Task NotifyGroupResetAsync(string groupId, string? reason);
     Task<SnMlsGroupState> CreateMlsGroupAsync(string groupId, long epoch, long stateVersion);
-    Task<UploadGroupInfoResponse> UploadGroupInfoAsync(string groupId, byte[] groupInfo, byte[] ratchetTree);
+    Task<UploadGroupInfoResponse> UploadGroupInfoAsync(
+        string groupId,
+        byte[] groupInfo,
+        byte[] ratchetTree,
+        long? expectedEpoch = null
+    );
 }
 
 public record UpsertE2EeOneTimePreKey(int KeyId, byte[] PublicKey);

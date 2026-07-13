@@ -67,6 +67,46 @@ public partial class ChatController(
         return E2EeError("chat.e2ee_required", $"This room requires capability '{token}'.");
     }
 
+    private async Task<ActionResult?> EnsureCurrentMlsEpochAsync(
+        SnChatRoom room,
+        long? messageEpoch)
+    {
+        if (room.EncryptionMode != ChatRoomEncryptionMode.E2eeMls)
+            return null;
+        if (string.IsNullOrWhiteSpace(room.MlsGroupId) || !messageEpoch.HasValue)
+            return E2EeError(
+                "chat.mls_payload_required",
+                "MLS rooms require a configured group and encryption_epoch.");
+
+        try
+        {
+            var state = await mlsService.GetGroupStateAsync(room.MlsGroupId);
+            if (state.Epoch == messageEpoch.Value) return null;
+            return Conflict(new
+            {
+                code = "chat.mls_epoch_mismatch",
+                current_epoch = state.Epoch,
+                message_epoch = messageEpoch.Value
+            });
+        }
+        catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+        {
+            return Conflict(new
+            {
+                code = "chat.mls_group_not_ready",
+                error = "The MLS group has not been bootstrapped yet."
+            });
+        }
+        catch (RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.Unavailable)
+        {
+            return StatusCode(503, new
+            {
+                code = "chat.mls_state_unavailable",
+                error = "MLS group state is temporarily unavailable."
+            });
+        }
+    }
+
     private async Task<(SnChatRoom? Room, ActionResult? Error)> GetReadableRoomAsync(
         Guid roomId,
         DyAccount? currentUser
@@ -483,6 +523,8 @@ public partial class ChatController(
                 return E2EeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
             if (mlsMode && !ChatMessageHelpers.IsMlsPayloadValid(request))
                 return E2EeError("chat.mls_payload_required", "MLS rooms require scheme chat.mls.v2 and encryption_epoch.");
+            if (mlsMode && await EnsureCurrentMlsEpochAsync(member.ChatRoom, request.EncryptionEpoch) is { } epochError)
+                return epochError;
             if (ChatMessageHelpers.LooksLikePlaintextJson(request.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (ChatMessageHelpers.HasPlaintextFields(request))
@@ -931,6 +973,8 @@ public partial class ChatController(
                 return E2EeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
             if (mlsMode && !ChatMessageHelpers.IsMlsPayloadValid(request))
                 return E2EeError("chat.mls_payload_required", "MLS rooms require scheme chat.mls.v2 and encryption_epoch.");
+            if (mlsMode && await EnsureCurrentMlsEpochAsync(message.ChatRoom, request.EncryptionEpoch) is { } epochError)
+                return epochError;
             if (ChatMessageHelpers.LooksLikePlaintextJson(request.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
             if (ChatMessageHelpers.HasPlaintextFields(request))
@@ -1134,6 +1178,8 @@ public partial class ChatController(
                 (!string.Equals(request.EncryptionScheme, ChatMessageHelpers.MlsEncryptionScheme, StringComparison.Ordinal) ||
                  !request.EncryptionEpoch.HasValue))
                 return E2EeError("chat.mls_payload_required", "MLS rooms require scheme chat.mls.v2 and encryption_epoch.");
+            if (mlsMode && await EnsureCurrentMlsEpochAsync(message.ChatRoom, request?.EncryptionEpoch) is { } epochError)
+                return epochError;
             if (ChatMessageHelpers.LooksLikePlaintextJson(request?.Ciphertext))
                 return E2EeError("chat.e2ee_ciphertext_invalid", "Ciphertext appears to be plaintext JSON.");
         }

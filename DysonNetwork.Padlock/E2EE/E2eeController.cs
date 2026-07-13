@@ -90,6 +90,7 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
 
     public class UploadGroupInfoBody
     {
+        [Required] public long Epoch { get; set; }
         [Required] public byte[] GroupInfo { get; set; } = [];
         [Required] public byte[] RatchetTree { get; set; } = [];
     }
@@ -259,6 +260,8 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
 
         if (string.IsNullOrWhiteSpace(senderDeviceId))
             return BadRequest("X-Device-Id header is required.");
+        if (!await e2EeModule.IsMlsGroupMemberAsync(currentUser.Id, senderDeviceId, groupId))
+            return Forbid();
 
         var result = await e2EeModule.FanoutMlsWelcomeAsync(currentUser.Id, senderDeviceId,
             new FanoutMlsWelcomeRequest(
@@ -327,12 +330,30 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     }
 
     [HttpPut("mls/groups/{groupId}/groupinfo")]
-    public async Task<ActionResult> UploadGroupInfo(string groupId, [FromBody] UploadGroupInfoBody body)
+    public async Task<ActionResult> UploadGroupInfo(
+        string groupId,
+        [FromBody] UploadGroupInfoBody body,
+        [FromHeader(Name = "X-Device-Id")] string? deviceId)
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        if (HttpContext.Items["CurrentUser"] is not SnAccount) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(deviceId))
+            return BadRequest("X-Device-Id header is required.");
+        if (!await e2EeModule.IsMlsGroupMemberAsync(currentUser.Id, deviceId, groupId))
+            return Forbid();
 
-        var result = await e2EeModule.UploadGroupInfoAsync(groupId, body.GroupInfo, body.RatchetTree);
+        var result = await e2EeModule.UploadGroupInfoAsync(
+            groupId,
+            body.GroupInfo,
+            body.RatchetTree,
+            body.Epoch);
+        if (!result.Success)
+            return Conflict(new
+            {
+                code = "e2ee.mls_epoch_mismatch",
+                currentEpoch = result.Epoch,
+                requestedEpoch = body.Epoch
+            });
         return Ok(new
         {
             result.Success,
@@ -342,10 +363,16 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     }
 
     [HttpGet("mls/groups/{groupId}/groupinfo")]
-    public async Task<ActionResult> GetGroupInfo(string groupId)
+    public async Task<ActionResult> GetGroupInfo(
+        string groupId,
+        [FromHeader(Name = "X-Device-Id")] string? deviceId)
     {
         if (EnsureMlsAbility() is { } abilityError) return abilityError;
-        if (HttpContext.Items["CurrentUser"] is not SnAccount) return Unauthorized();
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(deviceId))
+            return BadRequest("X-Device-Id header is required.");
+        if (!await e2EeModule.IsMlsGroupMemberAsync(currentUser.Id, deviceId, groupId))
+            return Forbid();
 
         var state = await e2EeModule.GetMlsGroupStateByGroupIdAsync(groupId);
         if (state is null) return NotFound();
@@ -371,6 +398,9 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
 
         if (string.IsNullOrWhiteSpace(senderDeviceId))
             return BadRequest("X-Device-Id header is required.");
+        if (string.IsNullOrWhiteSpace(body.GroupId) ||
+            !await e2EeModule.IsMlsGroupMemberAsync(currentUser.Id, senderDeviceId, body.GroupId))
+            return Forbid();
 
         body.Type = SnE2eeEnvelopeType.MlsApplication;
         var envelopes = await e2EeModule.SendFanoutEnvelopesAsync(currentUser.Id, senderDeviceId,
@@ -425,6 +455,8 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
 
         if (string.IsNullOrWhiteSpace(senderDeviceId))
             return BadRequest("X-Device-Id header is required.");
+        if (!await e2EeModule.IsMlsGroupMemberAsync(currentUser.Id, senderDeviceId, groupId))
+            return Forbid();
 
         var currentState = await e2EeModule.GetMlsGroupStateByGroupIdAsync(groupId);
         if (currentState != null && body.Epoch <= currentState.Epoch)
@@ -482,6 +514,8 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
 
         if (string.IsNullOrWhiteSpace(senderDeviceId))
             return BadRequest("X-Device-Id header is required.");
+        if (!await e2EeModule.IsMlsGroupMemberAsync(currentUser.Id, senderDeviceId, groupId))
+            return Forbid();
 
         var envelopes = await e2EeModule.FanoutMlsMessageToGroupAsync(
             currentUser.Id,

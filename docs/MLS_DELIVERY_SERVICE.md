@@ -2,7 +2,7 @@
 
 ## Overview
 
-DysonNetwork implements an MLS (Messaging Layer Security) Delivery Service as defined in [The MLS Architecture](https://messaginglayersecurity.rocks/mls-architecture/draft-ietf-mls-architecture.html). The Delivery Service (DS) acts as an intermediary for MLS message delivery between clients.
+DysonNetwork implements an MLS (Messaging Layer Security) Delivery Service following [RFC 9420](https://www.rfc-editor.org/rfc/rfc9420.html) and the [MLS Architecture in RFC 9750](https://www.rfc-editor.org/rfc/rfc9750.html). The Delivery Service (DS) acts as an intermediary for MLS message delivery between clients.
 
 ## Purpose
 
@@ -15,16 +15,20 @@ The DS enables end-to-end encrypted chat messaging using MLS protocol:
 
 ## Design Decisions
 
-- The DS does not know about MLS group internal state (epochs, proposals, etc.)
-- Clients must send recipient list (group members) with each message
+- The DS tracks the current epoch and signed public `GroupInfo`, but never group secrets.
+- Group Commit and Welcome delivery is device-scoped and ordered.
 - DS stores key packages and delivers messages per device
 - All MLS endpoints require the `X-Client-Ability: chat.mls.v2` header
+- KeyPackages are single-use. Consuming reads are serialized so concurrent claims cannot return the same package twice.
 
 ## Authentication
 
 All MLS endpoints require:
 - Valid authentication token (via `[Authorize]` attribute)
 - `X-Client-Ability` header with token `chat.mls.v2`
+- `X-Device-Id` for device-scoped delivery and group-state routes
+
+Commit/Welcome fanout and GroupInfo read/write additionally require an active MLS device membership for the authenticated account. This is the application access-control layer required around MLS external joins.
 
 Missing ability returns `409` with error code `e2ee.mls_ability_required`.
 
@@ -54,6 +58,8 @@ Missing ability returns `409` with error code `e2ee.mls_ability_required`.
 | POST | `/mls/groups/{groupId}/bootstrap` | Bootstrap a new MLS group |
 | POST | `/mls/groups/{groupId}/commit` | Commit group changes |
 | POST | `/mls/groups/{groupId}/reset` | Reset group (delete and recreate) |
+| PUT | `/mls/groups/{groupId}/groupinfo` | Publish GroupInfo for the current epoch |
+| GET | `/mls/groups/{groupId}/groupinfo` | Read GroupInfo for an authorized device |
 
 ### Message Distribution
 
@@ -69,7 +75,7 @@ Missing ability returns `409` with error code `e2ee.mls_ability_required`.
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/mls/envelopes/pending` | Retrieve queued messages for a device |
-| POST | `/mls/envelopes/{envelopeId}/ack` | Acknowledge and delete a message |
+| POST | `/mls/envelopes/{envelopeId}/ack` | Acknowledge a successfully applied message |
 
 ### Device Management
 
@@ -117,6 +123,21 @@ POST /mls/messages/fanout
 GET /mls/envelopes/pending?deviceId=device-uuid&take=100
 ```
 
+Envelopes are returned in device sequence order. Clients must only acknowledge a Welcome, Proposal, or Commit after OpenMLS has applied it successfully. Failed processing is intentionally redelivered.
+
+### Publish GroupInfo
+
+```json
+PUT /mls/groups/{groupId}/groupinfo
+{
+  "epoch": 4,
+  "group_info": "base64-encoded-group-info",
+  "ratchet_tree": "base64-encoded-ratchet-tree"
+}
+```
+
+The supplied epoch must equal the delivery service's current epoch. Stale clients receive `409 e2ee.mls_epoch_mismatch`; they cannot overwrite recovery state for newer members.
+
 ### Batch Check User Availability
 
 ```json
@@ -154,12 +175,13 @@ The DS handles the following envelope types:
 
 ### Creating a Group
 
-1. Client1 creates an MLS group and adds Client2
-2. Client1 gets key packages for Client2 (`GET /mls/keys/{accountId}/devices`)
-3. Client1 creates a Welcome message and fanouts to DS (`POST /mls/groups/{groupId}/welcome/fanout`)
-4. DS stores the Welcome message for Client2's devices
-5. Client2 retrieves the Welcome message (`GET /mls/envelopes/pending`)
-6. Client2 acknowledges receipt (`POST /mls/envelopes/{id}/ack`)
+1. Client1 reserves bootstrap ownership and creates the MLS group.
+2. Client1 registers its device membership through Messager.
+3. Client1 consumes one KeyPackage per target device.
+4. OpenMLS creates a pending Commit and Welcome.
+5. Client1 durably fanouts the Commit at `current_epoch + 1` and the Welcome.
+6. Only after both fanouts succeed, Client1 calls `mergePendingCommit`.
+7. Client2 processes the Welcome, registers device membership, then acknowledges the envelope.
 
 ### Sending Group Messages
 
@@ -174,6 +196,8 @@ The DS handles the following envelope types:
 - **Key Package Auto-Purge**: Key packages older than 30 days are deleted
 - **Fanout Payload Cap**: Max 1000 payloads per request
 - **Device Completeness**: All active target devices must have a payload
+- **Epoch Consistency**: chat writes and GroupInfo uploads must match the current Padlock epoch
+- **Bootstrap Idempotency**: replay never rolls an existing group back to epoch zero
 
 ## Device Revocation
 

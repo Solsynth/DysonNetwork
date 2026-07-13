@@ -439,6 +439,7 @@ public static class ServiceCollectionExtensions
             var paymentClient = ctx.ServiceProvider.GetRequiredService<DyPaymentService.DyPaymentServiceClient>();
             var surveyClient = ctx.ServiceProvider.GetRequiredService<DySurveyService.DySurveyServiceClient>();
             var ws = ctx.ServiceProvider.GetRequiredService<RemoteWebSocketService>();
+            var mlsService = ctx.ServiceProvider.GetRequiredService<RemoteMlsService>();
             var logger = ctx.ServiceProvider.GetRequiredService<ILogger<EventBus>>();
 
             if (packet.Data == null)
@@ -484,6 +485,33 @@ public static class ServiceCollectionExtensions
                 {
                     await SendErrorResponse(evt, "MLS rooms require scheme chat.mls.v2 and encryption_epoch.", ws);
                     return;
+                }
+
+                if (mlsMode)
+                {
+                    if (string.IsNullOrWhiteSpace(member.ChatRoom.MlsGroupId))
+                    {
+                        await SendErrorResponse(evt, "MLS group is not configured for this room.", ws);
+                        return;
+                    }
+
+                    try
+                    {
+                        var state = await mlsService.GetGroupStateAsync(member.ChatRoom.MlsGroupId);
+                        if (state.Epoch != requestData.EncryptionEpoch)
+                        {
+                            await SendErrorResponse(
+                                evt,
+                                $"MLS epoch mismatch. Current epoch is {state.Epoch}; message epoch is {requestData.EncryptionEpoch}.",
+                                ws);
+                            return;
+                        }
+                    }
+                    catch (RpcException ex) when (ex.StatusCode is StatusCode.NotFound or StatusCode.Unavailable)
+                    {
+                        await SendErrorResponse(evt, "MLS group state is temporarily unavailable.", ws);
+                        return;
+                    }
                 }
 
                 if (ChatMessageHelpers.LooksLikePlaintextJson(requestData.Ciphertext))

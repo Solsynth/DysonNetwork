@@ -26,6 +26,12 @@ For all chat clients (web/mobile/desktop) that send or process encrypted message
    - ciphertext required
    - `encryption_message_type` should match chat semantics (`text`, `messages.update`, `messages.delete`)
 5. Never send plaintext `content` for encrypted user messages.
+6. Treat group state as a linear epoch chain:
+   - never independently recreate an existing group ID
+   - fanout a generated Commit before merging the local pending Commit
+   - acknowledge handshake envelopes only after successful processing
+7. Publish `GroupInfo` with its exact epoch; stale uploads are rejected.
+8. Refill KeyPackages from server availability, not a lifetime local upload count.
 
 ## Endpoint updates
 
@@ -51,6 +57,9 @@ Client should treat these as operational hints and update local MLS state accord
 2. `chat.mls_payload_required`: missing MLS-required encryption fields.
 3. `e2ee.mls_ability_required`: missing ability for Pass MLS endpoints.
 4. `e2ee.legacy_endpoint_removed`: old Pass E2EE routes used.
+5. `chat.mls_epoch_mismatch`: sender must process pending Commits before retrying.
+6. `chat.mls_group_not_ready`: the bootstrap owner has not initialized the group yet.
+7. `e2ee.mls_epoch_mismatch`: stale GroupInfo upload; do not retry without advancing local state.
 
 ## Reactions and control events
 
