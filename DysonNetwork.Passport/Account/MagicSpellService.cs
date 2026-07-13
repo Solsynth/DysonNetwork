@@ -182,6 +182,12 @@ public class MagicSpellService(
         }
     }
 
+    public async Task ResendMagicSpell(SnMagicSpell spell, bool bypassVerify = true)
+    {
+        await cache.RemoveAsync(SpellNotifyCacheKeyPrefix + spell.Id);
+        await NotifyMagicSpell(spell, bypassVerify);
+    }
+
     public async Task<IReadOnlyList<string>> ApplyMagicSpell(SnMagicSpell spell)
     {
         var publishedEventTypes = new List<string>();

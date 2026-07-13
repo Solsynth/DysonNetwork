@@ -1,6 +1,7 @@
 using DysonNetwork.Padlock.Auth.OpenId;
 using DysonNetwork.Padlock.Models;
 using DysonNetwork.Padlock.Mailer;
+using DysonNetwork.Padlock.Permission;
 using DysonNetwork.Shared.Auth;
 using DysonNetwork.Shared.Cache;
 using DysonNetwork.Shared.Data;
@@ -34,7 +35,8 @@ public class AccountService(
     IHttpContextAccessor httpContextAccessor,
     ActionLogService actionLogs,
     DyMagicSpellService.DyMagicSpellServiceClient magicSpells,
-    DyProfileService.DyProfileServiceClient profiles
+    DyProfileService.DyProfileServiceClient profiles,
+    PermissionService permissionService
 )
 {
     private const string AuthFactorCachePrefix = "authfactor:";
@@ -1343,9 +1345,9 @@ public class AccountService(
         var defaultGroup = await db.PermissionGroups.FirstOrDefaultAsync(g => g.Key == "default");
         if (defaultGroup is not null)
         {
-            var memberExists = await db.PermissionGroupMembers
-                .AnyAsync(m => m.GroupId == defaultGroup.Id && m.Actor == actor);
-            if (!memberExists)
+            var member = await db.PermissionGroupMembers
+                .FirstOrDefaultAsync(m => m.GroupId == defaultGroup.Id && m.Actor == actor);
+            if (member is null)
             {
                 db.PermissionGroupMembers.Add(new SnPermissionGroupMember
                 {
@@ -1353,9 +1355,15 @@ public class AccountService(
                     Actor = actor
                 });
             }
+            else
+            {
+                member.AffectedAt = null;
+                member.ExpiredAt = null;
+            }
         }
 
         await db.SaveChangesAsync();
+        await permissionService.ClearActorCacheAsync(actor);
         return true;
     }
 

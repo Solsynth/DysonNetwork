@@ -66,7 +66,7 @@ These endpoints live in `DysonNetwork.Padlock/Permission/PermissionAdminControll
 
 Routes:
 
-- `GET /api/admin/permissions/groups?query=` lists groups with node and member counts.
+- `GET /api/admin/permissions/groups?query=&take=&offset=` lists groups with node and member counts.
 - `GET /api/admin/permissions/groups/{group_id}` returns the group, all permission nodes, and members.
 - `POST /api/admin/permissions/groups` creates a group with `{ "key": "moderators" }`.
 - `PATCH /api/admin/permissions/groups/{group_id}` changes the group key.
@@ -104,6 +104,8 @@ Membership upsert request example:
 ```
 
 Permission-group changes clear the permission cache for every affected member. The seeded `default` group cannot be renamed or deleted.
+
+The group list supports `take` (default `50`, maximum `200`) and `offset` (default `0`). It returns the total matching group count in the `X-Total` response header before pagination is applied.
 
 ### GET /api/admin/accounts
 
@@ -399,6 +401,25 @@ Behavior:
 Response:
 
 - `200 OK`
+
+### POST /api/admin/accounts/{name}/activate
+
+Forces an account into its active state.
+
+Required permission:
+
+- `accounts.manage`
+
+Behavior:
+
+- Sets `activated_at` to the current time when the account is not yet active.
+- Adds the account actor to the seeded `default` permission group. An existing expired or future-dated default membership is restored to an active membership.
+- Clears the account's permission cache so the default permissions take effect immediately.
+- This is idempotent: re-running it leaves an active account and active default-group membership intact.
+
+Response:
+
+- `200 OK` with the hydrated `SnAccount`.
 
 ### POST /api/admin/accounts/notifications
 
@@ -745,6 +766,55 @@ Notes:
 - this is a read-only view
 - unknown factor kinds from the current gRPC contract are returned as `type: "unspecified"`
 
+### Magic spell management
+
+Magic spells are one-time account action tokens. Passport owns their storage and email delivery, so these routes are available through the Passport account-admin service.
+
+Routes:
+
+- `GET /api/admin/accounts/{identifier}/spells`
+- `POST /api/admin/accounts/{identifier}/spells`
+- `POST /api/admin/accounts/{identifier}/spells/{spell_id}/resend`
+- `DELETE /api/admin/accounts/{identifier}/spells/{spell_id}`
+
+Permissions:
+
+- listing requires `accounts.view`
+- creating, resending, and deleting requires `accounts.manage`
+
+`GET /spells` returns outstanding spells for the account, newest first. The secret spell word is deliberately omitted from API responses.
+
+Create request example:
+
+```json
+{
+  "type": 0,
+  "expires_at": "2026-07-20T00:00:00Z",
+  "prevent_repeat": true,
+  "send_email": true,
+  "bypass_verify": true
+}
+```
+
+Supported type values are:
+
+- `0` `account_activation`
+- `2` `account_removal`
+- `3` `auth_password_reset`
+- `4` `contact_verification` (requires the normal spell metadata, such as `contact_id` and `contact_method`)
+
+`send_email` defaults to `true`. `bypass_verify` defaults to `true`, which permits delivery to an account's primary email even when it has not yet been verified; this is necessary for activation emails. Set it to `false` to require a verified email contact.
+
+Resend request example:
+
+```json
+{
+  "bypass_verify": true
+}
+```
+
+Resending explicitly clears the spell's five-minute delivery throttle before sending, so it triggers a new email rather than being silently skipped. `account_deactivation` spells cannot be emailed because there is no matching email template. Deleting a spell cancels it; no replacement is created.
+
 ### POST /api/admin/accounts/{identifier}/verification
 
 Sets or replaces the account profile verification mark.
@@ -921,6 +991,7 @@ Use Passport when you need to:
 - inspect current online status
 - inspect live activities
 - inspect badge counts
+- create, resend, or cancel magic spells
 
 ## Related Docs
 

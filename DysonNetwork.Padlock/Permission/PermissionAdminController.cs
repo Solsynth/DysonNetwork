@@ -61,8 +61,15 @@ public class PermissionAdminController(
 
     [HttpGet("groups")]
     [AskPermission("permissions.groups.check")]
-    public async Task<ActionResult<List<PermissionGroupSummary>>> ListGroups([FromQuery] string? query = null)
+    public async Task<ActionResult<List<PermissionGroupSummary>>> ListGroups(
+        [FromQuery] string? query = null,
+        [FromQuery] int take = 50,
+        [FromQuery] int offset = 0
+    )
     {
+        take = Math.Clamp(take, 1, 200);
+        offset = Math.Max(offset, 0);
+
         var groups = db.PermissionGroups.AsNoTracking();
         if (!string.IsNullOrWhiteSpace(query))
         {
@@ -70,8 +77,13 @@ public class PermissionAdminController(
             groups = groups.Where(g => EF.Functions.ILike(g.Key, $"%{probe}%"));
         }
 
+        var total = await groups.CountAsync();
+        Response.Headers.Append("X-Total", total.ToString());
+
         return Ok(await groups
             .OrderBy(g => g.Key)
+            .Skip(offset)
+            .Take(take)
             .Select(g => new PermissionGroupSummary
             {
                 Id = g.Id,

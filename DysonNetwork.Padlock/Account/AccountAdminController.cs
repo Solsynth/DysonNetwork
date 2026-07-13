@@ -1183,6 +1183,22 @@ public class AccountAdminController(
         return Ok();
     }
 
+    [HttpPost("{name}/activate")]
+    [AskPermission(PermissionKeys.AccountsManage)]
+    public async Task<ActionResult<SnAccount>> ActivateAccount(string name)
+    {
+        var account = await LookupAccountAsync(name);
+        if (account is null)
+            return NotFound();
+
+        await accounts.ActivateAccountAndGrantDefaultPermissions(
+            account.Id,
+            SystemClock.Instance.GetCurrentInstant()
+        );
+
+        return Ok((await HydrateAccountsAsync([account])).First());
+    }
+
     [HttpDelete("{name}/punishments/{punishmentId:guid}")]
     [AskPermission(PermissionKeys.PunishmentsDelete)]
     public async Task<ActionResult> DeletePunishment(string name, Guid punishmentId)
