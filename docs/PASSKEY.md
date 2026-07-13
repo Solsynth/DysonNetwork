@@ -1,392 +1,200 @@
-# Passkey Authentication Factor
+# Passkeys
 
-This document describes the passkey authentication factor implementation in Padlock.
+Padlock supports WebAuthn passkeys as a high-trust authentication method. An account has one `Passkey` auth factor that controls whether passkey login is enabled, and zero or more separately stored passkey credentials.
 
-## Overview
+All API JSON uses `snake_case`. In production, Padlock routes are prefixed with `/padlock`; for example, `/api/auth/passkey/start` is exposed as `/padlock/auth/passkey/start`.
 
-Passkeys provide a secure, passwordless authentication method using WebAuthn (FIDO2). Users can register their device's platform authenticator (Touch ID, Face ID, Windows Hello, etc.) and use it to authenticate without needing codes or passwords.
+## Model
 
-**Key characteristics:**
-- Trust level: `4` (highest)
-- Server-side ECDSA P-256 signature verification
-- Full credential data stored in Padlock
-- Supports cross-device passkeys via hybrid authentication
+### Passkey auth factor
 
-## Data Model
+`SnAccountAuthFactor` with `type: Passkey` (`7`) is the account-level enable flag.
 
-### `account_auth_factors`
+| Property | Value |
+|---|---|
+| Trust level | `4` |
+| Secret | None |
+| Enables | All passkey credentials owned by the account |
+| Disable | Prevents every passkey credential from being used |
+| Delete | Removes the factor and every credential |
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | `uuid` | Primary key |
-| `account_id` | `uuid` | Owner account ID |
-| `type` | `enum` | Factor type (`Passkey`) |
-| `secret` | `jsonb` | Full passkey credential (credentialId, publicKeyX, publicKeyY) |
-| `config` | `jsonb` | Additional config (`verified` flag, authenticator info) |
-| `trustworthy` | `int` | Trust level (4) |
-| `enabled_at` | `timestamptz` | When factor was enabled |
-| `expired_at` | `timestamptz` | Not used for passkeys |
-| `created_at` | `timestamptz` | Record creation time |
+Create it through the normal factor endpoint after enabling a recovery code:
 
-### Secret Format (stored as JSON)
+```http
+POST /api/factors
+Content-Type: application/json
+
+{ "type": 7, "secret": null }
+```
+
+The factor is enabled when created. It can later be disabled or re-enabled with the standard factor endpoints.
+
+### Passkey credential
+
+`SnAccountPasskey` is Padlock-local (`DysonNetwork.Padlock/Models/AccountPasskey.cs`) and is intentionally not part of `DysonNetwork.Shared`.
+
+| Field | Returned to client | Description |
+|---|---:|---|
+| `id` | Yes | Credential record ID |
+| `label` | Yes | User-editable name, such as `MacBook Touch ID` |
+| `account_id` | Yes | Owning account |
+| `credential_id` | No | WebAuthn credential ID used to find the public key |
+| `credential` | No | Serialized public key material and registration counter |
+| `created_at`, `updated_at` | Yes | Audit timestamps |
+
+`credential_id` has a unique partial index for active records. A deleted credential may be registered again.
+
+## Managing credentials
+
+These endpoints require an authenticated interactive session. The passkey factor must be enabled to register a credential.
+
+### Start registration
+
+```http
+POST /api/factors/passkey/start
+Content-Type: application/json
+```
 
 ```json
 {
-  "credentialId": "base64-encoded-credential-id",
-  "publicKeyX": "base64-encoded-x-coordinate",
-  "publicKeyY": "base64-encoded-y-coordinate",
-  "counter": 12345
+  "device_id": "device-identifier",
+  "device_name": "MacBook Pro",
+  "rp_id": "example.com",
+  "rp_name": "Solar Network"
 }
 ```
 
-### Config Format
+The response contains the WebAuthn creation options, including `challenge`, `rp_id`, `user_id`, `user_name`, `display_name`, `pub_key_cred_params`, and `authenticator_selection`.
+
+### Complete registration
+
+```http
+POST /api/factors/passkey/complete
+Content-Type: application/json
+```
 
 ```json
 {
-  "verified": true,
-  "deviceName": "MacBook Pro",
-  "platform": "macOS"
+  "device_id": "device-identifier",
+  "label": "MacBook Touch ID",
+  "client_data_json": "base64url-or-JSON-client-data",
+  "attestation_object": "base64url-attestation-object"
 }
 ```
 
-## Auth Factor Types
+The response is the new credential record. Registering another credential repeats these two calls; it does not create another auth factor.
 
-Defined in `DysonNetwork.Shared/Models/Account.cs`:
+### List, rename, and remove credentials
 
-```csharp
-public enum AccountAuthFactorType
-{
-    Password,
-    EmailCode,
-    InAppCode,
-    TimedCode,
-    PinCode,
-    RecoveryCode,
-    NfcToken,
-    Passkey,
-}
+```http
+GET    /api/factors/passkey
+PATCH  /api/factors/passkey/{passkey_id}
+DELETE /api/factors/passkey/{passkey_id}
 ```
 
-## Trust Levels
+Rename request:
 
-| Factor | Trust Level |
-|--------|-------------|
-| RecoveryCode | 0 |
-| Password | 1 |
-| PinCode | 1 |
-| NfcToken | 1 |
-| EmailCode | 2 |
-| InAppCode | 2 |
-| TimedCode | 3 |
-| **Passkey** | **4** |
-
-Higher trust levels contribute more steps to the challenge flow. Passkey has the highest trust level, making it suitable for confirming dangerous operations.
-
-## Registration Flow
-
-The passkey registration uses a two-step ceremony following the WebAuthn specification:
-
-### Step 1: Start Registration
-
-Generate a registration challenge and options.
-
-**Endpoint:** `POST /api/factors/passkey/start`
-
-**Authentication:** Required (interactive session)
-
-**Request:**
 ```json
-{
-  "deviceId": "device-identifier",
-  "deviceName": "MacBook Pro",
-  "rpId": "example.com",
-  "rpName": "DysonNetwork"
-}
+{ "label": "Phone passkey" }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `deviceId` | `string` | Yes | Unique device identifier |
-| `deviceName` | `string` | No | Human-readable device name |
-| `rpId` | `string` | Yes | Relying Party ID (domain) |
-| `rpName` | `string` | Yes | Relying Party name |
+Removing one credential does not disable the passkey factor or affect the account's other credentials.
 
-**Response (200):**
-```json
-{
-  "challenge": "dG9rZW4gdGhhdCBpcyBhdCBsZWFzdDI1NiBiaXRz",
-  "rpId": "example.com",
-  "rpName": "DysonNetwork",
-  "userId": "11111111-2222-3333-4444-555555555555",
-  "userName": "johndoe",
-  "displayName": "John Doe",
-  "pubKeyCredParams": [{"type": "public-key", "alg": -7}],
-  "timeout": 60000,
-  "authenticatorSelection": {
-    "authenticatorAttachment": "platform",
-    "residentKey": "preferred",
-    "userVerification": "preferred"
-  }
-}
+## Login flows
+
+Both flows require the account's passkey factor to be enabled and use the credential selected by its WebAuthn `credential_id`.
+
+### Account-known challenge login
+
+Use this after the caller has already created a normal auth challenge for a username.
+
+```http
+POST /api/auth/challenge/{challenge_id}/passkey/start
+POST /api/auth/challenge/{challenge_id}/passkey/complete
 ```
 
-### Step 2: Complete Registration
-
-After the client creates the credential using the WebAuthn API, send the attestation to complete registration.
-
-**Endpoint:** `POST /api/factors/passkey/complete`
-
-**Authentication:** Required (interactive session)
-
-**Request:**
-```json
-{
-  "deviceId": "device-identifier",
-  "clientDataJson": "{\"type\":\"webauthn.create\",\"challenge\":\"dG9rZW4...\",\"origin\":\"https://example.com\"}",
-  "attestationObject": "base64-encoded-attestation-object",
-  "deviceName": "MacBook Pro"
-}
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `deviceId` | `string` | Yes | Must match the deviceId from step 1 |
-| `clientDataJson` | `string` | Yes | JSON string of client data |
-| `attestationObject` | `string` | Yes | Base64-encoded CBOR attestation object |
-| `deviceName` | `string` | No | Human-readable device name |
-
-**Response (200):**
-```json
-{
-  "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-  "accountId": "11111111-2222-3333-4444-555555555555",
-  "type": "Passkey",
-  "trustworthy": 4,
-  "enabledAt": "2026-04-05T10:00:00Z",
-  "expiredAt": null
-}
-```
-
-### Client-Side Registration Example
-
-```javascript
-const credential = await navigator.credentials.create({
-  publicKey: {
-    rp: {
-      id: response.rpId,
-      name: response.rpName
-    },
-    user: {
-      id: Uint8Array.from(atob(response.userId), c => c.charCodeAt(0)),
-      name: response.userName,
-      displayName: response.displayName
-    },
-    challenge: Uint8Array.from(atob(response.challenge), c => c.charCodeAt(0)),
-    pubKeyCredParams: [{ type: "public-key", alg: -7 }],
-    timeout: 60000,
-    authenticatorSelection: {
-      authenticatorAttachment: "platform",
-      residentKey: "preferred",
-      userVerification: "preferred"
-    }
-  }
-});
-
-// Send to /factors/passkey/complete:
-// - attestationObject: base64 encode of credential.response.attestationObject (Uint8Array)
-// - clientDataJson: new TextDecoder().decode(credential.response.clientDataJSON)
-// - transports: credential.getTransports() (returns ["usb", "nfc", "ble", "internal"])
-```
-
-### Attestation Object Structure
-
-The `attestationObject` is a CBOR-encoded byte array containing:
-
-```
-{
-  "fmt": "packed" | "fido-u2f",     // Attestation format
-  "attStmt": {                        // Attestation statement (format varies)
-    "alg": -7,                       // Algorithm (ES256)
-    "sig": ArrayBuffer               // Signature
-  },
-  "authData": ArrayBuffer             // Authenticator data (RP ID hash, flags, counter, credential public key)
-}
-```
-
-**Server processing:**
-1. Decode CBOR to extract `fmt`, `attStmt`, and `authData`
-2. Verify attestation signature based on format
-3. Extract credential ID and public key from `authData`
-4. Store credential for future authentication assertions
-
-## Verification Flow (Assertion)
-
-### Client-Side Assertion Generation
-
-When authenticating, the client uses the WebAuthn API to generate an assertion:
-
-```javascript
-const credential = await navigator.credentials.get({
-  publicKey: {
-    challenge: serverChallenge,
-    rpId: "example.com",
-    userVerification: "preferred"
-  }
-});
-
-// Assertion contains:
-// - credential.rawId (the credential ID)
-// - response.clientDataJSON (JSON string of client data)
-// - response.authenticatorData (bytes)
-// - response.signature (bytes)
-```
-
-### Verification Request
-
-**Endpoint:** Challenge verification during login flow
-
-The assertion data is passed as JSON to the verification endpoint:
+The start response contains `allow_credentials` for every active credential on the account. The completion request has no `factor_id`:
 
 ```json
 {
-  "credentialId": "ZLhsEWvakECWPNZBNkOtHGVEEBkAAAAA",
-  "clientDataJson": "{\"type\":\"webauthn.get\",\"challenge\":\"dG9rZW4...\",\"origin\":\"https://example.com\"}",
-  "authenticatorData": "base64-encoded-authenticator-data",
-  "signature": "base64-encoded-ecdsa-signature"
+  "credential_id": "base64url-credential-id",
+  "client_data_json": "base64url-or-JSON-client-data",
+  "authenticator_data": "base64url-authenticator-data",
+  "signature": "base64url-signature",
+  "user_handle": null
 }
 ```
 
-### Server-Side Verification
+The passkey factor is marked as used for that challenge, so it cannot satisfy multiple steps of the same challenge.
 
-The `VerifyPasskey` method in `AccountService.cs` performs:
+### Discoverable login without a username
 
-1. **Credential ID matching** - Ensures the presented credential matches stored public key
-2. **User presence check** - Verifies `UP` flag is set in authenticator data
-3. **Signature verification** - ECDSA P-256 verification using stored public key and constructed signed data
+For a resident/discoverable passkey, create a login challenge without an account name:
 
-**Signed data construction (during authentication):**
-```
-32 bytes | RpIdHash
-1 byte  | Flags (user present, etc.)
-4 bytes | Counter (big-endian)
-32 bytes | SHA256(clientDataJson)
+```http
+POST /api/auth/passkey/start
+Content-Type: application/json
 ```
 
-### AuthenticatorData Structure
-
-| Offset | Length | Field |
-|--------|--------|-------|
-| 0 | 32 | RP ID Hash (SHA-256) |
-| 32 | 1 | Flags byte |
-| 33 | 4 | Sign Counter (big-endian uint32) |
-| 37+ | Variable | Attested Credential Data (optional, only during registration) |
-
-### Flags Byte
-
-| Bit | Name | Description |
-|-----|------|-------------|
-| 0 | UP | User Present |
-| 1 | UV | User Verified |
-| 2 | BE | Backup Eligibility |
-| 3 | BS | Backup State |
-| 4 | AT | Attested Credential Data Present (only in registration) |
-| 5 | ED | Extension Data Present |
-| 6 | N/A | Reserved |
-| 7 | N/A | Reserved |
-
-## Endpoints
-
-### Start Passkey Registration
-
-**Endpoint:** `POST /api/factors/passkey/start`
-
-### Complete Passkey Registration
-
-**Endpoint:** `POST /api/factors/passkey/complete`
-
-### List Auth Factors
-
-**Endpoint:** `GET /api/factors`
-
-**Authentication:** Required (interactive session)
-
-**Response (200):**
 ```json
-[
-  {
-    "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-    "accountId": "11111111-2222-3333-4444-555555555555",
-    "type": "Passkey",
-    "trustworthy": 4,
-    "enabledAt": "2026-04-05T10:00:00Z",
-    "expiredAt": null,
-    "config": {
-      "verified": false
-    }
-  }
-]
+{
+  "device_id": "device-identifier",
+  "device_name": "Chrome on macOS",
+  "platform": 1,
+  "audiences": [],
+  "scopes": []
+}
 ```
 
-Note: The `secret` field is not returned in list responses for security.
+The response includes `auth_challenge_id`, `challenge`, `rp_id`, `timeout`, and an empty `allow_credentials` list. Pass an empty allow-credentials list to WebAuthn so the authenticator can choose a discoverable credential.
 
-### Other Factor Endpoints
+Complete it with the assertion:
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/factors` | GET | List all factors |
-| `/api/factors/{id}` | DELETE | Delete a factor |
-| `/api/factors/{id}/enable` | POST | Enable a factor |
-| `/api/factors/{id}/disable` | POST | Disable a factor |
+```http
+POST /api/auth/passkey/{auth_challenge_id}/complete
+Content-Type: application/json
+```
 
-## Implementation References
+```json
+{
+  "credential_id": "base64url-credential-id",
+  "client_data_json": "base64url-or-JSON-client-data",
+  "authenticator_data": "base64url-authenticator-data",
+  "signature": "base64url-signature",
+  "user_handle": null
+}
+```
 
-- Model: `DysonNetwork.Shared/Models/Account.cs`
-- Service: `DysonNetwork.Padlock/Account/AccountService.cs`
-- Controller: `DysonNetwork.Padlock/Account/AccountSecurityController.cs`
-- gRPC Mapping: `DysonNetwork.Padlock/Account/AccountServiceGrpc.cs`
-- Proto: `DysonNetwork.Shared/Proto/Account.cs`
+Padlock resolves the credential ID to its account, verifies the assertion, completes the auth challenge, and returns it. Exchange the challenge ID through the normal authorization-code token flow. Discoverable challenges expire after five minutes.
 
-## Security Considerations
+## Verification
 
-### Signature Verification
+Padlock verifies:
 
-Passkey verification uses ECDSA with P-256 curve (secp256r1). The signature is verified against:
-- The stored public key (X and Y coordinates)
-- The authenticator data
-- The client data JSON
+1. The assertion credential ID matches the selected credential record.
+2. The authenticator data has the User Present flag.
+3. The ECDSA P-256 signature validates against the stored public key.
+4. `client_data_json.type` is `webauthn.get` and its challenge matches the cached one-time assertion challenge.
 
-### User Presence
+Registration verifies `webauthn.create`, the registration challenge, and the supported attestation statement before persisting a credential.
 
-The verification requires the `UserPresent` flag to be set, ensuring the user physically interacted with the authenticator.
+## Migration
 
-### Credential ID Matching
+Migration `20260713140242_RefactorPasskeys` creates `account_passkeys`, copies legacy passkey-factor secrets into labeled credential rows, and retains one passkey factor per account.
 
-Before signature verification, the presented credential ID is matched against the stored credential ID to prevent using a different credential with the same public key.
+The credential index is partial (`WHERE deleted_at IS NULL`). Its data-copy SQL must therefore use:
 
-### Replay Protection
+```sql
+ON CONFLICT (credential_id) WHERE deleted_at IS NULL DO NOTHING;
+```
 
-The authenticator counter is stored and can be used for replay detection. If a counter value lower than the stored value is presented, the verification should fail.
+Do not use `ON CONFLICT (credential_id) DO NOTHING`; PostgreSQL cannot infer the partial unique index and returns `42P10`.
 
-## Future Extensions
+## Implementation references
 
-### Counter Rollback Detection
-
-Currently, counter values are stored but not enforced. Future versions could reject assertions with counters lower than stored values.
-
-### Credential ID Rotation
-
-Support for credential ID updates when users re-register the same authenticator.
-
-### Hybrid Transport Support
-
-For cross-device passkeys (e.g., phone as authenticator for laptop sign-in), implement hybrid authentication with:
-- `PRF` extension for key derivation
-- Large blob storage for credential state
-- Store and use `transports` field from registration (`["usb", "nfc", "ble", "internal"]`)
-
-### Authenticator Metadata
-
-Store and verify authenticator metadata:
-- AAGUID to identify authenticator type
-- Device name/platform
-- Backup eligibility status
+- `DysonNetwork.Padlock/Account/AccountSecurityController.cs`
+- `DysonNetwork.Padlock/Account/AccountService.cs`
+- `DysonNetwork.Padlock/Auth/AuthController.cs`
+- `DysonNetwork.Padlock/Models/AccountPasskey.cs`
+- `DysonNetwork.Padlock/Migrations/20260713140242_RefactorPasskeys.cs`
+- Island client: `packages/solar_network_sdk` and `lib/auth/login_content.dart`

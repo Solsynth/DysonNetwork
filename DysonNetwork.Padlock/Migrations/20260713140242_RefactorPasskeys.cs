@@ -57,7 +57,7 @@ namespace DysonNetwork.Padlock.Migrations
                 WHERE type = 7
                   AND secret IS NOT NULL
                   AND COALESCE(secret::jsonb ->> 'CredentialId', secret::jsonb ->> 'credentialId') IS NOT NULL
-                ON CONFLICT (credential_id) DO NOTHING;
+                ON CONFLICT (credential_id) WHERE deleted_at IS NULL DO NOTHING;
                 """);
 
             migrationBuilder.Sql("""
