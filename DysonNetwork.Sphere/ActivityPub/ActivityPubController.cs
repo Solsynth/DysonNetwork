@@ -68,7 +68,20 @@ public class ActivityPubController : ControllerBase
 
         var actor = new ActivityPubActor
         {
-            Context = ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
+            Context =
+            [
+                "https://www.w3.org/ns/activitystreams",
+                "https://w3id.org/security/v1",
+                new Dictionary<string, object>
+                {
+                    ["toot"] = "http://joinmastodon.org/ns#",
+                    ["featured"] = new Dictionary<string, object>
+                    {
+                        ["@id"] = "toot:featured",
+                        ["@type"] = "@id",
+                    },
+                },
+            ],
             Id = actorUrl,
             Type = "Person",
             Name = publisher.Nick,
@@ -76,6 +89,7 @@ public class ActivityPubController : ControllerBase
             Summary = publisher.Bio,
             Inbox = inboxUrl,
             Outbox = outboxUrl,
+            Featured = $"{actorUrl}/featured",
             Followers = followersUrl,
             Following = followingUrl,
             Published = publisher.CreatedAt,
@@ -161,7 +175,7 @@ public class ActivityPubController : ControllerBase
         };
     }
 
-    [HttpGet("objects/{id:guid}")]
+    [HttpGet("/activitypub/objects/{id:guid}")]
     [Produces("application/activity+json")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetObject(Guid id)
@@ -201,8 +215,11 @@ public class ActivityPubController : ControllerBase
         Description = "Returns the actor's outbox collection containing their public activities (posts and boosts)",
         OperationId = "GetActorOutbox"
     )]
-    public async Task<IActionResult> GetOutbox(string username, [FromQuery] int? page)
+    public async Task<IActionResult> GetOutbox(string username, [FromQuery] string? page)
     {
+        if (!TryParseCollectionPage(page, out var pageNumber))
+            return BadRequest(new { error = "Page must be a positive integer or 'true'." });
+
         var publisher = await _db.Publishers.FirstOrDefaultAsync(p => p.Name.ToLower() == username.ToLowerInvariant());
 
         if (publisher == null)
@@ -243,10 +260,10 @@ public class ActivityPubController : ControllerBase
         }
         var totalItems = posts.Count + (boosts?.Count ?? 0);
 
-        if (page.HasValue)
+        if (pageNumber.HasValue)
         {
             const int pageSize = 20;
-            var skip = (page.Value - 1) * pageSize;
+            var skip = (pageNumber.Value - 1) * pageSize;
 
             var createActivities = posts
                 .Select(post => new OutboxItem
@@ -323,13 +340,19 @@ public class ActivityPubController : ControllerBase
             var collectionPage = new ActivityPubCollectionPage
             {
                 Context = ["https://www.w3.org/ns/activitystreams"],
-                Id = $"{outboxUrl}?page={page.Value}",
+                Id = $"{outboxUrl}?page={pageNumber.Value}",
                 Type = "OrderedCollectionPage",
                 TotalItems = totalItems,
                 PartOf = outboxUrl,
                 OrderedItems = items,
-                Next = skip + pageSize < totalItems ? $"{outboxUrl}?page={page.Value + 1}" : null,
-                Prev = page.Value > 1 ? $"{outboxUrl}?page={page.Value - 1}" : null,
+                Next =
+                    skip + pageSize < totalItems
+                        ? $"{outboxUrl}?page={pageNumber.Value + 1}"
+                        : null,
+                Prev =
+                    pageNumber.Value > 1
+                        ? $"{outboxUrl}?page={pageNumber.Value - 1}"
+                        : null,
             };
 
             return Ok(collectionPage);
@@ -542,11 +565,16 @@ public class ActivityPubController : ControllerBase
             p.PublisherId == publisher.Id
             && p.PinMode == PostPinMode.PublisherPage
             && p.DraftedAt == null
+            && p.Visibility == PostVisibility.Public
         );
 
         var featuredRecordsQuery = _db
             .PostFeaturedRecords.Include(r => r.Post)
-            .Where(r => r.Post.PublisherId == publisher.Id && r.Post.DraftedAt == null)
+            .Where(r =>
+                r.Post.PublisherId == publisher.Id
+                && r.Post.DraftedAt == null
+                && r.Post.Visibility == PostVisibility.Public
+            )
             .OrderByDescending(r => r.FeaturedAt)
             .Take(10);
 
@@ -572,13 +600,9 @@ public class ActivityPubController : ControllerBase
 
             var postsPage = allFeaturedPosts.Skip(skip).Take(pageSize).ToList();
 
-            var items = new List<object>();
-            foreach (var post in postsPage)
-            {
-                var postObject = await _objFactory.CreatePostObject(post, actorUrl);
-                postObject["url"] = $"https://{Domain}/posts/{post.Id}";
-                items.Add(postObject);
-            }
+            var items = postsPage
+                .Select(post => (object)$"https://{Domain}/activitypub/objects/{post.Id}")
+                .ToList();
 
             var collectionPage = new ActivityPubCollectionPage
             {
@@ -596,13 +620,9 @@ public class ActivityPubController : ControllerBase
         }
         else
         {
-            var items = new List<object>();
-            foreach (var post in allFeaturedPosts)
-            {
-                var postObject = await _objFactory.CreatePostObject(post, actorUrl);
-                postObject["url"] = $"https://{Domain}/posts/{post.Id}";
-                items.Add(postObject);
-            }
+            var items = allFeaturedPosts
+                .Select(post => (object)$"https://{Domain}/activitypub/objects/{post.Id}")
+                .ToList();
 
             var collection = new ActivityPubCollection
             {
@@ -610,7 +630,7 @@ public class ActivityPubController : ControllerBase
                 Id = featuredUrl,
                 Type = "OrderedCollection",
                 TotalItems = totalItems,
-                Items = items.Cast<object>().ToList(),
+                OrderedItems = items,
             };
 
             return Ok(collection);
@@ -631,6 +651,30 @@ public class ActivityPubController : ControllerBase
             var s when s.StartsWith("application/ld+json;") && s.Contains("profile") => true,
             _ => false,
         };
+    }
+
+    private static bool TryParseCollectionPage(string? page, out int? pageNumber)
+    {
+        if (page is null)
+        {
+            pageNumber = null;
+            return true;
+        }
+
+        if (page.Equals("true", StringComparison.OrdinalIgnoreCase))
+        {
+            pageNumber = 1;
+            return true;
+        }
+
+        if (int.TryParse(page, out var parsed) && parsed > 0)
+        {
+            pageNumber = parsed;
+            return true;
+        }
+
+        pageNumber = null;
+        return false;
     }
 }
 
@@ -659,6 +703,9 @@ public class ActivityPubActor
 
     [JsonPropertyName("outbox")]
     public string? Outbox { get; set; }
+
+    [JsonPropertyName("featured")]
+    public string? Featured { get; set; }
 
     [JsonPropertyName("followers")]
     public string? Followers { get; set; }
@@ -723,8 +770,8 @@ public class ActivityPubCollection
     [JsonPropertyName("first")]
     public string? First { get; set; }
 
-    [JsonPropertyName("items")]
-    public List<object>? Items { get; set; }
+    [JsonPropertyName("orderedItems")]
+    public List<object>? OrderedItems { get; set; }
 }
 
 public class ActivityPubCollectionPage
