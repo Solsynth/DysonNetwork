@@ -187,7 +187,13 @@ public class ActivityPubController : ControllerBase
 
         var posts = await _db
             .Posts.Include(p => p.Actor)
-            .Where(p => p.PublisherId == publisher.Id && p.Visibility == PostVisibility.Public)
+            .Include(p => p.Tags)
+            .Include(p => p.Attachments)
+            .Where(p =>
+                p.PublisherId == publisher.Id
+                && p.DraftedAt == null
+                && p.Visibility == PostVisibility.Public
+            )
             .ToListAsync();
 
         List<SnBoost>? boosts = null;
@@ -196,6 +202,10 @@ public class ActivityPubController : ControllerBase
             boosts = await _db
                 .Boosts.Include(b => b.Post)
                 .ThenInclude(p => p.Actor)
+                .Include(b => b.Post)
+                .ThenInclude(p => p.Tags)
+                .Include(b => b.Post)
+                .ThenInclude(p => p.Attachments)
                 .Where(b => b.ActorId == actor.Id)
                 .Where(b => b.Post.DraftedAt == null)
                 .Where(b => b.Post.Visibility == PostVisibility.Public)
@@ -276,7 +286,7 @@ public class ActivityPubController : ControllerBase
                     ["published"] = item.Published.ToDateTimeOffset(),
                     ["to"] = new[] { ActivityRenderer.PublicTo },
                     ["cc"] = new[] { $"{actorUrl}/followers" },
-                    ["@object"] = postObject,
+                    ["object"] = postObject,
                 });
             }
 
@@ -725,4 +735,3 @@ public class OutboxItem
     public Guid? BoostId { get; set; }
     public Instant? BoostedAt { get; set; }
 }
-
