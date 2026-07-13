@@ -33,7 +33,6 @@ public class PublisherService(
     ILocalizationService localization,
     RemoteAccountService remoteAccounts,
     RemoteRealmService remoteRealms,
-    IActorDiscoveryService discoveryService,
     IConfiguration configuration,
     ILogger<PublisherService> logger,
     RemoteMerchantService merchantRpc
@@ -1225,9 +1224,32 @@ public class PublisherService(
 
         var actorUrl = $"https://{Domain}/activitypub/actors/{publisher.Name}";
 
-        var actor = await discoveryService.GetOrCreateActorAsync(actorUrl, publisher.Name, instance.Id);
-        if (actor is null)
-            throw new InvalidOperationException($"Failed to get or create actor for publisher {publisher.Name}");
+        var actor = new SnFediverseActor
+        {
+            Uri = actorUrl,
+            Username = publisher.Name,
+            InstanceId = instance.Id,
+        };
+
+        db.FediverseActors.Add(actor);
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+        {
+            actor = await db.FediverseActors
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(a => a.Uri == actorUrl)
+                ?? throw new InvalidOperationException($"Failed to get or create actor for publisher {publisher.Name}");
+
+            if (actor.DeletedAt != null)
+            {
+                actor.DeletedAt = null;
+                await db.SaveChangesAsync();
+            }
+        }
 
         actor.Username = publisher.Name;
         actor.DisplayName = publisher.Nick;

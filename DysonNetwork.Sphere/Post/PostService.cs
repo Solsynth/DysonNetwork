@@ -904,7 +904,14 @@ public partial class PostService(
         Guid? excludeAccountId = null
     )
     {
-        var subscriptions = await db.PostSubscriptions
+        using var scope = factory.CreateScope();
+        var scopedDb = scope.ServiceProvider.GetRequiredService<AppDatabase>();
+        var scopedAccounts = scope.ServiceProvider.GetRequiredService<
+            DyProfileService.DyProfileServiceClient
+        >();
+        var ring = scope.ServiceProvider.GetRequiredService<DyRingService.DyRingServiceClient>();
+
+        var subscriptions = await scopedDb.PostSubscriptions
             .Where(s => s.PostId == post.Id)
             .ToListAsync();
 
@@ -917,12 +924,11 @@ public partial class PostService(
 
         var queryRequest = new DyGetAccountBatchRequest();
         queryRequest.Id.AddRange(subscriptions.Select(s => s.AccountId.ToString()).Distinct());
-        var queryResponse = await accounts.GetAccountBatchAsync(queryRequest);
+        var queryResponse = await scopedAccounts.GetAccountBatchAsync(queryRequest);
 
         // Filter out blocked and muted accounts
         if (post.Publisher?.AccountId.HasValue == true)
         {
-            using var scope = serviceProvider.CreateScope();
             var remoteAccounts = scope.ServiceProvider.GetRequiredService<RemoteAccountService>();
             var blockedIds = await remoteAccounts.ListAllBlockedAccountIds(post.Publisher.AccountId.Value);
             var mutedIds = await remoteAccounts.ListMutedAccountIds(post.Publisher.AccountId.Value);
@@ -940,15 +946,13 @@ public partial class PostService(
             if (account is null)
                 continue;
 
-            await serviceProvider
-                .GetRequiredService<DyRingService.DyRingServiceClient>()
-                .SendPushNotificationToUserAsync(
-                    new DySendPushNotificationToUserRequest
-                    {
-                        UserId = account.Id,
-                        Notification = notificationFactory(account),
-                    }
-                );
+            await ring.SendPushNotificationToUserAsync(
+                new DySendPushNotificationToUserRequest
+                {
+                    UserId = account.Id,
+                    Notification = notificationFactory(account),
+                }
+            );
         }
     }
 
