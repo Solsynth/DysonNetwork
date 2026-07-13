@@ -22,6 +22,7 @@ public class AppDatabase(
     public DbSet<SnAccountConnection> AccountConnections { get; set; } = null!;
     public DbSet<SnAccountContact> AccountContacts { get; set; } = null!;
     public DbSet<SnAccountAuthFactor> AccountAuthFactors { get; set; } = null!;
+    public DbSet<SnAccountPasskey> AccountPasskeys { get; set; } = null!;
     
     public DbSet<SnAccountPunishment> Punishments { get; set; } = null!;
 
@@ -115,6 +116,18 @@ public class AppDatabase(
             .HasOne(a => a.Account)
             .WithMany()
             .HasForeignKey(a => a.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SnAccountPasskey>()
+            .HasIndex(p => p.CredentialId)
+            .IsUnique()
+            .HasFilter("deleted_at IS NULL");
+        modelBuilder.Entity<SnAccountPasskey>()
+            .HasIndex(p => p.AccountId);
+        modelBuilder.Entity<SnAccountPasskey>()
+            .HasOne(p => p.Account)
+            .WithMany()
+            .HasForeignKey(p => p.AccountId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<SnAuthClient>()

@@ -17,8 +17,7 @@ public class AccountSecurityController(
     AppDatabase db,
     AccountService accounts,
     Auth.AuthService auth,
-    DyCustomAppService.DyCustomAppServiceClient customApps,
-    ILogger<AccountSecurityController> logger
+    DyCustomAppService.DyCustomAppServiceClient customApps
 ) : ControllerBase
 {
     public record AuthorizedAppResponse(
@@ -155,10 +154,10 @@ public class AccountSecurityController(
                     traceId: HttpContext.TraceIdentifier
                 )
             );
-        if (await accounts.CheckAuthFactorExists(currentUser, AccountAuthFactorType.Passkey))
+        if (!await accounts.CheckAuthFactorEnabled(currentUser, AccountAuthFactorType.Passkey))
             return BadRequest(
                 ApiError.Validation(
-                    new Dictionary<string, string[]> { ["factor"] = ["Passkey already exists."] },
+                    new Dictionary<string, string[]> { ["factor"] = ["Passkey factor must be enabled before registering passkeys."] },
                     traceId: HttpContext.TraceIdentifier
                 )
             );
@@ -188,16 +187,18 @@ public class AccountSecurityController(
         public string DeviceId { get; set; } = null!;
         public string ClientDataJson { get; set; } = null!;
         public string AttestationObject { get; set; } = null!;
-        public string? DeviceName { get; set; }
+        public string Label { get; set; } = null!;
     }
 
     [HttpPost("factors/passkey/complete")]
-    public async Task<ActionResult<SnAccountAuthFactor>> CompletePasskeyRegistration(
+    public async Task<ActionResult<SnAccountPasskey>> CompletePasskeyRegistration(
         [FromBody] PasskeyRegistrationCompleteRequest request
     )
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
+        if (!await accounts.CheckAuthFactorEnabled(currentUser, AccountAuthFactorType.Passkey))
+            return BadRequest("Passkey factor is not enabled.");
 
         var credential = await accounts.CompletePasskeyRegistrationAsync(
             currentUser,
@@ -209,21 +210,71 @@ public class AccountSecurityController(
         if (credential == null)
             return BadRequest("Passkey registration failed.");
 
-        var credentialJson = System.Text.Json.JsonSerializer.Serialize(credential);
-        var factor = await accounts.CreateAuthFactor(
-            currentUser,
-            AccountAuthFactorType.Passkey,
-            credentialJson
-        );
-        if (factor == null)
+        if (await db.AccountPasskeys.AnyAsync(p => p.CredentialId == credential.CredentialId))
+            return BadRequest("Passkey is already registered.");
+
+        var passkey = new SnAccountPasskey
         {
-            logger.LogWarning(
-                "Passkey registration completed but factor creation failed for account {AccountId} and device {DeviceId}",
-                currentUser.Id,
-                request.DeviceId
-            );
-        }
-        return factor is null ? BadRequest("Failed to create passkey factor.") : Ok(factor);
+            AccountId = currentUser.Id,
+            Label = request.Label,
+            CredentialId = credential.CredentialId,
+            Credential = System.Text.Json.JsonSerializer.Serialize(credential),
+        };
+        db.AccountPasskeys.Add(passkey);
+        await db.SaveChangesAsync();
+        return Ok(passkey);
+    }
+
+    [HttpGet("factors/passkey")]
+    public async Task<ActionResult<List<SnAccountPasskey>>> GetPasskeys()
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+
+        return Ok(await db.AccountPasskeys
+            .Where(p => p.AccountId == currentUser.Id)
+            .OrderBy(p => p.CreatedAt)
+            .ToListAsync());
+    }
+
+    [HttpDelete("factors/passkey/{id:guid}")]
+    public async Task<ActionResult> DeletePasskey(Guid id)
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+
+        var passkey = await db.AccountPasskeys
+            .FirstOrDefaultAsync(p => p.Id == id && p.AccountId == currentUser.Id);
+        if (passkey is null)
+            return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
+
+        db.AccountPasskeys.Remove(passkey);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    public class UpdatePasskeyRequest
+    {
+        public string Label { get; set; } = null!;
+    }
+
+    [HttpPatch("factors/passkey/{id:guid}")]
+    public async Task<ActionResult<SnAccountPasskey>> UpdatePasskey(
+        Guid id,
+        [FromBody] UpdatePasskeyRequest request
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
+            return Unauthorized();
+
+        var passkey = await db.AccountPasskeys
+            .FirstOrDefaultAsync(p => p.Id == id && p.AccountId == currentUser.Id);
+        if (passkey is null)
+            return NotFound(ApiError.NotFound(id.ToString(), traceId: HttpContext.TraceIdentifier));
+
+        passkey.Label = request.Label;
+        await db.SaveChangesAsync();
+        return Ok(passkey);
     }
 
     [HttpPost("factors/{id:guid}/enable")]
@@ -287,6 +338,13 @@ public class AccountSecurityController(
         if (factor is null)
             return NotFound();
 
+        if (factor.Type == AccountAuthFactorType.Passkey)
+        {
+            var passkeys = await db.AccountPasskeys
+                .Where(p => p.AccountId == currentUser.Id)
+                .ToListAsync();
+            db.AccountPasskeys.RemoveRange(passkeys);
+        }
         await accounts.DeleteAuthFactor(factor);
         return NoContent();
     }
