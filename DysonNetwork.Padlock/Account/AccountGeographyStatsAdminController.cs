@@ -11,8 +11,6 @@ namespace DysonNetwork.Padlock.Account;
 [Authorize]
 public class AccountGeographyStatsAdminController(AppDatabase db) : ControllerBase
 {
-    private const int MinimumBucketSize = 10;
-
     public class AccountGeographyBucket
     {
         public string CountryCode { get; set; } = string.Empty;
@@ -28,10 +26,7 @@ public class AccountGeographyStatsAdminController(AppDatabase db) : ControllerBa
         public Instant CalculatedAt { get; set; }
         public Instant Since { get; set; }
         public string Precision { get; set; } = string.Empty;
-        public int MinimumBucketSize { get; set; }
         public long AccountsWithLocation { get; set; }
-        public long VisibleAccountCount { get; set; }
-        public long SuppressedAccountCount { get; set; }
         public List<AccountGeographyBucket> Buckets { get; set; } = [];
     }
 
@@ -80,7 +75,6 @@ public class AccountGeographyStatsAdminController(AppDatabase db) : ControllerBa
                 Latitude = group.Average(location => location.Latitude!.Value),
                 Longitude = group.Average(location => location.Longitude!.Value)
             })
-            .Where(bucket => bucket.UserCount >= MinimumBucketSize)
             .OrderByDescending(bucket => bucket.UserCount)
             .ThenBy(bucket => bucket.Location.CountryCode)
             .ThenBy(bucket => bucket.Location.City)
@@ -95,18 +89,12 @@ public class AccountGeographyStatsAdminController(AppDatabase db) : ControllerBa
             })
             .ToList();
 
-        var accountsWithLocation = latestLocations.LongCount();
-        var visibleAccountCount = buckets.Sum(bucket => bucket.UserCount);
-
         return Ok(new AccountGeographyStatsResponse
         {
             CalculatedAt = now,
             Since = startAt,
             Precision = normalizedPrecision,
-            MinimumBucketSize = MinimumBucketSize,
-            AccountsWithLocation = accountsWithLocation,
-            VisibleAccountCount = visibleAccountCount,
-            SuppressedAccountCount = accountsWithLocation - visibleAccountCount,
+            AccountsWithLocation = latestLocations.LongCount(),
             Buckets = buckets
         });
     }
