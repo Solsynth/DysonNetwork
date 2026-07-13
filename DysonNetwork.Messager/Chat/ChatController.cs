@@ -1486,16 +1486,18 @@ public partial class ChatController(
             {
                 var members = await db.ChatMembers
                     .Where(m => m.ChatRoomId == roomId && m.JoinedAt != null && m.LeaveAt == null)
-                    .Where(m => m.Username != null && EF.Functions.Like(m.Username, $"{query}%"))
-                    .Take(10)
                     .ToListAsync();
 
                 members = await crs.LoadMemberAccounts(members);
+                members = members
+                    .Where(m => m.Account?.Name.StartsWith(query, StringComparison.OrdinalIgnoreCase) == true)
+                    .Take(10)
+                    .ToList();
 
                 results.AddRange(members.Select(m => new Autocompletion
                 {
                     Type = "user",
-                    Keyword = "@" + (hadSlash ? "u/" : "") + m.Username,
+                    Keyword = "@" + (hadSlash ? "u/" : "") + m.Account!.Name,
                     Data = m.Account ?? (object)new { id = m.AccountId.ToString() }
                 }));
 
