@@ -161,6 +161,36 @@ public class ActivityPubController : ControllerBase
         };
     }
 
+    [HttpGet("objects/{id:guid}")]
+    [Produces("application/activity+json")]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetObject(Guid id)
+    {
+        var post = await _db
+            .Posts.Include(p => p.Publisher)
+            .Include(p => p.Actor)
+            .Include(p => p.Tags)
+            .Include(p => p.Attachments)
+            .FirstOrDefaultAsync(p =>
+                p.Id == id
+                && p.PublisherId != null
+                && p.FediverseUri == null
+                && p.DraftedAt == null
+                && p.Visibility == PostVisibility.Public
+            );
+
+        if (post?.Publisher is null)
+            return NotFound();
+
+        var actorUrl = $"https://{Domain}/activitypub/actors/{post.Publisher.Name}";
+        var postObject = await _objFactory.CreatePostObject(post, actorUrl);
+        if (!postObject.ContainsKey("@context"))
+            postObject["@context"] = "https://www.w3.org/ns/activitystreams";
+        postObject["url"] = $"https://{Domain}/posts/{post.Id}";
+
+        return Ok(postObject);
+    }
+
     [HttpGet("outbox")]
     [Produces("application/activity+json")]
     [ProducesResponseType(typeof(ActivityPubCollection), StatusCodes.Status200OK)]

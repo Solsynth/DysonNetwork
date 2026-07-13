@@ -30,6 +30,7 @@ public class ActivityRenderer(IConfiguration configuration, AppDatabase db)
         var baseDomain = Domain;
         var assetsBaseUrl = FileBaseUrl;
         var postUrl = $"https://{baseDomain}/posts/{post.Id}";
+        var objectUrl = $"https://{baseDomain}/activitypub/objects/{post.Id}";
 
         var contentBuilder = new StringBuilder();
 
@@ -104,7 +105,7 @@ public class ActivityRenderer(IConfiguration configuration, AppDatabase db)
 
         var postObject = new Dictionary<string, object>
         {
-            ["id"] = postUrl,
+            ["id"] = objectUrl,
             ["type"] = post.Type is PostType.Article or PostType.Blog ? "Article" : "Note",
             ["published"] = (post.PublishedAt ?? post.CreatedAt).ToDateTimeOffset(),
             ["attributedTo"] = actorUrl,
@@ -117,7 +118,8 @@ public class ActivityRenderer(IConfiguration configuration, AppDatabase db)
         if (post.RepliedPost != null)
         {
             if (post.RepliedPost.Publisher != null)
-                postObject["inReplyTo"] = $"https://{baseDomain}/posts/{post.RepliedPostId}";
+                postObject["inReplyTo"] =
+                    $"https://{baseDomain}/activitypub/objects/{post.RepliedPostId}";
             if (post.RepliedPost.FediverseUri != null)
                 postObject["inReplyTo"] = post.RepliedPost.FediverseUri;
         }
@@ -131,7 +133,7 @@ public class ActivityRenderer(IConfiguration configuration, AppDatabase db)
 
             if (forwardedPost?.Publisher != null)
             {
-                var quoteUrl = $"https://{baseDomain}/posts/{post.ForwardedPostId}";
+                var quoteUrl = $"https://{baseDomain}/activitypub/objects/{post.ForwardedPostId}";
                 postObject["quote"] = quoteUrl;
             }
             if (forwardedPost?.FediverseUri != null)
@@ -232,7 +234,7 @@ public class ActivityRenderer(IConfiguration configuration, AppDatabase db)
     {
         var note = new ASNote
         {
-            Id = $"https://{Domain}/posts/{post.Id}",
+            Id = $"https://{Domain}/activitypub/objects/{post.Id}",
             AttributedTo = actorUrl,
             Content = post.Content,
             Published = post.PublishedAt?.ToDateTimeOffset().DateTime,
@@ -244,7 +246,9 @@ public class ActivityRenderer(IConfiguration configuration, AppDatabase db)
 
         if (post.RepliedPostId.HasValue)
         {
-            note.InReplyTo = post.RepliedPost?.FediverseUri ?? $"https://{Domain}/posts/{post.RepliedPostId}";
+            note.InReplyTo =
+                post.RepliedPost?.FediverseUri
+                ?? $"https://{Domain}/activitypub/objects/{post.RepliedPostId}";
         }
 
         if (post.Attachments.Count > 0)
