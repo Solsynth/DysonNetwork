@@ -179,6 +179,50 @@ public class PostTagController(
         }
     }
 
+    public class SetProtectedRequest
+    {
+        public bool IsProtected { get; set; }
+    }
+
+    /// <summary>
+    /// Enable or disable protection on an owned tag. Consumes protected-tag quota when enabling.
+    /// </summary>
+    [HttpPatch("{slug}/protect")]
+    [Authorize]
+    public async Task<ActionResult<SnPostTag>> SetProtected(
+        string slug,
+        [FromBody] SetProtectedRequest request,
+        [FromQuery(Name = "pub")] string? pubName
+    )
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser) return Unauthorized();
+        var accountId = Guid.Parse(currentUser.Id);
+
+        var publisher = await ResolvePublisherAsync(accountId, pubName);
+        if (publisher is null)
+            return BadRequest("Cannot resolve publisher. Specify one via ?pub= or set a default.");
+
+        // Require manager+ for protection changes (same bar as metadata edit).
+        if (!await pub.IsMemberWithRole(publisher.Id, accountId, PublisherMemberRole.Manager))
+            return StatusCode(403, "You must be a manager or above of the owning publisher.");
+
+        var tag = await tagService.FindBySlugAsync(slug);
+        if (tag is null) return NotFound();
+
+        if (tag.OwnerPublisherId != publisher.Id)
+            return StatusCode(403, "This tag is not owned by the specified publisher.");
+
+        try
+        {
+            tag = await tagService.SetProtectedAsync(tag.Id, request.IsProtected, publisher);
+            return Ok(tag);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     /// <summary>
     /// Publisher-scoped protected-tag quota and owned tag list.
     /// </summary>

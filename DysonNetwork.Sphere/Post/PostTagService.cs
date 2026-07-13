@@ -1,10 +1,11 @@
 using DysonNetwork.Shared.Models;
+using DysonNetwork.Shared.Registry;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Sphere.Post;
 
-public class PostTagService(AppDatabase db)
+public class PostTagService(AppDatabase db, RemoteAccountService remoteAccounts)
 {
     public async Task<SnPostTag> CreateTagAsync(
         string slug,
@@ -98,19 +99,12 @@ public class PostTagService(AppDatabase db)
         if (isProtected && tag.OwnerPublisherId is null)
             throw new InvalidOperationException("Cannot protect a tag that has no owner.");
 
-        if (isProtected && tag.OwnerPublisherId != publisher.Id)
-            throw new InvalidOperationException("Only the tag owner can protect it.");
+        if (tag.OwnerPublisherId is not null && tag.OwnerPublisherId != publisher.Id)
+            throw new InvalidOperationException("Only the tag owner can change protection.");
 
-        if (isProtected)
+        // Enabling protection consumes a quota slot (skip if already protected).
+        if (isProtected && !tag.IsProtected)
         {
-            var account = await db.Publishers
-                .Where(p => p.Id == publisher.Id)
-                .Select(p => p.Account)
-                .FirstOrDefaultAsync();
-
-            if (account is null)
-                throw new InvalidOperationException("Cannot resolve account for publisher.");
-
             var quota = await GetProtectedTagQuotaAsync(publisher);
             if (quota.Used >= quota.Total)
                 throw new InvalidOperationException($"Protected tag quota exceeded ({quota.Used}/{quota.Total}).");
@@ -156,25 +150,11 @@ public class PostTagService(AppDatabase db)
 
     public async Task<ResourceQuotaResponse<ProtectedTagQuotaRecord>> GetProtectedTagQuotaAsync(SnPublisher publisher)
     {
-        // Load account + profile so level / perk level are available for quota math.
-        var accountInfo = await db.Publishers
-            .AsNoTracking()
-            .Where(p => p.Id == publisher.Id)
-            .Select(p => new
-            {
-                Level = p.Account != null && p.Account.Profile != null
-                    ? p.Account.Profile.Level
-                    : 0,
-                PerkLevel = p.Account != null ? p.Account.PerkLevel : 0,
-            })
-            .FirstOrDefaultAsync();
-
-        var level = accountInfo?.Level ?? 0;
-        var perkLevel = accountInfo?.PerkLevel ?? 0;
+        // SnPublisher.Account is NotMapped (Passport is remote). Resolve perk via gRPC.
+        var (level, perkLevel) = await ResolvePublisherPerkAsync(publisher);
         var total = ResourceQuotaCalculator.GetProtectedTagQuota(level, perkLevel);
 
-        // Return all owned tags (not only protected). Quota usage still counts
-        // protected tags only — protection is applied by admins.
+        // Return all owned tags. Usage counts protected tags only.
         var ownedTags = await db.PostTags
             .AsNoTracking()
             .Where(t => t.OwnerPublisherId == publisher.Id)
@@ -203,6 +183,33 @@ public class PostTagService(AppDatabase db)
             PerkLevel = perkLevel,
             Records = ownedTags,
         };
+    }
+
+    /// <summary>
+    /// Resolve account level / perk for a publisher (individual owner, else highest-role member).
+    /// </summary>
+    private async Task<(int Level, int PerkLevel)> ResolvePublisherPerkAsync(SnPublisher publisher)
+    {
+        Guid? accountId = publisher.AccountId;
+        if (accountId is null)
+        {
+            accountId = await db.PublisherMembers
+                .AsNoTracking()
+                .Where(m => m.PublisherId == publisher.Id && m.JoinedAt != null)
+                .OrderByDescending(m => m.Role)
+                .Select(m => (Guid?)m.AccountId)
+                .FirstOrDefaultAsync();
+        }
+
+        if (accountId is null)
+            return (0, 0);
+
+        var dyAccount = await remoteAccounts.TryGetAccount(accountId.Value);
+        if (dyAccount is null)
+            return (0, 0);
+
+        var account = SnAccount.FromProtoValue(dyAccount);
+        return (account.Profile?.Level ?? 0, account.PerkLevel);
     }
 
     public async Task<SnPostTag?> FindBySlugAsync(string slug)

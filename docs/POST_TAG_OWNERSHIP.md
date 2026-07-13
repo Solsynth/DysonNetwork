@@ -215,6 +215,34 @@ POST /api/posts/tags/{slug}/release?pub={publisherName}
 
 ---
 
+### Protect / Unprotect Tag (Publisher)
+
+Toggle protection on a tag you own. Enabling protection consumes one protected-tag quota slot.
+Only a manager (or above) of the owning publisher can change protection.
+
+```
+PATCH /api/posts/tags/{slug}/protect?pub={publisherName}
+```
+
+**Request Body:**
+```json
+{
+  "is_protected": true
+}
+```
+
+**Response:** `200 OK`
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| `400 Bad Request` | Quota exceeded, or cannot resolve publisher |
+| `403 Forbidden` | Not the owner publisher, or not a manager |
+| `404 Not Found` | Tag not found |
+
+---
+
 ### Get Protected Tag Quota
 
 Check how many protected tags a publisher has used, their remaining quota, and list **all tags owned by that publisher**.
