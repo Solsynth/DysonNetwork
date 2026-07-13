@@ -18,14 +18,13 @@ The DS enables end-to-end encrypted chat messaging using MLS protocol:
 - The DS tracks the current epoch and signed public `GroupInfo`, but never group secrets.
 - Group Commit and Welcome delivery is device-scoped and ordered.
 - DS stores key packages and delivers messages per device
-- All MLS endpoints require the `X-Client-Ability: chat.mls.v2` header
+- MLS endpoints rely on authentication, device identity, and group membership; no client-ability header is required.
 - KeyPackages are single-use. Consuming reads are serialized so concurrent claims cannot return the same package twice.
 
 ## Authentication
 
 All MLS endpoints require:
 - Valid authentication token (via `[Authorize]` attribute)
-- `X-Client-Ability` header with token `chat.mls.v2`
 - `X-Device-Id` for device-scoped delivery and group-state routes
 
 Commit/Welcome fanout and GroupInfo read/write additionally require an active MLS device membership for the authenticated account. This is the application access-control layer required around MLS external joins.
@@ -210,4 +209,3 @@ When a device is revoked (`POST /mls/devices/{deviceId}/revoke`):
 ## Contract Markers
 
 - Chat encryption scheme marker: `chat.mls.v2`
-- Ability header: `X-Client-Ability`

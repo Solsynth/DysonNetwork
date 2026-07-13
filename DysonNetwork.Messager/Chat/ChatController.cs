@@ -42,29 +42,9 @@ public partial class ChatController(
     RemotePublisherService publisherService
 ) : ControllerBase
 {
-    private const string E2EeCapabilityHeader = "X-Client-Ability";
-    private const string MlsCapabilityToken = "chat.mls.v2";
-
-    private bool HasClientCapability(string token)
-    {
-        if (!Request.Headers.TryGetValue(E2EeCapabilityHeader, out var header)) return false;
-        return header
-            .Where(v => !string.IsNullOrWhiteSpace(v))
-            .SelectMany(v => v!.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
-            .Any(v => string.Equals(v, token, StringComparison.OrdinalIgnoreCase));
-    }
-
     private ActionResult E2EeError(string code, string message)
     {
         return Conflict(new { code, error = message });
-    }
-
-    private ActionResult? EnsureE2EeCapabilityForRoom(SnChatRoom room)
-    {
-        if (room.EncryptionMode == ChatRoomEncryptionMode.None) return null;
-        var token = MlsCapabilityToken;
-        if (HasClientCapability(token)) return null;
-        return E2EeError("chat.e2ee_required", $"This room requires capability '{token}'.");
     }
 
     private async Task<ActionResult?> EnsureCurrentMlsEpochAsync(
@@ -517,8 +497,6 @@ public partial class ChatController(
         var mlsMode = member.ChatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeMls;
         if (e2eeMode)
         {
-            var capabilityError = EnsureE2EeCapabilityForRoom(member.ChatRoom);
-            if (capabilityError is not null) return capabilityError;
             if (!request.IsEncrypted || !ChatMessageHelpers.HasEncryptedPayload(request))
                 return E2EeError("chat.e2ee_payload_required", "Encrypted payload is required for E2EE rooms.");
             if (mlsMode && !ChatMessageHelpers.IsMlsPayloadValid(request))
@@ -957,8 +935,6 @@ public partial class ChatController(
         var mlsMode = message.ChatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeMls;
         if (e2eeMode)
         {
-            var capabilityError = EnsureE2EeCapabilityForRoom(message.ChatRoom);
-            if (capabilityError is not null) return capabilityError;
         }
 
         var now = SystemClock.Instance.GetCurrentInstant();
@@ -1172,8 +1148,6 @@ public partial class ChatController(
         var mlsMode = message.ChatRoom.EncryptionMode == ChatRoomEncryptionMode.E2eeMls;
         if (e2eeMode)
         {
-            var capabilityError = EnsureE2EeCapabilityForRoom(message.ChatRoom);
-            if (capabilityError is not null) return capabilityError;
             if (mlsMode && request is not null &&
                 (!string.Equals(request.EncryptionScheme, ChatMessageHelpers.MlsEncryptionScheme, StringComparison.Ordinal) ||
                  !request.EncryptionEpoch.HasValue))

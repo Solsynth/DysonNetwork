@@ -11,34 +11,6 @@ namespace DysonNetwork.Padlock.E2EE;
 [Authorize]
 public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
 {
-    private const string AbilityHeader = "X-Client-Ability";
-    private const string DeviceIdHeader = "X-Device-Id";
-    private const string MlsAbilityToken = "chat.mls.v2";
-    private bool HasAbility(string token)
-    {
-        if (!Request.Headers.TryGetValue(AbilityHeader, out var rawValue)) return false;
-        foreach (var raw in rawValue)
-        {
-            if (string.IsNullOrWhiteSpace(raw)) continue;
-            var tokens = raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (tokens.Any(x => string.Equals(x, token, StringComparison.Ordinal)))
-                return true;
-        }
-
-        return false;
-    }
-
-    [NonAction]
-    public ActionResult? EnsureMlsAbility()
-    {
-        if (HasAbility(MlsAbilityToken)) return null;
-        return StatusCode(409, new
-        {
-            code = "e2ee.mls_ability_required",
-            error = $"Missing required ability header: {AbilityHeader}: {MlsAbilityToken}"
-        });
-    }
-
 
     public class PublishMlsKeyPackageBody
     {
@@ -120,7 +92,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     [HttpPut("mls/devices/me/kps")]
     public async Task<ActionResult<SnMlsKeyPackage>> PublishMlsKeyPackage([FromBody] PublishMlsKeyPackageBody body)
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser ||
             HttpContext.Items["CurrentSession"] is not SnAuthSession currentSession)
             return Unauthorized();
@@ -133,7 +104,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     [HttpGet("mls/kp/status")]
     public async Task<ActionResult<MlsKeyPackageStatusResponse>> GetMlsKeyPackageStatus()
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
@@ -147,7 +117,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         [FromQuery] bool consume = true
     )
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
@@ -181,7 +150,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     [HttpPost("mls/users/ready/batch")]
     public async Task<ActionResult<BatchCheckMlsReadyResponse>> BatchCheckMlsUsersReady([FromBody] BatchCheckMlsReadyRequest body)
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var results = new List<MlsUserAvailability>();
@@ -202,7 +170,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     [HttpGet("mls/users/{accountId:guid}/ready")]
     public async Task<ActionResult<CheckMlsReadyResponse>> CheckMlsUserReady(Guid accountId)
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         if (currentUser is null) return Unauthorized();
 
@@ -217,7 +184,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     [HttpGet("mls/groups/{groupId}/devices/capable")]
     public async Task<ActionResult<List<MlsDeviceKeyPackageResponse>>> GetCapableDevices(string groupId)
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         var result = await e2EeModule.GetCapableDevicesAsync(groupId);
         return Ok(result);
     }
@@ -225,7 +191,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     [HttpPost("mls/groups/{groupId}/bootstrap")]
     public async Task<ActionResult<SnMlsGroupState>> BootstrapMlsGroup(string groupId, [FromBody] BootstrapMlsGroupBody body)
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var state = await e2EeModule.BootstrapMlsGroupAsync(currentUser.Id, new BootstrapMlsGroupRequest(
@@ -237,7 +202,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     [HttpPost("mls/groups/{groupId}/commit")]
     public async Task<ActionResult<SnMlsGroupState>> CommitMlsGroup(string groupId, [FromBody] CommitMlsGroupBody body)
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var state = await e2EeModule.CommitMlsGroupAsync(currentUser.Id, new CommitMlsGroupRequest(
@@ -254,7 +218,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         [FromHeader(Name = "X-Device-Id")] string? senderDeviceId
     )
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
@@ -286,7 +249,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         [FromBody] MarkMlsReshareRequiredBody body
     )
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
 
         var result = await e2EeModule.MarkMlsReshareRequiredAsync(currentUser.Id, new MarkMlsReshareRequiredRequest(
@@ -300,7 +262,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         [FromHeader(Name = "X-Device-Id")] string? deviceId
     )
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
@@ -317,7 +278,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         [FromHeader(Name = "X-Device-Id")] string? deviceId
     )
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
@@ -335,7 +295,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         [FromBody] UploadGroupInfoBody body,
         [FromHeader(Name = "X-Device-Id")] string? deviceId)
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         if (string.IsNullOrWhiteSpace(deviceId))
             return BadRequest("X-Device-Id header is required.");
@@ -367,7 +326,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         string groupId,
         [FromHeader(Name = "X-Device-Id")] string? deviceId)
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
         if (string.IsNullOrWhiteSpace(deviceId))
             return BadRequest("X-Device-Id header is required.");
@@ -392,7 +350,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         [FromHeader(Name = "X-Device-Id")] string? senderDeviceId
     )
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
@@ -449,7 +406,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         [FromHeader(Name = "X-Device-Id")] string? senderDeviceId
     )
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
@@ -508,7 +464,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         [FromHeader(Name = "X-Device-Id")] string? senderDeviceId
     )
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
@@ -539,7 +494,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         [FromQuery] int take = 100
     )
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
@@ -557,7 +511,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         [FromHeader(Name = "X-Device-Id")] string? deviceId
     )
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
@@ -572,7 +525,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     [HttpPost("mls/devices/{deviceId}/revoke")]
     public async Task<ActionResult> RevokeMlsDevice(string deviceId)
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         var currentUser = HttpContext.Items["CurrentUser"] as SnAccount;
         if (currentUser is null) return Unauthorized();
 
@@ -593,7 +545,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
         [FromBody] AddMlsDeviceMembershipBody body
     )
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
@@ -616,7 +567,6 @@ public class E2EeController(IE2EeModule e2EeModule) : ControllerBase
     [HttpPost("mls/groups/{groupId}/reset")]
     public async Task<ActionResult<SnMlsGroupState>> ResetMlsGroup(string groupId, [FromBody] ResetMlsGroupBody body)
     {
-        if (EnsureMlsAbility() is { } abilityError) return abilityError;
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser)
             return Unauthorized();
 
