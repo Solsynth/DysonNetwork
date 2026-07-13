@@ -2153,6 +2153,10 @@ public partial class ChatService(
             ),
             ClientMessageId = message.ClientMessageId,
             Attachments = message.Attachments,
+            MembersMentioned = message.MembersMentioned,
+            RepliedMessageId = message.RepliedMessageId,
+            ForwardedMessageId = message.ForwardedMessageId,
+            EditedAt = message.EditedAt,
             Nonce = Guid.NewGuid().ToString(),
             Meta =
                 message.Meta != null
