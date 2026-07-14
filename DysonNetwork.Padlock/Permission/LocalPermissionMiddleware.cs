@@ -10,12 +10,13 @@ public class LocalPermissionMiddleware(RequestDelegate next, ILogger<LocalPermis
     {
         var endpoint = httpContext.GetEndpoint();
 
-        var attrs = endpoint?.Metadata
-            .OfType<AskPermissionAttribute>()
-            .ToList();
+        var attrs = endpoint?.Metadata.GetOrderedMetadata<AskPermissionAttribute>();
 
         if (attrs is { Count: > 0 })
         {
+            var requirements = attrs
+                .DistinctBy(attr => (attr.Key, attr.Type))
+                .ToArray();
             if (httpContext.Items["CurrentUser"] is not SnAccount currentUser)
             {
                 httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -28,7 +29,7 @@ public class LocalPermissionMiddleware(RequestDelegate next, ILogger<LocalPermis
                 return;
             }
 
-            foreach (var attr in attrs)
+            foreach (var attr in requirements)
             {
                 if (string.IsNullOrWhiteSpace(attr.Key))
                 {
@@ -49,7 +50,7 @@ public class LocalPermissionMiddleware(RequestDelegate next, ILogger<LocalPermis
 
             if (PermissionScopeGate.ShouldEnforcePermissionScope(currentSession))
             {
-                foreach (var attr in attrs)
+                foreach (var attr in requirements)
                 {
                     if (PermissionScopeGate.IsPermissionEnabled(currentSession!.Scopes, attr.Key))
                         continue;
@@ -80,11 +81,12 @@ public class LocalPermissionMiddleware(RequestDelegate next, ILogger<LocalPermis
             }
 
             var actor = currentUser.Id.ToString();
-            foreach (var attr in attrs)
+            foreach (var attr in requirements)
             {
                 try
                 {
-                    var permNode = await pm.GetPermissionAsync<bool>(actor, attr.Key);
+                    var actorType = SnPermissionNode.ConvertProtoActorType(attr.Type);
+                    var permNode = await pm.HasPermissionAsync(actor, attr.Key, actorType);
 
                     if (!permNode)
                     {

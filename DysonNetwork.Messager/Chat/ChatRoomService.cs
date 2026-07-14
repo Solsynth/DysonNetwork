@@ -409,28 +409,25 @@ public class ChatRoomService(
         var keys = (await cache.GetGroupKeysAsync(group)).Distinct().ToList();
         if (keys.Count == 0) return [];
 
-        var activeKeys = new List<string>(keys.Count);
-        foreach (var key in keys)
+        var activeKeys = await Task.WhenAll(keys.Select(async key =>
         {
             var rawKey = GetRawCacheKey(key);
             var (found, _) = await cache.GetAsyncWithStatus<List<DeviceSubscriptionEntry>>(rawKey);
             if (!found)
             {
                 await cache.RemoveAsync(rawKey);
-                continue;
+                return null;
             }
 
             var devices = await GetActiveSubscriptionDevices(rawKey);
             if (devices.Count > 0)
-            {
-                activeKeys.Add(key);
-                continue;
-            }
+                return key;
 
             await cache.RemoveAsync(rawKey);
-        }
+            return null;
+        }));
 
-        return activeKeys;
+        return activeKeys.OfType<string>().ToList();
     }
 
     public async Task SubscribeChatRoom(SnChatMember member, string deviceId)

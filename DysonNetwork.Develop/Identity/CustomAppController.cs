@@ -435,15 +435,20 @@ public class CustomAppController(
 
         try
         {
+            // Protobuf string fields reject null — only set BoardItemId when provided
+            // (omit = auto-find first matching board item for account + app + widget).
+            var grpcRequest = new DyUpdateBoardItemPayloadRequest
+            {
+                AccountId = request.AccountId,
+                CustomAppId = appId.ToString(),
+                CustomAppWidgetKey = validation.Widget.Key,
+                Payload = JsonParser.Default.Parse<Struct>(JsonSerializer.Serialize(validation.NormalizedPayload))
+            };
+            if (!string.IsNullOrWhiteSpace(request.BoardItemId))
+                grpcRequest.BoardItemId = request.BoardItemId;
+
             var updated = await profiles.UpdateBoardItemPayloadAsync(
-                new DyUpdateBoardItemPayloadRequest
-                {
-                    AccountId = request.AccountId,
-                    BoardItemId = request.BoardItemId,
-                    CustomAppId = appId.ToString(),
-                    CustomAppWidgetKey = validation.Widget.Key,
-                    Payload = JsonParser.Default.Parse<Struct>(JsonSerializer.Serialize(validation.NormalizedPayload))
-                },
+                grpcRequest,
                 cancellationToken: cancellationToken
             );
             return Ok(SnAccountBoardItem.FromProtoValue(updated));

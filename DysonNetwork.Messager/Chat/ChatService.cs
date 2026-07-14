@@ -440,7 +440,9 @@ public partial class ChatService(
                     await dbContext.SaveChangesAsync();
 
                     logger.LogDebug(
-                        $"Updated message {message.Id} with {embedsList.Count} link previews"
+                        "Updated message {MessageId} with {EmbedCount} link previews",
+                        message.Id,
+                        embedsList.Count
                     );
 
                     // Create and store sync message for link preview update
@@ -466,13 +468,11 @@ public partial class ChatService(
                     syncMessage.Sender = dbMessage.Sender;
                     syncMessage.ChatRoom = dbMessage.ChatRoom;
 
-                    logger.LogWarning(
+                    logger.LogDebug(
                         "CreateLinkPreviewBackgroundAsync: sending link preview for messageId={messageId}, embedCount={embedCount}",
                         dbMessage.Id,
                         embedsList.Count
                     );
-
-                    using var syncScope = scopeFactory.CreateScope();
 
                     try
                     {
@@ -576,7 +576,10 @@ public partial class ChatService(
         var memberAccounts = members.Select(a => a.Account).Where(a => a is not null).ToList();
         request.UserIds.AddRange(memberAccounts.Select(a => a!.Id.ToString()));
 
-        logger.LogWarning(
+        if (request.UserIds.Count == 0)
+            return;
+
+        logger.LogDebug(
             "DeliverWebSocketMessage: messageId={messageId}, type={type}, targetUserCount={targetUserCount}, attachmentCount={attachmentCount}, payloadBytes={payloadBytes}, userIds={userIds}",
             message.Id,
             message.Type,
@@ -588,7 +591,41 @@ public partial class ChatService(
 
         await scopedWs.PushWebSocketPacketToUsersAsync(request);
 
-        logger.LogInformation($"Delivered message to {request.UserIds.Count} accounts.");
+        logger.LogInformation("Delivered message to {Count} accounts.", request.UserIds.Count);
+    }
+
+    private void QueueMessageDelivery(
+        SnChatMessage message,
+        SnChatMember sender,
+        SnChatRoom room,
+        string type = WebSocketPacketType.MessageNew,
+        bool notify = true
+    )
+    {
+        _ = DeliverMessageInBackgroundAsync(message, sender, room, type, notify);
+    }
+
+    private async Task DeliverMessageInBackgroundAsync(
+        SnChatMessage message,
+        SnChatMember sender,
+        SnChatRoom room,
+        string type,
+        bool notify
+    )
+    {
+        try
+        {
+            await DeliverMessageAsync(message, sender, room, type, notify);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Error delivering message: messageId={MessageId}, roomId={RoomId}",
+                message.Id,
+                room.Id
+            );
+        }
     }
 
     public async Task<SnChatMessage> SendMessageAsync(
@@ -660,43 +697,11 @@ public partial class ChatService(
         message.Sender = sender;
         message.ChatRoom = room;
 
-        // Then start the delivery process
-        var localMessage = message;
-        var localSender = sender;
-        var localRoom = room;
-        var localLogger = logger;
-        _ = Task.Run(async () =>
-        {
-            localLogger.LogWarning(
-                "Starting background message delivery: messageId={messageId}, roomId={roomId}",
-                localMessage.Id,
-                localRoom.Id
-            );
-            try
-            {
-                await DeliverMessageAsync(localMessage, localSender, localRoom);
-            }
-            catch (Exception ex)
-            {
-                localLogger.LogWarning(
-                    "Error delivering message: messageId={messageId}, error={error}",
-                    localMessage.Id,
-                    ex.Message
-                );
-                localLogger.LogError(
-                    $"Error when delivering message: {ex.Message} {ex.StackTrace}"
-                );
-            }
-        });
+        QueueMessageDelivery(message, sender, room);
 
         // Process link preview in the background to avoid delaying message sending
         if (ShouldQueueLinkPreview(message))
-        {
-            var localMessageForPreview = message;
-            _ = Task.Run(async () =>
-                await CreateLinkPreviewBackgroundAsync(localMessageForPreview)
-            );
-        }
+            _ = CreateLinkPreviewBackgroundAsync(message);
 
         return message;
     }
@@ -1308,12 +1313,13 @@ public partial class ChatService(
     {
         using var scope = scopeFactory.CreateScope();
         var scopedCrs = scope.ServiceProvider.GetRequiredService<ChatRoomService>();
+        var members = await scopedCrs.ListRoomMembers(room.Id);
 
-        // Reload sender within the new scope to avoid disposed context issues
-        sender = await scopedCrs.LoadMemberAccount(sender);
-
-        if (room.RealmId != null)
-            sender = await scopedCrs.HydrateRealmIdentity(sender, room.Id);
+        if (sender.Account is null)
+        {
+            sender = members.FirstOrDefault(member => member.Id == sender.Id)
+                ?? await scopedCrs.LoadMemberAccount(sender);
+        }
 
         // Ensure sender has Account loaded
         if (sender.Account is null)
@@ -1330,9 +1336,7 @@ public partial class ChatService(
         message.Sender = sender;
         message.ChatRoom = room;
 
-        var members = await scopedCrs.ListRoomMembers(room.Id);
-
-        logger.LogWarning(
+        logger.LogDebug(
             "DeliverMessageAsync: roomId={roomId}, messageId={messageId}, senderId={senderId}, senderAccountId={senderAccountId}, memberCount={memberCount}, type={type}",
             room.Id,
             message.Id,
@@ -1368,42 +1372,49 @@ public partial class ChatService(
 
         if (sender.Account is null)
             sender = await scopedCrs.LoadMemberAccount(sender);
-        else if (room.RealmId != null)
-            sender = await scopedCrs.HydrateRealmIdentity(sender, room.Id);
         if (sender.Account is null)
             throw new InvalidOperationException(
                 "Sender account is null, this should never happen. Sender id: " + sender.Id
             );
 
         var accountsToNotify = FilterAccountsForNotification(members, message, sender);
+        if (accountsToNotify.Count == 0)
+            return;
 
-        // Filter out subscribed users from push notifications
-        var subscribedMemberIds = new List<Guid>();
-        foreach (var member in members)
-        {
-            if (await scopedCrs.IsSubscribedChatRoom(member.ChatRoomId, member.Id))
-                subscribedMemberIds.Add(member.AccountId);
-        }
+        var subscribedMembersTask = scopedCrs.GetSubscribedMembers(room.Id);
+        var blockedAccountsTask = sender.AccountId != Guid.Empty
+            ? remoteAccounts.ListAllBlockedAccountIds(sender.AccountId)
+            : Task.FromResult(new HashSet<Guid>());
+        var mutedAccountsTask = sender.AccountId != Guid.Empty
+            ? remoteAccounts.ListMutedAccountIds(sender.AccountId)
+            : Task.FromResult(new List<Guid>());
+
+        await Task.WhenAll(subscribedMembersTask, blockedAccountsTask, mutedAccountsTask);
+
+        var subscribedMemberIds = subscribedMembersTask.Result.ToHashSet();
+        var subscribedMemberAccountIds = members
+            .Where(member => subscribedMemberIds.Contains(member.Id))
+            .Select(member => member.AccountId)
+            .ToHashSet();
 
         accountsToNotify = accountsToNotify
-            .Where(a => !subscribedMemberIds.Contains(Guid.Parse(a.Id)))
+            .Where(account =>
+                !Guid.TryParse(account.Id, out var accountId)
+                || !subscribedMemberAccountIds.Contains(accountId)
+            )
             .ToList();
 
-        // Filter out blocked and muted accounts
-        if (sender.AccountId != Guid.Empty)
+        var hiddenIds = blockedAccountsTask.Result
+            .Concat(mutedAccountsTask.Result)
+            .ToHashSet();
+        if (hiddenIds.Count > 0)
         {
-            var blockedIds = await remoteAccounts.ListAllBlockedAccountIds(sender.AccountId);
-            var mutedIds = await remoteAccounts.ListMutedAccountIds(sender.AccountId);
-            var hiddenIds = blockedIds.Concat(mutedIds).ToHashSet();
-            if (hiddenIds.Count > 0)
-            {
-                accountsToNotify = accountsToNotify
-                    .Where(a => !hiddenIds.Contains(Guid.Parse(a.Id)))
-                    .ToList();
-            }
+            accountsToNotify = accountsToNotify
+                .Where(a => !Guid.TryParse(a.Id, out var accountId) || !hiddenIds.Contains(accountId))
+                .ToList();
         }
 
-        logger.LogWarning(
+        logger.LogDebug(
             "SendPushNotificationsAsync: messageId={messageId}, totalMembers={totalMembers}, filteredCount={filteredCount}, notifyingCount={notifyingCount}",
             message.Id,
             members.Count,
@@ -1416,15 +1427,13 @@ public partial class ChatService(
             accountsToNotify.Count
         );
 
-        if (accountsToNotify.Count > 0)
-        {
-            foreach (
-                var targetGroup in accountsToNotify.GroupBy(a => new
+        var notificationTasks = accountsToNotify
+            .GroupBy(a => new
                 {
                     Mentioned = IsAccountMentioned(message, Guid.Parse(a.Id)),
                     a.Language,
                 })
-            )
+            .Select(targetGroup =>
             {
                 var notification = BuildNotification(
                     message,
@@ -1440,9 +1449,11 @@ public partial class ChatService(
                     Notification = notification,
                 };
                 ntyRequest.UserIds.AddRange(targetGroup.Select(a => a.Id.ToString()));
-                await scopedNty.SendPushNotificationToUsersAsync(ntyRequest);
-            }
-        }
+                return scopedNty.SendPushNotificationToUsersAsync(ntyRequest).ResponseAsync;
+            })
+            .ToList();
+
+        await Task.WhenAll(notificationTasks);
 
         logger.LogInformation("Delivered message to {count} accounts.", accountsToNotify.Count);
     }
@@ -1943,7 +1954,9 @@ public partial class ChatService(
         var useSequenceRecovery =
             requestedSequences is { Count: > 0 } || normalizedRanges.Count > 0;
 
-        IQueryable<SnChatMessage> query = db.ChatMessages.Where(m => m.ChatRoomId == roomId);
+        IQueryable<SnChatMessage> query = db.ChatMessages
+            .AsNoTracking()
+            .Where(m => m.ChatRoomId == roomId);
 
         if (useSequenceRecovery)
         {
@@ -1955,7 +1968,6 @@ public partial class ChatService(
             query = query.Where(m => m.CreatedAt > lastSyncInstant);
         }
 
-        var totalCount = await query.CountAsync();
         var syncMessages = await query
             .OrderBy(m => m.RoomSequence)
             .ThenBy(m => m.CreatedAt)
@@ -1963,17 +1975,20 @@ public partial class ChatService(
             .Include(m => m.Sender)
             .ToListAsync();
 
+        var totalCount = syncMessages.Count < limit
+            ? syncMessages.Count
+            : await query.CountAsync();
+
         if (syncMessages.Count > 0)
         {
             var senders = syncMessages.Select(m => m.Sender).DistinctBy(s => s.Id).ToList();
 
             senders = await crs.LoadMemberAccounts(senders);
-            senders = await crs.HydrateRealmIdentity(senders, roomId);
+            var senderMap = senders.ToDictionary(sender => sender.Id);
 
             foreach (var message in syncMessages)
             {
-                var sender = senders.FirstOrDefault(s => s.Id == message.SenderId);
-                if (sender != null)
+                if (senderMap.TryGetValue(message.SenderId, out var sender))
                     message.Sender = sender;
             }
         }
@@ -2174,7 +2189,7 @@ public partial class ChatService(
 
         // Process link preview in the background if content was updated
         if (isContentChanged && ShouldQueueLinkPreview(message))
-            _ = Task.Run(async () => await CreateLinkPreviewBackgroundAsync(message));
+            _ = CreateLinkPreviewBackgroundAsync(message);
 
         if (message.Sender.Account is null)
             message.Sender = await crs.LoadMemberAccount(message.Sender);
@@ -2644,8 +2659,7 @@ public partial class ChatService(
         message.Sender = sender;
         message.ChatRoom = room;
 
-        // Deliver via WebSocket only (no push notification for placeholders)
-        _ = DeliverMessageAsync(message, sender, room, notify: false);
+        QueueMessageDelivery(message, sender, room, notify: false);
 
         return message;
     }
@@ -2687,10 +2701,6 @@ public partial class ChatService(
 
         db.Update(message);
         await db.SaveChangesAsync();
-
-        // Load sender for delivery
-        if (message.Sender.Account is null)
-            message.Sender = await crs.LoadMemberAccount(message.Sender);
 
         // Broadcast update via dedicated packet type
         _ = DeliverPlaceholderUpdateAsync(message);
@@ -2745,10 +2755,6 @@ public partial class ChatService(
         db.Update(message);
         await db.SaveChangesAsync();
 
-        // Load sender for delivery
-        if (message.Sender.Account is null)
-            message.Sender = await crs.LoadMemberAccount(message.Sender);
-
         if (message.ChatRoom is null)
         {
             message.ChatRoom = await db.ChatRooms.FirstAsync(r => r.Id == message.ChatRoomId);
@@ -2776,12 +2782,17 @@ public partial class ChatService(
         syncMessage.Sender = message.Sender;
         syncMessage.ChatRoom = message.ChatRoom;
 
-        _ = DeliverMessageAsync(syncMessage, syncMessage.Sender, syncMessage.ChatRoom,
-            type: WebSocketPacketType.MessageUpdate, notify: false);
+        QueueMessageDelivery(
+            syncMessage,
+            syncMessage.Sender,
+            syncMessage.ChatRoom,
+            type: WebSocketPacketType.MessageUpdate,
+            notify: false
+        );
 
         // Process link preview in the background if applicable
         if (ShouldQueueLinkPreview(message))
-            _ = Task.Run(async () => await CreateLinkPreviewBackgroundAsync(message));
+            _ = CreateLinkPreviewBackgroundAsync(message);
 
         return message;
     }
@@ -2796,10 +2807,6 @@ public partial class ChatService(
 
         db.Update(message);
         await db.SaveChangesAsync();
-
-        // Load sender for delivery
-        if (message.Sender.Account is null)
-            message.Sender = await crs.LoadMemberAccount(message.Sender);
 
         // Notify clients that this placeholder expired
         _ = DeliverPlaceholderExpiredAsync(message);
@@ -2858,6 +2865,9 @@ public partial class ChatService(
         var memberAccounts = members.Select(a => a.Account).Where(a => a is not null).ToList();
         request.UserIds.AddRange(memberAccounts.Select(a => a!.Id.ToString()));
 
+        if (request.UserIds.Count == 0)
+            return;
+
         await scopedWs.PushWebSocketPacketToUsersAsync(request);
     }
 
@@ -2887,6 +2897,9 @@ public partial class ChatService(
         };
         var memberAccounts = members.Select(a => a.Account).Where(a => a is not null).ToList();
         request.UserIds.AddRange(memberAccounts.Select(a => a!.Id.ToString()));
+
+        if (request.UserIds.Count == 0)
+            return;
 
         await scopedWs.PushWebSocketPacketToUsersAsync(request);
     }
