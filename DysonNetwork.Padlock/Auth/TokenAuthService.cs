@@ -270,7 +270,7 @@ public class TokenAuthService(
         );
     }
 
-    private static List<string> ExtractScopesFromJwt(JwtSecurityToken jwt)
+    internal static List<string> ExtractScopesFromJwt(JwtSecurityToken jwt)
     {
         var scopes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var claim in jwt.Claims.Where(c => c.Type == "scope" || c.Type == "scp"))

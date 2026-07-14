@@ -330,7 +330,8 @@ public class OidcProviderService(
             session = existingSession;
         }
 
-        return (session, authCode.Nonce, authCode.Scopes);
+        await SetSessionScopesAsync(session, authCode.Scopes);
+        return (session, authCode.Nonce, session.Scopes);
     }
 
     private async Task<int> GetAccountVersionAsync(Guid accountId)
@@ -382,6 +383,20 @@ public class OidcProviderService(
         if (session.AppId != clientId || session.AccountId != accountId || session.Type != SessionType.OAuth)
             throw new InvalidOperationException("Refresh token does not match client");
 
+        if (session.Scopes.Count == 0)
+        {
+            var authorizedScopes = await db.AuthorizedApps
+                .AsNoTracking()
+                .Where(app => app.AccountId == accountId)
+                .Where(app => app.AppId == clientId)
+                .Where(app => app.Type == AuthorizedAppType.Oidc)
+                .Where(app => app.DeletedAt == null)
+                .Select(app => app.Scopes)
+                .FirstOrDefaultAsync();
+            if (authorizedScopes is not null)
+                await SetSessionScopesAsync(session, authorizedScopes);
+        }
+
         // Validate epoch
         var tokenEpochText = jwt.Claims.FirstOrDefault(c => c.Type == "epoch")?.Value;
         if (int.TryParse(tokenEpochText, out var tokenEpoch) && tokenEpoch != session.Epoch)
@@ -392,9 +407,12 @@ public class OidcProviderService(
         session.Epoch++; // Increment epoch on refresh
         db.AuthSessions.Update(session);
         await db.SaveChangesAsync();
-        await cache.RemoveAsync($"auth:session:{session.Id}");
+        await Task.WhenAll(
+            cache.RemoveAsync(AuthCacheConstants.Session(session.Id.ToString())),
+            cache.RemoveGroupAsync(AuthCacheConstants.SessionTokensGroup(session.Id.ToString()))
+        );
 
-        return (session, null, null);
+        return (session, null, session.Scopes.ToList());
     }
 
     public async Task<TokenResponse> GenerateTokenResponseAsync(
@@ -893,6 +911,7 @@ public class OidcProviderService(
         var session = await FindValidSessionAsync(account.Id, clientId, withAccount: true)
                       ?? await auth.CreateSessionForOidcAsync(account, now, clientId);
         session.Account ??= account;
+        await SetSessionScopesAsync(session, info.Scopes);
 
         await auth.UpsertAuthorizedAppAsync(
             session.AccountId,
@@ -929,6 +948,25 @@ public class OidcProviderService(
             RefreshToken = refreshToken,
             Scope = info.Scopes.Count > 0 ? string.Join(" ", info.Scopes) : null
         };
+    }
+
+    private async Task SetSessionScopesAsync(SnAuthSession session, IEnumerable<string> scopes)
+    {
+        var normalizedScopes = scopes
+            .Select(scope => scope.Trim())
+            .Where(scope => !string.IsNullOrWhiteSpace(scope))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (session.Scopes.SequenceEqual(normalizedScopes, StringComparer.OrdinalIgnoreCase))
+            return;
+
+        session.Scopes = normalizedScopes;
+        db.AuthSessions.Update(session);
+        await db.SaveChangesAsync();
+        await Task.WhenAll(
+            cache.RemoveAsync(AuthCacheConstants.Session(session.Id.ToString())),
+            cache.RemoveGroupAsync(AuthCacheConstants.SessionTokensGroup(session.Id.ToString()))
+        );
     }
 
     private static string GenerateUserCode()
