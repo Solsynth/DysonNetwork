@@ -35,6 +35,18 @@ public class PermissionBehaviorTests
         Assert.NotEqual(accountKey, groupKey);
     }
 
+    [Fact]
+    public void BuildBlockedPermissionSet_FlattensNullablePunishmentPermissionLists()
+    {
+        var blockedPermissions = PermissionService.BuildBlockedPermissionSet(
+            [null, ["chat.messages.send", "CHAT.MESSAGES.SEND"], ["account.profile.read"]]
+        );
+
+        Assert.Equal(2, blockedPermissions.Count);
+        Assert.Contains("chat.messages.send", blockedPermissions);
+        Assert.Contains("ACCOUNT.PROFILE.READ", blockedPermissions);
+    }
+
     [Theory]
     [InlineData("chat.messages.send", "chat.messages.send", true)]
     [InlineData("chat.*", "chat.messages.send", true)]

@@ -71,14 +71,13 @@ public class PermissionService(
         }
 
         var now = SystemClock.Instance.GetCurrentInstant();
-        var blockedPermissions = await db.Punishments
+        var blockedPermissionLists = await db.Punishments
             .Where(p => p.AccountId == accountId)
             .Where(p => p.Type == PunishmentType.PermissionModification)
             .Where(p => p.ExpiredAt == null || p.ExpiredAt > now)
-            .SelectMany(p => p.BlockedPermissions == null 
-                ? Enumerable.Empty<string>() 
-                : p.BlockedPermissions)
-            .ToHashSetAsync();
+            .Select(p => p.BlockedPermissions)
+            .ToListAsync();
+        var blockedPermissions = BuildBlockedPermissionSet(blockedPermissionLists);
 
         await cache.SetWithGroupsAsync(
             cacheKey,
@@ -100,6 +99,16 @@ public class PermissionService(
                 return true;
         }
         return false;
+    }
+
+    internal static HashSet<string> BuildBlockedPermissionSet(
+        IEnumerable<List<string>?> blockedPermissionLists
+    )
+    {
+        return blockedPermissionLists
+            .Where(permissions => permissions is not null)
+            .SelectMany(permissions => permissions!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     internal static bool MatchesWildcard(string pattern, string target)
