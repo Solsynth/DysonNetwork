@@ -4,7 +4,18 @@ Padlock supports WebAuthn passkeys as a high-trust authentication method. An acc
 
 All API JSON uses `snake_case`. In production, Padlock routes are prefixed with `/padlock`; for example, `/api/auth/passkey/start` is exposed as `/padlock/auth/passkey/start`.
 
-Configure `WebAuthn:RpId` with the public web application's registrable domain, not the API host. Production uses `solian.app`, which is valid for both `solian.app` and `api.solian.app`; local development uses `localhost`. Configure `WebAuthn:RelatedOrigins` with the exact public web origins permitted to use that RP ID, such as `https://solian.app`.
+Configure `WebAuthn:RpId` with the public web application's registrable domain, not the API host. Production uses `solian.app`, which is valid for both `solian.app` and `api.solian.app`; local development uses `localhost`. `WebAuthn:RpName` is the displayed relying-party name. Configure `WebAuthn:RelatedOrigins` with the exact public web origins permitted to use that RP ID, such as `https://solian.app`.
+
+Native clients fetch the canonical configuration from `GET /api/auth/webauthn/config` (production: `/padlock/auth/webauthn/config`):
+
+```json
+{
+  "rp_id": "solian.app",
+  "rp_name": "Solar Network"
+}
+```
+
+Padlock uses this same configuration when beginning registration, rather than trusting a client-supplied RP ID.
 
 ## Related-origin discovery
 

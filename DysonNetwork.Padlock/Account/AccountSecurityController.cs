@@ -17,7 +17,8 @@ public class AccountSecurityController(
     AppDatabase db,
     AccountService accounts,
     Auth.AuthService auth,
-    DyCustomAppService.DyCustomAppServiceClient customApps
+    DyCustomAppService.DyCustomAppServiceClient customApps,
+    IConfiguration configuration
 ) : ControllerBase
 {
     public record AuthorizedAppResponse(
@@ -107,8 +108,6 @@ public class AccountSecurityController(
     {
         public string DeviceId { get; set; } = null!;
         public string? DeviceName { get; set; }
-        public string RpId { get; set; } = null!;
-        public string RpName { get; set; } = null!;
     }
 
     public class PasskeyRegistrationStartResponse
@@ -163,13 +162,15 @@ public class AccountSecurityController(
             );
 
         var challenge = await accounts.GeneratePasskeyChallengeAsync(currentUser, request.DeviceId);
+        var rpId = configuration["WebAuthn:RpId"] ?? HttpContext.Request.Host.Host;
+        var rpName = configuration["WebAuthn:RpName"] ?? "Solar Network";
 
         return Ok(
             new PasskeyRegistrationStartResponse
             {
                 Challenge = challenge,
-                RpId = request.RpId,
-                RpName = request.RpName,
+                RpId = rpId,
+                RpName = rpName,
                 UserId = currentUser.Id.ToString(),
                 UserName = currentUser.Name,
                 DisplayName = string.IsNullOrEmpty(currentUser.Nick)

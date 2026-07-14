@@ -87,6 +87,7 @@ services:
       HTTP_PORTS: "8080"
       HTTPS_PORTS: "7001"
       WebAuthn__RpId: solian.app
+      WebAuthn__RpName: Solar Network
       WebAuthn__RelatedOrigins__0: https://solian.app
       ConnectionStrings__cache: cache:6379,password=${CACHE_PASSWORD}
       ConnectionStrings__queue: nats://nats:${QUEUE_PASSWORD}@queue:4222
