@@ -1,6 +1,5 @@
 using DysonNetwork.Ring.Notification;
 using DysonNetwork.Shared.Data;
-using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
@@ -34,32 +33,22 @@ public class RingServiceGrpc(QueueService queueService, PushService pushService)
             useDefaultIfMissing: true
         );
 
-        var notification = new SnNotification
-        {
-            Topic = request.Notification.Topic,
-            Title = request.Notification.Title,
-            Subtitle = request.Notification.Subtitle,
-            Content = request.Notification.Body,
-            Meta = request.Notification.HasMeta
+        await pushService.SendNotification(
+            Guid.Parse(request.UserId),
+            request.Notification.Topic,
+            request.Notification.Title,
+            request.Notification.Subtitle,
+            request.Notification.Body,
+            request.Notification.HasMeta
                 ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(
                     request.Notification.Meta
                 ) ?? []
                 : [],
-            AccountId = Guid.Parse(request.UserId),
-            AppId = appId,
-            PushType = request.Notification.HasPushType ? request.Notification.PushType : null,
-        };
-
-        if (request.Notification.ActionUri is not null)
-            notification.Meta["action_uri"] = request.Notification.ActionUri;
-
-        if (request.Notification.IsSavable)
-            await pushService.SaveNotification(notification);
-
-        await queueService.EnqueuePushNotification(
-            notification,
-            Guid.Parse(request.UserId),
-            request.Notification.IsSavable
+            request.Notification.HasActionUri ? request.Notification.ActionUri : null,
+            request.Notification.IsSilent,
+            request.Notification.IsSavable,
+            appId,
+            request.Notification.HasPushType ? request.Notification.PushType : null
         );
 
         return new Empty();
@@ -75,33 +64,24 @@ public class RingServiceGrpc(QueueService queueService, PushService pushService)
             useDefaultIfMissing: true
         );
 
-        var notification = new SnNotification
-        {
-            Topic = request.Notification.Topic,
-            Title = request.Notification.Title,
-            Subtitle = request.Notification.Subtitle,
-            Content = request.Notification.Body,
-            Meta = request.Notification.HasMeta
-                ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(
-                    request.Notification.Meta
-                ) ?? []
-                : [],
-            AppId = appId,
-            PushType = request.Notification.HasPushType ? request.Notification.PushType : null,
-        };
-
-        if (request.Notification.ActionUri is not null)
-            notification.Meta["action_uri"] = request.Notification.ActionUri;
-
         var userIds = request.UserIds.Select(Guid.Parse).ToList();
-        if (request.Notification.IsSavable)
-            await pushService.SaveNotification(notification, userIds);
-
         var tasks = userIds.Select(userId =>
-            queueService.EnqueuePushNotification(
-                notification,
+            pushService.SendNotification(
                 userId,
-                request.Notification.IsSavable
+                request.Notification.Topic,
+                request.Notification.Title,
+                request.Notification.Subtitle,
+                request.Notification.Body,
+                request.Notification.HasMeta
+                    ? InfraObjectCoder.ConvertByteStringToObject<Dictionary<string, object?>>(
+                        request.Notification.Meta
+                    ) ?? []
+                    : [],
+                request.Notification.HasActionUri ? request.Notification.ActionUri : null,
+                request.Notification.IsSilent,
+                request.Notification.IsSavable,
+                appId,
+                request.Notification.HasPushType ? request.Notification.PushType : null
             )
         );
 
@@ -118,4 +98,3 @@ public class RingServiceGrpc(QueueService queueService, PushService pushService)
         return new Empty();
     }
 }
-

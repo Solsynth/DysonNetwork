@@ -414,6 +414,32 @@ public class PushService
         bool save = true,
         string? appId = null,
         string? pushType = null
+    ) => await SendNotification(
+        Guid.Parse(account.Id),
+        topic,
+        title,
+        subtitle,
+        content,
+        meta,
+        actionUri,
+        isSilent,
+        save,
+        appId,
+        pushType
+    );
+
+    public async Task SendNotification(
+        Guid accountId,
+        string topic,
+        string? title = null,
+        string? subtitle = null,
+        string? content = null,
+        Dictionary<string, object?>? meta = null,
+        string? actionUri = null,
+        bool isSilent = false,
+        bool save = true,
+        string? appId = null,
+        string? pushType = null
     )
     {
         meta ??= [];
@@ -423,7 +449,6 @@ public class PushService
         if (actionUri is not null)
             meta["action_uri"] = actionUri;
 
-        var accountId = Guid.Parse(account.Id);
         var preference = await _preferenceService.GetPreferenceAsync(accountId, topic);
 
         if (preference == NotificationPreferenceLevel.Reject)
@@ -547,10 +572,17 @@ public class PushService
         IReadOnlyCollection<string>? excludedWebSocketDeviceIds = null
     )
     {
+        var preferences = await _db.NotificationPreferences
+            .Where(p => accounts.Contains(p.AccountId) && p.Topic == notification.Topic)
+            .ToDictionaryAsync(p => p.AccountId, p => p.Preference);
+        var recipients = accounts
+            .Where(accountId => preferences.GetValueOrDefault(accountId) != NotificationPreferenceLevel.Reject)
+            .ToList();
+
         if (save)
         {
             var now = SystemClock.Instance.GetCurrentInstant();
-            var notifications = accounts
+            var notifications = recipients
                 .Select(accountId => new SnNotification
                 {
                     Topic = notification.Topic,
@@ -582,9 +614,12 @@ public class PushService
         );
 
         // Send to each account
-        foreach (var account in accounts)
+        foreach (var account in recipients)
         {
             notification.AccountId = account;
+            if (preferences.GetValueOrDefault(account) == NotificationPreferenceLevel.Silent)
+                continue;
+
             await _observability.RecordNotificationSendAsync(notification, "batch");
             var connectedSopDeviceIds = GetConnectedSopWebSocketDeviceIds(notification.AccountId);
             if (ShouldQueueSopReplay(save, connectedSopDeviceIds))
