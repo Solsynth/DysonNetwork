@@ -404,8 +404,11 @@ public class AuthController(
         if (challenge.BlacklistFactors.Contains(factor.Id))
             return BadRequest("Auth factor already used.");
 
+        if (!AccountService.TryNormalizePasskeyCredentialId(request.CredentialId, out var credentialId))
+            return BadRequest("Passkey credential ID is invalid.");
+
         var passkey = await db.AccountPasskeys
-            .FirstOrDefaultAsync(p => p.AccountId == challenge.AccountId && p.CredentialId == request.CredentialId);
+            .FirstOrDefaultAsync(p => p.AccountId == challenge.AccountId && p.CredentialId == credentialId);
         if (passkey is null) return BadRequest("Passkey is not registered for this account.");
         var credential = accounts.GetPasskeyCredential(passkey.Credential);
         if (credential is null) return BadRequest("Passkey is invalid.");
@@ -417,7 +420,7 @@ public class AuthController(
             if (await accounts.VerifyPasskeyAssertionAsync(
                     credential,
                     challenge.Id,
-                    request.CredentialId,
+                    credentialId,
                     request.ClientDataJson,
                     request.AuthenticatorData,
                     request.Signature
@@ -559,8 +562,11 @@ public class AuthController(
         if (challenge.ExpiredAt.HasValue && SystemClock.Instance.GetCurrentInstant() > challenge.ExpiredAt.Value)
             return BadRequest("Auth challenge has expired.");
 
+        if (!AccountService.TryNormalizePasskeyCredentialId(request.CredentialId, out var credentialId))
+            return BadRequest("Passkey credential ID is invalid.");
+
         var passkey = await db.AccountPasskeys
-            .FirstOrDefaultAsync(p => p.CredentialId == request.CredentialId);
+            .FirstOrDefaultAsync(p => p.CredentialId == credentialId);
         if (passkey is null) return BadRequest("Passkey was not found.");
 
         var factor = await db.AccountAuthFactors
@@ -572,7 +578,7 @@ public class AuthController(
         if (!await accounts.VerifyPasskeyAssertionAsync(
                 credential,
                 challenge.Id,
-                request.CredentialId,
+                credentialId,
                 request.ClientDataJson,
                 request.AuthenticatorData,
                 request.Signature

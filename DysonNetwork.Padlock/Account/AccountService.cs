@@ -683,6 +683,20 @@ public class AccountService(
             .TrimEnd('=');
     }
 
+    public static bool TryNormalizePasskeyCredentialId(string value, out string credentialId)
+    {
+        try
+        {
+            credentialId = Convert.ToBase64String(DecodeBase64OrBase64Url(value));
+            return true;
+        }
+        catch (FormatException)
+        {
+            credentialId = string.Empty;
+            return false;
+        }
+    }
+
     private static string GetPasskeyAssertionChallengeKey(Guid challengeId)
     {
         return $"passkey:assertion:{challengeId}";
