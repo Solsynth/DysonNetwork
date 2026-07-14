@@ -548,7 +548,8 @@ public class AccountService(
             });
 
             return Task.FromResult(ecDsa.VerifyData(signatureData, assertion.Signature,
-                System.Security.Cryptography.HashAlgorithmName.SHA256));
+                System.Security.Cryptography.HashAlgorithmName.SHA256,
+                System.Security.Cryptography.DSASignatureFormat.Rfc3279DerSequence));
         }
         catch
         {
@@ -1050,7 +1051,8 @@ public class AccountService(
                 {
                     ecDsa.ImportSubjectPublicKeyInfo(statement.AttestationCertificate, out _);
                     return ecDsa.VerifyData(signedData.ToArray(), statement.Signature,
-                        System.Security.Cryptography.HashAlgorithmName.SHA256);
+                        System.Security.Cryptography.HashAlgorithmName.SHA256,
+                        System.Security.Cryptography.DSASignatureFormat.Rfc3279DerSequence);
                 }
                 catch
                 {
@@ -1077,7 +1079,8 @@ public class AccountService(
                     };
                     ecDsa.ImportParameters(keyParams);
                     return ecDsa.VerifyData(signedData.ToArray(), statement.Signature,
-                        System.Security.Cryptography.HashAlgorithmName.SHA256);
+                        System.Security.Cryptography.HashAlgorithmName.SHA256,
+                        System.Security.Cryptography.DSASignatureFormat.Rfc3279DerSequence);
                 }
                 catch
                 {
@@ -1108,7 +1111,8 @@ public class AccountService(
             }
 
             return ecDsa.VerifyData(signedData.ToArray(), statement.Signature,
-                System.Security.Cryptography.HashAlgorithmName.SHA256);
+                System.Security.Cryptography.HashAlgorithmName.SHA256,
+                System.Security.Cryptography.DSASignatureFormat.Rfc3279DerSequence);
         }
 
         return false;
