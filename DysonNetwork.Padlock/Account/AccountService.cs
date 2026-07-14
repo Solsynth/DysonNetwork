@@ -1,3 +1,4 @@
+using DysonNetwork.Padlock.Auth;
 using DysonNetwork.Padlock.Auth.OpenId;
 using DysonNetwork.Padlock.Models;
 using DysonNetwork.Padlock.Mailer;
@@ -1173,8 +1174,10 @@ public class AccountService(
         session.Epoch++; // Increment epoch to invalidate tokens
         db.Update(session);
         await db.SaveChangesAsync();
-        // Clear session cache so external services pick up the new epoch
-        await cache.RemoveAsync($"auth:session:{sessionId}");
+        await Task.WhenAll(
+            cache.RemoveAsync(AuthCacheConstants.Session(sessionId.ToString())),
+            cache.RemoveGroupAsync(AuthCacheConstants.SessionTokensGroup(sessionId.ToString()))
+        );
         await CreateAccountActionLogAsync(
             account.Id,
             ActionLogType.SessionRevoke,
@@ -1194,13 +1197,16 @@ public class AccountService(
         {
             session.ExpiredAt = now;
             session.Epoch++; // Increment epoch to invalidate tokens
-            // Clear session cache so external services pick up the new epoch
-            await cache.RemoveAsync($"auth:session:{session.Id}");
         }
 
         if (sessions.Count > 0)
         {
             await db.SaveChangesAsync();
+            await Task.WhenAll(sessions.SelectMany(session => new Task[]
+            {
+                cache.RemoveAsync(AuthCacheConstants.Session(session.Id.ToString())),
+                cache.RemoveGroupAsync(AuthCacheConstants.SessionTokensGroup(session.Id.ToString())),
+            }));
             await CreateAccountActionLogAsync(
                 account.Id,
                 ActionLogType.SessionRevoke,
@@ -1361,6 +1367,11 @@ public class AccountService(
         await db.SaveChangesAsync();
         await permissionService.ClearActorCacheAsync(actor);
         return true;
+    }
+
+    public Task ClearPermissionCacheAsync(Guid accountId)
+    {
+        return permissionService.ClearActorCacheAsync(accountId.ToString());
     }
 
     private async Task PublishAccountCreated(SnAccount account, string? affiliationSpell = null)

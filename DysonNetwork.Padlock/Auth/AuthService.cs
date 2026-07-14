@@ -335,11 +335,11 @@ public class AuthService(
                 .SetProperty(x => x.ExpiredAt, now)
                 .SetProperty(x => x.Epoch, x => x.Epoch + 1));
 
-        foreach (var sessionIdToClear in sessions.Select(s => s.Id))
+        await Task.WhenAll(sessions.SelectMany(session => new Task[]
         {
-            // Invalidate AuthScheme's session cache (epoch increment invalidates tokens)
-            await cache.RemoveAsync(AuthCacheConstants.Session(sessionIdToClear.ToString()));
-        }
+            cache.RemoveAsync(AuthCacheConstants.Session(session.Id.ToString())),
+            cache.RemoveGroupAsync(AuthCacheConstants.SessionTokensGroup(session.Id.ToString())),
+        }));
         foreach (var accountId in sessions.Select(s => s.AccountId).Distinct())
         {
             await BumpAccountVersion(accountId);
@@ -387,11 +387,11 @@ public class AuthService(
                 .SetProperty(x => x.ExpiredAt, now)
                 .SetProperty(x => x.Epoch, x => x.Epoch + 1));
 
-        foreach (var session in sessions)
+        await Task.WhenAll(sessions.SelectMany(session => new Task[]
         {
-            // Invalidate AuthScheme's session cache (epoch increment invalidates tokens)
-            await cache.RemoveAsync(AuthCacheConstants.Session(session.Id.ToString()));
-        }
+            cache.RemoveAsync(AuthCacheConstants.Session(session.Id.ToString())),
+            cache.RemoveGroupAsync(AuthCacheConstants.SessionTokensGroup(session.Id.ToString())),
+        }));
         await BumpAccountVersion(accountId);
         await PublishSessionRevokedEventsAsync(sessions, now);
 
@@ -591,7 +591,10 @@ public class AuthService(
         await db.SaveChangesAsync();
 
         // Invalidate AuthScheme's session cache since expiration changed
-        await cache.RemoveAsync(AuthCacheConstants.Session(session.Id.ToString()));
+        await Task.WhenAll(
+            cache.RemoveAsync(AuthCacheConstants.Session(session.Id.ToString())),
+            cache.RemoveGroupAsync(AuthCacheConstants.SessionTokensGroup(session.Id.ToString()))
+        );
 
         return await CreateTokenPair(session);
     }
@@ -899,7 +902,10 @@ public class AuthService(
             await BumpAccountVersion(key.AccountId);
 
             // Invalidate AuthScheme's cache for the old session
-            await cache.RemoveAsync(AuthCacheConstants.Session(oldSession.Id.ToString()));
+            await Task.WhenAll(
+                cache.RemoveAsync(AuthCacheConstants.Session(oldSession.Id.ToString())),
+                cache.RemoveGroupAsync(AuthCacheConstants.SessionTokensGroup(oldSession.Id.ToString()))
+            );
 
             await transaction.CommitAsync();
             return key;

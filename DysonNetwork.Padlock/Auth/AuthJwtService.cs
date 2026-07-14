@@ -11,6 +11,7 @@ public sealed class AuthJwtService(IConfiguration config)
 {
     public const string ClaimType = "type";
     public const string LegacyClaimTokenUse = "token_use";
+    private readonly JwtSecurityTokenHandler _tokenHandler = new();
 
     private readonly Lazy<RSA> _privateKey = new(() =>
     {
@@ -114,7 +115,6 @@ public sealed class AuthJwtService(IConfiguration config)
     {
         try
         {
-            var handler = new JwtSecurityTokenHandler();
             var parameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
@@ -128,19 +128,23 @@ public sealed class AuthJwtService(IConfiguration config)
                 ValidAlgorithms = [SecurityAlgorithms.RsaSha256]
             };
 
-            handler.ValidateToken(token, parameters, out var validated);
+            _tokenHandler.ValidateToken(token, parameters, out var validated);
             var jwt = validated as JwtSecurityToken;
             if (jwt is null)
+                return (false, null);
+
+            var now = DateTime.UtcNow;
+            if (jwt.ValidFrom > now.Add(parameters.ClockSkew))
                 return (false, null);
 
             var tokenType = jwt.Claims.FirstOrDefault(c => c.Type == ClaimType)?.Value
                             ?? jwt.Claims.FirstOrDefault(c => c.Type == LegacyClaimTokenUse)?.Value
                             ?? "user";
-            if (!string.Equals(tokenType, "api_key", StringComparison.Ordinal) &&
-                jwt.ValidTo < DateTime.UtcNow.Subtract(parameters.ClockSkew))
-            {
+            if (
+                !string.Equals(tokenType, "api_key", StringComparison.Ordinal)
+                && jwt.ValidTo < now.Subtract(parameters.ClockSkew)
+            )
                 return (false, null);
-            }
 
             return (true, jwt);
         }
@@ -172,6 +176,6 @@ public sealed class AuthJwtService(IConfiguration config)
             )
         );
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+        return _tokenHandler.WriteToken(token);
     }
 }

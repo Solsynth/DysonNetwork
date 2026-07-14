@@ -29,9 +29,13 @@ public class PermissionService(
     private const string PermissionCacheKeyPrefix = "perm:";
     private const string PermissionGroupCacheKeyPrefix = "perm-cg:";
     private const string PermissionGroupPrefix = "perm-g:";
+    private const string BlockedPermissionCacheKeyPrefix = "perm-blocked:";
 
-    private static string GetPermissionCacheKey(string actor, string key) =>
-        PermissionCacheKeyPrefix + actor + ":" + key;
+    internal static string GetPermissionCacheKey(
+        PermissionNodeActorType type,
+        string actor,
+        string key
+    ) => PermissionCacheKeyPrefix + (int)type + ":" + actor + ":" + key;
 
     private static string GetGroupsCacheKey(string actor) =>
         PermissionGroupCacheKeyPrefix + actor;
@@ -41,19 +45,47 @@ public class PermissionService(
 
     public async Task<HashSet<string>> GetBlockedPermissionsAsync(string actor)
     {
-        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Name.ToLower() == actor.ToLowerInvariant());
-        if (account is null)
-            return new HashSet<string>();
+        var cacheKey = BlockedPermissionCacheKeyPrefix + actor;
+        var cached = await cache.GetAsync<HashSet<string>>(cacheKey);
+        if (cached is not null)
+            return cached;
+
+        Guid accountId;
+        if (!Guid.TryParse(actor, out accountId))
+        {
+            var normalizedActor = actor.ToLowerInvariant();
+            accountId = await db.Accounts
+                .Where(account => account.Name.ToLower() == normalizedActor)
+                .Select(account => account.Id)
+                .FirstOrDefaultAsync();
+            if (accountId == Guid.Empty)
+            {
+                await cache.SetWithGroupsAsync(
+                    cacheKey,
+                    new HashSet<string>(),
+                    [GetPermissionGroupKey(actor)],
+                    _options.CacheExpiration
+                );
+                return [];
+            }
+        }
 
         var now = SystemClock.Instance.GetCurrentInstant();
         var blockedPermissions = await db.Punishments
-            .Where(p => p.AccountId == account.Id)
+            .Where(p => p.AccountId == accountId)
             .Where(p => p.Type == PunishmentType.PermissionModification)
             .Where(p => p.ExpiredAt == null || p.ExpiredAt > now)
             .SelectMany(p => p.BlockedPermissions == null 
                 ? Enumerable.Empty<string>() 
                 : p.BlockedPermissions)
             .ToHashSetAsync();
+
+        await cache.SetWithGroupsAsync(
+            cacheKey,
+            blockedPermissions,
+            [GetPermissionGroupKey(actor)],
+            _options.CacheExpiration
+        );
 
         return blockedPermissions;
     }
@@ -62,7 +94,7 @@ public class PermissionService(
     {
         foreach (var blocked in blockedPermissions)
         {
-            if (key == blocked)
+            if (string.Equals(key, blocked, StringComparison.OrdinalIgnoreCase))
                 return true;
             if (blocked.Contains('*') && MatchesWildcard(blocked, key))
                 return true;
@@ -70,12 +102,45 @@ public class PermissionService(
         return false;
     }
 
-    private static bool MatchesWildcard(string pattern, string target)
+    internal static bool MatchesWildcard(string pattern, string target)
     {
-        var regexPattern = "^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*") + "$";
-        var regex = new System.Text.RegularExpressions.Regex(regexPattern,
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        return regex.IsMatch(target);
+        var patternIndex = 0;
+        var targetIndex = 0;
+        var wildcardIndex = -1;
+        var wildcardTargetIndex = -1;
+
+        while (targetIndex < target.Length)
+        {
+            if (
+                patternIndex < pattern.Length
+                && pattern[patternIndex] != '*'
+                && char.ToUpperInvariant(pattern[patternIndex])
+                    == char.ToUpperInvariant(target[targetIndex])
+            )
+            {
+                patternIndex++;
+                targetIndex++;
+                continue;
+            }
+
+            if (patternIndex < pattern.Length && pattern[patternIndex] == '*')
+            {
+                wildcardIndex = patternIndex++;
+                wildcardTargetIndex = targetIndex;
+                continue;
+            }
+
+            if (wildcardIndex < 0)
+                return false;
+
+            patternIndex = wildcardIndex + 1;
+            targetIndex = ++wildcardTargetIndex;
+        }
+
+        while (patternIndex < pattern.Length && pattern[patternIndex] == '*')
+            patternIndex++;
+
+        return patternIndex == pattern.Length;
     }
 
     public async Task<bool> HasPermissionAsync(
@@ -100,7 +165,7 @@ public class PermissionService(
         if (string.IsNullOrWhiteSpace(key))
             throw new ArgumentException("Key cannot be null or empty", nameof(key));
 
-        var cacheKey = GetPermissionCacheKey(actor, key);
+        var cacheKey = GetPermissionCacheKey(type, actor, key);
 
         try
         {
@@ -111,10 +176,6 @@ public class PermissionService(
                 return cachedValue;
             }
 
-            var now = SystemClock.Instance.GetCurrentInstant();
-            var groupsId = await GetOrCacheUserGroupsAsync(actor, now);
-
-            var permission = await FindPermissionNodeAsync(type, actor, key, groupsId);
             if (type == PermissionNodeActorType.Account)
             {
                 var blockedPermissions = await GetBlockedPermissionsAsync(actor);
@@ -128,6 +189,10 @@ public class PermissionService(
                 }
             }
 
+            var now = SystemClock.Instance.GetCurrentInstant();
+            var groupsId = await GetOrCacheUserGroupsAsync(actor, now);
+
+            var permission = await FindPermissionNodeAsync(type, actor, key, groupsId);
             var result = permission != null ? DeserializePermissionValue<T>(permission.Value) : default;
 
             await cache.SetWithGroupsAsync(cacheKey, result,
@@ -227,18 +292,13 @@ public class PermissionService(
 
     private static int CalculatePatternMatchScore(string pattern, string target)
     {
-        if (pattern == target)
+        if (string.Equals(pattern, target, StringComparison.OrdinalIgnoreCase))
             return int.MaxValue; // Exact match
 
         if (!pattern.Contains('*'))
             return -1; // No wildcard, not a match
 
-        // Simple wildcard matching: * matches any sequence of characters
-        var regexPattern = "^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*") + "$";
-        var regex = new System.Text.RegularExpressions.Regex(regexPattern,
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-        if (!regex.IsMatch(target)) return -1; // No match
+        if (!MatchesWildcard(pattern, target)) return -1; // No match
 
         // Score based on specificity (shorter patterns are less specific)
         var wildcardCount = pattern.Count(c => c == '*');
@@ -343,8 +403,10 @@ public class PermissionService(
 
     private async Task InvalidatePermissionCacheAsync(string actor, string key)
     {
-        var cacheKey = GetPermissionCacheKey(actor, key);
-        await cache.RemoveAsync(cacheKey);
+        await Task.WhenAll(
+            cache.RemoveAsync(GetPermissionCacheKey(PermissionNodeActorType.Account, actor, key)),
+            cache.RemoveAsync(GetPermissionCacheKey(PermissionNodeActorType.Group, actor, key))
+        );
     }
 
     private static T? DeserializePermissionValue<T>(JsonDocument json)

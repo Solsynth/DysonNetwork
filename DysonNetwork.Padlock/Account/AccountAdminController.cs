@@ -1130,6 +1130,7 @@ public class AccountAdminController(
         if (punishment.CreatorId != currentUser.Id) punishment.CreatorId = currentUser.Id;
 
         await db.SaveChangesAsync();
+        await accounts.ClearPermissionCacheAsync(account.Id);
 
         var data = new List<SnAccountPunishment> { punishment };
         await accounts.HydratePunishmentAccountBatch(data);
@@ -1222,6 +1223,7 @@ public class AccountAdminController(
         var punishmentType = punishment.Type;
         db.Punishments.Remove(punishment);
         await db.SaveChangesAsync();
+        await accounts.ClearPermissionCacheAsync(account.Id);
 
         var title = localizer.Get("punishmentLiftedTitle", account.Language);
         var body = localizer.Get("punishmentLiftedBody", locale: account.Language,
@@ -1382,6 +1384,7 @@ public class AccountAdminController(
 
         db.Punishments.Add(punishment);
         await db.SaveChangesAsync();
+        await accounts.ClearPermissionCacheAsync(account.Id);
 
         if (revokeSessions && request.Type is PunishmentType.BlockLogin or PunishmentType.DisableAccount)
             await accounts.DeleteAllSessions(account);

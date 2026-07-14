@@ -19,7 +19,6 @@ public class AuthServiceGrpc(
             return new DyAuthenticateResponse { Valid = false, Message = message ?? "Authentication failed." };
 
         await auth.TrackAuthenticatedActivityAsync(session, request.IpAddress);
-        await auth.PopulatePerkAsync(session.Account);
         return new DyAuthenticateResponse { Valid = true, Session = session.ToProtoValue() };
     }
 

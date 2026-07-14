@@ -48,7 +48,7 @@ public class DysonTokenAuthHandler(
         var tokenInfo = _ExtractToken(Request);
 
         if (tokenInfo == null || string.IsNullOrEmpty(tokenInfo.Token))
-            return AuthenticateResult.Fail("No token was provided.");
+            return AuthenticateResult.NoResult();
 
         try
         {
@@ -100,33 +100,26 @@ public class DysonTokenAuthHandler(
         }
         catch (Exception ex)
         {
-            return AuthenticateResult.Fail($"Authentication failed: {ex.Message}");
+            Logger.LogError(ex, "Authentication failed unexpectedly. path={Path}", Request.Path);
+            return AuthenticateResult.Fail("Authentication failed.");
         }
     }
 
     private TokenInfo? _ExtractToken(HttpRequest request)
     {
-        if (request.Query.TryGetValue(AuthConstants.TokenQueryParamName, out var queryToken))
-        {
-            return new TokenInfo
-            {
-                Token = queryToken.ToString(),
-                Type = TokenType.AuthKey
-            };
-        }
-
         var authHeader = NormalizeAuthHeader(request.Headers.Authorization.ToString());
         if (!string.IsNullOrEmpty(authHeader))
         {
             if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
             {
                 var tokenText = authHeader["Bearer ".Length..].Trim();
-                var parts = tokenText.Split('.');
 
                 return new TokenInfo
                 {
                     Token = tokenText,
-                    Type = parts.Length == 3 ? TokenType.OidcKey : TokenType.AuthKey
+                    Type = tokenText.Count(character => character == '.') == 2
+                        ? TokenType.OidcKey
+                        : TokenType.AuthKey
                 };
             }
 
@@ -160,6 +153,15 @@ public class DysonTokenAuthHandler(
                     Type = TokenType.ApiKey
                 };
             }
+        }
+
+        if (request.Query.TryGetValue(AuthConstants.TokenQueryParamName, out var queryToken))
+        {
+            return new TokenInfo
+            {
+                Token = queryToken.ToString(),
+                Type = TokenType.AuthKey
+            };
         }
 
     cookie_check:

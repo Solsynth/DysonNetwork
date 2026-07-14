@@ -42,7 +42,7 @@ public class TokenAuthService(
             var tokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
             var tokenFp = tokenHash[..8];
 
-            var partsLen = token.Split('.').Length;
+            var partsLen = token.Count(character => character == '.') + 1;
             var format = partsLen switch
             {
                 3 => "JWT",
@@ -52,13 +52,20 @@ public class TokenAuthService(
             logger.LogDebug("AuthenticateTokenAsync: token format detected: {Format} (fp={TokenFp})", format, tokenFp);
 
             JwtSecurityToken? oidcJwt = null;
+            JwtSecurityToken? validatedJwt;
             var authPath = "primary";
-            if (!ValidateToken(token, out var sessionId, out var tokenUse, out var tokenEpoch))
+            if (!ValidateToken(
+                    token,
+                    out var sessionId,
+                    out var tokenUse,
+                    out var tokenEpoch,
+                    out validatedJwt
+                ))
             {
                 var (isOidcToken, oidcToken, oidcSessionId, oidcTokenUse, oidcEpoch) = ValidateOidcToken(token);
                 if (!isOidcToken || oidcToken is null || !oidcSessionId.HasValue)
                 {
-                    logger.LogInformation("AuthenticateTokenAsync: token validation failed (format={Format}, fp={TokenFp})", format, tokenFp);
+                    logger.LogDebug("AuthenticateTokenAsync: token validation failed (format={Format}, fp={TokenFp})", format, tokenFp);
                     return (false, null, "Invalid token.", null);
                 }
 
@@ -67,6 +74,7 @@ public class TokenAuthService(
                 sessionId = oidcSessionId.Value;
                 tokenUse = oidcTokenUse;
                 tokenEpoch = oidcEpoch;
+                validatedJwt = oidcToken;
             }
             if (string.Equals(tokenUse, "refresh", StringComparison.Ordinal))
                 return (false, null, "Refresh token cannot be used for authentication.", tokenUse);
@@ -97,7 +105,7 @@ public class TokenAuthService(
                     await cache.RemoveAsync(cacheKey);
                     return (false, null, "Session has been expired.", null);
                 }
-                logger.LogInformation(
+                logger.LogDebug(
                     "AuthenticateTokenAsync: success via cache (sessionId={SessionId}, accountId={AccountId}, scopes={ScopeCount}, expiresAt={ExpiresAt}, path={Path})",
                     sessionId,
                     cachedSnSession.AccountId,
@@ -108,7 +116,6 @@ public class TokenAuthService(
 
                 if (oidcJwt is not null)
                 {
-                    ApplyScopesFromToken(cachedSnSession, oidcJwt);
                     var (bound, message) = await ValidateOidcBindingAsync(cachedSnSession, oidcJwt);
                     if (!bound)
                     {
@@ -120,6 +127,9 @@ public class TokenAuthService(
                         return (false, null, message, tokenUse);
                     }
                 }
+
+                if (validatedJwt is not null)
+                    ApplyScopesFromToken(cachedSnSession, validatedJwt);
 
                 return (true, cachedSnSession, null, tokenUse);
             }
@@ -154,7 +164,7 @@ public class TokenAuthService(
                 return (false, null, "Session has been expired.", null);
             }
 
-            logger.LogInformation(
+            logger.LogDebug(
                 "AuthenticateTokenAsync: DB session loaded (sessionId={SessionId}, accountId={AccountId}, clientId={ClientId}, appId={AppId}, scopes={ScopeCount}, ip={Ip}, uaLen={UaLen})",
                 sessionId,
                 session.AccountId,
@@ -178,7 +188,7 @@ public class TokenAuthService(
                 cacheKey,
                 $"auth:account_sessions:{session.Account.Id}");
 
-            logger.LogInformation(
+            logger.LogDebug(
                 "AuthenticateTokenAsync: success via DB (sessionId={SessionId}, accountId={AccountId}, clientId={ClientId}, path={Path})",
                 sessionId,
                 session.AccountId,
@@ -188,7 +198,6 @@ public class TokenAuthService(
 
             if (oidcJwt is not null)
             {
-                ApplyScopesFromToken(session, oidcJwt);
                 var (bound, message) = await ValidateOidcBindingAsync(session, oidcJwt);
                 if (!bound)
                 {
@@ -200,6 +209,9 @@ public class TokenAuthService(
                     return (false, null, message, tokenUse);
                 }
             }
+
+            if (validatedJwt is not null)
+                ApplyScopesFromToken(session, validatedJwt);
 
             return (true, session, null, tokenUse);
         }
@@ -250,9 +262,6 @@ public class TokenAuthService(
     private void ApplyScopesFromToken(SnAuthSession session, JwtSecurityToken jwt)
     {
         var tokenScopes = ExtractScopesFromJwt(jwt);
-        if (tokenScopes.Count == 0)
-            return;
-
         session.Scopes = tokenScopes;
         logger.LogDebug(
             "AuthenticateTokenAsync: applied token scopes to session (sessionId={SessionId}, scopes={Scopes})",
@@ -335,22 +344,30 @@ public class TokenAuthService(
         return (true, null);
     }
 
-    public bool ValidateToken(string token, out Guid sessionId, out string? tokenUse, out int? epoch)
+    public bool ValidateToken(
+        string token,
+        out Guid sessionId,
+        out string? tokenUse,
+        out int? epoch,
+        out JwtSecurityToken? validatedJwt
+    )
     {
         sessionId = Guid.Empty;
         tokenUse = null;
         epoch = null;
+        validatedJwt = null;
 
         try
         {
-            var parts = token.Split('.');
+            var partsLength = token.Count(character => character == '.') + 1;
 
-            switch (parts.Length)
+            switch (partsLength)
             {
                 case 3:
                     {
                         var (isValid, jwtResult) = authJwt.ValidateJwt(token);
                         if (!isValid) return false;
+                        validatedJwt = jwtResult;
                         var jti = jwtResult?.Claims.FirstOrDefault(c => c.Type == "jti")?.Value;
                         tokenUse = jwtResult?.Claims.FirstOrDefault(c => c.Type == AuthJwtService.ClaimType)?.Value
                                    ?? jwtResult?.Claims.FirstOrDefault(c => c.Type == AuthJwtService.LegacyClaimTokenUse)?.Value
