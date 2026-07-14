@@ -33,6 +33,11 @@ public class AuthController(
 {
     private readonly string? _cookieDomain = configuration["AuthToken:CookieDomain"];
 
+    private string GetPasskeyRpId()
+    {
+        return configuration["WebAuthn:RpId"] ?? HttpContext.Request.Host.Host;
+    }
+
     private CookieOptions CreateCookieOptions(Instant expiresAt)
     {
         var options = new CookieOptions
@@ -357,7 +362,7 @@ public class AuthController(
         if (passkeyCredentials.Count == 0)
             return BadRequest("No passkeys are registered for this account.");
 
-        var rpId = HttpContext.Request.Host.Host;
+        var rpId = GetPasskeyRpId();
         var assertionChallenge = await accounts.GeneratePasskeyAssertionChallengeAsync(challenge.Id);
         return Ok(new PasskeyAuthenticationStartResponse
         {
@@ -535,7 +540,7 @@ public class AuthController(
         {
             AuthChallengeId = authChallenge.Id,
             Challenge = await accounts.GeneratePasskeyAssertionChallengeAsync(authChallenge.Id),
-            RpId = HttpContext.Request.Host.Host,
+            RpId = GetPasskeyRpId(),
             Timeout = 60000,
             UserVerification = "preferred",
         });

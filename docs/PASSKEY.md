@@ -4,6 +4,20 @@ Padlock supports WebAuthn passkeys as a high-trust authentication method. An acc
 
 All API JSON uses `snake_case`. In production, Padlock routes are prefixed with `/padlock`; for example, `/api/auth/passkey/start` is exposed as `/padlock/auth/passkey/start`.
 
+Configure `WebAuthn:RpId` with the public web application's registrable domain, not the API host. Production uses `solian.app`, which is valid for both `solian.app` and `api.solian.app`; local development uses `localhost`. Configure `WebAuthn:RelatedOrigins` with the exact public web origins permitted to use that RP ID, such as `https://solian.app`.
+
+## Related-origin discovery
+
+Padlock serves `GET /.well-known/webauthn` directly, without the normal `/api` or `/padlock` route transformation. It returns:
+
+```json
+{
+  "origins": ["https://solian.app"]
+}
+```
+
+The production gateway must route the exact public RP-ID path, `https://solian.app/.well-known/webauthn`, to Padlock without rewriting it. The response must remain a `200` with `Content-Type: application/json`; browsers fetch it without credentials when validating a related origin.
+
 ## Model
 
 ### Passkey auth factor
