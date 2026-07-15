@@ -564,37 +564,18 @@ public class ActivityPubController : ControllerBase
             && p.Visibility == PostVisibility.Public
         );
 
-        var featuredRecordsQuery = _db
-            .PostFeaturedRecords.Include(r => r.Post)
-            .Where(r =>
-                r.Post.PublisherId == publisher.Id
-                && r.Post.DraftedAt == null
-                && r.Post.Visibility == PostVisibility.Public
-            )
-            .OrderByDescending(r => r.FeaturedAt)
-            .Take(10);
-
-        var pinnedPosts = await pinnedPostsQuery
+        var featuredPosts = await pinnedPostsQuery
             .OrderByDescending(p => p.PublishedAt ?? p.CreatedAt)
-            .Take(10)
             .ToListAsync();
 
-        var featuredPosts = await featuredRecordsQuery.Select(r => r.Post).ToListAsync();
-
-        var allFeaturedPosts = pinnedPosts
-            .Concat(featuredPosts)
-            .DistinctBy(p => p.Id)
-            .OrderByDescending(p => p.PublishedAt ?? p.CreatedAt)
-            .ToList();
-
-        var totalItems = allFeaturedPosts.Count;
+        var totalItems = featuredPosts.Count;
 
         if (page.HasValue)
         {
             const int pageSize = 20;
             var skip = (page.Value - 1) * pageSize;
 
-            var postsPage = allFeaturedPosts.Skip(skip).Take(pageSize).ToList();
+            var postsPage = featuredPosts.Skip(skip).Take(pageSize).ToList();
 
             var items = postsPage
                 .Select(post => (object)$"https://{Domain}/activitypub/objects/{post.Id}")
@@ -616,7 +597,7 @@ public class ActivityPubController : ControllerBase
         }
         else
         {
-            var items = allFeaturedPosts
+            var items = featuredPosts
                 .Select(post => (object)$"https://{Domain}/activitypub/objects/{post.Id}")
                 .ToList();
 
