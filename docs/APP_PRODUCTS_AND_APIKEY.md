@@ -5,6 +5,7 @@ This is the short index doc for custom-app commerce.
 See:
 - `docs/APP_PRODUCTS.md`
 - `docs/ORDER_API.md`
+- `docs/CUSTOM_APP_CUSTOM_ORDERS.md`
 - `docs/CUSTOM_APP_NOTIFICATIONS.md`
 - `docs/AUTHORIZED_APPS.md`
 - `docs/CUSTOM_APP_WALLET_PAYOUTS.md`

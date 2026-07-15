@@ -2,6 +2,7 @@ using DysonNetwork.Shared.Data;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using Grpc.Core;
+using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace DysonNetwork.Wallet.Payment;
@@ -9,7 +10,9 @@ namespace DysonNetwork.Wallet.Payment;
 public class PaymentServiceGrpc(
     PaymentService paymentService,
     WalletService walletService,
-    SubscriptionCatalogService catalogService
+    SubscriptionCatalogService catalogService,
+    AppDatabase db,
+    DyCustomAppService.DyCustomAppServiceClient customApps
 ) : DyPaymentService.DyPaymentServiceBase
 {
     public override async Task<DyOrder> CreateOrder(
@@ -21,14 +24,19 @@ public class PaymentServiceGrpc(
             ? request.Items.Select(SnWalletOrderItem.FromProto).ToList()
             : null;
 
+        var appIdentifier = request.HasAppIdentifier ? request.AppIdentifier : SnWalletOrder.InternalAppIdentifier;
+        var payeeWalletId = request.HasPayeeWalletId
+            ? Guid.Parse(request.PayeeWalletId)
+            : await ResolveMerchantWalletIdAsync(appIdentifier);
+
         var order = await paymentService.CreateOrderAsync(
-            request.HasPayeeWalletId ? Guid.Parse(request.PayeeWalletId) : null,
+            payeeWalletId,
             request.Currency,
             decimal.Parse(request.Amount),
             request.Expiration is not null
                 ? Duration.FromSeconds(request.Expiration.Seconds)
                 : null,
-            request.HasAppIdentifier ? request.AppIdentifier : SnWalletOrder.InternalAppIdentifier,
+            appIdentifier,
             request.HasProductIdentifier ? request.ProductIdentifier : null,
             request.HasRemarks ? request.Remarks : null,
             request.HasMeta
@@ -38,6 +46,31 @@ public class PaymentServiceGrpc(
             items
         );
         return order.ToProtoValue();
+    }
+
+    private async Task<Guid?> ResolveMerchantWalletIdAsync(string appIdentifier)
+    {
+        const string prefix = "developer.app:";
+        if (!appIdentifier.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
+            !Guid.TryParse(appIdentifier[prefix.Length..], out var appId))
+            return null;
+
+        try
+        {
+            var developer = await customApps.GetAppDeveloperAsync(new DyGetAppDeveloperRequest
+            {
+                AppId = appId.ToString()
+            });
+            if (!Guid.TryParse(developer.Developer.PublisherId, out var publisherId))
+                return null;
+
+            var merchant = await db.Merchants.FirstOrDefaultAsync(m => m.PublisherId == publisherId);
+            return merchant?.PaymentWalletId;
+        }
+        catch (RpcException)
+        {
+            return null;
+        }
     }
 
     public override async Task<DyTransaction> CreateTransactionWithAccount(

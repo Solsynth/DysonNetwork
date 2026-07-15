@@ -3,6 +3,8 @@ using DysonNetwork.Develop.Project;
 using DysonNetwork.Shared.Models;
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Auth;
+using DysonNetwork.Shared.Data;
+using DysonNetwork.Shared.Registry;
 using Google.Protobuf;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +21,8 @@ public class CustomAppController(
     DeveloperService ds,
     DevProjectService projectService,
     DyProfileService.DyProfileServiceClient profiles,
-    DyAuthorizedAppService.DyAuthorizedAppServiceClient authorizedApps)
+    DyAuthorizedAppService.DyAuthorizedAppServiceClient authorizedApps,
+    RemotePaymentService payment)
     : ControllerBase
 {
     public record CustomAppRequest(
@@ -55,6 +58,15 @@ public class CustomAppController(
         string? BoardItemId,
         [MaxLength(128)] string WidgetKey,
         Dictionary<string, object?>? Payload
+    );
+
+    public record CreateCustomOrderRequest(
+        [MaxLength(1024)] string? Identifier,
+        [MaxLength(64)] string? Currency,
+        decimal Amount,
+        [Range(1, 720)] int ExpirationHours = 24,
+        [MaxLength(4096)] string? Remarks = null,
+        Dictionary<string, object?>? Meta = null
     );
 
 
@@ -358,6 +370,56 @@ public class CustomAppController(
             return NotFound();
 
         return NoContent();
+    }
+
+    [HttpPost("{appId:guid}/orders")]
+    [Authorize]
+    [AskPermission(PermissionKeys.CustomAppsUpdate)]
+    public async Task<IActionResult> CreateCustomOrder(
+        [FromQuery(Name = "dev")] string dev,
+        [FromQuery(Name = "proj")] Guid proj,
+        [FromRoute] Guid appId,
+        [FromBody] CreateCustomOrderRequest request)
+    {
+        if (HttpContext.Items["CurrentUser"] is not DyAccount currentUser)
+            return Unauthorized();
+
+        var developer = await ds.GetDeveloperByName(dev);
+        if (developer is null)
+            return NotFound("Developer not found");
+
+        if (!await ds.IsMemberWithRole(developer.PublisherId, Guid.Parse(currentUser.Id), DyPublisherMemberRole.DyEditor))
+            return StatusCode(403, "You must be an editor of the developer to create custom app orders");
+
+        var project = await projectService.GetProjectAsync(proj, developer.Id);
+        if (project is null)
+            return NotFound("Project not found or you don't have access");
+
+        var app = await customApps.GetAppAsync(appId, proj);
+        if (app is null)
+            return NotFound("App not found");
+
+        if (string.IsNullOrWhiteSpace(request.Identifier))
+            return BadRequest("Identifier is required");
+
+        if (string.IsNullOrWhiteSpace(request.Currency))
+            return BadRequest("Currency is required");
+
+        if (request.Amount < 0.001m)
+            return BadRequest("Amount must be at least 0.001");
+
+        var order = await payment.CreateOrder(
+            request.Currency,
+            request.Amount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            payeeWalletId: null,
+            TimeSpan.FromHours(request.ExpirationHours),
+            app.ResourceIdentifier,
+            request.Identifier,
+            request.Meta is null ? null : InfraObjectCoder.ConvertObjectToByteString(request.Meta).ToByteArray(),
+            remarks: request.Remarks,
+            reuseable: false);
+
+        return Ok(order);
     }
 
     [HttpGet("{appId:guid}/board/widgets")]
