@@ -18,7 +18,6 @@ public class MagicSpellController(
 {
     [HttpPost("activation/resend")]
     [Authorize]
-    [AskPermission(PermissionKeys.AuthAppsAuthorize)]
     public async Task<ActionResult> ResendActivationMagicSpell()
     {
         if (HttpContext.Items["CurrentUser"] is not SnAccount currentUser) return Unauthorized();
