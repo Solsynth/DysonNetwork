@@ -562,7 +562,8 @@ public partial class ChatService(
     private async Task DeliverWebSocketMessage(
         SnChatMessage message,
         List<SnChatMember> members,
-        IServiceScope scope
+        IServiceScope scope,
+        string type
     )
     {
         var scopedWs =
@@ -571,7 +572,7 @@ public partial class ChatService(
 
         var request = new DyPushWebSocketPacketToUsersRequest
         {
-            Packet = new DyWebSocketPacket { Type = "messages.new", Data = payload },
+            Packet = new DyWebSocketPacket { Type = type, Data = payload },
         };
         var memberAccounts = members.Select(a => a.Account).Where(a => a is not null).ToList();
         request.UserIds.AddRange(memberAccounts.Select(a => a!.Id.ToString()));
@@ -602,7 +603,7 @@ public partial class ChatService(
         bool notify = true
     )
     {
-        _ = DeliverMessageInBackgroundAsync(message, sender, room, type, notify);
+        _ = Task.Run(() => DeliverMessageInBackgroundAsync(message, sender, room, type, notify));
     }
 
     private async Task DeliverMessageInBackgroundAsync(
@@ -1346,7 +1347,7 @@ public partial class ChatService(
             type
         );
 
-        await DeliverWebSocketMessage(message, members, scope);
+        await DeliverWebSocketMessage(message, members, scope, type);
 
         if (notify)
             await SendPushNotificationsAsync(message, sender, room, type, members, scope);
