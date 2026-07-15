@@ -722,7 +722,7 @@ public static class ServiceCollectionExtensions
 
                 await ws.PushWebSocketPacketToDevice(
                     evt.DeviceId,
-                    "messages.delivered",
+                    WebSocketPacketType.MessageDelivered,
                     InfraObjectCoder.ConvertObjectToByteString(result).ToByteArray()
                 );
             }
