@@ -184,7 +184,6 @@ public class ActivityPubController : ControllerBase
             .Posts.Include(p => p.Publisher)
             .Include(p => p.Actor)
             .Include(p => p.Tags)
-            .Include(p => p.Attachments)
             .FirstOrDefaultAsync(p =>
                 p.Id == id
                 && p.PublisherId != null
@@ -235,7 +234,6 @@ public class ActivityPubController : ControllerBase
         var posts = await _db
             .Posts.Include(p => p.Actor)
             .Include(p => p.Tags)
-            .Include(p => p.Attachments)
             .Where(p =>
                 p.PublisherId == publisher.Id
                 && p.DraftedAt == null
@@ -251,8 +249,6 @@ public class ActivityPubController : ControllerBase
                 .ThenInclude(p => p.Actor)
                 .Include(b => b.Post)
                 .ThenInclude(p => p.Tags)
-                .Include(b => b.Post)
-                .ThenInclude(p => p.Attachments)
                 .Where(b => b.ActorId == actor.Id)
                 .Where(b => b.Post.DraftedAt == null)
                 .Where(b => b.Post.Visibility == PostVisibility.Public)
