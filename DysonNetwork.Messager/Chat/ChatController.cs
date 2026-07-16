@@ -1336,6 +1336,7 @@ public partial class ChatController(
     public class SyncRequest
     {
         [Required] public long LastSyncTimestamp { get; set; }
+        public Guid? LastSyncMessageId { get; set; }
         public List<long>? MissingSequences { get; set; }
         public List<SyncSequenceRangeRequest>? MissingSequenceRanges { get; set; }
     }
@@ -1350,6 +1351,7 @@ public partial class ChatController(
     {
         public List<SnChatMessage> Messages { get; set; } = [];
         public Instant CurrentTimestamp { get; set; }
+        public Guid? CurrentMessageId { get; set; }
         public int TotalCount { get; set; }
     }
 
@@ -1412,14 +1414,19 @@ public partial class ChatController(
 
         var accountId = Guid.Parse(currentUser.Id);
         var lastSyncInstant = Instant.FromUnixTimeMilliseconds(request.LastSyncTimestamp);
+        var lastSyncMessageId = request.LastSyncMessageId;
 
         var memberRoomIds = await db.ChatMembers
             .Where(m => m.AccountId == accountId && m.JoinedAt != null && m.LeaveAt == null)
             .Select(m => m.ChatRoomId)
             .ToListAsync();
         var messages = await db.ChatMessages
-            .Where(m => memberRoomIds.Contains(m.ChatRoomId) && m.CreatedAt > lastSyncInstant)
+            .Where(m => memberRoomIds.Contains(m.ChatRoomId) &&
+                (m.CreatedAt > lastSyncInstant ||
+                 (m.CreatedAt == lastSyncInstant && lastSyncMessageId != null &&
+                  m.Id.CompareTo(lastSyncMessageId.Value) > 0)))
             .OrderBy(m => m.CreatedAt)
+            .ThenBy(m => m.Id)
             .Take(500)
             .Include(m => m.Sender)
             .ToListAsync();
@@ -1437,11 +1444,13 @@ public partial class ChatController(
         var latestTimestamp = messages.Count > 0
             ? messages.Last().CreatedAt
             : SystemClock.Instance.GetCurrentInstant();
+        Guid? latestMessageId = messages.Count > 0 ? messages.Last().Id : null;
 
         return Ok(new GlobalSyncResponse
         {
             Messages = messages,
             CurrentTimestamp = latestTimestamp,
+            CurrentMessageId = latestMessageId,
             TotalCount = messages.Count
         });
     }
