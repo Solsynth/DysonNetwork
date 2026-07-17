@@ -93,10 +93,6 @@ public static class ServiceCollectionExtensions
 
                         logger.LogWarning("Account deleted: {AccountId}", evt.AccountId);
 
-                        await db.ChatMembers
-                            .Where(m => m.AccountId == evt.AccountId)
-                            .ExecuteDeleteAsync(ctx.CancellationToken);
-
                         await using var transaction = await db.Database.BeginTransactionAsync(ctx.CancellationToken);
                         try
                         {
