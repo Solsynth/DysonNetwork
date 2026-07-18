@@ -30,7 +30,8 @@ section:
 {
   "Blade": {
     "ServiceDiscovery": {
-      "Endpoint": "http://blade:7005",
+      "Enabled": true,
+      "Endpoint": "http://blade:7001",
       "RegistrationToken": "replace-with-the-shared-registration-secret",
       "InstanceId": "sphere-7f4d8b9c-pod-1",
       "HttpEndpoint": "http://sphere-7f4d8b9c-pod-1:8000",
@@ -57,8 +58,9 @@ the endpoint values when those DNS names are not reachable from Blade.
 required. A gRPC-only instance is resolvable with `healthyOnly: false`, but it
 cannot become healthy until Blade has gRPC health probing.
 
-The registration token is required. The extension validates its configuration
-when each service starts.
+Discovery is disabled unless `Enabled` is true or a registration token is
+provided. When enabled, the registration token is required and the extension
+validates the configuration when each service starts.
 
 ## Resolution
 

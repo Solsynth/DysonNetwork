@@ -1,6 +1,7 @@
 using DysonNetwork.Shared.Proto;
 using DysonNetwork.Shared.Registry;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Extensions.ServiceDiscovery;
 using Xunit;
@@ -10,6 +11,16 @@ namespace DysonNetwork.Shared.Tests.Registry;
 public class BladeServiceEndpointProviderTests
 {
     [Fact]
+    public void AddBladeServiceDiscovery_DoesNotRegisterWhenDisabled()
+    {
+        var services = new ServiceCollection();
+
+        services.AddBladeServiceDiscovery(_ => { });
+
+        Assert.DoesNotContain(services, service => service.ServiceType == typeof(IBladeServiceDiscoveryClient));
+    }
+
+    [Fact]
     public async Task PopulateAsync_MapsGrpcLogicalNameToHealthyBladeInstances()
     {
         var discovery = new FakeDiscoveryClient(
@@ -17,7 +28,7 @@ public class BladeServiceEndpointProviderTests
             new DyServiceInstance { GrpcEndpoint = "ring-1:7005", Healthy = true },
             new DyServiceInstance { GrpcEndpoint = "ring-2:7005", Healthy = true }
         ]);
-        var factory = new BladeServiceEndpointProviderFactory(discovery, CreateOptions());
+        var factory = CreateFactory(discovery);
         Assert.True(ServiceEndpointQuery.TryParse("https://_grpc.ring", out var query));
 
         Assert.True(factory.TryCreateProvider(query, out var provider));
@@ -39,9 +50,7 @@ public class BladeServiceEndpointProviderTests
     [Fact]
     public void TryCreateProvider_RejectsNonGrpcLogicalNames()
     {
-        var factory = new BladeServiceEndpointProviderFactory(
-            new FakeDiscoveryClient([]),
-            CreateOptions());
+        var factory = CreateFactory(new FakeDiscoveryClient([]));
         Assert.True(ServiceEndpointQuery.TryParse("https://ring", out var query));
 
         var created = factory.TryCreateProvider(query, out var provider);
@@ -57,7 +66,7 @@ public class BladeServiceEndpointProviderTests
         [
             new DyServiceInstance { GrpcEndpoint = "http://ring-1:7005", Healthy = true }
         ]);
-        var factory = new BladeServiceEndpointProviderFactory(discovery, CreateOptions());
+        var factory = CreateFactory(discovery);
         Assert.True(ServiceEndpointQuery.TryParse("https://_grpc.ring", out var query));
         Assert.True(factory.TryCreateProvider(query, out var provider));
 
@@ -75,7 +84,7 @@ public class BladeServiceEndpointProviderTests
         [
             new DyServiceInstance { HttpEndpoint = "http://ring-1:6000", Healthy = true }
         ]);
-        var factory = new BladeServiceEndpointProviderFactory(discovery, CreateOptions());
+        var factory = CreateFactory(discovery);
         Assert.True(ServiceEndpointQuery.TryParse("http://_http.ring", out var query));
         Assert.True(factory.TryCreateProvider(query, out var provider));
 
@@ -91,6 +100,13 @@ public class BladeServiceEndpointProviderTests
     {
         ResolveCacheDuration = TimeSpan.FromSeconds(1)
     };
+
+    private static BladeServiceEndpointProviderFactory CreateFactory(IBladeServiceDiscoveryClient discovery)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(discovery);
+        return new BladeServiceEndpointProviderFactory(services.BuildServiceProvider(), CreateOptions());
+    }
 
     private sealed class FakeDiscoveryClient(IReadOnlyList<DyServiceInstance> instances) : IBladeServiceDiscoveryClient
     {
